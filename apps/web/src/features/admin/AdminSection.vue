@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import type { AdminModerationItem, AdminMute, AdminStatsUser, AdminUser } from "@club/shared";
+import type { AdminMute, AdminStatsUser, AdminUser } from "@club/shared";
 import { BookOpen, CreditCard, Loader2, Search, Trash2, UsersRound } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import {
   addAdminUser,
   createUserMute,
   getAdminStats,
-  getAdminModeration,
   getAdminMutes,
   getAdminUserStats,
   getAdminUsers,
   removeAdminUser,
   revokeUserMute,
-  updateModerationStatus,
   updateAdminUserAccess
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
@@ -40,7 +38,6 @@ const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const statsUsers = ref<AdminStatsUser[]>([]);
 const selectedStatsUser = ref<AdminStatsUser | null>(null);
-const moderationItems = ref<AdminModerationItem[]>([]);
 const mutes = ref<AdminMute[]>([]);
 const statsTotalUsers = ref(0);
 const statsActiveUsers = ref(0);
@@ -100,14 +97,6 @@ function extendAccess(days: number) {
   accessExpiresAt.value = formatDateInput(nextDate);
 }
 
-function formatModerationStatus(status: "visible" | "hidden" | "deleted") {
-  return {
-    visible: "Виден",
-    hidden: "Скрыт",
-    deleted: "Удалён"
-  }[status];
-}
-
 async function loadAdmins() {
   loading.value = true;
   error.value = null;
@@ -142,8 +131,7 @@ async function loadStats() {
 }
 
 async function loadModeration() {
-  const [moderationResponse, mutesResponse] = await Promise.all([getAdminModeration(), getAdminMutes()]);
-  moderationItems.value = moderationResponse.items;
+  const mutesResponse = await getAdminMutes();
   mutes.value = mutesResponse.mutes;
 }
 
@@ -204,16 +192,6 @@ async function handleUpdateAccess() {
     await loadStats();
   } catch {
     error.value = t("adminAccessError");
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function handleModerationStatus(item: AdminModerationItem, status: "visible" | "hidden" | "deleted") {
-  saving.value = true;
-  try {
-    await updateModerationStatus(item.kind, item.id, status);
-    await loadModeration();
   } finally {
     saving.value = false;
   }
@@ -330,40 +308,6 @@ onMounted(() => {
         >
           {{ t(option.label) }}
         </button>
-      </div>
-    </section>
-
-    <section class="surface-card space-y-4">
-      <div>
-        <h3 class="font-semibold text-[var(--text)]">{{ t("adminModerationTitle") }}</h3>
-        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("adminModerationText") }}</p>
-      </div>
-
-      <div class="space-y-2">
-        <article
-          v-for="item in moderationItems"
-          :key="`${item.kind}:${item.id}`"
-          class="rounded-xl border border-[var(--border)] p-3"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-sm font-semibold text-[var(--text)]">
-                {{ item.author.firstName || item.author.username || item.author.telegramId }}
-              </p>
-              <p class="mt-1 text-xs text-[var(--muted)]">{{ item.sourceTitle }} · {{ formatModerationStatus(item.status) }}</p>
-            </div>
-            <span class="role-badge">{{ item.kind === "lesson_comment" ? "Урок" : "Чат" }}</span>
-          </div>
-          <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted-strong)]">{{ item.body }}</p>
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <button class="secondary-button" type="button" :disabled="saving" @click="handleModerationStatus(item, 'hidden')">
-              {{ t("adminHide") }}
-            </button>
-            <button class="secondary-button" type="button" :disabled="saving" @click="handleModerationStatus(item, 'visible')">
-              {{ t("adminRestore") }}
-            </button>
-          </div>
-        </article>
       </div>
     </section>
 

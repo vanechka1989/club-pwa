@@ -1,6 +1,6 @@
 import { count, eq } from "drizzle-orm";
 import { db, postgresClient } from "./client";
-import { clubChats, clubChatTopics, contentCategories, contentItems } from "./schema";
+import { clubChats, contentCategories, contentItems } from "./schema";
 
 const now = new Date();
 
@@ -122,19 +122,6 @@ async function seed() {
     throw new Error("General chat was not created");
   }
 
-  const [topicsCount] = await db
-    .select({ value: count() })
-    .from(clubChatTopics)
-    .where(eq(clubChatTopics.chatId, generalChat.id));
-
-  if ((topicsCount?.value ?? 0) === 0) {
-    await db.insert(clubChatTopics).values({
-      chatId: generalChat.id,
-      title: "Знакомство",
-      description: "Расскажите, кто вы и что хотите получить от клуба.",
-      isPinned: true
-    });
-  }
 }
 
 try {

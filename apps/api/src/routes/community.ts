@@ -23,6 +23,11 @@ const messagePayloadSchema = z.object({
   body: z.string().trim().min(1).max(3000)
 });
 
+const topicSettingsSchema = z.object({
+  isLocked: z.boolean().optional(),
+  isPublished: z.boolean().optional()
+});
+
 function slugify(value: string) {
   const slug = value
     .toLowerCase()
@@ -61,6 +66,7 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect): Promis
     description: topic.description,
     isPinned: topic.isPinned,
     isLocked: topic.isLocked,
+    isPublished: topic.isPublished,
     messagesCount: messagesRow?.value ?? 0,
     createdAt: topic.createdAt.toISOString()
   };
@@ -144,8 +150,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Chat not found" }, 404);
     }
 
+    const role = await getUserRole(c.get("telegramUser").id);
     const topics = await db.query.clubChatTopics.findMany({
-      where: eq(clubChatTopics.chatId, chat.id),
+      where:
+        role === "member"
+          ? and(eq(clubChatTopics.chatId, chat.id), eq(clubChatTopics.isPublished, true))
+          : eq(clubChatTopics.chatId, chat.id),
       orderBy: [desc(clubChatTopics.isPinned), desc(clubChatTopics.createdAt)]
     });
 
@@ -154,6 +164,11 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/chats/:id/topics", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
     const mute = await getActiveMute(c.get("userId"));
     if (mute) {
       return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
@@ -191,7 +206,38 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       topic: await serializeTopic(topic)
     });
   })
+  .post("/topics/:id/settings", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
+    const body = topicSettingsSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid topic settings" }, 400);
+    }
+
+    const [topic] = await db
+      .update(clubChatTopics)
+      .set({
+        ...(body.data.isLocked === undefined ? {} : { isLocked: body.data.isLocked }),
+        ...(body.data.isPublished === undefined ? {} : { isPublished: body.data.isPublished }),
+        updatedAt: new Date()
+      })
+      .where(eq(clubChatTopics.id, c.req.param("id")))
+      .returning();
+
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    return c.json({
+      ok: true,
+      topic: await serializeTopic(topic)
+    });
+  })
   .get("/topics/:id/messages", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
     const topic = await db.query.clubChatTopics.findFirst({
       where: eq(clubChatTopics.id, c.req.param("id"))
     });
@@ -201,7 +247,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const messages = await db.query.clubChatMessages.findMany({
-      where: and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.status, "visible")),
+      where:
+        role === "member"
+          ? and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.status, "visible"))
+          : eq(clubChatMessages.topicId, topic.id),
       orderBy: (table, { desc }) => [desc(table.createdAt)],
       limit: 50,
       with: {

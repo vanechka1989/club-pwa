@@ -108,6 +108,13 @@ export function createClubTopic(chatId: string, payload: { title: string; descri
   });
 }
 
+export function updateClubTopicSettings(topicId: string, payload: { isLocked?: boolean; isPublished?: boolean }) {
+  return api<ClubTopicMutationResponse>(`/community/topics/${topicId}/settings`, {
+    method: "POST",
+    body: payload
+  });
+}
+
 export function getClubMessages(topicId: string) {
   return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages`);
 }
