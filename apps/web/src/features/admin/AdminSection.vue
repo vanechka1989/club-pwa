@@ -48,6 +48,7 @@ const statsCompletedItems = ref(0);
 const statsTotalItems = ref(0);
 const newAdminTelegramId = ref("");
 const searchTelegramId = ref("");
+const memberSearch = ref("");
 const accessTelegramId = ref("");
 const accessStatus = ref<"active" | "inactive" | "expired">("active");
 const accessExpiresAt = ref("");
@@ -62,6 +63,16 @@ const message = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 const isOwner = computed(() => session.user?.role === "owner");
+const filteredStatsUsers = computed(() => {
+  const query = memberSearch.value.trim().toLowerCase();
+  if (!query) {
+    return statsUsers.value;
+  }
+
+  return statsUsers.value.filter((user) =>
+    [user.telegramId, user.firstName ?? "", user.username ?? ""].some((value) => value.toLowerCase().includes(query))
+  );
+});
 const extensionOptions = [
   { days: 7, label: "adminExtend7" },
   { days: 30, label: "adminExtend30" },
@@ -155,6 +166,21 @@ async function handleFindUser() {
   } finally {
     statsLoading.value = false;
   }
+}
+
+function openStatsUser(user: AdminStatsUser) {
+  selectedStatsUser.value = user;
+  accessTelegramId.value = user.telegramId;
+  accessStatus.value = user.membershipStatus === "expired" ? "active" : user.membershipStatus;
+  accessExpiresAt.value = user.membershipExpiresAt?.slice(0, 10) ?? "";
+}
+
+function prepareMuteForUser(user: AdminStatsUser) {
+  muteTelegramId.value = user.telegramId;
+  muteKind.value = "temporary";
+  const nextDate = new Date();
+  nextDate.setDate(nextDate.getDate() + 1);
+  muteExpiresAt.value = formatDateInput(nextDate);
 }
 
 async function handleUpdateAccess() {
@@ -472,30 +498,37 @@ onMounted(() => {
         {{ t("loading") }}
       </div>
 
-      <div class="space-y-2">
+      <div class="space-y-3">
+        <div>
+          <h3 class="font-semibold text-[var(--text)]">Участники</h3>
+          <p class="mt-1 text-sm text-[var(--muted)]">Просмотр, поиск и быстрые действия по клиентам клуба.</p>
+        </div>
+        <input v-model.trim="memberSearch" class="text-input" placeholder="Поиск по Telegram ID, имени или username" />
         <div
-          v-for="user in statsUsers.slice(0, 5)"
+          v-for="user in filteredStatsUsers"
           :key="user.id"
-          class="flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3"
+          class="rounded-lg border border-[var(--border)] p-3"
         >
-          <div>
-            <p class="font-semibold text-[var(--text)]">{{ user.firstName || user.username || user.telegramId }}</p>
-            <p class="text-xs text-[var(--muted)]">
-              {{ formatMembershipStatus(user.membershipStatus) }} · {{ user.completedItems }}/{{ user.totalItems }}
-            </p>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-semibold text-[var(--text)]">{{ user.firstName || user.username || user.telegramId }}</p>
+              <p class="text-xs text-[var(--muted)]">
+                ID {{ user.telegramId }} · {{ formatMembershipStatus(user.membershipStatus) }} · {{ user.completedItems }}/{{ user.totalItems }}
+              </p>
+            </div>
+            <span class="role-badge">{{ formatMembershipStatus(user.membershipStatus) }}</span>
           </div>
-          <button
-            class="secondary-button"
-            type="button"
-            @click="
-              selectedStatsUser = user;
-              accessTelegramId = user.telegramId;
-              accessStatus = user.membershipStatus === 'expired' ? 'active' : user.membershipStatus;
-              accessExpiresAt = user.membershipExpiresAt?.slice(0, 10) ?? '';
-            "
-          >
-            {{ t("adminOpenUser") }}
-          </button>
+          <div class="mt-3 grid grid-cols-3 gap-2">
+            <button class="secondary-button px-2 py-2 text-sm" type="button" @click="openStatsUser(user)">
+              {{ t("adminOpenUser") }}
+            </button>
+            <button class="secondary-button px-2 py-2 text-sm" type="button" @click="openStatsUser(user); extendAccess(30)">
+              +30 дней
+            </button>
+            <button class="secondary-button px-2 py-2 text-sm" type="button" @click="prepareMuteForUser(user)">
+              Мут
+            </button>
+          </div>
         </div>
       </div>
     </section>

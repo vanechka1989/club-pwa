@@ -4,44 +4,44 @@
 :root {
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --bg: #eef2f7;
+  --bg: #f3f5f7;
   --panel: #ffffff;
-  --panel-strong: #f8fbff;
-  --border: #d9e2ee;
-  --text: #111827;
-  --muted: #667085;
-  --muted-strong: #344054;
-  --accent: #0f766e;
+  --panel-strong: #f8faf9;
+  --border: #dde4e2;
+  --text: #17201d;
+  --muted: #6b7672;
+  --muted-strong: #3f4a46;
+  --accent: #48665c;
   --accent-text: #ffffff;
-  --accent-soft: #d9f5f0;
-  --gold: #b7791f;
-  --gold-soft: #fff3d8;
-  --live-soft: #ffe4e6;
-  --danger: #c2410c;
-  --warning: #b45309;
-  --shadow: 0 18px 55px rgb(15 23 42 / 10%);
-  --shadow-soft: 0 10px 30px rgb(15 23 42 / 8%);
+  --accent-soft: #e5ece8;
+  --gold: #8b6f3d;
+  --gold-soft: #f5eddc;
+  --live-soft: #f5e5e5;
+  --danger: #a45a4f;
+  --warning: #8a6a2f;
+  --shadow: 0 16px 42px rgb(23 32 29 / 8%);
+  --shadow-soft: 0 8px 22px rgb(23 32 29 / 6%);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b1120;
-  --panel: #111827;
-  --panel-strong: #162033;
-  --border: #263348;
-  --text: #f8fafc;
-  --muted: #98a2b3;
-  --muted-strong: #d0d5dd;
-  --accent: #2dd4bf;
-  --accent-text: #042f2e;
-  --accent-soft: #123b3a;
-  --gold: #f5c76b;
-  --gold-soft: #332812;
-  --live-soft: #3b1820;
-  --danger: #fb7185;
-  --warning: #fbbf24;
-  --shadow: 0 18px 60px rgb(0 0 0 / 28%);
-  --shadow-soft: 0 10px 34px rgb(0 0 0 / 20%);
+  --bg: #111817;
+  --panel: #18211f;
+  --panel-strong: #1d2926;
+  --border: #30403b;
+  --text: #f3f6f4;
+  --muted: #9aa8a3;
+  --muted-strong: #d0d8d4;
+  --accent: #a9c7ba;
+  --accent-text: #14201c;
+  --accent-soft: #263832;
+  --gold: #d6bf84;
+  --gold-soft: #302a1c;
+  --live-soft: #342424;
+  --danger: #e1a29a;
+  --warning: #d6bd78;
+  --shadow: 0 16px 46px rgb(0 0 0 / 22%);
+  --shadow-soft: 0 8px 24px rgb(0 0 0 / 16%);
 }
 
 html {
@@ -60,8 +60,7 @@ button {
 
 .app-root {
   background:
-    radial-gradient(circle at 50% -10rem, color-mix(in srgb, var(--accent-soft) 80%, transparent), transparent 24rem),
-    linear-gradient(180deg, color-mix(in srgb, var(--panel) 75%, transparent), transparent 28rem),
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 74%, transparent), transparent 24rem),
     var(--bg);
 }
 
@@ -85,17 +84,17 @@ button {
   min-height: 0;
   border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   background: color-mix(in srgb, var(--panel) 92%, transparent);
-  border-radius: 22px;
+  border-radius: 18px;
   padding: 1rem;
   overflow: hidden;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(12px);
 }
 
 .surface-card {
   border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
   background: color-mix(in srgb, var(--panel-strong) 94%, transparent);
-  border-radius: 16px;
+  border-radius: 14px;
   padding: 1rem;
   box-shadow: var(--shadow-soft);
 }
@@ -156,7 +155,7 @@ button {
   color: var(--accent-text);
   padding: 0.85rem 1rem;
   font-weight: 780;
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 16%, transparent);
   transition:
     opacity 150ms ease,
     transform 150ms ease;
@@ -219,7 +218,7 @@ button {
 .segmented-control-item-active {
   background: var(--accent);
   color: var(--accent-text);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .soft-home {
@@ -521,11 +520,11 @@ button {
   grid-auto-columns: 1fr;
   gap: 0.25rem;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 91%, transparent);
   padding: 0.35rem;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(12px);
 }
 
 .bottom-nav-item {
@@ -547,6 +546,6 @@ button {
 .bottom-nav-item-active {
   background: var(--accent);
   color: var(--accent-text);
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 7px 16px color-mix(in srgb, var(--accent) 16%, transparent);
   transform: translateY(-1px);
 }

@@ -8,7 +8,6 @@ import { clubChatMessages, clubChatTopics, clubChats } from "../db/schema";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { requireActiveMember } from "../middleware/requireActiveMember";
 
 const chatPayloadSchema = z.object({
   title: z.string().trim().min(2).max(160),
@@ -96,7 +95,6 @@ function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
 
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
-  .use("*", requireActiveMember)
   .get("/chats", async (c) => {
     const chats = await db.query.clubChats.findMany({
       where: eq(clubChats.isPublished, true),
@@ -110,7 +108,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/chats", async (c) => {
     const role = await getUserRole(c.get("telegramUser").id);
     if (role === "member") {
-      return c.json({ error: "Admin access required" }, 403);
+      return c.json({ error: "Moderator access required" }, 403);
     }
 
     const body = chatPayloadSchema.safeParse(await c.req.json().catch(() => null));

@@ -133,14 +133,15 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   })
   .get("/stats", async (c) => {
     const totalItems = await getPublishedItemsCount();
+    const [usersCountRow] = await db.select({ value: count(users.id) }).from(users);
     const recentUsers = await db.query.users.findMany({
       orderBy: (table, { desc }) => [desc(table.updatedAt)],
-      limit: 50
+      limit: 200
     });
     const statsUsers = await Promise.all(recentUsers.map((user) => buildStatsUser(user, totalItems)));
 
     return c.json({
-      totalUsers: statsUsers.length,
+      totalUsers: usersCountRow?.value ?? statsUsers.length,
       activeUsers: statsUsers.filter((user) => user.membershipStatus === "active").length,
       completedItems: statsUsers.reduce((sum, user) => sum + user.completedItems, 0),
       totalItems,

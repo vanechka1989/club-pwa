@@ -29,8 +29,10 @@ const newChatDescription = ref("");
 const newTopicTitle = ref("");
 const newTopicDescription = ref("");
 const newMessage = ref("");
+const messageSaving = ref(false);
+const communityError = ref<string | null>(null);
 
-const isAdmin = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 
 function authorName(message: ClubMessage) {
@@ -39,6 +41,7 @@ function authorName(message: ClubMessage) {
 
 async function loadChats() {
   loading.value = true;
+  communityError.value = null;
   try {
     const response = await getClubChats();
     chats.value = response.chats;
@@ -74,6 +77,7 @@ async function handleCreateChat() {
     return;
   }
 
+  communityError.value = null;
   const response = await createClubChat({
     title: newChatTitle.value,
     description: newChatDescription.value || null
@@ -89,6 +93,7 @@ async function handleCreateTopic() {
     return;
   }
 
+  communityError.value = null;
   const response = await createClubTopic(selectedChat.value.id, {
     title: newTopicTitle.value,
     description: newTopicDescription.value || null
@@ -104,9 +109,22 @@ async function handleSendMessage() {
     return;
   }
 
-  const response = await createClubMessage(selectedTopic.value.id, newMessage.value);
-  newMessage.value = "";
-  messages.value = [response.message, ...messages.value];
+  messageSaving.value = true;
+  communityError.value = null;
+  try {
+    const response = await createClubMessage(selectedTopic.value.id, newMessage.value);
+    newMessage.value = "";
+    messages.value = [response.message, ...messages.value];
+    selectedTopic.value = {
+      ...selectedTopic.value,
+      messagesCount: selectedTopic.value.messagesCount + 1
+    };
+    topics.value = topics.value.map((topic) => (topic.id === selectedTopic.value?.id ? selectedTopic.value : topic));
+  } catch {
+    communityError.value = "Не удалось отправить сообщение.";
+  } finally {
+    messageSaving.value = false;
+  }
 }
 
 onMounted(() => {
@@ -127,7 +145,7 @@ onMounted(() => {
       {{ t("loading") }}
     </div>
 
-    <section v-if="isAdmin" class="surface-card space-y-3">
+    <section v-if="isModerator" class="surface-card space-y-3">
       <h3 class="font-semibold text-[var(--text)]">{{ t("newChatTitle") }}</h3>
       <input v-model.trim="newChatTitle" class="text-input" :placeholder="t('chatTitlePlaceholder')" />
       <input v-model.trim="newChatDescription" class="text-input" :placeholder="t('descriptionPlaceholder')" />
@@ -136,6 +154,8 @@ onMounted(() => {
         {{ t("create") }}
       </button>
     </section>
+    <p v-else class="text-sm text-[var(--muted)]">{{ t("moderatorOnlyChats") }}</p>
+    <p v-if="communityError" class="text-sm text-[var(--danger)]">{{ communityError }}</p>
 
     <div v-if="!chats.length && !loading" class="surface-card text-sm text-[var(--muted)]">
       {{ t("communityEmpty") }}
@@ -201,15 +221,17 @@ onMounted(() => {
           </div>
           <p v-if="mutedPermanently" class="text-sm text-[var(--danger)]">{{ t("mutedPermanent") }}</p>
           <p v-else-if="mutedUntil" class="text-sm text-[var(--danger)]">{{ t("mutedTemporary") }}</p>
-          <textarea
-            v-model.trim="newMessage"
-            class="text-input min-h-24 resize-none"
-            :placeholder="t('messagePlaceholder')"
-            :disabled="isMuted || selectedTopic.isLocked"
-          />
-          <button class="primary-button" type="button" :disabled="isMuted || selectedTopic.isLocked" @click="handleSendMessage">
-            {{ t("commentSend") }}
-          </button>
+          <form class="grid gap-2" @submit.prevent="handleSendMessage">
+            <textarea
+              v-model.trim="newMessage"
+              class="text-input min-h-24 resize-none"
+              :placeholder="t('messagePlaceholder')"
+              :disabled="isMuted || selectedTopic.isLocked || messageSaving"
+            />
+            <button class="primary-button" type="submit" :disabled="isMuted || selectedTopic.isLocked || messageSaving">
+              {{ messageSaving ? t("loading") : t("commentSend") }}
+            </button>
+          </form>
 
           <p v-if="!messages.length" class="text-sm text-[var(--muted)]">{{ t("messagesEmpty") }}</p>
           <article v-for="message in messages" :key="message.id" class="rounded-xl border border-[var(--border)] p-3">
