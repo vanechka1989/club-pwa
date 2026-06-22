@@ -128,10 +128,14 @@ const messages = {
     adminStatsError: "Не удалось загрузить статистику.",
     adminAccessSaved: "Доступ обновлён.",
     adminAccessError: "Не удалось изменить доступ.",
-    adminAccessActive: "Выдать доступ",
-    adminAccessInactive: "Забрать доступ",
-    adminAccessExpired: "Просрочить",
+    adminAccessActive: "Активен",
+    adminAccessInactive: "Без доступа",
+    adminAccessExpired: "Просрочен",
     adminAccessSave: "Сохранить доступ",
+    adminExtendAccess: "Продлить доступ",
+    adminExtend7: "+7 дней",
+    adminExtend30: "+30 дней",
+    adminExtend90: "+90 дней",
     adminOpenUser: "Открыть",
     language: "Язык",
     theme: "Тема",
@@ -260,10 +264,14 @@ const messages = {
     adminStatsError: "Could not load stats.",
     adminAccessSaved: "Access updated.",
     adminAccessError: "Could not update access.",
-    adminAccessActive: "Grant access",
-    adminAccessInactive: "Revoke access",
-    adminAccessExpired: "Expire",
+    adminAccessActive: "Активен",
+    adminAccessInactive: "Без доступа",
+    adminAccessExpired: "Просрочен",
     adminAccessSave: "Save access",
+    adminExtendAccess: "Продлить доступ",
+    adminExtend7: "+7 дней",
+    adminExtend30: "+30 дней",
+    adminExtend90: "+90 дней",
     adminOpenUser: "Open",
     language: "Language",
     theme: "Theme",
@@ -273,6 +281,21 @@ const messages = {
 } as const;
 
 export type MessageKey = keyof typeof messages.ru;
+export type MembershipStatusValue = "inactive" | "active" | "expired";
+
+const membershipStatusLabels: Record<MembershipStatusValue, string> = {
+  inactive: "Без доступа",
+  active: "Активен",
+  expired: "Просрочен"
+};
+
+export function formatMembershipStatus(status: MembershipStatusValue | string | null | undefined) {
+  if (status === "inactive" || status === "active" || status === "expired") {
+    return membershipStatusLabels[status];
+  }
+
+  return membershipStatusLabels.inactive;
+}
 
 export function useI18n() {
   const t = (key: MessageKey) => messages[locale.value][key];

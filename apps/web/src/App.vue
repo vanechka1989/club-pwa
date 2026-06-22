@@ -38,16 +38,14 @@ onMounted(() => {
 <template>
   <main class="app-root min-h-screen pb-24 text-[var(--text)]">
     <h1 class="sr-only">{{ t("brand") }}</h1>
-    <section class="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-5">
-      <header class="mb-3 space-y-4">
-        <div class="flex items-start justify-between gap-4">
-          <div v-if="activeSection !== 'profile'">
-            <p class="section-eyebrow">{{ t("tagline") }}</p>
-            <h1 class="mt-2 max-w-xl text-2xl font-semibold leading-tight sm:text-3xl">
-              {{ t("headline") }}
-            </h1>
-          </div>
-          <div v-else></div>
+    <section class="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
+      <header class="app-header mb-4">
+        <div class="min-w-0">
+          <p class="section-eyebrow">{{ t("tagline") }}</p>
+          <h1 class="app-title">
+            {{ activeSection === "profile" ? t("brand") : t("headline") }}
+          </h1>
+        </div>
           <div class="compact-controls shrink-0 self-start">
             <button
               type="button"
@@ -65,10 +63,9 @@ onMounted(() => {
               <Moon v-else class="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-        </div>
       </header>
 
-      <div class="content-panel p-4 sm:p-5">
+      <div class="content-panel">
         <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
 
         <div v-else-if="session.error" class="space-y-3">

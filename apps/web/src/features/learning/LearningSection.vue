@@ -3,7 +3,7 @@ import type { LearningContent, LearningCategory } from "@club/shared";
 import { CheckCircle2, Image, Loader2, Play, Type } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { completeLearningContent, getLearningContent, getLearningHome } from "@/api/client";
-import { useI18n } from "@/features/app/i18n";
+import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
 
 const session = useSessionStore();
@@ -196,7 +196,7 @@ onMounted(() => {
       <div v-if="accessDenied" class="surface-card">
         <p class="font-semibold text-[var(--warning)]">{{ t("memberOnlyTitle") }}</p>
         <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
-          {{ t("currentStatus") }}: {{ session.user?.membershipStatus ?? "inactive" }}. {{ t("memberOnlyText") }}
+          {{ t("currentStatus") }}: {{ formatMembershipStatus(session.user?.membershipStatus) }}. {{ t("memberOnlyText") }}
         </p>
       </div>
 

@@ -10,7 +10,7 @@ import {
   removeAdminUser,
   updateAdminUserAccess
 } from "@/api/client";
-import { useI18n } from "@/features/app/i18n";
+import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMembership } from "@/stores/ui";
 
@@ -51,6 +51,32 @@ const message = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 const isOwner = computed(() => session.user?.role === "owner");
+const extensionOptions = [
+  { days: 7, label: "adminExtend7" },
+  { days: 30, label: "adminExtend30" },
+  { days: 90, label: "adminExtend90" }
+] as const;
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function extendAccess(days: number) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const currentExpiry = accessExpiresAt.value ? new Date(`${accessExpiresAt.value}T00:00:00`) : null;
+  const baseDate = currentExpiry && currentExpiry > today ? currentExpiry : today;
+  const nextDate = new Date(baseDate);
+  nextDate.setDate(nextDate.getDate() + days);
+
+  accessStatus.value = "active";
+  accessExpiresAt.value = formatDateInput(nextDate);
+}
 
 async function loadAdmins() {
   loading.value = true;
@@ -256,7 +282,7 @@ onMounted(() => {
           {{ selectedStatsUser.firstName || selectedStatsUser.username || `Telegram #${selectedStatsUser.telegramId}` }}
         </p>
         <p class="mt-1 text-sm text-[var(--muted)]">
-          {{ t("status") }}: {{ selectedStatsUser.membershipStatus }} ·
+          {{ t("status") }}: {{ formatMembershipStatus(selectedStatsUser.membershipStatus) }} ·
           {{ t("learningProgress") }}: {{ selectedStatsUser.completedItems }}/{{ selectedStatsUser.totalItems }}
         </p>
         <p v-if="selectedStatsUser.lastOpenedItemTitle" class="mt-1 text-sm text-[var(--muted)]">
@@ -275,11 +301,25 @@ onMounted(() => {
         />
         <div class="grid grid-cols-2 gap-2">
           <select v-model="accessStatus" class="text-input">
-            <option value="active">{{ t("adminAccessActive") }}</option>
-            <option value="inactive">{{ t("adminAccessInactive") }}</option>
-            <option value="expired">{{ t("adminAccessExpired") }}</option>
+            <option value="active">{{ formatMembershipStatus("active") }}</option>
+            <option value="inactive">{{ formatMembershipStatus("inactive") }}</option>
+            <option value="expired">{{ formatMembershipStatus("expired") }}</option>
           </select>
           <input v-model="accessExpiresAt" class="text-input" type="date" />
+        </div>
+        <div class="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-3">
+          <p class="text-xs font-semibold text-[var(--muted)]">{{ t("adminExtendAccess") }}</p>
+          <div class="mt-2 grid grid-cols-3 gap-2">
+            <button
+              v-for="option in extensionOptions"
+              :key="option.days"
+              class="secondary-button px-2 py-2 text-sm"
+              type="button"
+              @click="extendAccess(option.days)"
+            >
+              {{ t(option.label) }}
+            </button>
+          </div>
         </div>
         <button class="primary-button" type="submit" :disabled="saving">
           {{ t("adminAccessSave") }}
@@ -300,7 +340,7 @@ onMounted(() => {
           <div>
             <p class="font-semibold text-[var(--text)]">{{ user.firstName || user.username || user.telegramId }}</p>
             <p class="text-xs text-[var(--muted)]">
-              {{ user.membershipStatus }} · {{ user.completedItems }}/{{ user.totalItems }}
+              {{ formatMembershipStatus(user.membershipStatus) }} · {{ user.completedItems }}/{{ user.totalItems }}
             </p>
           </div>
           <button
