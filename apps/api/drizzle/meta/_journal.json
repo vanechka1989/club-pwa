@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1782055070756,
+      "tag": "0000_easy_ikaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782062439051,
+      "tag": "0001_workable_mesmero",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782131562261,
+      "tag": "0002_cultured_blue_shield",
+      "breakpoints": true
+    }
+  ]
+}
