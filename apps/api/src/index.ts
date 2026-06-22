@@ -8,6 +8,7 @@ import { meRoute } from "./routes/me";
 import { paymentsRoute } from "./routes/payments";
 import { subscriptionsRoute } from "./routes/subscriptions";
 import { supportRoute } from "./routes/support";
+import { telegramRoute } from "./routes/telegram";
 
 const app = new Hono();
 
@@ -41,6 +42,7 @@ app.route("/learning", learningRoute);
 app.route("/payments", paymentsRoute);
 app.route("/subscriptions", subscriptionsRoute);
 app.route("/support", supportRoute);
+app.route("/telegram", telegramRoute);
 
 export default {
   port: env.PORT,
