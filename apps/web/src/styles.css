@@ -98,6 +98,31 @@ button {
   box-shadow: var(--shadow-soft);
 }
 
+.admin-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  padding: 0.35rem;
+}
+
+.admin-tab {
+  display: grid;
+  min-height: 3rem;
+  place-items: center;
+  gap: 0.2rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.admin-tab-active {
+  background: var(--panel-strong);
+  color: var(--text);
+}
+
 .message-card {
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 16px;
@@ -254,6 +279,29 @@ button {
   padding: 1.25rem;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 54%, var(--panel)), var(--panel));
+}
+
+.compact-hero {
+  padding: 0.9rem 1rem;
+}
+
+.compact-hero h2 {
+  max-width: none;
+  font-size: 1.35rem;
+}
+
+.subscription-bar {
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.subscription-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
 }
 
 .soft-hero h2 {

@@ -1,16 +1,31 @@
 <script setup lang="ts">
-import type { AdminMute, AdminStatsUser, AdminUser } from "@club/shared";
-import { BookOpen, CreditCard, Loader2, Search, Trash2, UsersRound } from "lucide-vue-next";
+import type { AdminMute, AdminStatsUser, AdminUser, ClubChat, ClubTopic } from "@club/shared";
+import {
+  BookOpen,
+  CreditCard,
+  Loader2,
+  MessageSquare,
+  Search,
+  Settings2,
+  Trash2,
+  UsersRound,
+  type LucideIcon
+} from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import {
   addAdminUser,
+  createClubChat,
+  createClubTopic,
   createUserMute,
+  getClubChats,
+  getClubTopics,
   getAdminStats,
   getAdminMutes,
   getAdminUserStats,
   getAdminUsers,
   removeAdminUser,
   revokeUserMute,
+  updateClubTopicSettings,
   updateAdminUserAccess
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
@@ -21,11 +36,15 @@ const { t } = useI18n();
 const session = useSessionStore();
 const ui = useUiStore();
 
-const blocks = [
-  { title: "adminMembers", text: "adminMembersText", icon: UsersRound },
-  { title: "adminContent", text: "adminContentText", icon: BookOpen },
-  { title: "adminPayments", text: "adminPaymentsText", icon: CreditCard }
-] as const;
+type AdminPanel = "users" | "chats" | "content" | "mutes" | "admins";
+
+const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
+  { id: "users", label: "Пользователи", icon: UsersRound },
+  { id: "chats", label: "Чаты", icon: MessageSquare },
+  { id: "content", label: "Материалы", icon: BookOpen },
+  { id: "mutes", label: "Муты", icon: Settings2 },
+  { id: "admins", label: "Админы", icon: CreditCard }
+];
 
 const previewOptions: Array<{ value: PreviewMembership; label: "previewReal" | "previewInactive" | "previewActive" }> =
   [
@@ -36,7 +55,11 @@ const previewOptions: Array<{ value: PreviewMembership; label: "previewReal" | "
 
 const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
+const activePanel = ref<AdminPanel>("users");
 const statsUsers = ref<AdminStatsUser[]>([]);
+const clubCategories = ref<ClubChat[]>([]);
+const selectedAdminCategory = ref<ClubChat | null>(null);
+const adminCategoryChats = ref<ClubTopic[]>([]);
 const selectedStatsUser = ref<AdminStatsUser | null>(null);
 const mutes = ref<AdminMute[]>([]);
 const statsTotalUsers = ref(0);
@@ -44,6 +67,10 @@ const statsActiveUsers = ref(0);
 const statsCompletedItems = ref(0);
 const statsTotalItems = ref(0);
 const newAdminTelegramId = ref("");
+const newCategoryTitle = ref("");
+const newCategoryDescription = ref("");
+const newChatTitle = ref("");
+const newChatDescription = ref("");
 const searchTelegramId = ref("");
 const memberSearch = ref("");
 const accessTelegramId = ref("");
@@ -133,6 +160,55 @@ async function loadStats() {
 async function loadModeration() {
   const mutesResponse = await getAdminMutes();
   mutes.value = mutesResponse.mutes;
+}
+
+async function loadAdminChats() {
+  const response = await getClubChats();
+  clubCategories.value = response.chats;
+
+  if (!selectedAdminCategory.value && response.chats[0]) {
+    await openAdminCategory(response.chats[0]);
+  }
+}
+
+async function openAdminCategory(category: ClubChat) {
+  selectedAdminCategory.value = category;
+  const response = await getClubTopics(category.id);
+  adminCategoryChats.value = response.topics;
+}
+
+async function handleCreateCategory() {
+  if (!newCategoryTitle.value.trim()) {
+    return;
+  }
+
+  const response = await createClubChat({
+    title: newCategoryTitle.value,
+    description: newCategoryDescription.value || null
+  });
+  newCategoryTitle.value = "";
+  newCategoryDescription.value = "";
+  clubCategories.value = [response.chat, ...clubCategories.value];
+  await openAdminCategory(response.chat);
+}
+
+async function handleCreateChat() {
+  if (!selectedAdminCategory.value || !newChatTitle.value.trim()) {
+    return;
+  }
+
+  const response = await createClubTopic(selectedAdminCategory.value.id, {
+    title: newChatTitle.value,
+    description: newChatDescription.value || null
+  });
+  newChatTitle.value = "";
+  newChatDescription.value = "";
+  adminCategoryChats.value = [response.topic, ...adminCategoryChats.value];
+}
+
+async function handleChatSettings(chat: ClubTopic, patch: Partial<Pick<ClubTopic, "isLocked" | "isPublished">>) {
+  const response = await updateClubTopicSettings(chat.id, patch);
+  adminCategoryChats.value = adminCategoryChats.value.map((item) => (item.id === chat.id ? response.topic : item));
 }
 
 async function handleFindUser() {
@@ -271,6 +347,7 @@ onMounted(() => {
   void loadAdmins();
   void loadStats();
   void loadModeration();
+  void loadAdminChats();
 });
 </script>
 
@@ -282,15 +359,21 @@ onMounted(() => {
       <p class="mt-2 text-sm leading-6 text-[var(--muted)]">{{ t("adminIntro") }}</p>
     </div>
 
-    <div class="grid gap-3">
-      <article v-for="block in blocks" :key="block.title" class="surface-card">
-        <component :is="block.icon" class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
-        <h3 class="mt-3 font-semibold text-[var(--text)]">{{ t(block.title) }}</h3>
-        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t(block.text) }}</p>
-      </article>
+    <div class="admin-tabs">
+      <button
+        v-for="panel in panels"
+        :key="panel.id"
+        class="admin-tab"
+        :class="{ 'admin-tab-active': activePanel === panel.id }"
+        type="button"
+        @click="activePanel = panel.id"
+      >
+        <component :is="panel.icon" class="h-4 w-4" aria-hidden="true" />
+        <span>{{ panel.label }}</span>
+      </button>
     </div>
 
-    <section class="surface-card space-y-4">
+    <section v-if="activePanel === 'users'" class="surface-card space-y-4">
       <div>
         <h3 class="font-semibold text-[var(--text)]">{{ t("previewTitle") }}</h3>
         <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("previewText") }}</p>
@@ -311,7 +394,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="surface-card space-y-4">
+    <section v-if="activePanel === 'mutes'" class="surface-card space-y-4">
       <div>
         <h3 class="font-semibold text-[var(--text)]">{{ t("adminMutesTitle") }}</h3>
         <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("adminMutesText") }}</p>
@@ -350,7 +433,79 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="surface-card space-y-4">
+    <section v-if="activePanel === 'chats'" class="surface-card space-y-4">
+      <div>
+        <h3 class="font-semibold text-[var(--text)]">Категории и чаты</h3>
+        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">Создание категорий, чатов и управление доступностью общения.</p>
+      </div>
+
+      <div class="grid gap-2">
+        <p class="text-xs font-semibold text-[var(--muted)]">Новая категория</p>
+        <input v-model.trim="newCategoryTitle" class="text-input" placeholder="Название категории" />
+        <input v-model.trim="newCategoryDescription" class="text-input" placeholder="Описание" />
+        <button class="primary-button" type="button" @click="handleCreateCategory">Создать категорию</button>
+      </div>
+
+      <div class="grid gap-2">
+        <p class="text-xs font-semibold text-[var(--muted)]">Категории</p>
+        <button
+          v-for="category in clubCategories"
+          :key="category.id"
+          class="surface-card w-full text-left"
+          type="button"
+          @click="openAdminCategory(category)"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="font-semibold text-[var(--text)]">{{ category.title }}</p>
+              <p v-if="category.description" class="mt-1 text-sm text-[var(--muted)]">{{ category.description }}</p>
+            </div>
+            <span class="role-badge">{{ category.topicsCount }}</span>
+          </div>
+        </button>
+      </div>
+
+      <div v-if="selectedAdminCategory" class="grid gap-2">
+        <p class="text-xs font-semibold text-[var(--muted)]">Новый чат в категории «{{ selectedAdminCategory.title }}»</p>
+        <input v-model.trim="newChatTitle" class="text-input" placeholder="Название чата" />
+        <input v-model.trim="newChatDescription" class="text-input" placeholder="Описание" />
+        <button class="secondary-button" type="button" @click="handleCreateChat">Создать чат</button>
+      </div>
+
+      <div v-if="selectedAdminCategory" class="space-y-2">
+        <article v-for="chat in adminCategoryChats" :key="chat.id" class="rounded-xl border border-[var(--border)] p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-semibold text-[var(--text)]">{{ chat.title }}</p>
+              <p v-if="chat.description" class="mt-1 text-sm text-[var(--muted)]">{{ chat.description }}</p>
+              <div class="mt-2 flex gap-2">
+                <span v-if="chat.isLocked" class="role-badge">Закрыт</span>
+                <span v-if="!chat.isPublished" class="role-badge">Удалён</span>
+              </div>
+            </div>
+            <span class="role-badge">{{ chat.messagesCount }}</span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button class="secondary-button px-2 py-2 text-sm" type="button" @click="handleChatSettings(chat, { isLocked: !chat.isLocked })">
+              {{ chat.isLocked ? "Открыть" : "Закрыть" }}
+            </button>
+            <button class="secondary-button px-2 py-2 text-sm" type="button" @click="handleChatSettings(chat, { isPublished: !chat.isPublished })">
+              {{ chat.isPublished ? "Удалить" : "Вернуть" }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section v-if="activePanel === 'content'" class="surface-card space-y-4">
+      <div>
+        <h3 class="font-semibold text-[var(--text)]">{{ t("adminContent") }}</h3>
+        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("adminContentText") }}</p>
+      </div>
+      <p class="text-sm text-[var(--muted)]">Следующий шаг: отдельная форма создания материалов, категорий обучения, фото и видео.</p>
+    </section>
+
+    <section v-if="activePanel === 'users'" class="surface-card space-y-4">
       <div>
         <h3 class="font-semibold text-[var(--text)]">{{ t("adminClientStats") }}</h3>
         <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("adminClientStatsText") }}</p>
@@ -477,7 +632,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="surface-card space-y-4">
+    <section v-if="activePanel === 'admins'" class="surface-card space-y-4">
       <div>
         <h3 class="font-semibold text-[var(--text)]">{{ t("adminManageTitle") }}</h3>
         <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("adminManageText") }}</p>

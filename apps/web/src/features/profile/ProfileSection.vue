@@ -15,6 +15,7 @@ const isMember = computed(() => session.user?.membershipStatus === "active");
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
+const subscriptionProgress = computed(() => (isMember.value ? 72 : 18));
 
 const materials: Array<{ code: string; title: MessageKey; text: MessageKey; icon: typeof BookOpen }> = [
   { code: "A", title: "softStartProgram", text: "softStartProgramText", icon: BookOpen },
@@ -25,10 +26,9 @@ const materials: Array<{ code: string; title: MessageKey; text: MessageKey; icon
 
 <template>
   <section class="soft-home space-y-4">
-    <section class="soft-hero">
+    <section class="soft-hero compact-hero">
       <p class="section-eyebrow">{{ t("softEyebrow") }}</p>
       <h2>{{ t("softTitle") }}</h2>
-      <p>{{ t("softSubtitle") }}</p>
     </section>
 
     <section class="soft-card">
@@ -38,6 +38,15 @@ const materials: Array<{ code: string; title: MessageKey; text: MessageKey; icon
           <h3>{{ isMember ? t("softPremiumActive") : t("homeInactive") }}</h3>
         </div>
         <span class="soft-pill">{{ accessUntil }}</span>
+      </div>
+      <div class="mt-4">
+        <div class="subscription-bar">
+          <span :style="{ width: `${subscriptionProgress}%` }"></span>
+        </div>
+        <div class="mt-2 flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
+          <span>{{ isMember ? "Доступ активен" : "Ожидает оплаты" }}</span>
+          <span>{{ subscriptionProgress }}%</span>
+        </div>
       </div>
       <button class="soft-inline-button mt-4" type="button" @click="$emit('openPayments')">
         {{ isMember ? t("homeExtend") : t("joinClub") }}

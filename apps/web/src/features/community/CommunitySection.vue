@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
-import { Loader2, MessageCircle, Plus } from "lucide-vue-next";
+import { Loader2, MessageCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import {
-  createClubChat,
   createClubMessage,
-  createClubTopic,
   createUserMute,
   getClubChats,
   getClubMessages,
@@ -27,15 +25,9 @@ const selectedTopic = ref<ClubTopic | null>(null);
 const loading = ref(false);
 const mutedUntil = ref<string | null>(null);
 const mutedPermanently = ref(false);
-const newChatTitle = ref("");
-const newChatDescription = ref("");
-const newTopicTitle = ref("");
-const newTopicDescription = ref("");
 const newMessage = ref("");
 const messageSaving = ref(false);
 const communityError = ref<string | null>(null);
-const createCategoryOpen = ref(false);
-const createChatOpen = ref(false);
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
@@ -95,40 +87,6 @@ async function updateSelectedTopic(patch: Partial<Pick<ClubTopic, "isLocked" | "
   topics.value = topics.value.map((topic) => (topic.id === response.topic.id ? response.topic : topic));
 }
 
-async function handleCreateChat() {
-  if (!newChatTitle.value.trim()) {
-    return;
-  }
-
-  communityError.value = null;
-  const response = await createClubChat({
-    title: newChatTitle.value,
-    description: newChatDescription.value || null
-  });
-  newChatTitle.value = "";
-  newChatDescription.value = "";
-  chats.value = [response.chat, ...chats.value];
-  createCategoryOpen.value = false;
-  await openChat(response.chat);
-}
-
-async function handleCreateTopic() {
-  if (!selectedChat.value || !newTopicTitle.value.trim()) {
-    return;
-  }
-
-  communityError.value = null;
-  const response = await createClubTopic(selectedChat.value.id, {
-    title: newTopicTitle.value,
-    description: newTopicDescription.value || null
-  });
-  newTopicTitle.value = "";
-  newTopicDescription.value = "";
-  topics.value = [response.topic, ...topics.value];
-  createChatOpen.value = false;
-  await openTopic(response.topic);
-}
-
 async function handleSendMessage() {
   if (!selectedTopic.value || !newMessage.value.trim()) {
     return;
@@ -185,23 +143,6 @@ onMounted(() => {
       {{ t("loading") }}
     </div>
 
-    <section v-if="isModerator" class="surface-card space-y-3">
-      <button class="flex w-full items-center justify-between gap-3 text-left" type="button" @click="createCategoryOpen = !createCategoryOpen">
-        <span>
-          <span class="block font-semibold text-[var(--text)]">{{ t("newCategoryTitle") }}</span>
-          <span class="mt-1 block text-sm text-[var(--muted)]">{{ t("moderatorOnlyChats") }}</span>
-        </span>
-        <span class="icon-button h-10 w-10"><Plus class="h-4 w-4" aria-hidden="true" /></span>
-      </button>
-      <div v-if="createCategoryOpen" class="grid gap-2">
-        <input v-model.trim="newChatTitle" class="text-input" :placeholder="t('categoryTitlePlaceholder')" />
-        <input v-model.trim="newChatDescription" class="text-input" :placeholder="t('descriptionPlaceholder')" />
-        <button class="primary-button" type="button" @click="handleCreateChat">
-          {{ t("create") }}
-        </button>
-      </div>
-    </section>
-    <p v-else class="text-sm text-[var(--muted)]">{{ t("moderatorOnlyChats") }}</p>
     <p v-if="communityError" class="text-sm text-[var(--danger)]">{{ communityError }}</p>
 
     <div v-if="!chats.length && !loading" class="surface-card text-sm text-[var(--muted)]">
@@ -229,20 +170,6 @@ onMounted(() => {
       </section>
 
       <section class="space-y-3">
-        <div v-if="selectedChat && isModerator" class="surface-card space-y-3">
-          <button class="flex w-full items-center justify-between gap-3 text-left" type="button" @click="createChatOpen = !createChatOpen">
-            <span class="font-semibold text-[var(--text)]">{{ t("newChatInCategory") }}</span>
-            <span class="icon-button h-10 w-10"><Plus class="h-4 w-4" aria-hidden="true" /></span>
-          </button>
-          <div v-if="createChatOpen" class="grid gap-2">
-            <input v-model.trim="newTopicTitle" class="text-input" :placeholder="t('chatTitlePlaceholder')" />
-            <input v-model.trim="newTopicDescription" class="text-input" :placeholder="t('descriptionPlaceholder')" />
-            <button class="secondary-button w-full" type="button" @click="handleCreateTopic">
-              {{ t("create") }}
-            </button>
-          </div>
-        </div>
-
         <div v-if="!topics.length && selectedChat" class="surface-card text-sm text-[var(--muted)]">
           {{ t("topicEmpty") }}
         </div>
