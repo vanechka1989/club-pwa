@@ -79,10 +79,10 @@ echo "Установка Telegram-клуба"
 echo "Если значение в квадратных скобках подходит, просто нажмите Enter."
 echo
 
-REPO_URL="${REPO_URL:-https://github.com/vanechka1989/club.git}"
+REPO_URL="${REPO_URL:-https://github.com/vanechka1989/club-crm.git}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DEFAULT_DEPLOY_DIR="/opt/telegram-club"
+DEFAULT_DEPLOY_DIR="/opt/club-crm"
 if [[ -d "$REPO_ROOT/.git" ]]; then
   DEFAULT_DEPLOY_DIR="$REPO_ROOT"
 fi
@@ -90,12 +90,12 @@ fi
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 
 echo "1. Папка установки на сервере."
-echo "Обычно оставляем стандартную: /opt/telegram-club"
+echo "Обычно оставляем стандартную: /opt/club-crm"
 DEPLOY_DIR="${DEPLOY_DIR:-$(prompt "Папка установки" "$DEFAULT_DEPLOY_DIR")}"
 echo
 
 echo "2. IP сервера или домен."
-echo "Для теста укажите IPv4 сервера, например: 107.174.51.158"
+echo "Для теста укажите IPv4 сервера, например: 107.173.123.8"
 SERVER_HOST="${SERVER_HOST:-$(prompt "IP сервера или домен" "$(hostname -I 2>/dev/null | awk '{print $1}')")}"
 echo
 

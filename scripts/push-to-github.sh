@@ -5,9 +5,9 @@ git config user.name "vanechka1989"
 git config user.email "vanechka1989@users.noreply.github.com"
 
 if git remote | grep -qx "origin"; then
-  git remote set-url origin "https://github.com/vanechka1989/club.git"
+  git remote set-url origin "https://github.com/vanechka1989/club-crm.git"
 else
-  git remote add origin "https://github.com/vanechka1989/club.git"
+  git remote add origin "https://github.com/vanechka1989/club-crm.git"
 fi
 
 git branch -M main

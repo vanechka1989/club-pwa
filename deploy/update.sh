@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEPLOY_DIR="${DEPLOY_DIR:-/opt/telegram-club}"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/club-crm}"
 
 cd "$DEPLOY_DIR"
 git pull --ff-only

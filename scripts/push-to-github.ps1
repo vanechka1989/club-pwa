@@ -5,7 +5,7 @@ git config user.email "vanechka1989@users.noreply.github.com"
 
 $remote = git remote
 if ($remote -notcontains "origin") {
-  git remote add origin "https://github.com/vanechka1989/club.git"
+  git remote add origin "https://github.com/vanechka1989/club-crm.git"
 }
 
 git branch -M main
