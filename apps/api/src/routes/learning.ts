@@ -1,10 +1,16 @@
 import { and, count, desc, eq, isNotNull } from "drizzle-orm";
 import { Hono } from "hono";
-import { contentCategories, contentItems, userContentProgress } from "../db/schema";
+import { z } from "zod";
+import { contentCategories, contentItems, lessonComments, userContentProgress } from "../db/schema";
 import { db } from "../db/client";
+import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
+
+const commentPayloadSchema = z.object({
+  body: z.string().trim().min(1).max(2000)
+});
 
 function serializeContentItem(item: typeof contentItems.$inferSelect, includeBody = false) {
   return {
@@ -16,6 +22,29 @@ function serializeContentItem(item: typeof contentItems.$inferSelect, includeBod
     body: includeBody ? item.body : null,
     mediaUrl: item.mediaUrl,
     publishedAt: item.publishedAt?.toISOString() ?? null
+  };
+}
+
+function serializeComment(comment: typeof lessonComments.$inferSelect & { user: { id: string; telegramId: string; firstName: string | null; username: string | null } }) {
+  return {
+    id: comment.id,
+    contentItemId: comment.contentItemId,
+    body: comment.body,
+    status: comment.status,
+    author: {
+      id: comment.user.id,
+      telegramId: comment.user.telegramId,
+      firstName: comment.user.firstName,
+      username: comment.user.username
+    },
+    createdAt: comment.createdAt.toISOString()
+  };
+}
+
+function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
+  return {
+    mutedUntil: mute?.kind === "temporary" ? (mute.expiresAt?.toISOString() ?? null) : null,
+    mutedPermanently: mute?.kind === "permanent"
   };
 }
 
@@ -152,5 +181,77 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       completedAt: progress?.completedAt?.toISOString() ?? now.toISOString()
+    });
+  })
+  .get("/items/:id/comments", requireActiveMember, async (c) => {
+    const item = await db.query.contentItems.findFirst({
+      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+    });
+
+    if (!item) {
+      return c.json({ error: "Learning content not found" }, 404);
+    }
+
+    const comments = await db.query.lessonComments.findMany({
+      where: and(eq(lessonComments.contentItemId, item.id), eq(lessonComments.status, "visible")),
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 50,
+      with: {
+        user: true
+      }
+    });
+    const mute = await getActiveMute(c.get("userId"));
+
+    return c.json({
+      comments: comments.map(serializeComment),
+      ...serializeMute(mute)
+    });
+  })
+  .post("/items/:id/comments", requireActiveMember, async (c) => {
+    const mute = await getActiveMute(c.get("userId"));
+    if (mute) {
+      return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
+    }
+
+    const body = commentPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid comment" }, 400);
+    }
+
+    const item = await db.query.contentItems.findFirst({
+      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+    });
+
+    if (!item) {
+      return c.json({ error: "Learning content not found" }, 404);
+    }
+
+    const [comment] = await db
+      .insert(lessonComments)
+      .values({
+        contentItemId: item.id,
+        userId: c.get("userId"),
+        body: body.data.body
+      })
+      .returning();
+
+    if (!comment) {
+      return c.json({ error: "Unable to create comment" }, 500);
+    }
+
+    const createdComment = await db.query.lessonComments.findFirst({
+      where: eq(lessonComments.id, comment.id),
+      with: {
+        user: true
+      }
+    });
+
+    if (!createdComment) {
+      return c.json({ error: "Unable to create comment" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      comment: serializeComment(createdComment)
     });
   });

@@ -4,6 +4,8 @@ import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex,
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
 export const contentKind = pgEnum("content_kind", ["text", "photo", "video"]);
 export const supportTicketStatus = pgEnum("support_ticket_status", ["open", "answered", "closed"]);
+export const moderationStatus = pgEnum("moderation_status", ["visible", "hidden", "deleted"]);
+export const muteKind = pgEnum("mute_kind", ["temporary", "permanent"]);
 
 export const users = pgTable(
   "users",
@@ -111,6 +113,115 @@ export const userContentProgress = pgTable(
   })
 );
 
+export const lessonComments = pgTable(
+  "lesson_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    status: moderationStatus("status").notNull().default("visible"),
+    moderatedByUserId: uuid("moderated_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    moderationReason: text("moderation_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    itemStatusCreatedIdx: index("lesson_comments_item_status_created_idx").on(
+      table.contentItemId,
+      table.status,
+      table.createdAt
+    ),
+    userCreatedIdx: index("lesson_comments_user_created_idx").on(table.userId, table.createdAt)
+  })
+);
+
+export const userMutes = pgTable(
+  "user_mutes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: muteKind("kind").notNull(),
+    reason: text("reason"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedByUserId: uuid("revoked_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userActiveIdx: index("user_mutes_user_active_idx").on(table.userId, table.revokedAt, table.expiresAt),
+    createdIdx: index("user_mutes_created_idx").on(table.createdAt)
+  })
+);
+
+export const clubChats = pgTable(
+  "club_chats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: varchar("slug", { length: 96 }).notNull(),
+    title: varchar("title", { length: 160 }).notNull(),
+    description: text("description"),
+    isPublished: boolean("is_published").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    slugIdx: uniqueIndex("club_chats_slug_idx").on(table.slug),
+    publishedSortIdx: index("club_chats_published_sort_idx").on(table.isPublished, table.sortOrder)
+  })
+);
+
+export const clubChatTopics = pgTable(
+  "club_chat_topics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chatId: uuid("chat_id").notNull().references(() => clubChats.id, { onDelete: "cascade" }),
+    title: varchar("title", { length: 180 }).notNull(),
+    description: text("description"),
+    isPinned: boolean("is_pinned").notNull().default(false),
+    isLocked: boolean("is_locked").notNull().default(false),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    chatPinnedCreatedIdx: index("club_chat_topics_chat_pinned_created_idx").on(
+      table.chatId,
+      table.isPinned,
+      table.createdAt
+    )
+  })
+);
+
+export const clubChatMessages = pgTable(
+  "club_chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    topicId: uuid("topic_id").notNull().references(() => clubChatTopics.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    status: moderationStatus("status").notNull().default("visible"),
+    moderatedByUserId: uuid("moderated_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    moderatedAt: timestamp("moderated_at", { withTimezone: true }),
+    moderationReason: text("moderation_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    topicStatusCreatedIdx: index("club_chat_messages_topic_status_created_idx").on(
+      table.topicId,
+      table.status,
+      table.createdAt
+    ),
+    userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt)
+  })
+);
+
 export const supportTickets = pgTable(
   "support_tickets",
   {
@@ -131,7 +242,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   subscriptions: many(subscriptions),
   supportTickets: many(supportTickets),
   createdAdminUsers: many(adminUsers),
-  contentProgress: many(userContentProgress)
+  contentProgress: many(userContentProgress),
+  lessonComments: many(lessonComments),
+  mutes: many(userMutes),
+  chatMessages: many(clubChatMessages)
 }));
 
 export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
@@ -152,11 +266,12 @@ export const contentCategoriesRelations = relations(contentCategories, ({ many }
   items: many(contentItems)
 }));
 
-export const contentItemsRelations = relations(contentItems, ({ one }) => ({
+export const contentItemsRelations = relations(contentItems, ({ one, many }) => ({
   category: one(contentCategories, {
     fields: [contentItems.categoryId],
     references: [contentCategories.id]
-  })
+  }),
+  comments: many(lessonComments)
 }));
 
 export const userContentProgressRelations = relations(userContentProgress, ({ one }) => ({
@@ -167,6 +282,71 @@ export const userContentProgressRelations = relations(userContentProgress, ({ on
   item: one(contentItems, {
     fields: [userContentProgress.contentItemId],
     references: [contentItems.id]
+  })
+}));
+
+export const lessonCommentsRelations = relations(lessonComments, ({ one }) => ({
+  item: one(contentItems, {
+    fields: [lessonComments.contentItemId],
+    references: [contentItems.id]
+  }),
+  user: one(users, {
+    fields: [lessonComments.userId],
+    references: [users.id]
+  }),
+  moderatedBy: one(users, {
+    fields: [lessonComments.moderatedByUserId],
+    references: [users.id]
+  })
+}));
+
+export const userMutesRelations = relations(userMutes, ({ one }) => ({
+  user: one(users, {
+    fields: [userMutes.userId],
+    references: [users.id]
+  }),
+  createdBy: one(users, {
+    fields: [userMutes.createdByUserId],
+    references: [users.id]
+  }),
+  revokedBy: one(users, {
+    fields: [userMutes.revokedByUserId],
+    references: [users.id]
+  })
+}));
+
+export const clubChatsRelations = relations(clubChats, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [clubChats.createdByUserId],
+    references: [users.id]
+  }),
+  topics: many(clubChatTopics)
+}));
+
+export const clubChatTopicsRelations = relations(clubChatTopics, ({ one, many }) => ({
+  chat: one(clubChats, {
+    fields: [clubChatTopics.chatId],
+    references: [clubChats.id]
+  }),
+  createdBy: one(users, {
+    fields: [clubChatTopics.createdByUserId],
+    references: [users.id]
+  }),
+  messages: many(clubChatMessages)
+}));
+
+export const clubChatMessagesRelations = relations(clubChatMessages, ({ one }) => ({
+  topic: one(clubChatTopics, {
+    fields: [clubChatMessages.topicId],
+    references: [clubChatTopics.id]
+  }),
+  user: one(users, {
+    fields: [clubChatMessages.userId],
+    references: [users.id]
+  }),
+  moderatedBy: one(users, {
+    fields: [clubChatMessages.moderatedByUserId],
+    references: [users.id]
   })
 }));
 
@@ -183,4 +363,9 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type ContentCategory = typeof contentCategories.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type UserContentProgress = typeof userContentProgress.$inferSelect;
+export type LessonComment = typeof lessonComments.$inferSelect;
+export type UserMute = typeof userMutes.$inferSelect;
+export type ClubChat = typeof clubChats.$inferSelect;
+export type ClubChatTopic = typeof clubChatTopics.$inferSelect;
+export type ClubChatMessage = typeof clubChatMessages.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;

@@ -3,6 +3,7 @@ import { Moon, Sun } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
+import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n, type Locale } from "@/features/app/i18n";
 import LearningSection from "@/features/learning/LearningSection.vue";
 import { navItems, type AppSection } from "@/features/app/navigation";
@@ -76,6 +77,7 @@ onMounted(() => {
         <div v-else-if="session.user">
           <ProfileSection v-if="activeSection === 'profile'" @open-payments="activeSection = 'payments'" />
           <LearningSection v-else-if="activeSection === 'learning'" />
+          <CommunitySection v-else-if="activeSection === 'community'" />
           <PaymentsSection v-else-if="activeSection === 'payments'" />
           <SupportSection v-else-if="activeSection === 'support'" />
           <AdminSection v-else />

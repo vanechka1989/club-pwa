@@ -1,10 +1,20 @@
 import type {
   AdminAccessMutationResponse,
   AdminListResponse,
+  AdminModerationResponse,
+  AdminMutesResponse,
+  ClubChatMutationResponse,
+  ClubChatsResponse,
+  ClubMessageMutationResponse,
+  ClubMessagesResponse,
+  ClubTopicMutationResponse,
+  ClubTopicsResponse,
   AdminMutationResponse,
   AdminStatsResponse,
   AdminStatsUser,
   LearningContentResponse,
+  LessonCommentMutationResponse,
+  LessonCommentsResponse,
   LearningHomeResponse,
   LearningProgressMutationResponse,
   MeResponse,
@@ -65,6 +75,50 @@ export function completeLearningContent(id: string) {
   return api<LearningProgressMutationResponse>(`/learning/items/${id}/complete`, { method: "POST" });
 }
 
+export function getLessonComments(id: string) {
+  return api<LessonCommentsResponse>(`/learning/items/${id}/comments`);
+}
+
+export function createLessonComment(id: string, body: string) {
+  return api<LessonCommentMutationResponse>(`/learning/items/${id}/comments`, {
+    method: "POST",
+    body: { body }
+  });
+}
+
+export function getClubChats() {
+  return api<ClubChatsResponse>("/community/chats");
+}
+
+export function createClubChat(payload: { title: string; description?: string | null }) {
+  return api<ClubChatMutationResponse>("/community/chats", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function getClubTopics(chatId: string) {
+  return api<ClubTopicsResponse>(`/community/chats/${chatId}/topics`);
+}
+
+export function createClubTopic(chatId: string, payload: { title: string; description?: string | null }) {
+  return api<ClubTopicMutationResponse>(`/community/chats/${chatId}/topics`, {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function getClubMessages(topicId: string) {
+  return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages`);
+}
+
+export function createClubMessage(topicId: string, body: string) {
+  return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages`, {
+    method: "POST",
+    body: { body }
+  });
+}
+
 export function getPaymentPlans() {
   return api<PaymentsResponse>("/payments/plans");
 }
@@ -102,5 +156,33 @@ export function updateAdminUserAccess(payload: { telegramId: string; status: "in
   return api<AdminAccessMutationResponse>("/admin/access", {
     method: "POST",
     body: payload
+  });
+}
+
+export function getAdminModeration() {
+  return api<AdminModerationResponse>("/admin/moderation");
+}
+
+export function updateModerationStatus(kind: "lesson_comment" | "chat_message", id: string, status: "visible" | "hidden" | "deleted") {
+  return api<AdminMutationResponse>(`/admin/moderation/${kind}/${id}/status`, {
+    method: "POST",
+    body: { status }
+  });
+}
+
+export function getAdminMutes() {
+  return api<AdminMutesResponse>("/admin/mutes");
+}
+
+export function createUserMute(payload: { telegramId: string; kind: "temporary" | "permanent"; reason?: string | null; expiresAt?: string | null }) {
+  return api<AdminMutationResponse>("/admin/mutes", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function revokeUserMute(id: string) {
+  return api<AdminMutationResponse>(`/admin/mutes/${id}`, {
+    method: "DELETE"
   });
 }

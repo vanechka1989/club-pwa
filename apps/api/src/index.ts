@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { env } from "./env";
 import { adminRoute } from "./routes/admin";
+import { communityRoute } from "./routes/community";
 import { learningRoute } from "./routes/learning";
 import { logger } from "./logger";
 import { meRoute } from "./routes/me";
@@ -38,6 +39,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 
 app.route("/me", meRoute);
 app.route("/admin", adminRoute);
+app.route("/community", communityRoute);
 app.route("/learning", learningRoute);
 app.route("/payments", paymentsRoute);
 app.route("/subscriptions", subscriptionsRoute);

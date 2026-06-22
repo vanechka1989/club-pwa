@@ -79,6 +79,43 @@ export const learningProgressMutationResponseSchema = z.object({
 });
 export type LearningProgressMutationResponse = z.infer<typeof learningProgressMutationResponseSchema>;
 
+export const moderationStatusSchema = z.enum(["visible", "hidden", "deleted"]);
+export type ModerationStatus = z.infer<typeof moderationStatusSchema>;
+
+export const muteKindSchema = z.enum(["temporary", "permanent"]);
+export type MuteKind = z.infer<typeof muteKindSchema>;
+
+export const commentAuthorSchema = z.object({
+  id: z.string(),
+  telegramId: z.string(),
+  firstName: z.string().nullable(),
+  username: z.string().nullable()
+});
+export type CommentAuthor = z.infer<typeof commentAuthorSchema>;
+
+export const lessonCommentSchema = z.object({
+  id: z.string(),
+  contentItemId: z.string(),
+  body: z.string(),
+  status: moderationStatusSchema,
+  author: commentAuthorSchema,
+  createdAt: z.string().datetime()
+});
+export type LessonComment = z.infer<typeof lessonCommentSchema>;
+
+export const lessonCommentsResponseSchema = z.object({
+  comments: z.array(lessonCommentSchema),
+  mutedUntil: z.string().datetime().nullable(),
+  mutedPermanently: z.boolean()
+});
+export type LessonCommentsResponse = z.infer<typeof lessonCommentsResponseSchema>;
+
+export const lessonCommentMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  comment: lessonCommentSchema
+});
+export type LessonCommentMutationResponse = z.infer<typeof lessonCommentMutationResponseSchema>;
+
 export const memberRequiredErrorSchema = z.object({
   error: z.string(),
   membershipStatus: membershipStatusSchema
@@ -111,6 +148,72 @@ export const supportHomeResponseSchema = z.object({
   managerContact: z.string().nullable()
 });
 export type SupportHomeResponse = z.infer<typeof supportHomeResponseSchema>;
+
+export const clubChatSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  topicsCount: z.number().int().nonnegative()
+});
+export type ClubChat = z.infer<typeof clubChatSchema>;
+
+export const clubTopicSchema = z.object({
+  id: z.string(),
+  chatId: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  isPinned: z.boolean(),
+  isLocked: z.boolean(),
+  messagesCount: z.number().int().nonnegative(),
+  createdAt: z.string().datetime()
+});
+export type ClubTopic = z.infer<typeof clubTopicSchema>;
+
+export const clubMessageSchema = z.object({
+  id: z.string(),
+  topicId: z.string(),
+  body: z.string(),
+  status: moderationStatusSchema,
+  author: commentAuthorSchema,
+  createdAt: z.string().datetime()
+});
+export type ClubMessage = z.infer<typeof clubMessageSchema>;
+
+export const clubChatsResponseSchema = z.object({
+  chats: z.array(clubChatSchema)
+});
+export type ClubChatsResponse = z.infer<typeof clubChatsResponseSchema>;
+
+export const clubTopicsResponseSchema = z.object({
+  topics: z.array(clubTopicSchema)
+});
+export type ClubTopicsResponse = z.infer<typeof clubTopicsResponseSchema>;
+
+export const clubMessagesResponseSchema = z.object({
+  messages: z.array(clubMessageSchema),
+  mutedUntil: z.string().datetime().nullable(),
+  mutedPermanently: z.boolean()
+});
+export type ClubMessagesResponse = z.infer<typeof clubMessagesResponseSchema>;
+
+export const clubChatMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  chat: clubChatSchema
+});
+export type ClubChatMutationResponse = z.infer<typeof clubChatMutationResponseSchema>;
+
+export const clubTopicMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  topic: clubTopicSchema
+});
+export type ClubTopicMutationResponse = z.infer<typeof clubTopicMutationResponseSchema>;
+
+export const clubMessageMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  message: clubMessageSchema
+});
+export type ClubMessageMutationResponse = z.infer<typeof clubMessageMutationResponseSchema>;
 
 export const adminUserSchema = z.object({
   id: z.string(),
@@ -158,3 +261,36 @@ export const adminAccessMutationResponseSchema = z.object({
   user: adminStatsUserSchema
 });
 export type AdminAccessMutationResponse = z.infer<typeof adminAccessMutationResponseSchema>;
+
+export const adminModerationItemSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["lesson_comment", "chat_message"]),
+  body: z.string(),
+  status: moderationStatusSchema,
+  author: commentAuthorSchema,
+  sourceTitle: z.string(),
+  createdAt: z.string().datetime()
+});
+export type AdminModerationItem = z.infer<typeof adminModerationItemSchema>;
+
+export const adminModerationResponseSchema = z.object({
+  items: z.array(adminModerationItemSchema)
+});
+export type AdminModerationResponse = z.infer<typeof adminModerationResponseSchema>;
+
+export const adminMuteSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  telegramId: z.string(),
+  kind: muteKindSchema,
+  reason: z.string().nullable(),
+  expiresAt: z.string().datetime().nullable(),
+  revokedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime()
+});
+export type AdminMute = z.infer<typeof adminMuteSchema>;
+
+export const adminMutesResponseSchema = z.object({
+  mutes: z.array(adminMuteSchema)
+});
+export type AdminMutesResponse = z.infer<typeof adminMutesResponseSchema>;

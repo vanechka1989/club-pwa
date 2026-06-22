@@ -1,7 +1,7 @@
-import { BookOpen, CreditCard, Home, LifeBuoy, Shield, type LucideIcon } from "lucide-vue-next";
+import { BookOpen, CreditCard, Home, LifeBuoy, MessagesSquare, Shield, type LucideIcon } from "lucide-vue-next";
 import type { MessageKey } from "./i18n";
 
-export type AppSection = "profile" | "learning" | "payments" | "support" | "admin";
+export type AppSection = "profile" | "learning" | "community" | "payments" | "support" | "admin";
 
 export type NavItem = {
   id: AppSection;
@@ -13,6 +13,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { id: "profile", labelKey: "navProfile", icon: Home },
   { id: "learning", labelKey: "navLearning", icon: BookOpen },
+  { id: "community", labelKey: "navCommunity", icon: MessagesSquare },
   { id: "payments", labelKey: "navPayments", icon: CreditCard },
   { id: "support", labelKey: "navSupport", icon: LifeBuoy },
   { id: "admin", labelKey: "navAdmin", icon: Shield, adminOnly: true }

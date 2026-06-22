@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import type { LearningContent, LearningCategory } from "@club/shared";
+import type { LearningContent, LearningCategory, LessonComment } from "@club/shared";
 import { CheckCircle2, Image, Loader2, Play, Type } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
-import { completeLearningContent, getLearningContent, getLearningHome } from "@/api/client";
+import {
+  completeLearningContent,
+  createLessonComment,
+  getLearningContent,
+  getLearningHome,
+  getLessonComments
+} from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
 
@@ -16,9 +22,14 @@ const totalItems = ref(0);
 const completedItems = ref(0);
 const selectedItem = ref<LearningContent | null>(null);
 const selectedCompletedAt = ref<string | null>(null);
+const comments = ref<LessonComment[]>([]);
+const commentBody = ref("");
+const mutedUntil = ref<string | null>(null);
+const mutedPermanently = ref(false);
 const loading = ref(false);
 const itemLoading = ref(false);
 const completeLoading = ref(false);
+const commentSaving = ref(false);
 const error = ref<string | null>(null);
 const accessDenied = ref(false);
 
@@ -41,6 +52,7 @@ const progressPercent = computed(() => {
 
   return Math.min(100, Math.round((completedItems.value / totalItems.value) * 100));
 });
+const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 
 function iconFor(kind: LearningContent["kind"]) {
   if (kind === "photo") {
@@ -75,6 +87,9 @@ async function loadLearning() {
 async function openItem(item: LearningContent) {
   selectedItem.value = null;
   selectedCompletedAt.value = null;
+  comments.value = [];
+  mutedUntil.value = null;
+  mutedPermanently.value = false;
   accessDenied.value = false;
   itemLoading.value = true;
 
@@ -83,6 +98,7 @@ async function openItem(item: LearningContent) {
     selectedItem.value = response.item;
     selectedCompletedAt.value = response.completedAt;
     lastOpenedItem.value = response.item;
+    await loadComments(response.item.id);
   } catch (reason) {
     const status = typeof reason === "object" && reason && "status" in reason ? reason.status : null;
     if (status === 403) {
@@ -93,6 +109,28 @@ async function openItem(item: LearningContent) {
     error.value = t("itemError");
   } finally {
     itemLoading.value = false;
+  }
+}
+
+async function loadComments(itemId: string) {
+  const response = await getLessonComments(itemId);
+  comments.value = response.comments;
+  mutedUntil.value = response.mutedUntil;
+  mutedPermanently.value = response.mutedPermanently;
+}
+
+async function handleCreateComment() {
+  if (!selectedItem.value || !commentBody.value.trim()) {
+    return;
+  }
+
+  commentSaving.value = true;
+  try {
+    const response = await createLessonComment(selectedItem.value.id, commentBody.value);
+    comments.value = [response.comment, ...comments.value];
+    commentBody.value = "";
+  } finally {
+    commentSaving.value = false;
   }
 }
 
@@ -237,6 +275,30 @@ onMounted(() => {
         >
           {{ selectedCompletedAt ? t("lessonCompleted") : t("markLessonComplete") }}
         </button>
+
+        <section class="mt-5 space-y-3">
+          <h4 class="font-semibold text-[var(--text)]">{{ t("commentsTitle") }}</h4>
+          <p v-if="mutedPermanently" class="text-sm text-[var(--danger)]">{{ t("mutedPermanent") }}</p>
+          <p v-else-if="mutedUntil" class="text-sm text-[var(--danger)]">{{ t("mutedTemporary") }}</p>
+          <form class="grid gap-2" @submit.prevent="handleCreateComment">
+            <textarea
+              v-model.trim="commentBody"
+              class="text-input min-h-24 resize-none"
+              :placeholder="t('commentPlaceholder')"
+              :disabled="isMuted"
+            />
+            <button class="secondary-button" type="submit" :disabled="commentSaving || isMuted">
+              {{ t("commentSend") }}
+            </button>
+          </form>
+          <p v-if="!comments.length" class="text-sm text-[var(--muted)]">{{ t("commentsEmpty") }}</p>
+          <article v-for="comment in comments" :key="comment.id" class="rounded-xl border border-[var(--border)] p-3">
+            <p class="text-sm font-semibold text-[var(--text)]">
+              {{ comment.author.firstName || comment.author.username || `ID ${comment.author.telegramId}` }}
+            </p>
+            <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted-strong)]">{{ comment.body }}</p>
+          </article>
+        </section>
       </article>
     </div>
   </section>

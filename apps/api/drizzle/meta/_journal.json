@@ -22,6 +22,13 @@
       "when": 1782131562261,
       "tag": "0002_cultured_blue_shield",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782141068144,
+      "tag": "0003_plain_chameleon",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import type { AdminStatsUser, AdminUser } from "@club/shared";
+import type { AdminModerationItem, AdminMute, AdminStatsUser, AdminUser } from "@club/shared";
 import { BookOpen, CreditCard, Loader2, Search, Trash2, UsersRound } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import {
   addAdminUser,
+  createUserMute,
   getAdminStats,
+  getAdminModeration,
+  getAdminMutes,
   getAdminUserStats,
   getAdminUsers,
   removeAdminUser,
+  revokeUserMute,
+  updateModerationStatus,
   updateAdminUserAccess
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
@@ -35,6 +40,8 @@ const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const statsUsers = ref<AdminStatsUser[]>([]);
 const selectedStatsUser = ref<AdminStatsUser | null>(null);
+const moderationItems = ref<AdminModerationItem[]>([]);
+const mutes = ref<AdminMute[]>([]);
 const statsTotalUsers = ref(0);
 const statsActiveUsers = ref(0);
 const statsCompletedItems = ref(0);
@@ -44,6 +51,10 @@ const searchTelegramId = ref("");
 const accessTelegramId = ref("");
 const accessStatus = ref<"active" | "inactive" | "expired">("active");
 const accessExpiresAt = ref("");
+const muteTelegramId = ref("");
+const muteKind = ref<"temporary" | "permanent">("temporary");
+const muteReason = ref("");
+const muteExpiresAt = ref("");
 const loading = ref(false);
 const statsLoading = ref(false);
 const saving = ref(false);
@@ -78,6 +89,14 @@ function extendAccess(days: number) {
   accessExpiresAt.value = formatDateInput(nextDate);
 }
 
+function formatModerationStatus(status: "visible" | "hidden" | "deleted") {
+  return {
+    visible: "Виден",
+    hidden: "Скрыт",
+    deleted: "Удалён"
+  }[status];
+}
+
 async function loadAdmins() {
   loading.value = true;
   error.value = null;
@@ -109,6 +128,12 @@ async function loadStats() {
   } finally {
     statsLoading.value = false;
   }
+}
+
+async function loadModeration() {
+  const [moderationResponse, mutesResponse] = await Promise.all([getAdminModeration(), getAdminMutes()]);
+  moderationItems.value = moderationResponse.items;
+  mutes.value = mutesResponse.mutes;
 }
 
 async function handleFindUser() {
@@ -158,6 +183,48 @@ async function handleUpdateAccess() {
   }
 }
 
+async function handleModerationStatus(item: AdminModerationItem, status: "visible" | "hidden" | "deleted") {
+  saving.value = true;
+  try {
+    await updateModerationStatus(item.kind, item.id, status);
+    await loadModeration();
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleCreateMute() {
+  if (!muteTelegramId.value) {
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await createUserMute({
+      telegramId: muteTelegramId.value,
+      kind: muteKind.value,
+      reason: muteReason.value || null,
+      expiresAt: muteKind.value === "temporary" && muteExpiresAt.value ? new Date(`${muteExpiresAt.value}T23:59:59.000Z`).toISOString() : null
+    });
+    muteTelegramId.value = "";
+    muteReason.value = "";
+    muteExpiresAt.value = "";
+    await loadModeration();
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleRevokeMute(id: string) {
+  saving.value = true;
+  try {
+    await revokeUserMute(id);
+    await loadModeration();
+  } finally {
+    saving.value = false;
+  }
+}
+
 async function handleAddAdmin() {
   saving.value = true;
   message.value = null;
@@ -199,6 +266,7 @@ async function handlePreviewChange(previewMembership: PreviewMembership) {
 onMounted(() => {
   void loadAdmins();
   void loadStats();
+  void loadModeration();
 });
 </script>
 
@@ -236,6 +304,79 @@ onMounted(() => {
         >
           {{ t(option.label) }}
         </button>
+      </div>
+    </section>
+
+    <section class="surface-card space-y-4">
+      <div>
+        <h3 class="font-semibold text-[var(--text)]">{{ t("adminModerationTitle") }}</h3>
+        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("adminModerationText") }}</p>
+      </div>
+
+      <div class="space-y-2">
+        <article
+          v-for="item in moderationItems"
+          :key="`${item.kind}:${item.id}`"
+          class="rounded-xl border border-[var(--border)] p-3"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-[var(--text)]">
+                {{ item.author.firstName || item.author.username || item.author.telegramId }}
+              </p>
+              <p class="mt-1 text-xs text-[var(--muted)]">{{ item.sourceTitle }} · {{ formatModerationStatus(item.status) }}</p>
+            </div>
+            <span class="role-badge">{{ item.kind === "lesson_comment" ? "Урок" : "Чат" }}</span>
+          </div>
+          <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted-strong)]">{{ item.body }}</p>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button class="secondary-button" type="button" :disabled="saving" @click="handleModerationStatus(item, 'hidden')">
+              {{ t("adminHide") }}
+            </button>
+            <button class="secondary-button" type="button" :disabled="saving" @click="handleModerationStatus(item, 'visible')">
+              {{ t("adminRestore") }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="surface-card space-y-4">
+      <div>
+        <h3 class="font-semibold text-[var(--text)]">{{ t("adminMutesTitle") }}</h3>
+        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ t("adminMutesText") }}</p>
+      </div>
+
+      <form class="grid gap-2" @submit.prevent="handleCreateMute">
+        <input v-model.trim="muteTelegramId" class="text-input" inputmode="numeric" pattern="[0-9]*" :placeholder="t('adminTelegramId')" required />
+        <div class="grid grid-cols-2 gap-2">
+          <select v-model="muteKind" class="text-input">
+            <option value="temporary">{{ t("adminMuteTemporary") }}</option>
+            <option value="permanent">{{ t("adminMutePermanent") }}</option>
+          </select>
+          <input v-model="muteExpiresAt" class="text-input" type="date" :disabled="muteKind === 'permanent'" />
+        </div>
+        <input v-model.trim="muteReason" class="text-input" :placeholder="t('adminMuteReason')" />
+        <button class="primary-button" type="submit" :disabled="saving">{{ t("create") }}</button>
+      </form>
+
+      <div class="space-y-2">
+        <article v-for="mute in mutes" :key="mute.id" class="rounded-xl border border-[var(--border)] p-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-semibold text-[var(--text)]">{{ mute.telegramId }}</p>
+              <p class="mt-1 text-sm text-[var(--muted)]">
+                {{ mute.kind === "permanent" ? t("adminMutePermanent") : t("adminMuteTemporary") }}
+                <span v-if="mute.expiresAt"> · {{ new Date(mute.expiresAt).toLocaleDateString() }}</span>
+                <span v-if="mute.revokedAt"> · снят</span>
+              </p>
+              <p v-if="mute.reason" class="mt-1 text-sm text-[var(--muted)]">{{ mute.reason }}</p>
+            </div>
+            <button v-if="!mute.revokedAt" class="secondary-button" type="button" :disabled="saving" @click="handleRevokeMute(mute.id)">
+              {{ t("adminRevokeMute") }}
+            </button>
+          </div>
+        </article>
       </div>
     </section>
 

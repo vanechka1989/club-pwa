@@ -1,6 +1,6 @@
 import { count, eq } from "drizzle-orm";
 import { db, postgresClient } from "./client";
-import { contentCategories, contentItems } from "./schema";
+import { clubChats, clubChatTopics, contentCategories, contentItems } from "./schema";
 
 const now = new Date();
 
@@ -95,6 +95,45 @@ async function seed() {
         publishedAt: now
       }
     ]);
+  }
+
+  const [generalChat] = await db
+    .insert(clubChats)
+    .values({
+      slug: "general",
+      title: "Общий чат",
+      description: "Основное пространство для общения участников клуба.",
+      isPublished: true,
+      sortOrder: 10
+    })
+    .onConflictDoUpdate({
+      target: clubChats.slug,
+      set: {
+        title: "Общий чат",
+        description: "Основное пространство для общения участников клуба.",
+        isPublished: true,
+        sortOrder: 10,
+        updatedAt: now
+      }
+    })
+    .returning();
+
+  if (!generalChat) {
+    throw new Error("General chat was not created");
+  }
+
+  const [topicsCount] = await db
+    .select({ value: count() })
+    .from(clubChatTopics)
+    .where(eq(clubChatTopics.chatId, generalChat.id));
+
+  if ((topicsCount?.value ?? 0) === 0) {
+    await db.insert(clubChatTopics).values({
+      chatId: generalChat.id,
+      title: "Знакомство",
+      description: "Расскажите, кто вы и что хотите получить от клуба.",
+      isPinned: true
+    });
   }
 }
 

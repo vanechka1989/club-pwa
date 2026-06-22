@@ -4,7 +4,16 @@ import { z } from "zod";
 import type { AdminStatsUser, MembershipStatus } from "@club/shared";
 import { getUserRole, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
-import { adminUsers, contentItems, subscriptions, userContentProgress, users } from "../db/schema";
+import {
+  adminUsers,
+  clubChatMessages,
+  contentItems,
+  lessonComments,
+  subscriptions,
+  userContentProgress,
+  userMutes,
+  users
+} from "../db/schema";
 import { env } from "../env";
 import { getMembership } from "../membership/getMembership";
 import type { AuthVariables } from "../middleware/auth";
@@ -17,6 +26,18 @@ const adminPayloadSchema = z.object({
 const accessPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/),
   status: z.enum(["inactive", "active", "expired"]),
+  expiresAt: z.string().datetime().nullable().optional()
+});
+
+const moderationStatusPayloadSchema = z.object({
+  status: z.enum(["visible", "hidden", "deleted"]),
+  reason: z.string().trim().max(1000).nullable().optional()
+});
+
+const mutePayloadSchema = z.object({
+  telegramId: z.string().trim().regex(/^\d{3,32}$/),
+  kind: z.enum(["temporary", "permanent"]),
+  reason: z.string().trim().max(1000).nullable().optional(),
   expiresAt: z.string().datetime().nullable().optional()
 });
 
@@ -172,6 +193,172 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       ok: true,
       user: await buildStatsUser(user, await getPublishedItemsCount())
     });
+  })
+  .get("/moderation", async (c) => {
+    const comments = await db.query.lessonComments.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 25,
+      with: {
+        user: true,
+        item: true
+      }
+    });
+    const messages = await db.query.clubChatMessages.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 25,
+      with: {
+        user: true,
+        topic: true
+      }
+    });
+
+    const items = [
+      ...comments.map((comment) => ({
+        id: comment.id,
+        kind: "lesson_comment" as const,
+        body: comment.body,
+        status: comment.status,
+        author: {
+          id: comment.user.id,
+          telegramId: comment.user.telegramId,
+          firstName: comment.user.firstName,
+          username: comment.user.username
+        },
+        sourceTitle: comment.item.title,
+        createdAt: comment.createdAt.toISOString()
+      })),
+      ...messages.map((message) => ({
+        id: message.id,
+        kind: "chat_message" as const,
+        body: message.body,
+        status: message.status,
+        author: {
+          id: message.user.id,
+          telegramId: message.user.telegramId,
+          firstName: message.user.firstName,
+          username: message.user.username
+        },
+        sourceTitle: message.topic.title,
+        createdAt: message.createdAt.toISOString()
+      }))
+    ]
+      .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+      .slice(0, 50);
+
+    return c.json({ items });
+  })
+  .post("/moderation/:kind/:id/status", async (c) => {
+    const body = moderationStatusPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid moderation payload" }, 400);
+    }
+
+    const kind = c.req.param("kind");
+    const id = c.req.param("id");
+    const values = {
+      status: body.data.status,
+      moderatedByUserId: c.get("userId"),
+      moderatedAt: new Date(),
+      moderationReason: body.data.reason ?? null,
+      updatedAt: new Date()
+    };
+
+    if (kind === "lesson_comment") {
+      await db.update(lessonComments).set(values).where(eq(lessonComments.id, id));
+      return c.json({ ok: true });
+    }
+
+    if (kind === "chat_message") {
+      await db.update(clubChatMessages).set(values).where(eq(clubChatMessages.id, id));
+      return c.json({ ok: true });
+    }
+
+    return c.json({ error: "Unknown moderation item" }, 404);
+  })
+  .get("/mutes", async (c) => {
+    const mutes = await db.query.userMutes.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 100,
+      with: {
+        user: true
+      }
+    });
+
+    return c.json({
+      mutes: mutes.map((mute) => ({
+        id: mute.id,
+        userId: mute.userId,
+        telegramId: mute.user.telegramId,
+        kind: mute.kind,
+        reason: mute.reason,
+        expiresAt: mute.expiresAt?.toISOString() ?? null,
+        revokedAt: mute.revokedAt?.toISOString() ?? null,
+        createdAt: mute.createdAt.toISOString()
+      }))
+    });
+  })
+  .post("/mutes", async (c) => {
+    const body = mutePayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid mute payload" }, 400);
+    }
+
+    if (body.data.telegramId === env.OWNER_TELEGRAM_ID) {
+      return c.json({ error: "Owner cannot be muted" }, 400);
+    }
+
+    const user = await findOrCreateUserByTelegramId(body.data.telegramId);
+    if (!user) {
+      return c.json({ error: "Unable to resolve user" }, 500);
+    }
+
+    const expiresAt =
+      body.data.kind === "temporary"
+        ? body.data.expiresAt
+          ? new Date(body.data.expiresAt)
+          : new Date(Date.now() + 24 * 60 * 60 * 1000)
+        : null;
+
+    const [mute] = await db
+      .insert(userMutes)
+      .values({
+        userId: user.id,
+        kind: body.data.kind,
+        reason: body.data.reason ?? null,
+        expiresAt,
+        createdByUserId: c.get("userId")
+      })
+      .returning();
+
+    if (!mute) {
+      return c.json({ error: "Unable to create mute" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      mute: {
+        id: mute.id,
+        userId: mute.userId,
+        telegramId: user.telegramId,
+        kind: mute.kind,
+        reason: mute.reason,
+        expiresAt: mute.expiresAt?.toISOString() ?? null,
+        revokedAt: mute.revokedAt?.toISOString() ?? null,
+        createdAt: mute.createdAt.toISOString()
+      }
+    });
+  })
+  .delete("/mutes/:id", async (c) => {
+    await db
+      .update(userMutes)
+      .set({
+        revokedAt: new Date(),
+        revokedByUserId: c.get("userId"),
+        updatedAt: new Date()
+      })
+      .where(eq(userMutes.id, c.req.param("id")));
+
+    return c.json({ ok: true });
   })
   .post("/admins", async (c) => {
     if (!isOwnerTelegramId(c.get("telegramUser").id)) {
