@@ -40,7 +40,14 @@ const messageSaving = ref(false);
 const topicSaving = ref(false);
 const communityError = ref<string | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
+const messagesList = ref<HTMLElement | null>(null);
 const muteAlertShown = ref(false);
+const topicReadAt = ref<Record<string, string>>({});
+let refreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
+let topicsRefreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
+let refreshInFlight = false;
+let topicsRefreshInFlight = false;
+const topicReadStorageKey = "club-community-topic-read-at";
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
@@ -97,6 +104,31 @@ function isReplyToMe(message: ClubMessage) {
   return message.replyTo?.author.id === session.user?.id && !isOwnMessage(message);
 }
 
+function loadTopicReadState() {
+  try {
+    topicReadAt.value = JSON.parse(localStorage.getItem(topicReadStorageKey) ?? "{}") as Record<string, string>;
+  } catch {
+    topicReadAt.value = {};
+  }
+}
+
+function markTopicRead(topicId: string) {
+  topicReadAt.value = {
+    ...topicReadAt.value,
+    [topicId]: new Date().toISOString()
+  };
+  localStorage.setItem(topicReadStorageKey, JSON.stringify(topicReadAt.value));
+}
+
+function hasNewReplyToMe(topic: ClubTopic) {
+  if (!topic.latestReplyToMeAt) {
+    return false;
+  }
+
+  const lastReadAt = topicReadAt.value[topic.id];
+  return !lastReadAt || new Date(topic.latestReplyToMeAt) > new Date(lastReadAt);
+}
+
 function showMuteAlert() {
   const message = mutedPermanently.value
     ? "На вас наложен бессрочный мут. Вы пока не можете писать в чат."
@@ -144,7 +176,61 @@ async function scrollToBottom() {
   messagesEnd.value?.scrollIntoView({ block: "end" });
 }
 
+function isNearBottom() {
+  const element = messagesList.value;
+  if (!element) {
+    return true;
+  }
+
+  return element.scrollHeight - element.scrollTop - element.clientHeight < 96;
+}
+
+async function refreshSelectedTopic({ keepScroll = true } = {}) {
+  if (!selectedTopic.value || refreshInFlight) {
+    return;
+  }
+
+  refreshInFlight = true;
+  const shouldScroll = !keepScroll || isNearBottom();
+  try {
+    const response = await getClubMessages(selectedTopic.value.id);
+    messages.value = response.messages;
+    mutedUntil.value = response.mutedUntil;
+    mutedPermanently.value = response.mutedPermanently;
+    markTopicRead(selectedTopic.value.id);
+
+    if (shouldScroll) {
+      await scrollToBottom();
+    }
+  } catch {
+    communityError.value = "Не удалось обновить чат.";
+  } finally {
+    refreshInFlight = false;
+  }
+}
+
+function stopMessageRefresh() {
+  if (refreshTimer) {
+    globalThis.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+function startMessageRefresh() {
+  stopMessageRefresh();
+  refreshTimer = globalThis.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      void refreshSelectedTopic();
+    }
+  }, 2000);
+}
+
 async function loadTopics() {
+  if (topicsRefreshInFlight) {
+    return;
+  }
+
+  topicsRefreshInFlight = true;
   loading.value = true;
   communityError.value = null;
   try {
@@ -157,21 +243,35 @@ async function loadTopics() {
     communityError.value = "Не удалось загрузить общение.";
   } finally {
     loading.value = false;
+    topicsRefreshInFlight = false;
   }
+}
+
+function stopTopicsRefresh() {
+  if (topicsRefreshTimer) {
+    globalThis.clearInterval(topicsRefreshTimer);
+    topicsRefreshTimer = null;
+  }
+}
+
+function startTopicsRefresh() {
+  stopTopicsRefresh();
+  topicsRefreshTimer = globalThis.setInterval(() => {
+    if (document.visibilityState === "visible" && !selectedTopic.value) {
+      void loadTopics();
+    }
+  }, 5000);
 }
 
 async function openTopic(topic: ClubTopic) {
   selectedTopic.value = topic;
   communityError.value = null;
-  const response = await getClubMessages(topic.id);
-  messages.value = response.messages;
-  mutedUntil.value = response.mutedUntil;
-  mutedPermanently.value = response.mutedPermanently;
+  await refreshSelectedTopic({ keepScroll: false });
+  markTopicRead(topic.id);
   if ((mutedUntil.value || mutedPermanently.value) && !muteAlertShown.value) {
     muteAlertShown.value = true;
     showMuteAlert();
   }
-  await scrollToBottom();
 }
 
 async function createTopic() {
@@ -276,6 +376,7 @@ async function handleReaction(message: ClubMessage, reaction: "like" | "dislike"
 }
 
 onMounted(() => {
+  loadTopicReadState();
   void loadTopics();
 });
 
@@ -283,11 +384,22 @@ watch(
   () => Boolean(selectedTopic.value),
   (isOpen) => {
     emit("chatOpenChange", isOpen);
+    if (isOpen) {
+      stopTopicsRefresh();
+      startMessageRefresh();
+      return;
+    }
+
+    stopMessageRefresh();
+    startTopicsRefresh();
+    void loadTopics();
   },
   { immediate: true }
 );
 
 onBeforeUnmount(() => {
+  stopMessageRefresh();
+  stopTopicsRefresh();
   emit("chatOpenChange", false);
 });
 </script>
@@ -343,6 +455,7 @@ onBeforeUnmount(() => {
               <span v-if="topic.isLocked"> · закрыта</span>
             </span>
           </span>
+          <span v-if="hasNewReplyToMe(topic)" class="reply-topic-badge">Вам ответили</span>
         </button>
       </div>
 
@@ -380,7 +493,7 @@ onBeforeUnmount(() => {
         <p v-else-if="mutedUntil" class="px-1 text-xs text-[var(--danger)]">{{ t("mutedTemporary") }}</p>
       </div>
 
-      <div class="chat-messages">
+      <div ref="messagesList" class="chat-messages">
         <p v-if="!messages.length" class="py-6 text-center text-xs text-[var(--muted)]">{{ t("messagesEmpty") }}</p>
         <article
           v-for="message in orderedMessages"

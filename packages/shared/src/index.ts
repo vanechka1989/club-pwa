@@ -171,6 +171,7 @@ export const clubTopicSchema = z.object({
   isPublished: z.boolean(),
   archivedUntil: z.string().datetime().nullable(),
   messagesCount: z.number().int().nonnegative(),
+  latestReplyToMeAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime()
 });
 export type ClubTopic = z.infer<typeof clubTopicSchema>;

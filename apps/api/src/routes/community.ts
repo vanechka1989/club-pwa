@@ -1,4 +1,5 @@
-import { and, count, desc, eq, gt, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, ne, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
@@ -143,7 +144,7 @@ async function ensureDefaultTopics(chatId: string) {
   );
 }
 
-async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>) {
+async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>, currentUserId: string) {
   const chat = await getOrCreateSystemChat();
   await ensureDefaultTopics(chat.id);
 
@@ -158,14 +159,35 @@ async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>
     orderBy: [desc(clubChatTopics.isPinned), desc(clubChatTopics.createdAt)]
   });
 
-  return Promise.all(topics.map(serializeTopic));
+  return Promise.all(topics.map((topic) => serializeTopic(topic, currentUserId)));
 }
 
-async function serializeTopic(topic: typeof clubChatTopics.$inferSelect): Promise<ClubTopic> {
+async function getLatestReplyToMeAt(topicId: string, currentUserId: string) {
+  const originalMessage = alias(clubChatMessages, "original_message");
+  const [reply] = await db
+    .select({ createdAt: clubChatMessages.createdAt })
+    .from(clubChatMessages)
+    .innerJoin(originalMessage, eq(clubChatMessages.replyToMessageId, originalMessage.id))
+    .where(
+      and(
+        eq(clubChatMessages.topicId, topicId),
+        eq(clubChatMessages.status, "visible"),
+        eq(originalMessage.userId, currentUserId),
+        ne(clubChatMessages.userId, currentUserId)
+      )
+    )
+    .orderBy(desc(clubChatMessages.createdAt))
+    .limit(1);
+
+  return reply?.createdAt ?? null;
+}
+
+async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, currentUserId: string): Promise<ClubTopic> {
   const [messagesRow] = await db
     .select({ value: count(clubChatMessages.id) })
     .from(clubChatMessages)
     .where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.status, "visible")));
+  const latestReplyToMeAt = await getLatestReplyToMeAt(topic.id, currentUserId);
 
   return {
     id: topic.id,
@@ -177,6 +199,7 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect): Promis
     isPublished: topic.isPublished,
     archivedUntil: topic.archivedUntil?.toISOString() ?? null,
     messagesCount: messagesRow?.value ?? 0,
+    latestReplyToMeAt: latestReplyToMeAt?.toISOString() ?? null,
     createdAt: topic.createdAt.toISOString()
   };
 }
@@ -317,7 +340,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const role = await getUserRole(c.get("telegramUser").id);
 
     return c.json({
-      topics: await listCommunityTopics(role)
+      topics: await listCommunityTopics(role, c.get("userId"))
     });
   })
   .post("/topics", async (c) => {
@@ -348,7 +371,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      topic: await serializeTopic(topic)
+      topic: await serializeTopic(topic, c.get("userId"))
     });
   })
   .get("/chats", async (c) => {
@@ -413,7 +436,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({
-      topics: await Promise.all(topics.map(serializeTopic))
+      topics: await Promise.all(topics.map((topic) => serializeTopic(topic, c.get("userId"))))
     });
   })
   .post("/chats/:id/topics", async (c) => {
@@ -456,7 +479,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      topic: await serializeTopic(topic)
+      topic: await serializeTopic(topic, c.get("userId"))
     });
   })
   .post("/topics/:id/settings", async (c) => {
@@ -491,7 +514,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      topic: await serializeTopic(topic)
+      topic: await serializeTopic(topic, c.get("userId"))
     });
   })
   .get("/topics/:id/messages", async (c) => {
@@ -510,7 +533,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           ? and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.status, "visible"))
           : eq(clubChatMessages.topicId, topic.id),
       orderBy: (table, { desc }) => [desc(table.createdAt)],
-      limit: 50,
+      limit: 500,
       with: {
         user: true
       }
