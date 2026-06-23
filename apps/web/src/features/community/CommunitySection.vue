@@ -57,6 +57,17 @@ const archivedTopics = computed(() => topics.value.filter((topic) => !topic.isPu
 const canWrite = computed(
   () => selectedTopic.value && !selectedTopic.value.isLocked && selectedTopic.value.isPublished && !isMuted.value
 );
+const muteComposerText = computed(() => {
+  if (mutedPermanently.value) {
+    return "Бессрочный мут. Вы пока не можете писать в чат.";
+  }
+
+  if (mutedUntil.value) {
+    return `Мут до ${new Date(mutedUntil.value).toLocaleString("ru-RU")}. Вы пока не можете писать в чат.`;
+  }
+
+  return "";
+});
 const quickEmoji = ["👍", "🔥", "❤️", "🙂", "😂", "👏"];
 const muteOptions = [
   { label: "30 мин", minutes: 30 },
@@ -489,8 +500,6 @@ onBeforeUnmount(() => {
 
       <div class="chat-room-notices">
         <p v-if="communityError" class="px-1 text-xs text-[var(--danger)]">{{ communityError }}</p>
-        <p v-if="mutedPermanently" class="px-1 text-xs text-[var(--danger)]">{{ t("mutedPermanent") }}</p>
-        <p v-else-if="mutedUntil" class="px-1 text-xs text-[var(--danger)]">{{ t("mutedTemporary") }}</p>
       </div>
 
       <div ref="messagesList" class="chat-messages">
@@ -592,13 +601,15 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="chat-input-row">
+          <div v-if="isMuted" class="mute-compose-notice">{{ muteComposerText }}</div>
           <input
+            v-else
             v-model.trim="newMessage"
             class="text-input"
             :placeholder="t('messagePlaceholder')"
             :disabled="!canWrite || messageSaving"
           />
-          <button class="icon-button" type="submit" aria-label="Отправить" :disabled="!canWrite || messageSaving">
+          <button class="icon-button" type="submit" aria-label="Отправить" :disabled="!canWrite || messageSaving || isMuted">
             <Send class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>

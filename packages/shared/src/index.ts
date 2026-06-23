@@ -270,12 +270,41 @@ export const adminStatsUserSchema = z.object({
   username: z.string().nullable(),
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
+  tariff: z.string().nullable(),
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),
   lastOpenedItemTitle: z.string().nullable(),
   lastOpenedAt: z.string().datetime().nullable()
 });
 export type AdminStatsUser = z.infer<typeof adminStatsUserSchema>;
+
+export const adminUserSubscriptionSchema = z.object({
+  id: z.string(),
+  status: membershipStatusSchema,
+  tariff: z.string().nullable(),
+  provider: z.string(),
+  expiresAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime()
+});
+export type AdminUserSubscription = z.infer<typeof adminUserSubscriptionSchema>;
+
+export const adminUserModerationEventSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["mute", "lesson_comment", "chat_message"]),
+  status: z.string(),
+  body: z.string().nullable(),
+  sourceTitle: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  resolvedAt: z.string().datetime().nullable()
+});
+export type AdminUserModerationEvent = z.infer<typeof adminUserModerationEventSchema>;
+
+export const adminUserDetailResponseSchema = z.object({
+  user: adminStatsUserSchema,
+  subscriptions: z.array(adminUserSubscriptionSchema),
+  moderationEvents: z.array(adminUserModerationEventSchema)
+});
+export type AdminUserDetailResponse = z.infer<typeof adminUserDetailResponseSchema>;
 
 export const adminStatsResponseSchema = z.object({
   totalUsers: z.number().int().nonnegative(),

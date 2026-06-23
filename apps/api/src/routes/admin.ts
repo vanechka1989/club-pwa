@@ -1,7 +1,7 @@
-import { and, count, desc, eq, isNotNull } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AdminStatsUser, MembershipStatus } from "@club/shared";
+import type { AdminUserDetailResponse, AdminUserModerationEvent, AdminStatsUser, MembershipStatus } from "@club/shared";
 import { getUserRole, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import {
@@ -76,10 +76,87 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     username: user.username,
     membershipStatus: membership.status,
     membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
+    tariff: membership.subscription?.provider ?? null,
     completedItems: completedRow?.value ?? 0,
     totalItems,
     lastOpenedItemTitle: lastOpened?.item?.title ?? null,
     lastOpenedAt: lastOpened?.lastOpenedAt.toISOString() ?? null
+  };
+}
+
+async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
+  const totalItems = await getPublishedItemsCount();
+  const [statsUser, userSubscriptions, mutes, comments, messages] = await Promise.all([
+    buildStatsUser(user, totalItems),
+    db.query.subscriptions.findMany({
+      where: eq(subscriptions.userId, user.id),
+      orderBy: [desc(subscriptions.createdAt)],
+      limit: 20
+    }),
+    db.query.userMutes.findMany({
+      where: eq(userMutes.userId, user.id),
+      orderBy: [desc(userMutes.createdAt)],
+      limit: 50
+    }),
+    db.query.lessonComments.findMany({
+      where: and(eq(lessonComments.userId, user.id), ne(lessonComments.status, "visible")),
+      orderBy: [desc(lessonComments.createdAt)],
+      limit: 50,
+      with: {
+        item: true
+      }
+    }),
+    db.query.clubChatMessages.findMany({
+      where: and(eq(clubChatMessages.userId, user.id), ne(clubChatMessages.status, "visible")),
+      orderBy: [desc(clubChatMessages.createdAt)],
+      limit: 50,
+      with: {
+        topic: true
+      }
+    })
+  ]);
+
+  const moderationEvents: AdminUserModerationEvent[] = [
+    ...mutes.map((mute) => ({
+      id: mute.id,
+      kind: "mute" as const,
+      status: mute.revokedAt ? "revoked" : mute.kind,
+      body: mute.reason,
+      sourceTitle: mute.expiresAt ? `До ${mute.expiresAt.toLocaleString("ru-RU")}` : "Бессрочно",
+      createdAt: mute.createdAt.toISOString(),
+      resolvedAt: mute.revokedAt?.toISOString() ?? null
+    })),
+    ...comments.map((comment) => ({
+      id: comment.id,
+      kind: "lesson_comment" as const,
+      status: comment.status,
+      body: comment.body,
+      sourceTitle: comment.item.title,
+      createdAt: comment.createdAt.toISOString(),
+      resolvedAt: comment.moderatedAt?.toISOString() ?? null
+    })),
+    ...messages.map((message) => ({
+      id: message.id,
+      kind: "chat_message" as const,
+      status: message.status,
+      body: message.body,
+      sourceTitle: message.topic.title,
+      createdAt: message.createdAt.toISOString(),
+      resolvedAt: message.moderatedAt?.toISOString() ?? null
+    }))
+  ].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+
+  return {
+    user: statsUser,
+    subscriptions: userSubscriptions.map((subscription) => ({
+      id: subscription.id,
+      status: subscription.status,
+      tariff: subscription.provider,
+      provider: subscription.provider,
+      expiresAt: subscription.expiresAt?.toISOString() ?? null,
+      createdAt: subscription.createdAt.toISOString()
+    })),
+    moderationEvents
   };
 }
 
@@ -158,6 +235,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json(await buildStatsUser(user, await getPublishedItemsCount()));
+  })
+  .get("/stats/users/:telegramId/detail", async (c) => {
+    const user = await db.query.users.findFirst({
+      where: eq(users.telegramId, c.req.param("telegramId"))
+    });
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    return c.json(await buildUserDetail(user));
   })
   .post("/access", async (c) => {
     const body = accessPayloadSchema.safeParse(await c.req.json().catch(() => null));
