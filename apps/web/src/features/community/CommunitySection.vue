@@ -202,6 +202,8 @@ async function refreshSelectedTopic({ keepScroll = true } = {}) {
   }
 
   refreshInFlight = true;
+  const scrollElement = messagesList.value;
+  const previousScrollTop = scrollElement?.scrollTop ?? 0;
   const shouldScroll = !keepScroll || isNearBottom();
   try {
     const response = await getClubMessages(selectedTopic.value.id);
@@ -212,6 +214,9 @@ async function refreshSelectedTopic({ keepScroll = true } = {}) {
 
     if (shouldScroll) {
       await scrollToBottom();
+    } else if (scrollElement) {
+      await nextTick();
+      scrollElement.scrollTop = previousScrollTop;
     }
   } catch {
     communityError.value = "Не удалось обновить чат.";

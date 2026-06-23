@@ -2,11 +2,18 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export type Theme = "dark" | "light";
+export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura";
 export type PreviewMembership = "real" | "inactive" | "active";
 
 export const useUiStore = defineStore("ui", () => {
   const savedTheme = localStorage.getItem("club-theme");
   const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
+  const savedColorScheme = localStorage.getItem("club-color-scheme");
+  const colorScheme = ref<ColorScheme>(
+    savedColorScheme === "emerald" || savedColorScheme === "graphite" || savedColorScheme === "sakura"
+      ? savedColorScheme
+      : "midnight"
+  );
   const savedPreviewMembership = localStorage.getItem("club-preview-membership");
   const previewMembership = ref<PreviewMembership>(
     savedPreviewMembership === "inactive" || savedPreviewMembership === "active" ? savedPreviewMembership : "real"
@@ -14,12 +21,19 @@ export const useUiStore = defineStore("ui", () => {
 
   function applyTheme() {
     document.documentElement.dataset.theme = theme.value;
+    document.documentElement.dataset.scheme = colorScheme.value;
     document.documentElement.style.colorScheme = theme.value;
   }
 
   function setTheme(nextTheme: Theme) {
     theme.value = nextTheme;
     localStorage.setItem("club-theme", nextTheme);
+    applyTheme();
+  }
+
+  function setColorScheme(nextColorScheme: ColorScheme) {
+    colorScheme.value = nextColorScheme;
+    localStorage.setItem("club-color-scheme", nextColorScheme);
     applyTheme();
   }
 
@@ -30,5 +44,5 @@ export const useUiStore = defineStore("ui", () => {
 
   applyTheme();
 
-  return { theme, previewMembership, setTheme, setPreviewMembership };
+  return { theme, colorScheme, previewMembership, setTheme, setColorScheme, setPreviewMembership };
 });

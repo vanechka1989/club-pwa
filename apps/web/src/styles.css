@@ -44,8 +44,77 @@
   --shadow-soft: 0 14px 40px rgb(0 0 0 / 28%);
 }
 
-html {
+:root[data-theme="light"] {
   color-scheme: light;
+  --bg: #f4f6fb;
+  --panel: #ffffff;
+  --panel-strong: #eef1f7;
+  --border: #d8deea;
+  --text: #111827;
+  --muted: #6b7280;
+  --muted-strong: #374151;
+  --accent: #111827;
+  --accent-text: #ffffff;
+  --accent-soft: #e7ebf3;
+  --gold: #a16207;
+  --gold-soft: #fff7d6;
+  --live-soft: #ffe4e6;
+  --danger: #dc5f5f;
+  --warning: #a16207;
+  --shadow: 0 22px 60px rgb(15 23 42 / 12%);
+  --shadow-soft: 0 12px 30px rgb(15 23 42 / 8%);
+}
+
+:root[data-scheme="emerald"] {
+  --accent: #7dd3b0;
+  --accent-text: #06251e;
+  --accent-soft: #12382d;
+  --gold: #b9fbc0;
+  --gold-soft: #183626;
+}
+
+:root[data-theme="light"][data-scheme="emerald"] {
+  --accent: #047857;
+  --accent-text: #ffffff;
+  --accent-soft: #dff8ea;
+  --gold: #047857;
+  --gold-soft: #e7fff2;
+}
+
+:root[data-scheme="graphite"] {
+  --accent: #d6d9e2;
+  --accent-text: #111318;
+  --accent-soft: #242833;
+  --gold: #cbd5e1;
+  --gold-soft: #252935;
+}
+
+:root[data-theme="light"][data-scheme="graphite"] {
+  --accent: #374151;
+  --accent-text: #ffffff;
+  --accent-soft: #e5e7eb;
+  --gold: #475569;
+  --gold-soft: #eef2f7;
+}
+
+:root[data-scheme="sakura"] {
+  --accent: #f9a8d4;
+  --accent-text: #301121;
+  --accent-soft: #3a2034;
+  --gold: #fbcfe8;
+  --gold-soft: #3a2034;
+}
+
+:root[data-theme="light"][data-scheme="sakura"] {
+  --accent: #be185d;
+  --accent-text: #ffffff;
+  --accent-soft: #fde7f3;
+  --gold: #be185d;
+  --gold-soft: #fff0f7;
+}
+
+html {
+  color-scheme: dark;
 }
 
 html,
@@ -650,6 +719,65 @@ button {
 
 .soft-card {
   padding: 0.8rem;
+}
+
+.profile-settings {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.theme-choice-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.theme-choice,
+.scheme-choice {
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 76%, transparent);
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  font-weight: 780;
+}
+
+.theme-choice-active,
+.scheme-choice-active {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 78%, var(--panel));
+  color: var(--text);
+}
+
+.scheme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.scheme-choice {
+  justify-content: flex-start;
+  padding: 0 0.7rem;
+}
+
+.scheme-choice svg {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.scheme-swatch {
+  display: grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
 }
 
 .soft-card h3,
