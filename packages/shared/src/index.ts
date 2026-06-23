@@ -341,6 +341,8 @@ export const adminMuteSchema = z.object({
   id: z.string(),
   userId: z.string(),
   telegramId: z.string(),
+  firstName: z.string().nullable(),
+  username: z.string().nullable(),
   kind: muteKindSchema,
   reason: z.string().nullable(),
   expiresAt: z.string().datetime().nullable(),

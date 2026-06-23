@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClubMessage, ClubTopic } from "@club/shared";
-import { ArrowLeft, MessageCircle, Plus, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
+import { ArrowLeft, MessageCircle, Plus, RefreshCw, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -236,13 +236,13 @@ function startMessageRefresh() {
   }, 2000);
 }
 
-async function loadTopics() {
+async function loadTopics({ showLoading = false } = {}) {
   if (topicsRefreshInFlight) {
     return;
   }
 
   topicsRefreshInFlight = true;
-  loading.value = true;
+  loading.value = showLoading;
   communityError.value = null;
   try {
     const response = await getCommunityTopics();
@@ -388,7 +388,7 @@ async function handleReaction(message: ClubMessage, reaction: "like" | "dislike"
 
 onMounted(() => {
   loadTopicReadState();
-  void loadTopics();
+  void loadTopics({ showLoading: true });
 });
 
 watch(
@@ -423,15 +423,20 @@ onBeforeUnmount(() => {
           <h2 class="section-title">{{ t("communityTitle") }}</h2>
           <p class="mt-1 text-xs text-[var(--muted)]">{{ t("communityIntro") }}</p>
         </div>
-        <button
-          v-if="isModerator"
-          class="icon-button"
-          type="button"
-          aria-label="Добавить тему"
-          @click="showCreateTopic = !showCreateTopic"
-        >
-          <Plus class="h-4 w-4" aria-hidden="true" />
-        </button>
+        <div class="community-topline-actions">
+          <button class="icon-button" type="button" aria-label="Обновить темы" :disabled="loading" @click="loadTopics({ showLoading: true })">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" aria-hidden="true" />
+          </button>
+          <button
+            v-if="isModerator"
+            class="icon-button"
+            type="button"
+            aria-label="Добавить тему"
+            @click="showCreateTopic = !showCreateTopic"
+          >
+            <Plus class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       <form v-if="isModerator && showCreateTopic" class="chat-create-form" @submit.prevent="createTopic">
@@ -441,7 +446,6 @@ onBeforeUnmount(() => {
         </button>
       </form>
 
-      <div v-if="loading" class="text-xs text-[var(--muted)]">{{ t("loading") }}</div>
       <p v-if="communityError" class="text-xs text-[var(--danger)]">{{ communityError }}</p>
 
       <div v-if="!activeTopics.length && !archivedTopics.length && !loading" class="surface-card text-sm text-[var(--muted)]">
@@ -530,7 +534,10 @@ onBeforeUnmount(() => {
             <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
             <span>{{ formatMessageTime(message.createdAt) }}</span>
           </div>
-          <p v-if="message.isSystem" class="chat-system-body">{{ message.body }}</p>
+          <p v-if="message.isSystem" class="chat-system-body">
+            <span>{{ message.body }}</span>
+            <time>{{ formatMessageTime(message.createdAt) }}</time>
+          </p>
           <button v-if="!message.isSystem && message.replyTo" class="reply-preview" type="button" @click="startReply(message)">
             <span>{{ authorName({ ...message, author: message.replyTo.author }) }}</span>
             <span>{{ message.replyTo.body }}</span>

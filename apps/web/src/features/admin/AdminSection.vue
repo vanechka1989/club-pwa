@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import type { AdminMute, AdminStatsUser, AdminUser, AdminUserDetailResponse, ClubTopic } from "@club/shared";
+import type { AdminMute, AdminStatsUser, AdminUser, AdminUserDetailResponse } from "@club/shared";
 import {
   BarChart3,
   Check,
-  CreditCard,
-  MessageSquare,
-  Plus,
   Search,
   Shield,
   ShieldOff,
@@ -16,18 +13,15 @@ import {
 import { computed, onMounted, ref } from "vue";
 import {
   addAdminUser,
-  createCommunityTopic,
   createUserMute,
   getAdminMutes,
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
   getAdminUserStats,
-  getCommunityTopics,
   removeAdminUser,
   revokeUserMute,
   updateAdminUserAccess,
-  updateClubTopicSettings
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
@@ -37,12 +31,11 @@ const { t } = useI18n();
 const session = useSessionStore();
 const ui = useUiStore();
 
-type AdminPanel = "overview" | "users" | "chats" | "mutes" | "admins";
+type AdminPanel = "overview" | "users" | "mutes" | "admins";
 
 const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
   { id: "users", label: "Клиенты", icon: UsersRound },
-  { id: "chats", label: "Чаты", icon: MessageSquare },
   { id: "mutes", label: "Муты", icon: ShieldOff },
   { id: "admins", label: "Админы", icon: Shield }
 ];
@@ -73,7 +66,6 @@ const admins = ref<AdminUser[]>([]);
 const users = ref<AdminStatsUser[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
-const chats = ref<ClubTopic[]>([]);
 const mutes = ref<AdminMute[]>([]);
 const search = ref("");
 const subscriptionFilter = ref<"all" | "active" | "inactive" | "expired">("all");
@@ -81,8 +73,6 @@ const tariffFilter = ref("all");
 const findTelegramId = ref("");
 const accessStatus = ref<"active" | "inactive" | "expired">("active");
 const accessExpiresAt = ref("");
-const newChatTitle = ref("");
-const newChatDescription = ref("");
 const muteTelegramId = ref("");
 const muteKind = ref<"temporary" | "permanent">("temporary");
 const muteExpiresAt = ref("");
@@ -97,8 +87,6 @@ const isOwner = computed(() => session.user?.role === "owner");
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const activeMutes = computed(() => mutes.value.filter((mute) => !mute.revokedAt).length);
-const visibleChats = computed(() => chats.value.filter((chat) => chat.isPublished));
-const archivedChats = computed(() => chats.value.filter((chat) => !chat.isPublished));
 const tariffOptions = computed(() => {
   const values = new Set(users.value.map((user) => user.tariff || "future").filter(Boolean));
   return ["all", ...Array.from(values)];
@@ -116,6 +104,10 @@ const filteredUsers = computed(() => {
 
 function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
+}
+
+function muteTitle(mute: AdminMute) {
+  return mute.firstName || mute.username || `ID ${mute.telegramId}`;
 }
 
 function formatDateInput(date: Date) {
@@ -168,16 +160,14 @@ function setError(text: string) {
 async function loadAll() {
   loading.value = true;
   try {
-    const [adminsResponse, statsResponse, chatsResponse, mutesResponse] = await Promise.all([
+    const [adminsResponse, statsResponse, mutesResponse] = await Promise.all([
       getAdminUsers(),
       getAdminStats(),
-      getCommunityTopics(),
       getAdminMutes()
     ]);
     ownerTelegramId.value = adminsResponse.ownerTelegramId;
     admins.value = adminsResponse.admins;
     users.value = statsResponse.users;
-    chats.value = chatsResponse.topics;
     mutes.value = mutesResponse.mutes;
     if (selectedUser.value) {
       const updated = statsResponse.users.find((user) => user.telegramId === selectedUser.value?.telegramId);
@@ -232,41 +222,6 @@ async function handleUpdateAccess() {
     setStatus("Доступ сохранён.");
   } catch {
     setError("Не удалось сохранить доступ.");
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function handleCreateChat() {
-  if (!newChatTitle.value.trim()) {
-    return;
-  }
-
-  saving.value = true;
-  try {
-    const response = await createCommunityTopic({
-      title: newChatTitle.value,
-      description: newChatDescription.value || null
-    });
-    chats.value = [response.topic, ...chats.value];
-    newChatTitle.value = "";
-    newChatDescription.value = "";
-    setStatus("Чат создан.");
-  } catch {
-    setError("Не удалось создать чат.");
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function handleChatSettings(chat: ClubTopic, patch: Partial<Pick<ClubTopic, "isLocked" | "isPublished">>) {
-  saving.value = true;
-  try {
-    const response = await updateClubTopicSettings(chat.id, patch);
-    chats.value = chats.value.map((item) => (item.id === chat.id ? response.topic : item));
-    setStatus("Настройки чата сохранены.");
-  } catch {
-    setError("Не удалось обновить чат.");
   } finally {
     saving.value = false;
   }
@@ -409,11 +364,6 @@ onMounted(() => {
         <span class="admin-card-label">Клиенты</span>
         <strong>{{ totalUsers }}</strong>
         <small>{{ activeUsers }} активных</small>
-      </article>
-      <article class="admin-card">
-        <span class="admin-card-label">Чаты</span>
-        <strong>{{ visibleChats.length }}</strong>
-        <small>{{ archivedChats.length }} в архиве</small>
       </article>
       <article class="admin-card">
         <span class="admin-card-label">Муты</span>
@@ -575,45 +525,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <section v-else-if="activePanel === 'chats'" class="admin-panel">
-      <div class="admin-panel-head">
-        <div>
-          <h3>Темы общения</h3>
-          <p>Создание, закрытие и архивирование чатов.</p>
-        </div>
-      </div>
-
-      <form class="admin-form" @submit.prevent="handleCreateChat">
-        <input v-model.trim="newChatTitle" class="text-input" placeholder="Название чата" />
-        <input v-model.trim="newChatDescription" class="text-input" placeholder="Описание, необязательно" />
-        <button class="primary-button" type="submit" :disabled="saving">
-          <Plus class="h-4 w-4" aria-hidden="true" />
-          Создать чат
-        </button>
-      </form>
-
-      <div class="admin-list">
-        <article v-for="chat in chats" :key="chat.id" class="admin-entity">
-          <div>
-            <strong>{{ chat.title }}</strong>
-            <small>
-              {{ chat.messagesCount }} сообщений
-              <span v-if="chat.isLocked"> · закрыт</span>
-              <span v-if="!chat.isPublished"> · архив</span>
-            </small>
-          </div>
-          <div class="admin-inline-actions">
-            <button class="secondary-button" type="button" :disabled="saving" @click="handleChatSettings(chat, { isLocked: !chat.isLocked })">
-              {{ chat.isLocked ? "Открыть" : "Закрыть" }}
-            </button>
-            <button class="secondary-button" type="button" :disabled="saving" @click="handleChatSettings(chat, { isPublished: !chat.isPublished })">
-              {{ chat.isPublished ? "В архив" : "Вернуть" }}
-            </button>
-          </div>
-        </article>
-      </div>
-    </section>
-
     <section v-else-if="activePanel === 'mutes'" class="admin-panel">
       <div class="admin-panel-head">
         <div>
@@ -638,8 +549,9 @@ onMounted(() => {
       <div class="admin-list">
         <article v-for="mute in mutes" :key="mute.id" class="admin-entity">
           <div>
-            <strong>ID {{ mute.telegramId }}</strong>
+            <strong>{{ muteTitle(mute) }}</strong>
             <small>
+              ID {{ mute.telegramId }} ·
               {{ mute.kind === "permanent" ? "Бессрочно" : "Временно" }}
               <span v-if="mute.expiresAt"> · до {{ new Date(mute.expiresAt).toLocaleDateString("ru-RU") }}</span>
               <span v-if="mute.revokedAt"> · снят</span>

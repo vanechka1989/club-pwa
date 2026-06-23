@@ -378,6 +378,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         id: mute.id,
         userId: mute.userId,
         telegramId: mute.user.telegramId,
+        firstName: mute.user.firstName,
+        username: mute.user.username,
         kind: mute.kind,
         reason: mute.reason,
         expiresAt: mute.expiresAt?.toISOString() ?? null,
