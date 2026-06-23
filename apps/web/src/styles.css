@@ -62,6 +62,11 @@ button {
 
 .app-root {
   background: var(--bg);
+  padding-bottom: 5.4rem;
+}
+
+.app-root.nav-is-collapsed {
+  padding-bottom: 2.5rem;
 }
 
 .app-header {
@@ -598,6 +603,36 @@ button {
   padding: 0.35rem;
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.bottom-nav-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 4.45rem;
+  z-index: 25;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  color: var(--muted-strong);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px);
+}
+
+.nav-is-collapsed .bottom-nav-toggle {
+  bottom: 0.75rem;
+}
+
+.bottom-nav-collapsed {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(1rem);
 }
 
 .bottom-nav-item {
@@ -617,7 +652,7 @@ button {
 }
 
 .community-chat-shell {
-  min-height: calc(100vh - 9.5rem);
+  min-height: calc(100vh - 11rem);
 }
 
 .community-topline {
@@ -639,6 +674,20 @@ button {
 .chat-topic-list {
   display: grid;
   gap: 0.55rem;
+}
+
+.chat-archive-list {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.chat-topic-card-archived {
+  opacity: 0.82;
+}
+
+.chat-topic-card-archived .mini-action {
+  flex-shrink: 0;
 }
 
 .chat-topic-card {
@@ -684,8 +733,9 @@ button {
 
 .chat-room {
   display: grid;
-  min-height: calc(100vh - 9.5rem);
-  grid-template-rows: auto auto 1fr auto;
+  height: calc(100vh - 11rem);
+  min-height: 28rem;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 0.6rem;
 }
 
@@ -698,10 +748,10 @@ button {
 }
 
 .chat-messages {
-  min-height: 18rem;
-  max-height: calc(100vh - 17rem);
+  min-height: 0;
   overflow-y: auto;
   padding-right: 0.15rem;
+  padding-bottom: 0.4rem;
 }
 
 .chat-message {
@@ -841,10 +891,18 @@ button.chat-message-author:active {
 }
 
 .chat-compose {
+  position: sticky;
+  bottom: 5.1rem;
+  z-index: 12;
   display: grid;
   gap: 0.45rem;
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
   padding-top: 0.55rem;
+}
+
+.nav-is-collapsed .chat-compose {
+  bottom: 2.2rem;
 }
 
 .emoji-row,

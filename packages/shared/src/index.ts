@@ -169,6 +169,7 @@ export const clubTopicSchema = z.object({
   isPinned: z.boolean(),
   isLocked: z.boolean(),
   isPublished: z.boolean(),
+  archivedUntil: z.string().datetime().nullable(),
   messagesCount: z.number().int().nonnegative(),
   createdAt: z.string().datetime()
 });

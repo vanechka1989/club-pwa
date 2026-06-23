@@ -39,6 +39,8 @@ const messagesEnd = ref<HTMLElement | null>(null);
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 const orderedMessages = computed(() => [...messages.value].reverse());
+const activeTopics = computed(() => topics.value.filter((topic) => topic.isPublished));
+const archivedTopics = computed(() => topics.value.filter((topic) => !topic.isPublished && topic.archivedUntil));
 const canWrite = computed(
   () => selectedTopic.value && !selectedTopic.value.isLocked && selectedTopic.value.isPublished && !isMuted.value
 );
@@ -63,6 +65,10 @@ function formatMessageTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatArchiveUntil(value: string | null) {
+  return value ? new Date(value).toLocaleDateString("ru-RU") : "";
 }
 
 function appendEmoji(emoji: string) {
@@ -155,6 +161,16 @@ async function updateSelectedTopic(patch: Partial<Pick<ClubTopic, "isLocked" | "
   const response = await updateClubTopicSettings(selectedTopic.value.id, patch);
   selectedTopic.value = response.topic;
   topics.value = topics.value.map((topic) => (topic.id === response.topic.id ? response.topic : topic));
+
+  if (patch.isPublished === false) {
+    selectedTopic.value = null;
+    await loadTopics();
+  }
+}
+
+async function restoreTopic(topic: ClubTopic) {
+  const response = await updateClubTopicSettings(topic.id, { isPublished: true });
+  topics.value = topics.value.map((item) => (item.id === topic.id ? response.topic : item));
 }
 
 async function handleSendMessage() {
@@ -239,13 +255,13 @@ onMounted(() => {
       <div v-if="loading" class="text-xs text-[var(--muted)]">{{ t("loading") }}</div>
       <p v-if="communityError" class="text-xs text-[var(--danger)]">{{ communityError }}</p>
 
-      <div v-if="!topics.length && !loading" class="surface-card text-sm text-[var(--muted)]">
+      <div v-if="!activeTopics.length && !archivedTopics.length && !loading" class="surface-card text-sm text-[var(--muted)]">
         {{ t("communityEmpty") }}
       </div>
 
       <div class="chat-topic-list">
         <button
-          v-for="topic in topics"
+          v-for="topic in activeTopics"
           :key="topic.id"
           class="chat-topic-card"
           type="button"
@@ -259,10 +275,23 @@ onMounted(() => {
             <span class="chat-topic-meta">
               {{ topic.messagesCount }} сообщений
               <span v-if="topic.isLocked"> · закрыта</span>
-              <span v-if="!topic.isPublished"> · удалена</span>
             </span>
           </span>
         </button>
+      </div>
+
+      <div v-if="isModerator && archivedTopics.length" class="chat-archive-list">
+        <p class="section-eyebrow">Архив</p>
+        <article v-for="topic in archivedTopics" :key="topic.id" class="chat-topic-card chat-topic-card-archived">
+          <span class="chat-topic-icon">
+            <Trash2 class="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="chat-topic-title">{{ topic.title }}</span>
+            <span class="chat-topic-meta">В архиве до {{ formatArchiveUntil(topic.archivedUntil) }}</span>
+          </span>
+          <button class="mini-action" type="button" @click="restoreTopic(topic)">Вернуть</button>
+        </article>
       </div>
     </div>
 
@@ -281,7 +310,7 @@ onMounted(() => {
           <button class="icon-button" type="button" aria-label="Закрыть тему" @click="updateSelectedTopic({ isLocked: !selectedTopic.isLocked })">
             <Lock class="h-4 w-4" aria-hidden="true" />
           </button>
-          <button class="icon-button" type="button" aria-label="Удалить тему" @click="updateSelectedTopic({ isPublished: !selectedTopic.isPublished })">
+          <button class="icon-button" type="button" aria-label="В архив" @click="updateSelectedTopic({ isPublished: false })">
             <Trash2 class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>

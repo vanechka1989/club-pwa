@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Moon, Sun } from "lucide-vue-next";
+import { ChevronDown, ChevronUp, Moon, Sun } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
@@ -16,6 +16,7 @@ const session = useSessionStore();
 const ui = useUiStore();
 const { currentLocale, setLocale, t } = useI18n();
 const activeSection = ref<AppSection>("profile");
+const navCollapsed = ref(false);
 
 const visibleNavItems = computed(() =>
   navItems.filter((item) => !item.adminOnly || session.user?.role === "admin" || session.user?.role === "owner")
@@ -37,7 +38,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="app-root min-h-screen pb-24 text-[var(--text)]">
+  <main class="app-root min-h-screen text-[var(--text)]" :class="{ 'nav-is-collapsed': navCollapsed }">
     <h1 class="sr-only">{{ t("brand") }}</h1>
     <section class="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
       <header class="app-header mb-2">
@@ -84,7 +85,17 @@ onMounted(() => {
       </div>
     </section>
 
-    <nav class="bottom-nav" aria-label="Club sections">
+    <button
+      class="bottom-nav-toggle"
+      type="button"
+      :aria-label="navCollapsed ? 'Показать меню' : 'Свернуть меню'"
+      @click="navCollapsed = !navCollapsed"
+    >
+      <ChevronUp v-if="navCollapsed" class="h-4 w-4" aria-hidden="true" />
+      <ChevronDown v-else class="h-4 w-4" aria-hidden="true" />
+    </button>
+
+    <nav class="bottom-nav" :class="{ 'bottom-nav-collapsed': navCollapsed }" aria-label="Club sections">
       <button
         v-for="item in visibleNavItems"
         :key="item.id"

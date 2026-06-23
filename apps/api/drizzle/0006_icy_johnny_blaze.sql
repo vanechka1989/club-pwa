@@ -1,0 +1,1 @@
+ALTER TABLE "club_chat_topics" ADD COLUMN "archived_until" timestamp with time zone;

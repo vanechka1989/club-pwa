@@ -43,6 +43,13 @@
       "when": 1782217494406,
       "tag": "0005_mighty_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782218783311,
+      "tag": "0006_icy_johnny_blaze",
+      "breakpoints": true
     }
   ]
 }

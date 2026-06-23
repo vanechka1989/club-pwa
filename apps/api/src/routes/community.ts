@@ -1,9 +1,10 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gt, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole } from "../admin/roles";
 import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
+import { getArchiveExpirationDate } from "../community/topicArchive";
 import { db } from "../db/client";
 import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions } from "../db/schema";
 import { getActiveMute } from "../moderation/mutes";
@@ -138,7 +139,10 @@ async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>
     where:
       role === "member"
         ? and(eq(clubChatTopics.chatId, chat.id), eq(clubChatTopics.isPublished, true))
-        : eq(clubChatTopics.chatId, chat.id),
+        : and(
+            eq(clubChatTopics.chatId, chat.id),
+            or(eq(clubChatTopics.isPublished, true), gt(clubChatTopics.archivedUntil, new Date()))
+          ),
     orderBy: [desc(clubChatTopics.isPinned), desc(clubChatTopics.createdAt)]
   });
 
@@ -159,6 +163,7 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect): Promis
     isPinned: topic.isPinned,
     isLocked: topic.isLocked,
     isPublished: topic.isPublished,
+    archivedUntil: topic.archivedUntil?.toISOString() ?? null,
     messagesCount: messagesRow?.value ?? 0,
     createdAt: topic.createdAt.toISOString()
   };
@@ -312,7 +317,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       where:
         role === "member"
           ? and(eq(clubChatTopics.chatId, chat.id), eq(clubChatTopics.isPublished, true))
-          : eq(clubChatTopics.chatId, chat.id),
+          : and(
+              eq(clubChatTopics.chatId, chat.id),
+              or(eq(clubChatTopics.isPublished, true), gt(clubChatTopics.archivedUntil, new Date()))
+            ),
       orderBy: [desc(clubChatTopics.isPinned), desc(clubChatTopics.createdAt)]
     });
 
@@ -378,7 +386,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       .update(clubChatTopics)
       .set({
         ...(body.data.isLocked === undefined ? {} : { isLocked: body.data.isLocked }),
-        ...(body.data.isPublished === undefined ? {} : { isPublished: body.data.isPublished }),
+        ...(body.data.isPublished === undefined
+          ? {}
+          : {
+              isPublished: body.data.isPublished,
+              archivedUntil: body.data.isPublished ? null : getArchiveExpirationDate()
+            }),
         updatedAt: new Date()
       })
       .where(eq(clubChatTopics.id, c.req.param("id")))
