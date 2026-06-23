@@ -1,6 +1,6 @@
 import { count, eq } from "drizzle-orm";
 import { db, postgresClient } from "./client";
-import { clubChats, contentCategories, contentItems } from "./schema";
+import { clubChatTopics, clubChats, contentCategories, contentItems } from "./schema";
 
 const now = new Date();
 
@@ -100,19 +100,19 @@ async function seed() {
   const [generalChat] = await db
     .insert(clubChats)
     .values({
-      slug: "general",
-      title: "Общий чат",
-      description: "Основное пространство для общения участников клуба.",
+      slug: "club-community",
+      title: "Общение",
+      description: "Системный контейнер тем клуба.",
       isPublished: true,
-      sortOrder: 10
+      sortOrder: 0
     })
     .onConflictDoUpdate({
       target: clubChats.slug,
       set: {
-        title: "Общий чат",
-        description: "Основное пространство для общения участников клуба.",
+        title: "Общение",
+        description: "Системный контейнер тем клуба.",
         isPublished: true,
-        sortOrder: 10,
+        sortOrder: 0,
         updatedAt: now
       }
     })
@@ -120,6 +120,35 @@ async function seed() {
 
   if (!generalChat) {
     throw new Error("General chat was not created");
+  }
+
+  const existingTopics = await db.query.clubChatTopics.findMany({
+    where: eq(clubChatTopics.chatId, generalChat.id)
+  });
+  const existingTitles = new Set(existingTopics.map((topic) => topic.title.toLowerCase()));
+
+  const defaultTopics = [
+    {
+      title: "Новости клуба",
+      description: "Важные объявления и обновления клуба.",
+      isPinned: true
+    },
+    {
+      title: "Общение",
+      description: "Основной чат участников клуба.",
+      isPinned: false
+    }
+  ];
+
+  const missingTopics = defaultTopics.filter((topic) => !existingTitles.has(topic.title.toLowerCase()));
+  if (missingTopics.length) {
+    await db.insert(clubChatTopics).values(
+      missingTopics.map((topic) => ({
+        chatId: generalChat.id,
+        ...topic,
+        isPublished: true
+      }))
+    );
   }
 
 }

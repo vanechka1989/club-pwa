@@ -40,9 +40,8 @@ onMounted(() => {
   <main class="app-root min-h-screen pb-24 text-[var(--text)]">
     <h1 class="sr-only">{{ t("brand") }}</h1>
     <section class="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
-      <header class="app-header mb-4">
+      <header class="app-header mb-2">
         <div class="min-w-0">
-          <p class="section-eyebrow">{{ t("tagline") }}</p>
           <h1 class="app-title">
             {{ activeSection === "profile" ? t("brand") : t("headline") }}
           </h1>

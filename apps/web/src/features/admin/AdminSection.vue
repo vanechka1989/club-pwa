@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AdminMute, AdminStatsUser, AdminUser, ClubChat, ClubTopic } from "@club/shared";
+import type { AdminMute, AdminStatsUser, AdminUser, ClubTopic } from "@club/shared";
 import {
   BookOpen,
   CreditCard,
@@ -14,11 +14,9 @@ import {
 import { computed, onMounted, ref } from "vue";
 import {
   addAdminUser,
-  createClubChat,
-  createClubTopic,
+  createCommunityTopic,
   createUserMute,
-  getClubChats,
-  getClubTopics,
+  getCommunityTopics,
   getAdminStats,
   getAdminMutes,
   getAdminUserStats,
@@ -57,8 +55,6 @@ const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const activePanel = ref<AdminPanel>("users");
 const statsUsers = ref<AdminStatsUser[]>([]);
-const clubCategories = ref<ClubChat[]>([]);
-const selectedAdminCategory = ref<ClubChat | null>(null);
 const adminCategoryChats = ref<ClubTopic[]>([]);
 const selectedStatsUser = ref<AdminStatsUser | null>(null);
 const mutes = ref<AdminMute[]>([]);
@@ -67,8 +63,6 @@ const statsActiveUsers = ref(0);
 const statsCompletedItems = ref(0);
 const statsTotalItems = ref(0);
 const newAdminTelegramId = ref("");
-const newCategoryTitle = ref("");
-const newCategoryDescription = ref("");
 const newChatTitle = ref("");
 const newChatDescription = ref("");
 const searchTelegramId = ref("");
@@ -163,41 +157,16 @@ async function loadModeration() {
 }
 
 async function loadAdminChats() {
-  const response = await getClubChats();
-  clubCategories.value = response.chats;
-
-  if (!selectedAdminCategory.value && response.chats[0]) {
-    await openAdminCategory(response.chats[0]);
-  }
-}
-
-async function openAdminCategory(category: ClubChat) {
-  selectedAdminCategory.value = category;
-  const response = await getClubTopics(category.id);
+  const response = await getCommunityTopics();
   adminCategoryChats.value = response.topics;
 }
 
-async function handleCreateCategory() {
-  if (!newCategoryTitle.value.trim()) {
-    return;
-  }
-
-  const response = await createClubChat({
-    title: newCategoryTitle.value,
-    description: newCategoryDescription.value || null
-  });
-  newCategoryTitle.value = "";
-  newCategoryDescription.value = "";
-  clubCategories.value = [response.chat, ...clubCategories.value];
-  await openAdminCategory(response.chat);
-}
-
 async function handleCreateChat() {
-  if (!selectedAdminCategory.value || !newChatTitle.value.trim()) {
+  if (!newChatTitle.value.trim()) {
     return;
   }
 
-  const response = await createClubTopic(selectedAdminCategory.value.id, {
+  const response = await createCommunityTopic({
     title: newChatTitle.value,
     description: newChatDescription.value || null
   });
@@ -435,44 +404,18 @@ onMounted(() => {
 
     <section v-if="activePanel === 'chats'" class="surface-card space-y-4">
       <div>
-        <h3 class="font-semibold text-[var(--text)]">Категории и чаты</h3>
-        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">Создание категорий, чатов и управление доступностью общения.</p>
+        <h3 class="font-semibold text-[var(--text)]">Темы общения</h3>
+        <p class="mt-1 text-sm leading-6 text-[var(--muted)]">Создание тем и управление доступностью чатов.</p>
       </div>
 
       <div class="grid gap-2">
-        <p class="text-xs font-semibold text-[var(--muted)]">Новая категория</p>
-        <input v-model.trim="newCategoryTitle" class="text-input" placeholder="Название категории" />
-        <input v-model.trim="newCategoryDescription" class="text-input" placeholder="Описание" />
-        <button class="primary-button" type="button" @click="handleCreateCategory">Создать категорию</button>
-      </div>
-
-      <div class="grid gap-2">
-        <p class="text-xs font-semibold text-[var(--muted)]">Категории</p>
-        <button
-          v-for="category in clubCategories"
-          :key="category.id"
-          class="surface-card w-full text-left"
-          type="button"
-          @click="openAdminCategory(category)"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="font-semibold text-[var(--text)]">{{ category.title }}</p>
-              <p v-if="category.description" class="mt-1 text-sm text-[var(--muted)]">{{ category.description }}</p>
-            </div>
-            <span class="role-badge">{{ category.topicsCount }}</span>
-          </div>
-        </button>
-      </div>
-
-      <div v-if="selectedAdminCategory" class="grid gap-2">
-        <p class="text-xs font-semibold text-[var(--muted)]">Новый чат в категории «{{ selectedAdminCategory.title }}»</p>
+        <p class="text-xs font-semibold text-[var(--muted)]">Новая тема</p>
         <input v-model.trim="newChatTitle" class="text-input" placeholder="Название чата" />
         <input v-model.trim="newChatDescription" class="text-input" placeholder="Описание" />
         <button class="secondary-button" type="button" @click="handleCreateChat">Создать чат</button>
       </div>
 
-      <div v-if="selectedAdminCategory" class="space-y-2">
+      <div class="space-y-2">
         <article v-for="chat in adminCategoryChats" :key="chat.id" class="rounded-xl border border-[var(--border)] p-3">
           <div class="flex items-start justify-between gap-3">
             <div>

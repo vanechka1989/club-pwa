@@ -28,6 +28,20 @@ const topicSettingsSchema = z.object({
   isPublished: z.boolean().optional()
 });
 
+const systemChatSlug = "club-community";
+const defaultTopics = [
+  {
+    title: "Новости клуба",
+    description: "Важные объявления и обновления клуба.",
+    isPinned: true
+  },
+  {
+    title: "Общение",
+    description: "Основной чат участников клуба.",
+    isPinned: false
+  }
+] as const;
+
 function slugify(value: string) {
   const slug = value
     .toLowerCase()
@@ -51,6 +65,78 @@ async function serializeChat(chat: typeof clubChats.$inferSelect): Promise<ClubC
     description: chat.description,
     topicsCount: topicsRow?.value ?? 0
   };
+}
+
+async function getOrCreateSystemChat() {
+  const existing = await db.query.clubChats.findFirst({
+    where: eq(clubChats.slug, systemChatSlug)
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  const [chat] = await db
+    .insert(clubChats)
+    .values({
+      slug: systemChatSlug,
+      title: "Общение",
+      description: "Системный контейнер тем клуба.",
+      isPublished: true,
+      sortOrder: 0
+    })
+    .onConflictDoUpdate({
+      target: clubChats.slug,
+      set: {
+        title: "Общение",
+        isPublished: true,
+        updatedAt: new Date()
+      }
+    })
+    .returning();
+
+  if (!chat) {
+    throw new Error("Community chat was not created");
+  }
+
+  return chat;
+}
+
+async function ensureDefaultTopics(chatId: string) {
+  const existingTopics = await db.query.clubChatTopics.findMany({
+    where: eq(clubChatTopics.chatId, chatId)
+  });
+  const existingTitles = new Set(existingTopics.map((topic) => topic.title.toLowerCase()));
+  const missingTopics = defaultTopics.filter((topic) => !existingTitles.has(topic.title.toLowerCase()));
+
+  if (!missingTopics.length) {
+    return;
+  }
+
+  await db.insert(clubChatTopics).values(
+    missingTopics.map((topic) => ({
+      chatId,
+      title: topic.title,
+      description: topic.description,
+      isPinned: topic.isPinned,
+      isPublished: true
+    }))
+  );
+}
+
+async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>) {
+  const chat = await getOrCreateSystemChat();
+  await ensureDefaultTopics(chat.id);
+
+  const topics = await db.query.clubChatTopics.findMany({
+    where:
+      role === "member"
+        ? and(eq(clubChatTopics.chatId, chat.id), eq(clubChatTopics.isPublished, true))
+        : eq(clubChatTopics.chatId, chat.id),
+    orderBy: [desc(clubChatTopics.isPinned), desc(clubChatTopics.createdAt)]
+  });
+
+  return Promise.all(topics.map(serializeTopic));
 }
 
 async function serializeTopic(topic: typeof clubChatTopics.$inferSelect): Promise<ClubTopic> {
@@ -101,6 +187,44 @@ function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
 
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
+  .get("/topics", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+
+    return c.json({
+      topics: await listCommunityTopics(role)
+    });
+  })
+  .post("/topics", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
+    const body = topicPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid topic" }, 400);
+    }
+
+    const chat = await getOrCreateSystemChat();
+    const [topic] = await db
+      .insert(clubChatTopics)
+      .values({
+        chatId: chat.id,
+        title: body.data.title,
+        description: body.data.description ?? null,
+        createdByUserId: c.get("userId")
+      })
+      .returning();
+
+    if (!topic) {
+      return c.json({ error: "Unable to create topic" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      topic: await serializeTopic(topic)
+    });
+  })
   .get("/chats", async (c) => {
     const chats = await db.query.clubChats.findMany({
       where: eq(clubChats.isPublished, true),

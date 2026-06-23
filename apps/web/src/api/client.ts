@@ -101,8 +101,19 @@ export function getClubTopics(chatId: string) {
   return api<ClubTopicsResponse>(`/community/chats/${chatId}/topics`);
 }
 
+export function getCommunityTopics() {
+  return api<ClubTopicsResponse>("/community/topics");
+}
+
 export function createClubTopic(chatId: string, payload: { title: string; description?: string | null }) {
   return api<ClubTopicMutationResponse>(`/community/chats/${chatId}/topics`, {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function createCommunityTopic(payload: { title: string; description?: string | null }) {
+  return api<ClubTopicMutationResponse>("/community/topics", {
     method: "POST",
     body: payload
   });
