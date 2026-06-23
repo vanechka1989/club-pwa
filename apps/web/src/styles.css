@@ -727,12 +727,117 @@ button {
   font-weight: 760;
 }
 
+button.chat-message-author {
+  border-radius: 6px;
+  text-align: left;
+}
+
+button.chat-message-author:active {
+  opacity: 0.75;
+}
+
+.reply-preview {
+  display: grid;
+  width: 100%;
+  gap: 0.15rem;
+  margin-top: 0.45rem;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+}
+
+.reply-preview span:first-child {
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.reply-preview span:last-child {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-message-body {
   margin-top: 0.25rem;
   white-space: pre-wrap;
   color: var(--muted-strong);
   font-size: 0.84rem;
   line-height: 1.45;
+}
+
+.message-actions,
+.moderation-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.message-action {
+  display: inline-flex;
+  min-width: 2.15rem;
+  height: 1.85rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--panel) 76%, transparent);
+  color: var(--muted-strong);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.message-action-active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.moderation-menu {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  padding: 0.45rem;
+}
+
+.compose-reply {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-strong) 84%, transparent);
+  padding: 0.5rem 0.6rem;
+}
+
+.compose-reply p {
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.compose-reply span {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-reply button {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  place-items: center;
+  color: var(--muted-strong);
 }
 
 .chat-compose {

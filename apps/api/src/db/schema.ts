@@ -1,11 +1,12 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
 export const contentKind = pgEnum("content_kind", ["text", "photo", "video"]);
 export const supportTicketStatus = pgEnum("support_ticket_status", ["open", "answered", "closed"]);
 export const moderationStatus = pgEnum("moderation_status", ["visible", "hidden", "deleted"]);
 export const muteKind = pgEnum("mute_kind", ["temporary", "permanent"]);
+export const messageReaction = pgEnum("message_reaction", ["like", "dislike"]);
 
 export const users = pgTable(
   "users",
@@ -206,6 +207,7 @@ export const clubChatMessages = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     topicId: uuid("topic_id").notNull().references(() => clubChatTopics.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    replyToMessageId: uuid("reply_to_message_id").references((): AnyPgColumn => clubChatMessages.id, { onDelete: "set null" }),
     body: text("body").notNull(),
     status: moderationStatus("status").notNull().default("visible"),
     moderatedByUserId: uuid("moderated_by_user_id").references(() => users.id, { onDelete: "set null" }),
@@ -221,6 +223,22 @@ export const clubChatMessages = pgTable(
       table.createdAt
     ),
     userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt)
+  })
+);
+
+export const clubMessageReactions = pgTable(
+  "club_message_reactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    messageId: uuid("message_id").notNull().references(() => clubChatMessages.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    reaction: messageReaction("reaction").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    messageUserIdx: uniqueIndex("club_message_reactions_message_user_idx").on(table.messageId, table.userId),
+    messageReactionIdx: index("club_message_reactions_message_reaction_idx").on(table.messageId, table.reaction)
   })
 );
 
@@ -349,6 +367,22 @@ export const clubChatMessagesRelations = relations(clubChatMessages, ({ one }) =
   moderatedBy: one(users, {
     fields: [clubChatMessages.moderatedByUserId],
     references: [users.id]
+  }),
+  replyToMessage: one(clubChatMessages, {
+    fields: [clubChatMessages.replyToMessageId],
+    references: [clubChatMessages.id],
+    relationName: "message_replies"
+  })
+}));
+
+export const clubMessageReactionsRelations = relations(clubMessageReactions, ({ one }) => ({
+  message: one(clubChatMessages, {
+    fields: [clubMessageReactions.messageId],
+    references: [clubChatMessages.id]
+  }),
+  user: one(users, {
+    fields: [clubMessageReactions.userId],
+    references: [users.id]
   })
 }));
 
@@ -370,4 +404,5 @@ export type UserMute = typeof userMutes.$inferSelect;
 export type ClubChat = typeof clubChats.$inferSelect;
 export type ClubChatTopic = typeof clubChatTopics.$inferSelect;
 export type ClubChatMessage = typeof clubChatMessages.$inferSelect;
+export type ClubMessageReaction = typeof clubMessageReactions.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;

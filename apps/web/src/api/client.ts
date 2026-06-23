@@ -6,6 +6,7 @@ import type {
   ClubChatMutationResponse,
   ClubChatsResponse,
   ClubMessageMutationResponse,
+  ClubMessageReactionMutationResponse,
   ClubMessagesResponse,
   ClubTopicMutationResponse,
   ClubTopicsResponse,
@@ -130,10 +131,17 @@ export function getClubMessages(topicId: string) {
   return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages`);
 }
 
-export function createClubMessage(topicId: string, body: string) {
+export function createClubMessage(topicId: string, body: string, replyToMessageId?: string | null) {
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages`, {
     method: "POST",
-    body: { body }
+    body: { body, replyToMessageId: replyToMessageId ?? null }
+  });
+}
+
+export function reactToClubMessage(messageId: string, reaction: "like" | "dislike" | null) {
+  return api<ClubMessageReactionMutationResponse>(`/community/messages/${messageId}/reaction`, {
+    method: "POST",
+    body: { reaction }
   });
 }
 

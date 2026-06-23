@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClubMessage, ClubTopic } from "@club/shared";
-import { ArrowLeft, Lock, MessageCircle, Plus, Send, Smile, Trash2 } from "lucide-vue-next";
+import { ArrowLeft, Lock, MessageCircle, Plus, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
 import { computed, nextTick, onMounted, ref } from "vue";
 import {
   createClubMessage,
@@ -8,6 +8,7 @@ import {
   createUserMute,
   getClubMessages,
   getCommunityTopics,
+  reactToClubMessage,
   updateClubTopicSettings,
   updateModerationStatus
 } from "@/api/client";
@@ -26,6 +27,10 @@ const mutedPermanently = ref(false);
 const newMessage = ref("");
 const newTopicTitle = ref("");
 const showCreateTopic = ref(false);
+const replyToMessage = ref<ClubMessage | null>(null);
+const activeModerationMessageId = ref<string | null>(null);
+const pointerStartX = ref<number | null>(null);
+const pointerStartY = ref<number | null>(null);
 const messageSaving = ref(false);
 const topicSaving = ref(false);
 const communityError = ref<string | null>(null);
@@ -62,6 +67,31 @@ function formatMessageTime(value: string) {
 
 function appendEmoji(emoji: string) {
   newMessage.value = `${newMessage.value}${emoji}`;
+}
+
+function startReply(message: ClubMessage) {
+  replyToMessage.value = message;
+  newMessage.value = newMessage.value || "";
+}
+
+function handlePointerDown(event: PointerEvent) {
+  pointerStartX.value = event.clientX;
+  pointerStartY.value = event.clientY;
+}
+
+function handlePointerUp(event: PointerEvent, message: ClubMessage) {
+  if (pointerStartX.value === null || pointerStartY.value === null) {
+    return;
+  }
+
+  const deltaX = event.clientX - pointerStartX.value;
+  const deltaY = Math.abs(event.clientY - pointerStartY.value);
+  pointerStartX.value = null;
+  pointerStartY.value = null;
+
+  if (deltaX > 54 && deltaY < 40) {
+    startReply(message);
+  }
 }
 
 async function scrollToBottom() {
@@ -135,8 +165,9 @@ async function handleSendMessage() {
   messageSaving.value = true;
   communityError.value = null;
   try {
-    const response = await createClubMessage(selectedTopic.value.id, newMessage.value);
+    const response = await createClubMessage(selectedTopic.value.id, newMessage.value, replyToMessage.value?.id ?? null);
     newMessage.value = "";
+    replyToMessage.value = null;
     messages.value = [response.message, ...messages.value];
     selectedTopic.value = {
       ...selectedTopic.value,
@@ -154,6 +185,7 @@ async function handleSendMessage() {
 async function handleMessageStatus(message: ClubMessage, status: "visible" | "hidden" | "deleted") {
   await updateModerationStatus("chat_message", message.id, status);
   messages.value = messages.value.map((item) => (item.id === message.id ? { ...item, status } : item));
+  activeModerationMessageId.value = null;
 }
 
 async function handleMute(message: ClubMessage, minutes: number | null) {
@@ -164,6 +196,13 @@ async function handleMute(message: ClubMessage, minutes: number | null) {
     reason: "Модерация сообщения в чате",
     expiresAt
   });
+  activeModerationMessageId.value = null;
+}
+
+async function handleReaction(message: ClubMessage, reaction: "like" | "dislike") {
+  const nextReaction = message.myReaction === reaction ? null : reaction;
+  const response = await reactToClubMessage(message.id, nextReaction);
+  messages.value = messages.value.map((item) => (item.id === message.id ? response.message : item));
 }
 
 onMounted(() => {
@@ -259,16 +298,53 @@ onMounted(() => {
           :key="message.id"
           class="chat-message"
           :class="{ 'opacity-55': message.status !== 'visible' }"
+          @pointerdown="handlePointerDown"
+          @pointerup="handlePointerUp($event, message)"
         >
           <div class="chat-message-head">
-            <span class="chat-message-author">{{ authorName(message) }}</span>
+            <button
+              v-if="isModerator"
+              class="chat-message-author"
+              type="button"
+              @click.stop="activeModerationMessageId = activeModerationMessageId === message.id ? null : message.id"
+            >
+              {{ authorName(message) }}
+            </button>
+            <span v-else class="chat-message-author">{{ authorName(message) }}</span>
             <span>{{ formatMessageTime(message.createdAt) }}</span>
           </div>
+          <button v-if="message.replyTo" class="reply-preview" type="button" @click="startReply(message)">
+            <span>{{ authorName({ ...message, author: message.replyTo.author }) }}</span>
+            <span>{{ message.replyTo.body }}</span>
+          </button>
           <p class="chat-message-body">{{ message.body }}</p>
           <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
             {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
           </p>
-          <div v-if="isModerator" class="mt-2 flex flex-wrap gap-1">
+          <div class="message-actions">
+            <button
+              class="message-action"
+              :class="{ 'message-action-active': message.myReaction === 'like' }"
+              type="button"
+              @click="handleReaction(message, 'like')"
+            >
+              <ThumbsUp class="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{{ message.likesCount || "" }}</span>
+            </button>
+            <button
+              class="message-action"
+              :class="{ 'message-action-active': message.myReaction === 'dislike' }"
+              type="button"
+              @click="handleReaction(message, 'dislike')"
+            >
+              <ThumbsDown class="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{{ message.dislikesCount || "" }}</span>
+            </button>
+            <button class="message-action" type="button" @click="startReply(message)">
+              <Reply class="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
+          <div v-if="isModerator && activeModerationMessageId === message.id" class="moderation-menu">
             <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
               {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
             </button>
@@ -287,6 +363,15 @@ onMounted(() => {
       </div>
 
       <form class="chat-compose" @submit.prevent="handleSendMessage">
+        <div v-if="replyToMessage" class="compose-reply">
+          <div class="min-w-0">
+            <p>Ответ {{ authorName(replyToMessage) }}</p>
+            <span>{{ replyToMessage.body }}</span>
+          </div>
+          <button type="button" aria-label="Убрать ответ" @click="replyToMessage = null">
+            <X class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
         <div class="emoji-row">
           <Smile class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
           <button v-for="emoji in quickEmoji" :key="emoji" type="button" @click="appendEmoji(emoji)">

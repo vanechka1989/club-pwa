@@ -82,6 +82,9 @@ export type LearningProgressMutationResponse = z.infer<typeof learningProgressMu
 export const moderationStatusSchema = z.enum(["visible", "hidden", "deleted"]);
 export type ModerationStatus = z.infer<typeof moderationStatusSchema>;
 
+export const messageReactionSchema = z.enum(["like", "dislike"]);
+export type MessageReaction = z.infer<typeof messageReactionSchema>;
+
 export const muteKindSchema = z.enum(["temporary", "permanent"]);
 export type MuteKind = z.infer<typeof muteKindSchema>;
 
@@ -177,6 +180,16 @@ export const clubMessageSchema = z.object({
   body: z.string(),
   status: moderationStatusSchema,
   author: commentAuthorSchema,
+  replyTo: z
+    .object({
+      id: z.string(),
+      body: z.string(),
+      author: commentAuthorSchema
+    })
+    .nullable(),
+  likesCount: z.number().int().nonnegative(),
+  dislikesCount: z.number().int().nonnegative(),
+  myReaction: messageReactionSchema.nullable(),
   createdAt: z.string().datetime()
 });
 export type ClubMessage = z.infer<typeof clubMessageSchema>;
@@ -215,6 +228,12 @@ export const clubMessageMutationResponseSchema = z.object({
   message: clubMessageSchema
 });
 export type ClubMessageMutationResponse = z.infer<typeof clubMessageMutationResponseSchema>;
+
+export const clubMessageReactionMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  message: clubMessageSchema
+});
+export type ClubMessageReactionMutationResponse = z.infer<typeof clubMessageReactionMutationResponseSchema>;
 
 export const adminUserSchema = z.object({
   id: z.string(),

@@ -3,8 +3,9 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole } from "../admin/roles";
+import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions } from "../db/schema";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
@@ -20,7 +21,12 @@ const topicPayloadSchema = z.object({
 });
 
 const messagePayloadSchema = z.object({
-  body: z.string().trim().min(1).max(3000)
+  body: z.string().trim().min(1).max(3000),
+  replyToMessageId: z.string().uuid().nullable().optional()
+});
+
+const reactionPayloadSchema = z.object({
+  reaction: z.enum(["like", "dislike"]).nullable()
 });
 
 const topicSettingsSchema = z.object({
@@ -158,11 +164,25 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect): Promis
   };
 }
 
-function serializeMessage(
+async function serializeMessage(
   message: typeof clubChatMessages.$inferSelect & {
     user: { id: string; telegramId: string; firstName: string | null; username: string | null };
-  }
-): ClubMessage {
+  },
+  currentUserId: string
+): Promise<ClubMessage> {
+  const reactions = await db.query.clubMessageReactions.findMany({
+    where: eq(clubMessageReactions.messageId, message.id)
+  });
+  const replyTo = message.replyToMessageId
+    ? await db.query.clubChatMessages.findFirst({
+        where: eq(clubChatMessages.id, message.replyToMessageId),
+        with: {
+          user: true
+        }
+      })
+    : null;
+  const reactionSummary = summarizeReactions(reactions, currentUserId);
+
   return {
     id: message.id,
     topicId: message.topicId,
@@ -174,8 +194,21 @@ function serializeMessage(
       firstName: message.user.firstName,
       username: message.user.username
     },
+    replyTo: buildReplyPreview(replyTo ?? null),
+    likesCount: reactionSummary.likesCount,
+    dislikesCount: reactionSummary.dislikesCount,
+    myReaction: reactionSummary.myReaction,
     createdAt: message.createdAt.toISOString()
   };
+}
+
+async function findMessageWithUser(id: string) {
+  return db.query.clubChatMessages.findFirst({
+    where: eq(clubChatMessages.id, id),
+    with: {
+      user: true
+    }
+  });
 }
 
 function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
@@ -384,7 +417,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const mute = await getActiveMute(c.get("userId"));
 
     return c.json({
-      messages: messages.map(serializeMessage),
+      messages: await Promise.all(messages.map((message) => serializeMessage(message, c.get("userId")))),
       ...serializeMute(mute)
     });
   })
@@ -411,11 +444,22 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Topic is locked" }, 403);
     }
 
+    if (body.data.replyToMessageId) {
+      const replyToMessage = await db.query.clubChatMessages.findFirst({
+        where: and(eq(clubChatMessages.id, body.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id))
+      });
+
+      if (!replyToMessage) {
+        return c.json({ error: "Reply message not found" }, 404);
+      }
+    }
+
     const [message] = await db
       .insert(clubChatMessages)
       .values({
         topicId: topic.id,
         userId: c.get("userId"),
+        replyToMessageId: body.data.replyToMessageId ?? null,
         body: body.data.body
       })
       .returning();
@@ -437,6 +481,51 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      message: serializeMessage(createdMessage)
+      message: await serializeMessage(createdMessage, c.get("userId"))
+    });
+  })
+  .post("/messages/:id/reaction", async (c) => {
+    const body = reactionPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid reaction" }, 400);
+    }
+
+    const message = await db.query.clubChatMessages.findFirst({
+      where: eq(clubChatMessages.id, c.req.param("id"))
+    });
+
+    if (!message) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    if (body.data.reaction === null) {
+      await db
+        .delete(clubMessageReactions)
+        .where(and(eq(clubMessageReactions.messageId, message.id), eq(clubMessageReactions.userId, c.get("userId"))));
+    } else {
+      await db
+        .insert(clubMessageReactions)
+        .values({
+          messageId: message.id,
+          userId: c.get("userId"),
+          reaction: body.data.reaction
+        })
+        .onConflictDoUpdate({
+          target: [clubMessageReactions.messageId, clubMessageReactions.userId],
+          set: {
+            reaction: body.data.reaction,
+            updatedAt: new Date()
+          }
+        });
+    }
+
+    const updatedMessage = await findMessageWithUser(message.id);
+    if (!updatedMessage) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    return c.json({
+      ok: true,
+      message: await serializeMessage(updatedMessage, c.get("userId"))
     });
   });
