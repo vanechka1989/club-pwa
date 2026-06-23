@@ -861,6 +861,18 @@ button {
   padding: 0.6rem 0.7rem;
 }
 
+.chat-message-own {
+  margin-left: auto;
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 45%, var(--panel-strong));
+}
+
+.chat-message-reply-to-me {
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--border));
+  background: color-mix(in srgb, var(--gold-soft) 38%, var(--panel-strong));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gold) 75%, transparent);
+}
+
 .chat-message-system {
   width: 100%;
   max-width: 100%;

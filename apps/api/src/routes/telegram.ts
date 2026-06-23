@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { env } from "../env";
+import { sendTelegramMessage } from "../telegram/client";
 
 const telegramUpdateSchema = z.object({
   message: z
@@ -14,15 +15,10 @@ const telegramUpdateSchema = z.object({
 });
 
 async function sendStartMessage(chatId: string | number) {
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: "Клуб готов к открытию.",
-      reply_markup: {
+  await sendTelegramMessage({
+    chatId,
+    text: "Клуб готов к открытию.",
+    replyMarkup: {
         inline_keyboard: [
           [
             {
@@ -34,12 +30,7 @@ async function sendStartMessage(chatId: string | number) {
           ]
         ]
       }
-    })
   });
-
-  if (!response.ok) {
-    throw new Error(`Telegram sendMessage failed: ${response.status}`);
-  }
 }
 
 export const telegramRoute = new Hono().post("/webhook", async (c) => {

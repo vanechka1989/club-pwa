@@ -5,12 +5,16 @@ import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole } from "../admin/roles";
 import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
+import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { db } from "../db/client";
 import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions, userMutes, users } from "../db/schema";
+import { env } from "../env";
+import { logger } from "../logger";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
+import { sendTelegramMessage } from "../telegram/client";
 
 const chatPayloadSchema = z.object({
   title: z.string().trim().min(2).max(160),
@@ -268,6 +272,45 @@ function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
   };
 }
 
+async function notifyReplyRecipient({
+  topic,
+  replyToMessage,
+  sender,
+  body
+}: {
+  topic: typeof clubChatTopics.$inferSelect;
+  replyToMessage: typeof clubChatMessages.$inferSelect & {
+    user: { id: string; telegramId: string; firstName: string | null; username: string | null };
+  };
+  sender: { id: string; telegramId: string; firstName: string | null; username: string | null };
+  body: string;
+}) {
+  if (replyToMessage.userId === sender.id) {
+    return;
+  }
+
+  await sendTelegramMessage({
+    chatId: replyToMessage.user.telegramId,
+    text: formatReplyNotificationText({
+      senderName: userName(sender),
+      topicTitle: topic.title,
+      body
+    }),
+    replyMarkup: {
+      inline_keyboard: [
+        [
+          {
+            text: "Открыть клуб",
+            web_app: {
+              url: env.WEB_ORIGIN
+            }
+          }
+        ]
+      ]
+    }
+  });
+}
+
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .get("/topics", async (c) => {
@@ -502,14 +545,31 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Topic is locked" }, 403);
     }
 
-    if (body.data.replyToMessageId) {
-      const replyToMessage = await db.query.clubChatMessages.findFirst({
-        where: and(eq(clubChatMessages.id, body.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id))
-      });
+    const replyToMessage = body.data.replyToMessageId
+      ? await db.query.clubChatMessages.findFirst({
+        where: and(eq(clubChatMessages.id, body.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id)),
+        with: {
+          user: true
+        }
+      })
+      : null;
 
+    if (body.data.replyToMessageId) {
       if (!replyToMessage) {
         return c.json({ error: "Reply message not found" }, 404);
       }
+
+      if (replyToMessage.isSystem) {
+        return c.json({ error: "Cannot reply to system message" }, 400);
+      }
+    }
+
+    const sender = await db.query.users.findFirst({
+      where: eq(users.id, c.get("userId"))
+    });
+
+    if (!sender) {
+      return c.json({ error: "Unable to resolve sender" }, 500);
     }
 
     const [message] = await db
@@ -524,6 +584,17 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!message) {
       return c.json({ error: "Unable to create message" }, 500);
+    }
+
+    if (replyToMessage) {
+      notifyReplyRecipient({
+        topic,
+        replyToMessage,
+        sender,
+        body: body.data.body
+      }).catch((error: unknown) => {
+        logger.warn({ error, messageId: message.id }, "reply notification failed");
+      });
     }
 
     const createdMessage = await db.query.clubChatMessages.findFirst({

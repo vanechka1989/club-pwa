@@ -89,6 +89,14 @@ function formatMuteLabel(message: ClubMessage) {
   return `Мут до ${message.authorMute.expiresAt ? new Date(message.authorMute.expiresAt).toLocaleString("ru-RU") : ""}`;
 }
 
+function isOwnMessage(message: ClubMessage) {
+  return message.author.id === session.user?.id;
+}
+
+function isReplyToMe(message: ClubMessage) {
+  return message.replyTo?.author.id === session.user?.id && !isOwnMessage(message);
+}
+
 function showMuteAlert() {
   const message = mutedPermanently.value
     ? "На вас наложен бессрочный мут. Вы пока не можете писать в чат."
@@ -378,7 +386,12 @@ onBeforeUnmount(() => {
           v-for="message in orderedMessages"
           :key="message.id"
           class="chat-message"
-          :class="{ 'opacity-55': message.status !== 'visible', 'chat-message-system': message.isSystem }"
+          :class="{
+            'opacity-55': message.status !== 'visible',
+            'chat-message-system': message.isSystem,
+            'chat-message-own': !message.isSystem && isOwnMessage(message),
+            'chat-message-reply-to-me': !message.isSystem && isReplyToMe(message)
+          }"
           @pointerdown="handlePointerDown"
           @pointerup="handlePointerUp($event, message)"
         >
