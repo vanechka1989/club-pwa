@@ -195,6 +195,7 @@ async function serializeMessage(
       })
     : null;
   const reactionSummary = summarizeReactions(reactions, currentUserId);
+  const authorMute = await getActiveMute(message.user.id);
 
   return {
     id: message.id,
@@ -212,6 +213,13 @@ async function serializeMessage(
     likesCount: reactionSummary.likesCount,
     dislikesCount: reactionSummary.dislikesCount,
     myReaction: reactionSummary.myReaction,
+    authorMute: authorMute
+      ? {
+          id: authorMute.id,
+          kind: authorMute.kind,
+          expiresAt: authorMute.expiresAt?.toISOString() ?? null
+        }
+      : null,
     createdAt: message.createdAt.toISOString()
   };
 }

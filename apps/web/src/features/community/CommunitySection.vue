@@ -9,6 +9,7 @@ import {
   getClubMessages,
   getCommunityTopics,
   reactToClubMessage,
+  revokeUserMute,
   updateClubTopicSettings,
   updateModerationStatus
 } from "@/api/client";
@@ -70,6 +71,18 @@ function formatMessageTime(value: string) {
 
 function formatArchiveUntil(value: string | null) {
   return value ? new Date(value).toLocaleDateString("ru-RU") : "";
+}
+
+function formatMuteLabel(message: ClubMessage) {
+  if (!message.authorMute) {
+    return "";
+  }
+
+  if (message.authorMute.kind === "permanent") {
+    return "Мут бессрочно";
+  }
+
+  return `Мут до ${message.authorMute.expiresAt ? new Date(message.authorMute.expiresAt).toLocaleString("ru-RU") : ""}`;
 }
 
 function showMuteAlert() {
@@ -245,7 +258,18 @@ async function handleMute(message: ClubMessage, minutes: number | null) {
   });
   messages.value = [response.message, ...messages.value];
   activeModerationMessageId.value = null;
+  await openTopic(selectedTopic.value);
   await scrollToBottom();
+}
+
+async function handleRevokeMute(message: ClubMessage) {
+  if (!selectedTopic.value || !message.authorMute) {
+    return;
+  }
+
+  await revokeUserMute(message.authorMute.id);
+  activeModerationMessageId.value = null;
+  await openTopic(selectedTopic.value);
 }
 
 async function handleReaction(message: ClubMessage, reaction: "like" | "dislike") {
@@ -408,6 +432,10 @@ onMounted(() => {
             </button>
           </div>
           <div v-if="!message.isSystem && isModerator && activeModerationMessageId === message.id" class="moderation-menu">
+            <div v-if="message.authorMute" class="moderation-status">
+              <span>{{ formatMuteLabel(message) }}</span>
+              <button class="mini-action" type="button" @click="handleRevokeMute(message)">Снять мут</button>
+            </div>
             <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
               {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
             </button>

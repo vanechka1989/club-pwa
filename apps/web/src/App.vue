@@ -38,9 +38,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="app-root min-h-screen text-[var(--text)]" :class="{ 'nav-is-collapsed': navCollapsed }">
+  <main
+    class="app-root min-h-screen text-[var(--text)]"
+    :class="{ 'nav-is-collapsed': navCollapsed, 'community-active': activeSection === 'community' }"
+  >
     <h1 class="sr-only">{{ t("brand") }}</h1>
-    <section class="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
+    <section class="app-shell mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
       <header class="app-header mb-2">
         <div class="min-w-0">
           <h1 class="app-title">
@@ -66,7 +69,7 @@ onMounted(() => {
           </div>
       </header>
 
-      <div class="content-panel">
+      <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
         <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
 
         <div v-else-if="session.error" class="space-y-3">
@@ -74,7 +77,7 @@ onMounted(() => {
           <p class="text-sm leading-6 text-[var(--muted)]">{{ session.error }}</p>
         </div>
 
-        <div v-else-if="session.user">
+        <div v-else-if="session.user" class="section-host">
           <ProfileSection v-if="activeSection === 'profile'" @open-payments="activeSection = 'payments'" />
           <LearningSection v-else-if="activeSection === 'learning'" />
           <CommunitySection v-else-if="activeSection === 'community'" />

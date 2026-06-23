@@ -192,6 +192,13 @@ export const clubMessageSchema = z.object({
   likesCount: z.number().int().nonnegative(),
   dislikesCount: z.number().int().nonnegative(),
   myReaction: messageReactionSchema.nullable(),
+  authorMute: z
+    .object({
+      id: z.string(),
+      kind: muteKindSchema,
+      expiresAt: z.string().datetime().nullable()
+    })
+    .nullable(),
   createdAt: z.string().datetime()
 });
 export type ClubMessage = z.infer<typeof clubMessageSchema>;
