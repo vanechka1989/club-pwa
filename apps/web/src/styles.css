@@ -94,11 +94,21 @@ button {
   overscroll-behavior: none;
 }
 
+.app-root.community-chat-open {
+  --nav-space: 0rem;
+}
+
 .community-active .app-shell {
   height: calc(100dvh - var(--nav-space));
-  min-height: 0;
-  padding-bottom: 0.5rem;
+  min-height: 0 !important;
+  max-width: none;
+  padding: 0.65rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
   overflow: hidden;
+}
+
+.community-chat-open .app-shell {
+  height: 100dvh;
+  padding: 0;
 }
 
 .community-active .content-panel-community,
@@ -108,6 +118,24 @@ button {
   flex: 1;
   flex-direction: column;
   overflow: hidden;
+}
+
+.community-active .content-panel-community {
+  flex: 1;
+}
+
+.community-chat-open .content-panel-community {
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.community-chat-open .bottom-nav,
+.community-chat-open .bottom-nav-toggle {
+  display: none;
 }
 
 .app-header {
@@ -790,6 +818,11 @@ button {
   overflow: hidden;
 }
 
+.community-chat-open .chat-room {
+  height: 100dvh;
+  padding: 0.7rem 0.75rem calc(0.7rem + env(safe-area-inset-bottom));
+}
+
 .nav-is-collapsed .chat-room {
   min-height: 0;
 }
@@ -802,7 +835,14 @@ button {
   padding-bottom: 0.55rem;
 }
 
+.chat-room-notices {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 0;
+}
+
 .chat-messages {
+  grid-row: 3;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -987,6 +1027,7 @@ button.chat-message-author:active {
 }
 
 .chat-compose {
+  grid-row: 4;
   z-index: 12;
   display: grid;
   gap: 0.45rem;

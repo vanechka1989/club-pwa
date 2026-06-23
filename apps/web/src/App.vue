@@ -17,6 +17,7 @@ const ui = useUiStore();
 const { currentLocale, setLocale, t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
+const communityChatOpen = ref(false);
 
 const visibleNavItems = computed(() =>
   navItems.filter((item) => !item.adminOnly || session.user?.role === "admin" || session.user?.role === "owner")
@@ -49,6 +50,9 @@ watch(
   () => activeSection.value === "community",
   (isCommunity) => {
     syncCommunityLock(isCommunity);
+    if (!isCommunity) {
+      communityChatOpen.value = false;
+    }
   },
   { immediate: true }
 );
@@ -61,17 +65,21 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="app-root min-h-screen text-[var(--text)]"
-    :class="{ 'nav-is-collapsed': navCollapsed, 'community-active': activeSection === 'community' }"
+    :class="{
+      'nav-is-collapsed': navCollapsed,
+      'community-active': activeSection === 'community',
+      'community-chat-open': activeSection === 'community' && communityChatOpen
+    }"
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
     <section class="app-shell mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
-      <header class="app-header mb-2">
+      <header v-if="activeSection !== 'community'" class="app-header mb-2">
         <div class="min-w-0">
           <h1 class="app-title">
             {{ activeSection === "profile" ? t("brand") : t("headline") }}
           </h1>
         </div>
-          <div class="compact-controls shrink-0 self-start">
+          <div v-if="activeSection === 'profile'" class="compact-controls shrink-0 self-start">
             <button
               type="button"
               :aria-label="t('language')"
@@ -101,7 +109,7 @@ onBeforeUnmount(() => {
         <div v-else-if="session.user" class="section-host">
           <ProfileSection v-if="activeSection === 'profile'" @open-payments="activeSection = 'payments'" />
           <LearningSection v-else-if="activeSection === 'learning'" />
-          <CommunitySection v-else-if="activeSection === 'community'" />
+          <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
           <PaymentsSection v-else-if="activeSection === 'payments'" />
           <SupportSection v-else-if="activeSection === 'support'" />
           <AdminSection v-else />

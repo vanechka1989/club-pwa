@@ -30,3 +30,13 @@ export function formatMuteSystemMessage({
 }) {
   return `${moderatorName} наложил мут на ${targetName}: ${duration}.`;
 }
+
+export function formatUnmuteSystemMessage({
+  moderatorName,
+  targetName
+}: {
+  moderatorName: string;
+  targetName: string;
+}) {
+  return `${moderatorName} снял мут с ${targetName}.`;
+}

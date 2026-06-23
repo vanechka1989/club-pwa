@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole } from "../admin/roles";
 import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
-import { formatMuteDuration, formatMuteSystemMessage } from "../community/muteNotice";
+import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { db } from "../db/client";
 import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions, userMutes, users } from "../db/schema";
@@ -600,6 +600,64 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const createdMessage = systemMessage ? await findMessageWithUser(systemMessage.id) : null;
     if (!createdMessage) {
       return c.json({ error: "Unable to create mute notice" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      message: await serializeMessage(createdMessage, c.get("userId"))
+    });
+  })
+  .delete("/topics/:topicId/mutes/:muteId", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
+    const topic = await db.query.clubChatTopics.findFirst({
+      where: eq(clubChatTopics.id, c.req.param("topicId"))
+    });
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    const mute = await db.query.userMutes.findFirst({
+      where: eq(userMutes.id, c.req.param("muteId")),
+      with: {
+        user: true
+      }
+    });
+    const moderator = await db.query.users.findFirst({
+      where: eq(users.id, c.get("userId"))
+    });
+    if (!mute || !moderator) {
+      return c.json({ error: "Mute not found" }, 404);
+    }
+
+    await db
+      .update(userMutes)
+      .set({
+        revokedAt: new Date(),
+        revokedByUserId: c.get("userId"),
+        updatedAt: new Date()
+      })
+      .where(eq(userMutes.id, mute.id));
+
+    const [systemMessage] = await db
+      .insert(clubChatMessages)
+      .values({
+        topicId: topic.id,
+        userId: c.get("userId"),
+        isSystem: true,
+        body: formatUnmuteSystemMessage({
+          moderatorName: userName(moderator),
+          targetName: userName(mute.user)
+        })
+      })
+      .returning();
+
+    const createdMessage = systemMessage ? await findMessageWithUser(systemMessage.id) : null;
+    if (!createdMessage) {
+      return c.json({ error: "Unable to create unmute notice" }, 500);
     }
 
     return c.json({

@@ -155,6 +155,12 @@ export function createTopicUserMute(
   });
 }
 
+export function revokeTopicUserMute(topicId: string, muteId: string) {
+  return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/mutes/${muteId}`, {
+    method: "DELETE"
+  });
+}
+
 export function getPaymentPlans() {
   return api<PaymentsResponse>("/payments/plans");
 }

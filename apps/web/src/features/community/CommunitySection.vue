@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ClubMessage, ClubTopic } from "@club/shared";
-import { ArrowLeft, Lock, MessageCircle, Plus, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
-import { computed, nextTick, onMounted, ref } from "vue";
+import { ArrowLeft, MessageCircle, Plus, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
   createCommunityTopic,
@@ -9,7 +9,7 @@ import {
   getClubMessages,
   getCommunityTopics,
   reactToClubMessage,
-  revokeUserMute,
+  revokeTopicUserMute,
   updateClubTopicSettings,
   updateModerationStatus
 } from "@/api/client";
@@ -18,6 +18,10 @@ import { useSessionStore } from "@/stores/session";
 
 const { t } = useI18n();
 const session = useSessionStore();
+
+const emit = defineEmits<{
+  chatOpenChange: [isOpen: boolean];
+}>();
 
 const topics = ref<ClubTopic[]>([]);
 const messages = ref<ClubMessage[]>([]);
@@ -184,21 +188,6 @@ async function createTopic() {
   }
 }
 
-async function updateSelectedTopic(patch: Partial<Pick<ClubTopic, "isLocked" | "isPublished">>) {
-  if (!selectedTopic.value) {
-    return;
-  }
-
-  const response = await updateClubTopicSettings(selectedTopic.value.id, patch);
-  selectedTopic.value = response.topic;
-  topics.value = topics.value.map((topic) => (topic.id === response.topic.id ? response.topic : topic));
-
-  if (patch.isPublished === false) {
-    selectedTopic.value = null;
-    await loadTopics();
-  }
-}
-
 async function restoreTopic(topic: ClubTopic) {
   const response = await updateClubTopicSettings(topic.id, { isPublished: true });
   topics.value = topics.value.map((item) => (item.id === topic.id ? response.topic : item));
@@ -267,7 +256,7 @@ async function handleRevokeMute(message: ClubMessage) {
     return;
   }
 
-  await revokeUserMute(message.authorMute.id);
+  await revokeTopicUserMute(selectedTopic.value.id, message.authorMute.id);
   activeModerationMessageId.value = null;
   await openTopic(selectedTopic.value);
 }
@@ -280,6 +269,18 @@ async function handleReaction(message: ClubMessage, reaction: "like" | "dislike"
 
 onMounted(() => {
   void loadTopics();
+});
+
+watch(
+  () => Boolean(selectedTopic.value),
+  (isOpen) => {
+    emit("chatOpenChange", isOpen);
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(() => {
+  emit("chatOpenChange", false);
 });
 </script>
 
@@ -363,19 +364,13 @@ onMounted(() => {
             {{ selectedTopic.isLocked ? "Тема закрыта" : "Открытый чат" }}
           </p>
         </div>
-        <div v-if="isModerator" class="flex gap-1">
-          <button class="icon-button" type="button" aria-label="Закрыть тему" @click="updateSelectedTopic({ isLocked: !selectedTopic.isLocked })">
-            <Lock class="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button class="icon-button" type="button" aria-label="В архив" @click="updateSelectedTopic({ isPublished: false })">
-            <Trash2 class="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
       </header>
 
-      <p v-if="communityError" class="px-1 text-xs text-[var(--danger)]">{{ communityError }}</p>
-      <p v-if="mutedPermanently" class="px-1 text-xs text-[var(--danger)]">{{ t("mutedPermanent") }}</p>
-      <p v-else-if="mutedUntil" class="px-1 text-xs text-[var(--danger)]">{{ t("mutedTemporary") }}</p>
+      <div class="chat-room-notices">
+        <p v-if="communityError" class="px-1 text-xs text-[var(--danger)]">{{ communityError }}</p>
+        <p v-if="mutedPermanently" class="px-1 text-xs text-[var(--danger)]">{{ t("mutedPermanent") }}</p>
+        <p v-else-if="mutedUntil" class="px-1 text-xs text-[var(--danger)]">{{ t("mutedTemporary") }}</p>
+      </div>
 
       <div class="chat-messages">
         <p v-if="!messages.length" class="py-6 text-center text-xs text-[var(--muted)]">{{ t("messagesEmpty") }}</p>

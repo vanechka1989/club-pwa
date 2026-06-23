@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMuteDuration, formatMuteSystemMessage } from "./muteNotice";
+import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "./muteNotice";
 
 describe("muteNotice", () => {
   it("formats temporary mute duration", () => {
@@ -21,5 +21,14 @@ describe("muteNotice", () => {
         duration: "30 минут"
       })
     ).toBe("Ivan наложил мут на Екатерина: 30 минут.");
+  });
+
+  it("builds unmute system message text", () => {
+    expect(
+      formatUnmuteSystemMessage({
+        moderatorName: "Ivan",
+        targetName: "Екатерина"
+      })
+    ).toBe("Ivan снял мут с Екатерина.");
   });
 });
