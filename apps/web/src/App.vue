@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp, Moon, Sun } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -30,10 +30,31 @@ function changeTheme(theme: Theme) {
   ui.setTheme(theme);
 }
 
+function syncCommunityLock(isLocked: boolean) {
+  document.documentElement.classList.toggle("club-community-locked", isLocked);
+  document.body.classList.toggle("club-community-locked", isLocked);
+
+  if (isLocked) {
+    window.scrollTo({ top: 0, left: 0 });
+  }
+}
+
 onMounted(() => {
   window.Telegram?.WebApp?.ready();
   window.Telegram?.WebApp?.expand();
   void session.load();
+});
+
+watch(
+  () => activeSection.value === "community",
+  (isCommunity) => {
+    syncCommunityLock(isCommunity);
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(() => {
+  syncCommunityLock(false);
 });
 </script>
 

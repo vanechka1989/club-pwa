@@ -397,6 +397,7 @@ onMounted(() => {
               {{ authorName(message) }}
             </button>
             <span v-else class="chat-message-author">{{ authorName(message) }}</span>
+            <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
             <span>{{ formatMessageTime(message.createdAt) }}</span>
           </div>
           <p v-if="message.isSystem" class="chat-system-body">{{ message.body }}</p>

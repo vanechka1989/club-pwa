@@ -48,6 +48,20 @@ html {
   color-scheme: light;
 }
 
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+html.club-community-locked,
+body.club-community-locked {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -71,15 +85,20 @@ button {
 }
 
 .app-root.community-active {
+  position: fixed;
+  inset: 0;
+  width: 100%;
   height: 100dvh;
   overflow: hidden;
   padding-bottom: 0;
+  overscroll-behavior: none;
 }
 
 .community-active .app-shell {
   height: calc(100dvh - var(--nav-space));
   min-height: 0;
   padding-bottom: 0.5rem;
+  overflow: hidden;
 }
 
 .community-active .content-panel-community,
@@ -88,6 +107,7 @@ button {
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app-header {
@@ -677,10 +697,12 @@ button {
 }
 
 .community-chat-shell {
+  width: 100%;
   display: flex;
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .community-topline {
@@ -765,6 +787,7 @@ button {
   flex: 1;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 0.6rem;
+  overflow: hidden;
 }
 
 .nav-is-collapsed .chat-room {
@@ -782,8 +805,10 @@ button {
 .chat-messages {
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 0.15rem;
   padding-bottom: 0.4rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .chat-message {
@@ -830,6 +855,16 @@ button.chat-message-author {
 
 button.chat-message-author:active {
   opacity: 0.75;
+}
+
+.mute-inline-badge {
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+  color: var(--danger);
+  padding: 0.08rem 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 800;
 }
 
 .reply-preview {
