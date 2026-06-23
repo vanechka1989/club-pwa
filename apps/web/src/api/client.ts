@@ -145,6 +145,16 @@ export function reactToClubMessage(messageId: string, reaction: "like" | "dislik
   });
 }
 
+export function createTopicUserMute(
+  topicId: string,
+  payload: { telegramId: string; kind: "temporary" | "permanent"; reason?: string | null; expiresAt?: string | null }
+) {
+  return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/mutes`, {
+    method: "POST",
+    body: payload
+  });
+}
+
 export function getPaymentPlans() {
   return api<PaymentsResponse>("/payments/plans");
 }

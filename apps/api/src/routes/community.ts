@@ -4,9 +4,10 @@ import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole } from "../admin/roles";
 import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
+import { formatMuteDuration, formatMuteSystemMessage } from "../community/muteNotice";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions, userMutes, users } from "../db/schema";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
@@ -28,6 +29,13 @@ const messagePayloadSchema = z.object({
 
 const reactionPayloadSchema = z.object({
   reaction: z.enum(["like", "dislike"]).nullable()
+});
+
+const chatMutePayloadSchema = z.object({
+  telegramId: z.string().trim().regex(/^\d{3,32}$/),
+  kind: z.enum(["temporary", "permanent"]),
+  reason: z.string().trim().max(1000).nullable().optional(),
+  expiresAt: z.string().datetime().nullable().optional()
 });
 
 const topicSettingsSchema = z.object({
@@ -192,6 +200,7 @@ async function serializeMessage(
     id: message.id,
     topicId: message.topicId,
     body: message.body,
+    isSystem: message.isSystem,
     status: message.status,
     author: {
       id: message.user.id,
@@ -214,6 +223,34 @@ async function findMessageWithUser(id: string) {
       user: true
     }
   });
+}
+
+async function findOrCreateUserByTelegramId(telegramId: string) {
+  const [createdUser] = await db
+    .insert(users)
+    .values({
+      telegramId,
+      firstName: null,
+      username: null
+    })
+    .onConflictDoUpdate({
+      target: users.telegramId,
+      set: {
+        updatedAt: new Date()
+      }
+    })
+    .returning();
+
+  return (
+    createdUser ??
+    (await db.query.users.findFirst({
+      where: eq(users.telegramId, telegramId)
+    }))
+  );
+}
+
+function userName(user: { telegramId: string; firstName: string | null; username: string | null }) {
+  return user.firstName || user.username || `ID ${user.telegramId}`;
 }
 
 function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
@@ -490,6 +527,71 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!createdMessage) {
       return c.json({ error: "Unable to create message" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      message: await serializeMessage(createdMessage, c.get("userId"))
+    });
+  })
+  .post("/topics/:id/mutes", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
+    const body = chatMutePayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid mute payload" }, 400);
+    }
+
+    const topic = await db.query.clubChatTopics.findFirst({
+      where: eq(clubChatTopics.id, c.req.param("id"))
+    });
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    const targetUser = await findOrCreateUserByTelegramId(body.data.telegramId);
+    const moderator = await db.query.users.findFirst({
+      where: eq(users.id, c.get("userId"))
+    });
+    if (!targetUser || !moderator) {
+      return c.json({ error: "Unable to resolve mute users" }, 500);
+    }
+
+    const expiresAt =
+      body.data.kind === "temporary"
+        ? body.data.expiresAt
+          ? new Date(body.data.expiresAt)
+          : new Date(Date.now() + 24 * 60 * 60 * 1000)
+        : null;
+
+    await db.insert(userMutes).values({
+      userId: targetUser.id,
+      kind: body.data.kind,
+      reason: body.data.reason ?? null,
+      expiresAt,
+      createdByUserId: c.get("userId")
+    });
+
+    const [systemMessage] = await db
+      .insert(clubChatMessages)
+      .values({
+        topicId: topic.id,
+        userId: c.get("userId"),
+        isSystem: true,
+        body: formatMuteSystemMessage({
+          moderatorName: userName(moderator),
+          targetName: userName(targetUser),
+          duration: formatMuteDuration(body.data.kind, expiresAt)
+        })
+      })
+      .returning();
+
+    const createdMessage = systemMessage ? await findMessageWithUser(systemMessage.id) : null;
+    if (!createdMessage) {
+      return c.json({ error: "Unable to create mute notice" }, 500);
     }
 
     return c.json({

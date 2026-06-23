@@ -210,6 +210,7 @@ export const clubChatMessages = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     replyToMessageId: uuid("reply_to_message_id").references((): AnyPgColumn => clubChatMessages.id, { onDelete: "set null" }),
     body: text("body").notNull(),
+    isSystem: boolean("is_system").notNull().default(false),
     status: moderationStatus("status").notNull().default("visible"),
     moderatedByUserId: uuid("moderated_by_user_id").references(() => users.id, { onDelete: "set null" }),
     moderatedAt: timestamp("moderated_at", { withTimezone: true }),

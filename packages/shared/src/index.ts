@@ -179,6 +179,7 @@ export const clubMessageSchema = z.object({
   id: z.string(),
   topicId: z.string(),
   body: z.string(),
+  isSystem: z.boolean(),
   status: moderationStatusSchema,
   author: commentAuthorSchema,
   replyTo: z

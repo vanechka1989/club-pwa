@@ -733,10 +733,14 @@ button {
 
 .chat-room {
   display: grid;
-  height: calc(100vh - 11rem);
-  min-height: 28rem;
+  height: calc(100dvh - 11rem);
+  min-height: 24rem;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 0.6rem;
+}
+
+.nav-is-collapsed .chat-room {
+  height: calc(100dvh - 8.5rem);
 }
 
 .chat-room-header {
@@ -762,6 +766,20 @@ button {
   border-radius: 14px;
   background: color-mix(in srgb, var(--panel-strong) 94%, transparent);
   padding: 0.6rem 0.7rem;
+}
+
+.chat-message-system {
+  width: 100%;
+  max-width: 100%;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  text-align: center;
+}
+
+.chat-system-body {
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .chat-message-head {
@@ -891,18 +909,12 @@ button.chat-message-author:active {
 }
 
 .chat-compose {
-  position: sticky;
-  bottom: 5.1rem;
   z-index: 12;
   display: grid;
   gap: 0.45rem;
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   background: color-mix(in srgb, var(--panel) 96%, transparent);
-  padding-top: 0.55rem;
-}
-
-.nav-is-collapsed .chat-compose {
-  bottom: 2.2rem;
+  padding: 0.55rem 0 0;
 }
 
 .emoji-row,

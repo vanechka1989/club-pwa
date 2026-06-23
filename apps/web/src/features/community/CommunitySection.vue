@@ -5,7 +5,7 @@ import { computed, nextTick, onMounted, ref } from "vue";
 import {
   createClubMessage,
   createCommunityTopic,
-  createUserMute,
+  createTopicUserMute,
   getClubMessages,
   getCommunityTopics,
   reactToClubMessage,
@@ -35,6 +35,7 @@ const messageSaving = ref(false);
 const topicSaving = ref(false);
 const communityError = ref<string | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
+const muteAlertShown = ref(false);
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
@@ -69,6 +70,19 @@ function formatMessageTime(value: string) {
 
 function formatArchiveUntil(value: string | null) {
   return value ? new Date(value).toLocaleDateString("ru-RU") : "";
+}
+
+function showMuteAlert() {
+  const message = mutedPermanently.value
+    ? "На вас наложен бессрочный мут. Вы пока не можете писать в чат."
+    : `На вас наложен мут до ${mutedUntil.value ? new Date(mutedUntil.value).toLocaleString("ru-RU") : ""}. Вы пока не можете писать в чат.`;
+
+  if (window.Telegram?.WebApp?.showAlert) {
+    window.Telegram.WebApp.showAlert(message);
+    return;
+  }
+
+  window.alert(message);
 }
 
 function appendEmoji(emoji: string) {
@@ -128,6 +142,10 @@ async function openTopic(topic: ClubTopic) {
   messages.value = response.messages;
   mutedUntil.value = response.mutedUntil;
   mutedPermanently.value = response.mutedPermanently;
+  if ((mutedUntil.value || mutedPermanently.value) && !muteAlertShown.value) {
+    muteAlertShown.value = true;
+    showMuteAlert();
+  }
   await scrollToBottom();
 }
 
@@ -191,7 +209,16 @@ async function handleSendMessage() {
     };
     topics.value = topics.value.map((topic) => (topic.id === selectedTopic.value?.id ? selectedTopic.value : topic));
     await scrollToBottom();
-  } catch {
+  } catch (reason) {
+    const data =
+      typeof reason === "object" && reason && "data" in reason
+        ? (reason.data as { mutedUntil?: string | null; mutedPermanently?: boolean } | undefined)
+        : undefined;
+    if (data?.mutedUntil || data?.mutedPermanently) {
+      mutedUntil.value = data.mutedUntil ?? null;
+      mutedPermanently.value = Boolean(data.mutedPermanently);
+      showMuteAlert();
+    }
     communityError.value = "Не удалось отправить сообщение.";
   } finally {
     messageSaving.value = false;
@@ -205,14 +232,20 @@ async function handleMessageStatus(message: ClubMessage, status: "visible" | "hi
 }
 
 async function handleMute(message: ClubMessage, minutes: number | null) {
+  if (!selectedTopic.value) {
+    return;
+  }
+
   const expiresAt = minutes === null ? null : new Date(Date.now() + minutes * 60 * 1000).toISOString();
-  await createUserMute({
+  const response = await createTopicUserMute(selectedTopic.value.id, {
     telegramId: message.author.telegramId,
     kind: minutes === null ? "permanent" : "temporary",
     reason: "Модерация сообщения в чате",
     expiresAt
   });
+  messages.value = [response.message, ...messages.value];
   activeModerationMessageId.value = null;
+  await scrollToBottom();
 }
 
 async function handleReaction(message: ClubMessage, reaction: "like" | "dislike") {
@@ -326,11 +359,11 @@ onMounted(() => {
           v-for="message in orderedMessages"
           :key="message.id"
           class="chat-message"
-          :class="{ 'opacity-55': message.status !== 'visible' }"
+          :class="{ 'opacity-55': message.status !== 'visible', 'chat-message-system': message.isSystem }"
           @pointerdown="handlePointerDown"
           @pointerup="handlePointerUp($event, message)"
         >
-          <div class="chat-message-head">
+          <div v-if="!message.isSystem" class="chat-message-head">
             <button
               v-if="isModerator"
               class="chat-message-author"
@@ -342,15 +375,16 @@ onMounted(() => {
             <span v-else class="chat-message-author">{{ authorName(message) }}</span>
             <span>{{ formatMessageTime(message.createdAt) }}</span>
           </div>
-          <button v-if="message.replyTo" class="reply-preview" type="button" @click="startReply(message)">
+          <p v-if="message.isSystem" class="chat-system-body">{{ message.body }}</p>
+          <button v-if="!message.isSystem && message.replyTo" class="reply-preview" type="button" @click="startReply(message)">
             <span>{{ authorName({ ...message, author: message.replyTo.author }) }}</span>
             <span>{{ message.replyTo.body }}</span>
           </button>
-          <p class="chat-message-body">{{ message.body }}</p>
+          <p v-if="!message.isSystem" class="chat-message-body">{{ message.body }}</p>
           <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
             {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
           </p>
-          <div class="message-actions">
+          <div v-if="!message.isSystem" class="message-actions">
             <button
               class="message-action"
               :class="{ 'message-action-active': message.myReaction === 'like' }"
@@ -373,7 +407,7 @@ onMounted(() => {
               <Reply class="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
-          <div v-if="isModerator && activeModerationMessageId === message.id" class="moderation-menu">
+          <div v-if="!message.isSystem && isModerator && activeModerationMessageId === message.id" class="moderation-menu">
             <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
               {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
             </button>

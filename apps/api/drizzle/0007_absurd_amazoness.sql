@@ -1,0 +1,1 @@
+ALTER TABLE "club_chat_messages" ADD COLUMN "is_system" boolean DEFAULT false NOT NULL;
