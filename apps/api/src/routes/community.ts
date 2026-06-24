@@ -45,6 +45,10 @@ const chatMutePayloadSchema = z.object({
   expiresAt: z.string().datetime().nullable().optional()
 });
 
+const deleteAuthorMessagesPayloadSchema = z.object({
+  telegramId: z.string().trim().regex(/^\d{3,32}$/)
+});
+
 const topicSettingsSchema = z.object({
   isLocked: z.boolean().optional(),
   isPublished: z.boolean().optional()
@@ -624,7 +628,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Topic not found" }, 404);
     }
 
-    if (topic.isLocked) {
+    if (topic.isLocked && role === "member") {
       return c.json({ error: "Topic is locked" }, 403);
     }
 
@@ -695,6 +699,77 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       ok: true,
       message: await serializeMessage(createdMessage, c.get("userId"))
     });
+  })
+  .post("/topics/:id/messages/delete-all", async (c) => {
+    const role = await getCommunityRole(c);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
+    const topic = await db.query.clubChatTopics.findFirst({
+      where: eq(clubChatTopics.id, c.req.param("id"))
+    });
+
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    await db
+      .update(clubChatMessages)
+      .set({
+        status: "deleted",
+        moderatedByUserId: c.get("userId"),
+        moderatedAt: new Date(),
+        moderationReason: "Bulk topic cleanup",
+        updatedAt: new Date()
+      })
+      .where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.isSystem, false)));
+
+    return c.json({ ok: true });
+  })
+  .post("/topics/:id/messages/delete-author", async (c) => {
+    const role = await getCommunityRole(c);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
+    const body = deleteAuthorMessagesPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid author payload" }, 400);
+    }
+
+    const topic = await db.query.clubChatTopics.findFirst({
+      where: eq(clubChatTopics.id, c.req.param("id"))
+    });
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.telegramId, body.data.telegramId)
+    });
+    if (!targetUser) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    await db
+      .update(clubChatMessages)
+      .set({
+        status: "deleted",
+        moderatedByUserId: c.get("userId"),
+        moderatedAt: new Date(),
+        moderationReason: "Bulk author cleanup",
+        updatedAt: new Date()
+      })
+      .where(
+        and(
+          eq(clubChatMessages.topicId, topic.id),
+          eq(clubChatMessages.userId, targetUser.id),
+          eq(clubChatMessages.isSystem, false)
+        )
+      );
+
+    return c.json({ ok: true });
   })
   .post("/topics/:id/mutes", async (c) => {
     const role = await getCommunityRole(c);

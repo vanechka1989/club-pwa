@@ -152,6 +152,19 @@ export function getClubMessages(topicId: string) {
   return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages`);
 }
 
+export function deleteTopicMessages(topicId: string) {
+  return api<AdminMutationResponse>(`/community/topics/${topicId}/messages/delete-all`, {
+    method: "POST"
+  });
+}
+
+export function deleteTopicAuthorMessages(topicId: string, telegramId: string) {
+  return api<AdminMutationResponse>(`/community/topics/${topicId}/messages/delete-author`, {
+    method: "POST",
+    body: { telegramId }
+  });
+}
+
 export function createClubMessage(topicId: string, body: string, replyToMessageId?: string | null) {
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages`, {
     method: "POST",

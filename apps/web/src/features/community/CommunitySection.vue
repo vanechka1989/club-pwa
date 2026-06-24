@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { ClubMessage, ClubTopic, MessageReaction } from "@club/shared";
-import { ArrowLeft, MessageCircle, Plus, Send, Smile, Trash2, X } from "lucide-vue-next";
+import { ArrowLeft, MessageCircle, MoreVertical, Plus, Send, Smile, Trash2, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
   createCommunityTopic,
   createTopicUserMute,
+  deleteTopicAuthorMessages,
+  deleteTopicMessages,
   getClubMessages,
   getCommunityTopics,
   reactToClubMessage,
@@ -32,6 +34,7 @@ const mutedPermanently = ref(false);
 const newMessage = ref("");
 const newTopicTitle = ref("");
 const showCreateTopic = ref(false);
+const showTopicAdminMenu = ref(false);
 const showEmojiPicker = ref(false);
 const replyToMessage = ref<ClubMessage | null>(null);
 const activeModerationMessageId = ref<string | null>(null);
@@ -62,7 +65,12 @@ const orderedMessages = computed(() => [...messages.value].reverse());
 const activeTopics = computed(() => topics.value.filter((topic) => topic.isPublished));
 const archivedTopics = computed(() => topics.value.filter((topic) => !topic.isPublished && topic.archivedUntil));
 const canWrite = computed(
-  () => hasCommunityAccess.value && selectedTopic.value && !selectedTopic.value.isLocked && selectedTopic.value.isPublished && !isMuted.value
+  () =>
+    hasCommunityAccess.value &&
+    selectedTopic.value &&
+    (!selectedTopic.value.isLocked || isModerator.value) &&
+    selectedTopic.value.isPublished &&
+    !isMuted.value
 );
 const muteComposerText = computed(() => {
   if (mutedPermanently.value) {
@@ -446,6 +454,9 @@ async function openTopic(topic: ClubTopic) {
   }
 
   selectedTopic.value = topic;
+  showTopicAdminMenu.value = false;
+  activeModerationMessageId.value = null;
+  activeReactionMessageId.value = null;
   communityError.value = null;
   await refreshSelectedTopic({ keepScroll: false });
   markTopicRead(topic.id);
@@ -480,6 +491,55 @@ async function createTopic() {
 async function restoreTopic(topic: ClubTopic) {
   const response = await updateClubTopicSettings(topic.id, { isPublished: true });
   topics.value = topics.value.map((item) => (item.id === topic.id ? response.topic : item));
+}
+
+async function handleToggleTopicLock() {
+  if (!selectedTopic.value) {
+    return;
+  }
+
+  const nextLocked = !selectedTopic.value.isLocked;
+  const response = await updateClubTopicSettings(selectedTopic.value.id, { isLocked: nextLocked });
+  selectedTopic.value = response.topic;
+  topics.value = topics.value.map((topic) => (topic.id === response.topic.id ? response.topic : topic));
+  showTopicAdminMenu.value = false;
+}
+
+async function handleDeleteTopicMessages() {
+  if (!selectedTopic.value) {
+    return;
+  }
+
+  const confirmed = window.confirm("Удалить все сообщения в этом чате? Клиенты больше не будут их видеть.");
+  if (!confirmed) {
+    showTopicAdminMenu.value = false;
+    return;
+  }
+
+  await deleteTopicMessages(selectedTopic.value.id);
+  showTopicAdminMenu.value = false;
+  activeModerationMessageId.value = null;
+  activeReactionMessageId.value = null;
+  await refreshSelectedTopic({ keepScroll: false });
+  await loadTopics();
+}
+
+async function handleDeleteAuthorMessages(message: ClubMessage) {
+  if (!selectedTopic.value) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Удалить все сообщения пользователя ${authorName(message)} в этом чате?`);
+  if (!confirmed) {
+    activeModerationMessageId.value = null;
+    return;
+  }
+
+  await deleteTopicAuthorMessages(selectedTopic.value.id, message.author.telegramId);
+  activeModerationMessageId.value = null;
+  activeReactionMessageId.value = null;
+  await refreshSelectedTopic({ keepScroll: true });
+  await loadTopics();
 }
 
 async function handleSendMessage() {
@@ -604,6 +664,9 @@ watch(
 
     stopMessageRefresh();
     startTopicsRefresh();
+    showTopicAdminMenu.value = false;
+    activeModerationMessageId.value = null;
+    activeReactionMessageId.value = null;
     void loadTopics();
   },
   { immediate: true }
@@ -721,6 +784,24 @@ onBeforeUnmount(() => {
             {{ selectedTopic.isLocked ? "Тема закрыта" : "Открытый чат" }}
           </p>
         </div>
+        <div v-if="isModerator" class="chat-room-admin">
+          <button
+            class="icon-button"
+            type="button"
+            aria-label="Меню чата"
+            @click="showTopicAdminMenu = !showTopicAdminMenu"
+          >
+            <MoreVertical class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div v-if="showTopicAdminMenu" class="chat-admin-menu">
+            <button class="mini-action" type="button" @click="handleToggleTopicLock">
+              {{ selectedTopic.isLocked ? "Открыть чат" : "Закрыть чат" }}
+            </button>
+            <button class="mini-action danger-action" type="button" @click="handleDeleteTopicMessages">
+              Удалить все сообщения
+            </button>
+          </div>
+        </div>
       </header>
 
       <div class="chat-room-notices">
@@ -819,6 +900,9 @@ onBeforeUnmount(() => {
               </button>
               <button class="mini-action" type="button" :disabled="Boolean(message.authorMute)" @click="handleMute(message)">
                 Мут пока не снимут
+              </button>
+              <button class="mini-action danger-action" type="button" @click="handleDeleteAuthorMessages(message)">
+                Удалить все сообщения клиента
               </button>
             </div>
           </div>
