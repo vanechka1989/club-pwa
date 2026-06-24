@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export type Theme = "dark" | "light";
-export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura";
+export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azure" | "coffee";
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 export const useUiStore = defineStore("ui", () => {
@@ -10,7 +10,11 @@ export const useUiStore = defineStore("ui", () => {
   const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
   const savedColorScheme = localStorage.getItem("club-color-scheme");
   const colorScheme = ref<ColorScheme>(
-    savedColorScheme === "emerald" || savedColorScheme === "graphite" || savedColorScheme === "sakura"
+    savedColorScheme === "emerald" ||
+      savedColorScheme === "graphite" ||
+      savedColorScheme === "sakura" ||
+      savedColorScheme === "azure" ||
+      savedColorScheme === "coffee"
       ? savedColorScheme
       : "midnight"
   );

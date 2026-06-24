@@ -76,7 +76,9 @@ const colorOptions: Array<{ value: ColorScheme; label: string; colors: string[] 
   { value: "midnight", label: "Полночь", colors: ["#080922", "#f2f2f7"] },
   { value: "emerald", label: "Хвоя", colors: ["#12382d", "#7dd3b0"] },
   { value: "graphite", label: "Графит", colors: ["#242833", "#d6d9e2"] },
-  { value: "sakura", label: "Сакура", colors: ["#3a2034", "#f9a8d4"] }
+  { value: "sakura", label: "Сакура", colors: ["#3a2034", "#f9a8d4"] },
+  { value: "azure", label: "Лагуна", colors: ["#0f2f5f", "#7dd3fc"] },
+  { value: "coffee", label: "Кофе", colors: ["#3a281f", "#d6ad7b"] }
 ];
 
 function changeLocale(locale: Locale) {
