@@ -295,6 +295,11 @@ button {
   overflow: hidden;
 }
 
+.club-telegram-fullscreen .community-active:not(.community-chat-open) .app-shell {
+  height: calc(100dvh - var(--nav-space) - var(--fullscreen-top-offset));
+  padding-top: var(--fullscreen-top-offset);
+}
+
 .community-chat-open .app-shell {
   height: 100dvh;
   padding: 0;
