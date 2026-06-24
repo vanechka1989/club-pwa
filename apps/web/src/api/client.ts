@@ -28,7 +28,7 @@ import { ofetch } from "ofetch";
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const devTelegramUser = import.meta.env.VITE_DEV_TELEGRAM_USER;
-const previewMembershipStorageKey = "club-preview-membership";
+const previewModeStorageKey = "club-preview-mode";
 
 function getInitData() {
   return window.Telegram?.WebApp?.initData ?? "";
@@ -48,10 +48,15 @@ export const api = ofetch.create({
       options.headers = headers;
     }
 
-    const previewMembership = localStorage.getItem(previewMembershipStorageKey);
-    if (previewMembership === "active" || previewMembership === "inactive") {
+    const previewMode = localStorage.getItem(previewModeStorageKey);
+    if (
+      previewMode === "developer" ||
+      previewMode === "admin" ||
+      previewMode === "member-active" ||
+      previewMode === "member-inactive"
+    ) {
       const headers = new Headers(options.headers);
-      headers.set("X-Club-Preview-Membership", previewMembership);
+      headers.set("X-Club-Preview-Mode", previewMode);
       options.headers = headers;
     }
   }

@@ -25,7 +25,7 @@ import {
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
-import { useUiStore, type PreviewMembership } from "@/stores/ui";
+import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const { t } = useI18n();
 const session = useSessionStore();
@@ -40,10 +40,11 @@ const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "admins", label: "Админы", icon: Shield }
 ];
 
-const previewOptions: Array<{ value: PreviewMembership; label: string }> = [
-  { value: "real", label: "Как есть" },
-  { value: "inactive", label: "Без доступа" },
-  { value: "active", label: "С доступом" }
+const previewOptions: Array<{ value: PreviewMode; label: string }> = [
+  { value: "developer", label: "Разработчик" },
+  { value: "admin", label: "Админ" },
+  { value: "member-active", label: "С доступом" },
+  { value: "member-inactive", label: "Без доступа" }
 ];
 
 const extensionOptions = [
@@ -73,7 +74,7 @@ const saving = ref(false);
 const message = ref<string | null>(null);
 const error = ref<string | null>(null);
 
-const isOwner = computed(() => session.user?.role === "owner");
+const isOwner = computed(() => session.user?.realRole === "owner");
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const activeMutes = computed(() => mutes.value.filter((mute) => !mute.revokedAt).length);
@@ -299,8 +300,8 @@ async function handleRemoveAdmin(telegramId: string) {
   }
 }
 
-async function handlePreviewChange(previewMembership: PreviewMembership) {
-  ui.setPreviewMembership(previewMembership);
+async function handlePreviewChange(previewMode: PreviewMode) {
+  ui.setPreviewMode(previewMode);
   await session.load();
 }
 
@@ -356,7 +357,7 @@ onMounted(() => {
         <div class="admin-panel-head">
           <div>
             <h3>Предпросмотр клиента</h3>
-            <p>Быстро проверить, как клиент видит клуб при разном статусе доступа.</p>
+            <p>Проверить интерфейс в разных ролях и статусах доступа.</p>
           </div>
         </div>
         <div class="segmented-control">
@@ -364,7 +365,7 @@ onMounted(() => {
             v-for="option in previewOptions"
             :key="option.value"
             class="segmented-control-item"
-            :class="{ 'segmented-control-item-active': ui.previewMembership === option.value }"
+            :class="{ 'segmented-control-item-active': ui.previewMode === option.value }"
             type="button"
             :disabled="!isOwner"
             @click="handlePreviewChange(option.value)"

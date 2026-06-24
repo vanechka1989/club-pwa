@@ -6,12 +6,17 @@ import { env } from "../env";
 import { isOwnerTelegramId } from "../admin/roles";
 import { verifyTelegramInitData, type TelegramUser } from "../telegram/verifyInitData";
 import { z } from "zod";
+import type { UserRole } from "@club/shared";
 
 export type AuthVariables = {
   telegramUser: TelegramUser;
   userId: string;
+  previewRole: UserRole | null;
   previewMembershipStatus: "active" | "inactive" | null;
 };
+
+const previewModeSchema = z.enum(["developer", "admin", "member-active", "member-inactive"]);
+type PreviewMode = z.infer<typeof previewModeSchema>;
 
 const devTelegramUserSchema = z.object({
   id: z.string().min(1),
@@ -83,10 +88,25 @@ export const telegramAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asy
 
   c.set("telegramUser", telegramUser);
   c.set("userId", resolvedUser.id);
+  c.set("previewRole", null);
   c.set("previewMembershipStatus", null);
+
+  const previewMode = previewModeSchema.safeParse(c.req.header("x-club-preview-mode"));
+  if (isOwnerTelegramId(telegramUser.id) && previewMode.success) {
+    const roleByMode: Record<PreviewMode, UserRole> = {
+      developer: "owner",
+      admin: "admin",
+      "member-active": "member",
+      "member-inactive": "member"
+    };
+
+    c.set("previewRole", roleByMode[previewMode.data]);
+    c.set("previewMembershipStatus", previewMode.data === "member-inactive" ? "inactive" : "active");
+  }
 
   const previewMembershipStatus = c.req.header("x-club-preview-membership");
   if (
+    !previewMode.success &&
     isOwnerTelegramId(telegramUser.id) &&
     (previewMembershipStatus === "active" || previewMembershipStatus === "inactive")
   ) {

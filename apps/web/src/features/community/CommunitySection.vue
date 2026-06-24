@@ -132,6 +132,14 @@ function hasNewReplyToMe(topic: ClubTopic) {
   return !lastReadAt || new Date(topic.latestReplyToMeAt) > new Date(lastReadAt);
 }
 
+function getErrorStatus(reason: unknown) {
+  if (typeof reason === "object" && reason && "status" in reason && typeof reason.status === "number") {
+    return reason.status;
+  }
+
+  return null;
+}
+
 function showMuteAlert() {
   const message = mutedPermanently.value
     ? "На вас наложен бессрочный мут. Вы пока не можете писать в чат."
@@ -276,7 +284,14 @@ async function loadTopics({ showLoading = false } = {}) {
     if (selectedTopic.value) {
       selectedTopic.value = response.topics.find((topic) => topic.id === selectedTopic.value?.id) ?? selectedTopic.value;
     }
-  } catch {
+  } catch (reason) {
+    if (getErrorStatus(reason) === 403) {
+      topics.value = [];
+      selectedTopic.value = null;
+      communityError.value = null;
+      return;
+    }
+
     communityError.value = "Не удалось загрузить общение.";
   } finally {
     loading.value = false;
@@ -439,6 +454,23 @@ watch(
   { immediate: true }
 );
 
+watch(
+  hasCommunityAccess,
+  (hasAccess) => {
+    if (!hasAccess) {
+      selectedTopic.value = null;
+      topics.value = [];
+      messages.value = [];
+      communityError.value = null;
+      stopMessageRefresh();
+      stopTopicsRefresh();
+      return;
+    }
+
+    void loadTopics({ showLoading: true });
+  }
+);
+
 onBeforeUnmount(() => {
   stopMessageRefresh();
   stopTopicsRefresh();
@@ -467,8 +499,9 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-if="!hasCommunityAccess" class="surface-card text-sm leading-6 text-[var(--muted)]">
-        Общение доступно только участникам с активной подпиской.
+      <div v-if="!hasCommunityAccess" class="access-lock-card">
+        <strong>Общение закрыто</strong>
+        <span>Раздел доступен после активации подписки.</span>
       </div>
 
       <form v-if="hasCommunityAccess && isModerator && showCreateTopic" class="chat-create-form" @submit.prevent="createTopic">

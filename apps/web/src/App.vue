@@ -18,7 +18,7 @@ const navCollapsed = ref(false);
 const communityChatOpen = ref(false);
 
 const visibleNavItems = computed(() =>
-  navItems.filter((item) => !item.adminOnly || session.user?.role === "admin" || session.user?.role === "owner")
+  navItems.filter((item) => !item.adminOnly || session.user?.realRole === "admin" || session.user?.realRole === "owner")
 );
 
 function syncCommunityLock(isLocked: boolean) {

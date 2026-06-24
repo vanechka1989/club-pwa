@@ -12,6 +12,7 @@ export const clubUserSchema = z.object({
   firstName: z.string().nullable(),
   username: z.string().nullable(),
   role: userRoleSchema,
+  realRole: userRoleSchema,
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable()
 });

@@ -3,7 +3,7 @@ import { ref } from "vue";
 
 export type Theme = "dark" | "light";
 export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura";
-export type PreviewMembership = "real" | "inactive" | "active";
+export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 export const useUiStore = defineStore("ui", () => {
   const savedTheme = localStorage.getItem("club-theme");
@@ -14,9 +14,11 @@ export const useUiStore = defineStore("ui", () => {
       ? savedColorScheme
       : "midnight"
   );
-  const savedPreviewMembership = localStorage.getItem("club-preview-membership");
-  const previewMembership = ref<PreviewMembership>(
-    savedPreviewMembership === "inactive" || savedPreviewMembership === "active" ? savedPreviewMembership : "real"
+  const savedPreviewMode = localStorage.getItem("club-preview-mode");
+  const previewMode = ref<PreviewMode>(
+    savedPreviewMode === "admin" || savedPreviewMode === "member-active" || savedPreviewMode === "member-inactive"
+      ? savedPreviewMode
+      : "developer"
   );
 
   function applyTheme() {
@@ -37,12 +39,13 @@ export const useUiStore = defineStore("ui", () => {
     applyTheme();
   }
 
-  function setPreviewMembership(nextPreviewMembership: PreviewMembership) {
-    previewMembership.value = nextPreviewMembership;
-    localStorage.setItem("club-preview-membership", nextPreviewMembership);
+  function setPreviewMode(nextPreviewMode: PreviewMode) {
+    previewMode.value = nextPreviewMode;
+    localStorage.setItem("club-preview-mode", nextPreviewMode);
+    localStorage.removeItem("club-preview-membership");
   }
 
   applyTheme();
 
-  return { theme, colorScheme, previewMembership, setTheme, setColorScheme, setPreviewMembership };
+  return { theme, colorScheme, previewMode, setTheme, setColorScheme, setPreviewMode };
 });

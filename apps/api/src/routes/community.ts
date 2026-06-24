@@ -322,6 +322,10 @@ async function ensureCommunityAccess(
   return null;
 }
 
+async function getCommunityRole(c: Context<{ Variables: AuthVariables }>) {
+  return c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+}
+
 async function notifyReplyRecipient({
   topic,
   replyToMessage,
@@ -364,7 +368,7 @@ async function notifyReplyRecipient({
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .get("/topics", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
       return accessError;
@@ -375,7 +379,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/topics", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     if (role === "member") {
       return c.json({ error: "Moderator access required" }, 403);
     }
@@ -406,7 +410,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/chats", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
       return accessError;
@@ -422,7 +426,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/chats", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     if (role === "member") {
       return c.json({ error: "Moderator access required" }, 403);
     }
@@ -452,7 +456,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/chats/:id/topics", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
       return accessError;
@@ -482,7 +486,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/chats/:id/topics", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     if (role === "member") {
       return c.json({ error: "Moderator access required" }, 403);
     }
@@ -525,7 +529,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/topics/:id/settings", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     if (role === "member") {
       return c.json({ error: "Moderator access required" }, 403);
     }
@@ -560,7 +564,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/topics/:id/messages", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
       return accessError;
@@ -593,7 +597,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/topics/:id/messages", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
       return accessError;
@@ -690,7 +694,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/topics/:id/mutes", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     if (role === "member") {
       return c.json({ error: "Moderator access required" }, 403);
     }
@@ -755,7 +759,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .delete("/topics/:topicId/mutes/:muteId", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     if (role === "member") {
       return c.json({ error: "Moderator access required" }, 403);
     }
@@ -813,7 +817,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/messages/:id/reaction", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
+    const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
       return accessError;

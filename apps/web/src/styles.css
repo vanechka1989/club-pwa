@@ -246,6 +246,22 @@ button {
   box-shadow: var(--shadow-soft);
 }
 
+.access-lock-card {
+  display: grid;
+  gap: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--panel-soft) 92%, transparent);
+  border-radius: 13px;
+  padding: 0.9rem;
+  color: var(--text);
+}
+
+.access-lock-card span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
 .admin-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -654,7 +670,7 @@ button {
 
 .segmented-control {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(6.2rem, 1fr));
   gap: 0.25rem;
   border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
   border-radius: 14px;

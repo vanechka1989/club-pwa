@@ -18,7 +18,8 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>().use("*", telegra
   }
 
   const membership = await getMembership(userId);
-  const role = await getUserRole(user.telegramId);
+  const realRole = await getUserRole(user.telegramId);
+  const role = c.get("previewRole") ?? realRole;
   const previewMembershipStatus = c.get("previewMembershipStatus");
   const membershipStatus = previewMembershipStatus ?? membership.status;
   const membershipExpiresAt =
@@ -35,6 +36,7 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>().use("*", telegra
       firstName: user.firstName,
       username: user.username,
       role,
+      realRole,
       membershipStatus,
       membershipExpiresAt
     }
