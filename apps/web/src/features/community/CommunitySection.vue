@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClubMessage, ClubTopic } from "@club/shared";
-import { ArrowLeft, MessageCircle, Plus, RefreshCw, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
+import { ArrowLeft, MessageCircle, Plus, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -452,11 +452,12 @@ onBeforeUnmount(() => {
 <template>
   <section class="community-chat-shell">
     <div v-if="!selectedTopic" class="space-y-3">
-      <div class="community-topline community-topline-compact">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Общение</h2>
+          <p class="section-subtitle">Темы клуба и живые обсуждения.</p>
+        </div>
         <div class="community-topline-actions">
-          <button class="icon-button" type="button" aria-label="Обновить темы" :disabled="loading" @click="loadTopics({ showLoading: true })">
-            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" aria-hidden="true" />
-          </button>
           <button
             v-if="isModerator"
             class="icon-button"

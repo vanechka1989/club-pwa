@@ -289,10 +289,6 @@ button {
   align-items: center;
 }
 
-.admin-hero-compact {
-  justify-content: flex-end;
-}
-
 .admin-refresh {
   width: auto;
   flex-shrink: 0;
@@ -548,6 +544,27 @@ button {
   line-height: 1.2;
 }
 
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 48%, var(--panel)), color-mix(in srgb, var(--panel) 96%, transparent));
+  padding: 0.8rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.section-subtitle {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .icon-button {
   display: inline-flex;
   height: 2.15rem;
@@ -728,11 +745,6 @@ button {
 .profile-settings {
   display: grid;
   gap: 0.1rem;
-}
-
-.profile-top-actions {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .profile-account-card {
@@ -1154,10 +1166,6 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-.community-topline-compact {
-  justify-content: flex-end;
 }
 
 .community-topline-actions {

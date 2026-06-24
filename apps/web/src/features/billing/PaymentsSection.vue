@@ -14,6 +14,13 @@ async function handleSubscribe() {
 
 <template>
   <section class="space-y-5">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Оплата</h2>
+        <p class="section-subtitle">Подписка, продление и платежи.</p>
+      </div>
+    </div>
+
     <div class="surface-card">
       <p class="font-semibold text-[var(--text)]">{{ t("monthlyMembership") }}</p>
       <p class="mt-2 text-sm leading-6 text-[var(--muted)]">

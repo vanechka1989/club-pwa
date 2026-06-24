@@ -12,6 +12,13 @@ const topics: Array<{ title: MessageKey; description: MessageKey }> = [
 
 <template>
   <section class="space-y-5">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Поддержка</h2>
+        <p class="section-subtitle">Помощь по доступу, оплате и материалам.</p>
+      </div>
+    </div>
+
     <div class="grid gap-3">
       <article v-for="topic in topics" :key="topic.title" class="surface-card">
         <h3 class="font-semibold text-[var(--text)]">{{ t(topic.title) }}</h3>

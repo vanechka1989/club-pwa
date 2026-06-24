@@ -77,7 +77,11 @@ onMounted(async () => {
 
 <template>
   <section class="soft-home space-y-4">
-    <div class="profile-top-actions">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Профиль</h2>
+        <p class="section-subtitle">Доступ, статистика и настройки аккаунта.</p>
+      </div>
       <div class="compact-controls shrink-0">
         <button
           type="button"

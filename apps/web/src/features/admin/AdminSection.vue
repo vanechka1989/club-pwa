@@ -332,7 +332,11 @@ onMounted(() => {
 
 <template>
   <section class="admin-shell">
-    <header class="admin-hero admin-hero-compact">
+    <header class="section-head">
+      <div>
+        <h2 class="section-title">Админка</h2>
+        <p class="section-subtitle">Клиенты, доступ и ограничения.</p>
+      </div>
       <button class="secondary-button admin-refresh" type="button" :disabled="loading" @click="loadAll">
         Обновить
       </button>
