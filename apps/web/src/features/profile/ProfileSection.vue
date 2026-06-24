@@ -69,10 +69,6 @@ onMounted(async () => {
 
 <template>
   <section class="soft-home space-y-4">
-    <section class="soft-hero compact-hero">
-      <h2>{{ t("softTitle") }}</h2>
-    </section>
-
     <section class="soft-card">
       <div class="flex items-start justify-between gap-4">
         <div>
