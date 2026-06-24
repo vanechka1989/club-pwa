@@ -196,6 +196,27 @@ function isNearBottom() {
   return element.scrollHeight - element.scrollTop - element.clientHeight < 96;
 }
 
+function messageSignature(message: ClubMessage) {
+  return [
+    message.id,
+    message.status,
+    message.body,
+    message.createdAt,
+    message.likesCount,
+    message.dislikesCount,
+    message.myReaction ?? "",
+    message.authorMute?.id ?? "",
+    message.authorMute?.kind ?? "",
+    message.authorMute?.expiresAt ?? "",
+    message.replyTo?.id ?? "",
+    message.replyTo?.body ?? ""
+  ].join("\u001f");
+}
+
+function messagesSignature(nextMessages: ClubMessage[]) {
+  return nextMessages.map(messageSignature).join("\u001e");
+}
+
 async function refreshSelectedTopic({ keepScroll = true } = {}) {
   if (!selectedTopic.value || refreshInFlight) {
     return;
@@ -204,19 +225,27 @@ async function refreshSelectedTopic({ keepScroll = true } = {}) {
   refreshInFlight = true;
   const scrollElement = messagesList.value;
   const previousScrollTop = scrollElement?.scrollTop ?? 0;
+  const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
   const shouldScroll = !keepScroll || isNearBottom();
   try {
     const response = await getClubMessages(selectedTopic.value.id);
-    messages.value = response.messages;
+    const messagesChanged = messagesSignature(messages.value) !== messagesSignature(response.messages);
+    if (messagesChanged) {
+      messages.value = response.messages;
+    }
     mutedUntil.value = response.mutedUntil;
     mutedPermanently.value = response.mutedPermanently;
     markTopicRead(selectedTopic.value.id);
+
+    if (!messagesChanged) {
+      return;
+    }
 
     if (shouldScroll) {
       await scrollToBottom();
     } else if (scrollElement) {
       await nextTick();
-      scrollElement.scrollTop = previousScrollTop;
+      scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
     }
   } catch {
     communityError.value = "Не удалось обновить чат.";

@@ -1232,6 +1232,7 @@ button {
   grid-row: 3;
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding-right: 0.15rem;
   padding-bottom: 0.4rem;
