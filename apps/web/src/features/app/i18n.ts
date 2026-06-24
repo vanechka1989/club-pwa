@@ -7,12 +7,12 @@ const locale = ref<Locale>(savedLocale === "en" ? "en" : "ru");
 
 const messages = {
   ru: {
-    brand: "Клуб",
+    brand: "Профиль",
     tagline: "Клуб",
     headline: "Клуб",
     loading: "Загрузка профиля...",
     authTitle: "Нужна Telegram-сессия",
-    navProfile: "Клуб",
+    navProfile: "Профиль",
     navLearning: "Обучение",
     navCommunity: "Общение",
     navPayments: "Оплата",
@@ -104,7 +104,7 @@ const messages = {
     homeExtend: "Продлить",
     settings: "Настройки",
     softEyebrow: "Клуб",
-    softTitle: "Клуб",
+    softTitle: "Профиль",
     softSubtitle: "Минимум визуального шума. Только доступ, материалы и помощь.",
     softPremiumActive: "Premium активен",
     softMaterials: "Материалы",
@@ -187,12 +187,12 @@ const messages = {
     light: "Светлая"
   },
   en: {
-    brand: "Club",
+    brand: "Profile",
     tagline: "Club",
     headline: "Club",
     loading: "Loading profile...",
     authTitle: "Telegram session required",
-    navProfile: "Club",
+    navProfile: "Profile",
     navLearning: "Learning",
     navCommunity: "Общение",
     navPayments: "Payment",
@@ -284,7 +284,7 @@ const messages = {
     homeExtend: "Extend",
     settings: "Settings",
     softEyebrow: "Club",
-    softTitle: "Club",
+    softTitle: "Profile",
     softSubtitle: "Minimal visual noise. Only access, materials and help.",
     softPremiumActive: "Premium active",
     softMaterials: "Materials",

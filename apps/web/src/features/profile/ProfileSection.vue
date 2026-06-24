@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Check, Moon, Palette, Sun } from "lucide-vue-next";
+import { BarChart3, Check, Fingerprint, Moon, Palette, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { getLearningHome } from "@/api/client";
 import { useI18n } from "@/features/app/i18n";
@@ -21,6 +21,18 @@ const lastOpenedTitle = ref<string | null>(null);
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
+const displayName = computed(() => session.user?.firstName || session.user?.username || "Пользователь");
+const roleLabel = computed(() => {
+  if (session.user?.role === "owner") {
+    return t("ownerRole");
+  }
+
+  if (session.user?.role === "admin") {
+    return t("adminRole");
+  }
+
+  return t("memberRole");
+});
 const subscriptionProgress = computed(() => (isMember.value ? 72 : 18));
 const learningProgress = computed(() => {
   if (!totalItems.value) {
@@ -83,6 +95,58 @@ onMounted(async () => {
       </button>
     </section>
 
+    <section class="space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="soft-section-title">{{ t("yourStats") }}</h3>
+        <span class="soft-link">{{ learningProgress }}%</span>
+      </div>
+
+      <div class="grid gap-2">
+        <article v-if="isStatsEmpty" class="soft-list-card">
+          <div class="soft-code">
+            <BarChart3 class="h-4 w-4" aria-hidden="true" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h4>{{ t("statsEmptyTitle") }}</h4>
+            <p>{{ t("statsEmptyText") }}</p>
+          </div>
+        </article>
+
+        <article v-else class="soft-list-card">
+          <div class="soft-code">{{ completedItems }}</div>
+          <div class="min-w-0 flex-1">
+            <h4>{{ t("learningProgress") }}</h4>
+            <p>{{ completedItems }} / {{ totalItems }} · {{ lastOpenedTitle || t("lastOpenedEmpty") }}</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="soft-card profile-account-card">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="soft-section-title">Аккаунт</h3>
+        <UserCircle class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
+      </div>
+
+      <div class="profile-info-list mt-3">
+        <div class="profile-info-row">
+          <span>Имя</span>
+          <strong>{{ displayName }}</strong>
+        </div>
+        <div class="profile-info-row">
+          <span>Telegram ID</span>
+          <strong class="inline-flex items-center gap-1">
+            <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
+            {{ session.user?.telegramId }}
+          </strong>
+        </div>
+        <div class="profile-info-row">
+          <span>{{ t("role") }}</span>
+          <strong>{{ roleLabel }}</strong>
+        </div>
+      </div>
+    </section>
+
     <section class="soft-card profile-settings">
       <div class="flex items-center justify-between gap-3">
         <h3 class="soft-section-title">Оформление</h3>
@@ -119,33 +183,6 @@ onMounted(async () => {
           <span>{{ option.label }}</span>
           <Check v-if="ui.colorScheme === option.value" class="h-3.5 w-3.5" aria-hidden="true" />
         </button>
-      </div>
-    </section>
-
-    <section class="space-y-3">
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="soft-section-title">{{ t("yourStats") }}</h3>
-        <span class="soft-link">{{ learningProgress }}%</span>
-      </div>
-
-      <div class="grid gap-2">
-        <article v-if="isStatsEmpty" class="soft-list-card">
-          <div class="soft-code">
-            <BarChart3 class="h-4 w-4" aria-hidden="true" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <h4>{{ t("statsEmptyTitle") }}</h4>
-            <p>{{ t("statsEmptyText") }}</p>
-          </div>
-        </article>
-
-        <article v-else class="soft-list-card">
-          <div class="soft-code">{{ completedItems }}</div>
-          <div class="min-w-0 flex-1">
-            <h4>{{ t("learningProgress") }}</h4>
-            <p>{{ completedItems }} / {{ totalItems }} · {{ lastOpenedTitle || t("lastOpenedEmpty") }}</p>
-          </div>
-        </article>
       </div>
     </section>
   </section>

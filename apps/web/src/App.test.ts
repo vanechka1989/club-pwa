@@ -4,13 +4,13 @@ import { describe, expect, it } from "vitest";
 import App from "./App.vue";
 
 describe("App", () => {
-  it("renders the club shell", () => {
+  it("renders the app shell", () => {
     render(App, {
       global: {
         plugins: [createPinia()]
       }
     });
 
-    expect(screen.getByRole("button", { name: "Клуб" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Профиль" })).toBeTruthy();
   });
 });
