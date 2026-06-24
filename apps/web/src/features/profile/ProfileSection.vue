@@ -2,7 +2,7 @@
 import { BarChart3, Check, Fingerprint, Moon, Palette, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { getLearningHome } from "@/api/client";
-import { useI18n } from "@/features/app/i18n";
+import { useI18n, type Locale } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme, type Theme } from "@/stores/ui";
 
@@ -12,7 +12,7 @@ defineEmits<{
 
 const session = useSessionStore();
 const ui = useUiStore();
-const { t } = useI18n();
+const { currentLocale, setLocale, t } = useI18n();
 
 const isMember = computed(() => session.user?.membershipStatus === "active");
 const totalItems = ref(0);
@@ -53,6 +53,14 @@ const colorOptions: Array<{ value: ColorScheme; label: string; colors: string[] 
   { value: "sakura", label: "Сакура", colors: ["#3a2034", "#f9a8d4"] }
 ];
 
+function changeLocale(locale: Locale) {
+  setLocale(locale);
+}
+
+function changeTheme(theme: Theme) {
+  ui.setTheme(theme);
+}
+
 onMounted(async () => {
   try {
     const response = await getLearningHome();
@@ -69,6 +77,26 @@ onMounted(async () => {
 
 <template>
   <section class="soft-home space-y-4">
+    <div class="profile-top-actions">
+      <div class="compact-controls shrink-0">
+        <button
+          type="button"
+          :aria-label="t('language')"
+          @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')"
+        >
+          {{ currentLocale.toUpperCase() }}
+        </button>
+        <button
+          type="button"
+          :aria-label="t('theme')"
+          @click="changeTheme(ui.theme === 'dark' ? 'light' : 'dark')"
+        >
+          <Sun v-if="ui.theme === 'dark'" class="h-4 w-4" aria-hidden="true" />
+          <Moon v-else class="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+
     <section class="soft-card">
       <div class="flex items-start justify-between gap-4">
         <div>

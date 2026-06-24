@@ -157,11 +157,6 @@ onMounted(() => {
 
 <template>
   <section class="space-y-5">
-    <div>
-      <p class="section-eyebrow">{{ t("learningEyebrow") }}</p>
-      <h2 class="section-title">{{ t("learningTitle") }}</h2>
-    </div>
-
     <div v-if="loading" class="flex items-center gap-2 text-sm text-[var(--muted)]">
       <Loader2 class="h-4 w-4 animate-spin" aria-hidden="true" />
       {{ t("learningLoading") }}

@@ -289,6 +289,10 @@ button {
   align-items: center;
 }
 
+.admin-hero-compact {
+  justify-content: flex-end;
+}
+
 .admin-refresh {
   width: auto;
   flex-shrink: 0;
@@ -726,6 +730,11 @@ button {
   gap: 0.1rem;
 }
 
+.profile-top-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .profile-account-card {
   display: grid;
 }
@@ -1145,6 +1154,10 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.community-topline-compact {
+  justify-content: flex-end;
 }
 
 .community-topline-actions {

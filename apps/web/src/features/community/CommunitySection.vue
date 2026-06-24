@@ -452,11 +452,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="community-chat-shell">
     <div v-if="!selectedTopic" class="space-y-3">
-      <div class="community-topline">
-        <div>
-          <h2 class="section-title">{{ t("communityTitle") }}</h2>
-          <p class="mt-1 text-xs text-[var(--muted)]">{{ t("communityIntro") }}</p>
-        </div>
+      <div class="community-topline community-topline-compact">
         <div class="community-topline-actions">
           <button class="icon-button" type="button" aria-label="Обновить темы" :disabled="loading" @click="loadTopics({ showLoading: true })">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" aria-hidden="true" />
