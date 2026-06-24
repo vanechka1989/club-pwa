@@ -10,8 +10,10 @@ import { navItems, type AppSection } from "@/features/app/navigation";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
 import { useSessionStore } from "@/stores/session";
+import { useUiStore } from "@/stores/ui";
 
 const session = useSessionStore();
+const ui = useUiStore();
 const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
@@ -30,11 +32,30 @@ function syncCommunityLock(isLocked: boolean) {
   }
 }
 
+function syncTelegramFullscreen(isEnabled: boolean) {
+  const webApp = window.Telegram?.WebApp;
+  webApp?.expand();
+
+  if (isEnabled) {
+    webApp?.requestFullscreen?.();
+    return;
+  }
+
+  webApp?.exitFullscreen?.();
+}
+
 onMounted(() => {
   window.Telegram?.WebApp?.ready();
-  window.Telegram?.WebApp?.expand();
+  syncTelegramFullscreen(ui.fullscreenEnabled);
   void session.load();
 });
+
+watch(
+  () => ui.fullscreenEnabled,
+  (isEnabled) => {
+    syncTelegramFullscreen(isEnabled);
+  }
+);
 
 watch(
   () => activeSection.value === "community",

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Check, Fingerprint, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
+import { BarChart3, Check, Fingerprint, Maximize2, Minimize2, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { getLearningHome } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
@@ -290,6 +290,33 @@ onMounted(async () => {
           <component :is="option.icon" class="h-4 w-4" aria-hidden="true" />
           <span>{{ option.label }}</span>
         </button>
+      </div>
+
+      <div class="profile-window-mode mt-3">
+        <div>
+          <h4>Режим окна</h4>
+          <p>Выберите, как удобнее открывать миниапп в Telegram.</p>
+        </div>
+        <div class="theme-choice-row">
+          <button
+            class="theme-choice"
+            :class="{ 'theme-choice-active': ui.fullscreenEnabled }"
+            type="button"
+            @click="ui.setFullscreenEnabled(true)"
+          >
+            <Maximize2 class="h-4 w-4" aria-hidden="true" />
+            <span>Во весь экран</span>
+          </button>
+          <button
+            class="theme-choice"
+            :class="{ 'theme-choice-active': !ui.fullscreenEnabled }"
+            type="button"
+            @click="ui.setFullscreenEnabled(false)"
+          >
+            <Minimize2 class="h-4 w-4" aria-hidden="true" />
+            <span>Обычный</span>
+          </button>
+        </div>
       </div>
 
       <div class="scheme-grid mt-3">

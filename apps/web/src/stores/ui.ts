@@ -24,6 +24,8 @@ export const useUiStore = defineStore("ui", () => {
       ? savedPreviewMode
       : "developer"
   );
+  const savedFullscreenPreference = localStorage.getItem("club-fullscreen-enabled");
+  const fullscreenEnabled = ref(savedFullscreenPreference !== "false");
 
   function applyTheme() {
     document.documentElement.dataset.theme = theme.value;
@@ -49,7 +51,12 @@ export const useUiStore = defineStore("ui", () => {
     localStorage.removeItem("club-preview-membership");
   }
 
+  function setFullscreenEnabled(isEnabled: boolean) {
+    fullscreenEnabled.value = isEnabled;
+    localStorage.setItem("club-fullscreen-enabled", String(isEnabled));
+  }
+
   applyTheme();
 
-  return { theme, colorScheme, previewMode, setTheme, setColorScheme, setPreviewMode };
+  return { theme, colorScheme, previewMode, fullscreenEnabled, setTheme, setColorScheme, setPreviewMode, setFullscreenEnabled };
 });
