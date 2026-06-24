@@ -32,16 +32,30 @@ function syncCommunityLock(isLocked: boolean) {
   }
 }
 
+function syncTelegramSafeArea() {
+  const webApp = window.Telegram?.WebApp;
+  const topInset = Math.max(webApp?.contentSafeAreaInset?.top ?? 0, webApp?.safeAreaInset?.top ?? 0);
+  const bottomInset = Math.max(webApp?.contentSafeAreaInset?.bottom ?? 0, webApp?.safeAreaInset?.bottom ?? 0);
+
+  document.documentElement.style.setProperty("--tg-safe-top", `${topInset}px`);
+  document.documentElement.style.setProperty("--tg-safe-bottom", `${bottomInset}px`);
+}
+
 function syncTelegramFullscreen(isEnabled: boolean) {
   const webApp = window.Telegram?.WebApp;
   webApp?.expand();
+  syncTelegramSafeArea();
+  document.documentElement.classList.toggle("club-telegram-fullscreen", isEnabled);
+  document.body.classList.toggle("club-telegram-fullscreen", isEnabled);
 
   if (isEnabled) {
     webApp?.requestFullscreen?.();
+    window.setTimeout(syncTelegramSafeArea, 250);
     return;
   }
 
   webApp?.exitFullscreen?.();
+  window.setTimeout(syncTelegramSafeArea, 250);
 }
 
 onMounted(() => {
@@ -70,6 +84,8 @@ watch(
 
 onBeforeUnmount(() => {
   syncCommunityLock(false);
+  document.documentElement.classList.remove("club-telegram-fullscreen");
+  document.body.classList.remove("club-telegram-fullscreen");
 });
 </script>
 

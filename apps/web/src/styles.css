@@ -260,6 +260,7 @@ button {
 
 .app-root {
   --nav-space: 5.4rem;
+  --fullscreen-top-offset: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
   background: var(--bg);
   padding-bottom: var(--nav-space);
 }
@@ -282,6 +283,10 @@ button {
   --nav-space: 0rem;
 }
 
+.club-telegram-fullscreen .app-shell {
+  padding-top: var(--fullscreen-top-offset);
+}
+
 .community-active .app-shell {
   height: calc(100dvh - var(--nav-space));
   min-height: 0 !important;
@@ -293,6 +298,10 @@ button {
 .community-chat-open .app-shell {
   height: 100dvh;
   padding: 0;
+}
+
+.club-telegram-fullscreen .community-chat-open .app-shell {
+  padding-top: 0;
 }
 
 .community-active .content-panel-community,
@@ -1554,6 +1563,11 @@ button {
 .community-chat-open .chat-room {
   height: 100dvh;
   padding: 0.7rem 0.75rem calc(0.7rem + env(safe-area-inset-bottom));
+}
+
+.club-telegram-fullscreen .community-chat-open .chat-room {
+  height: calc(100dvh - var(--fullscreen-top-offset));
+  padding-top: var(--fullscreen-top-offset);
 }
 
 .nav-is-collapsed .chat-room {
