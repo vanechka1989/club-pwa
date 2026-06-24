@@ -261,6 +261,7 @@ button {
 .app-root {
   --nav-space: 5.4rem;
   --fullscreen-top-offset: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+  --app-viewport-height: var(--club-viewport-height, 100dvh);
   background: var(--bg);
   padding-bottom: var(--nav-space);
 }
@@ -273,7 +274,7 @@ button {
   position: fixed;
   inset: 0;
   width: 100%;
-  height: 100dvh;
+  height: var(--app-viewport-height);
   overflow: hidden;
   padding-bottom: 0;
   overscroll-behavior: none;
@@ -288,7 +289,7 @@ button {
 }
 
 .community-active .app-shell {
-  height: calc(100dvh - var(--nav-space));
+  height: calc(var(--app-viewport-height) - var(--nav-space));
   min-height: 0 !important;
   max-width: none;
   padding: 0.65rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
@@ -296,12 +297,12 @@ button {
 }
 
 .club-telegram-fullscreen .community-active:not(.community-chat-open) .app-shell {
-  height: calc(100dvh - var(--nav-space) - var(--fullscreen-top-offset));
+  height: calc(var(--app-viewport-height) - var(--nav-space) - var(--fullscreen-top-offset));
   padding-top: var(--fullscreen-top-offset);
 }
 
 .community-chat-open .app-shell {
-  height: 100dvh;
+  height: var(--app-viewport-height);
   padding: 0;
 }
 
@@ -616,6 +617,24 @@ button {
   background: var(--panel-soft);
 }
 
+.learning-content-thumb {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.85rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.learning-content-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .image-viewer {
   max-width: min(92vw, 68rem);
   max-height: 88vh;
@@ -630,6 +649,35 @@ button {
   max-height: 88vh;
   object-fit: contain;
   border-radius: 0.9rem;
+}
+
+.video-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  background: #000;
+  padding: calc(env(safe-area-inset-top) + 0.75rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.75rem);
+}
+
+.video-viewer-close {
+  justify-self: end;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.video-viewer-player {
+  align-self: center;
+  width: 100%;
+  max-height: 100%;
+  background: #000;
 }
 
 .admin-user-layout {
@@ -1651,12 +1699,12 @@ button {
 }
 
 .community-chat-open .chat-room {
-  height: 100dvh;
+  height: var(--app-viewport-height);
   padding: 0.7rem 0.75rem calc(0.7rem + env(safe-area-inset-bottom));
 }
 
 .club-telegram-fullscreen .community-chat-open .chat-room {
-  height: calc(100dvh - var(--fullscreen-top-offset));
+  height: calc(var(--app-viewport-height) - var(--fullscreen-top-offset));
   padding-top: var(--fullscreen-top-offset);
 }
 

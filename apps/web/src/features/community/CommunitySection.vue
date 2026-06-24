@@ -53,6 +53,7 @@ let topicsRefreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 let refreshInFlight = false;
 let topicsRefreshInFlight = false;
 const topicReadStorageKey = "club-community-topic-read-at";
+const viewportHeightCssVar = "--club-viewport-height";
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const hasCommunityAccess = computed(() => isModerator.value || session.user?.membershipStatus === "active");
@@ -564,7 +565,27 @@ async function handleReaction(message: ClubMessage, reaction: Exclude<MessageRea
   activeReactionMessageId.value = null;
 }
 
+function updateViewportHeight() {
+  const height = window.visualViewport?.height ?? window.innerHeight;
+  document.documentElement.style.setProperty(viewportHeightCssVar, `${height}px`);
+}
+
+function bindViewportHeight() {
+  updateViewportHeight();
+  window.visualViewport?.addEventListener("resize", updateViewportHeight);
+  window.visualViewport?.addEventListener("scroll", updateViewportHeight);
+  window.addEventListener("resize", updateViewportHeight);
+}
+
+function unbindViewportHeight() {
+  window.visualViewport?.removeEventListener("resize", updateViewportHeight);
+  window.visualViewport?.removeEventListener("scroll", updateViewportHeight);
+  window.removeEventListener("resize", updateViewportHeight);
+  document.documentElement.style.removeProperty(viewportHeightCssVar);
+}
+
 onMounted(() => {
+  bindViewportHeight();
   loadTopicReadState();
   if (hasCommunityAccess.value) {
     void loadTopics({ showLoading: true });
@@ -608,6 +629,7 @@ watch(
 onBeforeUnmount(() => {
   stopMessageRefresh();
   stopTopicsRefresh();
+  unbindViewportHeight();
   emit("chatOpenChange", false);
 });
 </script>

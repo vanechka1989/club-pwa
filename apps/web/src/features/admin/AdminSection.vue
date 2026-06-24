@@ -41,7 +41,7 @@ type AdminPanel = "overview" | "users" | "materials" | "admins";
 const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
   { id: "users", label: "Клиенты", icon: UsersRound },
-  { id: "materials", label: "Записи", icon: FileVideo },
+  { id: "materials", label: "Контент", icon: FileVideo },
   { id: "admins", label: "Админы", icon: Shield }
 ];
 
@@ -83,6 +83,7 @@ const materialFile = ref<File | null>(null);
 const categoryTitle = ref("");
 const categoryDescription = ref("");
 const showMaterialModal = ref(false);
+const showCategoryModal = ref(false);
 const editorRef = ref<HTMLElement | null>(null);
 const editorColor = ref("#111827");
 const newAdminTelegramId = ref("");
@@ -343,6 +344,14 @@ function closeMaterialModal() {
   showMaterialModal.value = false;
 }
 
+function openCategoryModal() {
+  showCategoryModal.value = true;
+}
+
+function closeCategoryModal() {
+  showCategoryModal.value = false;
+}
+
 function syncEditorBody() {
   materialBody.value = editorRef.value?.innerHTML ?? "";
 }
@@ -355,7 +364,7 @@ function applyEditorCommand(command: string, value?: string) {
 
 async function handleCreateMaterial() {
   if (!materialCategoryId.value || !materialTitle.value.trim()) {
-    setError("Укажите категорию и название записи.");
+    setError("Укажите категорию и название контента.");
     return;
   }
   if (materialKind.value !== "text" && !materialFile.value) {
@@ -383,9 +392,9 @@ async function handleCreateMaterial() {
     );
     resetMaterialForm();
     closeMaterialModal();
-    showSuccessAlert("Запись добавлена.");
+    showSuccessAlert("Контент добавлен.");
   } catch {
-    setError("Не удалось добавить запись.");
+    setError("Не удалось добавить контент.");
   } finally {
     saving.value = false;
   }
@@ -396,9 +405,9 @@ async function handleToggleMaterial(material: AdminLearningMaterial) {
   try {
     const response = await updateAdminLearningMaterialStatus(material.id, !material.isPublished);
     learningMaterials.value = learningMaterials.value.map((item) => (item.id === material.id ? response.material : item));
-    setStatus(response.material.isPublished ? "Запись открыта." : "Запись скрыта.");
+    setStatus(response.material.isPublished ? "Контент открыт." : "Контент скрыт.");
   } catch {
-    setError("Не удалось изменить доступность записи.");
+    setError("Не удалось изменить доступность контента.");
   } finally {
     saving.value = false;
   }
@@ -420,6 +429,7 @@ async function handleCreateCategory() {
     materialCategoryId.value = response.category.id;
     categoryTitle.value = "";
     categoryDescription.value = "";
+    closeCategoryModal();
     showSuccessAlert("Категория добавлена.");
   } catch {
     setError("Не удалось добавить категорию.");
@@ -429,7 +439,7 @@ async function handleCreateCategory() {
 }
 
 async function handleDeleteCategory(category: LearningCategory) {
-  const confirmed = window.confirm(`Удалить категорию "${category.title}" и все записи внутри неё?`);
+  const confirmed = window.confirm(`Удалить категорию "${category.title}" и весь контент внутри неё?`);
   if (!confirmed) {
     return;
   }
@@ -451,7 +461,7 @@ async function handleDeleteCategory(category: LearningCategory) {
 }
 
 async function handleDeleteMaterial(material: AdminLearningMaterial) {
-  const confirmed = window.confirm(`Удалить запись "${material.title}"?`);
+  const confirmed = window.confirm(`Удалить контент "${material.title}"?`);
   if (!confirmed) {
     return;
   }
@@ -463,9 +473,9 @@ async function handleDeleteMaterial(material: AdminLearningMaterial) {
     learningCategories.value = learningCategories.value.map((category) =>
       category.id === material.categoryId ? { ...category, itemsCount: Math.max(0, category.itemsCount - 1) } : category
     );
-    setStatus("Запись удалена.");
+    setStatus("Контент удалён.");
   } catch {
-    setError("Не удалось удалить запись.");
+    setError("Не удалось удалить контент.");
   } finally {
     saving.value = false;
   }
@@ -739,36 +749,61 @@ onMounted(() => {
     <section v-else-if="activePanel === 'materials'" class="admin-panel">
       <div class="admin-panel-head">
         <div>
-          <h3>Записи обучения</h3>
+          <h3>Контент обучения</h3>
           <p>Категории, текст, фото, видео и аудио. Медиа загружается в облако сразу при добавлении.</p>
         </div>
         <button class="primary-button admin-add-button" type="button" :disabled="!learningCategories.length" @click="openMaterialModal">
-          Добавить запись
+          Добавить контент
         </button>
       </div>
 
       <section class="admin-crm-block">
-        <h4>Категории</h4>
-        <form class="admin-form" @submit.prevent="handleCreateCategory">
-          <input v-model.trim="categoryTitle" class="text-input" placeholder="Название категории" />
-          <input v-model.trim="categoryDescription" class="text-input" placeholder="Описание, необязательно" />
-          <button class="secondary-button" type="submit" :disabled="saving">Добавить категорию</button>
-        </form>
+        <div class="admin-panel-head">
+          <div>
+            <h4>Категории</h4>
+            <p>Группы, внутри которых хранится контент.</p>
+          </div>
+          <button class="secondary-button admin-add-button" type="button" @click="openCategoryModal">
+            Добавить категорию
+          </button>
+        </div>
 
         <div class="admin-list mt-3">
           <article v-for="category in learningCategories" :key="category.id" class="admin-entity">
             <div>
               <strong>{{ category.title }}</strong>
-              <small>{{ category.itemsCount }} записей</small>
+              <small>{{ category.itemsCount }} элементов контента</small>
               <p v-if="category.description">{{ category.description }}</p>
             </div>
             <button class="icon-button" type="button" :disabled="saving" @click="handleDeleteCategory(category)">
               <Trash2 class="h-4 w-4" aria-hidden="true" />
             </button>
           </article>
-          <p v-if="!learningCategories.length" class="admin-empty">Категорий пока нет. Добавьте первую, чтобы создавать записи.</p>
+          <p v-if="!learningCategories.length" class="admin-empty">Категорий пока нет. Добавьте первую, чтобы создавать контент.</p>
         </div>
       </section>
+
+      <Teleport to="body">
+        <div v-if="showCategoryModal" class="admin-modal-backdrop" @click.self="closeCategoryModal">
+          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-category-modal-title">
+            <header class="admin-client-modal-head">
+              <div>
+                <h3 id="admin-category-modal-title">Новая категория</h3>
+                <p>Создайте раздел для контента.</p>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть добавление категории" @click="closeCategoryModal">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <form class="admin-form" @submit.prevent="handleCreateCategory">
+              <input v-model.trim="categoryTitle" class="text-input" placeholder="Название категории" />
+              <input v-model.trim="categoryDescription" class="text-input" placeholder="Описание, необязательно" />
+              <button class="primary-button" type="submit" :disabled="saving">Добавить категорию</button>
+            </form>
+          </aside>
+        </div>
+      </Teleport>
 
       <div class="admin-list">
         <section v-for="group in materialsByCategory" :key="group.category.id" class="admin-crm-block">
@@ -791,9 +826,9 @@ onMounted(() => {
               </button>
             </div>
           </article>
-          <p v-if="!group.materials.length" class="admin-empty">В этой категории пока нет записей.</p>
+          <p v-if="!group.materials.length" class="admin-empty">В этой категории пока нет контента.</p>
         </section>
-        <p v-if="!learningMaterials.length" class="admin-empty">Записей пока нет.</p>
+        <p v-if="!learningMaterials.length" class="admin-empty">Контента пока нет.</p>
       </div>
 
       <Teleport to="body">
@@ -801,17 +836,17 @@ onMounted(() => {
           <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-material-modal-title">
             <header class="admin-client-modal-head">
               <div>
-                <h3 id="admin-material-modal-title">Новая запись</h3>
-                <p>Добавьте текст, медиа и оформление записи.</p>
+                <h3 id="admin-material-modal-title">Новый контент</h3>
+                <p>Добавьте текст, медиа и оформление контента.</p>
               </div>
-              <button class="icon-button" type="button" aria-label="Закрыть добавление записи" @click="closeMaterialModal">
+              <button class="icon-button" type="button" aria-label="Закрыть добавление контента" @click="closeMaterialModal">
                 <X class="h-4 w-4" aria-hidden="true" />
               </button>
             </header>
 
             <form class="admin-form" @submit.prevent="handleCreateMaterial">
               <select v-model="materialCategoryId" class="text-input">
-                <option value="" disabled>Категория записи</option>
+                <option value="" disabled>Категория контента</option>
                 <option v-for="category in learningCategories" :key="category.id" :value="category.id">
                   {{ category.title }}
                 </option>
@@ -822,7 +857,7 @@ onMounted(() => {
                 <option value="video">Видео</option>
                 <option value="audio">Аудио</option>
               </select>
-              <input v-model.trim="materialTitle" class="text-input" placeholder="Название записи" />
+              <input v-model.trim="materialTitle" class="text-input" placeholder="Название контента" />
               <input v-model.trim="materialSummary" class="text-input" placeholder="Краткое описание" />
 
               <div class="admin-editor">
@@ -841,7 +876,7 @@ onMounted(() => {
                   class="admin-rich-editor"
                   contenteditable="true"
                   role="textbox"
-                  aria-label="Текст записи"
+                  aria-label="Текст контента"
                   data-placeholder="Текст, описание или конспект"
                   @input="syncEditorBody"
                 ></div>
@@ -858,7 +893,7 @@ onMounted(() => {
                 <input v-model="materialPublished" type="checkbox" />
                 <span>Сразу открыть клиентам</span>
               </label>
-              <button class="primary-button" type="submit" :disabled="saving || !learningCategories.length">Добавить запись</button>
+              <button class="primary-button" type="submit" :disabled="saving || !learningCategories.length">Добавить контент</button>
             </form>
           </aside>
         </div>

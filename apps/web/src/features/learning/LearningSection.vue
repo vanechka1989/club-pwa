@@ -33,6 +33,7 @@ const commentSaving = ref(false);
 const error = ref<string | null>(null);
 const accessDenied = ref(false);
 const imageViewerUrl = ref<string | null>(null);
+const videoViewerUrl = ref<string | null>(null);
 const hasLearningAccess = computed(
   () => session.user?.role === "admin" || session.user?.role === "owner" || session.user?.membershipStatus === "active"
 );
@@ -116,6 +117,14 @@ async function loadLearning() {
 }
 
 async function openItem(item: LearningContent) {
+  if (selectedItem.value?.id === item.id) {
+    selectedItem.value = null;
+    selectedCompletedAt.value = null;
+    selectedPlaybackPosition.value = 0;
+    comments.value = [];
+    return;
+  }
+
   selectedItem.value = null;
   selectedCompletedAt.value = null;
   selectedPlaybackPosition.value = 0;
@@ -141,6 +150,10 @@ async function openItem(item: LearningContent) {
   } finally {
     itemLoading.value = false;
   }
+}
+
+function isSelectedItem(item: LearningContent) {
+  return selectedItem.value?.id === item.id;
 }
 
 function applySavedPlayback(event: Event) {
@@ -190,6 +203,14 @@ function openImageViewer(url: string) {
 
 function closeImageViewer() {
   imageViewerUrl.value = null;
+}
+
+function openVideoViewer(url: string) {
+  videoViewerUrl.value = url;
+}
+
+function closeVideoViewer() {
+  videoViewerUrl.value = null;
 }
 
 async function loadComments(itemId: string) {
@@ -250,13 +271,13 @@ watch(hasLearningAccess, (hasAccess) => {
     <div class="section-head">
       <div>
         <h2 class="section-title">Обучение</h2>
-        <p class="section-subtitle">Записи клуба и ваш прогресс.</p>
+        <p class="section-subtitle">Контент клуба и ваш прогресс.</p>
       </div>
     </div>
 
     <div v-if="!hasLearningAccess || accessDenied" class="access-lock-card">
       <strong>Обучение закрыто</strong>
-      <span>Записи доступны после активации подписки.</span>
+      <span>Контент доступен после активации подписки.</span>
     </div>
 
     <div v-else-if="loading" class="flex items-center gap-2 text-sm text-[var(--muted)]">
@@ -292,7 +313,7 @@ watch(hasLearningAccess, (hasAccess) => {
       </div>
 
       <div class="space-y-3">
-        <h3 class="font-semibold text-[var(--text)]">Записи</h3>
+        <h3 class="font-semibold text-[var(--text)]">Контент</h3>
 
         <div v-if="materialsByCategory.length" class="grid gap-4">
           <section v-for="group in materialsByCategory" :key="group.category.id" class="surface-card">
@@ -309,13 +330,15 @@ watch(hasLearningAccess, (hasAccess) => {
                 @click="openItem(item)"
               >
                 <div class="flex items-start gap-3">
-                  <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-                    <component :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
+                  <span class="learning-content-thumb">
+                    <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
+                    <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span>
                     <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
                     <small class="mt-1 block leading-5 text-[var(--muted)]">{{ item.summary }}</small>
                   </span>
+                  <span v-if="isSelectedItem(item)" class="ml-auto shrink-0 text-xs font-bold text-[var(--accent)]">Открыто</span>
                 </div>
               </button>
             </div>
@@ -374,6 +397,14 @@ watch(hasLearningAccess, (hasAccess) => {
           @pause="handlePlaybackPause"
           @ended="handlePlaybackEnded"
         />
+        <button
+          v-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
+          class="secondary-button mt-3 w-full"
+          type="button"
+          @click="openVideoViewer(selectedItem.mediaUrl)"
+        >
+          Открыть во весь экран
+        </button>
 
         <audio
           v-else-if="selectedItem.kind === 'audio' && selectedItem.mediaUrl"
@@ -423,6 +454,23 @@ watch(hasLearningAccess, (hasAccess) => {
           <button class="image-viewer" type="button" aria-label="Закрыть изображение" @click="closeImageViewer">
             <img :src="imageViewerUrl" alt="" />
           </button>
+        </div>
+      </Teleport>
+
+      <Teleport to="body">
+        <div v-if="videoViewerUrl" class="video-viewer" role="dialog" aria-modal="true">
+          <button class="video-viewer-close" type="button" aria-label="Закрыть видео" @click="closeVideoViewer">Закрыть</button>
+          <video
+            class="video-viewer-player"
+            :src="videoViewerUrl"
+            controls
+            autoplay
+            playsinline
+            @loadedmetadata="applySavedPlayback"
+            @timeupdate="handlePlaybackTimeUpdate"
+            @pause="handlePlaybackPause"
+            @ended="handlePlaybackEnded"
+          />
         </div>
       </Teleport>
     </div>
