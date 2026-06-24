@@ -31,7 +31,7 @@ export const subscribeResponseSchema = z.object({
 });
 export type SubscribeResponse = z.infer<typeof subscribeResponseSchema>;
 
-export const contentKindSchema = z.enum(["text", "photo", "video"]);
+export const contentKindSchema = z.enum(["text", "photo", "video", "audio"]);
 export type ContentKind = z.infer<typeof contentKindSchema>;
 
 export const learningCategorySchema = z.object({
@@ -51,6 +51,8 @@ export const learningContentSchema = z.object({
   summary: z.string().nullable(),
   body: z.string().nullable(),
   mediaUrl: z.string().url().nullable(),
+  mediaContentType: z.string().nullable(),
+  mediaSizeBytes: z.number().int().nonnegative().nullable(),
   publishedAt: z.string().datetime().nullable()
 });
 export type LearningContent = z.infer<typeof learningContentSchema>;
@@ -72,15 +74,23 @@ export type LearningHomeResponse = z.infer<typeof learningHomeResponseSchema>;
 
 export const learningContentResponseSchema = z.object({
   item: learningContentSchema,
-  completedAt: z.string().datetime().nullable()
+  completedAt: z.string().datetime().nullable(),
+  playbackPositionSeconds: z.number().int().nonnegative()
 });
 export type LearningContentResponse = z.infer<typeof learningContentResponseSchema>;
 
 export const learningProgressMutationResponseSchema = z.object({
   ok: z.boolean(),
-  completedAt: z.string().datetime().nullable()
+  completedAt: z.string().datetime().nullable(),
+  playbackPositionSeconds: z.number().int().nonnegative().optional()
 });
 export type LearningProgressMutationResponse = z.infer<typeof learningProgressMutationResponseSchema>;
+
+export const learningPlaybackMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  playbackPositionSeconds: z.number().int().nonnegative()
+});
+export type LearningPlaybackMutationResponse = z.infer<typeof learningPlaybackMutationResponseSchema>;
 
 export const moderationStatusSchema = z.enum(["visible", "hidden", "deleted"]);
 export type ModerationStatus = z.infer<typeof moderationStatusSchema>;
@@ -283,6 +293,7 @@ export const adminStatsUserSchema = z.object({
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
   tariff: z.string().nullable(),
+  hasRestrictions: z.boolean(),
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),
   lastOpenedItemTitle: z.string().nullable(),
@@ -326,6 +337,25 @@ export const adminStatsResponseSchema = z.object({
   users: z.array(adminStatsUserSchema)
 });
 export type AdminStatsResponse = z.infer<typeof adminStatsResponseSchema>;
+
+export const adminLearningMaterialSchema = learningContentSchema.extend({
+  isPublished: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type AdminLearningMaterial = z.infer<typeof adminLearningMaterialSchema>;
+
+export const adminLearningResponseSchema = z.object({
+  categories: z.array(learningCategorySchema),
+  materials: z.array(adminLearningMaterialSchema)
+});
+export type AdminLearningResponse = z.infer<typeof adminLearningResponseSchema>;
+
+export const adminLearningMaterialMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  material: adminLearningMaterialSchema
+});
+export type AdminLearningMaterialMutationResponse = z.infer<typeof adminLearningMaterialMutationResponseSchema>;
 
 export const adminAccessMutationResponseSchema = z.object({
   ok: z.boolean(),

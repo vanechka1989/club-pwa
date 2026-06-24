@@ -1,8 +1,9 @@
 import type {
   AdminAccessMutationResponse,
+  AdminLearningMaterialMutationResponse,
+  AdminLearningResponse,
   AdminListResponse,
   AdminModerationResponse,
-  AdminMutesResponse,
   AdminUserDetailResponse,
   ClubChatMutationResponse,
   ClubChatsResponse,
@@ -18,6 +19,7 @@ import type {
   LessonCommentMutationResponse,
   LessonCommentsResponse,
   LearningHomeResponse,
+  LearningPlaybackMutationResponse,
   LearningProgressMutationResponse,
   MessageReaction,
   MeResponse,
@@ -85,6 +87,13 @@ export function getLearningContent(id: string) {
 
 export function completeLearningContent(id: string) {
   return api<LearningProgressMutationResponse>(`/learning/items/${id}/complete`, { method: "POST" });
+}
+
+export function saveLearningPlayback(id: string, positionSeconds: number) {
+  return api<LearningPlaybackMutationResponse>(`/learning/items/${id}/playback`, {
+    method: "POST",
+    body: { positionSeconds }
+  });
 }
 
 export function getLessonComments(id: string) {
@@ -227,10 +236,6 @@ export function updateModerationStatus(kind: "lesson_comment" | "chat_message", 
   });
 }
 
-export function getAdminMutes() {
-  return api<AdminMutesResponse>("/admin/mutes");
-}
-
 export function createUserMute(payload: { telegramId: string; kind: "temporary" | "permanent"; reason?: string | null; expiresAt?: string | null }) {
   return api<AdminMutationResponse>("/admin/mutes", {
     method: "POST",
@@ -241,5 +246,23 @@ export function createUserMute(payload: { telegramId: string; kind: "temporary" 
 export function revokeUserMute(id: string) {
   return api<AdminMutationResponse>(`/admin/mutes/${id}`, {
     method: "DELETE"
+  });
+}
+
+export function getAdminLearning() {
+  return api<AdminLearningResponse>("/admin/learning");
+}
+
+export function createAdminLearningMaterial(payload: FormData) {
+  return api<AdminLearningMaterialMutationResponse>("/admin/learning/materials", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function updateAdminLearningMaterialStatus(id: string, isPublished: boolean) {
+  return api<AdminLearningMaterialMutationResponse>(`/admin/learning/materials/${id}/status`, {
+    method: "POST",
+    body: { isPublished }
   });
 }

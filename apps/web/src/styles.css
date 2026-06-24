@@ -543,8 +543,20 @@ button {
 
 .admin-filter-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 0.8fr));
   gap: 0.5rem;
+}
+
+.admin-check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.75rem;
+  color: var(--muted-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .admin-user-layout {

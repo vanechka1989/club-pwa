@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { contentCategories, contentItems, lessonComments, userContentProgress } from "../db/schema";
@@ -7,12 +7,19 @@ import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
+import { getObjectReadUrl } from "../storage/s3";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
 });
 
-function serializeContentItem(item: typeof contentItems.$inferSelect, includeBody = false) {
+const playbackPayloadSchema = z.object({
+  positionSeconds: z.number().int().min(0).max(24 * 60 * 60)
+});
+
+async function serializeContentItem(item: typeof contentItems.$inferSelect, includeBody = false) {
+  const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
+
   return {
     id: item.id,
     categoryId: item.categoryId,
@@ -20,7 +27,9 @@ function serializeContentItem(item: typeof contentItems.$inferSelect, includeBod
     title: item.title,
     summary: item.summary,
     body: includeBody ? item.body : null,
-    mediaUrl: item.mediaUrl,
+    mediaUrl,
+    mediaContentType: item.mediaContentType,
+    mediaSizeBytes: item.mediaSizeBytes,
     publishedAt: item.publishedAt?.toISOString() ?? null
   };
 }
@@ -76,8 +85,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
 
     const featured = await db.query.contentItems.findMany({
       where: eq(contentItems.isPublished, true),
-      orderBy: [desc(contentItems.publishedAt)],
-      limit: 6
+      orderBy: [asc(contentItems.sortOrder), desc(contentItems.publishedAt)]
     });
 
     const [totalItemsRow] = await db
@@ -111,11 +119,11 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       categories,
-      featured: featured.map((item) => serializeContentItem(item)),
+      featured: await Promise.all(featured.map((item) => serializeContentItem(item))),
       progress: {
         totalItems: totalItemsRow?.value ?? 0,
         completedItems: completedItemsRow?.value ?? 0,
-        lastOpenedItem: lastOpenedProgress?.item ? serializeContentItem(lastOpenedProgress.item) : null,
+        lastOpenedItem: lastOpenedProgress?.item ? await serializeContentItem(lastOpenedProgress.item) : null,
         lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null
       }
     });
@@ -149,8 +157,49 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       .returning();
 
     return c.json({
-      item: serializeContentItem(item, true),
-      completedAt: progress?.completedAt?.toISOString() ?? null
+      item: await serializeContentItem(item, true),
+      completedAt: progress?.completedAt?.toISOString() ?? null,
+      playbackPositionSeconds: progress?.playbackPositionSeconds ?? 0
+    });
+  })
+  .post("/items/:id/playback", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const body = playbackPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid playback payload" }, 400);
+    }
+
+    const item = await db.query.contentItems.findFirst({
+      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+    });
+
+    if (!item) {
+      return c.json({ error: "Learning content not found" }, 404);
+    }
+
+    const now = new Date();
+    const [progress] = await db
+      .insert(userContentProgress)
+      .values({
+        userId,
+        contentItemId: item.id,
+        playbackPositionSeconds: body.data.positionSeconds,
+        lastOpenedAt: now,
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: [userContentProgress.userId, userContentProgress.contentItemId],
+        set: {
+          playbackPositionSeconds: body.data.positionSeconds,
+          lastOpenedAt: now,
+          updatedAt: now
+        }
+      })
+      .returning();
+
+    return c.json({
+      ok: true,
+      playbackPositionSeconds: progress?.playbackPositionSeconds ?? body.data.positionSeconds
     });
   })
   .post("/items/:id/complete", requireActiveMember, async (c) => {
@@ -185,7 +234,8 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      completedAt: progress?.completedAt?.toISOString() ?? now.toISOString()
+      completedAt: progress?.completedAt?.toISOString() ?? now.toISOString(),
+      playbackPositionSeconds: progress?.playbackPositionSeconds ?? 0
     });
   })
   .get("/items/:id/comments", requireActiveMember, async (c) => {

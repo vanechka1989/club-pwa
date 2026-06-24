@@ -1,12 +1,14 @@
-import { and, count, desc, eq, isNotNull, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, ne } from "drizzle-orm";
 import { Hono, type Context } from "hono";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { AdminUserDetailResponse, AdminUserModerationEvent, AdminStatsUser, MembershipStatus } from "@club/shared";
+import type { AdminLearningMaterial, AdminUserDetailResponse, AdminUserModerationEvent, AdminStatsUser, ContentKind, MembershipStatus } from "@club/shared";
 import { getUserRole, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import {
   adminUsers,
   clubChatMessages,
+  contentCategories,
   contentItems,
   lessonComments,
   subscriptions,
@@ -19,6 +21,7 @@ import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
+import { getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -42,6 +45,49 @@ const mutePayloadSchema = z.object({
   expiresAt: z.string().datetime().nullable().optional()
 });
 
+const materialStatusPayloadSchema = z.object({
+  isPublished: z.boolean()
+});
+
+const contentKinds = ["text", "photo", "video", "audio"] as const;
+
+function getFormValue(form: FormData, key: string) {
+  const value = form.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeOptionalText(value: string) {
+  return value.length ? value : null;
+}
+
+function sanitizeFileName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96) || "material";
+}
+
+async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): Promise<AdminLearningMaterial> {
+  const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
+
+  return {
+    id: item.id,
+    categoryId: item.categoryId,
+    kind: item.kind,
+    title: item.title,
+    summary: item.summary,
+    body: item.body,
+    mediaUrl,
+    mediaContentType: item.mediaContentType,
+    mediaSizeBytes: item.mediaSizeBytes,
+    publishedAt: item.publishedAt?.toISOString() ?? null,
+    isPublished: item.isPublished,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString()
+  };
+}
+
 async function getPublishedItemsCount() {
   const [row] = await db
     .select({
@@ -56,6 +102,7 @@ async function getPublishedItemsCount() {
 async function buildStatsUser(user: typeof users.$inferSelect, totalItems: number): Promise<AdminStatsUser> {
   const membership = await getMembership(user.id);
   const role = await getUserRole(user.telegramId);
+  const activeMute = await getActiveMute(user.id);
   const [completedRow] = await db
     .select({
       value: count(userContentProgress.id)
@@ -81,6 +128,7 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     membershipStatus: membership.status,
     membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
     tariff: membership.subscription?.provider ?? null,
+    hasRestrictions: Boolean(activeMute),
     completedItems: completedRow?.value ?? 0,
     totalItems,
     lastOpenedItemTitle: lastOpened?.item?.title ?? null,
@@ -362,6 +410,144 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .slice(0, 50);
 
     return c.json({ items });
+  })
+  .get("/learning", async (c) => {
+    const categories = await db
+      .select({
+        id: contentCategories.id,
+        slug: contentCategories.slug,
+        title: contentCategories.title,
+        description: contentCategories.description,
+        itemsCount: count(contentItems.id)
+      })
+      .from(contentCategories)
+      .leftJoin(contentItems, eq(contentItems.categoryId, contentCategories.id))
+      .groupBy(contentCategories.id)
+      .orderBy(contentCategories.sortOrder);
+
+    const materials = await db.query.contentItems.findMany({
+      orderBy: [asc(contentItems.sortOrder), desc(contentItems.createdAt)]
+    });
+
+    return c.json({
+      categories,
+      materials: await Promise.all(materials.map(serializeAdminMaterial))
+    });
+  })
+  .post("/learning/materials", async (c) => {
+    const form = await c.req.raw.formData().catch(() => null);
+    if (!form) {
+      return c.json({ error: "Invalid material payload" }, 400);
+    }
+
+    const categoryId = getFormValue(form, "categoryId");
+    const kind = getFormValue(form, "kind") as ContentKind;
+    const title = getFormValue(form, "title");
+    const summary = normalizeOptionalText(getFormValue(form, "summary"));
+    const body = normalizeOptionalText(getFormValue(form, "body"));
+    const isPublished = getFormValue(form, "isPublished") === "true";
+
+    if (!categoryId || !contentKinds.includes(kind) || !title) {
+      return c.json({ error: "Invalid material payload" }, 400);
+    }
+
+    const category = await db.query.contentCategories.findFirst({
+      where: eq(contentCategories.id, categoryId)
+    });
+    if (!category) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    let mediaObjectKey: string | null = null;
+    let mediaContentType: string | null = null;
+    let mediaSizeBytes: number | null = null;
+    const file = form.get("file");
+
+    if (kind !== "text") {
+      if (!(file instanceof File) || file.size <= 0) {
+        return c.json({ error: "Media file is required" }, 400);
+      }
+
+      const contentType = file.type || "application/octet-stream";
+      if (
+        (kind === "photo" && !contentType.startsWith("image/")) ||
+        (kind === "video" && !contentType.startsWith("video/")) ||
+        (kind === "audio" && !contentType.startsWith("audio/"))
+      ) {
+        return c.json({ error: "Media file type does not match material kind" }, 400);
+      }
+
+      const key = `learning/${kind}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(file.name)}`;
+      const upload = await uploadObject({
+        key,
+        body: new Uint8Array(await file.arrayBuffer()),
+        contentType
+      });
+      mediaObjectKey = upload.key;
+      mediaContentType = contentType;
+      mediaSizeBytes = file.size;
+    }
+
+    const now = new Date();
+    const [material] = await db
+      .insert(contentItems)
+      .values({
+        categoryId,
+        kind,
+        title,
+        summary,
+        body,
+        mediaObjectKey,
+        mediaContentType,
+        mediaSizeBytes,
+        isPublished,
+        publishedAt: isPublished ? now : null,
+        createdAt: now,
+        updatedAt: now
+      })
+      .returning();
+
+    if (!material) {
+      return c.json({ error: "Unable to create material" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      material: await serializeAdminMaterial(material)
+    });
+  })
+  .post("/learning/materials/:id/status", async (c) => {
+    const body = materialStatusPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid material status payload" }, 400);
+    }
+
+    const current = await db.query.contentItems.findFirst({
+      where: eq(contentItems.id, c.req.param("id"))
+    });
+    if (!current) {
+      return c.json({ error: "Material not found" }, 404);
+    }
+
+    const now = new Date();
+    const [material] = await db
+      .update(contentItems)
+      .set({
+        isPublished: body.data.isPublished,
+        publishedAt: body.data.isPublished ? (current.publishedAt ?? now) : null,
+        updatedAt: now
+      })
+      .where(eq(contentItems.id, current.id))
+      .returning();
+
+    if (!material) {
+      return c.json({ error: "Unable to update material" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      material: await serializeAdminMaterial(material)
+    });
   })
   .post("/moderation/:kind/:id/status", async (c) => {
     const body = moderationStatusPayloadSchema.safeParse(await c.req.json().catch(() => null));

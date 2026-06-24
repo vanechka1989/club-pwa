@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
-export const contentKind = pgEnum("content_kind", ["text", "photo", "video"]);
+export const contentKind = pgEnum("content_kind", ["text", "photo", "video", "audio"]);
 export const supportTicketStatus = pgEnum("support_ticket_status", ["open", "answered", "closed"]);
 export const moderationStatus = pgEnum("moderation_status", ["visible", "hidden", "deleted"]);
 export const muteKind = pgEnum("mute_kind", ["temporary", "permanent"]);
@@ -83,6 +83,9 @@ export const contentItems = pgTable(
     summary: text("summary"),
     body: text("body"),
     mediaUrl: text("media_url"),
+    mediaObjectKey: text("media_object_key"),
+    mediaContentType: varchar("media_content_type", { length: 160 }),
+    mediaSizeBytes: integer("media_size_bytes"),
     sortOrder: integer("sort_order").notNull().default(0),
     isPublished: boolean("is_published").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -104,6 +107,7 @@ export const userContentProgress = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    playbackPositionSeconds: integer("playback_position_seconds").notNull().default(0),
     lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

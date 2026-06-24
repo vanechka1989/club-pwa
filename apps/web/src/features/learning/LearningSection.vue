@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { LearningContent, LearningCategory, LessonComment } from "@club/shared";
-import { CheckCircle2, Image, Loader2, Play, Type } from "lucide-vue-next";
+import { CheckCircle2, Image, Loader2, Music, Play, Type } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import {
   completeLearningContent,
   createLessonComment,
   getLearningContent,
   getLearningHome,
-  getLessonComments
+  getLessonComments,
+  saveLearningPlayback
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
@@ -22,6 +23,7 @@ const totalItems = ref(0);
 const completedItems = ref(0);
 const selectedItem = ref<LearningContent | null>(null);
 const selectedCompletedAt = ref<string | null>(null);
+const selectedPlaybackPosition = ref(0);
 const comments = ref<LessonComment[]>([]);
 const commentBody = ref("");
 const mutedUntil = ref<string | null>(null);
@@ -45,6 +47,10 @@ const selectedIcon = computed(() => {
     return Play;
   }
 
+  if (selectedItem.value?.kind === "audio") {
+    return Music;
+  }
+
   return Type;
 });
 
@@ -56,6 +62,14 @@ const progressPercent = computed(() => {
   return Math.min(100, Math.round((completedItems.value / totalItems.value) * 100));
 });
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
+const materialsByCategory = computed(() =>
+  categories.value
+    .map((category) => ({
+      category,
+      items: featured.value.filter((item) => item.categoryId === category.id)
+    }))
+    .filter((group) => group.items.length)
+);
 
 function iconFor(kind: LearningContent["kind"]) {
   if (kind === "photo") {
@@ -64,6 +78,10 @@ function iconFor(kind: LearningContent["kind"]) {
 
   if (kind === "video") {
     return Play;
+  }
+
+  if (kind === "audio") {
+    return Music;
   }
 
   return Type;
@@ -102,6 +120,7 @@ async function loadLearning() {
 async function openItem(item: LearningContent) {
   selectedItem.value = null;
   selectedCompletedAt.value = null;
+  selectedPlaybackPosition.value = 0;
   comments.value = [];
   mutedUntil.value = null;
   mutedPermanently.value = false;
@@ -112,6 +131,7 @@ async function openItem(item: LearningContent) {
     const response = await getLearningContent(item.id);
     selectedItem.value = response.item;
     selectedCompletedAt.value = response.completedAt;
+    selectedPlaybackPosition.value = response.playbackPositionSeconds;
     lastOpenedItem.value = response.item;
     await loadComments(response.item.id);
   } catch (reason) {
@@ -125,6 +145,47 @@ async function openItem(item: LearningContent) {
   } finally {
     itemLoading.value = false;
   }
+}
+
+function applySavedPlayback(event: Event) {
+  if (!selectedItem.value || !["video", "audio"].includes(selectedItem.value.kind) || selectedPlaybackPosition.value <= 1) {
+    return;
+  }
+
+  const element = event.target as HTMLMediaElement;
+  if (Number.isFinite(element.duration) && selectedPlaybackPosition.value < element.duration - 2) {
+    element.currentTime = selectedPlaybackPosition.value;
+  }
+}
+
+async function persistPlayback(positionSeconds: number) {
+  if (!selectedItem.value || !["video", "audio"].includes(selectedItem.value.kind)) {
+    return;
+  }
+
+  const rounded = Math.max(0, Math.floor(positionSeconds));
+  selectedPlaybackPosition.value = rounded;
+  await saveLearningPlayback(selectedItem.value.id, rounded).catch(() => null);
+}
+
+let lastPlaybackSyncAt = 0;
+
+function handlePlaybackTimeUpdate(event: Event) {
+  const now = Date.now();
+  if (now - lastPlaybackSyncAt < 5000) {
+    return;
+  }
+
+  lastPlaybackSyncAt = now;
+  void persistPlayback((event.target as HTMLMediaElement).currentTime);
+}
+
+function handlePlaybackPause(event: Event) {
+  void persistPlayback((event.target as HTMLMediaElement).currentTime);
+}
+
+function handlePlaybackEnded() {
+  void persistPlayback(0);
 }
 
 async function loadComments(itemId: string) {
@@ -228,33 +289,35 @@ watch(hasLearningAccess, (hasAccess) => {
         </button>
       </div>
 
-      <div v-if="categories.length" class="grid gap-3 sm:grid-cols-2">
-        <article
-          v-for="category in categories"
-          :key="category.id"
-          class="surface-card"
-        >
-          <p class="text-sm text-[var(--muted)]">{{ category.itemsCount }} {{ t("materialsCount") }}</p>
-          <h3 class="mt-2 font-semibold text-[var(--text)]">{{ category.title }}</h3>
-          <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ category.description }}</p>
-        </article>
-      </div>
-
       <div class="space-y-3">
-        <h3 class="font-semibold text-[var(--text)]">{{ t("featured") }}</h3>
+        <h3 class="font-semibold text-[var(--text)]">Материалы</h3>
 
-        <div v-if="featured.length" class="grid gap-3">
-          <button
-            v-for="item in featured"
-            :key="item.id"
-            class="surface-card w-full text-left transition hover:opacity-90"
-            type="button"
-            @click="openItem(item)"
-          >
-            <component :is="iconFor(item.kind)" class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
-            <p class="mt-3 font-semibold text-[var(--text)]">{{ item.title }}</p>
-            <p class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ item.summary }}</p>
-          </button>
+        <div v-if="materialsByCategory.length" class="grid gap-4">
+          <section v-for="group in materialsByCategory" :key="group.category.id" class="surface-card">
+            <p class="text-sm text-[var(--muted)]">{{ group.category.itemsCount }} {{ t("materialsCount") }}</p>
+            <h4 class="mt-1 font-semibold text-[var(--text)]">{{ group.category.title }}</h4>
+            <p v-if="group.category.description" class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ group.category.description }}</p>
+
+            <div class="mt-3 grid gap-2">
+              <button
+                v-for="item in group.items"
+                :key="item.id"
+                class="rounded-xl border border-[var(--border)] bg-[var(--panel-soft)] p-3 text-left transition hover:opacity-90"
+                type="button"
+                @click="openItem(item)"
+              >
+                <div class="flex items-start gap-3">
+                  <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                    <component :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
+                    <small class="mt-1 block leading-5 text-[var(--muted)]">{{ item.summary }}</small>
+                  </span>
+                </div>
+              </button>
+            </div>
+          </section>
         </div>
 
         <p v-else class="text-sm text-[var(--muted)]">{{ t("emptyMaterials") }}</p>
@@ -283,22 +346,39 @@ watch(hasLearningAccess, (hasAccess) => {
         </div>
         <p v-if="selectedItem.summary" class="mt-2 text-sm leading-6 text-[var(--muted)]">{{ selectedItem.summary }}</p>
 
-        <div v-if="selectedItem.kind === 'text'" class="prose prose-invert mt-4 max-w-none">
+        <div v-if="selectedItem.body" class="prose prose-invert mt-4 max-w-none">
           <p>{{ selectedItem.body }}</p>
         </div>
 
         <img
-          v-else-if="selectedItem.kind === 'photo' && selectedItem.mediaUrl"
-          class="mt-4 aspect-video w-full object-cover"
+          v-if="selectedItem.kind === 'photo' && selectedItem.mediaUrl"
+          class="mt-4 aspect-video w-full rounded-xl object-cover"
           :src="selectedItem.mediaUrl"
           :alt="selectedItem.title"
         />
 
         <video
           v-else-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
-          class="mt-4 aspect-video w-full bg-black"
+          class="mt-4 aspect-video w-full rounded-xl bg-black"
           :src="selectedItem.mediaUrl"
           controls
+          preload="metadata"
+          @loadedmetadata="applySavedPlayback"
+          @timeupdate="handlePlaybackTimeUpdate"
+          @pause="handlePlaybackPause"
+          @ended="handlePlaybackEnded"
+        />
+
+        <audio
+          v-else-if="selectedItem.kind === 'audio' && selectedItem.mediaUrl"
+          class="mt-4 w-full"
+          :src="selectedItem.mediaUrl"
+          controls
+          preload="metadata"
+          @loadedmetadata="applySavedPlayback"
+          @timeupdate="handlePlaybackTimeUpdate"
+          @pause="handlePlaybackPause"
+          @ended="handlePlaybackEnded"
         />
 
         <button

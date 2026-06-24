@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { AdminMute, AdminStatsUser, AdminUser, AdminUserDetailResponse } from "@club/shared";
+import type { AdminLearningMaterial, AdminStatsUser, AdminUser, AdminUserDetailResponse, ContentKind, LearningCategory } from "@club/shared";
 import {
   BarChart3,
   Check,
+  FileVideo,
   Search,
   Shield,
-  ShieldOff,
   Trash2,
   UsersRound,
   X,
@@ -14,30 +14,31 @@ import {
 import { computed, onMounted, ref } from "vue";
 import {
   addAdminUser,
+  createAdminLearningMaterial,
   createUserMute,
-  getAdminMutes,
+  getAdminLearning,
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
   getAdminUserStats,
   removeAdminUser,
   revokeUserMute,
+  updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
 } from "@/api/client";
-import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
+import { formatMembershipStatus } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
 
-const { t } = useI18n();
 const session = useSessionStore();
 const ui = useUiStore();
 
-type AdminPanel = "overview" | "users" | "mutes" | "admins";
+type AdminPanel = "overview" | "users" | "materials" | "admins";
 
 const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
   { id: "users", label: "Клиенты", icon: UsersRound },
-  { id: "mutes", label: "Муты", icon: ShieldOff },
+  { id: "materials", label: "Материалы", icon: FileVideo },
   { id: "admins", label: "Админы", icon: Shield }
 ];
 
@@ -60,15 +61,22 @@ const admins = ref<AdminUser[]>([]);
 const users = ref<AdminStatsUser[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
-const mutes = ref<AdminMute[]>([]);
+const learningCategories = ref<LearningCategory[]>([]);
+const learningMaterials = ref<AdminLearningMaterial[]>([]);
 const search = ref("");
 const subscriptionFilter = ref<"all" | "active" | "inactive" | "expired">("all");
 const tariffFilter = ref("all");
+const restrictionFilter = ref<"all" | "restricted">("all");
 const findTelegramId = ref("");
 const accessStatus = ref<"active" | "inactive" | "expired">("active");
 const accessExpiresAt = ref("");
-const muteTelegramId = ref("");
-const muteReason = ref("");
+const materialCategoryId = ref("");
+const materialKind = ref<ContentKind>("text");
+const materialTitle = ref("");
+const materialSummary = ref("");
+const materialBody = ref("");
+const materialPublished = ref(true);
+const materialFile = ref<File | null>(null);
 const newAdminTelegramId = ref("");
 const loading = ref(false);
 const saving = ref(false);
@@ -79,7 +87,7 @@ const isOwner = computed(() => session.user?.realRole === "owner");
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
-const activeMutes = computed(() => mutes.value.filter((mute) => !mute.revokedAt).length);
+const restrictedUsers = computed(() => users.value.filter((user) => user.hasRestrictions).length);
 const tariffOptions = computed(() => {
   const values = new Set(users.value.map((user) => user.tariff || "future").filter(Boolean));
   return ["all", ...Array.from(values)];
@@ -91,16 +99,13 @@ const filteredUsers = computed(() => {
       !query || [user.telegramId, user.firstName ?? "", user.username ?? ""].some((value) => value.toLowerCase().includes(query));
     const matchesSubscription = subscriptionFilter.value === "all" || user.membershipStatus === subscriptionFilter.value;
     const matchesTariff = tariffFilter.value === "all" || (user.tariff || "future") === tariffFilter.value;
-    return matchesQuery && matchesSubscription && matchesTariff;
+    const matchesRestrictions = restrictionFilter.value === "all" || user.hasRestrictions;
+    return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions;
   });
 });
 
 function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
-}
-
-function muteTitle(mute: AdminMute) {
-  return mute.firstName || mute.username || `ID ${mute.telegramId}`;
 }
 
 function adminRoleLabel(role: AdminStatsUser["role"]) {
@@ -127,7 +132,6 @@ function applySelectedUser(user: AdminStatsUser) {
   findTelegramId.value = user.telegramId;
   accessStatus.value = user.membershipStatus === "expired" ? "active" : user.membershipStatus;
   accessExpiresAt.value = user.membershipExpiresAt?.slice(0, 10) ?? "";
-  muteTelegramId.value = user.telegramId;
 }
 
 function closeSelectedUser() {
@@ -170,15 +174,19 @@ function setError(text: string) {
 async function loadAll() {
   loading.value = true;
   try {
-    const [adminsResponse, statsResponse, mutesResponse] = await Promise.all([
+    const [adminsResponse, statsResponse, learningResponse] = await Promise.all([
       getAdminUsers(),
       getAdminStats(),
-      getAdminMutes()
+      getAdminLearning()
     ]);
     ownerTelegramId.value = adminsResponse.ownerTelegramId;
     admins.value = adminsResponse.admins;
     users.value = statsResponse.users;
-    mutes.value = mutesResponse.mutes;
+    learningCategories.value = learningResponse.categories;
+    learningMaterials.value = learningResponse.materials;
+    if (!materialCategoryId.value && learningResponse.categories[0]) {
+      materialCategoryId.value = learningResponse.categories[0].id;
+    }
     if (selectedUser.value) {
       const updated = statsResponse.users.find((user) => user.telegramId === selectedUser.value?.telegramId);
       if (updated) {
@@ -241,53 +249,104 @@ async function handleUpdateAccess() {
   }
 }
 
-function prepareMute(user: AdminStatsUser) {
-  muteTelegramId.value = user.telegramId;
-}
-
-async function handleCreateMute() {
-  if (!muteTelegramId.value.trim()) {
-    return;
-  }
-
-  saving.value = true;
-  try {
-    await createUserMute({
-      telegramId: muteTelegramId.value,
-      kind: "permanent",
-      reason: muteReason.value || null,
-      expiresAt: null
-    });
-    muteReason.value = "";
-    const response = await getAdminMutes();
-    mutes.value = response.mutes;
-    setStatus("Мут выдан.");
-  } catch {
-    setError("Не удалось выдать мут.");
-  } finally {
-    saving.value = false;
-  }
-}
-
 async function handleQuickMute(user: AdminStatsUser) {
   if (!isOwner.value && user.role !== "member") {
     setError("Ограничивать администраторов может только главный админ.");
     return;
   }
 
-  prepareMute(user);
-  await handleCreateMute();
+  saving.value = true;
+  try {
+    await createUserMute({
+      telegramId: user.telegramId,
+      kind: "permanent",
+      reason: "Ограничение из карточки клиента",
+      expiresAt: null
+    });
+    selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
+    await loadAll();
+    setStatus("Мут выдан.");
+  } catch {
+    setError(user.hasRestrictions ? "У клиента уже есть активное ограничение." : "Не удалось выдать мут.");
+  } finally {
+    saving.value = false;
+  }
 }
 
 async function handleRevokeMute(id: string) {
+  if (!selectedUser.value) {
+    return;
+  }
+
   saving.value = true;
   try {
     await revokeUserMute(id);
-    const response = await getAdminMutes();
-    mutes.value = response.mutes;
+    selectedUserDetail.value = await getAdminUserDetail(selectedUser.value.telegramId);
+    await loadAll();
     setStatus("Мут снят.");
   } catch {
     setError("Не удалось снять мут.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+function handleMaterialFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  materialFile.value = input.files?.[0] ?? null;
+}
+
+function resetMaterialForm() {
+  materialTitle.value = "";
+  materialSummary.value = "";
+  materialBody.value = "";
+  materialKind.value = "text";
+  materialPublished.value = true;
+  materialFile.value = null;
+}
+
+async function handleCreateMaterial() {
+  if (!materialCategoryId.value || !materialTitle.value.trim()) {
+    setError("Укажите раздел и название материала.");
+    return;
+  }
+  if (materialKind.value !== "text" && !materialFile.value) {
+    setError("Для фото, видео и аудио нужен файл.");
+    return;
+  }
+
+  const form = new FormData();
+  form.set("categoryId", materialCategoryId.value);
+  form.set("kind", materialKind.value);
+  form.set("title", materialTitle.value.trim());
+  form.set("summary", materialSummary.value.trim());
+  form.set("body", materialBody.value.trim());
+  form.set("isPublished", String(materialPublished.value));
+  if (materialFile.value) {
+    form.set("file", materialFile.value);
+  }
+
+  saving.value = true;
+  try {
+    const response = await createAdminLearningMaterial(form);
+    learningMaterials.value = [response.material, ...learningMaterials.value];
+    resetMaterialForm();
+    setStatus("Материал добавлен.");
+  } catch {
+    setError("Не удалось добавить материал.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleToggleMaterial(material: AdminLearningMaterial) {
+  saving.value = true;
+  try {
+    const response = await updateAdminLearningMaterialStatus(material.id, !material.isPublished);
+    learningMaterials.value = learningMaterials.value.map((item) => (item.id === material.id ? response.material : item));
+    setStatus(response.material.isPublished ? "Материал открыт." : "Материал скрыт.");
+  } catch {
+    setError("Не удалось изменить доступность материала.");
   } finally {
     saving.value = false;
   }
@@ -371,9 +430,9 @@ onMounted(() => {
         <small>{{ activeUsers }} активных</small>
       </article>
       <article class="admin-card">
-        <span class="admin-card-label">Муты</span>
-        <strong>{{ activeMutes }}</strong>
-        <small>{{ mutes.length }} всего</small>
+        <span class="admin-card-label">Ограничения</span>
+        <strong>{{ restrictedUsers }}</strong>
+        <small>с активными ограничениями</small>
       </article>
       <article class="admin-card">
         <span class="admin-card-label">Админы</span>
@@ -432,6 +491,10 @@ onMounted(() => {
             {{ tariff === "all" ? "Все тарифы" : tariff }}
           </option>
         </select>
+        <select v-model="restrictionFilter" class="text-input">
+          <option value="all">Все клиенты</option>
+          <option value="restricted">С ограничениями</option>
+        </select>
       </div>
 
       <div class="admin-user-layout">
@@ -451,7 +514,7 @@ onMounted(() => {
                 {{ user.completedItems }}/{{ user.totalItems }}
               </small>
             </span>
-            <em>{{ formatMembershipStatus(user.membershipStatus) }}</em>
+            <em>{{ user.hasRestrictions ? "Ограничен" : formatMembershipStatus(user.membershipStatus) }}</em>
           </button>
         </div>
       </div>
@@ -537,6 +600,15 @@ onMounted(() => {
                   <span v-if="event.sourceTitle">{{ event.sourceTitle }}</span>
                   <p v-if="event.body">{{ event.body }}</p>
                   <small v-if="event.resolvedAt">обработано {{ new Date(event.resolvedAt).toLocaleString("ru-RU") }}</small>
+                  <button
+                    v-if="event.kind === 'mute' && !event.resolvedAt && canManageSelectedUser"
+                    class="secondary-button mt-2"
+                    type="button"
+                    :disabled="saving"
+                    @click="handleRevokeMute(event.id)"
+                  >
+                    Снять мут
+                  </button>
                 </div>
               </article>
             </section>
@@ -545,35 +617,59 @@ onMounted(() => {
       </Teleport>
     </section>
 
-    <section v-else-if="activePanel === 'mutes'" class="admin-panel">
+    <section v-else-if="activePanel === 'materials'" class="admin-panel">
       <div class="admin-panel-head">
         <div>
-          <h3>Муты</h3>
-          <p>Выдача и снятие ограничений на комментарии и чат.</p>
+          <h3>Материалы обучения</h3>
+          <p>Текст, фото, видео и аудио. Медиа загружается в облако сразу при добавлении.</p>
         </div>
       </div>
 
-      <form class="admin-form" @submit.prevent="handleCreateMute">
-        <input v-model.trim="muteTelegramId" class="text-input" inputmode="numeric" pattern="[0-9]*" placeholder="Telegram ID клиента" />
-        <input v-model.trim="muteReason" class="text-input" placeholder="Причина, необязательно" />
-        <button class="primary-button" type="submit" :disabled="saving">Выдать мут пока не снимут</button>
+      <form class="admin-form" @submit.prevent="handleCreateMaterial">
+        <select v-model="materialCategoryId" class="text-input">
+          <option value="" disabled>Раздел материала</option>
+          <option v-for="category in learningCategories" :key="category.id" :value="category.id">
+            {{ category.title }}
+          </option>
+        </select>
+        <select v-model="materialKind" class="text-input">
+          <option value="text">Текст</option>
+          <option value="photo">Фото</option>
+          <option value="video">Видео</option>
+          <option value="audio">Аудио</option>
+        </select>
+        <input v-model.trim="materialTitle" class="text-input" placeholder="Название материала" />
+        <input v-model.trim="materialSummary" class="text-input" placeholder="Краткое описание" />
+        <textarea v-model.trim="materialBody" class="text-input min-h-28 resize-none" placeholder="Текст материала, описание или конспект" />
+        <input
+          v-if="materialKind !== 'text'"
+          class="text-input"
+          type="file"
+          :accept="materialKind === 'photo' ? 'image/*' : materialKind === 'video' ? 'video/*' : 'audio/*'"
+          @change="handleMaterialFileChange"
+        />
+        <label class="admin-check-row">
+          <input v-model="materialPublished" type="checkbox" />
+          <span>Сразу открыть клиентам</span>
+        </label>
+        <button class="primary-button" type="submit" :disabled="saving">Добавить материал</button>
       </form>
 
       <div class="admin-list">
-        <article v-for="mute in mutes" :key="mute.id" class="admin-entity">
+        <article v-for="material in learningMaterials" :key="material.id" class="admin-entity">
           <div>
-            <strong>{{ muteTitle(mute) }}</strong>
+            <strong>{{ material.title }}</strong>
             <small>
-              ID {{ mute.telegramId }} ·
-              Мут пока не снимут
-              <span v-if="mute.revokedAt"> · снят</span>
+              {{ material.kind }} · {{ material.isPublished ? "открыт" : "скрыт" }}
+              <template v-if="material.mediaSizeBytes"> · {{ Math.round(material.mediaSizeBytes / 1024 / 1024 * 10) / 10 }} МБ</template>
             </small>
-            <p v-if="mute.reason">{{ mute.reason }}</p>
+            <p v-if="material.summary">{{ material.summary }}</p>
           </div>
-          <button v-if="!mute.revokedAt" class="secondary-button" type="button" :disabled="saving" @click="handleRevokeMute(mute.id)">
-            Снять
+          <button class="secondary-button" type="button" :disabled="saving" @click="handleToggleMaterial(material)">
+            {{ material.isPublished ? "Скрыть" : "Открыть" }}
           </button>
         </article>
+        <p v-if="!learningMaterials.length" class="admin-empty">Материалов пока нет.</p>
       </div>
     </section>
 
