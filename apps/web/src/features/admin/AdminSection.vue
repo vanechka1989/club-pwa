@@ -52,14 +52,6 @@ const extensionOptions = [
   { days: 90, label: "+90 дней" }
 ] as const;
 
-const muteQuickOptions = [
-  { label: "30 минут", minutes: 30 },
-  { label: "1 час", minutes: 60 },
-  { label: "6 часов", minutes: 360 },
-  { label: "24 часа", minutes: 1440 },
-  { label: "Бессрочно", minutes: null }
-] as const;
-
 const activePanel = ref<AdminPanel>("overview");
 const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
@@ -74,8 +66,6 @@ const findTelegramId = ref("");
 const accessStatus = ref<"active" | "inactive" | "expired">("active");
 const accessExpiresAt = ref("");
 const muteTelegramId = ref("");
-const muteKind = ref<"temporary" | "permanent">("temporary");
-const muteExpiresAt = ref("");
 const muteReason = ref("");
 const newAdminTelegramId = ref("");
 const loading = ref(false);
@@ -227,16 +217,8 @@ async function handleUpdateAccess() {
   }
 }
 
-function prepareMute(user: AdminStatsUser, minutes: number | null = 1440) {
+function prepareMute(user: AdminStatsUser) {
   muteTelegramId.value = user.telegramId;
-  muteKind.value = minutes === null ? "permanent" : "temporary";
-  if (minutes === null) {
-    muteExpiresAt.value = "";
-    return;
-  }
-
-  const expires = new Date(Date.now() + minutes * 60 * 1000);
-  muteExpiresAt.value = formatDateInput(expires);
 }
 
 async function handleCreateMute() {
@@ -248,12 +230,9 @@ async function handleCreateMute() {
   try {
     await createUserMute({
       telegramId: muteTelegramId.value,
-      kind: muteKind.value,
+      kind: "permanent",
       reason: muteReason.value || null,
-      expiresAt:
-        muteKind.value === "temporary" && muteExpiresAt.value
-          ? new Date(`${muteExpiresAt.value}T23:59:59.000Z`).toISOString()
-          : null
+      expiresAt: null
     });
     muteReason.value = "";
     const response = await getAdminMutes();
@@ -266,8 +245,8 @@ async function handleCreateMute() {
   }
 }
 
-async function handleQuickMute(user: AdminStatsUser, minutes: number | null) {
-  prepareMute(user, minutes);
+async function handleQuickMute(user: AdminStatsUser) {
+  prepareMute(user);
   await handleCreateMute();
 }
 
@@ -444,7 +423,7 @@ onMounted(() => {
           </button>
         </div>
 
-        <aside class="admin-detail">
+        <aside class="admin-detail" :class="{ 'admin-detail-empty': !selectedUser }">
           <template v-if="selectedUser">
             <div>
               <h3>{{ userTitle(selectedUser) }}</h3>
@@ -475,15 +454,8 @@ onMounted(() => {
             </form>
 
             <div class="admin-inline-actions">
-              <button
-                v-for="option in muteQuickOptions"
-                :key="option.label"
-                class="secondary-button"
-                type="button"
-                :disabled="saving"
-                @click="handleQuickMute(selectedUser, option.minutes)"
-              >
-                Мут {{ option.label }}
+              <button class="secondary-button" type="button" :disabled="saving" @click="handleQuickMute(selectedUser)">
+                Мут пока не снимут
               </button>
             </div>
 
@@ -532,15 +504,8 @@ onMounted(() => {
 
       <form class="admin-form" @submit.prevent="handleCreateMute">
         <input v-model.trim="muteTelegramId" class="text-input" inputmode="numeric" pattern="[0-9]*" placeholder="Telegram ID клиента" />
-        <div class="admin-two-cols">
-          <select v-model="muteKind" class="text-input">
-            <option value="temporary">Временный</option>
-            <option value="permanent">Бессрочный</option>
-          </select>
-          <input v-model="muteExpiresAt" class="text-input" type="date" :disabled="muteKind === 'permanent'" />
-        </div>
         <input v-model.trim="muteReason" class="text-input" placeholder="Причина, необязательно" />
-        <button class="primary-button" type="submit" :disabled="saving">Выдать мут</button>
+        <button class="primary-button" type="submit" :disabled="saving">Выдать мут пока не снимут</button>
       </form>
 
       <div class="admin-list">
@@ -549,8 +514,7 @@ onMounted(() => {
             <strong>{{ muteTitle(mute) }}</strong>
             <small>
               ID {{ mute.telegramId }} ·
-              {{ mute.kind === "permanent" ? "Бессрочно" : "Временно" }}
-              <span v-if="mute.expiresAt"> · до {{ new Date(mute.expiresAt).toLocaleDateString("ru-RU") }}</span>
+              Мут пока не снимут
               <span v-if="mute.revokedAt"> · снят</span>
             </small>
             <p v-if="mute.reason">{{ mute.reason }}</p>

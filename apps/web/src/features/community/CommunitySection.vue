@@ -50,12 +50,13 @@ let topicsRefreshInFlight = false;
 const topicReadStorageKey = "club-community-topic-read-at";
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const hasCommunityAccess = computed(() => isModerator.value || session.user?.membershipStatus === "active");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 const orderedMessages = computed(() => [...messages.value].reverse());
 const activeTopics = computed(() => topics.value.filter((topic) => topic.isPublished));
 const archivedTopics = computed(() => topics.value.filter((topic) => !topic.isPublished && topic.archivedUntil));
 const canWrite = computed(
-  () => selectedTopic.value && !selectedTopic.value.isLocked && selectedTopic.value.isPublished && !isMuted.value
+  () => hasCommunityAccess.value && selectedTopic.value && !selectedTopic.value.isLocked && selectedTopic.value.isPublished && !isMuted.value
 );
 const muteComposerText = computed(() => {
   if (mutedPermanently.value) {
@@ -69,15 +70,6 @@ const muteComposerText = computed(() => {
   return "";
 });
 const quickEmoji = ["👍", "🔥", "❤️", "🙂", "😂", "👏"];
-const muteOptions = [
-  { label: "30 мин", minutes: 30 },
-  { label: "1 час", minutes: 60 },
-  { label: "6 часов", minutes: 360 },
-  { label: "12 часов", minutes: 720 },
-  { label: "24 часа", minutes: 1440 },
-  { label: "Бессрочно", minutes: null }
-] as const;
-
 function authorName(message: ClubMessage) {
   return message.author.firstName || message.author.username || `ID ${message.author.telegramId}`;
 }
@@ -218,7 +210,7 @@ function messagesSignature(nextMessages: ClubMessage[]) {
 }
 
 async function refreshSelectedTopic({ keepScroll = true } = {}) {
-  if (!selectedTopic.value || refreshInFlight) {
+  if (!hasCommunityAccess.value || !selectedTopic.value || refreshInFlight) {
     return;
   }
 
@@ -271,7 +263,7 @@ function startMessageRefresh() {
 }
 
 async function loadTopics({ showLoading = false } = {}) {
-  if (topicsRefreshInFlight) {
+  if (!hasCommunityAccess.value || topicsRefreshInFlight) {
     return;
   }
 
@@ -309,6 +301,10 @@ function startTopicsRefresh() {
 }
 
 async function openTopic(topic: ClubTopic) {
+  if (!hasCommunityAccess.value) {
+    return;
+  }
+
   selectedTopic.value = topic;
   communityError.value = null;
   await refreshSelectedTopic({ keepScroll: false });
@@ -386,17 +382,16 @@ async function handleMessageStatus(message: ClubMessage, status: "visible" | "hi
   activeModerationMessageId.value = null;
 }
 
-async function handleMute(message: ClubMessage, minutes: number | null) {
+async function handleMute(message: ClubMessage) {
   if (!selectedTopic.value) {
     return;
   }
 
-  const expiresAt = minutes === null ? null : new Date(Date.now() + minutes * 60 * 1000).toISOString();
   const response = await createTopicUserMute(selectedTopic.value.id, {
     telegramId: message.author.telegramId,
-    kind: minutes === null ? "permanent" : "temporary",
+    kind: "permanent",
     reason: "Модерация сообщения в чате",
-    expiresAt
+    expiresAt: null
   });
   messages.value = [response.message, ...messages.value];
   activeModerationMessageId.value = null;
@@ -422,7 +417,9 @@ async function handleReaction(message: ClubMessage, reaction: "like" | "dislike"
 
 onMounted(() => {
   loadTopicReadState();
-  void loadTopics({ showLoading: true });
+  if (hasCommunityAccess.value) {
+    void loadTopics({ showLoading: true });
+  }
 });
 
 watch(
@@ -470,7 +467,11 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <form v-if="isModerator && showCreateTopic" class="chat-create-form" @submit.prevent="createTopic">
+      <div v-if="!hasCommunityAccess" class="surface-card text-sm leading-6 text-[var(--muted)]">
+        Общение доступно только участникам с активной подпиской.
+      </div>
+
+      <form v-if="hasCommunityAccess && isModerator && showCreateTopic" class="chat-create-form" @submit.prevent="createTopic">
         <input v-model.trim="newTopicTitle" class="text-input" placeholder="Название темы" />
         <button class="primary-button" type="submit" :disabled="topicSaving">
           {{ topicSaving ? t("loading") : t("create") }}
@@ -479,11 +480,11 @@ onBeforeUnmount(() => {
 
       <p v-if="communityError" class="text-xs text-[var(--danger)]">{{ communityError }}</p>
 
-      <div v-if="!activeTopics.length && !archivedTopics.length && !loading" class="surface-card text-sm text-[var(--muted)]">
+      <div v-if="hasCommunityAccess && !activeTopics.length && !archivedTopics.length && !loading" class="surface-card text-sm text-[var(--muted)]">
         {{ t("communityEmpty") }}
       </div>
 
-      <div class="chat-topic-list">
+      <div v-if="hasCommunityAccess" class="chat-topic-list">
         <button
           v-for="topic in activeTopics"
           :key="topic.id"
@@ -505,7 +506,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div v-if="isModerator && archivedTopics.length" class="chat-archive-list">
+      <div v-if="hasCommunityAccess && isModerator && archivedTopics.length" class="chat-archive-list">
         <p class="section-eyebrow">Архив</p>
         <article v-for="topic in archivedTopics" :key="topic.id" class="chat-topic-card chat-topic-card-archived">
           <span class="chat-topic-icon">
@@ -608,14 +609,8 @@ onBeforeUnmount(() => {
             <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
               {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
             </button>
-            <button
-              v-for="option in muteOptions"
-              :key="option.label"
-              class="mini-action"
-              type="button"
-              @click="handleMute(message, option.minutes)"
-            >
-              Мут {{ option.label }}
+            <button class="mini-action" type="button" @click="handleMute(message)">
+              Мут пока не снимут
             </button>
           </div>
         </article>

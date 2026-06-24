@@ -1574,6 +1574,11 @@ button.chat-message-author:active {
   }
 
   .admin-detail {
+    order: -1;
     position: static;
+  }
+
+  .admin-detail-empty {
+    order: 0;
   }
 }

@@ -1,5 +1,6 @@
 import { and, count, desc, eq, gt, ne, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
@@ -12,6 +13,7 @@ import { db } from "../db/client";
 import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions, userMutes, users } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
+import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
@@ -295,6 +297,31 @@ function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
   };
 }
 
+async function ensureCommunityAccess(
+  c: Context<{ Variables: AuthVariables }>,
+  role: Awaited<ReturnType<typeof getUserRole>>
+) {
+  const previewMembershipStatus = c.get("previewMembershipStatus");
+  if (previewMembershipStatus === "active") {
+    return null;
+  }
+
+  if (previewMembershipStatus === "inactive") {
+    return c.json({ error: "Active membership is required", membershipStatus: "inactive" }, 403);
+  }
+
+  if (role !== "member") {
+    return null;
+  }
+
+  const membership = await getMembership(c.get("userId"));
+  if (!membership.isActive) {
+    return c.json({ error: "Active membership is required", membershipStatus: membership.status }, 403);
+  }
+
+  return null;
+}
+
 async function notifyReplyRecipient({
   topic,
   replyToMessage,
@@ -338,6 +365,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .get("/topics", async (c) => {
     const role = await getUserRole(c.get("telegramUser").id);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
 
     return c.json({
       topics: await listCommunityTopics(role, c.get("userId"))
@@ -375,6 +406,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/chats", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
     const chats = await db.query.clubChats.findMany({
       where: eq(clubChats.isPublished, true),
       orderBy: (table, { asc }) => [asc(table.sortOrder), asc(table.createdAt)]
@@ -415,6 +452,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/chats/:id/topics", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
     const chat = await db.query.clubChats.findFirst({
       where: and(eq(clubChats.id, c.req.param("id")), eq(clubChats.isPublished, true))
     });
@@ -423,7 +466,6 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Chat not found" }, 404);
     }
 
-    const role = await getUserRole(c.get("telegramUser").id);
     const topics = await db.query.clubChatTopics.findMany({
       where:
         role === "member"
@@ -519,6 +561,11 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   })
   .get("/topics/:id/messages", async (c) => {
     const role = await getUserRole(c.get("telegramUser").id);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
     const topic = await db.query.clubChatTopics.findFirst({
       where: eq(clubChatTopics.id, c.req.param("id"))
     });
@@ -546,6 +593,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/topics/:id/messages", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
     const mute = await getActiveMute(c.get("userId"));
     if (mute) {
       return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
@@ -760,6 +813,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/messages/:id/reaction", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
     const body = reactionPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: "Invalid reaction" }, 400);
