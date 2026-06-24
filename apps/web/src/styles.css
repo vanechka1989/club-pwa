@@ -617,6 +617,26 @@ button {
   background: var(--panel-soft);
 }
 
+.learning-rich-content {
+  max-width: none;
+  color: var(--muted-strong);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
+.learning-rich-content :where(p, ul, ol, blockquote) {
+  margin-top: 0.65rem;
+}
+
+.learning-rich-content :where(h1, h2, h3, h4, strong) {
+  color: var(--text);
+}
+
+.learning-rich-content :where(a) {
+  color: var(--accent);
+  font-weight: 750;
+}
+
 .learning-content-thumb {
   display: grid;
   width: 2.75rem;
@@ -656,25 +676,28 @@ button {
   inset: 0;
   z-index: 120;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.75rem;
   background: #000;
-  padding: calc(env(safe-area-inset-top) + 0.75rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.75rem);
+  padding: calc(env(safe-area-inset-top) + 3.25rem) 0.75rem calc(env(safe-area-inset-bottom) + 1rem);
 }
 
 .video-viewer-close {
-  justify-self: end;
+  min-width: min(14rem, 78vw);
+  justify-self: center;
   border: 1px solid rgb(255 255 255 / 18%);
   border-radius: 999px;
-  background: rgb(255 255 255 / 12%);
+  background: rgb(255 255 255 / 16%);
   color: #fff;
-  padding: 0.55rem 0.85rem;
-  font-size: 0.82rem;
+  padding: 0.75rem 1.1rem;
+  font-size: 0.9rem;
   font-weight: 800;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 34%);
 }
 
 .video-viewer-player {
   align-self: center;
+  justify-self: center;
   width: 100%;
   max-height: 100%;
   background: #000;

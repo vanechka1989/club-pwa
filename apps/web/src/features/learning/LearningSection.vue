@@ -369,9 +369,9 @@ watch(hasLearningAccess, (hasAccess) => {
             {{ t("lessonCompleted") }}
           </span>
         </div>
-        <p v-if="selectedItem.summary" class="mt-2 text-sm leading-6 text-[var(--muted)]">{{ selectedItem.summary }}</p>
+        <p v-if="selectedItem.summary" class="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{{ selectedItem.summary }}</p>
 
-        <div v-if="selectedItem.body" class="prose prose-invert mt-4 max-w-none" v-html="selectedItem.body"></div>
+        <div v-if="selectedItem.body" class="learning-rich-content mt-4" v-html="selectedItem.body"></div>
 
         <button
           v-if="selectedItem.kind === 'photo' && selectedItem.mediaUrl"
@@ -397,15 +397,6 @@ watch(hasLearningAccess, (hasAccess) => {
           @pause="handlePlaybackPause"
           @ended="handlePlaybackEnded"
         />
-        <button
-          v-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
-          class="secondary-button mt-3 w-full"
-          type="button"
-          @click="openVideoViewer(selectedItem.mediaUrl)"
-        >
-          Открыть во весь экран
-        </button>
-
         <audio
           v-else-if="selectedItem.kind === 'audio' && selectedItem.mediaUrl"
           class="mt-4 w-full"
@@ -425,6 +416,15 @@ watch(hasLearningAccess, (hasAccess) => {
           @click="markSelectedComplete"
         >
           {{ selectedCompletedAt ? t("lessonCompleted") : t("markLessonComplete") }}
+        </button>
+
+        <button
+          v-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
+          class="secondary-button mt-3 w-full"
+          type="button"
+          @click="openVideoViewer(selectedItem.mediaUrl)"
+        >
+          Открыть во весь экран
         </button>
 
         <section class="mt-5 space-y-3">
@@ -459,7 +459,6 @@ watch(hasLearningAccess, (hasAccess) => {
 
       <Teleport to="body">
         <div v-if="videoViewerUrl" class="video-viewer" role="dialog" aria-modal="true">
-          <button class="video-viewer-close" type="button" aria-label="Закрыть видео" @click="closeVideoViewer">Закрыть</button>
           <video
             class="video-viewer-player"
             :src="videoViewerUrl"
@@ -471,6 +470,7 @@ watch(hasLearningAccess, (hasAccess) => {
             @pause="handlePlaybackPause"
             @ended="handlePlaybackEnded"
           />
+          <button class="video-viewer-close" type="button" aria-label="Закрыть видео" @click="closeVideoViewer">Закрыть</button>
         </div>
       </Teleport>
     </div>
