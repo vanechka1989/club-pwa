@@ -637,6 +637,12 @@ button {
   font-weight: 750;
 }
 
+.learning-inline-content {
+  margin-top: 0.15rem;
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 30%, var(--panel));
+}
+
 .learning-content-thumb {
   display: grid;
   width: 2.75rem;

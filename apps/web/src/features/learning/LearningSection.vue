@@ -322,25 +322,114 @@ watch(hasLearningAccess, (hasAccess) => {
             <p v-if="group.category.description" class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ group.category.description }}</p>
 
             <div class="mt-3 grid gap-2">
-              <button
-                v-for="item in group.items"
-                :key="item.id"
-                class="rounded-xl border border-[var(--border)] bg-[var(--panel-soft)] p-3 text-left transition hover:opacity-90"
-                type="button"
-                @click="openItem(item)"
-              >
-                <div class="flex items-start gap-3">
-                  <span class="learning-content-thumb">
-                    <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
-                    <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span>
-                    <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
-                    <small class="mt-1 block leading-5 text-[var(--muted)]">{{ item.summary }}</small>
-                  </span>
-                  <span v-if="isSelectedItem(item)" class="ml-auto shrink-0 text-xs font-bold text-[var(--accent)]">Открыто</span>
-                </div>
-              </button>
+              <template v-for="item in group.items" :key="item.id">
+                <button
+                  class="rounded-xl border border-[var(--border)] bg-[var(--panel-soft)] p-3 text-left transition hover:opacity-90"
+                  type="button"
+                  @click="openItem(item)"
+                >
+                  <div class="flex items-start gap-3">
+                    <span class="learning-content-thumb">
+                      <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
+                      <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span>
+                      <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
+                      <small class="mt-1 block leading-5 text-[var(--muted)]">{{ item.summary }}</small>
+                    </span>
+                    <span v-if="isSelectedItem(item)" class="ml-auto shrink-0 text-xs font-bold text-[var(--accent)]">Открыто</span>
+                  </div>
+                </button>
+
+                <article v-if="selectedItem && isSelectedItem(item)" class="surface-card learning-inline-content">
+                  <component :is="selectedIcon" class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
+                  <div class="mt-3 flex items-start justify-between gap-3">
+                    <h3 class="text-xl font-semibold text-[var(--text)]">{{ selectedItem.title }}</h3>
+                    <span v-if="selectedCompletedAt" class="role-badge">
+                      <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
+                      {{ t("lessonCompleted") }}
+                    </span>
+                  </div>
+                  <p v-if="selectedItem.summary" class="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{{ selectedItem.summary }}</p>
+
+                  <div v-if="selectedItem.body" class="learning-rich-content mt-4" v-html="selectedItem.body"></div>
+
+                  <button
+                    v-if="selectedItem.kind === 'photo' && selectedItem.mediaUrl"
+                    class="mt-4 w-full"
+                    type="button"
+                    @click="openImageViewer(selectedItem.mediaUrl)"
+                  >
+                    <img
+                      class="learning-photo-preview"
+                      :src="selectedItem.mediaUrl"
+                      :alt="selectedItem.title"
+                    />
+                  </button>
+
+                  <video
+                    v-else-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
+                    class="mt-4 aspect-video w-full rounded-xl bg-black"
+                    :src="selectedItem.mediaUrl"
+                    controls
+                    preload="metadata"
+                    @loadedmetadata="applySavedPlayback"
+                    @timeupdate="handlePlaybackTimeUpdate"
+                    @pause="handlePlaybackPause"
+                    @ended="handlePlaybackEnded"
+                  />
+                  <audio
+                    v-else-if="selectedItem.kind === 'audio' && selectedItem.mediaUrl"
+                    class="mt-4 w-full"
+                    :src="selectedItem.mediaUrl"
+                    controls
+                    preload="metadata"
+                    @loadedmetadata="applySavedPlayback"
+                    @timeupdate="handlePlaybackTimeUpdate"
+                    @pause="handlePlaybackPause"
+                    @ended="handlePlaybackEnded"
+                  />
+
+                  <button
+                    class="primary-button mt-4"
+                    type="button"
+                    :disabled="completeLoading || Boolean(selectedCompletedAt)"
+                    @click="markSelectedComplete"
+                  >
+                    {{ selectedCompletedAt ? t("lessonCompleted") : t("markLessonComplete") }}
+                  </button>
+
+                  <button
+                    v-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
+                    class="secondary-button mt-3 w-full"
+                    type="button"
+                    @click="openVideoViewer(selectedItem.mediaUrl)"
+                  >
+                    Открыть во весь экран
+                  </button>
+
+                  <section class="mt-5 space-y-3">
+                    <h4 class="font-semibold text-[var(--text)]">{{ t("commentsTitle") }}</h4>
+                    <form class="grid gap-2" @submit.prevent="handleCreateComment">
+                      <textarea
+                        v-model.trim="commentBody"
+                        class="text-input min-h-24 resize-none"
+                        :placeholder="t('commentPlaceholder')"
+                      />
+                      <button class="secondary-button" type="submit" :disabled="commentSaving">
+                        {{ t("commentSend") }}
+                      </button>
+                    </form>
+                    <p v-if="!comments.length" class="text-sm text-[var(--muted)]">{{ t("commentsEmpty") }}</p>
+                    <article v-for="comment in comments" :key="comment.id" class="rounded-xl border border-[var(--border)] p-3">
+                      <p class="text-sm font-semibold text-[var(--text)]">
+                        {{ comment.author.firstName || comment.author.username || `ID ${comment.author.telegramId}` }}
+                      </p>
+                      <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted-strong)]">{{ comment.body }}</p>
+                    </article>
+                  </section>
+                </article>
+              </template>
             </div>
           </section>
         </div>
@@ -359,95 +448,6 @@ watch(hasLearningAccess, (hasAccess) => {
           {{ t("currentStatus") }}: {{ formatMembershipStatus(session.user?.membershipStatus) }}. {{ t("memberOnlyText") }}
         </p>
       </div>
-
-      <article v-if="selectedItem" class="surface-card">
-        <component :is="selectedIcon" class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
-        <div class="mt-3 flex items-start justify-between gap-3">
-          <h3 class="text-xl font-semibold text-[var(--text)]">{{ selectedItem.title }}</h3>
-          <span v-if="selectedCompletedAt" class="role-badge">
-            <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
-            {{ t("lessonCompleted") }}
-          </span>
-        </div>
-        <p v-if="selectedItem.summary" class="mt-2 text-sm leading-6 text-[var(--muted-strong)]">{{ selectedItem.summary }}</p>
-
-        <div v-if="selectedItem.body" class="learning-rich-content mt-4" v-html="selectedItem.body"></div>
-
-        <button
-          v-if="selectedItem.kind === 'photo' && selectedItem.mediaUrl"
-          class="mt-4 w-full"
-          type="button"
-          @click="openImageViewer(selectedItem.mediaUrl)"
-        >
-          <img
-            class="learning-photo-preview"
-            :src="selectedItem.mediaUrl"
-            :alt="selectedItem.title"
-          />
-        </button>
-
-        <video
-          v-else-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
-          class="mt-4 aspect-video w-full rounded-xl bg-black"
-          :src="selectedItem.mediaUrl"
-          controls
-          preload="metadata"
-          @loadedmetadata="applySavedPlayback"
-          @timeupdate="handlePlaybackTimeUpdate"
-          @pause="handlePlaybackPause"
-          @ended="handlePlaybackEnded"
-        />
-        <audio
-          v-else-if="selectedItem.kind === 'audio' && selectedItem.mediaUrl"
-          class="mt-4 w-full"
-          :src="selectedItem.mediaUrl"
-          controls
-          preload="metadata"
-          @loadedmetadata="applySavedPlayback"
-          @timeupdate="handlePlaybackTimeUpdate"
-          @pause="handlePlaybackPause"
-          @ended="handlePlaybackEnded"
-        />
-
-        <button
-          class="primary-button mt-4"
-          type="button"
-          :disabled="completeLoading || Boolean(selectedCompletedAt)"
-          @click="markSelectedComplete"
-        >
-          {{ selectedCompletedAt ? t("lessonCompleted") : t("markLessonComplete") }}
-        </button>
-
-        <button
-          v-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
-          class="secondary-button mt-3 w-full"
-          type="button"
-          @click="openVideoViewer(selectedItem.mediaUrl)"
-        >
-          Открыть во весь экран
-        </button>
-
-        <section class="mt-5 space-y-3">
-          <h4 class="font-semibold text-[var(--text)]">{{ t("commentsTitle") }}</h4>
-          <form class="grid gap-2" @submit.prevent="handleCreateComment">
-            <textarea
-              v-model.trim="commentBody"
-              class="text-input min-h-24 resize-none"
-              :placeholder="t('commentPlaceholder')"
-            />
-            <button class="secondary-button" type="submit" :disabled="commentSaving">
-              {{ t("commentSend") }}
-            </button>
-          </form>
-          <p v-if="!comments.length" class="text-sm text-[var(--muted)]">{{ t("commentsEmpty") }}</p>
-          <article v-for="comment in comments" :key="comment.id" class="rounded-xl border border-[var(--border)] p-3">
-            <p class="text-sm font-semibold text-[var(--text)]">
-              {{ comment.author.firstName || comment.author.username || `ID ${comment.author.telegramId}` }}
-            </p>
-            <p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--muted-strong)]">{{ comment.body }}</p>
-          </article>
-        </section>
-      </article>
 
       <Teleport to="body">
         <div v-if="imageViewerUrl" class="admin-modal-backdrop" @click.self="closeImageViewer">
