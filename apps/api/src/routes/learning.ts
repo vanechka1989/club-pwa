@@ -50,7 +50,7 @@ function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
 
 export const learningRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
-  .get("/", async (c) => {
+  .get("/", requireActiveMember, async (c) => {
     const userId = c.get("userId");
     const categories = await db
       .select({

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { LearningContent, LearningCategory, LessonComment } from "@club/shared";
 import { CheckCircle2, Image, Loader2, Play, Type } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import {
   completeLearningContent,
   createLessonComment,
@@ -32,6 +32,9 @@ const completeLoading = ref(false);
 const commentSaving = ref(false);
 const error = ref<string | null>(null);
 const accessDenied = ref(false);
+const hasLearningAccess = computed(
+  () => session.user?.role === "admin" || session.user?.role === "owner" || session.user?.membershipStatus === "active"
+);
 
 const selectedIcon = computed(() => {
   if (selectedItem.value?.kind === "photo") {
@@ -67,8 +70,14 @@ function iconFor(kind: LearningContent["kind"]) {
 }
 
 async function loadLearning() {
+  if (!hasLearningAccess.value) {
+    accessDenied.value = true;
+    return;
+  }
+
   loading.value = true;
   error.value = null;
+  accessDenied.value = false;
 
   try {
     const response = await getLearningHome();
@@ -77,7 +86,13 @@ async function loadLearning() {
     lastOpenedItem.value = response.progress.lastOpenedItem;
     totalItems.value = response.progress.totalItems;
     completedItems.value = response.progress.completedItems;
-  } catch {
+  } catch (reason) {
+    const status = typeof reason === "object" && reason && "status" in reason ? reason.status : null;
+    if (status === 403) {
+      accessDenied.value = true;
+      return;
+    }
+
     error.value = t("learningError");
   } finally {
     loading.value = false;
@@ -153,6 +168,18 @@ async function markSelectedComplete() {
 onMounted(() => {
   void loadLearning();
 });
+
+watch(hasLearningAccess, (hasAccess) => {
+  if (!hasAccess) {
+    categories.value = [];
+    featured.value = [];
+    selectedItem.value = null;
+    accessDenied.value = true;
+    return;
+  }
+
+  void loadLearning();
+});
 </script>
 
 <template>
@@ -164,7 +191,12 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="loading" class="flex items-center gap-2 text-sm text-[var(--muted)]">
+    <div v-if="!hasLearningAccess || accessDenied" class="access-lock-card">
+      <strong>Обучение закрыто</strong>
+      <span>Материалы доступны после активации подписки.</span>
+    </div>
+
+    <div v-else-if="loading" class="flex items-center gap-2 text-sm text-[var(--muted)]">
       <Loader2 class="h-4 w-4 animate-spin" aria-hidden="true" />
       {{ t("learningLoading") }}
     </div>

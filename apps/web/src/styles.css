@@ -420,7 +420,7 @@ button {
 
 .admin-user-layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(20rem, 1.05fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 0.7rem;
 }
@@ -470,6 +470,37 @@ button {
   top: 0.5rem;
 }
 
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, #000 48%, transparent);
+  padding: 1rem;
+}
+
+.admin-client-modal {
+  position: relative;
+  top: auto;
+  width: min(42rem, 100%);
+  max-height: min(82vh, 48rem);
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 18px;
+  background: var(--panel-strong);
+  box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
+}
+
+.admin-client-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  padding-bottom: 0.6rem;
+}
+
 .admin-crm-block {
   display: grid;
   gap: 0.45rem;
@@ -495,6 +526,56 @@ button {
 .admin-history-item strong {
   color: var(--text);
   font-size: 0.76rem;
+}
+
+.admin-log-item {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.55rem;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  border-radius: 12px;
+  padding: 0.55rem;
+}
+
+.admin-log-item time {
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+.admin-log-item div {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.admin-log-item strong {
+  color: var(--text);
+  font-size: 0.76rem;
+}
+
+.admin-log-item span,
+.admin-log-item small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.admin-log-item p {
+  color: var(--muted-strong);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.admin-warning-line {
+  border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--panel));
+  color: var(--muted-strong);
+  padding: 0.6rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .admin-detail-stats,
@@ -1589,12 +1670,17 @@ button.chat-message-author:active {
     grid-template-columns: 1fr;
   }
 
-  .admin-detail {
-    order: -1;
-    position: static;
+  .admin-modal-backdrop {
+    align-items: end;
+    padding: 0.75rem;
   }
 
-  .admin-detail-empty {
-    order: 0;
+  .admin-client-modal {
+    max-height: 84vh;
+    border-radius: 18px 18px 12px 12px;
+  }
+
+  .admin-log-item {
+    grid-template-columns: 1fr;
   }
 }

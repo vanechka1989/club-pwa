@@ -269,6 +269,7 @@ export const adminStatsUserSchema = z.object({
   telegramId: z.string(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
+  role: userRoleSchema,
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
   tariff: z.string().nullable(),

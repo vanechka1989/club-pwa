@@ -8,6 +8,7 @@ import {
   ShieldOff,
   Trash2,
   UsersRound,
+  X,
   type LucideIcon
 } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
@@ -75,6 +76,7 @@ const message = ref<string | null>(null);
 const error = ref<string | null>(null);
 
 const isOwner = computed(() => session.user?.realRole === "owner");
+const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const activeMutes = computed(() => mutes.value.filter((mute) => !mute.revokedAt).length);
@@ -101,6 +103,18 @@ function muteTitle(mute: AdminMute) {
   return mute.firstName || mute.username || `ID ${mute.telegramId}`;
 }
 
+function adminRoleLabel(role: AdminStatsUser["role"]) {
+  if (role === "owner") {
+    return "Главный админ";
+  }
+
+  if (role === "admin") {
+    return "Админ";
+  }
+
+  return "Клиент";
+}
+
 function formatDateInput(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -114,6 +128,11 @@ function applySelectedUser(user: AdminStatsUser) {
   accessStatus.value = user.membershipStatus === "expired" ? "active" : user.membershipStatus;
   accessExpiresAt.value = user.membershipExpiresAt?.slice(0, 10) ?? "";
   muteTelegramId.value = user.telegramId;
+}
+
+function closeSelectedUser() {
+  selectedUser.value = null;
+  selectedUserDetail.value = null;
 }
 
 async function selectUser(user: AdminStatsUser) {
@@ -199,6 +218,10 @@ async function handleUpdateAccess() {
   if (!telegramId) {
     return;
   }
+  if (selectedUser.value && !canManageSelectedUser.value) {
+    setError("Менять доступ администраторов может только главный админ.");
+    return;
+  }
 
   saving.value = true;
   try {
@@ -247,6 +270,11 @@ async function handleCreateMute() {
 }
 
 async function handleQuickMute(user: AdminStatsUser) {
+  if (!isOwner.value && user.role !== "member") {
+    setError("Ограничивать администраторов может только главный админ.");
+    return;
+  }
+
   prepareMute(user);
   await handleCreateMute();
 }
@@ -353,7 +381,7 @@ onMounted(() => {
         <small>включая владельца</small>
       </article>
 
-      <article class="admin-panel admin-panel-wide">
+      <article v-if="isOwner" class="admin-panel admin-panel-wide">
         <div class="admin-panel-head">
           <div>
             <h3>Предпросмотр клиента</h3>
@@ -418,20 +446,32 @@ onMounted(() => {
           >
             <span>
               <strong>{{ userTitle(user) }}</strong>
-              <small>ID {{ user.telegramId }} · {{ user.tariff || "future" }} · {{ user.completedItems }}/{{ user.totalItems }}</small>
+              <small>
+                {{ adminRoleLabel(user.role) }} · ID {{ user.telegramId }} · {{ user.tariff || "future" }} ·
+                {{ user.completedItems }}/{{ user.totalItems }}
+              </small>
             </span>
             <em>{{ formatMembershipStatus(user.membershipStatus) }}</em>
           </button>
         </div>
+      </div>
 
-        <aside class="admin-detail" :class="{ 'admin-detail-empty': !selectedUser }">
-          <template v-if="selectedUser">
-            <div>
-              <h3>{{ userTitle(selectedUser) }}</h3>
-              <p>ID {{ selectedUser.telegramId }} · тариф {{ selectedUser.tariff || "future" }}</p>
-            </div>
+      <Teleport to="body">
+        <div v-if="selectedUser && activePanel === 'users'" class="admin-modal-backdrop" @click.self="closeSelectedUser">
+          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-client-modal-title">
+            <header class="admin-client-modal-head">
+              <div>
+                <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
+                <p>{{ adminRoleLabel(selectedUser.role) }} · ID {{ selectedUser.telegramId }} · тариф {{ selectedUser.tariff || "future" }}</p>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть карточку клиента" @click="closeSelectedUser">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
             <div class="admin-detail-stats">
               <span>{{ formatMembershipStatus(selectedUser.membershipStatus) }}</span>
+              <span>{{ adminRoleLabel(selectedUser.role) }}</span>
               <span>{{ selectedUser.completedItems }}/{{ selectedUser.totalItems }} уроков</span>
               <span v-if="selectedUser.membershipExpiresAt">до {{ new Date(selectedUser.membershipExpiresAt).toLocaleDateString("ru-RU") }}</span>
             </div>
@@ -439,23 +479,34 @@ onMounted(() => {
               Последний урок: {{ selectedUser.lastOpenedItemTitle }}
             </p>
 
+            <p v-if="!canManageSelectedUser" class="admin-warning-line">
+              Менять доступ и ограничения администраторов может только главный админ.
+            </p>
+
             <form class="admin-form" @submit.prevent="handleUpdateAccess">
-              <select v-model="accessStatus" class="text-input">
+              <select v-model="accessStatus" class="text-input" :disabled="!canManageSelectedUser">
                 <option value="active">{{ formatMembershipStatus("active") }}</option>
                 <option value="inactive">{{ formatMembershipStatus("inactive") }}</option>
                 <option value="expired">{{ formatMembershipStatus("expired") }}</option>
               </select>
-              <input v-model="accessExpiresAt" class="text-input" type="date" />
+              <input v-model="accessExpiresAt" class="text-input" type="date" :disabled="!canManageSelectedUser" />
               <div class="admin-inline-actions">
-                <button v-for="option in extensionOptions" :key="option.days" class="secondary-button" type="button" @click="extendAccess(option.days)">
+                <button
+                  v-for="option in extensionOptions"
+                  :key="option.days"
+                  class="secondary-button"
+                  type="button"
+                  :disabled="!canManageSelectedUser"
+                  @click="extendAccess(option.days)"
+                >
                   {{ option.label }}
                 </button>
               </div>
-              <button class="primary-button" type="submit" :disabled="saving">Сохранить доступ</button>
+              <button class="primary-button" type="submit" :disabled="saving || !canManageSelectedUser">Сохранить доступ</button>
             </form>
 
             <div class="admin-inline-actions">
-              <button class="secondary-button" type="button" :disabled="saving" @click="handleQuickMute(selectedUser)">
+              <button class="secondary-button" type="button" :disabled="saving || !canManageSelectedUser" @click="handleQuickMute(selectedUser)">
                 Мут пока не снимут
               </button>
             </div>
@@ -476,23 +527,22 @@ onMounted(() => {
             <section class="admin-crm-block">
               <h4>Ограничения и удалённые сообщения</h4>
               <p v-if="!selectedUserDetail?.moderationEvents.length" class="admin-empty">Ограничений и удалений пока нет.</p>
-              <article v-for="event in selectedUserDetail?.moderationEvents ?? []" :key="`${event.kind}-${event.id}`" class="admin-history-item">
-                <strong>
-                  {{ event.kind === "mute" ? "Мут" : event.kind === "chat_message" ? "Сообщение" : "Комментарий" }}
-                  · {{ event.status }}
-                </strong>
-                <span v-if="event.sourceTitle">{{ event.sourceTitle }}</span>
-                <p v-if="event.body">{{ event.body }}</p>
-                <small>
-                  {{ new Date(event.createdAt).toLocaleString("ru-RU") }}
-                  <template v-if="event.resolvedAt"> · обработано {{ new Date(event.resolvedAt).toLocaleString("ru-RU") }}</template>
-                </small>
+              <article v-for="event in selectedUserDetail?.moderationEvents ?? []" :key="`${event.kind}-${event.id}`" class="admin-log-item">
+                <time>{{ new Date(event.createdAt).toLocaleString("ru-RU") }}</time>
+                <div>
+                  <strong>
+                    {{ event.kind === "mute" ? "Мут" : event.kind === "chat_message" ? "Сообщение" : "Комментарий" }}
+                    · {{ event.status }}
+                  </strong>
+                  <span v-if="event.sourceTitle">{{ event.sourceTitle }}</span>
+                  <p v-if="event.body">{{ event.body }}</p>
+                  <small v-if="event.resolvedAt">обработано {{ new Date(event.resolvedAt).toLocaleString("ru-RU") }}</small>
+                </div>
               </article>
             </section>
-          </template>
-          <p v-else class="admin-empty">Выберите клиента из списка или найдите по Telegram ID.</p>
-        </aside>
-      </div>
+          </aside>
+        </div>
+      </Teleport>
     </section>
 
     <section v-else-if="activePanel === 'mutes'" class="admin-panel">

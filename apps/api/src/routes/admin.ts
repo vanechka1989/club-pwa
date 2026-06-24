@@ -1,5 +1,5 @@
 import { and, count, desc, eq, isNotNull, ne } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import type { AdminUserDetailResponse, AdminUserModerationEvent, AdminStatsUser, MembershipStatus } from "@club/shared";
 import { getUserRole, isOwnerTelegramId } from "../admin/roles";
@@ -54,6 +54,7 @@ async function getPublishedItemsCount() {
 
 async function buildStatsUser(user: typeof users.$inferSelect, totalItems: number): Promise<AdminStatsUser> {
   const membership = await getMembership(user.id);
+  const role = await getUserRole(user.telegramId);
   const [completedRow] = await db
     .select({
       value: count(userContentProgress.id)
@@ -74,6 +75,7 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     telegramId: user.telegramId,
     firstName: user.firstName,
     username: user.username,
+    role,
     membershipStatus: membership.status,
     membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
     tariff: membership.subscription?.provider ?? null,
@@ -82,6 +84,22 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     lastOpenedItemTitle: lastOpened?.item?.title ?? null,
     lastOpenedAt: lastOpened?.lastOpenedAt.toISOString() ?? null
   };
+}
+
+async function canManageTarget(actorTelegramId: string, targetTelegramId: string) {
+  if (isOwnerTelegramId(actorTelegramId)) {
+    return true;
+  }
+
+  return (await getUserRole(targetTelegramId)) === "member";
+}
+
+async function rejectIfCannotManageTarget(c: Context<{ Variables: AuthVariables }>, targetTelegramId: string) {
+  if (await canManageTarget(c.get("telegramUser").id, targetTelegramId)) {
+    return null;
+  }
+
+  return c.json({ error: "Only the owner can manage admins or the owner" }, 403);
 }
 
 async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
@@ -257,6 +275,10 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     if (!user) {
       return c.json({ error: "Unable to resolve user" }, 500);
     }
+    const manageError = await rejectIfCannotManageTarget(c, user.telegramId);
+    if (manageError) {
+      return manageError;
+    }
 
     const now = new Date();
     const expiresAt =
@@ -353,11 +375,35 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     };
 
     if (kind === "lesson_comment") {
+      const comment = await db.query.lessonComments.findFirst({
+        where: eq(lessonComments.id, id),
+        with: { user: true }
+      });
+      if (!comment) {
+        return c.json({ error: "Moderation item not found" }, 404);
+      }
+      const manageError = await rejectIfCannotManageTarget(c, comment.user.telegramId);
+      if (manageError) {
+        return manageError;
+      }
+
       await db.update(lessonComments).set(values).where(eq(lessonComments.id, id));
       return c.json({ ok: true });
     }
 
     if (kind === "chat_message") {
+      const message = await db.query.clubChatMessages.findFirst({
+        where: eq(clubChatMessages.id, id),
+        with: { user: true }
+      });
+      if (!message) {
+        return c.json({ error: "Moderation item not found" }, 404);
+      }
+      const manageError = await rejectIfCannotManageTarget(c, message.user.telegramId);
+      if (manageError) {
+        return manageError;
+      }
+
       await db.update(clubChatMessages).set(values).where(eq(clubChatMessages.id, id));
       return c.json({ ok: true });
     }
@@ -402,6 +448,10 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     if (!user) {
       return c.json({ error: "Unable to resolve user" }, 500);
     }
+    const manageError = await rejectIfCannotManageTarget(c, user.telegramId);
+    if (manageError) {
+      return manageError;
+    }
 
     const expiresAt =
       body.data.kind === "temporary"
@@ -440,6 +490,18 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .delete("/mutes/:id", async (c) => {
+    const mute = await db.query.userMutes.findFirst({
+      where: eq(userMutes.id, c.req.param("id")),
+      with: { user: true }
+    });
+    if (!mute) {
+      return c.json({ error: "Mute not found" }, 404);
+    }
+    const manageError = await rejectIfCannotManageTarget(c, mute.user.telegramId);
+    if (manageError) {
+      return manageError;
+    }
+
     await db
       .update(userMutes)
       .set({
