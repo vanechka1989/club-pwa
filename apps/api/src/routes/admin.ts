@@ -21,7 +21,7 @@ import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { getObjectReadUrl, uploadObject } from "../storage/s3";
+import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -49,6 +49,11 @@ const materialStatusPayloadSchema = z.object({
   isPublished: z.boolean()
 });
 
+const learningCategoryPayloadSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(1000).nullable().optional()
+});
+
 const contentKinds = ["text", "photo", "video", "audio"] as const;
 
 function getFormValue(form: FormData, key: string) {
@@ -66,6 +71,16 @@ function sanitizeFileName(name: string) {
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 96) || "material";
+}
+
+function createCategorySlug(title: string) {
+  const readable = title
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яё]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+  return `${readable || "category"}-${randomUUID().slice(0, 8)}`;
 }
 
 async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): Promise<AdminLearningMaterial> {
@@ -434,6 +449,66 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       materials: await Promise.all(materials.map(serializeAdminMaterial))
     });
   })
+  .post("/learning/categories", async (c) => {
+    const body = learningCategoryPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid category payload" }, 400);
+    }
+
+    const [sortRow] = await db
+      .select({
+        value: count(contentCategories.id)
+      })
+      .from(contentCategories);
+
+    const [category] = await db
+      .insert(contentCategories)
+      .values({
+        slug: createCategorySlug(body.data.title),
+        title: body.data.title,
+        description: body.data.description ?? null,
+        sortOrder: sortRow?.value ?? 0,
+        isPublished: true
+      })
+      .returning();
+
+    if (!category) {
+      return c.json({ error: "Unable to create category" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      category: {
+        id: category.id,
+        slug: category.slug,
+        title: category.title,
+        description: category.description,
+        itemsCount: 0
+      }
+    });
+  })
+  .delete("/learning/categories/:id", async (c) => {
+    const category = await db.query.contentCategories.findFirst({
+      where: eq(contentCategories.id, c.req.param("id")),
+      with: {
+        items: true
+      }
+    });
+
+    if (!category) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    for (const item of category.items) {
+      if (item.mediaObjectKey) {
+        await deleteObject(item.mediaObjectKey).catch(() => null);
+      }
+    }
+
+    await db.delete(contentCategories).where(eq(contentCategories.id, category.id));
+
+    return c.json({ ok: true });
+  })
   .post("/learning/materials", async (c) => {
     const form = await c.req.raw.formData().catch(() => null);
     if (!form) {
@@ -548,6 +623,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       ok: true,
       material: await serializeAdminMaterial(material)
     });
+  })
+  .delete("/learning/materials/:id", async (c) => {
+    const material = await db.query.contentItems.findFirst({
+      where: eq(contentItems.id, c.req.param("id"))
+    });
+    if (!material) {
+      return c.json({ error: "Material not found" }, 404);
+    }
+
+    if (material.mediaObjectKey) {
+      await deleteObject(material.mediaObjectKey).catch(() => null);
+    }
+
+    await db.delete(contentItems).where(eq(contentItems.id, material.id));
+
+    return c.json({ ok: true });
   })
   .post("/moderation/:kind/:id/status", async (c) => {
     const body = moderationStatusPayloadSchema.safeParse(await c.req.json().catch(() => null));

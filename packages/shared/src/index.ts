@@ -357,6 +357,12 @@ export const adminLearningMaterialMutationResponseSchema = z.object({
 });
 export type AdminLearningMaterialMutationResponse = z.infer<typeof adminLearningMaterialMutationResponseSchema>;
 
+export const adminLearningCategoryMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  category: learningCategorySchema
+});
+export type AdminLearningCategoryMutationResponse = z.infer<typeof adminLearningCategoryMutationResponseSchema>;
+
 export const adminAccessMutationResponseSchema = z.object({
   ok: z.boolean(),
   user: adminStatsUserSchema

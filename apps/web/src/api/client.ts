@@ -1,5 +1,6 @@
 import type {
   AdminAccessMutationResponse,
+  AdminLearningCategoryMutationResponse,
   AdminLearningMaterialMutationResponse,
   AdminLearningResponse,
   AdminListResponse,
@@ -260,9 +261,28 @@ export function createAdminLearningMaterial(payload: FormData) {
   });
 }
 
+export function createAdminLearningCategory(payload: { title: string; description?: string | null }) {
+  return api<AdminLearningCategoryMutationResponse>("/admin/learning/categories", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function deleteAdminLearningCategory(id: string) {
+  return api<AdminMutationResponse>(`/admin/learning/categories/${id}`, {
+    method: "DELETE"
+  });
+}
+
 export function updateAdminLearningMaterialStatus(id: string, isPublished: boolean) {
   return api<AdminLearningMaterialMutationResponse>(`/admin/learning/materials/${id}/status`, {
     method: "POST",
     body: { isPublished }
+  });
+}
+
+export function deleteAdminLearningMaterial(id: string) {
+  return api<AdminMutationResponse>(`/admin/learning/materials/${id}`, {
+    method: "DELETE"
   });
 }

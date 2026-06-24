@@ -14,8 +14,11 @@ import {
 import { computed, onMounted, ref } from "vue";
 import {
   addAdminUser,
+  createAdminLearningCategory,
   createAdminLearningMaterial,
   createUserMute,
+  deleteAdminLearningCategory,
+  deleteAdminLearningMaterial,
   getAdminLearning,
   getAdminStats,
   getAdminUsers,
@@ -77,6 +80,8 @@ const materialSummary = ref("");
 const materialBody = ref("");
 const materialPublished = ref(true);
 const materialFile = ref<File | null>(null);
+const categoryTitle = ref("");
+const categoryDescription = ref("");
 const newAdminTelegramId = ref("");
 const loading = ref(false);
 const saving = ref(false);
@@ -103,6 +108,12 @@ const filteredUsers = computed(() => {
     return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions;
   });
 });
+const materialsByCategory = computed(() =>
+  learningCategories.value.map((category) => ({
+    category,
+    materials: learningMaterials.value.filter((material) => material.categoryId === category.id)
+  }))
+);
 
 function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
@@ -330,6 +341,9 @@ async function handleCreateMaterial() {
   try {
     const response = await createAdminLearningMaterial(form);
     learningMaterials.value = [response.material, ...learningMaterials.value];
+    learningCategories.value = learningCategories.value.map((category) =>
+      category.id === response.material.categoryId ? { ...category, itemsCount: category.itemsCount + 1 } : category
+    );
     resetMaterialForm();
     setStatus("Материал добавлен.");
   } catch {
@@ -347,6 +361,73 @@ async function handleToggleMaterial(material: AdminLearningMaterial) {
     setStatus(response.material.isPublished ? "Материал открыт." : "Материал скрыт.");
   } catch {
     setError("Не удалось изменить доступность материала.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleCreateCategory() {
+  if (!categoryTitle.value.trim()) {
+    setError("Укажите название категории.");
+    return;
+  }
+
+  saving.value = true;
+  try {
+    const response = await createAdminLearningCategory({
+      title: categoryTitle.value.trim(),
+      description: categoryDescription.value.trim() || null
+    });
+    learningCategories.value = [...learningCategories.value, response.category];
+    materialCategoryId.value = response.category.id;
+    categoryTitle.value = "";
+    categoryDescription.value = "";
+    setStatus("Категория добавлена.");
+  } catch {
+    setError("Не удалось добавить категорию.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleDeleteCategory(category: LearningCategory) {
+  const confirmed = window.confirm(`Удалить категорию "${category.title}" и все материалы внутри неё?`);
+  if (!confirmed) {
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await deleteAdminLearningCategory(category.id);
+    learningCategories.value = learningCategories.value.filter((item) => item.id !== category.id);
+    learningMaterials.value = learningMaterials.value.filter((item) => item.categoryId !== category.id);
+    if (materialCategoryId.value === category.id) {
+      materialCategoryId.value = learningCategories.value[0]?.id ?? "";
+    }
+    setStatus("Категория удалена.");
+  } catch {
+    setError("Не удалось удалить категорию.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleDeleteMaterial(material: AdminLearningMaterial) {
+  const confirmed = window.confirm(`Удалить материал "${material.title}"?`);
+  if (!confirmed) {
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await deleteAdminLearningMaterial(material.id);
+    learningMaterials.value = learningMaterials.value.filter((item) => item.id !== material.id);
+    learningCategories.value = learningCategories.value.map((category) =>
+      category.id === material.categoryId ? { ...category, itemsCount: Math.max(0, category.itemsCount - 1) } : category
+    );
+    setStatus("Материал удалён.");
+  } catch {
+    setError("Не удалось удалить материал.");
   } finally {
     saving.value = false;
   }
@@ -621,9 +702,32 @@ onMounted(() => {
       <div class="admin-panel-head">
         <div>
           <h3>Материалы обучения</h3>
-          <p>Текст, фото, видео и аудио. Медиа загружается в облако сразу при добавлении.</p>
+          <p>Категории, текст, фото, видео и аудио. Медиа загружается в облако сразу при добавлении.</p>
         </div>
       </div>
+
+      <section class="admin-crm-block">
+        <h4>Категории</h4>
+        <form class="admin-form" @submit.prevent="handleCreateCategory">
+          <input v-model.trim="categoryTitle" class="text-input" placeholder="Название категории" />
+          <input v-model.trim="categoryDescription" class="text-input" placeholder="Описание, необязательно" />
+          <button class="secondary-button" type="submit" :disabled="saving">Добавить категорию</button>
+        </form>
+
+        <div class="admin-list mt-3">
+          <article v-for="category in learningCategories" :key="category.id" class="admin-entity">
+            <div>
+              <strong>{{ category.title }}</strong>
+              <small>{{ category.itemsCount }} материалов</small>
+              <p v-if="category.description">{{ category.description }}</p>
+            </div>
+            <button class="icon-button" type="button" :disabled="saving" @click="handleDeleteCategory(category)">
+              <Trash2 class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </article>
+          <p v-if="!learningCategories.length" class="admin-empty">Категорий пока нет. Добавьте первую, чтобы создавать материалы.</p>
+        </div>
+      </section>
 
       <form class="admin-form" @submit.prevent="handleCreateMaterial">
         <select v-model="materialCategoryId" class="text-input">
@@ -652,23 +756,32 @@ onMounted(() => {
           <input v-model="materialPublished" type="checkbox" />
           <span>Сразу открыть клиентам</span>
         </label>
-        <button class="primary-button" type="submit" :disabled="saving">Добавить материал</button>
+        <button class="primary-button" type="submit" :disabled="saving || !learningCategories.length">Добавить материал</button>
       </form>
 
       <div class="admin-list">
-        <article v-for="material in learningMaterials" :key="material.id" class="admin-entity">
-          <div>
-            <strong>{{ material.title }}</strong>
-            <small>
-              {{ material.kind }} · {{ material.isPublished ? "открыт" : "скрыт" }}
-              <template v-if="material.mediaSizeBytes"> · {{ Math.round(material.mediaSizeBytes / 1024 / 1024 * 10) / 10 }} МБ</template>
-            </small>
-            <p v-if="material.summary">{{ material.summary }}</p>
-          </div>
-          <button class="secondary-button" type="button" :disabled="saving" @click="handleToggleMaterial(material)">
-            {{ material.isPublished ? "Скрыть" : "Открыть" }}
-          </button>
-        </article>
+        <section v-for="group in materialsByCategory" :key="group.category.id" class="admin-crm-block">
+          <h4>{{ group.category.title }}</h4>
+          <article v-for="material in group.materials" :key="material.id" class="admin-entity">
+            <div>
+              <strong>{{ material.title }}</strong>
+              <small>
+                {{ material.kind }} · {{ material.isPublished ? "открыт" : "скрыт" }}
+                <template v-if="material.mediaSizeBytes"> · {{ Math.round(material.mediaSizeBytes / 1024 / 1024 * 10) / 10 }} МБ</template>
+              </small>
+              <p v-if="material.summary">{{ material.summary }}</p>
+            </div>
+            <div class="admin-inline-actions">
+              <button class="secondary-button" type="button" :disabled="saving" @click="handleToggleMaterial(material)">
+                {{ material.isPublished ? "Скрыть" : "Открыть" }}
+              </button>
+              <button class="icon-button" type="button" :disabled="saving" @click="handleDeleteMaterial(material)">
+                <Trash2 class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </article>
+          <p v-if="!group.materials.length" class="admin-empty">В этой категории пока нет материалов.</p>
+        </section>
         <p v-if="!learningMaterials.length" class="admin-empty">Материалов пока нет.</p>
       </div>
     </section>
