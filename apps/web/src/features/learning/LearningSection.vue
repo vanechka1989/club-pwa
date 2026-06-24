@@ -26,14 +26,13 @@ const selectedCompletedAt = ref<string | null>(null);
 const selectedPlaybackPosition = ref(0);
 const comments = ref<LessonComment[]>([]);
 const commentBody = ref("");
-const mutedUntil = ref<string | null>(null);
-const mutedPermanently = ref(false);
 const loading = ref(false);
 const itemLoading = ref(false);
 const completeLoading = ref(false);
 const commentSaving = ref(false);
 const error = ref<string | null>(null);
 const accessDenied = ref(false);
+const imageViewerUrl = ref<string | null>(null);
 const hasLearningAccess = computed(
   () => session.user?.role === "admin" || session.user?.role === "owner" || session.user?.membershipStatus === "active"
 );
@@ -61,7 +60,6 @@ const progressPercent = computed(() => {
 
   return Math.min(100, Math.round((completedItems.value / totalItems.value) * 100));
 });
-const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 const materialsByCategory = computed(() =>
   categories.value
     .map((category) => ({
@@ -122,8 +120,6 @@ async function openItem(item: LearningContent) {
   selectedCompletedAt.value = null;
   selectedPlaybackPosition.value = 0;
   comments.value = [];
-  mutedUntil.value = null;
-  mutedPermanently.value = false;
   accessDenied.value = false;
   itemLoading.value = true;
 
@@ -188,11 +184,17 @@ function handlePlaybackEnded() {
   void persistPlayback(0);
 }
 
+function openImageViewer(url: string) {
+  imageViewerUrl.value = url;
+}
+
+function closeImageViewer() {
+  imageViewerUrl.value = null;
+}
+
 async function loadComments(itemId: string) {
   const response = await getLessonComments(itemId);
   comments.value = response.comments;
-  mutedUntil.value = response.mutedUntil;
-  mutedPermanently.value = response.mutedPermanently;
 }
 
 async function handleCreateComment() {
@@ -248,13 +250,13 @@ watch(hasLearningAccess, (hasAccess) => {
     <div class="section-head">
       <div>
         <h2 class="section-title">Обучение</h2>
-        <p class="section-subtitle">Материалы клуба и ваш прогресс.</p>
+        <p class="section-subtitle">Записи клуба и ваш прогресс.</p>
       </div>
     </div>
 
     <div v-if="!hasLearningAccess || accessDenied" class="access-lock-card">
       <strong>Обучение закрыто</strong>
-      <span>Материалы доступны после активации подписки.</span>
+      <span>Записи доступны после активации подписки.</span>
     </div>
 
     <div v-else-if="loading" class="flex items-center gap-2 text-sm text-[var(--muted)]">
@@ -290,7 +292,7 @@ watch(hasLearningAccess, (hasAccess) => {
       </div>
 
       <div class="space-y-3">
-        <h3 class="font-semibold text-[var(--text)]">Материалы</h3>
+        <h3 class="font-semibold text-[var(--text)]">Записи</h3>
 
         <div v-if="materialsByCategory.length" class="grid gap-4">
           <section v-for="group in materialsByCategory" :key="group.category.id" class="surface-card">
@@ -346,16 +348,20 @@ watch(hasLearningAccess, (hasAccess) => {
         </div>
         <p v-if="selectedItem.summary" class="mt-2 text-sm leading-6 text-[var(--muted)]">{{ selectedItem.summary }}</p>
 
-        <div v-if="selectedItem.body" class="prose prose-invert mt-4 max-w-none">
-          <p>{{ selectedItem.body }}</p>
-        </div>
+        <div v-if="selectedItem.body" class="prose prose-invert mt-4 max-w-none" v-html="selectedItem.body"></div>
 
-        <img
+        <button
           v-if="selectedItem.kind === 'photo' && selectedItem.mediaUrl"
-          class="mt-4 aspect-video w-full rounded-xl object-cover"
-          :src="selectedItem.mediaUrl"
-          :alt="selectedItem.title"
-        />
+          class="mt-4 w-full"
+          type="button"
+          @click="openImageViewer(selectedItem.mediaUrl)"
+        >
+          <img
+            class="learning-photo-preview"
+            :src="selectedItem.mediaUrl"
+            :alt="selectedItem.title"
+          />
+        </button>
 
         <video
           v-else-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
@@ -392,16 +398,13 @@ watch(hasLearningAccess, (hasAccess) => {
 
         <section class="mt-5 space-y-3">
           <h4 class="font-semibold text-[var(--text)]">{{ t("commentsTitle") }}</h4>
-          <p v-if="mutedPermanently" class="text-sm text-[var(--danger)]">{{ t("mutedPermanent") }}</p>
-          <p v-else-if="mutedUntil" class="text-sm text-[var(--danger)]">{{ t("mutedTemporary") }}</p>
           <form class="grid gap-2" @submit.prevent="handleCreateComment">
             <textarea
               v-model.trim="commentBody"
               class="text-input min-h-24 resize-none"
               :placeholder="t('commentPlaceholder')"
-              :disabled="isMuted"
             />
-            <button class="secondary-button" type="submit" :disabled="commentSaving || isMuted">
+            <button class="secondary-button" type="submit" :disabled="commentSaving">
               {{ t("commentSend") }}
             </button>
           </form>
@@ -414,6 +417,14 @@ watch(hasLearningAccess, (hasAccess) => {
           </article>
         </section>
       </article>
+
+      <Teleport to="body">
+        <div v-if="imageViewerUrl" class="admin-modal-backdrop" @click.self="closeImageViewer">
+          <button class="image-viewer" type="button" aria-label="Закрыть изображение" @click="closeImageViewer">
+            <img :src="imageViewerUrl" alt="" />
+          </button>
+        </div>
+      </Teleport>
     </div>
   </section>
 </template>

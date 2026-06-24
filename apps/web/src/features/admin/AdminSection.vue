@@ -41,7 +41,7 @@ type AdminPanel = "overview" | "users" | "materials" | "admins";
 const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
   { id: "users", label: "Клиенты", icon: UsersRound },
-  { id: "materials", label: "Материалы", icon: FileVideo },
+  { id: "materials", label: "Записи", icon: FileVideo },
   { id: "admins", label: "Админы", icon: Shield }
 ];
 
@@ -82,6 +82,9 @@ const materialPublished = ref(true);
 const materialFile = ref<File | null>(null);
 const categoryTitle = ref("");
 const categoryDescription = ref("");
+const showMaterialModal = ref(false);
+const editorRef = ref<HTMLElement | null>(null);
+const editorColor = ref("#111827");
 const newAdminTelegramId = ref("");
 const loading = ref(false);
 const saving = ref(false);
@@ -180,6 +183,16 @@ function setStatus(text: string) {
 function setError(text: string) {
   error.value = text;
   message.value = null;
+}
+
+function showSuccessAlert(text: string) {
+  setStatus(text);
+  const showAlert = window.Telegram?.WebApp?.showAlert;
+  if (showAlert) {
+    showAlert(text);
+  } else {
+    window.alert(text);
+  }
 }
 
 async function loadAll() {
@@ -314,11 +327,35 @@ function resetMaterialForm() {
   materialKind.value = "text";
   materialPublished.value = true;
   materialFile.value = null;
+  if (editorRef.value) {
+    editorRef.value.innerHTML = "";
+  }
+}
+
+function openMaterialModal() {
+  if (!materialCategoryId.value && learningCategories.value[0]) {
+    materialCategoryId.value = learningCategories.value[0].id;
+  }
+  showMaterialModal.value = true;
+}
+
+function closeMaterialModal() {
+  showMaterialModal.value = false;
+}
+
+function syncEditorBody() {
+  materialBody.value = editorRef.value?.innerHTML ?? "";
+}
+
+function applyEditorCommand(command: string, value?: string) {
+  editorRef.value?.focus();
+  document.execCommand(command, false, value);
+  syncEditorBody();
 }
 
 async function handleCreateMaterial() {
   if (!materialCategoryId.value || !materialTitle.value.trim()) {
-    setError("Укажите раздел и название материала.");
+    setError("Укажите категорию и название записи.");
     return;
   }
   if (materialKind.value !== "text" && !materialFile.value) {
@@ -345,9 +382,10 @@ async function handleCreateMaterial() {
       category.id === response.material.categoryId ? { ...category, itemsCount: category.itemsCount + 1 } : category
     );
     resetMaterialForm();
-    setStatus("Материал добавлен.");
+    closeMaterialModal();
+    showSuccessAlert("Запись добавлена.");
   } catch {
-    setError("Не удалось добавить материал.");
+    setError("Не удалось добавить запись.");
   } finally {
     saving.value = false;
   }
@@ -358,9 +396,9 @@ async function handleToggleMaterial(material: AdminLearningMaterial) {
   try {
     const response = await updateAdminLearningMaterialStatus(material.id, !material.isPublished);
     learningMaterials.value = learningMaterials.value.map((item) => (item.id === material.id ? response.material : item));
-    setStatus(response.material.isPublished ? "Материал открыт." : "Материал скрыт.");
+    setStatus(response.material.isPublished ? "Запись открыта." : "Запись скрыта.");
   } catch {
-    setError("Не удалось изменить доступность материала.");
+    setError("Не удалось изменить доступность записи.");
   } finally {
     saving.value = false;
   }
@@ -382,7 +420,7 @@ async function handleCreateCategory() {
     materialCategoryId.value = response.category.id;
     categoryTitle.value = "";
     categoryDescription.value = "";
-    setStatus("Категория добавлена.");
+    showSuccessAlert("Категория добавлена.");
   } catch {
     setError("Не удалось добавить категорию.");
   } finally {
@@ -391,7 +429,7 @@ async function handleCreateCategory() {
 }
 
 async function handleDeleteCategory(category: LearningCategory) {
-  const confirmed = window.confirm(`Удалить категорию "${category.title}" и все материалы внутри неё?`);
+  const confirmed = window.confirm(`Удалить категорию "${category.title}" и все записи внутри неё?`);
   if (!confirmed) {
     return;
   }
@@ -413,7 +451,7 @@ async function handleDeleteCategory(category: LearningCategory) {
 }
 
 async function handleDeleteMaterial(material: AdminLearningMaterial) {
-  const confirmed = window.confirm(`Удалить материал "${material.title}"?`);
+  const confirmed = window.confirm(`Удалить запись "${material.title}"?`);
   if (!confirmed) {
     return;
   }
@@ -425,9 +463,9 @@ async function handleDeleteMaterial(material: AdminLearningMaterial) {
     learningCategories.value = learningCategories.value.map((category) =>
       category.id === material.categoryId ? { ...category, itemsCount: Math.max(0, category.itemsCount - 1) } : category
     );
-    setStatus("Материал удалён.");
+    setStatus("Запись удалена.");
   } catch {
-    setError("Не удалось удалить материал.");
+    setError("Не удалось удалить запись.");
   } finally {
     saving.value = false;
   }
@@ -701,9 +739,12 @@ onMounted(() => {
     <section v-else-if="activePanel === 'materials'" class="admin-panel">
       <div class="admin-panel-head">
         <div>
-          <h3>Материалы обучения</h3>
+          <h3>Записи обучения</h3>
           <p>Категории, текст, фото, видео и аудио. Медиа загружается в облако сразу при добавлении.</p>
         </div>
+        <button class="primary-button admin-add-button" type="button" :disabled="!learningCategories.length" @click="openMaterialModal">
+          Добавить запись
+        </button>
       </div>
 
       <section class="admin-crm-block">
@@ -718,46 +759,16 @@ onMounted(() => {
           <article v-for="category in learningCategories" :key="category.id" class="admin-entity">
             <div>
               <strong>{{ category.title }}</strong>
-              <small>{{ category.itemsCount }} материалов</small>
+              <small>{{ category.itemsCount }} записей</small>
               <p v-if="category.description">{{ category.description }}</p>
             </div>
             <button class="icon-button" type="button" :disabled="saving" @click="handleDeleteCategory(category)">
               <Trash2 class="h-4 w-4" aria-hidden="true" />
             </button>
           </article>
-          <p v-if="!learningCategories.length" class="admin-empty">Категорий пока нет. Добавьте первую, чтобы создавать материалы.</p>
+          <p v-if="!learningCategories.length" class="admin-empty">Категорий пока нет. Добавьте первую, чтобы создавать записи.</p>
         </div>
       </section>
-
-      <form class="admin-form" @submit.prevent="handleCreateMaterial">
-        <select v-model="materialCategoryId" class="text-input">
-          <option value="" disabled>Раздел материала</option>
-          <option v-for="category in learningCategories" :key="category.id" :value="category.id">
-            {{ category.title }}
-          </option>
-        </select>
-        <select v-model="materialKind" class="text-input">
-          <option value="text">Текст</option>
-          <option value="photo">Фото</option>
-          <option value="video">Видео</option>
-          <option value="audio">Аудио</option>
-        </select>
-        <input v-model.trim="materialTitle" class="text-input" placeholder="Название материала" />
-        <input v-model.trim="materialSummary" class="text-input" placeholder="Краткое описание" />
-        <textarea v-model.trim="materialBody" class="text-input min-h-28 resize-none" placeholder="Текст материала, описание или конспект" />
-        <input
-          v-if="materialKind !== 'text'"
-          class="text-input"
-          type="file"
-          :accept="materialKind === 'photo' ? 'image/*' : materialKind === 'video' ? 'video/*' : 'audio/*'"
-          @change="handleMaterialFileChange"
-        />
-        <label class="admin-check-row">
-          <input v-model="materialPublished" type="checkbox" />
-          <span>Сразу открыть клиентам</span>
-        </label>
-        <button class="primary-button" type="submit" :disabled="saving || !learningCategories.length">Добавить материал</button>
-      </form>
 
       <div class="admin-list">
         <section v-for="group in materialsByCategory" :key="group.category.id" class="admin-crm-block">
@@ -780,10 +791,78 @@ onMounted(() => {
               </button>
             </div>
           </article>
-          <p v-if="!group.materials.length" class="admin-empty">В этой категории пока нет материалов.</p>
+          <p v-if="!group.materials.length" class="admin-empty">В этой категории пока нет записей.</p>
         </section>
-        <p v-if="!learningMaterials.length" class="admin-empty">Материалов пока нет.</p>
+        <p v-if="!learningMaterials.length" class="admin-empty">Записей пока нет.</p>
       </div>
+
+      <Teleport to="body">
+        <div v-if="showMaterialModal" class="admin-modal-backdrop" @click.self="closeMaterialModal">
+          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-material-modal-title">
+            <header class="admin-client-modal-head">
+              <div>
+                <h3 id="admin-material-modal-title">Новая запись</h3>
+                <p>Добавьте текст, медиа и оформление записи.</p>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть добавление записи" @click="closeMaterialModal">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <form class="admin-form" @submit.prevent="handleCreateMaterial">
+              <select v-model="materialCategoryId" class="text-input">
+                <option value="" disabled>Категория записи</option>
+                <option v-for="category in learningCategories" :key="category.id" :value="category.id">
+                  {{ category.title }}
+                </option>
+              </select>
+              <select v-model="materialKind" class="text-input">
+                <option value="text">Текст</option>
+                <option value="photo">Фото</option>
+                <option value="video">Видео</option>
+                <option value="audio">Аудио</option>
+              </select>
+              <input v-model.trim="materialTitle" class="text-input" placeholder="Название записи" />
+              <input v-model.trim="materialSummary" class="text-input" placeholder="Краткое описание" />
+
+              <div class="admin-editor">
+                <div class="admin-editor-toolbar">
+                  <button class="icon-button" type="button" @click="applyEditorCommand('bold')">B</button>
+                  <button class="icon-button" type="button" @click="applyEditorCommand('italic')">I</button>
+                  <button class="icon-button" type="button" @click="applyEditorCommand('underline')">U</button>
+                  <button class="secondary-button" type="button" @click="applyEditorCommand('insertUnorderedList')">Список</button>
+                  <label class="admin-color-control">
+                    <span>Цвет</span>
+                    <input v-model="editorColor" type="color" @change="applyEditorCommand('foreColor', editorColor)" />
+                  </label>
+                </div>
+                <div
+                  ref="editorRef"
+                  class="admin-rich-editor"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-label="Текст записи"
+                  data-placeholder="Текст, описание или конспект"
+                  @input="syncEditorBody"
+                ></div>
+              </div>
+
+              <input
+                v-if="materialKind !== 'text'"
+                class="text-input"
+                type="file"
+                :accept="materialKind === 'photo' ? 'image/*' : materialKind === 'video' ? 'video/*' : 'audio/*'"
+                @change="handleMaterialFileChange"
+              />
+              <label class="admin-check-row">
+                <input v-model="materialPublished" type="checkbox" />
+                <span>Сразу открыть клиентам</span>
+              </label>
+              <button class="primary-button" type="submit" :disabled="saving || !learningCategories.length">Добавить запись</button>
+            </form>
+          </aside>
+        </div>
+      </Teleport>
     </section>
 
     <section v-else class="admin-panel">
