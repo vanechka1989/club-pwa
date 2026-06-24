@@ -67,6 +67,10 @@ export function getMe() {
   return api<MeResponse>("/me");
 }
 
+export function refreshAvatar() {
+  return api<MeResponse>("/me/avatar", { method: "POST" });
+}
+
 export function createCheckout() {
   return api<SubscribeResponse>("/subscriptions/checkout", { method: "POST" });
 }

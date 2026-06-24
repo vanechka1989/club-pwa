@@ -6,7 +6,7 @@ export const contentKind = pgEnum("content_kind", ["text", "photo", "video"]);
 export const supportTicketStatus = pgEnum("support_ticket_status", ["open", "answered", "closed"]);
 export const moderationStatus = pgEnum("moderation_status", ["visible", "hidden", "deleted"]);
 export const muteKind = pgEnum("mute_kind", ["temporary", "permanent"]);
-export const messageReaction = pgEnum("message_reaction", ["like", "dislike", "thumbs_up", "fire", "heart", "laugh", "clap"]);
+export const messageReaction = pgEnum("message_reaction", ["like", "dislike", "thumbs_up", "fire", "heart", "laugh", "clap", "poop"]);
 
 export const users = pgTable(
   "users",
@@ -16,6 +16,7 @@ export const users = pgTable(
     firstName: varchar("first_name", { length: 128 }),
     username: varchar("username", { length: 64 }),
     photoUrl: text("photo_url"),
+    avatarRefreshedAt: timestamp("avatar_refreshed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },

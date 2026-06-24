@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Check, Fingerprint, Moon, Palette, Sun, UserCircle } from "lucide-vue-next";
+import { BarChart3, Check, Fingerprint, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { getLearningHome } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
@@ -18,6 +18,8 @@ const isMember = computed(() => session.user?.membershipStatus === "active");
 const totalItems = ref(0);
 const completedItems = ref(0);
 const lastOpenedTitle = ref<string | null>(null);
+const avatarSaving = ref(false);
+const avatarMessage = ref<string | null>(null);
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
@@ -60,6 +62,23 @@ const subscriptionMeta = computed(() => {
 
   return `${daysLeft.value} дн. осталось`;
 });
+const avatarRefreshAvailableAt = computed(() => {
+  if (!session.user?.avatarRefreshedAt) {
+    return null;
+  }
+
+  return new Date(new Date(session.user.avatarRefreshedAt).getTime() + 7 * 24 * 60 * 60 * 1000);
+});
+const avatarRefreshLocked = computed(() => {
+  return Boolean(avatarRefreshAvailableAt.value && avatarRefreshAvailableAt.value.getTime() > Date.now());
+});
+const avatarRefreshHint = computed(() => {
+  if (!avatarRefreshAvailableAt.value || !avatarRefreshLocked.value) {
+    return "Можно обновить, если фото изменилось в Telegram.";
+  }
+
+  return `Следующее ручное обновление: ${avatarRefreshAvailableAt.value.toLocaleDateString("ru-RU")}`;
+});
 const learningProgress = computed(() => {
   if (!totalItems.value) {
     return 0;
@@ -87,6 +106,42 @@ function changeLocale(locale: Locale) {
 
 function changeTheme(theme: Theme) {
   ui.setTheme(theme);
+}
+
+function getErrorStatus(reason: unknown) {
+  if (typeof reason === "object" && reason && "status" in reason && typeof reason.status === "number") {
+    return reason.status;
+  }
+
+  return null;
+}
+
+function getErrorData(reason: unknown) {
+  if (typeof reason === "object" && reason && "data" in reason && typeof reason.data === "object") {
+    return reason.data as { nextAllowedAt?: string; error?: string };
+  }
+
+  return null;
+}
+
+async function handleAvatarRefresh() {
+  avatarSaving.value = true;
+  avatarMessage.value = null;
+  try {
+    await session.updateAvatar();
+    avatarMessage.value = "Аватарка обновлена.";
+  } catch (reason) {
+    const data = getErrorData(reason);
+    if (getErrorStatus(reason) === 429 && data?.nextAllowedAt) {
+      avatarMessage.value = `Можно обновить после ${new Date(data.nextAllowedAt).toLocaleDateString("ru-RU")}.`;
+    } else if (getErrorStatus(reason) === 400) {
+      avatarMessage.value = "Telegram пока не передал фото профиля.";
+    } else {
+      avatarMessage.value = "Не удалось обновить аватарку.";
+    }
+  } finally {
+    avatarSaving.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -207,6 +262,13 @@ onMounted(async () => {
           <span>{{ t("role") }}</span>
           <strong>{{ roleLabel }}</strong>
         </div>
+      </div>
+      <div class="profile-avatar-refresh mt-3">
+        <button class="secondary-button" type="button" :disabled="avatarSaving || avatarRefreshLocked" @click="handleAvatarRefresh">
+          <RefreshCw class="h-4 w-4" aria-hidden="true" />
+          <span>{{ avatarSaving ? "Обновляем..." : "Обновить аватарку" }}</span>
+        </button>
+        <p>{{ avatarMessage || avatarRefreshHint }}</p>
       </div>
     </section>
 

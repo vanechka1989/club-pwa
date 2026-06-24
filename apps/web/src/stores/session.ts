@@ -1,7 +1,7 @@
 import type { ClubUser } from "@club/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { createCheckout, getMe } from "@/api/client";
+import { createCheckout, getMe, refreshAvatar } from "@/api/client";
 
 export const useSessionStore = defineStore("session", () => {
   const user = ref<ClubUser | null>(null);
@@ -32,5 +32,11 @@ export const useSessionStore = defineStore("session", () => {
     return response.message;
   }
 
-  return { user, loading, error, isMember, load, subscribe };
+  async function updateAvatar() {
+    const response = await refreshAvatar();
+    user.value = response.user;
+    return response.user;
+  }
+
+  return { user, loading, error, isMember, load, subscribe, updateAvatar };
 });

@@ -7,7 +7,8 @@ describe("messageMetadata", () => {
       [
         { userId: "u1", reaction: "heart" },
         { userId: "u2", reaction: "heart" },
-        { userId: "u3", reaction: "fire" }
+        { userId: "u3", reaction: "fire" },
+        { userId: "u4", reaction: "poop" }
       ],
       "u3"
     );
@@ -17,7 +18,8 @@ describe("messageMetadata", () => {
       dislikesCount: 0,
       reactionCounts: [
         { reaction: "heart", count: 2 },
-        { reaction: "fire", count: 1 }
+        { reaction: "fire", count: 1 },
+        { reaction: "poop", count: 1 }
       ],
       myReaction: "fire"
     });

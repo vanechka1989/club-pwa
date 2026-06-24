@@ -15,7 +15,8 @@ export const clubUserSchema = z.object({
   role: userRoleSchema,
   realRole: userRoleSchema,
   membershipStatus: membershipStatusSchema,
-  membershipExpiresAt: z.string().datetime().nullable()
+  membershipExpiresAt: z.string().datetime().nullable(),
+  avatarRefreshedAt: z.string().datetime().nullable()
 });
 export type ClubUser = z.infer<typeof clubUserSchema>;
 
@@ -84,7 +85,7 @@ export type LearningProgressMutationResponse = z.infer<typeof learningProgressMu
 export const moderationStatusSchema = z.enum(["visible", "hidden", "deleted"]);
 export type ModerationStatus = z.infer<typeof moderationStatusSchema>;
 
-export const messageReactionSchema = z.enum(["thumbs_up", "fire", "heart", "laugh", "clap", "like", "dislike"]);
+export const messageReactionSchema = z.enum(["thumbs_up", "fire", "heart", "laugh", "clap", "poop", "like", "dislike"]);
 export type MessageReaction = z.infer<typeof messageReactionSchema>;
 
 export const muteKindSchema = z.enum(["temporary", "permanent"]);

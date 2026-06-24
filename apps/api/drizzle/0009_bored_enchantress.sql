@@ -1,0 +1,1 @@
+ALTER TYPE "public"."message_reaction" ADD VALUE 'poop';

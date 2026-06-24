@@ -32,10 +32,13 @@ const mutedPermanently = ref(false);
 const newMessage = ref("");
 const newTopicTitle = ref("");
 const showCreateTopic = ref(false);
+const showEmojiPicker = ref(false);
 const replyToMessage = ref<ClubMessage | null>(null);
 const activeModerationMessageId = ref<string | null>(null);
+const activeReactionMessageId = ref<string | null>(null);
 const pointerStartX = ref<number | null>(null);
 const pointerStartY = ref<number | null>(null);
+const suppressNextMessageClick = ref(false);
 const messageSaving = ref(false);
 const topicSaving = ref(false);
 const communityError = ref<string | null>(null);
@@ -69,13 +72,14 @@ const muteComposerText = computed(() => {
 
   return "";
 });
-const quickEmoji = ["👍", "🔥", "❤️", "😂", "👏"];
+const quickEmoji = ["👍", "🔥", "❤️", "😂", "👏", "💩"];
 const reactionOptions: Array<{ value: Exclude<MessageReaction, "like" | "dislike">; label: string }> = [
   { value: "thumbs_up", label: "👍" },
   { value: "fire", label: "🔥" },
   { value: "heart", label: "❤️" },
   { value: "laugh", label: "😂" },
-  { value: "clap", label: "👏" }
+  { value: "clap", label: "👏" },
+  { value: "poop", label: "💩" }
 ];
 
 function authorName(message: ClubMessage) {
@@ -88,6 +92,17 @@ function authorInitial(message: ClubMessage) {
 
 function reactionLabel(reaction: MessageReaction) {
   return reactionOptions.find((option) => option.value === reaction)?.label ?? "";
+}
+
+function isVisibleReaction(reaction: MessageReaction): reaction is Exclude<MessageReaction, "like" | "dislike"> {
+  return reactionOptions.some((option) => option.value === reaction);
+}
+
+function visibleReactionCounts(message: ClubMessage) {
+  return message.reactionCounts.filter(
+    (reaction): reaction is { reaction: Exclude<MessageReaction, "like" | "dislike">; count: number } =>
+      isVisibleReaction(reaction.reaction)
+  );
 }
 
 function formatMessageTime(value: string) {
@@ -171,6 +186,7 @@ function showMuteAlert() {
 
 function appendEmoji(emoji: string) {
   newMessage.value = `${newMessage.value}${emoji}`;
+  showEmojiPicker.value = false;
 }
 
 function startReply(message: ClubMessage) {
@@ -178,24 +194,62 @@ function startReply(message: ClubMessage) {
   newMessage.value = newMessage.value || "";
 }
 
-function handlePointerDown(event: PointerEvent) {
-  pointerStartX.value = event.clientX;
-  pointerStartY.value = event.clientY;
+function startSwipeTracking(clientX: number, clientY: number) {
+  pointerStartX.value = clientX;
+  pointerStartY.value = clientY;
 }
 
-function handlePointerUp(event: PointerEvent, message: ClubMessage) {
+function finishSwipeTracking(clientX: number, clientY: number, message: ClubMessage) {
   if (pointerStartX.value === null || pointerStartY.value === null) {
-    return;
+    return false;
   }
 
-  const deltaX = event.clientX - pointerStartX.value;
-  const deltaY = Math.abs(event.clientY - pointerStartY.value);
+  const deltaX = isOwnMessage(message) ? pointerStartX.value - clientX : clientX - pointerStartX.value;
+  const deltaY = Math.abs(clientY - pointerStartY.value);
   pointerStartX.value = null;
   pointerStartY.value = null;
 
-  if (deltaX > 54 && deltaY < 40) {
+  if (deltaX > 44 && deltaY < 46) {
     startReply(message);
+    activeReactionMessageId.value = null;
+    suppressNextMessageClick.value = true;
+    window.setTimeout(() => {
+      suppressNextMessageClick.value = false;
+    }, 250);
+    return true;
   }
+
+  return false;
+}
+
+function handlePointerDown(event: PointerEvent) {
+  startSwipeTracking(event.clientX, event.clientY);
+}
+
+function handlePointerUp(event: PointerEvent, message: ClubMessage) {
+  finishSwipeTracking(event.clientX, event.clientY, message);
+}
+
+function handleTouchStart(event: TouchEvent) {
+  const touch = event.changedTouches[0];
+  if (touch) {
+    startSwipeTracking(touch.clientX, touch.clientY);
+  }
+}
+
+function handleTouchEnd(event: TouchEvent, message: ClubMessage) {
+  const touch = event.changedTouches[0];
+  if (touch) {
+    finishSwipeTracking(touch.clientX, touch.clientY, message);
+  }
+}
+
+function openReactionPicker(message: ClubMessage) {
+  if (message.isSystem || suppressNextMessageClick.value) {
+    return;
+  }
+
+  activeReactionMessageId.value = activeReactionMessageId.value === message.id ? null : message.id;
 }
 
 async function scrollToBottom() {
@@ -418,17 +472,26 @@ async function handleMute(message: ClubMessage) {
   if (!selectedTopic.value) {
     return;
   }
+  if (message.authorMute) {
+    communityError.value = "У клиента уже есть активный мут.";
+    activeModerationMessageId.value = null;
+    return;
+  }
 
-  const response = await createTopicUserMute(selectedTopic.value.id, {
-    telegramId: message.author.telegramId,
-    kind: "permanent",
-    reason: "Модерация сообщения в чате",
-    expiresAt: null
-  });
-  messages.value = [response.message, ...messages.value];
-  activeModerationMessageId.value = null;
-  await openTopic(selectedTopic.value);
-  await scrollToBottom();
+  try {
+    const response = await createTopicUserMute(selectedTopic.value.id, {
+      telegramId: message.author.telegramId,
+      kind: "permanent",
+      reason: "Модерация сообщения в чате",
+      expiresAt: null
+    });
+    messages.value = [response.message, ...messages.value];
+    activeModerationMessageId.value = null;
+    await openTopic(selectedTopic.value);
+    await scrollToBottom();
+  } catch (reason) {
+    communityError.value = getErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.";
+  }
 }
 
 async function handleRevokeMute(message: ClubMessage) {
@@ -445,6 +508,7 @@ async function handleReaction(message: ClubMessage, reaction: Exclude<MessageRea
   const nextReaction = message.myReaction === reaction ? null : reaction;
   const response = await reactToClubMessage(message.id, nextReaction);
   messages.value = messages.value.map((item) => (item.id === message.id ? response.message : item));
+  activeReactionMessageId.value = null;
 }
 
 onMounted(() => {
@@ -602,6 +666,9 @@ onBeforeUnmount(() => {
           }"
           @pointerdown="handlePointerDown"
           @pointerup="handlePointerUp($event, message)"
+          @touchstart.passive="handleTouchStart"
+          @touchend.passive="handleTouchEnd($event, message)"
+          @click="openReactionPicker(message)"
         >
           <div v-if="!message.isSystem && !isOwnMessage(message)" class="chat-avatar">
             <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" />
@@ -629,19 +696,29 @@ onBeforeUnmount(() => {
             <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
               {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
             </p>
-            <div class="message-reactions">
+            <div v-if="activeReactionMessageId === message.id" class="reaction-popover" @click.stop>
               <button
                 v-for="option in reactionOptions"
                 :key="option.value"
-                class="message-reaction-button"
+                class="reaction-popover-button"
                 :class="{ 'message-reaction-active': message.myReaction === option.value }"
                 type="button"
                 @click="handleReaction(message, option.value)"
               >
-                <span>{{ option.label }}</span>
-                <small v-if="message.reactionCounts.find((item) => item.reaction === option.value)?.count">
-                  {{ message.reactionCounts.find((item) => item.reaction === option.value)?.count }}
-                </small>
+                {{ option.label }}
+              </button>
+            </div>
+            <div v-if="visibleReactionCounts(message).length" class="message-reactions">
+              <button
+                v-for="reaction in visibleReactionCounts(message)"
+                :key="reaction.reaction"
+                class="message-reaction-button"
+                :class="{ 'message-reaction-active': message.myReaction === reaction.reaction }"
+                type="button"
+                @click.stop="handleReaction(message, reaction.reaction)"
+              >
+                <span>{{ reactionLabel(reaction.reaction) }}</span>
+                <small>{{ reaction.count }}</small>
               </button>
             </div>
             <div v-if="isModerator && activeModerationMessageId === message.id" class="moderation-menu">
@@ -652,10 +729,14 @@ onBeforeUnmount(() => {
               <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
                 {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
               </button>
-              <button class="mini-action" type="button" @click="handleMute(message)">
+              <button class="mini-action" type="button" :disabled="Boolean(message.authorMute)" @click="handleMute(message)">
                 Мут пока не снимут
               </button>
             </div>
+          </div>
+          <div v-if="!message.isSystem && isOwnMessage(message)" class="chat-avatar">
+            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" />
+            <span v-else>{{ authorInitial(message) }}</span>
           </div>
           <p v-if="message.isSystem" class="chat-system-body">
             <span>{{ message.body }}</span>
@@ -675,13 +756,17 @@ onBeforeUnmount(() => {
             <X class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-        <div class="emoji-row">
-          <Smile class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
-          <button v-for="emoji in quickEmoji" :key="emoji" type="button" @click="appendEmoji(emoji)">
-            {{ emoji }}
-          </button>
-        </div>
         <div class="chat-input-row">
+          <div class="composer-emoji-wrap">
+            <button class="icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">
+              <Smile class="h-4 w-4" aria-hidden="true" />
+            </button>
+            <div v-if="showEmojiPicker" class="composer-emoji-popover">
+              <button v-for="emoji in quickEmoji" :key="emoji" type="button" @click="appendEmoji(emoji)">
+                {{ emoji }}
+              </button>
+            </div>
+          </div>
           <div v-if="isMuted" class="mute-compose-notice">{{ muteComposerText }}</div>
           <input
             v-else

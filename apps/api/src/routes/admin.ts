@@ -16,6 +16,7 @@ import {
 } from "../db/schema";
 import { env } from "../env";
 import { getMembership } from "../membership/getMembership";
+import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 
@@ -456,6 +457,10 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const manageError = await rejectIfCannotManageTarget(c, user.telegramId);
     if (manageError) {
       return manageError;
+    }
+    const activeMute = await getActiveMute(user.id);
+    if (activeMute) {
+      return c.json({ error: "Active mute already exists" }, 409);
     }
 
     const expiresAt =

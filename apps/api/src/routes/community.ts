@@ -35,7 +35,7 @@ const messagePayloadSchema = z.object({
 });
 
 const reactionPayloadSchema = z.object({
-  reaction: z.enum(["thumbs_up", "fire", "heart", "laugh", "clap"]).nullable()
+  reaction: z.enum(["thumbs_up", "fire", "heart", "laugh", "clap", "poop"]).nullable()
 });
 
 const chatMutePayloadSchema = z.object({
@@ -720,6 +720,11 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
     if (!targetUser || !moderator) {
       return c.json({ error: "Unable to resolve mute users" }, 500);
+    }
+
+    const activeMute = await getActiveMute(targetUser.id);
+    if (activeMute) {
+      return c.json({ error: "Active mute already exists" }, 409);
     }
 
     const expiresAt =

@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "avatar_refreshed_at" timestamp with time zone;

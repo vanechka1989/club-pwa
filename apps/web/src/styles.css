@@ -997,6 +997,26 @@ button {
   white-space: nowrap;
 }
 
+.profile-avatar-refresh {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.profile-avatar-refresh .secondary-button {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.profile-avatar-refresh p {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 680;
+  line-height: 1.35;
+}
+
 .theme-choice-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1550,9 +1570,11 @@ button {
   align-items: flex-end;
   gap: 0.45rem;
   margin-top: 0.55rem;
+  touch-action: pan-y;
 }
 
 .chat-bubble {
+  position: relative;
   width: fit-content;
   max-width: min(78%, 33rem);
   border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
@@ -1564,17 +1586,20 @@ button {
 
 .chat-avatar {
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   overflow: hidden;
   flex-shrink: 0;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border: 2px solid color-mix(in srgb, var(--panel) 82%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-soft) 72%, var(--panel));
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 40%),
+    color-mix(in srgb, var(--accent-soft) 78%, var(--panel));
   color: var(--text);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 900;
+  box-shadow: 0 8px 18px color-mix(in srgb, #000 16%, transparent);
 }
 
 .chat-avatar img {
@@ -1701,8 +1726,39 @@ button.chat-message-author:active {
 }
 
 .message-reactions {
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+}
+
+.reaction-popover {
+  position: absolute;
+  right: 0.45rem;
+  bottom: calc(100% - 0.15rem);
+  z-index: 6;
+  display: flex;
   gap: 0.25rem;
-  margin-top: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  padding: 0.28rem;
+  box-shadow: 0 14px 34px color-mix(in srgb, #000 24%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.chat-message:not(.chat-message-own) .reaction-popover {
+  right: auto;
+  left: 0.45rem;
+}
+
+.reaction-popover-button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+  font-size: 1rem;
 }
 
 .moderation-status {
@@ -1722,16 +1778,16 @@ button.chat-message-author:active {
 
 .message-reaction-button {
   display: inline-flex;
-  min-width: 1.72rem;
-  height: 1.52rem;
+  min-width: 1.55rem;
+  height: 1.35rem;
   align-items: center;
   justify-content: center;
   gap: 0.12rem;
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--panel) 62%, transparent);
+  background: color-mix(in srgb, var(--panel) 42%, transparent);
   color: var(--muted-strong);
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 760;
 }
 
@@ -1798,21 +1854,41 @@ button.chat-message-author:active {
   padding: 0.55rem 0 0;
 }
 
-.emoji-row,
 .chat-input-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
-.emoji-row button {
+.composer-emoji-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.composer-emoji-popover {
+  position: absolute;
+  bottom: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 8;
+  display: flex;
+  gap: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  padding: 0.3rem;
+  box-shadow: 0 14px 34px color-mix(in srgb, #000 24%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.composer-emoji-popover button {
   display: grid;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 2rem;
+  height: 2rem;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
-  font-size: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-strong) 90%, transparent);
+  font-size: 1rem;
 }
 
 .chat-input-row .text-input {
