@@ -25,7 +25,11 @@ function serializeContentItem(item: typeof contentItems.$inferSelect, includeBod
   };
 }
 
-function serializeComment(comment: typeof lessonComments.$inferSelect & { user: { id: string; telegramId: string; firstName: string | null; username: string | null } }) {
+function serializeComment(
+  comment: typeof lessonComments.$inferSelect & {
+    user: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
+  }
+) {
   return {
     id: comment.id,
     contentItemId: comment.contentItemId,
@@ -35,7 +39,8 @@ function serializeComment(comment: typeof lessonComments.$inferSelect & { user: 
       id: comment.user.id,
       telegramId: comment.user.telegramId,
       firstName: comment.user.firstName,
-      username: comment.user.username
+      username: comment.user.username,
+      photoUrl: comment.user.photoUrl
     },
     createdAt: comment.createdAt.toISOString()
   };

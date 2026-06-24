@@ -35,7 +35,7 @@ const messagePayloadSchema = z.object({
 });
 
 const reactionPayloadSchema = z.object({
-  reaction: z.enum(["like", "dislike"]).nullable()
+  reaction: z.enum(["thumbs_up", "fire", "heart", "laugh", "clap"]).nullable()
 });
 
 const chatMutePayloadSchema = z.object({
@@ -208,7 +208,7 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, current
 
 async function serializeMessage(
   message: typeof clubChatMessages.$inferSelect & {
-    user: { id: string; telegramId: string; firstName: string | null; username: string | null };
+    user: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
   },
   currentUserId: string
 ): Promise<ClubMessage> {
@@ -236,11 +236,13 @@ async function serializeMessage(
       id: message.user.id,
       telegramId: message.user.telegramId,
       firstName: message.user.firstName,
-      username: message.user.username
+      username: message.user.username,
+      photoUrl: message.user.photoUrl
     },
     replyTo: buildReplyPreview(replyTo ?? null),
     likesCount: reactionSummary.likesCount,
     dislikesCount: reactionSummary.dislikesCount,
+    reactionCounts: reactionSummary.reactionCounts,
     myReaction: reactionSummary.myReaction,
     authorMute: authorMute
       ? {
@@ -268,7 +270,8 @@ async function findOrCreateUserByTelegramId(telegramId: string) {
     .values({
       telegramId,
       firstName: null,
-      username: null
+      username: null,
+      photoUrl: null
     })
     .onConflictDoUpdate({
       target: users.telegramId,
@@ -334,9 +337,9 @@ async function notifyReplyRecipient({
 }: {
   topic: typeof clubChatTopics.$inferSelect;
   replyToMessage: typeof clubChatMessages.$inferSelect & {
-    user: { id: string; telegramId: string; firstName: string | null; username: string | null };
+    user: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
   };
-  sender: { id: string; telegramId: string; firstName: string | null; username: string | null };
+  sender: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
   body: string;
 }) {
   if (replyToMessage.userId === sender.id) {

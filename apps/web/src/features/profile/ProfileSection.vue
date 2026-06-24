@@ -22,6 +22,15 @@ const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
 const displayName = computed(() => session.user?.firstName || session.user?.username || "Пользователь");
+const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase());
+const daysLeft = computed(() => {
+  if (!session.user?.membershipExpiresAt || !isMember.value) {
+    return 0;
+  }
+
+  const diff = new Date(session.user.membershipExpiresAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+});
 const roleLabel = computed(() => {
   if (session.user?.role === "owner") {
     return t("ownerRole");
@@ -33,7 +42,24 @@ const roleLabel = computed(() => {
 
   return t("memberRole");
 });
-const subscriptionProgress = computed(() => (isMember.value ? 72 : 18));
+const subscriptionProgress = computed(() => {
+  if (!isMember.value) {
+    return 10;
+  }
+
+  return Math.max(8, Math.min(100, Math.round((daysLeft.value / 30) * 100)));
+});
+const subscriptionMeta = computed(() => {
+  if (!isMember.value) {
+    return "Ожидает оплаты";
+  }
+
+  if (daysLeft.value === 0) {
+    return "Доступ заканчивается сегодня";
+  }
+
+  return `${daysLeft.value} дн. осталось`;
+});
 const learningProgress = computed(() => {
   if (!totalItems.value) {
     return 0;
@@ -102,10 +128,17 @@ onMounted(async () => {
     </div>
 
     <section class="soft-card">
-      <div class="flex items-start justify-between gap-4">
-        <div>
+      <div class="profile-hero-row">
+        <div class="profile-avatar profile-avatar-large">
+          <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" />
+          <span v-else>{{ avatarInitial }}</span>
+        </div>
+        <div class="min-w-0 flex-1">
           <p class="section-eyebrow">{{ t("status") }}</p>
-          <h3>{{ isMember ? t("softPremiumActive") : t("homeInactive") }}</h3>
+          <h3>{{ displayName }}</h3>
+          <p class="mt-1 text-sm font-semibold text-[var(--muted)]">
+            {{ isMember ? t("softPremiumActive") : t("homeInactive") }}
+          </p>
         </div>
         <span class="soft-pill">{{ accessUntil }}</span>
       </div>
@@ -114,8 +147,8 @@ onMounted(async () => {
           <span :style="{ width: `${subscriptionProgress}%` }"></span>
         </div>
         <div class="mt-2 flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
-          <span>{{ isMember ? "Доступ активен" : "Ожидает оплаты" }}</span>
-          <span>{{ subscriptionProgress }}%</span>
+          <span>{{ subscriptionMeta }}</span>
+          <span v-if="isMember">до {{ accessUntil }}</span>
         </div>
       </div>
       <button class="soft-inline-button mt-4" type="button" @click="$emit('openPayments')">

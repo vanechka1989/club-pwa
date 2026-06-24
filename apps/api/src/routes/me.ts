@@ -35,6 +35,7 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>().use("*", telegra
       telegramId: user.telegramId,
       firstName: user.firstName,
       username: user.username,
+      photoUrl: user.photoUrl,
       role,
       realRole,
       membershipStatus,

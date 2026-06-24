@@ -4,13 +4,15 @@ import { z } from "zod";
 const telegramUserSchema = z.object({
   id: z.number().int().positive(),
   first_name: z.string().optional(),
-  username: z.string().optional()
+  username: z.string().optional(),
+  photo_url: z.string().url().optional()
 });
 
 export type TelegramUser = {
   id: string;
   firstName: string | null;
   username: string | null;
+  photoUrl: string | null;
 };
 
 export function verifyTelegramInitData(initData: string, botToken: string): TelegramUser | null {
@@ -57,6 +59,7 @@ export function verifyTelegramInitData(initData: string, botToken: string): Tele
   return {
     id: String(parsed.data.id),
     firstName: parsed.data.first_name ?? null,
-    username: parsed.data.username ?? null
+    username: parsed.data.username ?? null,
+    photoUrl: parsed.data.photo_url ?? null
   };
 }

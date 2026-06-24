@@ -19,7 +19,7 @@ describe("verifyTelegramInitData", () => {
       {
         auth_date: "1730000000",
         query_id: "query",
-        user: JSON.stringify({ id: 42, first_name: "Ivan", username: "ivan" })
+        user: JSON.stringify({ id: 42, first_name: "Ivan", username: "ivan", photo_url: "https://example.com/ivan.jpg" })
       },
       botToken
     );
@@ -27,7 +27,8 @@ describe("verifyTelegramInitData", () => {
     expect(verifyTelegramInitData(initData, botToken)).toEqual({
       id: "42",
       firstName: "Ivan",
-      username: "ivan"
+      username: "ivan",
+      photoUrl: "https://example.com/ivan.jpg"
     });
   });
 

@@ -19,6 +19,7 @@ import type {
   LessonCommentsResponse,
   LearningHomeResponse,
   LearningProgressMutationResponse,
+  MessageReaction,
   MeResponse,
   PaymentsResponse,
   SubscribeResponse,
@@ -144,7 +145,7 @@ export function createClubMessage(topicId: string, body: string, replyToMessageI
   });
 }
 
-export function reactToClubMessage(messageId: string, reaction: "like" | "dislike" | null) {
+export function reactToClubMessage(messageId: string, reaction: MessageReaction | null) {
   return api<ClubMessageReactionMutationResponse>(`/community/messages/${messageId}/reaction`, {
     method: "POST",
     body: { reaction }

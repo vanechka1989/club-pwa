@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ClubMessage, ClubTopic } from "@club/shared";
-import { ArrowLeft, MessageCircle, Plus, Reply, Send, Smile, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-vue-next";
+import type { ClubMessage, ClubTopic, MessageReaction } from "@club/shared";
+import { ArrowLeft, MessageCircle, Plus, Send, Smile, Trash2, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -69,9 +69,25 @@ const muteComposerText = computed(() => {
 
   return "";
 });
-const quickEmoji = ["👍", "🔥", "❤️", "🙂", "😂", "👏"];
+const quickEmoji = ["👍", "🔥", "❤️", "😂", "👏"];
+const reactionOptions: Array<{ value: Exclude<MessageReaction, "like" | "dislike">; label: string }> = [
+  { value: "thumbs_up", label: "👍" },
+  { value: "fire", label: "🔥" },
+  { value: "heart", label: "❤️" },
+  { value: "laugh", label: "😂" },
+  { value: "clap", label: "👏" }
+];
+
 function authorName(message: ClubMessage) {
   return message.author.firstName || message.author.username || `ID ${message.author.telegramId}`;
+}
+
+function authorInitial(message: ClubMessage) {
+  return authorName(message).slice(0, 1).toUpperCase();
+}
+
+function reactionLabel(reaction: MessageReaction) {
+  return reactionOptions.find((option) => option.value === reaction)?.label ?? "";
 }
 
 function formatMessageTime(value: string) {
@@ -204,6 +220,7 @@ function messageSignature(message: ClubMessage) {
     message.createdAt,
     message.likesCount,
     message.dislikesCount,
+    message.reactionCounts.map((reaction) => `${reaction.reaction}:${reaction.count}`).join(","),
     message.myReaction ?? "",
     message.authorMute?.id ?? "",
     message.authorMute?.kind ?? "",
@@ -424,7 +441,7 @@ async function handleRevokeMute(message: ClubMessage) {
   await openTopic(selectedTopic.value);
 }
 
-async function handleReaction(message: ClubMessage, reaction: "like" | "dislike") {
+async function handleReaction(message: ClubMessage, reaction: Exclude<MessageReaction, "like" | "dislike">) {
   const nextReaction = message.myReaction === reaction ? null : reaction;
   const response = await reactToClubMessage(message.id, nextReaction);
   messages.value = messages.value.map((item) => (item.id === message.id ? response.message : item));
@@ -586,66 +603,64 @@ onBeforeUnmount(() => {
           @pointerdown="handlePointerDown"
           @pointerup="handlePointerUp($event, message)"
         >
-          <div v-if="!message.isSystem" class="chat-message-head">
-            <button
-              v-if="isModerator"
-              class="chat-message-author"
-              type="button"
-              @click.stop="activeModerationMessageId = activeModerationMessageId === message.id ? null : message.id"
-            >
-              {{ authorName(message) }}
-            </button>
-            <span v-else class="chat-message-author">{{ authorName(message) }}</span>
-            <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
-            <span>{{ formatMessageTime(message.createdAt) }}</span>
+          <div v-if="!message.isSystem && !isOwnMessage(message)" class="chat-avatar">
+            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" />
+            <span v-else>{{ authorInitial(message) }}</span>
+          </div>
+          <div v-if="!message.isSystem" class="chat-bubble">
+            <div class="chat-message-head">
+              <button
+                v-if="isModerator"
+                class="chat-message-author"
+                type="button"
+                @click.stop="activeModerationMessageId = activeModerationMessageId === message.id ? null : message.id"
+              >
+                {{ authorName(message) }}
+              </button>
+              <span v-else class="chat-message-author">{{ authorName(message) }}</span>
+              <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
+              <span>{{ formatMessageTime(message.createdAt) }}</span>
+            </div>
+            <div v-if="message.replyTo" class="reply-preview">
+              <span>{{ message.replyTo.author.firstName || message.replyTo.author.username || `ID ${message.replyTo.author.telegramId}` }}</span>
+              <span>{{ message.replyTo.body }}</span>
+            </div>
+            <p class="chat-message-body">{{ message.body }}</p>
+            <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
+              {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
+            </p>
+            <div class="message-reactions">
+              <button
+                v-for="option in reactionOptions"
+                :key="option.value"
+                class="message-reaction-button"
+                :class="{ 'message-reaction-active': message.myReaction === option.value }"
+                type="button"
+                @click="handleReaction(message, option.value)"
+              >
+                <span>{{ option.label }}</span>
+                <small v-if="message.reactionCounts.find((item) => item.reaction === option.value)?.count">
+                  {{ message.reactionCounts.find((item) => item.reaction === option.value)?.count }}
+                </small>
+              </button>
+            </div>
+            <div v-if="isModerator && activeModerationMessageId === message.id" class="moderation-menu">
+              <div v-if="message.authorMute" class="moderation-status">
+                <span>{{ formatMuteLabel(message) }}</span>
+                <button class="mini-action" type="button" @click="handleRevokeMute(message)">Снять мут</button>
+              </div>
+              <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
+                {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
+              </button>
+              <button class="mini-action" type="button" @click="handleMute(message)">
+                Мут пока не снимут
+              </button>
+            </div>
           </div>
           <p v-if="message.isSystem" class="chat-system-body">
             <span>{{ message.body }}</span>
             <time>{{ formatMessageTime(message.createdAt) }}</time>
           </p>
-          <button v-if="!message.isSystem && message.replyTo" class="reply-preview" type="button" @click="startReply(message)">
-            <span>{{ authorName({ ...message, author: message.replyTo.author }) }}</span>
-            <span>{{ message.replyTo.body }}</span>
-          </button>
-          <p v-if="!message.isSystem" class="chat-message-body">{{ message.body }}</p>
-          <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
-            {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
-          </p>
-          <div v-if="!message.isSystem" class="message-actions">
-            <button
-              class="message-action"
-              :class="{ 'message-action-active': message.myReaction === 'like' }"
-              type="button"
-              @click="handleReaction(message, 'like')"
-            >
-              <ThumbsUp class="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{{ message.likesCount || "" }}</span>
-            </button>
-            <button
-              class="message-action"
-              :class="{ 'message-action-active': message.myReaction === 'dislike' }"
-              type="button"
-              @click="handleReaction(message, 'dislike')"
-            >
-              <ThumbsDown class="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{{ message.dislikesCount || "" }}</span>
-            </button>
-            <button class="message-action" type="button" @click="startReply(message)">
-              <Reply class="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </div>
-          <div v-if="!message.isSystem && isModerator && activeModerationMessageId === message.id" class="moderation-menu">
-            <div v-if="message.authorMute" class="moderation-status">
-              <span>{{ formatMuteLabel(message) }}</span>
-              <button class="mini-action" type="button" @click="handleRevokeMute(message)">Снять мут</button>
-            </div>
-            <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
-              {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
-            </button>
-            <button class="mini-action" type="button" @click="handleMute(message)">
-              Мут пока не снимут
-            </button>
-          </div>
         </article>
         <div ref="messagesEnd"></div>
       </div>

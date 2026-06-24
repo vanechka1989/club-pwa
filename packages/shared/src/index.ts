@@ -11,6 +11,7 @@ export const clubUserSchema = z.object({
   telegramId: z.string(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
+  photoUrl: z.string().url().nullable(),
   role: userRoleSchema,
   realRole: userRoleSchema,
   membershipStatus: membershipStatusSchema,
@@ -83,7 +84,7 @@ export type LearningProgressMutationResponse = z.infer<typeof learningProgressMu
 export const moderationStatusSchema = z.enum(["visible", "hidden", "deleted"]);
 export type ModerationStatus = z.infer<typeof moderationStatusSchema>;
 
-export const messageReactionSchema = z.enum(["like", "dislike"]);
+export const messageReactionSchema = z.enum(["thumbs_up", "fire", "heart", "laugh", "clap", "like", "dislike"]);
 export type MessageReaction = z.infer<typeof messageReactionSchema>;
 
 export const muteKindSchema = z.enum(["temporary", "permanent"]);
@@ -93,7 +94,8 @@ export const commentAuthorSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
   firstName: z.string().nullable(),
-  username: z.string().nullable()
+  username: z.string().nullable(),
+  photoUrl: z.string().url().nullable()
 });
 export type CommentAuthor = z.infer<typeof commentAuthorSchema>;
 
@@ -193,6 +195,12 @@ export const clubMessageSchema = z.object({
     .nullable(),
   likesCount: z.number().int().nonnegative(),
   dislikesCount: z.number().int().nonnegative(),
+  reactionCounts: z.array(
+    z.object({
+      reaction: messageReactionSchema,
+      count: z.number().int().nonnegative()
+    })
+  ),
   myReaction: messageReactionSchema.nullable(),
   authorMute: z
     .object({
@@ -269,6 +277,7 @@ export const adminStatsUserSchema = z.object({
   telegramId: z.string(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
+  photoUrl: z.string().url().nullable(),
   role: userRoleSchema,
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
@@ -345,6 +354,7 @@ export const adminMuteSchema = z.object({
   telegramId: z.string(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
+  photoUrl: z.string().url().nullable(),
   kind: muteKindSchema,
   reason: z.string().nullable(),
   expiresAt: z.string().datetime().nullable(),

@@ -2,20 +2,24 @@ import { describe, expect, it } from "vitest";
 import { buildReplyPreview, summarizeReactions } from "./messageMetadata";
 
 describe("messageMetadata", () => {
-  it("summarizes likes, dislikes and the current user's reaction", () => {
+  it("summarizes emoji reactions and the current user's reaction", () => {
     const summary = summarizeReactions(
       [
-        { userId: "u1", reaction: "like" },
-        { userId: "u2", reaction: "like" },
-        { userId: "u3", reaction: "dislike" }
+        { userId: "u1", reaction: "heart" },
+        { userId: "u2", reaction: "heart" },
+        { userId: "u3", reaction: "fire" }
       ],
       "u3"
     );
 
     expect(summary).toEqual({
-      likesCount: 2,
-      dislikesCount: 1,
-      myReaction: "dislike"
+      likesCount: 0,
+      dislikesCount: 0,
+      reactionCounts: [
+        { reaction: "heart", count: 2 },
+        { reaction: "fire", count: 1 }
+      ],
+      myReaction: "fire"
     });
   });
 
@@ -27,7 +31,8 @@ describe("messageMetadata", () => {
         id: "u1",
         telegramId: "42",
         firstName: "Ivan",
-        username: null
+        username: null,
+        photoUrl: "https://example.com/avatar.jpg"
       }
     });
 
@@ -38,7 +43,8 @@ describe("messageMetadata", () => {
         id: "u1",
         telegramId: "42",
         firstName: "Ivan",
-        username: null
+        username: null,
+        photoUrl: "https://example.com/avatar.jpg"
       }
     });
   });

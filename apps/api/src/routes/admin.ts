@@ -75,6 +75,7 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     telegramId: user.telegramId,
     firstName: user.firstName,
     username: user.username,
+    photoUrl: user.photoUrl,
     role,
     membershipStatus: membership.status,
     membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
@@ -184,7 +185,8 @@ async function findOrCreateUserByTelegramId(telegramId: string) {
     .values({
       telegramId,
       firstName: null,
-      username: null
+      username: null,
+      photoUrl: null
     })
     .onConflictDoUpdate({
       target: users.telegramId,
@@ -333,7 +335,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           id: comment.user.id,
           telegramId: comment.user.telegramId,
           firstName: comment.user.firstName,
-          username: comment.user.username
+          username: comment.user.username,
+          photoUrl: comment.user.photoUrl
         },
         sourceTitle: comment.item.title,
         createdAt: comment.createdAt.toISOString()
@@ -347,7 +350,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           id: message.user.id,
           telegramId: message.user.telegramId,
           firstName: message.user.firstName,
-          username: message.user.username
+          username: message.user.username,
+          photoUrl: message.user.photoUrl
         },
         sourceTitle: message.topic.title,
         createdAt: message.createdAt.toISOString()
@@ -426,6 +430,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         telegramId: mute.user.telegramId,
         firstName: mute.user.firstName,
         username: mute.user.username,
+        photoUrl: mute.user.photoUrl,
         kind: mute.kind,
         reason: mute.reason,
         expiresAt: mute.expiresAt?.toISOString() ?? null,

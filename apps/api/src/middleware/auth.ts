@@ -21,7 +21,8 @@ type PreviewMode = z.infer<typeof previewModeSchema>;
 const devTelegramUserSchema = z.object({
   id: z.string().min(1),
   firstName: z.string().nullable().optional(),
-  username: z.string().nullable().optional()
+  username: z.string().nullable().optional(),
+  photoUrl: z.string().url().nullable().optional()
 });
 
 function getDevTelegramUser(header: string | undefined): TelegramUser | null {
@@ -38,7 +39,8 @@ function getDevTelegramUser(header: string | undefined): TelegramUser | null {
     return {
       id: parsed.data.id,
       firstName: parsed.data.firstName ?? null,
-      username: parsed.data.username ?? null
+      username: parsed.data.username ?? null,
+      photoUrl: parsed.data.photoUrl ?? null
     };
   } catch {
     return null;
@@ -64,13 +66,15 @@ export const telegramAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asy
     .values({
       telegramId: telegramUser.id,
       firstName: telegramUser.firstName,
-      username: telegramUser.username
+      username: telegramUser.username,
+      photoUrl: telegramUser.photoUrl
     })
     .onConflictDoUpdate({
       target: users.telegramId,
       set: {
         firstName: telegramUser.firstName,
         username: telegramUser.username,
+        photoUrl: telegramUser.photoUrl,
         updatedAt: new Date()
       }
     })

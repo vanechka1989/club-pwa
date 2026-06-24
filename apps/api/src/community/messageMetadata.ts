@@ -1,4 +1,6 @@
-type ReactionValue = "like" | "dislike";
+import type { MessageReaction } from "@club/shared";
+
+type ReactionValue = MessageReaction;
 
 export type MessageReactionRow = {
   userId: string;
@@ -13,22 +15,27 @@ export type ReplySourceMessage = {
     telegramId: string;
     firstName: string | null;
     username: string | null;
+    photoUrl: string | null;
   };
 };
 
 export function summarizeReactions(reactions: MessageReactionRow[], currentUserId: string) {
-  return reactions.reduce(
-    (summary, reaction) => ({
-      likesCount: summary.likesCount + (reaction.reaction === "like" ? 1 : 0),
-      dislikesCount: summary.dislikesCount + (reaction.reaction === "dislike" ? 1 : 0),
-      myReaction: reaction.userId === currentUserId ? reaction.reaction : summary.myReaction
-    }),
-    {
-      likesCount: 0,
-      dislikesCount: 0,
-      myReaction: null as ReactionValue | null
+  const counts = new Map<ReactionValue, number>();
+  let myReaction: ReactionValue | null = null;
+
+  for (const reaction of reactions) {
+    counts.set(reaction.reaction, (counts.get(reaction.reaction) ?? 0) + 1);
+    if (reaction.userId === currentUserId) {
+      myReaction = reaction.reaction;
     }
-  );
+  }
+
+  return {
+    likesCount: counts.get("like") ?? 0,
+    dislikesCount: counts.get("dislike") ?? 0,
+    reactionCounts: Array.from(counts.entries()).map(([reaction, count]) => ({ reaction, count })),
+    myReaction
+  };
 }
 
 export function buildReplyPreview(message: ReplySourceMessage | null) {
@@ -47,7 +54,8 @@ export function buildReplyPreview(message: ReplySourceMessage | null) {
       id: message.user.id,
       telegramId: message.user.telegramId,
       firstName: message.user.firstName,
-      username: message.user.username
+      username: message.user.username,
+      photoUrl: message.user.photoUrl
     }
   };
 }
