@@ -38,6 +38,8 @@ const activeModerationMessageId = ref<string | null>(null);
 const activeReactionMessageId = ref<string | null>(null);
 const pointerStartX = ref<number | null>(null);
 const pointerStartY = ref<number | null>(null);
+const activeSwipeMessageId = ref<string | null>(null);
+const swipeOffset = ref(0);
 const suppressNextMessageClick = ref(false);
 const messageSaving = ref(false);
 const topicSaving = ref(false);
@@ -194,22 +196,50 @@ function startReply(message: ClubMessage) {
   newMessage.value = newMessage.value || "";
 }
 
-function startSwipeTracking(clientX: number, clientY: number) {
+function resetSwipeTracking() {
+  pointerStartX.value = null;
+  pointerStartY.value = null;
+  activeSwipeMessageId.value = null;
+  swipeOffset.value = 0;
+}
+
+function startSwipeTracking(message: ClubMessage, clientX: number, clientY: number) {
+  if (message.isSystem) {
+    return;
+  }
+
   pointerStartX.value = clientX;
   pointerStartY.value = clientY;
+  activeSwipeMessageId.value = message.id;
+  swipeOffset.value = 0;
+}
+
+function updateSwipeTracking(clientX: number, clientY: number, message: ClubMessage) {
+  if (pointerStartX.value === null || pointerStartY.value === null || activeSwipeMessageId.value !== message.id) {
+    return;
+  }
+
+  const deltaX = clientX - pointerStartX.value;
+  const deltaY = Math.abs(clientY - pointerStartY.value);
+  if (deltaY > 56) {
+    swipeOffset.value = 0;
+    return;
+  }
+
+  swipeOffset.value = Math.max(-58, Math.min(58, deltaX));
 }
 
 function finishSwipeTracking(clientX: number, clientY: number, message: ClubMessage) {
-  if (pointerStartX.value === null || pointerStartY.value === null) {
+  if (pointerStartX.value === null || pointerStartY.value === null || activeSwipeMessageId.value !== message.id) {
+    resetSwipeTracking();
     return false;
   }
 
-  const deltaX = isOwnMessage(message) ? pointerStartX.value - clientX : clientX - pointerStartX.value;
+  const deltaX = clientX - pointerStartX.value;
   const deltaY = Math.abs(clientY - pointerStartY.value);
-  pointerStartX.value = null;
-  pointerStartY.value = null;
+  resetSwipeTracking();
 
-  if (deltaX > 44 && deltaY < 46) {
+  if (Math.abs(deltaX) > 44 && deltaY < 46) {
     startReply(message);
     activeReactionMessageId.value = null;
     suppressNextMessageClick.value = true;
@@ -222,18 +252,41 @@ function finishSwipeTracking(clientX: number, clientY: number, message: ClubMess
   return false;
 }
 
-function handlePointerDown(event: PointerEvent) {
-  startSwipeTracking(event.clientX, event.clientY);
+function swipeStyle(message: ClubMessage) {
+  return activeSwipeMessageId.value === message.id
+    ? {
+        transform: `translateX(${swipeOffset.value}px)`
+      }
+    : undefined;
+}
+
+function swipeCueSide() {
+  return swipeOffset.value < 0 ? "left" : "right";
+}
+
+function handlePointerDown(event: PointerEvent, message: ClubMessage) {
+  startSwipeTracking(message, event.clientX, event.clientY);
+}
+
+function handlePointerMove(event: PointerEvent, message: ClubMessage) {
+  updateSwipeTracking(event.clientX, event.clientY, message);
 }
 
 function handlePointerUp(event: PointerEvent, message: ClubMessage) {
   finishSwipeTracking(event.clientX, event.clientY, message);
 }
 
-function handleTouchStart(event: TouchEvent) {
+function handleTouchStart(event: TouchEvent, message: ClubMessage) {
   const touch = event.changedTouches[0];
   if (touch) {
-    startSwipeTracking(touch.clientX, touch.clientY);
+    startSwipeTracking(message, touch.clientX, touch.clientY);
+  }
+}
+
+function handleTouchMove(event: TouchEvent, message: ClubMessage) {
+  const touch = event.changedTouches[0];
+  if (touch) {
+    updateSwipeTracking(touch.clientX, touch.clientY, message);
   }
 }
 
@@ -662,14 +715,27 @@ onBeforeUnmount(() => {
             'opacity-55': message.status !== 'visible',
             'chat-message-system': message.isSystem,
             'chat-message-own': !message.isSystem && isOwnMessage(message),
-            'chat-message-reply-to-me': !message.isSystem && isReplyToMe(message)
+            'chat-message-reply-to-me': !message.isSystem && isReplyToMe(message),
+            'chat-message-swiping': activeSwipeMessageId === message.id
           }"
-          @pointerdown="handlePointerDown"
+          :style="swipeStyle(message)"
+          @pointerdown="handlePointerDown($event, message)"
+          @pointermove="handlePointerMove($event, message)"
           @pointerup="handlePointerUp($event, message)"
-          @touchstart.passive="handleTouchStart"
+          @pointercancel="resetSwipeTracking"
+          @touchstart.passive="handleTouchStart($event, message)"
+          @touchmove.passive="handleTouchMove($event, message)"
           @touchend.passive="handleTouchEnd($event, message)"
+          @touchcancel.passive="resetSwipeTracking"
           @click="openReactionPicker(message)"
         >
+          <span
+            v-if="!message.isSystem && activeSwipeMessageId === message.id && Math.abs(swipeOffset) > 10"
+            class="swipe-reply-cue"
+            :class="`swipe-reply-cue-${swipeCueSide()}`"
+          >
+            ↩
+          </span>
           <div v-if="!message.isSystem && !isOwnMessage(message)" class="chat-avatar">
             <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" />
             <span v-else>{{ authorInitial(message) }}</span>

@@ -1586,6 +1586,7 @@ button {
 }
 
 .chat-message {
+  position: relative;
   display: flex;
   width: 100%;
   max-width: 100%;
@@ -1593,10 +1594,46 @@ button {
   gap: 0.45rem;
   margin-top: 0.55rem;
   touch-action: pan-y;
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease;
+  will-change: transform;
+}
+
+.chat-message-swiping {
+  transition: none;
+}
+
+.swipe-reply-cue {
+  position: absolute;
+  bottom: 0.35rem;
+  z-index: 0;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 88%, var(--panel));
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 0 10px 24px color-mix(in srgb, #000 18%, transparent);
+  pointer-events: none;
+}
+
+.swipe-reply-cue-left {
+  right: 0.15rem;
+  transform: scaleX(-1);
+}
+
+.swipe-reply-cue-right {
+  left: 0.15rem;
 }
 
 .chat-bubble {
   position: relative;
+  z-index: 1;
   width: fit-content;
   max-width: min(78%, 33rem);
   border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
@@ -1608,6 +1645,7 @@ button {
 
 .chat-avatar {
   display: grid;
+  z-index: 1;
   width: 2.25rem;
   height: 2.25rem;
   overflow: hidden;
