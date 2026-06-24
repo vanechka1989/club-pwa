@@ -12,6 +12,9 @@
     "db:seed": "bun src/db/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/lib-storage": "^3.1075.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
     "@club/shared": "workspace:*",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.38.4",
