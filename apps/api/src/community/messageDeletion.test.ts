@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMessagePurgeAt, shouldHardDeleteMessages } from "./messageDeletion";
+import { getMessagePurgeAt, shouldDeleteMessageInTopicCleanup, shouldHardDeleteMessages } from "./messageDeletion";
 
 describe("messageDeletion", () => {
   it("schedules single message cleanup after 30 minutes for admins", () => {
@@ -20,5 +20,10 @@ describe("messageDeletion", () => {
     expect(shouldHardDeleteMessages("owner")).toBe(true);
     expect(getMessagePurgeAt("message", "owner", now)).toBeNull();
     expect(getMessagePurgeAt("topic", "owner", now)).toBeNull();
+  });
+
+  it("includes system messages in whole topic cleanup", () => {
+    expect(shouldDeleteMessageInTopicCleanup({ isSystem: true })).toBe(true);
+    expect(shouldDeleteMessageInTopicCleanup({ isSystem: false })).toBe(true);
   });
 });

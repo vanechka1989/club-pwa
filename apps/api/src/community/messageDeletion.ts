@@ -17,3 +17,7 @@ export function getMessagePurgeAt(scope: MessageDeletionScope, role: UserRole, n
   const delay = scope === "topic" ? topicPurgeDelayMs : singleMessagePurgeDelayMs;
   return new Date(now.getTime() + delay);
 }
+
+export function shouldDeleteMessageInTopicCleanup(_message: { isSystem: boolean }) {
+  return true;
+}

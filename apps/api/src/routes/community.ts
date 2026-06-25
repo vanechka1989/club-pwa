@@ -726,7 +726,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     await purgeExpiredDeletedMessages();
 
     if (shouldHardDeleteMessages(role)) {
-      await db.delete(clubChatMessages).where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.isSystem, false)));
+      await db.delete(clubChatMessages).where(eq(clubChatMessages.topicId, topic.id));
     } else {
       const now = new Date();
       await db
@@ -739,7 +739,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           purgeAt: getMessagePurgeAt("topic", role, now),
           updatedAt: now
         })
-        .where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.isSystem, false)));
+        .where(eq(clubChatMessages.topicId, topic.id));
     }
 
     return c.json({ ok: true });
