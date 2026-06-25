@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -283,6 +283,43 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
     })
   ]);
 
+  const adminActorIds = Array.from(
+    new Set(
+      userSubscriptions
+        .map((subscription) => subscription.providerPaymentId?.match(/^admin:([^:]+):/)?.[1])
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const uuidActorIds = adminActorIds.filter((actorId) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorId)
+  );
+  const telegramActorIds = adminActorIds.filter((actorId) => !uuidActorIds.includes(actorId));
+  const adminActors =
+    uuidActorIds.length || telegramActorIds.length
+      ? await db.query.users.findMany({
+          where:
+            uuidActorIds.length && telegramActorIds.length
+              ? or(inArray(users.id, uuidActorIds), inArray(users.telegramId, telegramActorIds))
+              : uuidActorIds.length
+                ? inArray(users.id, uuidActorIds)
+                : inArray(users.telegramId, telegramActorIds)
+        })
+      : [];
+  const actorById = new Map(adminActors.flatMap((actor) => [[actor.id, actor], [actor.telegramId, actor]]));
+  const getActorTitle = (providerPaymentId: string | null) => {
+    const actorId = providerPaymentId?.match(/^admin:([^:]+):/)?.[1];
+    if (!actorId) {
+      return null;
+    }
+
+    const actor = actorById.get(actorId);
+    if (!actor) {
+      return `ID ${actorId}`;
+    }
+
+    return actor.firstName || (actor.username ? `@${actor.username}` : `ID ${actor.telegramId}`);
+  };
+
   const moderationEvents: AdminUserModerationEvent[] = [
     ...mutes.map((mute) => ({
       id: mute.id,
@@ -318,8 +355,10 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
     subscriptions: userSubscriptions.map((subscription) => ({
       id: subscription.id,
       status: subscription.status,
-      tariff: subscription.provider,
+      tariff: null,
       provider: subscription.provider,
+      providerPaymentId: subscription.providerPaymentId ?? null,
+      changedBy: getActorTitle(subscription.providerPaymentId ?? null),
       expiresAt: subscription.expiresAt?.toISOString() ?? null,
       createdAt: subscription.createdAt.toISOString()
     })),
@@ -458,7 +497,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       userId: user.id,
       status: body.data.status as MembershipStatus,
       provider: "manual",
-      providerPaymentId: `admin:${c.get("userId")}:${now.toISOString()}`,
+      providerPaymentId: `admin:${c.get("telegramUser").id}:${now.toISOString()}`,
       expiresAt,
       createdAt: now,
       updatedAt: now

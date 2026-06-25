@@ -957,6 +957,57 @@ button {
   padding-top: 0.65rem;
 }
 
+.admin-accordion-block {
+  gap: 0.5rem;
+}
+
+.admin-accordion-head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--panel) 76%, transparent);
+  color: var(--text);
+  padding: 0.62rem 0.68rem;
+  text-align: left;
+}
+
+.admin-accordion-head span {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.admin-accordion-head strong {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 840;
+}
+
+.admin-accordion-head small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.admin-accordion-head svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.admin-accordion-icon-open {
+  transform: rotate(180deg);
+}
+
+.admin-accordion-body {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .admin-crm-block h4 {
   color: var(--text);
   font-size: 0.8rem;
@@ -1329,6 +1380,12 @@ button {
 .primary-button:hover {
   opacity: 0.9;
   transform: translateY(-1px);
+}
+
+.primary-button.admin-save-success {
+  background: color-mix(in srgb, #16a34a 76%, var(--panel-strong));
+  color: #ffffff;
+  box-shadow: 0 8px 18px color-mix(in srgb, #16a34a 24%, transparent);
 }
 
 .secondary-button {

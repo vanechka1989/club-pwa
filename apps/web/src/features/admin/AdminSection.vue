@@ -2,6 +2,7 @@
 import type { AdminLearningMaterial, AdminStatsUser, AdminUser, AdminUserDetailResponse, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
 import {
   BarChart3,
+  ChevronDown,
   Check,
   CreditCard,
   Search,
@@ -11,7 +12,7 @@ import {
   X,
   type LucideIcon
 } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import {
   addAdminUser,
   createAdminLearningCategory,
@@ -31,6 +32,12 @@ import {
   updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
 } from "@/api/client";
+import {
+  getAccessSaveButtonText,
+  getAdminSubscriptionActorLabel,
+  getAdminSubscriptionSourceLabel,
+  getAdminSubscriptionTitle
+} from "@/features/admin/adminClientCard";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useSessionStore } from "@/stores/session";
@@ -40,6 +47,7 @@ const session = useSessionStore();
 const ui = useUiStore();
 
 type AdminPanel = "overview" | "users" | "payments" | "materials" | "admins";
+type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
 
 const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
@@ -95,8 +103,15 @@ const transferOwnerTelegramId = ref("");
 const showTransferOwnerModal = ref(false);
 const loading = ref(false);
 const saving = ref(false);
+const accessSaveSucceeded = ref(false);
 const message = ref<string | null>(null);
 const error = ref<string | null>(null);
+let accessSaveTimer: number | null = null;
+const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
+  subscriptions: false,
+  payments: false,
+  restrictions: false
+});
 
 const isOwner = computed(() => session.user?.realRole === "owner");
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
@@ -125,6 +140,7 @@ const filteredUsers = computed(() => {
 const selectedUserPaymentOrders = computed(() =>
   selectedUser.value ? paymentOrders.value.filter((order) => order.customer.telegramId === selectedUser.value?.telegramId) : []
 );
+const accessSaveButtonText = computed(() => getAccessSaveButtonText(accessSaveSucceeded.value));
 const materialsByCategory = computed(() =>
   learningCategories.value.map((category) => ({
     category,
@@ -195,12 +211,48 @@ function applySelectedUser(user: AdminStatsUser) {
   accessExpiresAt.value = user.membershipExpiresAt?.slice(0, 10) ?? "";
 }
 
+function resetClientAccordion() {
+  clientAccordion.value = {
+    subscriptions: false,
+    payments: false,
+    restrictions: false
+  };
+}
+
+function toggleClientAccordion(section: ClientAccordionSection) {
+  clientAccordion.value = {
+    ...clientAccordion.value,
+    [section]: !clientAccordion.value[section]
+  };
+}
+
+function resetAccessSaveState() {
+  accessSaveSucceeded.value = false;
+  if (accessSaveTimer) {
+    window.clearTimeout(accessSaveTimer);
+    accessSaveTimer = null;
+  }
+}
+
+function markAccessSaved() {
+  resetAccessSaveState();
+  accessSaveSucceeded.value = true;
+  accessSaveTimer = window.setTimeout(() => {
+    accessSaveSucceeded.value = false;
+    accessSaveTimer = null;
+  }, 5000);
+}
+
 function closeSelectedUser() {
+  resetAccessSaveState();
+  resetClientAccordion();
   selectedUser.value = null;
   selectedUserDetail.value = null;
 }
 
 async function selectUser(user: AdminStatsUser) {
+  resetAccessSaveState();
+  resetClientAccordion();
   applySelectedUser(user);
   try {
     selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
@@ -281,6 +333,8 @@ async function handleFindUser() {
   saving.value = true;
   try {
     const user = await getAdminUserStats(findTelegramId.value);
+    resetAccessSaveState();
+    resetClientAccordion();
     applySelectedUser(user);
     selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
     if (!users.value.some((item) => item.telegramId === user.telegramId)) {
@@ -314,6 +368,7 @@ async function handleUpdateAccess() {
     applySelectedUser(response.user);
     selectedUserDetail.value = await getAdminUserDetail(response.user.telegramId);
     await loadAll();
+    markAccessSaved();
     setStatus("Доступ сохранён.");
   } catch {
     setError("Не удалось сохранить доступ.");
@@ -604,6 +659,10 @@ async function handlePreviewChange(previewMode: PreviewMode) {
 onMounted(() => {
   void loadAll();
 });
+
+onUnmounted(() => {
+  resetAccessSaveState();
+});
 </script>
 
 <template>
@@ -783,7 +842,14 @@ onMounted(() => {
                   {{ option.label }}
                 </button>
               </div>
-              <button class="primary-button" type="submit" :disabled="saving || !canManageSelectedUser">Сохранить доступ</button>
+              <button
+                class="primary-button"
+                :class="{ 'admin-save-success': accessSaveSucceeded }"
+                type="submit"
+                :disabled="saving || !canManageSelectedUser"
+              >
+                {{ accessSaveButtonText }}
+              </button>
             </form>
 
             <div class="admin-inline-actions">
@@ -792,61 +858,101 @@ onMounted(() => {
               </button>
             </div>
 
-            <section class="admin-crm-block">
-              <h4>Подписки</h4>
-              <p v-if="!selectedUserDetail?.subscriptions.length" class="admin-empty">Истории подписок пока нет.</p>
-              <article v-for="subscription in selectedUserDetail?.subscriptions ?? []" :key="subscription.id" class="admin-history-item">
-                <strong>{{ formatMembershipStatus(subscription.status) }}</strong>
-                <span>{{ subscription.tariff || "future" }} · {{ subscription.provider }}</span>
-                <small>
-                  {{ new Date(subscription.createdAt).toLocaleDateString("ru-RU") }}
-                  <template v-if="subscription.expiresAt"> · до {{ new Date(subscription.expiresAt).toLocaleDateString("ru-RU") }}</template>
-                </small>
-              </article>
+            <section class="admin-crm-block admin-accordion-block">
+              <button
+                class="admin-accordion-head"
+                type="button"
+                :aria-expanded="clientAccordion.subscriptions"
+                @click="toggleClientAccordion('subscriptions')"
+              >
+                <span>
+                  <strong>Подписки</strong>
+                  <small>{{ selectedUserDetail?.subscriptions.length ?? 0 }} записей</small>
+                </span>
+                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.subscriptions }" aria-hidden="true" />
+              </button>
+              <div v-if="clientAccordion.subscriptions" class="admin-accordion-body">
+                <p v-if="!selectedUserDetail?.subscriptions.length" class="admin-empty">Истории подписок пока нет.</p>
+                <article v-for="subscription in selectedUserDetail?.subscriptions ?? []" :key="subscription.id" class="admin-history-item">
+                  <strong>{{ getAdminSubscriptionTitle(subscription) }}</strong>
+                  <span>{{ getAdminSubscriptionSourceLabel(subscription) }} · {{ formatMembershipStatus(subscription.status) }}</span>
+                  <small v-if="getAdminSubscriptionActorLabel(subscription)">{{ getAdminSubscriptionActorLabel(subscription) }}</small>
+                  <small>
+                    {{ new Date(subscription.createdAt).toLocaleDateString("ru-RU") }}
+                    <template v-if="subscription.expiresAt"> · до {{ new Date(subscription.expiresAt).toLocaleDateString("ru-RU") }}</template>
+                  </small>
+                </article>
+              </div>
             </section>
 
-            <section class="admin-crm-block">
-              <h4>Оплаты клиента</h4>
-              <p v-if="!selectedUserPaymentOrders.length" class="admin-empty">Оплат пока нет.</p>
-              <article v-for="order in selectedUserPaymentOrders" :key="order.id" class="admin-payment-card admin-payment-card-compact">
-                <div class="admin-payment-main">
-                  <div>
-                    <strong>{{ order.productTitle }}</strong>
-                    <small>{{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽</small>
+            <section class="admin-crm-block admin-accordion-block">
+              <button
+                class="admin-accordion-head"
+                type="button"
+                :aria-expanded="clientAccordion.payments"
+                @click="toggleClientAccordion('payments')"
+              >
+                <span>
+                  <strong>Оплаты клиента</strong>
+                  <small>{{ selectedUserPaymentOrders.length }} записей</small>
+                </span>
+                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.payments }" aria-hidden="true" />
+              </button>
+              <div v-if="clientAccordion.payments" class="admin-accordion-body">
+                <p v-if="!selectedUserPaymentOrders.length" class="admin-empty">Оплат пока нет.</p>
+                <article v-for="order in selectedUserPaymentOrders" :key="order.id" class="admin-payment-card admin-payment-card-compact">
+                  <div class="admin-payment-main">
+                    <div>
+                      <strong>{{ order.productTitle }}</strong>
+                      <small>{{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽</small>
+                    </div>
+                    <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
                   </div>
-                  <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
-                </div>
-                <div class="admin-payment-ids">
-                  <span>order: {{ order.providerOrderId }}</span>
-                  <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
-                </div>
-              </article>
+                  <div class="admin-payment-ids">
+                    <span>order: {{ order.providerOrderId }}</span>
+                    <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
+                  </div>
+                </article>
+              </div>
             </section>
 
-            <section class="admin-crm-block">
-              <h4>Ограничения и удалённые сообщения</h4>
-              <p v-if="!selectedUserDetail?.moderationEvents.length" class="admin-empty">Ограничений и удалений пока нет.</p>
-              <article v-for="event in selectedUserDetail?.moderationEvents ?? []" :key="`${event.kind}-${event.id}`" class="admin-log-item">
-                <time>{{ new Date(event.createdAt).toLocaleString("ru-RU") }}</time>
-                <div>
-                  <strong>
-                    {{ event.kind === "mute" ? "Мут" : event.kind === "chat_message" ? "Сообщение" : "Комментарий" }}
-                    · {{ event.status }}
-                  </strong>
-                  <span v-if="event.sourceTitle">{{ event.sourceTitle }}</span>
-                  <p v-if="event.body">{{ event.body }}</p>
-                  <small v-if="event.resolvedAt">обработано {{ new Date(event.resolvedAt).toLocaleString("ru-RU") }}</small>
-                  <button
-                    v-if="event.kind === 'mute' && !event.resolvedAt && canManageSelectedUser"
-                    class="secondary-button mt-2"
-                    type="button"
-                    :disabled="saving"
-                    @click="handleRevokeMute(event.id)"
-                  >
-                    Снять мут
-                  </button>
-                </div>
-              </article>
+            <section class="admin-crm-block admin-accordion-block">
+              <button
+                class="admin-accordion-head"
+                type="button"
+                :aria-expanded="clientAccordion.restrictions"
+                @click="toggleClientAccordion('restrictions')"
+              >
+                <span>
+                  <strong>Ограничения и удаления</strong>
+                  <small>{{ selectedUserDetail?.moderationEvents.length ?? 0 }} записей</small>
+                </span>
+                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.restrictions }" aria-hidden="true" />
+              </button>
+              <div v-if="clientAccordion.restrictions" class="admin-accordion-body">
+                <p v-if="!selectedUserDetail?.moderationEvents.length" class="admin-empty">Ограничений и удалений пока нет.</p>
+                <article v-for="event in selectedUserDetail?.moderationEvents ?? []" :key="`${event.kind}-${event.id}`" class="admin-log-item">
+                  <time>{{ new Date(event.createdAt).toLocaleString("ru-RU") }}</time>
+                  <div>
+                    <strong>
+                      {{ event.kind === "mute" ? "Мут" : event.kind === "chat_message" ? "Сообщение" : "Комментарий" }}
+                      · {{ event.status }}
+                    </strong>
+                    <span v-if="event.sourceTitle">{{ event.sourceTitle }}</span>
+                    <p v-if="event.body">{{ event.body }}</p>
+                    <small v-if="event.resolvedAt">обработано {{ new Date(event.resolvedAt).toLocaleString("ru-RU") }}</small>
+                    <button
+                      v-if="event.kind === 'mute' && !event.resolvedAt && canManageSelectedUser"
+                      class="secondary-button mt-2"
+                      type="button"
+                      :disabled="saving"
+                      @click="handleRevokeMute(event.id)"
+                    >
+                      Снять мут
+                    </button>
+                  </div>
+                </article>
+              </div>
             </section>
           </aside>
         </div>

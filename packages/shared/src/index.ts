@@ -405,6 +405,8 @@ export const adminUserSubscriptionSchema = z.object({
   status: membershipStatusSchema,
   tariff: z.string().nullable(),
   provider: z.string(),
+  providerPaymentId: z.string().nullable(),
+  changedBy: z.string().nullable(),
   expiresAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime()
 });
