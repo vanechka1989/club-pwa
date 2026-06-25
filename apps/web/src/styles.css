@@ -292,7 +292,7 @@ button {
   height: calc(var(--app-viewport-height) - var(--nav-space));
   min-height: 0 !important;
   max-width: none;
-  padding: 0.65rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
+  padding: 1rem 0.25rem calc(1rem + env(safe-area-inset-bottom));
   overflow: hidden;
 }
 
