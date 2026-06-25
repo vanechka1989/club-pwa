@@ -33,7 +33,6 @@ const editingProduct = ref<PaymentProduct | null>(null);
 const providerForm = ref({
   formUrl: "",
   secretKey: "",
-  sys: "",
   isEnabled: true
 });
 
@@ -101,7 +100,6 @@ function openProviderForm() {
   providerForm.value = {
     formUrl: provider.value?.formUrl ?? "",
     secretKey: "",
-    sys: provider.value?.sys ?? "",
     isEnabled: provider.value?.isEnabled ?? true
   };
   showProviderPicker.value = false;
@@ -160,7 +158,7 @@ async function handleSaveProvider() {
   saving.value = true;
   error.value = null;
   try {
-    const response = await saveProdamusProvider(providerForm.value);
+    const response = await saveProdamusProvider({ ...providerForm.value, sys: "clubcrm" });
     provider.value = response.provider;
     webhookUrl.value = response.provider.webhookUrl;
     closeProviderForm();
@@ -457,10 +455,6 @@ onMounted(async () => {
           <label class="block">
             <span class="text-sm font-semibold text-[var(--muted)]">Секретный ключ</span>
             <input v-model.trim="providerForm.secretKey" class="text-input mt-2" type="password" placeholder="Секретный ключ Prodamus" required />
-          </label>
-          <label class="block">
-            <span class="text-sm font-semibold text-[var(--muted)]">SYS</span>
-            <input v-model.trim="providerForm.sys" class="text-input mt-2" placeholder="clubcrm" required />
           </label>
           <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
             <input v-model="providerForm.isEnabled" type="checkbox" />
