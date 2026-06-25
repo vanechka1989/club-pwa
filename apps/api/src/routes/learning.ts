@@ -22,6 +22,7 @@ function publishedContentWhere() {
 
 async function serializeContentItem(item: typeof contentItems.$inferSelect, includeBody = false) {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
+  const thumbnailUrl = item.thumbnailObjectKey ? await getObjectReadUrl(item.thumbnailObjectKey) : item.thumbnailUrl;
 
   return {
     id: item.id,
@@ -31,6 +32,7 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
     summary: item.summary,
     body: includeBody ? item.body : null,
     mediaUrl,
+    thumbnailUrl,
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
     publishedAt: item.publishedAt?.toISOString() ?? null

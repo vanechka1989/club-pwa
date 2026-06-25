@@ -99,6 +99,13 @@
       "when": 1782416000000,
       "tag": "0013_club_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782419600000,
+      "tag": "0014_content_item_thumbnails",
+      "breakpoints": true
     }
   ]
 }

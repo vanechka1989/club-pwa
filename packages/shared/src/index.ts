@@ -52,6 +52,7 @@ export const learningContentSchema = z.object({
   summary: z.string().nullable(),
   body: z.string().nullable(),
   mediaUrl: z.string().url().nullable(),
+  thumbnailUrl: z.string().url().nullable(),
   mediaContentType: z.string().nullable(),
   mediaSizeBytes: z.number().int().nonnegative().nullable(),
   publishedAt: z.string().datetime().nullable()

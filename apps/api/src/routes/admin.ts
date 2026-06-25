@@ -100,6 +100,7 @@ function createCategorySlug(title: string) {
 
 async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): Promise<AdminLearningMaterial> {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
+  const thumbnailUrl = item.thumbnailObjectKey ? await getObjectReadUrl(item.thumbnailObjectKey) : item.thumbnailUrl;
 
   return {
     id: item.id,
@@ -109,6 +110,7 @@ async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): P
     summary: item.summary,
     body: item.body,
     mediaUrl,
+    thumbnailUrl,
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
     publishedAt: item.publishedAt?.toISOString() ?? null,
@@ -127,6 +129,9 @@ async function purgeExpiredArchivedContent() {
   for (const item of expiredItems) {
     if (item.mediaObjectKey) {
       await deleteObject(item.mediaObjectKey).catch(() => null);
+    }
+    if (item.thumbnailObjectKey) {
+      await deleteObject(item.thumbnailObjectKey).catch(() => null);
     }
   }
 
@@ -592,6 +597,9 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       if (item.mediaObjectKey) {
         await deleteObject(item.mediaObjectKey).catch(() => null);
       }
+      if (item.thumbnailObjectKey) {
+        await deleteObject(item.thumbnailObjectKey).catch(() => null);
+      }
     }
 
     await db.delete(contentCategories).where(eq(contentCategories.id, category.id));
@@ -625,7 +633,11 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     let mediaObjectKey: string | null = null;
     let mediaContentType: string | null = null;
     let mediaSizeBytes: number | null = null;
+    let thumbnailObjectKey: string | null = null;
+    let thumbnailContentType: string | null = null;
+    let thumbnailSizeBytes: number | null = null;
     const file = form.get("file");
+    const thumbnailFile = form.get("thumbnailFile");
 
     if (kind !== "text") {
       if (!(file instanceof File) || file.size <= 0) {
@@ -652,6 +664,23 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       mediaSizeBytes = file.size;
     }
 
+    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+      const contentType = thumbnailFile.type || "application/octet-stream";
+      if (!contentType.startsWith("image/")) {
+        return c.json({ error: "Thumbnail file must be an image" }, 400);
+      }
+
+      const key = `learning/thumbnails/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(thumbnailFile.name)}`;
+      const upload = await uploadObject({
+        key,
+        body: new Uint8Array(await thumbnailFile.arrayBuffer()),
+        contentType
+      });
+      thumbnailObjectKey = upload.key;
+      thumbnailContentType = contentType;
+      thumbnailSizeBytes = thumbnailFile.size;
+    }
+
     const now = new Date();
     const [material] = await db
       .insert(contentItems)
@@ -662,6 +691,9 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         summary,
         body,
         mediaObjectKey,
+        thumbnailObjectKey,
+        thumbnailContentType,
+        thumbnailSizeBytes,
         mediaContentType,
         mediaSizeBytes,
         isPublished,

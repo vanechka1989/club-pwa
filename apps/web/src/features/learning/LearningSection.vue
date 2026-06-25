@@ -53,6 +53,7 @@ const materialSummary = ref("");
 const materialBody = ref("");
 const materialPublished = ref(true);
 const materialFile = ref<File | null>(null);
+const thumbnailFile = ref<File | null>(null);
 const categoryTitle = ref("");
 const categoryDescription = ref("");
 const hasLearningAccess = computed(
@@ -108,10 +109,6 @@ function iconFor(kind: LearningContent["kind"]) {
   }
 
   return Type;
-}
-
-function videoPreviewUrl(url: string) {
-  return `${url}#t=0.1`;
 }
 
 async function loadLearning() {
@@ -275,6 +272,7 @@ function resetContentForm() {
   materialBody.value = "";
   materialPublished.value = true;
   materialFile.value = null;
+  thumbnailFile.value = null;
   categoryTitle.value = "";
   categoryDescription.value = "";
 }
@@ -286,6 +284,10 @@ function closeContentModal() {
 
 function handleMaterialFileChange(event: Event) {
   materialFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+function handleThumbnailFileChange(event: Event) {
+  thumbnailFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
 }
 
 async function handleCreateCategory() {
@@ -362,6 +364,9 @@ async function handleCreateMaterial() {
     form.set("isPublished", String(materialPublished.value));
     if (materialKind.value !== "text" && materialFile.value) {
       form.set("file", materialFile.value);
+    }
+    if (thumbnailFile.value) {
+      form.set("thumbnailFile", thumbnailFile.value);
     }
 
     const response = await createAdminLearningMaterial(form);
@@ -581,15 +586,7 @@ watch(hasLearningAccess, (hasAccess) => {
                     <div class="flex items-start gap-3">
                       <span class="learning-content-thumb">
                         <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
-                        <video
-                          v-else-if="item.kind === 'video' && item.mediaUrl"
-                          class="learning-content-video-thumb"
-                          :src="videoPreviewUrl(item.mediaUrl)"
-                          muted
-                          playsinline
-                          preload="metadata"
-                          aria-hidden="true"
-                        />
+                        <img v-else-if="item.thumbnailUrl" :src="item.thumbnailUrl" :alt="`Обложка: ${item.title}`" />
                         <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
                       </span>
                       <span class="min-w-0">
@@ -724,15 +721,7 @@ watch(hasLearningAccess, (hasAccess) => {
                 <div class="flex items-start gap-3">
                   <span class="learning-content-thumb">
                     <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" />
-                    <video
-                      v-else-if="material.kind === 'video' && material.mediaUrl"
-                      class="learning-content-video-thumb"
-                      :src="videoPreviewUrl(material.mediaUrl)"
-                      muted
-                      playsinline
-                      preload="metadata"
-                      aria-hidden="true"
-                    />
+                    <img v-else-if="material.thumbnailUrl" :src="material.thumbnailUrl" :alt="`Обложка: ${material.title}`" />
                     <component v-else :is="iconFor(material.kind)" class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span class="min-w-0">
@@ -762,15 +751,7 @@ watch(hasLearningAccess, (hasAccess) => {
                 <div class="flex items-start gap-3">
                   <span class="learning-content-thumb">
                     <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" />
-                    <video
-                      v-else-if="material.kind === 'video' && material.mediaUrl"
-                      class="learning-content-video-thumb"
-                      :src="videoPreviewUrl(material.mediaUrl)"
-                      muted
-                      playsinline
-                      preload="metadata"
-                      aria-hidden="true"
-                    />
+                    <img v-else-if="material.thumbnailUrl" :src="material.thumbnailUrl" :alt="`Обложка: ${material.title}`" />
                     <component v-else :is="iconFor(material.kind)" class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span class="min-w-0">
@@ -859,6 +840,10 @@ watch(hasLearningAccess, (hasAccess) => {
                 :accept="materialKind === 'photo' ? 'image/*' : materialKind === 'video' ? 'video/*' : 'audio/*'"
                 @change="handleMaterialFileChange"
               />
+              <label v-if="materialKind === 'video'" class="grid gap-2 text-sm font-semibold text-[var(--text)]">
+                <span>Обложка видео, необязательно</span>
+                <input class="text-input" type="file" accept="image/*" @change="handleThumbnailFileChange" />
+              </label>
               <label class="admin-check-row">
                 <input v-model="materialPublished" type="checkbox" />
                 <span>Сразу открыть клиентам</span>
