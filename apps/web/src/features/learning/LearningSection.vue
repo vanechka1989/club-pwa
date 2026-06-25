@@ -110,6 +110,10 @@ function iconFor(kind: LearningContent["kind"]) {
   return Type;
 }
 
+function videoPreviewUrl(url: string) {
+  return `${url}#t=0.1`;
+}
+
 async function loadLearning() {
   if (!hasLearningAccess.value) {
     accessDenied.value = true;
@@ -577,6 +581,15 @@ watch(hasLearningAccess, (hasAccess) => {
                     <div class="flex items-start gap-3">
                       <span class="learning-content-thumb">
                         <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
+                        <video
+                          v-else-if="item.kind === 'video' && item.mediaUrl"
+                          class="learning-content-video-thumb"
+                          :src="videoPreviewUrl(item.mediaUrl)"
+                          muted
+                          playsinline
+                          preload="metadata"
+                          aria-hidden="true"
+                        />
                         <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
                       </span>
                       <span class="min-w-0">
@@ -711,6 +724,15 @@ watch(hasLearningAccess, (hasAccess) => {
                 <div class="flex items-start gap-3">
                   <span class="learning-content-thumb">
                     <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" />
+                    <video
+                      v-else-if="material.kind === 'video' && material.mediaUrl"
+                      class="learning-content-video-thumb"
+                      :src="videoPreviewUrl(material.mediaUrl)"
+                      muted
+                      playsinline
+                      preload="metadata"
+                      aria-hidden="true"
+                    />
                     <component v-else :is="iconFor(material.kind)" class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span class="min-w-0">
@@ -740,6 +762,15 @@ watch(hasLearningAccess, (hasAccess) => {
                 <div class="flex items-start gap-3">
                   <span class="learning-content-thumb">
                     <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" />
+                    <video
+                      v-else-if="material.kind === 'video' && material.mediaUrl"
+                      class="learning-content-video-thumb"
+                      :src="videoPreviewUrl(material.mediaUrl)"
+                      muted
+                      playsinline
+                      preload="metadata"
+                      aria-hidden="true"
+                    />
                     <component v-else :is="iconFor(material.kind)" class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span class="min-w-0">
