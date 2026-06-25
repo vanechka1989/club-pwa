@@ -124,6 +124,10 @@ function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
 }
 
+function adminTitle(admin: AdminUser) {
+  return admin.firstName || (admin.username ? `@${admin.username}` : `ID ${admin.telegramId}`);
+}
+
 function adminRoleLabel(role: AdminStatsUser["role"]) {
   if (role === "owner") {
     return "Главный админ";
@@ -977,7 +981,7 @@ onMounted(() => {
               <select v-model="transferOwnerTelegramId" class="text-input">
                 <option value="" disabled>Выберите администратора</option>
                 <option v-for="admin in admins" :key="admin.id" :value="admin.telegramId">
-                  ID {{ admin.telegramId }}
+                  {{ adminTitle(admin) }} · ID {{ admin.telegramId }}
                 </option>
               </select>
               <p class="admin-warning-line">
@@ -1000,8 +1004,12 @@ onMounted(() => {
       <div class="admin-list">
         <article v-for="admin in admins" :key="admin.id" class="admin-entity">
           <div>
-            <strong>ID {{ admin.telegramId }}</strong>
-            <small>Добавлен {{ new Date(admin.createdAt).toLocaleDateString("ru-RU") }}</small>
+            <strong>{{ adminTitle(admin) }}</strong>
+            <small>
+              ID {{ admin.telegramId }}
+              <template v-if="admin.username"> · @{{ admin.username }}</template>
+              · добавлен {{ new Date(admin.createdAt).toLocaleDateString("ru-RU") }}
+            </small>
           </div>
           <button v-if="isOwner" class="icon-button" type="button" :disabled="saving" @click="handleRemoveAdmin(admin.telegramId)">
             <Trash2 class="h-4 w-4" aria-hidden="true" />

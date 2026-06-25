@@ -318,14 +318,26 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       where: ne(adminUsers.telegramId, ownerTelegramId),
       orderBy: (table, { desc }) => [desc(table.createdAt)]
     });
+    const adminProfiles = admins.length
+      ? await db.query.users.findMany({
+          where: or(...admins.map((admin) => eq(users.telegramId, admin.telegramId)))
+        })
+      : [];
+    const profilesByTelegramId = new Map(adminProfiles.map((user) => [user.telegramId, user]));
 
     return c.json({
       ownerTelegramId,
-      admins: admins.map((admin) => ({
-        id: admin.id,
-        telegramId: admin.telegramId,
-        createdAt: admin.createdAt.toISOString()
-      }))
+      admins: admins.map((admin) => {
+        const profile = profilesByTelegramId.get(admin.telegramId);
+        return {
+          id: admin.id,
+          telegramId: admin.telegramId,
+          firstName: profile?.firstName ?? null,
+          username: profile?.username ?? null,
+          photoUrl: profile?.photoUrl ?? null,
+          createdAt: admin.createdAt.toISOString()
+        };
+      })
     });
   })
   .get("/stats", async (c) => {

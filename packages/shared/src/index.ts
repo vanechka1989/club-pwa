@@ -269,6 +269,9 @@ export type ClubMessageReactionMutationResponse = z.infer<typeof clubMessageReac
 export const adminUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
+  firstName: z.string().nullable(),
+  username: z.string().nullable(),
+  photoUrl: z.string().url().nullable(),
   createdAt: z.string().datetime()
 });
 export type AdminUser = z.infer<typeof adminUserSchema>;
