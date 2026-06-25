@@ -482,146 +482,150 @@ watch(showProductModal, async (isOpen) => {
       </article>
     </div>
 
-    <div v-if="showProviderPicker" class="admin-modal-backdrop" @click.self="closeProviderPicker">
-      <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="provider-picker-title">
-        <header class="admin-client-modal-head">
-          <div>
-            <h3 id="provider-picker-title">Добавить платежную систему</h3>
-            <p>Сейчас доступен Prodamus.</p>
-          </div>
-          <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProviderPicker">
-            <X :size="18" />
-          </button>
-        </header>
-        <button class="surface-card w-full text-left" type="button" @click="openProviderForm">
-          <p class="font-semibold text-[var(--text)]">Prodamus</p>
-          <p class="mt-1 text-sm text-[var(--muted)]">{{ provider ? "Подключена. Можно изменить настройки." : "Нажмите, чтобы подключить." }}</p>
-        </button>
-      </aside>
-    </div>
-
-    <div v-if="showProviderForm" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProviderForm">
-      <aside
-        :key="providerFormModalKey"
-        ref="providerFormModal"
-        class="admin-detail admin-client-modal payment-form-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="provider-form-title"
-      >
-        <header class="admin-client-modal-head">
-          <div>
-            <h3 id="provider-form-title">Prodamus</h3>
-            <p>Данные платежной формы и URL уведомлений.</p>
-          </div>
-          <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProviderForm">
-            <X :size="18" />
-          </button>
-        </header>
-
-        <form ref="providerFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProvider">
-          <label class="block">
-            <span class="text-sm font-semibold text-[var(--muted)]">URL платежной формы</span>
-            <input v-model.trim="providerForm.formUrl" class="text-input mt-2" placeholder="https://xxx.payform.ru/" required />
-          </label>
-          <label class="block">
-            <span class="text-sm font-semibold text-[var(--muted)]">Секретный ключ</span>
-            <div v-if="provider?.secretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
-              <span class="select-none text-sm font-semibold tracking-[0.24em] text-[var(--muted)] blur-[2px]">••••••••••••••••</span>
-              <p class="mt-1 text-xs text-[var(--muted)]">Ключ сохранен. Заполните поле ниже только если нужно заменить его.</p>
+    <Teleport to="body">
+      <div v-if="showProviderPicker" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProviderPicker">
+        <aside class="admin-detail admin-client-modal payment-form-modal" role="dialog" aria-modal="true" aria-labelledby="provider-picker-title">
+          <header class="admin-client-modal-head">
+            <div>
+              <h3 id="provider-picker-title">Добавить платежную систему</h3>
+              <p>Сейчас доступен Prodamus.</p>
             </div>
-            <input
-              v-model.trim="providerForm.secretKey"
-              class="text-input mt-2"
-              type="password"
-              :placeholder="provider ? 'Новый секретный ключ, если меняете' : 'Секретный ключ Prodamus'"
-              :required="!provider"
-            />
-          </label>
-          <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
-            <input v-model="providerForm.isEnabled" type="checkbox" />
-            Платежная система включена
-          </label>
-          <div class="rounded-[18px] border border-[var(--line)] bg-[var(--field)] p-3">
-            <p class="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">URL уведомлений</p>
-            <div class="mt-2 flex items-center gap-2">
-              <input class="text-input" :value="webhookUrl" readonly />
-              <button class="icon-button shrink-0" type="button" aria-label="Скопировать URL уведомлений" @click="copyWebhookUrl">
-                <Copy :size="18" />
+            <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProviderPicker">
+              <X :size="18" />
+            </button>
+          </header>
+          <div class="payment-form-body space-y-3">
+            <button class="surface-card w-full text-left" type="button" @click="openProviderForm">
+              <p class="font-semibold text-[var(--text)]">Prodamus</p>
+              <p class="mt-1 text-sm text-[var(--muted)]">{{ provider ? "Подключена. Можно изменить настройки." : "Нажмите, чтобы подключить." }}</p>
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      <div v-if="showProviderForm" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProviderForm">
+        <aside
+          :key="providerFormModalKey"
+          ref="providerFormModal"
+          class="admin-detail admin-client-modal payment-form-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="provider-form-title"
+        >
+          <header class="admin-client-modal-head">
+            <div>
+              <h3 id="provider-form-title">Prodamus</h3>
+              <p>Данные платежной формы и URL уведомлений.</p>
+            </div>
+            <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProviderForm">
+              <X :size="18" />
+            </button>
+          </header>
+
+          <form ref="providerFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProvider">
+            <label class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">URL платежной формы</span>
+              <input v-model.trim="providerForm.formUrl" class="text-input mt-2" placeholder="https://xxx.payform.ru/" required />
+            </label>
+            <label class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">Секретный ключ</span>
+              <div v-if="provider?.secretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
+                <span class="select-none text-sm font-semibold tracking-[0.24em] text-[var(--muted)] blur-[2px]">••••••••••••••••</span>
+                <p class="mt-1 text-xs text-[var(--muted)]">Ключ сохранен. Заполните поле ниже только если нужно заменить его.</p>
+              </div>
+              <input
+                v-model.trim="providerForm.secretKey"
+                class="text-input mt-2"
+                type="password"
+                :placeholder="provider ? 'Новый секретный ключ, если меняете' : 'Секретный ключ Prodamus'"
+                :required="!provider"
+              />
+            </label>
+            <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
+              <input v-model="providerForm.isEnabled" type="checkbox" />
+              Платежная система включена
+            </label>
+            <div class="rounded-[18px] border border-[var(--line)] bg-[var(--field)] p-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">URL уведомлений</p>
+              <div class="mt-2 flex items-center gap-2">
+                <input class="text-input" :value="webhookUrl" readonly />
+                <button class="icon-button shrink-0" type="button" aria-label="Скопировать URL уведомлений" @click="copyWebhookUrl">
+                  <Copy :size="18" />
+                </button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <button class="secondary-button" type="button" @click="closeProviderForm">Закрыть</button>
+              <button class="primary-button" type="submit" :disabled="saving">
+                {{ provider ? "Сохранить" : "Подключить" }}
               </button>
             </div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <button class="secondary-button" type="button" @click="closeProviderForm">Закрыть</button>
-            <button class="primary-button" type="submit" :disabled="saving">
-              {{ provider ? "Сохранить" : "Подключить" }}
+          </form>
+        </aside>
+      </div>
+
+      <div v-if="showProductModal" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProductModal">
+        <aside
+          :key="productFormModalKey"
+          ref="productFormModal"
+          class="admin-detail admin-client-modal payment-form-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-modal-title"
+        >
+          <header class="admin-client-modal-head">
+            <div>
+              <h3 id="product-modal-title">{{ editingProduct ? "Редактировать тариф" : "Новый тариф" }}</h3>
+              <p>Обычный платеж или рекуррентная подписка.</p>
+            </div>
+            <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProductModal">
+              <X :size="18" />
             </button>
-          </div>
-        </form>
-      </aside>
-    </div>
+          </header>
 
-    <div v-if="showProductModal" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProductModal">
-      <aside
-        :key="productFormModalKey"
-        ref="productFormModal"
-        class="admin-detail admin-client-modal payment-form-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="product-modal-title"
-      >
-        <header class="admin-client-modal-head">
-          <div>
-            <h3 id="product-modal-title">{{ editingProduct ? "Редактировать тариф" : "Новый тариф" }}</h3>
-            <p>Обычный платеж или рекуррентная подписка.</p>
-          </div>
-          <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProductModal">
-            <X :size="18" />
-          </button>
-        </header>
-
-        <form ref="productFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProduct">
-          <label class="block">
-            <span class="text-sm font-semibold text-[var(--muted)]">Тип</span>
-            <select v-model="productForm.kind" class="text-input mt-2">
-              <option value="one_time">Обычный платеж</option>
-              <option value="recurrent">Рекуррентная подписка</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="text-sm font-semibold text-[var(--muted)]">Название</span>
-            <input v-model.trim="productForm.title" class="text-input mt-2" required />
-          </label>
-          <label class="block">
-            <span class="text-sm font-semibold text-[var(--muted)]">Описание</span>
-            <textarea v-model.trim="productForm.description" class="text-input mt-2 min-h-24" />
-          </label>
-          <div class="grid grid-cols-2 gap-3">
+          <form ref="productFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProduct">
             <label class="block">
-              <span class="text-sm font-semibold text-[var(--muted)]">Цена, ₽</span>
-              <input v-model.number="productForm.amountRub" class="text-input mt-2" type="number" min="1" required />
+              <span class="text-sm font-semibold text-[var(--muted)]">Тип</span>
+              <select v-model="productForm.kind" class="text-input mt-2">
+                <option value="one_time">Обычный платеж</option>
+                <option value="recurrent">Рекуррентная подписка</option>
+              </select>
             </label>
             <label class="block">
-              <span class="text-sm font-semibold text-[var(--muted)]">Дней доступа</span>
-              <input v-model.number="productForm.accessDays" class="text-input mt-2" type="number" min="1" required />
+              <span class="text-sm font-semibold text-[var(--muted)]">Название</span>
+              <input v-model.trim="productForm.title" class="text-input mt-2" required />
             </label>
-          </div>
-          <label v-if="productForm.kind === 'recurrent'" class="block">
-            <span class="text-sm font-semibold text-[var(--muted)]">ID подписки Prodamus</span>
-            <input v-model.trim="productForm.prodamusSubscriptionId" class="text-input mt-2" required />
-          </label>
-          <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
-            <input v-model="productForm.isPublished" type="checkbox" />
-            Показывать клиентам
-          </label>
-          <div class="grid grid-cols-2 gap-3">
-            <button class="secondary-button" type="button" @click="closeProductModal">Закрыть</button>
-            <button class="primary-button" type="submit" :disabled="saving">
-              {{ editingProduct ? "Сохранить тариф" : "Добавить тариф" }}
-            </button>
-          </div>
-        </form>
-      </aside>
-    </div>
+            <label class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">Описание</span>
+              <textarea v-model.trim="productForm.description" class="text-input mt-2 min-h-24" />
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-sm font-semibold text-[var(--muted)]">Цена, ₽</span>
+                <input v-model.number="productForm.amountRub" class="text-input mt-2" type="number" min="1" required />
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-[var(--muted)]">Дней доступа</span>
+                <input v-model.number="productForm.accessDays" class="text-input mt-2" type="number" min="1" required />
+              </label>
+            </div>
+            <label v-if="productForm.kind === 'recurrent'" class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">ID подписки Prodamus</span>
+              <input v-model.trim="productForm.prodamusSubscriptionId" class="text-input mt-2" required />
+            </label>
+            <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
+              <input v-model="productForm.isPublished" type="checkbox" />
+              Показывать клиентам
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <button class="secondary-button" type="button" @click="closeProductModal">Закрыть</button>
+              <button class="primary-button" type="submit" :disabled="saving">
+                {{ editingProduct ? "Сохранить тариф" : "Добавить тариф" }}
+              </button>
+            </div>
+          </form>
+        </aside>
+      </div>
+    </Teleport>
   </section>
 </template>
