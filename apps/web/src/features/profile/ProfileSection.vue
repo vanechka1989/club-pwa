@@ -2,7 +2,7 @@
 import type { PaymentOrderLog, UserRecurrentSubscription } from "@club/shared";
 import { BarChart3, Check, Fingerprint, Maximize2, Minimize2, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
-import { cancelRecurrentSubscription, getLearningHome, getPaymentHistory, getPaymentPlans } from "@/api/client";
+import { getLearningHome, getPaymentHistory, getPaymentPlans } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
 import { findActiveRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { useSessionStore } from "@/stores/session";
@@ -24,9 +24,7 @@ const paymentOrders = ref<PaymentOrderLog[]>([]);
 const recurrentSubscriptions = ref<UserRecurrentSubscription[]>([]);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
-const subscriptionSaving = ref(false);
 const telegramIdVisible = ref(false);
-const profileNotice = ref<string | null>(null);
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
@@ -222,39 +220,6 @@ async function handleAvatarRefresh() {
   }
 }
 
-function showProfileAlert(message: string) {
-  profileNotice.value = message;
-  if (window.Telegram?.WebApp?.showAlert) {
-    window.Telegram.WebApp.showAlert(message);
-  }
-}
-
-async function handleCancelRecurrentSubscription() {
-  if (!activeRecurrentSubscription.value) {
-    return;
-  }
-
-  if (!window.confirm(`Отменить подписку "${activeRecurrentSubscription.value.title}"?`)) {
-    return;
-  }
-
-  subscriptionSaving.value = true;
-  try {
-    await cancelRecurrentSubscription(activeRecurrentSubscription.value.id);
-    recurrentSubscriptions.value = recurrentSubscriptions.value.map((subscription) =>
-      subscription.id === activeRecurrentSubscription.value?.id
-        ? { ...subscription, status: "cancelled", cancelledAt: new Date().toISOString() }
-        : subscription
-    );
-    await session.load({ silent: true });
-    showProfileAlert("Подписка отменена.");
-  } catch {
-    showProfileAlert("Не удалось отменить подписку.");
-  } finally {
-    subscriptionSaving.value = false;
-  }
-}
-
 onMounted(async () => {
   const [learningResult, paymentsResult, plansResult] = await Promise.allSettled([
     getLearningHome(),
@@ -333,16 +298,9 @@ onMounted(async () => {
       <button class="soft-inline-button mt-4" type="button" @click="$emit('openPayments')">
         {{ paymentActionText }}
       </button>
-      <button
-        v-if="activeRecurrentSubscription"
-        class="secondary-button mt-3"
-        type="button"
-        :disabled="subscriptionSaving"
-        @click="handleCancelRecurrentSubscription"
-      >
-        {{ subscriptionSaving ? "Отменяем..." : "Отменить автоподписку" }}
-      </button>
-      <p v-if="profileNotice" class="mt-2 text-xs font-semibold text-[var(--muted)]">{{ profileNotice }}</p>
+      <p v-if="activeRecurrentSubscription" class="mt-2 text-xs font-semibold text-[var(--muted)]">
+        Управление подпиской в разделе Оплата
+      </p>
     </section>
 
     <section class="space-y-3">

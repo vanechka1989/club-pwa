@@ -13,6 +13,7 @@ import {
   updatePaymentProduct,
   updatePaymentProductStatus
 } from "@/api/client";
+import { paymentRedirectNotice } from "@/features/billing/paymentMessages";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { findActiveRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { useSessionStore } from "@/stores/session";
@@ -78,16 +79,14 @@ function showAlert(message: string) {
 }
 
 function confirmPaymentRedirect() {
-  const message =
-    "После оплаты зачисление обычно занимает от 5 до 15 минут. Вернитесь в миниапку после оплаты, доступ обновится автоматически.";
   return new Promise<boolean>((resolve) => {
     const webApp = window.Telegram?.WebApp as TelegramWebAppWithConfirm | undefined;
     if (webApp?.showConfirm) {
-      webApp.showConfirm(message, resolve);
+      webApp.showConfirm(paymentRedirectNotice, resolve);
       return;
     }
 
-    resolve(window.confirm(message));
+    resolve(window.confirm(paymentRedirectNotice));
   });
 }
 
