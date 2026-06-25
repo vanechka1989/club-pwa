@@ -693,6 +693,52 @@ button {
   font-weight: 760;
 }
 
+.voice-recorder {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-strong) 48%, transparent);
+  padding: 0.65rem;
+}
+
+.voice-recorder-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.voice-recorder .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.voice-recorder-stop {
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  color: var(--danger);
+}
+
+.voice-recorder audio {
+  width: 100%;
+}
+
+.voice-recorder-note,
+.voice-recorder-error {
+  font-size: 0.72rem;
+  font-weight: 680;
+  line-height: 1.35;
+}
+
+.voice-recorder-note {
+  color: var(--muted);
+}
+
+.voice-recorder-error {
+  color: var(--danger);
+}
+
 .learning-inline-content {
   margin-top: 0.15rem;
   border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
@@ -1228,6 +1274,25 @@ button {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-secret-value {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  text-align: right;
+}
+
+.profile-secret-value strong {
+  transition: filter 140ms ease, opacity 140ms ease;
+}
+
+.profile-secret-blurred {
+  opacity: 0.72;
+  filter: blur(0.28rem);
+  user-select: none;
 }
 
 .profile-avatar-refresh {

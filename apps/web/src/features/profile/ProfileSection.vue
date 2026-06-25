@@ -20,6 +20,7 @@ const completedItems = ref(0);
 const lastOpenedTitle = ref<string | null>(null);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
+const telegramIdVisible = ref(false);
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
@@ -253,10 +254,17 @@ onMounted(async () => {
         </div>
         <div class="profile-info-row">
           <span>Telegram ID</span>
-          <strong class="inline-flex items-center gap-1">
+          <button
+            class="profile-secret-value"
+            type="button"
+            :aria-label="telegramIdVisible ? 'Telegram ID открыт' : 'Показать Telegram ID'"
+            @click="telegramIdVisible = true"
+          >
             <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
-            {{ session.user?.telegramId }}
-          </strong>
+            <strong :class="{ 'profile-secret-blurred': !telegramIdVisible }">
+              {{ session.user?.telegramId }}
+            </strong>
+          </button>
         </div>
         <div class="profile-info-row">
           <span>{{ t("role") }}</span>

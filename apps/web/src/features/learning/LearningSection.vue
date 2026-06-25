@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AdminLearningMaterial, ContentKind, LearningContent, LearningCategory, LessonComment } from "@club/shared";
-import { CheckCircle2, Eye, EyeOff, Image, Loader2, Music, Pencil, Play, Plus, Trash2, Type, X } from "lucide-vue-next";
-import { computed, onMounted, ref, watch } from "vue";
+import { CheckCircle2, Eye, EyeOff, Image, Loader2, Mic, Music, Pencil, Play, Plus, Square, Trash2, Type, X } from "lucide-vue-next";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   completeLearningContent,
   createAdminLearningCategory,
@@ -56,6 +56,12 @@ const materialPublished = ref(true);
 const materialFile = ref<File | null>(null);
 const thumbnailFile = ref<File | null>(null);
 const editingMaterial = ref<AdminLearningMaterial | null>(null);
+const voiceRecording = ref(false);
+const voiceError = ref<string | null>(null);
+const voicePreviewUrl = ref<string | null>(null);
+let voiceRecorder: MediaRecorder | null = null;
+let voiceStream: MediaStream | null = null;
+let voiceChunks: Blob[] = [];
 const categoryTitle = ref("");
 const categoryDescription = ref("");
 const hasLearningAccess = computed(
@@ -267,6 +273,10 @@ function notifyContent(message: string) {
 }
 
 function resetContentForm() {
+  stopVoiceRecording(false);
+  if (voicePreviewUrl.value) {
+    URL.revokeObjectURL(voicePreviewUrl.value);
+  }
   materialCategoryId.value = categories.value[0]?.id ?? "";
   materialKind.value = "text";
   materialTitle.value = "";
@@ -276,6 +286,8 @@ function resetContentForm() {
   materialFile.value = null;
   thumbnailFile.value = null;
   editingMaterial.value = null;
+  voiceError.value = null;
+  voicePreviewUrl.value = null;
   categoryTitle.value = "";
   categoryDescription.value = "";
 }
@@ -307,10 +319,68 @@ function closeContentModal() {
 
 function handleMaterialFileChange(event: Event) {
   materialFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+  if (materialFile.value && voicePreviewUrl.value) {
+    URL.revokeObjectURL(voicePreviewUrl.value);
+    voicePreviewUrl.value = null;
+  }
 }
 
 function handleThumbnailFileChange(event: Event) {
   thumbnailFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+async function startVoiceRecording() {
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+    voiceError.value = "Запись голоса не поддерживается в этом браузере.";
+    return;
+  }
+
+  try {
+    voiceError.value = null;
+    materialKind.value = "audio";
+    voiceChunks = [];
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    voiceRecorder = new MediaRecorder(voiceStream);
+    voiceRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size > 0) {
+        voiceChunks.push(event.data);
+      }
+    });
+    voiceRecorder.addEventListener("stop", () => {
+      if (!voiceChunks.length) {
+        return;
+      }
+
+      const mimeType = voiceRecorder?.mimeType || "audio/webm";
+      const extension = mimeType.includes("mp4") ? "m4a" : "webm";
+      const blob = new Blob(voiceChunks, { type: mimeType });
+      const file = new File([blob], `voice-message.${extension}`, { type: mimeType });
+      materialFile.value = file;
+      if (voicePreviewUrl.value) {
+        URL.revokeObjectURL(voicePreviewUrl.value);
+      }
+      voicePreviewUrl.value = URL.createObjectURL(blob);
+      voiceChunks = [];
+    });
+    voiceRecorder.start();
+    voiceRecording.value = true;
+  } catch {
+    voiceError.value = "Не удалось получить доступ к микрофону.";
+  }
+}
+
+function stopVoiceRecording(keepRecording = true) {
+  if (voiceRecorder && voiceRecorder.state !== "inactive") {
+    if (!keepRecording) {
+      voiceChunks = [];
+    }
+    voiceRecorder.stop();
+  }
+
+  voiceStream?.getTracks().forEach((track) => track.stop());
+  voiceStream = null;
+  voiceRecorder = null;
+  voiceRecording.value = false;
 }
 
 async function handleCreateCategory() {
@@ -515,6 +585,13 @@ onMounted(() => {
   void loadLearning();
 });
 
+onUnmounted(() => {
+  stopVoiceRecording(false);
+  if (voicePreviewUrl.value) {
+    URL.revokeObjectURL(voicePreviewUrl.value);
+  }
+});
+
 watch(hasLearningAccess, (hasAccess) => {
   if (!hasAccess) {
     categories.value = [];
@@ -588,7 +665,6 @@ watch(hasLearningAccess, (hasAccess) => {
           <section v-for="group in materialsByCategory" :key="group.category.id" class="surface-card">
             <div class="learning-category-head">
               <div>
-                <p class="text-sm text-[var(--muted)]">{{ group.category.itemsCount }} {{ t("materialsCount") }}</p>
                 <h4 class="mt-1 font-semibold text-[var(--text)]">
                   {{ group.category.title }}
                   <span v-if="isModerator && !group.category.isPublished" class="text-xs text-[var(--muted)]">· скрыта</span>
@@ -897,6 +973,32 @@ watch(hasLearningAccess, (hasAccess) => {
               <p v-if="editingMaterial && materialKind !== 'text'" class="text-xs leading-5 text-[var(--muted)]">
                 Не выбирайте файл, если текущий файл менять не нужно.
               </p>
+              <div v-if="materialKind === 'audio'" class="voice-recorder">
+                <div class="voice-recorder-actions">
+                  <button
+                    v-if="!voiceRecording"
+                    class="secondary-button"
+                    type="button"
+                    :disabled="contentSaving"
+                    @click="startVoiceRecording"
+                  >
+                    <Mic class="h-4 w-4" aria-hidden="true" />
+                    Записать голос
+                  </button>
+                  <button
+                    v-else
+                    class="secondary-button voice-recorder-stop"
+                    type="button"
+                    @click="stopVoiceRecording()"
+                  >
+                    <Square class="h-4 w-4" aria-hidden="true" />
+                    Остановить запись
+                  </button>
+                </div>
+                <audio v-if="voicePreviewUrl" :src="voicePreviewUrl" controls></audio>
+                <p v-if="materialFile && !voicePreviewUrl" class="voice-recorder-note">Выбран аудиофайл: {{ materialFile.name }}</p>
+                <p v-if="voiceError" class="voice-recorder-error">{{ voiceError }}</p>
+              </div>
               <label v-if="materialKind === 'video'" class="grid gap-2 text-sm font-semibold text-[var(--text)]">
                 <span>Обложка видео, необязательно</span>
                 <input class="text-input" type="file" accept="image/*" @change="handleThumbnailFileChange" />
