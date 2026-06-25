@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from "vue";
 import { getLearningHome, getPaymentHistory, getPaymentPlans } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
+import { getProfilePaymentActionText } from "@/features/profile/profileSubscriptionCopy";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme, type Theme } from "@/stores/ui";
 
@@ -115,11 +116,12 @@ const restorableRecurrentSubscription = computed(() =>
 );
 const manageableRecurrentSubscription = computed(() => activeRecurrentSubscription.value ?? restorableRecurrentSubscription.value);
 const paymentActionText = computed(() => {
-  if (manageableRecurrentSubscription.value) {
-    return "Управление подпиской";
-  }
-
-  return isMember.value ? t("homeExtend") : t("joinClub");
+  return getProfilePaymentActionText({
+    hasManageableRecurrentSubscription: Boolean(manageableRecurrentSubscription.value),
+    isMember: isMember.value,
+    extendText: t("homeExtend"),
+    joinText: t("joinClub")
+  });
 });
 const avatarRefreshAvailableAt = computed(() => {
   if (!session.user?.avatarRefreshedAt) {
@@ -306,9 +308,6 @@ onMounted(async () => {
       <button class="soft-inline-button mt-4" type="button" @click="$emit('openPayments')">
         {{ paymentActionText }}
       </button>
-      <p v-if="manageableRecurrentSubscription" class="mt-2 text-xs font-semibold text-[var(--muted)]">
-        Управление подпиской в разделе Оплата
-      </p>
     </section>
 
     <section class="space-y-3">
