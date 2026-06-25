@@ -194,6 +194,35 @@ export const userRecurrentSubscriptionSchema = z.object({
 });
 export type UserRecurrentSubscription = z.infer<typeof userRecurrentSubscriptionSchema>;
 
+export const paymentOrderStatusSchema = z.enum(["pending", "paid", "failed", "cancelled"]);
+export type PaymentOrderStatus = z.infer<typeof paymentOrderStatusSchema>;
+
+export const paymentOrderLogSchema = z.object({
+  id: z.string(),
+  status: paymentOrderStatusSchema,
+  amountRub: z.number().int().nonnegative(),
+  providerOrderId: z.string(),
+  providerPaymentId: z.string().nullable(),
+  productTitle: z.string(),
+  productKind: paymentProductKindSchema,
+  customer: commentAuthorSchema,
+  webhook: z
+    .object({
+      isValid: z.boolean(),
+      createdAt: z.string().datetime()
+    })
+    .nullable(),
+  paidAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type PaymentOrderLog = z.infer<typeof paymentOrderLogSchema>;
+
+export const paymentOrderLogsResponseSchema = z.object({
+  orders: z.array(paymentOrderLogSchema)
+});
+export type PaymentOrderLogsResponse = z.infer<typeof paymentOrderLogsResponseSchema>;
+
 export const paymentsResponseSchema = z.object({
   plans: z.array(paymentPlanSchema),
   provider: paymentProviderSchema.nullable(),

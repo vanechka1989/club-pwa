@@ -1,7 +1,8 @@
-import { and, asc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { PaymentOrderLog } from "@club/shared";
 import { getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import {
@@ -119,6 +120,65 @@ function getWebhookOrderId(payload: Record<string, unknown>) {
 function getWebhookPaymentId(payload: Record<string, unknown>) {
   const value = payload.payment_id ?? payload.paymentId ?? payload.invoice_id ?? payload.order_id;
   return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function mapPaymentOrderLog(
+  order: typeof paymentOrders.$inferSelect & {
+    user: typeof users.$inferSelect;
+    product: PaymentProduct;
+  },
+  webhook: typeof paymentWebhookEvents.$inferSelect | null
+): PaymentOrderLog {
+  return {
+    id: order.id,
+    status: order.status,
+    amountRub: order.amountRub,
+    providerOrderId: order.providerOrderId,
+    providerPaymentId: order.providerPaymentId,
+    productTitle: order.product.title,
+    productKind: order.product.kind,
+    customer: {
+      id: order.user.id,
+      telegramId: order.user.telegramId,
+      firstName: order.user.firstName,
+      username: order.user.username,
+      photoUrl: order.user.photoUrl
+    },
+    webhook: webhook
+      ? {
+          isValid: webhook.isValid,
+          createdAt: webhook.createdAt.toISOString()
+        }
+      : null,
+    paidAt: order.paidAt?.toISOString() ?? null,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString()
+  };
+}
+
+async function getPaymentOrderLogs(userId?: string, limit = 50) {
+  const orders = await db.query.paymentOrders.findMany({
+    where: userId ? eq(paymentOrders.userId, userId) : undefined,
+    with: {
+      user: true,
+      product: true
+    },
+    orderBy: [desc(paymentOrders.createdAt)],
+    limit
+  });
+  const webhookEvents = await db.query.paymentWebhookEvents.findMany({
+    orderBy: [desc(paymentWebhookEvents.createdAt)],
+    limit: Math.max(200, limit * 4)
+  });
+  const webhookByOrderId = new Map<string, typeof paymentWebhookEvents.$inferSelect>();
+  for (const event of webhookEvents) {
+    const orderId = getWebhookOrderId(event.payload);
+    if (orderId && !webhookByOrderId.has(orderId)) {
+      webhookByOrderId.set(orderId, event);
+    }
+  }
+
+  return orders.map((order) => mapPaymentOrderLog(order, webhookByOrderId.get(order.providerOrderId) ?? null));
 }
 
 function isSuccessfulWebhook(payload: Record<string, unknown>) {
@@ -265,6 +325,9 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }))
     });
   })
+  .get("/orders", async (c) => {
+    return c.json({ orders: await getPaymentOrderLogs(c.get("userId"), 50) });
+  })
   .post("/checkout", async (c) => {
     const body = checkoutPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
@@ -378,6 +441,14 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
 
     const provider = await getProdamusProvider();
     return c.json({ provider: provider ? mapProvider(provider) : null, webhookUrl: webhookUrl() });
+  })
+  .get("/admin/orders", async (c) => {
+    const role = await getUserRole(c.get("telegramUser").id);
+    if (!canReadPaymentSettings(role)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    return c.json({ orders: await getPaymentOrderLogs(undefined, 100) });
   })
   .post("/admin/provider/prodamus", async (c) => {
     const role = await getUserRole(c.get("telegramUser").id);

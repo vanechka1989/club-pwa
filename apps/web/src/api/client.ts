@@ -26,6 +26,7 @@ import type {
   MessageReaction,
   MeResponse,
   PaymentsResponse,
+  PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
   PaymentProviderMutationResponse,
   SubscribeResponse,
@@ -209,10 +210,18 @@ export function getPaymentPlans() {
   return api<PaymentsResponse>("/payments/plans");
 }
 
+export function getPaymentHistory() {
+  return api<PaymentOrderLogsResponse>("/payments/orders");
+}
+
 export function cancelRecurrentSubscription(id: string) {
   return api<AdminMutationResponse>(`/payments/recurrent-subscriptions/${id}/cancel`, {
     method: "POST"
   });
+}
+
+export function getAdminPaymentHistory() {
+  return api<PaymentOrderLogsResponse>("/payments/admin/orders");
 }
 
 export function getPaymentProvider() {

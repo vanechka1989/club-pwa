@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { AdminLearningMaterial, AdminStatsUser, AdminUser, AdminUserDetailResponse, ContentKind, LearningCategory } from "@club/shared";
+import type { AdminLearningMaterial, AdminStatsUser, AdminUser, AdminUserDetailResponse, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
 import {
   BarChart3,
   Check,
+  CreditCard,
   Search,
   Shield,
   Trash2,
@@ -19,6 +20,7 @@ import {
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
+  getAdminPaymentHistory,
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
@@ -37,11 +39,12 @@ import { useUiStore, type PreviewMode } from "@/stores/ui";
 const session = useSessionStore();
 const ui = useUiStore();
 
-type AdminPanel = "overview" | "users" | "materials" | "admins";
+type AdminPanel = "overview" | "users" | "payments" | "materials" | "admins";
 
 const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
   { id: "users", label: "Клиенты", icon: UsersRound },
+  { id: "payments", label: "Платежи", icon: CreditCard },
   { id: "admins", label: "Админы", icon: Shield }
 ];
 
@@ -62,6 +65,7 @@ const activePanel = ref<AdminPanel>("overview");
 const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const users = ref<AdminStatsUser[]>([]);
+const paymentOrders = ref<PaymentOrderLog[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
@@ -99,6 +103,10 @@ const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const restrictedUsers = computed(() => users.value.filter((user) => user.hasRestrictions).length);
+const paidOrders = computed(() => paymentOrders.value.filter((order) => order.status === "paid").length);
+const paidRevenue = computed(() =>
+  paymentOrders.value.filter((order) => order.status === "paid").reduce((sum, order) => sum + order.amountRub, 0)
+);
 const tariffOptions = computed(() => {
   const values = new Set(users.value.map((user) => user.tariff || "future").filter(Boolean));
   return ["all", ...Array.from(values)];
@@ -114,6 +122,9 @@ const filteredUsers = computed(() => {
     return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions;
   });
 });
+const selectedUserPaymentOrders = computed(() =>
+  selectedUser.value ? paymentOrders.value.filter((order) => order.customer.telegramId === selectedUser.value?.telegramId) : []
+);
 const materialsByCategory = computed(() =>
   learningCategories.value.map((category) => ({
     category,
@@ -139,6 +150,35 @@ function adminRoleLabel(role: AdminStatsUser["role"]) {
   }
 
   return "Клиент";
+}
+
+function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
+  if (status === "paid") {
+    return "Оплачен";
+  }
+
+  if (status === "failed") {
+    return "Ошибка";
+  }
+
+  if (status === "cancelled") {
+    return "Отменён";
+  }
+
+  return "Ожидает";
+}
+
+function paymentCustomerTitle(order: PaymentOrderLog) {
+  return order.customer.firstName || order.customer.username || `ID ${order.customer.telegramId}`;
+}
+
+function paymentOrderDate(order: PaymentOrderLog) {
+  return new Date(order.paidAt ?? order.createdAt).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function formatDateInput(date: Date) {
@@ -205,14 +245,16 @@ function showSuccessAlert(text: string) {
 async function loadAll() {
   loading.value = true;
   try {
-    const [adminsResponse, statsResponse, learningResponse] = await Promise.all([
+    const [adminsResponse, statsResponse, learningResponse, paymentsResponse] = await Promise.all([
       getAdminUsers(),
       getAdminStats(),
-      getAdminLearning()
+      getAdminLearning(),
+      getAdminPaymentHistory()
     ]);
     ownerTelegramId.value = adminsResponse.ownerTelegramId;
     admins.value = adminsResponse.admins;
     users.value = statsResponse.users;
+    paymentOrders.value = paymentsResponse.orders;
     learningCategories.value = learningResponse.categories;
     learningMaterials.value = learningResponse.materials;
     if (!materialCategoryId.value && learningResponse.categories[0]) {
@@ -610,6 +652,11 @@ onMounted(() => {
         <strong>{{ admins.length + 1 }}</strong>
         <small>включая владельца</small>
       </article>
+      <article class="admin-card">
+        <span class="admin-card-label">Оплаты</span>
+        <strong>{{ paidOrders }}</strong>
+        <small>{{ paidRevenue.toLocaleString("ru-RU") }} ₽ оплачено</small>
+      </article>
 
       <article v-if="isOwner" class="admin-panel admin-panel-wide">
         <div class="admin-panel-head">
@@ -759,6 +806,24 @@ onMounted(() => {
             </section>
 
             <section class="admin-crm-block">
+              <h4>Оплаты клиента</h4>
+              <p v-if="!selectedUserPaymentOrders.length" class="admin-empty">Оплат пока нет.</p>
+              <article v-for="order in selectedUserPaymentOrders" :key="order.id" class="admin-payment-card admin-payment-card-compact">
+                <div class="admin-payment-main">
+                  <div>
+                    <strong>{{ order.productTitle }}</strong>
+                    <small>{{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽</small>
+                  </div>
+                  <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
+                </div>
+                <div class="admin-payment-ids">
+                  <span>order: {{ order.providerOrderId }}</span>
+                  <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
+                </div>
+              </article>
+            </section>
+
+            <section class="admin-crm-block">
               <h4>Ограничения и удалённые сообщения</h4>
               <p v-if="!selectedUserDetail?.moderationEvents.length" class="admin-empty">Ограничений и удалений пока нет.</p>
               <article v-for="event in selectedUserDetail?.moderationEvents ?? []" :key="`${event.kind}-${event.id}`" class="admin-log-item">
@@ -786,6 +851,53 @@ onMounted(() => {
           </aside>
         </div>
       </Teleport>
+    </section>
+
+    <section v-else-if="activePanel === 'payments'" class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <h3>Платежи</h3>
+          <p>История заказов, webhook и статусы оплат Prodamus.</p>
+        </div>
+      </div>
+
+      <div class="admin-payment-summary">
+        <article>
+          <span>Всего заказов</span>
+          <strong>{{ paymentOrders.length }}</strong>
+        </article>
+        <article>
+          <span>Оплачено</span>
+          <strong>{{ paidOrders }}</strong>
+        </article>
+        <article>
+          <span>Сумма оплат</span>
+          <strong>{{ paidRevenue.toLocaleString("ru-RU") }} ₽</strong>
+        </article>
+      </div>
+
+      <div class="admin-list">
+        <article v-for="order in paymentOrders" :key="order.id" class="admin-payment-card">
+          <div class="admin-payment-main">
+            <div>
+              <strong>{{ order.productTitle }}</strong>
+              <small>{{ paymentCustomerTitle(order) }} · ID {{ order.customer.telegramId }}</small>
+            </div>
+            <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
+          </div>
+          <div class="admin-payment-meta">
+            <span>{{ paymentOrderDate(order) }}</span>
+            <span>{{ order.amountRub.toLocaleString("ru-RU") }} ₽</span>
+            <span>{{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }}</span>
+            <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
+          </div>
+          <div class="admin-payment-ids">
+            <span>order: {{ order.providerOrderId }}</span>
+            <span v-if="order.providerPaymentId">payment: {{ order.providerPaymentId }}</span>
+          </div>
+        </article>
+        <p v-if="!paymentOrders.length" class="admin-empty">Оплат пока нет. Первый заказ появится сразу после нажатия клиентом на оплату.</p>
+      </div>
     </section>
 
     <section v-else-if="activePanel === 'materials'" class="admin-panel">

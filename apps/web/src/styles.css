@@ -977,6 +977,147 @@ button {
   font-size: 0.76rem;
 }
 
+.admin-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.admin-payment-summary article,
+.admin-payment-card,
+.payment-log-card {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
+
+.admin-payment-summary article {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.65rem;
+}
+
+.admin-payment-summary span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 760;
+}
+
+.admin-payment-summary strong {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 880;
+}
+
+.admin-payment-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.65rem;
+}
+
+.admin-payment-card-compact {
+  gap: 0.4rem;
+}
+
+.admin-payment-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.admin-payment-main strong,
+.payment-log-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 840;
+  line-height: 1.25;
+}
+
+.admin-payment-main small,
+.payment-log-card span,
+.admin-payment-meta,
+.admin-payment-ids {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 690;
+  line-height: 1.35;
+}
+
+.admin-payment-meta,
+.admin-payment-ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+}
+
+.admin-payment-ids span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-log-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.payment-log-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.6rem;
+}
+
+.payment-log-card div {
+  min-width: 0;
+}
+
+.payment-log-card span {
+  display: block;
+  margin-top: 0.18rem;
+}
+
+.payment-status-pending,
+.payment-status-paid,
+.payment-status-failed,
+.payment-status-cancelled {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.22rem 0.48rem;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.payment-status-pending {
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border));
+  background: color-mix(in srgb, var(--warning) 12%, var(--panel));
+  color: var(--muted-strong);
+}
+
+.payment-status-paid {
+  border: 1px solid color-mix(in srgb, #34d399 42%, var(--border));
+  background: color-mix(in srgb, #34d399 13%, var(--panel));
+  color: color-mix(in srgb, #34d399 82%, var(--text));
+}
+
+.payment-status-failed,
+.payment-status-cancelled {
+  border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--border));
+  background: color-mix(in srgb, var(--danger) 11%, var(--panel));
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
+}
+
+.profile-empty-text {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
 .admin-log-item {
   display: grid;
   grid-template-columns: 7.5rem minmax(0, 1fr);

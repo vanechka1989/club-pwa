@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { PaymentOrderLog } from "@club/shared";
 import { BarChart3, Check, Fingerprint, Maximize2, Minimize2, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
-import { getLearningHome } from "@/api/client";
+import { getLearningHome, getPaymentHistory } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme, type Theme } from "@/stores/ui";
@@ -18,6 +19,7 @@ const isMember = computed(() => session.user?.membershipStatus === "active");
 const totalItems = ref(0);
 const completedItems = ref(0);
 const lastOpenedTitle = ref<string | null>(null);
+const paymentOrders = ref<PaymentOrderLog[]>([]);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
 const telegramIdVisible = ref(false);
@@ -147,6 +149,31 @@ function changeTheme(theme: Theme) {
   ui.setTheme(theme);
 }
 
+function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
+  if (status === "paid") {
+    return "Оплачен";
+  }
+
+  if (status === "failed") {
+    return "Ошибка";
+  }
+
+  if (status === "cancelled") {
+    return "Отменён";
+  }
+
+  return "Ожидает оплату";
+}
+
+function paymentOrderDate(order: PaymentOrderLog) {
+  return new Date(order.paidAt ?? order.createdAt).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 function getErrorStatus(reason: unknown) {
   if (typeof reason === "object" && reason && "status" in reason && typeof reason.status === "number") {
     return reason.status;
@@ -184,16 +211,19 @@ async function handleAvatarRefresh() {
 }
 
 onMounted(async () => {
-  try {
-    const response = await getLearningHome();
-    totalItems.value = response.progress.totalItems;
-    completedItems.value = response.progress.completedItems;
-    lastOpenedTitle.value = response.progress.lastOpenedItem?.title ?? null;
-  } catch {
+  const [learningResult, paymentsResult] = await Promise.allSettled([getLearningHome(), getPaymentHistory()]);
+
+  if (learningResult.status === "fulfilled") {
+    totalItems.value = learningResult.value.progress.totalItems;
+    completedItems.value = learningResult.value.progress.completedItems;
+    lastOpenedTitle.value = learningResult.value.progress.lastOpenedItem?.title ?? null;
+  } else {
     totalItems.value = 0;
     completedItems.value = 0;
     lastOpenedTitle.value = null;
   }
+
+  paymentOrders.value = paymentsResult.status === "fulfilled" ? paymentsResult.value.orders : [];
 });
 </script>
 
@@ -318,6 +348,23 @@ onMounted(async () => {
           <span>{{ avatarSaving ? "Обновляем..." : "Обновить аватарку" }}</span>
         </button>
         <p>{{ avatarMessage || avatarRefreshHint }}</p>
+      </div>
+    </section>
+
+    <section class="soft-card">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="soft-section-title">История оплат</h3>
+        <button class="soft-link" type="button" @click="$emit('openPayments')">Оплата</button>
+      </div>
+      <div class="payment-log-list mt-3">
+        <article v-for="order in paymentOrders.slice(0, 5)" :key="order.id" class="payment-log-card">
+          <div>
+            <strong>{{ order.productTitle }}</strong>
+            <span>{{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽</span>
+          </div>
+          <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
+        </article>
+        <p v-if="!paymentOrders.length" class="profile-empty-text">Оплат пока нет.</p>
       </div>
     </section>
 
