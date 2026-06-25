@@ -1,10 +1,11 @@
-import { and, count, desc, eq, gt, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, lte, ne, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole } from "../admin/roles";
+import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { formatReplyNotificationText } from "../community/replyNotification";
@@ -333,6 +334,12 @@ async function getCommunityRole(c: Context<{ Variables: AuthVariables }>) {
   return c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
 }
 
+async function purgeExpiredDeletedMessages(now = new Date()) {
+  await db
+    .delete(clubChatMessages)
+    .where(and(eq(clubChatMessages.status, "deleted"), lte(clubChatMessages.purgeAt, now)));
+}
+
 async function notifyReplyRecipient({
   topic,
   replyToMessage,
@@ -577,6 +584,8 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return accessError;
     }
 
+    await purgeExpiredDeletedMessages();
+
     const topic = await db.query.clubChatTopics.findFirst({
       where: eq(clubChatTopics.id, c.req.param("id"))
     });
@@ -714,16 +723,24 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Topic not found" }, 404);
     }
 
-    await db
-      .update(clubChatMessages)
-      .set({
-        status: "deleted",
-        moderatedByUserId: c.get("userId"),
-        moderatedAt: new Date(),
-        moderationReason: "Bulk topic cleanup",
-        updatedAt: new Date()
-      })
-      .where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.isSystem, false)));
+    await purgeExpiredDeletedMessages();
+
+    if (shouldHardDeleteMessages(role)) {
+      await db.delete(clubChatMessages).where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.isSystem, false)));
+    } else {
+      const now = new Date();
+      await db
+        .update(clubChatMessages)
+        .set({
+          status: "deleted",
+          moderatedByUserId: c.get("userId"),
+          moderatedAt: now,
+          moderationReason: "Bulk topic cleanup",
+          purgeAt: getMessagePurgeAt("topic", role, now),
+          updatedAt: now
+        })
+        .where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.isSystem, false)));
+    }
 
     return c.json({ ok: true });
   })
@@ -752,22 +769,30 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "User not found" }, 404);
     }
 
-    await db
-      .update(clubChatMessages)
-      .set({
-        status: "deleted",
-        moderatedByUserId: c.get("userId"),
-        moderatedAt: new Date(),
-        moderationReason: "Bulk author cleanup",
-        updatedAt: new Date()
-      })
-      .where(
-        and(
-          eq(clubChatMessages.topicId, topic.id),
-          eq(clubChatMessages.userId, targetUser.id),
-          eq(clubChatMessages.isSystem, false)
-        )
-      );
+    await purgeExpiredDeletedMessages();
+
+    const filter = and(
+      eq(clubChatMessages.topicId, topic.id),
+      eq(clubChatMessages.userId, targetUser.id),
+      eq(clubChatMessages.isSystem, false)
+    );
+
+    if (shouldHardDeleteMessages(role)) {
+      await db.delete(clubChatMessages).where(filter);
+    } else {
+      const now = new Date();
+      await db
+        .update(clubChatMessages)
+        .set({
+          status: "deleted",
+          moderatedByUserId: c.get("userId"),
+          moderatedAt: now,
+          moderationReason: "Bulk author cleanup",
+          purgeAt: getMessagePurgeAt("message", role, now),
+          updatedAt: now
+        })
+        .where(filter);
+    }
 
     return c.json({ ok: true });
   })

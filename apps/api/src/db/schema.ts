@@ -335,6 +335,7 @@ export const clubChatMessages = pgTable(
     moderatedByUserId: uuid("moderated_by_user_id").references(() => users.id, { onDelete: "set null" }),
     moderatedAt: timestamp("moderated_at", { withTimezone: true }),
     moderationReason: text("moderation_reason"),
+    purgeAt: timestamp("purge_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },

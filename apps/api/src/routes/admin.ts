@@ -24,6 +24,7 @@ import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
+import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -963,7 +964,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         return manageError;
       }
 
-      await db.update(clubChatMessages).set(values).where(eq(clubChatMessages.id, id));
+      const role = await getUserRole(c.get("telegramUser").id);
+      if (body.data.status === "deleted" && shouldHardDeleteMessages(role)) {
+        await db.delete(clubChatMessages).where(eq(clubChatMessages.id, id));
+        return c.json({ ok: true });
+      }
+
+      await db
+        .update(clubChatMessages)
+        .set({
+          ...values,
+          purgeAt:
+            body.data.status === "deleted"
+              ? getMessagePurgeAt("message", role, values.moderatedAt)
+              : null
+        })
+        .where(eq(clubChatMessages.id, id));
       return c.json({ ok: true });
     }
 

@@ -59,6 +59,7 @@ const topicReadStorageKey = "club-community-topic-read-at";
 const viewportHeightCssVar = "--club-viewport-height";
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const isOwner = computed(() => session.user?.role === "owner");
 const hasCommunityAccess = computed(() => isModerator.value || session.user?.membershipStatus === "active");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 const orderedMessages = computed(() => [...messages.value].reverse());
@@ -510,7 +511,11 @@ async function handleDeleteTopicMessages() {
     return;
   }
 
-  const confirmed = window.confirm("Удалить все сообщения в этом чате? Клиенты больше не будут их видеть.");
+  const confirmed = window.confirm(
+    isOwner.value
+      ? "Удалить все сообщения в этом чате сразу и без восстановления?"
+      : "Удалить все сообщения в этом чате? Клиенты больше не будут их видеть, окончательная очистка пройдет через 24 часа."
+  );
   if (!confirmed) {
     showTopicAdminMenu.value = false;
     return;
