@@ -82,6 +82,7 @@ export function buildProdamusPaymentUrl(input: {
   userTelegramId: string;
   product: PaymentProductForProdamus;
   returnUrl: string;
+  notificationUrl: string;
 }) {
   const data: Record<string, ProdamusValue | undefined> = {
     do: "pay",
@@ -90,6 +91,7 @@ export function buildProdamusPaymentUrl(input: {
     sys: input.sys,
     urlReturn: input.returnUrl,
     urlSuccess: input.returnUrl,
+    urlNotification: input.notificationUrl,
     products: [
       {
         name: input.product.title,
@@ -109,6 +111,7 @@ export function buildProdamusPaymentUrl(input: {
   url.searchParams.set("sys", input.sys);
   url.searchParams.set("urlReturn", input.returnUrl);
   url.searchParams.set("urlSuccess", input.returnUrl);
+  url.searchParams.set("urlNotification", input.notificationUrl);
   url.searchParams.set("products[0][name]", input.product.title);
   url.searchParams.set("products[0][price]", String(input.product.amountRub));
   url.searchParams.set("products[0][quantity]", "1");
@@ -119,4 +122,50 @@ export function buildProdamusPaymentUrl(input: {
   url.searchParams.set("signature", signature);
 
   return url.toString();
+}
+
+export function buildProdamusSetActivityRequest(input: {
+  formUrl: string;
+  secretKey: string;
+  subscriptionId: string;
+  telegramId: string;
+  activeUser: boolean;
+}) {
+  const data = {
+    subscription: input.subscriptionId,
+    tg_user_id: input.telegramId,
+    active_user: input.activeUser ? 1 : 0
+  };
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(data)) {
+    body.set(key, String(value));
+  }
+  body.set("signature", createProdamusSignature(data, input.secretKey));
+
+  const url = new URL("rest/setActivity/", normalizeProdamusFormUrl(input.formUrl)).toString();
+  return { url, body };
+}
+
+export async function setProdamusSubscriptionActivity(input: {
+  formUrl: string;
+  secretKey: string;
+  subscriptionId: string;
+  telegramId: string;
+  activeUser: boolean;
+  fetchImpl?: typeof fetch;
+}) {
+  const request = buildProdamusSetActivityRequest(input);
+  const fetcher = input.fetchImpl ?? fetch;
+  const response = await fetcher(request.url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: request.body
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Prodamus setActivity failed: ${response.status} ${text}`.trim());
+  }
 }

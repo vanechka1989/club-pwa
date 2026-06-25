@@ -18,7 +18,12 @@ import {
 import { env } from "../env";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { buildProdamusPaymentUrl, normalizeProdamusFormUrl, verifyProdamusSignature } from "../payments/prodamus";
+import {
+  buildProdamusPaymentUrl,
+  normalizeProdamusFormUrl,
+  setProdamusSubscriptionActivity,
+  verifyProdamusSignature
+} from "../payments/prodamus";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -324,17 +329,41 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         accessDays: product.accessDays,
         prodamusSubscriptionId: product.prodamusSubscriptionId
       },
-      returnUrl: `${env.WEB_ORIGIN.replace(/\/$/, "")}/`
+      returnUrl: `${env.WEB_ORIGIN.replace(/\/$/, "")}/`,
+      notificationUrl: webhookUrl()
     });
 
     return c.json({ checkoutUrl, message: "Откройте платежную страницу Prodamus." });
   })
   .post("/recurrent-subscriptions/:id/cancel", async (c) => {
     const subscription = await db.query.userRecurrentSubscriptions.findFirst({
-      where: and(eq(userRecurrentSubscriptions.id, c.req.param("id")), eq(userRecurrentSubscriptions.userId, c.get("userId")))
+      where: and(eq(userRecurrentSubscriptions.id, c.req.param("id")), eq(userRecurrentSubscriptions.userId, c.get("userId"))),
+      with: {
+        product: true,
+        provider: true,
+        user: true
+      }
     });
     if (!subscription) {
       return c.json({ error: "Subscription not found" }, 404);
+    }
+    if (subscription.status !== "active") {
+      return c.json({ ok: true });
+    }
+    if (subscription.product.kind !== "recurrent" || subscription.provider.provider !== "prodamus") {
+      return c.json({ error: "Cancel is available only for recurrent Prodamus subscriptions" }, 400);
+    }
+
+    try {
+      await setProdamusSubscriptionActivity({
+        formUrl: subscription.provider.formUrl,
+        secretKey: subscription.provider.secretKey,
+        subscriptionId: subscription.prodamusSubscriptionId,
+        telegramId: subscription.user.telegramId,
+        activeUser: false
+      });
+    } catch {
+      return c.json({ error: "Не удалось отменить подписку в Prodamus." }, 502);
     }
 
     await db

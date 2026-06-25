@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProdamusPaymentUrl,
+  buildProdamusSetActivityRequest,
   createProdamusSignature,
   normalizeProdamusFormUrl,
   verifyProdamusSignature
@@ -54,7 +55,8 @@ describe("prodamus payment helpers", () => {
           accessDays: 30,
           prodamusSubscriptionId: null
         },
-        returnUrl: "https://club.example/payments"
+        returnUrl: "https://club.example/payments",
+        notificationUrl: "https://club.example/api/payments/prodamus/webhook"
       })
     );
 
@@ -63,6 +65,7 @@ describe("prodamus payment helpers", () => {
     expect(url.searchParams.get("sys")).toBe("clubcrm");
     expect(url.searchParams.get("order_id")).toBe("order-1");
     expect(url.searchParams.get("customer_extra")).toBe("telegram:100");
+    expect(url.searchParams.get("urlNotification")).toBe("https://club.example/api/payments/prodamus/webhook");
     expect(url.searchParams.get("products[0][name]")).toBe("Premium");
     expect(url.searchParams.get("products[0][price]")).toBe("990");
     expect(url.searchParams.get("products[0][quantity]")).toBe("1");
@@ -85,10 +88,37 @@ describe("prodamus payment helpers", () => {
           accessDays: 30,
           prodamusSubscriptionId: "77"
         },
-        returnUrl: "https://club.example/payments"
+        returnUrl: "https://club.example/payments",
+        notificationUrl: "https://club.example/api/payments/prodamus/webhook"
       })
     );
 
     expect(url.searchParams.get("subscription")).toBe("77");
+  });
+
+  it("builds setActivity requests for recurrent subscription cancellation by telegram user", () => {
+    const request = buildProdamusSetActivityRequest({
+      formUrl: "https://demo.payform.ru/",
+      secretKey: "secret",
+      subscriptionId: "77",
+      telegramId: "123456",
+      activeUser: false
+    });
+
+    expect(request.url).toBe("https://demo.payform.ru/rest/setActivity/");
+    expect(request.body.get("subscription")).toBe("77");
+    expect(request.body.get("tg_user_id")).toBe("123456");
+    expect(request.body.get("active_user")).toBe("0");
+    expect(request.body.get("active_manager")).toBeNull();
+    expect(request.body.get("signature")).toBe(
+      createProdamusSignature(
+        {
+          subscription: "77",
+          tg_user_id: "123456",
+          active_user: 0
+        },
+        "secret"
+      )
+    );
   });
 });
