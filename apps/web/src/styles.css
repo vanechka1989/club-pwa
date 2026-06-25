@@ -867,32 +867,40 @@ button {
 .admin-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, #000 48%, transparent);
-  padding: 1rem;
-}
-
-.payment-modal-backdrop {
   z-index: 140;
+  display: grid;
   align-items: stretch;
   justify-items: stretch;
+  background: color-mix(in srgb, #000 48%, transparent);
   padding: 0;
   overflow: hidden;
   overscroll-behavior: contain;
 }
 
+.payment-modal-backdrop {
+  z-index: 145;
+}
+
 .admin-client-modal {
   position: relative;
   top: auto;
-  width: min(42rem, 100%);
-  max-height: min(82vh, 48rem);
+  width: 100%;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-  border-radius: 18px;
+  border-radius: 0;
   background: var(--panel-strong);
   box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
+}
+
+.club-telegram-fullscreen .admin-modal-backdrop {
+  padding-top: var(--fullscreen-top-offset);
+}
+
+.club-telegram-fullscreen .admin-client-modal {
+  height: calc(100vh - var(--fullscreen-top-offset));
 }
 
 .admin-client-modal-head {
@@ -907,20 +915,7 @@ button {
 .payment-form-modal {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  height: 100vh;
-  max-height: none;
-  max-width: none;
   overflow: hidden;
-  border-radius: 0;
-}
-
-.club-telegram-fullscreen .payment-modal-backdrop {
-  padding-top: var(--fullscreen-top-offset);
-}
-
-.club-telegram-fullscreen .payment-form-modal {
-  height: calc(100vh - var(--fullscreen-top-offset));
 }
 
 .payment-form-body {
@@ -2390,27 +2385,22 @@ button.chat-message-author:active {
   }
 
   .admin-modal-backdrop {
-    align-items: end;
-    padding: 0.75rem;
-  }
-
-  .payment-modal-backdrop {
     align-items: stretch;
     padding: 0;
   }
 
   .admin-client-modal {
-    max-height: 84vh;
-    border-radius: 18px 18px 12px 12px;
-  }
-
-  .payment-form-modal {
     height: 100vh;
+    max-height: none;
     border-radius: 0;
   }
 
-  .club-telegram-fullscreen .payment-form-modal {
+  .club-telegram-fullscreen .admin-client-modal {
     height: calc(100vh - var(--fullscreen-top-offset));
+  }
+
+  .payment-form-modal {
+    border-radius: 0;
   }
 
   .admin-log-item {
