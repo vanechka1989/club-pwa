@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AdminLearningMaterial, ContentKind, LearningContent, LearningCategory, LessonComment } from "@club/shared";
-import { CheckCircle2, Eye, EyeOff, Image, Loader2, Music, Play, Plus, Trash2, Type, X } from "lucide-vue-next";
+import { CheckCircle2, Eye, EyeOff, Image, Loader2, Music, Pencil, Play, Plus, Trash2, Type, X } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import {
   completeLearningContent,
@@ -14,6 +14,7 @@ import {
   getLearningHome,
   getLessonComments,
   saveLearningPlayback,
+  updateAdminLearningMaterial,
   updateAdminLearningCategoryStatus,
   updateAdminLearningMaterialStatus
 } from "@/api/client";
@@ -54,6 +55,7 @@ const materialBody = ref("");
 const materialPublished = ref(true);
 const materialFile = ref<File | null>(null);
 const thumbnailFile = ref<File | null>(null);
+const editingMaterial = ref<AdminLearningMaterial | null>(null);
 const categoryTitle = ref("");
 const categoryDescription = ref("");
 const hasLearningAccess = computed(
@@ -273,8 +275,29 @@ function resetContentForm() {
   materialPublished.value = true;
   materialFile.value = null;
   thumbnailFile.value = null;
+  editingMaterial.value = null;
   categoryTitle.value = "";
   categoryDescription.value = "";
+}
+
+function openCreateContentModal() {
+  resetContentForm();
+  showContentModal.value = true;
+}
+
+function openEditContentModal(material: AdminLearningMaterial) {
+  editingMaterial.value = material;
+  materialCategoryId.value = material.categoryId;
+  materialKind.value = material.kind;
+  materialTitle.value = material.title;
+  materialSummary.value = material.summary ?? "";
+  materialBody.value = material.body ?? "";
+  materialPublished.value = material.isPublished;
+  materialFile.value = null;
+  thumbnailFile.value = null;
+  categoryTitle.value = "";
+  categoryDescription.value = "";
+  showContentModal.value = true;
 }
 
 function closeContentModal() {
@@ -309,7 +332,7 @@ async function handleCreateCategory() {
 }
 
 async function handleDeleteCategory(category: LearningCategory) {
-  if (!window.confirm(`Удалить категорию "${category.title}" и весь контент внутри?`)) {
+  if (!window.confirm(`Удалить категорию "${category.title}" и весь контент внутри? Действие нужно подтвердить.`)) {
     return;
   }
 
@@ -324,6 +347,11 @@ async function handleDeleteCategory(category: LearningCategory) {
 }
 
 async function handleToggleCategory(category: LearningCategory) {
+  const action = category.isPublished ? "скрыть" : "открыть";
+  if (!window.confirm(`Подтвердите: ${action} категорию "${category.title}"?`)) {
+    return;
+  }
+
   contentSaving.value = true;
   try {
     const response = await updateAdminLearningCategoryStatus(category.id, !category.isPublished);
@@ -337,7 +365,7 @@ async function handleToggleCategory(category: LearningCategory) {
   }
 }
 
-async function handleCreateMaterial() {
+async function handleSaveMaterial() {
   if (!materialTitle.value.trim()) {
     contentError.value = "Введите название контента.";
     return;
@@ -369,22 +397,29 @@ async function handleCreateMaterial() {
       form.set("thumbnailFile", thumbnailFile.value);
     }
 
-    const response = await createAdminLearningMaterial(form);
-    adminMaterials.value = [response.material, ...adminMaterials.value];
-    if (response.material.isPublished && !response.material.archivedUntil) {
-      featured.value = [response.material, ...featured.value];
-    }
+    const materialBeingEdited = editingMaterial.value;
+    const response = materialBeingEdited
+      ? await updateAdminLearningMaterial(materialBeingEdited.id, form)
+      : await createAdminLearningMaterial(form);
+    adminMaterials.value = materialBeingEdited
+      ? adminMaterials.value.map((item) => (item.id === response.material.id ? response.material : item))
+      : [response.material, ...adminMaterials.value];
     await loadLearning();
     closeContentModal();
-    notifyContent("Контент добавлен.");
+    notifyContent(materialBeingEdited ? "Контент обновлён." : "Контент добавлен.");
   } catch {
-    contentError.value = "Не удалось добавить контент.";
+    contentError.value = editingMaterial.value ? "Не удалось обновить контент." : "Не удалось добавить контент.";
   } finally {
     contentSaving.value = false;
   }
 }
 
 async function handleToggleMaterial(material: AdminLearningMaterial) {
+  const action = material.isPublished ? "скрыть" : "открыть";
+  if (!window.confirm(`Подтвердите: ${action} контент "${material.title}"?`)) {
+    return;
+  }
+
   contentSaving.value = true;
   try {
     const response = await updateAdminLearningMaterialStatus(material.id, !material.isPublished);
@@ -399,7 +434,7 @@ async function handleToggleMaterial(material: AdminLearningMaterial) {
 }
 
 async function handleDeleteMaterial(material: AdminLearningMaterial) {
-  if (!window.confirm(`Удалить "${material.title}"? Он будет храниться в удалённых 7 дней.`)) {
+  if (!window.confirm(`Удалить контент "${material.title}"? Он будет храниться в удалённых 7 дней.`)) {
     return;
   }
 
@@ -430,6 +465,13 @@ async function handleDeleteLearningItem(item: LearningContent) {
   const material = findAdminMaterial(item);
   if (material) {
     await handleDeleteMaterial(material);
+  }
+}
+
+function handleEditLearningItem(item: LearningContent) {
+  const material = findAdminMaterial(item);
+  if (material) {
+    openEditContentModal(material);
   }
 }
 
@@ -535,7 +577,7 @@ watch(hasLearningAccess, (hasAccess) => {
       <div class="space-y-3">
         <div class="learning-content-head">
           <h3 class="font-semibold text-[var(--text)]">Контент</h3>
-          <button v-if="isModerator" class="icon-button" type="button" aria-label="Добавить контент" @click="showContentModal = true">
+          <button v-if="isModerator" class="icon-button" type="button" aria-label="Добавить контент" @click="openCreateContentModal">
             <Plus class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -597,6 +639,15 @@ watch(hasLearningAccess, (hasAccess) => {
                     </div>
                   </button>
                   <div v-if="isModerator" class="learning-item-actions">
+                    <button
+                      class="icon-button"
+                      type="button"
+                      :disabled="contentSaving"
+                      aria-label="Редактировать контент"
+                      @click="handleEditLearningItem(item)"
+                    >
+                      <Pencil class="h-4 w-4" aria-hidden="true" />
+                    </button>
                     <button
                       class="icon-button"
                       type="button"
@@ -731,6 +782,9 @@ watch(hasLearningAccess, (hasAccess) => {
                 </div>
               </div>
               <div class="learning-item-actions">
+                <button class="icon-button" type="button" :disabled="contentSaving" aria-label="Редактировать контент" @click="openEditContentModal(material)">
+                  <Pencil class="h-4 w-4" aria-hidden="true" />
+                </button>
                 <button class="icon-button" type="button" :disabled="contentSaving" aria-label="Открыть контент" @click="handleToggleMaterial(material)">
                   <Eye class="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -782,21 +836,21 @@ watch(hasLearningAccess, (hasAccess) => {
           <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="learning-content-modal-title">
             <header class="admin-client-modal-head">
               <div>
-                <h3 id="learning-content-modal-title">Новый контент</h3>
-                <p>Добавьте запись в категорию или создайте новую.</p>
+                <h3 id="learning-content-modal-title">{{ editingMaterial ? "Редактировать контент" : "Новый контент" }}</h3>
+                <p>{{ editingMaterial ? "Измените данные контента. Файлы можно не выбирать, если они остаются прежними." : "Добавьте запись в категорию или создайте новую." }}</p>
               </div>
               <button class="icon-button" type="button" aria-label="Закрыть" @click="closeContentModal">
                 <X class="h-4 w-4" aria-hidden="true" />
               </button>
             </header>
 
-            <form class="admin-form" @submit.prevent="handleCreateMaterial">
+            <form class="admin-form" @submit.prevent="handleSaveMaterial">
               <select v-model="materialCategoryId" class="text-input">
                 <option value="" disabled>Категория</option>
                 <option v-for="category in categories" :key="category.id" :value="category.id">
                   {{ category.title }}
                 </option>
-                <option value="__new__">Создать новую категорию</option>
+                <option v-if="!editingMaterial" value="__new__">Создать новую категорию</option>
               </select>
 
               <div v-if="materialCategoryId === '__new__'" class="grid gap-2">
@@ -840,6 +894,9 @@ watch(hasLearningAccess, (hasAccess) => {
                 :accept="materialKind === 'photo' ? 'image/*' : materialKind === 'video' ? 'video/*' : 'audio/*'"
                 @change="handleMaterialFileChange"
               />
+              <p v-if="editingMaterial && materialKind !== 'text'" class="text-xs leading-5 text-[var(--muted)]">
+                Не выбирайте файл, если текущий файл менять не нужно.
+              </p>
               <label v-if="materialKind === 'video'" class="grid gap-2 text-sm font-semibold text-[var(--text)]">
                 <span>Обложка видео, необязательно</span>
                 <input class="text-input" type="file" accept="image/*" @change="handleThumbnailFileChange" />
@@ -849,7 +906,7 @@ watch(hasLearningAccess, (hasAccess) => {
                 <span>Сразу открыть клиентам</span>
               </label>
               <button class="primary-button" type="submit" :disabled="contentSaving || (!materialCategoryId && materialCategoryId !== '__new__')">
-                Добавить контент
+                {{ editingMaterial ? "Сохранить изменения" : "Добавить контент" }}
               </button>
             </form>
           </aside>

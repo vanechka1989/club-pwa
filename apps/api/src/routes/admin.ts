@@ -98,6 +98,50 @@ function createCategorySlug(title: string) {
   return `${readable || "category"}-${randomUUID().slice(0, 8)}`;
 }
 
+async function uploadMaterialFile(kind: ContentKind, file: File) {
+  const contentType = file.type || "application/octet-stream";
+  if (
+    (kind === "photo" && !contentType.startsWith("image/")) ||
+    (kind === "video" && !contentType.startsWith("video/")) ||
+    (kind === "audio" && !contentType.startsWith("audio/"))
+  ) {
+    return null;
+  }
+
+  const key = `learning/${kind}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(file.name)}`;
+  const upload = await uploadObject({
+    key,
+    body: new Uint8Array(await file.arrayBuffer()),
+    contentType
+  });
+
+  return {
+    objectKey: upload.key,
+    contentType,
+    sizeBytes: file.size
+  };
+}
+
+async function uploadThumbnailFile(file: File) {
+  const contentType = file.type || "application/octet-stream";
+  if (!contentType.startsWith("image/")) {
+    return null;
+  }
+
+  const key = `learning/thumbnails/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(file.name)}`;
+  const upload = await uploadObject({
+    key,
+    body: new Uint8Array(await file.arrayBuffer()),
+    contentType
+  });
+
+  return {
+    objectKey: upload.key,
+    contentType,
+    sizeBytes: file.size
+  };
+}
+
 async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): Promise<AdminLearningMaterial> {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
   const thumbnailUrl = item.thumbnailObjectKey ? await getObjectReadUrl(item.thumbnailObjectKey) : item.thumbnailUrl;
@@ -644,41 +688,25 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         return c.json({ error: "Media file is required" }, 400);
       }
 
-      const contentType = file.type || "application/octet-stream";
-      if (
-        (kind === "photo" && !contentType.startsWith("image/")) ||
-        (kind === "video" && !contentType.startsWith("video/")) ||
-        (kind === "audio" && !contentType.startsWith("audio/"))
-      ) {
+      const upload = await uploadMaterialFile(kind, file);
+      if (!upload) {
         return c.json({ error: "Media file type does not match material kind" }, 400);
       }
 
-      const key = `learning/${kind}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(file.name)}`;
-      const upload = await uploadObject({
-        key,
-        body: new Uint8Array(await file.arrayBuffer()),
-        contentType
-      });
-      mediaObjectKey = upload.key;
-      mediaContentType = contentType;
-      mediaSizeBytes = file.size;
+      mediaObjectKey = upload.objectKey;
+      mediaContentType = upload.contentType;
+      mediaSizeBytes = upload.sizeBytes;
     }
 
     if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
-      const contentType = thumbnailFile.type || "application/octet-stream";
-      if (!contentType.startsWith("image/")) {
+      const upload = await uploadThumbnailFile(thumbnailFile);
+      if (!upload) {
         return c.json({ error: "Thumbnail file must be an image" }, 400);
       }
 
-      const key = `learning/thumbnails/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(thumbnailFile.name)}`;
-      const upload = await uploadObject({
-        key,
-        body: new Uint8Array(await thumbnailFile.arrayBuffer()),
-        contentType
-      });
-      thumbnailObjectKey = upload.key;
-      thumbnailContentType = contentType;
-      thumbnailSizeBytes = thumbnailFile.size;
+      thumbnailObjectKey = upload.objectKey;
+      thumbnailContentType = upload.contentType;
+      thumbnailSizeBytes = upload.sizeBytes;
     }
 
     const now = new Date();
@@ -706,6 +734,128 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!material) {
       return c.json({ error: "Unable to create material" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      material: await serializeAdminMaterial(material)
+    });
+  })
+  .post("/learning/materials/:id", async (c) => {
+    const current = await db.query.contentItems.findFirst({
+      where: eq(contentItems.id, c.req.param("id"))
+    });
+    if (!current) {
+      return c.json({ error: "Material not found" }, 404);
+    }
+
+    const form = await c.req.raw.formData().catch(() => null);
+    if (!form) {
+      return c.json({ error: "Invalid material payload" }, 400);
+    }
+
+    const categoryId = getFormValue(form, "categoryId");
+    const kind = getFormValue(form, "kind") as ContentKind;
+    const title = getFormValue(form, "title");
+    const summary = normalizeOptionalText(getFormValue(form, "summary"));
+    const body = normalizeOptionalText(getFormValue(form, "body"));
+    const isPublished = getFormValue(form, "isPublished") === "true";
+
+    if (!categoryId || !contentKinds.includes(kind) || !title) {
+      return c.json({ error: "Invalid material payload" }, 400);
+    }
+
+    const category = await db.query.contentCategories.findFirst({
+      where: eq(contentCategories.id, categoryId)
+    });
+    if (!category) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    const file = form.get("file");
+    const thumbnailFile = form.get("thumbnailFile");
+    let mediaObjectKey = current.mediaObjectKey;
+    let mediaUrl = current.mediaUrl;
+    let mediaContentType = current.mediaContentType;
+    let mediaSizeBytes = current.mediaSizeBytes;
+    let thumbnailObjectKey = current.thumbnailObjectKey;
+    let thumbnailUrl = current.thumbnailUrl;
+    let thumbnailContentType = current.thumbnailContentType;
+    let thumbnailSizeBytes = current.thumbnailSizeBytes;
+
+    if (kind === "text") {
+      if (current.mediaObjectKey) {
+        await deleteObject(current.mediaObjectKey).catch(() => null);
+      }
+      mediaObjectKey = null;
+      mediaUrl = null;
+      mediaContentType = null;
+      mediaSizeBytes = null;
+    } else if (file instanceof File && file.size > 0) {
+      const upload = await uploadMaterialFile(kind, file);
+      if (!upload) {
+        return c.json({ error: "Media file type does not match material kind" }, 400);
+      }
+      if (current.mediaObjectKey) {
+        await deleteObject(current.mediaObjectKey).catch(() => null);
+      }
+      mediaObjectKey = upload.objectKey;
+      mediaUrl = null;
+      mediaContentType = upload.contentType;
+      mediaSizeBytes = upload.sizeBytes;
+    } else if (current.kind !== kind || !current.mediaObjectKey) {
+      return c.json({ error: "Media file is required when changing material kind" }, 400);
+    }
+
+    if (kind !== "video") {
+      if (current.thumbnailObjectKey) {
+        await deleteObject(current.thumbnailObjectKey).catch(() => null);
+      }
+      thumbnailObjectKey = null;
+      thumbnailUrl = null;
+      thumbnailContentType = null;
+      thumbnailSizeBytes = null;
+    } else if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+      const upload = await uploadThumbnailFile(thumbnailFile);
+      if (!upload) {
+        return c.json({ error: "Thumbnail file must be an image" }, 400);
+      }
+      if (current.thumbnailObjectKey) {
+        await deleteObject(current.thumbnailObjectKey).catch(() => null);
+      }
+      thumbnailObjectKey = upload.objectKey;
+      thumbnailUrl = null;
+      thumbnailContentType = upload.contentType;
+      thumbnailSizeBytes = upload.sizeBytes;
+    }
+
+    const now = new Date();
+    const [material] = await db
+      .update(contentItems)
+      .set({
+        categoryId,
+        kind,
+        title,
+        summary,
+        body,
+        mediaUrl,
+        mediaObjectKey,
+        mediaContentType,
+        mediaSizeBytes,
+        thumbnailUrl,
+        thumbnailObjectKey,
+        thumbnailContentType,
+        thumbnailSizeBytes,
+        isPublished,
+        publishedAt: isPublished ? (current.publishedAt ?? now) : null,
+        archivedUntil: null,
+        updatedAt: now
+      })
+      .where(eq(contentItems.id, current.id))
+      .returning();
+
+    if (!material) {
+      return c.json({ error: "Unable to update material" }, 500);
     }
 
     return c.json({

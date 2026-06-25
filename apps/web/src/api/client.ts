@@ -281,6 +281,13 @@ export function createAdminLearningMaterial(payload: FormData) {
   });
 }
 
+export function updateAdminLearningMaterial(id: string, payload: FormData) {
+  return api<AdminLearningMaterialMutationResponse>(`/admin/learning/materials/${id}`, {
+    method: "POST",
+    body: payload
+  });
+}
+
 export function createAdminLearningCategory(payload: { title: string; description?: string | null }) {
   return api<AdminLearningCategoryMutationResponse>("/admin/learning/categories", {
     method: "POST",
