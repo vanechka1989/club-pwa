@@ -45,7 +45,6 @@ const providerForm = ref({
 const productForm = ref({
   kind: "one_time" as "one_time" | "recurrent",
   title: "",
-  description: "",
   amountRub: 990,
   accessDays: 30,
   prodamusSubscriptionId: "",
@@ -150,7 +149,6 @@ function resetProductForm() {
   productForm.value = {
     kind: "one_time",
     title: "",
-    description: "",
     amountRub: 990,
     accessDays: 30,
     prodamusSubscriptionId: "",
@@ -164,7 +162,6 @@ async function openProductModal(product?: PaymentProduct) {
     productForm.value = {
       kind: product.kind,
       title: product.title,
-      description: product.description ?? "",
       amountRub: product.amountRub,
       accessDays: product.accessDays,
       prodamusSubscriptionId: product.prodamusSubscriptionId ?? "",
@@ -225,7 +222,7 @@ async function handleSaveProduct() {
   try {
     const payload = {
       ...productForm.value,
-      description: productForm.value.description.trim() || null,
+      description: null,
       prodamusSubscriptionId: productForm.value.kind === "recurrent" ? productForm.value.prodamusSubscriptionId.trim() : null
     };
     const response = editingProduct.value
@@ -593,10 +590,6 @@ watch(showProductModal, async (isOpen) => {
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">Название</span>
               <input v-model.trim="productForm.title" class="text-input mt-2" required />
-            </label>
-            <label class="block">
-              <span class="text-sm font-semibold text-[var(--muted)]">Описание</span>
-              <textarea v-model.trim="productForm.description" class="text-input mt-2 min-h-24" />
             </label>
             <div class="grid grid-cols-2 gap-3">
               <label class="block">
