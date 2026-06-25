@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PaymentProduct, PaymentProvider, UserRecurrentSubscription } from "@club/shared";
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { Copy, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-vue-next";
 import {
   cancelRecurrentSubscription,
@@ -29,6 +29,8 @@ const showProviderPicker = ref(false);
 const showProviderForm = ref(false);
 const showProductModal = ref(false);
 const editingProduct = ref<PaymentProduct | null>(null);
+const providerFormModal = ref<HTMLElement | null>(null);
+const productFormModal = ref<HTMLElement | null>(null);
 
 const providerForm = ref({
   formUrl: "",
@@ -301,6 +303,22 @@ function productPeriod(product: PaymentProduct) {
 onMounted(async () => {
   await Promise.all([loadPayments(), loadProviderForAdmin()]);
 });
+
+watch(showProviderForm, async (isOpen) => {
+  if (!isOpen) {
+    return;
+  }
+  await nextTick();
+  providerFormModal.value?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+});
+
+watch(showProductModal, async (isOpen) => {
+  if (!isOpen) {
+    return;
+  }
+  await nextTick();
+  productFormModal.value?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+});
 </script>
 
 <template>
@@ -450,7 +468,7 @@ onMounted(async () => {
     </div>
 
     <div v-if="showProviderForm" class="admin-modal-backdrop" @click.self="closeProviderForm">
-      <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="provider-form-title">
+      <aside ref="providerFormModal" class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="provider-form-title">
         <header class="admin-client-modal-head">
           <div>
             <h3 id="provider-form-title">Prodamus</h3>
@@ -504,7 +522,7 @@ onMounted(async () => {
     </div>
 
     <div v-if="showProductModal" class="admin-modal-backdrop" @click.self="closeProductModal">
-      <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+      <aside ref="productFormModal" class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
         <header class="admin-client-modal-head">
           <div>
             <h3 id="product-modal-title">{{ editingProduct ? "Редактировать тариф" : "Новый тариф" }}</h3>
