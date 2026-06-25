@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { getPaymentHistory } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
+import { shouldShowAccessClosedAlert } from "@/features/app/accessStatus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
@@ -21,6 +22,7 @@ const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
 const communityChatOpen = ref(false);
 let paymentWatchTimer: number | null = null;
+let sessionRefreshTimer: number | null = null;
 
 function showTelegramAlert(message: string) {
   if (window.Telegram?.WebApp?.showAlert) {
@@ -150,6 +152,15 @@ async function checkPendingPaymentWatch() {
   }
 }
 
+async function refreshSessionAccessStatus(shouldNotify: boolean) {
+  const previousUser = session.user ? { ...session.user } : null;
+  await session.load({ silent: true });
+
+  if (shouldNotify && shouldShowAccessClosedAlert(previousUser, session.user)) {
+    showTelegramAlert("Доступ к клубу закрыт. Разделы клуба больше недоступны.");
+  }
+}
+
 function startPaymentWatchPolling() {
   if (paymentWatchTimer) {
     return;
@@ -160,8 +171,19 @@ function startPaymentWatchPolling() {
   }, 10_000);
 }
 
+function startSessionAccessPolling() {
+  if (sessionRefreshTimer) {
+    return;
+  }
+
+  sessionRefreshTimer = window.setInterval(() => {
+    void refreshSessionAccessStatus(true);
+  }, 15_000);
+}
+
 function handleVisibilityChange() {
   if (document.visibilityState === "visible") {
+    void refreshSessionAccessStatus(true);
     void checkPendingPaymentWatch();
   }
 }
@@ -174,7 +196,10 @@ onMounted(() => {
   window.addEventListener("resize", syncViewportHeight);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   startPaymentWatchPolling();
-  void session.load().then(() => checkPendingPaymentWatch());
+  void session.load().then(() => {
+    startSessionAccessPolling();
+    void checkPendingPaymentWatch();
+  });
 });
 
 watch(
@@ -204,6 +229,10 @@ onBeforeUnmount(() => {
   if (paymentWatchTimer) {
     window.clearInterval(paymentWatchTimer);
     paymentWatchTimer = null;
+  }
+  if (sessionRefreshTimer) {
+    window.clearInterval(sessionRefreshTimer);
+    sessionRefreshTimer = null;
   }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");

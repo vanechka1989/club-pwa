@@ -10,17 +10,24 @@ export const useSessionStore = defineStore("session", () => {
 
   const isMember = computed(() => user.value?.membershipStatus === "active");
 
-  async function load() {
-    loading.value = true;
-    error.value = null;
+  async function load(options: { silent?: boolean } = {}) {
+    if (!options.silent) {
+      loading.value = true;
+      error.value = null;
+    }
 
     try {
       const response = await getMe();
       user.value = response.user;
+      error.value = null;
     } catch {
-      error.value = "Откройте приложение внутри Telegram, чтобы подтвердить доступ к клубу.";
+      if (!options.silent) {
+        error.value = "Откройте приложение внутри Telegram, чтобы подтвердить доступ к клубу.";
+      }
     } finally {
-      loading.value = false;
+      if (!options.silent) {
+        loading.value = false;
+      }
     }
   }
 

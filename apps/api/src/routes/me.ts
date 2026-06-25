@@ -6,6 +6,7 @@ import { db } from "../db/client";
 import { userRecurrentSubscriptions, users } from "../db/schema";
 import { getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
+import { resolveMembershipProfileFields } from "../membership/profileFields";
 
 const avatarRefreshCooldownMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -22,20 +23,18 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
   const role = c.get("previewRole") ?? realRole;
   const previewMembershipStatus = c.get("previewMembershipStatus");
   const membershipStatus = previewMembershipStatus ?? membership.status;
-  const membershipExpiresAt =
+  const rawMembershipExpiresAt =
     previewMembershipStatus === "active"
       ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       : previewMembershipStatus === "inactive"
         ? null
         : (membership.subscription?.expiresAt?.toISOString() ?? null);
-  const paymentType =
-    membership.subscription?.provider === "prodamus_recurrent"
-      ? "recurrent"
-      : membership.subscription?.provider === "prodamus"
-        ? "one_time"
-        : membership.subscription?.provider === "manual"
-          ? "manual"
-          : "none";
+  const membershipProfile = resolveMembershipProfileFields({
+    membershipStatus,
+    subscriptionProvider: membership.subscription?.provider ?? null,
+    subscriptionExpiresAt: rawMembershipExpiresAt ? new Date(rawMembershipExpiresAt) : null,
+    recurrentPaymentStatus: recurrentSubscription?.status ?? null
+  });
 
   return {
     user: {
@@ -47,13 +46,10 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       role,
       realRole,
       membershipStatus,
-      membershipExpiresAt,
-      paymentType,
-      recurrentPaymentStatus: recurrentSubscription?.status ?? null,
-      nextPaymentAt:
-        paymentType === "recurrent" && recurrentSubscription?.status === "active"
-          ? membershipExpiresAt
-          : null,
+      membershipExpiresAt: membershipProfile.membershipExpiresAt,
+      paymentType: membershipProfile.paymentType,
+      recurrentPaymentStatus: membershipProfile.recurrentPaymentStatus,
+      nextPaymentAt: membershipProfile.nextPaymentAt,
       avatarRefreshedAt: user.avatarRefreshedAt?.toISOString() ?? null
     }
   };
