@@ -23,6 +23,7 @@ const navCollapsed = ref(false);
 const communityChatOpen = ref(false);
 let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
+let isAppMounted = false;
 
 function showTelegramAlert(message: string) {
   if (window.Telegram?.WebApp?.showAlert) {
@@ -167,7 +168,7 @@ async function refreshSessionAccessStatus(shouldNotify: boolean) {
 }
 
 function startPaymentWatchPolling() {
-  if (paymentWatchTimer) {
+  if (!isAppMounted || paymentWatchTimer) {
     return;
   }
 
@@ -177,7 +178,7 @@ function startPaymentWatchPolling() {
 }
 
 function startSessionAccessPolling() {
-  if (sessionRefreshTimer) {
+  if (!isAppMounted || sessionRefreshTimer) {
     return;
   }
 
@@ -194,6 +195,7 @@ function handleVisibilityChange() {
 }
 
 onMounted(() => {
+  isAppMounted = true;
   window.Telegram?.WebApp?.ready();
   syncTelegramFullscreen(ui.fullscreenEnabled);
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
@@ -202,6 +204,10 @@ onMounted(() => {
   document.addEventListener("visibilitychange", handleVisibilityChange);
   startPaymentWatchPolling();
   void session.load().then(() => {
+    if (!isAppMounted) {
+      return;
+    }
+
     startSessionAccessPolling();
     void checkPendingPaymentWatch();
   });
@@ -226,6 +232,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  isAppMounted = false;
   syncCommunityLock(false);
   window.visualViewport?.removeEventListener("resize", syncViewportHeight);
   window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
