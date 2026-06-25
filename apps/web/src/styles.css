@@ -23,6 +23,7 @@
   --shadow: 0 26px 80px rgb(0 0 0 / 44%);
   --shadow-soft: 0 14px 40px rgb(0 0 0 / 28%);
   --fullscreen-top-offset: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+  --screen-gutter: 0.8rem;
 }
 
 :root[data-theme="dark"] {
@@ -358,7 +359,7 @@ button {
   border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   border-radius: 16px;
-  padding: 0.8rem;
+  padding: var(--screen-gutter);
   overflow: hidden;
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
@@ -372,7 +373,7 @@ button {
   border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
   background: color-mix(in srgb, var(--panel-strong) 94%, transparent);
   border-radius: 13px;
-  padding: 0.8rem;
+  padding: var(--screen-gutter);
   box-shadow: var(--shadow-soft);
 }
 
@@ -507,7 +508,7 @@ button {
 .admin-panel {
   display: grid;
   gap: 0.75rem;
-  padding: 0.8rem;
+  padding: var(--screen-gutter);
 }
 
 .admin-panel-wide {
@@ -1075,7 +1076,7 @@ button {
   border-radius: 16px;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 48%, var(--panel)), color-mix(in srgb, var(--panel) 96%, transparent));
-  padding: 0.8rem;
+  padding: var(--screen-gutter);
   box-shadow: var(--shadow-soft);
 }
 
