@@ -549,9 +549,12 @@ onMounted(async () => {
             <input v-model="productForm.isPublished" type="checkbox" />
             Показывать клиентам
           </label>
-          <button class="primary-button" type="submit" :disabled="saving">
-            {{ editingProduct ? "Сохранить тариф" : "Добавить тариф" }}
-          </button>
+          <div class="grid grid-cols-2 gap-3">
+            <button class="secondary-button" type="button" @click="closeProductModal">Закрыть</button>
+            <button class="primary-button" type="submit" :disabled="saving">
+              {{ editingProduct ? "Сохранить тариф" : "Добавить тариф" }}
+            </button>
+          </div>
         </form>
       </aside>
     </div>
