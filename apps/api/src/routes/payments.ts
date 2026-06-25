@@ -22,6 +22,8 @@ import { telegramAuth } from "../middleware/auth";
 import { canManagePaymentSettings, canReadPaymentSettings } from "../payments/adminAccess";
 import {
   buildProdamusPaymentUrl,
+  getProdamusNotificationOrderId,
+  normalizeProdamusWebhookPayload,
   normalizeProdamusFormUrl,
   setProdamusSubscriptionActivity,
   verifyProdamusSignature
@@ -101,7 +103,7 @@ async function getProdamusProvider() {
 async function parseWebhookPayload(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
-    return (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    return normalizeProdamusWebhookPayload((await request.json().catch(() => ({}))) as Record<string, unknown>);
   }
 
   const form = await request.formData().catch(() => null);
@@ -109,12 +111,13 @@ async function parseWebhookPayload(request: Request) {
     return {};
   }
 
-  return Object.fromEntries(Array.from(form.entries()).map(([key, value]) => [key, typeof value === "string" ? value : String(value)]));
+  return normalizeProdamusWebhookPayload(
+    Object.fromEntries(Array.from(form.entries()).map(([key, value]) => [key, typeof value === "string" ? value : String(value)]))
+  );
 }
 
 function getWebhookOrderId(payload: Record<string, unknown>) {
-  const value = payload.order_id ?? payload.orderId ?? payload.order_num;
-  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+  return getProdamusNotificationOrderId(payload);
 }
 
 function getWebhookPaymentId(payload: Record<string, unknown>) {
@@ -379,7 +382,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     const checkoutUrl = buildProdamusPaymentUrl({
       formUrl: provider.formUrl,
       secretKey: provider.secretKey,
-      sys: provider.sys,
+      sys: provider.sys || user.telegramId,
       orderId: order.providerOrderId,
       userTelegramId: user.telegramId,
       product: {

@@ -4,6 +4,8 @@ import {
   buildProdamusPaymentUrl,
   buildProdamusSetActivityRequest,
   createProdamusSignature,
+  getProdamusNotificationOrderId,
+  normalizeProdamusWebhookPayload,
   normalizeProdamusFormUrl,
   verifyProdamusSignature
 } from "./prodamus";
@@ -58,6 +60,35 @@ describe("prodamus payment helpers", () => {
     expect(signature).toBe(createHmac("sha256", "secret").update(canonicalPayload).digest("hex"));
   });
 
+  it("normalizes Prodamus flat webhook fields before signature verification", () => {
+    const flatPayload = {
+      order_id: "46102525",
+      order_num: "club-order-1",
+      "products[0][name]": "Premium",
+      "products[0][price]": "990.00",
+      "products[0][quantity]": "1",
+      payment_status: "success"
+    };
+    const normalizedPayload = normalizeProdamusWebhookPayload(flatPayload);
+    const signature = createProdamusSignature(
+      {
+        order_id: "46102525",
+        order_num: "club-order-1",
+        products: [{ name: "Premium", price: "990.00", quantity: "1" }],
+        payment_status: "success"
+      },
+      "secret"
+    );
+
+    expect(normalizedPayload.products).toEqual([{ name: "Premium", price: "990.00", quantity: "1" }]);
+    expect(verifyProdamusSignature(normalizedPayload, "secret", signature)).toBe(true);
+  });
+
+  it("uses order_num as the client order id in Prodamus notifications", () => {
+    expect(getProdamusNotificationOrderId({ order_id: "46102525", order_num: "club-order-1" })).toBe("club-order-1");
+    expect(getProdamusNotificationOrderId({ order_id: "club-order-2" })).toBe("club-order-2");
+  });
+
   it("builds one-time payment urls with product and customer metadata", () => {
     const url = new URL(
       buildProdamusPaymentUrl({
@@ -85,6 +116,7 @@ describe("prodamus payment helpers", () => {
     expect(url.searchParams.get("customer_extra")).toBe("telegram:100");
     expect(url.searchParams.get("_param_telegram_id")).toBe("100");
     expect(url.searchParams.get("urlNotification")).toBe("https://club.example/api/payments/prodamus/webhook");
+    expect(url.searchParams.get("callbackType")).toBe("json");
     expect(url.searchParams.get("products[0][name]")).toBe("Premium");
     expect(url.searchParams.get("products[0][price]")).toBe("990");
     expect(url.searchParams.get("products[0][quantity]")).toBe("1");

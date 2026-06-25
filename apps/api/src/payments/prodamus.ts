@@ -21,6 +21,76 @@ export function normalizeProdamusFormUrl(value: string) {
   return url.toString();
 }
 
+function splitBracketKey(key: string) {
+  const parts: string[] = [];
+  key.replace(/([^[\]]+)|\[([^\]]*)\]/g, (_match, plain: string | undefined, bracket: string | undefined) => {
+    parts.push(plain ?? bracket ?? "");
+    return "";
+  });
+  return parts.length ? parts : [key];
+}
+
+function isArrayIndex(value: string) {
+  return /^\d+$/.test(value);
+}
+
+function isContainer(value: unknown): value is Record<string, unknown> | unknown[] {
+  return Boolean(value) && typeof value === "object";
+}
+
+function setNestedValue(target: Record<string, unknown>, parts: string[], value: unknown) {
+  let cursor: Record<string, unknown> | unknown[] = target;
+
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index] ?? "";
+    const isLast = index === parts.length - 1;
+    const nextPart = parts[index + 1] ?? "";
+
+    if (Array.isArray(cursor)) {
+      const arrayIndex = Number(part);
+      if (isLast) {
+        cursor[arrayIndex] = value;
+        return;
+      }
+
+      if (!isContainer(cursor[arrayIndex])) {
+        cursor[arrayIndex] = isArrayIndex(nextPart) ? [] : {};
+      }
+      cursor = cursor[arrayIndex] as Record<string, unknown> | unknown[];
+      continue;
+    }
+
+    if (isLast) {
+      cursor[part] = value;
+      return;
+    }
+
+    if (!isContainer(cursor[part])) {
+      cursor[part] = isArrayIndex(nextPart) ? [] : {};
+    }
+    cursor = cursor[part] as Record<string, unknown> | unknown[];
+  }
+}
+
+export function normalizeProdamusWebhookPayload(payload: Record<string, unknown>) {
+  const normalized: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (key.includes("[")) {
+      setNestedValue(normalized, splitBracketKey(key), value);
+    } else {
+      normalized[key] = value;
+    }
+  }
+
+  return normalized;
+}
+
+export function getProdamusNotificationOrderId(payload: Record<string, unknown>) {
+  const value = payload.order_num ?? payload.orderId ?? payload.order_id;
+  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
 function sanitizeForSignature(value: unknown): ProdamusSignatureValue | undefined {
   if (value === undefined) {
     return undefined;
@@ -108,6 +178,7 @@ export function buildProdamusPaymentUrl(input: {
     urlReturn: input.returnUrl,
     urlSuccess: input.returnUrl,
     urlNotification: input.notificationUrl,
+    callbackType: "json",
     products,
     subscription: input.product.kind === "recurrent" ? input.product.prodamusSubscriptionId : undefined,
     subscription_date_start: subscriptionDateStart
@@ -125,6 +196,7 @@ export function buildProdamusPaymentUrl(input: {
   url.searchParams.set("urlReturn", input.returnUrl);
   url.searchParams.set("urlSuccess", input.returnUrl);
   url.searchParams.set("urlNotification", input.notificationUrl);
+  url.searchParams.set("callbackType", "json");
   url.searchParams.set("products[0][name]", input.product.title);
   url.searchParams.set("products[0][price]", String(input.product.amountRub));
   url.searchParams.set("products[0][quantity]", "1");

@@ -13,6 +13,7 @@ import {
   updatePaymentProduct,
   updatePaymentProductStatus
 } from "@/api/client";
+import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { useSessionStore } from "@/stores/session";
 
 const session = useSessionStore();
@@ -52,6 +53,10 @@ const productForm = ref({
   isPublished: true
 });
 
+type TelegramWebAppWithConfirm = {
+  showConfirm?: (message: string, callback: (isConfirmed: boolean) => void) => void;
+};
+
 const isAdmin = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isOwner = computed(() => session.user?.role === "owner");
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
@@ -63,6 +68,20 @@ function showAlert(message: string) {
   if (window.Telegram?.WebApp?.showAlert) {
     window.Telegram.WebApp.showAlert(message);
   }
+}
+
+function confirmPaymentRedirect() {
+  const message =
+    "После оплаты зачисление обычно занимает от 5 до 15 минут. Вернитесь в миниапку после оплаты, доступ обновится автоматически.";
+  return new Promise<boolean>((resolve) => {
+    const webApp = window.Telegram?.WebApp as TelegramWebAppWithConfirm | undefined;
+    if (webApp?.showConfirm) {
+      webApp.showConfirm(message, resolve);
+      return;
+    }
+
+    resolve(window.confirm(message));
+  });
 }
 
 async function loadPayments() {
@@ -286,6 +305,10 @@ async function handleDeleteProduct(product: PaymentProduct) {
 }
 
 async function handleCheckout(product: PaymentProduct) {
+  if (!(await confirmPaymentRedirect())) {
+    return;
+  }
+
   checkoutProductId.value = product.id;
   saving.value = true;
   error.value = null;
@@ -293,6 +316,7 @@ async function handleCheckout(product: PaymentProduct) {
   try {
     const response = await createPaymentCheckout(product.id);
     if (response.checkoutUrl) {
+      startPaymentWatch();
       navigating = true;
       window.location.href = response.checkoutUrl;
       return;

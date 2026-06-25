@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { getPaymentHistory } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
+import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
 import LearningSection from "@/features/learning/LearningSection.vue";
@@ -18,6 +20,16 @@ const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
 const communityChatOpen = ref(false);
+let paymentWatchTimer: number | null = null;
+
+function showTelegramAlert(message: string) {
+  if (window.Telegram?.WebApp?.showAlert) {
+    window.Telegram.WebApp.showAlert(message);
+    return;
+  }
+
+  window.alert(message);
+}
 
 const visibleNavItems = computed(() =>
   navItems.filter((item) => !item.adminOnly || session.user?.realRole === "admin" || session.user?.realRole === "owner")
@@ -105,13 +117,64 @@ function syncTelegramFullscreen(isEnabled: boolean) {
   }, 250);
 }
 
+async function checkPendingPaymentWatch() {
+  const watch = readPaymentWatch();
+  if (!watch) {
+    return;
+  }
+
+  const startedAt = Date.parse(watch.startedAt);
+  if (!Number.isFinite(startedAt) || Date.now() - startedAt > 20 * 60 * 1000) {
+    clearPaymentWatch();
+    return;
+  }
+
+  try {
+    const response = await getPaymentHistory();
+    const watchedOrders = response.orders.filter((order) => isOrderWithinPaymentWatch(order, watch));
+    const paidOrder = watchedOrders.find((order) => order.status === "paid");
+    if (paidOrder) {
+      clearPaymentWatch();
+      await session.load();
+      showTelegramAlert("Оплата прошла. Доступ обновлен.");
+      return;
+    }
+
+    const failedOrder = watchedOrders.find((order) => order.status === "failed" || order.status === "cancelled");
+    if (failedOrder) {
+      clearPaymentWatch();
+      showTelegramAlert("Оплата не прошла. Проверьте платеж или попробуйте еще раз.");
+    }
+  } catch {
+    // Следующая проверка повторится по таймеру.
+  }
+}
+
+function startPaymentWatchPolling() {
+  if (paymentWatchTimer) {
+    return;
+  }
+
+  paymentWatchTimer = window.setInterval(() => {
+    void checkPendingPaymentWatch();
+  }, 10_000);
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    void checkPendingPaymentWatch();
+  }
+}
+
 onMounted(() => {
   window.Telegram?.WebApp?.ready();
   syncTelegramFullscreen(ui.fullscreenEnabled);
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
   window.visualViewport?.addEventListener("scroll", syncViewportHeight);
   window.addEventListener("resize", syncViewportHeight);
-  void session.load();
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  startPaymentWatchPolling();
+  void session.load().then(() => checkPendingPaymentWatch());
 });
 
 watch(
@@ -137,6 +200,11 @@ onBeforeUnmount(() => {
   window.visualViewport?.removeEventListener("resize", syncViewportHeight);
   window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
   window.removeEventListener("resize", syncViewportHeight);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  if (paymentWatchTimer) {
+    window.clearInterval(paymentWatchTimer);
+    paymentWatchTimer = null;
+  }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");
 });
