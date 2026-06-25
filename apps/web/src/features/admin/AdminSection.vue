@@ -3,7 +3,6 @@ import type { AdminLearningMaterial, AdminStatsUser, AdminUser, AdminUserDetailR
 import {
   BarChart3,
   Check,
-  FileVideo,
   Search,
   Shield,
   Trash2,
@@ -41,7 +40,6 @@ type AdminPanel = "overview" | "users" | "materials" | "admins";
 const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "Обзор", icon: BarChart3 },
   { id: "users", label: "Клиенты", icon: UsersRound },
-  { id: "materials", label: "Контент", icon: FileVideo },
   { id: "admins", label: "Админы", icon: Shield }
 ];
 

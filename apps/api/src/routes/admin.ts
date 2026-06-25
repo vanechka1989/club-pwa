@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNotNull, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -49,12 +49,21 @@ const materialStatusPayloadSchema = z.object({
   isPublished: z.boolean()
 });
 
+const categoryStatusPayloadSchema = z.object({
+  isPublished: z.boolean()
+});
+
 const learningCategoryPayloadSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(1000).nullable().optional()
 });
 
 const contentKinds = ["text", "photo", "video", "audio"] as const;
+const contentArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
+
+function activeContentWhere() {
+  return or(isNull(contentItems.archivedUntil), gt(contentItems.archivedUntil, new Date()));
+}
 
 function getFormValue(form: FormData, key: string) {
   const value = form.get(key);
@@ -98,9 +107,28 @@ async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): P
     mediaSizeBytes: item.mediaSizeBytes,
     publishedAt: item.publishedAt?.toISOString() ?? null,
     isPublished: item.isPublished,
+    archivedUntil: item.archivedUntil?.toISOString() ?? null,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString()
   };
+}
+
+async function purgeExpiredArchivedContent() {
+  const expiredItems = await db.query.contentItems.findMany({
+    where: and(isNotNull(contentItems.archivedUntil), lt(contentItems.archivedUntil, new Date()))
+  });
+
+  for (const item of expiredItems) {
+    if (item.mediaObjectKey) {
+      await deleteObject(item.mediaObjectKey).catch(() => null);
+    }
+  }
+
+  if (expiredItems.length) {
+    for (const item of expiredItems) {
+      await db.delete(contentItems).where(eq(contentItems.id, item.id));
+    }
+  }
 }
 
 async function getPublishedItemsCount() {
@@ -427,20 +455,24 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ items });
   })
   .get("/learning", async (c) => {
+    await purgeExpiredArchivedContent();
+
     const categories = await db
       .select({
         id: contentCategories.id,
         slug: contentCategories.slug,
         title: contentCategories.title,
         description: contentCategories.description,
+        isPublished: contentCategories.isPublished,
         itemsCount: count(contentItems.id)
       })
       .from(contentCategories)
-      .leftJoin(contentItems, eq(contentItems.categoryId, contentCategories.id))
+      .leftJoin(contentItems, and(eq(contentItems.categoryId, contentCategories.id), activeContentWhere()))
       .groupBy(contentCategories.id)
       .orderBy(contentCategories.sortOrder);
 
     const materials = await db.query.contentItems.findMany({
+      where: activeContentWhere(),
       orderBy: [asc(contentItems.sortOrder), desc(contentItems.createdAt)]
     });
 
@@ -483,7 +515,44 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         slug: category.slug,
         title: category.title,
         description: category.description,
+        isPublished: category.isPublished,
         itemsCount: 0
+      }
+    });
+  })
+  .post("/learning/categories/:id/status", async (c) => {
+    const body = categoryStatusPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid category status payload" }, 400);
+    }
+
+    const [category] = await db
+      .update(contentCategories)
+      .set({
+        isPublished: body.data.isPublished,
+        updatedAt: new Date()
+      })
+      .where(eq(contentCategories.id, c.req.param("id")))
+      .returning();
+
+    if (!category) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    const [itemsRow] = await db
+      .select({ value: count(contentItems.id) })
+      .from(contentItems)
+      .where(and(eq(contentItems.categoryId, category.id), activeContentWhere()));
+
+    return c.json({
+      ok: true,
+      category: {
+        id: category.id,
+        slug: category.slug,
+        title: category.title,
+        description: category.description,
+        isPublished: category.isPublished,
+        itemsCount: itemsRow?.value ?? 0
       }
     });
   })
@@ -577,6 +646,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         mediaSizeBytes,
         isPublished,
         publishedAt: isPublished ? now : null,
+        archivedUntil: null,
         createdAt: now,
         updatedAt: now
       })
@@ -610,6 +680,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .set({
         isPublished: body.data.isPublished,
         publishedAt: body.data.isPublished ? (current.publishedAt ?? now) : null,
+        archivedUntil: null,
         updatedAt: now
       })
       .where(eq(contentItems.id, current.id))
@@ -632,11 +703,15 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Material not found" }, 404);
     }
 
-    if (material.mediaObjectKey) {
-      await deleteObject(material.mediaObjectKey).catch(() => null);
-    }
-
-    await db.delete(contentItems).where(eq(contentItems.id, material.id));
+    await db
+      .update(contentItems)
+      .set({
+        isPublished: false,
+        publishedAt: null,
+        archivedUntil: new Date(Date.now() + contentArchiveTtlMs),
+        updatedAt: new Date()
+      })
+      .where(eq(contentItems.id, material.id));
 
     return c.json({ ok: true });
   })

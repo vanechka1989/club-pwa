@@ -94,13 +94,14 @@ onBeforeUnmount(() => {
     class="app-root min-h-screen text-[var(--text)]"
     :class="{
       'nav-is-collapsed': navCollapsed,
+      'learning-active': activeSection === 'learning',
       'community-active': activeSection === 'community',
       'community-chat-open': activeSection === 'community' && communityChatOpen
     }"
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
     <section class="app-shell mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
-      <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
+      <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community', 'content-panel-learning': activeSection === 'learning' }">
         <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
 
         <div v-else-if="session.error" class="space-y-3">

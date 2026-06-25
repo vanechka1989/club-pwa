@@ -287,6 +287,13 @@ export function deleteAdminLearningCategory(id: string) {
   });
 }
 
+export function updateAdminLearningCategoryStatus(id: string, isPublished: boolean) {
+  return api<AdminLearningCategoryMutationResponse>(`/admin/learning/categories/${id}/status`, {
+    method: "POST",
+    body: { isPublished }
+  });
+}
+
 export function updateAdminLearningMaterialStatus(id: string, isPublished: boolean) {
   return api<AdminLearningMaterialMutationResponse>(`/admin/learning/materials/${id}/status`, {
     method: "POST",

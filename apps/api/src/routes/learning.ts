@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNotNull, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { contentCategories, contentItems, lessonComments, userContentProgress } from "../db/schema";
@@ -15,6 +15,10 @@ const commentPayloadSchema = z.object({
 const playbackPayloadSchema = z.object({
   positionSeconds: z.number().int().min(0).max(24 * 60 * 60)
 });
+
+function publishedContentWhere() {
+  return and(eq(contentItems.isPublished, true), or(isNull(contentItems.archivedUntil), gt(contentItems.archivedUntil, new Date())));
+}
 
 async function serializeContentItem(item: typeof contentItems.$inferSelect, includeBody = false) {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
@@ -64,19 +68,20 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         slug: contentCategories.slug,
         title: contentCategories.title,
         description: contentCategories.description,
+        isPublished: contentCategories.isPublished,
         itemsCount: count(contentItems.id)
       })
       .from(contentCategories)
       .leftJoin(
         contentItems,
-        and(eq(contentItems.categoryId, contentCategories.id), eq(contentItems.isPublished, true))
+        and(eq(contentItems.categoryId, contentCategories.id), publishedContentWhere())
       )
       .where(eq(contentCategories.isPublished, true))
       .groupBy(contentCategories.id)
       .orderBy(contentCategories.sortOrder);
 
     const featured = await db.query.contentItems.findMany({
-      where: eq(contentItems.isPublished, true),
+      where: publishedContentWhere(),
       orderBy: [asc(contentItems.sortOrder), desc(contentItems.publishedAt)]
     });
 
@@ -85,7 +90,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         value: count(contentItems.id)
       })
       .from(contentItems)
-      .where(eq(contentItems.isPublished, true));
+      .where(publishedContentWhere());
 
     const [completedItemsRow] = await db
       .select({
@@ -96,7 +101,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       .where(
         and(
           eq(userContentProgress.userId, userId),
-          eq(contentItems.isPublished, true),
+          publishedContentWhere(),
           isNotNull(userContentProgress.completedAt)
         )
       );
@@ -108,6 +113,12 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         item: true
       }
     });
+    const lastOpenedItem =
+      lastOpenedProgress?.item &&
+      lastOpenedProgress.item.isPublished &&
+      (!lastOpenedProgress.item.archivedUntil || lastOpenedProgress.item.archivedUntil > new Date())
+        ? lastOpenedProgress.item
+        : null;
 
     return c.json({
       categories,
@@ -115,7 +126,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       progress: {
         totalItems: totalItemsRow?.value ?? 0,
         completedItems: completedItemsRow?.value ?? 0,
-        lastOpenedItem: lastOpenedProgress?.item ? await serializeContentItem(lastOpenedProgress.item) : null,
+        lastOpenedItem: lastOpenedItem ? await serializeContentItem(lastOpenedItem) : null,
         lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null
       }
     });
@@ -123,7 +134,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
   .get("/items/:id", requireActiveMember, async (c) => {
     const userId = c.get("userId");
     const item = await db.query.contentItems.findFirst({
-      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
     });
 
     if (!item) {
@@ -162,7 +173,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const item = await db.query.contentItems.findFirst({
-      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
     });
 
     if (!item) {
@@ -197,7 +208,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/items/:id/complete", requireActiveMember, async (c) => {
     const userId = c.get("userId");
     const item = await db.query.contentItems.findFirst({
-      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
     });
 
     if (!item) {
@@ -233,7 +244,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
   .get("/items/:id/comments", requireActiveMember, async (c) => {
     const userId = c.get("userId");
     const item = await db.query.contentItems.findFirst({
-      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
     });
 
     if (!item) {
@@ -266,7 +277,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const item = await db.query.contentItems.findFirst({
-      where: and(eq(contentItems.id, c.req.param("id")), eq(contentItems.isPublished, true))
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
     });
 
     if (!item) {

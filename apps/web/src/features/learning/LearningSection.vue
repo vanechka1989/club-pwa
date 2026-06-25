@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import type { LearningContent, LearningCategory, LessonComment } from "@club/shared";
-import { CheckCircle2, Image, Loader2, Music, Play, Type } from "lucide-vue-next";
+import type { AdminLearningMaterial, ContentKind, LearningContent, LearningCategory, LessonComment } from "@club/shared";
+import { CheckCircle2, Eye, EyeOff, Image, Loader2, Music, Play, Plus, Trash2, Type, X } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import {
   completeLearningContent,
+  createAdminLearningCategory,
+  createAdminLearningMaterial,
   createLessonComment,
+  deleteAdminLearningCategory,
+  deleteAdminLearningMaterial,
+  getAdminLearning,
   getLearningContent,
   getLearningHome,
   getLessonComments,
-  saveLearningPlayback
+  saveLearningPlayback,
+  updateAdminLearningCategoryStatus,
+  updateAdminLearningMaterialStatus
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
@@ -18,6 +25,7 @@ const { t } = useI18n();
 
 const categories = ref<LearningCategory[]>([]);
 const featured = ref<LearningContent[]>([]);
+const adminMaterials = ref<AdminLearningMaterial[]>([]);
 const lastOpenedItem = ref<LearningContent | null>(null);
 const totalItems = ref(0);
 const completedItems = ref(0);
@@ -34,9 +42,23 @@ const error = ref<string | null>(null);
 const accessDenied = ref(false);
 const imageViewerUrl = ref<string | null>(null);
 const videoViewerUrl = ref<string | null>(null);
+const showContentModal = ref(false);
+const contentSaving = ref(false);
+const contentNotice = ref<string | null>(null);
+const contentError = ref<string | null>(null);
+const materialCategoryId = ref("");
+const materialKind = ref<ContentKind>("text");
+const materialTitle = ref("");
+const materialSummary = ref("");
+const materialBody = ref("");
+const materialPublished = ref(true);
+const materialFile = ref<File | null>(null);
+const categoryTitle = ref("");
+const categoryDescription = ref("");
 const hasLearningAccess = computed(
   () => session.user?.role === "admin" || session.user?.role === "owner" || session.user?.membershipStatus === "active"
 );
+const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 
 const selectedIcon = computed(() => {
   if (selectedItem.value?.kind === "photo") {
@@ -67,8 +89,10 @@ const materialsByCategory = computed(() =>
       category,
       items: featured.value.filter((item) => item.categoryId === category.id)
     }))
-    .filter((group) => group.items.length)
+    .filter((group) => isModerator.value || group.items.length)
 );
+const hiddenMaterials = computed(() => adminMaterials.value.filter((item) => !item.isPublished && !item.archivedUntil));
+const archivedMaterials = computed(() => adminMaterials.value.filter((item) => item.archivedUntil));
 
 function iconFor(kind: LearningContent["kind"]) {
   if (kind === "photo") {
@@ -103,6 +127,17 @@ async function loadLearning() {
     lastOpenedItem.value = response.progress.lastOpenedItem;
     totalItems.value = response.progress.totalItems;
     completedItems.value = response.progress.completedItems;
+    if (isModerator.value) {
+      const adminResponse = await getAdminLearning();
+      categories.value = adminResponse.categories;
+      adminMaterials.value = adminResponse.materials;
+      featured.value = adminResponse.materials.filter((item) => item.isPublished && !item.archivedUntil);
+      if (!materialCategoryId.value && adminResponse.categories[0]) {
+        materialCategoryId.value = adminResponse.categories[0].id;
+      }
+    } else {
+      adminMaterials.value = [];
+    }
   } catch (reason) {
     const status = typeof reason === "object" && reason && "status" in reason ? reason.status : null;
     if (status === 403) {
@@ -154,6 +189,10 @@ async function openItem(item: LearningContent) {
 
 function isSelectedItem(item: LearningContent) {
   return selectedItem.value?.id === item.id;
+}
+
+function formatArchiveUntil(value: string | null) {
+  return value ? new Date(value).toLocaleDateString("ru-RU") : "";
 }
 
 function applySavedPlayback(event: Event) {
@@ -211,6 +250,178 @@ function openVideoViewer(url: string) {
 
 function closeVideoViewer() {
   videoViewerUrl.value = null;
+}
+
+function notifyContent(message: string) {
+  contentNotice.value = message;
+  contentError.value = null;
+  if (window.Telegram?.WebApp?.showAlert) {
+    window.Telegram.WebApp.showAlert(message);
+    return;
+  }
+
+  window.alert(message);
+}
+
+function resetContentForm() {
+  materialCategoryId.value = categories.value[0]?.id ?? "";
+  materialKind.value = "text";
+  materialTitle.value = "";
+  materialSummary.value = "";
+  materialBody.value = "";
+  materialPublished.value = true;
+  materialFile.value = null;
+  categoryTitle.value = "";
+  categoryDescription.value = "";
+}
+
+function closeContentModal() {
+  showContentModal.value = false;
+  resetContentForm();
+}
+
+function handleMaterialFileChange(event: Event) {
+  materialFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+async function handleCreateCategory() {
+  if (!categoryTitle.value.trim()) {
+    contentError.value = "Введите название категории.";
+    return null;
+  }
+
+  const response = await createAdminLearningCategory({
+    title: categoryTitle.value,
+    description: categoryDescription.value || null
+  });
+  categories.value = [...categories.value, response.category];
+  materialCategoryId.value = response.category.id;
+  categoryTitle.value = "";
+  categoryDescription.value = "";
+  notifyContent("Категория создана.");
+  return response.category;
+}
+
+async function handleDeleteCategory(category: LearningCategory) {
+  if (!window.confirm(`Удалить категорию "${category.title}" и весь контент внутри?`)) {
+    return;
+  }
+
+  await deleteAdminLearningCategory(category.id);
+  categories.value = categories.value.filter((item) => item.id !== category.id);
+  adminMaterials.value = adminMaterials.value.filter((item) => item.categoryId !== category.id);
+  featured.value = featured.value.filter((item) => item.categoryId !== category.id);
+  if (materialCategoryId.value === category.id) {
+    materialCategoryId.value = categories.value[0]?.id ?? "";
+  }
+  notifyContent("Категория удалена.");
+}
+
+async function handleToggleCategory(category: LearningCategory) {
+  contentSaving.value = true;
+  try {
+    const response = await updateAdminLearningCategoryStatus(category.id, !category.isPublished);
+    categories.value = categories.value.map((item) => (item.id === category.id ? response.category : item));
+    await loadLearning();
+    notifyContent(response.category.isPublished ? "Категория открыта." : "Категория скрыта.");
+  } catch {
+    contentError.value = "Не удалось изменить категорию.";
+  } finally {
+    contentSaving.value = false;
+  }
+}
+
+async function handleCreateMaterial() {
+  if (!materialTitle.value.trim()) {
+    contentError.value = "Введите название контента.";
+    return;
+  }
+
+  contentSaving.value = true;
+  contentError.value = null;
+  try {
+    let categoryId = materialCategoryId.value;
+    if (categoryId === "__new__") {
+      const category = await handleCreateCategory();
+      if (!category) {
+        return;
+      }
+      categoryId = category.id;
+    }
+
+    const form = new FormData();
+    form.set("categoryId", categoryId);
+    form.set("kind", materialKind.value);
+    form.set("title", materialTitle.value);
+    form.set("summary", materialSummary.value);
+    form.set("body", materialBody.value);
+    form.set("isPublished", String(materialPublished.value));
+    if (materialKind.value !== "text" && materialFile.value) {
+      form.set("file", materialFile.value);
+    }
+
+    const response = await createAdminLearningMaterial(form);
+    adminMaterials.value = [response.material, ...adminMaterials.value];
+    if (response.material.isPublished && !response.material.archivedUntil) {
+      featured.value = [response.material, ...featured.value];
+    }
+    await loadLearning();
+    closeContentModal();
+    notifyContent("Контент добавлен.");
+  } catch {
+    contentError.value = "Не удалось добавить контент.";
+  } finally {
+    contentSaving.value = false;
+  }
+}
+
+async function handleToggleMaterial(material: AdminLearningMaterial) {
+  contentSaving.value = true;
+  try {
+    const response = await updateAdminLearningMaterialStatus(material.id, !material.isPublished);
+    adminMaterials.value = adminMaterials.value.map((item) => (item.id === material.id ? response.material : item));
+    await loadLearning();
+    notifyContent(response.material.isPublished ? "Контент открыт." : "Контент скрыт.");
+  } catch {
+    contentError.value = "Не удалось изменить доступ к контенту.";
+  } finally {
+    contentSaving.value = false;
+  }
+}
+
+async function handleDeleteMaterial(material: AdminLearningMaterial) {
+  if (!window.confirm(`Удалить "${material.title}"? Он будет храниться в удалённых 7 дней.`)) {
+    return;
+  }
+
+  contentSaving.value = true;
+  try {
+    await deleteAdminLearningMaterial(material.id);
+    await loadLearning();
+    notifyContent("Контент удалён и перемещён в удалённые на 7 дней.");
+  } catch {
+    contentError.value = "Не удалось удалить контент.";
+  } finally {
+    contentSaving.value = false;
+  }
+}
+
+function findAdminMaterial(item: LearningContent) {
+  return adminMaterials.value.find((material) => material.id === item.id) ?? null;
+}
+
+async function handleToggleLearningItem(item: LearningContent) {
+  const material = findAdminMaterial(item);
+  if (material) {
+    await handleToggleMaterial(material);
+  }
+}
+
+async function handleDeleteLearningItem(item: LearningContent) {
+  const material = findAdminMaterial(item);
+  if (material) {
+    await handleDeleteMaterial(material);
+  }
 }
 
 async function loadComments(itemId: string) {
@@ -313,33 +524,89 @@ watch(hasLearningAccess, (hasAccess) => {
       </div>
 
       <div class="space-y-3">
-        <h3 class="font-semibold text-[var(--text)]">Контент</h3>
+        <div class="learning-content-head">
+          <h3 class="font-semibold text-[var(--text)]">Контент</h3>
+          <button v-if="isModerator" class="icon-button" type="button" aria-label="Добавить контент" @click="showContentModal = true">
+            <Plus class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <p v-if="contentNotice" class="admin-status admin-status-ok">{{ contentNotice }}</p>
+        <p v-if="contentError" class="admin-status admin-status-error">{{ contentError }}</p>
 
         <div v-if="materialsByCategory.length" class="grid gap-4">
           <section v-for="group in materialsByCategory" :key="group.category.id" class="surface-card">
-            <p class="text-sm text-[var(--muted)]">{{ group.category.itemsCount }} {{ t("materialsCount") }}</p>
-            <h4 class="mt-1 font-semibold text-[var(--text)]">{{ group.category.title }}</h4>
+            <div class="learning-category-head">
+              <div>
+                <p class="text-sm text-[var(--muted)]">{{ group.category.itemsCount }} {{ t("materialsCount") }}</p>
+                <h4 class="mt-1 font-semibold text-[var(--text)]">
+                  {{ group.category.title }}
+                  <span v-if="isModerator && !group.category.isPublished" class="text-xs text-[var(--muted)]">· скрыта</span>
+                </h4>
+              </div>
+              <div v-if="isModerator" class="learning-item-actions">
+                <button
+                  class="icon-button"
+                  type="button"
+                  :disabled="contentSaving"
+                  :aria-label="group.category.isPublished ? 'Скрыть категорию' : 'Открыть категорию'"
+                  @click="handleToggleCategory(group.category)"
+                >
+                  <component :is="group.category.isPublished ? EyeOff : Eye" class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  class="icon-button"
+                  type="button"
+                  :disabled="contentSaving"
+                  aria-label="Удалить категорию"
+                  @click="handleDeleteCategory(group.category)"
+                >
+                  <Trash2 class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
             <p v-if="group.category.description" class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ group.category.description }}</p>
 
             <div class="mt-3 grid gap-2">
               <template v-for="item in group.items" :key="item.id">
-                <button
-                  class="rounded-xl border border-[var(--border)] bg-[var(--panel-soft)] p-3 text-left transition hover:opacity-90"
-                  type="button"
-                  @click="openItem(item)"
-                >
-                  <div class="flex items-start gap-3">
-                    <span class="learning-content-thumb">
-                      <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
-                      <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span>
-                      <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
-                      <small class="mt-1 block leading-5 text-[var(--muted)]">{{ item.summary }}</small>
-                    </span>
-                    <span v-if="isSelectedItem(item)" class="ml-auto shrink-0 text-xs font-bold text-[var(--accent)]">Открыто</span>
+                <article class="learning-item-row">
+                  <button
+                    class="learning-item-button"
+                    type="button"
+                    @click="openItem(item)"
+                  >
+                    <div class="flex items-start gap-3">
+                      <span class="learning-content-thumb">
+                        <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
+                        <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <span class="min-w-0">
+                        <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
+                        <small class="mt-1 block leading-5 text-[var(--muted)]">{{ item.summary }}</small>
+                      </span>
+                      <span v-if="isSelectedItem(item)" class="ml-auto shrink-0 text-xs font-bold text-[var(--accent)]">Открыто</span>
+                    </div>
+                  </button>
+                  <div v-if="isModerator" class="learning-item-actions">
+                    <button
+                      class="icon-button"
+                      type="button"
+                      :disabled="contentSaving"
+                      aria-label="Скрыть контент"
+                      @click="handleToggleLearningItem(item)"
+                    >
+                      <EyeOff class="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      class="icon-button"
+                      type="button"
+                      :disabled="contentSaving"
+                      aria-label="Удалить контент"
+                      @click="handleDeleteLearningItem(item)"
+                    >
+                      <Trash2 class="h-4 w-4" aria-hidden="true" />
+                    </button>
                   </div>
-                </button>
+                </article>
 
                 <article v-if="selectedItem && isSelectedItem(item)" class="surface-card learning-inline-content">
                   <component :is="selectedIcon" class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
@@ -391,21 +658,21 @@ watch(hasLearningAccess, (hasAccess) => {
                   />
 
                   <button
-                    class="primary-button mt-4"
-                    type="button"
-                    :disabled="completeLoading || Boolean(selectedCompletedAt)"
-                    @click="markSelectedComplete"
-                  >
-                    {{ selectedCompletedAt ? t("lessonCompleted") : t("markLessonComplete") }}
-                  </button>
-
-                  <button
                     v-if="selectedItem.kind === 'video' && selectedItem.mediaUrl"
                     class="secondary-button mt-3 w-full"
                     type="button"
                     @click="openVideoViewer(selectedItem.mediaUrl)"
                   >
                     Открыть во весь экран
+                  </button>
+
+                  <button
+                    class="primary-button mt-4"
+                    type="button"
+                    :disabled="completeLoading || Boolean(selectedCompletedAt)"
+                    @click="markSelectedComplete"
+                  >
+                    {{ selectedCompletedAt ? t("lessonCompleted") : t("markLessonComplete") }}
                   </button>
 
                   <section class="mt-5 space-y-3">
@@ -435,6 +702,55 @@ watch(hasLearningAccess, (hasAccess) => {
         </div>
 
         <p v-else class="text-sm text-[var(--muted)]">{{ t("emptyMaterials") }}</p>
+
+        <section v-if="isModerator && hiddenMaterials.length" class="surface-card">
+          <h4 class="font-semibold text-[var(--text)]">Скрытые</h4>
+          <div class="mt-3 grid gap-2">
+            <article v-for="material in hiddenMaterials" :key="material.id" class="learning-item-row">
+              <div class="learning-item-button">
+                <div class="flex items-start gap-3">
+                  <span class="learning-content-thumb">
+                    <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" />
+                    <component v-else :is="iconFor(material.kind)" class="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span class="min-w-0">
+                    <strong class="block text-sm text-[var(--text)]">{{ material.title }}</strong>
+                    <small class="mt-1 block leading-5 text-[var(--muted)]">{{ material.summary || "Скрыто от клиентов" }}</small>
+                  </span>
+                </div>
+              </div>
+              <div class="learning-item-actions">
+                <button class="icon-button" type="button" :disabled="contentSaving" aria-label="Открыть контент" @click="handleToggleMaterial(material)">
+                  <Eye class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button class="icon-button" type="button" :disabled="contentSaving" aria-label="Удалить контент" @click="handleDeleteMaterial(material)">
+                  <Trash2 class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="isModerator && archivedMaterials.length" class="surface-card">
+          <h4 class="font-semibold text-[var(--text)]">Удалённые</h4>
+          <p class="mt-1 text-sm text-[var(--muted)]">Хранятся 7 дней после удаления.</p>
+          <div class="mt-3 grid gap-2">
+            <article v-for="material in archivedMaterials" :key="material.id" class="learning-item-row opacity-70">
+              <div class="learning-item-button">
+                <div class="flex items-start gap-3">
+                  <span class="learning-content-thumb">
+                    <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" />
+                    <component v-else :is="iconFor(material.kind)" class="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span class="min-w-0">
+                    <strong class="block text-sm text-[var(--text)]">{{ material.title }}</strong>
+                    <small class="mt-1 block leading-5 text-[var(--muted)]">Будет очищено после {{ formatArchiveUntil(material.archivedUntil) }}</small>
+                  </span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
       </div>
 
       <div v-if="itemLoading" class="flex items-center gap-2 text-sm text-[var(--muted)]">
@@ -448,6 +764,81 @@ watch(hasLearningAccess, (hasAccess) => {
           {{ t("currentStatus") }}: {{ formatMembershipStatus(session.user?.membershipStatus) }}. {{ t("memberOnlyText") }}
         </p>
       </div>
+
+      <Teleport to="body">
+        <div v-if="showContentModal" class="admin-modal-backdrop" @click.self="closeContentModal">
+          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="learning-content-modal-title">
+            <header class="admin-client-modal-head">
+              <div>
+                <h3 id="learning-content-modal-title">Новый контент</h3>
+                <p>Добавьте запись в категорию или создайте новую.</p>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть" @click="closeContentModal">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <form class="admin-form" @submit.prevent="handleCreateMaterial">
+              <select v-model="materialCategoryId" class="text-input">
+                <option value="" disabled>Категория</option>
+                <option v-for="category in categories" :key="category.id" :value="category.id">
+                  {{ category.title }}
+                </option>
+                <option value="__new__">Создать новую категорию</option>
+              </select>
+
+              <div v-if="materialCategoryId === '__new__'" class="grid gap-2">
+                <input v-model.trim="categoryTitle" class="text-input" placeholder="Название новой категории" />
+                <input v-model.trim="categoryDescription" class="text-input" placeholder="Описание категории, необязательно" />
+              </div>
+
+              <div v-if="categories.length" class="learning-category-tools">
+                <article v-for="category in categories" :key="category.id">
+                  <span>{{ category.title }}</span>
+                  <span class="learning-item-actions">
+                    <button
+                      class="icon-button"
+                      type="button"
+                      :disabled="contentSaving"
+                      :aria-label="category.isPublished ? 'Скрыть категорию' : 'Открыть категорию'"
+                      @click="handleToggleCategory(category)"
+                    >
+                      <component :is="category.isPublished ? EyeOff : Eye" class="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button class="icon-button" type="button" :disabled="contentSaving" aria-label="Удалить категорию" @click="handleDeleteCategory(category)">
+                      <Trash2 class="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </span>
+                </article>
+              </div>
+
+              <select v-model="materialKind" class="text-input">
+                <option value="text">Текст</option>
+                <option value="photo">Фото</option>
+                <option value="video">Видео</option>
+                <option value="audio">Аудио</option>
+              </select>
+              <input v-model.trim="materialTitle" class="text-input" placeholder="Название контента" />
+              <input v-model.trim="materialSummary" class="text-input" placeholder="Краткое описание" />
+              <textarea v-model.trim="materialBody" class="text-input min-h-28 resize-none" placeholder="Текст, описание или конспект"></textarea>
+              <input
+                v-if="materialKind !== 'text'"
+                class="text-input"
+                type="file"
+                :accept="materialKind === 'photo' ? 'image/*' : materialKind === 'video' ? 'video/*' : 'audio/*'"
+                @change="handleMaterialFileChange"
+              />
+              <label class="admin-check-row">
+                <input v-model="materialPublished" type="checkbox" />
+                <span>Сразу открыть клиентам</span>
+              </label>
+              <button class="primary-button" type="submit" :disabled="contentSaving || (!materialCategoryId && materialCategoryId !== '__new__')">
+                Добавить контент
+              </button>
+            </form>
+          </aside>
+        </div>
+      </Teleport>
 
       <Teleport to="body">
         <div v-if="imageViewerUrl" class="admin-modal-backdrop" @click.self="closeImageViewer">

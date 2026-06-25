@@ -39,6 +39,7 @@ export const learningCategorySchema = z.object({
   slug: z.string(),
   title: z.string(),
   description: z.string().nullable(),
+  isPublished: z.boolean(),
   itemsCount: z.number().int().nonnegative()
 });
 export type LearningCategory = z.infer<typeof learningCategorySchema>;
@@ -340,6 +341,7 @@ export type AdminStatsResponse = z.infer<typeof adminStatsResponseSchema>;
 
 export const adminLearningMaterialSchema = learningContentSchema.extend({
   isPublished: z.boolean(),
+  archivedUntil: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
