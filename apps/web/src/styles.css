@@ -875,10 +875,10 @@ button {
 }
 
 .payment-modal-backdrop {
-  align-items: start;
-  justify-items: center;
-  padding: 0.75rem 0.75rem calc(6rem + env(safe-area-inset-bottom));
-  overflow-y: auto;
+  align-items: stretch;
+  justify-items: stretch;
+  padding: 0.5rem;
+  overflow: hidden;
   overscroll-behavior: contain;
 }
 
@@ -906,16 +906,18 @@ button {
 .payment-form-modal {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: calc(100dvh - 1rem - env(safe-area-inset-bottom));
   max-height: none;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .payment-form-body {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
-  overflow: visible;
+  overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 0.1rem;
+  padding: 0 0.1rem calc(0.75rem + env(safe-area-inset-bottom)) 0;
 }
 
 .admin-crm-block {
@@ -2382,8 +2384,8 @@ button.chat-message-author:active {
   }
 
   .payment-modal-backdrop {
-    align-items: start;
-    padding: 0.6rem 0.45rem calc(6.25rem + env(safe-area-inset-bottom));
+    align-items: stretch;
+    padding: 0.35rem;
   }
 
   .admin-client-modal {
@@ -2392,7 +2394,7 @@ button.chat-message-author:active {
   }
 
   .payment-form-modal {
-    max-height: none;
+    height: calc(100dvh - 0.7rem - env(safe-area-inset-bottom));
     border-radius: 16px;
   }
 
