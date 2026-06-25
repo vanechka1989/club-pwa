@@ -355,25 +355,17 @@ button {
 
 .content-panel {
   min-height: 0;
-  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
-  border-radius: 16px;
-  padding: 0.8rem;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
   overflow: hidden;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(12px);
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .content-panel-community {
   overflow: hidden;
-}
-
-.content-panel-learning {
-  border-color: transparent;
-  background: transparent;
-  padding: 0;
-  box-shadow: none;
-  backdrop-filter: none;
 }
 
 .surface-card {

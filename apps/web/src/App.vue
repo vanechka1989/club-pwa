@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
     <section class="app-shell mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-4 sm:px-6 sm:py-6">
-      <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community', 'content-panel-learning': activeSection === 'learning' }">
+      <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
         <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
 
         <div v-else-if="session.error" class="space-y-3">
