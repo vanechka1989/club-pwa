@@ -325,6 +325,10 @@ button {
   flex: 1;
 }
 
+.community-active:not(.community-chat-open) .section-host {
+  overflow: visible;
+}
+
 .community-chat-open .content-panel-community {
   border: 0;
   border-radius: 0;
