@@ -3,7 +3,8 @@ import {
   getAccessSaveButtonText,
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
-  getAdminSubscriptionTitle
+  getAdminSubscriptionTitle,
+  getAdminTariffLabel
 } from "./adminClientCard";
 
 describe("admin client card helpers", () => {
@@ -51,5 +52,13 @@ describe("admin client card helpers", () => {
   it("switches save button text after a successful save", () => {
     expect(getAccessSaveButtonText(false)).toBe("Сохранить");
     expect(getAccessSaveButtonText(true)).toBe("Сохранено");
+  });
+
+  it("shows readable tariff labels in client filters and cards", () => {
+    expect(getAdminTariffLabel("manual")).toBe("Ручной доступ");
+    expect(getAdminTariffLabel("prodamus")).toBe("Разовый платёж");
+    expect(getAdminTariffLabel("prodamus_recurrent")).toBe("Автоподписка");
+    expect(getAdminTariffLabel("future")).toBe("Без тарифа");
+    expect(getAdminTariffLabel(null)).toBe("Без тарифа");
   });
 });

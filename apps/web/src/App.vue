@@ -168,7 +168,7 @@ async function refreshSessionAccessStatus(shouldNotify: boolean) {
 }
 
 function startPaymentWatchPolling() {
-  if (!isAppMounted || paymentWatchTimer) {
+  if (!isAppMounted || typeof window === "undefined" || paymentWatchTimer) {
     return;
   }
 
@@ -178,7 +178,7 @@ function startPaymentWatchPolling() {
 }
 
 function startSessionAccessPolling() {
-  if (!isAppMounted || sessionRefreshTimer) {
+  if (!isAppMounted || typeof window === "undefined" || sessionRefreshTimer) {
     return;
   }
 
@@ -204,7 +204,7 @@ onMounted(() => {
   document.addEventListener("visibilitychange", handleVisibilityChange);
   startPaymentWatchPolling();
   void session.load().then(() => {
-    if (!isAppMounted) {
+    if (!isAppMounted || typeof window === "undefined") {
       return;
     }
 

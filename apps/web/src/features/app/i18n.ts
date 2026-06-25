@@ -73,8 +73,8 @@ const messages = {
     previewTitle: "Просмотр как пользователь",
     previewText: "Работает только для главного админа и не меняет реальные подписки.",
     previewReal: "Как есть",
-    previewInactive: "Без доступа",
-    previewActive: "Купил доступ",
+    previewInactive: "Доступ закрыт",
+    previewActive: "Доступ открыт",
     homeEyebrow: "Inner Circle",
     homeTitle: "Клуб для тех, кто внутри",
     homeSubtitle: "Закрытый контент, эфиры, разборы и поддержка в одном приватном пространстве.",
@@ -161,9 +161,9 @@ const messages = {
     adminStatsError: "Не удалось загрузить статистику.",
     adminAccessSaved: "Доступ обновлён.",
     adminAccessError: "Не удалось изменить доступ.",
-    adminAccessActive: "Активен",
-    adminAccessInactive: "Без доступа",
-    adminAccessExpired: "Просрочен",
+    adminAccessActive: "Доступ открыт",
+    adminAccessInactive: "Доступ закрыт",
+    adminAccessExpired: "Доступ закрыт",
     adminAccessSave: "Сохранить доступ",
     adminExtendAccess: "Продлить доступ",
     adminExtend7: "+7 дней",
@@ -253,8 +253,8 @@ const messages = {
     previewTitle: "Preview as user",
     previewText: "Works only for the owner and does not change real subscriptions.",
     previewReal: "Real state",
-    previewInactive: "No access",
-    previewActive: "Paid access",
+    previewInactive: "Доступ закрыт",
+    previewActive: "Доступ открыт",
     homeEyebrow: "Inner Circle",
     homeTitle: "A club for people inside",
     homeSubtitle: "Private content, live sessions, breakdowns and support in one private space.",
@@ -341,9 +341,9 @@ const messages = {
     adminStatsError: "Could not load stats.",
     adminAccessSaved: "Access updated.",
     adminAccessError: "Could not update access.",
-    adminAccessActive: "Активен",
-    adminAccessInactive: "Без доступа",
-    adminAccessExpired: "Просрочен",
+    adminAccessActive: "Доступ открыт",
+    adminAccessInactive: "Доступ закрыт",
+    adminAccessExpired: "Доступ закрыт",
     adminAccessSave: "Save access",
     adminExtendAccess: "Продлить доступ",
     adminExtend7: "+7 дней",
@@ -372,9 +372,9 @@ export type MessageKey = keyof typeof messages.ru;
 export type MembershipStatusValue = "inactive" | "active" | "expired";
 
 const membershipStatusLabels: Record<MembershipStatusValue, string> = {
-  inactive: "Без доступа",
-  active: "Активен",
-  expired: "Просрочен"
+  inactive: "Доступ закрыт",
+  active: "Доступ открыт",
+  expired: "Доступ закрыт"
 };
 
 export function formatMembershipStatus(status: MembershipStatusValue | string | null | undefined) {

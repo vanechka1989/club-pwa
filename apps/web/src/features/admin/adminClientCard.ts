@@ -66,3 +66,23 @@ export function getAdminSubscriptionActorLabel(subscription: AdminSubscriptionLi
 export function getAccessSaveButtonText(isSaved: boolean) {
   return isSaved ? "Сохранено" : "Сохранить";
 }
+
+export function getAdminTariffLabel(tariff: string | null | undefined) {
+  if (!tariff || tariff === "future") {
+    return "Без тарифа";
+  }
+
+  if (tariff === "manual") {
+    return "Ручной доступ";
+  }
+
+  if (tariff === "prodamus") {
+    return "Разовый платёж";
+  }
+
+  if (tariff === "prodamus_recurrent") {
+    return "Автоподписка";
+  }
+
+  return tariff;
+}

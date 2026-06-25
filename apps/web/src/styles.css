@@ -568,8 +568,12 @@ button {
 
 .admin-filter-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 0.8fr));
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 0.8fr));
   gap: 0.5rem;
+}
+
+.admin-filter-reset {
+  min-height: 2.75rem;
 }
 
 .admin-check-row {

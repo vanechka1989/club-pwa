@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Check,
   CreditCard,
-  Search,
   Shield,
   Trash2,
   UsersRound,
@@ -25,7 +24,6 @@ import {
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
-  getAdminUserStats,
   removeAdminUser,
   revokeUserMute,
   transferClubOwner,
@@ -36,7 +34,8 @@ import {
   getAccessSaveButtonText,
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
-  getAdminSubscriptionTitle
+  getAdminSubscriptionTitle,
+  getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
@@ -59,8 +58,8 @@ const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
 const previewOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "developer", label: "Разработчик" },
   { value: "admin", label: "Админ" },
-  { value: "member-active", label: "С доступом" },
-  { value: "member-inactive", label: "Без доступа" }
+  { value: "member-active", label: "Доступ открыт" },
+  { value: "member-inactive", label: "Доступ закрыт" }
 ];
 
 const extensionOptions = [
@@ -68,6 +67,7 @@ const extensionOptions = [
   { days: 30, label: "+30 дней" },
   { days: 90, label: "+90 дней" }
 ] as const;
+const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
 
 const activePanel = ref<AdminPanel>("overview");
 const ownerTelegramId = ref("");
@@ -79,11 +79,10 @@ const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
 const learningMaterials = ref<AdminLearningMaterial[]>([]);
 const search = ref("");
-const subscriptionFilter = ref<"all" | "active" | "inactive" | "expired">("all");
+const subscriptionFilter = ref<"all" | "active" | "closed">("all");
 const tariffFilter = ref("all");
 const restrictionFilter = ref<"all" | "restricted">("all");
-const findTelegramId = ref("");
-const accessStatus = ref<"active" | "inactive" | "expired">("active");
+const accessStatus = ref<"active" | "inactive">("active");
 const accessExpiresAt = ref("");
 const materialCategoryId = ref("");
 const materialKind = ref<ContentKind>("text");
@@ -123,20 +122,41 @@ const paidRevenue = computed(() =>
   paymentOrders.value.filter((order) => order.status === "paid").reduce((sum, order) => sum + order.amountRub, 0)
 );
 const tariffOptions = computed(() => {
-  const values = new Set(users.value.map((user) => user.tariff || "future").filter(Boolean));
-  return ["all", ...Array.from(values)];
+  const values = new Set(users.value.map((user) => user.tariff || "future"));
+  return [
+    { value: "all", label: "Все тарифы" },
+    ...Array.from(values)
+      .sort((left, right) => {
+        const leftIndex = tariffOrder.indexOf(left as (typeof tariffOrder)[number]);
+        const rightIndex = tariffOrder.indexOf(right as (typeof tariffOrder)[number]);
+        const normalizedLeftIndex = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+        const normalizedRightIndex = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+
+        if (normalizedLeftIndex !== normalizedRightIndex) {
+          return normalizedLeftIndex - normalizedRightIndex;
+        }
+
+        return getAdminTariffLabel(left).localeCompare(getAdminTariffLabel(right), "ru");
+      })
+      .map((value) => ({ value, label: getAdminTariffLabel(value) }))
+  ];
 });
 const filteredUsers = computed(() => {
   const query = search.value.trim().toLowerCase();
   return users.value.filter((user) => {
     const matchesQuery =
       !query || [user.telegramId, user.firstName ?? "", user.username ?? ""].some((value) => value.toLowerCase().includes(query));
-    const matchesSubscription = subscriptionFilter.value === "all" || user.membershipStatus === subscriptionFilter.value;
+    const matchesSubscription =
+      subscriptionFilter.value === "all" ||
+      (subscriptionFilter.value === "active" ? user.membershipStatus === "active" : user.membershipStatus !== "active");
     const matchesTariff = tariffFilter.value === "all" || (user.tariff || "future") === tariffFilter.value;
     const matchesRestrictions = restrictionFilter.value === "all" || user.hasRestrictions;
     return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions;
   });
 });
+const filtersActive = computed(
+  () => Boolean(search.value.trim()) || subscriptionFilter.value !== "all" || tariffFilter.value !== "all" || restrictionFilter.value !== "all"
+);
 const selectedUserPaymentOrders = computed(() =>
   selectedUser.value ? paymentOrders.value.filter((order) => order.customer.telegramId === selectedUser.value?.telegramId) : []
 );
@@ -206,8 +226,7 @@ function formatDateInput(date: Date) {
 
 function applySelectedUser(user: AdminStatsUser) {
   selectedUser.value = user;
-  findTelegramId.value = user.telegramId;
-  accessStatus.value = user.membershipStatus === "expired" ? "active" : user.membershipStatus;
+  accessStatus.value = user.membershipStatus === "active" ? "active" : "inactive";
   accessExpiresAt.value = user.membershipExpiresAt?.slice(0, 10) ?? "";
 }
 
@@ -274,6 +293,17 @@ function extendAccess(days: number) {
   accessExpiresAt.value = formatDateInput(nextDate);
 }
 
+function setAccessDateToday() {
+  accessExpiresAt.value = formatDateInput(new Date());
+}
+
+function resetClientFilters() {
+  search.value = "";
+  subscriptionFilter.value = "all";
+  tariffFilter.value = "all";
+  restrictionFilter.value = "all";
+}
+
 function setStatus(text: string) {
   message.value = text;
   error.value = null;
@@ -325,31 +355,8 @@ async function loadAll() {
   }
 }
 
-async function handleFindUser() {
-  if (!findTelegramId.value.trim()) {
-    return;
-  }
-
-  saving.value = true;
-  try {
-    const user = await getAdminUserStats(findTelegramId.value);
-    resetAccessSaveState();
-    resetClientAccordion();
-    applySelectedUser(user);
-    selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
-    if (!users.value.some((item) => item.telegramId === user.telegramId)) {
-      users.value = [user, ...users.value];
-    }
-    setStatus("Клиент найден.");
-  } catch {
-    setError("Клиент не найден.");
-  } finally {
-    saving.value = false;
-  }
-}
-
 async function handleUpdateAccess() {
-  const telegramId = selectedUser.value?.telegramId || findTelegramId.value.trim();
+  const telegramId = selectedUser.value?.telegramId;
   if (!telegramId) {
     return;
   }
@@ -748,30 +755,25 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <form class="admin-search-row" @submit.prevent="handleFindUser">
-        <input v-model.trim="findTelegramId" class="text-input" inputmode="numeric" pattern="[0-9]*" placeholder="Telegram ID клиента" />
-        <button class="icon-button" type="submit" :disabled="saving">
-          <Search class="h-4 w-4" aria-hidden="true" />
-        </button>
-      </form>
-
       <div class="admin-filter-grid">
         <input v-model.trim="search" class="text-input" placeholder="Поиск по ID, имени или username" />
         <select v-model="subscriptionFilter" class="text-input">
-          <option value="all">Все подписки</option>
-          <option value="active">Активные</option>
-          <option value="inactive">Неактивные</option>
-          <option value="expired">Истекшие</option>
+          <option value="all">Любой доступ</option>
+          <option value="active">Доступ открыт</option>
+          <option value="closed">Доступ закрыт</option>
         </select>
         <select v-model="tariffFilter" class="text-input">
-          <option v-for="tariff in tariffOptions" :key="tariff" :value="tariff">
-            {{ tariff === "all" ? "Все тарифы" : tariff }}
+          <option v-for="tariff in tariffOptions" :key="tariff.value" :value="tariff.value">
+            {{ tariff.label }}
           </option>
         </select>
         <select v-model="restrictionFilter" class="text-input">
           <option value="all">Все клиенты</option>
           <option value="restricted">С ограничениями</option>
         </select>
+        <button class="secondary-button admin-filter-reset" type="button" :disabled="!filtersActive" @click="resetClientFilters">
+          Сбросить
+        </button>
       </div>
 
       <div class="admin-user-layout">
@@ -787,7 +789,7 @@ onUnmounted(() => {
             <span>
               <strong>{{ userTitle(user) }}</strong>
               <small>
-                {{ adminRoleLabel(user.role) }} · ID {{ user.telegramId }} · {{ user.tariff || "future" }} ·
+                {{ adminRoleLabel(user.role) }} · ID {{ user.telegramId }} · {{ getAdminTariffLabel(user.tariff) }} ·
                 {{ user.completedItems }}/{{ user.totalItems }}
               </small>
             </span>
@@ -802,7 +804,7 @@ onUnmounted(() => {
             <header class="admin-client-modal-head">
               <div>
                 <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
-                <p>{{ adminRoleLabel(selectedUser.role) }} · ID {{ selectedUser.telegramId }} · тариф {{ selectedUser.tariff || "future" }}</p>
+                <p>{{ adminRoleLabel(selectedUser.role) }} · ID {{ selectedUser.telegramId }} · {{ getAdminTariffLabel(selectedUser.tariff) }}</p>
               </div>
               <button class="icon-button" type="button" aria-label="Закрыть карточку клиента" @click="closeSelectedUser">
                 <X class="h-4 w-4" aria-hidden="true" />
@@ -827,10 +829,12 @@ onUnmounted(() => {
               <select v-model="accessStatus" class="text-input" :disabled="!canManageSelectedUser">
                 <option value="active">{{ formatMembershipStatus("active") }}</option>
                 <option value="inactive">{{ formatMembershipStatus("inactive") }}</option>
-                <option value="expired">{{ formatMembershipStatus("expired") }}</option>
               </select>
               <input v-model="accessExpiresAt" class="text-input" type="date" :disabled="!canManageSelectedUser" />
               <div class="admin-inline-actions">
+                <button class="secondary-button" type="button" :disabled="!canManageSelectedUser" @click="setAccessDateToday">
+                  Сегодня
+                </button>
                 <button
                   v-for="option in extensionOptions"
                   :key="option.days"
