@@ -2,6 +2,8 @@
 
 interface TelegramWebApp {
   initData: string;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
   ready: () => void;
   expand: () => void;
   requestFullscreen?: () => void;

@@ -875,6 +875,7 @@ button {
 }
 
 .payment-modal-backdrop {
+  z-index: 140;
   align-items: stretch;
   justify-items: stretch;
   padding: 0.5rem;
@@ -907,7 +908,7 @@ button {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: calc(100dvh - 1rem - env(safe-area-inset-bottom));
+  height: calc(var(--club-viewport-height, 100vh) - 1rem - env(safe-area-inset-bottom));
   max-height: none;
   overflow: hidden;
 }
@@ -2394,7 +2395,7 @@ button.chat-message-author:active {
   }
 
   .payment-form-modal {
-    height: calc(100dvh - 0.7rem - env(safe-area-inset-bottom));
+    height: calc(var(--club-viewport-height, 100vh) - 0.7rem - env(safe-area-inset-bottom));
     border-radius: 16px;
   }
 
