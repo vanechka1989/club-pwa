@@ -304,24 +304,22 @@ onMounted(async () => {
 
     <div v-if="isAdmin" class="surface-card space-y-3">
       <div class="flex items-start justify-between gap-3">
-        <div>
+        <div class="min-w-0">
           <p class="font-semibold text-[var(--text)]">Платежная система</p>
-          <p class="mt-1 text-sm text-[var(--muted)]">
-            {{ provider ? "Prodamus подключен." : "Prodamus пока не подключен." }}
-          </p>
+          <div
+            class="mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold"
+            :class="
+              provider?.isEnabled
+                ? 'border-emerald-400/70 bg-emerald-500/10 text-emerald-300'
+                : 'border-red-400/70 bg-red-500/10 text-red-300'
+            "
+          >
+            {{ provider?.isEnabled ? "Prodamus подключен" : "Prodamus не подключен" }}
+          </div>
         </div>
         <button class="secondary-button w-auto px-4" type="button" @click="openProviderForm">
           {{ provider ? "Настроить" : "Подключить" }}
         </button>
-      </div>
-      <div class="rounded-[18px] border border-[var(--line)] bg-[var(--field)] p-3">
-        <p class="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">URL уведомлений для Prodamus</p>
-        <div class="mt-2 flex items-center gap-2">
-          <input class="text-input" :value="webhookUrl" readonly />
-          <button class="icon-button shrink-0" type="button" aria-label="Скопировать URL уведомлений" @click="copyWebhookUrl">
-            <Copy :size="18" />
-          </button>
-        </div>
       </div>
     </div>
 
