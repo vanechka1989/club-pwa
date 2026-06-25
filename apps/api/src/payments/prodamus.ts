@@ -129,12 +129,12 @@ export function buildProdamusSetActivityRequest(input: {
   secretKey: string;
   subscriptionId: string;
   telegramId: string;
-  activeUser: boolean;
+  activeManager: boolean;
 }) {
   const data = {
     subscription: input.subscriptionId,
     tg_user_id: input.telegramId,
-    active_user: input.activeUser ? 1 : 0
+    active_manager: input.activeManager ? 1 : 0
   };
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(data)) {
@@ -151,7 +151,7 @@ export async function setProdamusSubscriptionActivity(input: {
   secretKey: string;
   subscriptionId: string;
   telegramId: string;
-  activeUser: boolean;
+  activeManager: boolean;
   fetchImpl?: typeof fetch;
 }) {
   const request = buildProdamusSetActivityRequest(input);

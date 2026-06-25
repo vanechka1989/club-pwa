@@ -360,7 +360,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         secretKey: subscription.provider.secretKey,
         subscriptionId: subscription.prodamusSubscriptionId,
         telegramId: subscription.user.telegramId,
-        activeUser: false
+        activeManager: false
       });
     } catch {
       return c.json({ error: "Не удалось отменить подписку в Prodamus." }, 502);

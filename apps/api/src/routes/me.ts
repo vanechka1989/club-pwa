@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { db } from "../db/client";
-import { users } from "../db/schema";
+import { userRecurrentSubscriptions, users } from "../db/schema";
 import { getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 
@@ -11,6 +11,13 @@ const avatarRefreshCooldownMs = 7 * 24 * 60 * 60 * 1000;
 
 async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T extends keyof AuthVariables>(key: T) => AuthVariables[T] }) {
   const membership = await getMembership(user.id);
+  const recurrentSubscription =
+    membership.subscription?.provider === "prodamus_recurrent"
+      ? await db.query.userRecurrentSubscriptions.findFirst({
+          where: eq(userRecurrentSubscriptions.userId, user.id),
+          orderBy: [desc(userRecurrentSubscriptions.updatedAt)]
+        })
+      : null;
   const realRole = await getUserRole(user.telegramId);
   const role = c.get("previewRole") ?? realRole;
   const previewMembershipStatus = c.get("previewMembershipStatus");
@@ -21,6 +28,14 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       : previewMembershipStatus === "inactive"
         ? null
         : (membership.subscription?.expiresAt?.toISOString() ?? null);
+  const paymentType =
+    membership.subscription?.provider === "prodamus_recurrent"
+      ? "recurrent"
+      : membership.subscription?.provider === "prodamus"
+        ? "one_time"
+        : membership.subscription?.provider === "manual"
+          ? "manual"
+          : "none";
 
   return {
     user: {
@@ -33,6 +48,12 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       realRole,
       membershipStatus,
       membershipExpiresAt,
+      paymentType,
+      recurrentPaymentStatus: recurrentSubscription?.status ?? null,
+      nextPaymentAt:
+        paymentType === "recurrent" && recurrentSubscription?.status === "active"
+          ? membershipExpiresAt
+          : null,
       avatarRefreshedAt: user.avatarRefreshedAt?.toISOString() ?? null
     }
   };

@@ -96,26 +96,26 @@ describe("prodamus payment helpers", () => {
     expect(url.searchParams.get("subscription")).toBe("77");
   });
 
-  it("builds setActivity requests for recurrent subscription cancellation by telegram user", () => {
+  it("builds setActivity requests for recurrent subscription cancellation by manager", () => {
     const request = buildProdamusSetActivityRequest({
       formUrl: "https://demo.payform.ru/",
       secretKey: "secret",
       subscriptionId: "77",
       telegramId: "123456",
-      activeUser: false
+      activeManager: false
     });
 
     expect(request.url).toBe("https://demo.payform.ru/rest/setActivity/");
     expect(request.body.get("subscription")).toBe("77");
     expect(request.body.get("tg_user_id")).toBe("123456");
-    expect(request.body.get("active_user")).toBe("0");
-    expect(request.body.get("active_manager")).toBeNull();
+    expect(request.body.get("active_user")).toBeNull();
+    expect(request.body.get("active_manager")).toBe("0");
     expect(request.body.get("signature")).toBe(
       createProdamusSignature(
         {
           subscription: "77",
           tg_user_id: "123456",
-          active_user: 0
+          active_manager: 0
         },
         "secret"
       )

@@ -63,6 +63,44 @@ const subscriptionMeta = computed(() => {
 
   return `${daysLeft.value} дн. осталось`;
 });
+const paymentStatusText = computed(() => {
+  if (!isMember.value) {
+    return "Доступ не активен";
+  }
+
+  if (session.user?.paymentType === "recurrent") {
+    return session.user.recurrentPaymentStatus === "cancelled" ? "Автоматический платёж отменен" : "Автоматический платёж";
+  }
+
+  if (session.user?.paymentType === "one_time") {
+    return "Разовый платёж";
+  }
+
+  if (session.user?.paymentType === "manual") {
+    return "Ручной доступ";
+  }
+
+  return "Доступ активен";
+});
+const paymentDateText = computed(() => {
+  if (!isMember.value) {
+    return null;
+  }
+
+  if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "active" && session.user.nextPaymentAt) {
+    return `следующее списание ${new Date(session.user.nextPaymentAt).toLocaleDateString("ru-RU")}`;
+  }
+
+  if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "cancelled" && session.user.membershipExpiresAt) {
+    return `работает до ${new Date(session.user.membershipExpiresAt).toLocaleDateString("ru-RU")}`;
+  }
+
+  if (session.user?.paymentType === "one_time" && session.user.membershipExpiresAt) {
+    return `работает до ${new Date(session.user.membershipExpiresAt).toLocaleDateString("ru-RU")}`;
+  }
+
+  return null;
+});
 const avatarRefreshAvailableAt = computed(() => {
   if (!session.user?.avatarRefreshedAt) {
     return null;
@@ -196,6 +234,9 @@ onMounted(async () => {
           <h3>{{ displayName }}</h3>
           <p class="mt-1 text-sm font-semibold text-[var(--muted)]">
             {{ isMember ? t("softPremiumActive") : t("homeInactive") }}
+          </p>
+          <p class="mt-1 text-xs font-semibold text-[var(--muted)]">
+            {{ paymentStatusText }}<template v-if="paymentDateText"> · {{ paymentDateText }}</template>
           </p>
         </div>
         <span class="soft-pill">{{ accessUntil }}</span>

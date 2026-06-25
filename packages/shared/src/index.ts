@@ -16,6 +16,9 @@ export const clubUserSchema = z.object({
   realRole: userRoleSchema,
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
+  paymentType: z.enum(["none", "manual", "one_time", "recurrent"]),
+  recurrentPaymentStatus: z.enum(["active", "cancelled"]).nullable(),
+  nextPaymentAt: z.string().datetime().nullable(),
   avatarRefreshedAt: z.string().datetime().nullable()
 });
 export type ClubUser = z.infer<typeof clubUserSchema>;
