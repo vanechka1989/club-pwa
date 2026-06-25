@@ -1607,10 +1607,62 @@ button {
   min-height: 3rem;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 54%, var(--border));
+  background: color-mix(in srgb, var(--panel-strong) 86%, var(--accent) 14%);
+  box-shadow: none;
   padding: 0.55rem 0.65rem;
+  color: var(--text);
   font-size: 0.78rem;
   line-height: 1.2;
   text-align: center;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.payment-product-pay:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 78%, var(--border));
+  background: color-mix(in srgb, var(--panel-strong) 76%, var(--accent) 24%);
+  opacity: 1;
+}
+
+.payment-product-pay:active:not(:disabled),
+.payment-product-pay-loading {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--panel-strong) 68%, var(--accent) 32%);
+  transform: translateY(1px) scale(0.985);
+}
+
+.payment-product-pay:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.payment-product-pay-loading {
+  cursor: wait;
+  padding-right: 2rem;
+}
+
+.payment-product-pay-loading::after {
+  position: absolute;
+  right: 0.7rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid color-mix(in srgb, var(--text) 28%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  content: "";
+  animation: payment-button-spin 700ms linear infinite;
+}
+
+@keyframes payment-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .payment-product-admin-actions {

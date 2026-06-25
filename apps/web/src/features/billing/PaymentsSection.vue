@@ -35,6 +35,7 @@ const providerFormBody = ref<HTMLElement | null>(null);
 const productFormBody = ref<HTMLElement | null>(null);
 const providerFormModalKey = ref(0);
 const productFormModalKey = ref(0);
+const checkoutProductId = ref<string | null>(null);
 
 const providerForm = ref({
   formUrl: "",
@@ -285,11 +286,14 @@ async function handleDeleteProduct(product: PaymentProduct) {
 }
 
 async function handleCheckout(product: PaymentProduct) {
+  checkoutProductId.value = product.id;
   saving.value = true;
   error.value = null;
+  let navigating = false;
   try {
     const response = await createPaymentCheckout(product.id);
     if (response.checkoutUrl) {
+      navigating = true;
       window.location.href = response.checkoutUrl;
       return;
     }
@@ -297,7 +301,10 @@ async function handleCheckout(product: PaymentProduct) {
   } catch {
     error.value = "Не удалось открыть оплату.";
   } finally {
-    saving.value = false;
+    if (!navigating) {
+      saving.value = false;
+      checkoutProductId.value = null;
+    }
   }
 }
 
@@ -410,8 +417,15 @@ watch(showProductModal, async (isOpen) => {
             <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
           </div>
           <div class="payment-product-actions">
-            <button class="primary-button payment-product-pay" type="button" :disabled="saving || !provider?.isEnabled" @click="handleCheckout(product)">
-              {{ product.kind === "recurrent" ? "Оформить подписку" : "Оплатить" }}
+            <button
+              class="primary-button payment-product-pay"
+              :class="{ 'payment-product-pay-loading': checkoutProductId === product.id }"
+              type="button"
+              :disabled="saving || !provider?.isEnabled"
+              :aria-busy="checkoutProductId === product.id"
+              @click="handleCheckout(product)"
+            >
+              <span>{{ checkoutProductId === product.id ? "Открываю..." : product.kind === "recurrent" ? "Оформить подписку" : "Оплатить" }}</span>
             </button>
             <div v-if="isOwner" class="payment-product-admin-actions">
               <button class="icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">
