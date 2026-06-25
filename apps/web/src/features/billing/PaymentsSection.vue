@@ -408,26 +408,26 @@ watch(showProductModal, async (isOpen) => {
 
       <div class="space-y-3">
         <article v-for="product in activeProducts" :key="product.id" class="soft-payment-card">
-          <div class="min-w-0">
-            <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
-            <p class="mt-1 text-sm text-[var(--muted)]">{{ product.description || productPeriod(product) }}</p>
-            <p class="mt-2 text-sm font-semibold text-[var(--accent)]">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
+          <div class="payment-product-main">
+            <p class="payment-product-title">{{ product.title }}</p>
+            <p class="payment-product-description">{{ product.description || productPeriod(product) }}</p>
+            <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
           </div>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <button class="primary-button flex-1" type="button" :disabled="saving || !provider?.isEnabled" @click="handleCheckout(product)">
+          <div class="payment-product-actions">
+            <button class="primary-button payment-product-pay" type="button" :disabled="saving || !provider?.isEnabled" @click="handleCheckout(product)">
               {{ product.kind === "recurrent" ? "Оформить подписку" : "Оплатить" }}
             </button>
-            <template v-if="isOwner">
+            <div v-if="isOwner" class="payment-product-admin-actions">
               <button class="icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">
-                <Pencil :size="18" />
+                <Pencil :size="16" />
               </button>
               <button class="icon-button" type="button" aria-label="Скрыть тариф" @click="handleToggleProduct(product)">
-                <EyeOff :size="18" />
+                <EyeOff :size="16" />
               </button>
               <button class="icon-button" type="button" aria-label="Удалить тариф" @click="handleDeleteProduct(product)">
-                <Trash2 :size="18" />
+                <Trash2 :size="16" />
               </button>
-            </template>
+            </div>
           </div>
         </article>
       </div>
