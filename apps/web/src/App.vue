@@ -67,12 +67,22 @@ function syncTelegramFullscreen(isEnabled: boolean) {
   document.body.classList.toggle("club-telegram-fullscreen", isEnabled);
 
   if (isEnabled) {
-    webApp?.requestFullscreen?.();
+    try {
+      webApp?.requestFullscreen?.();
+    } catch {
+      ui.setFullscreenEnabled(false);
+      document.documentElement.classList.remove("club-telegram-fullscreen");
+      document.body.classList.remove("club-telegram-fullscreen");
+    }
     window.setTimeout(syncTelegramSafeArea, 250);
     return;
   }
 
-  webApp?.exitFullscreen?.();
+  try {
+    webApp?.exitFullscreen?.();
+  } catch {
+    // Telegram clients without fullscreen support can ignore this path.
+  }
   window.setTimeout(syncTelegramSafeArea, 250);
 }
 

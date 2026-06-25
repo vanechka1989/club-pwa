@@ -31,6 +31,8 @@ const showProductModal = ref(false);
 const editingProduct = ref<PaymentProduct | null>(null);
 const providerFormModal = ref<HTMLElement | null>(null);
 const productFormModal = ref<HTMLElement | null>(null);
+const providerFormBody = ref<HTMLElement | null>(null);
+const productFormBody = ref<HTMLElement | null>(null);
 const providerFormModalKey = ref(0);
 const productFormModalKey = ref(0);
 
@@ -113,7 +115,7 @@ function resetModalScroll(element: HTMLElement | null) {
   element.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
-async function resetModalScrollAfterRender(target: typeof providerFormModal | typeof productFormModal) {
+async function resetModalScrollAfterRender(target: typeof providerFormModal | typeof productFormModal | typeof providerFormBody | typeof productFormBody) {
   await nextTick();
   resetModalScroll(target.value);
   requestAnimationFrame(() => resetModalScroll(target.value));
@@ -136,6 +138,7 @@ async function openProviderForm() {
   await nextTick();
   showProviderForm.value = true;
   await resetModalScrollAfterRender(providerFormModal);
+  await resetModalScrollAfterRender(providerFormBody);
 }
 
 function closeProviderForm() {
@@ -175,6 +178,7 @@ async function openProductModal(product?: PaymentProduct) {
   await nextTick();
   showProductModal.value = true;
   await resetModalScrollAfterRender(productFormModal);
+  await resetModalScrollAfterRender(productFormBody);
 }
 
 function closeProductModal() {
@@ -337,6 +341,7 @@ watch(showProviderForm, async (isOpen) => {
   }
   await nextTick();
   await resetModalScrollAfterRender(providerFormModal);
+  await resetModalScrollAfterRender(providerFormBody);
 });
 
 watch(showProductModal, async (isOpen) => {
@@ -345,6 +350,7 @@ watch(showProductModal, async (isOpen) => {
   }
   await nextTick();
   await resetModalScrollAfterRender(productFormModal);
+  await resetModalScrollAfterRender(productFormBody);
 });
 </script>
 
@@ -498,7 +504,7 @@ watch(showProductModal, async (isOpen) => {
       <aside
         :key="providerFormModalKey"
         ref="providerFormModal"
-        class="admin-detail admin-client-modal"
+        class="admin-detail admin-client-modal payment-form-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="provider-form-title"
@@ -513,7 +519,7 @@ watch(showProductModal, async (isOpen) => {
           </button>
         </header>
 
-        <form class="space-y-3" @submit.prevent="handleSaveProvider">
+        <form ref="providerFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProvider">
           <label class="block">
             <span class="text-sm font-semibold text-[var(--muted)]">URL платежной формы</span>
             <input v-model.trim="providerForm.formUrl" class="text-input mt-2" placeholder="https://xxx.payform.ru/" required />
@@ -559,7 +565,7 @@ watch(showProductModal, async (isOpen) => {
       <aside
         :key="productFormModalKey"
         ref="productFormModal"
-        class="admin-detail admin-client-modal"
+        class="admin-detail admin-client-modal payment-form-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-modal-title"
@@ -574,7 +580,7 @@ watch(showProductModal, async (isOpen) => {
           </button>
         </header>
 
-        <form class="space-y-3" @submit.prevent="handleSaveProduct">
+        <form ref="productFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProduct">
           <label class="block">
             <span class="text-sm font-semibold text-[var(--muted)]">Тип</span>
             <select v-model="productForm.kind" class="text-input mt-2">

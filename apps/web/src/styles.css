@@ -895,6 +895,19 @@ button {
   padding-bottom: 0.6rem;
 }
 
+.payment-form-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.payment-form-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.1rem;
+}
+
 .admin-crm-block {
   display: grid;
   gap: 0.45rem;
