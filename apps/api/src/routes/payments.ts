@@ -17,9 +17,12 @@ import {
   type PaymentProvider
 } from "../db/schema";
 import { env } from "../env";
+import { logger } from "../logger";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { canManagePaymentSettings, canReadPaymentSettings } from "../payments/adminAccess";
+import { cleanupExpiredPendingPaymentOrders } from "../payments/orderCleanupJob";
+import { notifyPaymentReceived } from "../payments/paymentNotification";
 import {
   buildProdamusPaymentUrl,
   getProdamusNotificationOrderId,
@@ -160,6 +163,8 @@ function mapPaymentOrderLog(
 }
 
 async function getPaymentOrderLogs(userId?: string, limit = 50) {
+  await cleanupExpiredPendingPaymentOrders();
+
   const orders = await db.query.paymentOrders.findMany({
     where: userId ? eq(paymentOrders.userId, userId) : undefined,
     with: {
@@ -192,7 +197,12 @@ function isSuccessfulWebhook(payload: Record<string, unknown>) {
   return ["success", "paid", "completed", "оплачен", "оплачено"].includes(status.toLowerCase());
 }
 
-async function grantPaidAccess(order: typeof paymentOrders.$inferSelect, product: PaymentProduct, payload: Record<string, unknown>) {
+async function grantPaidAccess(
+  order: typeof paymentOrders.$inferSelect,
+  product: PaymentProduct,
+  user: typeof users.$inferSelect,
+  payload: Record<string, unknown>
+) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + product.accessDays * 24 * 60 * 60 * 1000);
 
@@ -238,6 +248,16 @@ async function grantPaidAccess(order: typeof paymentOrders.$inferSelect, product
       updatedAt: now
     })
     .where(eq(paymentOrders.id, order.id));
+
+  await notifyPaymentReceived({
+    telegramId: user.telegramId,
+    productTitle: product.title,
+    amountRub: order.amountRub,
+    expiresAt,
+    webOrigin: env.WEB_ORIGIN
+  }).catch((error) => {
+    logger.warn({ error, orderId: order.providerOrderId, userId: user.id }, "payment notification failed");
+  });
 }
 
 export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
@@ -281,15 +301,23 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ ok: true });
     }
 
-    const product = await db.query.paymentProducts.findFirst({
-      where: eq(paymentProducts.id, order.productId)
-    });
+    const [product, user] = await Promise.all([
+      db.query.paymentProducts.findFirst({
+        where: eq(paymentProducts.id, order.productId)
+      }),
+      db.query.users.findFirst({
+        where: eq(users.id, order.userId)
+      })
+    ]);
     if (!product) {
+      return c.json({ ok: false }, 404);
+    }
+    if (!user) {
       return c.json({ ok: false }, 404);
     }
 
     if (isSuccessfulWebhook(payload)) {
-      await grantPaidAccess(order, product, payload);
+      await grantPaidAccess(order, product, user, payload);
     } else {
       await db
         .update(paymentOrders)
@@ -297,10 +325,14 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         .where(eq(paymentOrders.id, order.id));
     }
 
+    await cleanupExpiredPendingPaymentOrders();
+
     return c.json({ ok: true });
   })
   .use("*", telegramAuth)
   .get("/plans", async (c) => {
+    await cleanupExpiredPendingPaymentOrders();
+
     const userId = c.get("userId");
     const [provider, products, recurrentSubscriptions] = await Promise.all([
       getProdamusProvider(),
@@ -339,6 +371,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ orders: await getPaymentOrderLogs(c.get("userId"), 50) });
   })
   .post("/checkout", async (c) => {
+    await cleanupExpiredPendingPaymentOrders();
+
     const body = checkoutPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: "Invalid checkout payload" }, 400);

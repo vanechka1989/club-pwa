@@ -6,12 +6,15 @@ import { communityRoute } from "./routes/community";
 import { learningRoute } from "./routes/learning";
 import { logger } from "./logger";
 import { meRoute } from "./routes/me";
+import { startExpiredPendingPaymentOrderCleanup } from "./payments/orderCleanupJob";
 import { paymentsRoute } from "./routes/payments";
 import { subscriptionsRoute } from "./routes/subscriptions";
 import { supportRoute } from "./routes/support";
 import { telegramRoute } from "./routes/telegram";
 
 const app = new Hono();
+
+startExpiredPendingPaymentOrderCleanup();
 
 app.use("*", async (c, next) => {
   const startedAt = performance.now();
