@@ -92,6 +92,13 @@
       "when": 1782321750000,
       "tag": "0012_content_items_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782416000000,
+      "tag": "0013_club_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -3,10 +3,12 @@ import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { AdminLearningMaterial, AdminUserDetailResponse, AdminUserModerationEvent, AdminStatsUser, ContentKind, MembershipStatus } from "@club/shared";
-import { getUserRole, isOwnerTelegramId } from "../admin/roles";
+import { getOwnerTelegramId, getUserRole, isOwnerTelegramId, ownerTelegramIdSettingKey } from "../admin/roles";
+import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { db } from "../db/client";
 import {
   adminUsers,
+  clubSettings,
   clubChatMessages,
   contentCategories,
   contentItems,
@@ -24,6 +26,10 @@ import { telegramAuth } from "../middleware/auth";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const adminPayloadSchema = z.object({
+  telegramId: z.string().trim().regex(/^\d{3,32}$/)
+});
+
+const ownerTransferPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
 });
 
@@ -180,7 +186,7 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
 }
 
 async function canManageTarget(actorTelegramId: string, targetTelegramId: string) {
-  if (isOwnerTelegramId(actorTelegramId)) {
+  if (await isOwnerTelegramId(actorTelegramId)) {
     return true;
   }
 
@@ -307,12 +313,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     await next();
   })
   .get("/admins", async (c) => {
+    const ownerTelegramId = await getOwnerTelegramId();
     const admins = await db.query.adminUsers.findMany({
+      where: ne(adminUsers.telegramId, ownerTelegramId),
       orderBy: (table, { desc }) => [desc(table.createdAt)]
     });
 
     return c.json({
-      ownerTelegramId: env.OWNER_TELEGRAM_ID,
+      ownerTelegramId,
       admins: admins.map((admin) => ({
         id: admin.id,
         telegramId: admin.telegramId,
@@ -798,7 +806,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid mute payload" }, 400);
     }
 
-    if (body.data.telegramId === env.OWNER_TELEGRAM_ID) {
+    if (await isOwnerTelegramId(body.data.telegramId)) {
       return c.json({ error: "Owner cannot be muted" }, 400);
     }
 
@@ -876,7 +884,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ ok: true });
   })
   .post("/admins", async (c) => {
-    if (!isOwnerTelegramId(c.get("telegramUser").id)) {
+    if (!(await isOwnerTelegramId(c.get("telegramUser").id))) {
       return c.json({ error: "Owner access required" }, 403);
     }
 
@@ -885,7 +893,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Telegram ID must contain only digits" }, 400);
     }
 
-    if (body.data.telegramId === env.OWNER_TELEGRAM_ID) {
+    if (await isOwnerTelegramId(body.data.telegramId)) {
       return c.json({ ok: true });
     }
 
@@ -901,13 +909,73 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({ ok: true });
   })
+  .post("/owner/transfer", async (c) => {
+    const currentOwnerTelegramId = await getOwnerTelegramId();
+    if (c.get("telegramUser").id !== currentOwnerTelegramId) {
+      return c.json({ error: "Owner access required" }, 403);
+    }
+
+    const body = ownerTransferPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Telegram ID must contain only digits" }, 400);
+    }
+
+    const targetAdmin = await db.query.adminUsers.findFirst({
+      where: eq(adminUsers.telegramId, body.data.telegramId)
+    });
+    if (!targetAdmin) {
+      return c.json({ error: "Передать клуб можно только администратору из списка." }, 400);
+    }
+
+    const targetRole = await getUserRole(body.data.telegramId);
+    const validation = validateOwnerTransferTarget({
+      currentOwnerTelegramId,
+      targetTelegramId: body.data.telegramId,
+      targetRole
+    });
+    if (!validation.ok) {
+      return c.json({ error: validation.error }, validation.status);
+    }
+
+    const now = new Date();
+    await db
+      .insert(adminUsers)
+      .values({
+        telegramId: currentOwnerTelegramId,
+        createdByUserId: c.get("userId")
+      })
+      .onConflictDoNothing({
+        target: adminUsers.telegramId
+      });
+
+    await db
+      .insert(clubSettings)
+      .values({
+        key: ownerTelegramIdSettingKey,
+        value: body.data.telegramId,
+        updatedByUserId: c.get("userId"),
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: clubSettings.key,
+        set: {
+          value: body.data.telegramId,
+          updatedByUserId: c.get("userId"),
+          updatedAt: now
+        }
+      });
+
+    await db.delete(adminUsers).where(eq(adminUsers.telegramId, body.data.telegramId));
+
+    return c.json({ ok: true });
+  })
   .delete("/admins/:telegramId", async (c) => {
-    if (!isOwnerTelegramId(c.get("telegramUser").id)) {
+    if (!(await isOwnerTelegramId(c.get("telegramUser").id))) {
       return c.json({ error: "Owner access required" }, 403);
     }
 
     const telegramId = c.req.param("telegramId");
-    if (telegramId === env.OWNER_TELEGRAM_ID) {
+    if (await isOwnerTelegramId(telegramId)) {
       return c.json({ error: "Owner cannot be removed" }, 400);
     }
 

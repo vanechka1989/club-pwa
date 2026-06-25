@@ -38,6 +38,13 @@ export const adminUsers = pgTable(
   })
 );
 
+export const clubSettings = pgTable("club_settings", {
+  key: varchar("key", { length: 96 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedByUserId: uuid("updated_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const subscriptions = pgTable(
   "subscriptions",
   {
@@ -404,6 +411,7 @@ export const supportTicketsRelations = relations(supportTickets, ({ one }) => ({
 
 export type User = typeof users.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
+export type ClubSetting = typeof clubSettings.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type ContentCategory = typeof contentCategories.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;

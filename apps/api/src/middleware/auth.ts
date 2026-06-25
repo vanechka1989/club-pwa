@@ -96,7 +96,8 @@ export const telegramAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asy
   c.set("previewMembershipStatus", null);
 
   const previewMode = previewModeSchema.safeParse(c.req.header("x-club-preview-mode"));
-  if (isOwnerTelegramId(telegramUser.id) && previewMode.success) {
+  const isOwner = await isOwnerTelegramId(telegramUser.id);
+  if (isOwner && previewMode.success) {
     const roleByMode: Record<PreviewMode, UserRole> = {
       developer: "owner",
       admin: "admin",
@@ -111,7 +112,7 @@ export const telegramAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asy
   const previewMembershipStatus = c.req.header("x-club-preview-membership");
   if (
     !previewMode.success &&
-    isOwnerTelegramId(telegramUser.id) &&
+    isOwner &&
     (previewMembershipStatus === "active" || previewMembershipStatus === "inactive")
   ) {
     c.set("previewMembershipStatus", previewMembershipStatus);

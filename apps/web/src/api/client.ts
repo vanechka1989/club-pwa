@@ -220,6 +220,13 @@ export function removeAdminUser(telegramId: string) {
   });
 }
 
+export function transferClubOwner(telegramId: string) {
+  return api<AdminMutationResponse>("/admin/owner/transfer", {
+    method: "POST",
+    body: { telegramId }
+  });
+}
+
 export function getAdminStats() {
   return api<AdminStatsResponse>("/admin/stats");
 }

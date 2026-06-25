@@ -25,6 +25,7 @@ import {
   getAdminUserStats,
   removeAdminUser,
   revokeUserMute,
+  transferClubOwner,
   updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
 } from "@/api/client";
@@ -85,6 +86,8 @@ const showCategoryModal = ref(false);
 const editorRef = ref<HTMLElement | null>(null);
 const editorColor = ref("#111827");
 const newAdminTelegramId = ref("");
+const transferOwnerTelegramId = ref("");
+const showTransferOwnerModal = ref(false);
 const loading = ref(false);
 const saving = ref(false);
 const message = ref<string | null>(null);
@@ -350,6 +353,16 @@ function closeCategoryModal() {
   showCategoryModal.value = false;
 }
 
+function openTransferOwnerModal() {
+  transferOwnerTelegramId.value = admins.value[0]?.telegramId ?? "";
+  showTransferOwnerModal.value = true;
+}
+
+function closeTransferOwnerModal() {
+  showTransferOwnerModal.value = false;
+  transferOwnerTelegramId.value = "";
+}
+
 function syncEditorBody() {
   materialBody.value = editorRef.value?.innerHTML ?? "";
 }
@@ -509,6 +522,28 @@ async function handleRemoveAdmin(telegramId: string) {
     setStatus("Админ удалён.");
   } catch {
     setError("Не удалось удалить админа.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleTransferOwner() {
+  if (!transferOwnerTelegramId.value) {
+    setError("Выберите администратора для передачи клуба.");
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await transferClubOwner(transferOwnerTelegramId.value);
+    const response = await getAdminUsers();
+    admins.value = response.admins;
+    ownerTelegramId.value = response.ownerTelegramId;
+    closeTransferOwnerModal();
+    await session.load();
+    setStatus("Клуб передан новому владельцу.");
+  } catch {
+    setError("Не удалось передать клуб. Проверьте, что выбранный пользователь остаётся администратором.");
   } finally {
     saving.value = false;
   }
@@ -913,6 +948,48 @@ onMounted(() => {
         </div>
         <Check class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
       </article>
+
+      <button
+        v-if="isOwner"
+        class="primary-button"
+        type="button"
+        :disabled="saving || !admins.length"
+        @click="openTransferOwnerModal"
+      >
+        Передать владение клубом
+      </button>
+      <p v-if="isOwner && !admins.length" class="admin-empty">Чтобы передать клуб, сначала добавьте нового администратора.</p>
+
+      <Teleport to="body">
+        <div v-if="showTransferOwnerModal" class="admin-modal-backdrop" @click.self="closeTransferOwnerModal">
+          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-owner-transfer-title">
+            <header class="admin-client-modal-head">
+              <div>
+                <h3 id="admin-owner-transfer-title">Передать клуб</h3>
+                <p>Новый владелец получит полный доступ. Вы останетесь обычным админом.</p>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть передачу клуба" @click="closeTransferOwnerModal">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <form class="admin-form" @submit.prevent="handleTransferOwner">
+              <select v-model="transferOwnerTelegramId" class="text-input">
+                <option value="" disabled>Выберите администратора</option>
+                <option v-for="admin in admins" :key="admin.id" :value="admin.telegramId">
+                  ID {{ admin.telegramId }}
+                </option>
+              </select>
+              <p class="admin-warning-line">
+                Подтвердите действие только если точно хотите сменить владельца клуба.
+              </p>
+              <button class="primary-button" type="submit" :disabled="saving || !transferOwnerTelegramId">
+                Подтвердить передачу
+              </button>
+            </form>
+          </aside>
+        </div>
+      </Teleport>
 
       <form v-if="isOwner" class="admin-search-row" @submit.prevent="handleAddAdmin">
         <input v-model.trim="newAdminTelegramId" class="text-input" inputmode="numeric" pattern="[0-9]*" placeholder="Telegram ID нового админа" />
