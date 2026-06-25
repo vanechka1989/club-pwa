@@ -3,6 +3,7 @@ import type {
   AdminLearningCategoryMutationResponse,
   AdminLearningMaterialMutationResponse,
   AdminLearningResponse,
+  AdminPaymentProviderResponse,
   AdminListResponse,
   AdminModerationResponse,
   AdminUserDetailResponse,
@@ -25,6 +26,8 @@ import type {
   MessageReaction,
   MeResponse,
   PaymentsResponse,
+  PaymentProductMutationResponse,
+  PaymentProviderMutationResponse,
   SubscribeResponse,
   SupportHomeResponse
 } from "@club/shared";
@@ -76,6 +79,13 @@ export function refreshAvatar() {
 
 export function createCheckout() {
   return api<SubscribeResponse>("/subscriptions/checkout", { method: "POST" });
+}
+
+export function createPaymentCheckout(productId: string) {
+  return api<SubscribeResponse>("/payments/checkout", {
+    method: "POST",
+    body: { productId }
+  });
 }
 
 export function getLearningHome() {
@@ -197,6 +207,69 @@ export function revokeTopicUserMute(topicId: string, muteId: string) {
 
 export function getPaymentPlans() {
   return api<PaymentsResponse>("/payments/plans");
+}
+
+export function cancelRecurrentSubscription(id: string) {
+  return api<AdminMutationResponse>(`/payments/recurrent-subscriptions/${id}/cancel`, {
+    method: "POST"
+  });
+}
+
+export function getPaymentProvider() {
+  return api<AdminPaymentProviderResponse>("/payments/admin/provider");
+}
+
+export function saveProdamusProvider(payload: { formUrl: string; secretKey: string; sys: string; isEnabled?: boolean }) {
+  return api<PaymentProviderMutationResponse>("/payments/admin/provider/prodamus", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function createPaymentProduct(payload: {
+  kind: "one_time" | "recurrent";
+  title: string;
+  description?: string | null;
+  amountRub: number;
+  accessDays: number;
+  prodamusSubscriptionId?: string | null;
+  isPublished?: boolean;
+}) {
+  return api<PaymentProductMutationResponse>("/payments/admin/products", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function updatePaymentProduct(
+  id: string,
+  payload: {
+    kind: "one_time" | "recurrent";
+    title: string;
+    description?: string | null;
+    amountRub: number;
+    accessDays: number;
+    prodamusSubscriptionId?: string | null;
+    isPublished?: boolean;
+  }
+) {
+  return api<PaymentProductMutationResponse>(`/payments/admin/products/${id}`, {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function updatePaymentProductStatus(id: string, isPublished: boolean) {
+  return api<PaymentProductMutationResponse>(`/payments/admin/products/${id}/status`, {
+    method: "POST",
+    body: { isPublished }
+  });
+}
+
+export function deletePaymentProduct(id: string) {
+  return api<AdminMutationResponse>(`/payments/admin/products/${id}`, {
+    method: "DELETE"
+  });
 }
 
 export function getSupportHome() {

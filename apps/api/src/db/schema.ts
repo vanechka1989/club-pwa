@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { boolean, index, integer, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
 export const contentKind = pgEnum("content_kind", ["text", "photo", "video", "audio"]);
@@ -7,6 +7,9 @@ export const supportTicketStatus = pgEnum("support_ticket_status", ["open", "ans
 export const moderationStatus = pgEnum("moderation_status", ["visible", "hidden", "deleted"]);
 export const muteKind = pgEnum("mute_kind", ["temporary", "permanent"]);
 export const messageReaction = pgEnum("message_reaction", ["like", "dislike", "thumbs_up", "fire", "heart", "laugh", "clap", "poop"]);
+export const paymentProductKind = pgEnum("payment_product_kind", ["one_time", "recurrent"]);
+export const paymentOrderStatus = pgEnum("payment_order_status", ["pending", "paid", "failed", "cancelled"]);
+export const recurrentSubscriptionStatus = pgEnum("recurrent_subscription_status", ["active", "cancelled"]);
 
 export const users = pgTable(
   "users",
@@ -59,6 +62,105 @@ export const subscriptions = pgTable(
   },
   (table) => ({
     userStatusIdx: index("subscriptions_user_status_idx").on(table.userId, table.status)
+  })
+);
+
+export const paymentProviders = pgTable(
+  "payment_providers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    title: varchar("title", { length: 120 }).notNull(),
+    formUrl: text("form_url").notNull(),
+    secretKey: text("secret_key").notNull(),
+    sys: varchar("sys", { length: 96 }).notNull(),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    providerIdx: uniqueIndex("payment_providers_provider_idx").on(table.provider)
+  })
+);
+
+export const paymentProducts = pgTable(
+  "payment_products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "cascade" }),
+    kind: paymentProductKind("kind").notNull(),
+    title: varchar("title", { length: 180 }).notNull(),
+    description: text("description"),
+    amountRub: integer("amount_rub").notNull(),
+    accessDays: integer("access_days").notNull(),
+    prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }),
+    isPublished: boolean("is_published").notNull().default(false),
+    archivedUntil: timestamp("archived_until", { withTimezone: true }),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    providerKindIdx: index("payment_products_provider_kind_idx").on(table.providerId, table.kind, table.isPublished),
+    archivedIdx: index("payment_products_archived_idx").on(table.archivedUntil)
+  })
+);
+
+export const paymentOrders = pgTable(
+  "payment_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").notNull().references(() => paymentProducts.id, { onDelete: "restrict" }),
+    providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "restrict" }),
+    status: paymentOrderStatus("status").notNull().default("pending"),
+    amountRub: integer("amount_rub").notNull(),
+    providerOrderId: varchar("provider_order_id", { length: 128 }).notNull(),
+    providerPaymentId: varchar("provider_payment_id", { length: 128 }),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    rawPayload: jsonb("raw_payload").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    providerOrderIdx: uniqueIndex("payment_orders_provider_order_idx").on(table.providerOrderId),
+    userStatusIdx: index("payment_orders_user_status_idx").on(table.userId, table.status)
+  })
+);
+
+export const userRecurrentSubscriptions = pgTable(
+  "user_recurrent_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").notNull().references(() => paymentProducts.id, { onDelete: "restrict" }),
+    providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "restrict" }),
+    status: recurrentSubscriptionStatus("status").notNull().default("active"),
+    prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }).notNull(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userProductIdx: uniqueIndex("user_recurrent_subscriptions_user_product_idx").on(table.userId, table.productId),
+    userStatusIdx: index("user_recurrent_subscriptions_user_status_idx").on(table.userId, table.status)
+  })
+);
+
+export const paymentWebhookEvents = pgTable(
+  "payment_webhook_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id").references(() => paymentProviders.id, { onDelete: "set null" }),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    eventKey: varchar("event_key", { length: 180 }).notNull(),
+    isValid: boolean("is_valid").notNull().default(false),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    eventKeyIdx: uniqueIndex("payment_webhook_events_event_key_idx").on(table.provider, table.eventKey)
   })
 );
 
@@ -280,6 +382,8 @@ export const supportTickets = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   subscriptions: many(subscriptions),
+  paymentOrders: many(paymentOrders),
+  recurrentSubscriptions: many(userRecurrentSubscriptions),
   supportTickets: many(supportTickets),
   createdAdminUsers: many(adminUsers),
   contentProgress: many(userContentProgress),
@@ -299,6 +403,61 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   user: one(users, {
     fields: [subscriptions.userId],
     references: [users.id]
+  })
+}));
+
+export const paymentProvidersRelations = relations(paymentProviders, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [paymentProviders.createdByUserId],
+    references: [users.id]
+  }),
+  products: many(paymentProducts),
+  orders: many(paymentOrders)
+}));
+
+export const paymentProductsRelations = relations(paymentProducts, ({ one, many }) => ({
+  provider: one(paymentProviders, {
+    fields: [paymentProducts.providerId],
+    references: [paymentProviders.id]
+  }),
+  orders: many(paymentOrders),
+  recurrentSubscriptions: many(userRecurrentSubscriptions)
+}));
+
+export const paymentOrdersRelations = relations(paymentOrders, ({ one }) => ({
+  user: one(users, {
+    fields: [paymentOrders.userId],
+    references: [users.id]
+  }),
+  product: one(paymentProducts, {
+    fields: [paymentOrders.productId],
+    references: [paymentProducts.id]
+  }),
+  provider: one(paymentProviders, {
+    fields: [paymentOrders.providerId],
+    references: [paymentProviders.id]
+  })
+}));
+
+export const userRecurrentSubscriptionsRelations = relations(userRecurrentSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [userRecurrentSubscriptions.userId],
+    references: [users.id]
+  }),
+  product: one(paymentProducts, {
+    fields: [userRecurrentSubscriptions.productId],
+    references: [paymentProducts.id]
+  }),
+  provider: one(paymentProviders, {
+    fields: [userRecurrentSubscriptions.providerId],
+    references: [paymentProviders.id]
+  })
+}));
+
+export const paymentWebhookEventsRelations = relations(paymentWebhookEvents, ({ one }) => ({
+  provider: one(paymentProviders, {
+    fields: [paymentWebhookEvents.providerId],
+    references: [paymentProviders.id]
   })
 }));
 
@@ -417,6 +576,11 @@ export type User = typeof users.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type ClubSetting = typeof clubSettings.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
+export type PaymentProvider = typeof paymentProviders.$inferSelect;
+export type PaymentProduct = typeof paymentProducts.$inferSelect;
+export type PaymentOrder = typeof paymentOrders.$inferSelect;
+export type UserRecurrentSubscription = typeof userRecurrentSubscriptions.$inferSelect;
+export type PaymentWebhookEvent = typeof paymentWebhookEvents.$inferSelect;
 export type ContentCategory = typeof contentCategories.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type UserContentProgress = typeof userContentProgress.$inferSelect;

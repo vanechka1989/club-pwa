@@ -150,10 +150,71 @@ export const paymentPlanSchema = z.object({
 });
 export type PaymentPlan = z.infer<typeof paymentPlanSchema>;
 
+export const paymentProductKindSchema = z.enum(["one_time", "recurrent"]);
+export type PaymentProductKind = z.infer<typeof paymentProductKindSchema>;
+
+export const paymentProviderSchema = z.object({
+  id: z.string(),
+  provider: z.literal("prodamus"),
+  title: z.string(),
+  formUrl: z.string().url(),
+  sys: z.string(),
+  isEnabled: z.boolean(),
+  webhookUrl: z.string().url()
+});
+export type PaymentProvider = z.infer<typeof paymentProviderSchema>;
+
+export const paymentProductSchema = z.object({
+  id: z.string(),
+  providerId: z.string(),
+  kind: paymentProductKindSchema,
+  title: z.string(),
+  description: z.string().nullable(),
+  amountRub: z.number().int().positive(),
+  accessDays: z.number().int().positive(),
+  prodamusSubscriptionId: z.string().nullable(),
+  isPublished: z.boolean(),
+  archivedUntil: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type PaymentProduct = z.infer<typeof paymentProductSchema>;
+
+export const userRecurrentSubscriptionSchema = z.object({
+  id: z.string(),
+  productId: z.string(),
+  title: z.string(),
+  status: z.enum(["active", "cancelled"]),
+  cancelledAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime()
+});
+export type UserRecurrentSubscription = z.infer<typeof userRecurrentSubscriptionSchema>;
+
 export const paymentsResponseSchema = z.object({
-  plans: z.array(paymentPlanSchema)
+  plans: z.array(paymentPlanSchema),
+  provider: paymentProviderSchema.nullable(),
+  products: z.array(paymentProductSchema),
+  recurrentSubscriptions: z.array(userRecurrentSubscriptionSchema)
 });
 export type PaymentsResponse = z.infer<typeof paymentsResponseSchema>;
+
+export const adminPaymentProviderResponseSchema = z.object({
+  provider: paymentProviderSchema.nullable(),
+  webhookUrl: z.string().url()
+});
+export type AdminPaymentProviderResponse = z.infer<typeof adminPaymentProviderResponseSchema>;
+
+export const paymentProviderMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  provider: paymentProviderSchema
+});
+export type PaymentProviderMutationResponse = z.infer<typeof paymentProviderMutationResponseSchema>;
+
+export const paymentProductMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  product: paymentProductSchema
+});
+export type PaymentProductMutationResponse = z.infer<typeof paymentProductMutationResponseSchema>;
 
 export const supportTopicSchema = z.object({
   id: z.string(),
