@@ -219,7 +219,7 @@ export function getPaymentProvider() {
   return api<AdminPaymentProviderResponse>("/payments/admin/provider");
 }
 
-export function saveProdamusProvider(payload: { formUrl: string; secretKey?: string; sys: string; isEnabled?: boolean }) {
+export function saveProdamusProvider(payload: { formUrl: string; secretKey?: string; sys?: string; isEnabled?: boolean }) {
   return api<PaymentProviderMutationResponse>("/payments/admin/provider/prodamus", {
     method: "POST",
     body: payload

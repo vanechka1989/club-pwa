@@ -31,7 +31,7 @@ const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 const providerPayloadSchema = z.object({
   formUrl: z.string().trim().min(1),
   secretKey: z.string().trim().min(8).optional(),
-  sys: z.string().trim().min(1).max(96),
+  sys: z.string().trim().max(96).default(""),
   isEnabled: z.boolean().optional()
 });
 

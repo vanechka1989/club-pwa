@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 type ProdamusPrimitive = string | number | boolean | null;
 type ProdamusValue = ProdamusPrimitive | ProdamusValue[] | { [key: string]: ProdamusValue | undefined };
+type ProdamusSignatureValue = string | ProdamusSignatureValue[] | { [key: string]: ProdamusSignatureValue };
 
 export type PaymentProductForProdamus = {
   title: string;
@@ -20,28 +21,30 @@ export function normalizeProdamusFormUrl(value: string) {
   return url.toString();
 }
 
-function sanitizeForSignature(value: unknown): ProdamusValue | undefined {
+function sanitizeForSignature(value: unknown): ProdamusSignatureValue | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return value;
+  if (value === null) {
+    return "";
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
   }
   if (Array.isArray(value)) {
-    return value.map(sanitizeForSignature).filter((entry) => entry !== undefined) as ProdamusValue[];
+    return value.map(sanitizeForSignature).filter((entry) => entry !== undefined) as ProdamusSignatureValue[];
   }
   if (typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value)
-        .map(([key, entry]) => [key, sanitizeForSignature(entry)] as const)
-        .filter(([, entry]) => entry !== undefined)
-    );
+    const entries = Object.entries(value)
+      .map(([key, entry]) => [key, sanitizeForSignature(entry)] as const)
+      .filter((entry): entry is readonly [string, ProdamusSignatureValue] => entry[1] !== undefined);
+    return Object.fromEntries(entries);
   }
 
   return String(value);
 }
 
-function sortForSignature(value: ProdamusValue): ProdamusValue {
+function sortForSignature(value: ProdamusSignatureValue): ProdamusSignatureValue {
   if (Array.isArray(value)) {
     return value.map(sortForSignature);
   }
@@ -51,7 +54,7 @@ function sortForSignature(value: ProdamusValue): ProdamusValue {
       Object.entries(value)
         .filter(([key, entry]) => key !== "signature" && entry !== undefined)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, entry]) => [key, sortForSignature(entry as ProdamusValue)])
+        .map(([key, entry]) => [key, sortForSignature(entry as ProdamusSignatureValue)])
     );
   }
 
@@ -59,8 +62,9 @@ function sortForSignature(value: ProdamusValue): ProdamusValue {
 }
 
 export function createProdamusSignature(data: Record<string, unknown>, secretKey: string) {
-  const normalized = sortForSignature(sanitizeForSignature(data) as ProdamusValue);
-  return createHmac("sha256", secretKey).update(JSON.stringify(normalized)).digest("hex");
+  const normalized = sortForSignature(sanitizeForSignature(data) as ProdamusSignatureValue);
+  const payload = JSON.stringify(normalized).replace(/\//g, "\\/");
+  return createHmac("sha256", secretKey).update(payload).digest("hex");
 }
 
 export function verifyProdamusSignature(data: Record<string, unknown>, secretKey: string, signature: string | null | undefined) {
@@ -83,24 +87,30 @@ export function buildProdamusPaymentUrl(input: {
   product: PaymentProductForProdamus;
   returnUrl: string;
   notificationUrl: string;
+  subscriptionDateStart?: Date;
 }) {
+  const products = [
+    {
+      name: input.product.title,
+      price: input.product.amountRub,
+      quantity: 1,
+      type: "course"
+    }
+  ];
+  const subscriptionDateStart =
+    input.product.kind === "recurrent" ? formatProdamusDateTime(input.subscriptionDateStart ?? new Date()) : undefined;
   const data: Record<string, ProdamusValue | undefined> = {
     do: "pay",
     order_id: input.orderId,
     customer_extra: `telegram:${input.userTelegramId}`,
-    sys: input.sys,
+    _param_telegram_id: input.userTelegramId,
+    sys: input.sys || undefined,
     urlReturn: input.returnUrl,
     urlSuccess: input.returnUrl,
     urlNotification: input.notificationUrl,
-    products: [
-      {
-        name: input.product.title,
-        price: input.product.amountRub,
-        quantity: 1,
-        type: "course"
-      }
-    ],
-    subscription: input.product.kind === "recurrent" ? input.product.prodamusSubscriptionId : undefined
+    products,
+    subscription: input.product.kind === "recurrent" ? input.product.prodamusSubscriptionId : undefined,
+    subscription_date_start: subscriptionDateStart
   };
   const signature = createProdamusSignature(data, input.secretKey);
   const url = new URL(normalizeProdamusFormUrl(input.formUrl));
@@ -108,7 +118,10 @@ export function buildProdamusPaymentUrl(input: {
   url.searchParams.set("do", String(data.do));
   url.searchParams.set("order_id", String(data.order_id));
   url.searchParams.set("customer_extra", String(data.customer_extra));
-  url.searchParams.set("sys", input.sys);
+  url.searchParams.set("_param_telegram_id", input.userTelegramId);
+  if (input.sys) {
+    url.searchParams.set("sys", input.sys);
+  }
   url.searchParams.set("urlReturn", input.returnUrl);
   url.searchParams.set("urlSuccess", input.returnUrl);
   url.searchParams.set("urlNotification", input.notificationUrl);
@@ -118,10 +131,22 @@ export function buildProdamusPaymentUrl(input: {
   url.searchParams.set("products[0][type]", "course");
   if (input.product.kind === "recurrent" && input.product.prodamusSubscriptionId) {
     url.searchParams.set("subscription", input.product.prodamusSubscriptionId);
+    if (subscriptionDateStart) {
+      url.searchParams.set("subscription_date_start", subscriptionDateStart);
+    }
   }
   url.searchParams.set("signature", signature);
 
   return url.toString();
+}
+
+function formatProdamusDateTime(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
 export function buildProdamusSetActivityRequest(input: {

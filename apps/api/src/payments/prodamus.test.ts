@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHmac } from "node:crypto";
 import {
   buildProdamusPaymentUrl,
   buildProdamusSetActivityRequest,
@@ -40,12 +41,29 @@ describe("prodamus payment helpers", () => {
     expect(verifyProdamusSignature({ order_id: "order-1" }, secretKey, "invalid")).toBe(false);
   });
 
+  it("matches the documented Prodamus HMAC canonical payload", () => {
+    const signature = createProdamusSignature(
+      {
+        order_id: "order-1",
+        products: [{ price: 990, quantity: 1, name: "Premium" }],
+        urlReturn: "https://club.example/",
+        urlNotification: "https://club.example/api/payments/prodamus/webhook"
+      },
+      "secret"
+    );
+
+    const canonicalPayload =
+      '{"order_id":"order-1","products":[{"name":"Premium","price":"990","quantity":"1"}],"urlNotification":"https:\\/\\/club.example\\/api\\/payments\\/prodamus\\/webhook","urlReturn":"https:\\/\\/club.example\\/"}';
+
+    expect(signature).toBe(createHmac("sha256", "secret").update(canonicalPayload).digest("hex"));
+  });
+
   it("builds one-time payment urls with product and customer metadata", () => {
     const url = new URL(
       buildProdamusPaymentUrl({
         formUrl: "demo.payform.ru",
         secretKey: "secret",
-        sys: "clubcrm",
+        sys: "",
         orderId: "order-1",
         userTelegramId: "100",
         product: {
@@ -62,9 +80,10 @@ describe("prodamus payment helpers", () => {
 
     expect(url.origin).toBe("https://demo.payform.ru");
     expect(url.searchParams.get("do")).toBe("pay");
-    expect(url.searchParams.get("sys")).toBe("clubcrm");
+    expect(url.searchParams.get("sys")).toBeNull();
     expect(url.searchParams.get("order_id")).toBe("order-1");
     expect(url.searchParams.get("customer_extra")).toBe("telegram:100");
+    expect(url.searchParams.get("_param_telegram_id")).toBe("100");
     expect(url.searchParams.get("urlNotification")).toBe("https://club.example/api/payments/prodamus/webhook");
     expect(url.searchParams.get("products[0][name]")).toBe("Premium");
     expect(url.searchParams.get("products[0][price]")).toBe("990");
@@ -89,11 +108,15 @@ describe("prodamus payment helpers", () => {
           prodamusSubscriptionId: "77"
         },
         returnUrl: "https://club.example/payments",
-        notificationUrl: "https://club.example/api/payments/prodamus/webhook"
+        notificationUrl: "https://club.example/api/payments/prodamus/webhook",
+        subscriptionDateStart: new Date(2026, 5, 25, 9, 5)
       })
     );
 
     expect(url.searchParams.get("subscription")).toBe("77");
+    expect(url.searchParams.get("subscription_date_start")).toBe("2026-6-25 09:05");
+    expect(url.searchParams.get("products[0][price]")).toBe("1490");
+    expect(url.searchParams.get("products[0][quantity]")).toBe("1");
   });
 
   it("builds setActivity requests for recurrent subscription cancellation by manager", () => {

@@ -195,9 +195,9 @@ async function handleSaveProvider() {
   saving.value = true;
   error.value = null;
   try {
-    const payload: { formUrl: string; secretKey?: string; sys: string; isEnabled?: boolean } = {
+    const payload: { formUrl: string; secretKey?: string; sys?: string; isEnabled?: boolean } = {
       formUrl: providerForm.value.formUrl,
-      sys: "clubcrm",
+      sys: "",
       isEnabled: providerForm.value.isEnabled
     };
     const secretKey = providerForm.value.secretKey.trim();
