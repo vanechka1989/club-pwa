@@ -273,6 +273,10 @@ button {
 }
 
 .app-root.community-active {
+  padding-bottom: var(--nav-space);
+}
+
+.app-root.community-chat-open {
   position: fixed;
   inset: 0;
   width: 100%;
@@ -291,21 +295,19 @@ button {
 }
 
 .community-active .app-shell {
-  height: calc(var(--app-viewport-height) - var(--nav-space));
   min-height: 0 !important;
   max-width: none;
   padding: 1rem 0.25rem calc(1rem + env(safe-area-inset-bottom));
-  overflow: hidden;
-}
-
-.club-telegram-fullscreen .community-active:not(.community-chat-open) .app-shell {
-  height: calc(var(--app-viewport-height) - var(--nav-space) - var(--fullscreen-top-offset));
-  padding-top: var(--fullscreen-top-offset);
 }
 
 .community-chat-open .app-shell {
   height: var(--app-viewport-height);
   padding: 0;
+  overflow: hidden;
+}
+
+.club-telegram-fullscreen .community-active:not(.community-chat-open) .app-shell {
+  padding-top: var(--fullscreen-top-offset);
 }
 
 .club-telegram-fullscreen .community-chat-open .app-shell {
@@ -326,6 +328,14 @@ button {
 }
 
 .community-active:not(.community-chat-open) .section-host {
+  overflow: visible;
+}
+
+.community-active:not(.community-chat-open) .content-panel-community,
+.community-active:not(.community-chat-open) .section-host,
+.community-active:not(.community-chat-open) .community-chat-shell {
+  display: block;
+  flex: initial;
   overflow: visible;
 }
 
