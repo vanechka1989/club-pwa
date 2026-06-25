@@ -8,12 +8,16 @@ export type PaymentWatchOrder = {
 
 export const paymentWatchStorageKey = "club-payment-watch";
 
+function getPaymentWatchStorage() {
+  return typeof localStorage === "undefined" ? null : localStorage;
+}
+
 export function startPaymentWatch(date = new Date()) {
-  localStorage.setItem(paymentWatchStorageKey, JSON.stringify({ startedAt: date.toISOString() }));
+  getPaymentWatchStorage()?.setItem(paymentWatchStorageKey, JSON.stringify({ startedAt: date.toISOString() }));
 }
 
 export function readPaymentWatch(): PaymentWatchState | null {
-  const raw = localStorage.getItem(paymentWatchStorageKey);
+  const raw = getPaymentWatchStorage()?.getItem(paymentWatchStorageKey);
   if (!raw) {
     return null;
   }
@@ -27,7 +31,7 @@ export function readPaymentWatch(): PaymentWatchState | null {
 }
 
 export function clearPaymentWatch() {
-  localStorage.removeItem(paymentWatchStorageKey);
+  getPaymentWatchStorage()?.removeItem(paymentWatchStorageKey);
 }
 
 export function isOrderWithinPaymentWatch(order: PaymentWatchOrder, watch: PaymentWatchState, skewMs = 60_000) {
