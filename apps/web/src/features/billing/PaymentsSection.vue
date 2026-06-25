@@ -410,7 +410,6 @@ watch(showProductModal, async (isOpen) => {
         <article v-for="product in activeProducts" :key="product.id" class="soft-payment-card">
           <div class="payment-product-main">
             <p class="payment-product-title">{{ product.title }}</p>
-            <p class="payment-product-description">{{ product.description || productPeriod(product) }}</p>
             <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
           </div>
           <div class="payment-product-actions">

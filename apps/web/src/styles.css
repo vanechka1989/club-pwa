@@ -1564,16 +1564,8 @@ button {
   line-height: 1.3;
 }
 
-.payment-product-description {
-  margin-top: 0.2rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 620;
-  line-height: 1.35;
-}
-
 .payment-product-meta {
-  margin-top: 0.35rem;
+  margin-top: 0.3rem;
   color: var(--accent);
   font-size: 0.76rem;
   font-weight: 800;
