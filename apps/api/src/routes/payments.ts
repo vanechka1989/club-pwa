@@ -258,7 +258,14 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         isValid,
         payload
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [paymentWebhookEvents.provider, paymentWebhookEvents.eventKey],
+        set: {
+          providerId: provider?.id ?? null,
+          isValid,
+          payload
+        }
+      });
 
     if (!provider || !isValid || !orderId) {
       return c.json({ ok: false }, 400);
