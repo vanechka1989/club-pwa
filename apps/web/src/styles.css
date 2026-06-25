@@ -874,6 +874,14 @@ button {
   padding: 1rem;
 }
 
+.payment-modal-backdrop {
+  align-items: start;
+  justify-items: center;
+  padding: 0.75rem 0.75rem calc(6rem + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .admin-client-modal {
   position: relative;
   top: auto;
@@ -898,10 +906,12 @@ button {
 .payment-form-modal {
   display: flex;
   flex-direction: column;
+  max-height: calc(100dvh - 7rem - env(safe-area-inset-bottom));
   overflow: hidden;
 }
 
 .payment-form-body {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1067,6 +1077,32 @@ button {
   font-size: 0.76rem;
   font-weight: 650;
   line-height: 1.35;
+}
+
+.app-version-badge {
+  display: grid;
+  flex-shrink: 0;
+  gap: 0.08rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  padding: 0.35rem 0.55rem;
+  text-align: right;
+  box-shadow: var(--shadow-soft);
+}
+
+.app-version-badge span {
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.app-version-badge small {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 720;
+  line-height: 1.1;
 }
 
 .icon-button {
@@ -2345,9 +2381,19 @@ button.chat-message-author:active {
     padding: 0.75rem;
   }
 
+  .payment-modal-backdrop {
+    align-items: start;
+    padding: 0.6rem 0.45rem calc(6.25rem + env(safe-area-inset-bottom));
+  }
+
   .admin-client-modal {
     max-height: 84vh;
     border-radius: 18px 18px 12px 12px;
+  }
+
+  .payment-form-modal {
+    max-height: calc(100dvh - 6.9rem - env(safe-area-inset-bottom));
+    border-radius: 16px;
   }
 
   .admin-log-item {

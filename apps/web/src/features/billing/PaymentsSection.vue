@@ -500,7 +500,7 @@ watch(showProductModal, async (isOpen) => {
       </aside>
     </div>
 
-    <div v-if="showProviderForm" class="admin-modal-backdrop" @click.self="closeProviderForm">
+    <div v-if="showProviderForm" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProviderForm">
       <aside
         :key="providerFormModalKey"
         ref="providerFormModal"
@@ -561,7 +561,7 @@ watch(showProductModal, async (isOpen) => {
       </aside>
     </div>
 
-    <div v-if="showProductModal" class="admin-modal-backdrop" @click.self="closeProductModal">
+    <div v-if="showProductModal" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProductModal">
       <aside
         :key="productFormModalKey"
         ref="productFormModal"

@@ -30,6 +30,7 @@ import {
   updateAdminUserAccess,
 } from "@/api/client";
 import { formatMembershipStatus } from "@/features/app/i18n";
+import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
 
@@ -569,6 +570,10 @@ onMounted(() => {
       <div>
         <h2 class="section-title">Админка</h2>
         <p class="section-subtitle">Клиенты, доступ и ограничения.</p>
+      </div>
+      <div class="app-version-badge" aria-label="Версия приложения">
+        <span>v{{ appVersion }}</span>
+        <small>{{ appVersionUpdatedAt }}</small>
       </div>
     </header>
 
