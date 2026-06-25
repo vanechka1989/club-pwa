@@ -14,6 +14,7 @@ import {
   updatePaymentProductStatus
 } from "@/api/client";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
+import { findActiveRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { useSessionStore } from "@/stores/session";
 
 const session = useSessionStore();
@@ -62,6 +63,12 @@ const isOwner = computed(() => session.user?.role === "owner");
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
 const archivedProducts = computed(() => products.value.filter((product) => product.archivedUntil));
+const activeRecurrentSubscription = computed(() => findActiveRecurrentSubscription(recurrentSubscriptions.value));
+const recurrentSubscriptionHistory = computed(() =>
+  activeRecurrentSubscription.value
+    ? recurrentSubscriptions.value.filter((subscription) => subscription.id !== activeRecurrentSubscription.value?.id)
+    : recurrentSubscriptions.value
+);
 
 function showAlert(message: string) {
   notice.value = message;
@@ -305,6 +312,11 @@ async function handleDeleteProduct(product: PaymentProduct) {
 }
 
 async function handleCheckout(product: PaymentProduct) {
+  if (activeRecurrentSubscription.value) {
+    showAlert("У вас уже есть активная автоподписка. Отмените её перед новой оплатой.");
+    return;
+  }
+
   if (!(await confirmPaymentRedirect())) {
     return;
   }
@@ -343,6 +355,7 @@ async function handleCancelSubscription(subscription: UserRecurrentSubscription)
     recurrentSubscriptions.value = recurrentSubscriptions.value.map((entry) =>
       entry.id === subscription.id ? { ...entry, status: "cancelled", cancelledAt: new Date().toISOString() } : entry
     );
+    await session.load({ silent: true });
     showAlert("Подписка отменена.");
   } catch {
     error.value = "Не удалось отменить подписку.";
@@ -429,12 +442,24 @@ watch(showProductModal, async (isOpen) => {
         </button>
       </div>
 
-      <p v-if="loading" class="text-sm text-[var(--muted)]">Загрузка оплаты...</p>
+      <div v-if="activeRecurrentSubscription && !isOwner" class="rounded-[18px] bg-[var(--field)] p-4">
+        <p class="font-semibold text-[var(--text)]">{{ activeRecurrentSubscription.title }}</p>
+        <p class="mt-1 text-sm text-[var(--muted)]">Автоподписка активна. Новые оплаты доступны после отмены подписки.</p>
+        <button
+          class="secondary-button mt-3"
+          type="button"
+          :disabled="saving"
+          @click="handleCancelSubscription(activeRecurrentSubscription)"
+        >
+          Отменить подписку
+        </button>
+      </div>
+      <p v-else-if="loading" class="text-sm text-[var(--muted)]">Загрузка оплаты...</p>
       <p v-else-if="!activeProducts.length" class="rounded-[18px] bg-[var(--field)] p-4 text-sm text-[var(--muted)]">
         Тарифы появятся после добавления админом.
       </p>
 
-      <div class="space-y-3">
+      <div v-else class="space-y-3">
         <article v-for="product in activeProducts" :key="product.id" class="soft-payment-card">
           <div class="payment-product-main">
             <p class="payment-product-title">{{ product.title }}</p>
@@ -442,6 +467,7 @@ watch(showProductModal, async (isOpen) => {
           </div>
           <div class="payment-product-actions">
             <button
+              v-if="!activeRecurrentSubscription"
               class="primary-button payment-product-pay"
               :class="{ 'payment-product-pay-loading': checkoutProductId === product.id }"
               type="button"
@@ -467,9 +493,29 @@ watch(showProductModal, async (isOpen) => {
       </div>
     </div>
 
-    <div v-if="recurrentSubscriptions.length" class="surface-card space-y-3">
+    <div v-if="activeRecurrentSubscription && isOwner" class="surface-card space-y-3">
+      <p class="font-semibold text-[var(--text)]">Активная автоподписка</p>
+      <article class="rounded-[18px] bg-[var(--field)] p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="font-semibold text-[var(--text)]">{{ activeRecurrentSubscription.title }}</p>
+            <p class="mt-1 text-sm text-[var(--muted)]">Новые оплаты заблокированы до отмены.</p>
+          </div>
+          <button
+            class="secondary-button w-auto px-4"
+            type="button"
+            :disabled="saving"
+            @click="handleCancelSubscription(activeRecurrentSubscription)"
+          >
+            Отменить
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <div v-if="recurrentSubscriptionHistory.length" class="surface-card space-y-3">
       <p class="font-semibold text-[var(--text)]">Ваши подписки</p>
-      <article v-for="subscription in recurrentSubscriptions" :key="subscription.id" class="rounded-[18px] bg-[var(--field)] p-4">
+      <article v-for="subscription in recurrentSubscriptionHistory" :key="subscription.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="font-semibold text-[var(--text)]">{{ subscription.title }}</p>

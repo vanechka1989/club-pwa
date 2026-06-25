@@ -31,6 +31,7 @@ import {
   setProdamusSubscriptionActivity,
   verifyProdamusSignature
 } from "../payments/prodamus";
+import { hasActiveRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -378,13 +379,17 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid checkout payload" }, 400);
     }
 
-    const [provider, product, user] = await Promise.all([
+    const userId = c.get("userId");
+    const [provider, product, user, activeRecurrentSubscription] = await Promise.all([
       getProdamusProvider(),
       db.query.paymentProducts.findFirst({
         where: and(eq(paymentProducts.id, body.data.productId), eq(paymentProducts.isPublished, true), activeProductWhere())
       }),
       db.query.users.findFirst({
-        where: eq(users.id, c.get("userId"))
+        where: eq(users.id, userId)
+      }),
+      db.query.userRecurrentSubscriptions.findFirst({
+        where: and(eq(userRecurrentSubscriptions.userId, userId), eq(userRecurrentSubscriptions.status, "active"))
       })
     ]);
 
@@ -399,6 +404,15 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
     if (!user) {
       return c.json({ checkoutUrl: null, message: "Пользователь не найден." }, 404);
+    }
+    if (hasActiveRecurrentSubscription(activeRecurrentSubscription ? [activeRecurrentSubscription] : [])) {
+      return c.json(
+        {
+          checkoutUrl: null,
+          message: "У вас уже есть активная автоподписка. Отмените её перед новой оплатой."
+        },
+        409
+      );
     }
 
     const now = new Date();
