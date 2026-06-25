@@ -5,6 +5,7 @@ import {
   buildProdamusSetActivityRequest,
   createProdamusSignature,
   getProdamusNotificationOrderId,
+  getProdamusSubscriptionIdentity,
   normalizeProdamusWebhookPayload,
   normalizeProdamusFormUrl,
   verifyProdamusSignature
@@ -175,5 +176,49 @@ describe("prodamus payment helpers", () => {
         "secret"
       )
     );
+  });
+
+  it("prefers Prodamus profile id for setActivity requests", () => {
+    const request = buildProdamusSetActivityRequest({
+      formUrl: "https://demo.payform.ru/",
+      secretKey: "secret",
+      subscriptionId: "77",
+      profileId: "1209736",
+      telegramId: "123456",
+      activeManager: false
+    });
+
+    expect(request.body.get("profile")).toBe("1209736");
+    expect(request.body.get("tg_user_id")).toBeNull();
+    expect(request.body.get("signature")).toBe(
+      createProdamusSignature(
+        {
+          subscription: "77",
+          profile: "1209736",
+          active_manager: 0
+        },
+        "secret"
+      )
+    );
+  });
+
+  it("extracts Prodamus subscription identity from paid webhook payload", () => {
+    expect(
+      getProdamusSubscriptionIdentity(
+        {
+          customer_email: "client@example.com",
+          customer_phone: "+79999999999",
+          subscription: {
+            profile_id: "1209736"
+          }
+        },
+        "123456"
+      )
+    ).toEqual({
+      profileId: "1209736",
+      customerEmail: "client@example.com",
+      customerPhone: "+79999999999",
+      telegramId: "123456"
+    });
   });
 });

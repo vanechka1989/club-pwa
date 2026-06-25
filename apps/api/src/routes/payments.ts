@@ -26,6 +26,7 @@ import { notifyPaymentReceived } from "../payments/paymentNotification";
 import {
   buildProdamusPaymentUrl,
   getProdamusNotificationOrderId,
+  getProdamusSubscriptionIdentity,
   normalizeProdamusWebhookPayload,
   normalizeProdamusFormUrl,
   setProdamusSubscriptionActivity,
@@ -472,15 +473,49 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Cancel is available only for recurrent Prodamus subscriptions" }, 400);
     }
 
+    const latestPaidOrder = await db.query.paymentOrders.findFirst({
+      where: and(
+        eq(paymentOrders.userId, subscription.userId),
+        eq(paymentOrders.productId, subscription.productId),
+        eq(paymentOrders.providerId, subscription.providerId),
+        eq(paymentOrders.status, "paid")
+      ),
+      orderBy: [desc(paymentOrders.paidAt), desc(paymentOrders.updatedAt)]
+    });
+    const prodamusIdentity = getProdamusSubscriptionIdentity(
+      latestPaidOrder?.rawPayload && typeof latestPaidOrder.rawPayload === "object"
+        ? (latestPaidOrder.rawPayload as Record<string, unknown>)
+        : null,
+      subscription.user.telegramId
+    );
+
     try {
       await setProdamusSubscriptionActivity({
         formUrl: subscription.provider.formUrl,
         secretKey: subscription.provider.secretKey,
         subscriptionId: subscription.prodamusSubscriptionId,
-        telegramId: subscription.user.telegramId,
+        profileId: prodamusIdentity.profileId,
+        telegramId: prodamusIdentity.telegramId,
+        customerEmail: prodamusIdentity.customerEmail,
+        customerPhone: prodamusIdentity.customerPhone,
         activeManager: false
       });
-    } catch {
+    } catch (error) {
+      logger.warn(
+        {
+          error,
+          subscriptionId: subscription.id,
+          prodamusSubscriptionId: subscription.prodamusSubscriptionId,
+          identityType: prodamusIdentity.profileId
+            ? "profile"
+            : prodamusIdentity.customerEmail
+              ? "customer_email"
+              : prodamusIdentity.customerPhone
+                ? "customer_phone"
+                : "tg_user_id"
+        },
+        "prodamus subscription cancellation failed"
+      );
       return c.json({ error: "Не удалось отменить подписку в Prodamus." }, 502);
     }
 

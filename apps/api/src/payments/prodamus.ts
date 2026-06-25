@@ -225,12 +225,16 @@ export function buildProdamusSetActivityRequest(input: {
   formUrl: string;
   secretKey: string;
   subscriptionId: string;
-  telegramId: string;
+  profileId?: string | null;
+  telegramId?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
   activeManager: boolean;
 }) {
+  const identity = pickSetActivityIdentity(input);
   const data = {
     subscription: input.subscriptionId,
-    tg_user_id: input.telegramId,
+    ...identity,
     active_manager: input.activeManager ? 1 : 0
   };
   const body = new URLSearchParams();
@@ -243,11 +247,61 @@ export function buildProdamusSetActivityRequest(input: {
   return { url, body };
 }
 
+function stringValue(value: unknown) {
+  return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+}
+
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+export function getProdamusSubscriptionIdentity(payload: Record<string, unknown> | null | undefined, fallbackTelegramId?: string | null) {
+  const subscription = objectValue(payload?.subscription);
+  return {
+    profileId: stringValue(subscription?.profile_id || subscription?.profileId) || null,
+    customerEmail: stringValue(payload?.customer_email || payload?.customerEmail) || null,
+    customerPhone: stringValue(payload?.customer_phone || payload?.customerPhone) || null,
+    telegramId: stringValue(fallbackTelegramId) || null
+  };
+}
+
+function pickSetActivityIdentity(input: {
+  profileId?: string | null;
+  telegramId?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+}) {
+  const profileId = stringValue(input.profileId);
+  if (profileId) {
+    return { profile: profileId };
+  }
+
+  const customerEmail = stringValue(input.customerEmail);
+  if (customerEmail) {
+    return { customer_email: customerEmail };
+  }
+
+  const customerPhone = stringValue(input.customerPhone);
+  if (customerPhone) {
+    return { customer_phone: customerPhone };
+  }
+
+  const telegramId = stringValue(input.telegramId);
+  if (telegramId) {
+    return { tg_user_id: telegramId };
+  }
+
+  throw new Error("Prodamus setActivity identity is missing");
+}
+
 export async function setProdamusSubscriptionActivity(input: {
   formUrl: string;
   secretKey: string;
   subscriptionId: string;
-  telegramId: string;
+  profileId?: string | null;
+  telegramId?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
   activeManager: boolean;
   fetchImpl?: typeof fetch;
 }) {
