@@ -220,6 +220,12 @@ export function cancelRecurrentSubscription(id: string) {
   });
 }
 
+export function restoreRecurrentSubscription(id: string) {
+  return api<AdminMutationResponse>(`/payments/recurrent-subscriptions/${id}/restore`, {
+    method: "POST"
+  });
+}
+
 export function getAdminPaymentHistory() {
   return api<PaymentOrderLogsResponse>("/payments/admin/orders");
 }

@@ -9,13 +9,14 @@ import {
   deletePaymentProduct,
   getPaymentPlans,
   getPaymentProvider,
+  restoreRecurrentSubscription,
   saveProdamusProvider,
   updatePaymentProduct,
   updatePaymentProductStatus
 } from "@/api/client";
 import { paymentRedirectNotice } from "@/features/billing/paymentMessages";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
-import { findActiveRecurrentSubscription } from "@/features/billing/recurrentSubscription";
+import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { useSessionStore } from "@/stores/session";
 
 const session = useSessionStore();
@@ -65,9 +66,17 @@ const activeProducts = computed(() => products.value.filter((product) => product
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
 const archivedProducts = computed(() => products.value.filter((product) => product.archivedUntil));
 const activeRecurrentSubscription = computed(() => findActiveRecurrentSubscription(recurrentSubscriptions.value));
+const restorableRecurrentSubscription = computed(() =>
+  findRestorableRecurrentSubscription(recurrentSubscriptions.value, {
+    paymentType: session.user?.paymentType ?? null,
+    recurrentPaymentStatus: session.user?.recurrentPaymentStatus ?? null,
+    membershipExpiresAt: session.user?.membershipExpiresAt ?? null
+  })
+);
+const primaryRecurrentSubscription = computed(() => activeRecurrentSubscription.value ?? restorableRecurrentSubscription.value);
 const recurrentSubscriptionHistory = computed(() =>
-  activeRecurrentSubscription.value
-    ? recurrentSubscriptions.value.filter((subscription) => subscription.id !== activeRecurrentSubscription.value?.id)
+  primaryRecurrentSubscription.value
+    ? recurrentSubscriptions.value.filter((subscription) => subscription.id !== primaryRecurrentSubscription.value?.id)
     : recurrentSubscriptions.value
 );
 
@@ -315,6 +324,10 @@ async function handleCheckout(product: PaymentProduct) {
     showAlert("У вас уже есть активная автоподписка. Отмените её перед новой оплатой.");
     return;
   }
+  if (restorableRecurrentSubscription.value) {
+    showAlert("Восстановите отменённую автоподписку или дождитесь окончания доступа перед новой оплатой.");
+    return;
+  }
 
   if (!(await confirmPaymentRedirect())) {
     return;
@@ -358,6 +371,26 @@ async function handleCancelSubscription(subscription: UserRecurrentSubscription)
     showAlert("Подписка отменена.");
   } catch {
     error.value = "Не удалось отменить подписку.";
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleRestoreSubscription(subscription: UserRecurrentSubscription) {
+  if (!window.confirm(`Восстановить подписку "${subscription.title}"?`)) {
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await restoreRecurrentSubscription(subscription.id);
+    recurrentSubscriptions.value = recurrentSubscriptions.value.map((entry) =>
+      entry.id === subscription.id ? { ...entry, status: "active", cancelledAt: null } : entry
+    );
+    await session.load({ silent: true });
+    showAlert("Подписка восстановлена.");
+  } catch {
+    error.value = "Не удалось восстановить подписку.";
   } finally {
     saving.value = false;
   }
@@ -453,6 +486,20 @@ watch(showProductModal, async (isOpen) => {
           Отменить подписку
         </button>
       </div>
+      <div v-else-if="restorableRecurrentSubscription && !isOwner" class="rounded-[18px] bg-[var(--field)] p-4">
+        <p class="font-semibold text-[var(--text)]">{{ restorableRecurrentSubscription.title }}</p>
+        <p class="mt-1 text-sm text-[var(--muted)]">
+          Автоподписка отменена, но доступ ещё действует. Можно восстановить подписку без новой оплаты.
+        </p>
+        <button
+          class="secondary-button mt-3"
+          type="button"
+          :disabled="saving"
+          @click="handleRestoreSubscription(restorableRecurrentSubscription)"
+        >
+          Восстановить подписку
+        </button>
+      </div>
       <p v-else-if="loading" class="text-sm text-[var(--muted)]">Загрузка оплаты...</p>
       <p v-else-if="!activeProducts.length" class="rounded-[18px] bg-[var(--field)] p-4 text-sm text-[var(--muted)]">
         Тарифы появятся после добавления админом.
@@ -466,7 +513,7 @@ watch(showProductModal, async (isOpen) => {
           </div>
           <div class="payment-product-actions">
             <button
-              v-if="!activeRecurrentSubscription"
+              v-if="!primaryRecurrentSubscription"
               class="primary-button payment-product-pay"
               :class="{ 'payment-product-pay-loading': checkoutProductId === product.id }"
               type="button"
@@ -507,6 +554,26 @@ watch(showProductModal, async (isOpen) => {
             @click="handleCancelSubscription(activeRecurrentSubscription)"
           >
             Отменить
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <div v-if="restorableRecurrentSubscription && isOwner" class="surface-card space-y-3">
+      <p class="font-semibold text-[var(--text)]">Отмененная автоподписка</p>
+      <article class="rounded-[18px] bg-[var(--field)] p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="font-semibold text-[var(--text)]">{{ restorableRecurrentSubscription.title }}</p>
+            <p class="mt-1 text-sm text-[var(--muted)]">Можно восстановить, пока доступ ещё активен.</p>
+          </div>
+          <button
+            class="secondary-button w-auto px-4"
+            type="button"
+            :disabled="saving"
+            @click="handleRestoreSubscription(restorableRecurrentSubscription)"
+          >
+            Восстановить
           </button>
         </div>
       </article>

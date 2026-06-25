@@ -4,7 +4,7 @@ import { BarChart3, Check, Fingerprint, Maximize2, Minimize2, Moon, Palette, Ref
 import { computed, onMounted, ref } from "vue";
 import { getLearningHome, getPaymentHistory, getPaymentPlans } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
-import { findActiveRecurrentSubscription } from "@/features/billing/recurrentSubscription";
+import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme, type Theme } from "@/stores/ui";
 
@@ -106,8 +106,16 @@ const paymentDateText = computed(() => {
   return null;
 });
 const activeRecurrentSubscription = computed(() => findActiveRecurrentSubscription(recurrentSubscriptions.value));
+const restorableRecurrentSubscription = computed(() =>
+  findRestorableRecurrentSubscription(recurrentSubscriptions.value, {
+    paymentType: session.user?.paymentType ?? null,
+    recurrentPaymentStatus: session.user?.recurrentPaymentStatus ?? null,
+    membershipExpiresAt: session.user?.membershipExpiresAt ?? null
+  })
+);
+const manageableRecurrentSubscription = computed(() => activeRecurrentSubscription.value ?? restorableRecurrentSubscription.value);
 const paymentActionText = computed(() => {
-  if (activeRecurrentSubscription.value) {
+  if (manageableRecurrentSubscription.value) {
     return "Управление подпиской";
   }
 
@@ -298,7 +306,7 @@ onMounted(async () => {
       <button class="soft-inline-button mt-4" type="button" @click="$emit('openPayments')">
         {{ paymentActionText }}
       </button>
-      <p v-if="activeRecurrentSubscription" class="mt-2 text-xs font-semibold text-[var(--muted)]">
+      <p v-if="manageableRecurrentSubscription" class="mt-2 text-xs font-semibold text-[var(--muted)]">
         Управление подпиской в разделе Оплата
       </p>
     </section>

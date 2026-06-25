@@ -23,6 +23,7 @@ import { telegramAuth } from "../middleware/auth";
 import { canManagePaymentSettings, canReadPaymentSettings } from "../payments/adminAccess";
 import { cleanupExpiredPendingPaymentOrders } from "../payments/orderCleanupJob";
 import { notifyPaymentReceived } from "../payments/paymentNotification";
+import { getMembership } from "../membership/getMembership";
 import {
   buildProdamusPaymentUrl,
   getProdamusNotificationOrderId,
@@ -32,7 +33,7 @@ import {
   setProdamusSubscriptionActivity,
   verifyProdamusSignature
 } from "../payments/prodamus";
-import { hasActiveRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
+import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -381,7 +382,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const userId = c.get("userId");
-    const [provider, product, user, activeRecurrentSubscription] = await Promise.all([
+    const [provider, product, user, recurrentSubscriptions, membership] = await Promise.all([
       getProdamusProvider(),
       db.query.paymentProducts.findFirst({
         where: and(eq(paymentProducts.id, body.data.productId), eq(paymentProducts.isPublished, true), activeProductWhere())
@@ -389,9 +390,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       db.query.users.findFirst({
         where: eq(users.id, userId)
       }),
-      db.query.userRecurrentSubscriptions.findFirst({
-        where: and(eq(userRecurrentSubscriptions.userId, userId), eq(userRecurrentSubscriptions.status, "active"))
-      })
+      db.query.userRecurrentSubscriptions.findMany({
+        where: eq(userRecurrentSubscriptions.userId, userId)
+      }),
+      getMembership(userId)
     ]);
 
     if (!provider || !provider.isEnabled) {
@@ -406,11 +408,16 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!user) {
       return c.json({ checkoutUrl: null, message: "Пользователь не найден." }, 404);
     }
-    if (hasActiveRecurrentSubscription(activeRecurrentSubscription ? [activeRecurrentSubscription] : [])) {
+    if (
+      hasBlockingRecurrentSubscription(recurrentSubscriptions, {
+        isActiveMembership: membership.isActive,
+        subscriptionProvider: membership.subscription?.provider ?? null
+      })
+    ) {
       return c.json(
         {
           checkoutUrl: null,
-          message: "У вас уже есть активная автоподписка. Отмените её перед новой оплатой."
+          message: "У вас есть активная или восстанавливаемая автоподписка. Управляйте подпиской в разделе Оплата."
         },
         409
       );
@@ -522,6 +529,83 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     await db
       .update(userRecurrentSubscriptions)
       .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+      .where(eq(userRecurrentSubscriptions.id, subscription.id));
+
+    return c.json({ ok: true });
+  })
+  .post("/recurrent-subscriptions/:id/restore", async (c) => {
+    const subscription = await db.query.userRecurrentSubscriptions.findFirst({
+      where: and(eq(userRecurrentSubscriptions.id, c.req.param("id")), eq(userRecurrentSubscriptions.userId, c.get("userId"))),
+      with: {
+        product: true,
+        provider: true,
+        user: true
+      }
+    });
+    if (!subscription) {
+      return c.json({ error: "Subscription not found" }, 404);
+    }
+    if (subscription.status === "active") {
+      return c.json({ ok: true });
+    }
+    if (subscription.product.kind !== "recurrent" || subscription.provider.provider !== "prodamus") {
+      return c.json({ error: "Restore is available only for recurrent Prodamus subscriptions" }, 400);
+    }
+
+    const membership = await getMembership(subscription.userId);
+    if (!membership.isActive || membership.subscription?.provider !== "prodamus_recurrent") {
+      return c.json({ error: "Восстановить подписку можно только пока доступ ещё активен." }, 409);
+    }
+
+    const latestPaidOrder = await db.query.paymentOrders.findFirst({
+      where: and(
+        eq(paymentOrders.userId, subscription.userId),
+        eq(paymentOrders.productId, subscription.productId),
+        eq(paymentOrders.providerId, subscription.providerId),
+        eq(paymentOrders.status, "paid")
+      ),
+      orderBy: [desc(paymentOrders.paidAt), desc(paymentOrders.updatedAt)]
+    });
+    const prodamusIdentity = getProdamusSubscriptionIdentity(
+      latestPaidOrder?.rawPayload && typeof latestPaidOrder.rawPayload === "object"
+        ? (latestPaidOrder.rawPayload as Record<string, unknown>)
+        : null,
+      subscription.user.telegramId
+    );
+
+    try {
+      await setProdamusSubscriptionActivity({
+        formUrl: subscription.provider.formUrl,
+        secretKey: subscription.provider.secretKey,
+        subscriptionId: subscription.prodamusSubscriptionId,
+        profileId: prodamusIdentity.profileId,
+        telegramId: prodamusIdentity.telegramId,
+        customerEmail: prodamusIdentity.customerEmail,
+        customerPhone: prodamusIdentity.customerPhone,
+        activeManager: true
+      });
+    } catch (error) {
+      logger.warn(
+        {
+          error,
+          subscriptionId: subscription.id,
+          prodamusSubscriptionId: subscription.prodamusSubscriptionId,
+          identityType: prodamusIdentity.profileId
+            ? "profile"
+            : prodamusIdentity.customerEmail
+              ? "customer_email"
+              : prodamusIdentity.customerPhone
+                ? "customer_phone"
+                : "tg_user_id"
+        },
+        "prodamus subscription restore failed"
+      );
+      return c.json({ error: "Не удалось восстановить подписку в Prodamus." }, 502);
+    }
+
+    await db
+      .update(userRecurrentSubscriptions)
+      .set({ status: "active", cancelledAt: null, updatedAt: new Date() })
       .where(eq(userRecurrentSubscriptions.id, subscription.id));
 
     return c.json({ ok: true });

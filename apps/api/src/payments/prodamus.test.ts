@@ -178,6 +178,31 @@ describe("prodamus payment helpers", () => {
     );
   });
 
+  it("builds setActivity requests for recurrent subscription restore by manager", () => {
+    const request = buildProdamusSetActivityRequest({
+      formUrl: "https://demo.payform.ru/",
+      secretKey: "secret",
+      subscriptionId: "77",
+      profileId: "1209736",
+      activeManager: true
+    });
+
+    expect(request.body.get("subscription")).toBe("77");
+    expect(request.body.get("profile")).toBe("1209736");
+    expect(request.body.get("active_user")).toBeNull();
+    expect(request.body.get("active_manager")).toBe("1");
+    expect(request.body.get("signature")).toBe(
+      createProdamusSignature(
+        {
+          subscription: "77",
+          profile: "1209736",
+          active_manager: 1
+        },
+        "secret"
+      )
+    );
+  });
+
   it("prefers Prodamus profile id for setActivity requests", () => {
     const request = buildProdamusSetActivityRequest({
       formUrl: "https://demo.payform.ru/",

@@ -1,6 +1,10 @@
 import type { UserRecurrentSubscription } from "@club/shared";
 import { describe, expect, it } from "vitest";
-import { findActiveRecurrentSubscription, shouldBlockNewPayments } from "./recurrentSubscription";
+import {
+  findActiveRecurrentSubscription,
+  findRestorableRecurrentSubscription,
+  shouldBlockNewPayments
+} from "./recurrentSubscription";
 
 const activeSubscription = {
   id: "active-subscription",
@@ -26,5 +30,25 @@ describe("recurrent subscription UI guard", () => {
   it("blocks new payments only while recurrent subscription is active", () => {
     expect(shouldBlockNewPayments([activeSubscription])).toBe(true);
     expect(shouldBlockNewPayments([cancelledSubscription])).toBe(false);
+  });
+
+  it("finds cancelled recurrent subscriptions that can still be restored before access expires", () => {
+    expect(
+      findRestorableRecurrentSubscription([cancelledSubscription], {
+        paymentType: "recurrent",
+        recurrentPaymentStatus: "cancelled",
+        membershipExpiresAt: "2026-06-30T10:00:00.000Z",
+        now: new Date("2026-06-25T10:00:00.000Z")
+      })
+    ).toEqual(cancelledSubscription);
+
+    expect(
+      findRestorableRecurrentSubscription([cancelledSubscription], {
+        paymentType: "recurrent",
+        recurrentPaymentStatus: "cancelled",
+        membershipExpiresAt: "2026-06-24T10:00:00.000Z",
+        now: new Date("2026-06-25T10:00:00.000Z")
+      })
+    ).toBeNull();
   });
 });
