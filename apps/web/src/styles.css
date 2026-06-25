@@ -908,11 +908,19 @@ button {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: var(--club-viewport-height, 100vh);
+  height: 100vh;
   max-height: none;
   max-width: none;
   overflow: hidden;
   border-radius: 0;
+}
+
+.club-telegram-fullscreen .payment-modal-backdrop {
+  padding-top: var(--fullscreen-top-offset);
+}
+
+.club-telegram-fullscreen .payment-form-modal {
+  height: calc(100vh - var(--fullscreen-top-offset));
 }
 
 .payment-form-body {
@@ -2397,8 +2405,12 @@ button.chat-message-author:active {
   }
 
   .payment-form-modal {
-    height: var(--club-viewport-height, 100vh);
+    height: 100vh;
     border-radius: 0;
+  }
+
+  .club-telegram-fullscreen .payment-form-modal {
+    height: calc(100vh - var(--fullscreen-top-offset));
   }
 
   .admin-log-item {
