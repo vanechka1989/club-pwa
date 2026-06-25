@@ -47,6 +47,7 @@ const productForm = ref({
 });
 
 const isAdmin = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const isOwner = computed(() => session.user?.role === "owner");
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
 const archivedProducts = computed(() => products.value.filter((product) => product.archivedUntil));
@@ -89,6 +90,9 @@ async function loadProviderForAdmin() {
 }
 
 function openProviderPicker() {
+  if (!isOwner.value) {
+    return;
+  }
   showProviderPicker.value = true;
 }
 
@@ -97,6 +101,9 @@ function closeProviderPicker() {
 }
 
 function openProviderForm() {
+  if (!isOwner.value) {
+    return;
+  }
   providerForm.value = {
     formUrl: provider.value?.formUrl ?? "",
     secretKey: "",
@@ -158,7 +165,16 @@ async function handleSaveProvider() {
   saving.value = true;
   error.value = null;
   try {
-    const response = await saveProdamusProvider({ ...providerForm.value, sys: "clubcrm" });
+    const payload: { formUrl: string; secretKey?: string; sys: string; isEnabled?: boolean } = {
+      formUrl: providerForm.value.formUrl,
+      sys: "clubcrm",
+      isEnabled: providerForm.value.isEnabled
+    };
+    const secretKey = providerForm.value.secretKey.trim();
+    if (secretKey) {
+      payload.secretKey = secretKey;
+    }
+    const response = await saveProdamusProvider(payload);
     provider.value = response.provider;
     webhookUrl.value = response.provider.webhookUrl;
     closeProviderForm();
@@ -294,7 +310,7 @@ onMounted(async () => {
         <h2 class="section-title">Оплата</h2>
         <p class="section-subtitle">Тарифы, подписки и платежные системы.</p>
       </div>
-      <button v-if="isAdmin" class="icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
+      <button v-if="isOwner" class="icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
         <Plus :size="20" />
       </button>
     </div>
@@ -317,7 +333,7 @@ onMounted(async () => {
             {{ provider?.isEnabled ? "Prodamus подключен" : "Prodamus не подключен" }}
           </div>
         </div>
-        <button class="secondary-button w-auto px-4" type="button" @click="openProviderForm">
+        <button v-if="isOwner" class="secondary-button w-auto px-4" type="button" @click="openProviderForm">
           {{ provider ? "Настроить" : "Подключить" }}
         </button>
       </div>
@@ -329,7 +345,7 @@ onMounted(async () => {
           <p class="font-semibold text-[var(--text)]">Тарифы</p>
           <p class="mt-1 text-sm text-[var(--muted)]">Обычные платежи и рекуррентные подписки.</p>
         </div>
-        <button v-if="isAdmin" class="icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
+        <button v-if="isOwner" class="icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
           <Plus :size="20" />
         </button>
       </div>
@@ -350,7 +366,7 @@ onMounted(async () => {
             <button class="primary-button flex-1" type="button" :disabled="saving || !provider?.isEnabled" @click="handleCheckout(product)">
               {{ product.kind === "recurrent" ? "Оформить подписку" : "Оплатить" }}
             </button>
-            <template v-if="isAdmin">
+            <template v-if="isOwner">
               <button class="icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">
                 <Pencil :size="18" />
               </button>
@@ -389,7 +405,7 @@ onMounted(async () => {
       </article>
     </div>
 
-    <div v-if="isAdmin && hiddenProducts.length" class="surface-card space-y-3">
+    <div v-if="isOwner && hiddenProducts.length" class="surface-card space-y-3">
       <p class="font-semibold text-[var(--text)]">Скрытые тарифы</p>
       <article v-for="product in hiddenProducts" :key="product.id" class="flex items-center justify-between gap-3 rounded-[18px] bg-[var(--field)] p-4">
         <div>
@@ -407,7 +423,7 @@ onMounted(async () => {
       </article>
     </div>
 
-    <div v-if="isAdmin && archivedProducts.length" class="surface-card space-y-3 opacity-75">
+    <div v-if="isOwner && archivedProducts.length" class="surface-card space-y-3 opacity-75">
       <p class="font-semibold text-[var(--text)]">Удаленные тарифы</p>
       <article v-for="product in archivedProducts" :key="product.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
@@ -452,7 +468,17 @@ onMounted(async () => {
           </label>
           <label class="block">
             <span class="text-sm font-semibold text-[var(--muted)]">Секретный ключ</span>
-            <input v-model.trim="providerForm.secretKey" class="text-input mt-2" type="password" placeholder="Секретный ключ Prodamus" required />
+            <div v-if="provider?.secretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
+              <span class="select-none text-sm font-semibold tracking-[0.24em] text-[var(--muted)] blur-[2px]">••••••••••••••••</span>
+              <p class="mt-1 text-xs text-[var(--muted)]">Ключ сохранен. Заполните поле ниже только если нужно заменить его.</p>
+            </div>
+            <input
+              v-model.trim="providerForm.secretKey"
+              class="text-input mt-2"
+              type="password"
+              :placeholder="provider ? 'Новый секретный ключ, если меняете' : 'Секретный ключ Prodamus'"
+              :required="!provider"
+            />
           </label>
           <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
             <input v-model="providerForm.isEnabled" type="checkbox" />
@@ -467,9 +493,12 @@ onMounted(async () => {
               </button>
             </div>
           </div>
-          <button class="primary-button" type="submit" :disabled="saving">
-            {{ provider ? "Сохранить" : "Подключить" }}
-          </button>
+          <div class="grid grid-cols-2 gap-3">
+            <button class="secondary-button" type="button" @click="closeProviderForm">Закрыть</button>
+            <button class="primary-button" type="submit" :disabled="saving">
+              {{ provider ? "Сохранить" : "Подключить" }}
+            </button>
+          </div>
         </form>
       </aside>
     </div>

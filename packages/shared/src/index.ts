@@ -163,6 +163,7 @@ export const paymentProviderSchema = z.object({
   formUrl: z.string().url(),
   sys: z.string(),
   isEnabled: z.boolean(),
+  secretConfigured: z.boolean(),
   webhookUrl: z.string().url()
 });
 export type PaymentProvider = z.infer<typeof paymentProviderSchema>;
