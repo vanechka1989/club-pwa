@@ -31,6 +31,8 @@ const showProductModal = ref(false);
 const editingProduct = ref<PaymentProduct | null>(null);
 const providerFormModal = ref<HTMLElement | null>(null);
 const productFormModal = ref<HTMLElement | null>(null);
+const providerFormModalKey = ref(0);
+const productFormModalKey = ref(0);
 
 const providerForm = ref({
   formUrl: "",
@@ -102,7 +104,24 @@ function closeProviderPicker() {
   showProviderPicker.value = false;
 }
 
-function openProviderForm() {
+function resetModalScroll(element: HTMLElement | null) {
+  if (!element) {
+    return;
+  }
+  element.scrollTop = 0;
+  element.scrollLeft = 0;
+  element.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
+async function resetModalScrollAfterRender(target: typeof providerFormModal | typeof productFormModal) {
+  await nextTick();
+  resetModalScroll(target.value);
+  requestAnimationFrame(() => resetModalScroll(target.value));
+  requestAnimationFrame(() => requestAnimationFrame(() => resetModalScroll(target.value)));
+  window.setTimeout(() => resetModalScroll(target.value), 80);
+}
+
+async function openProviderForm() {
   if (!isOwner.value) {
     return;
   }
@@ -112,7 +131,11 @@ function openProviderForm() {
     isEnabled: provider.value?.isEnabled ?? true
   };
   showProviderPicker.value = false;
+  showProviderForm.value = false;
+  providerFormModalKey.value += 1;
+  await nextTick();
   showProviderForm.value = true;
+  await resetModalScrollAfterRender(providerFormModal);
 }
 
 function closeProviderForm() {
@@ -132,7 +155,7 @@ function resetProductForm() {
   };
 }
 
-function openProductModal(product?: PaymentProduct) {
+async function openProductModal(product?: PaymentProduct) {
   if (product) {
     editingProduct.value = product;
     productForm.value = {
@@ -147,7 +170,11 @@ function openProductModal(product?: PaymentProduct) {
   } else {
     resetProductForm();
   }
+  showProductModal.value = false;
+  productFormModalKey.value += 1;
+  await nextTick();
   showProductModal.value = true;
+  await resetModalScrollAfterRender(productFormModal);
 }
 
 function closeProductModal() {
@@ -309,7 +336,7 @@ watch(showProviderForm, async (isOpen) => {
     return;
   }
   await nextTick();
-  providerFormModal.value?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  await resetModalScrollAfterRender(providerFormModal);
 });
 
 watch(showProductModal, async (isOpen) => {
@@ -317,7 +344,7 @@ watch(showProductModal, async (isOpen) => {
     return;
   }
   await nextTick();
-  productFormModal.value?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  await resetModalScrollAfterRender(productFormModal);
 });
 </script>
 
@@ -468,7 +495,14 @@ watch(showProductModal, async (isOpen) => {
     </div>
 
     <div v-if="showProviderForm" class="admin-modal-backdrop" @click.self="closeProviderForm">
-      <aside ref="providerFormModal" class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="provider-form-title">
+      <aside
+        :key="providerFormModalKey"
+        ref="providerFormModal"
+        class="admin-detail admin-client-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="provider-form-title"
+      >
         <header class="admin-client-modal-head">
           <div>
             <h3 id="provider-form-title">Prodamus</h3>
@@ -522,7 +556,14 @@ watch(showProductModal, async (isOpen) => {
     </div>
 
     <div v-if="showProductModal" class="admin-modal-backdrop" @click.self="closeProductModal">
-      <aside ref="productFormModal" class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+      <aside
+        :key="productFormModalKey"
+        ref="productFormModal"
+        class="admin-detail admin-client-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-modal-title"
+      >
         <header class="admin-client-modal-head">
           <div>
             <h3 id="product-modal-title">{{ editingProduct ? "Редактировать тариф" : "Новый тариф" }}</h3>
