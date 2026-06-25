@@ -4,7 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { getPaymentHistory } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
-import { shouldShowAccessClosedAlert } from "@/features/app/accessStatus";
+import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
@@ -158,6 +158,11 @@ async function refreshSessionAccessStatus(shouldNotify: boolean) {
 
   if (shouldNotify && shouldShowAccessClosedAlert(previousUser, session.user)) {
     showTelegramAlert("Доступ к клубу закрыт. Разделы клуба больше недоступны.");
+    return;
+  }
+
+  if (shouldNotify && shouldShowAccessGrantedAlert(previousUser, session.user)) {
+    showTelegramAlert("Доступ к клубу открыт.");
   }
 }
 

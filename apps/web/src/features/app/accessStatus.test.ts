@@ -1,6 +1,6 @@
 import type { ClubUser } from "@club/shared";
 import { describe, expect, it } from "vitest";
-import { shouldShowAccessClosedAlert } from "./accessStatus";
+import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "./accessStatus";
 
 const activeUser = {
   membershipStatus: "active"
@@ -21,5 +21,13 @@ describe("access status alerts", () => {
 
   it("does not show an alert when access remains active", () => {
     expect(shouldShowAccessClosedAlert(activeUser, activeUser)).toBe(false);
+  });
+
+  it("shows an alert when inactive access is granted during the session", () => {
+    expect(shouldShowAccessGrantedAlert(inactiveUser, activeUser)).toBe(true);
+  });
+
+  it("does not show a granted alert on initial active load", () => {
+    expect(shouldShowAccessGrantedAlert(null, activeUser)).toBe(false);
   });
 });
