@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -30,6 +30,24 @@ function syncCommunityLock(isLocked: boolean) {
   if (isLocked) {
     window.scrollTo({ top: 0, left: 0 });
   }
+}
+
+function resetWindowScroll() {
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+}
+
+async function selectSection(section: AppSection) {
+  if (activeSection.value === section) {
+    resetWindowScroll();
+    return;
+  }
+
+  resetWindowScroll();
+  activeSection.value = section;
+  await nextTick();
+  resetWindowScroll();
 }
 
 function syncTelegramSafeArea() {
@@ -110,7 +128,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-else-if="session.user" class="section-host">
-          <ProfileSection v-if="activeSection === 'profile'" @open-payments="activeSection = 'payments'" />
+          <ProfileSection v-if="activeSection === 'profile'" @open-payments="selectSection('payments')" />
           <LearningSection v-else-if="activeSection === 'learning'" />
           <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
           <PaymentsSection v-else-if="activeSection === 'payments'" />
@@ -138,7 +156,7 @@ onBeforeUnmount(() => {
         :class="{ 'bottom-nav-item-active': activeSection === item.id }"
         type="button"
         :aria-pressed="activeSection === item.id"
-        @click="activeSection = item.id"
+        @click="selectSection(item.id)"
       >
         <component :is="item.icon" class="h-5 w-5" aria-hidden="true" />
         <span>{{ t(item.labelKey) }}</span>
