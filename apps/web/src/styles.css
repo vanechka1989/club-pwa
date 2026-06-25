@@ -906,14 +906,14 @@ button {
 .payment-form-modal {
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - 7rem - env(safe-area-inset-bottom));
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
 }
 
 .payment-form-body {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
   overscroll-behavior: contain;
   padding-right: 0.1rem;
 }
@@ -2392,7 +2392,7 @@ button.chat-message-author:active {
   }
 
   .payment-form-modal {
-    max-height: calc(100dvh - 6.9rem - env(safe-area-inset-bottom));
+    max-height: none;
     border-radius: 16px;
   }
 
