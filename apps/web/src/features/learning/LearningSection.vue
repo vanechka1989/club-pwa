@@ -149,7 +149,7 @@ const isLoadingModules = ref(false);
 const isSaving = ref(false);
 const showModuleModal = ref(false);
 const editingModuleId = ref<string | null>(null);
-const collapsedModuleIds = ref<string[]>([]);
+const collapsedModuleIds = ref<string[]>(initialModuleCards.map((module) => module.id));
 const moduleTitle = ref("");
 const moduleError = ref("");
 const selectedLesson = ref<{ moduleId: string; lessonId: string | null } | null>(null);
@@ -233,6 +233,16 @@ function toggleModule(moduleId: string) {
   collapsedModuleIds.value = isModuleCollapsed(moduleId)
     ? collapsedModuleIds.value.filter((id) => id !== moduleId)
     : [...collapsedModuleIds.value, moduleId];
+}
+
+function collapseAllModules() {
+  collapsedModuleIds.value = moduleCards.value.map((module) => module.id);
+}
+
+function collapseModule(moduleId: string) {
+  if (!collapsedModuleIds.value.includes(moduleId)) {
+    collapsedModuleIds.value = [...collapsedModuleIds.value, moduleId];
+  }
 }
 
 function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
@@ -330,9 +340,11 @@ async function loadModules() {
       moduleCards.value = modules.length ? modules : cloneInitialModules();
     }
     modulesLoadedFromApi.value = true;
+    collapseAllModules();
   } catch {
     moduleCards.value = moduleCards.value.length ? moduleCards.value : cloneInitialModules();
     modulesLoadedFromApi.value = false;
+    collapseAllModules();
   } finally {
     isLoadingModules.value = false;
   }
@@ -411,14 +423,16 @@ async function saveModule() {
       return;
     }
 
+    const moduleId = `custom-module-${Date.now()}`;
     moduleCards.value.push({
-      id: `custom-module-${Date.now()}`,
+      id: moduleId,
       title: trimmedModuleTitle.value,
       description: "Новый модуль. Уроки можно будет добавить следующим шагом.",
       meta: "Добавлено сегодня",
       isPersisted: false,
       images: []
     });
+    collapseModule(moduleId);
     closeModuleModal();
     return;
   }
@@ -452,6 +466,7 @@ async function saveModule() {
         images: []
       }
     ];
+    collapseModule(response.category.id);
     closeModuleModal();
   } catch {
     moduleError.value = "Не удалось сохранить модуль.";

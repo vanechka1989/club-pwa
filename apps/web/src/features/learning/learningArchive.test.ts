@@ -56,6 +56,10 @@ function renderAsMember() {
   });
 }
 
+async function expandModuleOne() {
+  await fireEvent.click(screen.getByRole("button", { name: "Развернуть Модуль 1" }));
+}
+
 describe("Learning section modules", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -74,6 +78,7 @@ describe("Learning section modules", () => {
     expect(screen.getByText("Модуль 2")).toBeTruthy();
     expect(screen.getByText("4 урока")).toBeTruthy();
     expect(screen.getByText("3 урока")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
     expect(screen.queryByText("Раздел в разработке")).toBeNull();
     expect(screen.queryByText("Обучение: варианты визуала")).toBeNull();
     expect(screen.queryByText("Статистика клуба")).toBeNull();
@@ -116,19 +121,22 @@ describe("Learning section modules", () => {
   it("collapses and expands a module from its header", async () => {
     renderAsOwner();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Свернуть Модуль 1" }));
-
     expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
     expect(screen.getAllByText("Модуль клуба").length).toBeGreaterThanOrEqual(1);
 
-    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Модуль 1" }));
+    await expandModuleOne();
 
     expect(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Свернуть Модуль 1" }));
+
+    expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
   });
 
   it("opens a lesson modal from a module lesson card", async () => {
     renderAsOwner();
 
+    await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
 
     const lessonDialog = screen.getByRole("dialog", { name: "Вариант 1. Плеер и очередь" });
@@ -141,6 +149,7 @@ describe("Learning section modules", () => {
   it("uses a compact lesson modal for member viewing", async () => {
     renderAsMember();
 
+    await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 3\. Библиотека/ }));
 
     const lessonDialog = screen.getByRole("dialog", { name: "Вариант 3. Библиотека" });
@@ -152,6 +161,7 @@ describe("Learning section modules", () => {
   it("adds a lesson inside a selected module", async () => {
     renderAsOwner();
 
+    await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
 
     const lessonDialog = screen.getByRole("dialog", { name: "Новый урок" });
@@ -169,6 +179,7 @@ describe("Learning section modules", () => {
   it("edits lesson content from the same lesson modal", async () => {
     renderAsOwner();
 
+    await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Первый урок");
@@ -184,6 +195,7 @@ describe("Learning section modules", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderAsOwner();
 
+    await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
 
