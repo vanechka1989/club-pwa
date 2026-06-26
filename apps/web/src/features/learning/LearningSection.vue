@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AdminLearningMaterial, ContentKind, LearningContent, LearningCategory, LessonComment } from "@club/shared";
-import { CheckCircle2, ExternalLink, Eye, EyeOff, Image, Loader2, Mic, Music, Pencil, Play, Plus, RotateCcw, Square, Trash2, Type, X } from "lucide-vue-next";
+import { CheckCircle2, ExternalLink, Eye, EyeOff, Image, Loader2, Mic, MoreVertical, Music, Pencil, Play, Plus, RotateCcw, Square, Trash2, Type, X } from "lucide-vue-next";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   completeLearningContent,
@@ -49,6 +49,7 @@ const accessDenied = ref(false);
 const imageViewerUrl = ref<string | null>(null);
 const videoViewerUrl = ref<string | null>(null);
 const showContentModal = ref(false);
+const openLearningActionsId = ref<string | null>(null);
 const contentSaving = ref(false);
 const contentNotice = ref<string | null>(null);
 const contentError = ref<string | null>(null);
@@ -193,6 +194,8 @@ async function loadLearning() {
 }
 
 async function openItem(item: LearningContent) {
+  closeLearningActions();
+
   if (selectedItem.value?.id === item.id) {
     selectedItem.value = null;
     selectedCompletedAt.value = null;
@@ -235,6 +238,14 @@ function isSelectedItem(item: LearningContent) {
 
 function formatArchiveUntil(value: string | null) {
   return value ? new Date(value).toLocaleDateString("ru-RU") : "";
+}
+
+function toggleLearningActions(id: string) {
+  openLearningActionsId.value = openLearningActionsId.value === id ? null : id;
+}
+
+function closeLearningActions() {
+  openLearningActionsId.value = null;
 }
 
 function applySavedPlayback(event: Event) {
@@ -806,7 +817,7 @@ watch(hasLearningAccess, (hasAccess) => {
 
             <div class="admin-mockup-grid learning-content-mockup-grid">
               <template v-for="item in group.items" :key="item.id">
-                <article class="learning-item-row">
+                <article class="learning-item-row learning-content-tile" :class="{ 'learning-content-tile-open': isSelectedItem(item) }">
                   <button
                     class="admin-mockup-thumb learning-item-button"
                     type="button"
@@ -825,33 +836,43 @@ watch(hasLearningAccess, (hasAccess) => {
                     </span>
                     <small>{{ itemMeta(item) }}</small>
                   </button>
-                  <div v-if="isModerator" class="learning-item-actions">
+                  <button
+                    v-if="isModerator"
+                    class="learning-tile-menu-button"
+                    type="button"
+                    aria-label="Действия с контентом"
+                    :aria-expanded="openLearningActionsId === item.id"
+                    @click.stop="toggleLearningActions(item.id)"
+                  >
+                    <MoreVertical class="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <div v-if="isModerator && openLearningActionsId === item.id" class="learning-tile-menu" @click.stop>
                     <button
-                      class="icon-button"
+                      class="mini-action"
                       type="button"
                       :disabled="contentSaving"
-                      aria-label="Редактировать контент"
-                      @click="handleEditLearningItem(item)"
+                      @click="closeLearningActions(); handleEditLearningItem(item)"
                     >
                       <Pencil class="h-4 w-4" aria-hidden="true" />
+                      <span>Редактировать</span>
                     </button>
                     <button
-                      class="icon-button"
+                      class="mini-action"
                       type="button"
                       :disabled="contentSaving"
-                      aria-label="Скрыть контент"
-                      @click="handleToggleLearningItem(item)"
+                      @click="closeLearningActions(); handleToggleLearningItem(item)"
                     >
                       <EyeOff class="h-4 w-4" aria-hidden="true" />
+                      <span>Скрыть</span>
                     </button>
                     <button
-                      class="icon-button"
+                      class="mini-action danger-action"
                       type="button"
                       :disabled="contentSaving"
-                      aria-label="Удалить контент"
-                      @click="handleDeleteLearningItem(item)"
+                      @click="closeLearningActions(); handleDeleteLearningItem(item)"
                     >
                       <Trash2 class="h-4 w-4" aria-hidden="true" />
+                      <span>Удалить</span>
                     </button>
                   </div>
                 </article>
