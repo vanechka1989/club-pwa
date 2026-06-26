@@ -23,7 +23,15 @@ import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
+import { deleteObject, getObjectReadUrl, testS3Connection, uploadObject } from "../storage/s3";
+import {
+  buildS3SettingsResponse,
+  getS3ConfigFromEnv,
+  getS3ConfigFromSetting,
+  normalizeS3PublicBaseUrl,
+  storageSettingKey,
+  type StoredS3Config
+} from "../storage/s3Config";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
 import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, getLearningMediaUploadContentType } from "../learning/mediaUpload";
@@ -65,6 +73,19 @@ const categoryStatusPayloadSchema = z.object({
 const learningCategoryPayloadSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(1000).nullable().optional()
+});
+
+const s3StoragePayloadSchema = z.object({
+  endpoint: z.string().trim().url(),
+  region: z.string().trim().min(1).default("us-east-1"),
+  bucket: z.string().trim().min(1),
+  accessKeyId: z.string().trim().optional(),
+  secretAccessKey: z.string().trim().optional(),
+  publicBaseUrl: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+    z.string().trim().url().nullable().optional()
+  ),
+  signedUrlTtlSeconds: z.coerce.number().int().positive().max(86_400).default(3600)
 });
 
 const contentKinds = ["text", "photo", "video", "audio"] as const;
@@ -251,6 +272,37 @@ async function rejectIfCannotManageTarget(c: Context<{ Variables: AuthVariables 
   return c.json({ error: "Only the owner can manage admins or the owner" }, 403);
 }
 
+async function rejectIfNotOwner(c: Context<{ Variables: AuthVariables }>) {
+  if (await isOwnerTelegramId(c.get("telegramUser").id)) {
+    return null;
+  }
+
+  return c.json({ error: "Owner access required" }, 403);
+}
+
+async function getStoredS3Setting() {
+  const setting = await db.query.clubSettings.findFirst({
+    where: eq(clubSettings.key, storageSettingKey)
+  });
+
+  return {
+    setting,
+    config: getS3ConfigFromSetting(setting?.value)
+  };
+}
+
+function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect | undefined, storedConfig: StoredS3Config | null) {
+  const envConfig = getS3ConfigFromEnv(env);
+  const activeConfig = storedConfig ?? envConfig;
+
+  return buildS3SettingsResponse({
+    config: activeConfig,
+    source: storedConfig ? "database" : envConfig ? "environment" : "none",
+    updatedAt: storedConfig ? (setting?.updatedAt ?? null) : null,
+    defaultSignedUrlTtlSeconds: env.S3_SIGNED_URL_TTL_SECONDS
+  });
+}
+
 async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
   const [statsUser, userSubscriptions, mutes, comments, messages] = await Promise.all([
@@ -427,6 +479,75 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           createdAt: admin.createdAt.toISOString()
         };
       })
+    });
+  })
+  .get("/storage/s3", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const { setting, config } = await getStoredS3Setting();
+
+    return c.json({
+      settings: buildActiveS3SettingsResponse(setting, config)
+    });
+  })
+  .post("/storage/s3", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const body = s3StoragePayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid S3 storage payload" }, 400);
+    }
+
+    const { setting, config: storedConfig } = await getStoredS3Setting();
+    const currentConfig = storedConfig ?? getS3ConfigFromEnv(env);
+    const nextConfig: StoredS3Config = {
+      endpoint: body.data.endpoint,
+      region: body.data.region,
+      bucket: body.data.bucket,
+      accessKeyId: body.data.accessKeyId || currentConfig?.accessKeyId || "",
+      secretAccessKey: body.data.secretAccessKey || currentConfig?.secretAccessKey || "",
+      publicBaseUrl: normalizeS3PublicBaseUrl(body.data.publicBaseUrl),
+      signedUrlTtlSeconds: body.data.signedUrlTtlSeconds
+    };
+
+    if (!nextConfig.accessKeyId || !nextConfig.secretAccessKey) {
+      return c.json({ error: "Access key and Secret key are required" }, 400);
+    }
+
+    try {
+      await testS3Connection(nextConfig);
+    } catch {
+      return c.json({ error: "Unable to connect to S3 bucket" }, 400);
+    }
+
+    const now = new Date();
+    const [savedSetting] = await db
+      .insert(clubSettings)
+      .values({
+        key: storageSettingKey,
+        value: JSON.stringify(nextConfig),
+        updatedByUserId: c.get("userId"),
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: clubSettings.key,
+        set: {
+          value: JSON.stringify(nextConfig),
+          updatedByUserId: c.get("userId"),
+          updatedAt: now
+        }
+      })
+      .returning();
+
+    return c.json({
+      ok: true,
+      settings: buildActiveS3SettingsResponse(savedSetting ?? setting, nextConfig)
     });
   })
   .get("/stats", async (c) => {

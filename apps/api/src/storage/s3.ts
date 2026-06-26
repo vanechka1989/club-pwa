@@ -1,6 +1,10 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { eq } from "drizzle-orm";
+import { db } from "../db/client";
+import { clubSettings } from "../db/schema";
 import { env } from "../env";
+import { getS3ConfigFromEnv, getS3ConfigFromSetting, storageSettingKey, type StoredS3Config } from "./s3Config";
 
 export type UploadObjectInput = {
   key: string;
@@ -8,29 +12,20 @@ export type UploadObjectInput = {
   contentType: string;
 };
 
-function requireS3Config() {
-  if (
-    !env.S3_ENDPOINT ||
-    !env.S3_BUCKET ||
-    !env.S3_ACCESS_KEY_ID ||
-    !env.S3_SECRET_ACCESS_KEY
-  ) {
+async function requireS3Config() {
+  const setting = await db.query.clubSettings.findFirst({
+    where: eq(clubSettings.key, storageSettingKey)
+  });
+  const config = getS3ConfigFromSetting(setting?.value) ?? getS3ConfigFromEnv(env);
+
+  if (!config) {
     throw new Error("S3 storage is not configured");
   }
 
-  return {
-    endpoint: env.S3_ENDPOINT,
-    region: env.S3_REGION,
-    bucket: env.S3_BUCKET,
-    accessKeyId: env.S3_ACCESS_KEY_ID,
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-    publicBaseUrl: env.S3_PUBLIC_BASE_URL?.replace(/\/$/, "") ?? null
-  };
+  return config;
 }
 
-function createS3Client() {
-  const config = requireS3Config();
-
+function createS3Client(config: StoredS3Config) {
   return new S3Client({
     endpoint: config.endpoint,
     region: config.region,
@@ -43,8 +38,8 @@ function createS3Client() {
 }
 
 export async function uploadObject({ key, body, contentType }: UploadObjectInput) {
-  const config = requireS3Config();
-  const client = createS3Client();
+  const config = await requireS3Config();
+  const client = createS3Client(config);
   const normalizedKey = key.replace(/^\/+/, "");
 
   await client.send(
@@ -63,8 +58,8 @@ export async function uploadObject({ key, body, contentType }: UploadObjectInput
 }
 
 export async function getObjectReadUrl(key: string) {
-  const config = requireS3Config();
-  const client = createS3Client();
+  const config = await requireS3Config();
+  const client = createS3Client(config);
   const normalizedKey = key.replace(/^\/+/, "");
 
   if (config.publicBaseUrl) {
@@ -77,19 +72,28 @@ export async function getObjectReadUrl(key: string) {
       Bucket: config.bucket,
       Key: normalizedKey
     }),
-    { expiresIn: env.S3_SIGNED_URL_TTL_SECONDS }
+    { expiresIn: config.signedUrlTtlSeconds }
   );
 }
 
 export async function deleteObject(key: string) {
-  const config = requireS3Config();
-  const client = createS3Client();
+  const config = await requireS3Config();
+  const client = createS3Client(config);
   const normalizedKey = key.replace(/^\/+/, "");
 
   await client.send(
     new DeleteObjectCommand({
       Bucket: config.bucket,
       Key: normalizedKey
+    })
+  );
+}
+
+export async function testS3Connection(config: StoredS3Config) {
+  const client = createS3Client(config);
+  await client.send(
+    new HeadBucketCommand({
+      Bucket: config.bucket
     })
   );
 }

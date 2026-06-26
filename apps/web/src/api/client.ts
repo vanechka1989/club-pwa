@@ -29,6 +29,8 @@ import type {
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
   PaymentProviderMutationResponse,
+  S3StorageSettingsMutationResponse,
+  S3StorageSettingsResponse,
   SubscribeResponse,
   SupportHomeResponse
 } from "@club/shared";
@@ -228,6 +230,25 @@ export function restoreRecurrentSubscription(id: string) {
 
 export function getAdminPaymentHistory() {
   return api<PaymentOrderLogsResponse>("/payments/admin/orders");
+}
+
+export function getAdminS3StorageSettings() {
+  return api<S3StorageSettingsResponse>("/admin/storage/s3");
+}
+
+export function updateAdminS3StorageSettings(payload: {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  publicBaseUrl?: string | null;
+  signedUrlTtlSeconds: number;
+}) {
+  return api<S3StorageSettingsMutationResponse>("/admin/storage/s3", {
+    method: "POST",
+    body: payload
+  });
 }
 
 export function getPaymentProvider() {

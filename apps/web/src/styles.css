@@ -792,6 +792,23 @@ button {
   gap: 0.5rem;
 }
 
+.admin-field {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.admin-field span {
+  color: var(--muted-strong);
+  font-size: 0.75rem;
+  font-weight: 820;
+}
+
+.admin-field small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
 .admin-search-row {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -1571,6 +1588,54 @@ button {
   color: var(--text);
   font-size: 0.8rem;
   font-weight: 820;
+}
+
+.admin-storage-block {
+  gap: 0.75rem;
+}
+
+.admin-storage-status {
+  display: grid;
+  gap: 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  padding: 0.68rem;
+}
+
+.admin-storage-status span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.32rem 0.56rem;
+  font-size: 0.72rem;
+  font-weight: 840;
+}
+
+.admin-storage-status small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.admin-storage-status-ok {
+  border: 1px solid color-mix(in srgb, #22c55e 54%, var(--border));
+  background: color-mix(in srgb, #22c55e 16%, var(--panel));
+  color: #86efac;
+}
+
+.admin-storage-status-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 54%, var(--border));
+  background: color-mix(in srgb, var(--danger) 14%, var(--panel));
+  color: var(--danger);
+}
+
+.admin-storage-warning {
+  border: 1px solid color-mix(in srgb, #f59e0b 42%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, #f59e0b 11%, var(--panel));
+  color: color-mix(in srgb, #fbbf24 80%, var(--text));
+  padding: 0.7rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 .admin-history-item {

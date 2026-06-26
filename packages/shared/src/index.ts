@@ -508,3 +508,31 @@ export const adminMutesResponseSchema = z.object({
   mutes: z.array(adminMuteSchema)
 });
 export type AdminMutesResponse = z.infer<typeof adminMutesResponseSchema>;
+
+export const s3StorageSourceSchema = z.enum(["database", "environment", "none"]);
+export type S3StorageSource = z.infer<typeof s3StorageSourceSchema>;
+
+export const s3StorageSettingsSchema = z.object({
+  configured: z.boolean(),
+  source: s3StorageSourceSchema,
+  endpoint: z.string().url().nullable(),
+  bucket: z.string().nullable(),
+  region: z.string().nullable(),
+  publicBaseUrl: z.string().url().nullable(),
+  signedUrlTtlSeconds: z.number().int().positive(),
+  accessKeyConfigured: z.boolean(),
+  secretKeyConfigured: z.boolean(),
+  updatedAt: z.string().datetime().nullable()
+});
+export type S3StorageSettings = z.infer<typeof s3StorageSettingsSchema>;
+
+export const s3StorageSettingsResponseSchema = z.object({
+  settings: s3StorageSettingsSchema
+});
+export type S3StorageSettingsResponse = z.infer<typeof s3StorageSettingsResponseSchema>;
+
+export const s3StorageSettingsMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  settings: s3StorageSettingsSchema
+});
+export type S3StorageSettingsMutationResponse = z.infer<typeof s3StorageSettingsMutationResponseSchema>;

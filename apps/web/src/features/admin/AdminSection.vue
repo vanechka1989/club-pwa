@@ -7,12 +7,14 @@ import type {
   ClubTopic,
   ContentKind,
   LearningCategory,
-  PaymentOrderLog
+  PaymentOrderLog,
+  S3StorageSettings
 } from "@club/shared";
 import {
   BarChart3,
   ChevronDown,
   Check,
+  Cloud,
   CreditCard,
   ExternalLink,
   ImageIcon,
@@ -32,6 +34,7 @@ import {
   deleteAdminLearningMaterial,
   getAdminLearning,
   getAdminPaymentHistory,
+  getAdminS3StorageSettings,
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
@@ -39,6 +42,7 @@ import {
   removeAdminUser,
   revokeUserMute,
   transferClubOwner,
+  updateAdminS3StorageSettings,
   updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
 } from "@/api/client";
@@ -87,6 +91,7 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
   users: UsersRound,
   payments: CreditCard,
   materials: ImageIcon,
+  storage: Cloud,
   mockups: ImageIcon,
   admins: Shield
 };
@@ -173,6 +178,16 @@ const saving = ref(false);
 const accessSaveSucceeded = ref(false);
 const message = ref<string | null>(null);
 const error = ref<string | null>(null);
+const storageSettings = ref<S3StorageSettings | null>(null);
+const storageForm = ref({
+  endpoint: "",
+  region: "us-east-1",
+  bucket: "",
+  accessKeyId: "",
+  secretAccessKey: "",
+  publicBaseUrl: "",
+  signedUrlTtlSeconds: 3600
+});
 let accessSaveTimer: number | null = null;
 const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
   subscriptions: false,
@@ -501,6 +516,90 @@ function showSuccessAlert(text: string) {
   }
 }
 
+function storageSourceLabel(source: S3StorageSettings["source"]) {
+  if (source === "database") {
+    return "настройка из админки";
+  }
+
+  if (source === "environment") {
+    return "переменные сервера";
+  }
+
+  return "не подключено";
+}
+
+function fillStorageForm(settings: S3StorageSettings | null) {
+  storageForm.value = {
+    endpoint: settings?.endpoint ?? "",
+    region: settings?.region ?? "us-east-1",
+    bucket: settings?.bucket ?? "",
+    accessKeyId: "",
+    secretAccessKey: "",
+    publicBaseUrl: settings?.publicBaseUrl ?? "",
+    signedUrlTtlSeconds: settings?.signedUrlTtlSeconds ?? 3600
+  };
+}
+
+async function loadStorageSettings() {
+  if (!isOwner.value) {
+    storageSettings.value = null;
+    fillStorageForm(null);
+    return;
+  }
+
+  const response = await getAdminS3StorageSettings();
+  storageSettings.value = response.settings;
+  fillStorageForm(response.settings);
+}
+
+async function handleSaveStorageSettings() {
+  if (!isOwner.value) {
+    setError("Настройки хранилища может менять только главный админ.");
+    return;
+  }
+
+  if (!storageForm.value.endpoint.trim() || !storageForm.value.bucket.trim() || !storageForm.value.region.trim()) {
+    setError("Заполните Endpoint URL, Bucket и Region.");
+    return;
+  }
+
+  saving.value = true;
+  try {
+    const payload: {
+      endpoint: string;
+      region: string;
+      bucket: string;
+      accessKeyId?: string;
+      secretAccessKey?: string;
+      publicBaseUrl?: string | null;
+      signedUrlTtlSeconds: number;
+    } = {
+      endpoint: storageForm.value.endpoint.trim(),
+      region: storageForm.value.region.trim(),
+      bucket: storageForm.value.bucket.trim(),
+      publicBaseUrl: storageForm.value.publicBaseUrl.trim() || null,
+      signedUrlTtlSeconds: Number(storageForm.value.signedUrlTtlSeconds || 3600)
+    };
+    const accessKeyId = storageForm.value.accessKeyId.trim();
+    const secretAccessKey = storageForm.value.secretAccessKey.trim();
+    if (accessKeyId) {
+      payload.accessKeyId = accessKeyId;
+    }
+    if (secretAccessKey) {
+      payload.secretAccessKey = secretAccessKey;
+    }
+
+    const response = await updateAdminS3StorageSettings(payload);
+    storageSettings.value = response.settings;
+    fillStorageForm(response.settings);
+    showSuccessAlert("S3-хранилище сохранено.");
+  } catch {
+    setError("Не удалось подключиться к S3. Проверьте endpoint, bucket, region и ключи.");
+  } finally {
+    saving.value = false;
+  }
+}
+
 async function loadAll() {
   loading.value = true;
   try {
@@ -526,6 +625,9 @@ async function loadAll() {
       if (updated) {
         applySelectedUser(updated);
       }
+    }
+    if (isOwner.value) {
+      await loadStorageSettings();
     }
   } catch {
     setError("Не удалось загрузить админку.");
@@ -1440,6 +1542,81 @@ onUnmounted(() => {
         </article>
         <p v-if="!paymentOrders.length" class="admin-empty">Оплат пока нет. Первый заказ появится сразу после нажатия клиентом на оплату.</p>
       </div>
+    </section>
+
+    <section v-else-if="activePanel === 'storage' && isOwner" class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <h3>Хранилище</h3>
+          <p>S3-облако для фото, видео, аудио, голосовых и обложек.</p>
+        </div>
+      </div>
+
+      <article class="admin-crm-block admin-storage-block">
+        <div class="admin-storage-status">
+          <span :class="storageSettings?.configured ? 'admin-storage-status-ok' : 'admin-storage-status-error'">
+            {{ storageSettings?.configured ? "S3 подключено" : "S3 не подключено" }}
+          </span>
+          <small>
+            Источник: {{ storageSourceLabel(storageSettings?.source ?? "none") }}
+            <template v-if="storageSettings?.updatedAt">
+              · изменено {{ new Date(storageSettings.updatedAt).toLocaleString("ru-RU") }}
+            </template>
+          </small>
+        </div>
+
+        <form class="admin-form" @submit.prevent="handleSaveStorageSettings">
+          <label class="admin-field">
+            <span>Endpoint URL</span>
+            <input v-model.trim="storageForm.endpoint" class="text-input" placeholder="https://s3.ru1.storage.beget.cloud" />
+            <small>Адрес S3 API у провайдера. Для Beget обычно: https://s3.ru1.storage.beget.cloud</small>
+          </label>
+
+          <label class="admin-field">
+            <span>Bucket</span>
+            <input v-model.trim="storageForm.bucket" class="text-input" placeholder="4165bebe1b26-kindhearted-keaton" />
+            <small>Имя бакета, куда будут загружаться файлы клуба.</small>
+          </label>
+
+          <label class="admin-field">
+            <span>Region</span>
+            <input v-model.trim="storageForm.region" class="text-input" placeholder="us-east-1" />
+            <small>Регион S3. Для S3-compatible часто подходит us-east-1, если провайдер не требует другое значение.</small>
+          </label>
+
+          <label class="admin-field">
+            <span>Access key</span>
+            <input v-model.trim="storageForm.accessKeyId" class="text-input" autocomplete="off" placeholder="Заполните только если меняете ключ" />
+            <small>{{ storageSettings?.accessKeyConfigured ? "Access key уже сохранён. Поле можно оставить пустым." : "Публичный ключ доступа к бакету." }}</small>
+          </label>
+
+          <label class="admin-field">
+            <span>Secret key</span>
+            <input v-model.trim="storageForm.secretAccessKey" class="text-input" autocomplete="new-password" type="password" placeholder="Заполните только если меняете секрет" />
+            <small>{{ storageSettings?.secretKeyConfigured ? "Secret key уже сохранён. Поле можно оставить пустым." : "Секретный ключ доступа. В интерфейсе он не раскрывается." }}</small>
+          </label>
+
+          <label class="admin-field">
+            <span>Public base URL</span>
+            <input v-model.trim="storageForm.publicBaseUrl" class="text-input" placeholder="https://cdn.example.com или пусто" />
+            <small>Необязательно. Если бакет публичный или есть CDN, файлы будут открываться по этому URL. Если пусто, приложение выдаст временную подписанную ссылку.</small>
+          </label>
+
+          <label class="admin-field">
+            <span>TTL подписанной ссылки, сек.</span>
+            <input v-model.number="storageForm.signedUrlTtlSeconds" class="text-input" min="60" max="86400" type="number" />
+            <small>Сколько живёт приватная ссылка на файл. Обычно 3600 секунд достаточно.</small>
+          </label>
+
+          <p class="admin-storage-warning">
+            При смене bucket или провайдера старые файлы останутся в прежнем облаке. Чтобы они открывались после смены, их нужно перенести в новый bucket с теми же object key.
+          </p>
+
+          <button class="primary-button" type="submit" :disabled="saving">
+            Сохранить S3
+          </button>
+        </form>
+      </article>
     </section>
 
     <section v-else-if="activePanel === 'mockups' && isOwner" class="admin-panel">
