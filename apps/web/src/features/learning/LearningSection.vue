@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import type { AdminLearningMaterial, ContentKind, LearningCategory, LearningContent } from "@club/shared";
-import { ExternalLink, Mic, Pencil, Plus, Square, X } from "lucide-vue-next";
+import { ExternalLink, Mic, Pencil, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   createAdminLearningMaterial,
+  deleteAdminLearningMaterial,
   getAdminLearning,
   getLearningHome,
   updateAdminLearningCategory,
@@ -366,6 +367,12 @@ function replaceMaterialInModule(material: AdminLearningMaterial) {
   }));
 }
 
+function removeLessonFromModule(moduleId: string, lessonId: string) {
+  moduleCards.value = moduleCards.value.map((module) =>
+    module.id === moduleId ? { ...module, images: module.images.filter((lesson) => lesson.id !== lessonId) } : module
+  );
+}
+
 function appendFile(form: FormData, key: string, file: File | NamedBlobUpload | null) {
   if (!file) {
     return;
@@ -532,6 +539,35 @@ async function saveLesson() {
     closeLessonModal();
   } catch {
     lessonError.value = "Не удалось сохранить урок. Проверьте файл и настройки S3.";
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+async function deleteLesson() {
+  if (!selectedLessonModule.value || !selectedLessonItem.value || !canManageModules.value) {
+    return;
+  }
+
+  const lesson = selectedLessonItem.value;
+  const moduleId = selectedLessonModule.value.id;
+  const confirmed = window.confirm(`Удалить урок "${lesson.title}"? Он попадет в удалённые на 7 дней.`);
+  if (!confirmed) {
+    return;
+  }
+
+  isSaving.value = true;
+  lessonError.value = "";
+
+  try {
+    if (lesson.isPersisted && modulesLoadedFromApi.value) {
+      await deleteAdminLearningMaterial(lesson.id);
+    }
+
+    removeLessonFromModule(moduleId, lesson.id);
+    closeLessonModal();
+  } catch {
+    lessonError.value = "Не удалось удалить урок.";
   } finally {
     isSaving.value = false;
   }
@@ -788,7 +824,17 @@ watch(
             </div>
           </div>
 
-          <div class="admin-form-actions lesson-preview-actions">
+          <div class="admin-form-actions lesson-preview-actions" :class="{ 'lesson-preview-actions-edit': canManageModules }">
+            <button
+              v-if="canManageModules && selectedLessonItem"
+              class="secondary-button lesson-delete-button"
+              type="button"
+              :disabled="isSaving"
+              @click="deleteLesson"
+            >
+              <Trash2 class="h-4 w-4" aria-hidden="true" />
+              Удалить урок
+            </button>
             <button class="secondary-button" type="button" :disabled="isSaving" @click="closeLessonModal">Закрыть</button>
             <button v-if="canManageModules" class="primary-button" type="button" :disabled="isSaving" @click="saveLesson">
               {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}

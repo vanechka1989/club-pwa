@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
 import { createPinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionStore } from "@/stores/session";
 import LearningSection from "./LearningSection.vue";
 
@@ -58,6 +58,7 @@ function renderAsMember() {
 
 describe("Learning section modules", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     cleanup();
   });
 
@@ -166,5 +167,18 @@ describe("Learning section modules", () => {
     expect(screen.queryByRole("dialog", { name: "Вариант 1. Плеер и очередь" })).toBeNull();
     expect(screen.getByRole("button", { name: /Первый урок/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
+  });
+
+  it("deletes a lesson from a module after confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
+
+    expect(window.confirm).toHaveBeenCalledWith('Удалить урок "Вариант 1. Плеер и очередь"? Он попадет в удалённые на 7 дней.');
+    expect(screen.queryByRole("dialog", { name: "Вариант 1. Плеер и очередь" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
+    expect(screen.getAllByText("3 урока").length).toBeGreaterThanOrEqual(1);
   });
 });

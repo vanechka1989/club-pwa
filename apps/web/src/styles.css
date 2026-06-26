@@ -2284,6 +2284,19 @@ button {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+.admin-form-actions.lesson-preview-actions-edit {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 0.7fr) minmax(0, 1fr);
+  padding-bottom: calc(1.15rem + env(safe-area-inset-bottom));
+}
+
+.lesson-delete-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.4rem;
+  justify-content: center;
+  color: #ffb4b4;
+}
+
 .admin-form-actions {
   display: grid;
   grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
