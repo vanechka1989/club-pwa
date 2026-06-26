@@ -35,6 +35,11 @@ import {
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
 import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, getLearningMediaUploadContentType } from "../learning/mediaUpload";
+import {
+  decodeModuleCategoryDescription,
+  encodeModuleCategoryDescription,
+  isModuleCategoryDescription
+} from "../learning/moduleCategory";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -687,7 +692,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .get("/learning", async (c) => {
     await purgeExpiredArchivedContent();
 
-    const categories = await db
+    const rawCategories = await db
       .select({
         id: contentCategories.id,
         slug: contentCategories.slug,
@@ -701,10 +706,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .groupBy(contentCategories.id)
       .orderBy(contentCategories.sortOrder);
 
-    const materials = await db.query.contentItems.findMany({
-      where: activeContentWhere(),
-      orderBy: [asc(contentItems.sortOrder), desc(contentItems.createdAt)]
-    });
+    const categories = rawCategories
+      .filter((category) => isModuleCategoryDescription(category.description))
+      .map((category) => ({
+        ...category,
+        description: decodeModuleCategoryDescription(category.description)
+      }));
+    const categoryIds = categories.map((category) => category.id);
+    const materials = categoryIds.length
+      ? await db.query.contentItems.findMany({
+          where: and(inArray(contentItems.categoryId, categoryIds), activeContentWhere()),
+          orderBy: [asc(contentItems.sortOrder), desc(contentItems.createdAt)]
+        })
+      : [];
 
     return c.json({
       categories,
@@ -728,7 +742,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .values({
         slug: createCategorySlug(body.data.title),
         title: body.data.title,
-        description: body.data.description ?? null,
+        description: encodeModuleCategoryDescription(body.data.description),
         sortOrder: sortRow?.value ?? 0,
         isPublished: true
       })
@@ -744,9 +758,46 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         id: category.id,
         slug: category.slug,
         title: category.title,
-        description: category.description,
+        description: decodeModuleCategoryDescription(category.description),
         isPublished: category.isPublished,
         itemsCount: 0
+      }
+    });
+  })
+  .post("/learning/categories/:id", async (c) => {
+    const body = learningCategoryPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid category payload" }, 400);
+    }
+
+    const [category] = await db
+      .update(contentCategories)
+      .set({
+        title: body.data.title,
+        description: encodeModuleCategoryDescription(body.data.description),
+        updatedAt: new Date()
+      })
+      .where(eq(contentCategories.id, c.req.param("id")))
+      .returning();
+
+    if (!category || !isModuleCategoryDescription(category.description)) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    const [itemsRow] = await db
+      .select({ value: count(contentItems.id) })
+      .from(contentItems)
+      .where(and(eq(contentItems.categoryId, category.id), activeContentWhere()));
+
+    return c.json({
+      ok: true,
+      category: {
+        id: category.id,
+        slug: category.slug,
+        title: category.title,
+        description: decodeModuleCategoryDescription(category.description),
+        isPublished: category.isPublished,
+        itemsCount: itemsRow?.value ?? 0
       }
     });
   })
@@ -780,7 +831,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         id: category.id,
         slug: category.slug,
         title: category.title,
-        description: category.description,
+        description: decodeModuleCategoryDescription(category.description),
         isPublished: category.isPublished,
         itemsCount: itemsRow?.value ?? 0
       }
@@ -968,15 +1019,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Media file is required when changing material kind" }, 400);
     }
 
-    if (kind !== "video") {
-      if (current.thumbnailObjectKey) {
-        await deleteObject(current.thumbnailObjectKey).catch(() => null);
-      }
-      thumbnailObjectKey = null;
-      thumbnailUrl = null;
-      thumbnailContentType = null;
-      thumbnailSizeBytes = null;
-    } else if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
       const upload = await uploadThumbnailFile(thumbnailFile);
       if (!upload) {
         return c.json({ error: "Thumbnail file must be an image" }, 400);

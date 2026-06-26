@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, isNotNull, isNull, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { contentCategories, contentItems, lessonComments, userContentProgress } from "../db/schema";
@@ -7,6 +7,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
 import { getObjectReadUrl } from "../storage/s3";
+import { decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -64,7 +65,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .get("/", requireActiveMember, async (c) => {
     const userId = c.get("userId");
-    const categories = await db
+    const rawCategories = await db
       .select({
         id: contentCategories.id,
         slug: contentCategories.slug,
@@ -82,31 +83,42 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       .groupBy(contentCategories.id)
       .orderBy(contentCategories.sortOrder);
 
-    const featured = await db.query.contentItems.findMany({
-      where: publishedContentWhere(),
-      orderBy: [asc(contentItems.sortOrder), desc(contentItems.publishedAt)]
-    });
+    const categories = rawCategories
+      .filter((category) => isModuleCategoryDescription(category.description))
+      .map((category) => ({
+        ...category,
+        description: decodeModuleCategoryDescription(category.description)
+      }));
+    const categoryIds = categories.map((category) => category.id);
+    const moduleContentWhere = categoryIds.length
+      ? and(inArray(contentItems.categoryId, categoryIds), publishedContentWhere())
+      : null;
 
-    const [totalItemsRow] = await db
-      .select({
-        value: count(contentItems.id)
-      })
-      .from(contentItems)
-      .where(publishedContentWhere());
+    const featured = moduleContentWhere
+      ? await db.query.contentItems.findMany({
+          where: moduleContentWhere,
+          orderBy: [asc(contentItems.sortOrder), desc(contentItems.publishedAt)]
+        })
+      : [];
 
-    const [completedItemsRow] = await db
-      .select({
-        value: count(userContentProgress.id)
-      })
-      .from(userContentProgress)
-      .innerJoin(contentItems, eq(contentItems.id, userContentProgress.contentItemId))
-      .where(
-        and(
-          eq(userContentProgress.userId, userId),
-          publishedContentWhere(),
-          isNotNull(userContentProgress.completedAt)
-        )
-      );
+    const [totalItemsRow] = moduleContentWhere
+      ? await db
+          .select({
+            value: count(contentItems.id)
+          })
+          .from(contentItems)
+          .where(moduleContentWhere)
+      : [{ value: 0 }];
+
+    const [completedItemsRow] = moduleContentWhere
+      ? await db
+          .select({
+            value: count(userContentProgress.id)
+          })
+          .from(userContentProgress)
+          .innerJoin(contentItems, eq(contentItems.id, userContentProgress.contentItemId))
+          .where(and(eq(userContentProgress.userId, userId), moduleContentWhere, isNotNull(userContentProgress.completedAt)))
+      : [{ value: 0 }];
 
     const lastOpenedProgress = await db.query.userContentProgress.findFirst({
       where: eq(userContentProgress.userId, userId),

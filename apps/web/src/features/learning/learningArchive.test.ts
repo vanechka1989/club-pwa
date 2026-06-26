@@ -87,4 +87,46 @@ describe("Learning section modules", () => {
     expect(screen.queryByText("Модуль 1")).toBeNull();
     expect(screen.queryByRole("dialog", { name: "Редактировать модуль" })).toBeNull();
   });
+
+  it("opens a lesson modal from a module lesson card", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+
+    const lessonDialog = screen.getByRole("dialog", { name: "Вариант 1. Плеер и очередь" });
+    expect(lessonDialog).toBeTruthy();
+    expect(screen.getByText("Урок из модуля")).toBeTruthy();
+    expect(lessonDialog.textContent).toContain("Модуль 1");
+  });
+
+  it("adds a lesson inside a selected module", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+
+    const lessonDialog = screen.getByRole("dialog", { name: "Новый урок" });
+    expect(lessonDialog).toBeTruthy();
+
+    await fireEvent.update(screen.getByLabelText("Название урока"), "Новый урок");
+    await fireEvent.update(screen.getByLabelText("Описание урока"), "Короткое описание нового урока");
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
+
+    expect(screen.queryByRole("dialog", { name: "Новый урок" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Новый урок/ })).toBeTruthy();
+    expect(screen.getByText("5 уроков")).toBeTruthy();
+  });
+
+  it("edits lesson content from the same lesson modal", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+
+    await fireEvent.update(screen.getByLabelText("Название урока"), "Первый урок");
+    await fireEvent.update(screen.getByLabelText("Описание урока"), "Обновленное описание урока");
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
+
+    expect(screen.queryByRole("dialog", { name: "Вариант 1. Плеер и очередь" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Первый урок/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
+  });
 });

@@ -2051,6 +2051,20 @@ button {
   font-weight: 850;
 }
 
+.admin-mockup-card-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.module-lesson-add {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 12px;
+}
+
 .admin-mockup-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2061,8 +2075,18 @@ button {
   display: grid;
   min-width: 0;
   gap: 0.45rem;
+  border: 0;
+  background: transparent;
   color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
   text-decoration: none;
+}
+
+.admin-mockup-thumb:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 75%, white);
+  outline-offset: 4px;
 }
 
 .admin-mockup-thumb img {
@@ -2116,6 +2140,108 @@ button {
 }
 
 .module-name-modal .admin-form-actions {
+  margin-top: 0;
+}
+
+.lesson-preview-modal {
+  position: relative;
+  display: grid;
+  width: 100%;
+  align-self: start;
+  justify-self: stretch;
+  gap: 0.8rem;
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 0 0 18px 18px;
+  background: var(--panel-strong);
+  padding: 0.8rem;
+  box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
+}
+
+.club-telegram-fullscreen .lesson-preview-modal {
+  max-height: calc(100vh - var(--fullscreen-top-offset) - 1rem);
+}
+
+.lesson-preview-kicker {
+  display: inline-block;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 860;
+  line-height: 1.2;
+  margin-bottom: 0.2rem;
+}
+
+.lesson-preview-body {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 62%),
+    color-mix(in srgb, var(--panel) 88%, transparent);
+  padding: 0.75rem;
+}
+
+.lesson-preview-body img {
+  display: block;
+  width: 100%;
+  max-height: min(54vh, 24rem);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+  object-fit: contain;
+}
+
+.lesson-preview-copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.lesson-preview-copy strong {
+  color: var(--text);
+  font-size: 0.94rem;
+  font-weight: 860;
+}
+
+.lesson-preview-copy span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 690;
+  line-height: 1.45;
+}
+
+.lesson-editor-form {
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  padding-top: 0.75rem;
+}
+
+.lesson-content-input {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.lesson-editor-form .admin-field small {
+  color: var(--muted);
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.voice-record-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.voice-record-row .secondary-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  justify-content: center;
+}
+
+.lesson-preview-modal .admin-form-actions {
   margin-top: 0;
 }
 
