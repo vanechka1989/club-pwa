@@ -5,6 +5,8 @@ import {
   ChevronDown,
   Check,
   CreditCard,
+  ExternalLink,
+  ImageIcon,
   Shield,
   Trash2,
   UsersRound,
@@ -37,6 +39,7 @@ import {
   getAdminSubscriptionTitle,
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
+import { getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useSessionStore } from "@/stores/session";
@@ -45,15 +48,30 @@ import { useUiStore, type PreviewMode } from "@/stores/ui";
 const session = useSessionStore();
 const ui = useUiStore();
 
-type AdminPanel = "overview" | "users" | "payments" | "materials" | "admins";
 type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
 
-const panels: Array<{ id: AdminPanel; label: string; icon: LucideIcon }> = [
-  { id: "overview", label: "Обзор", icon: BarChart3 },
-  { id: "users", label: "Клиенты", icon: UsersRound },
-  { id: "payments", label: "Платежи", icon: CreditCard },
-  { id: "admins", label: "Админы", icon: Shield }
-];
+const panelIcons: Record<AdminPanel, LucideIcon> = {
+  overview: BarChart3,
+  users: UsersRound,
+  payments: CreditCard,
+  materials: ImageIcon,
+  mockups: ImageIcon,
+  admins: Shield
+};
+
+const adminMockups = [
+  {
+    id: "statistics-preview",
+    title: "Статистика клуба",
+    description: "Черновой макет будущей вкладки со статистикой по клиентам, оплатам, контенту и общению.",
+    createdAt: "26.06.2026",
+    images: [
+      { title: "Верх экрана", url: "/previews/admin-stats-preview-1.png" },
+      { title: "Оплаты и контент", url: "/previews/admin-stats-preview-2.png" },
+      { title: "Общение", url: "/previews/admin-stats-preview-3.png" }
+    ]
+  }
+] as const;
 
 const previewOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "developer", label: "Разработчик" },
@@ -113,6 +131,12 @@ const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
 });
 
 const isOwner = computed(() => session.user?.realRole === "owner");
+const panels = computed(() =>
+  getVisibleAdminPanels(session.user?.realRole).map((panel) => ({
+    ...panel,
+    icon: panelIcons[panel.id]
+  }))
+);
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
@@ -1007,6 +1031,37 @@ onUnmounted(() => {
           </div>
         </article>
         <p v-if="!paymentOrders.length" class="admin-empty">Оплат пока нет. Первый заказ появится сразу после нажатия клиентом на оплату.</p>
+      </div>
+    </section>
+
+    <section v-else-if="activePanel === 'mockups' && isOwner" class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <h3>Макеты</h3>
+          <p>Черновые визуальные варианты будущих разделов. Доступно только главному админу.</p>
+        </div>
+      </div>
+
+      <div class="admin-mockup-list">
+        <article v-for="mockup in adminMockups" :key="mockup.id" class="admin-mockup-card">
+          <div class="admin-mockup-card-head">
+            <div>
+              <strong>{{ mockup.title }}</strong>
+              <small>Добавлено {{ mockup.createdAt }}</small>
+            </div>
+            <span>{{ mockup.images.length }} экрана</span>
+          </div>
+          <p>{{ mockup.description }}</p>
+          <div class="admin-mockup-grid">
+            <a v-for="image in mockup.images" :key="image.url" class="admin-mockup-thumb" :href="image.url" target="_blank" rel="noreferrer">
+              <img :src="image.url" :alt="image.title" loading="lazy" />
+              <span>
+                {{ image.title }}
+                <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+            </a>
+          </div>
+        </article>
       </div>
     </section>
 

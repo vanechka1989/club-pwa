@@ -1311,6 +1311,89 @@ button {
   font-size: 0.72rem;
 }
 
+.admin-mockup-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-mockup-card {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  padding: 0.9rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-mockup-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-mockup-card-head strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.admin-mockup-card-head small,
+.admin-mockup-card p {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 690;
+  line-height: 1.45;
+}
+
+.admin-mockup-card-head span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.admin-mockup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.admin-mockup-thumb {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.admin-mockup-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+  object-fit: cover;
+  object-position: top;
+}
+
+.admin-mockup-thumb span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 780;
+  text-align: center;
+}
+
 .admin-entity {
   align-items: center;
   padding: 0.65rem;
