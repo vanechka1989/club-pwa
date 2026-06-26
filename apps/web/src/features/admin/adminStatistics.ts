@@ -185,7 +185,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       archivedTopics: input.communityTopics.filter((topic) => topic.archivedUntil).length,
       messages: input.communityTopics.reduce((sum, topic) => sum + topic.messagesCount, 0)
     },
-    tariffs: buildTariffStats(input.users),
+    tariffs: buildTariffStats(activeUsers),
     contentKinds: buildContentKindStats(input.learningMaterials)
   };
 }

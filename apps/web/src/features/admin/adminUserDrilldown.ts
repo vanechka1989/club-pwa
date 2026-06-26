@@ -40,5 +40,5 @@ export function filterUsersByAccessBreakdown(
 }
 
 export function filterUsersByTariff(tariff: string, users: AdminStatsUser[]) {
-  return users.filter((user) => (user.tariff || "future") === tariff);
+  return users.filter((user) => user.membershipStatus === "active" && (user.tariff || "future") === tariff);
 }

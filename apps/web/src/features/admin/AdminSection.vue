@@ -1052,8 +1052,6 @@ onUnmounted(() => {
               <strong>{{ item.value }}</strong>
               <small v-if="item.value">Подробнее</small>
             </button>
-          </div>
-          <div v-if="adminStatistics.tariffs.length" class="admin-stat-mini-grid">
             <button
               v-for="tariff in adminStatistics.tariffs"
               :key="tariff.tariff"

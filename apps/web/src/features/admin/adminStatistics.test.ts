@@ -118,7 +118,13 @@ describe("admin statistics", () => {
             totalItems: 5,
             lastOpenedItemTitle: "Видео"
           }),
-          user({ telegramId: "3", createdAt: "2026-06-24T10:00:00.000Z" })
+          user({ telegramId: "3", createdAt: "2026-06-24T10:00:00.000Z" }),
+          user({
+            telegramId: "4",
+            createdAt: "2026-06-23T10:00:00.000Z",
+            membershipStatus: "inactive",
+            tariff: "manual"
+          })
         ],
         paymentOrders: [
           payment({ id: "recent-one-time", status: "paid", amountRub: 50, paidAt: "2026-06-25T10:00:00.000Z" }),
@@ -149,16 +155,16 @@ describe("admin statistics", () => {
     );
 
     expect(stats.clients).toMatchObject({
-      total: 3,
+      total: 4,
       active: 2,
-      inactive: 1,
+      inactive: 2,
       restricted: 1,
       expiringSoon: 1,
-      newInPeriod: 2,
-      activePercent: 67
+      newInPeriod: 3,
+      activePercent: 50
     });
     expect(stats.clients.accessBreakdown.map((item) => [item.key, item.label, item.value])).toEqual([
-      ["inactive", "Без доступа", 1],
+      ["inactive", "Без доступа", 2],
       ["restricted", "Ограничения", 1],
       ["expiring_soon", "Истекают скоро", 1]
     ]);
@@ -203,11 +209,12 @@ describe("admin statistics", () => {
     });
     expect(stats.tariffs).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ label: "Рекуррент Prodamus", value: 1, percent: 33 }),
-        expect.objectContaining({ label: "Ручной доступ", value: 1, percent: 33 }),
-        expect.objectContaining({ label: "Без тарифа", value: 1, percent: 33 })
+        expect.objectContaining({ label: "Рекуррент Prodamus", value: 1, percent: 50 }),
+        expect.objectContaining({ label: "Ручной доступ", value: 1, percent: 50 })
       ])
     );
+    expect(stats.tariffs).toHaveLength(2);
+    expect(stats.tariffs.find((item) => item.tariff === "manual")?.value).toBe(1);
     expect(stats.contentKinds.map((item) => [item.kind, item.count])).toEqual([
       ["text", 1],
       ["photo", 1],
