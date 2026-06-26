@@ -1053,22 +1053,17 @@ onUnmounted(() => {
               <small v-if="item.value">Подробнее</small>
             </button>
           </div>
-          <div v-if="adminStatistics.tariffs.length" class="admin-stat-tariff-grid">
+          <div v-if="adminStatistics.tariffs.length" class="admin-stat-mini-grid">
             <button
               v-for="tariff in adminStatistics.tariffs"
               :key="tariff.tariff"
-              class="admin-stat-tariff-card admin-stat-tariff-drilldown"
+              class="admin-stat-drilldown"
               type="button"
               :disabled="!tariff.value"
               @click="openUserTariffDrilldown(tariff)"
             >
-              <div>
-                <span>{{ tariff.label }}</span>
-                <strong>{{ tariff.value }}</strong>
-              </div>
-              <div class="admin-stat-meter admin-stat-meter-small" aria-hidden="true">
-                <span :style="{ width: `${tariff.percent}%` }"></span>
-              </div>
+              <span>{{ tariff.label }}</span>
+              <strong>{{ tariff.value }}</strong>
               <small v-if="tariff.value">Подробнее</small>
             </button>
           </div>

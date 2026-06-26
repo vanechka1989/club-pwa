@@ -594,8 +594,7 @@ button {
 .admin-stat-kpi,
 .admin-stat-block,
 .admin-stat-mini-grid article,
-.admin-stat-drilldown,
-.admin-stat-tariff-card {
+.admin-stat-drilldown {
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   background: color-mix(in srgb, var(--panel) 76%, transparent);
   border-radius: 13px;
@@ -613,8 +612,6 @@ button {
 .admin-stat-drilldown span,
 .admin-stat-drilldown small,
 .admin-stat-bar-row span,
-.admin-stat-tariff-card span,
-.admin-stat-tariff-drilldown small,
 .admin-stat-note,
 .admin-stat-kind-list span {
   color: var(--muted);
@@ -649,8 +646,7 @@ button {
 }
 
 .admin-stat-block header,
-.admin-stat-bar-row div:first-child,
-.admin-stat-tariff-card div:first-child {
+.admin-stat-bar-row div:first-child {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -761,8 +757,7 @@ button {
 
 .admin-stat-mini-grid strong,
 .admin-stat-drilldown strong,
-.admin-stat-bar-row strong,
-.admin-stat-tariff-card strong {
+.admin-stat-bar-row strong {
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 880;
@@ -771,41 +766,6 @@ button {
 .admin-stat-bars {
   display: grid;
   gap: 0.5rem;
-}
-
-.admin-stat-tariff-grid {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.admin-stat-tariff-card {
-  display: grid;
-  gap: 0.32rem;
-  padding: 0.52rem;
-}
-
-.admin-stat-tariff-drilldown {
-  text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-}
-
-.admin-stat-tariff-drilldown:not(:disabled):active {
-  transform: translateY(1px);
-}
-
-.admin-stat-tariff-drilldown:not(:disabled):hover {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  background: color-mix(in srgb, var(--accent-soft) 18%, var(--panel));
-}
-
-.admin-stat-tariff-drilldown:disabled {
-  opacity: 0.58;
-}
-
-.admin-stat-tariff-drilldown small {
-  color: var(--accent);
-  font-size: 0.58rem;
-  font-weight: 820;
 }
 
 .admin-stat-bar-row {
