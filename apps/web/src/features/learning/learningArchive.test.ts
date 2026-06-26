@@ -165,10 +165,11 @@ describe("Learning section modules", () => {
     expect(horizontalLesson.classList.contains("admin-mockup-thumb-vertical")).toBe(false);
   });
 
-  it("keeps horizontal lesson cards inside the regular module grid", () => {
+  it("sizes horizontal lesson cards like a rotated vertical card", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*auto;/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*span\s+2;/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.35fr\)\s+minmax\(0,\s*0\.85fr\);/s);
     expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*gap:\s*0\.38rem;/s);
   });
 
@@ -178,14 +179,14 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
   });
 
-  it("places horizontal lesson text above the large cover", async () => {
+  it("places horizontal lesson text to the right of the cover", async () => {
     renderAsOwner();
 
     await expandModuleOne();
 
     const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
-    expect(horizontalLesson.firstElementChild?.classList.contains("admin-mockup-thumb-copy")).toBe(true);
-    expect(horizontalLesson.lastElementChild?.tagName.toLowerCase()).toBe("img");
+    expect(horizontalLesson.firstElementChild?.tagName.toLowerCase()).toBe("img");
+    expect(horizontalLesson.lastElementChild?.classList.contains("admin-mockup-thumb-copy")).toBe(true);
     expect(horizontalLesson.textContent).toContain("Модульная структура с уроками внутри каждого блока.");
   });
 

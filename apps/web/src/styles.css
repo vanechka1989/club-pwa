@@ -2133,10 +2133,10 @@ button {
 }
 
 .modules-panel .admin-mockup-thumb-horizontal {
-  grid-column: auto;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0.3rem;
+  grid-column: span 2;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+  align-items: center;
+  gap: 0.35rem;
   border: 0;
   background: transparent;
   padding: 0;
@@ -2159,7 +2159,9 @@ button {
 .modules-panel .admin-mockup-thumb-horizontal .admin-mockup-thumb-copy {
   display: grid;
   gap: 0.12rem;
+  align-content: center;
   justify-content: stretch;
+  min-width: 0;
   text-align: left;
 }
 
@@ -2178,6 +2180,10 @@ button {
   font-size: 0.58rem;
   font-weight: 700;
   line-height: 1.25;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .admin-mockup-deleted-module {

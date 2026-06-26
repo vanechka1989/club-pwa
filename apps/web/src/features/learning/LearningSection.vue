@@ -810,6 +810,7 @@ watch(
             @click="openLessonModal(module, image)"
           >
             <template v-if="image.cardLayout === 'horizontal'">
+              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
               <span class="admin-mockup-thumb-copy">
                 <strong>
                   {{ image.title }}
@@ -817,7 +818,6 @@ watch(
                 </strong>
                 <small v-if="image.description">{{ image.description }}</small>
               </span>
-              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
             </template>
             <template v-else>
               <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
