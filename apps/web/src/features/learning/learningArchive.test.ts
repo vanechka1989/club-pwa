@@ -169,7 +169,7 @@ describe("Learning section modules", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
     expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(0,\s*1fr\);/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s);
     expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*gap:\s*0\.38rem;/s);
   });
 
@@ -179,15 +179,59 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
   });
 
-  it("places horizontal lesson text to the right of the cover", async () => {
+  it("places horizontal lesson title above the cover without description", async () => {
     renderAsOwner();
 
     await expandModuleOne();
 
     const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
-    expect(horizontalLesson.firstElementChild?.tagName.toLowerCase()).toBe("img");
-    expect(horizontalLesson.lastElementChild?.classList.contains("admin-mockup-thumb-copy")).toBe(true);
-    expect(horizontalLesson.textContent).toContain("Модульная структура с уроками внутри каждого блока.");
+    expect(horizontalLesson.firstElementChild?.classList.contains("admin-mockup-thumb-copy")).toBe(true);
+    expect(horizontalLesson.lastElementChild?.tagName.toLowerCase()).toBe("img");
+    expect(horizontalLesson.textContent).not.toContain("Модульная структура с уроками внутри каждого блока.");
+  });
+
+  it("creates modules with description and default lesson card layout", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
+    await fireEvent.update(screen.getByLabelText("Название модуля"), "Горизонтальный модуль");
+    await fireEvent.update(screen.getByLabelText("Описание модуля"), "Описание для нового модуля");
+    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
+
+    expect(screen.getByText("Горизонтальный модуль")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Горизонтальный модуль" }));
+    expect(screen.getByText("Описание для нового модуля")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Горизонтальный модуль" }));
+    expect(screen.getByRole("button", { name: "Горизонтальная карточка" }).classList.contains("lesson-layout-option-active")).toBe(true);
+  });
+
+  it("edits module description and default lesson card layout", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
+    await fireEvent.update(screen.getByLabelText("Описание модуля"), "Новое описание модуля");
+    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
+
+    await expandModuleOne();
+    expect(screen.getByText("Новое описание модуля")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    expect(screen.getByRole("button", { name: "Горизонтальная карточка" }).classList.contains("lesson-layout-option-active")).toBe(true);
+  });
+
+  it("deletes a module after confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 2" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Удалить модуль" }));
+
+    expect(window.confirm).toHaveBeenCalledWith('Удалить модуль "Модуль 2" вместе с уроками?');
+    expect(screen.queryByText("Модуль 2")).toBeNull();
   });
 
   it("uses a compact lesson modal for member viewing", async () => {

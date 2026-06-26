@@ -397,14 +397,14 @@ export function updateAdminLearningMaterial(id: string, payload: FormData) {
   });
 }
 
-export function createAdminLearningCategory(payload: { title: string; description?: string | null }) {
+export function createAdminLearningCategory(payload: { title: string; description?: string | null; defaultCardLayout?: "vertical" | "horizontal" }) {
   return api<AdminLearningCategoryMutationResponse>("/admin/learning/categories", {
     method: "POST",
     body: payload
   });
 }
 
-export function updateAdminLearningCategory(id: string, payload: { title: string; description?: string | null }) {
+export function updateAdminLearningCategory(id: string, payload: { title: string; description?: string | null; defaultCardLayout?: "vertical" | "horizontal" }) {
   return api<AdminLearningCategoryMutationResponse>(`/admin/learning/categories/${id}`, {
     method: "POST",
     body: payload

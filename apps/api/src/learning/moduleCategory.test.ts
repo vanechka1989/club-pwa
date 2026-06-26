@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  decodeModuleCategoryDefaultCardLayout,
   decodeModuleCategoryDescription,
   encodeModuleCategoryDescription,
   isModuleCategoryDescription
@@ -20,5 +21,12 @@ describe("module category description helpers", () => {
 
   it("supports modules without a visible description", () => {
     expect(decodeModuleCategoryDescription(encodeModuleCategoryDescription(""))).toBeNull();
+  });
+
+  it("stores default lesson card layout without showing it in the description", () => {
+    const encoded = encodeModuleCategoryDescription("Первый блок", "horizontal");
+
+    expect(decodeModuleCategoryDescription(encoded)).toBe("Первый блок");
+    expect(decodeModuleCategoryDefaultCardLayout(encoded)).toBe("horizontal");
   });
 });

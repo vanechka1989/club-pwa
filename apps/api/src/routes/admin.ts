@@ -36,6 +36,7 @@ import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messag
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
 import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, getLearningMediaUploadContentType } from "../learning/mediaUpload";
 import {
+  decodeModuleCategoryDefaultCardLayout,
   decodeModuleCategoryDescription,
   encodeModuleCategoryDescription,
   isModuleCategoryDescription
@@ -77,7 +78,8 @@ const categoryStatusPayloadSchema = z.object({
 
 const learningCategoryPayloadSchema = z.object({
   title: z.string().trim().min(1).max(160),
-  description: z.string().trim().max(1000).nullable().optional()
+  description: z.string().trim().max(1000).nullable().optional(),
+  defaultCardLayout: z.enum(["vertical", "horizontal"]).default("vertical")
 });
 
 const s3StoragePayloadSchema = z.object({
@@ -711,7 +713,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .filter((category) => isModuleCategoryDescription(category.description))
       .map((category) => ({
         ...category,
-        description: decodeModuleCategoryDescription(category.description)
+        description: decodeModuleCategoryDescription(category.description),
+        defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description)
       }));
     const categoryIds = categories.map((category) => category.id);
     const materials = categoryIds.length
@@ -750,7 +753,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .values({
         slug: createCategorySlug(body.data.title),
         title: body.data.title,
-        description: encodeModuleCategoryDescription(body.data.description),
+        description: encodeModuleCategoryDescription(body.data.description, body.data.defaultCardLayout),
         sortOrder: sortRow?.value ?? 0,
         isPublished: true
       })
@@ -767,6 +770,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         slug: category.slug,
         title: category.title,
         description: decodeModuleCategoryDescription(category.description),
+        defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description),
         isPublished: category.isPublished,
         itemsCount: 0
       }
@@ -782,7 +786,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .update(contentCategories)
       .set({
         title: body.data.title,
-        description: encodeModuleCategoryDescription(body.data.description),
+        description: encodeModuleCategoryDescription(body.data.description, body.data.defaultCardLayout),
         updatedAt: new Date()
       })
       .where(eq(contentCategories.id, c.req.param("id")))
@@ -804,6 +808,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         slug: category.slug,
         title: category.title,
         description: decodeModuleCategoryDescription(category.description),
+        defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description),
         isPublished: category.isPublished,
         itemsCount: itemsRow?.value ?? 0
       }
@@ -840,6 +845,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         slug: category.slug,
         title: category.title,
         description: decodeModuleCategoryDescription(category.description),
+        defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description),
         isPublished: category.isPublished,
         itemsCount: itemsRow?.value ?? 0
       }

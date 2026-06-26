@@ -7,7 +7,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
 import { getObjectReadUrl } from "../storage/s3";
-import { decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
+import { decodeModuleCategoryDefaultCardLayout, decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -88,7 +88,8 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       .filter((category) => isModuleCategoryDescription(category.description))
       .map((category) => ({
         ...category,
-        description: decodeModuleCategoryDescription(category.description)
+        description: decodeModuleCategoryDescription(category.description),
+        defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description)
       }));
     const categoryIds = categories.map((category) => category.id);
     const moduleContentWhere = categoryIds.length

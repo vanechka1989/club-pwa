@@ -89,8 +89,8 @@ function topic(overrides: Partial<ClubTopic>): ClubTopic {
 }
 
 const categories: LearningCategory[] = [
-  { id: "start", slug: "start", title: "Старт", description: null, isPublished: true, itemsCount: 2 },
-  { id: "advanced", slug: "advanced", title: "Продолжение", description: null, isPublished: false, itemsCount: 1 }
+  { id: "start", slug: "start", title: "Старт", description: null, defaultCardLayout: "vertical", isPublished: true, itemsCount: 2 },
+  { id: "advanced", slug: "advanced", title: "Продолжение", description: null, defaultCardLayout: "vertical", isPublished: false, itemsCount: 1 }
 ];
 
 describe("admin statistics", () => {

@@ -45,6 +45,7 @@ export const learningCategorySchema = z.object({
   slug: z.string(),
   title: z.string(),
   description: z.string().nullable(),
+  defaultCardLayout: contentCardLayoutSchema.default("vertical"),
   isPublished: z.boolean(),
   itemsCount: z.number().int().nonnegative()
 });

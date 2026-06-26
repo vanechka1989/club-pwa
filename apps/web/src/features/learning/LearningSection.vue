@@ -5,6 +5,7 @@ import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Pl
 import {
   createAdminLearningCategory,
   createAdminLearningMaterial,
+  deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
   getLearningHome,
@@ -35,6 +36,7 @@ type ModuleCard = {
   id: string;
   title: string;
   description: string;
+  defaultCardLayout: ContentCardLayout;
   meta: string;
   isPersisted: boolean;
   images: ModuleLesson[];
@@ -47,6 +49,7 @@ const initialModuleCards: ModuleCard[] = [
     id: "module-1",
     title: "Модуль 1",
     description: "Первый модуль клуба. Внутри будут уроки и материалы первого блока.",
+    defaultCardLayout: "vertical",
     images: [
       {
         id: "module-1-lesson-1",
@@ -108,6 +111,7 @@ const initialModuleCards: ModuleCard[] = [
     id: "module-2",
     title: "Модуль 2",
     description: "Второй модуль клуба. Внутри будут уроки следующего блока.",
+    defaultCardLayout: "vertical",
     images: [
       {
         id: "module-2-lesson-1",
@@ -165,6 +169,8 @@ const showModuleModal = ref(false);
 const editingModuleId = ref<string | null>(null);
 const collapsedModuleIds = ref<string[]>(initialModuleCards.map((module) => module.id));
 const moduleTitle = ref("");
+const moduleDescription = ref("");
+const moduleDefaultCardLayout = ref<ContentCardLayout>("vertical");
 const moduleError = ref("");
 const selectedLesson = ref<{ moduleId: string; lessonId: string | null } | null>(null);
 const lessonTitle = ref("");
@@ -232,6 +238,8 @@ function lessonCountLabel(count: number) {
 function openModuleModal() {
   editingModuleId.value = null;
   moduleTitle.value = "";
+  moduleDescription.value = "";
+  moduleDefaultCardLayout.value = "vertical";
   moduleError.value = "";
   showModuleModal.value = true;
 }
@@ -239,6 +247,8 @@ function openModuleModal() {
 function openModuleEditModal(module: ModuleCard) {
   editingModuleId.value = module.id;
   moduleTitle.value = module.title;
+  moduleDescription.value = module.description;
+  moduleDefaultCardLayout.value = module.defaultCardLayout;
   moduleError.value = "";
   showModuleModal.value = true;
 }
@@ -247,6 +257,8 @@ function closeModuleModal() {
   showModuleModal.value = false;
   editingModuleId.value = null;
   moduleTitle.value = "";
+  moduleDescription.value = "";
+  moduleDefaultCardLayout.value = "vertical";
   moduleError.value = "";
 }
 
@@ -302,7 +314,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = "";
   shouldRemoveLessonThumbnail.value = false;
-  lessonCardLayout.value = "vertical";
+  lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = "";
   lessonError.value = "";
 }
@@ -451,6 +463,7 @@ function categoriesToModules(
     id: category.id,
     title: category.title,
     description: category.description ?? "Модуль клуба. Внутри будут уроки и материалы.",
+    defaultCardLayout: category.defaultCardLayout,
     meta,
     isPersisted: true,
     images: materials.filter((material) => material.categoryId === category.id).map(materialToLesson)
@@ -490,7 +503,8 @@ function updateModuleInList(category: LearningCategory) {
       ? {
           ...module,
           title: category.title,
-          description: category.description ?? module.description
+          description: category.description ?? module.description,
+          defaultCardLayout: category.defaultCardLayout
         }
       : module
   );
@@ -557,6 +571,8 @@ async function saveModule() {
   if (!modulesLoadedFromApi.value) {
     if (editingModule.value) {
       editingModule.value.title = trimmedModuleTitle.value;
+      editingModule.value.description = moduleDescription.value.trim();
+      editingModule.value.defaultCardLayout = moduleDefaultCardLayout.value;
       closeModuleModal();
       return;
     }
@@ -565,7 +581,8 @@ async function saveModule() {
     moduleCards.value.push({
       id: moduleId,
       title: trimmedModuleTitle.value,
-      description: "Новый модуль. Уроки можно будет добавить следующим шагом.",
+      description: moduleDescription.value.trim() || "Новый модуль. Уроки можно будет добавить следующим шагом.",
+      defaultCardLayout: moduleDefaultCardLayout.value,
       meta: "Добавлено сегодня",
       isPersisted: false,
       images: []
@@ -582,7 +599,8 @@ async function saveModule() {
     if (editingModule.value) {
       const response = await updateAdminLearningCategory(editingModule.value.id, {
         title: trimmedModuleTitle.value,
-        description: editingModule.value.description
+        description: moduleDescription.value.trim() || null,
+        defaultCardLayout: moduleDefaultCardLayout.value
       });
       updateModuleInList(response.category);
       closeModuleModal();
@@ -591,7 +609,8 @@ async function saveModule() {
 
     const response = await createAdminLearningCategory({
       title: trimmedModuleTitle.value,
-      description: "Новый модуль. Уроки можно будет добавить следующим шагом."
+      description: moduleDescription.value.trim() || "Новый модуль. Уроки можно будет добавить следующим шагом.",
+      defaultCardLayout: moduleDefaultCardLayout.value
     });
     moduleCards.value = [
       ...moduleCards.value,
@@ -599,6 +618,7 @@ async function saveModule() {
         id: response.category.id,
         title: response.category.title,
         description: response.category.description ?? "Новый модуль. Уроки можно будет добавить следующим шагом.",
+        defaultCardLayout: response.category.defaultCardLayout,
         meta: "Добавлено сегодня",
         isPersisted: true,
         images: []
@@ -608,6 +628,34 @@ async function saveModule() {
     closeModuleModal();
   } catch {
     moduleError.value = "Не удалось сохранить модуль.";
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+async function deleteModule() {
+  if (!editingModule.value || !canManageModules.value) {
+    return;
+  }
+
+  const module = editingModule.value;
+  const confirmed = window.confirm(`Удалить модуль "${module.title}" вместе с уроками?`);
+  if (!confirmed) {
+    return;
+  }
+
+  isSaving.value = true;
+  moduleError.value = "";
+
+  try {
+    if (module.isPersisted && modulesLoadedFromApi.value) {
+      await deleteAdminLearningCategory(module.id);
+    }
+    moduleCards.value = moduleCards.value.filter((item) => item.id !== module.id);
+    collapsedModuleIds.value = collapsedModuleIds.value.filter((id) => id !== module.id);
+    closeModuleModal();
+  } catch {
+    moduleError.value = "Не удалось удалить модуль.";
   } finally {
     isSaving.value = false;
   }
@@ -912,14 +960,13 @@ watch(
             @click="openLessonModal(module, image)"
           >
             <template v-if="image.cardLayout === 'horizontal'">
-              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
               <span class="admin-mockup-thumb-copy">
                 <strong>
                   {{ image.title }}
                   <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
                 </strong>
-                <small v-if="image.description">{{ image.description }}</small>
               </span>
+              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
             </template>
             <template v-else>
               <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
@@ -998,11 +1045,39 @@ watch(
             <span>Название модуля</span>
             <input v-model="moduleTitle" class="text-input" type="text" placeholder="Например: Модуль 3" aria-label="Название модуля" />
           </label>
+          <label class="admin-field">
+            <span>Описание модуля</span>
+            <textarea v-model="moduleDescription" class="text-input module-description-input" placeholder="Коротко о том, что внутри" aria-label="Описание модуля"></textarea>
+          </label>
+          <div class="admin-field">
+            <span>Какие карточки создавать</span>
+            <div class="lesson-layout-toggle" role="group" aria-label="Тип карточек модуля">
+              <button
+                class="lesson-layout-option"
+                :class="{ 'lesson-layout-option-active': moduleDefaultCardLayout === 'vertical' }"
+                type="button"
+                aria-label="Вертикальные уроки"
+                @click="moduleDefaultCardLayout = 'vertical'"
+              >
+                Вертикальные
+              </button>
+              <button
+                class="lesson-layout-option"
+                :class="{ 'lesson-layout-option-active': moduleDefaultCardLayout === 'horizontal' }"
+                type="button"
+                aria-label="Горизонтальные уроки"
+                @click="moduleDefaultCardLayout = 'horizontal'"
+              >
+                Горизонтальные
+              </button>
+            </div>
+          </div>
 
           <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>
         </div>
 
         <div class="admin-form-actions">
+          <button v-if="editingModule" class="secondary-button danger-action" type="button" :disabled="isSaving" @click="deleteModule">Удалить модуль</button>
           <button class="secondary-button" type="button" :disabled="isSaving" @click="closeModuleModal">Закрыть</button>
           <button class="primary-button" type="button" :disabled="isSaving" @click="saveModule">
             {{ isSaving ? "Сохраняем..." : "Сохранить модуль" }}
