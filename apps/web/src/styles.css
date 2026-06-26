@@ -706,6 +706,8 @@ button {
 }
 
 .learning-item-button-archived {
+  display: grid;
+  gap: 0.75rem;
   border-color: color-mix(in srgb, var(--danger) 38%, var(--border));
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--danger) 14%, transparent), transparent 58%),
@@ -731,10 +733,6 @@ button {
   line-height: 1;
   margin-bottom: 0.35rem;
   padding: 0.22rem 0.45rem;
-}
-
-.learning-item-row-archived .learning-item-actions {
-  justify-content: stretch;
 }
 
 .learning-restore-button {

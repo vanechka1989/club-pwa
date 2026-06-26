@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/vue";
+import { cleanup, render, screen, within } from "@testing-library/vue";
 import type { AdminLearningResponse, LearningHomeResponse, MeResponse } from "@club/shared";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,6 +30,23 @@ const adminLearning: AdminLearningResponse = {
       thumbnailUrl: null,
       mediaContentType: "audio/webm",
       mediaSizeBytes: 1024,
+      publishedAt: "2026-06-26T00:00:00.000Z",
+      isPublished: false,
+      archivedUntil: "2026-07-03T00:00:00.000Z",
+      createdAt: "2026-06-26T00:00:00.000Z",
+      updatedAt: "2026-06-26T00:00:00.000Z"
+    },
+    {
+      id: "archived-photo",
+      categoryId: "photo",
+      kind: "photo",
+      title: "Котик",
+      summary: null,
+      body: null,
+      mediaUrl: "https://example.com/photo.jpg",
+      thumbnailUrl: null,
+      mediaContentType: "image/jpeg",
+      mediaSizeBytes: 2048,
       publishedAt: "2026-06-26T00:00:00.000Z",
       isPublished: false,
       archivedUntil: "2026-07-03T00:00:00.000Z",
@@ -99,8 +116,18 @@ describe("Learning archived content", () => {
       }
     });
 
-    expect(await screen.findByText("Удалено")).toBeTruthy();
+    expect(await screen.findAllByText("Удалено")).toHaveLength(2);
     expect(screen.getByText("Голосовое тест")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Восстановить" })).toBeTruthy();
+    expect(screen.getByText("Котик")).toBeTruthy();
+    expect(
+      within(screen.getByRole("article", { name: "Удалённый контент: Голосовое тест" })).getByRole("button", {
+        name: "Восстановить"
+      })
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole("article", { name: "Удалённый контент: Котик" })).getByRole("button", {
+        name: "Восстановить"
+      })
+    ).toBeTruthy();
   });
 });

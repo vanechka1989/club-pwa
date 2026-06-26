@@ -953,7 +953,12 @@ watch(hasLearningAccess, (hasAccess) => {
           <h4 class="font-semibold text-[var(--text)]">Удалённые</h4>
           <p class="mt-1 text-sm text-[var(--muted)]">Хранятся 7 дней после удаления.</p>
           <div class="mt-3 grid gap-2">
-            <article v-for="material in archivedMaterials" :key="material.id" class="learning-item-row learning-item-row-archived">
+            <article
+              v-for="material in archivedMaterials"
+              :key="material.id"
+              class="learning-item-row learning-item-row-archived"
+              :aria-label="`Удалённый контент: ${material.title}`"
+            >
               <div class="learning-item-button learning-item-button-archived">
                 <div class="flex items-start gap-3">
                   <span class="learning-content-thumb learning-content-thumb-archived">
@@ -967,8 +972,6 @@ watch(hasLearningAccess, (hasAccess) => {
                     <small class="mt-1 block leading-5 text-[var(--muted)]">Будет очищено после {{ formatArchiveUntil(material.archivedUntil) }}</small>
                   </span>
                 </div>
-              </div>
-              <div class="learning-item-actions">
                 <button
                   class="learning-restore-button"
                   type="button"
