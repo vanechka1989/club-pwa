@@ -180,7 +180,7 @@ function saveModule() {
     </div>
 
     <div v-if="showModuleModal && canManageModules" class="admin-modal-backdrop" @click.self="closeModuleModal">
-      <aside class="admin-detail admin-client-modal module-name-modal" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
+      <aside class="module-name-modal" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
         <header class="admin-client-modal-head">
           <div>
             <h3 id="module-modal-title">{{ moduleModalTitle }}</h3>
