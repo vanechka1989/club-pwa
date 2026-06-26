@@ -6,7 +6,7 @@ export type NamedBlobUpload = {
 function normalizeVoiceMimeType(chunks: Blob[], recorderMimeType?: string) {
   const mimeType = recorderMimeType || chunks.find((chunk) => chunk.type)?.type || "audio/webm";
 
-  if (mimeType.toLowerCase().startsWith("video/webm")) {
+  if (mimeType.toLowerCase().startsWith("video/")) {
     return mimeType.replace(/^video\//i, "audio/");
   }
 

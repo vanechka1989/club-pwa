@@ -29,4 +29,11 @@ describe("createVoiceUpload", () => {
     expect(upload.name).toBe("voice-message.webm");
     expect(upload.blob.type).toBe("audio/webm;codecs=opus");
   });
+
+  it("normalizes audio-only mp4 recordings reported as video mp4", () => {
+    const upload = createVoiceUpload([new Blob(["voice"], { type: "video/mp4" })], "video/mp4");
+
+    expect(upload.name).toBe("voice-message.m4a");
+    expect(upload.blob.type).toBe("audio/mp4");
+  });
 });

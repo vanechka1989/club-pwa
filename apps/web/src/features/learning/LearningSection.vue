@@ -20,6 +20,7 @@ import {
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
+import { getMaterialDraftError } from "./materialForm";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 
 const session = useSessionStore();
@@ -58,11 +59,13 @@ const materialFile = ref<NamedBlobUpload | null>(null);
 const thumbnailFile = ref<File | null>(null);
 const editingMaterial = ref<AdminLearningMaterial | null>(null);
 const voiceRecording = ref(false);
+const voiceProcessing = ref(false);
 const voiceError = ref<string | null>(null);
 const voicePreviewUrl = ref<string | null>(null);
 let voiceRecorder: MediaRecorder | null = null;
 let voiceStream: MediaStream | null = null;
 let voiceChunks: Blob[] = [];
+let voiceRecordingCancelled = false;
 const categoryTitle = ref("");
 const categoryDescription = ref("");
 const hasLearningAccess = computed(
@@ -273,6 +276,24 @@ function notifyContent(message: string) {
   window.alert(message);
 }
 
+function getMaterialSaveError(error: unknown, fallback: string) {
+  const apiError = (error as { data?: { error?: string } } | null)?.data?.error;
+
+  if (apiError === "Media file is required") {
+    return "Выберите файл или дождитесь подготовки голосовой записи.";
+  }
+
+  if (apiError === "Media file type does not match material kind") {
+    return "Тип файла не подходит для выбранного контента.";
+  }
+
+  if (apiError === "Thumbnail file must be an image") {
+    return "Обложка должна быть изображением.";
+  }
+
+  return fallback;
+}
+
 function resetContentForm() {
   stopVoiceRecording(false);
   if (voicePreviewUrl.value) {
@@ -340,31 +361,46 @@ async function startVoiceRecording() {
   try {
     voiceError.value = null;
     materialKind.value = "audio";
+    materialFile.value = null;
+    voiceRecordingCancelled = false;
+    if (voicePreviewUrl.value) {
+      URL.revokeObjectURL(voicePreviewUrl.value);
+      voicePreviewUrl.value = null;
+    }
     voiceChunks = [];
     voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    voiceRecorder = new MediaRecorder(voiceStream);
-    voiceRecorder.addEventListener("dataavailable", (event) => {
+    const recorder = new MediaRecorder(voiceStream);
+    voiceRecorder = recorder;
+    recorder.addEventListener("dataavailable", (event) => {
       if (event.data.size > 0) {
         voiceChunks.push(event.data);
       }
     });
-    voiceRecorder.addEventListener("stop", () => {
+    recorder.addEventListener("stop", () => {
       if (!voiceChunks.length) {
+        voiceProcessing.value = false;
+        if (!materialFile.value && !voiceRecordingCancelled) {
+          voiceError.value = "Запись не получилась. Попробуйте ещё раз.";
+        }
+        voiceRecordingCancelled = false;
         return;
       }
 
-      const upload = createVoiceUpload(voiceChunks, voiceRecorder?.mimeType);
+      const upload = createVoiceUpload(voiceChunks, recorder.mimeType);
       materialFile.value = upload;
       if (voicePreviewUrl.value) {
         URL.revokeObjectURL(voicePreviewUrl.value);
       }
       voicePreviewUrl.value = URL.createObjectURL(upload.blob);
       voiceChunks = [];
+      voiceProcessing.value = false;
+      voiceRecordingCancelled = false;
     });
-    voiceRecorder.start();
+    recorder.start();
     voiceRecording.value = true;
   } catch {
     voiceError.value = "Не удалось получить доступ к микрофону.";
+    voiceProcessing.value = false;
   }
 }
 
@@ -372,6 +408,9 @@ function stopVoiceRecording(keepRecording = true) {
   if (voiceRecorder && voiceRecorder.state !== "inactive") {
     if (!keepRecording) {
       voiceChunks = [];
+      voiceRecordingCancelled = true;
+    } else {
+      voiceProcessing.value = true;
     }
     voiceRecorder.stop();
   }
@@ -380,9 +419,12 @@ function stopVoiceRecording(keepRecording = true) {
   voiceStream = null;
   voiceRecorder = null;
   voiceRecording.value = false;
+  if (!keepRecording) {
+    voiceProcessing.value = false;
+  }
 }
 
-async function handleCreateCategory() {
+async function handleCreateCategory(shouldNotify = true) {
   if (!categoryTitle.value.trim()) {
     contentError.value = "Введите название категории.";
     return null;
@@ -396,7 +438,9 @@ async function handleCreateCategory() {
   materialCategoryId.value = response.category.id;
   categoryTitle.value = "";
   categoryDescription.value = "";
-  notifyContent("Категория создана.");
+  if (shouldNotify) {
+    notifyContent("Категория создана.");
+  }
   return response.category;
 }
 
@@ -435,21 +479,34 @@ async function handleToggleCategory(category: LearningCategory) {
 }
 
 async function handleSaveMaterial() {
-  if (!materialTitle.value.trim()) {
-    contentError.value = "Введите название контента.";
+  const validationError = getMaterialDraftError({
+    title: materialTitle.value,
+    kind: materialKind.value,
+    isEditing: Boolean(editingMaterial.value),
+    currentKind: editingMaterial.value?.kind ?? null,
+    currentMediaUrl: editingMaterial.value?.mediaUrl ?? null,
+    hasMediaFile: Boolean(materialFile.value),
+    isVoiceRecording: voiceRecording.value,
+    isVoiceProcessing: voiceProcessing.value
+  });
+
+  if (validationError) {
+    contentError.value = validationError;
     return;
   }
 
   contentSaving.value = true;
   contentError.value = null;
+  let createdCategoryId: string | null = null;
   try {
     let categoryId = materialCategoryId.value;
     if (categoryId === "__new__") {
-      const category = await handleCreateCategory();
+      const category = await handleCreateCategory(false);
       if (!category) {
         return;
       }
       categoryId = category.id;
+      createdCategoryId = category.id;
     }
 
     const form = new FormData();
@@ -476,8 +533,13 @@ async function handleSaveMaterial() {
     await loadLearning();
     closeContentModal();
     notifyContent(materialBeingEdited ? "Контент обновлён." : "Контент добавлен.");
-  } catch {
-    contentError.value = editingMaterial.value ? "Не удалось обновить контент." : "Не удалось добавить контент.";
+  } catch (error) {
+    if (createdCategoryId) {
+      await deleteAdminLearningCategory(createdCategoryId).catch(() => null);
+      categories.value = categories.value.filter((item) => item.id !== createdCategoryId);
+      materialCategoryId.value = "__new__";
+    }
+    contentError.value = getMaterialSaveError(error, editingMaterial.value ? "Не удалось обновить контент." : "Не удалось добавить контент.");
   } finally {
     contentSaving.value = false;
   }
@@ -1006,8 +1068,9 @@ watch(hasLearningAccess, (hasAccess) => {
                 <input v-model="materialPublished" type="checkbox" />
                 <span>Сразу открыть клиентам</span>
               </label>
+              <p v-if="contentError" class="admin-status admin-status-error">{{ contentError }}</p>
               <button class="primary-button" type="submit" :disabled="contentSaving || (!materialCategoryId && materialCategoryId !== '__new__')">
-                {{ editingMaterial ? "Сохранить изменения" : "Добавить контент" }}
+                {{ contentSaving ? "Сохраняем..." : editingMaterial ? "Сохранить изменения" : "Добавить контент" }}
               </button>
             </form>
           </aside>
