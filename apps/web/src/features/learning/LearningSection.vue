@@ -707,86 +707,90 @@ watch(
       </aside>
     </div>
 
-    <div v-if="selectedLesson && selectedLessonModule" class="admin-modal-backdrop" @click.self="closeLessonModal">
-      <aside class="lesson-preview-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-preview-title">
-        <header class="admin-client-modal-head">
-          <div>
-            <span class="lesson-preview-kicker">Урок из модуля</span>
-            <h3 id="lesson-preview-title">{{ lessonModalTitle }}</h3>
-            <p>{{ lessonModalSubtitle }}</p>
-          </div>
-          <button class="icon-button" type="button" :aria-label="`Закрыть урок: ${lessonModalTitle}`" @click="closeLessonModal">
-            <X class="h-5 w-5" aria-hidden="true" />
-          </button>
-        </header>
-
-        <div class="lesson-preview-body">
-          <img :src="lessonPreviewSource" :alt="lessonModalTitle" loading="lazy" />
-          <div class="lesson-preview-copy">
-            <strong>{{ lessonTitle || lessonModalTitle }}</strong>
-            <span>{{ lessonDescription || "Описание урока пока не заполнено." }}</span>
-          </div>
-        </div>
-
-        <div v-if="canManageModules" class="admin-form lesson-editor-form">
-          <label class="admin-field">
-            <span>Название урока</span>
-            <input v-model="lessonTitle" class="text-input" type="text" placeholder="Например: Первый урок" aria-label="Название урока" />
-          </label>
-          <label class="admin-field">
-            <span>Описание урока</span>
-            <input v-model="lessonDescription" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание урока" />
-          </label>
-          <label class="admin-field">
-            <span>Тип урока</span>
-            <select v-model="lessonKind" class="text-input" aria-label="Тип урока">
-              <option value="text">Текст</option>
-              <option value="photo">Фото</option>
-              <option value="video">Видео</option>
-              <option value="audio">Аудио</option>
-            </select>
-          </label>
-          <label v-if="lessonKind !== 'text'" class="admin-field">
-            <span>Файл урока</span>
-            <input
-              class="text-input"
-              type="file"
-              :accept="lessonKind === 'photo' ? 'image/*' : lessonKind === 'video' ? 'video/*' : 'audio/*'"
-              aria-label="Файл урока"
-              @change="handleLessonFileChange"
-            />
-            <small>{{ lessonFileName || "Файл не выбран" }}</small>
-          </label>
-          <div v-if="lessonKind === 'audio'" class="voice-record-row">
-            <button v-if="!isVoiceRecording" class="secondary-button" type="button" @click="startVoiceRecording">
-              <Mic class="h-4 w-4" aria-hidden="true" />
-              Записать голос
+    <Teleport to="body">
+      <div v-if="selectedLesson && selectedLessonModule" class="admin-modal-backdrop lesson-preview-backdrop" @click.self="closeLessonModal">
+        <aside class="lesson-preview-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-preview-title">
+          <header class="admin-client-modal-head">
+            <div>
+              <span class="lesson-preview-kicker">Урок из модуля</span>
+              <h3 id="lesson-preview-title">{{ lessonModalTitle }}</h3>
+              <p>{{ lessonModalSubtitle }}</p>
+            </div>
+            <button class="icon-button" type="button" :aria-label="`Закрыть урок: ${lessonModalTitle}`" @click="closeLessonModal">
+              <X class="h-5 w-5" aria-hidden="true" />
             </button>
-            <button v-else class="secondary-button" type="button" @click="stopVoiceRecording">
-              <Square class="h-4 w-4" aria-hidden="true" />
-              Остановить запись
-            </button>
-          </div>
-          <label class="admin-field">
-            <span>Обложка карточки</span>
-            <input class="text-input" type="file" accept="image/*" aria-label="Обложка карточки" @change="handleLessonThumbnailChange" />
-            <small>{{ lessonThumbnailFileName || "Можно не загружать" }}</small>
-          </label>
-          <label class="admin-field">
-            <span>Содержимое урока</span>
-            <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>
-          </label>
-          <p v-if="lessonError" class="admin-error-text">{{ lessonError }}</p>
-        </div>
+          </header>
 
-        <div class="admin-form-actions">
-          <button class="secondary-button" type="button" :disabled="isSaving" @click="closeLessonModal">Закрыть</button>
-          <button v-if="canManageModules" class="primary-button" type="button" :disabled="isSaving" @click="saveLesson">
-            {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}
-          </button>
-          <button v-else class="primary-button" type="button">Открыть урок</button>
-        </div>
-      </aside>
-    </div>
+          <div class="lesson-preview-scroll">
+            <div class="lesson-preview-body">
+              <img :src="lessonPreviewSource" :alt="lessonModalTitle" loading="lazy" />
+              <div class="lesson-preview-copy">
+                <strong>{{ lessonTitle || lessonModalTitle }}</strong>
+                <span>{{ lessonDescription || "Описание урока пока не заполнено." }}</span>
+              </div>
+            </div>
+
+            <div v-if="canManageModules" class="admin-form lesson-editor-form">
+              <label class="admin-field">
+                <span>Название урока</span>
+                <input v-model="lessonTitle" class="text-input" type="text" placeholder="Например: Первый урок" aria-label="Название урока" />
+              </label>
+              <label class="admin-field">
+                <span>Описание урока</span>
+                <input v-model="lessonDescription" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание урока" />
+              </label>
+              <label class="admin-field">
+                <span>Тип урока</span>
+                <select v-model="lessonKind" class="text-input" aria-label="Тип урока">
+                  <option value="text">Текст</option>
+                  <option value="photo">Фото</option>
+                  <option value="video">Видео</option>
+                  <option value="audio">Аудио</option>
+                </select>
+              </label>
+              <label v-if="lessonKind !== 'text'" class="admin-field">
+                <span>Файл урока</span>
+                <input
+                  class="text-input"
+                  type="file"
+                  :accept="lessonKind === 'photo' ? 'image/*' : lessonKind === 'video' ? 'video/*' : 'audio/*'"
+                  aria-label="Файл урока"
+                  @change="handleLessonFileChange"
+                />
+                <small>{{ lessonFileName || "Файл не выбран" }}</small>
+              </label>
+              <div v-if="lessonKind === 'audio'" class="voice-record-row">
+                <button v-if="!isVoiceRecording" class="secondary-button" type="button" @click="startVoiceRecording">
+                  <Mic class="h-4 w-4" aria-hidden="true" />
+                  Записать голос
+                </button>
+                <button v-else class="secondary-button" type="button" @click="stopVoiceRecording">
+                  <Square class="h-4 w-4" aria-hidden="true" />
+                  Остановить запись
+                </button>
+              </div>
+              <label class="admin-field">
+                <span>Обложка карточки</span>
+                <input class="text-input" type="file" accept="image/*" aria-label="Обложка карточки" @change="handleLessonThumbnailChange" />
+                <small>{{ lessonThumbnailFileName || "Можно не загружать" }}</small>
+              </label>
+              <label class="admin-field">
+                <span>Содержимое урока</span>
+                <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>
+              </label>
+              <p v-if="lessonError" class="admin-error-text">{{ lessonError }}</p>
+            </div>
+          </div>
+
+          <div class="admin-form-actions lesson-preview-actions">
+            <button class="secondary-button" type="button" :disabled="isSaving" @click="closeLessonModal">Закрыть</button>
+            <button v-if="canManageModules" class="primary-button" type="button" :disabled="isSaving" @click="saveLesson">
+              {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}
+            </button>
+            <button v-else class="primary-button" type="button">Открыть урок</button>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
   </section>
 </template>

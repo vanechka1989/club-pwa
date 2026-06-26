@@ -2145,22 +2145,38 @@ button {
 
 .lesson-preview-modal {
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  align-self: start;
+  height: var(--club-viewport-height, 100dvh);
+  min-height: 0;
+  max-height: none;
+  align-self: stretch;
   justify-self: stretch;
   gap: 0.8rem;
-  max-height: calc(100vh - 1rem);
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-  border-radius: 0 0 18px 18px;
+  border-radius: 0;
   background: var(--panel-strong);
   padding: 0.8rem;
   box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
 }
 
 .club-telegram-fullscreen .lesson-preview-modal {
-  max-height: calc(100vh - var(--fullscreen-top-offset) - 1rem);
+  height: calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset));
+  max-height: none;
+}
+
+.lesson-preview-scroll {
+  display: grid;
+  align-content: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.8rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(0.8rem + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
 }
 
 .lesson-preview-kicker {
@@ -2241,8 +2257,10 @@ button {
   justify-content: center;
 }
 
-.lesson-preview-modal .admin-form-actions {
+.lesson-preview-actions {
+  flex: 0 0 auto;
   margin-top: 0;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .admin-form-actions {

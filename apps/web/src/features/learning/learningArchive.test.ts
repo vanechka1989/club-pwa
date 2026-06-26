@@ -95,6 +95,7 @@ describe("Learning section modules", () => {
 
     const lessonDialog = screen.getByRole("dialog", { name: "Вариант 1. Плеер и очередь" });
     expect(lessonDialog).toBeTruthy();
+    expect(lessonDialog.querySelector(".lesson-preview-scroll")).toBeTruthy();
     expect(screen.getByText("Урок из модуля")).toBeTruthy();
     expect(lessonDialog.textContent).toContain("Модуль 1");
   });
