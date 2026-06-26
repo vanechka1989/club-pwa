@@ -21,6 +21,7 @@ import {
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
+import { formatLearningPlaybackLabel, getLearningKindLabel } from "./learningPresentation";
 import { getMaterialDraftError } from "./materialForm";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 
@@ -31,6 +32,7 @@ const categories = ref<LearningCategory[]>([]);
 const featured = ref<LearningContent[]>([]);
 const adminMaterials = ref<AdminLearningMaterial[]>([]);
 const lastOpenedItem = ref<LearningContent | null>(null);
+const lastOpenedPlaybackPosition = ref(0);
 const totalItems = ref(0);
 const completedItems = ref(0);
 const selectedItem = ref<LearningContent | null>(null);
@@ -107,6 +109,30 @@ const materialsByCategory = computed(() =>
 );
 const hiddenMaterials = computed(() => adminMaterials.value.filter((item) => !item.isPublished && !item.archivedUntil));
 const archivedMaterials = computed(() => adminMaterials.value.filter((item) => item.archivedUntil));
+const lastOpenedLabel = computed(() =>
+  lastOpenedItem.value ? formatLearningPlaybackLabel(lastOpenedItem.value.kind, lastOpenedPlaybackPosition.value) : ""
+);
+const lastOpenedTypeLabel = computed(() => (lastOpenedItem.value ? getLearningKindLabel(lastOpenedItem.value.kind) : ""));
+
+function formatItemsCount(count: number) {
+  const lastDigit = count % 10;
+  const lastTwoDigits = count % 100;
+
+  if (lastDigit === 1 && lastTwoDigits !== 11) {
+    return `${count} элемент`;
+  }
+
+  if ([2, 3, 4].includes(lastDigit) && ![12, 13, 14].includes(lastTwoDigits)) {
+    return `${count} элемента`;
+  }
+
+  return `${count} элементов`;
+}
+
+function itemMeta(item: LearningContent) {
+  const type = getLearningKindLabel(item.kind);
+  return item.summary ? `${type} · ${item.summary}` : type;
+}
 
 function iconFor(kind: LearningContent["kind"]) {
   if (kind === "photo") {
@@ -139,6 +165,7 @@ async function loadLearning() {
     categories.value = response.categories;
     featured.value = response.featured;
     lastOpenedItem.value = response.progress.lastOpenedItem;
+    lastOpenedPlaybackPosition.value = response.progress.lastOpenedPlaybackPositionSeconds;
     totalItems.value = response.progress.totalItems;
     completedItems.value = response.progress.completedItems;
     if (isModerator.value) {
@@ -187,6 +214,7 @@ async function openItem(item: LearningContent) {
     selectedCompletedAt.value = response.completedAt;
     selectedPlaybackPosition.value = response.playbackPositionSeconds;
     lastOpenedItem.value = response.item;
+    lastOpenedPlaybackPosition.value = response.playbackPositionSeconds;
     await loadComments(response.item.id);
   } catch (reason) {
     const status = typeof reason === "object" && reason && "status" in reason ? reason.status : null;
@@ -227,6 +255,9 @@ async function persistPlayback(positionSeconds: number) {
 
   const rounded = Math.max(0, Math.floor(positionSeconds));
   selectedPlaybackPosition.value = rounded;
+  if (lastOpenedItem.value?.id === selectedItem.value.id) {
+    lastOpenedPlaybackPosition.value = rounded;
+  }
   await saveLearningPlayback(selectedItem.value.id, rounded).catch(() => null);
 }
 
@@ -674,6 +705,8 @@ watch(hasLearningAccess, (hasAccess) => {
     categories.value = [];
     featured.value = [];
     selectedItem.value = null;
+    lastOpenedItem.value = null;
+    lastOpenedPlaybackPosition.value = 0;
     accessDenied.value = true;
     return;
   }
@@ -704,31 +737,44 @@ watch(hasLearningAccess, (hasAccess) => {
     <p v-else-if="error" class="text-sm text-[var(--danger)]">{{ error }}</p>
 
     <div v-else class="space-y-5">
-      <div class="surface-card">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="text-sm text-[var(--muted)]">{{ t("learningProgress") }}</p>
-            <p class="mt-1 text-lg font-semibold text-[var(--text)]">
-              {{ completedItems }} / {{ totalItems }}
-            </p>
+      <div class="learning-overview-grid">
+        <section class="learning-progress-card">
+          <div class="learning-progress-head">
+            <div>
+              <p>{{ t("learningProgress") }}</p>
+              <strong>{{ completedItems }} / {{ totalItems }}</strong>
+            </div>
+            <span>{{ progressPercent }}%</span>
           </div>
-          <span class="role-badge">{{ progressPercent }}%</span>
-        </div>
-        <div class="mt-3 h-2 overflow-hidden rounded-full bg-[var(--border)]">
-          <div class="h-full rounded-full bg-[var(--accent)]" :style="{ width: `${progressPercent}%` }"></div>
-        </div>
-        <button
-          v-if="lastOpenedItem"
-          class="mt-4 w-full rounded-lg border border-[var(--border)] p-3 text-left"
-          type="button"
-          @click="openItem(lastOpenedItem)"
-        >
-          <p class="text-xs font-semibold text-[var(--muted)]">{{ t("lastOpenedLesson") }}</p>
-          <p class="mt-1 font-semibold text-[var(--text)]">{{ lastOpenedItem.title }}</p>
-        </button>
+          <div class="learning-progress-track">
+            <i :style="{ width: `${progressPercent}%` }"></i>
+          </div>
+        </section>
+
+        <section class="learning-last-card" :class="{ 'learning-last-card-empty': !lastOpenedItem }">
+          <div class="learning-last-card-head">
+            <div>
+              <p>{{ t("lastOpenedLesson") }}</p>
+              <h3>{{ lastOpenedItem ? lastOpenedItem.title : "Пока ничего не открывали" }}</h3>
+            </div>
+            <span v-if="lastOpenedItem">{{ lastOpenedTypeLabel }}</span>
+          </div>
+          <button v-if="lastOpenedItem" class="learning-last-action" type="button" @click="openItem(lastOpenedItem)">
+            <span class="learning-content-thumb learning-last-thumb">
+              <img v-if="lastOpenedItem.kind === 'photo' && lastOpenedItem.mediaUrl" :src="lastOpenedItem.mediaUrl" :alt="lastOpenedItem.title" />
+              <img v-else-if="lastOpenedItem.thumbnailUrl" :src="lastOpenedItem.thumbnailUrl" :alt="`Обложка: ${lastOpenedItem.title}`" />
+              <component v-else :is="iconFor(lastOpenedItem.kind)" class="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span>
+              <strong>{{ lastOpenedLabel }}</strong>
+              <small>{{ lastOpenedItem.summary || "Вернуться к последнему открытому контенту" }}</small>
+            </span>
+          </button>
+          <p v-else>Откройте любой материал, и он появится здесь для быстрого продолжения.</p>
+        </section>
       </div>
 
-      <div class="space-y-3">
+      <div class="learning-library">
         <div class="learning-content-head">
           <h3 class="font-semibold text-[var(--text)]">Контент</h3>
           <button v-if="isModerator" class="icon-button" type="button" aria-label="Добавить контент" @click="openCreateContentModal">
@@ -738,10 +784,11 @@ watch(hasLearningAccess, (hasAccess) => {
         <p v-if="contentNotice" class="admin-status admin-status-ok">{{ contentNotice }}</p>
         <p v-if="contentError" class="admin-status admin-status-error">{{ contentError }}</p>
 
-        <div v-if="materialsByCategory.length" class="grid gap-4">
-          <section v-for="group in materialsByCategory" :key="group.category.id" class="surface-card">
-            <div class="learning-category-head">
+        <div v-if="materialsByCategory.length" class="learning-category-list">
+          <section v-for="group in materialsByCategory" :key="group.category.id" class="learning-category-card">
+            <div class="learning-category-card-head">
               <div>
+                <span>{{ formatItemsCount(group.items.length) }}</span>
                 <h4 class="mt-1 font-semibold text-[var(--text)]">
                   {{ group.category.title }}
                   <span v-if="isModerator && !group.category.isPublished" class="text-xs text-[var(--muted)]">· скрыта</span>
@@ -770,7 +817,7 @@ watch(hasLearningAccess, (hasAccess) => {
             </div>
             <p v-if="group.category.description" class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ group.category.description }}</p>
 
-            <div class="mt-3 grid gap-2">
+            <div class="learning-content-grid">
               <template v-for="item in group.items" :key="item.id">
                 <article class="learning-item-row">
                   <button
@@ -786,7 +833,7 @@ watch(hasLearningAccess, (hasAccess) => {
                       </span>
                       <span class="min-w-0">
                         <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
-                        <small class="mt-1 block leading-5 text-[var(--muted)]">{{ item.summary }}</small>
+                        <small class="mt-1 block leading-5 text-[var(--muted)]">{{ itemMeta(item) }}</small>
                       </span>
                       <span v-if="isSelectedItem(item)" class="ml-auto shrink-0 text-xs font-bold text-[var(--accent)]">Открыто</span>
                     </div>

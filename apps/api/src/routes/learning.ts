@@ -129,7 +129,8 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         totalItems: totalItemsRow?.value ?? 0,
         completedItems: completedItemsRow?.value ?? 0,
         lastOpenedItem: lastOpenedItem ? await serializeContentItem(lastOpenedItem) : null,
-        lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null
+        lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null,
+        lastOpenedPlaybackPositionSeconds: lastOpenedItem ? lastOpenedProgress?.playbackPositionSeconds ?? 0 : 0
       }
     });
   })

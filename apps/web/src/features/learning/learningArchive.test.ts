@@ -12,7 +12,8 @@ const learningHome: LearningHomeResponse = {
     totalItems: 0,
     completedItems: 0,
     lastOpenedItem: null,
-    lastOpenedAt: null
+    lastOpenedAt: null,
+    lastOpenedPlaybackPositionSeconds: 0
   }
 };
 

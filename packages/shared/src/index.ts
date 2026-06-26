@@ -66,7 +66,8 @@ export const learningProgressSummarySchema = z.object({
   totalItems: z.number().int().nonnegative(),
   completedItems: z.number().int().nonnegative(),
   lastOpenedItem: learningContentSchema.nullable(),
-  lastOpenedAt: z.string().datetime().nullable()
+  lastOpenedAt: z.string().datetime().nullable(),
+  lastOpenedPlaybackPositionSeconds: z.number().int().nonnegative()
 });
 export type LearningProgressSummary = z.infer<typeof learningProgressSummarySchema>;
 
