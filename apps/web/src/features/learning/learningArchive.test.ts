@@ -168,8 +168,8 @@ describe("Learning section modules", () => {
   it("sizes horizontal lesson cards like a rotated vertical card", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*span\s+2;/s);
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.35fr\)\s+minmax\(0,\s*0\.85fr\);/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(0,\s*1fr\);/s);
     expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*gap:\s*0\.38rem;/s);
   });
 
