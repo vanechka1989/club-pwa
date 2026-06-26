@@ -716,12 +716,14 @@ watch(hasLearningAccess, (hasAccess) => {
 </script>
 
 <template>
-  <section class="space-y-5">
-    <div class="section-head">
+  <section class="learning-page">
+    <div class="learning-hero-card">
       <div>
-        <h2 class="section-title">Обучение</h2>
-        <p class="section-subtitle">Контент клуба и ваш прогресс.</p>
+        <span>Клубная библиотека</span>
+        <h2>Обучение</h2>
+        <p>Модули, контент и личный прогресс.</p>
       </div>
+      <strong>{{ progressPercent }}%</strong>
     </div>
 
     <div v-if="!hasLearningAccess || accessDenied" class="access-lock-card">
@@ -736,21 +738,8 @@ watch(hasLearningAccess, (hasAccess) => {
 
     <p v-else-if="error" class="text-sm text-[var(--danger)]">{{ error }}</p>
 
-    <div v-else class="space-y-5">
-      <div class="learning-overview-grid">
-        <section class="learning-progress-card">
-          <div class="learning-progress-head">
-            <div>
-              <p>{{ t("learningProgress") }}</p>
-              <strong>{{ completedItems }} / {{ totalItems }}</strong>
-            </div>
-            <span>{{ progressPercent }}%</span>
-          </div>
-          <div class="learning-progress-track">
-            <i :style="{ width: `${progressPercent}%` }"></i>
-          </div>
-        </section>
-
+    <div v-else class="learning-workspace">
+      <div class="learning-showcase">
         <section class="learning-last-card" :class="{ 'learning-last-card-empty': !lastOpenedItem }">
           <div class="learning-last-card-head">
             <div>
@@ -770,7 +759,20 @@ watch(hasLearningAccess, (hasAccess) => {
               <small>{{ lastOpenedItem.summary || "Вернуться к последнему открытому контенту" }}</small>
             </span>
           </button>
-          <p v-else>Откройте любой материал, и он появится здесь для быстрого продолжения.</p>
+          <p v-else>Откройте любой контент, и здесь появится быстрый переход к продолжению.</p>
+        </section>
+
+        <section class="learning-progress-card">
+          <div class="learning-progress-head">
+            <div>
+              <p>{{ t("learningProgress") }}</p>
+              <strong>{{ completedItems }} / {{ totalItems }}</strong>
+            </div>
+            <span>{{ progressPercent }}%</span>
+          </div>
+          <div class="learning-progress-track">
+            <i :style="{ width: `${progressPercent}%` }"></i>
+          </div>
         </section>
       </div>
 
@@ -869,7 +871,7 @@ watch(hasLearningAccess, (hasAccess) => {
                   </div>
                 </article>
 
-                <article v-if="selectedItem && isSelectedItem(item)" class="surface-card learning-inline-content">
+                <article v-if="selectedItem && isSelectedItem(item)" class="learning-detail-card learning-inline-content">
                   <component :is="selectedIcon" class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
                   <div class="mt-3 flex items-start justify-between gap-3">
                     <h3 class="text-xl font-semibold text-[var(--text)]">{{ selectedItem.title }}</h3>
