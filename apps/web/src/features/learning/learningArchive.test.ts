@@ -202,6 +202,19 @@ describe("Learning section modules", () => {
     expect(screen.queryByLabelText("Название урока")).toBeNull();
   });
 
+  it("shows lesson content to members inside the lesson modal", async () => {
+    renderAsMember();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+
+    const lessonDialog = screen.getByRole("dialog", { name: "Вариант 1. Плеер и очередь" });
+
+    expect(lessonDialog.querySelector(".lesson-viewer-content")).toBeTruthy();
+    expect(screen.getByText("Содержимое урока")).toBeTruthy();
+    expect(screen.getByText("Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.")).toBeTruthy();
+  });
+
   it("adds a lesson inside a selected module", async () => {
     renderAsOwner();
 

@@ -938,6 +938,35 @@ watch(
               </div>
             </div>
 
+            <article v-if="!canManageModules && selectedLessonItem" class="lesson-viewer-content">
+              <span class="lesson-preview-kicker">Содержимое урока</span>
+              <p v-if="selectedLessonItem.content">{{ selectedLessonItem.content }}</p>
+              <p v-else class="lesson-viewer-empty">Содержимое урока пока не добавлено.</p>
+
+              <img
+                v-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
+                class="lesson-viewer-media"
+                :src="selectedLessonItem.mediaUrl"
+                :alt="selectedLessonItem.title"
+                loading="lazy"
+              />
+              <video
+                v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl"
+                class="lesson-viewer-media"
+                :src="selectedLessonItem.mediaUrl"
+                controls
+                playsinline
+                preload="metadata"
+              />
+              <audio
+                v-else-if="selectedLessonItem.kind === 'audio' && selectedLessonItem.mediaUrl"
+                class="lesson-viewer-audio"
+                :src="selectedLessonItem.mediaUrl"
+                controls
+                preload="metadata"
+              />
+            </article>
+
             <div v-if="canManageModules" class="admin-form lesson-editor-form">
               <div class="admin-field">
                 <span>Вид карточки</span>

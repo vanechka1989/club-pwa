@@ -2437,6 +2437,43 @@ button {
   line-height: 1.45;
 }
 
+.lesson-viewer-content {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 76%, transparent);
+  padding: 0.75rem;
+}
+
+.lesson-viewer-content p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--muted-strong);
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.lesson-viewer-content .lesson-viewer-empty {
+  color: var(--muted);
+}
+
+.lesson-viewer-media {
+  display: block;
+  width: 100%;
+  max-height: min(58vh, 26rem);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+  object-fit: contain;
+}
+
+.lesson-viewer-audio {
+  width: 100%;
+  border-radius: 999px;
+}
+
 .lesson-editor-form {
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   padding-top: 0.75rem;
