@@ -396,7 +396,8 @@ export const adminStatsUserSchema = z.object({
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),
   lastOpenedItemTitle: z.string().nullable(),
-  lastOpenedAt: z.string().datetime().nullable()
+  lastOpenedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime()
 });
 export type AdminStatsUser = z.infer<typeof adminStatsUserSchema>;
 

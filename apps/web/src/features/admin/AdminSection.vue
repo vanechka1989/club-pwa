@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import type { AdminLearningMaterial, AdminStatsUser, AdminUser, AdminUserDetailResponse, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
+import type {
+  AdminLearningMaterial,
+  AdminStatsUser,
+  AdminUser,
+  AdminUserDetailResponse,
+  ClubTopic,
+  ContentKind,
+  LearningCategory,
+  PaymentOrderLog
+} from "@club/shared";
 import {
   BarChart3,
   ChevronDown,
@@ -26,6 +35,7 @@ import {
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
+  getCommunityTopics,
   removeAdminUser,
   revokeUserMute,
   transferClubOwner,
@@ -40,6 +50,7 @@ import {
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
 import { getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
+import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useSessionStore } from "@/stores/session";
@@ -51,6 +62,7 @@ const ui = useUiStore();
 type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
 
 const panelIcons: Record<AdminPanel, LucideIcon> = {
+  statistics: BarChart3,
   overview: BarChart3,
   users: UsersRound,
   payments: CreditCard,
@@ -87,11 +99,12 @@ const extensionOptions = [
 ] as const;
 const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
 
-const activePanel = ref<AdminPanel>("overview");
+const activePanel = ref<AdminPanel>("statistics");
 const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const users = ref<AdminStatsUser[]>([]);
 const paymentOrders = ref<PaymentOrderLog[]>([]);
+const communityTopics = ref<ClubTopic[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
@@ -100,6 +113,7 @@ const search = ref("");
 const subscriptionFilter = ref<"all" | "active" | "closed">("all");
 const tariffFilter = ref("all");
 const restrictionFilter = ref<"all" | "restricted">("all");
+const statisticsPeriod = ref<AdminStatisticsPeriod>("30d");
 const accessStatus = ref<"active" | "inactive">("active");
 const accessExpiresAt = ref("");
 const materialCategoryId = ref("");
@@ -191,6 +205,23 @@ const materialsByCategory = computed(() =>
     materials: learningMaterials.value.filter((material) => material.categoryId === category.id)
   }))
 );
+const adminStatistics = computed(() =>
+  buildAdminStatistics(
+    {
+      users: users.value,
+      paymentOrders: paymentOrders.value,
+      learningCategories: learningCategories.value,
+      learningMaterials: learningMaterials.value,
+      communityTopics: communityTopics.value
+    },
+    { period: statisticsPeriod.value }
+  )
+);
+const statisticsPeriodOptions: Array<{ value: AdminStatisticsPeriod; label: string }> = [
+  { value: "7d", label: "7 дней" },
+  { value: "30d", label: "30 дней" },
+  { value: "all", label: "Всё время" }
+];
 
 function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
@@ -351,16 +382,18 @@ function showSuccessAlert(text: string) {
 async function loadAll() {
   loading.value = true;
   try {
-    const [adminsResponse, statsResponse, learningResponse, paymentsResponse] = await Promise.all([
+    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse] = await Promise.all([
       getAdminUsers(),
       getAdminStats(),
       getAdminLearning(),
-      getAdminPaymentHistory()
+      getAdminPaymentHistory(),
+      getCommunityTopics()
     ]);
     ownerTelegramId.value = adminsResponse.ownerTelegramId;
     admins.value = adminsResponse.admins;
     users.value = statsResponse.users;
     paymentOrders.value = paymentsResponse.orders;
+    communityTopics.value = topicsResponse.topics;
     learningCategories.value = learningResponse.categories;
     learningMaterials.value = learningResponse.materials;
     if (!materialCategoryId.value && learningResponse.categories[0]) {
@@ -726,7 +759,180 @@ onUnmounted(() => {
     <p v-if="message" class="admin-status admin-status-ok">{{ message }}</p>
     <p v-if="error" class="admin-status admin-status-error">{{ error }}</p>
 
-    <section v-if="activePanel === 'overview'" class="admin-grid">
+    <section v-if="activePanel === 'statistics'" class="admin-panel admin-statistics-panel">
+      <div class="admin-panel-head admin-statistics-head">
+        <div>
+          <h3>Статистика клуба</h3>
+          <p>Клиенты, оплаты, контент и общение по выбранному периоду.</p>
+        </div>
+        <div class="admin-stat-periods" aria-label="Период статистики">
+          <button
+            v-for="period in statisticsPeriodOptions"
+            :key="period.value"
+            class="admin-stat-period"
+            :class="{ 'admin-stat-period-active': statisticsPeriod === period.value }"
+            type="button"
+            @click="statisticsPeriod = period.value"
+          >
+            {{ period.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="admin-stat-kpis">
+        <article class="admin-stat-kpi">
+          <span>Клиенты</span>
+          <strong>{{ adminStatistics.clients.total }}</strong>
+          <small>+{{ adminStatistics.clients.newInPeriod }} за период</small>
+        </article>
+        <article class="admin-stat-kpi">
+          <span>Доступ открыт</span>
+          <strong>{{ adminStatistics.clients.active }}</strong>
+          <small>{{ adminStatistics.clients.activePercent }}% от базы</small>
+        </article>
+        <article class="admin-stat-kpi">
+          <span>Выручка</span>
+          <strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong>
+          <small>{{ adminStatistics.payments.paidOrders }} оплат</small>
+        </article>
+        <article class="admin-stat-kpi">
+          <span>Автоподписки</span>
+          <strong>{{ adminStatistics.payments.recurrentPaidOrders }}</strong>
+          <small>средний чек {{ adminStatistics.payments.averagePaidOrderRub.toLocaleString("ru-RU") }} ₽</small>
+        </article>
+      </div>
+
+      <div class="admin-stat-layout">
+        <section class="admin-stat-block">
+          <header>
+            <div>
+              <h4>Доступ и подписки</h4>
+              <p>Состояние клиентской базы сейчас.</p>
+            </div>
+            <strong>{{ adminStatistics.clients.activePercent }}%</strong>
+          </header>
+          <div class="admin-stat-meter" aria-hidden="true">
+            <span :style="{ width: `${adminStatistics.clients.activePercent}%` }"></span>
+          </div>
+          <div class="admin-stat-mini-grid">
+            <article>
+              <span>Без доступа</span>
+              <strong>{{ adminStatistics.clients.inactive }}</strong>
+            </article>
+            <article>
+              <span>Ограничения</span>
+              <strong>{{ adminStatistics.clients.restricted }}</strong>
+            </article>
+            <article>
+              <span>Истекают скоро</span>
+              <strong>{{ adminStatistics.clients.expiringSoon }}</strong>
+            </article>
+          </div>
+          <div v-if="adminStatistics.tariffs.length" class="admin-stat-bars">
+            <div v-for="tariff in adminStatistics.tariffs" :key="tariff.tariff" class="admin-stat-bar-row">
+              <div>
+                <span>{{ tariff.label }}</span>
+                <strong>{{ tariff.value }}</strong>
+              </div>
+              <div class="admin-stat-meter admin-stat-meter-small" aria-hidden="true">
+                <span :style="{ width: `${tariff.percent}%` }"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="admin-stat-block">
+          <header>
+            <div>
+              <h4>Оплаты</h4>
+              <p>Статусы заказов и качество webhook.</p>
+            </div>
+            <strong>{{ adminStatistics.payments.paidOrders }}</strong>
+          </header>
+          <div class="admin-stat-mini-grid admin-stat-mini-grid-two">
+            <article>
+              <span>Ожидают</span>
+              <strong>{{ adminStatistics.payments.pendingOrders }}</strong>
+            </article>
+            <article>
+              <span>Ошибки webhook</span>
+              <strong>{{ adminStatistics.payments.failedWebhookOrders }}</strong>
+            </article>
+            <article>
+              <span>Разовые</span>
+              <strong>{{ adminStatistics.payments.oneTimePaidOrders }}</strong>
+            </article>
+            <article>
+              <span>Ошибки оплат</span>
+              <strong>{{ adminStatistics.payments.failedOrders }}</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="admin-stat-block">
+          <header>
+            <div>
+              <h4>Контент</h4>
+              <p>Наполнение и прогресс обучения.</p>
+            </div>
+            <strong>{{ adminStatistics.learning.averageProgressPercent }}%</strong>
+          </header>
+          <div class="admin-stat-meter" aria-hidden="true">
+            <span :style="{ width: `${adminStatistics.learning.averageProgressPercent}%` }"></span>
+          </div>
+          <div class="admin-stat-mini-grid">
+            <article>
+              <span>Опубликовано</span>
+              <strong>{{ adminStatistics.learning.publishedMaterials }}</strong>
+            </article>
+            <article>
+              <span>Скрыто</span>
+              <strong>{{ adminStatistics.learning.hiddenMaterials }}</strong>
+            </article>
+            <article>
+              <span>Удалено</span>
+              <strong>{{ adminStatistics.learning.archivedMaterials }}</strong>
+            </article>
+          </div>
+          <p class="admin-stat-note">
+            {{ adminStatistics.learning.popularTitle ? `Чаще открывают: ${adminStatistics.learning.popularTitle}` : "Пока нет данных по открытиям." }}
+          </p>
+          <div class="admin-stat-kind-list">
+            <span v-for="kind in adminStatistics.contentKinds" :key="kind.kind">{{ kind.label }} · {{ kind.count }}</span>
+          </div>
+        </section>
+
+        <section class="admin-stat-block">
+          <header>
+            <div>
+              <h4>Общение</h4>
+              <p>Темы клуба и активность в чатах.</p>
+            </div>
+            <strong>{{ adminStatistics.communication.messages }}</strong>
+          </header>
+          <div class="admin-stat-mini-grid admin-stat-mini-grid-two">
+            <article>
+              <span>Темы</span>
+              <strong>{{ adminStatistics.communication.topics }}</strong>
+            </article>
+            <article>
+              <span>Открыты</span>
+              <strong>{{ adminStatistics.communication.openTopics }}</strong>
+            </article>
+            <article>
+              <span>Закрыты</span>
+              <strong>{{ adminStatistics.communication.lockedTopics }}</strong>
+            </article>
+            <article>
+              <span>В архиве</span>
+              <strong>{{ adminStatistics.communication.archivedTopics }}</strong>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section v-else-if="activePanel === 'overview'" class="admin-grid">
       <article class="admin-card">
         <span class="admin-card-label">Клиенты</span>
         <strong>{{ totalUsers }}</strong>

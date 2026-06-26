@@ -230,7 +230,8 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     completedItems: completedRow?.value ?? 0,
     totalItems,
     lastOpenedItemTitle: lastOpened?.item?.title ?? null,
-    lastOpenedAt: lastOpened?.lastOpenedAt.toISOString() ?? null
+    lastOpenedAt: lastOpened?.lastOpenedAt.toISOString() ?? null,
+    createdAt: user.createdAt.toISOString()
   };
 }
 
