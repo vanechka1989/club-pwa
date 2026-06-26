@@ -310,6 +310,11 @@ describe("Learning section modules", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
 
     expect(screen.getByText("Удалённый контент")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Развернуть Удалённый контент" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Удалённый контент" }));
+
     expect(screen.getByText("Вариант 1. Плеер и очередь")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeTruthy();
 
@@ -318,5 +323,21 @@ describe("Learning section modules", () => {
     expect(screen.queryByText("Удалённый контент")).toBeNull();
     await expandModuleOne();
     expect(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeTruthy();
+  });
+
+  it("keeps the deleted content system module collapsed by default", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
+
+    expect(screen.getByRole("button", { name: "Развернуть Удалённый контент" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Удалённый контент" }));
+
+    expect(screen.getByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeTruthy();
   });
 });

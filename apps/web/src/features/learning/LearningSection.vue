@@ -40,6 +40,8 @@ type ModuleCard = {
   images: ModuleLesson[];
 };
 
+const deletedContentModuleId = "deleted-content-module";
+
 const initialModuleCards: ModuleCard[] = [
   {
     id: "module-1",
@@ -250,7 +252,10 @@ function toggleModule(moduleId: string) {
 }
 
 function collapseAllModules() {
-  collapsedModuleIds.value = moduleCards.value.map((module) => module.id);
+  collapsedModuleIds.value = [
+    ...moduleCards.value.map((module) => module.id),
+    ...(deletedLessons.value.length ? [deletedContentModuleId] : [])
+  ];
 }
 
 function collapseModule(moduleId: string) {
@@ -620,6 +625,7 @@ async function deleteLesson() {
       },
       ...deletedLessons.value.filter((item) => item.id !== lesson.id)
     ];
+    collapseModule(deletedContentModuleId);
     closeLessonModal();
   } catch {
     lessonError.value = "Не удалось удалить урок.";
@@ -812,18 +818,38 @@ watch(
         </div>
       </article>
 
-      <article v-if="canManageModules && deletedLessons.length" class="admin-mockup-card admin-mockup-deleted-module">
+      <article
+        v-if="canManageModules && deletedLessons.length"
+        class="admin-mockup-card admin-mockup-deleted-module"
+        :class="{ 'module-card-collapsed': isModuleCollapsed(deletedContentModuleId) }"
+      >
         <div class="admin-mockup-card-head module-card-head">
-          <div>
-            <strong>Удалённый контент</strong>
-            <small>Системный модуль</small>
-          </div>
+          <button
+            class="module-card-toggle"
+            type="button"
+            :aria-label="`${isModuleCollapsed(deletedContentModuleId) ? 'Развернуть' : 'Свернуть'} Удалённый контент`"
+            :aria-expanded="!isModuleCollapsed(deletedContentModuleId)"
+            @click="toggleModule(deletedContentModuleId)"
+          >
+            <span>
+              <strong>Удалённый контент</strong>
+              <small>Системный модуль</small>
+            </span>
+          </button>
           <div class="admin-mockup-card-actions">
             <span>{{ lessonCountLabel(deletedLessons.length) }}</span>
+            <button
+              class="icon-button module-lesson-add module-collapse-control"
+              type="button"
+              aria-label="Переключить Удалённый контент"
+              @click="toggleModule(deletedContentModuleId)"
+            >
+              <ChevronDown class="h-4 w-4" :class="{ 'module-chevron-collapsed': isModuleCollapsed(deletedContentModuleId) }" aria-hidden="true" />
+            </button>
           </div>
         </div>
-        <p>Хранится 7 дней после удаления. Можно восстановить прямо из карточки.</p>
-        <div class="deleted-lessons-list">
+        <p v-if="!isModuleCollapsed(deletedContentModuleId)">Хранится 7 дней после удаления. Можно восстановить прямо из карточки.</p>
+        <div v-if="!isModuleCollapsed(deletedContentModuleId)" class="deleted-lessons-list">
           <article v-for="lesson in deletedLessons" :key="lesson.id" class="deleted-lesson-card">
             <div class="deleted-lesson-preview">
               <img :src="getLessonImage(lesson)" :alt="lesson.title" loading="lazy" />
