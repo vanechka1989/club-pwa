@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -227,7 +227,16 @@ describe("Learning section modules", () => {
     const lessonCard = screen.getByRole("button", { name: /Урок без обложки/ });
     const cover = lessonCard.querySelector("img");
 
-    expect(cover?.getAttribute("src")).toBe("/previews/default-lessons/azure-horizontal.png");
+    expect(cover?.getAttribute("src")).toBe("/previews/default-lessons/azure-horizontal.webp");
+  });
+
+  it("keeps default lesson covers lightweight", () => {
+    const coversPath = resolve(__dirname, "../../../public/previews/default-lessons");
+    const covers = readdirSync(coversPath);
+
+    expect(covers).toHaveLength(12);
+    expect(covers.every((file) => file.endsWith(".webp"))).toBe(true);
+    expect(covers.every((file) => statSync(resolve(coversPath, file)).size < 80_000)).toBe(true);
   });
 
   it("edits lesson content from the same lesson modal", async () => {

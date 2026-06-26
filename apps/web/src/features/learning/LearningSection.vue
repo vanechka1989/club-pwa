@@ -311,7 +311,7 @@ function materialPreviewUrl(item: AdminLearningMaterial | LearningContent) {
 }
 
 function getDefaultLessonCover(colorScheme: ColorScheme, cardLayout: ContentCardLayout) {
-  return `/previews/default-lessons/${colorScheme}-${cardLayout}.png`;
+  return `/previews/default-lessons/${colorScheme}-${cardLayout}.webp`;
 }
 
 function getLessonImage(item: ModuleLesson) {
