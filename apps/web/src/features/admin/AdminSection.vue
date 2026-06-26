@@ -53,6 +53,11 @@ import {
   filterPaymentOrdersByBreakdown,
   type AdminPaymentBreakdownItem
 } from "@/features/admin/adminPaymentDrilldown";
+import {
+  filterUsersByAccessBreakdown,
+  filterUsersByTariff,
+  type AdminAccessBreakdownItem
+} from "@/features/admin/adminUserDrilldown";
 import { getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { formatMembershipStatus } from "@/features/app/i18n";
@@ -65,6 +70,17 @@ const session = useSessionStore();
 const ui = useUiStore();
 
 type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
+type UserDrilldownSelection =
+  | {
+      kind: "access";
+      key: AdminAccessBreakdownItem["key"];
+      title: string;
+    }
+  | {
+      kind: "tariff";
+      tariff: string;
+      title: string;
+    };
 
 const panelIcons: Record<AdminPanel, LucideIcon> = {
   statistics: BarChart3,
@@ -112,6 +128,7 @@ const communityTopics = ref<ClubTopic[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
+const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
 const learningMaterials = ref<AdminLearningMaterial[]>([]);
 const search = ref("");
@@ -212,6 +229,17 @@ const paymentDrilldownOrders = computed(() =>
     ? filterPaymentOrdersByBreakdown(selectedPaymentBreakdown.value.key, paymentOrders.value, { period: statisticsPeriod.value })
     : []
 );
+const userDrilldownUsers = computed(() => {
+  if (!selectedUserDrilldown.value) {
+    return [];
+  }
+
+  if (selectedUserDrilldown.value.kind === "tariff") {
+    return filterUsersByTariff(selectedUserDrilldown.value.tariff, users.value);
+  }
+
+  return filterUsersByAccessBreakdown(selectedUserDrilldown.value.key, users.value);
+});
 const accessSaveButtonText = computed(() => getAccessSaveButtonText(accessSaveSucceeded.value));
 const materialsByCategory = computed(() =>
   learningCategories.value.map((category) => ({
@@ -258,6 +286,26 @@ function closePaymentDrilldown() {
   selectedPaymentBreakdown.value = null;
 }
 
+function openUserAccessDrilldown(item: AdminAccessBreakdownItem) {
+  selectedUserDrilldown.value = {
+    kind: "access",
+    key: item.key,
+    title: item.label
+  };
+}
+
+function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
+  selectedUserDrilldown.value = {
+    kind: "tariff",
+    tariff: tariff.tariff,
+    title: tariff.label
+  };
+}
+
+function closeUserDrilldown() {
+  selectedUserDrilldown.value = null;
+}
+
 async function openPaymentDrilldownUser(order: PaymentOrderLog) {
   const user = users.value.find((entry) => entry.telegramId === order.customer.telegramId);
 
@@ -267,6 +315,12 @@ async function openPaymentDrilldownUser(order: PaymentOrderLog) {
   }
 
   closePaymentDrilldown();
+  activePanel.value = "users";
+  await selectUser(user);
+}
+
+async function openUserDrilldownClient(user: AdminStatsUser) {
+  closeUserDrilldown();
   activePanel.value = "users";
   await selectUser(user);
 }
@@ -289,6 +343,10 @@ function adminRoleLabel(role: AdminStatsUser["role"]) {
   }
 
   return "Клиент";
+}
+
+function userInitial(user: AdminStatsUser) {
+  return userTitle(user).slice(0, 1).toUpperCase();
 }
 
 function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
@@ -867,6 +925,48 @@ onUnmounted(() => {
       </div>
     </Teleport>
 
+    <Teleport to="body">
+      <div v-if="selectedUserDrilldown" class="admin-modal-backdrop" @click.self="closeUserDrilldown">
+        <aside class="admin-detail admin-client-modal admin-payment-drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="user-drilldown-title">
+          <header class="admin-client-modal-head">
+            <div>
+              <h3 id="user-drilldown-title">{{ selectedUserDrilldown.title }}</h3>
+              <p>{{ userDrilldownUsers.length }} клиентов. Нажмите строку, чтобы открыть карточку.</p>
+            </div>
+            <button class="icon-button" type="button" aria-label="Закрыть детализацию клиентов" @click="closeUserDrilldown">
+              <X class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="admin-payment-drilldown-list">
+            <button
+              v-for="user in userDrilldownUsers"
+              :key="user.id"
+              class="admin-user-drilldown-card"
+              type="button"
+              @click="openUserDrilldownClient(user)"
+            >
+              <span class="admin-payment-customer-avatar">
+                <img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" />
+                <span v-else>{{ userInitial(user) }}</span>
+              </span>
+              <span class="admin-payment-drilldown-copy">
+                <strong>{{ userTitle(user) }}</strong>
+                <small>ID {{ user.telegramId }} · {{ adminRoleLabel(user.role) }} · {{ getAdminTariffLabel(user.tariff) }}</small>
+                <em>
+                  {{ formatMembershipStatus(user.membershipStatus) }}
+                  <template v-if="user.membershipExpiresAt"> · до {{ new Date(user.membershipExpiresAt).toLocaleDateString("ru-RU") }}</template>
+                  <template v-if="user.hasRestrictions"> · есть ограничения</template>
+                </em>
+              </span>
+              <span :class="`membership-history-status-${user.membershipStatus}`">{{ formatMembershipStatus(user.membershipStatus) }}</span>
+            </button>
+            <p v-if="!userDrilldownUsers.length" class="admin-empty">Клиентов по этому показателю пока нет.</p>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
+
     <div class="admin-tabs">
       <button
         v-for="panel in panels"
@@ -940,21 +1040,28 @@ onUnmounted(() => {
             <span :style="{ width: `${adminStatistics.clients.activePercent}%` }"></span>
           </div>
           <div class="admin-stat-mini-grid">
-            <article>
-              <span>Без доступа</span>
-              <strong>{{ adminStatistics.clients.inactive }}</strong>
-            </article>
-            <article>
-              <span>Ограничения</span>
-              <strong>{{ adminStatistics.clients.restricted }}</strong>
-            </article>
-            <article>
-              <span>Истекают скоро</span>
-              <strong>{{ adminStatistics.clients.expiringSoon }}</strong>
-            </article>
+            <button
+              v-for="item in adminStatistics.clients.accessBreakdown"
+              :key="item.key"
+              class="admin-stat-drilldown"
+              type="button"
+              :disabled="!item.value"
+              @click="openUserAccessDrilldown(item)"
+            >
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <small v-if="item.value">Подробнее</small>
+            </button>
           </div>
           <div v-if="adminStatistics.tariffs.length" class="admin-stat-tariff-grid">
-            <article v-for="tariff in adminStatistics.tariffs" :key="tariff.tariff" class="admin-stat-tariff-card">
+            <button
+              v-for="tariff in adminStatistics.tariffs"
+              :key="tariff.tariff"
+              class="admin-stat-tariff-card admin-stat-tariff-drilldown"
+              type="button"
+              :disabled="!tariff.value"
+              @click="openUserTariffDrilldown(tariff)"
+            >
               <div>
                 <span>{{ tariff.label }}</span>
                 <strong>{{ tariff.value }}</strong>
@@ -962,7 +1069,8 @@ onUnmounted(() => {
               <div class="admin-stat-meter admin-stat-meter-small" aria-hidden="true">
                 <span :style="{ width: `${tariff.percent}%` }"></span>
               </div>
-            </article>
+              <small v-if="tariff.value">Подробнее</small>
+            </button>
           </div>
         </section>
 

@@ -614,6 +614,7 @@ button {
 .admin-stat-drilldown small,
 .admin-stat-bar-row span,
 .admin-stat-tariff-card span,
+.admin-stat-tariff-drilldown small,
 .admin-stat-note,
 .admin-stat-kind-list span {
   color: var(--muted);
@@ -781,6 +782,30 @@ button {
   display: grid;
   gap: 0.32rem;
   padding: 0.52rem;
+}
+
+.admin-stat-tariff-drilldown {
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.admin-stat-tariff-drilldown:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.admin-stat-tariff-drilldown:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 18%, var(--panel));
+}
+
+.admin-stat-tariff-drilldown:disabled {
+  opacity: 0.58;
+}
+
+.admin-stat-tariff-drilldown small {
+  color: var(--accent);
+  font-size: 0.58rem;
+  font-weight: 820;
 }
 
 .admin-stat-bar-row {
@@ -1409,7 +1434,8 @@ button {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
 }
 
-.admin-payment-drilldown-card {
+.admin-payment-drilldown-card,
+.admin-user-drilldown-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -1422,11 +1448,13 @@ button {
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
-.admin-payment-drilldown-card:active {
+.admin-payment-drilldown-card:active,
+.admin-user-drilldown-card:active {
   transform: translateY(1px);
 }
 
-.admin-payment-drilldown-card:hover {
+.admin-payment-drilldown-card:hover,
+.admin-user-drilldown-card:hover {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 18%, var(--panel));
 }

@@ -157,6 +157,11 @@ describe("admin statistics", () => {
       newInPeriod: 2,
       activePercent: 67
     });
+    expect(stats.clients.accessBreakdown.map((item) => [item.key, item.label, item.value])).toEqual([
+      ["inactive", "Без доступа", 1],
+      ["restricted", "Ограничения", 1],
+      ["expiring_soon", "Истекают скоро", 1]
+    ]);
     expect(stats.payments).toMatchObject({
       paidOrders: 2,
       pendingOrders: 1,

@@ -1,5 +1,6 @@
 import type { AdminLearningMaterial, AdminStatsUser, ClubTopic, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
 import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
+import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
 
 export type AdminStatisticsPeriod = "7d" | "30d" | "all";
 
@@ -142,7 +143,12 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       restricted: input.users.filter((user) => user.hasRestrictions).length,
       expiringSoon: expiringSoon.length,
       newInPeriod: newUsers.length,
-      activePercent: percent(activeUsers.length, input.users.length)
+      activePercent: percent(activeUsers.length, input.users.length),
+      accessBreakdown: [
+        { key: "inactive", label: "Без доступа", value: inactiveUsers.length },
+        { key: "restricted", label: "Ограничения", value: input.users.filter((user) => user.hasRestrictions).length },
+        { key: "expiring_soon", label: "Истекают скоро", value: expiringSoon.length }
+      ] satisfies AdminAccessBreakdownItem[]
     },
     payments: {
       paidOrders: paidOrders.length,
