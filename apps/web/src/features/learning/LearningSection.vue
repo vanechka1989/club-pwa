@@ -953,15 +953,16 @@ watch(hasLearningAccess, (hasAccess) => {
           <h4 class="font-semibold text-[var(--text)]">Удалённые</h4>
           <p class="mt-1 text-sm text-[var(--muted)]">Хранятся 7 дней после удаления.</p>
           <div class="mt-3 grid gap-2">
-            <article v-for="material in archivedMaterials" :key="material.id" class="learning-item-row opacity-70">
-              <div class="learning-item-button">
+            <article v-for="material in archivedMaterials" :key="material.id" class="learning-item-row learning-item-row-archived">
+              <div class="learning-item-button learning-item-button-archived">
                 <div class="flex items-start gap-3">
-                  <span class="learning-content-thumb">
+                  <span class="learning-content-thumb learning-content-thumb-archived">
                     <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" />
                     <img v-else-if="material.thumbnailUrl" :src="material.thumbnailUrl" :alt="`Обложка: ${material.title}`" />
                     <component v-else :is="iconFor(material.kind)" class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span class="min-w-0">
+                    <span class="learning-archive-badge">Удалено</span>
                     <strong class="block text-sm text-[var(--text)]">{{ material.title }}</strong>
                     <small class="mt-1 block leading-5 text-[var(--muted)]">Будет очищено после {{ formatArchiveUntil(material.archivedUntil) }}</small>
                   </span>
