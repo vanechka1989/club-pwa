@@ -1,11 +1,26 @@
 <script setup lang="ts">
-import { ExternalLink } from "lucide-vue-next";
+import { computed, ref } from "vue";
+import { ExternalLink, Plus, X } from "lucide-vue-next";
+import { useSessionStore } from "@/stores/session";
 
-const moduleCards = [
+type ModuleLesson = {
+  title: string;
+  url: string;
+};
+
+type ModuleCard = {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  images: ModuleLesson[];
+};
+
+const initialModuleCards: ModuleCard[] = [
   {
     id: "module-1",
     title: "Модуль 1",
-    description: "Первый модуль клуба. Внутри будут экраны и материалы первого блока.",
+    description: "Первый модуль клуба. Внутри будут уроки и материалы первого блока.",
     createdAt: "26.06.2026",
     images: [
       { title: "Вариант 1. Плеер и очередь", url: "/previews/learning-redesign-1.svg" },
@@ -17,7 +32,7 @@ const moduleCards = [
   {
     id: "module-2",
     title: "Модуль 2",
-    description: "Второй модуль клуба. Внутри будут материалы следующего блока.",
+    description: "Второй модуль клуба. Внутри будут уроки следующего блока.",
     createdAt: "26.06.2026",
     images: [
       { title: "Верх экрана", url: "/previews/admin-stats-preview-1.png" },
@@ -25,7 +40,61 @@ const moduleCards = [
       { title: "Общение", url: "/previews/admin-stats-preview-3.png" }
     ]
   }
-] as const;
+];
+
+const moduleCards = ref<ModuleCard[]>([...initialModuleCards]);
+const session = useSessionStore();
+const showModuleModal = ref(false);
+const moduleTitle = ref("");
+const moduleError = ref("");
+
+const canManageModules = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const trimmedModuleTitle = computed(() => moduleTitle.value.trim());
+
+function lessonCountLabel(count: number) {
+  const lastTwo = count % 100;
+  const last = count % 10;
+
+  if (lastTwo >= 11 && lastTwo <= 14) {
+    return `${count} уроков`;
+  }
+
+  if (last === 1) {
+    return `${count} урок`;
+  }
+
+  if (last >= 2 && last <= 4) {
+    return `${count} урока`;
+  }
+
+  return `${count} уроков`;
+}
+
+function openModuleModal() {
+  moduleTitle.value = "";
+  moduleError.value = "";
+  showModuleModal.value = true;
+}
+
+function closeModuleModal() {
+  showModuleModal.value = false;
+}
+
+function saveModule() {
+  if (!trimmedModuleTitle.value) {
+    moduleError.value = "Введите название модуля.";
+    return;
+  }
+
+  moduleCards.value.push({
+    id: `custom-module-${Date.now()}`,
+    title: trimmedModuleTitle.value,
+    description: "Новый модуль. Уроки можно будет добавить следующим шагом.",
+    createdAt: "Сегодня",
+    images: []
+  });
+  closeModuleModal();
+}
 </script>
 
 <template>
@@ -35,6 +104,9 @@ const moduleCards = [
         <h3>Модули</h3>
         <p>Разделы клуба и материалы внутри них.</p>
       </div>
+      <button v-if="canManageModules" class="icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
+        <Plus class="h-5 w-5" aria-hidden="true" />
+      </button>
     </div>
 
     <div class="admin-mockup-list">
@@ -44,7 +116,7 @@ const moduleCards = [
             <strong>{{ module.title }}</strong>
             <small>Добавлено {{ module.createdAt }}</small>
           </div>
-          <span>{{ module.images.length }} экрана</span>
+          <span>{{ lessonCountLabel(module.images.length) }}</span>
         </div>
         <p>{{ module.description }}</p>
         <div class="admin-mockup-grid">
@@ -57,6 +129,32 @@ const moduleCards = [
           </a>
         </div>
       </article>
+    </div>
+
+    <div v-if="showModuleModal && canManageModules" class="admin-modal-backdrop" @click.self="closeModuleModal">
+      <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
+        <header class="admin-client-modal-head">
+          <div>
+            <h3 id="module-modal-title">Новый модуль</h3>
+            <p>Для модуля нужно только название.</p>
+          </div>
+          <button class="icon-button" type="button" aria-label="Закрыть добавление модуля" @click="closeModuleModal">
+            <X class="h-5 w-5" aria-hidden="true" />
+          </button>
+        </header>
+
+        <label class="admin-form-field">
+          <span>Название модуля</span>
+          <input v-model="moduleTitle" type="text" placeholder="Например: Модуль 3" aria-label="Название модуля" />
+        </label>
+
+        <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>
+
+        <div class="admin-form-actions">
+          <button class="secondary-button" type="button" @click="closeModuleModal">Закрыть</button>
+          <button class="primary-button" type="button" @click="saveModule">Сохранить модуль</button>
+        </div>
+      </aside>
     </div>
   </section>
 </template>
