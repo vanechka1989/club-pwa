@@ -204,14 +204,17 @@ const selectedLessonItem = computed(() => selectedLessonModule.value?.images.fin
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
+const selectedModuleLessonLayout = computed(() => selectedLessonModule.value?.defaultCardLayout ?? "vertical");
 const lessonPreviewSource = computed(() => {
   if (selectedLessonItem.value) {
-    return getLessonImage(selectedLessonItem.value);
+    return getModuleLessonImage(selectedLessonModule.value, selectedLessonItem.value);
   }
 
-  return getDefaultLessonCover(ui.colorScheme, lessonCardLayout.value);
+  return getDefaultLessonCover(ui.colorScheme, selectedModuleLessonLayout.value);
 });
-const lessonVideoPoster = computed(() => (selectedLessonItem.value ? getLessonImage(selectedLessonItem.value) : lessonPreviewSource.value));
+const lessonVideoPoster = computed(() =>
+  selectedLessonItem.value ? getModuleLessonImage(selectedLessonModule.value, selectedLessonItem.value) : lessonPreviewSource.value
+);
 const lessonVideoProgress = computed(() =>
   lessonVideoDuration.value > 0 ? Math.min(100, Math.max(0, (lessonVideoCurrentTime.value / lessonVideoDuration.value) * 100)) : 0
 );
@@ -295,7 +298,7 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = lesson.thumbnailUrl ? "Текущая обложка сохранена" : "";
   shouldRemoveLessonThumbnail.value = false;
-  lessonCardLayout.value = lesson.cardLayout;
+  lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = lesson.content;
   lessonError.value = "";
 }
@@ -438,6 +441,10 @@ function getLessonImage(item: ModuleLesson) {
   return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
 }
 
+function getModuleLessonImage(module: ModuleCard | null, item: ModuleLesson) {
+  return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
+}
+
 function materialToLesson(item: AdminLearningMaterial | LearningContent): ModuleLesson {
   return {
     id: item.id,
@@ -549,7 +556,7 @@ function buildLessonForm() {
   form.set("title", trimmedLessonTitle.value);
   form.set("summary", lessonDescription.value.trim());
   form.set("body", lessonContent.value.trim());
-  form.set("cardLayout", lessonCardLayout.value);
+  form.set("cardLayout", selectedModuleLessonLayout.value);
   form.set("isPublished", "true");
   appendFile(form, "file", lessonFile.value);
   if (lessonThumbnailFile.value) {
@@ -676,7 +683,7 @@ function saveLessonLocally() {
     content: lessonContent.value.trim() || "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
     mediaUrl: null,
     thumbnailUrl: shouldRemoveLessonThumbnail.value ? null : (selectedLessonItem.value?.thumbnailUrl ?? null),
-    cardLayout: lessonCardLayout.value,
+    cardLayout: selectedModuleLessonLayout.value,
     isPersisted: false
   };
 
@@ -954,22 +961,22 @@ watch(
             v-for="image in module.images"
             :key="image.id"
             class="admin-mockup-thumb"
-            :class="image.cardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical'"
+            :class="module.defaultCardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical'"
             type="button"
             :aria-label="`Открыть урок ${image.title}`"
             @click="openLessonModal(module, image)"
           >
-            <template v-if="image.cardLayout === 'horizontal'">
+            <template v-if="module.defaultCardLayout === 'horizontal'">
               <span class="admin-mockup-thumb-copy">
                 <strong>
                   {{ image.title }}
                   <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
                 </strong>
               </span>
-              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
+              <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
             </template>
             <template v-else>
-              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
+              <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
               <span>
                 {{ image.title }}
                 <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
@@ -1190,25 +1197,9 @@ watch(
             <div v-if="canManageModules" class="admin-form lesson-editor-form">
               <div class="admin-field">
                 <span>Вид карточки</span>
-                <div class="lesson-layout-toggle" role="group" aria-label="Вид карточки урока">
-                  <button
-                    class="lesson-layout-option"
-                    :class="{ 'lesson-layout-option-active': lessonCardLayout === 'vertical' }"
-                    type="button"
-                    aria-label="Вертикальная карточка"
-                    @click="lessonCardLayout = 'vertical'"
-                  >
-                    Вертикальная
-                  </button>
-                  <button
-                    class="lesson-layout-option"
-                    :class="{ 'lesson-layout-option-active': lessonCardLayout === 'horizontal' }"
-                    type="button"
-                    aria-label="Горизонтальная карточка"
-                    @click="lessonCardLayout = 'horizontal'"
-                  >
-                    Горизонтальная
-                  </button>
+                <div class="lesson-layout-locked">
+                  <strong>{{ selectedModuleLessonLayout === "horizontal" ? "Горизонтальная карточка" : "Вертикальная карточка" }}</strong>
+                  <span>Формат карточек задан в настройках модуля.</span>
                 </div>
               </div>
               <label class="admin-field">

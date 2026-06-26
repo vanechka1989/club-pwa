@@ -68,6 +68,12 @@ async function expandModuleOne() {
   }
 }
 
+async function makeModuleOneHorizontal() {
+  await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
+  await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
+  await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
+}
+
 describe("Learning section modules", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -155,12 +161,13 @@ describe("Learning section modules", () => {
     expect(lessonDialog.textContent).toContain("Модуль 1");
   });
 
-  it("renders horizontal lesson cards when a lesson uses horizontal layout", async () => {
+  it("renders horizontal lesson cards when a module uses horizontal layout", async () => {
     renderAsOwner();
 
+    await makeModuleOneHorizontal();
     await expandModuleOne();
 
-    const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
+    const horizontalLesson = screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ });
     expect(horizontalLesson.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
     expect(horizontalLesson.classList.contains("admin-mockup-thumb-vertical")).toBe(false);
   });
@@ -182,12 +189,21 @@ describe("Learning section modules", () => {
   it("places horizontal lesson title above the cover without description", async () => {
     renderAsOwner();
 
+    await makeModuleOneHorizontal();
     await expandModuleOne();
 
     const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
     expect(horizontalLesson.firstElementChild?.classList.contains("admin-mockup-thumb-copy")).toBe(true);
     expect(horizontalLesson.lastElementChild?.tagName.toLowerCase()).toBe("img");
     expect(horizontalLesson.textContent).not.toContain("Модульная структура с уроками внутри каждого блока.");
+  });
+
+  it("centers horizontal lesson titles above their covers", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-copy\s*\{[^}]*justify-content:\s*center;/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-copy\s*\{[^}]*text-align:\s*center;/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-copy\s+strong\s*\{[^}]*justify-content:\s*center;/s);
   });
 
   it("creates modules with description and default lesson card layout", async () => {
@@ -205,7 +221,31 @@ describe("Learning section modules", () => {
     expect(screen.getByText("Описание для нового модуля")).toBeTruthy();
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Горизонтальный модуль" }));
-    expect(screen.getByRole("button", { name: "Горизонтальная карточка" }).classList.contains("lesson-layout-option-active")).toBe(true);
+    expect(screen.getByText("Горизонтальная карточка")).toBeTruthy();
+    expect(screen.getByText("Формат карточек задан в настройках модуля.")).toBeTruthy();
+  });
+
+  it("locks lesson card layout to the selected module layout", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
+    await fireEvent.update(screen.getByLabelText("Название модуля"), "Только горизонтальные");
+    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Только горизонтальные" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Только горизонтальные" }));
+
+    expect(screen.getByText("Формат карточек задан в настройках модуля.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Вертикальная карточка" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Горизонтальная карточка" })).toBeNull();
+    expect(screen.getByText("Горизонтальная карточка")).toBeTruthy();
+
+    await fireEvent.update(screen.getByLabelText("Название урока"), "Урок в формате модуля");
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
+
+    const lessonCard = screen.getByRole("button", { name: /Урок в формате модуля/ });
+    expect(lessonCard.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
   });
 
   it("edits module description and default lesson card layout", async () => {
@@ -220,7 +260,8 @@ describe("Learning section modules", () => {
     expect(screen.getByText("Новое описание модуля")).toBeTruthy();
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
-    expect(screen.getByRole("button", { name: "Горизонтальная карточка" }).classList.contains("lesson-layout-option-active")).toBe(true);
+    expect(screen.getByText("Горизонтальная карточка")).toBeTruthy();
+    expect(screen.getByText("Формат карточек задан в настройках модуля.")).toBeTruthy();
   });
 
   it("deletes a module after confirmation", async () => {
@@ -294,15 +335,15 @@ describe("Learning section modules", () => {
     expect(screen.getByText("5 уроков")).toBeTruthy();
   });
 
-  it("saves the selected lesson card layout", async () => {
+  it("saves lessons with the module card layout", async () => {
     renderAsOwner();
 
+    await makeModuleOneHorizontal();
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Горизонтальный урок");
     await fireEvent.update(screen.getByLabelText("Описание урока"), "Компактная карточка урока");
-    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальная карточка" }));
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
 
     const lessonCard = screen.getByRole("button", { name: /Горизонтальный урок/ });
@@ -316,9 +357,13 @@ describe("Learning section modules", () => {
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Урок без обложки");
-    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальная карточка" }));
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
 
     const lessonCard = screen.getByRole("button", { name: /Урок без обложки/ });
