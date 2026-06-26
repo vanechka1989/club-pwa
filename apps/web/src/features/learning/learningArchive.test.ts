@@ -177,6 +177,17 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
   });
 
+  it("places horizontal lesson text above the large cover", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+
+    const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
+    expect(horizontalLesson.firstElementChild?.classList.contains("admin-mockup-thumb-copy")).toBe(true);
+    expect(horizontalLesson.lastElementChild?.tagName.toLowerCase()).toBe("img");
+    expect(horizontalLesson.textContent).toContain("Модульная структура с уроками внутри каждого блока.");
+  });
+
   it("uses a compact lesson modal for member viewing", async () => {
     renderAsMember();
 

@@ -2134,14 +2134,13 @@ button {
 
 .modules-panel .admin-mockup-thumb-horizontal {
   grid-column: 1 / -1;
-  grid-template-columns: minmax(7.5rem, 38%) minmax(0, 1fr);
-  align-items: center;
-  gap: 0.65rem;
-  min-height: 5.25rem;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0.62rem;
   border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, var(--panel) 82%, transparent);
-  padding: 0.48rem;
+  padding: 0.62rem;
   box-shadow: 0 12px 28px color-mix(in srgb, #000 18%, transparent);
 }
 
@@ -2156,6 +2155,30 @@ button {
   font-size: 0.72rem;
   line-height: 1.25;
   text-align: left;
+}
+
+.modules-panel .admin-mockup-thumb-horizontal .admin-mockup-thumb-copy {
+  display: grid;
+  gap: 0.22rem;
+  justify-content: stretch;
+  text-align: left;
+}
+
+.modules-panel .admin-mockup-thumb-horizontal .admin-mockup-thumb-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 820;
+  line-height: 1.25;
+}
+
+.modules-panel .admin-mockup-thumb-horizontal .admin-mockup-thumb-copy small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .admin-mockup-deleted-module {

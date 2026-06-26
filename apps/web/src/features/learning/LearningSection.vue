@@ -809,11 +809,23 @@ watch(
             :aria-label="`Открыть урок ${image.title}`"
             @click="openLessonModal(module, image)"
           >
-            <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
-            <span>
-              {{ image.title }}
-              <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
-            </span>
+            <template v-if="image.cardLayout === 'horizontal'">
+              <span class="admin-mockup-thumb-copy">
+                <strong>
+                  {{ image.title }}
+                  <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                </strong>
+                <small v-if="image.description">{{ image.description }}</small>
+              </span>
+              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
+            </template>
+            <template v-else>
+              <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
+              <span>
+                {{ image.title }}
+                <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+            </template>
           </button>
         </div>
       </article>
