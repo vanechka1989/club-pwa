@@ -403,6 +403,12 @@ export function updateAdminLearningMaterialStatus(id: string, isPublished: boole
   });
 }
 
+export function restoreAdminLearningMaterial(id: string) {
+  return api<AdminLearningMaterialMutationResponse>(`/admin/learning/materials/${id}/restore`, {
+    method: "POST"
+  });
+}
+
 export function deleteAdminLearningMaterial(id: string) {
   return api<AdminMutationResponse>(`/admin/learning/materials/${id}`, {
     method: "DELETE"

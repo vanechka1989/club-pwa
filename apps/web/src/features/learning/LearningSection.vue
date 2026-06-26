@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AdminLearningMaterial, ContentKind, LearningContent, LearningCategory, LessonComment } from "@club/shared";
-import { CheckCircle2, Eye, EyeOff, Image, Loader2, Mic, Music, Pencil, Play, Plus, Square, Trash2, Type, X } from "lucide-vue-next";
+import { CheckCircle2, Eye, EyeOff, Image, Loader2, Mic, Music, Pencil, Play, Plus, RotateCcw, Square, Trash2, Type, X } from "lucide-vue-next";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   completeLearningContent,
@@ -14,6 +14,7 @@ import {
   getLearningHome,
   getLessonComments,
   saveLearningPlayback,
+  restoreAdminLearningMaterial,
   updateAdminLearningMaterial,
   updateAdminLearningCategoryStatus,
   updateAdminLearningMaterialStatus
@@ -599,6 +600,21 @@ async function handleDeleteLearningItem(item: LearningContent) {
   }
 }
 
+async function handleRestoreMaterial(material: AdminLearningMaterial) {
+  contentSaving.value = true;
+  contentError.value = null;
+  try {
+    const response = await restoreAdminLearningMaterial(material.id);
+    adminMaterials.value = adminMaterials.value.map((item) => (item.id === response.material.id ? response.material : item));
+    await loadLearning();
+    notifyContent("Контент восстановлен.");
+  } catch {
+    contentError.value = "Не удалось восстановить контент.";
+  } finally {
+    contentSaving.value = false;
+  }
+}
+
 function handleEditLearningItem(item: LearningContent) {
   const material = findAdminMaterial(item);
   if (material) {
@@ -950,6 +966,17 @@ watch(hasLearningAccess, (hasAccess) => {
                     <small class="mt-1 block leading-5 text-[var(--muted)]">Будет очищено после {{ formatArchiveUntil(material.archivedUntil) }}</small>
                   </span>
                 </div>
+              </div>
+              <div class="learning-item-actions">
+                <button
+                  class="icon-button"
+                  type="button"
+                  :disabled="contentSaving"
+                  aria-label="Восстановить контент"
+                  @click="handleRestoreMaterial(material)"
+                >
+                  <RotateCcw class="h-4 w-4" aria-hidden="true" />
+                </button>
               </div>
             </article>
           </div>

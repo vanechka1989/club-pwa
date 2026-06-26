@@ -25,6 +25,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
+import { getRestoredContentArchiveValues } from "../learning/contentArchive";
 import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, getLearningMediaUploadContentType } from "../learning/mediaUpload";
 
 const adminPayloadSchema = z.object({
@@ -928,6 +929,33 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!material) {
       return c.json({ error: "Unable to update material" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      material: await serializeAdminMaterial(material)
+    });
+  })
+  .post("/learning/materials/:id/restore", async (c) => {
+    const current = await db.query.contentItems.findFirst({
+      where: eq(contentItems.id, c.req.param("id"))
+    });
+    if (!current) {
+      return c.json({ error: "Material not found" }, 404);
+    }
+
+    if (current.archivedUntil && current.archivedUntil <= new Date()) {
+      return c.json({ error: "Material archive expired" }, 410);
+    }
+
+    const [material] = await db
+      .update(contentItems)
+      .set(getRestoredContentArchiveValues({ publishedAt: current.publishedAt, now: new Date() }))
+      .where(eq(contentItems.id, current.id))
+      .returning();
+
+    if (!material) {
+      return c.json({ error: "Unable to restore material" }, 500);
     }
 
     return c.json({
