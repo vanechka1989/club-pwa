@@ -28,7 +28,7 @@ describe("App", () => {
       }
     });
 
-    await screen.getByRole("button", { name: "Обучение" }).click();
+    await screen.getByRole("button", { name: "Модули" }).click();
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
   });

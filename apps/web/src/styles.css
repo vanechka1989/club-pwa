@@ -1991,6 +1991,35 @@ button {
   align-content: start;
 }
 
+.modules-placeholder-panel {
+  align-content: start;
+}
+
+.modules-dev-placeholder {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%),
+    color-mix(in srgb, var(--panel-strong) 90%, transparent);
+  padding: 1rem;
+  color: var(--text);
+}
+
+.modules-dev-placeholder strong {
+  font-size: 1rem;
+  font-weight: 860;
+  line-height: 1.25;
+}
+
+.modules-dev-placeholder span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 680;
+  line-height: 1.45;
+}
+
 .learning-content-list {
   gap: 0.85rem;
 }
