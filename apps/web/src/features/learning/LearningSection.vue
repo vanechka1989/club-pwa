@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AdminLearningMaterial, ContentKind, LearningContent, LearningCategory, LessonComment } from "@club/shared";
-import { CheckCircle2, Eye, EyeOff, Image, Loader2, Mic, Music, Pencil, Play, Plus, RotateCcw, Square, Trash2, Type, X } from "lucide-vue-next";
+import { CheckCircle2, ExternalLink, Eye, EyeOff, Image, Loader2, Mic, Music, Pencil, Play, Plus, RotateCcw, Square, Trash2, Type, X } from "lucide-vue-next";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   completeLearningContent,
@@ -716,14 +716,15 @@ watch(hasLearningAccess, (hasAccess) => {
 </script>
 
 <template>
-  <section class="learning-page">
-    <div class="learning-hero-card">
+  <section class="admin-panel learning-section-panel">
+    <div class="admin-panel-head">
       <div>
-        <span>Клубная библиотека</span>
-        <h2>Обучение</h2>
-        <p>Модули, контент и личный прогресс.</p>
+        <h3>Обучение</h3>
+        <p>Контент клуба, модули и личный прогресс.</p>
       </div>
-      <strong>{{ progressPercent }}%</strong>
+      <button v-if="isModerator" class="icon-button" type="button" aria-label="Добавить контент" @click="openCreateContentModal">
+        <Plus class="h-4 w-4" aria-hidden="true" />
+      </button>
     </div>
 
     <div v-if="!hasLearningAccess || accessDenied" class="access-lock-card">
@@ -738,107 +739,91 @@ watch(hasLearningAccess, (hasAccess) => {
 
     <p v-else-if="error" class="text-sm text-[var(--danger)]">{{ error }}</p>
 
-    <div v-else class="learning-workspace">
-      <div class="learning-showcase">
-        <section class="learning-last-card" :class="{ 'learning-last-card-empty': !lastOpenedItem }">
-          <div class="learning-last-card-head">
-            <div>
-              <p>{{ t("lastOpenedLesson") }}</p>
-              <h3>{{ lastOpenedItem ? lastOpenedItem.title : "Пока ничего не открывали" }}</h3>
-            </div>
-            <span v-if="lastOpenedItem">{{ lastOpenedTypeLabel }}</span>
+    <div v-else class="admin-mockup-list learning-content-list">
+      <article class="admin-mockup-card learning-continue-card">
+        <div class="admin-mockup-card-head">
+          <div>
+            <strong>{{ t("lastOpenedLesson") }}</strong>
+            <small>{{ completedItems }} / {{ totalItems }} · {{ progressPercent }}%</small>
           </div>
-          <button v-if="lastOpenedItem" class="learning-last-action" type="button" @click="openItem(lastOpenedItem)">
-            <span class="learning-content-thumb learning-last-thumb">
-              <img v-if="lastOpenedItem.kind === 'photo' && lastOpenedItem.mediaUrl" :src="lastOpenedItem.mediaUrl" :alt="lastOpenedItem.title" />
-              <img v-else-if="lastOpenedItem.thumbnailUrl" :src="lastOpenedItem.thumbnailUrl" :alt="`Обложка: ${lastOpenedItem.title}`" />
-              <component v-else :is="iconFor(lastOpenedItem.kind)" class="h-5 w-5" aria-hidden="true" />
-            </span>
-            <span>
-              <strong>{{ lastOpenedLabel }}</strong>
-              <small>{{ lastOpenedItem.summary || "Вернуться к последнему открытому контенту" }}</small>
-            </span>
-          </button>
-          <p v-else>Откройте любой контент, и здесь появится быстрый переход к продолжению.</p>
-        </section>
-
-        <section class="learning-progress-card">
-          <div class="learning-progress-head">
-            <div>
-              <p>{{ t("learningProgress") }}</p>
-              <strong>{{ completedItems }} / {{ totalItems }}</strong>
-            </div>
-            <span>{{ progressPercent }}%</span>
-          </div>
-          <div class="learning-progress-track">
-            <i :style="{ width: `${progressPercent}%` }"></i>
-          </div>
-        </section>
-      </div>
-
-      <div class="learning-library">
-        <div class="learning-content-head">
-          <h3 class="font-semibold text-[var(--text)]">Контент</h3>
-          <button v-if="isModerator" class="icon-button" type="button" aria-label="Добавить контент" @click="openCreateContentModal">
-            <Plus class="h-4 w-4" aria-hidden="true" />
-          </button>
+          <span>{{ lastOpenedItem ? lastOpenedTypeLabel : "Старт" }}</span>
         </div>
-        <p v-if="contentNotice" class="admin-status admin-status-ok">{{ contentNotice }}</p>
-        <p v-if="contentError" class="admin-status admin-status-error">{{ contentError }}</p>
+        <p>{{ lastOpenedItem ? "Продолжите с места, где остановились." : "Откройте любой контент, и быстрый переход появится здесь." }}</p>
+        <button v-if="lastOpenedItem" class="learning-continue-action" type="button" @click="openItem(lastOpenedItem)">
+          <span class="learning-content-thumb learning-last-thumb">
+            <img v-if="lastOpenedItem.kind === 'photo' && lastOpenedItem.mediaUrl" :src="lastOpenedItem.mediaUrl" :alt="lastOpenedItem.title" />
+            <img v-else-if="lastOpenedItem.thumbnailUrl" :src="lastOpenedItem.thumbnailUrl" :alt="`Обложка: ${lastOpenedItem.title}`" />
+            <component v-else :is="iconFor(lastOpenedItem.kind)" class="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span>
+            <strong>{{ lastOpenedItem.title }}</strong>
+            <small>{{ lastOpenedLabel }}</small>
+          </span>
+        </button>
+      </article>
 
-        <div v-if="materialsByCategory.length" class="learning-category-list">
-          <section v-for="group in materialsByCategory" :key="group.category.id" class="learning-category-card">
-            <div class="learning-category-card-head">
-              <div>
-                <span>{{ formatItemsCount(group.items.length) }}</span>
-                <h4 class="mt-1 font-semibold text-[var(--text)]">
-                  {{ group.category.title }}
-                  <span v-if="isModerator && !group.category.isPublished" class="text-xs text-[var(--muted)]">· скрыта</span>
-                </h4>
-              </div>
-              <div v-if="isModerator" class="learning-item-actions">
-                <button
-                  class="icon-button"
-                  type="button"
-                  :disabled="contentSaving"
-                  :aria-label="group.category.isPublished ? 'Скрыть категорию' : 'Открыть категорию'"
-                  @click="handleToggleCategory(group.category)"
-                >
-                  <component :is="group.category.isPublished ? EyeOff : Eye" class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  class="icon-button"
-                  type="button"
-                  :disabled="contentSaving"
-                  aria-label="Удалить категорию"
-                  @click="handleDeleteCategory(group.category)"
-                >
-                  <Trash2 class="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
+      <div class="learning-content-title-row">
+        <div>
+          <h3>Контент</h3>
+          <p>Категории и материалы клуба.</p>
+        </div>
+      </div>
+      <p v-if="contentNotice" class="admin-status admin-status-ok">{{ contentNotice }}</p>
+      <p v-if="contentError" class="admin-status admin-status-error">{{ contentError }}</p>
+
+      <template v-if="materialsByCategory.length">
+        <section v-for="group in materialsByCategory" :key="group.category.id" class="admin-mockup-card learning-module-card">
+          <div class="admin-mockup-card-head">
+            <div>
+              <strong>
+                {{ group.category.title }}
+                <span v-if="isModerator && !group.category.isPublished" class="text-xs text-[var(--muted)]">· скрыта</span>
+              </strong>
+              <small>{{ formatItemsCount(group.items.length) }}</small>
             </div>
-            <p v-if="group.category.description" class="mt-1 text-sm leading-6 text-[var(--muted)]">{{ group.category.description }}</p>
+            <div v-if="isModerator" class="learning-card-actions">
+              <button
+                class="icon-button"
+                type="button"
+                :disabled="contentSaving"
+                :aria-label="group.category.isPublished ? 'Скрыть категорию' : 'Открыть категорию'"
+                @click="handleToggleCategory(group.category)"
+              >
+                <component :is="group.category.isPublished ? EyeOff : Eye" class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                class="icon-button"
+                type="button"
+                :disabled="contentSaving"
+                aria-label="Удалить категорию"
+                @click="handleDeleteCategory(group.category)"
+              >
+                <Trash2 class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <p v-if="group.category.description">{{ group.category.description }}</p>
 
-            <div class="learning-content-grid">
+            <div class="admin-mockup-grid learning-content-mockup-grid">
               <template v-for="item in group.items" :key="item.id">
                 <article class="learning-item-row">
                   <button
-                    class="learning-item-button"
+                    class="admin-mockup-thumb learning-item-button"
                     type="button"
                     @click="openItem(item)"
                   >
-                    <div class="flex items-start gap-3">
-                      <span class="learning-content-thumb">
-                        <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
-                        <img v-else-if="item.thumbnailUrl" :src="item.thumbnailUrl" :alt="`Обложка: ${item.title}`" />
-                        <component v-else :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
+                    <span class="learning-content-thumb">
+                      <img v-if="item.kind === 'photo' && item.mediaUrl" :src="item.mediaUrl" :alt="item.title" />
+                      <img v-else-if="item.thumbnailUrl" :src="item.thumbnailUrl" :alt="`Обложка: ${item.title}`" />
+                      <span v-else class="learning-content-thumb-icon">
+                        <component :is="iconFor(item.kind)" class="h-5 w-5" aria-hidden="true" />
                       </span>
-                      <span class="min-w-0">
-                        <strong class="block text-sm text-[var(--text)]">{{ item.title }}</strong>
-                        <small class="mt-1 block leading-5 text-[var(--muted)]">{{ itemMeta(item) }}</small>
-                      </span>
-                      <span v-if="isSelectedItem(item)" class="ml-auto shrink-0 text-xs font-bold text-[var(--accent)]">Открыто</span>
-                    </div>
+                    </span>
+                    <span>
+                      {{ item.title }}
+                      <ExternalLink v-if="isSelectedItem(item)" class="h-3.5 w-3.5" aria-hidden="true" />
+                    </span>
+                    <small>{{ itemMeta(item) }}</small>
                   </button>
                   <div v-if="isModerator" class="learning-item-actions">
                     <button
@@ -961,14 +946,22 @@ watch(hasLearningAccess, (hasAccess) => {
                 </article>
               </template>
             </div>
+            <p v-if="!group.items.length" class="learning-empty-category">Контента пока нет.</p>
           </section>
-        </div>
+        </template>
 
         <p v-else class="text-sm text-[var(--muted)]">{{ t("emptyMaterials") }}</p>
 
-        <section v-if="isModerator && hiddenMaterials.length" class="surface-card">
-          <h4 class="font-semibold text-[var(--text)]">Скрытые</h4>
-          <div class="mt-3 grid gap-2">
+        <section v-if="isModerator && hiddenMaterials.length" class="admin-mockup-card learning-module-card learning-state-card">
+          <div class="admin-mockup-card-head">
+            <div>
+              <strong>Скрытые</strong>
+              <small>{{ formatItemsCount(hiddenMaterials.length) }}</small>
+            </div>
+            <span>Админ</span>
+          </div>
+          <p>Материалы не видны клиентам.</p>
+          <div class="learning-state-list">
             <article v-for="material in hiddenMaterials" :key="material.id" class="learning-item-row">
               <div class="learning-item-button">
                 <div class="flex items-start gap-3">
@@ -998,10 +991,16 @@ watch(hasLearningAccess, (hasAccess) => {
           </div>
         </section>
 
-        <section v-if="isModerator && archivedMaterials.length" class="surface-card">
-          <h4 class="font-semibold text-[var(--text)]">Удалённые</h4>
-          <p class="mt-1 text-sm text-[var(--muted)]">Хранятся 7 дней после удаления.</p>
-          <div class="mt-3 grid gap-2">
+        <section v-if="isModerator && archivedMaterials.length" class="admin-mockup-card learning-module-card learning-state-card">
+          <div class="admin-mockup-card-head">
+            <div>
+              <strong>Удалённые</strong>
+              <small>{{ formatItemsCount(archivedMaterials.length) }}</small>
+            </div>
+            <span>7 дней</span>
+          </div>
+          <p>Контент хранится 7 дней после удаления.</p>
+          <div class="learning-state-list">
             <article
               v-for="material in archivedMaterials"
               :key="material.id"
@@ -1181,6 +1180,5 @@ watch(hasLearningAccess, (hasAccess) => {
           <button class="video-viewer-close" type="button" aria-label="Закрыть видео" @click="closeVideoViewer">Закрыть</button>
         </div>
       </Teleport>
-    </div>
   </section>
 </template>
