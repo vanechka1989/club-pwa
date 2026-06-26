@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideProdamusWebhookAction } from "./prodamusWebhook";
+import { decideProdamusWebhookAction, getProdamusWebhookSuccessResponse } from "./prodamusWebhook";
 
 describe("prodamus webhook action", () => {
   it("ignores valid webhooks for orders that do not belong to this club", () => {
@@ -33,5 +33,9 @@ describe("prodamus webhook action", () => {
         orderFound: true
       })
     ).toEqual({ action: "process", status: 200 });
+  });
+
+  it("uses the provider-compatible success body for accepted webhooks", () => {
+    expect(getProdamusWebhookSuccessResponse()).toBe("success");
   });
 });

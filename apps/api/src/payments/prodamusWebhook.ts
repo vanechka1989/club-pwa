@@ -16,3 +16,7 @@ export function decideProdamusWebhookAction(input: {
 
   return { action: "process", status: 200 };
 }
+
+export function getProdamusWebhookSuccessResponse() {
+  return "success";
+}

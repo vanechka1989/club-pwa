@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Ответ Prodamus в формате success",
+    items: [
+      "Валидные webhook Prodamus теперь получают текстовый ответ success с HTTP 200.",
+      "Чужие валидные оплаты по общей платёжной форме принимаются без ошибки и не открывают доступ.",
+      "Повторные уведомления по уже оплаченным заказам тоже отвечают success."
+    ]
+  },
+  {
+    version: "1.52",
+    updatedAt: "26.06.2026 12:23",
     title: "Webhook чужих оплат Prodamus",
     items: [
       "Webhook с валидной подписью, но неизвестным заказом клуба, теперь принимается без ошибки.",

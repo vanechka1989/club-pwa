@@ -33,7 +33,7 @@ import {
   setProdamusSubscriptionActivity,
   verifyProdamusSignature
 } from "../payments/prodamus";
-import { decideProdamusWebhookAction } from "../payments/prodamusWebhook";
+import { decideProdamusWebhookAction, getProdamusWebhookSuccessResponse } from "../payments/prodamusWebhook";
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
@@ -311,13 +311,13 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       orderFound: Boolean(order)
     });
     if (webhookAction.action === "ignore") {
-      return c.json({ ok: true, ignored: true });
+      return c.text(getProdamusWebhookSuccessResponse());
     }
     if (!order) {
       return c.json({ ok: false }, 404);
     }
     if (order.status === "paid") {
-      return c.json({ ok: true });
+      return c.text(getProdamusWebhookSuccessResponse());
     }
 
     const [product, user] = await Promise.all([
@@ -346,7 +346,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
 
     await cleanupExpiredPendingPaymentOrders();
 
-    return c.json({ ok: true });
+    return c.text(getProdamusWebhookSuccessResponse());
   })
   .use("*", telegramAuth)
   .get("/plans", async (c) => {
