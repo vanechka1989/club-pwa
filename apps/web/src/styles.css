@@ -2092,6 +2092,25 @@ button {
   padding-bottom: 0.7rem;
 }
 
+.module-name-modal {
+  align-self: start;
+  justify-self: stretch;
+  height: auto;
+  min-height: 0;
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+  border-radius: 0 0 18px 18px;
+}
+
+.club-telegram-fullscreen .module-name-modal {
+  height: auto;
+  max-height: calc(100vh - var(--fullscreen-top-offset) - 1rem);
+}
+
+.module-name-modal .admin-form-actions {
+  margin-top: 0;
+}
+
 .admin-form-actions {
   display: grid;
   grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);

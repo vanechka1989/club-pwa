@@ -180,7 +180,7 @@ function saveModule() {
     </div>
 
     <div v-if="showModuleModal && canManageModules" class="admin-modal-backdrop" @click.self="closeModuleModal">
-      <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
+      <aside class="admin-detail admin-client-modal module-name-modal" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
         <header class="admin-client-modal-head">
           <div>
             <h3 id="module-modal-title">{{ moduleModalTitle }}</h3>
@@ -194,7 +194,7 @@ function saveModule() {
         <div class="admin-form module-form">
           <label class="admin-field">
             <span>Название модуля</span>
-            <input v-model="moduleTitle" type="text" placeholder="Например: Модуль 3" aria-label="Название модуля" />
+            <input v-model="moduleTitle" class="text-input" type="text" placeholder="Например: Модуль 3" aria-label="Название модуля" />
           </label>
 
           <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>

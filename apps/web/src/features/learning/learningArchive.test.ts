@@ -59,6 +59,10 @@ describe("Learning section modules", () => {
     renderAsOwner();
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
+
+    expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("module-name-modal")).toBe(true);
+    expect(screen.getByLabelText("Название модуля").classList.contains("text-input")).toBe(true);
+
     await fireEvent.update(screen.getByLabelText("Название модуля"), "Модуль 3");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
 
