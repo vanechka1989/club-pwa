@@ -701,6 +701,7 @@ button {
 }
 
 .learning-item-row-archived {
+  grid-template-columns: minmax(0, 1fr);
   opacity: 0.92;
 }
 
@@ -730,6 +731,41 @@ button {
   line-height: 1;
   margin-bottom: 0.35rem;
   padding: 0.22rem 0.45rem;
+}
+
+.learning-item-row-archived .learning-item-actions {
+  justify-content: stretch;
+}
+
+.learning-restore-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, #34d399 48%, var(--border));
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #34d399 22%, transparent), transparent),
+    color-mix(in srgb, #34d399 12%, var(--panel-strong));
+  color: color-mix(in srgb, #bbf7d0 78%, var(--text));
+  font-size: 0.86rem;
+  font-weight: 860;
+  box-shadow: 0 0.85rem 1.8rem color-mix(in srgb, #34d399 14%, transparent);
+  transition:
+    border-color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.learning-restore-button:active {
+  transform: translateY(1px);
+}
+
+.learning-restore-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .learning-category-tools {

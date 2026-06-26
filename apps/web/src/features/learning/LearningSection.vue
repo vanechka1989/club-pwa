@@ -970,13 +970,13 @@ watch(hasLearningAccess, (hasAccess) => {
               </div>
               <div class="learning-item-actions">
                 <button
-                  class="icon-button"
+                  class="learning-restore-button"
                   type="button"
                   :disabled="contentSaving"
-                  aria-label="Восстановить контент"
                   @click="handleRestoreMaterial(material)"
                 >
                   <RotateCcw class="h-4 w-4" aria-hidden="true" />
+                  <span>Восстановить</span>
                 </button>
               </div>
             </article>

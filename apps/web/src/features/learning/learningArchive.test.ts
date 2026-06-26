@@ -101,5 +101,6 @@ describe("Learning archived content", () => {
 
     expect(await screen.findByText("Удалено")).toBeTruthy();
     expect(screen.getByText("Голосовое тест")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Восстановить" })).toBeTruthy();
   });
 });
