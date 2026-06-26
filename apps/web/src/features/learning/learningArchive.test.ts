@@ -102,9 +102,7 @@ describe("Learning section modules", () => {
   it("renames a selected module", async () => {
     renderAsOwner();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Редактировать модуль" }));
-
-    expect(screen.getByText("Выберите модуль для редактирования.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Редактировать модуль" })).toBeNull();
 
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
     await fireEvent.update(screen.getByLabelText("Название модуля"), "Первый модуль");
@@ -113,6 +111,19 @@ describe("Learning section modules", () => {
     expect(screen.getByText("Первый модуль")).toBeTruthy();
     expect(screen.queryByText("Модуль 1")).toBeNull();
     expect(screen.queryByRole("dialog", { name: "Редактировать модуль" })).toBeNull();
+  });
+
+  it("collapses and expands a module from its header", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Свернуть Модуль 1" }));
+
+    expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
+    expect(screen.getAllByText("Модуль клуба").length).toBeGreaterThanOrEqual(1);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Модуль 1" }));
+
+    expect(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeTruthy();
   });
 
   it("opens a lesson modal from a module lesson card", async () => {

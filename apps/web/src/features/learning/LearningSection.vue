@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import type { AdminLearningMaterial, ContentKind, LearningCategory, LearningContent } from "@club/shared";
-import { ExternalLink, Mic, Pencil, Plus, Square, Trash2, X } from "lucide-vue-next";
+import { ChevronDown, ExternalLink, Mic, Pencil, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   createAdminLearningMaterial,
@@ -92,7 +92,7 @@ const initialModuleCards: ModuleCard[] = [
         isPersisted: false
       }
     ],
-    meta: "Добавлено 26.06.2026",
+    meta: "Модуль клуба",
     isPersisted: false
   },
   {
@@ -137,7 +137,7 @@ const initialModuleCards: ModuleCard[] = [
         isPersisted: false
       }
     ],
-    meta: "Добавлено 26.06.2026",
+    meta: "Модуль клуба",
     isPersisted: false
   }
 ];
@@ -148,8 +148,8 @@ const modulesLoadedFromApi = ref(false);
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
 const showModuleModal = ref(false);
-const moduleEditMode = ref(false);
 const editingModuleId = ref<string | null>(null);
+const collapsedModuleIds = ref<string[]>([]);
 const moduleTitle = ref("");
 const moduleError = ref("");
 const selectedLesson = ref<{ moduleId: string; lessonId: string | null } | null>(null);
@@ -205,23 +205,13 @@ function lessonCountLabel(count: number) {
 }
 
 function openModuleModal() {
-  moduleEditMode.value = false;
   editingModuleId.value = null;
   moduleTitle.value = "";
   moduleError.value = "";
   showModuleModal.value = true;
 }
 
-function openModuleEditMode() {
-  moduleEditMode.value = true;
-  editingModuleId.value = null;
-  moduleTitle.value = "";
-  moduleError.value = "";
-  showModuleModal.value = false;
-}
-
 function openModuleEditModal(module: ModuleCard) {
-  moduleEditMode.value = false;
   editingModuleId.value = module.id;
   moduleTitle.value = module.title;
   moduleError.value = "";
@@ -235,11 +225,17 @@ function closeModuleModal() {
   moduleError.value = "";
 }
 
-function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
-  if (moduleEditMode.value) {
-    return;
-  }
+function isModuleCollapsed(moduleId: string) {
+  return collapsedModuleIds.value.includes(moduleId);
+}
 
+function toggleModule(moduleId: string) {
+  collapsedModuleIds.value = isModuleCollapsed(moduleId)
+    ? collapsedModuleIds.value.filter((id) => id !== moduleId)
+    : [...collapsedModuleIds.value, moduleId];
+}
+
+function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
   selectedLesson.value = { moduleId: module.id, lessonId: lesson.id };
   lessonTitle.value = lesson.title;
   lessonDescription.value = lesson.description;
@@ -253,7 +249,7 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
 }
 
 function openLessonCreateModal(module: ModuleCard) {
-  if (!canManageModules.value || moduleEditMode.value) {
+  if (!canManageModules.value) {
     return;
   }
 
@@ -652,9 +648,6 @@ watch(
         <p>Разделы клуба и материалы внутри них.</p>
       </div>
       <div v-if="canManageModules" class="modules-panel-actions" aria-label="Управление модулями">
-        <button class="icon-button" type="button" aria-label="Редактировать модуль" @click="openModuleEditMode">
-          <Pencil class="h-5 w-5" aria-hidden="true" />
-        </button>
         <button class="icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
           <Plus class="h-5 w-5" aria-hidden="true" />
         </button>
@@ -662,19 +655,35 @@ watch(
     </div>
 
     <p v-if="isLoadingModules" class="modules-edit-hint">Загружаем модули...</p>
-    <p v-if="moduleEditMode && canManageModules" class="modules-edit-hint">Выберите модуль для редактирования.</p>
 
     <div class="admin-mockup-list">
-      <article v-for="module in moduleCards" :key="module.id" class="admin-mockup-card" :class="{ 'module-edit-card': moduleEditMode }">
-        <div class="admin-mockup-card-head">
-          <div>
-            <strong>{{ module.title }}</strong>
-            <small>{{ module.meta }}</small>
-          </div>
+      <article v-for="module in moduleCards" :key="module.id" class="admin-mockup-card" :class="{ 'module-card-collapsed': isModuleCollapsed(module.id) }">
+        <div class="admin-mockup-card-head module-card-head">
+          <button
+            class="module-card-toggle"
+            type="button"
+            :aria-label="`${isModuleCollapsed(module.id) ? 'Развернуть' : 'Свернуть'} ${module.title}`"
+            :aria-expanded="!isModuleCollapsed(module.id)"
+            @click="toggleModule(module.id)"
+          >
+            <span>
+              <strong>{{ module.title }}</strong>
+              <small>{{ module.meta }}</small>
+            </span>
+          </button>
           <div class="admin-mockup-card-actions">
             <span>{{ lessonCountLabel(module.images.length) }}</span>
             <button
-              v-if="canManageModules && !moduleEditMode"
+              v-if="canManageModules"
+              class="icon-button module-lesson-add"
+              type="button"
+              :aria-label="`Редактировать ${module.title}`"
+              @click="openModuleEditModal(module)"
+            >
+              <Pencil class="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              v-if="canManageModules && !isModuleCollapsed(module.id)"
               class="icon-button module-lesson-add"
               type="button"
               :aria-label="`Добавить урок в ${module.title}`"
@@ -682,19 +691,18 @@ watch(
             >
               <Plus class="h-4 w-4" aria-hidden="true" />
             </button>
+            <button
+              class="icon-button module-lesson-add module-collapse-control"
+              type="button"
+              :aria-label="`Переключить ${module.title}`"
+              @click="toggleModule(module.id)"
+            >
+              <ChevronDown class="h-4 w-4" :class="{ 'module-chevron-collapsed': isModuleCollapsed(module.id) }" aria-hidden="true" />
+            </button>
           </div>
         </div>
-        <p>{{ module.description }}</p>
-        <button
-          v-if="moduleEditMode && canManageModules"
-          class="module-edit-select"
-          type="button"
-          :aria-label="`Редактировать ${module.title}`"
-          @click="openModuleEditModal(module)"
-        >
-          Выбрать этот модуль
-        </button>
-        <div class="admin-mockup-grid">
+        <p v-if="!isModuleCollapsed(module.id)">{{ module.description }}</p>
+        <div v-if="!isModuleCollapsed(module.id)" class="admin-mockup-grid">
           <button
             v-for="image in module.images"
             :key="image.id"
