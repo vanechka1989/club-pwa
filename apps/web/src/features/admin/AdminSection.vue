@@ -52,6 +52,7 @@ import {
 import { getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { formatMembershipStatus } from "@/features/app/i18n";
+import { releaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
@@ -127,6 +128,8 @@ const categoryTitle = ref("");
 const categoryDescription = ref("");
 const showMaterialModal = ref(false);
 const showCategoryModal = ref(false);
+const showReleaseNotesModal = ref(false);
+const expandedReleaseVersion = ref(appVersion);
 const editorRef = ref<HTMLElement | null>(null);
 const editorColor = ref("#111827");
 const newAdminTelegramId = ref("");
@@ -225,6 +228,19 @@ const statisticsPeriodOptions: Array<{ value: AdminStatisticsPeriod; label: stri
 
 function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
+}
+
+function openReleaseNotesModal() {
+  expandedReleaseVersion.value = appVersion;
+  showReleaseNotesModal.value = true;
+}
+
+function closeReleaseNotesModal() {
+  showReleaseNotesModal.value = false;
+}
+
+function toggleReleaseNote(version: string) {
+  expandedReleaseVersion.value = expandedReleaseVersion.value === version ? "" : version;
 }
 
 function adminTitle(admin: AdminUser) {
@@ -736,11 +752,43 @@ onUnmounted(() => {
         <h2 class="section-title">Админка</h2>
         <p class="section-subtitle">Клиенты, доступ и ограничения.</p>
       </div>
-      <div class="app-version-badge" aria-label="Версия приложения">
+      <button class="app-version-badge" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
         <span>v{{ appVersion }}</span>
         <small>{{ appVersionUpdatedAt }}</small>
-      </div>
+      </button>
     </header>
+
+    <Teleport to="body">
+      <div v-if="showReleaseNotesModal" class="admin-modal-backdrop" @click.self="closeReleaseNotesModal">
+        <aside class="admin-detail admin-client-modal release-notes-modal" role="dialog" aria-modal="true" aria-labelledby="release-notes-title">
+          <header class="admin-client-modal-head">
+            <div>
+              <h3 id="release-notes-title">Обновления</h3>
+              <p>История изменений приложения по версиям.</p>
+            </div>
+            <button class="icon-button" type="button" aria-label="Закрыть список обновлений" @click="closeReleaseNotesModal">
+              <X class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="release-notes-list">
+            <article v-for="note in releaseNotes" :key="note.version" class="release-note-card">
+              <button class="release-note-head" type="button" @click="toggleReleaseNote(note.version)">
+                <span>
+                  <strong>v{{ note.version }}</strong>
+                  <small>{{ note.updatedAt }}</small>
+                </span>
+                <span class="release-note-title">{{ note.title }}</span>
+                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': expandedReleaseVersion === note.version }" aria-hidden="true" />
+              </button>
+              <ul v-if="expandedReleaseVersion === note.version" class="release-note-items">
+                <li v-for="item in note.items" :key="item">{{ item }}</li>
+              </ul>
+            </article>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
 
     <div class="admin-tabs">
       <button

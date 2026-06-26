@@ -1652,6 +1652,19 @@ button {
   padding: 0.35rem 0.55rem;
   text-align: right;
   box-shadow: var(--shadow-soft);
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+.app-version-badge:active {
+  transform: scale(0.98);
+}
+
+.app-version-badge:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 26%, var(--panel));
 }
 
 .app-version-badge span {
@@ -1666,6 +1679,78 @@ button {
   font-size: 0.58rem;
   font-weight: 720;
   line-height: 1.1;
+}
+
+.release-notes-modal {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+}
+
+.release-notes-list {
+  display: grid;
+  gap: 0.55rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+.release-note-card {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 76%, transparent);
+}
+
+.release-note-head {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(4.8rem, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--text);
+  padding: 0.72rem;
+  text-align: left;
+}
+
+.release-note-head > span:first-child {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.release-note-head strong {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 880;
+}
+
+.release-note-head small,
+.release-note-title,
+.release-note-items {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.release-note-title {
+  color: var(--muted-strong);
+  font-weight: 800;
+}
+
+.release-note-head svg {
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.release-note-items {
+  display: grid;
+  gap: 0.38rem;
+  margin: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding: 0.7rem 0.85rem 0.8rem 1.55rem;
+}
+
+.release-note-items li::marker {
+  color: var(--accent);
 }
 
 .icon-button {
@@ -3062,6 +3147,14 @@ button.chat-message-author:active {
 
   .admin-stat-period {
     flex: 1 1 0;
+  }
+
+  .release-note-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .release-note-title {
+    grid-column: 1 / -1;
   }
 
   .admin-user-layout {
