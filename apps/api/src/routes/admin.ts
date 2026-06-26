@@ -25,7 +25,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
-import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, isLearningMediaContentTypeAllowed } from "../learning/mediaUpload";
+import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, getLearningMediaUploadContentType } from "../learning/mediaUpload";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -93,8 +93,8 @@ function createCategorySlug(title: string) {
 }
 
 async function uploadMaterialFile(kind: ContentKind, file: File) {
-  const contentType = file.type || "application/octet-stream";
-  if (!isLearningMediaContentTypeAllowed(kind, contentType)) {
+  const contentType = getLearningMediaUploadContentType(kind, file.type || "application/octet-stream", file.name);
+  if (!contentType) {
     return null;
   }
 

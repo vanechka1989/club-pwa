@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLearningMediaObjectKey, isLearningMediaContentTypeAllowed } from "./mediaUpload";
+import { buildLearningMediaObjectKey, getLearningMediaUploadContentType, isLearningMediaContentTypeAllowed } from "./mediaUpload";
 
 describe("learning media upload helpers", () => {
   it("accepts audio files and stores them under the audio prefix", () => {
@@ -14,5 +14,12 @@ describe("learning media upload helpers", () => {
         now: new Date("2026-06-26T10:00:00.000Z")
       })
     ).toBe("learning/audio/2026-06-26/upload-id-voice-message.webm");
+  });
+
+  it("normalizes recorded audio when mobile webviews upload it as an opaque file", () => {
+    expect(getLearningMediaUploadContentType("audio", "application/octet-stream", "voice-message.webm")).toBe("audio/webm");
+    expect(getLearningMediaUploadContentType("audio", "", "voice-message.m4a")).toBe("audio/mp4");
+    expect(getLearningMediaUploadContentType("audio", "video/mp4", "voice-message.m4a")).toBe("audio/mp4");
+    expect(getLearningMediaUploadContentType("audio", "application/octet-stream", "voice-message.exe")).toBeNull();
   });
 });
