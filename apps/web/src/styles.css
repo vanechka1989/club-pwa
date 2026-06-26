@@ -2469,6 +2469,101 @@ button {
   object-fit: contain;
 }
 
+.lesson-video-player {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 16px;
+  background: #000;
+  box-shadow: 0 16px 34px color-mix(in srgb, #000 24%, transparent);
+}
+
+.lesson-video-player-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  align-content: center;
+  border: 0;
+  border-radius: 0;
+  background: #000;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.lesson-video-element {
+  display: block;
+  width: 100%;
+  max-height: min(62vh, 28rem);
+  aspect-ratio: 16 / 9;
+  background: #000;
+  object-fit: contain;
+}
+
+.lesson-video-player-fullscreen .lesson-video-element {
+  max-height: calc(100dvh - 5.8rem);
+}
+
+.lesson-video-play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: 4.2rem;
+  height: 4.2rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 88%, transparent);
+  color: #050509;
+  box-shadow: 0 14px 34px color-mix(in srgb, #000 34%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+.lesson-video-play-button:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+.lesson-video-controls {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  left: 0.65rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, #fff 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #020617 72%, transparent);
+  padding: 0.35rem 0.45rem;
+  backdrop-filter: blur(14px);
+}
+
+.lesson-video-controls span {
+  color: #f8fafc;
+  font-size: 0.68rem;
+  font-weight: 780;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.lesson-video-progress {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.lesson-video-fullscreen-button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #fff 18%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #020617 72%, transparent);
+  color: #f8fafc;
+}
+
 .lesson-viewer-audio {
   width: 100%;
   border-radius: 999px;

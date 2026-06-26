@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { AdminLearningMaterial, ContentCardLayout, ContentKind, LearningCategory, LearningContent } from "@club/shared";
-import { ChevronDown, ExternalLink, Mic, Pencil, Plus, Square, Trash2, X } from "lucide-vue-next";
+import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   createAdminLearningMaterial,
@@ -181,6 +181,11 @@ const lessonError = ref("");
 const isVoiceRecording = ref(false);
 const voiceRecorder = ref<MediaRecorder | null>(null);
 const voiceStream = ref<MediaStream | null>(null);
+const lessonVideoElement = ref<HTMLVideoElement | null>(null);
+const isLessonVideoPlaying = ref(false);
+const lessonVideoCurrentTime = ref(0);
+const lessonVideoDuration = ref(0);
+const isLessonVideoFullscreen = ref(false);
 let voiceChunks: Blob[] = [];
 
 const canManageModules = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
@@ -200,6 +205,10 @@ const lessonPreviewSource = computed(() => {
 
   return getDefaultLessonCover(ui.colorScheme, lessonCardLayout.value);
 });
+const lessonVideoPoster = computed(() => (selectedLessonItem.value ? getLessonImage(selectedLessonItem.value) : lessonPreviewSource.value));
+const lessonVideoProgress = computed(() =>
+  lessonVideoDuration.value > 0 ? Math.min(100, Math.max(0, (lessonVideoCurrentTime.value / lessonVideoDuration.value) * 100)) : 0
+);
 
 function lessonCountLabel(count: number) {
   const lastTwo = count % 100;
@@ -299,6 +308,7 @@ function openLessonCreateModal(module: ModuleCard) {
 }
 
 function closeLessonModal() {
+  resetLessonVideoState();
   selectedLesson.value = null;
   lessonTitle.value = "";
   lessonDescription.value = "";
@@ -311,6 +321,93 @@ function closeLessonModal() {
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonError.value = "";
+}
+
+function resetLessonVideoState() {
+  if (document.fullscreenElement) {
+    void document.exitFullscreen().catch(() => {});
+  }
+  isLessonVideoFullscreen.value = false;
+  isLessonVideoPlaying.value = false;
+  lessonVideoCurrentTime.value = 0;
+  lessonVideoDuration.value = 0;
+}
+
+function formatVideoTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return "0:00";
+  }
+
+  const rounded = Math.floor(seconds);
+  const minutes = Math.floor(rounded / 60);
+  const restSeconds = rounded % 60;
+  return `${minutes}:${restSeconds.toString().padStart(2, "0")}`;
+}
+
+function syncLessonVideoState() {
+  const video = lessonVideoElement.value;
+  if (!video) {
+    return;
+  }
+
+  lessonVideoCurrentTime.value = video.currentTime;
+  lessonVideoDuration.value = Number.isFinite(video.duration) ? video.duration : 0;
+  isLessonVideoPlaying.value = !video.paused && !video.ended;
+}
+
+async function toggleLessonVideoPlayback() {
+  const video = lessonVideoElement.value;
+  if (!video) {
+    return;
+  }
+
+  if (video.paused || video.ended) {
+    await video.play().catch(() => {});
+  } else {
+    video.pause();
+  }
+  syncLessonVideoState();
+}
+
+function handleLessonVideoSeek(event: Event) {
+  const video = lessonVideoElement.value;
+  const input = event.target as HTMLInputElement;
+  if (!video || !lessonVideoDuration.value) {
+    return;
+  }
+
+  video.currentTime = (Number(input.value) / 100) * lessonVideoDuration.value;
+  syncLessonVideoState();
+}
+
+async function toggleLessonVideoFullscreen() {
+  const player = lessonVideoElement.value?.closest(".lesson-video-player") as HTMLElement | null;
+  if (!player) {
+    return;
+  }
+
+  if (isLessonVideoFullscreen.value) {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+    }
+    isLessonVideoFullscreen.value = false;
+    return;
+  }
+
+  if (player.requestFullscreen) {
+    await player.requestFullscreen().catch(() => {
+      isLessonVideoFullscreen.value = true;
+    });
+  } else {
+    isLessonVideoFullscreen.value = true;
+  }
+  isLessonVideoFullscreen.value = true;
+}
+
+function handleLessonFullscreenChange() {
+  if (!document.fullscreenElement) {
+    isLessonVideoFullscreen.value = false;
+  }
 }
 
 function cloneInitialModules() {
@@ -727,6 +824,11 @@ function stopVoiceRecording() {
 
 onMounted(() => {
   void loadModules();
+  document.addEventListener("fullscreenchange", handleLessonFullscreenChange);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("fullscreenchange", handleLessonFullscreenChange);
 });
 
 watch(
@@ -950,14 +1052,57 @@ watch(
                 :alt="selectedLessonItem.title"
                 loading="lazy"
               />
-              <video
+              <div
                 v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl"
-                class="lesson-viewer-media"
-                :src="selectedLessonItem.mediaUrl"
-                controls
-                playsinline
-                preload="metadata"
-              />
+                class="lesson-video-player"
+                :class="{ 'lesson-video-player-fullscreen': isLessonVideoFullscreen }"
+              >
+                <video
+                  ref="lessonVideoElement"
+                  class="lesson-video-element"
+                  :src="selectedLessonItem.mediaUrl"
+                  :poster="lessonVideoPoster"
+                  playsinline
+                  preload="metadata"
+                  @loadedmetadata="syncLessonVideoState"
+                  @timeupdate="syncLessonVideoState"
+                  @play="syncLessonVideoState"
+                  @pause="syncLessonVideoState"
+                  @ended="syncLessonVideoState"
+                />
+                <button
+                  class="lesson-video-play-button"
+                  type="button"
+                  :aria-label="isLessonVideoPlaying ? 'Поставить видео на паузу' : 'Запустить видео'"
+                  @click="toggleLessonVideoPlayback"
+                >
+                  <Pause v-if="isLessonVideoPlaying" class="h-7 w-7" aria-hidden="true" />
+                  <Play v-else class="h-7 w-7" aria-hidden="true" />
+                </button>
+                <div class="lesson-video-controls">
+                  <span>{{ formatVideoTime(lessonVideoCurrentTime) }}</span>
+                  <input
+                    class="lesson-video-progress"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    :value="lessonVideoProgress"
+                    aria-label="Позиция видео"
+                    @input="handleLessonVideoSeek"
+                  />
+                  <span>{{ formatVideoTime(lessonVideoDuration) }}</span>
+                  <button
+                    class="lesson-video-fullscreen-button"
+                    type="button"
+                    :aria-label="isLessonVideoFullscreen ? 'Свернуть видео' : 'Открыть видео во весь экран'"
+                    @click="toggleLessonVideoFullscreen"
+                  >
+                    <Minimize2 v-if="isLessonVideoFullscreen" class="h-4 w-4" aria-hidden="true" />
+                    <Maximize2 v-else class="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
               <audio
                 v-else-if="selectedLessonItem.kind === 'audio' && selectedLessonItem.mediaUrl"
                 class="lesson-viewer-audio"

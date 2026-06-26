@@ -215,6 +215,17 @@ describe("Learning section modules", () => {
     expect(screen.getByText("Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.")).toBeTruthy();
   });
 
+  it("uses a custom lesson video player with fullscreen control", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
+
+    expect(source).toContain('class="lesson-video-player"');
+    expect(source).toContain(':poster="lessonVideoPoster"');
+    expect(styles).toMatch(/\.lesson-video-player\s*\{/);
+    expect(styles).toMatch(/\.lesson-video-player-fullscreen\s*\{[^}]*position:\s*fixed;/s);
+    expect(styles).toMatch(/\.lesson-video-fullscreen-button\s*\{/);
+  });
+
   it("adds a lesson inside a selected module", async () => {
     renderAsOwner();
 
