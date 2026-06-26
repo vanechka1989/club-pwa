@@ -167,7 +167,7 @@ describe("admin statistics", () => {
       recurrentPaidOrders: 1
     });
     expect(stats.payments.breakdown.map((item) => [item.label, item.value])).toEqual([
-      ["Оплачено", 2],
+      ["Всего оплат", 2],
       ["Разовые", 1],
       ["Рекуррент", 1],
       ["Ожидают", 1],

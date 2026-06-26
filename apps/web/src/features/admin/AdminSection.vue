@@ -832,7 +832,7 @@ onUnmounted(() => {
           <header class="admin-client-modal-head">
             <div>
               <h3 id="payment-drilldown-title">{{ selectedPaymentBreakdown.label }}</h3>
-              <p>{{ paymentDrilldownOrders.length }} записей за выбранный период. Нажмите клиента, чтобы открыть карточку.</p>
+              <p>{{ paymentDrilldownOrders.length }} записей. Нажмите строку, чтобы открыть клиента.</p>
             </div>
             <button class="icon-button" type="button" aria-label="Закрыть детализацию оплат" @click="closePaymentDrilldown">
               <X class="h-4 w-4" aria-hidden="true" />
@@ -985,6 +985,7 @@ onUnmounted(() => {
             >
               <span>{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
+              <small v-if="item.value">Подробнее</small>
             </button>
           </div>
         </section>

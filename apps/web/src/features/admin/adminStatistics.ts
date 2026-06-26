@@ -154,7 +154,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       oneTimePaidOrders,
       recurrentPaidOrders,
       breakdown: [
-        { key: "paid", label: "Оплачено", value: paidOrders.length },
+        { key: "paid", label: "Всего оплат", value: paidOrders.length },
         { key: "one_time", label: "Разовые", value: oneTimePaidOrders },
         { key: "recurrent", label: "Рекуррент", value: recurrentPaidOrders },
         { key: "pending", label: "Ожидают", value: pendingOrders },
