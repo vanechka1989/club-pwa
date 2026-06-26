@@ -20,6 +20,7 @@ import {
 } from "@/api/client";
 import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useSessionStore } from "@/stores/session";
+import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 
 const session = useSessionStore();
 const { t } = useI18n();
@@ -53,7 +54,7 @@ const materialTitle = ref("");
 const materialSummary = ref("");
 const materialBody = ref("");
 const materialPublished = ref(true);
-const materialFile = ref<File | null>(null);
+const materialFile = ref<NamedBlobUpload | null>(null);
 const thumbnailFile = ref<File | null>(null);
 const editingMaterial = ref<AdminLearningMaterial | null>(null);
 const voiceRecording = ref(false);
@@ -318,7 +319,8 @@ function closeContentModal() {
 }
 
 function handleMaterialFileChange(event: Event) {
-  materialFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+  materialFile.value = file ? { blob: file, name: file.name } : null;
   if (materialFile.value && voicePreviewUrl.value) {
     URL.revokeObjectURL(voicePreviewUrl.value);
     voicePreviewUrl.value = null;
@@ -351,15 +353,12 @@ async function startVoiceRecording() {
         return;
       }
 
-      const mimeType = voiceRecorder?.mimeType || "audio/webm";
-      const extension = mimeType.includes("mp4") ? "m4a" : "webm";
-      const blob = new Blob(voiceChunks, { type: mimeType });
-      const file = new File([blob], `voice-message.${extension}`, { type: mimeType });
-      materialFile.value = file;
+      const upload = createVoiceUpload(voiceChunks, voiceRecorder?.mimeType);
+      materialFile.value = upload;
       if (voicePreviewUrl.value) {
         URL.revokeObjectURL(voicePreviewUrl.value);
       }
-      voicePreviewUrl.value = URL.createObjectURL(blob);
+      voicePreviewUrl.value = URL.createObjectURL(upload.blob);
       voiceChunks = [];
     });
     voiceRecorder.start();
@@ -461,7 +460,7 @@ async function handleSaveMaterial() {
     form.set("body", materialBody.value);
     form.set("isPublished", String(materialPublished.value));
     if (materialKind.value !== "text" && materialFile.value) {
-      form.set("file", materialFile.value);
+      form.set("file", materialFile.value.blob, materialFile.value.name);
     }
     if (thumbnailFile.value) {
       form.set("thumbnailFile", thumbnailFile.value);

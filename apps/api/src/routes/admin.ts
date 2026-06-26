@@ -25,6 +25,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
+import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, isLearningMediaContentTypeAllowed } from "../learning/mediaUpload";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -81,14 +82,6 @@ function normalizeOptionalText(value: string) {
   return value.length ? value : null;
 }
 
-function sanitizeFileName(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 96) || "material";
-}
-
 function createCategorySlug(title: string) {
   const readable = title
     .toLowerCase()
@@ -101,15 +94,16 @@ function createCategorySlug(title: string) {
 
 async function uploadMaterialFile(kind: ContentKind, file: File) {
   const contentType = file.type || "application/octet-stream";
-  if (
-    (kind === "photo" && !contentType.startsWith("image/")) ||
-    (kind === "video" && !contentType.startsWith("video/")) ||
-    (kind === "audio" && !contentType.startsWith("audio/"))
-  ) {
+  if (!isLearningMediaContentTypeAllowed(kind, contentType)) {
     return null;
   }
 
-  const key = `learning/${kind}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(file.name)}`;
+  const key = buildLearningMediaObjectKey({
+    kind,
+    fileName: file.name,
+    id: randomUUID(),
+    now: new Date()
+  });
   const upload = await uploadObject({
     key,
     body: new Uint8Array(await file.arrayBuffer()),
@@ -129,7 +123,11 @@ async function uploadThumbnailFile(file: File) {
     return null;
   }
 
-  const key = `learning/thumbnails/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${sanitizeFileName(file.name)}`;
+  const key = buildLearningThumbnailObjectKey({
+    fileName: file.name,
+    id: randomUUID(),
+    now: new Date()
+  });
   const upload = await uploadObject({
     key,
     body: new Uint8Array(await file.arrayBuffer()),
