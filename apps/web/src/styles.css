@@ -1974,6 +1974,23 @@ button {
   gap: 0.85rem;
 }
 
+.modules-panel-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.modules-edit-hint {
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--text);
+  padding: 0.7rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 820;
+}
+
 .admin-mockup-card {
   display: grid;
   gap: 0.75rem;
@@ -1982,6 +1999,24 @@ button {
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   padding: 0.9rem;
   box-shadow: var(--shadow-soft);
+}
+
+.admin-mockup-card.module-edit-card {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.module-edit-select {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  color: var(--text);
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-align: center;
 }
 
 .admin-mockup-card-head {
@@ -2050,6 +2085,19 @@ button {
   font-size: 0.64rem;
   font-weight: 780;
   text-align: center;
+}
+
+.module-form {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  padding-bottom: 0.7rem;
+}
+
+.admin-form-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
+  gap: 0.55rem;
+  margin-top: auto;
+  padding-top: 0.4rem;
 }
 
 .learning-section-panel {
