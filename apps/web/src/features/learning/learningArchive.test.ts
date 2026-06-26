@@ -167,6 +167,12 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
   });
 
+  it("keeps horizontal lesson covers wide instead of square", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
+  });
+
   it("uses a compact lesson modal for member viewing", async () => {
     renderAsMember();
 

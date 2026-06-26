@@ -2134,10 +2134,10 @@ button {
 
 .modules-panel .admin-mockup-thumb-horizontal {
   grid-column: 1 / -1;
-  grid-template-columns: 4.35rem minmax(0, 1fr);
+  grid-template-columns: minmax(7.5rem, 38%) minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem;
-  min-height: 4.75rem;
+  min-height: 5.25rem;
   border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, var(--panel) 82%, transparent);
@@ -2146,7 +2146,7 @@ button {
 }
 
 .modules-panel .admin-mockup-thumb-horizontal img {
-  aspect-ratio: 1;
+  aspect-ratio: 16 / 9;
   border-radius: 13px;
 }
 
