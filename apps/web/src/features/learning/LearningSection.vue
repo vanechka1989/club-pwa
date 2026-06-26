@@ -192,7 +192,9 @@ const isLessonVideoPlaying = ref(false);
 const lessonVideoCurrentTime = ref(0);
 const lessonVideoDuration = ref(0);
 const isLessonVideoFullscreen = ref(false);
+const showLessonVideoControls = ref(true);
 let voiceChunks: Blob[] = [];
+let lessonVideoControlsTimer: number | null = null;
 
 const canManageModules = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const editingModule = computed(() => moduleCards.value.find((module) => module.id === editingModuleId.value) ?? null);
@@ -342,8 +344,10 @@ function resetLessonVideoState() {
   if (document.fullscreenElement) {
     void document.exitFullscreen().catch(() => {});
   }
+  clearLessonVideoControlsTimer();
   isLessonVideoFullscreen.value = false;
   isLessonVideoPlaying.value = false;
+  showLessonVideoControls.value = true;
   lessonVideoCurrentTime.value = 0;
   lessonVideoDuration.value = 0;
 }
@@ -370,6 +374,27 @@ function syncLessonVideoState() {
   isLessonVideoPlaying.value = !video.paused && !video.ended;
 }
 
+function clearLessonVideoControlsTimer() {
+  if (lessonVideoControlsTimer !== null) {
+    window.clearTimeout(lessonVideoControlsTimer);
+    lessonVideoControlsTimer = null;
+  }
+}
+
+function revealLessonVideoControls() {
+  showLessonVideoControls.value = true;
+  clearLessonVideoControlsTimer();
+
+  if (!isLessonVideoPlaying.value) {
+    return;
+  }
+
+  lessonVideoControlsTimer = window.setTimeout(() => {
+    showLessonVideoControls.value = false;
+    lessonVideoControlsTimer = null;
+  }, 2200);
+}
+
 async function toggleLessonVideoPlayback() {
   const video = lessonVideoElement.value;
   if (!video) {
@@ -382,6 +407,7 @@ async function toggleLessonVideoPlayback() {
     video.pause();
   }
   syncLessonVideoState();
+  revealLessonVideoControls();
 }
 
 function handleLessonVideoSeek(event: Event) {
@@ -393,6 +419,7 @@ function handleLessonVideoSeek(event: Event) {
 
   video.currentTime = (Number(input.value) / 100) * lessonVideoDuration.value;
   syncLessonVideoState();
+  revealLessonVideoControls();
 }
 
 async function toggleLessonVideoFullscreen() {
@@ -406,6 +433,7 @@ async function toggleLessonVideoFullscreen() {
       await document.exitFullscreen().catch(() => {});
     }
     isLessonVideoFullscreen.value = false;
+    revealLessonVideoControls();
     return;
   }
 
@@ -417,12 +445,26 @@ async function toggleLessonVideoFullscreen() {
     isLessonVideoFullscreen.value = true;
   }
   isLessonVideoFullscreen.value = true;
+  revealLessonVideoControls();
 }
 
 function handleLessonFullscreenChange() {
   if (!document.fullscreenElement) {
     isLessonVideoFullscreen.value = false;
+    revealLessonVideoControls();
   }
+}
+
+async function handleLessonVideoEnded() {
+  syncLessonVideoState();
+  showLessonVideoControls.value = true;
+  clearLessonVideoControlsTimer();
+
+  if (document.fullscreenElement) {
+    await document.exitFullscreen().catch(() => {});
+  }
+
+  isLessonVideoFullscreen.value = false;
 }
 
 function cloneInitialModules() {
@@ -884,6 +926,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", handleLessonFullscreenChange);
+  clearLessonVideoControlsTimer();
 });
 
 watch(
@@ -1137,7 +1180,13 @@ watch(
               <div
                 v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl"
                 class="lesson-video-player"
-                :class="{ 'lesson-video-player-fullscreen': isLessonVideoFullscreen }"
+                :class="{
+                  'lesson-video-player-fullscreen': isLessonVideoFullscreen,
+                  'lesson-video-player-controls-hidden': !showLessonVideoControls && isLessonVideoPlaying
+                }"
+                @mousemove="revealLessonVideoControls"
+                @touchstart.passive="revealLessonVideoControls"
+                @click="revealLessonVideoControls"
               >
                 <video
                   ref="lessonVideoElement"
@@ -1150,18 +1199,27 @@ watch(
                   @timeupdate="syncLessonVideoState"
                   @play="syncLessonVideoState"
                   @pause="syncLessonVideoState"
-                  @ended="syncLessonVideoState"
+                  @ended="handleLessonVideoEnded"
                 />
+                <button
+                  v-if="isLessonVideoFullscreen"
+                  class="lesson-video-exit-fullscreen-button"
+                  type="button"
+                  aria-label="Выйти из полноэкранного видео"
+                  @click.stop="toggleLessonVideoFullscreen"
+                >
+                  <X class="h-5 w-5" aria-hidden="true" />
+                </button>
                 <button
                   class="lesson-video-play-button"
                   type="button"
                   :aria-label="isLessonVideoPlaying ? 'Поставить видео на паузу' : 'Запустить видео'"
-                  @click="toggleLessonVideoPlayback"
+                  @click.stop="toggleLessonVideoPlayback"
                 >
                   <Pause v-if="isLessonVideoPlaying" class="h-7 w-7" aria-hidden="true" />
                   <Play v-else class="h-7 w-7" aria-hidden="true" />
                 </button>
-                <div class="lesson-video-controls">
+                <div class="lesson-video-controls" :class="{ 'lesson-video-controls-hidden': !showLessonVideoControls && isLessonVideoPlaying }">
                   <span>{{ formatVideoTime(lessonVideoCurrentTime) }}</span>
                   <input
                     class="lesson-video-progress"
@@ -1171,14 +1229,14 @@ watch(
                     step="0.1"
                     :value="lessonVideoProgress"
                     aria-label="Позиция видео"
-                    @input="handleLessonVideoSeek"
+                    @input.stop="handleLessonVideoSeek"
                   />
                   <span>{{ formatVideoTime(lessonVideoDuration) }}</span>
                   <button
                     class="lesson-video-fullscreen-button"
                     type="button"
                     :aria-label="isLessonVideoFullscreen ? 'Свернуть видео' : 'Открыть видео во весь экран'"
-                    @click="toggleLessonVideoFullscreen"
+                    @click.stop="toggleLessonVideoFullscreen"
                   >
                     <Minimize2 v-if="isLessonVideoFullscreen" class="h-4 w-4" aria-hidden="true" />
                     <Maximize2 v-else class="h-4 w-4" aria-hidden="true" />

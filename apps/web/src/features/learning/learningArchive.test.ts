@@ -306,9 +306,14 @@ describe("Learning section modules", () => {
 
     expect(source).toContain('class="lesson-video-player"');
     expect(source).toContain(':poster="lessonVideoPoster"');
+    expect(source).toContain("showLessonVideoControls");
+    expect(source).toContain("@ended=\"handleLessonVideoEnded\"");
+    expect(source).toContain("lesson-video-exit-fullscreen-button");
     expect(styles).toMatch(/\.lesson-video-player\s*\{/);
     expect(styles).toMatch(/\.lesson-video-player-fullscreen\s*\{[^}]*position:\s*fixed;/s);
     expect(styles).toMatch(/\.lesson-video-fullscreen-button\s*\{/);
+    expect(styles).toMatch(/\.lesson-video-controls-hidden\s*\{/);
+    expect(styles).toMatch(/\.lesson-video-exit-fullscreen-button\s*\{/);
   });
 
   it("adds a lesson inside a selected module", async () => {

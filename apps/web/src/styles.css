@@ -2500,6 +2500,7 @@ button {
   z-index: 90;
   display: grid;
   align-content: center;
+  gap: 0.75rem;
   border: 0;
   border-radius: 0;
   background: #000;
@@ -2516,7 +2517,9 @@ button {
 }
 
 .lesson-video-player-fullscreen .lesson-video-element {
-  max-height: calc(100dvh - 5.8rem);
+  width: 100%;
+  max-height: calc(100dvh - 4rem);
+  border-radius: 0;
 }
 
 .lesson-video-play-button {
@@ -2533,6 +2536,9 @@ button {
   color: #050509;
   box-shadow: 0 14px 34px color-mix(in srgb, #000 34%, transparent);
   transform: translate(-50%, -50%);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .lesson-video-play-button:active {
@@ -2553,6 +2559,23 @@ button {
   background: color-mix(in srgb, #020617 72%, transparent);
   padding: 0.35rem 0.45rem;
   backdrop-filter: blur(14px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.lesson-video-player-controls-hidden .lesson-video-play-button,
+.lesson-video-controls-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lesson-video-player-controls-hidden .lesson-video-play-button {
+  transform: translate(-50%, -50%) scale(0.92);
+}
+
+.lesson-video-controls-hidden {
+  transform: translateY(0.45rem);
 }
 
 .lesson-video-controls span {
@@ -2578,6 +2601,23 @@ button {
   border-radius: 999px;
   background: color-mix(in srgb, #020617 72%, transparent);
   color: #f8fafc;
+}
+
+.lesson-video-exit-fullscreen-button {
+  position: absolute;
+  top: max(0.85rem, env(safe-area-inset-top));
+  right: max(0.85rem, env(safe-area-inset-right));
+  z-index: 3;
+  display: grid;
+  width: 2.45rem;
+  height: 2.45rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #fff 18%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #020617 74%, transparent);
+  color: #f8fafc;
+  box-shadow: 0 12px 30px color-mix(in srgb, #000 36%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .lesson-viewer-audio {
