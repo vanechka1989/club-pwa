@@ -12,6 +12,7 @@ import {
   updateAdminLearningMaterial
 } from "@/api/client";
 import { useSessionStore } from "@/stores/session";
+import { useUiStore, type ColorScheme } from "@/stores/ui";
 import { getMaterialDraftError } from "./materialForm";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 
@@ -152,6 +153,7 @@ const initialModuleCards: ModuleCard[] = [
 
 const moduleCards = ref<ModuleCard[]>(initialModuleCards.map((module) => ({ ...module, images: module.images.map((lesson) => ({ ...lesson })) })));
 const session = useSessionStore();
+const ui = useUiStore();
 const modulesLoadedFromApi = ref(false);
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
@@ -186,13 +188,13 @@ const selectedLessonItem = computed(() => selectedLessonModule.value?.images.fin
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
-const lessonPreviewSource = computed(
-  () =>
-    selectedLessonItem.value?.thumbnailUrl ||
-    selectedLessonItem.value?.mediaUrl ||
-    selectedLessonItem.value?.url ||
-    "/previews/learning-redesign-1.svg"
-);
+const lessonPreviewSource = computed(() => {
+  if (selectedLessonItem.value) {
+    return getLessonImage(selectedLessonItem.value);
+  }
+
+  return getDefaultLessonCover(ui.colorScheme, lessonCardLayout.value);
+});
 
 function lessonCountLabel(count: number) {
   const lastTwo = count % 100;
@@ -305,7 +307,15 @@ function cloneInitialModules() {
 }
 
 function materialPreviewUrl(item: AdminLearningMaterial | LearningContent) {
-  return item.thumbnailUrl || item.mediaUrl || "/previews/learning-redesign-1.svg";
+  return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
+}
+
+function getDefaultLessonCover(colorScheme: ColorScheme, cardLayout: ContentCardLayout) {
+  return `/previews/default-lessons/${colorScheme}-${cardLayout}.png`;
+}
+
+function getLessonImage(item: ModuleLesson) {
+  return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
 }
 
 function materialToLesson(item: AdminLearningMaterial | LearningContent): ModuleLesson {
@@ -503,7 +513,7 @@ function saveLessonLocally() {
     description: lessonDescription.value.trim(),
     content: lessonContent.value.trim() || "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
     mediaUrl: null,
-    thumbnailUrl: lessonPreviewSource.value,
+    thumbnailUrl: selectedLessonItem.value?.thumbnailUrl ?? null,
     cardLayout: lessonCardLayout.value,
     isPersisted: false
   };
@@ -742,7 +752,7 @@ watch(
             :aria-label="`Открыть урок ${image.title}`"
             @click="openLessonModal(module, image)"
           >
-            <img :src="image.url" :alt="image.title" loading="lazy" />
+            <img :src="getLessonImage(image)" :alt="image.title" loading="lazy" />
             <span>
               {{ image.title }}
               <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />

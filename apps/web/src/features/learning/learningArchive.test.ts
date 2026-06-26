@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionStore } from "@/stores/session";
+import { useUiStore } from "@/stores/ui";
 import LearningSection from "./LearningSection.vue";
 
 function renderAsOwner() {
@@ -30,6 +31,8 @@ function renderAsOwner() {
       plugins: [pinia]
     }
   });
+
+  return pinia;
 }
 
 function renderAsMember() {
@@ -207,6 +210,24 @@ describe("Learning section modules", () => {
 
     const lessonCard = screen.getByRole("button", { name: /Горизонтальный урок/ });
     expect(lessonCard.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
+  });
+
+  it("uses themed default covers when a lesson has no uploaded cover", async () => {
+    const pinia = renderAsOwner();
+    const ui = useUiStore(pinia);
+    ui.setColorScheme("azure");
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+
+    await fireEvent.update(screen.getByLabelText("Название урока"), "Урок без обложки");
+    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальная карточка" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
+
+    const lessonCard = screen.getByRole("button", { name: /Урок без обложки/ });
+    const cover = lessonCard.querySelector("img");
+
+    expect(cover?.getAttribute("src")).toBe("/previews/default-lessons/azure-horizontal.png");
   });
 
   it("edits lesson content from the same lesson modal", async () => {
