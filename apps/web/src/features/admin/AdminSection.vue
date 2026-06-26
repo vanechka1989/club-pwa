@@ -64,7 +64,6 @@ type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
 
 const panelIcons: Record<AdminPanel, LucideIcon> = {
   statistics: BarChart3,
-  overview: BarChart3,
   users: UsersRound,
   payments: CreditCard,
   materials: ImageIcon,
@@ -980,51 +979,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-else-if="activePanel === 'overview'" class="admin-grid">
-      <article class="admin-card">
-        <span class="admin-card-label">Клиенты</span>
-        <strong>{{ totalUsers }}</strong>
-        <small>{{ activeUsers }} активных</small>
-      </article>
-      <article class="admin-card">
-        <span class="admin-card-label">Ограничения</span>
-        <strong>{{ restrictedUsers }}</strong>
-        <small>с активными ограничениями</small>
-      </article>
-      <article class="admin-card">
-        <span class="admin-card-label">Админы</span>
-        <strong>{{ admins.length + 1 }}</strong>
-        <small>включая владельца</small>
-      </article>
-      <article class="admin-card">
-        <span class="admin-card-label">Оплаты</span>
-        <strong>{{ paidOrders }}</strong>
-        <small>{{ paidRevenue.toLocaleString("ru-RU") }} ₽ оплачено</small>
-      </article>
-
-      <article v-if="isOwner" class="admin-panel admin-panel-wide">
-        <div class="admin-panel-head">
-          <div>
-            <h3>Предпросмотр клиента</h3>
-            <p>Проверить интерфейс в разных ролях и статусах доступа.</p>
-          </div>
-        </div>
-        <div class="segmented-control">
-          <button
-            v-for="option in previewOptions"
-            :key="option.value"
-            class="segmented-control-item"
-            :class="{ 'segmented-control-item-active': ui.previewMode === option.value }"
-            type="button"
-            :disabled="!isOwner"
-            @click="handlePreviewChange(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-      </article>
-    </section>
-
     <section v-else-if="activePanel === 'users'" class="admin-panel">
       <div class="admin-panel-head">
         <div>
@@ -1480,6 +1434,27 @@ onUnmounted(() => {
           <p>Владелец и список администраторов клуба.</p>
         </div>
       </div>
+
+      <section v-if="isOwner" class="admin-crm-block">
+        <div class="admin-panel-head">
+          <div>
+            <h4>Предпросмотр клиента</h4>
+            <p>Проверить интерфейс в разных ролях и статусах доступа.</p>
+          </div>
+        </div>
+        <div class="segmented-control">
+          <button
+            v-for="option in previewOptions"
+            :key="option.value"
+            class="segmented-control-item"
+            :class="{ 'segmented-control-item-active': ui.previewMode === option.value }"
+            type="button"
+            @click="handlePreviewChange(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </section>
 
       <article class="admin-entity">
         <div>
