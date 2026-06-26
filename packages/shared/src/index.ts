@@ -37,6 +37,9 @@ export type SubscribeResponse = z.infer<typeof subscribeResponseSchema>;
 export const contentKindSchema = z.enum(["text", "photo", "video", "audio"]);
 export type ContentKind = z.infer<typeof contentKindSchema>;
 
+export const contentCardLayoutSchema = z.enum(["vertical", "horizontal"]);
+export type ContentCardLayout = z.infer<typeof contentCardLayoutSchema>;
+
 export const learningCategorySchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -56,6 +59,7 @@ export const learningContentSchema = z.object({
   body: z.string().nullable(),
   mediaUrl: z.string().url().nullable(),
   thumbnailUrl: z.string().url().nullable(),
+  cardLayout: contentCardLayoutSchema,
   mediaContentType: z.string().nullable(),
   mediaSizeBytes: z.number().int().nonnegative().nullable(),
   publishedAt: z.string().datetime().nullable()

@@ -12,6 +12,7 @@ describe("learningContentSchema", () => {
       body: null,
       mediaUrl: "https://example.com/video.mp4",
       thumbnailUrl: "https://example.com/cover.jpg",
+      cardLayout: "vertical",
       mediaContentType: "video/mp4",
       mediaSizeBytes: 1024,
       publishedAt: null
@@ -38,6 +39,7 @@ describe("learningHomeResponseSchema", () => {
           body: null,
           mediaUrl: "https://example.com/video.mp4",
           thumbnailUrl: null,
+          cardLayout: "horizontal",
           mediaContentType: "video/mp4",
           mediaSizeBytes: 1024,
           publishedAt: null

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import type { AdminLearningMaterial, ContentKind, LearningCategory, LearningContent } from "@club/shared";
+import type { AdminLearningMaterial, ContentCardLayout, ContentKind, LearningCategory, LearningContent } from "@club/shared";
 import { ChevronDown, ExternalLink, Mic, Pencil, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
@@ -25,6 +25,7 @@ type ModuleLesson = {
   content: string;
   mediaUrl: string | null;
   thumbnailUrl: string | null;
+  cardLayout: ContentCardLayout;
   isPersisted: boolean;
 };
 
@@ -53,6 +54,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-1.svg",
+        cardLayout: "vertical",
         isPersisted: false
       },
       {
@@ -65,6 +67,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-2.svg",
+        cardLayout: "horizontal",
         isPersisted: false
       },
       {
@@ -77,6 +80,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-3.svg",
+        cardLayout: "vertical",
         isPersisted: false
       },
       {
@@ -89,6 +93,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-4.svg",
+        cardLayout: "vertical",
         isPersisted: false
       }
     ],
@@ -110,6 +115,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-1.png",
+        cardLayout: "vertical",
         isPersisted: false
       },
       {
@@ -122,6 +128,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-2.png",
+        cardLayout: "vertical",
         isPersisted: false
       },
       {
@@ -134,6 +141,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-3.png",
+        cardLayout: "vertical",
         isPersisted: false
       }
     ],
@@ -160,6 +168,7 @@ const lessonFile = ref<File | NamedBlobUpload | null>(null);
 const lessonFileName = ref("");
 const lessonThumbnailFile = ref<File | null>(null);
 const lessonThumbnailFileName = ref("");
+const lessonCardLayout = ref<ContentCardLayout>("vertical");
 const lessonContent = ref("");
 const lessonError = ref("");
 const isVoiceRecording = ref(false);
@@ -254,6 +263,7 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
   lessonFileName.value = lesson.mediaUrl ? "Текущий файл сохранён" : "";
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = lesson.thumbnailUrl ? "Текущая обложка сохранена" : "";
+  lessonCardLayout.value = lesson.cardLayout;
   lessonContent.value = lesson.content;
   lessonError.value = "";
 }
@@ -271,6 +281,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonFileName.value = "";
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = "";
+  lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonError.value = "";
 }
@@ -284,6 +295,7 @@ function closeLessonModal() {
   lessonFileName.value = "";
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = "";
+  lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonError.value = "";
 }
@@ -307,6 +319,7 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     content: item.body ?? "",
     mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,
+    cardLayout: item.cardLayout,
     isPersisted: true
   };
 }
@@ -401,6 +414,7 @@ function buildLessonForm() {
   form.set("title", trimmedLessonTitle.value);
   form.set("summary", lessonDescription.value.trim());
   form.set("body", lessonContent.value.trim());
+  form.set("cardLayout", lessonCardLayout.value);
   form.set("isPublished", "true");
   appendFile(form, "file", lessonFile.value);
   if (lessonThumbnailFile.value) {
@@ -490,6 +504,7 @@ function saveLessonLocally() {
     content: lessonContent.value.trim() || "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
     mediaUrl: null,
     thumbnailUrl: lessonPreviewSource.value,
+    cardLayout: lessonCardLayout.value,
     isPersisted: false
   };
 
@@ -722,6 +737,7 @@ watch(
             v-for="image in module.images"
             :key="image.id"
             class="admin-mockup-thumb"
+            :class="image.cardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical'"
             type="button"
             :aria-label="`Открыть урок ${image.title}`"
             @click="openLessonModal(module, image)"
@@ -813,6 +829,29 @@ watch(
                   <option value="audio">Аудио</option>
                 </select>
               </label>
+              <div class="admin-field">
+                <span>Вид карточки</span>
+                <div class="lesson-layout-toggle" role="group" aria-label="Вид карточки урока">
+                  <button
+                    class="lesson-layout-option"
+                    :class="{ 'lesson-layout-option-active': lessonCardLayout === 'vertical' }"
+                    type="button"
+                    aria-label="Вертикальная карточка"
+                    @click="lessonCardLayout = 'vertical'"
+                  >
+                    Вертикальная
+                  </button>
+                  <button
+                    class="lesson-layout-option"
+                    :class="{ 'lesson-layout-option-active': lessonCardLayout === 'horizontal' }"
+                    type="button"
+                    aria-label="Горизонтальная карточка"
+                    @click="lessonCardLayout = 'horizontal'"
+                  >
+                    Горизонтальная
+                  </button>
+                </div>
+              </div>
               <label v-if="lessonKind !== 'text'" class="admin-field">
                 <span>Файл урока</span>
                 <input
@@ -862,7 +901,6 @@ watch(
             <button v-if="canManageModules" class="primary-button" type="button" :disabled="isSaving" @click="saveLesson">
               {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}
             </button>
-            <button v-else class="primary-button" type="button">Открыть урок</button>
           </div>
         </aside>
       </div>

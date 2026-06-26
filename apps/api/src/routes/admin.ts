@@ -181,6 +181,7 @@ async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): P
     body: item.body,
     mediaUrl,
     thumbnailUrl,
+    cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
     publishedAt: item.publishedAt?.toISOString() ?? null,
@@ -873,6 +874,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const title = getFormValue(form, "title");
     const summary = normalizeOptionalText(getFormValue(form, "summary"));
     const body = normalizeOptionalText(getFormValue(form, "body"));
+    const cardLayout = getFormValue(form, "cardLayout") === "horizontal" ? "horizontal" : "vertical";
     const isPublished = getFormValue(form, "isPublished") === "true";
 
     if (!categoryId || !contentKinds.includes(kind) || !title) {
@@ -930,6 +932,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         title,
         summary,
         body,
+        cardLayout,
         mediaObjectKey,
         thumbnailObjectKey,
         thumbnailContentType,
@@ -971,6 +974,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const title = getFormValue(form, "title");
     const summary = normalizeOptionalText(getFormValue(form, "summary"));
     const body = normalizeOptionalText(getFormValue(form, "body"));
+    const cardLayout = getFormValue(form, "cardLayout") === "horizontal" ? "horizontal" : "vertical";
     const isPublished = getFormValue(form, "isPublished") === "true";
 
     if (!categoryId || !contentKinds.includes(kind) || !title) {
@@ -1042,6 +1046,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         title,
         summary,
         body,
+        cardLayout,
         mediaUrl,
         mediaObjectKey,
         mediaContentType,

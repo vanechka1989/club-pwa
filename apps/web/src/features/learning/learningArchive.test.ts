@@ -146,6 +146,16 @@ describe("Learning section modules", () => {
     expect(lessonDialog.textContent).toContain("Модуль 1");
   });
 
+  it("renders horizontal lesson cards when a lesson uses horizontal layout", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+
+    const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
+    expect(horizontalLesson.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
+    expect(horizontalLesson.classList.contains("admin-mockup-thumb-vertical")).toBe(false);
+  });
+
   it("uses a compact lesson modal for member viewing", async () => {
     renderAsMember();
 
@@ -174,6 +184,21 @@ describe("Learning section modules", () => {
     expect(screen.queryByRole("dialog", { name: "Новый урок" })).toBeNull();
     expect(screen.getByRole("button", { name: /Новый урок/ })).toBeTruthy();
     expect(screen.getByText("5 уроков")).toBeTruthy();
+  });
+
+  it("saves the selected lesson card layout", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+
+    await fireEvent.update(screen.getByLabelText("Название урока"), "Горизонтальный урок");
+    await fireEvent.update(screen.getByLabelText("Описание урока"), "Компактная карточка урока");
+    await fireEvent.click(screen.getByRole("button", { name: "Горизонтальная карточка" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
+
+    const lessonCard = screen.getByRole("button", { name: /Горизонтальный урок/ });
+    expect(lessonCard.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
   });
 
   it("edits lesson content from the same lesson modal", async () => {

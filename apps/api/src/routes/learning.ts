@@ -34,6 +34,7 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
     body: includeBody ? item.body : null,
     mediaUrl,
     thumbnailUrl,
+    cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
     publishedAt: item.publishedAt?.toISOString() ?? null

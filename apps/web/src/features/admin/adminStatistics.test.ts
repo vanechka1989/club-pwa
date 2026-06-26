@@ -59,6 +59,7 @@ function material(overrides: Partial<AdminLearningMaterial>): AdminLearningMater
     body: null,
     mediaUrl: null,
     thumbnailUrl: null,
+    cardLayout: "vertical",
     mediaContentType: null,
     mediaSizeBytes: null,
     publishedAt: "2026-06-20T10:00:00.000Z",

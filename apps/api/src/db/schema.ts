@@ -194,6 +194,7 @@ export const contentItems = pgTable(
     mediaUrl: text("media_url"),
     mediaObjectKey: text("media_object_key"),
     thumbnailUrl: text("thumbnail_url"),
+    cardLayout: varchar("card_layout", { length: 24 }).notNull().default("vertical"),
     thumbnailObjectKey: text("thumbnail_object_key"),
     thumbnailContentType: varchar("thumbnail_content_type", { length: 160 }),
     thumbnailSizeBytes: integer("thumbnail_size_bytes"),

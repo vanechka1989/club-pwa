@@ -2128,6 +2128,68 @@ button {
   text-align: center;
 }
 
+.modules-panel .admin-mockup-thumb-vertical {
+  min-width: 0;
+}
+
+.modules-panel .admin-mockup-thumb-horizontal {
+  grid-template-columns: 4.35rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 4.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  padding: 0.48rem;
+  box-shadow: 0 12px 28px color-mix(in srgb, #000 18%, transparent);
+}
+
+.modules-panel .admin-mockup-thumb-horizontal img {
+  aspect-ratio: 1;
+  border-radius: 13px;
+}
+
+.modules-panel .admin-mockup-thumb-horizontal span {
+  justify-content: flex-start;
+  color: var(--text);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.lesson-layout-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.lesson-layout-option {
+  min-height: 2.85rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 850;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.lesson-layout-option:active {
+  transform: translateY(1px);
+}
+
+.lesson-layout-option-active {
+  border-color: color-mix(in srgb, var(--accent) 72%, white);
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  color: var(--text);
+}
+
 .module-form {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   padding-bottom: 0.7rem;
