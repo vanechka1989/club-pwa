@@ -174,6 +174,14 @@ describe("admin statistics", () => {
       ["Ошибки webhook", 1],
       ["Ошибки оплат", 0]
     ]);
+    expect(stats.payments.breakdown.map((item) => item.key)).toEqual([
+      "paid",
+      "one_time",
+      "recurrent",
+      "pending",
+      "webhook_failed",
+      "failed"
+    ]);
     expect(stats.learning).toMatchObject({
       categoriesCount: 2,
       publishedMaterials: 2,

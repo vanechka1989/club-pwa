@@ -49,6 +49,10 @@ import {
   getAdminSubscriptionTitle,
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
+import {
+  filterPaymentOrdersByBreakdown,
+  type AdminPaymentBreakdownItem
+} from "@/features/admin/adminPaymentDrilldown";
 import { getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { formatMembershipStatus } from "@/features/app/i18n";
@@ -107,6 +111,7 @@ const paymentOrders = ref<PaymentOrderLog[]>([]);
 const communityTopics = ref<ClubTopic[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
+const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
 const learningMaterials = ref<AdminLearningMaterial[]>([]);
 const search = ref("");
@@ -202,6 +207,11 @@ const filtersActive = computed(
 const selectedUserPaymentOrders = computed(() =>
   selectedUser.value ? paymentOrders.value.filter((order) => order.customer.telegramId === selectedUser.value?.telegramId) : []
 );
+const paymentDrilldownOrders = computed(() =>
+  selectedPaymentBreakdown.value
+    ? filterPaymentOrdersByBreakdown(selectedPaymentBreakdown.value.key, paymentOrders.value, { period: statisticsPeriod.value })
+    : []
+);
 const accessSaveButtonText = computed(() => getAccessSaveButtonText(accessSaveSucceeded.value));
 const materialsByCategory = computed(() =>
   learningCategories.value.map((category) => ({
@@ -238,6 +248,27 @@ function openReleaseNotesModal() {
 
 function closeReleaseNotesModal() {
   showReleaseNotesModal.value = false;
+}
+
+function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
+  selectedPaymentBreakdown.value = item;
+}
+
+function closePaymentDrilldown() {
+  selectedPaymentBreakdown.value = null;
+}
+
+async function openPaymentDrilldownUser(order: PaymentOrderLog) {
+  const user = users.value.find((entry) => entry.telegramId === order.customer.telegramId);
+
+  if (!user) {
+    setError("Клиент по этой оплате не найден.");
+    return;
+  }
+
+  closePaymentDrilldown();
+  activePanel.value = "users";
+  await selectUser(user);
 }
 
 function toggleReleaseNote(version: string) {
@@ -278,6 +309,10 @@ function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
 
 function paymentCustomerTitle(order: PaymentOrderLog) {
   return order.customer.firstName || order.customer.username || `ID ${order.customer.telegramId}`;
+}
+
+function paymentCustomerInitial(order: PaymentOrderLog) {
+  return paymentCustomerTitle(order).slice(0, 1).toUpperCase();
 }
 
 function paymentOrderDate(order: PaymentOrderLog) {
@@ -791,6 +826,47 @@ onUnmounted(() => {
       </div>
     </Teleport>
 
+    <Teleport to="body">
+      <div v-if="selectedPaymentBreakdown" class="admin-modal-backdrop" @click.self="closePaymentDrilldown">
+        <aside class="admin-detail admin-client-modal admin-payment-drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="payment-drilldown-title">
+          <header class="admin-client-modal-head">
+            <div>
+              <h3 id="payment-drilldown-title">{{ selectedPaymentBreakdown.label }}</h3>
+              <p>{{ paymentDrilldownOrders.length }} записей за выбранный период. Нажмите клиента, чтобы открыть карточку.</p>
+            </div>
+            <button class="icon-button" type="button" aria-label="Закрыть детализацию оплат" @click="closePaymentDrilldown">
+              <X class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="admin-payment-drilldown-list">
+            <button
+              v-for="order in paymentDrilldownOrders"
+              :key="order.id"
+              class="admin-payment-drilldown-card"
+              type="button"
+              @click="openPaymentDrilldownUser(order)"
+            >
+              <span class="admin-payment-customer-avatar">
+                <img v-if="order.customer.photoUrl" :src="order.customer.photoUrl" :alt="paymentCustomerTitle(order)" />
+                <span v-else>{{ paymentCustomerInitial(order) }}</span>
+              </span>
+              <span class="admin-payment-drilldown-copy">
+                <strong>{{ paymentCustomerTitle(order) }}</strong>
+                <small>ID {{ order.customer.telegramId }} · {{ order.productTitle }}</small>
+                <em>
+                  {{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽ ·
+                  {{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }}
+                </em>
+              </span>
+              <span :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</span>
+            </button>
+            <p v-if="!paymentDrilldownOrders.length" class="admin-empty">Записей по этому показателю пока нет.</p>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
+
     <div class="admin-tabs">
       <button
         v-for="panel in panels"
@@ -899,10 +975,17 @@ onUnmounted(() => {
             <strong>{{ adminStatistics.payments.paidOrders }}</strong>
           </header>
           <div class="admin-stat-mini-grid admin-stat-mini-grid-two">
-            <article v-for="item in adminStatistics.payments.breakdown" :key="item.label">
+            <button
+              v-for="item in adminStatistics.payments.breakdown"
+              :key="item.key"
+              class="admin-stat-drilldown"
+              type="button"
+              :disabled="!item.value"
+              @click="openPaymentDrilldown(item)"
+            >
               <span>{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
-            </article>
+            </button>
           </div>
         </section>
 

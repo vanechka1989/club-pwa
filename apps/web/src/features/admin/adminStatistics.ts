@@ -1,4 +1,5 @@
 import type { AdminLearningMaterial, AdminStatsUser, ClubTopic, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
+import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
 
 export type AdminStatisticsPeriod = "7d" | "30d" | "all";
 
@@ -153,13 +154,13 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       oneTimePaidOrders,
       recurrentPaidOrders,
       breakdown: [
-        { label: "Оплачено", value: paidOrders.length },
-        { label: "Разовые", value: oneTimePaidOrders },
-        { label: "Рекуррент", value: recurrentPaidOrders },
-        { label: "Ожидают", value: pendingOrders },
-        { label: "Ошибки webhook", value: failedWebhookOrders },
-        { label: "Ошибки оплат", value: failedOrders }
-      ]
+        { key: "paid", label: "Оплачено", value: paidOrders.length },
+        { key: "one_time", label: "Разовые", value: oneTimePaidOrders },
+        { key: "recurrent", label: "Рекуррент", value: recurrentPaidOrders },
+        { key: "pending", label: "Ожидают", value: pendingOrders },
+        { key: "webhook_failed", label: "Ошибки webhook", value: failedWebhookOrders },
+        { key: "failed", label: "Ошибки оплат", value: failedOrders }
+      ] satisfies AdminPaymentBreakdownItem[]
     },
     learning: {
       categoriesCount: input.learningCategories.length,

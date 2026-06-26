@@ -594,6 +594,7 @@ button {
 .admin-stat-kpi,
 .admin-stat-block,
 .admin-stat-mini-grid article,
+.admin-stat-drilldown,
 .admin-stat-tariff-card {
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   background: color-mix(in srgb, var(--panel) 76%, transparent);
@@ -609,6 +610,7 @@ button {
 
 .admin-stat-kpi span,
 .admin-stat-mini-grid span,
+.admin-stat-drilldown span,
 .admin-stat-bar-row span,
 .admin-stat-tariff-card span,
 .admin-stat-note,
@@ -704,7 +706,29 @@ button {
   padding: 0.52rem;
 }
 
+.admin-stat-drilldown {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.52rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.admin-stat-drilldown:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.admin-stat-drilldown:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 18%, var(--panel));
+}
+
+.admin-stat-drilldown:disabled {
+  opacity: 0.58;
+}
+
 .admin-stat-mini-grid strong,
+.admin-stat-drilldown strong,
 .admin-stat-bar-row strong,
 .admin-stat-tariff-card strong {
   color: var(--text);
@@ -1335,6 +1359,83 @@ button {
   display: grid;
   gap: 0.55rem;
   padding: 0.65rem;
+}
+
+.admin-payment-drilldown-modal {
+  gap: 0.75rem;
+}
+
+.admin-payment-drilldown-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-payment-drilldown-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 74%, transparent);
+  padding: 0.62rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.admin-payment-drilldown-card:active {
+  transform: translateY(1px);
+}
+
+.admin-payment-drilldown-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 18%, var(--panel));
+}
+
+.admin-payment-customer-avatar {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.admin-payment-customer-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-payment-drilldown-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.admin-payment-drilldown-copy strong {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 860;
+  line-height: 1.2;
+}
+
+.admin-payment-drilldown-copy small,
+.admin-payment-drilldown-copy em {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 720;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-payment-card-compact {
