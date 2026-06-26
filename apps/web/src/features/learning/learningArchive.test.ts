@@ -165,10 +165,11 @@ describe("Learning section modules", () => {
     expect(horizontalLesson.classList.contains("admin-mockup-thumb-vertical")).toBe(false);
   });
 
-  it("lets horizontal lesson cards span the full module row", () => {
+  it("keeps horizontal lesson cards inside the regular module grid", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*auto;/s);
+    expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*gap:\s*0\.38rem;/s);
   });
 
   it("keeps horizontal lesson covers wide instead of square", () => {
