@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="960" viewBox="0 0 540 960" role="img" aria-labelledby="title desc">
+  <title id="title">Вариант 4. Маршрут обучения</title>
+  <desc id="desc">Макет раздела обучения как маршрут с этапами, прогрессом и следующей задачей.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08091b"/>
+      <stop offset="1" stop-color="#191642"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b2767"/>
+      <stop offset="1" stop-color="#111431"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9be7ff"/>
+      <stop offset="1" stop-color="#b69cff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000" flood-opacity=".34"/>
+    </filter>
+  </defs>
+  <rect width="540" height="960" rx="34" fill="url(#bg)"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#fbfbff">
+    <rect x="24" y="28" width="492" height="126" rx="30" fill="#111436" stroke="#34346e"/>
+    <text x="48" y="73" font-size="28" font-weight="900">Обучение</text>
+    <text x="48" y="104" font-size="15" font-weight="730" fill="#b7b8d6">Маршрут, этапы и понятный следующий шаг.</text>
+    <rect x="388" y="54" width="104" height="44" rx="22" fill="#1b1f4f" stroke="#454987"/>
+    <text x="416" y="82" font-size="15" font-weight="900" fill="#a9eaff">Вариант 4</text>
+
+    <rect x="24" y="182" width="492" height="154" rx="30" fill="url(#violet)" stroke="#3d3b7c" filter="url(#shadow)"/>
+    <text x="48" y="228" font-size="18" font-weight="800" fill="#a9eaff">Следующий шаг</text>
+    <text x="48" y="264" font-size="29" font-weight="900">Голосовая практика</text>
+    <text x="48" y="294" font-size="14" font-weight="730" fill="#b7b8d6">7 минут · после неё откроется разбор.</text>
+    <rect x="346" y="230" width="130" height="58" rx="20" fill="url(#accent)"/>
+    <text x="383" y="265" font-size="15" font-weight="900" fill="#101431">Открыть</text>
+
+    <line x1="86" y1="390" x2="86" y2="782" stroke="#414178" stroke-width="8" stroke-linecap="round"/>
+    <line x1="86" y1="390" x2="86" y2="568" stroke="url(#accent)" stroke-width="8" stroke-linecap="round"/>
+
+    <g transform="translate(42 374)">
+      <circle cx="44" cy="44" r="32" fill="url(#accent)"/>
+      <text x="32" y="53" font-size="22" font-weight="900" fill="#101431">✓</text>
+      <rect x="96" y="0" width="396" height="88" rx="24" fill="#111436" stroke="#34346e"/>
+      <text x="118" y="33" font-size="18" font-weight="900">Старт</text>
+      <text x="118" y="59" font-size="13" font-weight="730" fill="#b7b8d6">2 урока пройдены</text>
+      <text x="430" y="51" font-size="18" font-weight="900" fill="#a9eaff">100%</text>
+    </g>
+
+    <g transform="translate(42 504)">
+      <circle cx="44" cy="44" r="32" fill="url(#accent)"/>
+      <text x="36" y="53" font-size="22" font-weight="900" fill="#101431">2</text>
+      <rect x="96" y="0" width="396" height="118" rx="24" fill="#171a45" stroke="#4a4a8a"/>
+      <text x="118" y="34" font-size="18" font-weight="900">Практика</text>
+      <text x="118" y="60" font-size="13" font-weight="730" fill="#b7b8d6">Текущий модуль · 1 из 3</text>
+      <rect x="118" y="82" width="250" height="7" rx="4" fill="#323369"/>
+      <rect x="118" y="82" width="92" height="7" rx="4" fill="url(#accent)"/>
+    </g>
+
+    <g transform="translate(42 668)">
+      <circle cx="44" cy="44" r="32" fill="#171a45" stroke="#4a4a8a" stroke-width="2"/>
+      <text x="36" y="53" font-size="22" font-weight="900" fill="#b7b8d6">3</text>
+      <rect x="96" y="0" width="396" height="96" rx="24" fill="#111436" stroke="#34346e"/>
+      <text x="118" y="36" font-size="18" font-weight="900">Разборы</text>
+      <text x="118" y="63" font-size="13" font-weight="730" fill="#b7b8d6">Откроется после практики</text>
+      <rect x="362" y="28" width="88" height="38" rx="19" fill="#0b0d24" stroke="#373a70"/>
+      <text x="386" y="52" font-size="13" font-weight="900" fill="#8d90b4">скоро</text>
+    </g>
+
+    <g transform="translate(24 824)">
+      <rect width="492" height="82" rx="28" fill="#111436" stroke="#34346e"/>
+      <text x="24" y="34" font-size="16" font-weight="900" fill="#a9eaff">Личные заметки</text>
+      <text x="24" y="59" font-size="14" font-weight="730" fill="#b7b8d6">Открываются прямо внутри каждого урока.</text>
+      <text x="448" y="54" font-size="28" font-weight="900" fill="#a9eaff">+</text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="960" viewBox="0 0 540 960" role="img" aria-labelledby="title desc">
+  <title id="title">Вариант 1. Плеер и очередь</title>
+  <desc id="desc">Макет раздела обучения с крупным текущим уроком и очередью следующих материалов.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#06111f"/>
+      <stop offset="1" stop-color="#0c2d46"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102b48"/>
+      <stop offset="1" stop-color="#0b213a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#72d3ff"/>
+      <stop offset="1" stop-color="#2da8ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <rect width="540" height="960" rx="34" fill="url(#bg)"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#f5fbff">
+    <rect x="24" y="26" width="492" height="108" rx="22" fill="#0e263f" stroke="#254866"/>
+    <text x="48" y="68" font-size="28" font-weight="800">Обучение</text>
+    <text x="48" y="98" font-size="15" font-weight="700" fill="#9eb7c9">Текущий урок и следующие шаги.</text>
+    <rect x="386" y="48" width="106" height="44" rx="22" fill="#123453" stroke="#2d5574"/>
+    <text x="417" y="77" font-size="16" font-weight="850" fill="#80d7ff">1 / 8</text>
+
+    <rect x="24" y="160" width="492" height="318" rx="28" fill="url(#card)" stroke="#2d5a79" filter="url(#shadow)"/>
+    <text x="48" y="203" font-size="15" font-weight="800" fill="#7fd9ff">Вариант 1</text>
+    <text x="48" y="238" font-size="32" font-weight="900">Плеер и очередь</text>
+    <text x="48" y="270" font-size="16" font-weight="700" fill="#9db8ca">Один главный урок на экране, всё лишнее ниже.</text>
+    <rect x="48" y="302" width="444" height="132" rx="24" fill="#071727"/>
+    <circle cx="270" cy="368" r="38" fill="#eaf8ff"/>
+    <path d="M258 346 L258 390 L294 368 Z" fill="#0d2e49"/>
+    <text x="70" y="414" font-size="14" font-weight="800" fill="#d8edf8">Видео · 14 минут</text>
+    <rect x="48" y="450" width="280" height="8" rx="4" fill="#22455f"/>
+    <rect x="48" y="450" width="166" height="8" rx="4" fill="url(#accent)"/>
+    <text x="350" y="456" font-size="13" font-weight="800" fill="#9eb7c9">59% просмотрено</text>
+
+    <text x="30" y="530" font-size="21" font-weight="900">Продолжить</text>
+    <rect x="30" y="556" width="480" height="86" rx="22" fill="#102940" stroke="#274966"/>
+    <rect x="52" y="578" width="52" height="52" rx="16" fill="#173d5c"/>
+    <path d="M72 594 L72 626 L98 610 Z" fill="#7bddff"/>
+    <text x="122" y="593" font-size="18" font-weight="850">Милый котик</text>
+    <text x="122" y="620" font-size="14" font-weight="700" fill="#9eb7c9">Видео · осталось 8 минут</text>
+    <text x="430" y="610" font-size="22" font-weight="900" fill="#82ddff">›</text>
+
+    <text x="30" y="692" font-size="21" font-weight="900">Дальше</text>
+    <g transform="translate(30 718)">
+      <rect width="480" height="74" rx="20" fill="#0e243a" stroke="#24455f"/>
+      <rect x="18" y="17" width="40" height="40" rx="13" fill="#153955"/>
+      <text x="31" y="44" font-size="20">♪</text>
+      <text x="78" y="30" font-size="16" font-weight="850">Голосовой разбор</text>
+      <text x="78" y="54" font-size="13" font-weight="700" fill="#8faabb">Аудио · 7 минут</text>
+      <rect x="372" y="21" width="82" height="32" rx="16" fill="#0a1726" stroke="#29465f"/>
+      <text x="392" y="42" font-size="12" font-weight="800" fill="#82ddff">новый</text>
+    </g>
+    <g transform="translate(30 806)">
+      <rect width="480" height="74" rx="20" fill="#0e243a" stroke="#24455f"/>
+      <rect x="18" y="17" width="40" height="40" rx="13" fill="#153955"/>
+      <text x="29" y="44" font-size="20">T</text>
+      <text x="78" y="30" font-size="16" font-weight="850">Конспект урока</text>
+      <text x="78" y="54" font-size="13" font-weight="700" fill="#8faabb">Текст · 4 минуты</text>
+    </g>
+  </g>
+</svg>

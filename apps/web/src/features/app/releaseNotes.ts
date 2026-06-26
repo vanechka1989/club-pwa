@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Макеты нового обучения",
+    items: [
+      "В админке в разделе Макеты добавлены четыре варианта визуала обучения.",
+      "Каждый вариант пронумерован, чтобы можно было быстро выбрать направление.",
+      "Макеты показывают разные подходы: плеер, модули, библиотеку и маршрут обучения."
+    ]
+  },
+  {
+    version: "1.53",
+    updatedAt: "26.06.2026 12:35",
     title: "Ответ Prodamus в формате success",
     items: [
       "Валидные webhook Prodamus теперь получают текстовый ответ success с HTTP 200.",

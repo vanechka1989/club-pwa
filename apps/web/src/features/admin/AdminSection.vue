@@ -93,6 +93,18 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
 
 const adminMockups = [
   {
+    id: "learning-redesign-options",
+    title: "Обучение: варианты визуала",
+    description: "Четыре разных направления для раздела обучения. Выберите номер варианта или комбинацию деталей.",
+    createdAt: "26.06.2026",
+    images: [
+      { title: "Вариант 1. Плеер и очередь", url: "/previews/learning-redesign-1.svg" },
+      { title: "Вариант 2. Модули и уроки", url: "/previews/learning-redesign-2.svg" },
+      { title: "Вариант 3. Библиотека", url: "/previews/learning-redesign-3.svg" },
+      { title: "Вариант 4. Маршрут обучения", url: "/previews/learning-redesign-4.svg" }
+    ]
+  },
+  {
     id: "statistics-preview",
     title: "Статистика клуба",
     description: "Черновой макет будущей вкладки со статистикой по клиентам, оплатам, контенту и общению.",
