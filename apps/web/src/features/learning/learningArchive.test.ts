@@ -30,6 +30,32 @@ function renderAsOwner() {
   });
 }
 
+function renderAsMember() {
+  const pinia = createPinia();
+  const session = useSessionStore(pinia);
+  session.user = {
+    id: "member-id",
+    telegramId: "753327296",
+    firstName: "Екатерина",
+    username: null,
+    photoUrl: null,
+    role: "member",
+    realRole: "member",
+    membershipStatus: "active",
+    membershipExpiresAt: null,
+    paymentType: "manual",
+    recurrentPaymentStatus: null,
+    nextPaymentAt: null,
+    avatarRefreshedAt: null
+  };
+
+  render(LearningSection, {
+    global: {
+      plugins: [pinia]
+    }
+  });
+}
+
 describe("Learning section modules", () => {
   beforeEach(() => {
     cleanup();
@@ -98,6 +124,17 @@ describe("Learning section modules", () => {
     expect(lessonDialog.querySelector(".lesson-preview-scroll")).toBeTruthy();
     expect(screen.getByText("Урок из модуля")).toBeTruthy();
     expect(lessonDialog.textContent).toContain("Модуль 1");
+  });
+
+  it("uses a compact lesson modal for member viewing", async () => {
+    renderAsMember();
+
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 3\. Библиотека/ }));
+
+    const lessonDialog = screen.getByRole("dialog", { name: "Вариант 3. Библиотека" });
+    expect(lessonDialog.classList.contains("lesson-preview-modal-view")).toBe(true);
+    expect(lessonDialog.classList.contains("lesson-preview-modal-edit")).toBe(false);
+    expect(screen.queryByLabelText("Название урока")).toBeNull();
   });
 
   it("adds a lesson inside a selected module", async () => {

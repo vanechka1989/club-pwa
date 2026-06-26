@@ -709,7 +709,13 @@ watch(
 
     <Teleport to="body">
       <div v-if="selectedLesson && selectedLessonModule" class="admin-modal-backdrop lesson-preview-backdrop" @click.self="closeLessonModal">
-        <aside class="lesson-preview-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-preview-title">
+        <aside
+          class="lesson-preview-modal"
+          :class="canManageModules ? 'lesson-preview-modal-edit' : 'lesson-preview-modal-view'"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lesson-preview-title"
+        >
           <header class="admin-client-modal-head">
             <div>
               <span class="lesson-preview-kicker">Урок из модуля</span>

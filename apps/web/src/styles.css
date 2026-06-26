@@ -2167,6 +2167,18 @@ button {
   max-height: none;
 }
 
+.lesson-preview-modal-view {
+  align-self: start;
+  height: auto;
+  max-height: var(--club-viewport-height, 100dvh);
+  border-radius: 0 0 18px 18px;
+}
+
+.club-telegram-fullscreen .lesson-preview-modal-view {
+  height: auto;
+  max-height: calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset));
+}
+
 .lesson-preview-scroll {
   display: grid;
   align-content: start;
@@ -2177,6 +2189,15 @@ button {
   overscroll-behavior: contain;
   padding-bottom: calc(0.8rem + env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
+}
+
+.lesson-preview-modal-view .lesson-preview-scroll {
+  flex: 0 1 auto;
+  max-height: calc(var(--club-viewport-height, 100dvh) - 9.5rem);
+}
+
+.club-telegram-fullscreen .lesson-preview-modal-view .lesson-preview-scroll {
+  max-height: calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset) - 9.5rem);
 }
 
 .lesson-preview-kicker {
