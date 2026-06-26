@@ -33,6 +33,7 @@ import {
   setProdamusSubscriptionActivity,
   verifyProdamusSignature
 } from "../payments/prodamus";
+import { decideProdamusWebhookAction } from "../payments/prodamusWebhook";
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
@@ -290,13 +291,28 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         }
       });
 
-    if (!provider || !isValid || !orderId) {
+    const initialAction = decideProdamusWebhookAction({
+      providerConfigured: Boolean(provider),
+      isValidSignature: isValid,
+      orderId,
+      orderFound: false
+    });
+    if (initialAction.action === "reject" || !orderId) {
       return c.json({ ok: false }, 400);
     }
 
     const order = await db.query.paymentOrders.findFirst({
       where: eq(paymentOrders.providerOrderId, orderId)
     });
+    const webhookAction = decideProdamusWebhookAction({
+      providerConfigured: Boolean(provider),
+      isValidSignature: isValid,
+      orderId,
+      orderFound: Boolean(order)
+    });
+    if (webhookAction.action === "ignore") {
+      return c.json({ ok: true, ignored: true });
+    }
     if (!order) {
       return c.json({ ok: false }, 404);
     }
