@@ -166,6 +166,14 @@ describe("admin statistics", () => {
       oneTimePaidOrders: 1,
       recurrentPaidOrders: 1
     });
+    expect(stats.payments.breakdown.map((item) => [item.label, item.value])).toEqual([
+      ["Оплачено", 2],
+      ["Разовые", 1],
+      ["Рекуррент", 1],
+      ["Ожидают", 1],
+      ["Ошибки webhook", 1],
+      ["Ошибки оплат", 0]
+    ]);
     expect(stats.learning).toMatchObject({
       categoriesCount: 2,
       publishedMaterials: 2,

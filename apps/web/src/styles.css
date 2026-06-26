@@ -593,7 +593,8 @@ button {
 
 .admin-stat-kpi,
 .admin-stat-block,
-.admin-stat-mini-grid article {
+.admin-stat-mini-grid article,
+.admin-stat-tariff-card {
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   background: color-mix(in srgb, var(--panel) 76%, transparent);
   border-radius: 13px;
@@ -609,6 +610,7 @@ button {
 .admin-stat-kpi span,
 .admin-stat-mini-grid span,
 .admin-stat-bar-row span,
+.admin-stat-tariff-card span,
 .admin-stat-note,
 .admin-stat-kind-list span {
   color: var(--muted);
@@ -643,7 +645,8 @@ button {
 }
 
 .admin-stat-block header,
-.admin-stat-bar-row div:first-child {
+.admin-stat-bar-row div:first-child,
+.admin-stat-tariff-card div:first-child {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -702,7 +705,8 @@ button {
 }
 
 .admin-stat-mini-grid strong,
-.admin-stat-bar-row strong {
+.admin-stat-bar-row strong,
+.admin-stat-tariff-card strong {
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 880;
@@ -711,6 +715,17 @@ button {
 .admin-stat-bars {
   display: grid;
   gap: 0.5rem;
+}
+
+.admin-stat-tariff-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-stat-tariff-card {
+  display: grid;
+  gap: 0.32rem;
+  padding: 0.52rem;
 }
 
 .admin-stat-bar-row {
@@ -1286,7 +1301,7 @@ button {
 
 .admin-payment-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr));
   gap: 0.55rem;
 }
 
@@ -1391,7 +1406,10 @@ button {
 .payment-status-pending,
 .payment-status-paid,
 .payment-status-failed,
-.payment-status-cancelled {
+.payment-status-cancelled,
+.membership-history-status-active,
+.membership-history-status-inactive,
+.membership-history-status-expired {
   flex-shrink: 0;
   border-radius: 999px;
   padding: 0.22rem 0.48rem;
@@ -1410,6 +1428,19 @@ button {
   border: 1px solid color-mix(in srgb, #34d399 42%, var(--border));
   background: color-mix(in srgb, #34d399 13%, var(--panel));
   color: color-mix(in srgb, #34d399 82%, var(--text));
+}
+
+.membership-history-status-active {
+  border: 1px solid color-mix(in srgb, #34d399 42%, var(--border));
+  background: color-mix(in srgb, #34d399 13%, var(--panel));
+  color: color-mix(in srgb, #34d399 82%, var(--text));
+}
+
+.membership-history-status-inactive,
+.membership-history-status-expired {
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border));
+  background: color-mix(in srgb, var(--warning) 12%, var(--panel));
+  color: var(--muted-strong);
 }
 
 .payment-status-failed,

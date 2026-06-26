@@ -158,6 +158,8 @@ const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const restrictedUsers = computed(() => users.value.filter((user) => user.hasRestrictions).length);
 const paidOrders = computed(() => paymentOrders.value.filter((order) => order.status === "paid").length);
+const oneTimePaidOrders = computed(() => paymentOrders.value.filter((order) => order.status === "paid" && order.productKind === "one_time").length);
+const recurrentPaidOrders = computed(() => paymentOrders.value.filter((order) => order.status === "paid" && order.productKind === "recurrent").length);
 const paidRevenue = computed(() =>
   paymentOrders.value.filter((order) => order.status === "paid").reduce((sum, order) => sum + order.amountRub, 0)
 );
@@ -875,8 +877,8 @@ onUnmounted(() => {
               <strong>{{ adminStatistics.clients.expiringSoon }}</strong>
             </article>
           </div>
-          <div v-if="adminStatistics.tariffs.length" class="admin-stat-bars">
-            <div v-for="tariff in adminStatistics.tariffs" :key="tariff.tariff" class="admin-stat-bar-row">
+          <div v-if="adminStatistics.tariffs.length" class="admin-stat-tariff-grid">
+            <article v-for="tariff in adminStatistics.tariffs" :key="tariff.tariff" class="admin-stat-tariff-card">
               <div>
                 <span>{{ tariff.label }}</span>
                 <strong>{{ tariff.value }}</strong>
@@ -884,7 +886,7 @@ onUnmounted(() => {
               <div class="admin-stat-meter admin-stat-meter-small" aria-hidden="true">
                 <span :style="{ width: `${tariff.percent}%` }"></span>
               </div>
-            </div>
+            </article>
           </div>
         </section>
 
@@ -897,21 +899,9 @@ onUnmounted(() => {
             <strong>{{ adminStatistics.payments.paidOrders }}</strong>
           </header>
           <div class="admin-stat-mini-grid admin-stat-mini-grid-two">
-            <article>
-              <span>Ожидают</span>
-              <strong>{{ adminStatistics.payments.pendingOrders }}</strong>
-            </article>
-            <article>
-              <span>Ошибки webhook</span>
-              <strong>{{ adminStatistics.payments.failedWebhookOrders }}</strong>
-            </article>
-            <article>
-              <span>Разовые</span>
-              <strong>{{ adminStatistics.payments.oneTimePaidOrders }}</strong>
-            </article>
-            <article>
-              <span>Ошибки оплат</span>
-              <strong>{{ adminStatistics.payments.failedOrders }}</strong>
+            <article v-for="item in adminStatistics.payments.breakdown" :key="item.label">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
             </article>
           </div>
         </section>
@@ -1109,14 +1099,19 @@ onUnmounted(() => {
               </button>
               <div v-if="clientAccordion.subscriptions" class="admin-accordion-body">
                 <p v-if="!selectedUserDetail?.subscriptions.length" class="admin-empty">Истории подписок пока нет.</p>
-                <article v-for="subscription in selectedUserDetail?.subscriptions ?? []" :key="subscription.id" class="admin-history-item">
-                  <strong>{{ getAdminSubscriptionTitle(subscription) }}</strong>
-                  <span>{{ getAdminSubscriptionSourceLabel(subscription) }} · {{ formatMembershipStatus(subscription.status) }}</span>
-                  <small v-if="getAdminSubscriptionActorLabel(subscription)">{{ getAdminSubscriptionActorLabel(subscription) }}</small>
-                  <small>
-                    {{ new Date(subscription.createdAt).toLocaleDateString("ru-RU") }}
-                    <template v-if="subscription.expiresAt"> · до {{ new Date(subscription.expiresAt).toLocaleDateString("ru-RU") }}</template>
-                  </small>
+                <article v-for="subscription in selectedUserDetail?.subscriptions ?? []" :key="subscription.id" class="admin-payment-card admin-payment-card-compact">
+                  <div class="admin-payment-main">
+                    <div>
+                      <strong>{{ getAdminSubscriptionTitle(subscription) }}</strong>
+                      <small>{{ getAdminSubscriptionSourceLabel(subscription) }}</small>
+                    </div>
+                    <em :class="`membership-history-status-${subscription.status}`">{{ formatMembershipStatus(subscription.status) }}</em>
+                  </div>
+                  <div class="admin-payment-meta">
+                    <span>{{ new Date(subscription.createdAt).toLocaleDateString("ru-RU") }}</span>
+                    <span v-if="subscription.expiresAt">до {{ new Date(subscription.expiresAt).toLocaleDateString("ru-RU") }}</span>
+                    <span v-if="getAdminSubscriptionActorLabel(subscription)">{{ getAdminSubscriptionActorLabel(subscription) }}</span>
+                  </div>
                 </article>
               </div>
             </section>
@@ -1211,6 +1206,14 @@ onUnmounted(() => {
         <article>
           <span>Оплачено</span>
           <strong>{{ paidOrders }}</strong>
+        </article>
+        <article>
+          <span>Разовые</span>
+          <strong>{{ oneTimePaidOrders }}</strong>
+        </article>
+        <article>
+          <span>Рекуррент</span>
+          <strong>{{ recurrentPaidOrders }}</strong>
         </article>
         <article>
           <span>Сумма оплат</span>

@@ -119,6 +119,11 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
   });
   const periodOrders = input.paymentOrders.filter((order) => isInPeriod(orderDate(order), options.period, now));
   const paidOrders = periodOrders.filter((order) => order.status === "paid");
+  const pendingOrders = periodOrders.filter((order) => order.status === "pending").length;
+  const failedOrders = periodOrders.filter((order) => order.status === "failed").length;
+  const failedWebhookOrders = periodOrders.filter((order) => order.webhook && !order.webhook.isValid).length;
+  const oneTimePaidOrders = paidOrders.filter((order) => order.productKind === "one_time").length;
+  const recurrentPaidOrders = paidOrders.filter((order) => order.productKind === "recurrent").length;
   const revenueRub = paidOrders.reduce((sum, order) => sum + order.amountRub, 0);
   const completedItems = input.users.reduce((sum, user) => sum + user.completedItems, 0);
   const totalItems = input.users.reduce((sum, user) => sum + user.totalItems, 0);
@@ -140,13 +145,21 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
     },
     payments: {
       paidOrders: paidOrders.length,
-      pendingOrders: periodOrders.filter((order) => order.status === "pending").length,
-      failedOrders: periodOrders.filter((order) => order.status === "failed").length,
-      failedWebhookOrders: periodOrders.filter((order) => order.webhook && !order.webhook.isValid).length,
+      pendingOrders,
+      failedOrders,
+      failedWebhookOrders,
       revenueRub,
       averagePaidOrderRub: paidOrders.length > 0 ? Math.round(revenueRub / paidOrders.length) : 0,
-      oneTimePaidOrders: paidOrders.filter((order) => order.productKind === "one_time").length,
-      recurrentPaidOrders: paidOrders.filter((order) => order.productKind === "recurrent").length
+      oneTimePaidOrders,
+      recurrentPaidOrders,
+      breakdown: [
+        { label: "Оплачено", value: paidOrders.length },
+        { label: "Разовые", value: oneTimePaidOrders },
+        { label: "Рекуррент", value: recurrentPaidOrders },
+        { label: "Ожидают", value: pendingOrders },
+        { label: "Ошибки webhook", value: failedWebhookOrders },
+        { label: "Ошибки оплат", value: failedOrders }
+      ]
     },
     learning: {
       categoriesCount: input.learningCategories.length,
