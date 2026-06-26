@@ -455,7 +455,8 @@ export type AdminLearningMaterial = z.infer<typeof adminLearningMaterialSchema>;
 
 export const adminLearningResponseSchema = z.object({
   categories: z.array(learningCategorySchema),
-  materials: z.array(adminLearningMaterialSchema)
+  materials: z.array(adminLearningMaterialSchema),
+  deletedMaterials: z.array(adminLearningMaterialSchema).default([])
 });
 export type AdminLearningResponse = z.infer<typeof adminLearningResponseSchema>;
 

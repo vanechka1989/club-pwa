@@ -8,6 +8,7 @@ import {
   deleteAdminLearningMaterial,
   getAdminLearning,
   getLearningHome,
+  restoreAdminLearningMaterial,
   updateAdminLearningCategory,
   updateAdminLearningMaterial
 } from "@/api/client";
@@ -152,6 +153,7 @@ const initialModuleCards: ModuleCard[] = [
 ];
 
 const moduleCards = ref<ModuleCard[]>(initialModuleCards.map((module) => ({ ...module, images: module.images.map((lesson) => ({ ...lesson })) })));
+const deletedLessons = ref<ModuleLesson[]>([]);
 const session = useSessionStore();
 const ui = useUiStore();
 const modulesLoadedFromApi = ref(false);
@@ -170,6 +172,7 @@ const lessonFile = ref<File | NamedBlobUpload | null>(null);
 const lessonFileName = ref("");
 const lessonThumbnailFile = ref<File | null>(null);
 const lessonThumbnailFileName = ref("");
+const shouldRemoveLessonThumbnail = ref(false);
 const lessonCardLayout = ref<ContentCardLayout>("vertical");
 const lessonContent = ref("");
 const lessonError = ref("");
@@ -265,6 +268,7 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
   lessonFileName.value = lesson.mediaUrl ? "Текущий файл сохранён" : "";
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = lesson.thumbnailUrl ? "Текущая обложка сохранена" : "";
+  shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = lesson.cardLayout;
   lessonContent.value = lesson.content;
   lessonError.value = "";
@@ -283,6 +287,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonFileName.value = "";
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = "";
+  shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonError.value = "";
@@ -297,6 +302,7 @@ function closeLessonModal() {
   lessonFileName.value = "";
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = "";
+  shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonError.value = "";
@@ -357,15 +363,18 @@ async function loadModules() {
       const response = await getAdminLearning();
       const modules = categoriesToModules(response.categories, response.materials);
       moduleCards.value = modules.length ? modules : cloneInitialModules();
+      deletedLessons.value = response.deletedMaterials.map(materialToLesson);
     } else {
       const response = await getLearningHome();
       const modules = categoriesToModules(response.categories, response.featured);
       moduleCards.value = modules.length ? modules : cloneInitialModules();
+      deletedLessons.value = [];
     }
     modulesLoadedFromApi.value = true;
     collapseAllModules();
   } catch {
     moduleCards.value = moduleCards.value.length ? moduleCards.value : cloneInitialModules();
+    deletedLessons.value = [];
     modulesLoadedFromApi.value = false;
     collapseAllModules();
   } finally {
@@ -429,6 +438,9 @@ function buildLessonForm() {
   appendFile(form, "file", lessonFile.value);
   if (lessonThumbnailFile.value) {
     form.set("thumbnailFile", lessonThumbnailFile.value);
+  }
+  if (shouldRemoveLessonThumbnail.value) {
+    form.set("removeThumbnail", "true");
   }
 
   return form;
@@ -513,7 +525,7 @@ function saveLessonLocally() {
     description: lessonDescription.value.trim(),
     content: lessonContent.value.trim() || "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
     mediaUrl: null,
-    thumbnailUrl: selectedLessonItem.value?.thumbnailUrl ?? null,
+    thumbnailUrl: shouldRemoveLessonThumbnail.value ? null : (selectedLessonItem.value?.thumbnailUrl ?? null),
     cardLayout: lessonCardLayout.value,
     isPersisted: false
   };
@@ -601,6 +613,13 @@ async function deleteLesson() {
     }
 
     removeLessonFromModule(moduleId, lesson.id);
+    deletedLessons.value = [
+      {
+        ...lesson,
+        categoryId: moduleId
+      },
+      ...deletedLessons.value.filter((item) => item.id !== lesson.id)
+    ];
     closeLessonModal();
   } catch {
     lessonError.value = "Не удалось удалить урок.";
@@ -621,6 +640,38 @@ function handleLessonThumbnailChange(event: Event) {
   const file = input.files?.[0] ?? null;
   lessonThumbnailFile.value = file;
   lessonThumbnailFileName.value = file?.name ?? "";
+  if (file) {
+    shouldRemoveLessonThumbnail.value = false;
+  }
+}
+
+function removeLessonThumbnail() {
+  lessonThumbnailFile.value = null;
+  lessonThumbnailFileName.value = selectedLessonItem.value?.thumbnailUrl ? "Обложка будет удалена" : "";
+  shouldRemoveLessonThumbnail.value = Boolean(selectedLessonItem.value?.thumbnailUrl);
+}
+
+async function restoreDeletedLesson(lesson: ModuleLesson) {
+  if (!canManageModules.value) {
+    return;
+  }
+
+  isSaving.value = true;
+
+  try {
+    if (lesson.isPersisted && modulesLoadedFromApi.value) {
+      const response = await restoreAdminLearningMaterial(lesson.id);
+      addMaterialToModule(response.material);
+    } else {
+      const module = moduleCards.value.find((item) => item.id === lesson.categoryId) ?? moduleCards.value[0];
+      if (module) {
+        module.images.push({ ...lesson });
+      }
+    }
+    deletedLessons.value = deletedLessons.value.filter((item) => item.id !== lesson.id);
+  } finally {
+    isSaving.value = false;
+  }
 }
 
 async function startVoiceRecording() {
@@ -760,6 +811,34 @@ watch(
           </button>
         </div>
       </article>
+
+      <article v-if="canManageModules && deletedLessons.length" class="admin-mockup-card admin-mockup-deleted-module">
+        <div class="admin-mockup-card-head module-card-head">
+          <div>
+            <strong>Удалённый контент</strong>
+            <small>Системный модуль</small>
+          </div>
+          <div class="admin-mockup-card-actions">
+            <span>{{ lessonCountLabel(deletedLessons.length) }}</span>
+          </div>
+        </div>
+        <p>Хранится 7 дней после удаления. Можно восстановить прямо из карточки.</p>
+        <div class="deleted-lessons-list">
+          <article v-for="lesson in deletedLessons" :key="lesson.id" class="deleted-lesson-card">
+            <div class="deleted-lesson-preview">
+              <img :src="getLessonImage(lesson)" :alt="lesson.title" loading="lazy" />
+              <div>
+                <span>Удалено</span>
+                <strong>{{ lesson.title }}</strong>
+                <small>{{ lesson.description || "Описание урока не заполнено." }}</small>
+              </div>
+            </div>
+            <button class="restore-lesson-button" type="button" :disabled="isSaving" :aria-label="`Восстановить ${lesson.title}`" @click="restoreDeletedLesson(lesson)">
+              Восстановить
+            </button>
+          </article>
+        </div>
+      </article>
     </div>
 
     <div v-if="showModuleModal && canManageModules" class="admin-modal-backdrop" @click.self="closeModuleModal">
@@ -822,23 +901,6 @@ watch(
             </div>
 
             <div v-if="canManageModules" class="admin-form lesson-editor-form">
-              <label class="admin-field">
-                <span>Название урока</span>
-                <input v-model="lessonTitle" class="text-input" type="text" placeholder="Например: Первый урок" aria-label="Название урока" />
-              </label>
-              <label class="admin-field">
-                <span>Описание урока</span>
-                <input v-model="lessonDescription" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание урока" />
-              </label>
-              <label class="admin-field">
-                <span>Тип урока</span>
-                <select v-model="lessonKind" class="text-input" aria-label="Тип урока">
-                  <option value="text">Текст</option>
-                  <option value="photo">Фото</option>
-                  <option value="video">Видео</option>
-                  <option value="audio">Аудио</option>
-                </select>
-              </label>
               <div class="admin-field">
                 <span>Вид карточки</span>
                 <div class="lesson-layout-toggle" role="group" aria-label="Вид карточки урока">
@@ -862,6 +924,23 @@ watch(
                   </button>
                 </div>
               </div>
+              <label class="admin-field">
+                <span>Название урока</span>
+                <input v-model="lessonTitle" class="text-input" type="text" placeholder="Например: Первый урок" aria-label="Название урока" />
+              </label>
+              <label class="admin-field">
+                <span>Описание урока</span>
+                <input v-model="lessonDescription" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание урока" />
+              </label>
+              <label class="admin-field">
+                <span>Тип урока</span>
+                <select v-model="lessonKind" class="text-input" aria-label="Тип урока">
+                  <option value="text">Текст</option>
+                  <option value="photo">Фото</option>
+                  <option value="video">Видео</option>
+                  <option value="audio">Аудио</option>
+                </select>
+              </label>
               <label v-if="lessonKind !== 'text'" class="admin-field">
                 <span>Файл урока</span>
                 <input
@@ -884,10 +963,18 @@ watch(
                 </button>
               </div>
               <label class="admin-field">
-                <span>Обложка карточки</span>
+                <span>Обложка карточки (не обязательно)</span>
                 <input class="text-input" type="file" accept="image/*" aria-label="Обложка карточки" @change="handleLessonThumbnailChange" />
-                <small>{{ lessonThumbnailFileName || "Можно не загружать" }}</small>
+                <small v-if="lessonThumbnailFileName">{{ lessonThumbnailFileName }}</small>
               </label>
+              <button
+                v-if="selectedLessonItem?.thumbnailUrl || lessonThumbnailFileName"
+                class="secondary-button cover-remove-button"
+                type="button"
+                @click="removeLessonThumbnail"
+              >
+                Удалить обложку
+              </button>
               <label class="admin-field">
                 <span>Содержимое урока</span>
                 <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>

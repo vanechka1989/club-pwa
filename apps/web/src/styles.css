@@ -2158,6 +2158,87 @@ button {
   text-align: left;
 }
 
+.admin-mockup-deleted-module {
+  border-color: color-mix(in srgb, #ff8b8b 32%, var(--border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #ff8b8b 10%, transparent), transparent 64%),
+    color-mix(in srgb, var(--panel) 90%, transparent);
+}
+
+.deleted-lessons-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.deleted-lesson-card {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid color-mix(in srgb, #ff8b8b 36%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, #342238 28%, var(--panel));
+  padding: 0.55rem;
+}
+
+.deleted-lesson-preview {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.deleted-lesson-preview img {
+  display: block;
+  width: 4rem;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  object-fit: cover;
+}
+
+.deleted-lesson-preview div {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.deleted-lesson-preview span {
+  width: max-content;
+  border: 1px solid color-mix(in srgb, #ff8b8b 42%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #ff8b8b 16%, transparent);
+  color: #ffb5b5;
+  font-size: 0.62rem;
+  font-weight: 860;
+  line-height: 1;
+  padding: 0.28rem 0.45rem;
+}
+
+.deleted-lesson-preview strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 860;
+}
+
+.deleted-lesson-preview small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.restore-lesson-button {
+  min-height: 2.7rem;
+  border: 1px solid color-mix(in srgb, #63e6be 48%, var(--border));
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, #1fb78f 46%, var(--panel)), color-mix(in srgb, #0d675b 58%, var(--panel)));
+  color: #eafff8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .lesson-layout-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2344,6 +2425,12 @@ button {
   font-size: 0.76rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.cover-remove-button {
+  width: max-content;
+  min-height: 2.55rem;
+  padding-inline: 0.95rem;
 }
 
 .voice-record-row {

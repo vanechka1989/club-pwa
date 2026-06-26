@@ -716,14 +716,21 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const categoryIds = categories.map((category) => category.id);
     const materials = categoryIds.length
       ? await db.query.contentItems.findMany({
-          where: and(inArray(contentItems.categoryId, categoryIds), activeContentWhere()),
+          where: and(inArray(contentItems.categoryId, categoryIds), isNull(contentItems.archivedUntil)),
           orderBy: [asc(contentItems.sortOrder), desc(contentItems.createdAt)]
+        })
+      : [];
+    const deletedMaterials = categoryIds.length
+      ? await db.query.contentItems.findMany({
+          where: and(inArray(contentItems.categoryId, categoryIds), isNotNull(contentItems.archivedUntil), gt(contentItems.archivedUntil, new Date())),
+          orderBy: [desc(contentItems.updatedAt)]
         })
       : [];
 
     return c.json({
       categories,
-      materials: await Promise.all(materials.map(serializeAdminMaterial))
+      materials: await Promise.all(materials.map(serializeAdminMaterial)),
+      deletedMaterials: await Promise.all(deletedMaterials.map(serializeAdminMaterial))
     });
   })
   .post("/learning/categories", async (c) => {
@@ -976,6 +983,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const body = normalizeOptionalText(getFormValue(form, "body"));
     const cardLayout = getFormValue(form, "cardLayout") === "horizontal" ? "horizontal" : "vertical";
     const isPublished = getFormValue(form, "isPublished") === "true";
+    const shouldRemoveThumbnail = getFormValue(form, "removeThumbnail") === "true";
 
     if (!categoryId || !contentKinds.includes(kind) || !title) {
       return c.json({ error: "Invalid material payload" }, 400);
@@ -1023,7 +1031,15 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Media file is required when changing material kind" }, 400);
     }
 
-    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+    if (shouldRemoveThumbnail) {
+      if (current.thumbnailObjectKey) {
+        await deleteObject(current.thumbnailObjectKey).catch(() => null);
+      }
+      thumbnailObjectKey = null;
+      thumbnailUrl = null;
+      thumbnailContentType = null;
+      thumbnailSizeBytes = null;
+    } else if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
       const upload = await uploadThumbnailFile(thumbnailFile);
       if (!upload) {
         return c.json({ error: "Thumbnail file must be an image" }, 400);

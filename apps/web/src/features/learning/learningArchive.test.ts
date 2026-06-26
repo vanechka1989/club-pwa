@@ -62,12 +62,16 @@ function renderAsMember() {
 }
 
 async function expandModuleOne() {
-  await fireEvent.click(screen.getByRole("button", { name: "Развернуть Модуль 1" }));
+  const toggle = screen.queryByRole("button", { name: "Развернуть Модуль 1" });
+  if (toggle) {
+    await fireEvent.click(toggle);
+  }
 }
 
 describe("Learning section modules", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    localStorage.clear();
     cleanup();
   });
 
@@ -193,6 +197,12 @@ describe("Learning section modules", () => {
 
     const lessonDialog = screen.getByRole("dialog", { name: "Новый урок" });
     expect(lessonDialog).toBeTruthy();
+    const fieldLabels = Array.from(lessonDialog.querySelectorAll(".lesson-editor-form .admin-field > span")).map((element) =>
+      element.textContent?.trim()
+    );
+    expect(fieldLabels.slice(0, 2)).toEqual(["Вид карточки", "Название урока"]);
+    expect(screen.getByText("Обложка карточки (не обязательно)")).toBeTruthy();
+    expect(screen.queryByText("Можно не загружать")).toBeNull();
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Новый урок");
     await fireEvent.update(screen.getByLabelText("Описание урока"), "Короткое описание нового урока");
@@ -245,6 +255,23 @@ describe("Learning section modules", () => {
     expect(covers.every((file) => statSync(resolve(coversPath, file)).size < 80_000)).toBe(true);
   });
 
+  it("removes a custom lesson cover and returns the card to a themed default", async () => {
+    const pinia = renderAsOwner();
+    const ui = useUiStore(pinia);
+    ui.setColorScheme("graphite");
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+
+    expect(screen.getByText("Текущая обложка сохранена")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Удалить обложку" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
+
+    const lessonCard = screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ });
+    expect(lessonCard.querySelector("img")?.getAttribute("src")).toBe("/previews/default-lessons/graphite-vertical.webp");
+  });
+
   it("edits lesson content from the same lesson modal", async () => {
     renderAsOwner();
 
@@ -270,7 +297,26 @@ describe("Learning section modules", () => {
 
     expect(window.confirm).toHaveBeenCalledWith('Удалить урок "Вариант 1. Плеер и очередь"? Он попадет в удалённые на 7 дней.');
     expect(screen.queryByRole("dialog", { name: "Вариант 1. Плеер и очередь" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Открыть урок Вариант 1. Плеер и очередь" })).toBeNull();
     expect(screen.getAllByText("3 урока").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("moves deleted lessons to a system module and restores them from the card", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
+
+    expect(screen.getByText("Удалённый контент")).toBeTruthy();
+    expect(screen.getByText("Вариант 1. Плеер и очередь")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" }));
+
+    expect(screen.queryByText("Удалённый контент")).toBeNull();
+    await expandModuleOne();
+    expect(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeTruthy();
   });
 });
