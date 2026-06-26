@@ -404,13 +404,6 @@ export function createAdminLearningCategory(payload: { title: string; descriptio
   });
 }
 
-export function updateAdminLearningCategory(id: string, payload: { title: string; description?: string | null }) {
-  return api<AdminLearningCategoryMutationResponse>(`/admin/learning/categories/${id}`, {
-    method: "POST",
-    body: payload
-  });
-}
-
 export function deleteAdminLearningCategory(id: string) {
   return api<AdminMutationResponse>(`/admin/learning/categories/${id}`, {
     method: "DELETE"

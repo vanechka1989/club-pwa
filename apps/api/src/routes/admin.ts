@@ -750,43 +750,6 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       }
     });
   })
-  .post("/learning/categories/:id", async (c) => {
-    const body = learningCategoryPayloadSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) {
-      return c.json({ error: "Invalid category payload" }, 400);
-    }
-
-    const [category] = await db
-      .update(contentCategories)
-      .set({
-        title: body.data.title,
-        description: body.data.description ?? null,
-        updatedAt: new Date()
-      })
-      .where(eq(contentCategories.id, c.req.param("id")))
-      .returning();
-
-    if (!category) {
-      return c.json({ error: "Category not found" }, 404);
-    }
-
-    const [itemsRow] = await db
-      .select({ value: count(contentItems.id) })
-      .from(contentItems)
-      .where(and(eq(contentItems.categoryId, category.id), activeContentWhere()));
-
-    return c.json({
-      ok: true,
-      category: {
-        id: category.id,
-        slug: category.slug,
-        title: category.title,
-        description: category.description,
-        isPublished: category.isPublished,
-        itemsCount: itemsRow?.value ?? 0
-      }
-    });
-  })
   .post("/learning/categories/:id/status", async (c) => {
     const body = categoryStatusPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
