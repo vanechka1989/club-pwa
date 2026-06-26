@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionStore } from "@/stores/session";
@@ -154,6 +156,12 @@ describe("Learning section modules", () => {
     const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
     expect(horizontalLesson.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
     expect(horizontalLesson.classList.contains("admin-mockup-thumb-vertical")).toBe(false);
+  });
+
+  it("lets horizontal lesson cards span the full module row", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
   });
 
   it("uses a compact lesson modal for member viewing", async () => {

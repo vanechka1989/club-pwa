@@ -2133,6 +2133,7 @@ button {
 }
 
 .modules-panel .admin-mockup-thumb-horizontal {
+  grid-column: 1 / -1;
   grid-template-columns: 4.35rem minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem;
