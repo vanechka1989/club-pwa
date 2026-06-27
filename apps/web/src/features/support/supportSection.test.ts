@@ -63,9 +63,11 @@ describe("support section", () => {
     expect(styles).toContain(".support-ticket-summary");
     expect(styles).toContain(".support-ticket-modal:not(.support-ticket-modal-compact)");
     expect(styles).toContain(".support-topic-option-active");
-    expect(styles).toContain("grid-template-rows: minmax(0, 1fr) auto auto");
+    expect(styles).toContain("grid-template-rows: minmax(0, 1fr) auto");
     expect(styles).toContain(".support-ticket-modal-body .support-thread");
-    expect(styles).toContain(".support-modal-actions .support-danger-button");
+    expect(styles).toContain(".support-reply-input-row");
+    expect(styles).toContain(".support-file-icon-button");
+    expect(styles).toContain(".support-reply-actions .support-danger-button");
     expect(styles).toContain("scroll-padding-bottom");
     expect(styles).toContain(".support-attachment-viewer-close");
     expect(styles).toContain("var(--tg-safe-bottom");

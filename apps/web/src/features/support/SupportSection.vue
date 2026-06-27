@@ -563,13 +563,24 @@ watch(
             </div>
 
             <form v-if="isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitReply">
-              <textarea v-model="replyMessage" rows="3" placeholder="Ответ клиенту" />
-              <div class="support-reply-actions">
-                <label class="support-upload support-upload-compact">
+              <div class="support-reply-input-row">
+                <label class="support-file-icon-button" title="Добавить файл" aria-label="Добавить файл">
                   <Paperclip class="h-4 w-4" aria-hidden="true" />
-                  <span>{{ replyAttachments.length ? `${replyAttachments.length} файл(а)` : "Файл" }}</span>
+                  <span v-if="replyAttachments.length" class="support-file-count">{{ replyAttachments.length }}</span>
                   <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'reply')" />
                 </label>
+                <textarea v-model="replyMessage" rows="2" placeholder="Ответ клиенту" />
+              </div>
+              <div class="support-reply-actions">
+                <button
+                  class="support-compact-button support-danger-button"
+                  type="button"
+                  :disabled="closingTicket"
+                  @click="closeTicket"
+                >
+                  <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
+                  {{ closingTicket ? "Закрываем..." : "Закрыть обращение" }}
+                </button>
                 <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingReply">
                   {{ sendingReply ? "Отправляем..." : "Отправить ответ" }}
                 </button>
@@ -577,31 +588,32 @@ watch(
             </form>
 
             <form v-else-if="!isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitFollowUp">
-              <textarea v-model="followUpMessage" rows="3" placeholder="Дополнить обращение" />
-              <div class="support-reply-actions">
-                <label class="support-upload support-upload-compact">
+              <div class="support-reply-input-row">
+                <label class="support-file-icon-button" title="Добавить файл" aria-label="Добавить файл">
                   <Paperclip class="h-4 w-4" aria-hidden="true" />
-                  <span>{{ followUpAttachments.length ? `${followUpAttachments.length} файл(а)` : "Файл" }}</span>
+                  <span v-if="followUpAttachments.length" class="support-file-count">{{ followUpAttachments.length }}</span>
                   <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'followUp')" />
                 </label>
+                <textarea v-model="followUpMessage" rows="2" placeholder="Дополнить обращение" />
+              </div>
+              <div class="support-reply-actions">
+                <button
+                  class="support-compact-button support-danger-button"
+                  type="button"
+                  :disabled="closingTicket"
+                  @click="closeTicket"
+                >
+                  <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
+                  {{ closingTicket ? "Закрываем..." : "Закрыть обращение" }}
+                </button>
                 <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingFollowUp">
                   {{ sendingFollowUp ? "Отправляем..." : "Дополнить" }}
                 </button>
               </div>
             </form>
 
-            <div class="support-modal-actions">
-              <button
-                v-if="selectedTicket.status !== 'closed'"
-                class="support-compact-button support-danger-button"
-                type="button"
-                :disabled="closingTicket"
-                @click="closeTicket"
-              >
-                <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
-                {{ closingTicket ? "Закрываем..." : "Закрыть обращение" }}
-              </button>
-              <span v-else class="support-closed-note">
+            <div v-else class="support-modal-actions">
+              <span class="support-closed-note">
                 <CircleDot class="h-4 w-4" aria-hidden="true" />
                 Обращение закрыто
               </span>
