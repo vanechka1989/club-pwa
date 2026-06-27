@@ -49,6 +49,9 @@ describe("support section", () => {
     expect(styles).toContain(".support-attachment-open");
     expect(styles).not.toContain(".support-attachment-preview img");
     expect(styles).toContain(".support-attachment-viewer-fullscreen");
+    expect(styles).toContain("width: 100vw");
+    expect(styles).toContain("height: var(--tg-viewport-height, 100vh)");
+    expect(styles).toContain("border-radius: 0");
     expect(styles).toContain(".support-attachment-viewer-media");
     expect(styles).toContain("touch-action: pan-x pan-y pinch-zoom");
   });
