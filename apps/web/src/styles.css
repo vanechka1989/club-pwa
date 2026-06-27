@@ -23,6 +23,7 @@
   --shadow: 0 26px 80px rgb(0 0 0 / 44%);
   --shadow-soft: 0 14px 40px rgb(0 0 0 / 28%);
   --fullscreen-top-offset: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+  --club-system-bottom: 0px;
   --screen-gutter: 0.8rem;
   --section-bleed: 0.5rem;
 }
@@ -262,14 +263,15 @@ button {
 }
 
 .app-root {
-  --nav-space: 5.4rem;
+  --nav-bottom-offset: max(0.75rem, calc(var(--club-system-bottom, 0px) + 0.75rem));
+  --nav-space: calc(5.4rem + var(--club-system-bottom, 0px));
   --app-viewport-height: var(--club-viewport-height, 100dvh);
   background: var(--bg);
   padding-bottom: var(--nav-space);
 }
 
 .app-root.nav-is-collapsed {
-  --nav-space: 2.5rem;
+  --nav-space: calc(2.5rem + var(--club-system-bottom, 0px));
 }
 
 .app-root.community-active {
@@ -297,7 +299,7 @@ button {
 .community-active .app-shell {
   min-height: 0 !important;
   max-width: none;
-  padding: 1rem 0.25rem calc(1rem + env(safe-area-inset-bottom));
+  padding: 1rem 0.25rem calc(1rem + var(--club-system-bottom, 0px));
 }
 
 .community-chat-open .app-shell {
@@ -4789,7 +4791,7 @@ button {
 .bottom-nav {
   position: fixed;
   right: 0.75rem;
-  bottom: 0.75rem;
+  bottom: var(--nav-bottom-offset);
   left: 0.75rem;
   z-index: 20;
   margin: 0 auto;
@@ -4812,7 +4814,7 @@ button {
 .bottom-nav-toggle {
   position: fixed;
   right: 1rem;
-  bottom: 4.45rem;
+  bottom: calc(var(--nav-bottom-offset) + 3.7rem);
   z-index: 25;
   display: grid;
   width: 2rem;
@@ -4827,7 +4829,7 @@ button {
 }
 
 .nav-is-collapsed .bottom-nav-toggle {
-  bottom: 0.75rem;
+  bottom: var(--nav-bottom-offset);
 }
 
 .bottom-nav-collapsed {

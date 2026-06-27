@@ -95,4 +95,13 @@ describe("support section", () => {
     expect(appSource).toContain("bottom-nav-badge");
     expect(styles).toMatch(/\.bottom-nav-badge\s*\{/);
   });
+
+  it("keeps bottom navigation above Android system navigation", () => {
+    expect(appSource).toContain("--club-system-bottom");
+    expect(appSource).toContain("visualViewport.offsetTop");
+    expect(appSource).toContain("visualBottomGap");
+    expect(styles).toContain("--nav-bottom-offset");
+    expect(styles).toContain("bottom: var(--nav-bottom-offset)");
+    expect(styles).toContain("calc(5.4rem + var(--club-system-bottom");
+  });
 });

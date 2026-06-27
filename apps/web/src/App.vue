@@ -94,18 +94,32 @@ function syncTelegramSafeArea() {
 
   document.documentElement.style.setProperty("--tg-safe-top", `${topInset}px`);
   document.documentElement.style.setProperty("--tg-safe-bottom", `${bottomInset}px`);
+  document.documentElement.style.setProperty("--club-system-bottom", `${bottomInset}px`);
 }
 
 function syncViewportHeight() {
   const webApp = window.Telegram?.WebApp;
   const telegramHeight = webApp?.viewportHeight || webApp?.viewportStableHeight || 0;
-  const visualHeight = window.visualViewport?.height ?? 0;
+  const visualViewport = window.visualViewport;
+  const visualHeight = visualViewport?.height ?? 0;
   const browserHeight = window.innerHeight || 0;
   const height = Math.max(telegramHeight, visualHeight, browserHeight);
 
   if (height > 0) {
     document.documentElement.style.setProperty("--club-viewport-height", `${height}px`);
   }
+
+  const visualBottomGap =
+    visualViewport && browserHeight > 0
+      ? Math.max(0, Math.round(browserHeight - visualViewport.height - visualViewport.offsetTop))
+      : 0;
+  const telegramBottomInset = Math.max(
+    webApp?.contentSafeAreaInset?.bottom ?? 0,
+    webApp?.safeAreaInset?.bottom ?? 0
+  );
+  const dynamicBottomInset = Math.max(telegramBottomInset, visualBottomGap);
+
+  document.documentElement.style.setProperty("--club-system-bottom", `${dynamicBottomInset}px`);
 }
 
 function syncTelegramFullscreen(isEnabled: boolean) {
