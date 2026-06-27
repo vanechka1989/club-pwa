@@ -990,7 +990,7 @@ button {
   position: fixed;
   z-index: 3;
   top: 50%;
-  right: max(0.45rem, env(safe-area-inset-right));
+  right: max(1.1rem, calc(env(safe-area-inset-right) + 0.75rem));
   left: auto;
   transform: translateY(-50%);
   pointer-events: none;
@@ -1038,7 +1038,7 @@ button {
 @media (orientation: landscape) {
   .support-attachment-viewer-fullscreen .support-attachment-viewer-panel header {
     top: 50%;
-    right: max(0.42rem, env(safe-area-inset-right));
+    right: max(4.4rem, calc(env(safe-area-inset-right) + 3.4rem));
   }
 
   .support-attachment-viewer-fullscreen .support-attachment-viewer-media {
