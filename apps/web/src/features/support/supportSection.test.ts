@@ -12,7 +12,17 @@ describe("support section", () => {
     expect(source).toContain("support-admin-board");
     expect(source).toContain("Другая причина");
     expect(source).toContain("Отправить ответ");
+    expect(source).toContain("Дополнить обращение");
+    expect(source).toContain("Закрыть обращение");
     expect(source).toContain("Время ожидания");
+  });
+
+  it("opens tickets in a modal and marks them read only when opened", () => {
+    expect(source).toContain("support-ticket-modal");
+    expect(source).toContain("openTicket(ticket.id)");
+    expect(source).toContain("markSupportTicketRead");
+    expect(source).toContain("createSupportTicketMessage");
+    expect(source).toContain("closeSupportTicket");
   });
 
   it("supports photo and video attachments without oversized buttons", () => {

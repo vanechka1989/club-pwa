@@ -197,7 +197,7 @@ async function notifyCustomerAboutReply(ticket: NonNullable<Awaited<ReturnType<t
       chatId: ticket.user.telegramId,
       text: "Вам ответили в поддержке. Откройте приложение, чтобы посмотреть ответ.",
       replyMarkup: {
-        inline_keyboard: [[{ text: "Открыть клуб", url: env.WEB_ORIGIN }]]
+        inline_keyboard: [[{ text: "Открыть клуб", web_app: { url: env.WEB_ORIGIN } }]]
       }
     });
   } catch (error) {
@@ -210,11 +210,6 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
   .get("/", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-
-    await db
-      .update(supportTickets)
-      .set({ customerReadAt: new Date() })
-      .where(eq(supportTickets.userId, userId));
 
     const tickets = await db.query.supportTickets.findMany({
       where: eq(supportTickets.userId, userId),
@@ -235,7 +230,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       managerContact: null,
       topics: supportTopics,
       tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role))),
-      unreadCount: 0
+      unreadCount: await getUnreadCount({ userId, role })
     });
   })
   .get("/unread", async (c) => {
@@ -316,16 +311,146 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       unreadCount: await getUnreadCount({ userId, role })
     });
   })
-  .get("/admin/tickets", async (c) => {
+  .post("/tickets/:id/messages", async (c) => {
+    const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-    if (!isAdminRole(role)) {
-      return c.json({ error: "Forbidden" }, 403);
+    const idResult = z.string().uuid().safeParse(c.req.param("id"));
+    if (!idResult.success) {
+      return c.json({ error: "Invalid ticket id" }, 400);
+    }
+
+    const ticket = await getTicketById(idResult.data);
+    if (!ticket || ticket.userId !== userId) {
+      return c.json({ error: "Обращение не найдено." }, 404);
+    }
+    if (ticket.status === "closed") {
+      return c.json({ error: "Обращение закрыто. Создайте новое, если вопрос снова актуален." }, 400);
+    }
+
+    const form = await c.req.formData();
+    const message = getFormString(form, "message");
+    const files = getFormFiles(form);
+    if (!message && files.length === 0) {
+      return c.json({ error: "Напишите сообщение или приложите файл." }, 400);
+    }
+
+    const now = new Date();
+    const [ticketMessage] = await db
+      .insert(supportTicketMessages)
+      .values({
+        ticketId: ticket.id,
+        authorUserId: userId,
+        authorRole: "customer",
+        body: message || "Вложение от клиента.",
+        createdAt: now,
+        updatedAt: now
+      })
+      .returning();
+
+    if (!ticketMessage) {
+      return c.json({ error: "Не удалось добавить сообщение." }, 500);
+    }
+
+    try {
+      await uploadAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, files });
+    } catch (error) {
+      logger.warn({ error, ticketId: ticket.id }, "Unable to upload support follow-up attachment");
+      return c.json({ error: "Файл не подходит. Можно загрузить фото или видео." }, 400);
     }
 
     await db
       .update(supportTickets)
-      .set({ adminReadAt: new Date() })
-      .where(ne(supportTickets.status, "closed"));
+      .set({
+        status: "open",
+        lastCustomerMessageAt: now,
+        customerReadAt: now,
+        updatedAt: now
+      })
+      .where(eq(supportTickets.id, ticket.id));
+
+    const updatedTicket = await getTicketById(ticket.id);
+    if (!updatedTicket) {
+      return c.json({ error: "Обращение не найдено." }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      ticket: await serializeTicket(updatedTicket, role),
+      unreadCount: await getUnreadCount({ userId, role })
+    });
+  })
+  .post("/tickets/:id/close", async (c) => {
+    const userId = c.get("userId");
+    const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    const idResult = z.string().uuid().safeParse(c.req.param("id"));
+    if (!idResult.success) {
+      return c.json({ error: "Invalid ticket id" }, 400);
+    }
+
+    const ticket = await getTicketById(idResult.data);
+    const isAdmin = isAdminRole(role);
+    if (!ticket || (!isAdmin && ticket.userId !== userId)) {
+      return c.json({ error: "Обращение не найдено." }, 404);
+    }
+
+    const now = new Date();
+    await db
+      .update(supportTickets)
+      .set({
+        status: "closed",
+        customerReadAt: ticket.userId === userId ? now : ticket.customerReadAt,
+        adminReadAt: isAdmin ? now : ticket.adminReadAt,
+        updatedAt: now
+      })
+      .where(eq(supportTickets.id, ticket.id));
+
+    const updatedTicket = await getTicketById(ticket.id);
+    if (!updatedTicket) {
+      return c.json({ error: "Обращение не найдено." }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      ticket: await serializeTicket(updatedTicket, role),
+      unreadCount: await getUnreadCount({ userId, role })
+    });
+  })
+  .post("/tickets/:id/read", async (c) => {
+    const userId = c.get("userId");
+    const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    const idResult = z.string().uuid().safeParse(c.req.param("id"));
+    if (!idResult.success) {
+      return c.json({ error: "Invalid ticket id" }, 400);
+    }
+
+    const ticket = await getTicketById(idResult.data);
+    const isAdmin = isAdminRole(role);
+    if (!ticket || (!isAdmin && ticket.userId !== userId)) {
+      return c.json({ error: "Обращение не найдено." }, 404);
+    }
+
+    await db
+      .update(supportTickets)
+      .set(isAdmin ? { adminReadAt: new Date() } : { customerReadAt: new Date() })
+      .where(eq(supportTickets.id, ticket.id));
+
+    const updatedTicket = await getTicketById(ticket.id);
+    if (!updatedTicket) {
+      return c.json({ error: "Обращение не найдено." }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      ticket: await serializeTicket(updatedTicket, role),
+      unreadCount: await getUnreadCount({ userId, role })
+    });
+  })
+  .get("/admin/tickets", async (c) => {
+    const userId = c.get("userId");
+    const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    if (!isAdminRole(role)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
 
     const tickets = await db.query.supportTickets.findMany({
       orderBy: [desc(supportTickets.updatedAt)],
@@ -343,7 +468,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role))),
-      unreadCount: 0
+      unreadCount: await getUnreadCount({ userId, role })
     });
   })
   .post("/admin/tickets/:id/replies", async (c) => {

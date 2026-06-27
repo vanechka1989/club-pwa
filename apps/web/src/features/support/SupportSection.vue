@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { Image, Paperclip, Send, Video } from "lucide-vue-next";
+import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
 import type { SupportTicket } from "@club/shared";
-import { createSupportTicket, getAdminSupportTickets, getSupportHome, replyAdminSupportTicket } from "@/api/client";
+import {
+  closeSupportTicket,
+  createSupportTicket,
+  createSupportTicketMessage,
+  getAdminSupportTickets,
+  getSupportHome,
+  markSupportTicketRead,
+  replyAdminSupportTicket
+} from "@/api/client";
 import { useSessionStore } from "@/stores/session";
 
 const emit = defineEmits<{
@@ -11,7 +19,6 @@ const emit = defineEmits<{
 
 const session = useSessionStore();
 const loading = ref(true);
-const sending = ref(false);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
 const topics = ref<Array<{ id: string; title: string; description: string }>>([]);
@@ -23,6 +30,13 @@ const message = ref("");
 const attachments = ref<File[]>([]);
 const replyMessage = ref("");
 const replyAttachments = ref<File[]>([]);
+const followUpMessage = ref("");
+const followUpAttachments = ref<File[]>([]);
+const sendingTicket = ref(false);
+const sendingReply = ref(false);
+const sendingFollowUp = ref(false);
+const closingTicket = ref(false);
+
 const defaultTopics = [
   { id: "payment", title: "Оплата", description: "Платежи и подписки." },
   { id: "access", title: "Доступ", description: "Проблемы с доступом." },
@@ -31,9 +45,11 @@ const defaultTopics = [
 
 const isAdmin = computed(() => session.user?.realRole === "admin" || session.user?.realRole === "owner");
 const visibleTopics = computed(() => (topics.value.length ? topics.value : defaultTopics));
-const selectedTicket = computed(() => tickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? tickets.value[0] ?? null);
+const selectedTicket = computed(() => tickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? null);
 const openTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "open"));
 const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "answered"));
+const closedTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "closed"));
+const adminUnreadTickets = computed(() => tickets.value.filter((ticket) => ticket.unread));
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", {
@@ -65,15 +81,37 @@ function attachmentIcon(kind: string) {
   return kind === "video" ? Video : Image;
 }
 
-function updateFiles(event: Event, target: "ticket" | "reply") {
+function statusTone(ticket: SupportTicket) {
+  if (ticket.status === "closed") {
+    return "support-status-closed";
+  }
+  if (ticket.unread) {
+    return "support-status-hot";
+  }
+  if (ticket.status === "answered") {
+    return "support-status-answered";
+  }
+  return "support-status-open";
+}
+
+function updateFiles(event: Event, target: "ticket" | "reply" | "followUp") {
   const input = event.target as HTMLInputElement;
   const files = Array.from(input.files ?? []).slice(0, 4);
   if (target === "ticket") {
     attachments.value = files;
     return;
   }
+  if (target === "reply") {
+    replyAttachments.value = files;
+    return;
+  }
+  followUpAttachments.value = files;
+}
 
-  replyAttachments.value = files;
+function replaceTicket(ticket: SupportTicket) {
+  tickets.value = [ticket, ...tickets.value.filter((item) => item.id !== ticket.id)].sort(
+    (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+  );
 }
 
 function resetCustomerForm() {
@@ -90,7 +128,6 @@ async function loadSupport() {
     if (isAdmin.value) {
       const response = await getAdminSupportTickets();
       tickets.value = response.tickets;
-      selectedTicketId.value = tickets.value[0]?.id ?? null;
       emit("unread-change", response.unreadCount);
       return;
     }
@@ -106,6 +143,32 @@ async function loadSupport() {
   }
 }
 
+async function openTicket(ticketId: string) {
+  selectedTicketId.value = ticketId;
+  error.value = null;
+  success.value = null;
+  replyMessage.value = "";
+  replyAttachments.value = [];
+  followUpMessage.value = "";
+  followUpAttachments.value = [];
+
+  try {
+    const response = await markSupportTicketRead(ticketId);
+    tickets.value = tickets.value.map((ticket) => (ticket.id === response.ticket.id ? response.ticket : ticket));
+    emit("unread-change", response.unreadCount);
+  } catch {
+    // Если отметка прочтения не прошла, само обращение всё равно можно посмотреть.
+  }
+}
+
+function closeModal() {
+  selectedTicketId.value = null;
+  replyMessage.value = "";
+  replyAttachments.value = [];
+  followUpMessage.value = "";
+  followUpAttachments.value = [];
+}
+
 async function submitTicket() {
   error.value = null;
   success.value = null;
@@ -115,7 +178,7 @@ async function submitTicket() {
     return;
   }
 
-  sending.value = true;
+  sendingTicket.value = true;
   const form = new FormData();
   form.set("topic", topic.value);
   form.set("customTopic", customTopic.value);
@@ -124,14 +187,14 @@ async function submitTicket() {
 
   try {
     const response = await createSupportTicket(form);
-    tickets.value = [response.ticket, ...tickets.value.filter((ticket) => ticket.id !== response.ticket.id)];
+    replaceTicket(response.ticket);
     emit("unread-change", response.unreadCount);
     resetCustomerForm();
     success.value = "Обращение отправлено. Мы ответим здесь.";
   } catch (requestError: any) {
     error.value = requestError?.data?.error ?? "Не удалось отправить обращение.";
   } finally {
-    sending.value = false;
+    sendingTicket.value = false;
   }
 }
 
@@ -148,14 +211,14 @@ async function submitReply() {
     return;
   }
 
-  sending.value = true;
+  sendingReply.value = true;
   const form = new FormData();
   form.set("message", text);
   replyAttachments.value.forEach((file) => form.append("attachments", file));
 
   try {
     const response = await replyAdminSupportTicket(selectedTicket.value.id, form);
-    tickets.value = tickets.value.map((ticket) => (ticket.id === response.ticket.id ? response.ticket : ticket));
+    replaceTicket(response.ticket);
     selectedTicketId.value = response.ticket.id;
     replyMessage.value = "";
     replyAttachments.value = [];
@@ -164,7 +227,64 @@ async function submitReply() {
   } catch (requestError: any) {
     error.value = requestError?.data?.error ?? "Не удалось отправить ответ.";
   } finally {
-    sending.value = false;
+    sendingReply.value = false;
+  }
+}
+
+async function submitFollowUp() {
+  if (!selectedTicket.value) {
+    return;
+  }
+
+  error.value = null;
+  success.value = null;
+  const text = followUpMessage.value.trim();
+  if (!text && followUpAttachments.value.length === 0) {
+    error.value = "Напишите дополнение или приложите файл.";
+    return;
+  }
+
+  sendingFollowUp.value = true;
+  const form = new FormData();
+  form.set("message", text);
+  followUpAttachments.value.forEach((file) => form.append("attachments", file));
+
+  try {
+    const response = await createSupportTicketMessage(selectedTicket.value.id, form);
+    replaceTicket(response.ticket);
+    selectedTicketId.value = response.ticket.id;
+    followUpMessage.value = "";
+    followUpAttachments.value = [];
+    success.value = "Дополнение отправлено.";
+    emit("unread-change", response.unreadCount);
+  } catch (requestError: any) {
+    error.value = requestError?.data?.error ?? "Не удалось отправить дополнение.";
+  } finally {
+    sendingFollowUp.value = false;
+  }
+}
+
+async function closeTicket() {
+  if (!selectedTicket.value) {
+    return;
+  }
+  if (!window.confirm("Закрыть обращение? Если вопрос снова появится, можно создать новое.")) {
+    return;
+  }
+
+  error.value = null;
+  success.value = null;
+  closingTicket.value = true;
+  try {
+    const response = await closeSupportTicket(selectedTicket.value.id);
+    replaceTicket(response.ticket);
+    selectedTicketId.value = response.ticket.id;
+    success.value = "Обращение закрыто.";
+    emit("unread-change", response.unreadCount);
+  } catch (requestError: any) {
+    error.value = requestError?.data?.error ?? "Не удалось закрыть обращение.";
+  } finally {
+    closingTicket.value = false;
   }
 }
 
@@ -220,24 +340,24 @@ onMounted(() => {
           <span v-for="file in attachments" :key="file.name">{{ file.name }}</span>
         </div>
 
-        <button class="support-compact-button support-primary-button" type="submit" :disabled="sending">
+        <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingTicket">
           <Send class="h-4 w-4" aria-hidden="true" />
-          {{ sending ? "Отправляем..." : "Отправить" }}
+          {{ sendingTicket ? "Отправляем..." : "Отправить" }}
         </button>
       </form>
 
       <div class="support-list surface-card">
         <h3>Мои обращения</h3>
         <p v-if="!tickets.length" class="support-muted">Обращений пока нет.</p>
-        <article v-for="ticket in tickets" :key="ticket.id" class="support-ticket-card">
+        <button v-for="ticket in tickets" :key="ticket.id" class="support-ticket-card" type="button" @click="openTicket(ticket.id)">
           <div>
             <p class="support-ticket-title">{{ ticket.topicTitle }}</p>
-            <p class="support-muted">{{ ticket.statusLabel }} · {{ formatDate(ticket.createdAt) }}</p>
+            <p class="support-muted">{{ formatDate(ticket.createdAt) }} · {{ ticket.messages.length }} сообщ.</p>
           </div>
-          <span class="support-status" :class="{ 'support-status-hot': ticket.unread }">
-            {{ ticket.unread ? "Ответ" : ticket.statusLabel }}
+          <span class="support-status" :class="statusTone(ticket)">
+            {{ ticket.unread ? "Новый ответ" : ticket.statusLabel }}
           </span>
-        </article>
+        </button>
       </div>
     </template>
 
@@ -245,48 +365,65 @@ onMounted(() => {
       <div class="support-admin-board">
         <div class="support-admin-stats">
           <article class="surface-card">
+            <span>Новые</span>
+            <strong>{{ adminUnreadTickets.length }}</strong>
+          </article>
+          <article class="surface-card">
             <span>Открытые</span>
             <strong>{{ openTickets.length }}</strong>
           </article>
           <article class="surface-card">
-            <span>С ответом</span>
-            <strong>{{ answeredTickets.length }}</strong>
-          </article>
-          <article class="surface-card">
-            <span>Всего</span>
-            <strong>{{ tickets.length }}</strong>
+            <span>Закрытые</span>
+            <strong>{{ closedTickets.length }}</strong>
           </article>
         </div>
 
-        <div class="support-admin-layout">
-          <aside class="surface-card support-ticket-list">
-            <h3>Запросы клиентов</h3>
-            <button
-              v-for="ticket in tickets"
-              :key="ticket.id"
-              class="support-admin-ticket"
-              :class="{ 'support-admin-ticket-active': selectedTicket?.id === ticket.id }"
-              type="button"
-              @click="selectedTicketId = ticket.id"
-            >
+        <div class="surface-card support-ticket-list">
+          <h3>Запросы клиентов</h3>
+          <button v-for="ticket in tickets" :key="ticket.id" class="support-admin-ticket" type="button" @click="openTicket(ticket.id)">
+            <div class="support-admin-ticket-main">
               <span>{{ userName(ticket.customer) }}</span>
-              <small>{{ ticket.topicTitle }}</small>
+              <small>ID {{ ticket.customer.telegramId }} · {{ ticket.topicTitle }}</small>
               <em>Время ожидания: {{ waitingTime(ticket.waitingSince) }}</em>
-            </button>
-            <p v-if="!tickets.length" class="support-muted">Новых обращений пока нет.</p>
-          </aside>
+            </div>
+            <span class="support-status" :class="statusTone(ticket)">
+              {{ ticket.unread ? "Новое" : ticket.statusLabel }}
+            </span>
+          </button>
+          <p v-if="!tickets.length" class="support-muted">Новых обращений пока нет.</p>
+        </div>
+      </div>
+    </template>
 
-          <article v-if="selectedTicket" class="surface-card support-ticket-detail">
-            <header>
+    <Teleport to="body">
+      <div v-if="selectedTicket" class="support-modal-backdrop" @click.self="closeModal">
+        <article class="support-ticket-modal">
+          <header class="support-modal-head">
+            <div>
+              <p class="support-kicker">{{ isAdmin ? "Карточка обращения" : "Ваше обращение" }}</p>
+              <h3>{{ selectedTicket.topicTitle }}</h3>
+              <p class="support-muted">{{ formatDate(selectedTicket.createdAt) }} · {{ selectedTicket.statusLabel }}</p>
+            </div>
+            <button class="support-modal-close" type="button" aria-label="Закрыть" @click="closeModal">
+              <X class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="support-modal-body">
+            <div v-if="isAdmin" class="support-customer-card">
+              <img
+                v-if="selectedTicket.customer.photoUrl"
+                :src="selectedTicket.customer.photoUrl"
+                :alt="userName(selectedTicket.customer)"
+              />
+              <div v-else class="support-customer-avatar">{{ userName(selectedTicket.customer).slice(0, 1) }}</div>
               <div>
-                <p class="support-muted">Обращение</p>
-                <h3>{{ selectedTicket.topicTitle }}</h3>
-                <p class="support-muted">
-                  {{ userName(selectedTicket.customer) }} · {{ formatDate(selectedTicket.createdAt) }}
-                </p>
+                <strong>{{ userName(selectedTicket.customer) }}</strong>
+                <span>ID {{ selectedTicket.customer.telegramId }}</span>
+                <span v-if="selectedTicket.customer.username">@{{ selectedTicket.customer.username }}</span>
               </div>
-              <span class="support-status">{{ waitingTime(selectedTicket.waitingSince) }}</span>
-            </header>
+              <span class="support-status" :class="statusTone(selectedTicket)">{{ selectedTicket.statusLabel }}</span>
+            </div>
 
             <div class="support-thread">
               <article
@@ -307,7 +444,7 @@ onMounted(() => {
               </article>
             </div>
 
-            <form class="support-reply-form" @submit.prevent="submitReply">
+            <form v-if="isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitReply">
               <textarea v-model="replyMessage" rows="3" placeholder="Ответ клиенту" />
               <div class="support-reply-actions">
                 <label class="support-upload support-upload-compact">
@@ -315,14 +452,45 @@ onMounted(() => {
                   <span>{{ replyAttachments.length ? `${replyAttachments.length} файл(а)` : "Файл" }}</span>
                   <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'reply')" />
                 </label>
-                <button class="support-compact-button support-primary-button" type="submit" :disabled="sending">
-                  Отправить ответ
+                <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingReply">
+                  {{ sendingReply ? "Отправляем..." : "Отправить ответ" }}
                 </button>
               </div>
             </form>
-          </article>
-        </div>
+
+            <form v-else-if="!isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitFollowUp">
+              <textarea v-model="followUpMessage" rows="3" placeholder="Дополнить обращение" />
+              <div class="support-reply-actions">
+                <label class="support-upload support-upload-compact">
+                  <Paperclip class="h-4 w-4" aria-hidden="true" />
+                  <span>{{ followUpAttachments.length ? `${followUpAttachments.length} файл(а)` : "Файл" }}</span>
+                  <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'followUp')" />
+                </label>
+                <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingFollowUp">
+                  {{ sendingFollowUp ? "Отправляем..." : "Дополнить" }}
+                </button>
+              </div>
+            </form>
+
+            <div class="support-modal-actions">
+              <button
+                v-if="selectedTicket.status !== 'closed'"
+                class="support-compact-button support-secondary-button"
+                type="button"
+                :disabled="closingTicket"
+                @click="closeTicket"
+              >
+                <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
+                {{ closingTicket ? "Закрываем..." : "Закрыть обращение" }}
+              </button>
+              <span v-else class="support-closed-note">
+                <CircleDot class="h-4 w-4" aria-hidden="true" />
+                Обращение закрыто
+              </span>
+            </div>
+          </div>
+        </article>
       </div>
-    </template>
+    </Teleport>
   </section>
 </template>

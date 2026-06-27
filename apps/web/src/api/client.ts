@@ -326,6 +326,25 @@ export function createSupportTicket(payload: FormData) {
   });
 }
 
+export function createSupportTicketMessage(id: string, payload: FormData) {
+  return api<SupportTicketMutationResponse>(`/support/tickets/${id}/messages`, {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function closeSupportTicket(id: string) {
+  return api<SupportTicketMutationResponse>(`/support/tickets/${id}/close`, {
+    method: "POST"
+  });
+}
+
+export function markSupportTicketRead(id: string) {
+  return api<SupportTicketMutationResponse>(`/support/tickets/${id}/read`, {
+    method: "POST"
+  });
+}
+
 export function getAdminSupportTickets() {
   return api<AdminSupportResponse>("/support/admin/tickets");
 }
