@@ -987,11 +987,12 @@ button {
 }
 
 .support-attachment-viewer-fullscreen .support-attachment-viewer-panel header {
-  position: absolute;
+  position: fixed;
   z-index: 3;
-  top: max(0.65rem, calc(var(--tg-safe-top, 0px) + 0.4rem));
-  right: 0.65rem;
-  left: 0.65rem;
+  top: 50%;
+  right: max(0.45rem, env(safe-area-inset-right));
+  left: auto;
+  transform: translateY(-50%);
   pointer-events: none;
 }
 
@@ -1002,6 +1003,22 @@ button {
 .support-attachment-viewer-fullscreen .support-attachment-viewer-head-actions {
   margin-left: auto;
   pointer-events: auto;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-strong) 34%, transparent);
+  padding: 0.32rem;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.support-attachment-viewer-fullscreen .support-attachment-viewer-head-actions .support-modal-close {
+  width: 2.45rem;
+  height: 2.45rem;
+  border-color: color-mix(in srgb, var(--border) 48%, transparent);
+  background: color-mix(in srgb, var(--panel-strong) 48%, transparent);
+  opacity: 0.86;
 }
 
 .support-attachment-viewer-fullscreen .support-attachment-viewer-media {
@@ -1020,9 +1037,8 @@ button {
 
 @media (orientation: landscape) {
   .support-attachment-viewer-fullscreen .support-attachment-viewer-panel header {
-    top: max(0.45rem, calc(var(--tg-safe-top, 0px) + 0.25rem));
-    right: 0.5rem;
-    left: 0.5rem;
+    top: 50%;
+    right: max(0.42rem, env(safe-area-inset-right));
   }
 
   .support-attachment-viewer-fullscreen .support-attachment-viewer-media {

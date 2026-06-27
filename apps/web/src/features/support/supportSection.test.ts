@@ -52,6 +52,9 @@ describe("support section", () => {
     expect(styles).toContain("width: 100vw");
     expect(styles).toContain("height: var(--tg-viewport-height, 100vh)");
     expect(styles).toContain("border-radius: 0");
+    expect(styles).toContain("top: 50%");
+    expect(styles).toContain("transform: translateY(-50%)");
+    expect(styles).toContain("backdrop-filter: blur(12px)");
     expect(styles).toContain(".support-attachment-viewer-media");
     expect(styles).toContain("touch-action: pan-x pan-y pinch-zoom");
   });
