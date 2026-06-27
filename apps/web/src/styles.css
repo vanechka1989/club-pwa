@@ -938,6 +938,12 @@ button {
   gap: 0.7rem;
 }
 
+.support-attachment-viewer-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
 .support-attachment-viewer-panel strong {
   min-width: 0;
   overflow: hidden;
@@ -956,6 +962,25 @@ button {
   background: #000;
   object-fit: contain;
   touch-action: pan-x pan-y pinch-zoom;
+}
+
+.support-attachment-viewer-fullscreen {
+  align-items: stretch;
+  padding:
+    max(0.55rem, calc(var(--tg-safe-top, 0px) + 0.35rem))
+    0.45rem
+    max(0.9rem, calc(var(--tg-safe-bottom, 0px) + 0.65rem));
+}
+
+.support-attachment-viewer-fullscreen .support-attachment-viewer-panel {
+  width: 100%;
+  max-height: none;
+  border-radius: 16px;
+}
+
+.support-attachment-viewer-fullscreen .support-attachment-viewer-media {
+  min-height: min(72vh, calc(var(--tg-viewport-height, 100vh) - 9.5rem));
+  max-height: calc(var(--tg-viewport-height, 100vh) - 9.5rem);
 }
 
 .support-attachment-viewer-close {

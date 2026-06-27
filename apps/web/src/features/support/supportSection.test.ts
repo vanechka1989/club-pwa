@@ -39,12 +39,15 @@ describe("support section", () => {
     expect(source).toContain("support-attachment-open");
     expect(source).toContain("support-attachment-viewer");
     expect(source).toContain("openAttachment(attachment)");
+    expect(source).toContain("openAttachmentFullscreen");
+    expect(source).toContain("webkitEnterFullscreen");
     expect(source).toContain("support-attachment-viewer-close");
     expect(source).toContain("<video");
     expect(source).toContain("openedAttachment.kind === 'photo'");
     expect(source).toContain("Открыть вложение");
     expect(styles).toContain(".support-attachment-open");
     expect(styles).not.toContain(".support-attachment-preview img");
+    expect(styles).toContain(".support-attachment-viewer-fullscreen");
     expect(styles).toContain(".support-attachment-viewer-media");
     expect(styles).toContain("touch-action: pan-x pan-y pinch-zoom");
   });

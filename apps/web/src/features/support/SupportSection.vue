@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
+import { CheckCircle2, CircleDot, Image, Maximize2, Paperclip, Send, Video, X } from "lucide-vue-next";
 import type { SupportAttachment, SupportTicket } from "@club/shared";
 import {
   closeSupportTicket,
@@ -33,6 +33,9 @@ const selectedTicketId = ref<string | null>(null);
 const createTicketOpen = ref(false);
 const openedAttachment = ref<SupportAttachment | null>(null);
 const threadRef = ref<HTMLElement | null>(null);
+const attachmentVideoRef = ref<HTMLVideoElement | null>(null);
+const attachmentPanelRef = ref<HTMLElement | null>(null);
+const attachmentInlineFullscreen = ref(false);
 const topic = ref("payment");
 const customTopic = ref("");
 const message = ref("");
@@ -60,6 +63,7 @@ const openTickets = computed(() => tickets.value.filter((ticket) => ticket.statu
 const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "answered"));
 const closedTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "closed"));
 const adminUnreadTickets = computed(() => tickets.value.filter((ticket) => ticket.unread));
+const isVideoAttachment = computed(() => openedAttachment.value?.kind === "video");
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", {
@@ -206,10 +210,42 @@ function closeModal() {
 
 function openAttachment(attachment: SupportAttachment) {
   openedAttachment.value = attachment;
+  attachmentInlineFullscreen.value = false;
 }
 
 function closeAttachment() {
   openedAttachment.value = null;
+  attachmentInlineFullscreen.value = false;
+  attachmentVideoRef.value = null;
+}
+
+async function openAttachmentFullscreen() {
+  const video = attachmentVideoRef.value;
+  const panel = attachmentPanelRef.value;
+  if (!video) {
+    return;
+  }
+
+  const webkitVideo = video as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+  if (typeof webkitVideo.webkitEnterFullscreen === "function") {
+    webkitVideo.webkitEnterFullscreen();
+    return;
+  }
+
+  try {
+    if (typeof video.requestFullscreen === "function") {
+      await video.requestFullscreen();
+      return;
+    }
+    if (panel && typeof panel.requestFullscreen === "function") {
+      await panel.requestFullscreen();
+      return;
+    }
+  } catch {
+    // Telegram WebView может запретить fullscreen API, тогда разворачиваем внутри приложения.
+  }
+
+  attachmentInlineFullscreen.value = true;
 }
 
 async function submitTicket() {
@@ -622,13 +658,30 @@ watch(
         </article>
       </div>
 
-      <div v-if="openedAttachment" class="support-attachment-viewer" @click.self="closeAttachment">
-        <article class="support-attachment-viewer-panel">
+      <div
+        v-if="openedAttachment"
+        class="support-attachment-viewer"
+        :class="{ 'support-attachment-viewer-fullscreen': attachmentInlineFullscreen }"
+        @click.self="closeAttachment"
+      >
+        <article ref="attachmentPanelRef" class="support-attachment-viewer-panel">
           <header>
             <strong>{{ openedAttachment.fileName }}</strong>
-            <button class="support-modal-close" type="button" aria-label="Закрыть вложение" @click="closeAttachment">
-              <X class="h-5 w-5" aria-hidden="true" />
-            </button>
+            <div class="support-attachment-viewer-head-actions">
+              <button
+                v-if="isVideoAttachment"
+                class="support-modal-close"
+                type="button"
+                aria-label="Открыть видео во весь экран"
+                title="Во весь экран"
+                @click="openAttachmentFullscreen"
+              >
+                <Maximize2 class="h-5 w-5" aria-hidden="true" />
+              </button>
+              <button class="support-modal-close" type="button" aria-label="Закрыть вложение" @click="closeAttachment">
+                <X class="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
           </header>
           <img
             v-if="openedAttachment.kind === 'photo'"
@@ -638,6 +691,7 @@ watch(
           />
           <video
             v-else
+            ref="attachmentVideoRef"
             class="support-attachment-viewer-media"
             :src="openedAttachment.url"
             controls
