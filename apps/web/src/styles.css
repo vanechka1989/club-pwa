@@ -914,6 +914,10 @@ button {
   box-shadow: 0 24px 70px color-mix(in srgb, #000 42%, transparent);
 }
 
+.support-ticket-modal:not(.support-ticket-modal-compact) {
+  height: min(88vh, calc(var(--tg-viewport-height, 100vh) - 1.2rem));
+}
+
 .support-ticket-modal-compact {
   max-height: min(78vh, calc(var(--tg-viewport-height, 100vh) - 2rem));
 }
@@ -961,6 +965,33 @@ button {
     0.85rem
     max(2.8rem, calc(var(--tg-safe-bottom, 0px) + 1.8rem));
   scroll-padding-bottom: max(3rem, calc(var(--tg-safe-bottom, 0px) + 2rem));
+}
+
+.support-ticket-modal {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.support-ticket-modal-body {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
+  padding-bottom: max(1.35rem, calc(var(--tg-safe-bottom, 0px) + 1rem));
+}
+
+.support-ticket-modal-body .support-thread {
+  min-height: 0;
+  max-height: none;
+  overscroll-behavior: contain;
+}
+
+.support-ticket-modal-body .support-reply-form,
+.support-ticket-modal-body .support-modal-actions {
+  flex-shrink: 0;
+}
+
+.support-ticket-modal-body .support-reply-form textarea {
+  max-height: 7rem;
+  resize: none;
 }
 
 .support-customer-strip {
@@ -1031,11 +1062,16 @@ button {
 
 .support-modal-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
   margin-bottom: 0.65rem;
   padding-bottom: 0.65rem;
+}
+
+.support-modal-actions .support-secondary-button {
+  min-width: 8.5rem;
 }
 
 .support-closed-note {

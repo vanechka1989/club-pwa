@@ -495,7 +495,7 @@ watch(
             </button>
           </header>
 
-          <div class="support-modal-body">
+          <div class="support-modal-body support-ticket-modal-body">
             <button
               v-if="isAdmin"
               class="support-customer-strip"
@@ -578,6 +578,9 @@ watch(
             </form>
 
             <div class="support-modal-actions">
+              <button class="support-compact-button support-secondary-button" type="button" @click="closeModal">
+                Закрыть
+              </button>
               <button
                 v-if="selectedTicket.status !== 'closed'"
                 class="support-compact-button support-danger-button"
