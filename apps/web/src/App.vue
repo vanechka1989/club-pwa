@@ -22,6 +22,7 @@ const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
 const communityChatOpen = ref(false);
 const supportUnreadCount = ref(0);
+const adminClientTelegramId = ref<string | null>(null);
 let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
@@ -65,6 +66,11 @@ async function selectSection(section: AppSection) {
   activeSection.value = section;
   await nextTick();
   resetWindowScroll();
+}
+
+async function openAdminClientFromSupport(telegramId: string) {
+  adminClientTelegramId.value = telegramId;
+  await selectSection("admin");
 }
 
 function syncTelegramSafeArea() {
@@ -315,8 +321,12 @@ onBeforeUnmount(() => {
           <LearningSection v-else-if="activeSection === 'learning'" />
           <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
           <PaymentsSection v-else-if="activeSection === 'payments'" />
-          <SupportSection v-else-if="activeSection === 'support'" @unread-change="supportUnreadCount = $event" />
-          <AdminSection v-else />
+          <SupportSection
+            v-else-if="activeSection === 'support'"
+            @unread-change="supportUnreadCount = $event"
+            @open-client="openAdminClientFromSupport"
+          />
+          <AdminSection v-else :open-client-telegram-id="adminClientTelegramId" />
         </div>
       </div>
     </section>

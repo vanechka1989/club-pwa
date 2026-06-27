@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
+import { computed, nextTick, onMounted, ref } from "vue";
+import { CheckCircle2, CircleDot, Image, Paperclip, Send, UserRound, Video, X } from "lucide-vue-next";
 import type { SupportTicket } from "@club/shared";
 import {
   closeSupportTicket,
@@ -15,6 +15,7 @@ import { useSessionStore } from "@/stores/session";
 
 const emit = defineEmits<{
   "unread-change": [count: number];
+  "open-client": [telegramId: string];
 }>();
 
 const session = useSessionStore();
@@ -24,6 +25,8 @@ const success = ref<string | null>(null);
 const topics = ref<Array<{ id: string; title: string; description: string }>>([]);
 const tickets = ref<SupportTicket[]>([]);
 const selectedTicketId = ref<string | null>(null);
+const createTicketOpen = ref(false);
+const threadRef = ref<HTMLElement | null>(null);
 const topic = ref("payment");
 const customTopic = ref("");
 const message = ref("");
@@ -121,6 +124,25 @@ function resetCustomerForm() {
   attachments.value = [];
 }
 
+function openCreateTicket() {
+  error.value = null;
+  success.value = null;
+  createTicketOpen.value = true;
+}
+
+function closeCreateTicket() {
+  createTicketOpen.value = false;
+}
+
+async function scrollThreadToLatest() {
+  await nextTick();
+  const element = threadRef.value;
+  if (!element) {
+    return;
+  }
+  element.scrollTo({ top: element.scrollHeight, behavior: "auto" });
+}
+
 async function loadSupport() {
   loading.value = true;
   error.value = null;
@@ -159,6 +181,7 @@ async function openTicket(ticketId: string) {
   } catch {
     // Если отметка прочтения не прошла, само обращение всё равно можно посмотреть.
   }
+  await scrollThreadToLatest();
 }
 
 function closeModal() {
@@ -190,6 +213,7 @@ async function submitTicket() {
     replaceTicket(response.ticket);
     emit("unread-change", response.unreadCount);
     resetCustomerForm();
+    closeCreateTicket();
     success.value = "Обращение отправлено. Мы ответим здесь.";
   } catch (requestError: any) {
     error.value = requestError?.data?.error ?? "Не удалось отправить обращение.";
@@ -224,6 +248,7 @@ async function submitReply() {
     replyAttachments.value = [];
     success.value = "Ответ отправлен клиенту.";
     emit("unread-change", response.unreadCount);
+    await scrollThreadToLatest();
   } catch (requestError: any) {
     error.value = requestError?.data?.error ?? "Не удалось отправить ответ.";
   } finally {
@@ -257,11 +282,19 @@ async function submitFollowUp() {
     followUpAttachments.value = [];
     success.value = "Дополнение отправлено.";
     emit("unread-change", response.unreadCount);
+    await scrollThreadToLatest();
   } catch (requestError: any) {
     error.value = requestError?.data?.error ?? "Не удалось отправить дополнение.";
   } finally {
     sendingFollowUp.value = false;
   }
+}
+
+async function openClientCard() {
+  if (!selectedTicket.value) {
+    return;
+  }
+  emit("open-client", selectedTicket.value.customer.telegramId);
 }
 
 async function closeTicket() {
@@ -310,41 +343,15 @@ onMounted(() => {
     <div v-if="loading" class="surface-card text-sm text-[var(--muted)]">Загрузка поддержки...</div>
 
     <template v-else-if="!isAdmin">
-      <form class="support-customer-form surface-card" @submit.prevent="submitTicket">
-        <div class="support-form-grid">
-          <label class="support-field">
-            <span>Причина обращения</span>
-            <select v-model="topic">
-              <option v-for="item in visibleTopics" :key="item.id" :value="item.id">{{ item.title }}</option>
-            </select>
-          </label>
-
-          <label v-if="topic === 'other'" class="support-field">
-            <span>Своя причина</span>
-            <input v-model="customTopic" type="text" placeholder="Например: вопрос по уроку" />
-          </label>
-
-          <label class="support-field support-field-wide">
-            <span>Сообщение</span>
-            <textarea v-model="message" rows="4" placeholder="Напишите, что случилось и где именно." />
-          </label>
-
-          <label class="support-upload support-field-wide">
-            <Paperclip class="h-5 w-5" aria-hidden="true" />
-            <span>{{ attachments.length ? `${attachments.length} файл(а)` : "Добавить фото или видео" }}</span>
-            <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'ticket')" />
-          </label>
+      <div class="surface-card support-create-entry">
+        <div>
+          <h3>Нужна помощь?</h3>
+          <p class="support-muted">Создайте обращение, и ответ появится здесь же.</p>
         </div>
-
-        <div v-if="attachments.length" class="support-file-list">
-          <span v-for="file in attachments" :key="file.name">{{ file.name }}</span>
-        </div>
-
-        <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingTicket">
-          <Send class="h-4 w-4" aria-hidden="true" />
-          {{ sendingTicket ? "Отправляем..." : "Отправить" }}
+        <button class="support-compact-button support-primary-button" type="button" @click="openCreateTicket">
+          Обратиться в поддержку
         </button>
-      </form>
+      </div>
 
       <div class="support-list surface-card">
         <h3>Мои обращения</h3>
@@ -396,6 +403,57 @@ onMounted(() => {
     </template>
 
     <Teleport to="body">
+      <div v-if="createTicketOpen" class="support-modal-backdrop" @click.self="closeCreateTicket">
+        <article class="support-ticket-modal support-ticket-modal-compact">
+          <header class="support-modal-head">
+            <div>
+              <p class="support-kicker">Новое обращение</p>
+              <h3>Обратиться в поддержку</h3>
+              <p class="support-muted">Опишите проблему и приложите фото или видео, если нужно.</p>
+            </div>
+            <button class="support-modal-close" type="button" aria-label="Закрыть" @click="closeCreateTicket">
+              <X class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </header>
+
+          <form class="support-modal-body support-customer-form" @submit.prevent="submitTicket">
+            <div class="support-form-grid">
+              <label class="support-field">
+                <span>Причина обращения</span>
+                <select v-model="topic">
+                  <option v-for="item in visibleTopics" :key="item.id" :value="item.id">{{ item.title }}</option>
+                </select>
+              </label>
+
+              <label v-if="topic === 'other'" class="support-field">
+                <span>Своя причина</span>
+                <input v-model="customTopic" type="text" placeholder="Например: вопрос по уроку" />
+              </label>
+
+              <label class="support-field support-field-wide">
+                <span>Сообщение</span>
+                <textarea v-model="message" rows="4" placeholder="Напишите, что случилось и где именно." />
+              </label>
+
+              <label class="support-upload support-field-wide">
+                <Paperclip class="h-5 w-5" aria-hidden="true" />
+                <span>{{ attachments.length ? `${attachments.length} файл(а)` : "Добавить фото или видео" }}</span>
+                <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'ticket')" />
+              </label>
+            </div>
+
+            <div v-if="attachments.length" class="support-file-list">
+              <span v-for="file in attachments" :key="file.name">{{ file.name }}</span>
+            </div>
+
+            <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingTicket">
+              <Send class="h-4 w-4" aria-hidden="true" />
+              {{ sendingTicket ? "Отправляем..." : "Отправить обращение" }}
+            </button>
+          </form>
+        </article>
+      </div>
+
       <div v-if="selectedTicket" class="support-modal-backdrop" @click.self="closeModal">
         <article class="support-ticket-modal">
           <header class="support-modal-head">
@@ -422,23 +480,35 @@ onMounted(() => {
                 <span>ID {{ selectedTicket.customer.telegramId }}</span>
                 <span v-if="selectedTicket.customer.username">@{{ selectedTicket.customer.username }}</span>
               </div>
+              <button class="support-client-open" type="button" @click="openClientCard">
+                <UserRound class="h-4 w-4" aria-hidden="true" />
+                Карточка
+              </button>
               <span class="support-status" :class="statusTone(selectedTicket)">{{ selectedTicket.statusLabel }}</span>
             </div>
 
-            <div class="support-thread">
+            <div ref="threadRef" class="support-thread">
               <article
                 v-for="item in selectedTicket.messages"
                 :key="item.id"
                 class="support-message"
                 :class="{ 'support-message-admin': item.authorRole === 'admin' }"
               >
-                <strong>{{ item.authorRole === "admin" ? "Поддержка" : userName(item.author) }}</strong>
+                <div class="support-message-head">
+                  <img v-if="item.author.photoUrl" :src="item.author.photoUrl" :alt="userName(item.author)" />
+                  <span v-else class="support-message-avatar">{{ userName(item.author).slice(0, 1) }}</span>
+                  <strong>{{ item.authorRole === "admin" ? "Поддержка" : userName(item.author) }}</strong>
+                </div>
                 <p>{{ item.body }}</p>
                 <div v-if="item.attachments.length" class="support-attachments">
-                  <a v-for="attachment in item.attachments" :key="attachment.id" :href="attachment.url" target="_blank" rel="noreferrer">
-                    <component :is="attachmentIcon(attachment.kind)" class="h-4 w-4" aria-hidden="true" />
-                    {{ attachment.kind === "video" ? "Видео" : "Фото" }}
-                  </a>
+                  <figure v-for="attachment in item.attachments" :key="attachment.id" class="support-attachment-preview">
+                    <img v-if="attachment.kind === 'photo'" :src="attachment.url" :alt="attachment.fileName" />
+                    <video v-else :src="attachment.url" controls playsinline preload="metadata" />
+                    <figcaption>
+                      <component :is="attachmentIcon(attachment.kind)" class="h-4 w-4" aria-hidden="true" />
+                      {{ attachment.fileName }}
+                    </figcaption>
+                  </figure>
                 </div>
                 <small>{{ formatDate(item.createdAt) }}</small>
               </article>
@@ -475,7 +545,7 @@ onMounted(() => {
             <div class="support-modal-actions">
               <button
                 v-if="selectedTicket.status !== 'closed'"
-                class="support-compact-button support-secondary-button"
+                class="support-compact-button support-danger-button"
                 type="button"
                 :disabled="closingTicket"
                 @click="closeTicket"

@@ -535,9 +535,33 @@ button {
   color: var(--text);
 }
 
+.support-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: min(100%, 15rem);
+  border: 1px solid color-mix(in srgb, #ef4444 58%, transparent);
+  background: color-mix(in srgb, #ef4444 18%, var(--panel));
+  color: #fecaca;
+}
+
 .support-customer-form .support-primary-button {
   margin-top: 0.75rem;
   width: 100%;
+}
+
+.support-create-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.support-create-entry h3 {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
 }
 
 .support-list,
@@ -687,10 +711,11 @@ button {
 
 .support-thread {
   display: grid;
-  max-height: 22rem;
+  max-height: min(24rem, calc(var(--club-viewport-height, 100vh) * 0.44));
   gap: 0.55rem;
   overflow: auto;
   padding-right: 0.2rem;
+  scroll-behavior: auto;
 }
 
 .support-message {
@@ -701,6 +726,32 @@ button {
 .support-message-admin {
   margin-left: 1rem;
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.support-message-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.support-message-head img,
+.support-message-avatar {
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+}
+
+.support-message-head img {
+  object-fit: cover;
+}
+
+.support-message-avatar {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 28%, var(--panel));
+  color: var(--accent-contrast);
+  font-size: 0.72rem;
+  font-weight: 900;
 }
 
 .support-message strong {
@@ -718,19 +769,31 @@ button {
 }
 
 .support-attachments {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.support-attachment-preview {
+  display: grid;
   gap: 0.35rem;
 }
 
-.support-attachments a {
+.support-attachment-preview img,
+.support-attachment-preview video {
+  width: 100%;
+  max-height: 15rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 12px;
+  background: #000;
+  object-fit: contain;
+}
+
+.support-attachment-preview figcaption {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
-  padding: 0.28rem 0.55rem;
-  color: var(--accent);
+  min-width: 0;
+  color: var(--muted);
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -767,6 +830,10 @@ button {
   border-radius: 18px;
   background: color-mix(in srgb, var(--panel-strong) 96%, #000 4%);
   box-shadow: 0 24px 70px color-mix(in srgb, #000 42%, transparent);
+}
+
+.support-ticket-modal-compact {
+  max-height: min(78vh, calc(var(--tg-viewport-height, 100vh) - 2rem));
 }
 
 .support-modal-head {
@@ -807,18 +874,23 @@ button {
   display: grid;
   gap: 0.75rem;
   overflow: auto;
-  padding: 0.85rem;
+  padding: 0.85rem 0.85rem 1.15rem;
 }
 
 .support-customer-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: 14px;
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
   padding: 0.65rem;
+}
+
+.support-customer-card .support-status,
+.support-client-open {
+  grid-column: 1 / -1;
 }
 
 .support-customer-card img,
@@ -857,11 +929,26 @@ button {
   font-weight: 750;
 }
 
+.support-client-open {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
 .support-modal-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0.55rem;
+  padding-bottom: 0.45rem;
 }
 
 .support-closed-note {

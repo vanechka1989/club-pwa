@@ -10,6 +10,7 @@ describe("support section", () => {
   it("has separate customer and admin support experiences", () => {
     expect(source).toContain("support-customer-form");
     expect(source).toContain("support-admin-board");
+    expect(source).toContain("Обратиться в поддержку");
     expect(source).toContain("Другая причина");
     expect(source).toContain("Отправить ответ");
     expect(source).toContain("Дополнить обращение");
@@ -23,6 +24,15 @@ describe("support section", () => {
     expect(source).toContain("markSupportTicketRead");
     expect(source).toContain("createSupportTicketMessage");
     expect(source).toContain("closeSupportTicket");
+    expect(source).toContain("scrollThreadToLatest");
+    expect(source).toContain('emit("open-client"');
+  });
+
+  it("renders attachments inside the support thread", () => {
+    expect(source).toContain("support-attachment-preview");
+    expect(source).toContain("<video");
+    expect(source).toContain("attachment.kind === 'photo'");
+    expect(styles).toContain(".support-attachment-preview img");
   });
 
   it("supports photo and video attachments without oversized buttons", () => {

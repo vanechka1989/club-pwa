@@ -24,7 +24,7 @@ import {
   X,
   type LucideIcon
 } from "lucide-vue-next";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   addAdminUser,
   createAdminLearningCategory,
@@ -72,6 +72,10 @@ import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
 const ui = useUiStore();
+
+const props = defineProps<{
+  openClientTelegramId?: string | null;
+}>();
 
 type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
 type UserDrilldownSelection =
@@ -146,6 +150,7 @@ const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
+const pendingOpenClientTelegramId = ref<string | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
 const learningMaterials = ref<AdminLearningMaterial[]>([]);
 const search = ref("");
@@ -349,6 +354,18 @@ async function openPaymentDrilldownUser(order: PaymentOrderLog) {
 async function openUserDrilldownClient(user: AdminStatsUser) {
   closeUserDrilldown();
   activePanel.value = "users";
+  await selectUser(user);
+}
+
+async function openClientByTelegramId(telegramId: string) {
+  pendingOpenClientTelegramId.value = telegramId;
+  activePanel.value = "users";
+  const user = users.value.find((entry) => entry.telegramId === telegramId);
+  if (!user) {
+    return;
+  }
+
+  pendingOpenClientTelegramId.value = null;
   await selectUser(user);
 }
 
@@ -624,6 +641,18 @@ async function loadAll() {
       const updated = statsResponse.users.find((user) => user.telegramId === selectedUser.value?.telegramId);
       if (updated) {
         applySelectedUser(updated);
+      }
+    }
+    if (pendingOpenClientTelegramId.value) {
+      const pendingUser = statsResponse.users.find((user) => user.telegramId === pendingOpenClientTelegramId.value);
+      if (pendingUser) {
+        const telegramId = pendingOpenClientTelegramId.value;
+        pendingOpenClientTelegramId.value = null;
+        activePanel.value = "users";
+        await selectUser(pendingUser);
+        if (props.openClientTelegramId === telegramId) {
+          pendingOpenClientTelegramId.value = null;
+        }
       }
     }
     if (isOwner.value) {
@@ -947,6 +976,16 @@ async function handlePreviewChange(previewMode: PreviewMode) {
 onMounted(() => {
   void loadAll();
 });
+
+watch(
+  () => props.openClientTelegramId,
+  (telegramId) => {
+    if (telegramId) {
+      void openClientByTelegramId(telegramId);
+    }
+  },
+  { immediate: true }
+);
 
 onUnmounted(() => {
   resetAccessSaveState();

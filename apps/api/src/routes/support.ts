@@ -36,9 +36,15 @@ const supportTopics = [
   }
 ];
 
-const ticketStatusLabel: Record<string, string> = {
+const customerTicketStatusLabel: Record<string, string> = {
   open: "Ожидает ответа",
   answered: "Ответ получен",
+  closed: "Закрыто"
+};
+
+const adminTicketStatusLabel: Record<string, string> = {
+  open: "Нужно ответить",
+  answered: "Отвечено",
   closed: "Закрыто"
 };
 
@@ -122,7 +128,7 @@ async function serializeTicket(
     customTopic: ticket.customTopic,
     message: ticket.message,
     status: ticket.status,
-    statusLabel: ticketStatusLabel[ticket.status] ?? ticket.status,
+    statusLabel: (isAdminRole(viewerRole) ? adminTicketStatusLabel : customerTicketStatusLabel)[ticket.status] ?? ticket.status,
     waitingSince: ticket.status === "open" ? ticket.lastCustomerMessageAt.toISOString() : null,
     customer: {
       telegramId: ticket.user.telegramId,
