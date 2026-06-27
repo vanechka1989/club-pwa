@@ -23,6 +23,8 @@ const navCollapsed = ref(false);
 const communityChatOpen = ref(false);
 const supportUnreadCount = ref(0);
 const adminClientTelegramId = ref<string | null>(null);
+const supportReturnTicketId = ref<string | null>(null);
+const adminClientOpenedFromSupport = ref(false);
 let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
@@ -68,9 +70,21 @@ async function selectSection(section: AppSection) {
   resetWindowScroll();
 }
 
-async function openAdminClientFromSupport(telegramId: string) {
+async function openAdminClientFromSupport(telegramId: string, ticketId: string) {
   adminClientTelegramId.value = telegramId;
+  supportReturnTicketId.value = ticketId;
+  adminClientOpenedFromSupport.value = true;
   await selectSection("admin");
+}
+
+async function handleAdminClientCardClose() {
+  if (!adminClientOpenedFromSupport.value) {
+    return;
+  }
+
+  adminClientOpenedFromSupport.value = false;
+  adminClientTelegramId.value = null;
+  await selectSection("support");
 }
 
 function syncTelegramSafeArea() {
@@ -323,10 +337,16 @@ onBeforeUnmount(() => {
           <PaymentsSection v-else-if="activeSection === 'payments'" />
           <SupportSection
             v-else-if="activeSection === 'support'"
+            :open-ticket-id="supportReturnTicketId"
             @unread-change="supportUnreadCount = $event"
             @open-client="openAdminClientFromSupport"
+            @return-ticket-consumed="supportReturnTicketId = null"
           />
-          <AdminSection v-else :open-client-telegram-id="adminClientTelegramId" />
+          <AdminSection
+            v-else
+            :open-client-telegram-id="adminClientTelegramId"
+            @client-card-close="handleAdminClientCardClose"
+          />
         </div>
       </div>
     </section>

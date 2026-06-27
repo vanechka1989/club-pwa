@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
 import type { SupportAttachment, SupportTicket } from "@club/shared";
 import {
@@ -15,7 +15,12 @@ import { useSessionStore } from "@/stores/session";
 
 const emit = defineEmits<{
   "unread-change": [count: number];
-  "open-client": [telegramId: string];
+  "open-client": [telegramId: string, ticketId: string];
+  "return-ticket-consumed": [];
+}>();
+
+const props = defineProps<{
+  openTicketId?: string | null;
 }>();
 
 const session = useSessionStore();
@@ -152,17 +157,21 @@ async function loadSupport() {
       const response = await getAdminSupportTickets();
       tickets.value = response.tickets;
       emit("unread-change", response.unreadCount);
-      return;
+    } else {
+      const response = await getSupportHome();
+      topics.value = response.topics;
+      tickets.value = response.tickets;
+      emit("unread-change", response.unreadCount);
     }
-
-    const response = await getSupportHome();
-    topics.value = response.topics;
-    tickets.value = response.tickets;
-    emit("unread-change", response.unreadCount);
   } catch {
     error.value = "Не удалось загрузить поддержку.";
   } finally {
     loading.value = false;
+  }
+
+  if (props.openTicketId) {
+    await openTicket(props.openTicketId);
+    emit("return-ticket-consumed");
   }
 }
 
@@ -304,7 +313,7 @@ async function openClientCard() {
   if (!selectedTicket.value) {
     return;
   }
-  emit("open-client", selectedTicket.value.customer.telegramId);
+  emit("open-client", selectedTicket.value.customer.telegramId, selectedTicket.value.id);
 }
 
 async function closeTicket() {
@@ -334,6 +343,15 @@ async function closeTicket() {
 onMounted(() => {
   void loadSupport();
 });
+
+watch(
+  () => props.openTicketId,
+  (ticketId) => {
+    if (ticketId && tickets.value.some((ticket) => ticket.id === ticketId)) {
+      void openTicket(ticketId).then(() => emit("return-ticket-consumed"));
+    }
+  }
+);
 </script>
 
 <template>
@@ -601,6 +619,9 @@ onMounted(() => {
             autoplay
             playsinline
           />
+          <button class="support-attachment-viewer-close" type="button" @click="closeAttachment">
+            Закрыть вложение
+          </button>
         </article>
       </div>
     </Teleport>

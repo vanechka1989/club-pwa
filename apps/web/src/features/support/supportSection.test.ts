@@ -26,6 +26,9 @@ describe("support section", () => {
     expect(source).toContain("closeSupportTicket");
     expect(source).toContain("scrollThreadToLatest");
     expect(source).toContain('emit("open-client"');
+    expect(source).toContain('emit("return-ticket-consumed")');
+    expect(appSource).toContain("supportReturnTicketId");
+    expect(appSource).toContain("handleAdminClientCardClose");
   });
 
   it("renders attachments inside the support thread", () => {
@@ -33,10 +36,12 @@ describe("support section", () => {
     expect(source).toContain("support-attachment-open");
     expect(source).toContain("support-attachment-viewer");
     expect(source).toContain("openAttachment(attachment)");
+    expect(source).toContain("support-attachment-viewer-close");
     expect(source).toContain("<video");
     expect(source).toContain("attachment.kind === 'photo'");
     expect(styles).toContain(".support-attachment-preview img");
     expect(styles).toContain(".support-attachment-viewer-media");
+    expect(styles).toContain("touch-action: pan-x pan-y pinch-zoom");
   });
 
   it("uses a compact clickable customer row in admin ticket modal", () => {
@@ -44,6 +49,12 @@ describe("support section", () => {
     expect(source).toContain('title="Открыть карточку клиента"');
     expect(source).not.toContain("support-client-open");
     expect(styles).toContain(".support-customer-strip");
+  });
+
+  it("keeps support modal actions above the safe bottom area", () => {
+    expect(styles).toContain("scroll-padding-bottom");
+    expect(styles).toContain(".support-attachment-viewer-close");
+    expect(styles).toContain("var(--tg-safe-bottom");
   });
 
   it("supports photo and video attachments without oversized buttons", () => {

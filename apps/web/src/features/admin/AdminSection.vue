@@ -77,6 +77,10 @@ const props = defineProps<{
   openClientTelegramId?: string | null;
 }>();
 
+const emit = defineEmits<{
+  "client-card-close": [];
+}>();
+
 type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
 type UserDrilldownSelection =
   | {
@@ -476,6 +480,7 @@ function closeSelectedUser() {
   resetClientAccordion();
   selectedUser.value = null;
   selectedUserDetail.value = null;
+  emit("client-card-close");
 }
 
 async function selectUser(user: AdminStatsUser) {
