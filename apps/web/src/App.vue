@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { getPaymentHistory } from "@/api/client";
+import { getPaymentHistory, getSupportUnreadCount } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
@@ -21,8 +21,10 @@ const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
 const communityChatOpen = ref(false);
+const supportUnreadCount = ref(0);
 let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
+let supportUnreadTimer: number | null = null;
 let isAppMounted = false;
 
 function showTelegramAlert(message: string) {
@@ -167,6 +169,26 @@ async function refreshSessionAccessStatus(shouldNotify: boolean) {
   }
 }
 
+async function refreshSupportUnread(shouldNotify: boolean) {
+  if (!session.user) {
+    supportUnreadCount.value = 0;
+    return;
+  }
+
+  const previousCount = supportUnreadCount.value;
+  try {
+    const response = await getSupportUnreadCount();
+    supportUnreadCount.value = response.unreadCount;
+
+    const isAdmin = session.user.realRole === "admin" || session.user.realRole === "owner";
+    if (shouldNotify && !isAdmin && activeSection.value !== "support" && response.unreadCount > previousCount) {
+      showTelegramAlert("Вам ответили в поддержке.");
+    }
+  } catch {
+    // Следующая проверка повторится по таймеру.
+  }
+}
+
 function startPaymentWatchPolling() {
   if (!isAppMounted || typeof window === "undefined" || paymentWatchTimer) {
     return;
@@ -187,10 +209,21 @@ function startSessionAccessPolling() {
   }, 15_000);
 }
 
+function startSupportUnreadPolling() {
+  if (!isAppMounted || typeof window === "undefined" || supportUnreadTimer) {
+    return;
+  }
+
+  supportUnreadTimer = window.setInterval(() => {
+    void refreshSupportUnread(true);
+  }, 15_000);
+}
+
 function handleVisibilityChange() {
   if (document.visibilityState === "visible") {
     void refreshSessionAccessStatus(true);
     void checkPendingPaymentWatch();
+    void refreshSupportUnread(true);
   }
 }
 
@@ -209,6 +242,8 @@ onMounted(() => {
     }
 
     startSessionAccessPolling();
+    startSupportUnreadPolling();
+    void refreshSupportUnread(false);
     void checkPendingPaymentWatch();
   });
 });
@@ -246,6 +281,10 @@ onBeforeUnmount(() => {
     window.clearInterval(sessionRefreshTimer);
     sessionRefreshTimer = null;
   }
+  if (supportUnreadTimer) {
+    window.clearInterval(supportUnreadTimer);
+    supportUnreadTimer = null;
+  }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");
 });
@@ -276,7 +315,7 @@ onBeforeUnmount(() => {
           <LearningSection v-else-if="activeSection === 'learning'" />
           <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
           <PaymentsSection v-else-if="activeSection === 'payments'" />
-          <SupportSection v-else-if="activeSection === 'support'" />
+          <SupportSection v-else-if="activeSection === 'support'" @unread-change="supportUnreadCount = $event" />
           <AdminSection v-else />
         </div>
       </div>
@@ -303,6 +342,9 @@ onBeforeUnmount(() => {
         @click="selectSection(item.id)"
       >
         <component :is="item.icon" class="h-5 w-5" aria-hidden="true" />
+        <span v-if="item.id === 'support' && supportUnreadCount > 0" class="bottom-nav-badge">
+          {{ supportUnreadCount > 9 ? "9+" : supportUnreadCount }}
+        </span>
         <span>{{ t(item.labelKey) }}</span>
       </button>
     </nav>

@@ -372,8 +372,13 @@ export const supportTickets = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     topic: varchar("topic", { length: 96 }).notNull(),
+    customTopic: varchar("custom_topic", { length: 160 }),
     message: text("message").notNull(),
     status: supportTicketStatus("status").notNull().default("open"),
+    lastCustomerMessageAt: timestamp("last_customer_message_at", { withTimezone: true }).notNull().defaultNow(),
+    lastAdminMessageAt: timestamp("last_admin_message_at", { withTimezone: true }),
+    customerReadAt: timestamp("customer_read_at", { withTimezone: true }).notNull().defaultNow(),
+    adminReadAt: timestamp("admin_read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -382,11 +387,46 @@ export const supportTickets = pgTable(
   })
 );
 
+export const supportTicketMessages = pgTable(
+  "support_ticket_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
+    authorUserId: uuid("author_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    authorRole: varchar("author_role", { length: 16 }).notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    ticketCreatedIdx: index("support_ticket_messages_ticket_created_idx").on(table.ticketId, table.createdAt)
+  })
+);
+
+export const supportTicketAttachments = pgTable(
+  "support_ticket_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketId: uuid("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id").notNull().references(() => supportTicketMessages.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 16 }).notNull(),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    objectKey: text("object_key").notNull(),
+    contentType: varchar("content_type", { length: 120 }).notNull(),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    ticketIdx: index("support_ticket_attachments_ticket_idx").on(table.ticketId)
+  })
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   subscriptions: many(subscriptions),
   paymentOrders: many(paymentOrders),
   recurrentSubscriptions: many(userRecurrentSubscriptions),
   supportTickets: many(supportTickets),
+  supportMessages: many(supportTicketMessages),
   createdAdminUsers: many(adminUsers),
   contentProgress: many(userContentProgress),
   lessonComments: many(lessonComments),
@@ -567,10 +607,35 @@ export const clubMessageReactionsRelations = relations(clubMessageReactions, ({ 
   })
 }));
 
-export const supportTicketsRelations = relations(supportTickets, ({ one }) => ({
+export const supportTicketsRelations = relations(supportTickets, ({ one, many }) => ({
   user: one(users, {
     fields: [supportTickets.userId],
     references: [users.id]
+  }),
+  messages: many(supportTicketMessages),
+  attachments: many(supportTicketAttachments)
+}));
+
+export const supportTicketMessagesRelations = relations(supportTicketMessages, ({ one, many }) => ({
+  ticket: one(supportTickets, {
+    fields: [supportTicketMessages.ticketId],
+    references: [supportTickets.id]
+  }),
+  author: one(users, {
+    fields: [supportTicketMessages.authorUserId],
+    references: [users.id]
+  }),
+  attachments: many(supportTicketAttachments)
+}));
+
+export const supportTicketAttachmentsRelations = relations(supportTicketAttachments, ({ one }) => ({
+  ticket: one(supportTickets, {
+    fields: [supportTicketAttachments.ticketId],
+    references: [supportTickets.id]
+  }),
+  message: one(supportTicketMessages, {
+    fields: [supportTicketAttachments.messageId],
+    references: [supportTicketMessages.id]
   })
 }));
 
@@ -593,3 +658,5 @@ export type ClubChatTopic = typeof clubChatTopics.$inferSelect;
 export type ClubChatMessage = typeof clubChatMessages.$inferSelect;
 export type ClubMessageReaction = typeof clubMessageReactions.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;
+export type SupportTicketMessage = typeof supportTicketMessages.$inferSelect;
+export type SupportTicketAttachment = typeof supportTicketAttachments.$inferSelect;

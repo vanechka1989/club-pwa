@@ -262,11 +262,79 @@ export const supportTopicSchema = z.object({
 });
 export type SupportTopic = z.infer<typeof supportTopicSchema>;
 
+export const supportAttachmentSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["photo", "video"]),
+  fileName: z.string(),
+  url: z.string().url(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  createdAt: z.string().datetime()
+});
+export type SupportAttachment = z.infer<typeof supportAttachmentSchema>;
+
+export const supportMessageSchema = z.object({
+  id: z.string(),
+  authorRole: z.enum(["customer", "admin"]),
+  body: z.string(),
+  author: z.object({
+    telegramId: z.string(),
+    firstName: z.string().nullable(),
+    username: z.string().nullable(),
+    photoUrl: z.string().url().nullable()
+  }),
+  attachments: z.array(supportAttachmentSchema),
+  createdAt: z.string().datetime()
+});
+export type SupportMessage = z.infer<typeof supportMessageSchema>;
+
+export const supportTicketSchema = z.object({
+  id: z.string(),
+  topic: z.string(),
+  topicTitle: z.string(),
+  customTopic: z.string().nullable(),
+  message: z.string(),
+  status: z.enum(["open", "answered", "closed"]),
+  statusLabel: z.string(),
+  waitingSince: z.string().datetime().nullable(),
+  customer: z.object({
+    telegramId: z.string(),
+    firstName: z.string().nullable(),
+    username: z.string().nullable(),
+    photoUrl: z.string().url().nullable()
+  }),
+  messages: z.array(supportMessageSchema),
+  unread: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type SupportTicket = z.infer<typeof supportTicketSchema>;
+
 export const supportHomeResponseSchema = z.object({
   topics: z.array(supportTopicSchema),
-  managerContact: z.string().nullable()
+  managerContact: z.string().nullable(),
+  tickets: z.array(supportTicketSchema).default([]),
+  unreadCount: z.number().int().nonnegative().default(0)
 });
 export type SupportHomeResponse = z.infer<typeof supportHomeResponseSchema>;
+
+export const supportTicketMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  ticket: supportTicketSchema,
+  unreadCount: z.number().int().nonnegative()
+});
+export type SupportTicketMutationResponse = z.infer<typeof supportTicketMutationResponseSchema>;
+
+export const supportUnreadResponseSchema = z.object({
+  unreadCount: z.number().int().nonnegative()
+});
+export type SupportUnreadResponse = z.infer<typeof supportUnreadResponseSchema>;
+
+export const adminSupportResponseSchema = z.object({
+  tickets: z.array(supportTicketSchema),
+  unreadCount: z.number().int().nonnegative()
+});
+export type AdminSupportResponse = z.infer<typeof adminSupportResponseSchema>;
 
 export const clubChatSchema = z.object({
   id: z.string(),

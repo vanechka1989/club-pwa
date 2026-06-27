@@ -134,6 +134,13 @@
       "when": 1782496400000,
       "tag": "0018_content_card_layout",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782559200000,
+      "tag": "0019_support_desk",
+      "breakpoints": true
     }
   ]
 }

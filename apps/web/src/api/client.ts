@@ -32,7 +32,10 @@ import type {
   S3StorageSettingsMutationResponse,
   S3StorageSettingsResponse,
   SubscribeResponse,
-  SupportHomeResponse
+  SupportHomeResponse,
+  AdminSupportResponse,
+  SupportTicketMutationResponse,
+  SupportUnreadResponse
 } from "@club/shared";
 import { ofetch } from "ofetch";
 
@@ -310,6 +313,28 @@ export function deletePaymentProduct(id: string) {
 
 export function getSupportHome() {
   return api<SupportHomeResponse>("/support");
+}
+
+export function getSupportUnreadCount() {
+  return api<SupportUnreadResponse>("/support/unread");
+}
+
+export function createSupportTicket(payload: FormData) {
+  return api<SupportTicketMutationResponse>("/support/tickets", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function getAdminSupportTickets() {
+  return api<AdminSupportResponse>("/support/admin/tickets");
+}
+
+export function replyAdminSupportTicket(id: string, payload: FormData) {
+  return api<SupportTicketMutationResponse>(`/support/admin/tickets/${id}/replies`, {
+    method: "POST",
+    body: payload
+  });
 }
 
 export function getAdminUsers() {
