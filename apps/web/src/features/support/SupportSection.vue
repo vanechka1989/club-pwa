@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { CheckCircle2, CircleDot, Image, Maximize2, Paperclip, Send, Video, X } from "lucide-vue-next";
+import { CheckCircle2, CircleDot, Image, Maximize2, Minimize2, Paperclip, Send, Video, X } from "lucide-vue-next";
 import type { SupportAttachment, SupportTicket } from "@club/shared";
 import {
   closeSupportTicket,
@@ -33,7 +33,6 @@ const selectedTicketId = ref<string | null>(null);
 const createTicketOpen = ref(false);
 const openedAttachment = ref<SupportAttachment | null>(null);
 const threadRef = ref<HTMLElement | null>(null);
-const attachmentVideoRef = ref<HTMLVideoElement | null>(null);
 const attachmentPanelRef = ref<HTMLElement | null>(null);
 const attachmentInlineFullscreen = ref(false);
 const topic = ref("payment");
@@ -216,36 +215,10 @@ function openAttachment(attachment: SupportAttachment) {
 function closeAttachment() {
   openedAttachment.value = null;
   attachmentInlineFullscreen.value = false;
-  attachmentVideoRef.value = null;
 }
 
-async function openAttachmentFullscreen() {
-  const video = attachmentVideoRef.value;
-  const panel = attachmentPanelRef.value;
-  if (!video) {
-    return;
-  }
-
-  const webkitVideo = video as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
-  if (typeof webkitVideo.webkitEnterFullscreen === "function") {
-    webkitVideo.webkitEnterFullscreen();
-    return;
-  }
-
-  try {
-    if (typeof video.requestFullscreen === "function") {
-      await video.requestFullscreen();
-      return;
-    }
-    if (panel && typeof panel.requestFullscreen === "function") {
-      await panel.requestFullscreen();
-      return;
-    }
-  } catch {
-    // Telegram WebView может запретить fullscreen API, тогда разворачиваем внутри приложения.
-  }
-
-  attachmentInlineFullscreen.value = true;
+function toggleAttachmentFullscreen() {
+  attachmentInlineFullscreen.value = !attachmentInlineFullscreen.value;
 }
 
 async function submitTicket() {
@@ -672,11 +645,12 @@ watch(
                 v-if="isVideoAttachment"
                 class="support-modal-close"
                 type="button"
-                aria-label="Открыть видео во весь экран"
-                title="Во весь экран"
-                @click="openAttachmentFullscreen"
+                :aria-label="attachmentInlineFullscreen ? 'Свернуть видео' : 'Открыть видео во весь экран'"
+                :title="attachmentInlineFullscreen ? 'Свернуть' : 'Во весь экран'"
+                @click="toggleAttachmentFullscreen"
               >
-                <Maximize2 class="h-5 w-5" aria-hidden="true" />
+                <Minimize2 v-if="attachmentInlineFullscreen" class="h-5 w-5" aria-hidden="true" />
+                <Maximize2 v-else class="h-5 w-5" aria-hidden="true" />
               </button>
               <button class="support-modal-close" type="button" aria-label="Закрыть вложение" @click="closeAttachment">
                 <X class="h-5 w-5" aria-hidden="true" />
@@ -691,7 +665,6 @@ watch(
           />
           <video
             v-else
-            ref="attachmentVideoRef"
             class="support-attachment-viewer-media"
             :src="openedAttachment.url"
             controls

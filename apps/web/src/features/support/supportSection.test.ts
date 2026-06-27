@@ -39,8 +39,9 @@ describe("support section", () => {
     expect(source).toContain("support-attachment-open");
     expect(source).toContain("support-attachment-viewer");
     expect(source).toContain("openAttachment(attachment)");
-    expect(source).toContain("openAttachmentFullscreen");
-    expect(source).toContain("webkitEnterFullscreen");
+    expect(source).toContain("toggleAttachmentFullscreen");
+    expect(source).not.toContain("webkitEnterFullscreen");
+    expect(source).not.toContain("requestFullscreen");
     expect(source).toContain("support-attachment-viewer-close");
     expect(source).toContain("<video");
     expect(source).toContain("openedAttachment.kind === 'photo'");
