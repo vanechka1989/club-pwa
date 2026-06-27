@@ -574,9 +574,6 @@ watch(
             </form>
 
             <div class="support-modal-actions">
-              <button class="support-compact-button support-secondary-button" type="button" @click="closeModal">
-                Закрыть
-              </button>
               <button
                 v-if="selectedTicket.status !== 'closed'"
                 class="support-compact-button support-danger-button"

@@ -55,13 +55,13 @@ describe("support section", () => {
 
   it("keeps support modal actions above the safe bottom area", () => {
     expect(source).toContain("support-ticket-modal-body");
-    expect(source).toContain('support-secondary-button" type="button" @click="closeModal"');
+    expect(source).not.toContain('support-secondary-button" type="button" @click="closeModal"');
     expect(styles).toContain(".support-ticket-modal-body");
     expect(styles).toContain(".support-ticket-summary");
     expect(styles).toContain(".support-ticket-modal:not(.support-ticket-modal-compact)");
     expect(styles).toContain("grid-template-rows: minmax(0, 1fr) auto auto");
     expect(styles).toContain(".support-ticket-modal-body .support-thread");
-    expect(styles).toContain(".support-modal-actions .support-secondary-button");
+    expect(styles).toContain(".support-modal-actions .support-danger-button");
     expect(styles).toContain("scroll-padding-bottom");
     expect(styles).toContain(".support-attachment-viewer-close");
     expect(styles).toContain("var(--tg-safe-bottom");
