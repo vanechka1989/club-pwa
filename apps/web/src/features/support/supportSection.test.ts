@@ -31,15 +31,17 @@ describe("support section", () => {
     expect(appSource).toContain("handleAdminClientCardClose");
   });
 
-  it("renders attachments inside the support thread", () => {
+  it("opens compact attachment pills from the support thread", () => {
     expect(source).toContain("support-attachment-preview");
     expect(source).toContain("support-attachment-open");
     expect(source).toContain("support-attachment-viewer");
     expect(source).toContain("openAttachment(attachment)");
     expect(source).toContain("support-attachment-viewer-close");
     expect(source).toContain("<video");
-    expect(source).toContain("attachment.kind === 'photo'");
-    expect(styles).toContain(".support-attachment-preview img");
+    expect(source).toContain("openedAttachment.kind === 'photo'");
+    expect(source).toContain("Открыть вложение");
+    expect(styles).toContain(".support-attachment-open");
+    expect(styles).not.toContain(".support-attachment-preview img");
     expect(styles).toContain(".support-attachment-viewer-media");
     expect(styles).toContain("touch-action: pan-x pan-y pinch-zoom");
   });
@@ -55,8 +57,9 @@ describe("support section", () => {
     expect(source).toContain("support-ticket-modal-body");
     expect(source).toContain('support-secondary-button" type="button" @click="closeModal"');
     expect(styles).toContain(".support-ticket-modal-body");
+    expect(styles).toContain(".support-ticket-summary");
     expect(styles).toContain(".support-ticket-modal:not(.support-ticket-modal-compact)");
-    expect(styles).toContain("grid-template-rows: auto minmax(0, 1fr) auto auto");
+    expect(styles).toContain("grid-template-rows: minmax(0, 1fr) auto auto");
     expect(styles).toContain(".support-ticket-modal-body .support-thread");
     expect(styles).toContain(".support-modal-actions .support-secondary-button");
     expect(styles).toContain("scroll-padding-bottom");
@@ -67,7 +70,7 @@ describe("support section", () => {
   it("supports photo and video attachments without oversized buttons", () => {
     expect(source).toContain('accept="image/*,video/*"');
     expect(source).toContain("support-compact-button");
-    expect(styles).toMatch(/\.support-compact-button\s*\{[^}]*min-height:\s*2\.45rem;/s);
+    expect(styles).toMatch(/\.support-compact-button\s*\{[^}]*min-height:\s*2\.28rem;/s);
   });
 
   it("shows an unread support badge in navigation", () => {

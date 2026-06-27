@@ -489,6 +489,29 @@ watch(
               <p class="support-kicker">{{ isAdmin ? "Карточка обращения" : "Ваше обращение" }}</p>
               <h3>{{ selectedTicket.topicTitle }}</h3>
               <p class="support-muted">{{ formatDate(selectedTicket.createdAt) }} · {{ selectedTicket.statusLabel }}</p>
+              <button
+                v-if="isAdmin"
+                class="support-ticket-summary"
+                type="button"
+                title="Открыть карточку клиента"
+                @click="openClientCard"
+              >
+                <img
+                  v-if="selectedTicket.customer.photoUrl"
+                  :src="selectedTicket.customer.photoUrl"
+                  :alt="userName(selectedTicket.customer)"
+                />
+                <span v-else class="support-customer-avatar support-customer-avatar-small">
+                  {{ userName(selectedTicket.customer).slice(0, 1) }}
+                </span>
+                <span class="support-customer-strip-info">
+                  <strong>{{ userName(selectedTicket.customer) }}</strong>
+                  <small>
+                    {{ selectedTicket.customer.username ? `@${selectedTicket.customer.username}` : `ID ${selectedTicket.customer.telegramId}` }}
+                  </small>
+                </span>
+                <span class="support-status" :class="statusTone(selectedTicket)">{{ selectedTicket.statusLabel }}</span>
+              </button>
             </div>
             <button class="support-modal-close" type="button" aria-label="Закрыть" @click="closeModal">
               <X class="h-5 w-5" aria-hidden="true" />
@@ -496,30 +519,6 @@ watch(
           </header>
 
           <div class="support-modal-body support-ticket-modal-body">
-            <button
-              v-if="isAdmin"
-              class="support-customer-strip"
-              type="button"
-              title="Открыть карточку клиента"
-              @click="openClientCard"
-            >
-              <img
-                v-if="selectedTicket.customer.photoUrl"
-                :src="selectedTicket.customer.photoUrl"
-                :alt="userName(selectedTicket.customer)"
-              />
-              <span v-else class="support-customer-avatar support-customer-avatar-small">
-                {{ userName(selectedTicket.customer).slice(0, 1) }}
-              </span>
-              <span class="support-customer-strip-info">
-                <strong>{{ userName(selectedTicket.customer) }}</strong>
-                <small>
-                  {{ selectedTicket.customer.username ? `@${selectedTicket.customer.username}` : `ID ${selectedTicket.customer.telegramId}` }}
-                </small>
-              </span>
-              <span class="support-status" :class="statusTone(selectedTicket)">{{ selectedTicket.statusLabel }}</span>
-            </button>
-
             <div ref="threadRef" class="support-thread">
               <article
                 v-for="item in selectedTicket.messages"
@@ -534,16 +533,13 @@ watch(
                 </div>
                 <p>{{ item.body }}</p>
                 <div v-if="item.attachments.length" class="support-attachments">
-                  <figure v-for="attachment in item.attachments" :key="attachment.id" class="support-attachment-preview">
+                  <div v-for="attachment in item.attachments" :key="attachment.id" class="support-attachment-preview">
                     <button class="support-attachment-open" type="button" @click="openAttachment(attachment)">
-                      <img v-if="attachment.kind === 'photo'" :src="attachment.url" :alt="attachment.fileName" />
-                      <video v-else :src="attachment.url" playsinline preload="metadata" muted />
-                    </button>
-                    <figcaption>
                       <component :is="attachmentIcon(attachment.kind)" class="h-4 w-4" aria-hidden="true" />
-                      {{ attachment.fileName }}
-                    </figcaption>
-                  </figure>
+                      <span>Открыть вложение</span>
+                      <small>{{ attachment.fileName }}</small>
+                    </button>
+                  </div>
                 </div>
                 <small>{{ formatDate(item.createdAt) }}</small>
               </article>
