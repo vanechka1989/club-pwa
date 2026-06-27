@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lte, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -9,8 +9,13 @@ import { env } from "../env";
 import { logger } from "../logger";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { getObjectReadUrl, uploadObject } from "../storage/s3";
-import { buildSupportAttachmentObjectKey, getSupportAttachmentUploadContentType } from "../support/mediaUpload";
+import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
+import { optimizeImageForUpload } from "../storage/imageOptimizer";
+import {
+  buildSupportAttachmentObjectKey,
+  getSupportAttachmentExpiresAt,
+  getSupportAttachmentUploadContentType
+} from "../support/mediaUpload";
 import { sendTelegramMessage } from "../telegram/client";
 
 const supportTopics = [
@@ -26,8 +31,8 @@ const supportTopics = [
   },
   {
     id: "media",
-    title: "Фото или видео",
-    description: "Проблемы с загрузкой, просмотром или воспроизведением."
+    title: "Обучение",
+    description: "Уроки, модули, загрузка или воспроизведение."
   },
   {
     id: "other",
@@ -178,22 +183,48 @@ async function uploadAttachments({
     }
 
     const id = randomUUID();
-    const key = buildSupportAttachmentObjectKey({ fileName: file.name, id, now: new Date() });
+    const createdAt = new Date();
+    const originalBytes = new Uint8Array(await file.arrayBuffer());
+    const optimized = contentType.startsWith("image/")
+      ? await optimizeImageForUpload({ bytes: originalBytes, contentType, fileName: file.name })
+      : {
+          body: originalBytes,
+          contentType,
+          fileName: file.name,
+          sizeBytes: file.size
+        };
+    const key = buildSupportAttachmentObjectKey({ fileName: optimized.fileName, id, now: createdAt });
     await uploadObject({
       key,
-      body: new Uint8Array(await file.arrayBuffer()),
-      contentType
+      body: optimized.body,
+      contentType: optimized.contentType
     });
 
     await db.insert(supportTicketAttachments).values({
       ticketId,
       messageId,
-      kind: contentType.startsWith("video/") ? "video" : "photo",
-      fileName: file.name || "attachment",
+      kind: optimized.contentType.startsWith("video/") ? "video" : "photo",
+      fileName: optimized.fileName || "attachment",
       objectKey: key,
-      contentType,
-      sizeBytes: file.size
+      contentType: optimized.contentType,
+      sizeBytes: optimized.sizeBytes,
+      expiresAt: getSupportAttachmentExpiresAt(createdAt),
+      createdAt
     });
+  }
+}
+
+async function cleanupExpiredSupportAttachments(now = new Date()) {
+  const attachments = await db.query.supportTicketAttachments.findMany({
+    where: and(isNotNull(supportTicketAttachments.expiresAt), lte(supportTicketAttachments.expiresAt, now)),
+    limit: 100
+  });
+
+  for (const attachment of attachments) {
+    await deleteObject(attachment.objectKey).catch((error) => {
+      logger.warn({ error, attachmentId: attachment.id }, "Unable to delete expired support attachment object");
+    });
+    await db.delete(supportTicketAttachments).where(eq(supportTicketAttachments.id, attachment.id));
   }
 }
 
@@ -214,6 +245,7 @@ async function notifyCustomerAboutReply(ticket: NonNullable<Awaited<ReturnType<t
 export const supportRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .get("/", async (c) => {
+    await cleanupExpiredSupportAttachments();
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
 
@@ -452,6 +484,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/admin/tickets", async (c) => {
+    await cleanupExpiredSupportAttachments();
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
     if (!isAdminRole(role)) {

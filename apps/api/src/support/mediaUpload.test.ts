@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildSupportAttachmentObjectKey, getSupportAttachmentUploadContentType } from "./mediaUpload";
+import {
+  buildSupportAttachmentObjectKey,
+  getSupportAttachmentExpiresAt,
+  getSupportAttachmentUploadContentType
+} from "./mediaUpload";
 
 describe("support attachment uploads", () => {
   it("accepts only image and video files", () => {
@@ -17,5 +21,11 @@ describe("support attachment uploads", () => {
         now: new Date("2026-06-27T01:00:00.000Z")
       })
     ).toBe("support/2026-06-27/upload-id-payment-screen.png");
+  });
+
+  it("expires support attachments after seven days", () => {
+    expect(getSupportAttachmentExpiresAt(new Date("2026-06-27T01:00:00.000Z")).toISOString()).toBe(
+      "2026-07-04T01:00:00.000Z"
+    );
   });
 });

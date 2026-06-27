@@ -457,6 +457,67 @@ button {
   resize: vertical;
 }
 
+.support-topic-options {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.support-topic-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 3.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  padding: 0.62rem 0.68rem;
+  color: var(--text);
+  text-align: left;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.support-topic-option:active {
+  transform: scale(0.99);
+}
+
+.support-topic-option strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.support-topic-option small {
+  display: block;
+  margin-top: 0.08rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.support-topic-option svg {
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+}
+
+.support-topic-option-active {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 22%, var(--panel)),
+    color-mix(in srgb, var(--surface) 86%, transparent)
+  );
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.support-topic-option-active svg,
+.support-topic-option-active small {
+  color: var(--accent-strong);
+}
+
 .support-upload {
   position: relative;
   display: inline-flex;

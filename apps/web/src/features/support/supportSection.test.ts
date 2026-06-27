@@ -11,7 +11,10 @@ describe("support section", () => {
     expect(source).toContain("support-customer-form");
     expect(source).toContain("support-admin-board");
     expect(source).toContain("Обратиться в поддержку");
+    expect(source).toContain("support-topic-options");
+    expect(source).toContain("Обучение");
     expect(source).toContain("Другая причина");
+    expect(source).not.toContain("<select v-model=\"topic\">");
     expect(source).toContain("Отправить ответ");
     expect(source).toContain("Дополнить обращение");
     expect(source).toContain("Закрыть обращение");
@@ -59,6 +62,7 @@ describe("support section", () => {
     expect(styles).toContain(".support-ticket-modal-body");
     expect(styles).toContain(".support-ticket-summary");
     expect(styles).toContain(".support-ticket-modal:not(.support-ticket-modal-compact)");
+    expect(styles).toContain(".support-topic-option-active");
     expect(styles).toContain("grid-template-rows: minmax(0, 1fr) auto auto");
     expect(styles).toContain(".support-ticket-modal-body .support-thread");
     expect(styles).toContain(".support-modal-actions .support-danger-button");

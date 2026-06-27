@@ -37,6 +37,10 @@ export function getSupportAttachmentUploadContentType(contentType: string, fileN
   return null;
 }
 
+export function getSupportAttachmentExpiresAt(createdAt: Date) {
+  return new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+}
+
 export function buildSupportAttachmentObjectKey({
   fileName,
   id,

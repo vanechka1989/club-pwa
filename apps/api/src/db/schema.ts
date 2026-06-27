@@ -414,10 +414,12 @@ export const supportTicketAttachments = pgTable(
     objectKey: text("object_key").notNull(),
     contentType: varchar("content_type", { length: 120 }).notNull(),
     sizeBytes: integer("size_bytes").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    ticketIdx: index("support_ticket_attachments_ticket_idx").on(table.ticketId)
+    ticketIdx: index("support_ticket_attachments_ticket_idx").on(table.ticketId),
+    expiresAtIdx: index("support_ticket_attachments_expires_at_idx").on(table.expiresAt)
   })
 );
 

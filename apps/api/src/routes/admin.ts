@@ -24,6 +24,7 @@ import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { deleteObject, getObjectReadUrl, testS3Connection, uploadObject } from "../storage/s3";
+import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import {
   buildS3SettingsResponse,
   getS3ConfigFromEnv,
@@ -127,22 +128,31 @@ async function uploadMaterialFile(kind: ContentKind, file: File) {
     return null;
   }
 
+  const originalBytes = new Uint8Array(await file.arrayBuffer());
+  const optimized = kind === "photo"
+    ? await optimizeImageForUpload({ bytes: originalBytes, contentType, fileName: file.name })
+    : {
+        body: originalBytes,
+        contentType,
+        fileName: file.name,
+        sizeBytes: file.size
+      };
   const key = buildLearningMediaObjectKey({
     kind,
-    fileName: file.name,
+    fileName: optimized.fileName,
     id: randomUUID(),
     now: new Date()
   });
   const upload = await uploadObject({
     key,
-    body: new Uint8Array(await file.arrayBuffer()),
-    contentType
+    body: optimized.body,
+    contentType: optimized.contentType
   });
 
   return {
     objectKey: upload.key,
-    contentType,
-    sizeBytes: file.size
+    contentType: optimized.contentType,
+    sizeBytes: optimized.sizeBytes
   };
 }
 
@@ -152,21 +162,27 @@ async function uploadThumbnailFile(file: File) {
     return null;
   }
 
-  const key = buildLearningThumbnailObjectKey({
+  const optimized = await optimizeImageForUpload({
+    bytes: new Uint8Array(await file.arrayBuffer()),
+    contentType,
     fileName: file.name,
+    maxDimension: 1200
+  });
+  const key = buildLearningThumbnailObjectKey({
+    fileName: optimized.fileName,
     id: randomUUID(),
     now: new Date()
   });
   const upload = await uploadObject({
     key,
-    body: new Uint8Array(await file.arrayBuffer()),
-    contentType
+    body: optimized.body,
+    contentType: optimized.contentType
   });
 
   return {
     objectKey: upload.key,
-    contentType,
-    sizeBytes: file.size
+    contentType: optimized.contentType,
+    sizeBytes: optimized.sizeBytes
   };
 }
 

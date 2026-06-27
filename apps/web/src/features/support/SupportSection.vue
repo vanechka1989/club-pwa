@@ -49,6 +49,7 @@ const closingTicket = ref(false);
 const defaultTopics = [
   { id: "payment", title: "Оплата", description: "Платежи и подписки." },
   { id: "access", title: "Доступ", description: "Проблемы с доступом." },
+  { id: "media", title: "Обучение", description: "Уроки, модули и воспроизведение." },
   { id: "other", title: "Другая причина", description: "Если подходящей причины нет." }
 ];
 
@@ -446,12 +447,28 @@ watch(
 
           <form class="support-modal-body support-customer-form" @submit.prevent="submitTicket">
             <div class="support-form-grid">
-              <label class="support-field">
+              <div class="support-field support-field-wide">
                 <span>Причина обращения</span>
-                <select v-model="topic">
-                  <option v-for="item in visibleTopics" :key="item.id" :value="item.id">{{ item.title }}</option>
-                </select>
-              </label>
+                <div class="support-topic-options" role="radiogroup" aria-label="Причина обращения">
+                  <button
+                    v-for="item in visibleTopics"
+                    :key="item.id"
+                    class="support-topic-option"
+                    :class="{ 'support-topic-option-active': topic === item.id }"
+                    type="button"
+                    role="radio"
+                    :aria-checked="topic === item.id"
+                    @click="topic = item.id"
+                  >
+                    <span>
+                      <strong>{{ item.title }}</strong>
+                      <small>{{ item.description }}</small>
+                    </span>
+                    <CheckCircle2 v-if="topic === item.id" class="h-5 w-5" aria-hidden="true" />
+                    <CircleDot v-else class="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
 
               <label v-if="topic === 'other'" class="support-field">
                 <span>Своя причина</span>
