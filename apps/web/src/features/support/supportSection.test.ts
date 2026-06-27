@@ -30,9 +30,20 @@ describe("support section", () => {
 
   it("renders attachments inside the support thread", () => {
     expect(source).toContain("support-attachment-preview");
+    expect(source).toContain("support-attachment-open");
+    expect(source).toContain("support-attachment-viewer");
+    expect(source).toContain("openAttachment(attachment)");
     expect(source).toContain("<video");
     expect(source).toContain("attachment.kind === 'photo'");
     expect(styles).toContain(".support-attachment-preview img");
+    expect(styles).toContain(".support-attachment-viewer-media");
+  });
+
+  it("uses a compact clickable customer row in admin ticket modal", () => {
+    expect(source).toContain("support-customer-strip");
+    expect(source).toContain('title="Открыть карточку клиента"');
+    expect(source).not.toContain("support-client-open");
+    expect(styles).toContain(".support-customer-strip");
   });
 
   it("supports photo and video attachments without oversized buttons", () => {

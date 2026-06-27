@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from "vue";
-import { CheckCircle2, CircleDot, Image, Paperclip, Send, UserRound, Video, X } from "lucide-vue-next";
-import type { SupportTicket } from "@club/shared";
+import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
+import type { SupportAttachment, SupportTicket } from "@club/shared";
 import {
   closeSupportTicket,
   createSupportTicket,
@@ -26,6 +26,7 @@ const topics = ref<Array<{ id: string; title: string; description: string }>>([]
 const tickets = ref<SupportTicket[]>([]);
 const selectedTicketId = ref<string | null>(null);
 const createTicketOpen = ref(false);
+const openedAttachment = ref<SupportAttachment | null>(null);
 const threadRef = ref<HTMLElement | null>(null);
 const topic = ref("payment");
 const customTopic = ref("");
@@ -186,10 +187,19 @@ async function openTicket(ticketId: string) {
 
 function closeModal() {
   selectedTicketId.value = null;
+  openedAttachment.value = null;
   replyMessage.value = "";
   replyAttachments.value = [];
   followUpMessage.value = "";
   followUpAttachments.value = [];
+}
+
+function openAttachment(attachment: SupportAttachment) {
+  openedAttachment.value = attachment;
+}
+
+function closeAttachment() {
+  openedAttachment.value = null;
 }
 
 async function submitTicket() {
@@ -468,24 +478,29 @@ onMounted(() => {
           </header>
 
           <div class="support-modal-body">
-            <div v-if="isAdmin" class="support-customer-card">
+            <button
+              v-if="isAdmin"
+              class="support-customer-strip"
+              type="button"
+              title="Открыть карточку клиента"
+              @click="openClientCard"
+            >
               <img
                 v-if="selectedTicket.customer.photoUrl"
                 :src="selectedTicket.customer.photoUrl"
                 :alt="userName(selectedTicket.customer)"
               />
-              <div v-else class="support-customer-avatar">{{ userName(selectedTicket.customer).slice(0, 1) }}</div>
-              <div>
+              <span v-else class="support-customer-avatar support-customer-avatar-small">
+                {{ userName(selectedTicket.customer).slice(0, 1) }}
+              </span>
+              <span class="support-customer-strip-info">
                 <strong>{{ userName(selectedTicket.customer) }}</strong>
-                <span>ID {{ selectedTicket.customer.telegramId }}</span>
-                <span v-if="selectedTicket.customer.username">@{{ selectedTicket.customer.username }}</span>
-              </div>
-              <button class="support-client-open" type="button" @click="openClientCard">
-                <UserRound class="h-4 w-4" aria-hidden="true" />
-                Карточка
-              </button>
+                <small>
+                  {{ selectedTicket.customer.username ? `@${selectedTicket.customer.username}` : `ID ${selectedTicket.customer.telegramId}` }}
+                </small>
+              </span>
               <span class="support-status" :class="statusTone(selectedTicket)">{{ selectedTicket.statusLabel }}</span>
-            </div>
+            </button>
 
             <div ref="threadRef" class="support-thread">
               <article
@@ -502,8 +517,10 @@ onMounted(() => {
                 <p>{{ item.body }}</p>
                 <div v-if="item.attachments.length" class="support-attachments">
                   <figure v-for="attachment in item.attachments" :key="attachment.id" class="support-attachment-preview">
-                    <img v-if="attachment.kind === 'photo'" :src="attachment.url" :alt="attachment.fileName" />
-                    <video v-else :src="attachment.url" controls playsinline preload="metadata" />
+                    <button class="support-attachment-open" type="button" @click="openAttachment(attachment)">
+                      <img v-if="attachment.kind === 'photo'" :src="attachment.url" :alt="attachment.fileName" />
+                      <video v-else :src="attachment.url" playsinline preload="metadata" muted />
+                    </button>
                     <figcaption>
                       <component :is="attachmentIcon(attachment.kind)" class="h-4 w-4" aria-hidden="true" />
                       {{ attachment.fileName }}
@@ -559,6 +576,31 @@ onMounted(() => {
               </span>
             </div>
           </div>
+        </article>
+      </div>
+
+      <div v-if="openedAttachment" class="support-attachment-viewer" @click.self="closeAttachment">
+        <article class="support-attachment-viewer-panel">
+          <header>
+            <strong>{{ openedAttachment.fileName }}</strong>
+            <button class="support-modal-close" type="button" aria-label="Закрыть вложение" @click="closeAttachment">
+              <X class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </header>
+          <img
+            v-if="openedAttachment.kind === 'photo'"
+            class="support-attachment-viewer-media"
+            :src="openedAttachment.url"
+            :alt="openedAttachment.fileName"
+          />
+          <video
+            v-else
+            class="support-attachment-viewer-media"
+            :src="openedAttachment.url"
+            controls
+            autoplay
+            playsinline
+          />
         </article>
       </div>
     </Teleport>
