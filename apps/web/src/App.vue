@@ -5,6 +5,7 @@ import { getPaymentHistory, getSupportUnreadCount } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
+import AppNotifications from "@/features/app/AppNotifications.vue";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
@@ -12,11 +13,13 @@ import LearningSection from "@/features/learning/LearningSection.vue";
 import { navItems, type AppSection } from "@/features/app/navigation";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
+import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore } from "@/stores/ui";
 
 const session = useSessionStore();
 const ui = useUiStore();
+const notifications = useNotificationsStore();
 const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
@@ -31,6 +34,7 @@ let supportUnreadTimer: number | null = null;
 let isAppMounted = false;
 
 function showTelegramAlert(message: string) {
+  notifications.showInfo(message);
   if (window.Telegram?.WebApp?.showAlert) {
     window.Telegram.WebApp.showAlert(message);
     return;
@@ -392,5 +396,6 @@ onBeforeUnmount(() => {
         <span>{{ t(item.labelKey) }}</span>
       </button>
     </nav>
+    <AppNotifications />
   </main>
 </template>

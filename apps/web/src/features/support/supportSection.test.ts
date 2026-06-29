@@ -96,6 +96,14 @@ describe("support section", () => {
     expect(styles).toMatch(/\.bottom-nav-badge\s*\{/);
   });
 
+  it("sends support errors and success messages to the global notification layer", () => {
+    expect(source).toContain("useNotificationsStore");
+    expect(source).toContain("showSupportError");
+    expect(source).toContain("showSupportSuccess");
+    expect(source).toContain("notifications.showError");
+    expect(source).toContain("notifications.showSuccess");
+  });
+
   it("keeps bottom navigation above Android system navigation", () => {
     expect(appSource).toContain("--club-system-bottom");
     expect(appSource).toContain("visualViewport.offsetTop");

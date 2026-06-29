@@ -17,9 +17,11 @@ import {
 import { paymentRedirectNotice } from "@/features/billing/paymentMessages";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
+import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 
 const session = useSessionStore();
+const notifications = useNotificationsStore();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -80,8 +82,20 @@ const recurrentSubscriptionHistory = computed(() =>
     : recurrentSubscriptions.value
 );
 
-function showAlert(message: string) {
+function showPaymentError(text: string) {
+  error.value = text;
+  notice.value = null;
+  notifications.showError(text);
+}
+
+function showAlert(message: string, tone: "success" | "info" = "success") {
   notice.value = message;
+  error.value = null;
+  if (tone === "success") {
+    notifications.showSuccess(message);
+  } else {
+    notifications.showInfo(message);
+  }
   if (window.Telegram?.WebApp?.showAlert) {
     window.Telegram.WebApp.showAlert(message);
   }
@@ -109,7 +123,7 @@ async function loadPayments() {
     recurrentSubscriptions.value = response.recurrentSubscriptions;
     webhookUrl.value = response.provider?.webhookUrl ?? webhookUrl.value;
   } catch {
-    error.value = "Не удалось загрузить оплату.";
+    showPaymentError("Не удалось загрузить оплату.");
   } finally {
     loading.value = false;
   }
@@ -125,7 +139,7 @@ async function loadProviderForAdmin() {
     provider.value = response.provider;
     webhookUrl.value = response.webhookUrl;
   } catch {
-    error.value = "Не удалось загрузить настройки платежной системы.";
+    showPaymentError("Не удалось загрузить настройки платежной системы.");
   }
 }
 
@@ -245,7 +259,7 @@ async function handleSaveProvider() {
     closeProviderForm();
     showAlert("Prodamus подключен.");
   } catch {
-    error.value = "Не удалось сохранить Prodamus.";
+    showPaymentError("Не удалось сохранить Prodamus.");
   } finally {
     saving.value = false;
   }
@@ -272,7 +286,7 @@ async function handleSaveProduct() {
     closeProductModal();
     showAlert(editingProduct.value ? "Тариф обновлен." : "Тариф добавлен.");
   } catch {
-    error.value = "Не удалось сохранить тариф.";
+    showPaymentError("Не удалось сохранить тариф.");
   } finally {
     saving.value = false;
   }
@@ -293,7 +307,7 @@ async function handleToggleProduct(product: PaymentProduct) {
     }
     showAlert(product.isPublished ? "Тариф скрыт." : "Тариф открыт.");
   } catch {
-    error.value = "Не удалось изменить тариф.";
+    showPaymentError("Не удалось изменить тариф.");
   } finally {
     saving.value = false;
   }
@@ -313,7 +327,7 @@ async function handleDeleteProduct(product: PaymentProduct) {
     );
     showAlert("Тариф удален и помещен в архив.");
   } catch {
-    error.value = "Не удалось удалить тариф.";
+    showPaymentError("Не удалось удалить тариф.");
   } finally {
     saving.value = false;
   }
@@ -321,11 +335,11 @@ async function handleDeleteProduct(product: PaymentProduct) {
 
 async function handleCheckout(product: PaymentProduct) {
   if (activeRecurrentSubscription.value) {
-    showAlert("У вас уже есть активная автоподписка. Отмените её перед новой оплатой.");
+    showAlert("У вас уже есть активная автоподписка. Отмените её перед новой оплатой.", "info");
     return;
   }
   if (restorableRecurrentSubscription.value) {
-    showAlert("Восстановите отменённую автоподписку или дождитесь окончания доступа перед новой оплатой.");
+    showAlert("Восстановите отменённую автоподписку или дождитесь окончания доступа перед новой оплатой.", "info");
     return;
   }
 
@@ -345,9 +359,9 @@ async function handleCheckout(product: PaymentProduct) {
       window.location.href = response.checkoutUrl;
       return;
     }
-    showAlert(response.message);
+    showAlert(response.message, "info");
   } catch {
-    error.value = "Не удалось открыть оплату.";
+    showPaymentError("Не удалось открыть оплату.");
   } finally {
     if (!navigating) {
       saving.value = false;
@@ -370,7 +384,7 @@ async function handleCancelSubscription(subscription: UserRecurrentSubscription)
     await session.load({ silent: true });
     showAlert("Подписка отменена.");
   } catch {
-    error.value = "Не удалось отменить подписку.";
+    showPaymentError("Не удалось отменить подписку.");
   } finally {
     saving.value = false;
   }
@@ -390,7 +404,7 @@ async function handleRestoreSubscription(subscription: UserRecurrentSubscription
     await session.load({ silent: true });
     showAlert("Подписка восстановлена.");
   } catch {
-    error.value = "Не удалось восстановить подписку.";
+    showPaymentError("Не удалось восстановить подписку.");
   } finally {
     saving.value = false;
   }

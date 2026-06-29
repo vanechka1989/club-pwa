@@ -11,6 +11,7 @@ import {
   markSupportTicketRead,
   replyAdminSupportTicket
 } from "@/api/client";
+import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 
 const emit = defineEmits<{
@@ -24,6 +25,7 @@ const props = defineProps<{
 }>();
 
 const session = useSessionStore();
+const notifications = useNotificationsStore();
 const loading = ref(true);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
@@ -134,9 +136,25 @@ function resetCustomerForm() {
   attachments.value = [];
 }
 
-function openCreateTicket() {
+function clearSupportNotice() {
   error.value = null;
   success.value = null;
+}
+
+function showSupportError(text: string) {
+  error.value = text;
+  success.value = null;
+  notifications.showError(text);
+}
+
+function showSupportSuccess(text: string) {
+  success.value = text;
+  error.value = null;
+  notifications.showSuccess(text);
+}
+
+function openCreateTicket() {
+  clearSupportNotice();
   createTicketOpen.value = true;
 }
 
@@ -168,7 +186,7 @@ async function loadSupport() {
       emit("unread-change", response.unreadCount);
     }
   } catch {
-    error.value = "Не удалось загрузить поддержку.";
+    showSupportError("Не удалось загрузить поддержку.");
   } finally {
     loading.value = false;
   }
@@ -181,8 +199,7 @@ async function loadSupport() {
 
 async function openTicket(ticketId: string) {
   selectedTicketId.value = ticketId;
-  error.value = null;
-  success.value = null;
+  clearSupportNotice();
   replyMessage.value = "";
   replyAttachments.value = [];
   followUpMessage.value = "";
@@ -222,11 +239,10 @@ function toggleAttachmentFullscreen() {
 }
 
 async function submitTicket() {
-  error.value = null;
-  success.value = null;
+  clearSupportNotice();
   const text = message.value.trim();
   if (!text) {
-    error.value = "Напишите сообщение для поддержки.";
+    showSupportError("Напишите сообщение для поддержки.");
     return;
   }
 
@@ -243,9 +259,9 @@ async function submitTicket() {
     emit("unread-change", response.unreadCount);
     resetCustomerForm();
     closeCreateTicket();
-    success.value = "Обращение отправлено. Мы ответим здесь.";
+    showSupportSuccess("Обращение отправлено. Мы ответим здесь.");
   } catch (requestError: any) {
-    error.value = requestError?.data?.error ?? "Не удалось отправить обращение.";
+    showSupportError(requestError?.data?.error ?? "Не удалось отправить обращение.");
   } finally {
     sendingTicket.value = false;
   }
@@ -256,11 +272,10 @@ async function submitReply() {
     return;
   }
 
-  error.value = null;
-  success.value = null;
+  clearSupportNotice();
   const text = replyMessage.value.trim();
   if (!text && replyAttachments.value.length === 0) {
-    error.value = "Напишите ответ или приложите файл.";
+    showSupportError("Напишите ответ или приложите файл.");
     return;
   }
 
@@ -275,11 +290,11 @@ async function submitReply() {
     selectedTicketId.value = response.ticket.id;
     replyMessage.value = "";
     replyAttachments.value = [];
-    success.value = "Ответ отправлен клиенту.";
+    showSupportSuccess("Ответ отправлен клиенту.");
     emit("unread-change", response.unreadCount);
     await scrollThreadToLatest();
   } catch (requestError: any) {
-    error.value = requestError?.data?.error ?? "Не удалось отправить ответ.";
+    showSupportError(requestError?.data?.error ?? "Не удалось отправить ответ.");
   } finally {
     sendingReply.value = false;
   }
@@ -290,11 +305,10 @@ async function submitFollowUp() {
     return;
   }
 
-  error.value = null;
-  success.value = null;
+  clearSupportNotice();
   const text = followUpMessage.value.trim();
   if (!text && followUpAttachments.value.length === 0) {
-    error.value = "Напишите дополнение или приложите файл.";
+    showSupportError("Напишите дополнение или приложите файл.");
     return;
   }
 
@@ -309,11 +323,11 @@ async function submitFollowUp() {
     selectedTicketId.value = response.ticket.id;
     followUpMessage.value = "";
     followUpAttachments.value = [];
-    success.value = "Дополнение отправлено.";
+    showSupportSuccess("Дополнение отправлено.");
     emit("unread-change", response.unreadCount);
     await scrollThreadToLatest();
   } catch (requestError: any) {
-    error.value = requestError?.data?.error ?? "Не удалось отправить дополнение.";
+    showSupportError(requestError?.data?.error ?? "Не удалось отправить дополнение.");
   } finally {
     sendingFollowUp.value = false;
   }
@@ -334,17 +348,16 @@ async function closeTicket() {
     return;
   }
 
-  error.value = null;
-  success.value = null;
+  clearSupportNotice();
   closingTicket.value = true;
   try {
     const response = await closeSupportTicket(selectedTicket.value.id);
     replaceTicket(response.ticket);
     selectedTicketId.value = response.ticket.id;
-    success.value = "Обращение закрыто.";
+    showSupportSuccess("Обращение закрыто.");
     emit("unread-change", response.unreadCount);
   } catch (requestError: any) {
-    error.value = requestError?.data?.error ?? "Не удалось закрыть обращение.";
+    showSupportError(requestError?.data?.error ?? "Не удалось закрыть обращение.");
   } finally {
     closingTicket.value = false;
   }

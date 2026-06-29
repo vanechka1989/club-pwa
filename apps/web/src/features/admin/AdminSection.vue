@@ -67,11 +67,13 @@ import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/adm
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { releaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
+import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
 const ui = useUiStore();
+const notifications = useNotificationsStore();
 
 const props = defineProps<{
   openClientTelegramId?: string | null;
@@ -521,11 +523,13 @@ function resetClientFilters() {
 function setStatus(text: string) {
   message.value = text;
   error.value = null;
+  notifications.showSuccess(text);
 }
 
 function setError(text: string) {
   error.value = text;
   message.value = null;
+  notifications.showError(text);
 }
 
 function showSuccessAlert(text: string) {

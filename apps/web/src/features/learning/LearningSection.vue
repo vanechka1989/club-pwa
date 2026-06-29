@@ -14,6 +14,7 @@ import {
   updateAdminLearningCategory,
   updateAdminLearningMaterial
 } from "@/api/client";
+import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
 import { getMaterialDraftError } from "./materialForm";
@@ -163,6 +164,7 @@ const moduleCards = ref<ModuleCard[]>(initialModuleCards.map((module) => ({ ...m
 const deletedLessons = ref<ModuleLesson[]>([]);
 const session = useSessionStore();
 const ui = useUiStore();
+const notifications = useNotificationsStore();
 const modulesLoadedFromApi = ref(false);
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
@@ -243,12 +245,39 @@ function lessonCountLabel(count: number) {
   return `${count} уроков`;
 }
 
+function clearModuleError() {
+  moduleError.value = "";
+}
+
+function showModuleError(text: string) {
+  moduleError.value = text;
+  notifications.showError(text);
+}
+
+function clearLessonError() {
+  lessonError.value = "";
+}
+
+function showLessonError(text: string) {
+  lessonError.value = text;
+  notifications.showError(text);
+}
+
+function clearLessonViewerError() {
+  lessonViewerError.value = "";
+}
+
+function showLessonViewerError(text: string) {
+  lessonViewerError.value = text;
+  notifications.showError(text);
+}
+
 function openModuleModal() {
   editingModuleId.value = null;
   moduleTitle.value = "";
   moduleDescription.value = "";
   moduleDefaultCardLayout.value = "vertical";
-  moduleError.value = "";
+  clearModuleError();
   showModuleModal.value = true;
 }
 
@@ -257,7 +286,7 @@ function openModuleEditModal(module: ModuleCard) {
   moduleTitle.value = module.title;
   moduleDescription.value = module.description;
   moduleDefaultCardLayout.value = module.defaultCardLayout;
-  moduleError.value = "";
+  clearModuleError();
   showModuleModal.value = true;
 }
 
@@ -267,7 +296,7 @@ function closeModuleModal() {
   moduleTitle.value = "";
   moduleDescription.value = "";
   moduleDefaultCardLayout.value = "vertical";
-  moduleError.value = "";
+  clearModuleError();
 }
 
 function isModuleCollapsed(moduleId: string) {
@@ -305,9 +334,9 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
   shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = lesson.content;
-  lessonError.value = "";
+  clearLessonError();
   isLoadingLessonContent.value = false;
-  lessonViewerError.value = "";
+  clearLessonViewerError();
   void loadLessonContentForMember(lesson);
 }
 
@@ -327,9 +356,9 @@ function openLessonCreateModal(module: ModuleCard) {
   shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = "";
-  lessonError.value = "";
+  clearLessonError();
   isLoadingLessonContent.value = false;
-  lessonViewerError.value = "";
+  clearLessonViewerError();
 }
 
 function closeLessonModal() {
@@ -345,9 +374,9 @@ function closeLessonModal() {
   shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
-  lessonError.value = "";
+  clearLessonError();
   isLoadingLessonContent.value = false;
-  lessonViewerError.value = "";
+  clearLessonViewerError();
 }
 
 function resetLessonVideoState() {
@@ -531,7 +560,7 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
 
   const lessonId = lesson.id;
   isLoadingLessonContent.value = true;
-  lessonViewerError.value = "";
+  clearLessonViewerError();
 
   try {
     const response = await getLearningContent(lessonId);
@@ -542,7 +571,7 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
     replaceModuleLesson(materialToLesson(response.item));
   } catch {
     if (selectedLesson.value?.lessonId === lessonId) {
-      lessonViewerError.value = "Не удалось загрузить содержимое урока.";
+      showLessonViewerError("Не удалось загрузить содержимое урока.");
     }
   } finally {
     if (selectedLesson.value?.lessonId === lessonId) {
@@ -661,7 +690,7 @@ function buildLessonForm() {
 
 async function saveModule() {
   if (!trimmedModuleTitle.value) {
-    moduleError.value = "Введите название модуля.";
+    showModuleError("Введите название модуля.");
     return;
   }
 
@@ -690,7 +719,7 @@ async function saveModule() {
   }
 
   isSaving.value = true;
-  moduleError.value = "";
+  clearModuleError();
 
   try {
     if (editingModule.value) {
@@ -724,7 +753,7 @@ async function saveModule() {
     collapseModule(response.category.id);
     closeModuleModal();
   } catch {
-    moduleError.value = "Не удалось сохранить модуль.";
+    showModuleError("Не удалось сохранить модуль.");
   } finally {
     isSaving.value = false;
   }
@@ -742,7 +771,7 @@ async function deleteModule() {
   }
 
   isSaving.value = true;
-  moduleError.value = "";
+  clearModuleError();
 
   try {
     if (module.isPersisted && modulesLoadedFromApi.value) {
@@ -752,7 +781,7 @@ async function deleteModule() {
     collapsedModuleIds.value = collapsedModuleIds.value.filter((id) => id !== module.id);
     closeModuleModal();
   } catch {
-    moduleError.value = "Не удалось удалить модуль.";
+    showModuleError("Не удалось удалить модуль.");
   } finally {
     isSaving.value = false;
   }
@@ -787,12 +816,12 @@ function saveLessonLocally() {
 
 async function saveLesson() {
   if (!selectedLessonModule.value) {
-    lessonError.value = "Модуль не найден.";
+    showLessonError("Модуль не найден.");
     return;
   }
 
   if (!trimmedLessonTitle.value) {
-    lessonError.value = "Введите название урока.";
+    showLessonError("Введите название урока.");
     return;
   }
 
@@ -808,7 +837,7 @@ async function saveLesson() {
   });
 
   if (draftError) {
-    lessonError.value = draftError;
+    showLessonError(draftError);
     return;
   }
 
@@ -819,7 +848,7 @@ async function saveLesson() {
   }
 
   isSaving.value = true;
-  lessonError.value = "";
+  clearLessonError();
 
   try {
     if (selectedLessonItem.value?.isPersisted) {
@@ -833,7 +862,7 @@ async function saveLesson() {
     addMaterialToModule(response.material);
     closeLessonModal();
   } catch {
-    lessonError.value = "Не удалось сохранить урок. Проверьте файл и настройки S3.";
+    showLessonError("Не удалось сохранить урок. Проверьте файл и настройки S3.");
   } finally {
     isSaving.value = false;
   }
@@ -852,7 +881,7 @@ async function deleteLesson() {
   }
 
   isSaving.value = true;
-  lessonError.value = "";
+  clearLessonError();
 
   try {
     if (lesson.isPersisted && modulesLoadedFromApi.value) {
@@ -870,7 +899,7 @@ async function deleteLesson() {
     collapseModule(deletedContentModuleId);
     closeLessonModal();
   } catch {
-    lessonError.value = "Не удалось удалить урок.";
+    showLessonError("Не удалось удалить урок.");
   } finally {
     isSaving.value = false;
   }
@@ -924,7 +953,7 @@ async function restoreDeletedLesson(lesson: ModuleLesson) {
 
 async function startVoiceRecording() {
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-    lessonError.value = "Запись голоса недоступна в этом браузере.";
+    showLessonError("Запись голоса недоступна в этом браузере.");
     return;
   }
 
@@ -955,9 +984,9 @@ async function startVoiceRecording() {
     };
     recorder.start();
     isVoiceRecording.value = true;
-    lessonError.value = "";
+    clearLessonError();
   } catch {
-    lessonError.value = "Не удалось начать запись голоса.";
+    showLessonError("Не удалось начать запись голоса.");
   }
 }
 

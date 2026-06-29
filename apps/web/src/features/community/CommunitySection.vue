@@ -16,10 +16,12 @@ import {
   updateModerationStatus
 } from "@/api/client";
 import { useI18n } from "@/features/app/i18n";
+import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 
 const { t } = useI18n();
 const session = useSessionStore();
+const notifications = useNotificationsStore();
 
 const emit = defineEmits<{
   chatOpenChange: [isOpen: boolean];
@@ -55,6 +57,7 @@ let refreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 let topicsRefreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 let refreshInFlight = false;
 let topicsRefreshInFlight = false;
+let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
 const topicReadStorageKey = "club-community-topic-read-at";
 const viewportHeightCssVar = "--club-viewport-height";
 
@@ -183,11 +186,25 @@ function getErrorStatus(reason: unknown) {
   return null;
 }
 
+function clearCommunityError() {
+  communityError.value = null;
+}
+
+function showCommunityError(text: string) {
+  communityError.value = text;
+  const now = Date.now();
+  if (!lastCommunityErrorNotification || lastCommunityErrorNotification.text !== text || now - lastCommunityErrorNotification.shownAt > 10_000) {
+    notifications.showError(text);
+    lastCommunityErrorNotification = { text, shownAt: now };
+  }
+}
+
 function showMuteAlert() {
   const message = mutedPermanently.value
     ? "На вас наложен бессрочный мут. Вы пока не можете писать в чат."
     : `На вас наложен мут до ${mutedUntil.value ? new Date(mutedUntil.value).toLocaleString("ru-RU") : ""}. Вы пока не можете писать в чат.`;
 
+  notifications.showError(message);
   if (window.Telegram?.WebApp?.showAlert) {
     window.Telegram.WebApp.showAlert(message);
     return;
@@ -382,7 +399,7 @@ async function refreshSelectedTopic({ keepScroll = true } = {}) {
       scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
     }
   } catch {
-    communityError.value = "Не удалось обновить чат.";
+    showCommunityError("Не удалось обновить чат.");
   } finally {
     refreshInFlight = false;
   }
@@ -411,7 +428,7 @@ async function loadTopics({ showLoading = false } = {}) {
 
   topicsRefreshInFlight = true;
   loading.value = showLoading;
-  communityError.value = null;
+  clearCommunityError();
   try {
     const response = await getCommunityTopics();
     topics.value = response.topics;
@@ -422,11 +439,11 @@ async function loadTopics({ showLoading = false } = {}) {
     if (getErrorStatus(reason) === 403) {
       topics.value = [];
       selectedTopic.value = null;
-      communityError.value = null;
+      clearCommunityError();
       return;
     }
 
-    communityError.value = "Не удалось загрузить общение.";
+    showCommunityError("Не удалось загрузить общение.");
   } finally {
     loading.value = false;
     topicsRefreshInFlight = false;
@@ -458,7 +475,7 @@ async function openTopic(topic: ClubTopic) {
   showTopicAdminMenu.value = false;
   activeModerationMessageId.value = null;
   activeReactionMessageId.value = null;
-  communityError.value = null;
+  clearCommunityError();
   await refreshSelectedTopic({ keepScroll: false });
   markTopicRead(topic.id);
   if ((mutedUntil.value || mutedPermanently.value) && !muteAlertShown.value) {
@@ -473,7 +490,7 @@ async function createTopic() {
   }
 
   topicSaving.value = true;
-  communityError.value = null;
+  clearCommunityError();
   try {
     const response = await createCommunityTopic({
       title: newTopicTitle.value,
@@ -483,7 +500,7 @@ async function createTopic() {
     newTopicTitle.value = "";
     showCreateTopic.value = false;
   } catch {
-    communityError.value = "Не удалось создать тему.";
+    showCommunityError("Не удалось создать тему.");
   } finally {
     topicSaving.value = false;
   }
@@ -553,7 +570,7 @@ async function handleSendMessage() {
   }
 
   messageSaving.value = true;
-  communityError.value = null;
+  clearCommunityError();
   try {
     const response = await createClubMessage(selectedTopic.value.id, newMessage.value, replyToMessage.value?.id ?? null);
     newMessage.value = "";
@@ -575,7 +592,7 @@ async function handleSendMessage() {
       mutedPermanently.value = Boolean(data.mutedPermanently);
       showMuteAlert();
     }
-    communityError.value = "Не удалось отправить сообщение.";
+    showCommunityError("Не удалось отправить сообщение.");
   } finally {
     messageSaving.value = false;
   }
@@ -592,7 +609,7 @@ async function handleMute(message: ClubMessage) {
     return;
   }
   if (message.authorMute) {
-    communityError.value = "У клиента уже есть активный мут.";
+    showCommunityError("У клиента уже есть активный мут.");
     activeModerationMessageId.value = null;
     return;
   }
@@ -609,7 +626,7 @@ async function handleMute(message: ClubMessage) {
     await openTopic(selectedTopic.value);
     await scrollToBottom();
   } catch (reason) {
-    communityError.value = getErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.";
+    showCommunityError(getErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.");
   }
 }
 
@@ -684,7 +701,7 @@ watch(
       selectedTopic.value = null;
       topics.value = [];
       messages.value = [];
-      communityError.value = null;
+      clearCommunityError();
       stopMessageRefresh();
       stopTopicsRefresh();
       return;
