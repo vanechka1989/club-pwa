@@ -8,6 +8,7 @@ import {
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
+  getLearningContent,
   getLearningHome,
   restoreAdminLearningMaterial,
   updateAdminLearningCategory,
@@ -184,6 +185,8 @@ const shouldRemoveLessonThumbnail = ref(false);
 const lessonCardLayout = ref<ContentCardLayout>("vertical");
 const lessonContent = ref("");
 const lessonError = ref("");
+const isLoadingLessonContent = ref(false);
+const lessonViewerError = ref("");
 const isVoiceRecording = ref(false);
 const voiceRecorder = ref<MediaRecorder | null>(null);
 const voiceStream = ref<MediaStream | null>(null);
@@ -303,6 +306,9 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = lesson.content;
   lessonError.value = "";
+  isLoadingLessonContent.value = false;
+  lessonViewerError.value = "";
+  void loadLessonContentForMember(lesson);
 }
 
 function openLessonCreateModal(module: ModuleCard) {
@@ -322,6 +328,8 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = "";
   lessonError.value = "";
+  isLoadingLessonContent.value = false;
+  lessonViewerError.value = "";
 }
 
 function closeLessonModal() {
@@ -338,6 +346,8 @@ function closeLessonModal() {
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonError.value = "";
+  isLoadingLessonContent.value = false;
+  lessonViewerError.value = "";
 }
 
 function resetLessonVideoState() {
@@ -501,6 +511,44 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     cardLayout: item.cardLayout,
     isPersisted: true
   };
+}
+
+function replaceModuleLesson(lessonData: ModuleLesson) {
+  moduleCards.value = moduleCards.value.map((module) =>
+    module.id === lessonData.categoryId
+      ? {
+          ...module,
+          images: module.images.map((lesson) => (lesson.id === lessonData.id ? { ...lesson, ...lessonData } : lesson))
+        }
+      : module
+  );
+}
+
+async function loadLessonContentForMember(lesson: ModuleLesson) {
+  if (canManageModules.value || !lesson.isPersisted) {
+    return;
+  }
+
+  const lessonId = lesson.id;
+  isLoadingLessonContent.value = true;
+  lessonViewerError.value = "";
+
+  try {
+    const response = await getLearningContent(lessonId);
+    if (selectedLesson.value?.lessonId !== lessonId) {
+      return;
+    }
+
+    replaceModuleLesson(materialToLesson(response.item));
+  } catch {
+    if (selectedLesson.value?.lessonId === lessonId) {
+      lessonViewerError.value = "Не удалось загрузить содержимое урока.";
+    }
+  } finally {
+    if (selectedLesson.value?.lessonId === lessonId) {
+      isLoadingLessonContent.value = false;
+    }
+  }
 }
 
 function categoriesToModules(
@@ -1169,8 +1217,10 @@ watch(
 
             <article v-if="!canManageModules && selectedLessonItem" class="lesson-viewer-content">
               <span class="lesson-preview-kicker">Содержимое урока</span>
-              <p v-if="selectedLessonItem.content">{{ selectedLessonItem.content }}</p>
-              <p v-else class="lesson-viewer-empty">Содержимое урока пока не добавлено.</p>
+              <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
+              <p v-else-if="lessonViewerError" class="lesson-viewer-empty">{{ lessonViewerError }}</p>
+              <p v-else-if="selectedLessonItem.content">{{ selectedLessonItem.content }}</p>
+              <p v-else-if="!selectedLessonItem.mediaUrl" class="lesson-viewer-empty">Содержимое урока пока не добавлено.</p>
 
               <img
                 v-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
