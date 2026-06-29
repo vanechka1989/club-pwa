@@ -95,6 +95,12 @@ describe("support section", () => {
     expect(styles).toMatch(/\.support-compact-button\s*\{[^}]*min-height:\s*2\.28rem;/s);
   });
 
+  it("uses theme variables for support action button contrast", () => {
+    expect(styles).not.toContain("--accent-contrast");
+    expect(styles).toMatch(/\.support-primary-button\s*\{[^}]*color:\s*var\(--accent-text\);/s);
+    expect(styles).toMatch(/\.support-danger-button\s*\{[^}]*border:[^;]*var\(--danger\)[^;]*;[^}]*color:[^;]*var\(--danger\)[^;]*;/s);
+  });
+
   it("shows an unread support badge in navigation", () => {
     expect(appSource).toContain("supportUnreadCount");
     expect(appSource).toContain("bottom-nav-badge");
