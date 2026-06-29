@@ -61,7 +61,8 @@ wait_for_health() {
   return 1
 }
 
-notify_deploy_success() {
+notify_deploy_message() {
+  local message="$1"
   local token
   token="${TELEGRAM_BOT_TOKEN:-$(read_env_value TELEGRAM_BOT_TOKEN)}"
 
@@ -74,18 +75,6 @@ notify_deploy_success() {
   if [[ -z "$token" || -z "$chat_ids" ]]; then
     echo "Telegram deploy notification skipped: token or recipient is not configured"
     return 0
-  fi
-
-  local version updated_at commit app_url
-  version="$(sed -n 's/export const appVersion = "\(.*\)";/\1/p' apps/web/src/features/app/version.ts | head -n 1)"
-  updated_at="$(sed -n 's/export const appVersionUpdatedAt = "\(.*\)";/\1/p' apps/web/src/features/app/version.ts | head -n 1)"
-  commit="$(git rev-parse --short HEAD)"
-  app_url="$(read_env_value WEB_ORIGIN)"
-
-  local message
-  message="$(printf 'Обновление клуба загружено.\nВерсия: %s\nДата: %s\nCommit: %s\nСервер: работает' "$version" "$updated_at" "$commit")"
-  if [[ -n "$app_url" ]]; then
-    message="$(printf '%s\n%s' "$message" "$app_url")"
   fi
 
   local normalized_ids chat_id
@@ -105,6 +94,38 @@ notify_deploy_success() {
   done
 }
 
+notify_deploy_start() {
+  local commit app_url message
+  commit="$(git rev-parse --short HEAD)"
+  app_url="$(read_env_value WEB_ORIGIN)"
+
+  message="$(printf 'Обновление клуба началось.\nCommit: %s\nСервер: обновляется' "$commit")"
+  if [[ -n "$app_url" ]]; then
+    message="$(printf '%s\n%s' "$message" "$app_url")"
+  fi
+
+  notify_deploy_message "$message"
+}
+
+notify_deploy_success() {
+  local version updated_at commit app_url
+  version="$(sed -n 's/export const appVersion = "\(.*\)";/\1/p' apps/web/src/features/app/version.ts | head -n 1)"
+  updated_at="$(sed -n 's/export const appVersionUpdatedAt = "\(.*\)";/\1/p' apps/web/src/features/app/version.ts | head -n 1)"
+  commit="$(git rev-parse --short HEAD)"
+  app_url="$(read_env_value WEB_ORIGIN)"
+
+  local message
+  message="$(printf 'Обновление клуба загружено.\nВерсия: %s\nДата: %s\nCommit: %s\nСервер: работает' "$version" "$updated_at" "$commit")"
+  if [[ -n "$app_url" ]]; then
+    message="$(printf '%s\n%s' "$message" "$app_url")"
+  fi
+
+  notify_deploy_message "$message"
+}
+
+if [[ "${DEPLOY_NOTIFY_START_SENT:-}" != "1" ]]; then
+  notify_deploy_start
+fi
 git pull --ff-only
 docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml run --rm migrate

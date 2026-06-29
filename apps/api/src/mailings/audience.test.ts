@@ -44,4 +44,17 @@ describe("mailing audience filtering", () => {
     expect(audience.recipients.map((entry) => entry.telegramId)).toEqual(["1"]);
     expect(audience.excludedByFilters).toBe(2);
   });
+
+  it("deduplicates recipients by Telegram id", () => {
+    const audience = filterMailingAudience(
+      [
+        user({ id: "first", telegramId: "100" }),
+        user({ id: "duplicate", telegramId: "100" }),
+        user({ id: "second", telegramId: "200" })
+      ],
+      { accessStatus: "active", accessType: "all", excludeAdmins: true, excludeRestricted: true }
+    );
+
+    expect(audience.recipients.map((entry) => entry.telegramId)).toEqual(["100", "200"]);
+  });
 });

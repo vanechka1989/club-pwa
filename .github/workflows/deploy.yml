@@ -26,12 +26,70 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$SERVER_PORT" -H "$SERVER_HOST" >> ~/.ssh/known_hosts
 
+      - name: Notify update started
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || '22' }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" \
+            "DEPLOY_DIR='$DEPLOY_DIR' COMMIT_SHA='$COMMIT_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+
+          read_env_value() {
+            local key="$1"
+            if [[ ! -f .env ]]; then
+              return 0
+            fi
+            local value
+            value="$(grep -E "^${key}=" .env | tail -n 1 | cut -d= -f2- || true)"
+            value="${value%\"}"
+            value="${value#\"}"
+            printf '%s' "$value"
+          }
+
+          token="${TELEGRAM_BOT_TOKEN:-$(read_env_value TELEGRAM_BOT_TOKEN)}"
+          chat_ids="${DEPLOY_NOTIFY_TELEGRAM_IDS:-$(read_env_value DEPLOY_NOTIFY_TELEGRAM_IDS)}"
+          if [[ -z "$chat_ids" ]]; then
+            chat_ids="$(read_env_value OWNER_TELEGRAM_ID)"
+          fi
+
+          if [[ -z "$token" || -z "$chat_ids" ]]; then
+            echo "Telegram deploy start notification skipped: token or recipient is not configured"
+            exit 0
+          fi
+
+          commit="${COMMIT_SHA:0:7}"
+          app_url="$(read_env_value WEB_ORIGIN)"
+          message="$(printf 'Обновление клуба началось.\nCommit: %s\nСервер: обновляется' "$commit")"
+          if [[ -n "$app_url" ]]; then
+            message="$(printf '%s\n%s' "$message" "$app_url")"
+          fi
+
+          normalized_ids="${chat_ids//,/ }"
+          for chat_id in $normalized_ids; do
+            if [[ -z "$chat_id" ]]; then
+              continue
+            fi
+            curl --fail --silent --show-error --max-time 10 \
+              --request POST "https://api.telegram.org/bot${token}/sendMessage" \
+              --data-urlencode "chat_id=${chat_id}" \
+              --data-urlencode "text=${message}" \
+              >/dev/null || echo "Telegram deploy start notification failed for chat ${chat_id}" >&2
+          done
+          REMOTE
+
       - name: Update application
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_PORT: ${{ secrets.SERVER_PORT || '22' }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          DEPLOY_NOTIFY_START_SENT: "1"
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" "cd '$DEPLOY_DIR' && git pull --ff-only && DEPLOY_DIR='$DEPLOY_DIR' bash '$DEPLOY_DIR/deploy/update.sh'"
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" "cd '$DEPLOY_DIR' && git pull --ff-only && DEPLOY_NOTIFY_START_SENT='$DEPLOY_NOTIFY_START_SENT' DEPLOY_DIR='$DEPLOY_DIR' bash '$DEPLOY_DIR/deploy/update.sh'"

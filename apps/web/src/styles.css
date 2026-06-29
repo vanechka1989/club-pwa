@@ -5094,9 +5094,10 @@ button {
 
 .notification-center {
   position: fixed;
-  right: 0.85rem;
-  bottom: calc(var(--bottom-nav-height, 5.25rem) + var(--tg-safe-bottom, 0px) + 0.75rem);
+  top: calc(var(--tg-safe-top, 0px) + 0.75rem);
+  left: 50%;
   z-index: 70;
+  transform: translateX(-50%);
 }
 
 .notification-center-button {

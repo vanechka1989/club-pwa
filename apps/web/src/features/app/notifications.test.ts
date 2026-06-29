@@ -52,10 +52,12 @@ describe("app notifications", () => {
     expect(styles).toContain(".notification-center-media");
   });
 
-  it("places the notification bell above bottom navigation as a softer glass control", () => {
+  it("places the notification bell in the top center between Telegram controls", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.notification-center\s*\{[^}]*bottom:\s*calc\(var\(--bottom-nav-height/s);
+    expect(styles).toMatch(/\.notification-center\s*\{[^}]*top:\s*calc\(var\(--tg-safe-top/s);
+    expect(styles).toMatch(/\.notification-center\s*\{[^}]*left:\s*50%;/s);
+    expect(styles).toMatch(/\.notification-center\s*\{[^}]*transform:\s*translateX\(-50%\);/s);
     expect(styles).toMatch(/\.notification-center-button\s*\{[^}]*opacity:\s*0\.86;/s);
     expect(styles).toMatch(/\.notification-center-button\s*\{[^}]*backdrop-filter:\s*blur/s);
   });

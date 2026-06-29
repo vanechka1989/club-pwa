@@ -60,8 +60,14 @@ export function filterMailingAudience(users: MailingAudienceUser[], filters: Mai
   let excludedBotBlocked = 0;
   let excludedByFilters = 0;
   const recipients: MailingAudienceUser[] = [];
+  const seenTelegramIds = new Set<string>();
 
   for (const user of users) {
+    if (seenTelegramIds.has(user.telegramId)) {
+      continue;
+    }
+    seenTelegramIds.add(user.telegramId);
+
     if (user.telegramBotStatus === "blocked") {
       excludedBotBlocked += 1;
       continue;
