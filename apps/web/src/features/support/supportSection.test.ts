@@ -84,6 +84,11 @@ describe("support section", () => {
     expect(styles).toContain("var(--tg-safe-bottom");
   });
 
+  it("keeps a single support message compact inside ticket modals", () => {
+    expect(styles).toMatch(/\.support-thread\s*\{[^}]*align-content:\s*start;/s);
+    expect(styles).toMatch(/\.support-message\s*\{[^}]*align-self:\s*start;/s);
+  });
+
   it("supports photo and video attachments without oversized buttons", () => {
     expect(source).toContain('accept="image/*,video/*"');
     expect(source).toContain("support-compact-button");

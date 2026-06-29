@@ -961,6 +961,7 @@ button {
 
 .support-thread {
   display: grid;
+  align-content: start;
   max-height: min(24rem, calc(var(--club-viewport-height, 100vh) * 0.44));
   gap: 0.55rem;
   overflow: auto;
@@ -970,6 +971,7 @@ button {
 
 .support-message {
   display: grid;
+  align-self: start;
   gap: 0.35rem;
 }
 
