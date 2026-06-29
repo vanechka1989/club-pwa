@@ -213,8 +213,8 @@ async function sendMailingToRecipient(
     await createAppNotification({
       userId: target.id,
       kind: "mailing",
-      title: mailing.title || "Сообщение от клуба",
-      body: mailing.body,
+      title: "Сообщение от клуба",
+      body: buildTelegramText(mailing),
       bodyHtml: mailing.bodyHtml,
       source: "mailing",
       sourceId: mailing.id,
@@ -486,8 +486,8 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       await createAppNotification({
         userId: admin.id,
         kind: "mailing",
-        title: `Тест: ${mailing.title}`,
-        body: mailing.body,
+        title: "Тест: Сообщение от клуба",
+        body: buildTelegramText(mailing),
         bodyHtml: mailing.bodyHtml,
         source: "mailing",
         sourceId: mailing.id,
