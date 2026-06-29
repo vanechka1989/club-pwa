@@ -886,7 +886,7 @@ button {
 
 .support-admin-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
   gap: 0.55rem;
 }
 
@@ -1470,6 +1470,54 @@ button {
   justify-self: center;
   width: min(100%, 16.5rem);
   min-height: 2.2rem;
+}
+
+.support-confirm-backdrop {
+  position: fixed;
+  z-index: 92;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, #000 48%, transparent);
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    0.75rem
+    max(1rem, env(safe-area-inset-bottom));
+}
+
+.support-confirm-card {
+  display: grid;
+  width: min(100%, 22rem);
+  gap: 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel-strong) 98%, transparent);
+  padding: 1rem;
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 42%, transparent);
+}
+
+.support-confirm-card h3 {
+  color: var(--text);
+  font-size: 1.08rem;
+  font-weight: 950;
+}
+
+.support-confirm-card p {
+  color: var(--muted-strong);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.support-confirm-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.support-confirm-actions .support-compact-button {
+  width: 100%;
+  min-width: 0;
 }
 
 .support-closed-note {

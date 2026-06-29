@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { CheckCircle2, CircleDot, Image, Maximize2, Minimize2, Paperclip, Send, Video, X } from "lucide-vue-next";
 import type { SupportAttachment, SupportTicket } from "@club/shared";
 import {
@@ -34,6 +34,7 @@ const topics = ref<Array<{ id: string; title: string; description: string }>>([]
 const tickets = ref<SupportTicket[]>([]);
 const selectedTicketId = ref<string | null>(null);
 const createTicketOpen = ref(false);
+const closeConfirmOpen = ref(false);
 const openedAttachment = ref<SupportAttachment | null>(null);
 const threadRef = ref<HTMLElement | null>(null);
 const attachmentPanelRef = ref<HTMLElement | null>(null);
@@ -50,6 +51,9 @@ const sendingTicket = ref(false);
 const sendingReply = ref(false);
 const sendingFollowUp = ref(false);
 const closingTicket = ref(false);
+const refreshingSupport = ref(false);
+const supportRefreshIntervalMs = 10_000;
+let supportRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const defaultTopics = [
   { id: "payment", title: "Оплата", description: "Платежи и подписки." },
@@ -58,14 +62,23 @@ const defaultTopics = [
   { id: "other", title: "Другая причина", description: "Если подходящей причины нет." }
 ];
 
-const isAdmin = computed(() => session.user?.realRole === "admin" || session.user?.realRole === "owner");
+function isSupportAdminRole(role: string | null | undefined) {
+  return role === "admin" || role === "owner";
+}
+
+const isAdmin = computed(() => isSupportAdminRole(session.user?.realRole) || isSupportAdminRole(session.user?.role));
 const visibleTopics = computed(() => (topics.value.length ? topics.value : defaultTopics));
 const selectedTicket = computed(() => tickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? null);
 const openTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "open"));
 const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "answered"));
 const closedTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "closed"));
 const adminUnreadTickets = computed(() => tickets.value.filter((ticket) => ticket.unread));
+const supportBusy = computed(() => sendingTicket.value || sendingReply.value || sendingFollowUp.value || closingTicket.value);
 const isVideoAttachment = computed(() => openedAttachment.value?.kind === "video");
+const averageResponseTimeLabel = computed(() => {
+  const averageMinutes = calculateAverageResponseMinutes(tickets.value);
+  return averageMinutes === null ? "Нет ответов" : formatDurationMinutes(averageMinutes);
+});
 const supportOperation = computed(() => {
   if (sendingTicket.value) {
     return {
@@ -83,8 +96,8 @@ const supportOperation = computed(() => {
 
   if (sendingFollowUp.value) {
     return {
-      title: "Отправляем дополнение...",
-      detail: followUpAttachments.value.length ? "Загрузка файлов и отправка сообщения" : "Добавляем сообщение в обращение"
+      title: "Отправляем сообщение...",
+      detail: followUpAttachments.value.length ? "Загрузка файлов и отправка сообщения" : "Отправляем сообщение в обращение"
     };
   }
 
@@ -115,11 +128,40 @@ function waitingTime(value: string | null) {
   }
 
   const minutes = Math.max(1, Math.floor((Date.now() - Date.parse(value)) / 60000));
+  return formatDurationMinutes(minutes);
+}
+
+function formatDurationMinutes(minutes: number) {
   if (minutes < 60) {
     return `${minutes} мин.`;
   }
 
   return `${Math.floor(minutes / 60)} ч. ${minutes % 60} мин.`;
+}
+
+function calculateAverageResponseMinutes(items: SupportTicket[]) {
+  const responseMinutes: number[] = [];
+
+  items.forEach((ticket) => {
+    ticket.messages.forEach((message, index) => {
+      if (message.authorRole !== "customer") {
+        return;
+      }
+
+      const response = ticket.messages.slice(index + 1).find((item) => item.authorRole === "admin");
+      if (!response) {
+        return;
+      }
+
+      responseMinutes.push(Math.max(1, Math.round((Date.parse(response.createdAt) - Date.parse(message.createdAt)) / 60000)));
+    });
+  });
+
+  if (!responseMinutes.length) {
+    return null;
+  }
+
+  return Math.round(responseMinutes.reduce((sum, value) => sum + value, 0) / responseMinutes.length);
 }
 
 function userName(user: SupportTicket["customer"]) {
@@ -161,6 +203,10 @@ function replaceTicket(ticket: SupportTicket) {
   tickets.value = [ticket, ...tickets.value.filter((item) => item.id !== ticket.id)].sort(
     (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
   );
+}
+
+function replaceTickets(nextTickets: SupportTicket[]) {
+  tickets.value = [...nextTickets].sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
 }
 
 function resetCustomerForm() {
@@ -206,29 +252,85 @@ async function scrollThreadToLatest() {
 }
 
 async function loadSupport() {
-  loading.value = true;
-  error.value = null;
+  await refreshSupport({ silent: false, consumeOpenTicket: true });
+}
+
+async function refreshSelectedTicketRead(ticket = selectedTicket.value) {
+  if (!ticket?.unread) {
+    return;
+  }
+
+  try {
+    const response = await markSupportTicketRead(ticket.id);
+    replaceTicket(response.ticket);
+    emit("unread-change", response.unreadCount);
+  } catch {
+    // Следующая проверка повторит отметку прочтения.
+  }
+}
+
+async function refreshSupport(options: { silent?: boolean; consumeOpenTicket?: boolean } = {}) {
+  if (refreshingSupport.value) {
+    return;
+  }
+
+  const { silent = false, consumeOpenTicket = false } = options;
+  refreshingSupport.value = true;
+  if (!silent) {
+    loading.value = true;
+    error.value = null;
+  }
+
+  const selectedId = selectedTicketId.value;
   try {
     if (isAdmin.value) {
       const response = await getAdminSupportTickets();
-      tickets.value = response.tickets;
+      replaceTickets(response.tickets);
       emit("unread-change", response.unreadCount);
     } else {
       const response = await getSupportHome();
       topics.value = response.topics;
-      tickets.value = response.tickets;
+      replaceTickets(response.tickets);
       emit("unread-change", response.unreadCount);
     }
+
+    if (selectedId) {
+      const openedTicket = tickets.value.find((ticket) => ticket.id === selectedId) ?? null;
+      await refreshSelectedTicketRead(openedTicket);
+    }
   } catch {
-    showSupportError("Не удалось загрузить поддержку.");
+    if (!silent) {
+      showSupportError("Не удалось загрузить поддержку.");
+    }
   } finally {
-    loading.value = false;
+    refreshingSupport.value = false;
+    if (!silent) {
+      loading.value = false;
+    }
   }
 
-  if (props.openTicketId) {
+  if (consumeOpenTicket && props.openTicketId) {
     await openTicket(props.openTicketId);
     emit("return-ticket-consumed");
   }
+}
+
+function startSupportPolling() {
+  stopSupportPolling();
+  supportRefreshTimer = setInterval(() => {
+    if (supportBusy.value) {
+      return;
+    }
+    void refreshSupport({ silent: true });
+  }, supportRefreshIntervalMs);
+}
+
+function stopSupportPolling() {
+  if (!supportRefreshTimer) {
+    return;
+  }
+  clearInterval(supportRefreshTimer);
+  supportRefreshTimer = null;
 }
 
 async function openTicket(ticketId: string) {
@@ -251,6 +353,7 @@ async function openTicket(ticketId: string) {
 
 function closeModal() {
   selectedTicketId.value = null;
+  closeConfirmOpen.value = false;
   openedAttachment.value = null;
   replyMessage.value = "";
   replyAttachments.value = [];
@@ -342,7 +445,7 @@ async function submitFollowUp() {
   clearSupportNotice();
   const text = followUpMessage.value.trim();
   if (!text && followUpAttachments.value.length === 0) {
-    showSupportError("Напишите дополнение или приложите файл.");
+    showSupportError("Напишите сообщение или приложите файл.");
     return;
   }
 
@@ -357,11 +460,11 @@ async function submitFollowUp() {
     selectedTicketId.value = response.ticket.id;
     followUpMessage.value = "";
     followUpAttachments.value = [];
-    showSupportSuccess("Дополнение отправлено.");
+    showSupportSuccess("Сообщение отправлено.");
     emit("unread-change", response.unreadCount);
     await scrollThreadToLatest();
   } catch (requestError: any) {
-    showSupportError(requestError?.data?.error ?? "Не удалось отправить дополнение.");
+    showSupportError(requestError?.data?.error ?? "Не удалось отправить сообщение.");
   } finally {
     sendingFollowUp.value = false;
   }
@@ -378,11 +481,20 @@ async function closeTicket() {
   if (!selectedTicket.value) {
     return;
   }
-  if (!window.confirm("Закрыть обращение? Если вопрос снова появится, можно создать новое.")) {
+  closeConfirmOpen.value = true;
+}
+
+function cancelCloseTicket() {
+  closeConfirmOpen.value = false;
+}
+
+async function confirmCloseTicket() {
+  if (!selectedTicket.value) {
     return;
   }
 
   clearSupportNotice();
+  closeConfirmOpen.value = false;
   closingTicket.value = true;
   try {
     const response = await closeSupportTicket(selectedTicket.value.id);
@@ -399,14 +511,37 @@ async function closeTicket() {
 
 onMounted(() => {
   void loadSupport();
+  startSupportPolling();
+});
+
+onUnmounted(() => {
+  stopSupportPolling();
 });
 
 watch(
   () => props.openTicketId,
-  (ticketId) => {
-    if (ticketId && tickets.value.some((ticket) => ticket.id === ticketId)) {
+  async (ticketId) => {
+    if (!ticketId) {
+      return;
+    }
+
+    if (!tickets.value.some((ticket) => ticket.id === ticketId)) {
+      await refreshSupport({ silent: true });
+    }
+
+    if (tickets.value.some((ticket) => ticket.id === ticketId)) {
       void openTicket(ticketId).then(() => emit("return-ticket-consumed"));
     }
+  }
+);
+
+watch(
+  () => selectedTicket.value?.messages.length,
+  (count, previousCount) => {
+    if (!count || !previousCount || count <= previousCount) {
+      return;
+    }
+    void scrollThreadToLatest();
   }
 );
 </script>
@@ -467,6 +602,10 @@ watch(
           <article class="surface-card">
             <span>Закрытые</span>
             <strong>{{ closedTickets.length }}</strong>
+          </article>
+          <article class="surface-card">
+            <span>Среднее время ответа</span>
+            <strong>{{ averageResponseTimeLabel }}</strong>
           </article>
         </div>
 
@@ -650,7 +789,7 @@ watch(
                   <span v-if="followUpAttachments.length" class="support-file-count">{{ followUpAttachments.length }}</span>
                   <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'followUp')" />
                 </label>
-                <textarea v-model="followUpMessage" rows="2" placeholder="Дополнить обращение" />
+                <textarea v-model="followUpMessage" rows="2" placeholder="Отправить сообщение" />
               </div>
               <div class="support-reply-actions">
                 <button
@@ -663,7 +802,7 @@ watch(
                   {{ closingTicket ? "Закрываем..." : "Закрыть обращение" }}
                 </button>
                 <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingFollowUp">
-                  {{ sendingFollowUp ? "Отправляем..." : "Дополнить" }}
+                  {{ sendingFollowUp ? "Отправляем..." : "Отправить" }}
                 </button>
               </div>
             </form>
@@ -674,6 +813,19 @@ watch(
                 Обращение закрыто
               </span>
             </div>
+          </div>
+        </article>
+      </div>
+
+      <div v-if="closeConfirmOpen && selectedTicket" class="support-confirm-backdrop" @click.self="cancelCloseTicket">
+        <article class="support-confirm-card">
+          <h3>Закрыть обращение?</h3>
+          <p>Если вопрос снова появится, можно открыть новое обращение.</p>
+          <div class="support-confirm-actions">
+            <button class="support-compact-button support-secondary-button" type="button" @click="cancelCloseTicket">Отмена</button>
+            <button class="support-compact-button support-danger-button" type="button" :disabled="closingTicket" @click="confirmCloseTicket">
+              {{ closingTicket ? "Закрываем..." : "Закрыть" }}
+            </button>
           </div>
         </article>
       </div>

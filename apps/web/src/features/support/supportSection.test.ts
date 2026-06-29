@@ -16,7 +16,8 @@ describe("support section", () => {
     expect(source).toContain("Другая причина");
     expect(source).not.toContain("<select v-model=\"topic\">");
     expect(source).toContain("Отправить ответ");
-    expect(source).toContain("Дополнить обращение");
+    expect(source).toContain("Отправить сообщение");
+    expect(source).not.toContain("Дополнить обращение");
     expect(source).toContain("Закрыть обращение");
     expect(source).toContain("Время ожидания");
   });
@@ -32,6 +33,33 @@ describe("support section", () => {
     expect(source).toContain('emit("return-ticket-consumed")');
     expect(appSource).toContain("supportReturnTicketId");
     expect(appSource).toContain("handleAdminClientCardClose");
+  });
+
+  it("polls tickets and open support threads without reopening the tab", () => {
+    expect(source).toContain("supportRefreshTimer");
+    expect(source).toContain("startSupportPolling");
+    expect(source).toContain("refreshSupport({ silent: true })");
+    expect(source).toContain("refreshSelectedTicketRead");
+    expect(source).toMatch(/watch\(\s*\(\) => selectedTicket\.value\?\.messages\.length/s);
+  });
+
+  it("uses an in-app close confirmation instead of the browser confirm", () => {
+    expect(source).not.toContain("window.confirm");
+    expect(source).toContain("closeConfirmOpen");
+    expect(source).toContain("support-confirm-card");
+    expect(source).toContain("confirmCloseTicket");
+  });
+
+  it("keeps admin support focused on tickets, not customer request creation", () => {
+    expect(source).toContain("isSupportAdminRole");
+    expect(source).toMatch(/const isAdmin = computed\(\(\) => isSupportAdminRole\(session\.user\?\.realRole\) \|\| isSupportAdminRole\(session\.user\?\.role\)\);/);
+    expect(source).toContain('v-else-if="!isAdmin"');
+  });
+
+  it("shows average support response time in admin support stats", () => {
+    expect(source).toContain("averageResponseTimeLabel");
+    expect(source).toContain("Среднее время ответа");
+    expect(source).toContain("calculateAverageResponseMinutes");
   });
 
   it("opens compact attachment pills from the support thread", () => {
