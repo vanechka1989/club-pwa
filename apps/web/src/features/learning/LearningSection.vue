@@ -1078,63 +1078,65 @@ watch(
       </article>
     </div>
 
-    <div v-if="showModuleModal && canManageModules" class="admin-modal-backdrop" @click.self="closeModuleModal">
-      <aside class="module-name-modal" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
-        <header class="admin-client-modal-head">
-          <div>
-            <h3 id="module-modal-title">{{ moduleModalTitle }}</h3>
-            <p>{{ moduleModalDescription }}</p>
-          </div>
-          <button class="icon-button" type="button" :aria-label="`Закрыть окно: ${moduleModalTitle}`" @click="closeModuleModal">
-            <X class="h-5 w-5" aria-hidden="true" />
-          </button>
-        </header>
-
-        <div class="admin-form module-form">
-          <label class="admin-field">
-            <span>Название модуля</span>
-            <input v-model="moduleTitle" class="text-input" type="text" placeholder="Например: Модуль 3" aria-label="Название модуля" />
-          </label>
-          <label class="admin-field">
-            <span>Описание модуля</span>
-            <textarea v-model="moduleDescription" class="text-input module-description-input" placeholder="Коротко о том, что внутри" aria-label="Описание модуля"></textarea>
-          </label>
-          <div class="admin-field">
-            <span>Какие карточки создавать</span>
-            <div class="lesson-layout-toggle" role="group" aria-label="Тип карточек модуля">
-              <button
-                class="lesson-layout-option"
-                :class="{ 'lesson-layout-option-active': moduleDefaultCardLayout === 'vertical' }"
-                type="button"
-                aria-label="Вертикальные уроки"
-                @click="moduleDefaultCardLayout = 'vertical'"
-              >
-                Вертикальные
-              </button>
-              <button
-                class="lesson-layout-option"
-                :class="{ 'lesson-layout-option-active': moduleDefaultCardLayout === 'horizontal' }"
-                type="button"
-                aria-label="Горизонтальные уроки"
-                @click="moduleDefaultCardLayout = 'horizontal'"
-              >
-                Горизонтальные
-              </button>
+    <Teleport to="body">
+      <div v-if="showModuleModal && canManageModules" class="admin-modal-backdrop module-name-backdrop" @click.self="closeModuleModal">
+        <aside class="module-name-modal" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
+          <header class="admin-client-modal-head">
+            <div>
+              <h3 id="module-modal-title">{{ moduleModalTitle }}</h3>
+              <p>{{ moduleModalDescription }}</p>
             </div>
+            <button class="icon-button" type="button" :aria-label="`Закрыть окно: ${moduleModalTitle}`" @click="closeModuleModal">
+              <X class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="admin-form module-form">
+            <label class="admin-field">
+              <span>Название модуля</span>
+              <input v-model="moduleTitle" class="text-input" type="text" placeholder="Например: Модуль 3" aria-label="Название модуля" />
+            </label>
+            <label class="admin-field">
+              <span>Описание модуля</span>
+              <textarea v-model="moduleDescription" class="text-input module-description-input" placeholder="Коротко о том, что внутри" aria-label="Описание модуля"></textarea>
+            </label>
+            <div class="admin-field">
+              <span>Какие карточки создавать</span>
+              <div class="lesson-layout-toggle" role="group" aria-label="Тип карточек модуля">
+                <button
+                  class="lesson-layout-option"
+                  :class="{ 'lesson-layout-option-active': moduleDefaultCardLayout === 'vertical' }"
+                  type="button"
+                  aria-label="Вертикальные уроки"
+                  @click="moduleDefaultCardLayout = 'vertical'"
+                >
+                  Вертикальные
+                </button>
+                <button
+                  class="lesson-layout-option"
+                  :class="{ 'lesson-layout-option-active': moduleDefaultCardLayout === 'horizontal' }"
+                  type="button"
+                  aria-label="Горизонтальные уроки"
+                  @click="moduleDefaultCardLayout = 'horizontal'"
+                >
+                  Горизонтальные
+                </button>
+              </div>
+            </div>
+
+            <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>
           </div>
 
-          <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>
-        </div>
-
-        <div class="admin-form-actions">
-          <button v-if="editingModule" class="secondary-button danger-action" type="button" :disabled="isSaving" @click="deleteModule">Удалить модуль</button>
-          <button class="secondary-button" type="button" :disabled="isSaving" @click="closeModuleModal">Закрыть</button>
-          <button class="primary-button" type="button" :disabled="isSaving" @click="saveModule">
-            {{ isSaving ? "Сохраняем..." : "Сохранить модуль" }}
-          </button>
-        </div>
-      </aside>
-    </div>
+          <div class="admin-form-actions">
+            <button v-if="editingModule" class="secondary-button danger-action" type="button" :disabled="isSaving" @click="deleteModule">Удалить модуль</button>
+            <button class="secondary-button" type="button" :disabled="isSaving" @click="closeModuleModal">Закрыть</button>
+            <button class="primary-button" type="button" :disabled="isSaving" @click="saveModule">
+              {{ isSaving ? "Сохраняем..." : "Сохранить модуль" }}
+            </button>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="selectedLesson && selectedLessonModule" class="admin-modal-backdrop lesson-preview-backdrop" @click.self="closeLessonModal">
