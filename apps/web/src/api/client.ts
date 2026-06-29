@@ -1,5 +1,8 @@
 import type {
   AdminAccessMutationResponse,
+  AdminMailingMutationResponse,
+  AdminMailingPreviewResponse,
+  AdminMailingsResponse,
   AdminLearningCategoryMutationResponse,
   AdminLearningMaterialMutationResponse,
   AdminLearningResponse,
@@ -34,6 +37,8 @@ import type {
   SubscribeResponse,
   SupportHomeResponse,
   AdminSupportResponse,
+  AppNotificationMutationResponse,
+  AppNotificationsResponse,
   SupportTicketMutationResponse,
   SupportUnreadResponse
 } from "@club/shared";
@@ -363,8 +368,54 @@ export function createAdminClientSupportTicket(telegramId: string, payload: Form
   });
 }
 
+export function getAppNotifications() {
+  return api<AppNotificationsResponse>("/notifications");
+}
+
+export function markAppNotificationsRead() {
+  return api<AppNotificationMutationResponse>("/notifications/read", { method: "POST" });
+}
+
+export function markAppNotificationRead(id: string) {
+  return api<AppNotificationMutationResponse>(`/notifications/${id}/read`, { method: "POST" });
+}
+
 export function getAdminUsers() {
   return api<AdminListResponse>("/admin/admins");
+}
+
+export function getAdminMailings() {
+  return api<AdminMailingsResponse>("/admin/mailings");
+}
+
+export function previewAdminMailing(payload: { channel: "bot" | "app" | "all"; filters: unknown }) {
+  return api<AdminMailingPreviewResponse>("/admin/mailings/preview", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function createAdminMailing(payload: FormData) {
+  return api<AdminMailingMutationResponse>("/admin/mailings", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function testAdminMailing(id: string) {
+  return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/test`, { method: "POST" });
+}
+
+export function pauseAdminMailing(id: string) {
+  return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/pause`, { method: "POST" });
+}
+
+export function resumeAdminMailing(id: string) {
+  return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/resume`, { method: "POST" });
+}
+
+export function stopAdminMailing(id: string) {
+  return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/stop`, { method: "POST" });
 }
 
 export function addAdminUser(telegramId: string) {

@@ -1,14 +1,15 @@
-import { and, asc, desc, eq, isNotNull, lte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, lte, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { getUserRole } from "../admin/roles";
+import { getOwnerTelegramId, getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import { supportTicketAttachments, supportTicketMessages, supportTickets, users } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
+import { createAppNotification } from "../notifications/create";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import {
@@ -229,6 +230,20 @@ async function cleanupExpiredSupportAttachments(now = new Date()) {
 }
 
 async function notifyCustomerAboutReply(ticket: NonNullable<Awaited<ReturnType<typeof getTicketById>>>) {
+  const latestAdminMessage = ticket.messages
+    .filter((message) => message.authorRole === "admin")
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
+  await createAppNotification({
+    userId: ticket.userId,
+    kind: "support",
+    title: "Ответ поддержки",
+    body: latestAdminMessage?.body ?? "Вам ответили в поддержке.",
+    source: "support",
+    sourceId: ticket.id
+  }).catch((error) => {
+    logger.warn({ error, ticketId: ticket.id }, "Unable to create support app notification");
+  });
+
   try {
     await sendTelegramMessage({
       chatId: ticket.user.telegramId,
@@ -240,6 +255,36 @@ async function notifyCustomerAboutReply(ticket: NonNullable<Awaited<ReturnType<t
   } catch (error) {
     logger.warn({ error, ticketId: ticket.id }, "Unable to send support reply notification");
   }
+}
+
+async function notifyAdminsAboutCustomerMessage(ticket: NonNullable<Awaited<ReturnType<typeof getTicketById>>>) {
+  const ownerTelegramId = await getOwnerTelegramId();
+  const admins = await db.query.adminUsers.findMany();
+  const telegramIds = Array.from(new Set([ownerTelegramId, ...admins.map((admin) => admin.telegramId)]));
+  const adminProfiles = telegramIds.length
+    ? await db.query.users.findMany({
+        where: inArray(users.telegramId, telegramIds)
+      })
+    : [];
+  const latestCustomerMessage = ticket.messages
+    .filter((message) => message.authorRole === "customer")
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
+  const customerTitle = ticket.user.firstName || (ticket.user.username ? `@${ticket.user.username}` : `ID ${ticket.user.telegramId}`);
+
+  await Promise.all(
+    adminProfiles.map((admin) =>
+      createAppNotification({
+        userId: admin.id,
+        kind: "support",
+        title: `Поддержка: ${ticket.customTopic || supportTopics.find((topic) => topic.id === ticket.topic)?.title || ticket.topic}`,
+        body: `${customerTitle}: ${latestCustomerMessage?.body ?? ticket.message}`,
+        source: "support",
+        sourceId: ticket.id
+      }).catch((error) => {
+        logger.warn({ error, ticketId: ticket.id, adminUserId: admin.id }, "Unable to create admin support notification");
+      })
+    )
+  );
 }
 
 export const supportRoute = new Hono<{ Variables: AuthVariables }>()
@@ -342,6 +387,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     if (!createdTicket) {
       return c.json({ error: "Обращение не найдено." }, 500);
     }
+    await notifyAdminsAboutCustomerMessage(createdTicket);
 
     return c.json({
       ok: true,
@@ -410,6 +456,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     if (!updatedTicket) {
       return c.json({ error: "Обращение не найдено." }, 500);
     }
+    await notifyAdminsAboutCustomerMessage(updatedTicket);
 
     return c.json({
       ok: true,

@@ -617,3 +617,101 @@ export const s3StorageSettingsMutationResponseSchema = z.object({
   settings: s3StorageSettingsSchema
 });
 export type S3StorageSettingsMutationResponse = z.infer<typeof s3StorageSettingsMutationResponseSchema>;
+
+export const mailingChannelSchema = z.enum(["bot", "app", "all"]);
+export type MailingChannel = z.infer<typeof mailingChannelSchema>;
+
+export const mailingStatusSchema = z.enum(["draft", "scheduled", "running", "paused", "stopped", "completed"]);
+export type MailingStatus = z.infer<typeof mailingStatusSchema>;
+
+export const mailingAccessStatusSchema = z.enum(["all", "active", "inactive"]);
+export type MailingAccessStatus = z.infer<typeof mailingAccessStatusSchema>;
+
+export const mailingAccessTypeSchema = z.enum(["all", "manual", "one_time", "recurrent", "none"]);
+export type MailingAccessType = z.infer<typeof mailingAccessTypeSchema>;
+
+export const mailingFiltersSchema = z.object({
+  accessStatus: mailingAccessStatusSchema.default("active"),
+  accessType: mailingAccessTypeSchema.default("all"),
+  excludeAdmins: z.boolean().default(true),
+  excludeRestricted: z.boolean().default(true)
+});
+export type MailingFilters = z.infer<typeof mailingFiltersSchema>;
+
+export const mailingAttachmentSchema = z.object({
+  kind: z.enum(["photo", "video", "document"]),
+  fileName: z.string(),
+  url: z.string().url().nullable(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().nonnegative()
+});
+export type MailingAttachment = z.infer<typeof mailingAttachmentSchema>;
+
+export const adminMailingSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string(),
+  bodyHtml: z.string().nullable(),
+  channel: mailingChannelSchema,
+  filters: mailingFiltersSchema,
+  status: mailingStatusSchema,
+  scheduledAt: z.string().datetime().nullable(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  targetCount: z.number().int().nonnegative(),
+  sentCount: z.number().int().nonnegative(),
+  failedCount: z.number().int().nonnegative(),
+  skippedCount: z.number().int().nonnegative(),
+  estimatedSeconds: z.number().int().nonnegative(),
+  estimatedLabel: z.string(),
+  attachment: mailingAttachmentSchema.nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type AdminMailing = z.infer<typeof adminMailingSchema>;
+
+export const adminMailingsResponseSchema = z.object({
+  mailings: z.array(adminMailingSchema)
+});
+export type AdminMailingsResponse = z.infer<typeof adminMailingsResponseSchema>;
+
+export const adminMailingPreviewResponseSchema = z.object({
+  targetCount: z.number().int().nonnegative(),
+  excludedBotBlocked: z.number().int().nonnegative(),
+  excludedByFilters: z.number().int().nonnegative(),
+  estimatedSeconds: z.number().int().nonnegative(),
+  estimatedLabel: z.string()
+});
+export type AdminMailingPreviewResponse = z.infer<typeof adminMailingPreviewResponseSchema>;
+
+export const adminMailingMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  mailing: adminMailingSchema
+});
+export type AdminMailingMutationResponse = z.infer<typeof adminMailingMutationResponseSchema>;
+
+export const appNotificationSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["system", "support", "payment", "client", "mailing"]),
+  title: z.string(),
+  body: z.string(),
+  bodyHtml: z.string().nullable(),
+  source: z.string().nullable(),
+  sourceId: z.string().nullable(),
+  attachment: mailingAttachmentSchema.nullable(),
+  readAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime()
+});
+export type AppNotification = z.infer<typeof appNotificationSchema>;
+
+export const appNotificationsResponseSchema = z.object({
+  notifications: z.array(appNotificationSchema),
+  unreadCount: z.number().int().nonnegative()
+});
+export type AppNotificationsResponse = z.infer<typeof appNotificationsResponseSchema>;
+
+export const appNotificationMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  unreadCount: z.number().int().nonnegative()
+});
+export type AppNotificationMutationResponse = z.infer<typeof appNotificationMutationResponseSchema>;

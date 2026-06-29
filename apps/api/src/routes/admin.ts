@@ -36,6 +36,7 @@ import {
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
 import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, getLearningMediaUploadContentType } from "../learning/mediaUpload";
+import { createAppNotification } from "../notifications/create";
 import {
   decodeModuleCategoryDefaultCardLayout,
   decodeModuleCategoryDescription,
@@ -651,6 +652,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       createdAt: now,
       updatedAt: now
     });
+    await createAppNotification({
+      userId: user.id,
+      kind: "client",
+      title: body.data.status === "active" ? "Доступ открыт" : "Доступ закрыт",
+      body:
+        body.data.status === "active"
+          ? `Доступ к клубу открыт до ${expiresAt.toLocaleDateString("ru-RU")}.`
+          : "Доступ к клубу закрыт.",
+      source: "client_access",
+      sourceId: user.id
+    }).catch(() => null);
 
     return c.json({
       ok: true,

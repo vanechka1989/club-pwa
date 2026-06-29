@@ -1,4 +1,4 @@
-export type AdminPanel = "statistics" | "users" | "payments" | "materials" | "storage" | "mockups" | "admins";
+export type AdminPanel = "statistics" | "users" | "mailings" | "payments" | "materials" | "storage" | "mockups" | "admins";
 export type AdminPanelRole = "member" | "admin" | "owner" | undefined;
 
 export type AdminPanelDefinition = {
@@ -10,6 +10,7 @@ export type AdminPanelDefinition = {
 export const adminPanelDefinitions: AdminPanelDefinition[] = [
   { id: "statistics", label: "Статистика" },
   { id: "users", label: "Клиенты" },
+  { id: "mailings", label: "Рассылки" },
   { id: "payments", label: "Платежи" },
   { id: "storage", label: "Хранилище", ownerOnly: true },
   { id: "mockups", label: "Макеты", ownerOnly: true },

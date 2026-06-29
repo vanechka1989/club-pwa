@@ -5,7 +5,9 @@ import { adminRoute } from "./routes/admin";
 import { communityRoute } from "./routes/community";
 import { learningRoute } from "./routes/learning";
 import { logger } from "./logger";
+import { mailingsRoute, startMailingDispatcher } from "./routes/mailings";
 import { meRoute } from "./routes/me";
+import { notificationsRoute } from "./routes/notifications";
 import { startExpiredPendingPaymentOrderCleanup } from "./payments/orderCleanupJob";
 import { paymentsRoute } from "./routes/payments";
 import { subscriptionsRoute } from "./routes/subscriptions";
@@ -16,6 +18,7 @@ import { setTelegramWebhook, telegramWebhookAllowedUpdates } from "./telegram/we
 const app = new Hono();
 
 startExpiredPendingPaymentOrderCleanup();
+startMailingDispatcher();
 
 if (env.NODE_ENV === "production") {
   const telegramWebhookOptions: Parameters<typeof setTelegramWebhook>[0] = {
@@ -65,9 +68,11 @@ app.use(
 app.get("/health", (c) => c.json({ ok: true }));
 
 app.route("/me", meRoute);
+app.route("/admin/mailings", mailingsRoute);
 app.route("/admin", adminRoute);
 app.route("/community", communityRoute);
 app.route("/learning", learningRoute);
+app.route("/notifications", notificationsRoute);
 app.route("/payments", paymentsRoute);
 app.route("/subscriptions", subscriptionsRoute);
 app.route("/support", supportRoute);

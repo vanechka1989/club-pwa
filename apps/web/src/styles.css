@@ -2029,6 +2029,215 @@ button {
   color: var(--muted);
 }
 
+.admin-mailings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(17rem, 0.75fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.admin-mailing-builder,
+.admin-mailing-side,
+.admin-mailing-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.admin-mailing-builder-head,
+.admin-mailing-list-head {
+  align-items: center;
+}
+
+.admin-mailing-editor .admin-rich-editor {
+  min-height: 11rem;
+}
+
+.admin-mailing-channels,
+.admin-mailing-filter-grid,
+.admin-mailing-preview-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.admin-mailing-channels {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-mailing-channel {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 4.3rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.75rem;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel-soft);
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.admin-mailing-channel strong {
+  font-size: 0.92rem;
+}
+
+.admin-mailing-channel span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
+.admin-mailing-channel-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 78%, white);
+}
+
+.admin-mailing-filter-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-mailing-checks,
+.admin-mailing-row,
+.admin-mailing-actions,
+.admin-mailing-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.admin-mailing-file {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 65%, white);
+  font-size: 0.86rem;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.admin-mailing-file input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.admin-mailing-date {
+  flex: 1 1 13rem;
+  min-width: 13rem;
+}
+
+.admin-mailing-preview-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-mailing-preview-grid article {
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  padding: 0.75rem;
+  background: var(--panel-soft);
+}
+
+.admin-mailing-preview-grid span,
+.admin-mailing-progress span,
+.admin-mailing-card small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.admin-mailing-preview-grid strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.admin-mailing-card {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  padding: 0.85rem;
+  background: var(--panel-soft);
+}
+
+.admin-mailing-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.admin-mailing-card header div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.admin-mailing-card p {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.admin-mailing-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+  color: var(--muted-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.admin-mailing-status-running {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.admin-mailing-status-completed {
+  color: #16a34a;
+  background: color-mix(in srgb, #16a34a 14%, var(--panel));
+}
+
+.admin-mailing-status-stopped,
+.admin-mailing-status-paused {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+}
+
+.admin-mailing-stop {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+}
+
+@media (max-width: 720px) {
+  .admin-mailings-layout,
+  .admin-mailing-channels,
+  .admin-mailing-filter-grid,
+  .admin-mailing-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-mailing-date {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+}
+
 .learning-photo-preview {
   display: block;
   width: 100%;
@@ -4781,6 +4990,151 @@ button {
   place-items: center;
   color: var(--text);
   font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.notification-center {
+  position: fixed;
+  top: calc(var(--tg-safe-top, 0px) + 0.75rem);
+  right: 0.85rem;
+  z-index: 70;
+}
+
+.notification-center-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 88%, white);
+  box-shadow: var(--shadow-soft);
+}
+
+.notification-center-badge {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.15rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--panel);
+  border-radius: 999px;
+  padding: 0 0.2rem;
+  color: white;
+  background: #e11d48;
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.notification-center-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  justify-content: flex-end;
+  padding: calc(var(--tg-safe-top, 0px) + 0.75rem) 0.8rem calc(var(--tg-safe-bottom, 0px) + 5.5rem);
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.notification-center-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(26rem, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--panel);
+  box-shadow: var(--shadow-strong);
+}
+
+.notification-center-head,
+.notification-center-item header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.notification-center-head {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-center-head h3 {
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.notification-center-head p,
+.notification-center-item time,
+.notification-center-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.notification-center-list {
+  display: grid;
+  gap: 0.6rem;
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+.notification-center-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  padding: 0.8rem;
+  background: var(--panel-soft);
+}
+
+.notification-center-item-unread {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 58%, white);
+}
+
+.notification-center-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.notification-center-item strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.notification-center-item p {
+  margin-top: 0.35rem;
+  color: var(--muted-strong);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.notification-center-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  color: var(--accent);
+  font-size: 0.8rem;
   font-weight: 850;
 }
 

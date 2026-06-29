@@ -426,6 +426,84 @@ export const supportTicketAttachments = pgTable(
   })
 );
 
+export const appNotifications = pgTable(
+  "app_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 32 }).notNull().default("system"),
+    title: varchar("title", { length: 180 }).notNull(),
+    body: text("body").notNull(),
+    bodyHtml: text("body_html"),
+    source: varchar("source", { length: 64 }),
+    sourceId: uuid("source_id"),
+    attachmentKind: varchar("attachment_kind", { length: 16 }),
+    attachmentFileName: varchar("attachment_file_name", { length: 255 }),
+    attachmentObjectKey: text("attachment_object_key"),
+    attachmentContentType: varchar("attachment_content_type", { length: 160 }),
+    attachmentSizeBytes: integer("attachment_size_bytes"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userReadCreatedIdx: index("app_notifications_user_read_created_idx").on(table.userId, table.readAt, table.createdAt),
+    sourceIdx: index("app_notifications_source_idx").on(table.source, table.sourceId)
+  })
+);
+
+export const adminMailings = pgTable(
+  "admin_mailings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: varchar("title", { length: 180 }).notNull(),
+    body: text("body").notNull(),
+    bodyHtml: text("body_html"),
+    channel: varchar("channel", { length: 16 }).notNull(),
+    filters: jsonb("filters").$type<Record<string, unknown>>().notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("draft"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    attachmentKind: varchar("attachment_kind", { length: 16 }),
+    attachmentFileName: varchar("attachment_file_name", { length: 255 }),
+    attachmentObjectKey: text("attachment_object_key"),
+    attachmentContentType: varchar("attachment_content_type", { length: 160 }),
+    attachmentSizeBytes: integer("attachment_size_bytes"),
+    telegramFileId: text("telegram_file_id"),
+    estimatedSeconds: integer("estimated_seconds").notNull().default(0),
+    targetCount: integer("target_count").notNull().default(0),
+    sentCount: integer("sent_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    statusScheduledIdx: index("admin_mailings_status_scheduled_idx").on(table.status, table.scheduledAt, table.createdAt),
+    createdIdx: index("admin_mailings_created_idx").on(table.createdAt)
+  })
+);
+
+export const adminMailingRecipients = pgTable(
+  "admin_mailing_recipients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mailingId: uuid("mailing_id").notNull().references(() => adminMailings.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    telegramId: varchar("telegram_id", { length: 32 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("pending"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    mailingStatusIdx: index("admin_mailing_recipients_mailing_status_idx").on(table.mailingId, table.status, table.createdAt),
+    userIdx: index("admin_mailing_recipients_user_idx").on(table.userId)
+  })
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   subscriptions: many(subscriptions),
   paymentOrders: many(paymentOrders),
@@ -436,7 +514,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   contentProgress: many(userContentProgress),
   lessonComments: many(lessonComments),
   mutes: many(userMutes),
-  chatMessages: many(clubChatMessages)
+  chatMessages: many(clubChatMessages),
+  notifications: many(appNotifications),
+  createdMailings: many(adminMailings),
+  mailingRecipients: many(adminMailingRecipients)
 }));
 
 export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
@@ -644,6 +725,32 @@ export const supportTicketAttachmentsRelations = relations(supportTicketAttachme
   })
 }));
 
+export const appNotificationsRelations = relations(appNotifications, ({ one }) => ({
+  user: one(users, {
+    fields: [appNotifications.userId],
+    references: [users.id]
+  })
+}));
+
+export const adminMailingsRelations = relations(adminMailings, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [adminMailings.createdByUserId],
+    references: [users.id]
+  }),
+  recipients: many(adminMailingRecipients)
+}));
+
+export const adminMailingRecipientsRelations = relations(adminMailingRecipients, ({ one }) => ({
+  mailing: one(adminMailings, {
+    fields: [adminMailingRecipients.mailingId],
+    references: [adminMailings.id]
+  }),
+  user: one(users, {
+    fields: [adminMailingRecipients.userId],
+    references: [users.id]
+  })
+}));
+
 export type User = typeof users.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type ClubSetting = typeof clubSettings.$inferSelect;
@@ -665,3 +772,6 @@ export type ClubMessageReaction = typeof clubMessageReactions.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;
 export type SupportTicketMessage = typeof supportTicketMessages.$inferSelect;
 export type SupportTicketAttachment = typeof supportTicketAttachments.$inferSelect;
+export type AppNotification = typeof appNotifications.$inferSelect;
+export type AdminMailing = typeof adminMailings.$inferSelect;
+export type AdminMailingRecipient = typeof adminMailingRecipients.$inferSelect;
