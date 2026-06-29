@@ -1236,7 +1236,7 @@ watch(
           </header>
 
           <div class="lesson-preview-scroll">
-            <div class="lesson-preview-body">
+            <div v-if="canManageModules" class="lesson-preview-body">
               <img :src="lessonPreviewSource" :alt="lessonModalTitle" loading="lazy" />
               <div class="lesson-preview-copy">
                 <strong>{{ lessonTitle || lessonModalTitle }}</strong>

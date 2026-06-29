@@ -181,4 +181,72 @@ describe("Learning section member content", () => {
     expect(document.querySelector(".lesson-viewer-media")?.getAttribute("src")).toBe("https://example.com/photo.jpg");
     expect(screen.queryByText("Содержимое урока пока не добавлено.")).toBeNull();
   });
+
+  it("opens member lessons directly on material instead of showing the cover inside the dialog", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-1",
+          slug: "module-1",
+          title: "Клиентский модуль",
+          description: "Материалы для клиента",
+          defaultCardLayout: "vertical",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [
+        {
+          id: "lesson-cover",
+          categoryId: "module-1",
+          kind: "text",
+          title: "Урок с обложкой",
+          summary: "Короткое описание",
+          body: null,
+          mediaUrl: null,
+          thumbnailUrl: "https://example.com/cover.jpg",
+          cardLayout: "vertical",
+          mediaContentType: null,
+          mediaSizeBytes: null,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        }
+      ],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: null,
+        lastOpenedAt: null,
+        lastOpenedPlaybackPositionSeconds: 0
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-cover",
+        categoryId: "module-1",
+        kind: "text",
+        title: "Урок с обложкой",
+        summary: "Короткое описание",
+        body: "Материал открывается сразу.",
+        mediaUrl: null,
+        thumbnailUrl: "https://example.com/cover.jpg",
+        cardLayout: "vertical",
+        mediaContentType: null,
+        mediaSizeBytes: null,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 0
+    });
+    renderAsMember();
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
+    await fireEvent.click(screen.getByRole("button", { name: /Урок с обложкой/ }));
+
+    await waitFor(() => expect(screen.getByText("Материал открывается сразу.")).toBeTruthy());
+    const dialog = screen.getByRole("dialog", { name: "Урок с обложкой" });
+
+    expect(dialog.querySelector(".lesson-viewer-content")).toBeTruthy();
+    expect(dialog.querySelector(".lesson-preview-body")).toBeNull();
+    expect(dialog.querySelector('img[src="https://example.com/cover.jpg"]')).toBeNull();
+  });
 });
