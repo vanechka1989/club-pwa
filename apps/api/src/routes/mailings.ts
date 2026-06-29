@@ -2,7 +2,7 @@ import { and, count, desc, eq, inArray, lte } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { mailingChannelSchema, mailingFiltersSchema } from "@club/shared";
+import { mailingChannelSchema, mailingFiltersSchema, type MailingChannel } from "@club/shared";
 import { getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import { adminMailingRecipients, adminMailings, userContentProgress, userMutes, users } from "../db/schema";
@@ -59,7 +59,7 @@ function htmlToText(html: string) {
     .trim();
 }
 
-function buildTelegramText(mailing: Pick<typeof adminMailings.$inferSelect, "title" | "body">) {
+function buildTelegramText(mailing: { title: string; body: string }) {
   return mailing.title ? `${mailing.title}\n\n${mailing.body}` : mailing.body;
 }
 
@@ -104,6 +104,14 @@ async function uploadMailingAttachment(file: File) {
     objectKey: upload.key,
     contentType: optimized.contentType,
     sizeBytes: optimized.sizeBytes
+  };
+}
+
+type UploadedMailingAttachment = NonNullable<Awaited<ReturnType<typeof uploadMailingAttachment>>>;
+
+function buildMailingReplyMarkup() {
+  return {
+    inline_keyboard: [[{ text: "Открыть клуб", web_app: { url: env.WEB_ORIGIN } }]]
   };
 }
 
@@ -223,9 +231,7 @@ async function sendMailingToRecipient(
   }
 
   if (shouldSendBot) {
-    const replyMarkup = {
-      inline_keyboard: [[{ text: "Открыть клуб", web_app: { url: env.WEB_ORIGIN } }]]
-    };
+    const replyMarkup = buildMailingReplyMarkup();
     if (attachment) {
       await sendTelegramMedia({
         chatId: recipient.telegramId,
@@ -248,6 +254,58 @@ async function sendMailingToRecipient(
     .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
     .where(eq(adminMailingRecipients.id, recipient.id));
   return "sent" as const;
+}
+
+async function sendDraftMailingTest({
+  admin,
+  title,
+  body,
+  bodyHtml,
+  channel,
+  attachment
+}: {
+  admin: typeof users.$inferSelect;
+  title: string;
+  body: string;
+  bodyHtml: string | null;
+  channel: MailingChannel;
+  attachment: UploadedMailingAttachment | null;
+}) {
+  const mailing = { title, body };
+  const shouldSendApp = channel === "app" || channel === "all";
+  const shouldSendBot = channel === "bot" || channel === "all";
+
+  if (shouldSendApp) {
+    await createAppNotification({
+      userId: admin.id,
+      kind: "mailing",
+      title: "Тест: Сообщение от клуба",
+      body: buildTelegramText(mailing),
+      bodyHtml,
+      source: "mailing_test",
+      sourceId: null,
+      attachment
+    });
+  }
+
+  if (shouldSendBot) {
+    const replyMarkup = buildMailingReplyMarkup();
+    if (attachment) {
+      await sendTelegramMedia({
+        chatId: admin.telegramId,
+        kind: attachment.kind,
+        url: await getObjectReadUrl(attachment.objectKey),
+        caption: buildTelegramText(mailing).slice(0, 1024),
+        replyMarkup
+      });
+    } else {
+      await sendTelegramMessage({
+        chatId: admin.telegramId,
+        text: buildTelegramText(mailing),
+        replyMarkup
+      });
+    }
+  }
 }
 
 export async function processMailingQueue(limit = 20) {
@@ -351,6 +409,9 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
   })
   .get("/", async (c) => {
     const rows = await db.query.adminMailings.findMany({
+      with: {
+        createdBy: true
+      },
       orderBy: [desc(adminMailings.createdAt)],
       limit: 100
     });
@@ -367,6 +428,49 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
 
     const preview = await getAudiencePreview(body.data.channel, body.data.filters);
     return c.json(preview.response);
+  })
+  .post("/test-draft", async (c) => {
+    const form = await c.req.formData().catch(() => null);
+    if (!form) {
+      return c.json({ error: "Invalid mailing test payload" }, 400);
+    }
+
+    const title = getFormString(form, "title");
+    const bodyHtml = getFormString(form, "bodyHtml");
+    const body = getFormString(form, "body") || htmlToText(bodyHtml);
+    const channelResult = mailingChannelSchema.safeParse(getFormString(form, "channel"));
+
+    if (!title || !body || !channelResult.success) {
+      return c.json({ error: "Заполните заголовок, сообщение и канал рассылки." }, 400);
+    }
+
+    const admin = await db.query.users.findFirst({
+      where: eq(users.id, c.get("userId"))
+    });
+    if (!admin) {
+      return c.json({ error: "Администратор не найден." }, 404);
+    }
+
+    if ((channelResult.data === "bot" || channelResult.data === "all") && admin.telegramBotStatus === "blocked") {
+      return c.json({ error: "Вы заблокировали бота, тест в Telegram не уйдет." }, 400);
+    }
+
+    const file = getFormFile(form);
+    const upload = file ? await uploadMailingAttachment(file) : null;
+    if (file && !upload) {
+      return c.json({ error: "Файл не подходит для теста рассылки." }, 400);
+    }
+
+    await sendDraftMailingTest({
+      admin,
+      title,
+      body,
+      bodyHtml: bodyHtml || null,
+      channel: channelResult.data,
+      attachment: upload
+    });
+
+    return c.json({ ok: true });
   })
   .post("/", async (c) => {
     const form = await c.req.formData().catch(() => null);

@@ -22,6 +22,7 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("Тип доступа");
     expect(adminSectionSource).toContain("Бот заблокирован");
     expect(adminSectionSource).toContain("Тест себе");
+    expect(adminSectionSource).toContain("handleTestMailingDraft");
     expect(adminSectionSource).toContain("Примерное время");
     expect(adminSectionSource).toContain("pauseAdminMailing");
     expect(adminSectionSource).toContain("stopAdminMailing");
@@ -30,8 +31,20 @@ describe("admin mailings panel", () => {
   it("has API client methods for previewing and controlling mailings", () => {
     expect(clientSource).toContain("previewAdminMailing");
     expect(clientSource).toContain("createAdminMailing");
+    expect(clientSource).toContain("testAdminMailingDraft");
+    expect(clientSource).toContain('"/admin/mailings/test-draft"');
     expect(clientSource).toContain("testAdminMailing");
     expect(clientSource).toContain("pauseAdminMailing");
     expect(clientSource).toContain("stopAdminMailing");
+  });
+
+  it("keeps a sent mailing reusable and exposes history details", () => {
+    expect(adminSectionSource).not.toContain("resetMailingForm();\n    setStatus");
+    expect(adminSectionSource).toContain("openMailingDetail");
+    expect(adminSectionSource).toContain("selectedMailing");
+    expect(adminSectionSource).toContain("mailingAuthorLabel");
+    expect(adminSectionSource).toContain("formatDateTime(mailing.createdAt)");
+    expect(adminSectionSource).toContain("mailing.attachment");
+    expect(adminSectionSource).toContain("Повторить");
   });
 });

@@ -658,6 +658,7 @@ export const adminMailingSchema = z.object({
   scheduledAt: z.string().datetime().nullable(),
   startedAt: z.string().datetime().nullable(),
   completedAt: z.string().datetime().nullable(),
+  createdBy: commentAuthorSchema.nullable(),
   targetCount: z.number().int().nonnegative(),
   sentCount: z.number().int().nonnegative(),
   failedCount: z.number().int().nonnegative(),

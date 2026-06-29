@@ -1,5 +1,7 @@
 import type { AdminMailing, MailingFilters, MailingStatus } from "@club/shared";
-import { adminMailings } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { db } from "../db/client";
+import { adminMailings, users } from "../db/schema";
 import { getObjectReadUrl } from "../storage/s3";
 import { formatMailingDuration } from "./estimate";
 
@@ -34,7 +36,29 @@ export function normalizeMailingFilters(value: unknown): MailingFilters {
   };
 }
 
-export async function serializeAdminMailing(mailing: typeof adminMailings.$inferSelect): Promise<AdminMailing> {
+type AdminMailingRow = typeof adminMailings.$inferSelect & {
+  createdBy?: typeof users.$inferSelect | null;
+};
+
+async function getMailingCreator(mailing: AdminMailingRow) {
+  if (mailing.createdBy) {
+    return mailing.createdBy;
+  }
+
+  if (!mailing.createdByUserId) {
+    return null;
+  }
+
+  return (
+    (await db.query.users.findFirst({
+      where: eq(users.id, mailing.createdByUserId)
+    })) ?? null
+  );
+}
+
+export async function serializeAdminMailing(mailing: AdminMailingRow): Promise<AdminMailing> {
+  const creator = await getMailingCreator(mailing);
+
   return {
     id: mailing.id,
     title: mailing.title,
@@ -46,6 +70,15 @@ export async function serializeAdminMailing(mailing: typeof adminMailings.$infer
     scheduledAt: mailing.scheduledAt?.toISOString() ?? null,
     startedAt: mailing.startedAt?.toISOString() ?? null,
     completedAt: mailing.completedAt?.toISOString() ?? null,
+    createdBy: creator
+      ? {
+          id: creator.id,
+          telegramId: creator.telegramId,
+          firstName: creator.firstName,
+          username: creator.username,
+          photoUrl: creator.photoUrl
+        }
+      : null,
     targetCount: mailing.targetCount,
     sentCount: mailing.sentCount,
     failedCount: mailing.failedCount,

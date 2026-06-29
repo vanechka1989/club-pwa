@@ -402,6 +402,13 @@ export function createAdminMailing(payload: FormData) {
   });
 }
 
+export function testAdminMailingDraft(payload: FormData) {
+  return api<AdminMutationResponse>("/admin/mailings/test-draft", {
+    method: "POST",
+    body: payload
+  });
+}
+
 export function testAdminMailing(id: string) {
   return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/test`, { method: "POST" });
 }

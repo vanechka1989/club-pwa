@@ -2101,11 +2101,17 @@ button {
 .admin-mailing-checks,
 .admin-mailing-row,
 .admin-mailing-actions,
-.admin-mailing-progress {
+.admin-mailing-progress,
+.admin-mailing-submit-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: center;
+}
+
+.admin-mailing-submit-row .primary-button,
+.admin-mailing-submit-row .secondary-button {
+  flex: 1 1 12rem;
 }
 
 .admin-mailing-file {
@@ -2169,6 +2175,18 @@ button {
   border-radius: 0.95rem;
   padding: 0.85rem;
   background: var(--panel-soft);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.admin-mailing-card:hover,
+.admin-mailing-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 38%, var(--panel-soft));
+  outline: none;
 }
 
 .admin-mailing-card header {
@@ -2191,6 +2209,22 @@ button {
   line-height: 1.45;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+.admin-mailing-attachment {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 999px;
+  padding: 0.38rem 0.6rem;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .admin-mailing-status {
@@ -2224,11 +2258,53 @@ button {
   border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
 }
 
+.admin-mailing-detail-modal {
+  display: grid;
+  gap: 0.9rem;
+  max-width: min(38rem, calc(100vw - 1.5rem));
+}
+
+.admin-mailing-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.admin-mailing-detail-grid article,
+.admin-mailing-detail-section {
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.85rem;
+  background: var(--panel-soft);
+}
+
+.admin-mailing-detail-grid span,
+.admin-mailing-detail-section > span {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-mailing-detail-section p,
+.admin-mailing-detail-body {
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.admin-mailing-detail-body ul,
+.admin-mailing-detail-body ol {
+  margin-left: 1.15rem;
+}
+
 @media (max-width: 720px) {
   .admin-mailings-layout,
   .admin-mailing-channels,
   .admin-mailing-filter-grid,
-  .admin-mailing-preview-grid {
+  .admin-mailing-preview-grid,
+  .admin-mailing-detail-grid {
     grid-template-columns: 1fr;
   }
 

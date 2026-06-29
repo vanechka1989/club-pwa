@@ -55,6 +55,7 @@ import {
   resumeAdminMailing,
   stopAdminMailing,
   testAdminMailing,
+  testAdminMailingDraft,
   transferClubOwner,
   updateAdminS3StorageSettings,
   updateAdminLearningMaterialStatus,
@@ -202,6 +203,7 @@ const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
+const selectedMailing = ref<AdminMailing | null>(null);
 const pendingOpenClientTelegramId = ref<string | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
 const learningMaterials = ref<AdminLearningMaterial[]>([]);
@@ -496,6 +498,77 @@ function getMailingChannelLabel(channel: MailingChannel) {
   return mailingChannelOptions.find((option) => option.value === channel)?.label ?? channel;
 }
 
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "—";
+  }
+
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function mailingAuthorLabel(mailing: AdminMailing) {
+  const author = mailing.createdBy;
+  if (!author) {
+    return "Автор не указан";
+  }
+
+  return author.firstName || (author.username ? `@${author.username}` : `ID ${author.telegramId}`);
+}
+
+function mailingAttachmentText(mailing: AdminMailing) {
+  if (!mailing.attachment) {
+    return "Без вложения";
+  }
+
+  const sizeMb = mailing.attachment.sizeBytes ? Math.round((mailing.attachment.sizeBytes / 1024 / 1024) * 10) / 10 : 0;
+  return sizeMb ? `${mailing.attachment.fileName} · ${sizeMb} МБ` : mailing.attachment.fileName;
+}
+
+function mailingFilterSummary(mailing: AdminMailing) {
+  const accessStatus = mailingAccessStatusOptions.find((option) => option.value === mailing.filters.accessStatus)?.label ?? "Любой статус";
+  const accessType = mailingAccessTypeOptions.find((option) => option.value === mailing.filters.accessType)?.label ?? "Любой тип";
+  const extra = [
+    mailing.filters.excludeAdmins ? "без админов" : "с админами",
+    mailing.filters.excludeRestricted ? "без ограничений" : "с ограничениями"
+  ];
+  return `${accessStatus} · ${accessType} · ${extra.join(" · ")}`;
+}
+
+function openMailingDetail(mailing: AdminMailing) {
+  selectedMailing.value = mailing;
+}
+
+function closeMailingDetail() {
+  selectedMailing.value = null;
+}
+
+function renderMailingEditorHtml(mailing: AdminMailing) {
+  return mailing.bodyHtml || mailing.body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+}
+
+function reuseMailing(mailing: AdminMailing) {
+  mailingTitle.value = mailing.title;
+  mailingBody.value = mailing.body;
+  mailingBodyHtml.value = mailing.bodyHtml ?? "";
+  mailingChannel.value = mailing.channel;
+  mailingFilters.value = { ...mailing.filters };
+  mailingScheduledAt.value = "";
+  mailingAttachment.value = null;
+  if (mailingEditorRef.value) {
+    mailingEditorRef.value.innerHTML = renderMailingEditorHtml(mailing);
+    syncMailingEditorBody();
+  }
+  closeMailingDetail();
+  scheduleMailingPreview();
+  setStatus("Рассылка перенесена в форму. Можно сменить канал и отправить снова.");
+}
+
 async function loadMailings() {
   const response = await getAdminMailings();
   mailings.value = response.mailings;
@@ -553,10 +626,28 @@ async function handleCreateMailing() {
   try {
     const response = await createAdminMailing(buildMailingFormData());
     await loadMailings();
-    resetMailingForm();
+    scheduleMailingPreview();
     setStatus(response.mailing.status === "scheduled" ? "Рассылка запланирована." : "Рассылка поставлена в очередь.");
   } catch {
     setError("Не удалось создать рассылку.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleTestMailingDraft() {
+  syncMailingEditorBody();
+  if (!mailingCanSubmit.value) {
+    setError("Заполните заголовок и сообщение для теста.");
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await testAdminMailingDraft(buildMailingFormData());
+    setStatus("Тест рассылки отправлен себе.");
+  } catch {
+    setError("Не удалось отправить тест рассылки себе.");
   } finally {
     saving.value = false;
   }
@@ -2215,9 +2306,14 @@ onUnmounted(() => {
             </label>
           </div>
 
-          <button class="primary-button" type="submit" :disabled="saving || !mailingCanSubmit">
-            {{ mailingScheduledAt ? "Запланировать рассылку" : "Запустить рассылку" }}
-          </button>
+          <div class="admin-mailing-submit-row">
+            <button class="secondary-button" type="button" :disabled="saving || !mailingCanSubmit" @click="handleTestMailingDraft">
+              Тест себе
+            </button>
+            <button class="primary-button" type="submit" :disabled="saving || !mailingCanSubmit">
+              {{ mailingScheduledAt ? "Запланировать рассылку" : "Запустить рассылку" }}
+            </button>
+          </div>
         </form>
 
         <aside class="admin-mailing-side">
@@ -2255,10 +2351,19 @@ onUnmounted(() => {
               <button class="secondary-button" type="button" @click="loadMailings">Обновить</button>
             </div>
 
-            <article v-for="mailing in mailings" :key="mailing.id" class="admin-mailing-card">
+            <article
+              v-for="mailing in mailings"
+              :key="mailing.id"
+              class="admin-mailing-card"
+              role="button"
+              tabindex="0"
+              @click="openMailingDetail(mailing)"
+              @keydown.enter.prevent="openMailingDetail(mailing)"
+            >
               <header>
                 <div>
                   <strong>{{ mailing.title }}</strong>
+                  <small>{{ formatDateTime(mailing.createdAt) }} · {{ mailingAuthorLabel(mailing) }}</small>
                   <small>{{ getMailingChannelLabel(mailing.channel) }} · {{ getMailingStatusLabel(mailing.status) }}</small>
                 </div>
                 <span :class="`admin-mailing-status admin-mailing-status-${mailing.status}`">
@@ -2266,18 +2371,32 @@ onUnmounted(() => {
                 </span>
               </header>
               <p>{{ mailing.body }}</p>
+              <a
+                v-if="mailing.attachment"
+                class="admin-mailing-attachment"
+                :href="mailing.attachment.url ?? '#'"
+                target="_blank"
+                rel="noreferrer"
+                @click.stop
+              >
+                <Paperclip class="h-3.5 w-3.5" aria-hidden="true" />
+                {{ mailingAttachmentText(mailing) }}
+              </a>
               <div class="admin-mailing-progress">
                 <span>{{ mailing.sentCount }} / {{ mailing.targetCount }} отправлено</span>
                 <span>{{ mailing.estimatedLabel }}</span>
               </div>
               <div class="admin-mailing-actions">
-                <button class="secondary-button" type="button" :disabled="saving" @click="handleTestMailing(mailing)">
+                <button class="secondary-button" type="button" :disabled="saving" @click.stop="reuseMailing(mailing)">
+                  Повторить
+                </button>
+                <button class="secondary-button" type="button" :disabled="saving" @click.stop="handleTestMailing(mailing)">
                   Тест себе
                 </button>
-                <button v-if="mailing.status === 'running'" class="secondary-button" type="button" :disabled="saving" @click="handlePauseMailing(mailing)">
+                <button v-if="mailing.status === 'running'" class="secondary-button" type="button" :disabled="saving" @click.stop="handlePauseMailing(mailing)">
                   Пауза
                 </button>
-                <button v-if="mailing.status === 'paused'" class="secondary-button" type="button" :disabled="saving" @click="handleResumeMailing(mailing)">
+                <button v-if="mailing.status === 'paused'" class="secondary-button" type="button" :disabled="saving" @click.stop="handleResumeMailing(mailing)">
                   Продолжить
                 </button>
                 <button
@@ -2285,7 +2404,7 @@ onUnmounted(() => {
                   class="secondary-button admin-mailing-stop"
                   type="button"
                   :disabled="saving"
-                  @click="handleStopMailing(mailing)"
+                  @click.stop="handleStopMailing(mailing)"
                 >
                   Остановить
                 </button>
@@ -2295,6 +2414,77 @@ onUnmounted(() => {
           </section>
         </aside>
       </div>
+
+      <Teleport to="body">
+        <div v-if="selectedMailing" class="admin-modal-backdrop" @click.self="closeMailingDetail">
+          <aside class="admin-detail admin-client-modal admin-mailing-detail-modal" role="dialog" aria-modal="true" aria-labelledby="admin-mailing-detail-title">
+            <header class="admin-client-modal-head">
+              <div>
+                <p class="admin-overline">Рассылка</p>
+                <h3 id="admin-mailing-detail-title">{{ selectedMailing.title }}</h3>
+                <p>{{ formatDateTime(selectedMailing.createdAt) }} · {{ mailingAuthorLabel(selectedMailing) }}</p>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть рассылку" @click="closeMailingDetail">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <div class="admin-mailing-detail-grid">
+              <article>
+                <span>Канал</span>
+                <strong>{{ getMailingChannelLabel(selectedMailing.channel) }}</strong>
+              </article>
+              <article>
+                <span>Статус</span>
+                <strong>{{ getMailingStatusLabel(selectedMailing.status) }}</strong>
+              </article>
+              <article>
+                <span>Отправлено</span>
+                <strong>{{ selectedMailing.sentCount }} / {{ selectedMailing.targetCount }}</strong>
+              </article>
+              <article>
+                <span>Примерное время</span>
+                <strong>{{ selectedMailing.estimatedLabel }}</strong>
+              </article>
+            </div>
+
+            <section class="admin-mailing-detail-section">
+              <span>Фильтры</span>
+              <p>{{ mailingFilterSummary(selectedMailing) }}</p>
+            </section>
+
+            <section class="admin-mailing-detail-section">
+              <span>Сообщение</span>
+              <div v-if="selectedMailing.bodyHtml" class="admin-mailing-detail-body" v-html="selectedMailing.bodyHtml"></div>
+              <p v-else>{{ selectedMailing.body }}</p>
+            </section>
+
+            <section class="admin-mailing-detail-section">
+              <span>Вложение</span>
+              <a
+                v-if="selectedMailing.attachment"
+                class="admin-mailing-attachment"
+                :href="selectedMailing.attachment.url ?? '#'"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Paperclip class="h-3.5 w-3.5" aria-hidden="true" />
+                {{ mailingAttachmentText(selectedMailing) }}
+              </a>
+              <p v-else>Без вложения</p>
+            </section>
+
+            <div class="admin-mailing-actions">
+              <button class="primary-button" type="button" :disabled="saving" @click="reuseMailing(selectedMailing)">
+                Повторить
+              </button>
+              <button class="secondary-button" type="button" :disabled="saving" @click="handleTestMailing(selectedMailing)">
+                Тест себе
+              </button>
+            </div>
+          </aside>
+        </div>
+      </Teleport>
     </section>
 
     <section v-else-if="activePanel === 'payments'" class="admin-panel">
