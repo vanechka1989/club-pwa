@@ -11,6 +11,7 @@ import {
   markSupportTicketRead,
   replyAdminSupportTicket
 } from "@/api/client";
+import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 
@@ -65,6 +66,39 @@ const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.s
 const closedTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "closed"));
 const adminUnreadTickets = computed(() => tickets.value.filter((ticket) => ticket.unread));
 const isVideoAttachment = computed(() => openedAttachment.value?.kind === "video");
+const supportOperation = computed(() => {
+  if (sendingTicket.value) {
+    return {
+      title: "Отправляем обращение...",
+      detail: attachments.value.length ? "Загрузка файлов и создание обращения" : "Создаём обращение в поддержку"
+    };
+  }
+
+  if (sendingReply.value) {
+    return {
+      title: "Отправляем ответ...",
+      detail: replyAttachments.value.length ? "Загрузка файлов и отправка ответа" : "Отправляем сообщение клиенту"
+    };
+  }
+
+  if (sendingFollowUp.value) {
+    return {
+      title: "Отправляем дополнение...",
+      detail: followUpAttachments.value.length ? "Загрузка файлов и отправка сообщения" : "Добавляем сообщение в обращение"
+    };
+  }
+
+  if (closingTicket.value) {
+    return {
+      title: "Закрываем обращение...",
+      detail: "Обновляем статус обращения"
+    };
+  }
+
+  return null;
+});
+
+useOperationIndicator(supportOperation);
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", {

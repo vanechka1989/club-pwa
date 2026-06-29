@@ -14,6 +14,7 @@ import {
   updateAdminLearningCategory,
   updateAdminLearningMaterial
 } from "@/api/client";
+import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
@@ -225,6 +226,33 @@ const lessonVideoPoster = computed(() =>
 const lessonVideoProgress = computed(() =>
   lessonVideoDuration.value > 0 ? Math.min(100, Math.max(0, (lessonVideoCurrentTime.value / lessonVideoDuration.value) * 100)) : 0
 );
+const learningOperation = computed(() => {
+  if (!isSaving.value) {
+    return null;
+  }
+
+  if (selectedLesson.value) {
+    const hasUpload = Boolean(lessonFile.value || lessonThumbnailFile.value);
+    return {
+      title: hasUpload ? "Загружаем урок..." : "Сохраняем урок...",
+      detail: hasUpload ? "Загрузка файла и обновление данных" : "Обновляем материал урока"
+    };
+  }
+
+  if (showModuleModal.value) {
+    return {
+      title: editingModule.value ? "Сохраняем модуль..." : "Создаём модуль...",
+      detail: "Обновляем структуру обучения"
+    };
+  }
+
+  return {
+    title: "Обновляем обучение...",
+    detail: "Сохраняем изменения"
+  };
+});
+
+useOperationIndicator(learningOperation);
 
 function lessonCountLabel(count: number) {
   const lastTwo = count % 100;

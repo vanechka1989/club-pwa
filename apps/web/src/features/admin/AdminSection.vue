@@ -65,6 +65,7 @@ import {
 import { getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { formatMembershipStatus } from "@/features/app/i18n";
+import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { releaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -297,11 +298,65 @@ const adminStatistics = computed(() =>
     { period: statisticsPeriod.value }
   )
 );
+const adminOperation = computed(() => {
+  if (!saving.value) {
+    return null;
+  }
+
+  if (showMaterialModal.value) {
+    return {
+      title: materialFile.value ? "Загружаем контент..." : "Сохраняем контент...",
+      detail: "Обновляем материалы клуба"
+    };
+  }
+
+  if (showCategoryModal.value) {
+    return {
+      title: "Сохраняем категорию...",
+      detail: "Обновляем структуру материалов"
+    };
+  }
+
+  if (showTransferOwnerModal.value) {
+    return {
+      title: "Передаём клуб...",
+      detail: "Обновляем владельца и права доступа"
+    };
+  }
+
+  if (activePanel.value === "storage") {
+    return {
+      title: "Сохраняем хранилище...",
+      detail: "Проверяем подключение S3"
+    };
+  }
+
+  if (activePanel.value === "users") {
+    return {
+      title: "Сохраняем клиента...",
+      detail: "Обновляем доступ и ограничения"
+    };
+  }
+
+  if (activePanel.value === "admins") {
+    return {
+      title: "Сохраняем админов...",
+      detail: "Обновляем права команды"
+    };
+  }
+
+  return {
+    title: "Сохраняем изменения...",
+    detail: "Обновляем админку"
+  };
+});
 const statisticsPeriodOptions: Array<{ value: AdminStatisticsPeriod; label: string }> = [
   { value: "7d", label: "7 дней" },
   { value: "30d", label: "30 дней" },
   { value: "all", label: "Всё время" }
 ];
+
+useOperationIndicator(adminOperation);
 
 function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;

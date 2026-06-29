@@ -17,6 +17,7 @@ import {
 import { paymentRedirectNotice } from "@/features/billing/paymentMessages";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
+import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 
@@ -81,6 +82,39 @@ const recurrentSubscriptionHistory = computed(() =>
     ? recurrentSubscriptions.value.filter((subscription) => subscription.id !== primaryRecurrentSubscription.value?.id)
     : recurrentSubscriptions.value
 );
+const paymentOperation = computed(() => {
+  if (!saving.value) {
+    return null;
+  }
+
+  if (checkoutProductId.value) {
+    return {
+      title: "Открываем оплату...",
+      detail: "Готовим платёжную страницу"
+    };
+  }
+
+  if (showProviderForm.value) {
+    return {
+      title: "Сохраняем платежную систему...",
+      detail: "Обновляем настройки Prodamus"
+    };
+  }
+
+  if (showProductModal.value) {
+    return {
+      title: "Сохраняем тариф...",
+      detail: "Обновляем настройки доступа"
+    };
+  }
+
+  return {
+    title: "Обновляем оплату...",
+    detail: "Выполняем действие"
+  };
+});
+
+useOperationIndicator(paymentOperation);
 
 function showPaymentError(text: string) {
   error.value = text;

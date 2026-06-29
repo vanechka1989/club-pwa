@@ -6,6 +6,7 @@ import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
+import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
@@ -396,6 +397,7 @@ onBeforeUnmount(() => {
         <span>{{ t(item.labelKey) }}</span>
       </button>
     </nav>
+    <AppOperationIndicator />
     <AppNotifications />
   </main>
 </template>
