@@ -356,6 +356,13 @@ export function replyAdminSupportTicket(id: string, payload: FormData) {
   });
 }
 
+export function createAdminClientSupportTicket(telegramId: string, payload: FormData) {
+  return api<SupportTicketMutationResponse>(`/support/admin/users/${telegramId}/tickets`, {
+    method: "POST",
+    body: payload
+  });
+}
+
 export function getAdminUsers() {
   return api<AdminListResponse>("/admin/admins");
 }

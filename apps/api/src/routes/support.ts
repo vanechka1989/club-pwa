@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getUserRole } from "../admin/roles";
 import { db } from "../db/client";
-import { supportTicketAttachments, supportTicketMessages, supportTickets } from "../db/schema";
+import { supportTicketAttachments, supportTicketMessages, supportTickets, users } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
 import type { AuthVariables } from "../middleware/auth";
@@ -507,6 +507,85 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role))),
+      unreadCount: await getUnreadCount({ userId, role })
+    });
+  })
+  .post("/admin/users/:telegramId/tickets", async (c) => {
+    const userId = c.get("userId");
+    const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    if (!isAdminRole(role)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const target = await db.query.users.findFirst({
+      where: eq(users.telegramId, c.req.param("telegramId"))
+    });
+    if (!target) {
+      return c.json({ error: "Клиент не найден." }, 404);
+    }
+
+    const form = await c.req.formData();
+    const message = getFormString(form, "message");
+    const files = getFormFiles(form);
+    if (!message && files.length === 0) {
+      return c.json({ error: "Напишите сообщение или приложите файл." }, 400);
+    }
+
+    const now = new Date();
+    const [ticket] = await db
+      .insert(supportTickets)
+      .values({
+        userId: target.id,
+        topic: "other",
+        customTopic: "Сообщение от клуба",
+        message: message || "Вложение от поддержки.",
+        status: "answered",
+        lastCustomerMessageAt: now,
+        lastAdminMessageAt: now,
+        adminReadAt: now,
+        customerReadAt: new Date(0),
+        createdAt: now,
+        updatedAt: now
+      })
+      .returning();
+
+    if (!ticket) {
+      return c.json({ error: "Не удалось создать обращение." }, 500);
+    }
+
+    const [ticketMessage] = await db
+      .insert(supportTicketMessages)
+      .values({
+        ticketId: ticket.id,
+        authorUserId: userId,
+        authorRole: "admin",
+        body: message || "Вложение от поддержки.",
+        createdAt: now,
+        updatedAt: now
+      })
+      .returning();
+
+    if (!ticketMessage) {
+      return c.json({ error: "Не удалось создать сообщение." }, 500);
+    }
+
+    try {
+      await uploadAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, files });
+    } catch (error) {
+      logger.warn({ error, ticketId: ticket.id }, "Unable to upload admin support attachment");
+      return c.json({ error: "Файл не подходит. Можно загрузить фото или видео." }, 400);
+    }
+
+    const createdTicket = await getTicketById(ticket.id);
+    if (!createdTicket) {
+      return c.json({ error: "Обращение не найдено." }, 500);
+    }
+
+    await notifyCustomerAboutReply(createdTicket);
+
+    return c.json({
+      ok: true,
+      ticket: await serializeTicket(createdTicket, role),
       unreadCount: await getUnreadCount({ userId, role })
     });
   })

@@ -18,6 +18,7 @@ import {
   CreditCard,
   ExternalLink,
   ImageIcon,
+  Paperclip,
   Shield,
   Trash2,
   UsersRound,
@@ -29,6 +30,7 @@ import {
   addAdminUser,
   createAdminLearningCategory,
   createAdminLearningMaterial,
+  createAdminClientSupportTicket,
   createUserMute,
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
@@ -142,11 +144,6 @@ const previewOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "member-inactive", label: "Доступ закрыт" }
 ];
 
-const extensionOptions = [
-  { days: 7, label: "+7 дней" },
-  { days: 30, label: "+30 дней" },
-  { days: 90, label: "+90 дней" }
-] as const;
 const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
 
 const activePanel = ref<AdminPanel>("statistics");
@@ -181,6 +178,10 @@ const categoryDescription = ref("");
 const showMaterialModal = ref(false);
 const showCategoryModal = ref(false);
 const showReleaseNotesModal = ref(false);
+const clientMessageOpen = ref(false);
+const clientMessageText = ref("");
+const clientMessageFiles = ref<File[]>([]);
+const sendingClientMessage = ref(false);
 const expandedReleaseVersion = ref(appVersion);
 const editorRef = ref<HTMLElement | null>(null);
 const editorColor = ref("#111827");
@@ -265,6 +266,14 @@ const filtersActive = computed(
 const selectedUserPaymentOrders = computed(() =>
   selectedUser.value ? paymentOrders.value.filter((order) => order.customer.telegramId === selectedUser.value?.telegramId) : []
 );
+const selectedUserPaidOrders = computed(() => selectedUserPaymentOrders.value.filter((order) => order.status === "paid"));
+const selectedUserLastPayment = computed(
+  () =>
+    [...selectedUserPaymentOrders.value].sort(
+      (left, right) => Date.parse(right.paidAt ?? right.createdAt) - Date.parse(left.paidAt ?? left.createdAt)
+    )[0] ?? null
+);
+const selectedUserPaidTotal = computed(() => selectedUserPaidOrders.value.reduce((sum, order) => sum + order.amountRub, 0));
 const paymentDrilldownOrders = computed(() =>
   selectedPaymentBreakdown.value
     ? filterPaymentOrdersByBreakdown(selectedPaymentBreakdown.value.key, paymentOrders.value, { period: statisticsPeriod.value })
@@ -301,6 +310,13 @@ const adminStatistics = computed(() =>
   )
 );
 const adminOperation = computed(() => {
+  if (sendingClientMessage.value) {
+    return {
+      title: "Отправляем сообщение...",
+      detail: clientMessageFiles.value.length ? "Загружаем файлы и создаём диалог" : "Создаём диалог с клиентом"
+    };
+  }
+
   if (!saving.value) {
     return null;
   }
@@ -498,6 +514,47 @@ function formatAdminDateTime(value: string) {
   });
 }
 
+function formatAdminDate(value: string) {
+  return new Date(value).toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+}
+
+function formatAdminShortDate(value: string) {
+  return new Date(value).toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit"
+  });
+}
+
+function formatAdminCompactDateTime(value: string) {
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function selectedUserMeta(user: AdminStatsUser) {
+  return `${adminRoleLabel(user.role)} · ID ${user.telegramId}${user.username ? ` · @${user.username}` : ""}`;
+}
+
+function getAccessActionSummary(user: AdminStatsUser) {
+  const tariff = getAdminTariffLabel(user.tariff);
+  return user.membershipExpiresAt ? `${tariff} до ${formatAdminDate(user.membershipExpiresAt)}` : tariff;
+}
+
+function getLastPaymentSummary(order: PaymentOrderLog | null) {
+  if (!order) {
+    return "Нет оплат";
+  }
+
+  return `${order.amountRub.toLocaleString("ru-RU")} ₽ · ${paymentOrderStatusLabel(order.status).toLowerCase()}`;
+}
+
 function getTelegramBotStatusChangedLabel(user: AdminStatsUser) {
   const changedAt =
     user.telegramBotStatus === "blocked"
@@ -563,6 +620,7 @@ function markAccessSaved() {
 function closeSelectedUser() {
   resetAccessSaveState();
   resetClientAccordion();
+  closeClientMessageModal();
   selectedUser.value = null;
   selectedUserDetail.value = null;
   emit("client-card-close");
@@ -592,8 +650,22 @@ function extendAccess(days: number) {
   accessExpiresAt.value = formatDateInput(nextDate);
 }
 
-function setAccessDateToday() {
-  accessExpiresAt.value = formatDateInput(new Date());
+function openClientMessageModal() {
+  clientMessageText.value = "";
+  clientMessageFiles.value = [];
+  clientMessageOpen.value = true;
+}
+
+function closeClientMessageModal() {
+  clientMessageOpen.value = false;
+  clientMessageText.value = "";
+  clientMessageFiles.value = [];
+}
+
+function updateClientMessageFiles(event: Event) {
+  const input = event.target as HTMLInputElement;
+  clientMessageFiles.value = Array.from(input.files ?? []).slice(0, 4);
+  input.value = "";
 }
 
 function resetClientFilters() {
@@ -757,7 +829,7 @@ async function loadAll() {
   }
 }
 
-async function handleUpdateAccess() {
+async function saveSelectedUserAccess(status: "active" | "inactive", expiresAtValue: string, successText: string) {
   const telegramId = selectedUser.value?.telegramId;
   if (!telegramId) {
     return;
@@ -771,17 +843,69 @@ async function handleUpdateAccess() {
   try {
     const response = await updateAdminUserAccess({
       telegramId,
-      status: accessStatus.value,
-      expiresAt: accessExpiresAt.value ? new Date(`${accessExpiresAt.value}T23:59:59.000Z`).toISOString() : null
+      status,
+      expiresAt: expiresAtValue ? new Date(`${expiresAtValue}T23:59:59.000Z`).toISOString() : null
     });
     applySelectedUser(response.user);
     selectedUserDetail.value = await getAdminUserDetail(response.user.telegramId);
     await loadAll();
     markAccessSaved();
-    setStatus("Доступ сохранён.");
+    setStatus(successText);
   } catch {
     setError("Не удалось сохранить доступ.");
   } finally {
+    saving.value = false;
+  }
+}
+
+async function handleOpenAccess() {
+  accessStatus.value = "active";
+  await saveSelectedUserAccess("active", accessExpiresAt.value, "Доступ открыт.");
+}
+
+async function handleCloseAccess() {
+  accessStatus.value = "inactive";
+  accessExpiresAt.value = "";
+  await saveSelectedUserAccess("inactive", "", "Доступ закрыт.");
+}
+
+async function handleExtendAccess(days: number) {
+  extendAccess(days);
+  await saveSelectedUserAccess("active", accessExpiresAt.value, `Доступ продлён на ${days} дней.`);
+}
+
+async function handleManualAccessSave() {
+  accessStatus.value = "active";
+  await saveSelectedUserAccess("active", accessExpiresAt.value, "Ручной доступ сохранён.");
+}
+
+async function submitClientMessage() {
+  const telegramId = selectedUser.value?.telegramId;
+  if (!telegramId) {
+    return;
+  }
+
+  const text = clientMessageText.value.trim();
+  if (!text && clientMessageFiles.value.length === 0) {
+    setError("Напишите сообщение или приложите файл.");
+    return;
+  }
+
+  saving.value = true;
+  sendingClientMessage.value = true;
+  const form = new FormData();
+  form.set("message", text);
+  clientMessageFiles.value.forEach((file) => form.append("attachments", file));
+
+  try {
+    await createAdminClientSupportTicket(telegramId, form);
+    closeClientMessageModal();
+    setStatus("Сообщение отправлено клиенту.");
+  } catch (requestError) {
+    const errorPayload = requestError as { data?: { error?: string } };
+    setError(errorPayload.data?.error ?? "Не удалось отправить сообщение клиенту.");
+  } finally {
+    sendingClientMessage.value = false;
     saving.value = false;
   }
 }
@@ -1458,72 +1582,139 @@ onUnmounted(() => {
       <Teleport to="body">
         <div v-if="selectedUser && activePanel === 'users'" class="admin-modal-backdrop" @click.self="closeSelectedUser">
           <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-client-modal-title">
-            <header class="admin-client-modal-head">
-              <div>
+            <header class="admin-client-card-head">
+              <span class="admin-client-avatar">
+                <img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" />
+                <span v-else>{{ userInitial(selectedUser) }}</span>
+              </span>
+              <div class="admin-client-card-title">
                 <div class="admin-client-title-row">
                   <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
                   <em class="admin-bot-badge" :class="`admin-bot-badge-${selectedUser.telegramBotStatus}`" :title="getTelegramBotStatusHint(selectedUser.telegramBotStatus)">
                     Бот {{ getTelegramBotStatusLabel(selectedUser.telegramBotStatus) }}
                   </em>
                 </div>
-                <p>{{ adminRoleLabel(selectedUser.role) }} · ID {{ selectedUser.telegramId }} · {{ getAdminTariffLabel(selectedUser.tariff) }}</p>
-                <p v-if="getTelegramBotStatusChangedLabel(selectedUser)" class="admin-client-bot-line">{{ getTelegramBotStatusChangedLabel(selectedUser) }}</p>
+                <p>{{ selectedUserMeta(selectedUser) }}</p>
+                <div class="admin-client-status-row">
+                  <span class="admin-client-last-login">Вход: {{ formatAdminCompactDateTime(selectedUser.lastLoginAt) }}</span>
+                  <span class="admin-status-pill admin-status-pill-green">{{ formatMembershipStatus(selectedUser.membershipStatus) }}</span>
+                  <span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">
+                    до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}
+                  </span>
+                  <span class="admin-status-pill admin-status-pill-blue">{{ getAdminTariffLabel(selectedUser.tariff) }}</span>
+                </div>
               </div>
               <button class="icon-button" type="button" aria-label="Закрыть карточку клиента" @click="closeSelectedUser">
                 <X class="h-4 w-4" aria-hidden="true" />
               </button>
             </header>
 
-            <div class="admin-detail-stats">
-              <span>{{ formatMembershipStatus(selectedUser.membershipStatus) }}</span>
-              <span>{{ adminRoleLabel(selectedUser.role) }}</span>
-              <span>{{ selectedUser.completedItems }}/{{ selectedUser.totalItems }} уроков</span>
-              <span>Последний вход: {{ formatAdminDateTime(selectedUser.lastLoginAt) }}</span>
-              <span v-if="selectedUser.membershipExpiresAt">до {{ new Date(selectedUser.membershipExpiresAt).toLocaleDateString("ru-RU") }}</span>
-            </div>
-            <p v-if="selectedUser.lastOpenedItemTitle" class="admin-muted-line admin-client-last-lesson">
-              Последний урок: {{ selectedUser.lastOpenedItemTitle }}
-            </p>
+            <section class="admin-client-summary" aria-label="Краткая сводка клиента">
+              <article>
+                <span>Последний урок</span>
+                <strong>{{ selectedUser.lastOpenedItemTitle ?? "Нет открытых" }}</strong>
+              </article>
+              <article>
+                <span>Оплата</span>
+                <strong>{{ getLastPaymentSummary(selectedUserLastPayment) }}</strong>
+              </article>
+            </section>
 
             <p v-if="!canManageSelectedUser" class="admin-warning-line">
               Менять доступ и ограничения администраторов может только главный админ.
             </p>
 
-            <form class="admin-form admin-access-form" @submit.prevent="handleUpdateAccess">
-              <select v-model="accessStatus" class="text-input" :disabled="!canManageSelectedUser">
-                <option value="active">{{ formatMembershipStatus("active") }}</option>
-                <option value="inactive">{{ formatMembershipStatus("inactive") }}</option>
-              </select>
-              <label class="admin-manual-access-date">
-                <span>Ручной доступ</span>
-                <input v-model="accessExpiresAt" class="text-input" type="date" :disabled="!canManageSelectedUser" />
-              </label>
-              <div class="admin-inline-actions">
-                <button class="secondary-button" type="button" :disabled="!canManageSelectedUser" @click="setAccessDateToday">
-                  Сегодня
+            <section class="admin-client-action-panel" aria-label="Действия с клиентом">
+              <div class="admin-client-action-head">
+                <strong>Действие</strong>
+                <small>{{ getAccessActionSummary(selectedUser) }}</small>
+              </div>
+              <div class="admin-access-toggle">
+                <button class="admin-access-open" type="button" :disabled="saving || !canManageSelectedUser" @click="handleOpenAccess">
+                  Открыть доступ
                 </button>
-                <button
-                  v-for="option in extensionOptions"
-                  :key="option.days"
-                  class="secondary-button"
-                  type="button"
-                  :disabled="!canManageSelectedUser"
-                  @click="extendAccess(option.days)"
-                >
-                  {{ option.label }}
+                <button class="admin-access-close" type="button" :disabled="saving || !canManageSelectedUser" @click="handleCloseAccess">
+                  Закрыть доступ
+                </button>
+                <button class="admin-access-add" type="button" :disabled="saving || !canManageSelectedUser" @click="handleExtendAccess(7)">
+                  +7 дней
+                </button>
+                <button class="admin-access-add" type="button" :disabled="saving || !canManageSelectedUser" @click="handleExtendAccess(30)">
+                  +30 дней
                 </button>
               </div>
-              <button
-                class="primary-button"
-                :class="{ 'admin-save-success': accessSaveSucceeded }"
-                type="submit"
-                :disabled="saving || !canManageSelectedUser"
-              >
-                {{ accessSaveButtonText }}
-              </button>
-            </form>
+              <form class="admin-compact-date-row" @submit.prevent="handleManualAccessSave">
+                <label class="admin-date-action">
+                  <span>Ручной доступ</span>
+                  <input v-model="accessExpiresAt" type="date" aria-label="Дата окончания доступа" :disabled="!canManageSelectedUser" />
+                </label>
+                <button
+                  class="admin-date-save"
+                  :class="{ 'admin-save-success': accessSaveSucceeded }"
+                  type="submit"
+                  :disabled="saving || !canManageSelectedUser"
+                >
+                  {{ accessSaveButtonText }}
+                </button>
+                <button class="admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">
+                  Написать
+                </button>
+              </form>
+            </section>
 
-            <div class="admin-inline-actions">
+            <section class="admin-client-section">
+              <div class="admin-client-section-head">
+                <h4>Профиль</h4>
+                <small>обзор без открытия вкладок</small>
+              </div>
+              <div class="admin-client-profile-grid">
+                <article>
+                  <span>Прогресс</span>
+                  <strong>{{ selectedUser.completedItems }} / {{ selectedUser.totalItems }} уроков</strong>
+                </article>
+                <article>
+                  <span>Всего оплат</span>
+                  <strong>{{ selectedUserPaidTotal.toLocaleString("ru-RU") }} ₽</strong>
+                </article>
+                <article>
+                  <span>Дата регистрации</span>
+                  <strong>{{ formatAdminDate(selectedUser.createdAt) }}</strong>
+                </article>
+                <article>
+                  <span>Ограничения</span>
+                  <strong>{{ selectedUser.hasRestrictions ? "Есть активные" : "Нет активных" }}</strong>
+                </article>
+              </div>
+            </section>
+
+            <section class="admin-client-section">
+              <div class="admin-client-section-head">
+                <h4>Активность</h4>
+                <small>последние события</small>
+              </div>
+              <div class="admin-client-timeline">
+                <article v-if="selectedUser.lastOpenedItemTitle">
+                  <span class="admin-client-dot admin-client-dot-green"></span>
+                  <strong>Открыл урок "{{ selectedUser.lastOpenedItemTitle }}"</strong>
+                  <time>{{ selectedUser.lastOpenedAt ? formatAdminCompactDateTime(selectedUser.lastOpenedAt) : "время не сохранено" }}</time>
+                </article>
+                <article v-if="selectedUserLastPayment">
+                  <span class="admin-client-dot admin-client-dot-blue"></span>
+                  <strong>Оплата: {{ selectedUserLastPayment.amountRub.toLocaleString("ru-RU") }} ₽</strong>
+                  <time>{{ paymentOrderDate(selectedUserLastPayment) }}</time>
+                </article>
+                <article v-if="getTelegramBotStatusChangedLabel(selectedUser)">
+                  <span class="admin-client-dot" :class="selectedUser.telegramBotStatus === 'blocked' ? 'admin-client-dot-red' : 'admin-client-dot-green'"></span>
+                  <strong>{{ getTelegramBotStatusChangedLabel(selectedUser) }}</strong>
+                  <time>статус бота</time>
+                </article>
+                <p v-if="!selectedUser.lastOpenedItemTitle && !selectedUserLastPayment && !getTelegramBotStatusChangedLabel(selectedUser)" class="admin-empty">
+                  Последних событий пока нет.
+                </p>
+              </div>
+            </section>
+
+            <div class="admin-client-secondary-actions">
               <button class="secondary-button" type="button" :disabled="saving || !canManageSelectedUser" @click="handleQuickMute(selectedUser)">
                 Мут пока не снимут
               </button>
@@ -1631,6 +1822,35 @@ onUnmounted(() => {
               </div>
             </section>
           </aside>
+          <div v-if="clientMessageOpen" class="admin-client-message-layer" @click.self="closeClientMessageModal">
+            <form class="admin-client-message-modal" @submit.prevent="submitClientMessage">
+              <header class="admin-client-message-head">
+                <div>
+                  <h3>Сообщение клиенту</h3>
+                  <p>{{ userTitle(selectedUser) }} · ID {{ selectedUser.telegramId }}</p>
+                </div>
+                <button class="icon-button" type="button" aria-label="Закрыть сообщение клиенту" @click="closeClientMessageModal">
+                  <X class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </header>
+              <div class="admin-client-message-body">
+                <div class="admin-client-message-row">
+                  <label class="support-file-icon-button admin-client-file-button" title="Добавить файл" aria-label="Добавить файл">
+                    <Paperclip class="h-4 w-4" aria-hidden="true" />
+                    <span v-if="clientMessageFiles.length" class="support-file-count">{{ clientMessageFiles.length }}</span>
+                    <input type="file" accept="image/*,video/*" multiple @change="updateClientMessageFiles" />
+                  </label>
+                  <textarea v-model="clientMessageText" rows="3" placeholder="Напишите сообщение клиенту" />
+                </div>
+                <div v-if="clientMessageFiles.length" class="admin-client-file-list">
+                  <span v-for="file in clientMessageFiles" :key="file.name">{{ file.name }}</span>
+                </div>
+              </div>
+              <button class="primary-button" type="submit" :disabled="sendingClientMessage">
+                {{ sendingClientMessage ? "Отправляем..." : "Отправить" }}
+              </button>
+            </form>
+          </div>
         </div>
       </Teleport>
     </section>

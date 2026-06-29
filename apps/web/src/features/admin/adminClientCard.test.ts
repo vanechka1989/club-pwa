@@ -13,10 +13,10 @@ import {
 } from "./adminClientCard";
 
 describe("admin client card helpers", () => {
-  it("shows the last login in the client card header stats", () => {
+  it("shows the last login in the compact client card header", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 
-    expect(source).toContain("Последний вход:");
+    expect(source).toContain("Вход:");
     expect(source).toContain("selectedUser.lastLoginAt");
   });
 
@@ -24,6 +24,7 @@ describe("admin client card helpers", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 
     expect(source).toContain("admin-client-title-row");
+    expect(source).toContain("admin-client-card-head");
     expect(source).toContain("selectedUser.telegramBotStatus");
     expect(source).not.toContain("admin-contact-health");
   });
@@ -37,7 +38,23 @@ describe("admin client card helpers", () => {
   it("labels the custom access date as manual access", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 
+    expect(source).toContain("admin-client-action-panel");
+    expect(source).toContain("Открыть доступ");
+    expect(source).toContain("Закрыть доступ");
     expect(source).toContain("Ручной доступ");
+    expect(source).not.toContain("<select v-model=\"accessStatus\"");
+    expect(source).not.toContain("+90 дней");
+  });
+
+  it("opens a support-style message modal from the client card", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const apiSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
+
+    expect(source).toContain("admin-message-client-button");
+    expect(source).toContain("admin-client-message-modal");
+    expect(source).toContain("Paperclip");
+    expect(source).toContain("createAdminClientSupportTicket");
+    expect(apiSource).toContain("/support/admin/users/${telegramId}/tickets");
   });
 
   it("shows clear labels for manual access changes", () => {
