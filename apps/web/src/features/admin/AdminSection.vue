@@ -30,7 +30,7 @@ import {
   X,
   type LucideIcon
 } from "lucide-vue-next";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   addAdminUser,
   createAdminMailing,
@@ -197,6 +197,7 @@ const mailingScheduledAt = ref("");
 const mailingAttachment = ref<File | null>(null);
 const mailingEditorRef = ref<HTMLElement | null>(null);
 const mailingPreviewLoading = ref(false);
+const showMailingComposer = ref(false);
 const paymentOrders = ref<PaymentOrderLog[]>([]);
 const communityTopics = ref<ClubTopic[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
@@ -446,6 +447,17 @@ function applyMailingEditorCommand(command: string, value?: string) {
   syncMailingEditorBody();
 }
 
+function applyMailingEditorLink() {
+  const rawUrl = window.prompt("Ссылка");
+  const trimmedUrl = rawUrl?.trim();
+  if (!trimmedUrl) {
+    return;
+  }
+
+  const url = /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+  applyMailingEditorCommand("createLink", url);
+}
+
 function updateMailingAttachment(event: Event) {
   const input = event.target as HTMLInputElement;
   mailingAttachment.value = input.files?.[0] ?? null;
@@ -468,6 +480,26 @@ function resetMailingForm() {
     mailingEditorRef.value.innerHTML = "";
   }
   scheduleMailingPreview();
+}
+
+async function openMailingComposer(options: { reset?: boolean } = {}) {
+  if (options.reset ?? true) {
+    resetMailingForm();
+  }
+
+  showMailingComposer.value = true;
+  await nextTick();
+
+  if (mailingEditorRef.value) {
+    mailingEditorRef.value.innerHTML = mailingBodyHtml.value;
+    syncMailingEditorBody();
+  }
+
+  scheduleMailingPreview();
+}
+
+function closeMailingComposer() {
+  showMailingComposer.value = false;
 }
 
 function getMailingStatusLabel(status: AdminMailing["status"]) {
@@ -552,19 +584,16 @@ function renderMailingEditorHtml(mailing: AdminMailing) {
   return mailing.bodyHtml || mailing.body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
 }
 
-function reuseMailing(mailing: AdminMailing) {
+async function reuseMailing(mailing: AdminMailing) {
   mailingTitle.value = mailing.title;
   mailingBody.value = mailing.body;
-  mailingBodyHtml.value = mailing.bodyHtml ?? "";
+  mailingBodyHtml.value = renderMailingEditorHtml(mailing);
   mailingChannel.value = mailing.channel;
   mailingFilters.value = { ...mailing.filters };
   mailingScheduledAt.value = "";
   mailingAttachment.value = null;
-  if (mailingEditorRef.value) {
-    mailingEditorRef.value.innerHTML = renderMailingEditorHtml(mailing);
-    syncMailingEditorBody();
-  }
   closeMailingDetail();
+  await openMailingComposer({ reset: false });
   scheduleMailingPreview();
   setStatus("Рассылка перенесена в форму. Можно сменить канал и отправить снова.");
 }
@@ -626,6 +655,7 @@ async function handleCreateMailing() {
   try {
     const response = await createAdminMailing(buildMailingFormData());
     await loadMailings();
+    closeMailingComposer();
     scheduleMailingPreview();
     setStatus(response.mailing.status === "scheduled" ? "Рассылка запланирована." : "Рассылка поставлена в очередь.");
   } catch {
@@ -2215,107 +2245,10 @@ onUnmounted(() => {
           <h3>Рассылки</h3>
           <p>Сообщения в Telegram, приложение или сразу везде. Заблокировавшие бота исключаются автоматически.</p>
         </div>
+        <button class="primary-button admin-add-button" type="button" @click="openMailingComposer()">Новая рассылка</button>
       </div>
 
       <div class="admin-mailings-layout">
-        <form class="admin-crm-block admin-mailing-builder" @submit.prevent="handleCreateMailing">
-          <div class="admin-panel-head admin-mailing-builder-head">
-            <div>
-              <h4>Новая рассылка</h4>
-              <p>Текст, вложение, фильтры и планирование.</p>
-            </div>
-            <button class="secondary-button" type="button" @click="resetMailingForm">Сбросить</button>
-          </div>
-
-          <label class="admin-field">
-            <span>Заголовок</span>
-            <input v-model.trim="mailingTitle" class="text-input" placeholder="Например: Новая практика в клубе" />
-          </label>
-
-          <div class="admin-editor admin-mailing-editor">
-            <div class="admin-editor-toolbar">
-              <button class="icon-button" type="button" @click="applyMailingEditorCommand('bold')">B</button>
-              <button class="icon-button" type="button" @click="applyMailingEditorCommand('italic')">I</button>
-              <button class="icon-button" type="button" @click="applyMailingEditorCommand('underline')">U</button>
-              <button class="secondary-button" type="button" @click="applyMailingEditorCommand('insertUnorderedList')">Список</button>
-            </div>
-            <div
-              ref="mailingEditorRef"
-              class="admin-rich-editor"
-              contenteditable="true"
-              role="textbox"
-              aria-label="Текст рассылки"
-              data-placeholder="Текст рассылки"
-              @input="syncMailingEditorBody"
-            ></div>
-          </div>
-
-          <div class="admin-mailing-channels" aria-label="Куда отправляем рассылку">
-            <button
-              v-for="channel in mailingChannelOptions"
-              :key="channel.value"
-              class="admin-mailing-channel"
-              :class="{ 'admin-mailing-channel-active': mailingChannel === channel.value }"
-              type="button"
-              @click="mailingChannel = channel.value"
-            >
-              <strong>{{ channel.label }}</strong>
-              <span>{{ channel.hint }}</span>
-            </button>
-          </div>
-
-          <div class="admin-mailing-filter-grid">
-            <label class="admin-field">
-              <span>Статус доступа</span>
-              <select v-model="mailingFilters.accessStatus" class="text-input">
-                <option v-for="option in mailingAccessStatusOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-            </label>
-            <label class="admin-field">
-              <span>Тип доступа</span>
-              <select v-model="mailingFilters.accessType" class="text-input">
-                <option v-for="option in mailingAccessTypeOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-            </label>
-          </div>
-
-          <div class="admin-mailing-checks">
-            <label class="admin-check-row">
-              <input v-model="mailingFilters.excludeAdmins" type="checkbox" />
-              <span>Исключить админов</span>
-            </label>
-            <label class="admin-check-row">
-              <input v-model="mailingFilters.excludeRestricted" type="checkbox" />
-              <span>Исключить ограничения</span>
-            </label>
-          </div>
-
-          <div class="admin-mailing-row">
-            <label class="admin-mailing-file">
-              <Paperclip class="h-4 w-4" aria-hidden="true" />
-              <span>{{ mailingAttachmentLabel }}</span>
-              <input type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" @change="updateMailingAttachment" />
-            </label>
-            <label class="admin-field admin-mailing-date">
-              <span>Запланировать</span>
-              <input v-model="mailingScheduledAt" class="text-input" type="datetime-local" />
-            </label>
-          </div>
-
-          <div class="admin-mailing-submit-row">
-            <button class="secondary-button" type="button" :disabled="saving || !mailingCanSubmit" @click="handleTestMailingDraft">
-              Тест себе
-            </button>
-            <button class="primary-button" type="submit" :disabled="saving || !mailingCanSubmit">
-              {{ mailingScheduledAt ? "Запланировать рассылку" : "Запустить рассылку" }}
-            </button>
-          </div>
-        </form>
-
         <aside class="admin-mailing-side">
           <section class="admin-crm-block admin-mailing-preview">
             <h4>Расчёт</h4>
@@ -2414,6 +2347,152 @@ onUnmounted(() => {
           </section>
         </aside>
       </div>
+
+      <Teleport to="body">
+        <div v-if="showMailingComposer" class="admin-modal-backdrop" @click.self="closeMailingComposer">
+          <aside
+            class="admin-detail admin-client-modal admin-mailing-composer-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-mailing-composer-title"
+          >
+            <form class="admin-crm-block admin-mailing-builder" @submit.prevent="handleCreateMailing">
+              <div class="admin-panel-head admin-mailing-builder-head">
+                <div>
+                  <p class="admin-overline">Рассылки</p>
+                  <h4 id="admin-mailing-composer-title">Новая рассылка</h4>
+                  <p>Текст, HTML-форматирование, вложение, фильтры и планирование.</p>
+                </div>
+                <div class="admin-mailing-modal-actions">
+                  <button class="secondary-button" type="button" @click="resetMailingForm">Сбросить</button>
+                  <button class="icon-button" type="button" aria-label="Закрыть рассылку" @click="closeMailingComposer">
+                    <X class="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+
+              <label class="admin-field">
+                <span>Заголовок</span>
+                <input v-model.trim="mailingTitle" class="text-input" placeholder="Например: Новая практика в клубе" />
+              </label>
+
+              <div class="admin-editor admin-mailing-editor">
+                <div class="admin-editor-toolbar">
+                  <button class="icon-button" type="button" @click="applyMailingEditorCommand('bold')">B</button>
+                  <button class="icon-button" type="button" @click="applyMailingEditorCommand('italic')">I</button>
+                  <button class="icon-button" type="button" @click="applyMailingEditorCommand('underline')">U</button>
+                  <button class="secondary-button" type="button" @click="applyMailingEditorCommand('insertUnorderedList')">Список</button>
+                  <button class="secondary-button" type="button" @click="applyMailingEditorLink">Ссылка</button>
+                </div>
+                <div
+                  ref="mailingEditorRef"
+                  class="admin-rich-editor"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-label="Текст рассылки"
+                  data-placeholder="Текст рассылки"
+                  @input="syncMailingEditorBody"
+                ></div>
+              </div>
+
+              <div class="admin-mailing-channels" aria-label="Куда отправляем рассылку">
+                <button
+                  v-for="channel in mailingChannelOptions"
+                  :key="channel.value"
+                  class="admin-mailing-channel"
+                  :class="{ 'admin-mailing-channel-active': mailingChannel === channel.value }"
+                  type="button"
+                  @click="mailingChannel = channel.value"
+                >
+                  <strong>{{ channel.label }}</strong>
+                  <span>{{ channel.hint }}</span>
+                </button>
+              </div>
+
+              <div class="admin-mailing-filter-grid">
+                <label class="admin-field">
+                  <span>Статус доступа</span>
+                  <select v-model="mailingFilters.accessStatus" class="text-input">
+                    <option v-for="option in mailingAccessStatusOptions" :key="option.value" :value="option.value">
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </label>
+                <label class="admin-field">
+                  <span>Тип доступа</span>
+                  <select v-model="mailingFilters.accessType" class="text-input">
+                    <option v-for="option in mailingAccessTypeOptions" :key="option.value" :value="option.value">
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="admin-mailing-checks">
+                <label class="admin-check-row">
+                  <input v-model="mailingFilters.excludeAdmins" type="checkbox" />
+                  <span>Исключить админов</span>
+                </label>
+                <label class="admin-check-row">
+                  <input v-model="mailingFilters.excludeRestricted" type="checkbox" />
+                  <span>Исключить ограничения</span>
+                </label>
+              </div>
+
+              <div class="admin-mailing-row">
+                <label class="admin-mailing-file">
+                  <Paperclip class="h-4 w-4" aria-hidden="true" />
+                  <span>{{ mailingAttachmentLabel }}</span>
+                  <input type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" @change="updateMailingAttachment" />
+                </label>
+                <label class="admin-field admin-mailing-date">
+                  <span>Запланировать</span>
+                  <input v-model="mailingScheduledAt" class="text-input" type="datetime-local" />
+                </label>
+              </div>
+
+              <section class="admin-crm-block admin-mailing-preview admin-mailing-composer-preview">
+                <div class="admin-panel-head admin-mailing-list-head">
+                  <div>
+                    <h4>Расчёт</h4>
+                    <p>Сколько получателей попадёт в выбранные каналы.</p>
+                  </div>
+                  <button class="secondary-button" type="button" :disabled="mailingPreviewLoading" @click="refreshMailingPreview">
+                    Пересчитать
+                  </button>
+                </div>
+                <div class="admin-mailing-preview-grid">
+                  <article>
+                    <span>Получателей</span>
+                    <strong>{{ mailingPreview?.targetCount ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>Примерное время</span>
+                    <strong>{{ mailingPreviewLoading ? "считаем..." : mailingPreview?.estimatedLabel ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>Бот заблокирован</span>
+                    <strong>{{ mailingPreview?.excludedBotBlocked ?? mailingBlockedUsers }}</strong>
+                  </article>
+                  <article>
+                    <span>Не прошли фильтры</span>
+                    <strong>{{ mailingPreview?.excludedByFilters ?? "—" }}</strong>
+                  </article>
+                </div>
+              </section>
+
+              <div class="admin-mailing-submit-row">
+                <button class="secondary-button" type="button" :disabled="saving || !mailingCanSubmit" @click="handleTestMailingDraft">
+                  Тест себе
+                </button>
+                <button class="primary-button" type="submit" :disabled="saving || !mailingCanSubmit">
+                  {{ mailingScheduledAt ? "Запланировать рассылку" : "Запустить рассылку" }}
+                </button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      </Teleport>
 
       <Teleport to="body">
         <div v-if="selectedMailing" class="admin-modal-backdrop" @click.self="closeMailingDetail">

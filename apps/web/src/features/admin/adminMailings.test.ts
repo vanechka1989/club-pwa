@@ -28,6 +28,15 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("stopAdminMailing");
   });
 
+  it("creates new mailings from a modal composer with HTML controls", () => {
+    expect(adminSectionSource).toContain("showMailingComposer");
+    expect(adminSectionSource).toContain("openMailingComposer");
+    expect(adminSectionSource).toContain("admin-mailing-composer-modal");
+    expect(adminSectionSource).toContain("Новая рассылка");
+    expect(adminSectionSource).toContain("applyMailingEditorLink");
+    expect(adminSectionSource).toContain("Ссылка");
+  });
+
   it("has API client methods for previewing and controlling mailings", () => {
     expect(clientSource).toContain("previewAdminMailing");
     expect(clientSource).toContain("createAdminMailing");

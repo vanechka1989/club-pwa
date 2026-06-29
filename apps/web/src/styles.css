@@ -2031,7 +2031,7 @@ button {
 
 .admin-mailings-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(17rem, 0.75fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.8rem;
   align-items: start;
 }
@@ -2046,6 +2046,29 @@ button {
 .admin-mailing-builder-head,
 .admin-mailing-list-head {
   align-items: center;
+}
+
+.admin-mailing-composer-modal {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+}
+
+.admin-mailing-composer-modal .admin-mailing-builder {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: var(--screen-gutter);
+}
+
+.admin-mailing-modal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.admin-mailing-composer-preview {
+  box-shadow: none;
 }
 
 .admin-mailing-editor .admin-rich-editor {
@@ -5071,8 +5094,8 @@ button {
 
 .notification-center {
   position: fixed;
-  top: calc(var(--tg-safe-top, 0px) + 0.75rem);
   right: 0.85rem;
+  bottom: calc(var(--bottom-nav-height, 5.25rem) + var(--tg-safe-bottom, 0px) + 0.75rem);
   z-index: 70;
 }
 
@@ -5086,8 +5109,21 @@ button {
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text);
-  background: color-mix(in srgb, var(--panel) 88%, white);
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
   box-shadow: var(--shadow-soft);
+  opacity: 0.86;
+  backdrop-filter: blur(14px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    background 150ms ease;
+}
+
+.notification-center-button:hover,
+.notification-center-button:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
 }
 
 .notification-center-badge {
@@ -5197,11 +5233,41 @@ button {
   font-weight: 900;
 }
 
-.notification-center-item p {
+.notification-center-copy {
   margin-top: 0.35rem;
   color: var(--muted-strong);
   font-size: 0.84rem;
   line-height: 1.45;
+}
+
+.notification-center-copy :where(p, ul, ol) {
+  margin-top: 0.35rem;
+}
+
+.notification-center-copy :where(ul, ol) {
+  padding-left: 1.1rem;
+}
+
+.notification-center-copy a {
+  color: var(--accent);
+  font-weight: 850;
+}
+
+.notification-center-media {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--accent-soft) 34%, var(--panel));
+}
+
+.notification-center-media img,
+.notification-center-media video {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
 }
 
 .notification-center-attachment {

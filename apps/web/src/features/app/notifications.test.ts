@@ -39,4 +39,24 @@ describe("app notifications", () => {
     expect(styles).toMatch(/\.admin-modal-backdrop\s*\{[^}]*z-index:\s*140;/s);
     expect(styles).toMatch(/\.payment-modal-backdrop\s*\{[^}]*z-index:\s*145;/s);
   });
+
+  it("renders mailing HTML and inline media previews in the notification center", () => {
+    const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(source).toContain("renderNotificationHtml");
+    expect(source).toContain('v-html="renderNotificationHtml(notification)"');
+    expect(source).toContain("notification-center-media");
+    expect(source).toContain("notification.attachment.kind === \"photo\"");
+    expect(source).toContain("notification.attachment.kind === \"video\"");
+    expect(styles).toContain(".notification-center-media");
+  });
+
+  it("places the notification bell above bottom navigation as a softer glass control", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.notification-center\s*\{[^}]*bottom:\s*calc\(var\(--bottom-nav-height/s);
+    expect(styles).toMatch(/\.notification-center-button\s*\{[^}]*opacity:\s*0\.86;/s);
+    expect(styles).toMatch(/\.notification-center-button\s*\{[^}]*backdrop-filter:\s*blur/s);
+  });
 });

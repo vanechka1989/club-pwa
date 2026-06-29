@@ -12,6 +12,84 @@ let notificationTimer: number | null = null;
 
 const badgeLabel = computed(() => (unreadCount.value > 9 ? "9+" : String(unreadCount.value)));
 
+const allowedNotificationTags = new Set(["A", "B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "SPAN", "STRONG", "U", "UL"]);
+
+function escapeNotificationText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function isSafeNotificationHref(value: string) {
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeNotificationNode(node: Node): Node | null {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return document.createTextNode(node.textContent ?? "");
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return null;
+  }
+
+  const element = node as HTMLElement;
+  const tagName = element.tagName.toUpperCase();
+  const nextElement = allowedNotificationTags.has(tagName) ? document.createElement(tagName.toLowerCase()) : document.createDocumentFragment();
+
+  if (nextElement instanceof HTMLElement && tagName === "A") {
+    const href = element.getAttribute("href")?.trim();
+    if (href && isSafeNotificationHref(href)) {
+      nextElement.setAttribute("href", href);
+      nextElement.setAttribute("target", "_blank");
+      nextElement.setAttribute("rel", "noreferrer");
+    }
+  }
+
+  for (const child of Array.from(element.childNodes)) {
+    const nextChild = sanitizeNotificationNode(child);
+    if (nextChild) {
+      nextElement.appendChild(nextChild);
+    }
+  }
+
+  return nextElement;
+}
+
+function sanitizeNotificationHtml(value: string) {
+  if (typeof DOMParser === "undefined" || typeof document === "undefined") {
+    return escapeNotificationText(value).replace(/\n/g, "<br>");
+  }
+
+  const parsed = new DOMParser().parseFromString(value, "text/html");
+  const container = document.createElement("div");
+  for (const child of Array.from(parsed.body.childNodes)) {
+    const nextChild = sanitizeNotificationNode(child);
+    if (nextChild) {
+      container.appendChild(nextChild);
+    }
+  }
+
+  return container.innerHTML;
+}
+
+function renderNotificationHtml(notification: AppNotification) {
+  const html = notification.bodyHtml?.trim();
+  if (html) {
+    return sanitizeNotificationHtml(html);
+  }
+
+  return escapeNotificationText(notification.body).replace(/\n/g, "<br>");
+}
+
 async function loadNotifications() {
   loading.value = true;
   try {
@@ -108,8 +186,20 @@ onBeforeUnmount(() => {
                   <strong>{{ notification.title }}</strong>
                   <time>{{ formatNotificationDate(notification.createdAt) }}</time>
                 </header>
-                <p>{{ notification.body }}</p>
-                <a v-if="notification.attachment?.url" class="notification-center-attachment" :href="notification.attachment.url" target="_blank" rel="noreferrer">
+                <div class="notification-center-copy" v-html="renderNotificationHtml(notification)"></div>
+                <a
+                  v-if='notification.attachment?.url && notification.attachment.kind === "photo"'
+                  class="notification-center-media"
+                  :href="notification.attachment.url"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <img :src="notification.attachment.url" :alt="notification.attachment.fileName" loading="lazy" />
+                </a>
+                <div v-else-if='notification.attachment?.url && notification.attachment.kind === "video"' class="notification-center-media">
+                  <video :src="notification.attachment.url" controls playsinline preload="metadata"></video>
+                </div>
+                <a v-else-if="notification.attachment?.url" class="notification-center-attachment" :href="notification.attachment.url" target="_blank" rel="noreferrer">
                   <Paperclip class="h-4 w-4" aria-hidden="true" />
                   <span>{{ notification.attachment.fileName }}</span>
                 </a>

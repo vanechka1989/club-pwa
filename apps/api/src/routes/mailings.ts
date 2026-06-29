@@ -63,6 +63,59 @@ function buildTelegramText(mailing: { title: string; body: string }) {
   return mailing.title ? `${mailing.title}\n\n${mailing.body}` : mailing.body;
 }
 
+function escapeTelegramHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function isSafeTelegramUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeTelegramHtml(html: string) {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div)>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "• ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/?(ul|ol|p|div|span)\b[^>]*>/gi, "")
+    .replace(/<a\b[^>]*href=(["']?)([^"'\s>]+)\1[^>]*>/gi, (_match, _quote: string, href: string) =>
+      isSafeTelegramUrl(href) ? `<a href="${escapeTelegramHtml(href)}">` : ""
+    )
+    .replace(/<(b|strong|i|em|u|s|strike|del|code|pre|blockquote)\b[^>]*>/gi, "<$1>")
+    .replace(/<\/(a|b|strong|i|em|u|s|strike|del|code|pre|blockquote)>/gi, "</$1>")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function buildTelegramHtml(mailing: { title: string; body: string; bodyHtml?: string | null }) {
+  const title = mailing.title ? `<b>${escapeTelegramHtml(mailing.title)}</b>` : "";
+  const body = mailing.bodyHtml?.trim()
+    ? sanitizeTelegramHtml(mailing.bodyHtml)
+    : escapeTelegramHtml(mailing.body);
+  return title ? `${title}\n\n${body}` : body;
+}
+
+function buildTelegramCaption(mailing: { title: string; body: string; bodyHtml?: string | null }) {
+  const html = buildTelegramHtml(mailing);
+  if (html.length <= 1024) {
+    return html;
+  }
+
+  return escapeTelegramHtml(buildTelegramText(mailing).slice(0, 1000).trim());
+}
+
 async function rejectIfNotAdmin(c: Context<{ Variables: AuthVariables }>) {
   const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
   if (!isAdminRole(role)) {
@@ -237,13 +290,15 @@ async function sendMailingToRecipient(
         chatId: recipient.telegramId,
         kind: attachment.kind,
         url: await getObjectReadUrl(attachment.objectKey),
-        caption: buildTelegramText(mailing).slice(0, 1024),
+        caption: buildTelegramCaption(mailing),
+        parseMode: "HTML",
         replyMarkup
       });
     } else {
       await sendTelegramMessage({
         chatId: recipient.telegramId,
-        text: buildTelegramText(mailing),
+        text: buildTelegramHtml(mailing),
+        parseMode: "HTML",
         replyMarkup
       });
     }
@@ -271,7 +326,7 @@ async function sendDraftMailingTest({
   channel: MailingChannel;
   attachment: UploadedMailingAttachment | null;
 }) {
-  const mailing = { title, body };
+  const mailing = { title, body, bodyHtml };
   const shouldSendApp = channel === "app" || channel === "all";
   const shouldSendBot = channel === "bot" || channel === "all";
 
@@ -295,13 +350,15 @@ async function sendDraftMailingTest({
         chatId: admin.telegramId,
         kind: attachment.kind,
         url: await getObjectReadUrl(attachment.objectKey),
-        caption: buildTelegramText(mailing).slice(0, 1024),
+        caption: buildTelegramCaption(mailing),
+        parseMode: "HTML",
         replyMarkup
       });
     } else {
       await sendTelegramMessage({
         chatId: admin.telegramId,
-        text: buildTelegramText(mailing),
+        text: buildTelegramHtml(mailing),
+        parseMode: "HTML",
         replyMarkup
       });
     }

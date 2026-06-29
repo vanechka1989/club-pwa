@@ -30,15 +30,18 @@ async function callTelegramMethod<T>(method: string, payload: Record<string, unk
 export async function sendTelegramMessage({
   chatId,
   text,
+  parseMode,
   replyMarkup
 }: {
   chatId: string | number;
   text: string;
+  parseMode?: "HTML";
   replyMarkup?: unknown;
 }) {
   await callTelegramMethod("sendMessage", {
     chat_id: chatId,
     text,
+    ...(parseMode ? { parse_mode: parseMode } : {}),
     ...(replyMarkup ? { reply_markup: replyMarkup } : {})
   });
 }
@@ -48,12 +51,14 @@ export async function sendTelegramMedia({
   kind,
   url,
   caption,
+  parseMode,
   replyMarkup
 }: {
   chatId: string | number;
   kind: "photo" | "video" | "document";
   url: string;
   caption?: string;
+  parseMode?: "HTML";
   replyMarkup?: unknown;
 }) {
   const methodByKind = {
@@ -71,6 +76,7 @@ export async function sendTelegramMedia({
     chat_id: chatId,
     [fieldByKind[kind]]: url,
     ...(caption ? { caption } : {}),
+    ...(parseMode ? { parse_mode: parseMode } : {}),
     ...(replyMarkup ? { reply_markup: replyMarkup } : {})
   });
 }
