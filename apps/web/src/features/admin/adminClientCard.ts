@@ -5,6 +5,8 @@ type AdminSubscriptionLike = {
   changedBy?: string | null;
 };
 
+type TelegramBotStatus = "unknown" | "active" | "blocked";
+
 function getManualActorId(providerPaymentId?: string | null) {
   const match = providerPaymentId?.match(/^admin:([^:]+):/);
   return match?.[1] ?? null;
@@ -85,4 +87,40 @@ export function getAdminTariffLabel(tariff: string | null | undefined) {
   }
 
   return tariff;
+}
+
+export function getTelegramBotStatusLabel(status: TelegramBotStatus) {
+  if (status === "active") {
+    return "активен";
+  }
+
+  if (status === "blocked") {
+    return "заблокирован";
+  }
+
+  return "неизвестно";
+}
+
+export function getTelegramBotStatusTitle(status: TelegramBotStatus) {
+  if (status === "active") {
+    return "Связь через бота доступна";
+  }
+
+  if (status === "blocked") {
+    return "Клиент заблокировал бота";
+  }
+
+  return "Статус бота неизвестен";
+}
+
+export function getTelegramBotStatusHint(status: TelegramBotStatus) {
+  if (status === "active") {
+    return "Сообщения из админки дойдут клиенту.";
+  }
+
+  if (status === "blocked") {
+    return "Сообщения из админки не дойдут, пока клиент не запустит бота снова.";
+  }
+
+  return "Статус появится после /start или события Telegram.";
 }

@@ -51,7 +51,9 @@ import {
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
   getAdminSubscriptionTitle,
-  getAdminTariffLabel
+  getAdminTariffLabel,
+  getTelegramBotStatusHint,
+  getTelegramBotStatusLabel
 } from "@/features/admin/adminClientCard";
 import {
   filterPaymentOrdersByBreakdown,
@@ -485,6 +487,32 @@ function paymentOrderDate(order: PaymentOrderLog) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatAdminDateTime(value: string) {
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function getTelegramBotStatusChangedLabel(user: AdminStatsUser) {
+  const changedAt =
+    user.telegramBotStatus === "blocked"
+      ? user.telegramBotBlockedAt
+      : user.telegramBotStatus === "active"
+        ? user.telegramBotUnblockedAt
+        : null;
+
+  if (!changedAt) {
+    return null;
+  }
+
+  return user.telegramBotStatus === "blocked"
+    ? `Заблокировал: ${formatAdminDateTime(changedAt)}`
+    : `Разблокировал: ${formatAdminDateTime(changedAt)}`;
 }
 
 function formatDateInput(date: Date) {
@@ -1410,14 +1438,19 @@ onUnmounted(() => {
             type="button"
             @click="selectUser(user)"
           >
-            <span>
+            <span class="admin-list-item-copy">
               <strong>{{ userTitle(user) }}</strong>
               <small>
                 {{ adminRoleLabel(user.role) }} · ID {{ user.telegramId }} · {{ getAdminTariffLabel(user.tariff) }} ·
                 {{ user.completedItems }}/{{ user.totalItems }}
               </small>
             </span>
-            <em>{{ user.hasRestrictions ? "Ограничен" : formatMembershipStatus(user.membershipStatus) }}</em>
+            <span class="admin-list-badges">
+              <em class="admin-access-badge">{{ user.hasRestrictions ? "Ограничен" : formatMembershipStatus(user.membershipStatus) }}</em>
+              <em class="admin-bot-badge" :class="`admin-bot-badge-${user.telegramBotStatus}`" :title="getTelegramBotStatusHint(user.telegramBotStatus)">
+                Бот {{ getTelegramBotStatusLabel(user.telegramBotStatus) }}
+              </em>
+            </span>
           </button>
         </div>
       </div>
@@ -1427,8 +1460,14 @@ onUnmounted(() => {
           <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-client-modal-title">
             <header class="admin-client-modal-head">
               <div>
-                <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
+                <div class="admin-client-title-row">
+                  <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
+                  <em class="admin-bot-badge" :class="`admin-bot-badge-${selectedUser.telegramBotStatus}`" :title="getTelegramBotStatusHint(selectedUser.telegramBotStatus)">
+                    Бот {{ getTelegramBotStatusLabel(selectedUser.telegramBotStatus) }}
+                  </em>
+                </div>
                 <p>{{ adminRoleLabel(selectedUser.role) }} · ID {{ selectedUser.telegramId }} · {{ getAdminTariffLabel(selectedUser.tariff) }}</p>
+                <p v-if="getTelegramBotStatusChangedLabel(selectedUser)" class="admin-client-bot-line">{{ getTelegramBotStatusChangedLabel(selectedUser) }}</p>
               </div>
               <button class="icon-button" type="button" aria-label="Закрыть карточку клиента" @click="closeSelectedUser">
                 <X class="h-4 w-4" aria-hidden="true" />
@@ -1439,9 +1478,10 @@ onUnmounted(() => {
               <span>{{ formatMembershipStatus(selectedUser.membershipStatus) }}</span>
               <span>{{ adminRoleLabel(selectedUser.role) }}</span>
               <span>{{ selectedUser.completedItems }}/{{ selectedUser.totalItems }} уроков</span>
+              <span>Последний вход: {{ formatAdminDateTime(selectedUser.lastLoginAt) }}</span>
               <span v-if="selectedUser.membershipExpiresAt">до {{ new Date(selectedUser.membershipExpiresAt).toLocaleDateString("ru-RU") }}</span>
             </div>
-            <p v-if="selectedUser.lastOpenedItemTitle" class="admin-muted-line">
+            <p v-if="selectedUser.lastOpenedItemTitle" class="admin-muted-line admin-client-last-lesson">
               Последний урок: {{ selectedUser.lastOpenedItemTitle }}
             </p>
 
@@ -1449,12 +1489,15 @@ onUnmounted(() => {
               Менять доступ и ограничения администраторов может только главный админ.
             </p>
 
-            <form class="admin-form" @submit.prevent="handleUpdateAccess">
+            <form class="admin-form admin-access-form" @submit.prevent="handleUpdateAccess">
               <select v-model="accessStatus" class="text-input" :disabled="!canManageSelectedUser">
                 <option value="active">{{ formatMembershipStatus("active") }}</option>
                 <option value="inactive">{{ formatMembershipStatus("inactive") }}</option>
               </select>
-              <input v-model="accessExpiresAt" class="text-input" type="date" :disabled="!canManageSelectedUser" />
+              <label class="admin-manual-access-date">
+                <span>Ручной доступ</span>
+                <input v-model="accessExpiresAt" class="text-input" type="date" :disabled="!canManageSelectedUser" />
+              </label>
               <div class="admin-inline-actions">
                 <button class="secondary-button" type="button" :disabled="!canManageSelectedUser" @click="setAccessDateToday">
                   Сегодня

@@ -2510,12 +2510,16 @@ button {
 }
 
 .admin-list-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 0.7rem;
   padding: 0.65rem;
   text-align: left;
+}
+
+.admin-list-item-copy {
+  min-width: 0;
 }
 
 .admin-list-item strong,
@@ -2525,15 +2529,50 @@ button {
   font-size: 0.84rem;
 }
 
-.admin-list-item em {
+.admin-list-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.admin-access-badge,
+.admin-bot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel));
-  color: var(--muted-strong);
+  border: 1px solid transparent;
   padding: 0.22rem 0.5rem;
   font-size: 0.62rem;
   font-style: normal;
   font-weight: 820;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.admin-access-badge {
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel));
+  color: var(--muted-strong);
+}
+
+.admin-bot-badge-active {
+  border-color: color-mix(in srgb, #22c55e 36%, var(--border));
+  background: color-mix(in srgb, #22c55e 13%, var(--panel));
+  color: color-mix(in srgb, #15803d 84%, var(--text));
+}
+
+.admin-bot-badge-blocked {
+  border-color: color-mix(in srgb, #ef4444 40%, var(--border));
+  background: color-mix(in srgb, #ef4444 13%, var(--panel));
+  color: color-mix(in srgb, #dc2626 84%, var(--text));
+}
+
+.admin-bot-badge-unknown {
+  border-color: color-mix(in srgb, var(--muted) 20%, var(--border));
+  background: color-mix(in srgb, var(--muted) 10%, var(--panel));
+  color: var(--muted-strong);
 }
 
 .admin-list-item-active {
@@ -2595,6 +2634,24 @@ button {
   gap: 0.7rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   padding-bottom: 0.6rem;
+}
+
+.admin-client-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.admin-client-title-row h3 {
+  margin: 0;
+}
+
+.admin-client-bot-line {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 740;
 }
 
 .payment-form-modal {
@@ -3044,6 +3101,39 @@ button {
   background: color-mix(in srgb, var(--panel) 80%, transparent);
   color: var(--muted-strong);
   padding: 0.28rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 780;
+}
+
+.admin-client-last-lesson {
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  padding: 0.48rem 0.55rem;
+}
+
+.admin-access-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-access-form .admin-inline-actions,
+.admin-access-form .primary-button {
+  grid-column: 1 / -1;
+}
+
+.admin-access-form .admin-inline-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-manual-access-date {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.admin-manual-access-date span {
+  color: var(--muted);
   font-size: 0.68rem;
   font-weight: 780;
 }
@@ -5606,6 +5696,16 @@ button.chat-message-author:active {
   .admin-filter-grid,
   .admin-two-cols {
     grid-template-columns: 1fr;
+  }
+
+  .admin-list-item,
+  .admin-access-form,
+  .admin-access-form .admin-inline-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-list-badges {
+    justify-content: flex-start;
   }
 
   .admin-tabs {

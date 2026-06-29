@@ -456,6 +456,9 @@ export const adminMutationResponseSchema = z.object({
 });
 export type AdminMutationResponse = z.infer<typeof adminMutationResponseSchema>;
 
+export const telegramBotStatusSchema = z.enum(["unknown", "active", "blocked"]);
+export type TelegramBotStatus = z.infer<typeof telegramBotStatusSchema>;
+
 export const adminStatsUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
@@ -471,6 +474,10 @@ export const adminStatsUserSchema = z.object({
   totalItems: z.number().int().nonnegative(),
   lastOpenedItemTitle: z.string().nullable(),
   lastOpenedAt: z.string().datetime().nullable(),
+  lastLoginAt: z.string().datetime(),
+  telegramBotStatus: telegramBotStatusSchema,
+  telegramBotBlockedAt: z.string().datetime().nullable(),
+  telegramBotUnblockedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime()
 });
 export type AdminStatsUser = z.infer<typeof adminStatsUserSchema>;

@@ -276,6 +276,10 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     totalItems,
     lastOpenedItemTitle: lastOpened?.item?.title ?? null,
     lastOpenedAt: lastOpened?.lastOpenedAt.toISOString() ?? null,
+    lastLoginAt: user.updatedAt.toISOString(),
+    telegramBotStatus: user.telegramBotStatus as AdminStatsUser["telegramBotStatus"],
+    telegramBotBlockedAt: user.telegramBotBlockedAt?.toISOString() ?? null,
+    telegramBotUnblockedAt: user.telegramBotUnblockedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString()
   };
 }

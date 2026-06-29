@@ -20,6 +20,10 @@ function user(overrides: Partial<AdminStatsUser>): AdminStatsUser {
     totalItems: 0,
     lastOpenedItemTitle: null,
     lastOpenedAt: null,
+    lastLoginAt: "2026-05-01T10:00:00.000Z",
+    telegramBotStatus: "unknown",
+    telegramBotBlockedAt: null,
+    telegramBotUnblockedAt: null,
     createdAt: "2026-05-01T10:00:00.000Z",
     ...overrides
   };

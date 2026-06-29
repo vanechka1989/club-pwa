@@ -20,6 +20,9 @@ export const users = pgTable(
     username: varchar("username", { length: 64 }),
     photoUrl: text("photo_url"),
     avatarRefreshedAt: timestamp("avatar_refreshed_at", { withTimezone: true }),
+    telegramBotStatus: varchar("telegram_bot_status", { length: 16 }).notNull().default("unknown"),
+    telegramBotBlockedAt: timestamp("telegram_bot_blocked_at", { withTimezone: true }),
+    telegramBotUnblockedAt: timestamp("telegram_bot_unblocked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },

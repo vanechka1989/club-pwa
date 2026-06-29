@@ -148,6 +148,13 @@
       "when": 1782600000000,
       "tag": "0020_support_attachment_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782738000000,
+      "tag": "0021_telegram_bot_status",
+      "breakpoints": true
     }
   ]
 }

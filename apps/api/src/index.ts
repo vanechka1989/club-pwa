@@ -11,10 +11,34 @@ import { paymentsRoute } from "./routes/payments";
 import { subscriptionsRoute } from "./routes/subscriptions";
 import { supportRoute } from "./routes/support";
 import { telegramRoute } from "./routes/telegram";
+import { setTelegramWebhook, telegramWebhookAllowedUpdates } from "./telegram/webhook";
 
 const app = new Hono();
 
 startExpiredPendingPaymentOrderCleanup();
+
+if (env.NODE_ENV === "production") {
+  const telegramWebhookOptions: Parameters<typeof setTelegramWebhook>[0] = {
+    token: env.TELEGRAM_BOT_TOKEN,
+    webOrigin: env.WEB_ORIGIN
+  };
+  if (env.TELEGRAM_WEBHOOK_SECRET) {
+    telegramWebhookOptions.secretToken = env.TELEGRAM_WEBHOOK_SECRET;
+  }
+
+  void setTelegramWebhook(telegramWebhookOptions)
+    .then(() => {
+      logger.info(
+        {
+          allowedUpdates: telegramWebhookAllowedUpdates
+        },
+        "telegram webhook configured"
+      );
+    })
+    .catch((error) => {
+      logger.error({ error }, "telegram webhook configuration failed");
+    });
+}
 
 app.use("*", async (c, next) => {
   const startedAt = performance.now();
