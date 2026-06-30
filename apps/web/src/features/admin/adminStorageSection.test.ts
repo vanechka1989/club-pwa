@@ -33,11 +33,15 @@ describe("admin storage section", () => {
     expect(stylesSource).toContain(".admin-storage-current");
     expect(stylesSource).toContain("width: 100%;");
     expect(stylesSource).toContain(".admin-storage-status-grid");
+    expect(stylesSource).toContain(".admin-storage-status-card::before");
     expect(stylesSource).toContain("justify-items: center;");
     expect(stylesSource).toContain("justify-content: center;");
     expect(stylesSource).toContain("text-align: center;");
     expect(stylesSource).toContain("min-height: 3.45rem;");
     expect(stylesSource).toContain("font-size: 0.6rem;");
+    expect(stylesSource).toContain("border-width: 2px;");
+    expect(stylesSource).toContain("0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)");
+    expect(stylesSource).toContain(".admin-storage-status-card-error.admin-storage-status-card-active");
     expect(stylesSource).not.toContain(".admin-storage-status-grid {\n    grid-template-columns: 1fr;");
     expect(adminSectionSource).toContain("<Teleport to=\"body\">");
   });

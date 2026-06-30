@@ -3616,9 +3616,11 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .admin-storage-status-card {
+  position: relative;
   display: grid;
   align-content: center;
   justify-items: center;
+  overflow: hidden;
   gap: 0.2rem;
   min-width: 0;
   min-height: 3.45rem;
@@ -3631,14 +3633,33 @@ body.club-keyboard-open .admin-modal-backdrop {
     transform 0.18s ease;
 }
 
+.admin-storage-status-card::before {
+  content: "";
+  position: absolute;
+  top: 0.36rem;
+  left: 50%;
+  width: 44%;
+  height: 3px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 0.18s ease;
+}
+
 .admin-storage-status-card:hover {
   transform: translateY(-1px);
 }
 
 .admin-storage-status-card-active {
+  border-width: 2px;
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 72%, transparent),
-    0 0.7rem 1.8rem color-mix(in srgb, var(--accent) 18%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0.72rem 1.8rem color-mix(in srgb, var(--accent) 28%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, #ffffff 16%, transparent);
+}
+
+.admin-storage-status-card-active::before {
+  opacity: 1;
 }
 
 .admin-storage-status-card span,
@@ -3666,10 +3687,42 @@ body.club-keyboard-open .admin-modal-backdrop {
   color: var(--success-text);
 }
 
+.admin-storage-status-card-ok.admin-storage-status-card-active {
+  border-color: color-mix(in srgb, var(--accent) 82%, var(--success));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--success) 22%, var(--panel-strong)),
+    color-mix(in srgb, var(--accent) 10%, var(--panel))
+  );
+}
+
+.admin-storage-status-card-ok.admin-storage-status-card-active::before {
+  background: color-mix(in srgb, var(--accent) 78%, #ffffff);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 78%, transparent);
+}
+
 .admin-storage-status-card-error {
   border: 1px solid color-mix(in srgb, var(--danger) 54%, var(--border));
   background: color-mix(in srgb, var(--danger) 14%, var(--panel));
   color: var(--danger);
+}
+
+.admin-storage-status-card-error.admin-storage-status-card-active {
+  border-color: color-mix(in srgb, var(--danger) 78%, #ffffff);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--danger) 22%, var(--panel-strong)),
+    color-mix(in srgb, var(--danger) 10%, var(--panel))
+  );
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent),
+    0 0.72rem 1.8rem color-mix(in srgb, var(--danger) 28%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, #ffffff 14%, transparent);
+}
+
+.admin-storage-status-card-error.admin-storage-status-card-active::before {
+  background: color-mix(in srgb, var(--danger) 72%, #ffffff);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--danger) 76%, transparent);
 }
 
 .admin-storage-status-ok {
