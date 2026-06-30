@@ -1743,14 +1743,6 @@ watch(
           </header>
 
           <div class="lesson-preview-scroll">
-            <div v-if="canManageModules" class="lesson-preview-body">
-              <img :src="lessonPreviewSource" :alt="lessonModalTitle" loading="lazy" />
-              <div class="lesson-preview-copy">
-                <strong>{{ lessonTitle || lessonModalTitle }}</strong>
-                <span>{{ lessonDescription || "Описание урока пока не заполнено." }}</span>
-              </div>
-            </div>
-
             <article v-if="!canManageModules && selectedLessonItem" class="lesson-viewer-content">
               <span class="lesson-preview-kicker">Содержимое урока</span>
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>

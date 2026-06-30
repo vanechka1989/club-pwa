@@ -5452,45 +5452,6 @@ body.club-keyboard-open .admin-modal-backdrop {
   margin-bottom: 0.2rem;
 }
 
-.lesson-preview-body {
-  display: grid;
-  gap: 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 62%),
-    color-mix(in srgb, var(--panel) 88%, transparent);
-  padding: 0.75rem;
-}
-
-.lesson-preview-body img {
-  display: block;
-  width: 100%;
-  max-height: min(54vh, 24rem);
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
-  object-fit: contain;
-}
-
-.lesson-preview-copy {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.lesson-preview-copy strong {
-  color: var(--text);
-  font-size: 0.94rem;
-  font-weight: 860;
-}
-
-.lesson-preview-copy span {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 690;
-  line-height: 1.45;
-}
-
 .lesson-viewer-content {
   display: grid;
   gap: 0.65rem;
@@ -5645,19 +5606,20 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .lesson-video-exit-fullscreen-button {
   position: absolute;
-  top: max(0.85rem, env(safe-area-inset-top));
-  right: max(0.85rem, env(safe-area-inset-right));
+  top: max(3.9rem, calc(env(safe-area-inset-top) + 3rem));
+  right: max(0.9rem, env(safe-area-inset-right));
   z-index: 3;
   display: grid;
-  width: 2.45rem;
-  height: 2.45rem;
+  width: 2.25rem;
+  height: 2.25rem;
   place-items: center;
-  border: 1px solid color-mix(in srgb, #fff 18%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 14%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, #020617 74%, transparent);
+  background: color-mix(in srgb, #020617 34%, transparent);
   color: #f8fafc;
-  box-shadow: 0 12px 30px color-mix(in srgb, #000 36%, transparent);
-  backdrop-filter: blur(14px);
+  opacity: 0.72;
+  box-shadow: 0 10px 24px color-mix(in srgb, #000 22%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 .lesson-viewer-audio {

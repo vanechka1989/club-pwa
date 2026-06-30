@@ -6,6 +6,7 @@ const learningSectionSource = readFileSync(resolve(__dirname, "LearningSection.v
 const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf-8");
 const uploadStoreSource = readFileSync(resolve(__dirname, "../../stores/lessonUploads.ts"), "utf-8");
+const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
 
 describe("learning background uploads", () => {
   it("uses multipart upload and keeps progress in a global status bar", () => {
@@ -24,5 +25,13 @@ describe("learning background uploads", () => {
     expect(learningSectionSource).not.toContain("lessonVideoRotated");
     expect(learningSectionSource).not.toContain("toggleLessonVideoOrientation");
     expect(learningSectionSource).not.toContain("Повернуть видео");
+  });
+
+  it("keeps lesson editor compact and places fullscreen close below telegram controls", () => {
+    expect(learningSectionSource).not.toContain('class="lesson-preview-body"');
+    expect(learningSectionSource).not.toContain('class="lesson-preview-copy"');
+    expect(stylesSource).toContain(".lesson-video-exit-fullscreen-button");
+    expect(stylesSource).toContain("top: max(3.9rem");
+    expect(stylesSource).toContain("background: color-mix(in srgb, #020617 34%, transparent)");
   });
 });
