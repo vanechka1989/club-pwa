@@ -5,7 +5,7 @@ DEPLOY_DIR="${DEPLOY_DIR:-/opt/club-crm}"
 
 cd "$DEPLOY_DIR"
 
-exec 9>"$DEPLOY_DIR/.deploy.lock"
+exec 9>"/tmp/club-crm-deploy.lock"
 flock 9
 
 read_env_value() {

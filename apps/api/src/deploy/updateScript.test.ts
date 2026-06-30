@@ -8,6 +8,7 @@ const deployWorkflow = readFileSync(resolve(__dirname, "../../../../.github/work
 describe("deploy update script", () => {
   it("serializes deploys and notifies Telegram after pulling the latest commit", () => {
     expect(updateScript).toContain("flock 9");
+    expect(updateScript).toContain("/tmp/club-crm-deploy.lock");
     expect(updateScript).toContain("notify_deploy_start()");
     expect(updateScript).toContain("Обновление клуба началось.");
     expect(updateScript).toContain("Already up to date; deployment skipped.");
