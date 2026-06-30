@@ -7,6 +7,8 @@ import {
   allAdminPermissions,
   newAdminDefaultPermissions,
   type AdminActionActor,
+  adminLearningDirectUploadRequestSchema,
+  adminLearningUploadedObjectSchema,
   type AdminLearningMaterial,
   type AdminPermission,
   type AdminUserDetailResponse,
@@ -36,11 +38,12 @@ import {
   users
 } from "../db/schema";
 import { env } from "../env";
+import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { deleteObject, getObjectReadUrl, listObjects, testS3Connection, uploadObject } from "../storage/s3";
+import { createObjectUploadUrl, deleteObject, getObjectMetadata, getObjectReadUrl, listObjects, mirrorObjectToReserve, testS3Connection, uploadObject } from "../storage/s3";
 import { classifyS3ObjectKey } from "../storage/s3Object";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import {
@@ -144,6 +147,21 @@ const s3StorageTargetSchema = z.enum(["primary", "reserve"]);
 
 const contentKinds = ["text", "photo", "video", "audio"] as const;
 const contentArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
+const directLearningMediaUploadMaxBytes = 2 * 1024 * 1024 * 1024;
+const directLearningThumbnailUploadMaxBytes = 20 * 1024 * 1024;
+
+const directLearningMaterialPayloadSchema = z.object({
+  categoryId: z.string().trim().min(1),
+  kind: z.enum(contentKinds),
+  title: z.string().trim().min(1),
+  summary: z.string().trim().optional().default(""),
+  body: z.string().trim().optional().default(""),
+  cardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
+  isPublished: z.boolean().default(true),
+  mediaObject: adminLearningUploadedObjectSchema.nullable().optional(),
+  thumbnailObject: adminLearningUploadedObjectSchema.nullable().optional(),
+  removeThumbnail: z.boolean().optional().default(false)
+});
 
 function activeContentWhere() {
   return or(isNull(contentItems.archivedUntil), gt(contentItems.archivedUntil, new Date()));
@@ -230,6 +248,62 @@ async function uploadThumbnailFile(file: File) {
     contentType: optimized.contentType,
     sizeBytes: optimized.sizeBytes
   };
+}
+
+function rejectInvalidDirectUploadSize(purpose: "media" | "thumbnail", sizeBytes: number) {
+  const maxBytes = purpose === "media" ? directLearningMediaUploadMaxBytes : directLearningThumbnailUploadMaxBytes;
+  return sizeBytes <= 0 || sizeBytes > maxBytes;
+}
+
+async function verifyDirectUploadedObject({
+  object,
+  purpose,
+  kind
+}: {
+  object: z.infer<typeof adminLearningUploadedObjectSchema>;
+  purpose: "media" | "thumbnail";
+  kind?: ContentKind;
+}) {
+  if (purpose === "media") {
+    if (!kind || !getLearningMediaUploadContentType(kind, object.contentType, object.objectKey)) {
+      return null;
+    }
+    if (!object.objectKey.startsWith(`learning/${kind}/`)) {
+      return null;
+    }
+  } else {
+    if (!object.contentType.startsWith("image/") || !object.objectKey.startsWith("learning/thumbnails/")) {
+      return null;
+    }
+  }
+
+  if (rejectInvalidDirectUploadSize(purpose, object.sizeBytes)) {
+    return null;
+  }
+
+  const metadata = await getObjectMetadata(object.objectKey);
+  if (metadata.sizeBytes !== object.sizeBytes) {
+    return null;
+  }
+  if (metadata.contentType && metadata.contentType !== object.contentType) {
+    return null;
+  }
+
+  return {
+    objectKey: metadata.key,
+    contentType: object.contentType,
+    sizeBytes: object.sizeBytes
+  };
+}
+
+function mirrorDirectUploadToReserve(object: { objectKey: string; contentType: string } | null) {
+  if (!object) {
+    return;
+  }
+
+  void mirrorObjectToReserve(object.objectKey, object.contentType).catch((error) => {
+    logger.warn({ error, key: object.objectKey }, "Failed to mirror direct upload to reserve S3");
+  });
 }
 
 async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): Promise<AdminLearningMaterial> {
@@ -913,7 +987,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     try {
-      return c.json({ url: await getObjectReadUrl(body.data.key, body.data.target ?? "primary") });
+      return c.json({ url: await getObjectReadUrl(body.data.key, body.data.target ?? "primary", { verifyReadable: true }) });
     } catch {
       return c.json({ error: "Unable to open S3 object" }, 400);
     }
@@ -1363,6 +1437,140 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({ ok: true });
   })
+  .post("/learning/materials/uploads", async (c) => {
+    const body = adminLearningDirectUploadRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid upload payload" }, 400);
+    }
+
+    const { purpose, kind, fileName, sizeBytes } = body.data;
+    const contentType =
+      purpose === "media"
+        ? kind
+          ? getLearningMediaUploadContentType(kind, body.data.contentType, fileName)
+          : null
+        : body.data.contentType.startsWith("image/")
+          ? body.data.contentType
+          : null;
+
+    if (!contentType || rejectInvalidDirectUploadSize(purpose, sizeBytes)) {
+      return c.json({ error: "Invalid upload file" }, 400);
+    }
+
+    const objectKey =
+      purpose === "media"
+        ? buildLearningMediaObjectKey({ kind: kind as ContentKind, fileName, id: randomUUID(), now: new Date() })
+        : buildLearningThumbnailObjectKey({ fileName, id: randomUUID(), now: new Date() });
+    const upload = await createObjectUploadUrl({ key: objectKey, contentType });
+
+    return c.json({
+      uploadUrl: upload.uploadUrl,
+      objectKey: upload.key,
+      contentType,
+      sizeBytes,
+      expiresAt: upload.expiresAt.toISOString()
+    });
+  })
+  .post("/learning/materials/direct", async (c) => {
+    const body = directLearningMaterialPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid material payload" }, 400);
+    }
+
+    const { categoryId, kind, title, cardLayout, isPublished } = body.data;
+    const summary = normalizeOptionalText(body.data.summary);
+    const materialBody = normalizeOptionalText(body.data.body);
+    const category = await db.query.contentCategories.findFirst({
+      where: eq(contentCategories.id, categoryId)
+    });
+    if (!category) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    let mediaObjectKey: string | null = null;
+    let mediaContentType: string | null = null;
+    let mediaSizeBytes: number | null = null;
+    let thumbnailObjectKey: string | null = null;
+    let thumbnailContentType: string | null = null;
+    let thumbnailSizeBytes: number | null = null;
+    let verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
+    let verifiedThumbnail: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
+
+    if (kind !== "text") {
+      if (!body.data.mediaObject) {
+        return c.json({ error: "Media file is required" }, 400);
+      }
+
+      verifiedMedia = await verifyDirectUploadedObject({ object: body.data.mediaObject, purpose: "media", kind });
+      if (!verifiedMedia) {
+        return c.json({ error: "Media file type does not match material kind" }, 400);
+      }
+
+      mediaObjectKey = verifiedMedia.objectKey;
+      mediaContentType = verifiedMedia.contentType;
+      mediaSizeBytes = verifiedMedia.sizeBytes;
+    }
+
+    if (body.data.thumbnailObject) {
+      verifiedThumbnail = await verifyDirectUploadedObject({ object: body.data.thumbnailObject, purpose: "thumbnail" });
+      if (!verifiedThumbnail) {
+        return c.json({ error: "Thumbnail file must be an image" }, 400);
+      }
+
+      thumbnailObjectKey = verifiedThumbnail.objectKey;
+      thumbnailContentType = verifiedThumbnail.contentType;
+      thumbnailSizeBytes = verifiedThumbnail.sizeBytes;
+    }
+
+    const now = new Date();
+    const [material] = await db
+      .insert(contentItems)
+      .values({
+        categoryId,
+        kind,
+        title,
+        summary,
+        body: materialBody,
+        cardLayout,
+        mediaObjectKey,
+        thumbnailObjectKey,
+        thumbnailContentType,
+        thumbnailSizeBytes,
+        mediaContentType,
+        mediaSizeBytes,
+        isPublished,
+        publishedAt: isPublished ? now : null,
+        archivedUntil: null,
+        createdAt: now,
+        updatedAt: now
+      })
+      .returning();
+
+    if (!material) {
+      return c.json({ error: "Unable to create material" }, 500);
+    }
+
+    mirrorDirectUploadToReserve(verifiedMedia);
+    mirrorDirectUploadToReserve(verifiedThumbnail);
+
+    await recordAdminAction(c, {
+      action: "learning.material.created",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: `Создал урок "${material.title}"`,
+      metadata: {
+        title: material.title,
+        kind: material.kind,
+        categoryId: material.categoryId,
+        isPublished: material.isPublished
+      }
+    });
+
+    return c.json({
+      ok: true,
+      material: await serializeAdminMaterial(material)
+    });
+  })
   .post("/learning/materials", async (c) => {
     const form = await c.req.raw.formData().catch(() => null);
     if (!form) {
@@ -1456,6 +1664,136 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       entityType: "learning_material",
       entityId: material.id,
       summary: `Создал урок "${material.title}"`,
+      metadata: {
+        title: material.title,
+        kind: material.kind,
+        categoryId: material.categoryId,
+        isPublished: material.isPublished
+      }
+    });
+
+    return c.json({
+      ok: true,
+      material: await serializeAdminMaterial(material)
+    });
+  })
+  .post("/learning/materials/:id/direct", async (c) => {
+    const current = await db.query.contentItems.findFirst({
+      where: eq(contentItems.id, c.req.param("id"))
+    });
+    if (!current) {
+      return c.json({ error: "Material not found" }, 404);
+    }
+
+    const body = directLearningMaterialPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid material payload" }, 400);
+    }
+
+    const { categoryId, kind, title, cardLayout, isPublished, removeThumbnail } = body.data;
+    const summary = normalizeOptionalText(body.data.summary);
+    const materialBody = normalizeOptionalText(body.data.body);
+    const category = await db.query.contentCategories.findFirst({
+      where: eq(contentCategories.id, categoryId)
+    });
+    if (!category) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    let mediaObjectKey = current.mediaObjectKey;
+    let mediaUrl = current.mediaUrl;
+    let mediaContentType = current.mediaContentType;
+    let mediaSizeBytes = current.mediaSizeBytes;
+    let thumbnailObjectKey = current.thumbnailObjectKey;
+    let thumbnailUrl = current.thumbnailUrl;
+    let thumbnailContentType = current.thumbnailContentType;
+    let thumbnailSizeBytes = current.thumbnailSizeBytes;
+    let verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
+    let verifiedThumbnail: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
+
+    if (kind === "text") {
+      if (current.mediaObjectKey) {
+        await deleteObject(current.mediaObjectKey).catch(() => null);
+      }
+      mediaObjectKey = null;
+      mediaUrl = null;
+      mediaContentType = null;
+      mediaSizeBytes = null;
+    } else if (body.data.mediaObject) {
+      verifiedMedia = await verifyDirectUploadedObject({ object: body.data.mediaObject, purpose: "media", kind });
+      if (!verifiedMedia) {
+        return c.json({ error: "Media file type does not match material kind" }, 400);
+      }
+      if (current.mediaObjectKey && current.mediaObjectKey !== verifiedMedia.objectKey) {
+        await deleteObject(current.mediaObjectKey).catch(() => null);
+      }
+      mediaObjectKey = verifiedMedia.objectKey;
+      mediaUrl = null;
+      mediaContentType = verifiedMedia.contentType;
+      mediaSizeBytes = verifiedMedia.sizeBytes;
+    } else if (current.kind !== kind || !current.mediaObjectKey) {
+      return c.json({ error: "Media file is required when changing material kind" }, 400);
+    }
+
+    if (removeThumbnail) {
+      if (current.thumbnailObjectKey) {
+        await deleteObject(current.thumbnailObjectKey).catch(() => null);
+      }
+      thumbnailObjectKey = null;
+      thumbnailUrl = null;
+      thumbnailContentType = null;
+      thumbnailSizeBytes = null;
+    } else if (body.data.thumbnailObject) {
+      verifiedThumbnail = await verifyDirectUploadedObject({ object: body.data.thumbnailObject, purpose: "thumbnail" });
+      if (!verifiedThumbnail) {
+        return c.json({ error: "Thumbnail file must be an image" }, 400);
+      }
+      if (current.thumbnailObjectKey && current.thumbnailObjectKey !== verifiedThumbnail.objectKey) {
+        await deleteObject(current.thumbnailObjectKey).catch(() => null);
+      }
+      thumbnailObjectKey = verifiedThumbnail.objectKey;
+      thumbnailUrl = null;
+      thumbnailContentType = verifiedThumbnail.contentType;
+      thumbnailSizeBytes = verifiedThumbnail.sizeBytes;
+    }
+
+    const now = new Date();
+    const [material] = await db
+      .update(contentItems)
+      .set({
+        categoryId,
+        kind,
+        title,
+        summary,
+        body: materialBody,
+        cardLayout,
+        mediaUrl,
+        mediaObjectKey,
+        mediaContentType,
+        mediaSizeBytes,
+        thumbnailUrl,
+        thumbnailObjectKey,
+        thumbnailContentType,
+        thumbnailSizeBytes,
+        isPublished,
+        publishedAt: isPublished ? (current.publishedAt ?? now) : null,
+        updatedAt: now
+      })
+      .where(eq(contentItems.id, current.id))
+      .returning();
+
+    if (!material) {
+      return c.json({ error: "Unable to update material" }, 500);
+    }
+
+    mirrorDirectUploadToReserve(verifiedMedia);
+    mirrorDirectUploadToReserve(verifiedThumbnail);
+
+    await recordAdminAction(c, {
+      action: "learning.material.updated",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: `Обновил урок "${material.title}"`,
       metadata: {
         title: material.title,
         kind: material.kind,

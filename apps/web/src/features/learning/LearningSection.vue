@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { AdminLearningMaterial, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary } from "@club/shared";
+import type { AdminLearningMaterial, AdminLearningUploadedObject, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary } from "@club/shared";
 import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   createAdminLearningMaterial,
+  createAdminLearningMaterialDirect,
+  createAdminLearningUpload,
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
@@ -13,7 +15,8 @@ import {
   restoreAdminLearningMaterial,
   saveLearningPlayback,
   updateAdminLearningCategory,
-  updateAdminLearningMaterial
+  updateAdminLearningMaterial,
+  updateAdminLearningMaterialDirect
 } from "@/api/client";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
@@ -209,6 +212,7 @@ const lessonViewerError = ref("");
 const isVoiceRecording = ref(false);
 const voiceRecorder = ref<MediaRecorder | null>(null);
 const voiceStream = ref<MediaStream | null>(null);
+const lessonUploadProgress = ref<number | null>(null);
 const lessonVideoElement = ref<HTMLVideoElement | null>(null);
 const isLessonVideoPlaying = ref(false);
 const lessonVideoCurrentTime = ref(0);
@@ -276,9 +280,10 @@ const learningOperation = computed(() => {
 
   if (selectedLesson.value) {
     const hasUpload = Boolean(lessonFile.value || lessonThumbnailFile.value);
+    const progressText = lessonUploadProgress.value !== null ? `Загрузка ${lessonUploadProgress.value}%` : "Загрузка файла и обновление данных";
     return {
       title: hasUpload ? "Загружаем урок..." : "Сохраняем урок...",
-      detail: hasUpload ? "Загрузка файла и обновление данных" : "Обновляем материал урока"
+      detail: hasUpload ? progressText : "Обновляем материал урока"
     };
   }
 
@@ -900,6 +905,81 @@ function appendFile(form: FormData, key: string, file: File | NamedBlobUpload | 
   form.set(key, file.blob, file.name);
 }
 
+function getUploadParts(file: File | NamedBlobUpload) {
+  if (file instanceof File) {
+    return {
+      blob: file,
+      name: file.name,
+      contentType: file.type || "application/octet-stream",
+      sizeBytes: file.size
+    };
+  }
+
+  return {
+    blob: file.blob,
+    name: file.name,
+    contentType: file.blob.type || "application/octet-stream",
+    sizeBytes: file.blob.size
+  };
+}
+
+function putDirectLearningUpload(uploadUrl: string, blob: Blob, contentType: string, onProgress: (percent: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", uploadUrl);
+    request.setRequestHeader("Content-Type", contentType);
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable || event.total <= 0) {
+        return;
+      }
+      onProgress(Math.min(99, Math.max(1, Math.round((event.loaded / event.total) * 100))));
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress(100);
+        resolve();
+        return;
+      }
+      reject(new Error(`S3 upload failed with status ${request.status}`));
+    };
+    request.onerror = () => reject(new Error("S3 upload failed"));
+    request.send(blob);
+  });
+}
+
+async function uploadLessonFileDirect({
+  file,
+  purpose,
+  kind,
+  progressBase,
+  progressSpan
+}: {
+  file: File | NamedBlobUpload;
+  purpose: "media" | "thumbnail";
+  kind?: ContentKind;
+  progressBase: number;
+  progressSpan: number;
+}): Promise<AdminLearningUploadedObject> {
+  const parts = getUploadParts(file);
+  const upload = await createAdminLearningUpload({
+    purpose,
+    kind,
+    fileName: parts.name,
+    contentType: parts.contentType,
+    sizeBytes: parts.sizeBytes
+  });
+
+  await putDirectLearningUpload(upload.uploadUrl, parts.blob, upload.contentType, (percent) => {
+    lessonUploadProgress.value = Math.min(100, Math.round(progressBase + (percent / 100) * progressSpan));
+  });
+
+  return {
+    objectKey: upload.objectKey,
+    contentType: upload.contentType,
+    sizeBytes: upload.sizeBytes
+  };
+}
+
 function buildLessonForm() {
   const form = new FormData();
   form.set("categoryId", selectedLessonModule.value?.id ?? "");
@@ -918,6 +998,54 @@ function buildLessonForm() {
   }
 
   return form;
+}
+
+function buildLessonDirectPayload(mediaObject?: AdminLearningUploadedObject | null, thumbnailObject?: AdminLearningUploadedObject | null) {
+  return {
+    categoryId: selectedLessonModule.value?.id ?? "",
+    kind: lessonKind.value,
+    title: trimmedLessonTitle.value,
+    summary: lessonDescription.value.trim(),
+    body: lessonContent.value.trim(),
+    cardLayout: selectedModuleLessonLayout.value,
+    isPublished: true,
+    ...(mediaObject !== undefined ? { mediaObject } : {}),
+    ...(thumbnailObject !== undefined ? { thumbnailObject } : {}),
+    removeThumbnail: shouldRemoveLessonThumbnail.value
+  };
+}
+
+async function uploadLessonFilesDirect() {
+  const hasMedia = Boolean(lessonFile.value);
+  const hasThumbnail = Boolean(lessonThumbnailFile.value);
+  const totalParts = Number(hasMedia) + Number(hasThumbnail);
+  let completedParts = 0;
+  let mediaObject: AdminLearningUploadedObject | null = null;
+  let thumbnailObject: AdminLearningUploadedObject | null = null;
+
+  lessonUploadProgress.value = 0;
+
+  if (lessonFile.value) {
+    mediaObject = await uploadLessonFileDirect({
+      file: lessonFile.value,
+      purpose: "media",
+      kind: lessonKind.value,
+      progressBase: (completedParts / totalParts) * 100,
+      progressSpan: 100 / totalParts
+    });
+    completedParts += 1;
+  }
+
+  if (lessonThumbnailFile.value) {
+    thumbnailObject = await uploadLessonFileDirect({
+      file: lessonThumbnailFile.value,
+      purpose: "thumbnail",
+      progressBase: (completedParts / totalParts) * 100,
+      progressSpan: 100 / totalParts
+    });
+  }
+
+  return { mediaObject, thumbnailObject };
 }
 
 async function saveModule() {
@@ -1081,9 +1209,31 @@ async function saveLesson() {
   }
 
   isSaving.value = true;
+  lessonUploadProgress.value = null;
   clearLessonError();
 
   try {
+    if (lessonFile.value || lessonThumbnailFile.value) {
+      try {
+        const { mediaObject, thumbnailObject } = await uploadLessonFilesDirect();
+        const payload = buildLessonDirectPayload(mediaObject, thumbnailObject);
+
+        if (selectedLessonItem.value?.isPersisted) {
+          const response = await updateAdminLearningMaterialDirect(selectedLessonItem.value.id, payload);
+          replaceMaterialInModule(response.material);
+          closeLessonModal();
+          return;
+        }
+
+        const response = await createAdminLearningMaterialDirect(payload);
+        addMaterialToModule(response.material);
+        closeLessonModal();
+        return;
+      } catch {
+        lessonUploadProgress.value = null;
+      }
+    }
+
     if (selectedLessonItem.value?.isPersisted) {
       const response = await updateAdminLearningMaterial(selectedLessonItem.value.id, buildLessonForm());
       replaceMaterialInModule(response.material);
@@ -1098,6 +1248,7 @@ async function saveLesson() {
     showLessonError("Не удалось сохранить урок. Проверьте файл и настройки S3.");
   } finally {
     isSaving.value = false;
+    lessonUploadProgress.value = null;
   }
 }
 

@@ -48,7 +48,26 @@ describe("admin S3 storage target routing", () => {
     expect(adminRoutes).toContain('target: z.enum(["primary", "reserve"]).optional()');
     expect(adminRoutes).toContain('c.req.query("target")');
     expect(adminRoutes).toContain("listObjects({ prefix, cursor, limit: 50, target })");
-    expect(adminRoutes).toContain('getObjectReadUrl(body.data.key, body.data.target ?? "primary")');
+    expect(adminRoutes).toContain('getObjectReadUrl(body.data.key, body.data.target ?? "primary", { verifyReadable: true })');
     expect(adminRoutes).toContain('deleteObject(body.data.key, body.data.target ?? "primary")');
+  });
+});
+
+describe("direct learning S3 uploads", () => {
+  it("creates signed upload URLs and saves uploaded objects by key", () => {
+    expect(s3Storage).toContain("createObjectUploadUrl");
+    expect(s3Storage).toContain("PutObjectCommand");
+    expect(s3Storage).toContain("getObjectMetadata");
+    expect(adminRoutes).toContain('post("/learning/materials/uploads"');
+    expect(adminRoutes).toContain('post("/learning/materials/direct"');
+    expect(adminRoutes).toContain('post("/learning/materials/:id/direct"');
+    expect(adminRoutes).toContain("verifyDirectUploadedObject");
+    expect(adminRoutes).toContain("mirrorDirectUploadToReserve");
+  });
+
+  it("keeps learning read URLs fast by skipping S3 HEAD checks by default", () => {
+    expect(s3Storage).toContain("options: { verifyReadable?: boolean } = {}");
+    expect(s3Storage).toContain("const verifyReadable = options.verifyReadable ?? false");
+    expect(s3Storage).toContain("if (verifyReadable) {");
   });
 });

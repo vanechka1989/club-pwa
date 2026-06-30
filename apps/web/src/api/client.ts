@@ -5,7 +5,10 @@ import type {
   AdminMailingPreviewResponse,
   AdminMailingsResponse,
   AdminLearningCategoryMutationResponse,
+  AdminLearningDirectUploadRequest,
+  AdminLearningDirectUploadResponse,
   AdminLearningMaterialMutationResponse,
+  AdminLearningUploadedObject,
   AdminLearningResponse,
   AdminPaymentProviderResponse,
   AdminListResponse,
@@ -556,8 +559,54 @@ export function createAdminLearningMaterial(payload: FormData) {
   });
 }
 
+export function createAdminLearningUpload(payload: AdminLearningDirectUploadRequest) {
+  return api<AdminLearningDirectUploadResponse>("/admin/learning/materials/uploads", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function createAdminLearningMaterialDirect(payload: {
+  categoryId: string;
+  kind: "text" | "photo" | "video" | "audio";
+  title: string;
+  summary?: string;
+  body?: string;
+  cardLayout: "vertical" | "horizontal";
+  isPublished: boolean;
+  mediaObject?: AdminLearningUploadedObject | null;
+  thumbnailObject?: AdminLearningUploadedObject | null;
+  removeThumbnail?: boolean;
+}) {
+  return api<AdminLearningMaterialMutationResponse>("/admin/learning/materials/direct", {
+    method: "POST",
+    body: payload
+  });
+}
+
 export function updateAdminLearningMaterial(id: string, payload: FormData) {
   return api<AdminLearningMaterialMutationResponse>(`/admin/learning/materials/${id}`, {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function updateAdminLearningMaterialDirect(
+  id: string,
+  payload: {
+    categoryId: string;
+    kind: "text" | "photo" | "video" | "audio";
+    title: string;
+    summary?: string;
+    body?: string;
+    cardLayout: "vertical" | "horizontal";
+    isPublished: boolean;
+    mediaObject?: AdminLearningUploadedObject | null;
+    thumbnailObject?: AdminLearningUploadedObject | null;
+    removeThumbnail?: boolean;
+  }
+) {
+  return api<AdminLearningMaterialMutationResponse>(`/admin/learning/materials/${id}/direct`, {
     method: "POST",
     body: payload
   });

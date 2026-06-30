@@ -614,6 +614,34 @@ export const adminLearningMaterialMutationResponseSchema = z.object({
 });
 export type AdminLearningMaterialMutationResponse = z.infer<typeof adminLearningMaterialMutationResponseSchema>;
 
+export const adminLearningDirectUploadPurposeSchema = z.enum(["media", "thumbnail"]);
+export type AdminLearningDirectUploadPurpose = z.infer<typeof adminLearningDirectUploadPurposeSchema>;
+
+export const adminLearningDirectUploadRequestSchema = z.object({
+  purpose: adminLearningDirectUploadPurposeSchema,
+  kind: contentKindSchema.optional(),
+  fileName: z.string().trim().min(1).max(160),
+  contentType: z.string().trim().min(1).max(160),
+  sizeBytes: z.number().int().positive()
+});
+export type AdminLearningDirectUploadRequest = z.infer<typeof adminLearningDirectUploadRequestSchema>;
+
+export const adminLearningDirectUploadResponseSchema = z.object({
+  uploadUrl: z.string().url(),
+  objectKey: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().positive(),
+  expiresAt: z.string().datetime()
+});
+export type AdminLearningDirectUploadResponse = z.infer<typeof adminLearningDirectUploadResponseSchema>;
+
+export const adminLearningUploadedObjectSchema = z.object({
+  objectKey: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().positive()
+});
+export type AdminLearningUploadedObject = z.infer<typeof adminLearningUploadedObjectSchema>;
+
 export const adminLearningCategoryMutationResponseSchema = z.object({
   ok: z.boolean(),
   category: learningCategorySchema
