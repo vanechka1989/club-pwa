@@ -3586,12 +3586,24 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .admin-storage-status {
-  display: grid;
-  gap: 0.28rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   border-radius: 13px;
   background: color-mix(in srgb, var(--panel) 72%, transparent);
   padding: 0.68rem;
+}
+
+.admin-storage-status > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.28rem;
+}
+
+.admin-storage-status .secondary-button {
+  flex: 0 0 auto;
 }
 
 .admin-storage-status span {
@@ -3687,6 +3699,48 @@ body.club-keyboard-open .admin-modal-backdrop {
   gap: 0.45rem;
 }
 
+.admin-storage-folder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.admin-storage-folder-card {
+  display: grid;
+  gap: 0.16rem;
+  min-height: 4.4rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--text);
+  padding: 0.62rem;
+  text-align: left;
+}
+
+.admin-storage-folder-card.active {
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
+  background: color-mix(in srgb, var(--accent) 13%, var(--panel));
+}
+
+.admin-storage-folder-card span,
+.admin-storage-folder-card small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-storage-folder-card strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 880;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-storage-object-list {
   display: grid;
   gap: 0.42rem;
@@ -3701,6 +3755,11 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .admin-storage-object-actions {
   flex: 0 0 auto;
+}
+
+.admin-storage-settings-form {
+  border-top: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  padding-top: 0.75rem;
 }
 
 .danger-button {
@@ -7425,6 +7484,14 @@ button.chat-message-author:active {
   }
 
   .admin-storage-browser-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-storage-status {
+    display: grid;
+  }
+
+  .admin-storage-folder-grid {
     grid-template-columns: 1fr;
   }
 

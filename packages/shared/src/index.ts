@@ -690,11 +690,25 @@ export const s3StorageSettingsMutationResponseSchema = z.object({
 });
 export type S3StorageSettingsMutationResponse = z.infer<typeof s3StorageSettingsMutationResponseSchema>;
 
+export const s3StorageObjectCategorySchema = z.enum(["learning", "support", "mailings", "notifications", "other"]);
+
+export const s3StorageObjectUploaderSchema = z.object({
+  telegramId: z.string(),
+  firstName: z.string().nullable(),
+  username: z.string().nullable(),
+  photoUrl: z.string().url().nullable()
+});
+
 export const s3StorageObjectSchema = z.object({
   key: z.string(),
   sizeBytes: z.number().int().nonnegative(),
   lastModified: z.string().datetime().nullable(),
-  etag: z.string().nullable()
+  etag: z.string().nullable(),
+  category: s3StorageObjectCategorySchema,
+  categoryLabel: z.string(),
+  fileKind: z.string(),
+  entityTitle: z.string().nullable(),
+  uploadedBy: s3StorageObjectUploaderSchema.nullable()
 });
 export type S3StorageObject = z.infer<typeof s3StorageObjectSchema>;
 

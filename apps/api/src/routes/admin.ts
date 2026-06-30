@@ -21,13 +21,16 @@ import { recordAdminAction } from "../admin/actionLog";
 import { db } from "../db/client";
 import {
   adminActionLogs,
+  adminMailings,
   adminUsers,
+  appNotifications,
   clubSettings,
   clubChatMessages,
   contentCategories,
   contentItems,
   lessonComments,
   subscriptions,
+  supportTicketAttachments,
   userContentProgress,
   userMutes,
   users
@@ -38,6 +41,7 @@ import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { deleteObject, getObjectReadUrl, listObjects, testS3Connection, uploadObject } from "../storage/s3";
+import { classifyS3ObjectKey } from "../storage/s3Object";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import {
   buildS3SettingsResponse,
@@ -404,6 +408,95 @@ function serializeAdminActionActor(telegramId: string, profile?: typeof users.$i
   };
 }
 
+function serializeStorageUploader(profile?: typeof users.$inferSelect | null): AdminActionActor | null {
+  if (!profile) {
+    return null;
+  }
+
+  return serializeAdminActionActor(profile.telegramId, profile);
+}
+
+async function buildS3ObjectMetadata(keys: string[]) {
+  const uniqueKeys = Array.from(new Set(keys.filter(Boolean)));
+  const metadataByKey = new Map<string, { entityTitle: string | null; uploadedBy: AdminActionActor | null }>();
+  if (!uniqueKeys.length) {
+    return metadataByKey;
+  }
+
+  const [materials, supportAttachments, notifications, mailings] = await Promise.all([
+    db.query.contentItems.findMany({
+      where: or(inArray(contentItems.mediaObjectKey, uniqueKeys), inArray(contentItems.thumbnailObjectKey, uniqueKeys))
+    }),
+    db.query.supportTicketAttachments.findMany({
+      where: inArray(supportTicketAttachments.objectKey, uniqueKeys),
+      with: {
+        ticket: true,
+        message: {
+          with: {
+            author: true
+          }
+        }
+      }
+    }),
+    db.query.appNotifications.findMany({
+      where: inArray(appNotifications.attachmentObjectKey, uniqueKeys),
+      with: {
+        user: true
+      }
+    }),
+    db.query.adminMailings.findMany({
+      where: inArray(adminMailings.attachmentObjectKey, uniqueKeys),
+      with: {
+        createdBy: true
+      }
+    })
+  ]);
+
+  for (const material of materials) {
+    if (material.mediaObjectKey) {
+      metadataByKey.set(material.mediaObjectKey, {
+        entityTitle: material.title,
+        uploadedBy: null
+      });
+    }
+    if (material.thumbnailObjectKey) {
+      metadataByKey.set(material.thumbnailObjectKey, {
+        entityTitle: material.title,
+        uploadedBy: null
+      });
+    }
+  }
+
+  for (const attachment of supportAttachments) {
+    metadataByKey.set(attachment.objectKey, {
+      entityTitle: attachment.ticket?.customTopic ?? attachment.ticket?.topic ?? attachment.fileName,
+      uploadedBy: serializeStorageUploader(attachment.message?.author)
+    });
+  }
+
+  for (const notification of notifications) {
+    if (!notification.attachmentObjectKey) {
+      continue;
+    }
+    metadataByKey.set(notification.attachmentObjectKey, {
+      entityTitle: notification.title,
+      uploadedBy: serializeStorageUploader(notification.user)
+    });
+  }
+
+  for (const mailing of mailings) {
+    if (!mailing.attachmentObjectKey) {
+      continue;
+    }
+    metadataByKey.set(mailing.attachmentObjectKey, {
+      entityTitle: mailing.title,
+      uploadedBy: serializeStorageUploader(mailing.createdBy)
+    });
+  }
+
+  return metadataByKey;
+}
+
 function serializeAdminActionLog(
   log: typeof adminActionLogs.$inferSelect & { actor?: typeof users.$inferSelect | null; targetUser?: typeof users.$inferSelect | null }
 ) {
@@ -751,7 +844,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const cursor = c.req.query("cursor") ?? null;
 
     try {
-      return c.json(await listObjects({ prefix, cursor, limit: 50 }));
+      const response = await listObjects({ prefix, cursor, limit: 50 });
+      const metadataByKey = await buildS3ObjectMetadata(response.objects.map((object) => object.key));
+      return c.json({
+        ...response,
+        objects: response.objects.map((object) => ({
+          ...object,
+          ...classifyS3ObjectKey(object.key),
+          entityTitle: metadataByKey.get(object.key)?.entityTitle ?? null,
+          uploadedBy: metadataByKey.get(object.key)?.uploadedBy ?? null
+        }))
+      });
     } catch {
       return c.json({ error: "Unable to list S3 objects" }, 400);
     }

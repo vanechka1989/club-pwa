@@ -279,10 +279,12 @@ const message = ref<string | null>(null);
 const error = ref<string | null>(null);
 const storageSettings = ref<S3StorageSettings | null>(null);
 const storageObjects = ref<S3StorageObject[]>([]);
+const storageOverviewObjects = ref<S3StorageObject[]>([]);
 const storageObjectsLoading = ref(false);
 const storageObjectsCursor = ref<string | null>(null);
 const storagePrefix = ref("");
 const storageSearch = ref("");
+const showStorageSettings = ref(false);
 const storageForm = ref({
   endpoint: "",
   region: "us-east-1",
@@ -449,8 +451,24 @@ const filteredStorageObjects = computed(() => {
     return storageObjects.value;
   }
 
-  return storageObjects.value.filter((item) => item.key.toLowerCase().includes(query));
+  return storageObjects.value.filter((item) =>
+    [item.key, item.entityTitle ?? "", item.uploadedBy?.firstName ?? "", item.uploadedBy?.username ?? ""].some((value) =>
+      value.toLowerCase().includes(query)
+    )
+  );
 });
+const storageOverview = computed(() =>
+  storagePrefixOptions.map((option) => {
+    const objects = option.value
+      ? storageOverviewObjects.value.filter((item) => item.key.startsWith(option.value))
+      : storageOverviewObjects.value;
+    return {
+      ...option,
+      count: objects.length,
+      sizeBytes: objects.reduce((sum, item) => sum + item.sizeBytes, 0)
+    };
+  })
+);
 const mailingBlockedUsers = computed(() => users.value.filter((user) => user.telegramBotStatus === "blocked").length);
 const mailingCanSubmit = computed(() => mailingTitle.value.trim().length > 0 && mailingBody.value.trim().length > 0);
 const mailingAttachmentLabel = computed(() => mailingAttachment.value?.name ?? "Добавить вложение");
@@ -1281,9 +1299,19 @@ function storageObjectFileName(key: string) {
   return key.split("/").filter(Boolean).at(-1) ?? key;
 }
 
+function openStorageSettings() {
+  const confirmed = window.confirm(
+    "Изменение настроек S3 может привести к некорректной работе клуба и недоступности файлов. Точно открыть настройки?"
+  );
+  if (confirmed) {
+    showStorageSettings.value = true;
+  }
+}
+
 async function loadStorageObjects({ append = false } = {}) {
   if (!isOwner.value || !storageSettings.value?.configured) {
     storageObjects.value = [];
+    storageOverviewObjects.value = [];
     storageObjectsCursor.value = null;
     return;
   }
@@ -1292,6 +1320,9 @@ async function loadStorageObjects({ append = false } = {}) {
   try {
     const response = await getAdminS3Objects(storagePrefix.value, append ? storageObjectsCursor.value : null);
     storageObjects.value = append ? [...storageObjects.value, ...response.objects] : response.objects;
+    if (!storagePrefix.value && !append) {
+      storageOverviewObjects.value = response.objects;
+    }
     storageObjectsCursor.value = response.nextCursor;
   } catch {
     setError("Не удалось загрузить список файлов S3.");
@@ -1319,6 +1350,7 @@ async function handleDeleteStorageObject(item: S3StorageObject) {
   try {
     await deleteAdminS3Object(item.key);
     storageObjects.value = storageObjects.value.filter((object) => object.key !== item.key);
+    storageOverviewObjects.value = storageOverviewObjects.value.filter((object) => object.key !== item.key);
     setStatus("Файл удалён из S3.");
   } catch {
     setError("Не удалось удалить файл из S3.");
@@ -1331,7 +1363,9 @@ async function loadStorageSettings() {
   if (!isOwner.value) {
     storageSettings.value = null;
     storageObjects.value = [];
+    storageOverviewObjects.value = [];
     storageObjectsCursor.value = null;
+    showStorageSettings.value = false;
     fillStorageForm(null);
     return;
   }
@@ -1384,6 +1418,7 @@ async function handleSaveStorageSettings() {
     const response = await updateAdminS3StorageSettings(payload);
     storageSettings.value = response.settings;
     fillStorageForm(response.settings);
+    showStorageSettings.value = false;
     await loadStorageObjects();
     showSuccessAlert("S3-хранилище сохранено.");
   } catch {
@@ -2981,25 +3016,47 @@ onUnmounted(() => {
 
       <article class="admin-crm-block admin-storage-block">
         <div class="admin-storage-status">
-          <span :class="storageSettings?.configured ? 'admin-storage-status-ok' : 'admin-storage-status-error'">
-            {{ storageSettings?.configured ? "S3 подключено" : "S3 не подключено" }}
-          </span>
-          <small>
-            Источник: {{ storageSourceLabel(storageSettings?.source ?? "none") }}
-            <template v-if="storageSettings?.updatedAt">
-              · изменено {{ new Date(storageSettings.updatedAt).toLocaleString("ru-RU") }}
-            </template>
-          </small>
+          <div>
+            <span :class="storageSettings?.configured ? 'admin-storage-status-ok' : 'admin-storage-status-error'">
+              {{ storageSettings?.configured ? "S3 подключено" : "S3 не подключено" }}
+            </span>
+            <small>
+              Источник: {{ storageSourceLabel(storageSettings?.source ?? "none") }}
+              <template v-if="storageSettings?.updatedAt">
+                · изменено {{ new Date(storageSettings.updatedAt).toLocaleString("ru-RU") }}
+              </template>
+            </small>
+          </div>
+          <button class="secondary-button" type="button" @click="openStorageSettings">Настройки S3</button>
         </div>
 
         <section v-if="storageSettings?.configured" class="admin-storage-browser" aria-label="Файлы S3">
           <div class="admin-storage-browser-head">
             <div>
-              <strong>Файлы S3</strong>
-              <small>{{ storageObjects.length }} загружено в списке</small>
+              <strong>Обзор хранилища</strong>
+              <small>
+                {{ storageObjects.length }} файлов в списке
+                <template v-if="storageObjectsCursor"> · есть ещё файлы</template>
+              </small>
             </div>
             <button class="secondary-button" type="button" :disabled="storageObjectsLoading" @click="loadStorageObjects()">
               {{ storageObjectsLoading ? "Загружаю..." : "Обновить" }}
+            </button>
+          </div>
+
+          <div class="admin-storage-folder-grid">
+            <button
+              v-for="folder in storageOverview"
+              :key="folder.value"
+              class="admin-storage-folder-card"
+              :class="{ active: storagePrefix === folder.value }"
+              type="button"
+              :disabled="storageObjectsLoading"
+              @click="storagePrefix = folder.value; loadStorageObjects()"
+            >
+              <span>{{ folder.label }}</span>
+              <strong>{{ folder.count }} файлов</strong>
+              <small>{{ formatStorageSize(folder.sizeBytes) }}</small>
             </button>
           </div>
 
@@ -3007,13 +3064,19 @@ onUnmounted(() => {
             <select v-model="storagePrefix" class="text-input" :disabled="storageObjectsLoading" @change="loadStorageObjects()">
               <option v-for="option in storagePrefixOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
-            <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени файла" />
+            <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени, уроку или автору" />
           </div>
 
           <div class="admin-storage-object-list">
             <article v-for="item in filteredStorageObjects" :key="item.key" class="admin-storage-object-card">
               <span class="admin-storage-object-copy">
                 <strong>{{ storageObjectFileName(item.key) }}</strong>
+                <small>{{ item.categoryLabel }} · {{ item.fileKind }}</small>
+                <small v-if="item.entityTitle">Связано: {{ item.entityTitle }}</small>
+                <small v-if="item.uploadedBy">
+                  Загрузил:
+                  {{ item.uploadedBy.firstName || (item.uploadedBy.username ? `@${item.uploadedBy.username}` : `ID ${item.uploadedBy.telegramId}`) }}
+                </small>
                 <small>{{ item.key }}</small>
                 <em>
                   {{ formatStorageSize(item.sizeBytes) }}
@@ -3039,7 +3102,17 @@ onUnmounted(() => {
           </button>
         </section>
 
-        <form class="admin-form" @submit.prevent="handleSaveStorageSettings">
+        <p v-else class="admin-empty">S3 не подключено. Откройте настройки S3 и заполните параметры бакета.</p>
+
+        <form v-if="showStorageSettings" class="admin-form admin-storage-settings-form" @submit.prevent="handleSaveStorageSettings">
+          <div class="admin-storage-browser-head">
+            <div>
+              <strong>Настройки S3</strong>
+              <small>Меняйте только если переносите или подключаете хранилище.</small>
+            </div>
+            <button class="secondary-button" type="button" @click="showStorageSettings = false">Закрыть</button>
+          </div>
+
           <label class="admin-field">
             <span>Endpoint URL</span>
             <input v-model.trim="storageForm.endpoint" class="text-input" placeholder="https://s3.ru1.storage.beget.cloud" />
