@@ -129,6 +129,13 @@ describe("support section", () => {
     expect(styles).toMatch(/\.support-danger-button\s*\{[^}]*border:[^;]*var\(--danger\)[^;]*;[^}]*color:[^;]*var\(--danger\)[^;]*;/s);
   });
 
+  it("uses soft success and cherry closed tones for support statuses", () => {
+    expect(styles).toContain("--success:");
+    expect(styles).toContain("--danger-strong:");
+    expect(styles).toMatch(/\.support-status-answered\s*\{[^}]*var\(--success\)[^}]*var\(--success-text\)[^}]*\}/s);
+    expect(styles).toMatch(/\.support-status-closed\s*\{[^}]*var\(--danger-strong\)[^}]*var\(--danger-text\)[^}]*\}/s);
+  });
+
   it("shows an unread support badge in navigation", () => {
     expect(appSource).toContain("supportUnreadCount");
     expect(appSource).toContain("bottom-nav-badge");

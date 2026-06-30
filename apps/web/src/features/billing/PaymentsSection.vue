@@ -487,21 +487,14 @@ watch(showProductModal, async (isOpen) => {
       </button>
     </div>
 
-    <p v-if="error" class="text-sm text-red-500">{{ error }}</p>
+    <p v-if="error" class="text-sm text-[var(--danger-text)]">{{ error }}</p>
     <p v-else-if="notice" class="text-sm text-[var(--muted-strong)]">{{ notice }}</p>
 
     <div v-if="isAdmin" class="surface-card space-y-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="font-semibold text-[var(--text)]">Платежная система</p>
-          <div
-            class="mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold"
-            :class="
-              provider?.isEnabled
-                ? 'border-emerald-400/70 bg-emerald-500/10 text-emerald-300'
-                : 'border-red-400/70 bg-red-500/10 text-red-300'
-            "
-          >
+          <div class="payment-provider-status" :class="provider?.isEnabled ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled'">
             {{ provider?.isEnabled ? "Prodamus подключен" : "Prodamus не подключен" }}
           </div>
         </div>
