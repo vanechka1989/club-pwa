@@ -6,6 +6,7 @@ import {
   adminPermissionSchema,
   allAdminPermissions,
   newAdminDefaultPermissions,
+  type AdminActionActor,
   type AdminLearningMaterial,
   type AdminPermission,
   type AdminUserDetailResponse,
@@ -16,8 +17,10 @@ import {
 } from "@club/shared";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
+import { recordAdminAction } from "../admin/actionLog";
 import { db } from "../db/client";
 import {
+  adminActionLogs,
   adminUsers,
   clubSettings,
   clubChatMessages,
@@ -388,6 +391,31 @@ function serializeAdmin(admin: typeof adminUsers.$inferSelect, profile: typeof u
   };
 }
 
+function serializeAdminActionActor(telegramId: string, profile?: typeof users.$inferSelect): AdminActionActor {
+  return {
+    telegramId,
+    firstName: profile?.firstName ?? null,
+    username: profile?.username ?? null,
+    photoUrl: profile?.photoUrl ?? null
+  };
+}
+
+function serializeAdminActionLog(
+  log: typeof adminActionLogs.$inferSelect & { actor?: typeof users.$inferSelect | null }
+) {
+  return {
+    id: log.id,
+    action: log.action,
+    entityType: log.entityType,
+    entityId: log.entityId,
+    targetTelegramId: log.targetTelegramId,
+    summary: log.summary,
+    metadata: log.metadata,
+    actor: serializeAdminActionActor(log.actorTelegramId, log.actor ?? undefined),
+    createdAt: log.createdAt.toISOString()
+  };
+}
+
 async function getStoredS3Setting() {
   const setting = await db.query.clubSettings.findFirst({
     where: eq(clubSettings.key, storageSettingKey)
@@ -563,6 +591,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   })
   .use("/admins", requireAdminPermission("admins"))
   .use("/admins/*", requireAdminPermission("admins"))
+  .use("/action-logs", requireAdminPermission("admins"))
   .use("/stats", requireAnyAdminPermission(["statistics", "users"]))
   .use("/stats/*", requireAnyAdminPermission(["statistics", "users"]))
   .use("/access", requireAdminPermission("users"))
@@ -589,6 +618,35 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ownerTelegramId,
       admins: admins.map((admin) => serializeAdmin(admin, profilesByTelegramId.get(admin.telegramId)))
+    });
+  })
+  .get("/action-logs", async (c) => {
+    const actorTelegramId = c.req.query("actorTelegramId")?.trim();
+    const ownerTelegramId = await getOwnerTelegramId();
+    const admins = await db.query.adminUsers.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)]
+    });
+    const logs = await db.query.adminActionLogs.findMany({
+      where: actorTelegramId ? eq(adminActionLogs.actorTelegramId, actorTelegramId) : undefined,
+      orderBy: [desc(adminActionLogs.createdAt)],
+      limit: 100,
+      with: {
+        actor: true
+      }
+    });
+    const adminTelegramIds = Array.from(
+      new Set([ownerTelegramId, ...admins.map((admin) => admin.telegramId), ...logs.map((log) => log.actorTelegramId)])
+    );
+    const profiles = adminTelegramIds.length
+      ? await db.query.users.findMany({
+          where: inArray(users.telegramId, adminTelegramIds)
+        })
+      : [];
+    const profilesByTelegramId = new Map(profiles.map((user) => [user.telegramId, user]));
+
+    return c.json({
+      admins: adminTelegramIds.map((telegramId) => serializeAdminActionActor(telegramId, profilesByTelegramId.get(telegramId))),
+      logs: logs.map(serializeAdminActionLog)
     });
   })
   .get("/storage/s3", async (c) => {
@@ -654,6 +712,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         }
       })
       .returning();
+
+    await recordAdminAction(c, {
+      action: "storage.s3.updated",
+      entityType: "storage",
+      entityId: storageSettingKey,
+      summary: "Обновил настройки S3",
+      metadata: {
+        endpoint: nextConfig.endpoint,
+        region: nextConfig.region,
+        bucket: nextConfig.bucket,
+        publicBaseUrl: nextConfig.publicBaseUrl,
+        signedUrlTtlSeconds: nextConfig.signedUrlTtlSeconds,
+        accessKeyId: nextConfig.accessKeyId,
+        secretAccessKey: nextConfig.secretAccessKey
+      }
+    });
 
     return c.json({
       ok: true,
@@ -744,6 +818,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       source: "client_access",
       sourceId: user.id
     }).catch(() => null);
+
+    await recordAdminAction(c, {
+      action: "client.access.updated",
+      entityType: "user",
+      entityId: user.id,
+      targetUserId: user.id,
+      targetTelegramId: user.telegramId,
+      summary: body.data.status === "active" ? "Открыл доступ клиенту" : "Закрыл доступ клиенту",
+      metadata: {
+        status: body.data.status,
+        expiresAt: expiresAt.toISOString()
+      }
+    });
 
     return c.json({
       ok: true,
@@ -876,6 +963,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to create category" }, 500);
     }
 
+    await recordAdminAction(c, {
+      action: "learning.category.created",
+      entityType: "learning_category",
+      entityId: category.id,
+      summary: `Создал модуль "${category.title}"`,
+      metadata: {
+        title: category.title,
+        isPublished: category.isPublished
+      }
+    });
+
     return c.json({
       ok: true,
       category: {
@@ -914,6 +1012,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .from(contentItems)
       .where(and(eq(contentItems.categoryId, category.id), activeContentWhere()));
 
+    await recordAdminAction(c, {
+      action: "learning.category.updated",
+      entityType: "learning_category",
+      entityId: category.id,
+      summary: `Обновил модуль "${category.title}"`,
+      metadata: {
+        title: category.title,
+        isPublished: category.isPublished
+      }
+    });
+
     return c.json({
       ok: true,
       category: {
@@ -951,6 +1060,16 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .from(contentItems)
       .where(and(eq(contentItems.categoryId, category.id), activeContentWhere()));
 
+    await recordAdminAction(c, {
+      action: "learning.category.status_updated",
+      entityType: "learning_category",
+      entityId: category.id,
+      summary: body.data.isPublished ? `Открыл модуль "${category.title}"` : `Скрыл модуль "${category.title}"`,
+      metadata: {
+        isPublished: body.data.isPublished
+      }
+    });
+
     return c.json({
       ok: true,
       category: {
@@ -986,6 +1105,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     await db.delete(contentCategories).where(eq(contentCategories.id, category.id));
+
+    await recordAdminAction(c, {
+      action: "learning.category.deleted",
+      entityType: "learning_category",
+      entityId: category.id,
+      summary: `Удалил модуль "${category.title}"`,
+      metadata: {
+        title: category.title,
+        itemsCount: category.items.length
+      }
+    });
 
     return c.json({ ok: true });
   })
@@ -1076,6 +1206,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     if (!material) {
       return c.json({ error: "Unable to create material" }, 500);
     }
+
+    await recordAdminAction(c, {
+      action: "learning.material.created",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: `Создал урок "${material.title}"`,
+      metadata: {
+        title: material.title,
+        kind: material.kind,
+        categoryId: material.categoryId,
+        isPublished: material.isPublished
+      }
+    });
 
     return c.json({
       ok: true,
@@ -1202,6 +1345,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to update material" }, 500);
     }
 
+    await recordAdminAction(c, {
+      action: "learning.material.updated",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: `Обновил урок "${material.title}"`,
+      metadata: {
+        title: material.title,
+        kind: material.kind,
+        categoryId: material.categoryId,
+        isPublished: material.isPublished
+      }
+    });
+
     return c.json({
       ok: true,
       material: await serializeAdminMaterial(material)
@@ -1236,6 +1392,16 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to update material" }, 500);
     }
 
+    await recordAdminAction(c, {
+      action: "learning.material.status_updated",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: body.data.isPublished ? `Открыл урок "${material.title}"` : `Скрыл урок "${material.title}"`,
+      metadata: {
+        isPublished: body.data.isPublished
+      }
+    });
+
     return c.json({
       ok: true,
       material: await serializeAdminMaterial(material)
@@ -1263,6 +1429,16 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to restore material" }, 500);
     }
 
+    await recordAdminAction(c, {
+      action: "learning.material.restored",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: `Восстановил урок "${material.title}"`,
+      metadata: {
+        title: material.title
+      }
+    });
+
     return c.json({
       ok: true,
       material: await serializeAdminMaterial(material)
@@ -1285,6 +1461,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         updatedAt: new Date()
       })
       .where(eq(contentItems.id, material.id));
+
+    await recordAdminAction(c, {
+      action: "learning.material.deleted",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: `Удалил урок "${material.title}"`,
+      metadata: {
+        title: material.title,
+        archiveTtlDays: 7
+      }
+    });
 
     return c.json({ ok: true });
   })
@@ -1318,6 +1505,18 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       }
 
       await db.update(lessonComments).set(values).where(eq(lessonComments.id, id));
+      await recordAdminAction(c, {
+        action: "moderation.lesson_comment.updated",
+        entityType: "lesson_comment",
+        entityId: id,
+        targetUserId: comment.user.id,
+        targetTelegramId: comment.user.telegramId,
+        summary: `Изменил статус комментария урока на ${body.data.status}`,
+        metadata: {
+          status: body.data.status,
+          reason: body.data.reason ?? null
+        }
+      });
       return c.json({ ok: true });
     }
 
@@ -1337,6 +1536,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       const role = await getUserRole(c.get("telegramUser").id);
       if (body.data.status === "deleted" && shouldHardDeleteMessages(role)) {
         await db.delete(clubChatMessages).where(eq(clubChatMessages.id, id));
+        await recordAdminAction(c, {
+          action: "moderation.chat_message.deleted",
+          entityType: "chat_message",
+          entityId: id,
+          targetUserId: message.user.id,
+          targetTelegramId: message.user.telegramId,
+          summary: "Удалил сообщение в общении",
+          metadata: {
+            status: body.data.status,
+            reason: body.data.reason ?? null,
+            hardDelete: true
+          }
+        });
         return c.json({ ok: true });
       }
 
@@ -1350,6 +1562,18 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
               : null
         })
         .where(eq(clubChatMessages.id, id));
+      await recordAdminAction(c, {
+        action: "moderation.chat_message.updated",
+        entityType: "chat_message",
+        entityId: id,
+        targetUserId: message.user.id,
+        targetTelegramId: message.user.telegramId,
+        summary: `Изменил статус сообщения в общении на ${body.data.status}`,
+        metadata: {
+          status: body.data.status,
+          reason: body.data.reason ?? null
+        }
+      });
       return c.json({ ok: true });
     }
 
@@ -1425,6 +1649,20 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to create mute" }, 500);
     }
 
+    await recordAdminAction(c, {
+      action: "client.mute.created",
+      entityType: "mute",
+      entityId: mute.id,
+      targetUserId: user.id,
+      targetTelegramId: user.telegramId,
+      summary: body.data.kind === "permanent" ? "Выдал бессрочное ограничение клиенту" : "Выдал временное ограничение клиенту",
+      metadata: {
+        kind: body.data.kind,
+        reason: body.data.reason ?? null,
+        expiresAt: expiresAt?.toISOString() ?? null
+      }
+    });
+
     return c.json({
       ok: true,
       mute: {
@@ -1461,6 +1699,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       })
       .where(eq(userMutes.id, c.req.param("id")));
 
+    await recordAdminAction(c, {
+      action: "client.mute.revoked",
+      entityType: "mute",
+      entityId: mute.id,
+      targetUserId: mute.user.id,
+      targetTelegramId: mute.user.telegramId,
+      summary: "Снял ограничение с клиента",
+      metadata: {
+        kind: mute.kind,
+        reason: mute.reason
+      }
+    });
+
     return c.json({ ok: true });
   })
   .post("/admins", async (c) => {
@@ -1492,6 +1743,18 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           isActive: true
         }
       });
+
+    await recordAdminAction(c, {
+      action: "admin.created",
+      entityType: "admin",
+      entityId: body.data.telegramId,
+      targetTelegramId: body.data.telegramId,
+      summary: "Добавил администратора",
+      metadata: {
+        telegramId: body.data.telegramId,
+        permissions: [...newAdminDefaultPermissions]
+      }
+    });
 
     return c.json({ ok: true });
   })
@@ -1526,6 +1789,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     await db.update(adminUsers).set(values).where(eq(adminUsers.telegramId, telegramId));
+
+    await recordAdminAction(c, {
+      action: "admin.permissions.updated",
+      entityType: "admin",
+      entityId: telegramId,
+      targetTelegramId: telegramId,
+      summary: "Изменил права администратора",
+      metadata: {
+        roleLabel: "roleLabel" in body.data ? body.data.roleLabel ?? null : undefined,
+        isActive: typeof body.data.isActive === "boolean" ? body.data.isActive : undefined,
+        permissions: body.data.permissions ? normalizeAdminPermissions(body.data.permissions) : undefined
+      }
+    });
 
     return c.json({ ok: true });
   })
@@ -1587,6 +1863,18 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     await db.delete(adminUsers).where(eq(adminUsers.telegramId, body.data.telegramId));
 
+    await recordAdminAction(c, {
+      action: "owner.transferred",
+      entityType: "owner",
+      entityId: body.data.telegramId,
+      targetTelegramId: body.data.telegramId,
+      summary: "Передал владение клубом",
+      metadata: {
+        previousOwnerTelegramId: currentOwnerTelegramId,
+        nextOwnerTelegramId: body.data.telegramId
+      }
+    });
+
     return c.json({ ok: true });
   })
   .delete("/admins/:telegramId", async (c) => {
@@ -1600,6 +1888,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     await db.delete(adminUsers).where(eq(adminUsers.telegramId, telegramId));
+
+    await recordAdminAction(c, {
+      action: "admin.removed",
+      entityType: "admin",
+      entityId: telegramId,
+      targetTelegramId: telegramId,
+      summary: "Удалил администратора",
+      metadata: {
+        telegramId
+      }
+    });
 
     return c.json({ ok: true });
   });

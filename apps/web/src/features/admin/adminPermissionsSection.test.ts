@@ -31,4 +31,12 @@ describe("admin permissions section", () => {
     expect(apiClientSource).toContain("updateAdminUserPermissions");
     expect(apiClientSource).toContain("`/admin/admins/${telegramId}`");
   });
+
+  it("shows admin action journal with filtering by admin", () => {
+    expect(apiClientSource).toContain("getAdminActionLogs");
+    expect(apiClientSource).toContain("actorTelegramId");
+    expect(adminSectionSource).toContain("adminActionActorFilter");
+    expect(adminSectionSource).toContain("Журнал действий");
+    expect(adminSectionSource).toContain("Все администраторы");
+  });
 });

@@ -2,6 +2,8 @@
 import {
   adminPermissionLabels,
   allAdminPermissions,
+  type AdminActionActor,
+  type AdminActionLog,
   type AdminPermission,
   type AdminMailing,
   type AdminMailingPreviewResponse,
@@ -43,6 +45,7 @@ import {
   createUserMute,
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
+  getAdminActionLogs,
   getAdminLearning,
   getAdminMailings,
   getAdminPaymentHistory,
@@ -191,6 +194,9 @@ const adminPermissionOptions = allAdminPermissions.map((permission) => ({
 const activePanel = ref<AdminPanel>("statistics");
 const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
+const adminActionAdmins = ref<AdminActionActor[]>([]);
+const adminActionLogs = ref<AdminActionLog[]>([]);
+const adminActionActorFilter = ref("");
 const users = ref<AdminStatsUser[]>([]);
 const mailings = ref<AdminMailing[]>([]);
 const mailingPreview = ref<AdminMailingPreviewResponse | null>(null);
@@ -348,6 +354,16 @@ const selectedAdminAccessCurrent = computed(() => {
   }
 
   return admins.value.find((admin) => admin.id === selected.id) ?? selected;
+});
+const visibleAdminActionActors = computed(() => {
+  const seen = new Set<string>();
+  return adminActionAdmins.value.filter((admin) => {
+    if (seen.has(admin.telegramId)) {
+      return false;
+    }
+    seen.add(admin.telegramId);
+    return true;
+  });
 });
 const filtersActive = computed(
   () => Boolean(search.value.trim()) || subscriptionFilter.value !== "all" || tariffFilter.value !== "all" || restrictionFilter.value !== "all"
@@ -853,6 +869,20 @@ function adminTitle(admin: AdminUser) {
   return admin.firstName || (admin.username ? `@${admin.username}` : `ID ${admin.telegramId}`);
 }
 
+function adminActionActorTitle(actor: AdminActionActor | null) {
+  if (!actor) {
+    return "Администратор не найден";
+  }
+
+  return actor.firstName || (actor.username ? `@${actor.username}` : `ID ${actor.telegramId}`);
+}
+
+function adminActionMetaText(log: AdminActionLog) {
+  const target = log.targetTelegramId ? `ID ${log.targetTelegramId}` : "";
+  const entity = log.entityId && log.entityId !== log.targetTelegramId ? log.entityId : "";
+  return [target, entity].filter(Boolean).join(" · ");
+}
+
 function adminRoleTitle(admin: AdminUser) {
   return admin.roleLabel || "Админ";
 }
@@ -890,6 +920,12 @@ async function reloadAdmins() {
   const response = await getAdminUsers();
   admins.value = response.admins;
   ownerTelegramId.value = response.ownerTelegramId;
+}
+
+async function loadAdminActionLogs() {
+  const response = await getAdminActionLogs(adminActionActorFilter.value || undefined);
+  adminActionAdmins.value = response.admins;
+  adminActionLogs.value = response.logs;
 }
 
 function adminRoleLabel(role: AdminStatsUser["role"]) {
@@ -1226,13 +1262,15 @@ async function loadAll() {
     const shouldLoadPayments = hasCurrentAdminPermission("payments") || hasCurrentAdminPermission("statistics");
     const shouldLoadCommunity = hasCurrentAdminPermission("community");
     const shouldLoadMailings = hasCurrentAdminPermission("mailings");
-    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse] = await Promise.all([
+    const shouldLoadAdminActions = hasCurrentAdminPermission("admins");
+    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse, actionLogsResponse] = await Promise.all([
       shouldLoadAdmins ? getAdminUsers() : Promise.resolve(null),
       shouldLoadStats ? getAdminStats() : Promise.resolve(null),
       shouldLoadLearning ? getAdminLearning() : Promise.resolve(null),
       shouldLoadPayments ? getAdminPaymentHistory() : Promise.resolve(null),
       shouldLoadCommunity ? getCommunityTopics() : Promise.resolve(null),
-      shouldLoadMailings ? getAdminMailings() : Promise.resolve(null)
+      shouldLoadMailings ? getAdminMailings() : Promise.resolve(null),
+      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null)
     ]);
     if (adminsResponse) {
       ownerTelegramId.value = adminsResponse.ownerTelegramId;
@@ -1249,6 +1287,10 @@ async function loadAll() {
     }
     if (mailingsResponse) {
       mailings.value = mailingsResponse.mailings;
+    }
+    if (actionLogsResponse) {
+      adminActionAdmins.value = actionLogsResponse.admins;
+      adminActionLogs.value = actionLogsResponse.logs;
     }
     if (learningResponse) {
       learningCategories.value = learningResponse.categories;
@@ -1593,6 +1635,7 @@ async function handleAddAdmin(telegramId = resolveAdminSearchTelegramId()) {
     await addAdminUser(telegramId);
     adminSearchQuery.value = "";
     await reloadAdmins();
+    await loadAdminActionLogs();
     setStatus("Админ добавлен.");
   } catch {
     setError("Не удалось добавить админа.");
@@ -1606,6 +1649,7 @@ async function handleUpdateAdminAccess(admin: AdminUser, patch: { roleLabel?: st
   try {
     await updateAdminUserPermissions(admin.telegramId, patch);
     await reloadAdmins();
+    await loadAdminActionLogs();
     await session.load({ silent: true });
     setStatus("Права админа сохранены.");
   } catch {
@@ -1635,6 +1679,7 @@ async function handleRemoveAdmin(telegramId: string) {
     const response = await getAdminUsers();
     admins.value = response.admins;
     ownerTelegramId.value = response.ownerTelegramId;
+    await loadAdminActionLogs();
     if (selectedAdminAccess.value?.telegramId === telegramId) {
       closeAdminAccessModal();
     }
@@ -1658,6 +1703,7 @@ async function handleTransferOwner() {
     const response = await getAdminUsers();
     admins.value = response.admins;
     ownerTelegramId.value = response.ownerTelegramId;
+    await loadAdminActionLogs();
     closeTransferOwnerModal();
     await session.load();
     setStatus("Клуб передан новому владельцу.");
@@ -1711,6 +1757,15 @@ watch(
     void loadMailings().catch(() => null);
   },
   { immediate: true }
+);
+
+watch(
+  () => adminActionActorFilter.value,
+  () => {
+    if (activePanel.value === "admins") {
+      void loadAdminActionLogs().catch(() => null);
+    }
+  }
 );
 
 onUnmounted(() => {
@@ -3100,6 +3155,32 @@ onUnmounted(() => {
         </button>
         <p v-if="!admins.length" class="admin-empty">Администраторов пока нет.</p>
       </div>
+
+      <section class="admin-crm-block admin-action-log-panel">
+        <header class="admin-action-log-head">
+          <div>
+            <h4>Журнал действий</h4>
+            <p>Кто и что менял в админке.</p>
+          </div>
+          <select v-model="adminActionActorFilter" class="text-input admin-action-log-filter">
+            <option value="">Все администраторы</option>
+            <option v-for="admin in visibleAdminActionActors" :key="admin.telegramId" :value="admin.telegramId">
+              {{ adminActionActorTitle(admin) }}
+            </option>
+          </select>
+        </header>
+
+        <div class="admin-action-log-list">
+          <article v-for="log in adminActionLogs" :key="log.id" class="admin-action-log-item">
+            <div>
+              <strong>{{ log.summary }}</strong>
+              <span>{{ adminActionActorTitle(log.actor) }} · {{ formatDateTime(log.createdAt) }}</span>
+              <small v-if="adminActionMetaText(log)">{{ adminActionMetaText(log) }}</small>
+            </div>
+          </article>
+          <p v-if="!adminActionLogs.length" class="admin-empty">Действий пока нет.</p>
+        </div>
+      </section>
 
       <Teleport to="body">
         <div v-if="selectedAdminAccessCurrent" class="admin-modal-backdrop" @click.self="closeAdminAccessModal">

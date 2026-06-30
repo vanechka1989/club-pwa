@@ -47,6 +47,30 @@ export const adminUsers = pgTable(
   })
 );
 
+export const adminActionLogs = pgTable(
+  "admin_action_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    actorTelegramId: varchar("actor_telegram_id", { length: 32 }).notNull(),
+    action: varchar("action", { length: 96 }).notNull(),
+    entityType: varchar("entity_type", { length: 64 }).notNull(),
+    entityId: varchar("entity_id", { length: 128 }),
+    targetUserId: uuid("target_user_id").references(() => users.id, { onDelete: "set null" }),
+    targetTelegramId: varchar("target_telegram_id", { length: 32 }),
+    summary: text("summary").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    actorCreatedIdx: index("admin_action_logs_actor_created_idx").on(table.actorTelegramId, table.createdAt),
+    actionCreatedIdx: index("admin_action_logs_action_created_idx").on(table.action, table.createdAt),
+    entityIdx: index("admin_action_logs_entity_idx").on(table.entityType, table.entityId),
+    targetCreatedIdx: index("admin_action_logs_target_created_idx").on(table.targetTelegramId, table.createdAt),
+    createdIdx: index("admin_action_logs_created_idx").on(table.createdAt)
+  })
+);
+
 export const clubSettings = pgTable("club_settings", {
   key: varchar("key", { length: 96 }).primaryKey(),
   value: text("value").notNull(),
@@ -514,6 +538,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   supportTickets: many(supportTickets),
   supportMessages: many(supportTicketMessages),
   createdAdminUsers: many(adminUsers),
+  adminActionLogs: many(adminActionLogs, { relationName: "admin_action_actor" }),
+  targetedAdminActionLogs: many(adminActionLogs, { relationName: "admin_action_target" }),
   contentProgress: many(userContentProgress),
   lessonComments: many(lessonComments),
   mutes: many(userMutes),
@@ -527,6 +553,19 @@ export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
   createdBy: one(users, {
     fields: [adminUsers.createdByUserId],
     references: [users.id]
+  })
+}));
+
+export const adminActionLogsRelations = relations(adminActionLogs, ({ one }) => ({
+  actor: one(users, {
+    fields: [adminActionLogs.actorUserId],
+    references: [users.id],
+    relationName: "admin_action_actor"
+  }),
+  targetUser: one(users, {
+    fields: [adminActionLogs.targetUserId],
+    references: [users.id],
+    relationName: "admin_action_target"
   })
 }));
 
@@ -756,6 +795,7 @@ export const adminMailingRecipientsRelations = relations(adminMailingRecipients,
 
 export type User = typeof users.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
+export type AdminActionLog = typeof adminActionLogs.$inferSelect;
 export type ClubSetting = typeof clubSettings.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type PaymentProvider = typeof paymentProviders.$inferSelect;

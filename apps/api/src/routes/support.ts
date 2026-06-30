@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull, lte, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { recordAdminAction } from "../admin/actionLog";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import { supportTicketAttachments, supportTicketMessages, supportTickets, users } from "../db/schema";
@@ -643,6 +644,19 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     await notifyCustomerAboutReply(createdTicket);
 
+    await recordAdminAction(c, {
+      action: "support.ticket.created_by_admin",
+      entityType: "support_ticket",
+      entityId: ticket.id,
+      targetUserId: target.id,
+      targetTelegramId: target.telegramId,
+      summary: "Создал обращение клиенту от клуба",
+      metadata: {
+        hasMessage: Boolean(message),
+        attachmentsCount: files.length
+      }
+    });
+
     return c.json({
       ok: true,
       ticket: await serializeTicket(createdTicket, role),
@@ -713,6 +727,19 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     await notifyCustomerAboutReply(updatedTicket);
+
+    await recordAdminAction(c, {
+      action: "support.ticket.replied",
+      entityType: "support_ticket",
+      entityId: ticket.id,
+      targetUserId: ticket.user.id,
+      targetTelegramId: ticket.user.telegramId,
+      summary: "Ответил клиенту в поддержке",
+      metadata: {
+        hasMessage: Boolean(message),
+        attachmentsCount: files.length
+      }
+    });
 
     return c.json({
       ok: true,

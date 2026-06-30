@@ -483,6 +483,33 @@ export const adminListResponseSchema = z.object({
 });
 export type AdminListResponse = z.infer<typeof adminListResponseSchema>;
 
+export const adminActionActorSchema = z.object({
+  telegramId: z.string(),
+  firstName: z.string().nullable(),
+  username: z.string().nullable(),
+  photoUrl: z.string().url().nullable()
+});
+export type AdminActionActor = z.infer<typeof adminActionActorSchema>;
+
+export const adminActionLogSchema = z.object({
+  id: z.string(),
+  action: z.string(),
+  entityType: z.string(),
+  entityId: z.string().nullable(),
+  targetTelegramId: z.string().nullable(),
+  summary: z.string(),
+  metadata: z.record(z.unknown()),
+  actor: adminActionActorSchema.nullable(),
+  createdAt: z.string().datetime()
+});
+export type AdminActionLog = z.infer<typeof adminActionLogSchema>;
+
+export const adminActionLogsResponseSchema = z.object({
+  admins: z.array(adminActionActorSchema),
+  logs: z.array(adminActionLogSchema)
+});
+export type AdminActionLogsResponse = z.infer<typeof adminActionLogsResponseSchema>;
+
 export const adminMutationResponseSchema = z.object({
   ok: z.boolean()
 });

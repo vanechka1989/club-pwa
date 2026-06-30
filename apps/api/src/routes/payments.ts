@@ -3,6 +3,7 @@ import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { PaymentOrderLog } from "@club/shared";
+import { recordAdminAction } from "../admin/actionLog";
 import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import {
@@ -692,6 +693,19 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to save provider" }, 500);
     }
 
+    await recordAdminAction(c, {
+      action: existing ? "payment.provider.updated" : "payment.provider.created",
+      entityType: "payment_provider",
+      entityId: provider.id,
+      summary: existing ? "Обновил платежного провайдера Prodamus" : "Подключил платежного провайдера Prodamus",
+      metadata: {
+        formUrl: provider.formUrl,
+        sys: provider.sys,
+        isEnabled: provider.isEnabled,
+        secretKey: body.data.secretKey ? "[changed]" : "[unchanged]"
+      }
+    });
+
     return c.json({ ok: true, provider: mapProvider(provider) });
   })
   .get("/admin/products", async (c) => {
@@ -747,6 +761,20 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to create product" }, 500);
     }
 
+    await recordAdminAction(c, {
+      action: "payment.product.created",
+      entityType: "payment_product",
+      entityId: product.id,
+      summary: `Создал тариф "${product.title}"`,
+      metadata: {
+        title: product.title,
+        kind: product.kind,
+        amountRub: product.amountRub,
+        accessDays: product.accessDays,
+        isPublished: product.isPublished
+      }
+    });
+
     return c.json({ ok: true, product: mapProduct(product) });
   })
   .post("/admin/products/:id", async (c) => {
@@ -782,6 +810,20 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Product not found" }, 404);
     }
 
+    await recordAdminAction(c, {
+      action: "payment.product.updated",
+      entityType: "payment_product",
+      entityId: product.id,
+      summary: `Обновил тариф "${product.title}"`,
+      metadata: {
+        title: product.title,
+        kind: product.kind,
+        amountRub: product.amountRub,
+        accessDays: product.accessDays,
+        isPublished: product.isPublished
+      }
+    });
+
     return c.json({ ok: true, product: mapProduct(product) });
   })
   .post("/admin/products/:id/status", async (c) => {
@@ -805,6 +847,16 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Product not found" }, 404);
     }
 
+    await recordAdminAction(c, {
+      action: "payment.product.status_updated",
+      entityType: "payment_product",
+      entityId: product.id,
+      summary: body.data.isPublished ? `Опубликовал тариф "${product.title}"` : `Скрыл тариф "${product.title}"`,
+      metadata: {
+        isPublished: product.isPublished
+      }
+    });
+
     return c.json({ ok: true, product: mapProduct(product) });
   })
   .delete("/admin/products/:id", async (c) => {
@@ -826,6 +878,17 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!product) {
       return c.json({ error: "Product not found" }, 404);
     }
+
+    await recordAdminAction(c, {
+      action: "payment.product.deleted",
+      entityType: "payment_product",
+      entityId: product.id,
+      summary: `Удалил тариф "${product.title}"`,
+      metadata: {
+        title: product.title,
+        archiveTtlDays: 7
+      }
+    });
 
     return c.json({ ok: true });
   });

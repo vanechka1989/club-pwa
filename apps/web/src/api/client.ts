@@ -1,5 +1,6 @@
 import type {
   AdminAccessMutationResponse,
+  AdminActionLogsResponse,
   AdminMailingMutationResponse,
   AdminMailingPreviewResponse,
   AdminMailingsResponse,
@@ -383,6 +384,12 @@ export function markAppNotificationRead(id: string) {
 
 export function getAdminUsers() {
   return api<AdminListResponse>("/admin/admins");
+}
+
+export function getAdminActionLogs(actorTelegramId?: string) {
+  return actorTelegramId
+    ? api<AdminActionLogsResponse>("/admin/action-logs", { query: { actorTelegramId } })
+    : api<AdminActionLogsResponse>("/admin/action-logs");
 }
 
 export function getAdminMailings() {

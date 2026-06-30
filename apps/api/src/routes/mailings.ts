@@ -3,6 +3,7 @@ import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { mailingChannelSchema, mailingFiltersSchema, type MailingChannel } from "@club/shared";
+import { recordAdminAction } from "../admin/actionLog";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import { adminMailingRecipients, adminMailings, userContentProgress, userMutes, users } from "../db/schema";
@@ -531,6 +532,18 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       attachment: upload
     });
 
+    await recordAdminAction(c, {
+      action: "mailing.test_draft.sent",
+      entityType: "mailing",
+      entityId: null,
+      summary: `Отправил тест черновика рассылки "${title}"`,
+      metadata: {
+        title,
+        channel: channelResult.data,
+        hasAttachment: Boolean(upload)
+      }
+    });
+
     return c.json({ ok: true });
   })
   .post("/", async (c) => {
@@ -604,6 +617,22 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       });
     }
 
+    await recordAdminAction(c, {
+      action: mailing.status === "scheduled" ? "mailing.scheduled" : "mailing.created",
+      entityType: "mailing",
+      entityId: mailing.id,
+      summary: mailing.status === "scheduled" ? `Запланировал рассылку "${mailing.title}"` : `Создал рассылку "${mailing.title}"`,
+      metadata: {
+        title: mailing.title,
+        channel: mailing.channel,
+        status: mailing.status,
+        scheduledAt: mailing.scheduledAt?.toISOString() ?? null,
+        targetCount: mailing.targetCount,
+        estimatedSeconds: mailing.estimatedSeconds,
+        hasAttachment: Boolean(mailing.attachmentObjectKey)
+      }
+    });
+
     return c.json({
       ok: true,
       mailing: await serializeAdminMailing(mailing)
@@ -676,6 +705,17 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       await sendMailingToRecipient(mailing, fakeRecipient, { sendApp: false, sendBot: true });
     }
 
+    await recordAdminAction(c, {
+      action: "mailing.test.sent",
+      entityType: "mailing",
+      entityId: mailing.id,
+      summary: `Отправил тест рассылки "${mailing.title}"`,
+      metadata: {
+        title: mailing.title,
+        channel: mailing.channel
+      }
+    });
+
     return c.json({
       ok: true,
       mailing: await serializeAdminMailing(mailing)
@@ -730,6 +770,22 @@ async function updateMailingStatus(c: Context<{ Variables: AuthVariables }>, sta
   if (!mailing) {
     return c.json({ error: "Не удалось обновить рассылку." }, 500);
   }
+
+  await recordAdminAction(c, {
+    action: `mailing.${status}`,
+    entityType: "mailing",
+    entityId: mailing.id,
+    summary:
+      status === "paused"
+        ? `Поставил рассылку "${mailing.title}" на паузу`
+        : status === "running"
+          ? `Продолжил рассылку "${mailing.title}"`
+          : `Остановил рассылку "${mailing.title}"`,
+    metadata: {
+      title: mailing.title,
+      status: mailing.status
+    }
+  });
 
   return c.json({
     ok: true,
