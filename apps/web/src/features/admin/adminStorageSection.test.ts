@@ -24,6 +24,8 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("admin-preview-switcher");
     expect(adminSectionSource).toContain("Вид как");
     expect(adminSectionSource).toContain("ui.setPreviewMode");
+    expect(adminSectionSource).toContain('"preview-mode-change": [mode: PreviewMode];');
+    expect(adminSectionSource).toContain('emit("preview-mode-change", mode);');
     expect(adminSectionSource).toContain("selectedStorageTarget === 'reserve'");
     expect(adminSectionSource).toContain("storageOverviewObjects.value = [];");
     expect(adminSectionSource).toContain("void loadStorageObjects();");

@@ -1,7 +1,11 @@
 import { cleanup, render, screen } from "@testing-library/vue";
 import { createPinia } from "pinia";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.vue";
+
+const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
 
 describe("App", () => {
   beforeEach(() => {
@@ -31,5 +35,12 @@ describe("App", () => {
     await screen.getByRole("button", { name: "Модули" }).click();
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
+  });
+
+  it("moves from admin to profile when owner previews member modes", () => {
+    expect(appSource).toContain("handlePreviewModeChange");
+    expect(appSource).toContain('mode === "member-active" || mode === "member-inactive"');
+    expect(appSource).toContain('void selectSection("profile");');
+    expect(appSource).toContain("@preview-mode-change=\"handlePreviewModeChange\"");
   });
 });

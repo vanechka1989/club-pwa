@@ -112,6 +112,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   "client-card-close": [];
+  "preview-mode-change": [mode: PreviewMode];
 }>();
 
 type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
@@ -902,6 +903,7 @@ function closeReleaseNotesModal() {
 async function handlePreviewModeChange(mode: PreviewMode) {
   ui.setPreviewMode(mode);
   await session.load({ silent: true });
+  emit("preview-mode-change", mode);
 }
 
 function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {

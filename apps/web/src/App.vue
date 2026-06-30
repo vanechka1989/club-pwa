@@ -18,7 +18,7 @@ import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
-import { useUiStore } from "@/stores/ui";
+import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
 const ui = useUiStore();
@@ -98,6 +98,12 @@ async function handleAdminClientCardClose() {
   adminClientOpenedFromSupport.value = false;
   adminClientTelegramId.value = null;
   await selectSection("support");
+}
+
+function handlePreviewModeChange(mode: PreviewMode) {
+  if (mode === "member-active" || mode === "member-inactive") {
+    void selectSection("profile");
+  }
 }
 
 function syncTelegramSafeArea() {
@@ -384,6 +390,7 @@ onBeforeUnmount(() => {
             v-else
             :open-client-telegram-id="adminClientTelegramId"
             @client-card-close="handleAdminClientCardClose"
+            @preview-mode-change="handlePreviewModeChange"
           />
         </div>
       </div>
