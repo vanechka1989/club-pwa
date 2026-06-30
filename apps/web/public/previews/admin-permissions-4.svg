@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="960" viewBox="0 0 540 960" role="img" aria-labelledby="title desc">
+  <title id="title">Админы. Вариант 4. Профиль доступа</title>
+  <desc id="desc">Макет раздела администраторов с подробной карточкой доступа, правами и журналом изменений.</desc>
+  <rect width="540" height="960" rx="34" fill="#f7f4ef"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#172033">
+    <rect x="22" y="24" width="496" height="112" rx="24" fill="#ffffff" stroke="#dfd8cd"/>
+    <text x="46" y="70" font-size="30" font-weight="900">Админы</text>
+    <text x="46" y="102" font-size="16" font-weight="700" fill="#736e66">Фокус на одном администраторе и истории доступа.</text>
+
+    <rect x="22" y="160" width="496" height="230" rx="28" fill="#ffffff" stroke="#dfd8cd"/>
+    <circle cx="80" cy="222" r="30" fill="#1687b7"/>
+    <text x="70" y="233" font-size="26" font-weight="900" fill="#ffffff">К</text>
+    <text x="126" y="214" font-size="24" font-weight="900">Катя</text>
+    <text x="126" y="244" font-size="14" font-weight="800" fill="#746f67">ID 593677751 · @kat_teh</text>
+    <rect x="354" y="194" width="116" height="42" rx="16" fill="#dff4e8"/>
+    <text x="382" y="221" font-size="14" font-weight="900" fill="#24734c">Активна</text>
+
+    <rect x="46" y="284" width="206" height="54" rx="18" fill="#1687b7"/>
+    <text x="88" y="318" font-size="16" font-weight="900" fill="#ffffff">Выдать доступ</text>
+    <rect x="266" y="284" width="206" height="54" rx="18" fill="#ffe6e8" stroke="#efb2ba"/>
+    <text x="308" y="318" font-size="16" font-weight="900" fill="#b13e4c">Забрать доступ</text>
+
+    <rect x="22" y="416" width="496" height="352" rx="28" fill="#ffffff" stroke="#dfd8cd"/>
+    <text x="46" y="458" font-size="20" font-weight="900">Доступ к разделам</text>
+    <text x="344" y="458" font-size="14" font-weight="850" fill="#746f67">7 из 9 включены</text>
+
+    <g font-size="15" font-weight="850">
+      <rect x="46" y="486" width="448" height="46" rx="15" fill="#f8fbfd" stroke="#e3e0d8"/>
+      <text x="68" y="515">Клиенты</text>
+      <text x="370" y="515" fill="#24734c">просмотр + правка</text>
+      <rect x="46" y="544" width="448" height="46" rx="15" fill="#f8fbfd" stroke="#e3e0d8"/>
+      <text x="68" y="573">Поддержка</text>
+      <text x="378" y="573" fill="#24734c">ответы</text>
+      <rect x="46" y="602" width="448" height="46" rx="15" fill="#f8fbfd" stroke="#e3e0d8"/>
+      <text x="68" y="631">Рассылки</text>
+      <text x="364" y="631" fill="#8a6218">только черновики</text>
+      <rect x="46" y="660" width="448" height="46" rx="15" fill="#fff6f7" stroke="#efc5cc"/>
+      <text x="68" y="689">Хранилище</text>
+      <text x="398" y="689" fill="#b13e4c">закрыто</text>
+      <rect x="46" y="718" width="448" height="46" rx="15" fill="#fff6f7" stroke="#efc5cc"/>
+      <text x="68" y="747">Передача клуба</text>
+      <text x="398" y="747" fill="#b13e4c">закрыто</text>
+    </g>
+
+    <rect x="22" y="790" width="496" height="112" rx="24" fill="#ffffff" stroke="#dfd8cd"/>
+    <text x="46" y="830" font-size="18" font-weight="900">Журнал</text>
+    <circle cx="62" cy="866" r="6" fill="#38a877"/>
+    <text x="82" y="871" font-size="13" font-weight="850">Сегодня 09:20 · Иван выдал доступ к клиентам</text>
+    <circle cx="62" cy="890" r="6" fill="#e4b84a"/>
+    <text x="82" y="895" font-size="13" font-weight="850">29.06 18:10 · отключены платежи</text>
+  </g>
+</svg>

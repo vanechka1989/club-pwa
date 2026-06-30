@@ -127,6 +127,18 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
 
 const adminMockups = [
   {
+    id: "admin-permissions-options",
+    title: "Админы: права и доступ",
+    description: "Четыре варианта раздела для выдачи доступа админам, снятия доступа и настройки прав по разделам.",
+    createdAt: "30.06.2026",
+    images: [
+      { title: "Вариант 1. Список и быстрые права", url: "/previews/admin-permissions-1.svg" },
+      { title: "Вариант 2. Роли и шаблоны", url: "/previews/admin-permissions-2.svg" },
+      { title: "Вариант 3. Матрица прав", url: "/previews/admin-permissions-3.svg" },
+      { title: "Вариант 4. Профиль доступа", url: "/previews/admin-permissions-4.svg" }
+    ]
+  },
+  {
     id: "learning-redesign-options",
     title: "Обучение: варианты визуала",
     description: "Четыре разных направления для раздела обучения. Выберите номер варианта или комбинацию деталей.",

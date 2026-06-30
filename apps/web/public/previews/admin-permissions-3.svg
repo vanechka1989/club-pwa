@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="960" viewBox="0 0 540 960" role="img" aria-labelledby="title desc">
+  <title id="title">Админы. Вариант 3. Матрица прав</title>
+  <desc id="desc">Макет раздела администраторов с таблицей прав по разделам админки.</desc>
+  <rect width="540" height="960" rx="34" fill="#f5f7fb"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#111f32">
+    <rect x="22" y="24" width="496" height="112" rx="24" fill="#ffffff" stroke="#d5e0ea"/>
+    <text x="46" y="70" font-size="30" font-weight="900">Админы</text>
+    <text x="46" y="102" font-size="16" font-weight="700" fill="#67778a">Сравнение прав всех админов на одном экране.</text>
+
+    <rect x="22" y="160" width="496" height="618" rx="26" fill="#ffffff" stroke="#d5e0ea"/>
+    <text x="46" y="204" font-size="20" font-weight="900">Матрица доступа</text>
+    <text x="360" y="204" font-size="14" font-weight="850" fill="#687b8f">Редактировать строки</text>
+
+    <g font-size="13" font-weight="900">
+      <text x="46" y="252" fill="#687b8f">Админ</text>
+      <text x="190" y="252" fill="#687b8f">Клиенты</text>
+      <text x="282" y="252" fill="#687b8f">Контент</text>
+      <text x="376" y="252" fill="#687b8f">Оплаты</text>
+      <text x="454" y="252" fill="#687b8f">S3</text>
+    </g>
+
+    <g>
+      <rect x="46" y="276" width="448" height="74" rx="18" fill="#e9f5fb" stroke="#bbd8e8"/>
+      <circle cx="76" cy="313" r="20" fill="#1687b7"/>
+      <text x="68" y="321" font-size="18" font-weight="900" fill="#ffffff">И</text>
+      <text x="108" y="306" font-size="15" font-weight="900">Иван</text>
+      <text x="108" y="327" font-size="11" font-weight="800" fill="#607487">главный</text>
+      <circle cx="218" cy="313" r="14" fill="#38a877"/><path d="M211 313 l5 5 l10 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="312" cy="313" r="14" fill="#38a877"/><path d="M305 313 l5 5 l10 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="406" cy="313" r="14" fill="#38a877"/><path d="M399 313 l5 5 l10 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="464" cy="313" r="14" fill="#38a877"/><path d="M457 313 l5 5 l10 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <rect x="46" y="364" width="448" height="74" rx="18" fill="#fbfcfd" stroke="#dce6ee"/>
+      <circle cx="76" cy="401" r="20" fill="#dff1fa"/>
+      <text x="68" y="409" font-size="18" font-weight="900" fill="#1687b7">К</text>
+      <text x="108" y="394" font-size="15" font-weight="900">Катя</text>
+      <text x="108" y="415" font-size="11" font-weight="800" fill="#607487">поддержка</text>
+      <circle cx="218" cy="401" r="14" fill="#38a877"/><path d="M211 401 l5 5 l10 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="312" cy="401" r="14" fill="#ccd8df"/>
+      <circle cx="406" cy="401" r="14" fill="#ccd8df"/>
+      <circle cx="464" cy="401" r="14" fill="#ccd8df"/>
+
+      <rect x="46" y="452" width="448" height="74" rx="18" fill="#fbfcfd" stroke="#dce6ee"/>
+      <circle cx="76" cy="489" r="20" fill="#fff0d2"/>
+      <text x="68" y="497" font-size="18" font-weight="900" fill="#8a6218">М</text>
+      <text x="108" y="482" font-size="15" font-weight="900">Марина</text>
+      <text x="108" y="503" font-size="11" font-weight="800" fill="#607487">контент</text>
+      <circle cx="218" cy="489" r="14" fill="#ccd8df"/>
+      <circle cx="312" cy="489" r="14" fill="#38a877"/><path d="M305 489 l5 5 l10 -12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="406" cy="489" r="14" fill="#ccd8df"/>
+      <circle cx="464" cy="489" r="14" fill="#ccd8df"/>
+
+      <rect x="46" y="540" width="448" height="74" rx="18" fill="#fff6f7" stroke="#efc5cc"/>
+      <circle cx="76" cy="577" r="20" fill="#ffe0e5"/>
+      <text x="68" y="585" font-size="18" font-weight="900" fill="#b43d4b">С</text>
+      <text x="108" y="570" font-size="15" font-weight="900">Сергей</text>
+      <text x="108" y="591" font-size="11" font-weight="800" fill="#607487">доступ закрыт</text>
+      <circle cx="218" cy="577" r="14" fill="#ccd8df"/>
+      <circle cx="312" cy="577" r="14" fill="#ccd8df"/>
+      <circle cx="406" cy="577" r="14" fill="#ccd8df"/>
+      <circle cx="464" cy="577" r="14" fill="#ccd8df"/>
+    </g>
+
+    <rect x="46" y="652" width="448" height="84" rx="20" fill="#f8fbfd" stroke="#dce6ee"/>
+    <text x="68" y="686" font-size="15" font-weight="900">Массовые действия</text>
+    <rect x="68" y="704" width="124" height="34" rx="14" fill="#e2f6ed"/>
+    <text x="88" y="726" font-size="12" font-weight="900" fill="#24734c">Выдать всем</text>
+    <rect x="204" y="704" width="134" height="34" rx="14" fill="#fff0d2"/>
+    <text x="224" y="726" font-size="12" font-weight="900" fill="#8a6218">Снять оплату</text>
+    <rect x="350" y="704" width="112" height="34" rx="14" fill="#ffe6e8"/>
+    <text x="374" y="726" font-size="12" font-weight="900" fill="#b43d4b">Выключить</text>
+
+    <rect x="54" y="824" width="432" height="60" rx="20" fill="#1687b7"/>
+    <text x="162" y="860" font-size="18" font-weight="900" fill="#ffffff">Сохранить изменения</text>
+  </g>
+</svg>
