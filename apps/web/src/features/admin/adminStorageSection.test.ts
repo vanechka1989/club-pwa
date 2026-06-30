@@ -17,11 +17,17 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("S3 резервное");
     expect(adminSectionSource).toContain("openStorageStatusActions");
     expect(adminSectionSource).toContain("selectedStorageTarget");
+    expect(adminSectionSource).toContain("selectedStorageTargetLabel");
+    expect(adminSectionSource).toContain("selectedStorageTargetConfigured");
+    expect(adminSectionSource).toContain("openSelectedStorageFiles");
+    expect(adminSectionSource).toContain("selectedStorageTarget === \"reserve\"");
     expect(adminSectionSource).not.toContain("Сейчас открыта");
     expect(adminSectionSource).toContain("admin-storage-action-grid");
     expect(stylesSource).toContain(".admin-storage-current");
     expect(stylesSource).toContain("justify-content: center;");
     expect(stylesSource).toContain("text-align: center;");
+    expect(stylesSource).toContain("min-height: 3.45rem;");
+    expect(stylesSource).toContain("font-size: 0.6rem;");
     expect(stylesSource).not.toContain(".admin-storage-status-grid {\n    grid-template-columns: 1fr;");
     expect(adminSectionSource).toContain("<Teleport to=\"body\">");
   });

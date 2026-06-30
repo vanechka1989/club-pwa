@@ -315,6 +315,22 @@ const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
 });
 
 const isOwner = computed(() => session.user?.realRole === "owner");
+const selectedStorageTargetLabel = computed(() => (selectedStorageTarget.value === "primary" ? "S3 основное" : "S3 резервное"));
+const selectedStorageTargetConfigured = computed(() =>
+  selectedStorageTarget.value === "primary" ? Boolean(storageSettings.value?.configured) : Boolean(storageSettings.value?.reserveConfigured)
+);
+const selectedStorageFilesStatus = computed(() => {
+  if (!selectedStorageTargetConfigured.value) {
+    return "Не подключено";
+  }
+
+  if (selectedStorageTarget.value === "reserve") {
+    return "Резервная S3";
+  }
+
+  return `${storageOverviewObjects.value.length} файлов`;
+});
+const selectedStorageSettingsStatus = computed(() => (selectedStorageTargetConfigured.value ? "Подключено" : "Заполнить"));
 const panels = computed(() =>
   getVisibleAdminPanels(session.user?.realRole, session.user?.adminPermissions).map((panel) => ({
     ...panel,
@@ -1386,6 +1402,15 @@ async function openStorageStatusActions(target: "primary" | "reserve") {
   await nextTick();
   storageActionGridRef.value?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   storageActionGridRef.value?.querySelector<HTMLButtonElement>("button")?.focus();
+}
+
+function openSelectedStorageFiles() {
+  if (!selectedStorageTargetConfigured.value || selectedStorageTarget.value === "reserve") {
+    openStorageSettings();
+    return;
+  }
+
+  showStorageFilesModal.value = true;
 }
 
 async function loadStorageObjects({ append = false } = {}) {
@@ -3157,18 +3182,18 @@ onUnmounted(() => {
         </div>
 
         <div class="admin-storage-current" :class="selectedStorageTarget === 'primary' ? 'admin-storage-current-primary' : 'admin-storage-current-reserve'">
-          <strong>{{ selectedStorageTarget === "primary" ? "S3 основное" : "S3 резервное" }}</strong>
+          <strong>{{ selectedStorageTargetLabel }}</strong>
         </div>
 
         <div ref="storageActionGridRef" class="admin-storage-action-grid">
-          <button class="admin-storage-action-card" type="button" @click="showStorageFilesModal = true">
+          <button class="admin-storage-action-card" type="button" @click="openSelectedStorageFiles">
             <span class="admin-storage-action-top">
               <span class="admin-storage-action-icon"><Cloud class="h-4 w-4" aria-hidden="true" /></span>
               <ChevronDown class="admin-storage-action-arrow h-4 w-4" aria-hidden="true" />
             </span>
             <span class="admin-storage-action-label">Обзор файлов</span>
-            <strong>{{ storageSettings?.configured ? `${storageOverviewObjects.length} файлов` : "S3 не подключено" }}</strong>
-            <small>Открыть файлы по папкам.</small>
+            <strong>{{ selectedStorageFilesStatus }}</strong>
+            <small>{{ selectedStorageTarget === "reserve" ? "Резерв открывается через настройки." : "Открыть файлы по папкам." }}</small>
           </button>
           <button class="admin-storage-action-card" type="button" @click="openStorageSettings">
             <span class="admin-storage-action-top">
@@ -3176,7 +3201,7 @@ onUnmounted(() => {
               <ChevronDown class="admin-storage-action-arrow h-4 w-4" aria-hidden="true" />
             </span>
             <span class="admin-storage-action-label">Настройки S3</span>
-            <strong>{{ storageSettings?.configured ? "Подключено" : "Заполнить" }}</strong>
+            <strong>{{ selectedStorageSettingsStatus }}</strong>
             <small>Bucket, ключи и ссылки.</small>
           </button>
         </div>
