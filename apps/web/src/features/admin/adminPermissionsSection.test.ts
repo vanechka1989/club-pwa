@@ -20,6 +20,13 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("handleUpdateAdminAccess");
   });
 
+  it("keeps the admin list compact and opens permissions in a modal", () => {
+    expect(adminSectionSource).toContain("selectedAdminAccess");
+    expect(adminSectionSource).toContain("openAdminAccessModal");
+    expect(adminSectionSource).toContain("admin-permission-row-button");
+    expect(adminSectionSource).toContain("admin-permission-modal");
+  });
+
   it("has API client support for updating admin permissions", () => {
     expect(apiClientSource).toContain("updateAdminUserPermissions");
     expect(apiClientSource).toContain("`/admin/admins/${telegramId}`");

@@ -246,6 +246,7 @@ const expandedReleaseVersion = ref(appVersion);
 const editorRef = ref<HTMLElement | null>(null);
 const editorColor = ref("#111827");
 const adminSearchQuery = ref("");
+const selectedAdminAccess = ref<AdminUser | null>(null);
 const transferOwnerTelegramId = ref("");
 const showTransferOwnerModal = ref(false);
 const loading = ref(false);
@@ -339,6 +340,14 @@ const adminSearchCandidates = computed(() => {
       [user.telegramId, user.firstName ?? "", user.username ?? ""].some((value) => value.toLowerCase().includes(query))
     )
     .slice(0, 5);
+});
+const selectedAdminAccessCurrent = computed(() => {
+  const selected = selectedAdminAccess.value;
+  if (!selected) {
+    return null;
+  }
+
+  return admins.value.find((admin) => admin.id === selected.id) ?? selected;
 });
 const filtersActive = computed(
   () => Boolean(search.value.trim()) || subscriptionFilter.value !== "all" || tariffFilter.value !== "all" || restrictionFilter.value !== "all"
@@ -867,6 +876,14 @@ function resolveAdminSearchTelegramId() {
   }
 
   return adminSearchCandidates.value[0]?.telegramId ?? "";
+}
+
+function openAdminAccessModal(admin: AdminUser) {
+  selectedAdminAccess.value = admin;
+}
+
+function closeAdminAccessModal() {
+  selectedAdminAccess.value = null;
 }
 
 async function reloadAdmins() {
@@ -1618,6 +1635,9 @@ async function handleRemoveAdmin(telegramId: string) {
     const response = await getAdminUsers();
     admins.value = response.admins;
     ownerTelegramId.value = response.ownerTelegramId;
+    if (selectedAdminAccess.value?.telegramId === telegramId) {
+      closeAdminAccessModal();
+    }
     setStatus("Админ удалён.");
   } catch {
     setError("Не удалось удалить админа.");
@@ -3055,70 +3075,115 @@ onUnmounted(() => {
       <p v-if="!isOwner" class="admin-empty">Добавлять и удалять админов может только владелец.</p>
 
       <div class="admin-permission-list">
-        <article v-for="admin in admins" :key="admin.id" class="admin-permission-card" :class="{ 'admin-permission-card-disabled': !admin.isActive }">
-          <header class="admin-permission-head">
-            <div class="admin-permission-identity">
-              <img v-if="admin.photoUrl" :src="admin.photoUrl" :alt="adminTitle(admin)" />
-              <span v-else>{{ adminTitle(admin).slice(0, 1).toUpperCase() }}</span>
-              <div>
-                <strong>{{ adminTitle(admin) }}</strong>
-                <small>
-                  {{ adminRoleTitle(admin) }} · ID {{ admin.telegramId }}
-                  <template v-if="admin.username"> · @{{ admin.username }}</template>
-                </small>
-              </div>
+        <button
+          v-for="admin in admins"
+          :key="admin.id"
+          class="admin-permission-row-button"
+          :class="{ 'admin-permission-row-disabled': !admin.isActive }"
+          type="button"
+          @click="openAdminAccessModal(admin)"
+        >
+          <span class="admin-permission-identity">
+            <img v-if="admin.photoUrl" :src="admin.photoUrl" :alt="adminTitle(admin)" />
+            <span v-else>{{ adminTitle(admin).slice(0, 1).toUpperCase() }}</span>
+            <div>
+              <strong>{{ adminTitle(admin) }}</strong>
+              <small>
+                {{ adminRoleTitle(admin) }}
+                <template v-if="admin.username"> · @{{ admin.username }}</template>
+              </small>
             </div>
-
-            <label class="admin-switch-row">
-              <input
-                :checked="admin.isActive"
-                type="checkbox"
-                :disabled="saving || !isOwner"
-                @change="handleUpdateAdminAccess(admin, { isActive: !admin.isActive })"
-              />
-              <span>Доступ администратора</span>
-            </label>
-          </header>
-
-          <div class="admin-permission-meta">
-            <label class="admin-field">
-              <span>Роль вручную</span>
-              <input
-                class="text-input"
-                :value="admin.roleLabel ?? ''"
-                placeholder="Например: Старший модератор"
-                :disabled="saving || !isOwner"
-                @change="handleAdminRoleLabelChange(admin, $event)"
-              />
-            </label>
-
-            <div class="admin-permission-summary">
-              <span>{{ adminPermissionCount(admin) }} / {{ adminPermissionOptions.length }}</span>
-              <small>включено прав</small>
-            </div>
-          </div>
-
-          <div class="admin-permission-grid">
-            <label v-for="permission in adminPermissionOptions" :key="permission.value" class="admin-permission-toggle">
-              <span>{{ permission.label }}</span>
-              <input
-                :checked="hasAdminPermissionEntry(admin, permission.value)"
-                type="checkbox"
-                :disabled="saving || !isOwner"
-                @change="toggleAdminPermission(admin, permission.value)"
-              />
-            </label>
-          </div>
-
-          <footer class="admin-permission-actions">
-            <small>Добавлен {{ new Date(admin.createdAt).toLocaleDateString("ru-RU") }}</small>
-            <button v-if="isOwner" class="icon-button" type="button" :disabled="saving" @click="handleRemoveAdmin(admin.telegramId)">
-              <Trash2 class="h-4 w-4" aria-hidden="true" />
-            </button>
-          </footer>
-        </article>
+          </span>
+          <span class="admin-permission-row-status" :class="admin.isActive ? 'admin-permission-row-status-active' : 'admin-permission-row-status-disabled'">
+            {{ admin.isActive ? "Активен" : "Выключен" }}
+          </span>
+        </button>
         <p v-if="!admins.length" class="admin-empty">Администраторов пока нет.</p>
       </div>
+
+      <Teleport to="body">
+        <div v-if="selectedAdminAccessCurrent" class="admin-modal-backdrop" @click.self="closeAdminAccessModal">
+          <aside class="admin-detail admin-client-modal admin-permission-modal" role="dialog" aria-modal="true" aria-labelledby="admin-permission-modal-title">
+            <header class="admin-client-modal-head">
+              <div class="admin-permission-identity">
+                <img v-if="selectedAdminAccessCurrent.photoUrl" :src="selectedAdminAccessCurrent.photoUrl" :alt="adminTitle(selectedAdminAccessCurrent)" />
+                <span v-else>{{ adminTitle(selectedAdminAccessCurrent).slice(0, 1).toUpperCase() }}</span>
+                <div>
+                  <h3 id="admin-permission-modal-title">{{ adminTitle(selectedAdminAccessCurrent) }}</h3>
+                  <p>
+                    {{ selectedAdminAccessCurrent.isActive ? "Админ активен" : "Админ выключен" }} ·
+                    {{ adminPermissionCount(selectedAdminAccessCurrent) }} / {{ adminPermissionOptions.length }} прав
+                  </p>
+                </div>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть права администратора" @click="closeAdminAccessModal">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <section class="admin-permission-card" :class="{ 'admin-permission-card-disabled': !selectedAdminAccessCurrent.isActive }">
+              <div class="admin-permission-head">
+                <div>
+                  <strong>{{ adminRoleTitle(selectedAdminAccessCurrent) }}</strong>
+                  <small>
+                    ID {{ selectedAdminAccessCurrent.telegramId }}
+                    <template v-if="selectedAdminAccessCurrent.username"> · @{{ selectedAdminAccessCurrent.username }}</template>
+                  </small>
+                </div>
+
+                <label class="admin-switch-row">
+                  <input
+                    :checked="selectedAdminAccessCurrent.isActive"
+                    type="checkbox"
+                    :disabled="saving || !isOwner"
+                    @change="handleUpdateAdminAccess(selectedAdminAccessCurrent, { isActive: !selectedAdminAccessCurrent.isActive })"
+                  />
+                  <span>Доступ администратора</span>
+                </label>
+              </div>
+
+              <div class="admin-permission-meta">
+                <label class="admin-field">
+                  <span>Роль вручную</span>
+                  <input
+                    class="text-input"
+                    :value="selectedAdminAccessCurrent.roleLabel ?? ''"
+                    placeholder="Например: Старший модератор"
+                    :disabled="saving || !isOwner"
+                    @change="handleAdminRoleLabelChange(selectedAdminAccessCurrent, $event)"
+                  />
+                </label>
+
+                <div class="admin-permission-summary">
+                  <span>{{ adminPermissionCount(selectedAdminAccessCurrent) }} / {{ adminPermissionOptions.length }}</span>
+                  <small>включено прав</small>
+                </div>
+              </div>
+
+              <div class="admin-permission-grid">
+                <label v-for="permission in adminPermissionOptions" :key="permission.value" class="admin-permission-toggle">
+                  <span>{{ permission.label }}</span>
+                  <input
+                    :checked="hasAdminPermissionEntry(selectedAdminAccessCurrent, permission.value)"
+                    type="checkbox"
+                    :disabled="saving || !isOwner"
+                    @change="toggleAdminPermission(selectedAdminAccessCurrent, permission.value)"
+                  />
+                </label>
+              </div>
+
+              <footer class="admin-permission-actions">
+                <small>
+                  Добавлен {{ new Date(selectedAdminAccessCurrent.createdAt).toLocaleDateString("ru-RU") }}
+                </small>
+                <button v-if="isOwner" class="icon-button" type="button" :disabled="saving" @click="handleRemoveAdmin(selectedAdminAccessCurrent.telegramId)">
+                  <Trash2 class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </footer>
+            </section>
+          </aside>
+        </div>
+      </Teleport>
     </section>
   </section>
 </template>

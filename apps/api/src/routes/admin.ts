@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   adminPermissionSchema,
   allAdminPermissions,
+  newAdminDefaultPermissions,
   type AdminLearningMaterial,
   type AdminPermission,
   type AdminUserDetailResponse,
@@ -1482,7 +1483,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         telegramId: body.data.telegramId,
         roleLabel: null,
         isActive: true,
-        permissions: [...allAdminPermissions],
+        permissions: [...newAdminDefaultPermissions],
         createdByUserId: c.get("userId")
       })
       .onConflictDoUpdate({

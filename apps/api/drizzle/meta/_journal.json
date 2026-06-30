@@ -169,6 +169,13 @@
       "when": 1782801420000,
       "tag": "0023_admin_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782805380000,
+      "tag": "0024_admin_permissions_empty_default",
+      "breakpoints": true
     }
   ]
 }

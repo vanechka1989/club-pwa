@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { adminListResponseSchema, allAdminPermissions, clubUserSchema } from "./index";
+import { adminListResponseSchema, allAdminPermissions, clubUserSchema, newAdminDefaultPermissions } from "./index";
 
 describe("admin permissions contracts", () => {
+  it("starts newly added admins without section permissions", () => {
+    expect(newAdminDefaultPermissions).toEqual([]);
+  });
+
   it("exposes active status, custom role label, and permission toggles for admins", () => {
     const parsed = adminListResponseSchema.parse({
       ownerTelegramId: "1",

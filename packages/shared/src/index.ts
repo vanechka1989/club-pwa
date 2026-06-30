@@ -20,6 +20,7 @@ export const adminPermissionValues = [
 export const adminPermissionSchema = z.enum(adminPermissionValues);
 export type AdminPermission = z.infer<typeof adminPermissionSchema>;
 export const allAdminPermissions: AdminPermission[] = [...adminPermissionValues];
+export const newAdminDefaultPermissions: AdminPermission[] = [];
 export const adminPermissionLabels: Record<AdminPermission, string> = {
   statistics: "Статистика",
   users: "Клиенты",

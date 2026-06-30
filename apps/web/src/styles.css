@@ -3990,7 +3990,69 @@ button {
 
 .admin-permission-list {
   display: grid;
+  gap: 0.42rem;
+}
+
+.admin-permission-row-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0.65rem;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  color: var(--text);
+  padding: 0.55rem 0.62rem;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.admin-permission-row-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+}
+
+.admin-permission-row-button:active {
+  transform: translateY(1px);
+}
+
+.admin-permission-row-disabled {
+  opacity: 0.68;
+}
+
+.admin-permission-row-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 840;
+  white-space: nowrap;
+}
+
+.admin-permission-row-status-active {
+  border: 1px solid color-mix(in srgb, #22c55e 38%, var(--border));
+  background: color-mix(in srgb, #22c55e 12%, var(--panel));
+  color: color-mix(in srgb, #16a34a 82%, var(--text));
+}
+
+.admin-permission-row-status-disabled {
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--panel));
+  color: color-mix(in srgb, var(--danger) 82%, var(--text));
+}
+
+.admin-permission-modal {
+  align-self: center;
+  width: min(100%, 34rem);
+}
+
+.admin-permission-modal .admin-permission-card {
+  box-shadow: none;
 }
 
 .admin-permission-card {
