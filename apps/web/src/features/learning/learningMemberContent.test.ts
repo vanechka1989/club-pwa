@@ -465,4 +465,72 @@ describe("Learning section member content", () => {
 
     expect(saveLearningPlayback).not.toHaveBeenCalledWith("lesson-video", 0);
   });
+
+  it("continues audio lessons from the saved playback position", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-audio",
+          slug: "module-audio",
+          title: "Аудио модуль",
+          description: "Материалы с аудио",
+          defaultCardLayout: "vertical",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: {
+          id: "lesson-audio",
+          categoryId: "module-audio",
+          kind: "audio",
+          title: "Голосовая практика",
+          summary: "Аудио урок",
+          body: null,
+          mediaUrl: "https://example.com/audio.mp3",
+          thumbnailUrl: null,
+          cardLayout: "vertical",
+          mediaContentType: "audio/mpeg",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        },
+        lastOpenedAt: "2026-06-29T10:00:00.000Z",
+        lastOpenedPlaybackPositionSeconds: 65
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-audio",
+        categoryId: "module-audio",
+        kind: "audio",
+        title: "Голосовая практика",
+        summary: "Аудио урок",
+        body: null,
+        mediaUrl: "https://example.com/audio.mp3",
+        thumbnailUrl: null,
+        cardLayout: "vertical",
+        mediaContentType: "audio/mpeg",
+        mediaSizeBytes: 1024,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 65
+    });
+
+    renderAsMember();
+
+    expect(await screen.findByText("Продолжить с 1:05")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Продолжить урок Голосовая практика" }));
+    await waitFor(() => expect(document.querySelector("audio")).toBeTruthy());
+
+    const audio = document.querySelector("audio") as HTMLAudioElement;
+    await fireEvent.timeUpdate(audio);
+    expect(saveLearningPlayback).not.toHaveBeenCalledWith("lesson-audio", 0);
+
+    await fireEvent.loadedMetadata(audio);
+    expect(Math.round(audio.currentTime)).toBe(65);
+  });
 });

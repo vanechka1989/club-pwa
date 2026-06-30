@@ -4416,7 +4416,8 @@ body.club-keyboard-open .admin-modal-backdrop {
   border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
 }
 
 .continue-lesson-card-horizontal {

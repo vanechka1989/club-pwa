@@ -240,7 +240,7 @@ const continueLessonCardClasses = computed(() => [
 const continueLessonProgressLabel = computed(() => {
   const lesson = lastOpenedLesson.value;
   const seconds = learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0;
-  if (lesson?.kind === "video" && seconds > 0) {
+  if (lesson && isResumableMediaKind(lesson.kind) && seconds > 0) {
     return `Продолжить с ${formatVideoTime(seconds)}`;
   }
 
@@ -487,6 +487,10 @@ function formatVideoTime(seconds: number) {
   return `${minutes}:${restSeconds.toString().padStart(2, "0")}`;
 }
 
+function isResumableMediaKind(kind: ContentKind) {
+  return kind === "video" || kind === "audio";
+}
+
 function syncLessonVideoState() {
   const video = lessonVideoElement.value;
   if (!video) {
@@ -530,7 +534,7 @@ function applyPendingLessonVideoStart() {
 async function persistLessonVideoPlayback(force = false) {
   const lesson = selectedLessonItem.value;
   const video = lessonVideoElement.value;
-  if (!lesson?.isPersisted || lesson.kind !== "video" || !video) {
+  if (!lesson?.isPersisted || !isResumableMediaKind(lesson.kind) || !video) {
     return;
   }
 
@@ -1504,10 +1508,17 @@ watch(
               </div>
               <audio
                 v-else-if="selectedLessonItem.kind === 'audio' && selectedLessonItem.mediaUrl"
+                ref="lessonVideoElement"
                 class="lesson-viewer-audio"
                 :src="selectedLessonItem.mediaUrl"
                 controls
                 preload="metadata"
+                @loadedmetadata="applyPendingLessonVideoStart"
+                @loadeddata="applyPendingLessonVideoStart"
+                @canplay="applyPendingLessonVideoStart"
+                @timeupdate="handleLessonVideoTimeUpdate"
+                @pause="persistLessonVideoPlayback(true)"
+                @seeked="persistLessonVideoPlayback(true)"
               />
             </article>
 
