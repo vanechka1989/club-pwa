@@ -20,6 +20,16 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("handleUpdateAdminAccess");
   });
 
+  it("places preview mode switcher inside the admins section", () => {
+    const adminsTitleIndex = adminSectionSource.indexOf("<h3>Администраторы</h3>");
+    const previewSwitcherIndex = adminSectionSource.indexOf('class="admin-preview-switcher"');
+    const ownerCardIndex = adminSectionSource.indexOf('class="admin-permissions-owner"');
+
+    expect(adminsTitleIndex).toBeGreaterThan(-1);
+    expect(previewSwitcherIndex).toBeGreaterThan(adminsTitleIndex);
+    expect(previewSwitcherIndex).toBeLessThan(ownerCardIndex);
+  });
+
   it("keeps the admin list compact and opens permissions in a modal", () => {
     expect(adminSectionSource).toContain("selectedAdminAccess");
     expect(adminSectionSource).toContain("openAdminAccessModal");

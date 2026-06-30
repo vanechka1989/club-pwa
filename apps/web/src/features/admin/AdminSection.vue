@@ -2081,22 +2081,6 @@ onUnmounted(() => {
       </button>
     </header>
 
-    <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
-      <span>Вид как</span>
-      <div>
-        <button
-          v-for="option in previewModeOptions"
-          :key="option.value"
-          class="admin-preview-option"
-          :class="{ 'admin-preview-option-active': ui.previewMode === option.value }"
-          type="button"
-          @click="handlePreviewModeChange(option.value)"
-        >
-          {{ option.label }}
-        </button>
-      </div>
-    </section>
-
     <Teleport to="body">
       <div v-if="showReleaseNotesModal" class="admin-modal-backdrop" @click.self="closeReleaseNotesModal">
         <aside class="admin-detail admin-client-modal release-notes-modal" role="dialog" aria-modal="true" aria-labelledby="release-notes-title">
@@ -3618,6 +3602,22 @@ onUnmounted(() => {
           <p>Доступ, роль вручную и права по всем разделам.</p>
         </div>
       </div>
+
+      <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
+        <span>Вид как</span>
+        <div>
+          <button
+            v-for="option in previewModeOptions"
+            :key="option.value"
+            class="admin-preview-option"
+            :class="{ 'admin-preview-option-active': ui.previewMode === option.value }"
+            type="button"
+            @click="handlePreviewModeChange(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </section>
 
       <section class="admin-permissions-owner">
         <article class="admin-permissions-owner-card">
