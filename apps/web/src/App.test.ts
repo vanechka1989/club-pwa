@@ -54,10 +54,12 @@ describe("App", () => {
   it("shows a red mail marker on profile nav when app notifications are unread", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(appSource).toContain("Mail");
+    expect(appSource).toContain("startAppNotificationPolling");
+    expect(appSource).toContain("notifications.loadAppNotifications");
     expect(appSource).toContain("notifications.unreadCount > 0");
+    expect(appSource).toContain("✉");
     expect(appSource).toContain("bottom-nav-mail-badge");
     expect(styles).toContain(".bottom-nav-mail-badge");
-    expect(styles).toContain("var(--danger-strong)");
+    expect(styles).toContain("var(--danger)");
   });
 });

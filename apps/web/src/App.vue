@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronUp, Mail } from "lucide-vue-next";
+import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getPaymentHistory, getSupportUnreadCount } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
@@ -33,6 +33,7 @@ const adminClientOpenedFromSupport = ref(false);
 let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
+let appNotificationTimer: number | null = null;
 let isAppMounted = false;
 
 function showTelegramAlert(message: string) {
@@ -291,11 +292,22 @@ function startSupportUnreadPolling() {
   }, 15_000);
 }
 
+function startAppNotificationPolling() {
+  if (!isAppMounted || typeof window === "undefined" || appNotificationTimer) {
+    return;
+  }
+
+  appNotificationTimer = window.setInterval(() => {
+    void notifications.loadAppNotifications();
+  }, 10_000);
+}
+
 function handleVisibilityChange() {
   if (document.visibilityState === "visible") {
     void refreshSessionAccessStatus(true);
     void checkPendingPaymentWatch();
     void refreshSupportUnread(true);
+    void notifications.loadAppNotifications();
   }
 }
 
@@ -320,7 +332,9 @@ onMounted(() => {
 
     startSessionAccessPolling();
     startSupportUnreadPolling();
+    startAppNotificationPolling();
     void refreshSupportUnread(false);
+    void notifications.loadAppNotifications();
     void checkPendingPaymentWatch();
   });
 });
@@ -372,6 +386,10 @@ onBeforeUnmount(() => {
   if (supportUnreadTimer) {
     window.clearInterval(supportUnreadTimer);
     supportUnreadTimer = null;
+  }
+  if (appNotificationTimer) {
+    window.clearInterval(appNotificationTimer);
+    appNotificationTimer = null;
   }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");
@@ -444,7 +462,7 @@ onBeforeUnmount(() => {
       >
         <component :is="item.icon" class="h-5 w-5" aria-hidden="true" />
         <span v-if="item.id === 'profile' && notifications.unreadCount > 0" class="bottom-nav-mail-badge" aria-label="Есть новые уведомления">
-          <Mail class="h-2.5 w-2.5" aria-hidden="true" />
+          <span aria-hidden="true">✉</span>
         </span>
         <span v-if="item.id === 'support' && supportUnreadCount > 0" class="bottom-nav-badge">
           {{ supportUnreadCount > 9 ? "9+" : supportUnreadCount }}

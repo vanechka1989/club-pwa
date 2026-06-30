@@ -7200,11 +7200,14 @@ body.club-keyboard-open .admin-modal-backdrop {
   width: 1rem;
   height: 0.82rem;
   place-items: center;
-  border: 2px solid color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 2px solid color-mix(in srgb, var(--danger-soft) 64%, var(--panel));
   border-radius: 999px;
-  background: var(--danger-strong);
+  background: var(--danger);
   color: white;
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--danger-strong) 32%, transparent);
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--danger) 32%, transparent);
 }
 
 .community-chat-shell {

@@ -1,15 +1,11 @@
 <script setup lang="ts">
 import type { AppNotification } from "@club/shared";
 import { Bell, CheckCheck, Paperclip, X } from "lucide-vue-next";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { getAppNotifications, markAppNotificationsRead } from "@/api/client";
+import { computed, ref } from "vue";
 import { useNotificationsStore } from "@/stores/notifications";
 
-const notifications = ref<AppNotification[]>([]);
 const isOpen = ref(false);
-const loading = ref(false);
 const notificationState = useNotificationsStore();
-let notificationTimer: number | null = null;
 
 const badgeLabel = computed(() => (notificationState.unreadCount > 9 ? "9+" : String(notificationState.unreadCount)));
 
@@ -91,33 +87,15 @@ function renderNotificationHtml(notification: AppNotification) {
   return escapeNotificationText(notification.body).replace(/\n/g, "<br>");
 }
 
-async function loadNotifications() {
-  loading.value = true;
-  try {
-    const response = await getAppNotifications();
-    notifications.value = response.notifications;
-    notificationState.setUnreadCount(response.unreadCount);
-  } catch {
-    // Следующая проверка повторится по таймеру.
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function openCenter() {
   isOpen.value = true;
-  await loadNotifications();
+  await notificationState.loadAppNotifications();
   if (!notificationState.unreadCount) {
     return;
   }
 
   try {
-    const response = await markAppNotificationsRead();
-    notificationState.setUnreadCount(response.unreadCount);
-    notifications.value = notifications.value.map((notification) => ({
-      ...notification,
-      readAt: notification.readAt ?? new Date().toISOString()
-    }));
+    await notificationState.markAppNotificationsReadInApp();
   } catch {
     // Если отметка не прошла, счетчик обновится следующим polling.
   }
@@ -136,19 +114,6 @@ function formatNotificationDate(value: string) {
   });
 }
 
-onMounted(() => {
-  void loadNotifications();
-  notificationTimer = window.setInterval(() => {
-    void loadNotifications();
-  }, 10_000);
-});
-
-onBeforeUnmount(() => {
-  if (notificationTimer) {
-    window.clearInterval(notificationTimer);
-    notificationTimer = null;
-  }
-});
 </script>
 
 <template>
@@ -173,7 +138,7 @@ onBeforeUnmount(() => {
 
           <div class="notification-center-list">
             <article
-              v-for="notification in notifications"
+              v-for="notification in notificationState.appNotifications"
               :key="notification.id"
               class="notification-center-item"
               :class="{ 'notification-center-item-unread': !notification.readAt }"
@@ -206,8 +171,8 @@ onBeforeUnmount(() => {
                 </a>
               </div>
             </article>
-            <p v-if="loading && !notifications.length" class="notification-center-empty">Загружаем...</p>
-            <p v-else-if="!notifications.length" class="notification-center-empty">Пока нет уведомлений.</p>
+            <p v-if="notificationState.appNotificationsLoading && !notificationState.appNotifications.length" class="notification-center-empty">Загружаем...</p>
+            <p v-else-if="!notificationState.appNotifications.length" class="notification-center-empty">Пока нет уведомлений.</p>
           </div>
         </aside>
       </div>
