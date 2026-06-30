@@ -5,6 +5,9 @@ DEPLOY_DIR="${DEPLOY_DIR:-/opt/club-crm}"
 
 cd "$DEPLOY_DIR"
 
+exec 9>"$DEPLOY_DIR/.deploy.lock"
+flock 9
+
 read_env_value() {
   local key="$1"
 
@@ -123,10 +126,19 @@ notify_deploy_success() {
   notify_deploy_message "$message"
 }
 
+previous_commit="$(git rev-parse HEAD)"
+git pull --ff-only
+current_commit="$(git rev-parse HEAD)"
+
+if [[ "$previous_commit" == "$current_commit" && "${DEPLOY_FORCE:-}" != "1" ]]; then
+  echo "Already up to date; deployment skipped."
+  exit 0
+fi
+
 if [[ "${DEPLOY_NOTIFY_START_SENT:-}" != "1" ]]; then
   notify_deploy_start
 fi
-git pull --ff-only
+
 docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml run --rm migrate
 docker compose -f docker-compose.prod.yml up -d
