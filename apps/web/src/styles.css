@@ -3598,6 +3598,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .admin-storage-status > div {
   display: grid;
+  width: 100%;
   min-width: 0;
   gap: 0.28rem;
 }
@@ -3616,12 +3617,13 @@ body.club-keyboard-open .admin-modal-backdrop {
 .admin-storage-status-card {
   display: grid;
   align-content: center;
+  justify-items: center;
   gap: 0.2rem;
   min-width: 0;
   min-height: 3.45rem;
   border-radius: 12px;
   padding: 0.48rem 0.54rem;
-  text-align: left;
+  text-align: center;
   transition:
     border-color 0.18s ease,
     background 0.18s ease,

@@ -24,6 +24,8 @@ describe("admin storage section", () => {
     expect(adminSectionSource).not.toContain("Сейчас открыта");
     expect(adminSectionSource).toContain("admin-storage-action-grid");
     expect(stylesSource).toContain(".admin-storage-current");
+    expect(stylesSource).toContain("width: 100%;");
+    expect(stylesSource).toContain("justify-items: center;");
     expect(stylesSource).toContain("justify-content: center;");
     expect(stylesSource).toContain("text-align: center;");
     expect(stylesSource).toContain("min-height: 3.45rem;");
