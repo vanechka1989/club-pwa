@@ -1,9 +1,10 @@
-import { DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { clubSettings } from "../db/schema";
 import { env } from "../env";
+import { logger } from "../logger";
 import { getS3ConfigFromEnv, getS3ConfigFromSetting, storageSettingKey, type StoredS3Config } from "./s3Config";
 import { normalizeS3ObjectKey, normalizeS3ObjectPrefix } from "./s3Object";
 
@@ -38,19 +39,57 @@ function createS3Client(config: StoredS3Config) {
   });
 }
 
-export async function uploadObject({ key, body, contentType }: UploadObjectInput) {
-  const config = await requireS3Config();
+async function putObjectToConfig(config: StoredS3Config, key: string, body: UploadObjectInput["body"], contentType: string) {
   const client = createS3Client(config);
-  const normalizedKey = key.replace(/^\/+/, "");
-
   await client.send(
     new PutObjectCommand({
       Bucket: config.bucket,
-      Key: normalizedKey,
+      Key: key,
       Body: body,
       ContentType: contentType
     })
   );
+}
+
+async function assertObjectReadable(config: StoredS3Config, key: string) {
+  const client = createS3Client(config);
+  await client.send(
+    new HeadObjectCommand({
+      Bucket: config.bucket,
+      Key: key
+    })
+  );
+}
+
+async function buildObjectReadUrl(config: StoredS3Config, key: string) {
+  await assertObjectReadable(config, key);
+
+  if (config.publicBaseUrl) {
+    return `${config.publicBaseUrl}/${key}`;
+  }
+
+  const client = createS3Client(config);
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: key
+    }),
+    { expiresIn: config.signedUrlTtlSeconds }
+  );
+}
+
+export async function uploadObject({ key, body, contentType }: UploadObjectInput) {
+  const config = await requireS3Config();
+  const normalizedKey = key.replace(/^\/+/, "");
+
+  await putObjectToConfig(config, normalizedKey, body, contentType);
+
+  if (config.reserve) {
+    void putObjectToConfig({ ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null }, normalizedKey, body, contentType).catch((error) => {
+      logger.warn({ error, key: normalizedKey }, "Failed to mirror object to reserve S3");
+    });
+  }
 
   return {
     key: normalizedKey,
@@ -60,21 +99,18 @@ export async function uploadObject({ key, body, contentType }: UploadObjectInput
 
 export async function getObjectReadUrl(key: string) {
   const config = await requireS3Config();
-  const client = createS3Client(config);
   const normalizedKey = normalizeS3ObjectKey(key);
 
-  if (config.publicBaseUrl) {
-    return `${config.publicBaseUrl}/${normalizedKey}`;
-  }
+  try {
+    return await buildObjectReadUrl(config, normalizedKey);
+  } catch (error) {
+    if (!config.reserve) {
+      throw error;
+    }
 
-  return getSignedUrl(
-    client,
-    new GetObjectCommand({
-      Bucket: config.bucket,
-      Key: normalizedKey
-    }),
-    { expiresIn: config.signedUrlTtlSeconds }
-  );
+    logger.warn({ error, key: normalizedKey }, "Primary S3 read failed, trying reserve S3");
+    return buildObjectReadUrl({ ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null }, normalizedKey);
+  }
 }
 
 export async function deleteObject(key: string) {

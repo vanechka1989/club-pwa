@@ -11,6 +11,16 @@ export type StoredS3Config = {
   secretAccessKey: string;
   publicBaseUrl: string | null;
   signedUrlTtlSeconds: number;
+  reserve: StoredS3ReserveConfig | null;
+};
+
+export type StoredS3ReserveConfig = {
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  publicBaseUrl: string | null;
 };
 
 export type S3EnvInput = {
@@ -23,13 +33,16 @@ export type S3EnvInput = {
   S3_SIGNED_URL_TTL_SECONDS?: number | null | undefined;
 };
 
-const storedS3ConfigSchema = z.object({
+const storedS3ReserveConfigSchema = z.object({
   endpoint: z.string().trim().url(),
   region: z.string().trim().min(1),
   bucket: z.string().trim().min(1),
   accessKeyId: z.string().trim().min(1),
   secretAccessKey: z.string().trim().min(1),
-  publicBaseUrl: z.string().trim().url().nullable().optional(),
+  publicBaseUrl: z.string().trim().url().nullable().optional()
+});
+
+const storedS3ConfigSchema = storedS3ReserveConfigSchema.extend({
   signedUrlTtlSeconds: z.coerce.number().int().positive().max(86_400)
 });
 
@@ -39,14 +52,24 @@ export function normalizeS3PublicBaseUrl(value: string | null | undefined) {
 }
 
 export function normalizeStoredS3Config(input: unknown): StoredS3Config | null {
-  const parsed = storedS3ConfigSchema.safeParse(input);
+  const parsed = storedS3ConfigSchema
+    .extend({
+      reserve: storedS3ReserveConfigSchema.nullable().optional()
+    })
+    .safeParse(input);
   if (!parsed.success) {
     return null;
   }
 
   return {
     ...parsed.data,
-    publicBaseUrl: normalizeS3PublicBaseUrl(parsed.data.publicBaseUrl)
+    publicBaseUrl: normalizeS3PublicBaseUrl(parsed.data.publicBaseUrl),
+    reserve: parsed.data.reserve
+      ? {
+          ...parsed.data.reserve,
+          publicBaseUrl: normalizeS3PublicBaseUrl(parsed.data.reserve.publicBaseUrl)
+        }
+      : null
   };
 }
 
@@ -74,7 +97,8 @@ export function getS3ConfigFromEnv(input: S3EnvInput): StoredS3Config | null {
     accessKeyId: input.S3_ACCESS_KEY_ID,
     secretAccessKey: input.S3_SECRET_ACCESS_KEY,
     publicBaseUrl: normalizeS3PublicBaseUrl(input.S3_PUBLIC_BASE_URL),
-    signedUrlTtlSeconds: input.S3_SIGNED_URL_TTL_SECONDS ?? 3600
+    signedUrlTtlSeconds: input.S3_SIGNED_URL_TTL_SECONDS ?? 3600,
+    reserve: null
   };
 }
 
@@ -99,6 +123,13 @@ export function buildS3SettingsResponse({
     signedUrlTtlSeconds: config?.signedUrlTtlSeconds ?? defaultSignedUrlTtlSeconds,
     accessKeyConfigured: Boolean(config?.accessKeyId),
     secretKeyConfigured: Boolean(config?.secretAccessKey),
+    reserveConfigured: Boolean(config?.reserve),
+    reserveEndpoint: config?.reserve?.endpoint ?? null,
+    reserveBucket: config?.reserve?.bucket ?? null,
+    reserveRegion: config?.reserve?.region ?? null,
+    reservePublicBaseUrl: config?.reserve?.publicBaseUrl ?? null,
+    reserveAccessKeyConfigured: Boolean(config?.reserve?.accessKeyId),
+    reserveSecretKeyConfigured: Boolean(config?.reserve?.secretAccessKey),
     updatedAt: updatedAt?.toISOString() ?? null
   };
 }

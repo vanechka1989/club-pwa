@@ -32,4 +32,13 @@ describe("admin storage section", () => {
     expect(stylesSource).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
     expect(stylesSource).not.toContain(".admin-storage-action-grid,\n  .admin-storage-folder-grid");
   });
+
+  it("shows optional reserve S3 settings in the storage settings modal", () => {
+    expect(adminSectionSource).toContain("Резервная S3");
+    expect(adminSectionSource).toContain("storageForm.reserveEndpoint");
+    expect(adminSectionSource).toContain("storageForm.reserveBucket");
+    expect(adminSectionSource).toContain("storageForm.reserveAccessKeyId");
+    expect(adminSectionSource).toContain("storageSettings?.reserveConfigured");
+    expect(adminSectionSource).toContain("Резерв не обязателен");
+  });
 });

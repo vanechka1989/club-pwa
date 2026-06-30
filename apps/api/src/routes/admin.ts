@@ -124,6 +124,15 @@ const s3StoragePayloadSchema = z.object({
     (value) => (typeof value === "string" && value.trim() === "" ? null : value),
     z.string().trim().url().nullable().optional()
   ),
+  reserveEndpoint: z.preprocess((value) => (typeof value === "string" && value.trim() === "" ? undefined : value), z.string().trim().url().optional()),
+  reserveRegion: z.string().trim().optional(),
+  reserveBucket: z.string().trim().optional(),
+  reserveAccessKeyId: z.string().trim().optional(),
+  reserveSecretAccessKey: z.string().trim().optional(),
+  reservePublicBaseUrl: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+    z.string().trim().url().nullable().optional()
+  ),
   signedUrlTtlSeconds: z.coerce.number().int().positive().max(86_400).default(3600)
 });
 
@@ -781,15 +790,42 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       accessKeyId: body.data.accessKeyId || currentConfig?.accessKeyId || "",
       secretAccessKey: body.data.secretAccessKey || currentConfig?.secretAccessKey || "",
       publicBaseUrl: normalizeS3PublicBaseUrl(body.data.publicBaseUrl),
-      signedUrlTtlSeconds: body.data.signedUrlTtlSeconds
+      signedUrlTtlSeconds: body.data.signedUrlTtlSeconds,
+      reserve: null
     };
 
     if (!nextConfig.accessKeyId || !nextConfig.secretAccessKey) {
       return c.json({ error: "Access key and Secret key are required" }, 400);
     }
 
+    const currentReserve = currentConfig?.reserve ?? null;
+    const reserveEndpoint = body.data.reserveEndpoint?.trim() ?? "";
+    const reserveBucket = body.data.reserveBucket?.trim() ?? "";
+    const reserveRegion = body.data.reserveRegion?.trim() || "us-east-1";
+    const reserveAccessKeyId = body.data.reserveAccessKeyId || currentReserve?.accessKeyId || "";
+    const reserveSecretAccessKey = body.data.reserveSecretAccessKey || currentReserve?.secretAccessKey || "";
+    const wantsReserve = Boolean(reserveEndpoint || reserveBucket || body.data.reserveAccessKeyId || body.data.reserveSecretAccessKey || body.data.reservePublicBaseUrl);
+
+    if (wantsReserve) {
+      if (!reserveEndpoint || !reserveBucket || !reserveAccessKeyId || !reserveSecretAccessKey) {
+        return c.json({ error: "Reserve S3 requires endpoint, bucket, access key and secret key" }, 400);
+      }
+
+      nextConfig.reserve = {
+        endpoint: reserveEndpoint,
+        region: reserveRegion,
+        bucket: reserveBucket,
+        accessKeyId: reserveAccessKeyId,
+        secretAccessKey: reserveSecretAccessKey,
+        publicBaseUrl: normalizeS3PublicBaseUrl(body.data.reservePublicBaseUrl)
+      };
+    }
+
     try {
       await testS3Connection(nextConfig);
+      if (nextConfig.reserve) {
+        await testS3Connection({ ...nextConfig.reserve, signedUrlTtlSeconds: nextConfig.signedUrlTtlSeconds, reserve: null });
+      }
     } catch {
       return c.json({ error: "Unable to connect to S3 bucket" }, 400);
     }
@@ -824,8 +860,11 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         bucket: nextConfig.bucket,
         publicBaseUrl: nextConfig.publicBaseUrl,
         signedUrlTtlSeconds: nextConfig.signedUrlTtlSeconds,
-        accessKeyId: nextConfig.accessKeyId,
-        secretAccessKey: nextConfig.secretAccessKey
+        reserveConfigured: Boolean(nextConfig.reserve),
+        reserveEndpoint: nextConfig.reserve?.endpoint ?? null,
+        reserveRegion: nextConfig.reserve?.region ?? null,
+        reserveBucket: nextConfig.reserve?.bucket ?? null,
+        reservePublicBaseUrl: nextConfig.reserve?.publicBaseUrl ?? null
       }
     });
 

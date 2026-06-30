@@ -15,7 +15,8 @@ describe("S3 storage config", () => {
     accessKeyId: "ACCESS123",
     secretAccessKey: "SECRET123",
     publicBaseUrl: "https://cdn.example.com/club",
-    signedUrlTtlSeconds: 7200
+    signedUrlTtlSeconds: 7200,
+    reserve: null
   };
 
   it("uses a single club settings key", () => {
@@ -54,5 +55,42 @@ describe("S3 storage config", () => {
   it("normalizes empty public url to null", () => {
     expect(normalizeS3PublicBaseUrl("")).toBeNull();
     expect(normalizeS3PublicBaseUrl(" https://cdn.example.com/path/ ")).toBe("https://cdn.example.com/path");
+  });
+
+  it("parses optional reserve settings without exposing reserve keys", () => {
+    const config = getS3ConfigFromSetting(
+      JSON.stringify({
+        ...storedConfig,
+        reserve: {
+          endpoint: "https://reserve-s3.example.com",
+          region: "ru2",
+          bucket: "club-reserve",
+          accessKeyId: "RESERVE_ACCESS",
+          secretAccessKey: "RESERVE_SECRET",
+          publicBaseUrl: "https://reserve-cdn.example.com/"
+        }
+      })
+    );
+
+    expect(config?.reserve).toMatchObject({
+      endpoint: "https://reserve-s3.example.com",
+      region: "ru2",
+      bucket: "club-reserve",
+      publicBaseUrl: "https://reserve-cdn.example.com"
+    });
+
+    const response = buildS3SettingsResponse({
+      config,
+      source: "database",
+      updatedAt: new Date("2026-06-26T08:30:00.000Z")
+    });
+
+    expect(response.reserveConfigured).toBe(true);
+    expect(response.reserveEndpoint).toBe("https://reserve-s3.example.com");
+    expect(response.reserveBucket).toBe("club-reserve");
+    expect(response.reserveAccessKeyConfigured).toBe(true);
+    expect(response.reserveSecretKeyConfigured).toBe(true);
+    expect(JSON.stringify(response)).not.toContain("RESERVE_ACCESS");
+    expect(JSON.stringify(response)).not.toContain("RESERVE_SECRET");
   });
 });

@@ -3733,6 +3733,33 @@ body.club-keyboard-open .admin-modal-backdrop {
   line-height: 1.4;
 }
 
+.admin-storage-reserve {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+  padding: 0.75rem;
+}
+
+.admin-storage-reserve header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-storage-reserve strong,
+.admin-storage-reserve small {
+  display: block;
+}
+
+.admin-storage-reserve small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 740;
+  line-height: 1.35;
+}
+
 .admin-storage-browser {
   display: grid;
   gap: 0.65rem;

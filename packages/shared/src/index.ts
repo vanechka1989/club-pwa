@@ -675,6 +675,13 @@ export const s3StorageSettingsSchema = z.object({
   signedUrlTtlSeconds: z.number().int().positive(),
   accessKeyConfigured: z.boolean(),
   secretKeyConfigured: z.boolean(),
+  reserveConfigured: z.boolean(),
+  reserveEndpoint: z.string().url().nullable(),
+  reserveBucket: z.string().nullable(),
+  reserveRegion: z.string().nullable(),
+  reservePublicBaseUrl: z.string().url().nullable(),
+  reserveAccessKeyConfigured: z.boolean(),
+  reserveSecretKeyConfigured: z.boolean(),
   updatedAt: z.string().datetime().nullable()
 });
 export type S3StorageSettings = z.infer<typeof s3StorageSettingsSchema>;

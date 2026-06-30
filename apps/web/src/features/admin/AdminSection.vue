@@ -296,6 +296,12 @@ const storageForm = ref({
   accessKeyId: "",
   secretAccessKey: "",
   publicBaseUrl: "",
+  reserveEndpoint: "",
+  reserveRegion: "us-east-1",
+  reserveBucket: "",
+  reserveAccessKeyId: "",
+  reserveSecretAccessKey: "",
+  reservePublicBaseUrl: "",
   signedUrlTtlSeconds: 3600
 });
 let accessSaveTimer: number | null = null;
@@ -1325,6 +1331,12 @@ function fillStorageForm(settings: S3StorageSettings | null) {
     accessKeyId: "",
     secretAccessKey: "",
     publicBaseUrl: settings?.publicBaseUrl ?? "",
+    reserveEndpoint: settings?.reserveEndpoint ?? "",
+    reserveRegion: settings?.reserveRegion ?? "us-east-1",
+    reserveBucket: settings?.reserveBucket ?? "",
+    reserveAccessKeyId: "",
+    reserveSecretAccessKey: "",
+    reservePublicBaseUrl: settings?.reservePublicBaseUrl ?? "",
     signedUrlTtlSeconds: settings?.signedUrlTtlSeconds ?? 3600
   };
 }
@@ -1460,12 +1472,22 @@ async function handleSaveStorageSettings() {
       accessKeyId?: string;
       secretAccessKey?: string;
       publicBaseUrl?: string | null;
+      reserveEndpoint?: string;
+      reserveRegion?: string;
+      reserveBucket?: string;
+      reserveAccessKeyId?: string;
+      reserveSecretAccessKey?: string;
+      reservePublicBaseUrl?: string | null;
       signedUrlTtlSeconds: number;
     } = {
       endpoint: storageForm.value.endpoint.trim(),
       region: storageForm.value.region.trim(),
       bucket: storageForm.value.bucket.trim(),
       publicBaseUrl: storageForm.value.publicBaseUrl.trim() || null,
+      reserveEndpoint: storageForm.value.reserveEndpoint.trim(),
+      reserveRegion: storageForm.value.reserveRegion.trim() || "us-east-1",
+      reserveBucket: storageForm.value.reserveBucket.trim(),
+      reservePublicBaseUrl: storageForm.value.reservePublicBaseUrl.trim() || null,
       signedUrlTtlSeconds: Number(storageForm.value.signedUrlTtlSeconds || 3600)
     };
     const accessKeyId = storageForm.value.accessKeyId.trim();
@@ -1475,6 +1497,14 @@ async function handleSaveStorageSettings() {
     }
     if (secretAccessKey) {
       payload.secretAccessKey = secretAccessKey;
+    }
+    const reserveAccessKeyId = storageForm.value.reserveAccessKeyId.trim();
+    const reserveSecretAccessKey = storageForm.value.reserveSecretAccessKey.trim();
+    if (reserveAccessKeyId) {
+      payload.reserveAccessKeyId = reserveAccessKeyId;
+    }
+    if (reserveSecretAccessKey) {
+      payload.reserveSecretAccessKey = reserveSecretAccessKey;
     }
 
     const response = await updateAdminS3StorageSettings(payload);
@@ -3087,6 +3117,9 @@ onUnmounted(() => {
               <template v-if="storageSettings?.updatedAt">
                 · изменено {{ new Date(storageSettings.updatedAt).toLocaleString("ru-RU") }}
               </template>
+              <template v-if="storageSettings?.configured">
+                · резерв: {{ storageSettings.reserveConfigured ? "подключён" : "не подключён" }}
+              </template>
             </small>
           </div>
         </div>
@@ -3295,6 +3328,51 @@ onUnmounted(() => {
             <input v-model.trim="storageForm.publicBaseUrl" class="text-input" placeholder="https://cdn.example.com или пусто" />
             <small>Необязательно. Если бакет публичный или есть CDN, файлы будут открываться по этому URL. Если пусто, приложение выдаст временную подписанную ссылку.</small>
           </label>
+
+          <section class="admin-storage-reserve">
+            <header>
+              <div>
+                <strong>Резервная S3</strong>
+                <small>
+                  Резерв не обязателен.
+                  <template v-if="storageSettings?.reserveConfigured"> Сейчас подключен.</template>
+                  <template v-else> Если заполнить, новые загрузки будут зеркалиться туда.</template>
+                </small>
+              </div>
+            </header>
+
+            <label class="admin-field">
+              <span>Reserve Endpoint URL</span>
+              <input v-model.trim="storageForm.reserveEndpoint" class="text-input" placeholder="https://reserve-s3.example.com" />
+            </label>
+
+            <label class="admin-field">
+              <span>Reserve Bucket</span>
+              <input v-model.trim="storageForm.reserveBucket" class="text-input" placeholder="club-reserve" />
+            </label>
+
+            <label class="admin-field">
+              <span>Reserve Region</span>
+              <input v-model.trim="storageForm.reserveRegion" class="text-input" placeholder="us-east-1" />
+            </label>
+
+            <label class="admin-field">
+              <span>Reserve Access key</span>
+              <input v-model.trim="storageForm.reserveAccessKeyId" class="text-input" autocomplete="off" placeholder="Заполните только если меняете ключ" />
+              <small>{{ storageSettings?.reserveAccessKeyConfigured ? "Reserve Access key уже сохранён." : "Ключ резервного бакета." }}</small>
+            </label>
+
+            <label class="admin-field">
+              <span>Reserve Secret key</span>
+              <input v-model.trim="storageForm.reserveSecretAccessKey" class="text-input" autocomplete="new-password" type="password" placeholder="Заполните только если меняете секрет" />
+              <small>{{ storageSettings?.reserveSecretKeyConfigured ? "Reserve Secret key уже сохранён." : "Секрет резервного бакета." }}</small>
+            </label>
+
+            <label class="admin-field">
+              <span>Reserve Public base URL</span>
+              <input v-model.trim="storageForm.reservePublicBaseUrl" class="text-input" placeholder="https://reserve-cdn.example.com или пусто" />
+            </label>
+          </section>
 
           <label class="admin-field">
             <span>TTL подписанной ссылки, сек.</span>

@@ -255,6 +255,12 @@ export function updateAdminS3StorageSettings(payload: {
   accessKeyId?: string;
   secretAccessKey?: string;
   publicBaseUrl?: string | null;
+  reserveEndpoint?: string;
+  reserveRegion?: string;
+  reserveBucket?: string;
+  reserveAccessKeyId?: string;
+  reserveSecretAccessKey?: string;
+  reservePublicBaseUrl?: string | null;
   signedUrlTtlSeconds: number;
 }) {
   return api<S3StorageSettingsMutationResponse>("/admin/storage/s3", {
