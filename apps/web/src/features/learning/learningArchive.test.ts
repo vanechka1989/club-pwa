@@ -452,6 +452,7 @@ describe("Learning section modules", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Развернуть Удалённый контент" }));
 
     expect(screen.getByText("Вариант 1. Плеер и очередь")).toBeTruthy();
+    expect(screen.getByText(/Будет удалено через 7 дн\./)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" }));

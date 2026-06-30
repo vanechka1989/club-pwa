@@ -17,6 +17,7 @@ import {
 import { paymentRedirectNotice } from "@/features/billing/paymentMessages";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
+import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
@@ -665,7 +666,7 @@ watch(showProductModal, async (isOpen) => {
       <p class="font-semibold text-[var(--text)]">Удаленные тарифы</p>
       <article v-for="product in archivedProducts" :key="product.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
-        <p class="text-sm text-[var(--muted)]">В архиве до {{ product.archivedUntil ? new Date(product.archivedUntil).toLocaleDateString("ru-RU") : "удаления" }}</p>
+        <p class="text-sm text-[var(--muted)]">{{ formatArchiveDeletionLabel(product.archivedUntil) }}</p>
       </article>
     </div>
 

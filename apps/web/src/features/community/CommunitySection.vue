@@ -15,6 +15,7 @@ import {
   updateClubTopicSettings,
   updateModerationStatus
 } from "@/api/client";
+import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
@@ -127,10 +128,6 @@ function formatMessageTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   });
-}
-
-function formatArchiveUntil(value: string | null) {
-  return value ? new Date(value).toLocaleDateString("ru-RU") : "";
 }
 
 function formatMuteLabel(message: ClubMessage) {
@@ -788,7 +785,7 @@ onBeforeUnmount(() => {
           </span>
           <span class="min-w-0 flex-1">
             <span class="chat-topic-title">{{ topic.title }}</span>
-            <span class="chat-topic-meta">В архиве до {{ formatArchiveUntil(topic.archivedUntil) }}</span>
+            <span class="chat-topic-meta">{{ formatArchiveDeletionLabel(topic.archivedUntil) }}</span>
           </span>
           <button class="mini-action" type="button" @click="restoreTopic(topic)">Вернуть</button>
         </article>

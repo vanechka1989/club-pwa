@@ -15,6 +15,7 @@ import {
   updateAdminLearningMaterial
 } from "@/api/client";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
+import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
@@ -33,6 +34,7 @@ type ModuleLesson = {
   thumbnailUrl: string | null;
   cardLayout: ContentCardLayout;
   isPersisted: boolean;
+  archivedUntil: string | null;
 };
 
 type ModuleCard = {
@@ -65,7 +67,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-1.svg",
         cardLayout: "vertical",
-        isPersisted: false
+        isPersisted: false,
+        archivedUntil: null
       },
       {
         id: "module-1-lesson-2",
@@ -78,7 +81,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-2.svg",
         cardLayout: "horizontal",
-        isPersisted: false
+        isPersisted: false,
+        archivedUntil: null
       },
       {
         id: "module-1-lesson-3",
@@ -91,7 +95,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-3.svg",
         cardLayout: "vertical",
-        isPersisted: false
+        isPersisted: false,
+        archivedUntil: null
       },
       {
         id: "module-1-lesson-4",
@@ -104,7 +109,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-4.svg",
         cardLayout: "vertical",
-        isPersisted: false
+        isPersisted: false,
+        archivedUntil: null
       }
     ],
     meta: "Модуль клуба",
@@ -127,7 +133,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-1.png",
         cardLayout: "vertical",
-        isPersisted: false
+        isPersisted: false,
+        archivedUntil: null
       },
       {
         id: "module-2-lesson-2",
@@ -140,7 +147,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-2.png",
         cardLayout: "vertical",
-        isPersisted: false
+        isPersisted: false,
+        archivedUntil: null
       },
       {
         id: "module-2-lesson-3",
@@ -153,7 +161,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-3.png",
         cardLayout: "vertical",
-        isPersisted: false
+        isPersisted: false,
+        archivedUntil: null
       }
     ],
     meta: "Модуль клуба",
@@ -555,6 +564,7 @@ function getModuleLessonImage(module: ModuleCard | null, item: ModuleLesson) {
 }
 
 function materialToLesson(item: AdminLearningMaterial | LearningContent): ModuleLesson {
+  const archivedUntil = "archivedUntil" in item ? item.archivedUntil : null;
   return {
     id: item.id,
     categoryId: item.categoryId,
@@ -566,7 +576,8 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,
     cardLayout: item.cardLayout,
-    isPersisted: true
+    isPersisted: true,
+    archivedUntil
   };
 }
 
@@ -831,7 +842,8 @@ function saveLessonLocally() {
     mediaUrl: null,
     thumbnailUrl: shouldRemoveLessonThumbnail.value ? null : (selectedLessonItem.value?.thumbnailUrl ?? null),
     cardLayout: selectedModuleLessonLayout.value,
-    isPersisted: false
+    isPersisted: false,
+    archivedUntil: null
   };
 
   if (selectedLessonItem.value) {
@@ -920,7 +932,8 @@ async function deleteLesson() {
     deletedLessons.value = [
       {
         ...lesson,
-        categoryId: moduleId
+        categoryId: moduleId,
+        archivedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       },
       ...deletedLessons.value.filter((item) => item.id !== lesson.id)
     ];
@@ -1173,6 +1186,7 @@ watch(
                 <span>Удалено</span>
                 <strong>{{ lesson.title }}</strong>
                 <small>{{ lesson.description || "Описание урока не заполнено." }}</small>
+                <small>{{ formatArchiveDeletionLabel(lesson.archivedUntil) }}</small>
               </div>
             </div>
             <button class="restore-lesson-button" type="button" :disabled="isSaving" :aria-label="`Восстановить ${lesson.title}`" @click="restoreDeletedLesson(lesson)">

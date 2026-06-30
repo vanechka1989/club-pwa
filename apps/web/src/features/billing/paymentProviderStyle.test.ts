@@ -16,4 +16,9 @@ describe("payment provider status style", () => {
     expect(styles).toMatch(/\.payment-provider-status-enabled\s*\{[^}]*var\(--success\)[^}]*var\(--success-text\)[^}]*\}/s);
     expect(styles).toMatch(/\.payment-provider-status-disabled\s*\{[^}]*var\(--danger-strong\)[^}]*var\(--danger-text\)[^}]*\}/s);
   });
+
+  it("shows when archived products will be deleted", () => {
+    expect(source).toContain("formatArchiveDeletionLabel(product.archivedUntil)");
+    expect(source).not.toContain("В архиве до {{ product.archivedUntil");
+  });
 });
