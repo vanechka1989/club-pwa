@@ -37,17 +37,14 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("Ссылка");
   });
 
-  it("keeps audience recalculation only inside the mailing composer", () => {
-    const sidePreviewStart = adminSectionSource.indexOf('<section class="admin-crm-block admin-mailing-preview">');
-    const sidePreviewEnd = adminSectionSource.indexOf('<section class="admin-crm-block admin-mailing-list">');
-    const sidePreview = adminSectionSource.slice(sidePreviewStart, sidePreviewEnd);
-
+  it("keeps the audience calculation block only inside the mailing composer", () => {
     const composerPreviewStart = adminSectionSource.indexOf("admin-mailing-composer-preview");
     const composerPreviewEnd = adminSectionSource.indexOf("admin-mailing-submit-row", composerPreviewStart);
     const composerPreview = adminSectionSource.slice(composerPreviewStart, composerPreviewEnd);
 
-    expect(sidePreview).not.toContain("Пересчитать");
+    expect(adminSectionSource).not.toContain('<section class="admin-crm-block admin-mailing-preview">');
     expect(composerPreview).toContain("Пересчитать");
+    expect(composerPreview).toContain("Примерное время");
   });
 
   it("has API client methods for previewing and controlling mailings", () => {

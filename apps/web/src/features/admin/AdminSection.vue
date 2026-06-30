@@ -2250,28 +2250,6 @@ onUnmounted(() => {
 
       <div class="admin-mailings-layout">
         <aside class="admin-mailing-side">
-          <section class="admin-crm-block admin-mailing-preview">
-            <h4>Расчёт</h4>
-            <div class="admin-mailing-preview-grid">
-              <article>
-                <span>Получателей</span>
-                <strong>{{ mailingPreview?.targetCount ?? "—" }}</strong>
-              </article>
-              <article>
-                <span>Примерное время</span>
-                <strong>{{ mailingPreviewLoading ? "считаем..." : mailingPreview?.estimatedLabel ?? "—" }}</strong>
-              </article>
-              <article>
-                <span>Бот заблокирован</span>
-                <strong>{{ mailingPreview?.excludedBotBlocked ?? mailingBlockedUsers }}</strong>
-              </article>
-              <article>
-                <span>Не прошли фильтры</span>
-                <strong>{{ mailingPreview?.excludedByFilters ?? "—" }}</strong>
-              </article>
-            </div>
-          </section>
-
           <section class="admin-crm-block admin-mailing-list">
             <div class="admin-panel-head admin-mailing-list-head">
               <div>
