@@ -3,14 +3,15 @@ import type { AppNotification } from "@club/shared";
 import { Bell, CheckCheck, Paperclip, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { getAppNotifications, markAppNotificationsRead } from "@/api/client";
+import { useNotificationsStore } from "@/stores/notifications";
 
 const notifications = ref<AppNotification[]>([]);
-const unreadCount = ref(0);
 const isOpen = ref(false);
 const loading = ref(false);
+const notificationState = useNotificationsStore();
 let notificationTimer: number | null = null;
 
-const badgeLabel = computed(() => (unreadCount.value > 9 ? "9+" : String(unreadCount.value)));
+const badgeLabel = computed(() => (notificationState.unreadCount > 9 ? "9+" : String(notificationState.unreadCount)));
 
 const allowedNotificationTags = new Set(["A", "B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "SPAN", "STRONG", "U", "UL"]);
 
@@ -95,7 +96,7 @@ async function loadNotifications() {
   try {
     const response = await getAppNotifications();
     notifications.value = response.notifications;
-    unreadCount.value = response.unreadCount;
+    notificationState.setUnreadCount(response.unreadCount);
   } catch {
     // Следующая проверка повторится по таймеру.
   } finally {
@@ -106,13 +107,13 @@ async function loadNotifications() {
 async function openCenter() {
   isOpen.value = true;
   await loadNotifications();
-  if (!unreadCount.value) {
+  if (!notificationState.unreadCount) {
     return;
   }
 
   try {
     const response = await markAppNotificationsRead();
-    unreadCount.value = response.unreadCount;
+    notificationState.setUnreadCount(response.unreadCount);
     notifications.value = notifications.value.map((notification) => ({
       ...notification,
       readAt: notification.readAt ?? new Date().toISOString()
@@ -154,7 +155,7 @@ onBeforeUnmount(() => {
   <div class="notification-center">
     <button class="notification-center-button" type="button" aria-label="Уведомления" @click="openCenter">
       <Bell class="h-5 w-5" aria-hidden="true" />
-      <span v-if="unreadCount > 0" class="notification-center-badge">{{ badgeLabel }}</span>
+      <span v-if="notificationState.unreadCount > 0" class="notification-center-badge">{{ badgeLabel }}</span>
     </button>
 
     <Teleport to="body">
@@ -163,7 +164,7 @@ onBeforeUnmount(() => {
           <header class="notification-center-head">
             <div>
               <h3 id="notification-center-title">Уведомления</h3>
-              <p>{{ unreadCount ? `${unreadCount} новых` : "Все прочитано" }}</p>
+              <p>{{ notificationState.unreadCount ? `${notificationState.unreadCount} новых` : "Все прочитано" }}</p>
             </div>
             <button class="icon-button" type="button" aria-label="Закрыть уведомления" @click="closeCenter">
               <X class="h-4 w-4" aria-hidden="true" />

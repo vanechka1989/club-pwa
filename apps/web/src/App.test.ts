@@ -50,4 +50,14 @@ describe("App", () => {
     expect(appSource).toContain('session.user.membershipStatus !== "active"');
     expect(appSource).toContain('activeSection.value = "profile";');
   });
+
+  it("shows a red mail marker on profile nav when app notifications are unread", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("Mail");
+    expect(appSource).toContain("notifications.unreadCount > 0");
+    expect(appSource).toContain("bottom-nav-mail-badge");
+    expect(styles).toContain(".bottom-nav-mail-badge");
+    expect(styles).toContain("var(--danger-strong)");
+  });
 });

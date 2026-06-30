@@ -13,6 +13,7 @@ let nextNotificationId = 1;
 
 export const useNotificationsStore = defineStore("notifications", () => {
   const items = ref<AppNotification[]>([]);
+  const unreadCount = ref(0);
 
   function dismiss(id: number) {
     items.value = items.value.filter((item) => item.id !== id);
@@ -50,12 +51,18 @@ export const useNotificationsStore = defineStore("notifications", () => {
     items.value = [];
   }
 
+  function setUnreadCount(nextUnreadCount: number) {
+    unreadCount.value = Math.max(0, nextUnreadCount);
+  }
+
   return {
     items,
+    unreadCount,
     dismiss,
     showError,
     showSuccess,
     showInfo,
-    clear
+    clear,
+    setUnreadCount
   };
 });

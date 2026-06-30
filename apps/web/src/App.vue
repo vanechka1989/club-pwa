@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronUp } from "lucide-vue-next";
+import { ChevronDown, ChevronUp, Mail } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getPaymentHistory, getSupportUnreadCount } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
@@ -443,6 +443,9 @@ onBeforeUnmount(() => {
         @click="selectSection(item.id)"
       >
         <component :is="item.icon" class="h-5 w-5" aria-hidden="true" />
+        <span v-if="item.id === 'profile' && notifications.unreadCount > 0" class="bottom-nav-mail-badge" aria-label="Есть новые уведомления">
+          <Mail class="h-2.5 w-2.5" aria-hidden="true" />
+        </span>
         <span v-if="item.id === 'support' && supportUnreadCount > 0" class="bottom-nav-badge">
           {{ supportUnreadCount > 9 ? "9+" : supportUnreadCount }}
         </span>
