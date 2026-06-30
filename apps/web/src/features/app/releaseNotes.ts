@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Рассылки",
+    items: [
+      "Из общего блока рассылок убрана лишняя кнопка «Пересчитать».",
+      "Пересчёт аудитории оставлен только внутри создания рассылки."
+    ]
+  },
+  {
+    version: "2.16",
+    updatedAt: "30.06.2026 07:07",
     title: "Рассылки и уведомления",
     items: [
       "Колокольчик уведомлений перенесён наверх по центру между кнопками Telegram.",

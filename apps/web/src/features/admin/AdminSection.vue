@@ -2270,9 +2270,6 @@ onUnmounted(() => {
                 <strong>{{ mailingPreview?.excludedByFilters ?? "—" }}</strong>
               </article>
             </div>
-            <button class="secondary-button" type="button" :disabled="mailingPreviewLoading" @click="refreshMailingPreview">
-              Пересчитать
-            </button>
           </section>
 
           <section class="admin-crm-block admin-mailing-list">
