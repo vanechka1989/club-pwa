@@ -4398,7 +4398,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .continue-lesson-card {
   display: grid;
-  grid-template-columns: 4.8rem minmax(0, 1fr) auto;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
   width: 100%;
@@ -4412,16 +4412,33 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .continue-lesson-card img {
-  width: 4.8rem;
-  aspect-ratio: 16 / 10;
+  width: 100%;
   border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
   object-fit: cover;
 }
 
+.continue-lesson-card-horizontal {
+  grid-template-columns: 5.7rem minmax(0, 1fr) auto;
+}
+
+.continue-lesson-card-horizontal img {
+  aspect-ratio: 16 / 9;
+}
+
+.continue-lesson-card-vertical {
+  grid-template-columns: 4.2rem minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+
+.continue-lesson-card-vertical img {
+  aspect-ratio: 3 / 4;
+}
+
 .continue-lesson-copy {
   display: grid;
+  align-content: center;
   min-width: 0;
   gap: 0.12rem;
 }
@@ -4447,6 +4464,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .continue-lesson-action {
+  align-self: center;
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-text);

@@ -401,4 +401,68 @@ describe("Learning section member content", () => {
 
     expect(Math.round(video.currentTime)).toBe(252);
   });
+
+  it("does not overwrite saved playback before the continued video seeks", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-video",
+          slug: "module-video",
+          title: "Видео модуль",
+          description: "Материалы с видео",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: {
+          id: "lesson-video",
+          categoryId: "module-video",
+          kind: "video",
+          title: "Голосовые практики",
+          summary: "Видео на 12 минут",
+          body: null,
+          mediaUrl: "https://example.com/video.mp4",
+          thumbnailUrl: null,
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        },
+        lastOpenedAt: "2026-06-29T10:00:00.000Z",
+        lastOpenedPlaybackPositionSeconds: 252
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-video",
+        categoryId: "module-video",
+        kind: "video",
+        title: "Голосовые практики",
+        summary: "Видео на 12 минут",
+        body: null,
+        mediaUrl: "https://example.com/video.mp4",
+        thumbnailUrl: null,
+        cardLayout: "horizontal",
+        mediaContentType: "video/mp4",
+        mediaSizeBytes: 1024,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 252
+    });
+
+    renderAsMember();
+    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
+
+    const video = document.querySelector("video") as HTMLVideoElement;
+    await fireEvent.timeUpdate(video);
+
+    expect(saveLearningPlayback).not.toHaveBeenCalledWith("lesson-video", 0);
+  });
 });

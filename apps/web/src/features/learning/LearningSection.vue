@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { AdminLearningMaterial, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary } from "@club/shared";
 import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
@@ -233,6 +233,10 @@ const lastOpenedLessonModule = computed(() => {
 });
 const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
 const continueLessonButtonLabel = computed(() => (lastOpenedLesson.value ? `Продолжить урок ${lastOpenedLesson.value.title}` : "Продолжить урок"));
+const continueLessonCardClasses = computed(() => [
+  "continue-lesson-card",
+  lastOpenedLesson.value?.cardLayout === "horizontal" ? "continue-lesson-card-horizontal" : "continue-lesson-card-vertical"
+]);
 const continueLessonProgressLabel = computed(() => {
   const lesson = lastOpenedLesson.value;
   const seconds = learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0;
@@ -501,8 +505,25 @@ function applyPendingLessonVideoStart() {
     return;
   }
 
-  video.currentTime = pendingLessonVideoStartSeconds.value;
+  const targetSeconds =
+    Number.isFinite(video.duration) && video.duration > 0
+      ? Math.min(pendingLessonVideoStartSeconds.value, Math.max(0, video.duration - 0.25))
+      : pendingLessonVideoStartSeconds.value;
+
+  try {
+    video.currentTime = targetSeconds;
+  } catch {
+    syncLessonVideoState();
+    return;
+  }
+
+  if (Math.abs(video.currentTime - targetSeconds) > 0.5) {
+    syncLessonVideoState();
+    return;
+  }
+
   lessonVideoStartApplied.value = true;
+  lastSavedLessonVideoSeconds.value = Math.floor(targetSeconds);
   syncLessonVideoState();
 }
 
@@ -511,6 +532,13 @@ async function persistLessonVideoPlayback(force = false) {
   const video = lessonVideoElement.value;
   if (!lesson?.isPersisted || lesson.kind !== "video" || !video) {
     return;
+  }
+
+  if (pendingLessonVideoStartSeconds.value > 0 && !lessonVideoStartApplied.value) {
+    applyPendingLessonVideoStart();
+    if (!lessonVideoStartApplied.value) {
+      return;
+    }
   }
 
   const positionSeconds = Math.max(0, Math.floor(video.currentTime));
@@ -524,6 +552,10 @@ async function persistLessonVideoPlayback(force = false) {
 
 function handleLessonVideoTimeUpdate() {
   syncLessonVideoState();
+  if (pendingLessonVideoStartSeconds.value > 0 && !lessonVideoStartApplied.value) {
+    applyPendingLessonVideoStart();
+    return;
+  }
   void persistLessonVideoPlayback(false);
 }
 
@@ -690,6 +722,7 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
     replaceModuleLesson(materialToLesson(response.item));
     pendingLessonVideoStartSeconds.value = Math.max(pendingLessonVideoStartSeconds.value, response.playbackPositionSeconds ?? 0);
     lastSavedLessonVideoSeconds.value = pendingLessonVideoStartSeconds.value;
+    void nextTick().then(() => applyPendingLessonVideoStart());
   } catch {
     if (selectedLesson.value?.lessonId === lessonId) {
       showLessonViewerError("Не удалось загрузить содержимое урока.");
@@ -1158,7 +1191,7 @@ watch(
 
     <button
       v-if="shouldShowContinueLesson && lastOpenedLesson && lastOpenedLessonModule"
-      class="continue-lesson-card"
+      :class="continueLessonCardClasses"
       type="button"
       :aria-label="continueLessonButtonLabel"
       @click="openLastLesson"
@@ -1420,6 +1453,8 @@ watch(
                   playsinline
                   preload="metadata"
                   @loadedmetadata="applyPendingLessonVideoStart"
+                  @loadeddata="applyPendingLessonVideoStart"
+                  @canplay="applyPendingLessonVideoStart"
                   @timeupdate="handleLessonVideoTimeUpdate"
                   @play="syncLessonVideoState"
                   @pause="persistLessonVideoPlayback(true)"
