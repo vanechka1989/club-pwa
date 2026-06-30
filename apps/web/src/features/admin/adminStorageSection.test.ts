@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
+const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
 
 describe("admin storage section", () => {
   it("opens file overview and S3 settings as separate modals from the storage landing", () => {
@@ -12,5 +13,17 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("Настройки S3");
     expect(adminSectionSource).toContain("admin-storage-action-grid");
     expect(adminSectionSource).toContain("<Teleport to=\"body\">");
+  });
+
+  it("opens every storage folder in a dedicated file modal and keeps landing actions side by side", () => {
+    expect(adminSectionSource).toContain("showStorageFolderModal");
+    expect(adminSectionSource).toContain("openStorageFolder");
+    expect(adminSectionSource).toContain("admin-storage-folder-modal");
+    expect(adminSectionSource).toContain("storageFolderGroups");
+    expect(adminSectionSource).toContain("selectedStorageFolder");
+    expect(adminSectionSource).toContain("v-for=\"group in storageFolderGroups\"");
+    expect(stylesSource).toContain(".admin-storage-action-grid");
+    expect(stylesSource).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
+    expect(stylesSource).not.toContain(".admin-storage-action-grid,\n  .admin-storage-folder-grid");
   });
 });

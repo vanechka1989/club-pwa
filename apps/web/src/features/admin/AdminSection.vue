@@ -285,6 +285,8 @@ const storageObjectsCursor = ref<string | null>(null);
 const storagePrefix = ref("");
 const storageSearch = ref("");
 const showStorageFilesModal = ref(false);
+const showStorageFolderModal = ref(false);
+const selectedStorageFolder = ref<(typeof storagePrefixOptions)[number] | null>(null);
 const showStorageSettingsModal = ref(false);
 const storageForm = ref({
   endpoint: "",
@@ -470,6 +472,36 @@ const storageOverview = computed(() =>
     };
   })
 );
+const selectedStorageFolderObjects = computed(() => {
+  const folder = selectedStorageFolder.value;
+  if (!folder) {
+    return [];
+  }
+
+  const query = storageSearch.value.trim().toLowerCase();
+  const objects = folder.value ? storageObjects.value.filter((item) => item.key.startsWith(folder.value)) : storageObjects.value;
+  if (!query) {
+    return objects;
+  }
+
+  return objects.filter((item) =>
+    [item.key, item.entityTitle ?? "", item.uploadedBy?.firstName ?? "", item.uploadedBy?.username ?? ""].some((value) =>
+      value.toLowerCase().includes(query)
+    )
+  );
+});
+const storageFolderGroups = computed(() => {
+  const groups = new Map<string, { title: string; objects: S3StorageObject[]; sizeBytes: number }>();
+  for (const item of selectedStorageFolderObjects.value) {
+    const title = item.entityTitle || item.fileKind || "Без привязки";
+    const group = groups.get(title) ?? { title, objects: [], sizeBytes: 0 };
+    group.objects.push(item);
+    group.sizeBytes += item.sizeBytes;
+    groups.set(title, group);
+  }
+
+  return Array.from(groups.values()).sort((left, right) => left.title.localeCompare(right.title, "ru"));
+});
 const mailingBlockedUsers = computed(() => users.value.filter((user) => user.telegramBotStatus === "blocked").length);
 const mailingCanSubmit = computed(() => mailingTitle.value.trim().length > 0 && mailingBody.value.trim().length > 0);
 const mailingAttachmentLabel = computed(() => mailingAttachment.value?.name ?? "Добавить вложение");
@@ -1300,6 +1332,14 @@ function storageObjectFileName(key: string) {
   return key.split("/").filter(Boolean).at(-1) ?? key;
 }
 
+async function openStorageFolder(folder: (typeof storagePrefixOptions)[number]) {
+  selectedStorageFolder.value = folder;
+  storagePrefix.value = folder.value;
+  storageSearch.value = "";
+  await loadStorageObjects();
+  showStorageFolderModal.value = true;
+}
+
 function openStorageSettings() {
   const confirmed = window.confirm(
     "Изменение настроек S3 может привести к некорректной работе клуба и недоступности файлов. Точно открыть настройки?"
@@ -1367,6 +1407,8 @@ async function loadStorageSettings() {
     storageOverviewObjects.value = [];
     storageObjectsCursor.value = null;
     showStorageFilesModal.value = false;
+    showStorageFolderModal.value = false;
+    selectedStorageFolder.value = null;
     showStorageSettingsModal.value = false;
     fillStorageForm(null);
     return;
@@ -3079,7 +3121,7 @@ onUnmounted(() => {
                     :class="{ active: storagePrefix === folder.value }"
                     type="button"
                     :disabled="storageObjectsLoading"
-                    @click="storagePrefix = folder.value; loadStorageObjects()"
+                    @click="openStorageFolder(folder)"
                   >
                     <span>{{ folder.label }}</span>
                     <strong>{{ folder.count }} файлов</strong>
@@ -3087,35 +3129,73 @@ onUnmounted(() => {
                   </button>
                 </div>
 
-                <div class="admin-storage-browser-filters">
-                  <select v-model="storagePrefix" class="text-input" :disabled="storageObjectsLoading" @change="loadStorageObjects()">
-                    <option v-for="option in storagePrefixOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                  </select>
-                  <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени, уроку или автору" />
+                <p class="admin-storage-hint">Выберите папку, чтобы открыть файлы в отдельном окне.</p>
+              </section>
+
+              <p v-else class="admin-empty">S3 не подключено. Откройте настройки S3 и заполните параметры бакета.</p>
+            </aside>
+          </div>
+        </Teleport>
+
+        <Teleport to="body">
+          <div v-if="showStorageFolderModal && selectedStorageFolder" class="admin-modal-backdrop" @click.self="showStorageFolderModal = false">
+            <aside class="admin-detail admin-client-modal admin-storage-modal admin-storage-folder-modal" role="dialog" aria-modal="true" aria-labelledby="admin-storage-folder-title">
+              <header class="admin-client-modal-head">
+                <div>
+                  <h3 id="admin-storage-folder-title">{{ selectedStorageFolder.label }}</h3>
+                  <p>{{ selectedStorageFolderObjects.length }} файлов · {{ formatStorageSize(selectedStorageFolderObjects.reduce((sum, item) => sum + item.sizeBytes, 0)) }}</p>
+                </div>
+                <button class="icon-button" type="button" aria-label="Закрыть папку" @click="showStorageFolderModal = false">
+                  <X class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </header>
+
+              <div class="admin-storage-browser">
+                <div class="admin-storage-browser-head">
+                  <div>
+                    <strong>Файлы папки</strong>
+                    <small>
+                      {{ selectedStorageFolder.value || "Все файлы" }}
+                      <template v-if="storageObjectsCursor"> · есть ещё файлы</template>
+                    </small>
+                  </div>
+                  <button class="secondary-button" type="button" :disabled="storageObjectsLoading" @click="loadStorageObjects()">
+                    {{ storageObjectsLoading ? "Загружаю..." : "Обновить" }}
+                  </button>
                 </div>
 
-                <div class="admin-storage-object-list">
-                  <article v-for="item in filteredStorageObjects" :key="item.key" class="admin-storage-object-card">
-                    <span class="admin-storage-object-copy">
-                      <strong>{{ storageObjectFileName(item.key) }}</strong>
-                      <small>{{ item.categoryLabel }} · {{ item.fileKind }}</small>
-                      <small v-if="item.entityTitle">Связано: {{ item.entityTitle }}</small>
-                      <small v-if="item.uploadedBy">
-                        Загрузил:
-                        {{ item.uploadedBy.firstName || (item.uploadedBy.username ? `@${item.uploadedBy.username}` : `ID ${item.uploadedBy.telegramId}`) }}
-                      </small>
-                      <small>{{ item.key }}</small>
-                      <em>
-                        {{ formatStorageSize(item.sizeBytes) }}
-                        <template v-if="item.lastModified"> · {{ new Date(item.lastModified).toLocaleString("ru-RU") }}</template>
-                      </em>
-                    </span>
-                    <span class="admin-storage-object-actions">
-                      <button class="secondary-button" type="button" @click="openStorageObject(item)">Открыть</button>
-                      <button class="danger-button" type="button" :disabled="storageObjectsLoading" @click="handleDeleteStorageObject(item)">Удалить</button>
-                    </span>
-                  </article>
-                  <p v-if="!filteredStorageObjects.length && !storageObjectsLoading" class="admin-empty">Файлы не найдены.</p>
+                <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени, уроку или автору" />
+
+                <div class="admin-storage-folder-group-list">
+                  <section v-for="group in storageFolderGroups" :key="group.title" class="admin-storage-folder-group">
+                    <header>
+                      <div>
+                        <strong>{{ group.title }}</strong>
+                        <small>{{ group.objects.length }} файлов · {{ formatStorageSize(group.sizeBytes) }}</small>
+                      </div>
+                    </header>
+
+                    <article v-for="item in group.objects" :key="item.key" class="admin-storage-object-card admin-storage-object-card-rich">
+                      <span class="admin-storage-object-copy">
+                        <strong>{{ storageObjectFileName(item.key) }}</strong>
+                        <small>{{ item.categoryLabel }} · {{ item.fileKind }}</small>
+                        <small v-if="item.uploadedBy">
+                          Загрузил:
+                          {{ item.uploadedBy.firstName || (item.uploadedBy.username ? `@${item.uploadedBy.username}` : `ID ${item.uploadedBy.telegramId}`) }}
+                        </small>
+                        <small>{{ item.key }}</small>
+                        <em>
+                          {{ formatStorageSize(item.sizeBytes) }}
+                          <template v-if="item.lastModified"> · {{ new Date(item.lastModified).toLocaleString("ru-RU") }}</template>
+                        </em>
+                      </span>
+                      <span class="admin-storage-object-actions">
+                        <button class="secondary-button" type="button" @click="openStorageObject(item)">Открыть</button>
+                        <button class="danger-button" type="button" :disabled="storageObjectsLoading" @click="handleDeleteStorageObject(item)">Удалить</button>
+                      </span>
+                    </article>
+                  </section>
+                  <p v-if="!storageFolderGroups.length && !storageObjectsLoading" class="admin-empty">Файлы не найдены.</p>
                 </div>
 
                 <button
@@ -3127,9 +3207,7 @@ onUnmounted(() => {
                 >
                   Загрузить ещё
                 </button>
-              </section>
-
-              <p v-else class="admin-empty">S3 не подключено. Откройте настройки S3 и заполните параметры бакета.</p>
+              </div>
             </aside>
           </div>
         </Teleport>

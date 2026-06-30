@@ -3667,6 +3667,17 @@ body.club-keyboard-open .admin-modal-backdrop {
   max-width: 44rem;
 }
 
+.admin-storage-folder-modal {
+  max-width: 48rem;
+}
+
+.admin-storage-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 740;
+  line-height: 1.4;
+}
+
 .admin-storage-warning {
   border: 1px solid color-mix(in srgb, #f59e0b 42%, var(--border));
   border-radius: 13px;
@@ -3782,11 +3793,57 @@ body.club-keyboard-open .admin-modal-backdrop {
   gap: 0.42rem;
 }
 
+.admin-storage-folder-group-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-storage-folder-group {
+  display: grid;
+  gap: 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  padding: 0.55rem;
+}
+
+.admin-storage-folder-group header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-storage-folder-group header div {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.admin-storage-folder-group header strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-storage-folder-group header small {
+  color: var(--muted);
+  font-size: 0.67rem;
+  font-weight: 740;
+}
+
 .admin-storage-object-card {
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   border-radius: 12px;
   background: color-mix(in srgb, var(--panel) 82%, transparent);
   padding: 0.52rem;
+}
+
+.admin-storage-object-card-rich {
+  background: color-mix(in srgb, var(--panel-strong) 54%, transparent);
 }
 
 .admin-storage-object-actions {
@@ -7527,7 +7584,6 @@ button.chat-message-author:active {
     display: grid;
   }
 
-  .admin-storage-action-grid,
   .admin-storage-folder-grid {
     grid-template-columns: 1fr;
   }
