@@ -39,4 +39,17 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("Журнал действий");
     expect(adminSectionSource).toContain("Все администраторы");
   });
+
+  it("keeps action journal collapsed by default and can expand it", () => {
+    expect(adminSectionSource).toContain("adminActionLogExpanded");
+    expect(adminSectionSource).toContain("Показать журнал");
+    expect(adminSectionSource).toContain("Свернуть журнал");
+  });
+
+  it("shows pending feedback on client access action buttons", () => {
+    expect(adminSectionSource).toContain("pendingClientAccessAction");
+    expect(adminSectionSource).toContain("admin-access-button-pending");
+    expect(adminSectionSource).toContain("Открываю...");
+    expect(adminSectionSource).toContain("Закрываю...");
+  });
 });

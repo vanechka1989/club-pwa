@@ -500,6 +500,7 @@ export const adminActionLogSchema = z.object({
   summary: z.string(),
   metadata: z.record(z.unknown()),
   actor: adminActionActorSchema.nullable(),
+  target: adminActionActorSchema.nullable(),
   createdAt: z.string().datetime()
 });
 export type AdminActionLog = z.infer<typeof adminActionLogSchema>;

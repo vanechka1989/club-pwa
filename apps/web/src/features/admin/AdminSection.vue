@@ -107,6 +107,7 @@ const emit = defineEmits<{
 }>();
 
 type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
+type ClientAccessAction = "open" | "close" | "extend7" | "extend30" | "manual";
 type UserDrilldownSelection =
   | {
       kind: "access";
@@ -197,6 +198,7 @@ const admins = ref<AdminUser[]>([]);
 const adminActionAdmins = ref<AdminActionActor[]>([]);
 const adminActionLogs = ref<AdminActionLog[]>([]);
 const adminActionActorFilter = ref("");
+const adminActionLogExpanded = ref(false);
 const users = ref<AdminStatsUser[]>([]);
 const mailings = ref<AdminMailing[]>([]);
 const mailingPreview = ref<AdminMailingPreviewResponse | null>(null);
@@ -232,6 +234,7 @@ const restrictionFilter = ref<"all" | "restricted">("all");
 const statisticsPeriod = ref<AdminStatisticsPeriod>("30d");
 const accessStatus = ref<"active" | "inactive">("active");
 const accessExpiresAt = ref("");
+const pendingClientAccessAction = ref<ClientAccessAction | null>(null);
 const materialCategoryId = ref("");
 const materialKind = ref<ContentKind>("text");
 const materialTitle = ref("");
@@ -291,6 +294,7 @@ function hasCurrentAdminPermission(permission: AdminPermission) {
 
 const canUseStorage = computed(() => hasCurrentAdminPermission("storage"));
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
+const clientAccessBusy = computed(() => Boolean(pendingClientAccessAction.value));
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const restrictedUsers = computed(() => users.value.filter((user) => user.hasRestrictions).length);
@@ -877,10 +881,41 @@ function adminActionActorTitle(actor: AdminActionActor | null) {
   return actor.firstName || (actor.username ? `@${actor.username}` : `ID ${actor.telegramId}`);
 }
 
+function adminActionTargetTitle(log: AdminActionLog) {
+  if (log.target) {
+    return adminActionActorTitle(log.target);
+  }
+
+  return log.targetTelegramId ? `ID ${log.targetTelegramId}` : "";
+}
+
+function adminActionAccessDetails(log: AdminActionLog) {
+  if (log.action !== "client.access.updated") {
+    return "";
+  }
+
+  const status = typeof log.metadata.status === "string" ? log.metadata.status : "";
+  const expiresAt = typeof log.metadata.expiresAt === "string" ? log.metadata.expiresAt : "";
+  const durationDays = typeof log.metadata.durationDays === "number" ? log.metadata.durationDays : null;
+  if (status === "active" && expiresAt) {
+    return `Доступ к клубу до ${formatDateTime(expiresAt)}${durationDays ? ` · ${durationDays} дн.` : ""}`;
+  }
+
+  if (status === "inactive" || status === "expired") {
+    return "Доступ к клубу закрыт";
+  }
+
+  return "";
+}
+
 function adminActionMetaText(log: AdminActionLog) {
-  const target = log.targetTelegramId ? `ID ${log.targetTelegramId}` : "";
-  const entity = log.entityId && log.entityId !== log.targetTelegramId ? log.entityId : "";
-  return [target, entity].filter(Boolean).join(" · ");
+  const target = adminActionTargetTitle(log);
+  const accessDetails = adminActionAccessDetails(log);
+  if (accessDetails) {
+    return [target ? `Клиент: ${target}` : "", accessDetails].filter(Boolean).join(" · ");
+  }
+
+  return target ? `Клиент: ${target}` : "";
 }
 
 function adminRoleTitle(admin: AdminUser) {
@@ -1327,9 +1362,12 @@ async function loadAll() {
   }
 }
 
-async function saveSelectedUserAccess(status: "active" | "inactive", expiresAtValue: string, successText: string) {
+async function saveSelectedUserAccess(status: "active" | "inactive", expiresAtValue: string, successText: string, action: ClientAccessAction) {
   const telegramId = selectedUser.value?.telegramId;
   if (!telegramId) {
+    return;
+  }
+  if (pendingClientAccessAction.value) {
     return;
   }
   if (selectedUser.value && !canManageSelectedUser.value) {
@@ -1338,6 +1376,7 @@ async function saveSelectedUserAccess(status: "active" | "inactive", expiresAtVa
   }
 
   saving.value = true;
+  pendingClientAccessAction.value = action;
   try {
     const response = await updateAdminUserAccess({
       telegramId,
@@ -1352,29 +1391,30 @@ async function saveSelectedUserAccess(status: "active" | "inactive", expiresAtVa
   } catch {
     setError("Не удалось сохранить доступ.");
   } finally {
+    pendingClientAccessAction.value = null;
     saving.value = false;
   }
 }
 
 async function handleOpenAccess() {
   accessStatus.value = "active";
-  await saveSelectedUserAccess("active", accessExpiresAt.value, "Доступ открыт.");
+  await saveSelectedUserAccess("active", accessExpiresAt.value, "Доступ открыт.", "open");
 }
 
 async function handleCloseAccess() {
   accessStatus.value = "inactive";
   accessExpiresAt.value = "";
-  await saveSelectedUserAccess("inactive", "", "Доступ закрыт.");
+  await saveSelectedUserAccess("inactive", "", "Доступ закрыт.", "close");
 }
 
 async function handleExtendAccess(days: number) {
   extendAccess(days);
-  await saveSelectedUserAccess("active", accessExpiresAt.value, `Доступ продлён на ${days} дней.`);
+  await saveSelectedUserAccess("active", accessExpiresAt.value, `Доступ продлён на ${days} дней.`, days === 7 ? "extend7" : "extend30");
 }
 
 async function handleManualAccessSave() {
   accessStatus.value = "active";
-  await saveSelectedUserAccess("active", accessExpiresAt.value, "Ручной доступ сохранён.");
+  await saveSelectedUserAccess("active", accessExpiresAt.value, "Ручной доступ сохранён.", "manual");
 }
 
 async function submitClientMessage() {
@@ -2199,17 +2239,41 @@ onUnmounted(() => {
                 <small>{{ getAccessActionSummary(selectedUser) }}</small>
               </div>
               <div class="admin-access-toggle">
-                <button class="admin-access-open" type="button" :disabled="saving || !canManageSelectedUser" @click="handleOpenAccess">
-                  Открыть доступ
+                <button
+                  class="admin-access-open"
+                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'open' }"
+                  type="button"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  @click="handleOpenAccess"
+                >
+                  {{ pendingClientAccessAction === "open" ? "Открываю..." : "Открыть доступ" }}
                 </button>
-                <button class="admin-access-close" type="button" :disabled="saving || !canManageSelectedUser" @click="handleCloseAccess">
-                  Закрыть доступ
+                <button
+                  class="admin-access-close"
+                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'close' }"
+                  type="button"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  @click="handleCloseAccess"
+                >
+                  {{ pendingClientAccessAction === "close" ? "Закрываю..." : "Закрыть доступ" }}
                 </button>
-                <button class="admin-access-add" type="button" :disabled="saving || !canManageSelectedUser" @click="handleExtendAccess(7)">
-                  +7 дней
+                <button
+                  class="admin-access-add"
+                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend7' }"
+                  type="button"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  @click="handleExtendAccess(7)"
+                >
+                  {{ pendingClientAccessAction === "extend7" ? "Продлеваю..." : "+7 дней" }}
                 </button>
-                <button class="admin-access-add" type="button" :disabled="saving || !canManageSelectedUser" @click="handleExtendAccess(30)">
-                  +30 дней
+                <button
+                  class="admin-access-add"
+                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend30' }"
+                  type="button"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  @click="handleExtendAccess(30)"
+                >
+                  {{ pendingClientAccessAction === "extend30" ? "Продлеваю..." : "+30 дней" }}
                 </button>
               </div>
               <form class="admin-compact-date-row" @submit.prevent="handleManualAccessSave">
@@ -2219,11 +2283,11 @@ onUnmounted(() => {
                 </label>
                 <button
                   class="admin-date-save"
-                  :class="{ 'admin-save-success': accessSaveSucceeded }"
+                  :class="{ 'admin-save-success': accessSaveSucceeded, 'admin-access-button-pending': pendingClientAccessAction === 'manual' }"
                   type="submit"
-                  :disabled="saving || !canManageSelectedUser"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
                 >
-                  {{ accessSaveButtonText }}
+                  {{ pendingClientAccessAction === "manual" ? "Сохраняю..." : accessSaveButtonText }}
                 </button>
                 <button class="admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">
                   Написать
@@ -3160,25 +3224,31 @@ onUnmounted(() => {
         <header class="admin-action-log-head">
           <div>
             <h4>Журнал действий</h4>
-            <p>Кто и что менял в админке.</p>
+            <p>{{ adminActionLogs.length ? `${adminActionLogs.length} последних действий` : "Действий пока нет" }}</p>
           </div>
+          <button class="secondary-button admin-action-log-toggle" type="button" @click="adminActionLogExpanded = !adminActionLogExpanded">
+            {{ adminActionLogExpanded ? "Свернуть журнал" : "Показать журнал" }}
+          </button>
+        </header>
+
+        <div v-if="adminActionLogExpanded" class="admin-action-log-body">
           <select v-model="adminActionActorFilter" class="text-input admin-action-log-filter">
             <option value="">Все администраторы</option>
             <option v-for="admin in visibleAdminActionActors" :key="admin.telegramId" :value="admin.telegramId">
               {{ adminActionActorTitle(admin) }}
             </option>
           </select>
-        </header>
 
-        <div class="admin-action-log-list">
-          <article v-for="log in adminActionLogs" :key="log.id" class="admin-action-log-item">
-            <div>
-              <strong>{{ log.summary }}</strong>
-              <span>{{ adminActionActorTitle(log.actor) }} · {{ formatDateTime(log.createdAt) }}</span>
-              <small v-if="adminActionMetaText(log)">{{ adminActionMetaText(log) }}</small>
-            </div>
-          </article>
-          <p v-if="!adminActionLogs.length" class="admin-empty">Действий пока нет.</p>
+          <div class="admin-action-log-list">
+            <article v-for="log in adminActionLogs" :key="log.id" class="admin-action-log-item">
+              <div>
+                <strong>{{ log.summary }}</strong>
+                <span>{{ adminActionActorTitle(log.actor) }} · {{ formatDateTime(log.createdAt) }}</span>
+                <small v-if="adminActionMetaText(log)">{{ adminActionMetaText(log) }}</small>
+              </div>
+            </article>
+            <p v-if="!adminActionLogs.length" class="admin-empty">Действий пока нет.</p>
+          </div>
         </div>
       </section>
 

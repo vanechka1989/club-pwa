@@ -3178,6 +3178,23 @@ button {
   font-weight: 860;
   line-height: 1.15;
   text-align: center;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.admin-access-toggle button:disabled,
+.admin-date-save:disabled,
+.admin-message-client-button:disabled {
+  opacity: 0.72;
+}
+
+.admin-access-button-pending {
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+  transform: translateY(1px);
 }
 
 .admin-access-open {
@@ -4018,6 +4035,16 @@ button {
 
 .admin-action-log-filter {
   min-height: 2.45rem;
+}
+
+.admin-action-log-toggle {
+  width: 100%;
+  min-height: 2.45rem;
+}
+
+.admin-action-log-body {
+  display: grid;
+  gap: 0.5rem;
 }
 
 .admin-action-log-list {

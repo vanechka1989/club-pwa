@@ -401,7 +401,7 @@ function serializeAdminActionActor(telegramId: string, profile?: typeof users.$i
 }
 
 function serializeAdminActionLog(
-  log: typeof adminActionLogs.$inferSelect & { actor?: typeof users.$inferSelect | null }
+  log: typeof adminActionLogs.$inferSelect & { actor?: typeof users.$inferSelect | null; targetUser?: typeof users.$inferSelect | null }
 ) {
   return {
     id: log.id,
@@ -412,6 +412,7 @@ function serializeAdminActionLog(
     summary: log.summary,
     metadata: log.metadata,
     actor: serializeAdminActionActor(log.actorTelegramId, log.actor ?? undefined),
+    target: log.targetTelegramId ? serializeAdminActionActor(log.targetTelegramId, log.targetUser ?? undefined) : null,
     createdAt: log.createdAt.toISOString()
   };
 }
@@ -631,7 +632,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       orderBy: [desc(adminActionLogs.createdAt)],
       limit: 100,
       with: {
-        actor: true
+        actor: true,
+        targetUser: true
       }
     });
     const adminTelegramIds = Array.from(
@@ -819,16 +821,24 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       sourceId: user.id
     }).catch(() => null);
 
+    const accessDurationDays =
+      body.data.status === "active" ? Math.max(1, Math.ceil((expiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))) : 0;
+    const accessSummary =
+      body.data.status === "active"
+        ? `Открыл доступ к клубу до ${expiresAt.toLocaleDateString("ru-RU")} (${accessDurationDays} дн.)`
+        : "Закрыл доступ к клубу";
+
     await recordAdminAction(c, {
       action: "client.access.updated",
       entityType: "user",
       entityId: user.id,
       targetUserId: user.id,
       targetTelegramId: user.telegramId,
-      summary: body.data.status === "active" ? "Открыл доступ клиенту" : "Закрыл доступ клиенту",
+      summary: accessSummary,
       metadata: {
         status: body.data.status,
-        expiresAt: expiresAt.toISOString()
+        expiresAt: expiresAt.toISOString(),
+        durationDays: accessDurationDays
       }
     });
 
