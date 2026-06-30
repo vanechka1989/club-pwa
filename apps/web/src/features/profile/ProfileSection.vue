@@ -4,6 +4,7 @@ import { BarChart3, Check, Fingerprint, Maximize2, Minimize2, Moon, Palette, Ref
 import { computed, onMounted, ref } from "vue";
 import { getLearningHome, getPaymentHistory, getPaymentPlans } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
+import NotificationCenter from "@/features/app/NotificationCenter.vue";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { getProfilePaymentActionText } from "@/features/profile/profileSubscriptionCopy";
 import { useSessionStore } from "@/stores/session";
@@ -165,10 +166,6 @@ function changeLocale(locale: Locale) {
   setLocale(locale);
 }
 
-function changeTheme(theme: Theme) {
-  ui.setTheme(theme);
-}
-
 function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
   if (status === "paid") {
     return "Оплачен";
@@ -267,14 +264,7 @@ onMounted(async () => {
         >
           {{ currentLocale.toUpperCase() }}
         </button>
-        <button
-          type="button"
-          :aria-label="t('theme')"
-          @click="changeTheme(ui.theme === 'dark' ? 'light' : 'dark')"
-        >
-          <Sun v-if="ui.theme === 'dark'" class="h-4 w-4" aria-hidden="true" />
-          <Moon v-else class="h-4 w-4" aria-hidden="true" />
-        </button>
+        <NotificationCenter />
       </div>
     </div>
 

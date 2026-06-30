@@ -6179,11 +6179,13 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .notification-center {
-  position: fixed;
-  top: calc(var(--tg-safe-top, 0px) + 0.75rem);
-  left: 50%;
-  z-index: 70;
-  transform: translateX(-50%);
+  position: relative;
+}
+
+.compact-controls .notification-center {
+  position: static;
+  transform: none;
+  z-index: auto;
 }
 
 .notification-center-button {
@@ -6204,6 +6206,14 @@ body.club-keyboard-open .admin-modal-backdrop {
     opacity 150ms ease,
     transform 150ms ease,
     background 150ms ease;
+}
+
+.compact-controls .notification-center-button {
+  width: 2rem;
+  height: 2rem;
+  box-shadow: none;
+  opacity: 1;
+  backdrop-filter: none;
 }
 
 .notification-center-button:hover,

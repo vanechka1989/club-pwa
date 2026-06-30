@@ -52,13 +52,17 @@ describe("app notifications", () => {
     expect(styles).toContain(".notification-center-media");
   });
 
-  it("places the notification bell in the top center between Telegram controls", () => {
+  it("places the notification bell in the profile compact controls instead of the app top center", () => {
+    const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
+    const profileSource = readFileSync(resolve(__dirname, "../profile/ProfileSection.vue"), "utf8");
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.notification-center\s*\{[^}]*top:\s*calc\(var\(--tg-safe-top/s);
-    expect(styles).toMatch(/\.notification-center\s*\{[^}]*left:\s*50%;/s);
-    expect(styles).toMatch(/\.notification-center\s*\{[^}]*transform:\s*translateX\(-50%\);/s);
-    expect(styles).toMatch(/\.notification-center-button\s*\{[^}]*opacity:\s*0\.86;/s);
-    expect(styles).toMatch(/\.notification-center-button\s*\{[^}]*backdrop-filter:\s*blur/s);
+    expect(appSource).not.toContain("<NotificationCenter");
+    expect(profileSource).toContain('import NotificationCenter from "@/features/app/NotificationCenter.vue";');
+    expect(profileSource).toContain("<NotificationCenter");
+    expect(profileSource).not.toContain("@click=\"changeTheme(ui.theme === 'dark' ? 'light' : 'dark')\"");
+    expect(styles).toMatch(/\.compact-controls\s+\.notification-center\s*\{/s);
+    expect(styles).toMatch(/\.compact-controls\s+\.notification-center-button\s*\{[^}]*width:\s*2rem;/s);
+    expect(styles).not.toMatch(/\.notification-center\s*\{[^}]*top:\s*calc\(var\(--tg-safe-top/s);
   });
 });
