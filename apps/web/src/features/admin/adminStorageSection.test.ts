@@ -13,6 +13,9 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("admin-storage-action-arrow");
     expect(adminSectionSource).toContain("Обзор файлов");
     expect(adminSectionSource).toContain("Настройки S3");
+    expect(adminSectionSource).toContain("S3 основное");
+    expect(adminSectionSource).toContain("S3 резервное");
+    expect(adminSectionSource).toContain("openStorageStatusActions");
     expect(adminSectionSource).toContain("admin-storage-action-grid");
     expect(adminSectionSource).toContain("<Teleport to=\"body\">");
   });

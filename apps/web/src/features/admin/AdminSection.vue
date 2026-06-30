@@ -289,6 +289,7 @@ const showStorageFolderModal = ref(false);
 const selectedStorageFolder = ref<(typeof storagePrefixOptions)[number] | null>(null);
 const storageFolderSort = ref<"date" | "size" | "uploader">("date");
 const showStorageSettingsModal = ref(false);
+const storageActionGridRef = ref<HTMLElement | null>(null);
 const storageForm = ref({
   endpoint: "",
   region: "us-east-1",
@@ -1377,6 +1378,12 @@ function openStorageSettings() {
   if (confirmed) {
     showStorageSettingsModal.value = true;
   }
+}
+
+async function openStorageStatusActions() {
+  await nextTick();
+  storageActionGridRef.value?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  storageActionGridRef.value?.querySelector<HTMLButtonElement>("button")?.focus();
 }
 
 async function loadStorageObjects({ append = false } = {}) {
@@ -3109,9 +3116,26 @@ onUnmounted(() => {
       <article class="admin-crm-block admin-storage-block">
         <div class="admin-storage-status">
           <div>
-            <span :class="storageSettings?.configured ? 'admin-storage-status-ok' : 'admin-storage-status-error'">
-              {{ storageSettings?.configured ? "S3 подключено" : "S3 не подключено" }}
-            </span>
+            <div class="admin-storage-status-grid" aria-label="Статусы S3">
+              <button
+                class="admin-storage-status-card"
+                type="button"
+                :class="storageSettings?.configured ? 'admin-storage-status-card-ok' : 'admin-storage-status-card-error'"
+                @click="openStorageStatusActions"
+              >
+                <span>S3 основное</span>
+                <strong>{{ storageSettings?.configured ? "Подключено" : "Не подключено" }}</strong>
+              </button>
+              <button
+                class="admin-storage-status-card"
+                type="button"
+                :class="storageSettings?.reserveConfigured ? 'admin-storage-status-card-ok' : 'admin-storage-status-card-error'"
+                @click="openStorageStatusActions"
+              >
+                <span>S3 резервное</span>
+                <strong>{{ storageSettings?.reserveConfigured ? "Подключено" : "Не подключено" }}</strong>
+              </button>
+            </div>
             <small>
               Источник: {{ storageSourceLabel(storageSettings?.source ?? "none") }}
               <template v-if="storageSettings?.updatedAt">
@@ -3124,7 +3148,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="admin-storage-action-grid">
+        <div ref="storageActionGridRef" class="admin-storage-action-grid">
           <button class="admin-storage-action-card" type="button" @click="showStorageFilesModal = true">
             <span class="admin-storage-action-top">
               <span class="admin-storage-action-icon"><Cloud class="h-4 w-4" aria-hidden="true" /></span>

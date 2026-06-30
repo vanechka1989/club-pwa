@@ -3602,17 +3602,61 @@ body.club-keyboard-open .admin-modal-backdrop {
   gap: 0.28rem;
 }
 
-.admin-storage-status span {
-  width: fit-content;
-  border-radius: 999px;
-  padding: 0.32rem 0.56rem;
-  font-size: 0.72rem;
-  font-weight: 840;
-}
-
 .admin-storage-status small {
   color: var(--muted);
   font-size: 0.7rem;
+}
+
+.admin-storage-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.admin-storage-status-card {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  border-radius: 12px;
+  padding: 0.54rem 0.62rem;
+  text-align: left;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.admin-storage-status-card:hover {
+  transform: translateY(-1px);
+}
+
+.admin-storage-status-card span,
+.admin-storage-status-card strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-storage-status-card span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 780;
+}
+
+.admin-storage-status-card strong {
+  font-size: 0.84rem;
+  font-weight: 860;
+}
+
+.admin-storage-status-card-ok {
+  border: 1px solid color-mix(in srgb, var(--success) 48%, var(--border));
+  background: color-mix(in srgb, var(--success) 13%, var(--panel));
+  color: var(--success-text);
+}
+
+.admin-storage-status-card-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 54%, var(--border));
+  background: color-mix(in srgb, var(--danger) 14%, var(--panel));
+  color: var(--danger);
 }
 
 .admin-storage-status-ok {
@@ -7654,6 +7698,10 @@ button.chat-message-author:active {
 
   .admin-storage-status {
     display: grid;
+  }
+
+  .admin-storage-status-grid {
+    grid-template-columns: 1fr;
   }
 
   .admin-storage-folder-grid {
