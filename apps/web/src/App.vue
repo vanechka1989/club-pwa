@@ -16,12 +16,14 @@ import { navItems, type AppSection } from "@/features/app/navigation";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
+import { useLessonUploadsStore } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
 const ui = useUiStore();
 const notifications = useNotificationsStore();
+const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
@@ -409,6 +411,19 @@ onBeforeUnmount(() => {
     }"
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
+    <aside v-if="lessonUploads.visibleUploads.length" class="global-upload-status" aria-label="Статус загрузки урока">
+      <div class="global-upload-status-head">
+        <span>Загрузка урока</span>
+        <strong>{{ lessonUploads.activeUpload?.progress ?? 0 }}%</strong>
+      </div>
+      <div class="global-upload-status-title">
+        <strong>{{ lessonUploads.activeUpload?.title }}</strong>
+        <span>{{ lessonUploads.activeUpload?.detail }}</span>
+      </div>
+      <div class="global-upload-status-track">
+        <span :style="{ width: `${lessonUploads.activeUpload?.progress ?? 0}%` }"></span>
+      </div>
+    </aside>
     <section class="app-shell mx-auto flex min-h-screen w-full max-w-4xl flex-col px-1 py-4 sm:px-6 sm:py-6">
       <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
         <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>

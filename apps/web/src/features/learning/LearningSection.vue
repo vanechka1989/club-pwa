@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { AdminLearningMaterial, AdminLearningUploadedObject, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary } from "@club/shared";
-import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, RotateCw, Square, Trash2, X } from "lucide-vue-next";
+import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   completeAdminLearningMultipartUpload,
@@ -22,6 +22,7 @@ import {
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import { useNotificationsStore } from "@/stores/notifications";
+import { useLessonUploadsStore } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
 import { getMaterialDraftError } from "./materialForm";
@@ -55,14 +56,6 @@ type ModuleCard = {
 type PlaybackPersistOptions = {
   force?: boolean;
   keepalive?: boolean;
-};
-
-type BackgroundLessonUpload = {
-  id: string;
-  title: string;
-  status: "uploading" | "saving" | "done" | "error";
-  progress: number;
-  detail: string;
 };
 
 const deletedContentModuleId = "deleted-content-module";
@@ -194,6 +187,7 @@ const learningProgress = ref<LearningProgressSummary | null>(null);
 const session = useSessionStore();
 const ui = useUiStore();
 const notifications = useNotificationsStore();
+const lessonUploads = useLessonUploadsStore();
 const modulesLoadedFromApi = ref(false);
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
@@ -222,13 +216,11 @@ const isVoiceRecording = ref(false);
 const voiceRecorder = ref<MediaRecorder | null>(null);
 const voiceStream = ref<MediaStream | null>(null);
 const lessonUploadProgress = ref<number | null>(null);
-const backgroundLessonUploads = ref<BackgroundLessonUpload[]>([]);
 const lessonVideoElement = ref<HTMLVideoElement | null>(null);
 const isLessonVideoPlaying = ref(false);
 const lessonVideoCurrentTime = ref(0);
 const lessonVideoDuration = ref(0);
 const isLessonVideoFullscreen = ref(false);
-const lessonVideoRotated = ref(false);
 const showLessonVideoControls = ref(true);
 const pendingLessonVideoStartSeconds = ref(0);
 const lessonVideoStartApplied = ref(false);
@@ -493,7 +485,6 @@ function resetLessonVideoState() {
   showLessonVideoControls.value = true;
   lessonVideoCurrentTime.value = 0;
   lessonVideoDuration.value = 0;
-  lessonVideoRotated.value = false;
   pendingLessonVideoStartSeconds.value = 0;
   lessonVideoStartApplied.value = false;
   lastSavedLessonVideoSeconds.value = 0;
@@ -730,14 +721,8 @@ async function toggleLessonVideoFullscreen() {
 function handleLessonFullscreenChange() {
   if (!document.fullscreenElement) {
     isLessonVideoFullscreen.value = false;
-    lessonVideoRotated.value = false;
     revealLessonVideoControls();
   }
-}
-
-function toggleLessonVideoOrientation() {
-  lessonVideoRotated.value = !lessonVideoRotated.value;
-  revealLessonVideoControls();
 }
 
 async function handleLessonVideoEnded() {
@@ -1091,14 +1076,6 @@ function buildLessonDirectPayloadFromDraft(
   };
 }
 
-function updateBackgroundLessonUpload(id: string, patch: Partial<BackgroundLessonUpload>) {
-  backgroundLessonUploads.value = backgroundLessonUploads.value.map((item) => (item.id === id ? { ...item, ...patch } : item));
-}
-
-function removeBackgroundLessonUpload(id: string) {
-  backgroundLessonUploads.value = backgroundLessonUploads.value.filter((item) => item.id !== id);
-}
-
 async function startBackgroundLessonUpload() {
   const module = selectedLessonModule.value;
   if (!module) {
@@ -1119,19 +1096,19 @@ async function startBackgroundLessonUpload() {
     mediaFile: lessonFile.value,
     thumbnailFile: lessonThumbnailFile.value
   };
-  const task: BackgroundLessonUpload = {
+  const task = {
     id: draft.id,
     title: draft.title,
     status: "uploading",
     progress: 0,
     detail: "Загружаем файл в S3"
-  };
+  } as const;
   const hasMedia = Boolean(draft.mediaFile);
   const hasThumbnail = Boolean(draft.thumbnailFile);
   const totalParts = Number(hasMedia) + Number(hasThumbnail);
   let completedParts = 0;
 
-  backgroundLessonUploads.value = [task, ...backgroundLessonUploads.value];
+  lessonUploads.add(task);
   closeLessonModal();
 
   try {
@@ -1145,7 +1122,7 @@ async function startBackgroundLessonUpload() {
         kind: draft.kind,
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
-        onProgress: (progress) => updateBackgroundLessonUpload(draft.id, { progress, detail: "Загружаем файл в S3" })
+        onProgress: (progress) => lessonUploads.update(draft.id, { progress, detail: "Загружаем файл в S3" })
       });
       completedParts += 1;
     }
@@ -1156,11 +1133,11 @@ async function startBackgroundLessonUpload() {
         purpose: "thumbnail",
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
-        onProgress: (progress) => updateBackgroundLessonUpload(draft.id, { progress, detail: "Загружаем обложку в S3" })
+        onProgress: (progress) => lessonUploads.update(draft.id, { progress, detail: "Загружаем обложку в S3" })
       });
     }
 
-    updateBackgroundLessonUpload(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока" });
+    lessonUploads.update(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока" });
     const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject);
     const response = draft.lessonId
       ? await updateAdminLearningMaterialDirect(draft.lessonId, payload)
@@ -1172,10 +1149,10 @@ async function startBackgroundLessonUpload() {
       addMaterialToModule(response.material);
     }
 
-    updateBackgroundLessonUpload(draft.id, { status: "done", progress: 100, detail: "Урок сохранён" });
-    window.setTimeout(() => removeBackgroundLessonUpload(draft.id), 5000);
+    lessonUploads.update(draft.id, { status: "done", progress: 100, detail: "Урок сохранён" });
+    window.setTimeout(() => lessonUploads.remove(draft.id), 5000);
   } catch (error) {
-    updateBackgroundLessonUpload(draft.id, {
+    lessonUploads.update(draft.id, {
       status: "error",
       detail: error instanceof Error && error.message ? error.message : "Не удалось сохранить урок.",
       progress: 100
@@ -1543,25 +1520,6 @@ watch(
 
     <p v-if="isLoadingModules" class="modules-edit-hint">Загружаем модули...</p>
 
-    <section v-if="backgroundLessonUploads.length" class="admin-mockup-card background-upload-panel">
-      <div class="admin-mockup-card-head">
-        <div>
-          <strong>Фоновые загрузки</strong>
-          <small>Окно урока закрыто, работа продолжается.</small>
-        </div>
-      </div>
-      <div class="background-upload-list">
-        <article v-for="task in backgroundLessonUploads" :key="task.id" class="background-upload-item" :class="`background-upload-item-${task.status}`">
-          <div>
-            <strong>{{ task.title }}</strong>
-            <small>{{ task.detail }}</small>
-          </div>
-          <span>{{ task.progress }}%</span>
-          <progress :value="task.progress" max="100">{{ task.progress }}%</progress>
-        </article>
-      </div>
-    </section>
-
     <button
       v-if="shouldShowContinueLesson && lastOpenedLesson && lastOpenedLessonModule"
       :class="continueLessonCardClasses"
@@ -1821,7 +1779,6 @@ watch(
                 <video
                   ref="lessonVideoElement"
                   class="lesson-video-element"
-                  :class="{ 'lesson-video-element-rotated': lessonVideoRotated }"
                   :src="selectedLessonItem.mediaUrl"
                   :poster="lessonVideoPoster"
                   playsinline
@@ -1865,16 +1822,6 @@ watch(
                     @input.stop="handleLessonVideoSeek"
                   />
                   <span>{{ formatVideoTime(lessonVideoDuration) }}</span>
-                  <button
-                    v-if="isLessonVideoFullscreen"
-                    class="lesson-video-fullscreen-button"
-                    type="button"
-                    :aria-label="lessonVideoRotated ? 'Вернуть видео вертикально' : 'Повернуть видео горизонтально'"
-                    title="Повернуть видео"
-                    @click.stop="toggleLessonVideoOrientation"
-                  >
-                    <RotateCw class="h-4 w-4" aria-hidden="true" />
-                  </button>
                   <button
                     class="lesson-video-fullscreen-button"
                     type="button"
