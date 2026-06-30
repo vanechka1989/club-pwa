@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { ensureFocusedTextFieldVisible, isTextFieldElement } from "./keyboardFocus";
 
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const adminSource = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
@@ -23,8 +24,33 @@ describe("keyboard focus handling", () => {
     expect(appSource).toContain("--club-keyboard-bottom");
     expect(appSource).toContain("club-keyboard-open");
     expect(appSource).toContain("visualBottomGap > 80");
+    expect(appSource).toContain("ensureFocusedTextFieldVisible");
+    expect(appSource).toContain('document.addEventListener("focusin", handleTextFieldFocusIn)');
     expect(styles).toContain("body.club-keyboard-open .app-shell");
     expect(styles).toContain("body.club-keyboard-open .admin-modal-backdrop");
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
+  });
+
+  it("scrolls focused text fields into the visible viewport", () => {
+    const input = document.createElement("input");
+    const scrollIntoView = vi.fn();
+    input.scrollIntoView = scrollIntoView;
+
+    ensureFocusedTextFieldVisible(input, (handler) => {
+      handler();
+      return 1;
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", inline: "nearest", behavior: "smooth" });
+  });
+
+  it("detects regular and rich text fields", () => {
+    const input = document.createElement("input");
+    const editor = document.createElement("div");
+    editor.setAttribute("contenteditable", "true");
+
+    expect(isTextFieldElement(input)).toBe(true);
+    expect(isTextFieldElement(editor)).toBe(true);
+    expect(isTextFieldElement(document.createElement("button"))).toBe(false);
   });
 });

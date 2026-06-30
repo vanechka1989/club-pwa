@@ -1,12 +1,28 @@
+export function isTextFieldElement(element: Element | null): element is HTMLElement {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tagName = element.tagName.toLowerCase();
+  return tagName === "input" || tagName === "textarea" || element.isContentEditable || element.getAttribute("contenteditable") === "true";
+}
+
 export function blurActiveTextField() {
   const active = document.activeElement;
-  if (!(active instanceof HTMLElement)) {
+  if (isTextFieldElement(active)) {
+    active.blur();
+  }
+}
+
+export function ensureFocusedTextFieldVisible(
+  element: Element | null,
+  schedule: (handler: () => void, timeout: number) => number = window.setTimeout
+) {
+  if (!isTextFieldElement(element)) {
     return;
   }
 
-  const tagName = active.tagName.toLowerCase();
-  const isTextField = tagName === "input" || tagName === "textarea" || active.isContentEditable;
-  if (isTextField) {
-    active.blur();
-  }
+  schedule(() => {
+    element.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  }, 320);
 }

@@ -7,7 +7,7 @@ import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
-import { blurActiveTextField } from "@/features/app/keyboardFocus";
+import { blurActiveTextField, ensureFocusedTextFieldVisible } from "@/features/app/keyboardFocus";
 import NotificationCenter from "@/features/app/NotificationCenter.vue";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -277,6 +277,10 @@ function handleVisibilityChange() {
   }
 }
 
+function handleTextFieldFocusIn(event: FocusEvent) {
+  ensureFocusedTextFieldVisible(event.target instanceof Element ? event.target : null);
+}
+
 onMounted(() => {
   isAppMounted = true;
   window.Telegram?.WebApp?.ready();
@@ -284,6 +288,7 @@ onMounted(() => {
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
   window.visualViewport?.addEventListener("scroll", syncViewportHeight);
   window.addEventListener("resize", syncViewportHeight);
+  document.addEventListener("focusin", handleTextFieldFocusIn);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   startPaymentWatchPolling();
   void session.load().then(() => {
@@ -322,6 +327,7 @@ onBeforeUnmount(() => {
   window.visualViewport?.removeEventListener("resize", syncViewportHeight);
   window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
   window.removeEventListener("resize", syncViewportHeight);
+  document.removeEventListener("focusin", handleTextFieldFocusIn);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   if (paymentWatchTimer) {
     window.clearInterval(paymentWatchTimer);
