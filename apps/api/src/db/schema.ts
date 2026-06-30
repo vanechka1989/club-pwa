@@ -36,6 +36,9 @@ export const adminUsers = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     telegramId: varchar("telegram_id", { length: 32 }).notNull(),
+    roleLabel: varchar("role_label", { length: 80 }),
+    isActive: boolean("is_active").notNull().default(true),
+    permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },

@@ -4,7 +4,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { db } from "../db/client";
 import { userRecurrentSubscriptions, users } from "../db/schema";
-import { getUserRole } from "../admin/roles";
+import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 import { resolveMembershipProfileFields } from "../membership/profileFields";
 
@@ -21,6 +21,7 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       : null;
   const realRole = await getUserRole(user.telegramId);
   const role = c.get("previewRole") ?? realRole;
+  const adminAccess = await getAdminAccessProfile(user.telegramId);
   const previewMembershipStatus = c.get("previewMembershipStatus");
   const membershipStatus = previewMembershipStatus ?? membership.status;
   const rawMembershipExpiresAt =
@@ -45,6 +46,8 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       photoUrl: user.photoUrl,
       role,
       realRole,
+      adminRoleLabel: adminAccess.roleLabel,
+      adminPermissions: adminAccess.permissions,
       membershipStatus,
       membershipExpiresAt: membershipProfile.membershipExpiresAt,
       paymentType: membershipProfile.paymentType,

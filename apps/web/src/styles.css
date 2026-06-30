@@ -3889,6 +3889,287 @@ button {
   font-size: 0.72rem;
 }
 
+.admin-permissions-panel {
+  gap: 0.7rem;
+}
+
+.admin-permissions-owner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: stretch;
+}
+
+.admin-permissions-owner-card,
+.admin-add-admin-block,
+.admin-permission-card {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+}
+
+.admin-permissions-owner-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem;
+}
+
+.admin-permissions-owner-card div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.admin-permissions-owner-card span,
+.admin-permission-summary small,
+.admin-permission-actions small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.admin-permissions-owner-card strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 880;
+}
+
+.admin-permissions-owner-card small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.admin-permissions-owner-card svg {
+  color: color-mix(in srgb, #22c55e 84%, var(--accent));
+}
+
+.admin-add-admin-block {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+}
+
+.admin-add-admin-block h4 {
+  font-size: 0.86rem;
+}
+
+.admin-candidate-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-candidate-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 68%, transparent);
+  color: var(--text);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.admin-candidate-button span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-candidate-button small {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.admin-permission-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-permission-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+}
+
+.admin-permission-card-disabled {
+  opacity: 0.72;
+}
+
+.admin-permission-head,
+.admin-permission-meta,
+.admin-permission-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.admin-permission-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.admin-permission-identity img,
+.admin-permission-identity > span {
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 14px;
+}
+
+.admin-permission-identity img {
+  object-fit: cover;
+}
+
+.admin-permission-identity > span {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-strong));
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.admin-permission-identity div {
+  min-width: 0;
+}
+
+.admin-permission-identity strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 880;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-permission-identity small {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-switch-row,
+.admin-permission-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  color: var(--muted-strong);
+  font-size: 0.74rem;
+  font-weight: 820;
+}
+
+.admin-switch-row {
+  flex: 0 0 auto;
+}
+
+.admin-switch-row input,
+.admin-permission-toggle input {
+  appearance: none;
+  display: inline-grid;
+  width: 2.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 12%, var(--panel-strong));
+  cursor: pointer;
+  padding: 0.14rem;
+}
+
+.admin-switch-row input::before,
+.admin-permission-toggle input::before {
+  content: "";
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: 0 2px 6px color-mix(in srgb, #000 18%, transparent);
+  transition: transform 140ms ease;
+}
+
+.admin-switch-row input:checked,
+.admin-permission-toggle input:checked {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background: var(--accent);
+}
+
+.admin-switch-row input:checked::before,
+.admin-permission-toggle input:checked::before {
+  transform: translateX(0.98rem);
+}
+
+.admin-switch-row input:disabled,
+.admin-permission-toggle input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-permission-meta {
+  align-items: end;
+  border-top: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
+  padding-top: 0.65rem;
+}
+
+.admin-permission-meta .admin-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-permission-summary {
+  display: grid;
+  min-width: 5.6rem;
+  justify-items: end;
+  gap: 0.1rem;
+}
+
+.admin-permission-summary span {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.admin-permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.42rem;
+}
+
+.admin-permission-toggle {
+  min-height: 2.65rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 64%, transparent);
+  padding: 0.5rem 0.55rem;
+}
+
+.admin-permission-toggle span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-permission-actions {
+  border-top: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
+  padding-top: 0.55rem;
+}
+
 .admin-mockup-list {
   display: grid;
   gap: 0.85rem;
@@ -6636,6 +6917,22 @@ button.chat-message-author:active {
   .admin-access-form,
   .admin-access-form .admin-inline-actions {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-permissions-owner,
+  .admin-search-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-permission-head,
+  .admin-permission-meta,
+  .admin-permission-actions {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .admin-permission-summary {
+    justify-items: start;
   }
 
   .admin-access-toggle {

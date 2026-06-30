@@ -4,7 +4,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
-import { getUserRole } from "../admin/roles";
+import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
@@ -331,7 +331,18 @@ async function ensureCommunityAccess(
 }
 
 async function getCommunityRole(c: Context<{ Variables: AuthVariables }>) {
-  return c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+  const previewRole = c.get("previewRole");
+  if (previewRole) {
+    return previewRole;
+  }
+
+  const telegramId = c.get("telegramUser").id;
+  const role = await getUserRole(telegramId);
+  if (role !== "admin") {
+    return role;
+  }
+
+  return (await isOwnerTelegramId(telegramId)) || (await hasAdminPermission(telegramId, "community")) ? "admin" : "member";
 }
 
 async function purgeExpiredDeletedMessages(now = new Date()) {

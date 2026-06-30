@@ -1,9 +1,9 @@
 import { and, asc, desc, eq, gt, isNull, or } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { PaymentOrderLog } from "@club/shared";
-import { getUserRole } from "../admin/roles";
+import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import {
   paymentOrders,
@@ -37,6 +37,12 @@ import { decideProdamusWebhookAction, getProdamusWebhookSuccessResponse } from "
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
+
+async function getPaymentAdminAccess(c: Context<{ Variables: AuthVariables }>) {
+  const telegramId = c.get("telegramUser").id;
+  const [role, profile] = await Promise.all([getUserRole(telegramId), getAdminAccessProfile(telegramId)]);
+  return { role, permissions: profile.permissions };
+}
 
 const providerPayloadSchema = z.object({
   formUrl: z.string().trim().min(1),
@@ -627,8 +633,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ ok: true });
   })
   .get("/admin/provider", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canReadPaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canReadPaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -636,16 +642,16 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ provider: provider ? mapProvider(provider) : null, webhookUrl: webhookUrl() });
   })
   .get("/admin/orders", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canReadPaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canReadPaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
     return c.json({ orders: await getPaymentOrderLogs(undefined, 100) });
   })
   .post("/admin/provider/prodamus", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canManagePaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -689,8 +695,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ ok: true, provider: mapProvider(provider) });
   })
   .get("/admin/products", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canReadPaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canReadPaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -702,8 +708,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ products: products.map(mapProduct) });
   })
   .post("/admin/products", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canManagePaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -744,8 +750,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ ok: true, product: mapProduct(product) });
   })
   .post("/admin/products/:id", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canManagePaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -779,8 +785,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ ok: true, product: mapProduct(product) });
   })
   .post("/admin/products/:id/status", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canManagePaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -802,8 +808,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({ ok: true, product: mapProduct(product) });
   })
   .delete("/admin/products/:id", async (c) => {
-    const role = await getUserRole(c.get("telegramUser").id);
-    if (!canManagePaymentSettings(role)) {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
       return c.json({ error: "Forbidden" }, 403);
     }
 

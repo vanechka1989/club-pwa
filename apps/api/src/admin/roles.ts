@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { UserRole } from "@club/shared";
+import { allAdminPermissions, adminPermissionSchema, type AdminPermission, type UserRole } from "@club/shared";
 import { db } from "../db/client";
 import { adminUsers, clubSettings } from "../db/schema";
 import { env } from "../env";
@@ -24,6 +24,56 @@ export async function isOwnerTelegramId(telegramId: string) {
   return telegramId === (await getOwnerTelegramId());
 }
 
+export function normalizeAdminPermissions(value: unknown): AdminPermission[] {
+  if (!Array.isArray(value)) {
+    return [...allAdminPermissions];
+  }
+
+  const permissions = value.filter((entry): entry is AdminPermission => adminPermissionSchema.safeParse(entry).success);
+  return Array.from(new Set(permissions));
+}
+
+export async function getAdminAccessProfile(telegramId: string) {
+  if (await isOwnerTelegramId(telegramId)) {
+    return {
+      roleLabel: "Владелец",
+      isActive: true,
+      permissions: [...allAdminPermissions]
+    };
+  }
+
+  if (parseAdminIds().includes(telegramId)) {
+    return {
+      roleLabel: "Админ",
+      isActive: true,
+      permissions: [...allAdminPermissions]
+    };
+  }
+
+  const admin = await db.query.adminUsers.findFirst({
+    where: eq(adminUsers.telegramId, telegramId)
+  });
+
+  if (!admin || !admin.isActive) {
+    return {
+      roleLabel: admin?.roleLabel ?? null,
+      isActive: false,
+      permissions: normalizeAdminPermissions(admin?.permissions)
+    };
+  }
+
+  return {
+    roleLabel: admin.roleLabel,
+    isActive: admin.isActive,
+    permissions: normalizeAdminPermissions(admin.permissions)
+  };
+}
+
+export async function hasAdminPermission(telegramId: string, permission: AdminPermission) {
+  const profile = await getAdminAccessProfile(telegramId);
+  return profile.isActive && profile.permissions.includes(permission);
+}
+
 export async function getUserRole(telegramId: string): Promise<UserRole> {
   if (await isOwnerTelegramId(telegramId)) {
     return "owner";
@@ -37,7 +87,7 @@ export async function getUserRole(telegramId: string): Promise<UserRole> {
     where: eq(adminUsers.telegramId, telegramId)
   });
 
-  return admin ? "admin" : "member";
+  return admin?.isActive ? "admin" : "member";
 }
 
 export async function requireOwnerRole(telegramId: string) {

@@ -2,8 +2,18 @@ import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or }
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { AdminLearningMaterial, AdminUserDetailResponse, AdminUserModerationEvent, AdminStatsUser, ContentKind, MembershipStatus } from "@club/shared";
-import { getOwnerTelegramId, getUserRole, isOwnerTelegramId, ownerTelegramIdSettingKey } from "../admin/roles";
+import {
+  adminPermissionSchema,
+  allAdminPermissions,
+  type AdminLearningMaterial,
+  type AdminPermission,
+  type AdminUserDetailResponse,
+  type AdminUserModerationEvent,
+  type AdminStatsUser,
+  type ContentKind,
+  type MembershipStatus
+} from "@club/shared";
+import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { db } from "../db/client";
 import {
@@ -46,6 +56,18 @@ import {
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
+});
+
+const adminUpdatePayloadSchema = z.object({
+  roleLabel: z
+    .string()
+    .trim()
+    .max(80)
+    .nullable()
+    .optional()
+    .transform((value) => (value ? value : null)),
+  isActive: z.boolean().optional(),
+  permissions: z.array(adminPermissionSchema).optional()
 });
 
 const ownerTransferPayloadSchema = z.object({
@@ -301,12 +323,68 @@ async function rejectIfCannotManageTarget(c: Context<{ Variables: AuthVariables 
   return c.json({ error: "Only the owner can manage admins or the owner" }, 403);
 }
 
-async function rejectIfNotOwner(c: Context<{ Variables: AuthVariables }>) {
-  if (await isOwnerTelegramId(c.get("telegramUser").id)) {
+async function rejectIfNotOwner(c: Context<{ Variables: AuthVariables }>, permission?: AdminPermission) {
+  const telegramId = c.get("telegramUser").id;
+  if (await isOwnerTelegramId(telegramId)) {
+    return null;
+  }
+
+  if (permission && (await hasAdminPermission(telegramId, permission))) {
     return null;
   }
 
   return c.json({ error: "Owner access required" }, 403);
+}
+
+async function rejectIfMissingAnyPermission(c: Context<{ Variables: AuthVariables }>, permissions: AdminPermission[]) {
+  const telegramId = c.get("telegramUser").id;
+  if (await isOwnerTelegramId(telegramId)) {
+    return null;
+  }
+
+  for (const permission of permissions) {
+    if (await hasAdminPermission(telegramId, permission)) {
+      return null;
+    }
+  }
+
+  return c.json({ error: "Admin permission required" }, 403);
+}
+
+function requireAdminPermission(permission: AdminPermission) {
+  return async (c: Context<{ Variables: AuthVariables }>, next: () => Promise<void>) => {
+    const errorResponse = await rejectIfNotOwner(c, permission);
+    if (errorResponse) {
+      return errorResponse;
+    }
+
+    await next();
+  };
+}
+
+function requireAnyAdminPermission(permissions: AdminPermission[]) {
+  return async (c: Context<{ Variables: AuthVariables }>, next: () => Promise<void>) => {
+    const errorResponse = await rejectIfMissingAnyPermission(c, permissions);
+    if (errorResponse) {
+      return errorResponse;
+    }
+
+    await next();
+  };
+}
+
+function serializeAdmin(admin: typeof adminUsers.$inferSelect, profile: typeof users.$inferSelect | undefined) {
+  return {
+    id: admin.id,
+    telegramId: admin.telegramId,
+    firstName: profile?.firstName ?? null,
+    username: profile?.username ?? null,
+    photoUrl: profile?.photoUrl ?? null,
+    roleLabel: admin.roleLabel,
+    isActive: admin.isActive,
+    permissions: normalizeAdminPermissions(admin.permissions),
+    createdAt: admin.createdAt.toISOString()
+  };
 }
 
 async function getStoredS3Setting() {
@@ -482,6 +560,18 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     await next();
   })
+  .use("/admins", requireAdminPermission("admins"))
+  .use("/admins/*", requireAdminPermission("admins"))
+  .use("/stats", requireAnyAdminPermission(["statistics", "users"]))
+  .use("/stats/*", requireAnyAdminPermission(["statistics", "users"]))
+  .use("/access", requireAdminPermission("users"))
+  .use("/learning", requireAdminPermission("materials"))
+  .use("/learning/*", requireAdminPermission("materials"))
+  .use("/moderation", requireAnyAdminPermission(["materials", "community"]))
+  .use("/moderation/*", requireAnyAdminPermission(["materials", "community"]))
+  .use("/mutes", requireAdminPermission("users"))
+  .use("/mutes/*", requireAdminPermission("users"))
+  .use("/storage/s3", requireAdminPermission("storage"))
   .get("/admins", async (c) => {
     const ownerTelegramId = await getOwnerTelegramId();
     const admins = await db.query.adminUsers.findMany({
@@ -497,21 +587,11 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ownerTelegramId,
-      admins: admins.map((admin) => {
-        const profile = profilesByTelegramId.get(admin.telegramId);
-        return {
-          id: admin.id,
-          telegramId: admin.telegramId,
-          firstName: profile?.firstName ?? null,
-          username: profile?.username ?? null,
-          photoUrl: profile?.photoUrl ?? null,
-          createdAt: admin.createdAt.toISOString()
-        };
-      })
+      admins: admins.map((admin) => serializeAdmin(admin, profilesByTelegramId.get(admin.telegramId)))
     });
   })
   .get("/storage/s3", async (c) => {
-    const ownerError = await rejectIfNotOwner(c);
+    const ownerError = await rejectIfNotOwner(c, "storage");
     if (ownerError) {
       return ownerError;
     }
@@ -523,7 +603,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .post("/storage/s3", async (c) => {
-    const ownerError = await rejectIfNotOwner(c);
+    const ownerError = await rejectIfNotOwner(c, "storage");
     if (ownerError) {
       return ownerError;
     }
@@ -1400,11 +1480,51 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .insert(adminUsers)
       .values({
         telegramId: body.data.telegramId,
+        roleLabel: null,
+        isActive: true,
+        permissions: [...allAdminPermissions],
         createdByUserId: c.get("userId")
       })
-      .onConflictDoNothing({
-        target: adminUsers.telegramId
+      .onConflictDoUpdate({
+        target: adminUsers.telegramId,
+        set: {
+          isActive: true
+        }
       });
+
+    return c.json({ ok: true });
+  })
+  .patch("/admins/:telegramId", async (c) => {
+    if (!(await isOwnerTelegramId(c.get("telegramUser").id))) {
+      return c.json({ error: "Owner access required" }, 403);
+    }
+
+    const telegramId = c.req.param("telegramId");
+    if (await isOwnerTelegramId(telegramId)) {
+      return c.json({ error: "Owner permissions cannot be changed" }, 400);
+    }
+
+    const body = adminUpdatePayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid admin permissions payload" }, 400);
+    }
+
+    const values: Partial<typeof adminUsers.$inferInsert> = {};
+    if ("roleLabel" in body.data) {
+      values.roleLabel = body.data.roleLabel ?? null;
+    }
+    if (typeof body.data.isActive === "boolean") {
+      values.isActive = body.data.isActive;
+    }
+    if (body.data.permissions) {
+      values.permissions = normalizeAdminPermissions(body.data.permissions);
+    }
+
+    if (!Object.keys(values).length) {
+      return c.json({ ok: true });
+    }
+
+    await db.update(adminUsers).set(values).where(eq(adminUsers.telegramId, telegramId));
 
     return c.json({ ok: true });
   })

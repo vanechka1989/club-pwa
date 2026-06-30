@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import type {
-  AdminMailing,
-  AdminMailingPreviewResponse,
-  AdminLearningMaterial,
-  AdminStatsUser,
-  AdminUser,
-  AdminUserDetailResponse,
-  ClubTopic,
-  ContentKind,
-  LearningCategory,
-  MailingChannel,
-  MailingFilters,
-  PaymentOrderLog,
-  S3StorageSettings
+import {
+  adminPermissionLabels,
+  allAdminPermissions,
+  type AdminPermission,
+  type AdminMailing,
+  type AdminMailingPreviewResponse,
+  type AdminLearningMaterial,
+  type AdminStatsUser,
+  type AdminUser,
+  type AdminUserDetailResponse,
+  type ClubTopic,
+  type ContentKind,
+  type LearningCategory,
+  type MailingChannel,
+  type MailingFilters,
+  type PaymentOrderLog,
+  type S3StorageSettings
 } from "@club/shared";
 import {
   BarChart3,
@@ -57,6 +60,7 @@ import {
   testAdminMailing,
   testAdminMailingDraft,
   transferClubOwner,
+  updateAdminUserPermissions,
   updateAdminS3StorageSettings,
   updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
@@ -87,10 +91,8 @@ import { releaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
-import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
-const ui = useUiStore();
 const notifications = useNotificationsStore();
 
 const props = defineProps<{
@@ -163,13 +165,6 @@ const adminMockups = [
   }
 ] as const;
 
-const previewOptions: Array<{ value: PreviewMode; label: string }> = [
-  { value: "developer", label: "Разработчик" },
-  { value: "admin", label: "Админ" },
-  { value: "member-active", label: "Доступ открыт" },
-  { value: "member-inactive", label: "Доступ закрыт" }
-];
-
 const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
 const mailingChannelOptions: Array<{ value: MailingChannel; label: string; hint: string }> = [
   { value: "bot", label: "В бот", hint: "Telegram sendMessage" },
@@ -188,6 +183,10 @@ const mailingAccessTypeOptions: Array<{ value: MailingFilters["accessType"]; lab
   { value: "recurrent", label: "Автоподписка" },
   { value: "none", label: "Без типа доступа" }
 ];
+const adminPermissionOptions = allAdminPermissions.map((permission) => ({
+  value: permission,
+  label: adminPermissionLabels[permission]
+}));
 
 const activePanel = ref<AdminPanel>("statistics");
 const ownerTelegramId = ref("");
@@ -246,7 +245,7 @@ const sendingClientMessage = ref(false);
 const expandedReleaseVersion = ref(appVersion);
 const editorRef = ref<HTMLElement | null>(null);
 const editorColor = ref("#111827");
-const newAdminTelegramId = ref("");
+const adminSearchQuery = ref("");
 const transferOwnerTelegramId = ref("");
 const showTransferOwnerModal = ref(false);
 const loading = ref(false);
@@ -274,11 +273,16 @@ const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
 
 const isOwner = computed(() => session.user?.realRole === "owner");
 const panels = computed(() =>
-  getVisibleAdminPanels(session.user?.realRole).map((panel) => ({
+  getVisibleAdminPanels(session.user?.realRole, session.user?.adminPermissions).map((panel) => ({
     ...panel,
     icon: panelIcons[panel.id]
   }))
 );
+function hasCurrentAdminPermission(permission: AdminPermission) {
+  return isOwner.value || Boolean(session.user?.adminPermissions.includes(permission));
+}
+
+const canUseStorage = computed(() => hasCurrentAdminPermission("storage"));
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
@@ -321,6 +325,20 @@ const filteredUsers = computed(() => {
     const matchesRestrictions = restrictionFilter.value === "all" || user.hasRestrictions;
     return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions;
   });
+});
+const adminTelegramIds = computed(() => new Set([ownerTelegramId.value, ...admins.value.map((admin) => admin.telegramId)]));
+const adminSearchCandidates = computed(() => {
+  const query = adminSearchQuery.value.trim().toLowerCase();
+  if (!query || /^\d{3,32}$/.test(query)) {
+    return [];
+  }
+
+  return users.value
+    .filter((user) => !adminTelegramIds.value.has(user.telegramId))
+    .filter((user) =>
+      [user.telegramId, user.firstName ?? "", user.username ?? ""].some((value) => value.toLowerCase().includes(query))
+    )
+    .slice(0, 5);
 });
 const filtersActive = computed(
   () => Boolean(search.value.trim()) || subscriptionFilter.value !== "all" || tariffFilter.value !== "all" || restrictionFilter.value !== "all"
@@ -826,6 +844,37 @@ function adminTitle(admin: AdminUser) {
   return admin.firstName || (admin.username ? `@${admin.username}` : `ID ${admin.telegramId}`);
 }
 
+function adminRoleTitle(admin: AdminUser) {
+  return admin.roleLabel || "Админ";
+}
+
+function adminPermissionCount(admin: AdminUser) {
+  return admin.permissions.length;
+}
+
+function hasAdminPermissionEntry(admin: AdminUser, permission: AdminPermission) {
+  return admin.permissions.includes(permission);
+}
+
+function getAdminCandidateTitle(user: AdminStatsUser) {
+  return `${user.firstName || user.username || `ID ${user.telegramId}`}${user.username ? ` · @${user.username}` : ""}`;
+}
+
+function resolveAdminSearchTelegramId() {
+  const query = adminSearchQuery.value.trim();
+  if (/^\d{3,32}$/.test(query)) {
+    return query;
+  }
+
+  return adminSearchCandidates.value[0]?.telegramId ?? "";
+}
+
+async function reloadAdmins() {
+  const response = await getAdminUsers();
+  admins.value = response.admins;
+  ownerTelegramId.value = response.ownerTelegramId;
+}
+
 function adminRoleLabel(role: AdminStatsUser["role"]) {
   if (role === "owner") {
     return "Главный админ";
@@ -1154,32 +1203,50 @@ async function handleSaveStorageSettings() {
 async function loadAll() {
   loading.value = true;
   try {
+    const shouldLoadAdmins = hasCurrentAdminPermission("admins");
+    const shouldLoadStats = hasCurrentAdminPermission("statistics") || hasCurrentAdminPermission("users");
+    const shouldLoadLearning = hasCurrentAdminPermission("materials");
+    const shouldLoadPayments = hasCurrentAdminPermission("payments") || hasCurrentAdminPermission("statistics");
+    const shouldLoadCommunity = hasCurrentAdminPermission("community");
+    const shouldLoadMailings = hasCurrentAdminPermission("mailings");
     const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse] = await Promise.all([
-      getAdminUsers(),
-      getAdminStats(),
-      getAdminLearning(),
-      getAdminPaymentHistory(),
-      getCommunityTopics(),
-      getAdminMailings()
+      shouldLoadAdmins ? getAdminUsers() : Promise.resolve(null),
+      shouldLoadStats ? getAdminStats() : Promise.resolve(null),
+      shouldLoadLearning ? getAdminLearning() : Promise.resolve(null),
+      shouldLoadPayments ? getAdminPaymentHistory() : Promise.resolve(null),
+      shouldLoadCommunity ? getCommunityTopics() : Promise.resolve(null),
+      shouldLoadMailings ? getAdminMailings() : Promise.resolve(null)
     ]);
-    ownerTelegramId.value = adminsResponse.ownerTelegramId;
-    admins.value = adminsResponse.admins;
-    users.value = statsResponse.users;
-    paymentOrders.value = paymentsResponse.orders;
-    communityTopics.value = topicsResponse.topics;
-    mailings.value = mailingsResponse.mailings;
-    learningCategories.value = learningResponse.categories;
-    learningMaterials.value = learningResponse.materials;
-    if (!materialCategoryId.value && learningResponse.categories[0]) {
-      materialCategoryId.value = learningResponse.categories[0].id;
+    if (adminsResponse) {
+      ownerTelegramId.value = adminsResponse.ownerTelegramId;
+      admins.value = adminsResponse.admins;
     }
-    if (selectedUser.value) {
+    if (statsResponse) {
+      users.value = statsResponse.users;
+    }
+    if (paymentsResponse) {
+      paymentOrders.value = paymentsResponse.orders;
+    }
+    if (topicsResponse) {
+      communityTopics.value = topicsResponse.topics;
+    }
+    if (mailingsResponse) {
+      mailings.value = mailingsResponse.mailings;
+    }
+    if (learningResponse) {
+      learningCategories.value = learningResponse.categories;
+      learningMaterials.value = learningResponse.materials;
+      if (!materialCategoryId.value && learningResponse.categories[0]) {
+        materialCategoryId.value = learningResponse.categories[0].id;
+      }
+    }
+    if (selectedUser.value && statsResponse) {
       const updated = statsResponse.users.find((user) => user.telegramId === selectedUser.value?.telegramId);
       if (updated) {
         applySelectedUser(updated);
       }
     }
-    if (pendingOpenClientTelegramId.value) {
+    if (pendingOpenClientTelegramId.value && statsResponse) {
       const pendingUser = statsResponse.users.find((user) => user.telegramId === pendingOpenClientTelegramId.value);
       if (pendingUser) {
         const telegramId = pendingOpenClientTelegramId.value;
@@ -1191,7 +1258,7 @@ async function loadAll() {
         }
       }
     }
-    if (isOwner.value) {
+    if (canUseStorage.value) {
       await loadStorageSettings();
     }
   } catch {
@@ -1499,24 +1566,49 @@ async function handleDeleteMaterial(material: AdminLearningMaterial) {
   }
 }
 
-async function handleAddAdmin() {
-  if (!newAdminTelegramId.value.trim()) {
+async function handleAddAdmin(telegramId = resolveAdminSearchTelegramId()) {
+  if (!telegramId) {
     return;
   }
 
   saving.value = true;
   try {
-    await addAdminUser(newAdminTelegramId.value);
-    newAdminTelegramId.value = "";
-    const response = await getAdminUsers();
-    admins.value = response.admins;
-    ownerTelegramId.value = response.ownerTelegramId;
+    await addAdminUser(telegramId);
+    adminSearchQuery.value = "";
+    await reloadAdmins();
     setStatus("Админ добавлен.");
   } catch {
     setError("Не удалось добавить админа.");
   } finally {
     saving.value = false;
   }
+}
+
+async function handleUpdateAdminAccess(admin: AdminUser, patch: { roleLabel?: string | null; isActive?: boolean; permissions?: AdminPermission[] }) {
+  saving.value = true;
+  try {
+    await updateAdminUserPermissions(admin.telegramId, patch);
+    await reloadAdmins();
+    await session.load({ silent: true });
+    setStatus("Права админа сохранены.");
+  } catch {
+    setError("Не удалось сохранить права админа.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleAdminRoleLabelChange(admin: AdminUser, event: Event) {
+  const roleLabel = event.target instanceof HTMLInputElement ? event.target.value : "";
+  await handleUpdateAdminAccess(admin, { roleLabel });
+}
+
+async function toggleAdminPermission(admin: AdminUser, permission: AdminPermission) {
+  const nextPermissions = hasAdminPermissionEntry(admin, permission)
+    ? admin.permissions.filter((entry) => entry !== permission)
+    : [...admin.permissions, permission];
+
+  await handleUpdateAdminAccess(admin, { permissions: nextPermissions });
 }
 
 async function handleRemoveAdmin(telegramId: string) {
@@ -1556,14 +1648,20 @@ async function handleTransferOwner() {
   }
 }
 
-async function handlePreviewChange(previewMode: PreviewMode) {
-  ui.setPreviewMode(previewMode);
-  await session.load();
-}
-
 onMounted(() => {
   void loadAll();
 });
+
+watch(
+  panels,
+  (availablePanels) => {
+    const firstPanel = availablePanels[0];
+    if (firstPanel && !availablePanels.some((panel) => panel.id === activePanel.value)) {
+      activePanel.value = firstPanel.id;
+    }
+  },
+  { immediate: true }
+);
 
 watch(
   () => props.openClientTelegramId,
@@ -2608,7 +2706,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-else-if="activePanel === 'storage' && isOwner" class="admin-panel">
+    <section v-else-if="activePanel === 'storage' && canUseStorage" class="admin-panel">
       <div class="admin-panel-head">
         <div>
           <h3>Хранилище</h3>
@@ -2868,53 +2966,60 @@ onUnmounted(() => {
       </Teleport>
     </section>
 
-    <section v-else class="admin-panel">
+    <section v-else class="admin-panel admin-permissions-panel">
       <div class="admin-panel-head">
         <div>
           <h3>Администраторы</h3>
-          <p>Владелец и список администраторов клуба.</p>
+          <p>Доступ, роль вручную и права по всем разделам.</p>
         </div>
       </div>
 
-      <section v-if="isOwner" class="admin-crm-block">
-        <div class="admin-panel-head">
+      <section class="admin-permissions-owner">
+        <article class="admin-permissions-owner-card">
           <div>
-            <h4>Предпросмотр клиента</h4>
-            <p>Проверить интерфейс в разных ролях и статусах доступа.</p>
+            <span>Владелец клуба</span>
+            <strong>{{ ownerTelegramId || session.user?.telegramId }}</strong>
+            <small>Полный доступ без ограничений.</small>
           </div>
+          <Check class="h-5 w-5" aria-hidden="true" />
+        </article>
+
+        <button
+          v-if="isOwner"
+          class="secondary-button"
+          type="button"
+          :disabled="saving || !admins.length"
+          @click="openTransferOwnerModal"
+        >
+          Передать владение
+        </button>
+      </section>
+
+      <section v-if="isOwner" class="admin-crm-block admin-add-admin-block">
+        <div>
+          <h4>Добавить администратора</h4>
+          <p>Введите Telegram ID или найдите клиента по имени, username либо ID.</p>
         </div>
-        <div class="segmented-control">
+
+        <form class="admin-search-row" @submit.prevent="handleAddAdmin()">
+          <input v-model.trim="adminSearchQuery" class="text-input" placeholder="Telegram ID, имя или username" />
+          <button class="primary-button admin-add-button" type="submit" :disabled="saving || !resolveAdminSearchTelegramId()">Добавить</button>
+        </form>
+
+        <div v-if="adminSearchCandidates.length" class="admin-candidate-list">
           <button
-            v-for="option in previewOptions"
-            :key="option.value"
-            class="segmented-control-item"
-            :class="{ 'segmented-control-item-active': ui.previewMode === option.value }"
+            v-for="user in adminSearchCandidates"
+            :key="user.id"
+            class="admin-candidate-button"
             type="button"
-            @click="handlePreviewChange(option.value)"
+            :disabled="saving"
+            @click="handleAddAdmin(user.telegramId)"
           >
-            {{ option.label }}
+            <span>{{ getAdminCandidateTitle(user) }}</span>
+            <small>ID {{ user.telegramId }}</small>
           </button>
         </div>
       </section>
-
-      <article class="admin-entity">
-        <div>
-          <strong>Владелец</strong>
-          <small>ID {{ ownerTelegramId || session.user?.telegramId }}</small>
-        </div>
-        <Check class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
-      </article>
-
-      <button
-        v-if="isOwner"
-        class="primary-button"
-        type="button"
-        :disabled="saving || !admins.length"
-        @click="openTransferOwnerModal"
-      >
-        Передать владение клубом
-      </button>
-      <p v-if="isOwner && !admins.length" class="admin-empty">Чтобы передать клуб, сначала добавьте нового администратора.</p>
 
       <Teleport to="body">
         <div v-if="showTransferOwnerModal" class="admin-modal-backdrop" @click.self="closeTransferOwnerModal">
@@ -2947,26 +3052,72 @@ onUnmounted(() => {
         </div>
       </Teleport>
 
-      <form v-if="isOwner" class="admin-search-row" @submit.prevent="handleAddAdmin">
-        <input v-model.trim="newAdminTelegramId" class="text-input" inputmode="numeric" pattern="[0-9]*" placeholder="Telegram ID нового админа" />
-        <button class="primary-button admin-add-button" type="submit" :disabled="saving">Добавить</button>
-      </form>
-      <p v-else class="admin-empty">Добавлять и удалять админов может только владелец.</p>
+      <p v-if="!isOwner" class="admin-empty">Добавлять и удалять админов может только владелец.</p>
 
-      <div class="admin-list">
-        <article v-for="admin in admins" :key="admin.id" class="admin-entity">
-          <div>
-            <strong>{{ adminTitle(admin) }}</strong>
-            <small>
-              ID {{ admin.telegramId }}
-              <template v-if="admin.username"> · @{{ admin.username }}</template>
-              · добавлен {{ new Date(admin.createdAt).toLocaleDateString("ru-RU") }}
-            </small>
+      <div class="admin-permission-list">
+        <article v-for="admin in admins" :key="admin.id" class="admin-permission-card" :class="{ 'admin-permission-card-disabled': !admin.isActive }">
+          <header class="admin-permission-head">
+            <div class="admin-permission-identity">
+              <img v-if="admin.photoUrl" :src="admin.photoUrl" :alt="adminTitle(admin)" />
+              <span v-else>{{ adminTitle(admin).slice(0, 1).toUpperCase() }}</span>
+              <div>
+                <strong>{{ adminTitle(admin) }}</strong>
+                <small>
+                  {{ adminRoleTitle(admin) }} · ID {{ admin.telegramId }}
+                  <template v-if="admin.username"> · @{{ admin.username }}</template>
+                </small>
+              </div>
+            </div>
+
+            <label class="admin-switch-row">
+              <input
+                :checked="admin.isActive"
+                type="checkbox"
+                :disabled="saving || !isOwner"
+                @change="handleUpdateAdminAccess(admin, { isActive: !admin.isActive })"
+              />
+              <span>Доступ администратора</span>
+            </label>
+          </header>
+
+          <div class="admin-permission-meta">
+            <label class="admin-field">
+              <span>Роль вручную</span>
+              <input
+                class="text-input"
+                :value="admin.roleLabel ?? ''"
+                placeholder="Например: Старший модератор"
+                :disabled="saving || !isOwner"
+                @change="handleAdminRoleLabelChange(admin, $event)"
+              />
+            </label>
+
+            <div class="admin-permission-summary">
+              <span>{{ adminPermissionCount(admin) }} / {{ adminPermissionOptions.length }}</span>
+              <small>включено прав</small>
+            </div>
           </div>
-          <button v-if="isOwner" class="icon-button" type="button" :disabled="saving" @click="handleRemoveAdmin(admin.telegramId)">
-            <Trash2 class="h-4 w-4" aria-hidden="true" />
-          </button>
+
+          <div class="admin-permission-grid">
+            <label v-for="permission in adminPermissionOptions" :key="permission.value" class="admin-permission-toggle">
+              <span>{{ permission.label }}</span>
+              <input
+                :checked="hasAdminPermissionEntry(admin, permission.value)"
+                type="checkbox"
+                :disabled="saving || !isOwner"
+                @change="toggleAdminPermission(admin, permission.value)"
+              />
+            </label>
+          </div>
+
+          <footer class="admin-permission-actions">
+            <small>Добавлен {{ new Date(admin.createdAt).toLocaleDateString("ru-RU") }}</small>
+            <button v-if="isOwner" class="icon-button" type="button" :disabled="saving" @click="handleRemoveAdmin(admin.telegramId)">
+              <Trash2 class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </footer>
         </article>
+        <p v-if="!admins.length" class="admin-empty">Администраторов пока нет.</p>
       </div>
     </section>
   </section>

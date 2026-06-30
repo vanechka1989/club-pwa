@@ -3,7 +3,7 @@ import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { mailingChannelSchema, mailingFiltersSchema, type MailingChannel } from "@club/shared";
-import { getUserRole } from "../admin/roles";
+import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import { adminMailingRecipients, adminMailings, userContentProgress, userMutes, users } from "../db/schema";
 import { env } from "../env";
@@ -120,6 +120,10 @@ async function rejectIfNotAdmin(c: Context<{ Variables: AuthVariables }>) {
   const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
   if (!isAdminRole(role)) {
     return c.json({ error: "Admin access required" }, 403);
+  }
+
+  if (!c.get("previewRole") && !(await isOwnerTelegramId(c.get("telegramUser").id)) && !(await hasAdminPermission(c.get("telegramUser").id, "mailings"))) {
+    return c.json({ error: "Mailings permission required" }, 403);
   }
 
   return null;

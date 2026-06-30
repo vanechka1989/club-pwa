@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull, lte, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { getOwnerTelegramId, getUserRole } from "../admin/roles";
+import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import { supportTicketAttachments, supportTicketMessages, supportTickets, users } from "../db/schema";
 import { env } from "../env";
@@ -58,6 +58,19 @@ const ticketTopicSchema = z.enum(["payment", "access", "media", "other"]);
 
 function isAdminRole(role: string) {
   return role === "admin" || role === "owner";
+}
+
+async function canUseSupportAdmin(c: { get: <T extends keyof AuthVariables>(key: T) => AuthVariables[T] }, role: string) {
+  if (!isAdminRole(role)) {
+    return false;
+  }
+
+  if (c.get("previewRole")) {
+    return true;
+  }
+
+  const telegramId = c.get("telegramUser").id;
+  return (await isOwnerTelegramId(telegramId)) || (await hasAdminPermission(telegramId, "support"));
 }
 
 function dateToIso(value: Date | null | undefined) {
@@ -473,7 +486,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const ticket = await getTicketById(idResult.data);
-    const isAdmin = isAdminRole(role);
+    const isAdmin = await canUseSupportAdmin(c, role);
     if (!ticket || (!isAdmin && ticket.userId !== userId)) {
       return c.json({ error: "Обращение не найдено." }, 404);
     }
@@ -509,7 +522,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const ticket = await getTicketById(idResult.data);
-    const isAdmin = isAdminRole(role);
+    const isAdmin = await canUseSupportAdmin(c, role);
     if (!ticket || (!isAdmin && ticket.userId !== userId)) {
       return c.json({ error: "Обращение не найдено." }, 404);
     }
@@ -534,7 +547,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     await cleanupExpiredSupportAttachments();
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-    if (!isAdminRole(role)) {
+    if (!(await canUseSupportAdmin(c, role))) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -560,7 +573,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/admin/users/:telegramId/tickets", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-    if (!isAdminRole(role)) {
+    if (!(await canUseSupportAdmin(c, role))) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -639,7 +652,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/admin/tickets/:id/replies", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-    if (!isAdminRole(role)) {
+    if (!(await canUseSupportAdmin(c, role))) {
       return c.json({ error: "Forbidden" }, 403);
     }
 

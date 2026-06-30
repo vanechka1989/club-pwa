@@ -29,6 +29,8 @@ function renderAsMember() {
     photoUrl: null,
     role: "member",
     realRole: "member",
+    adminRoleLabel: null,
+    adminPermissions: [],
     membershipStatus: "active",
     membershipExpiresAt: null,
     paymentType: "manual",

@@ -37,6 +37,7 @@ import type {
   SubscribeResponse,
   SupportHomeResponse,
   AdminSupportResponse,
+  AdminPermission,
   AppNotificationMutationResponse,
   AppNotificationsResponse,
   SupportTicketMutationResponse,
@@ -429,6 +430,16 @@ export function addAdminUser(telegramId: string) {
   return api<AdminMutationResponse>("/admin/admins", {
     method: "POST",
     body: { telegramId }
+  });
+}
+
+export function updateAdminUserPermissions(
+  telegramId: string,
+  payload: { roleLabel?: string | null; isActive?: boolean; permissions?: AdminPermission[] }
+) {
+  return api<AdminMutationResponse>(`/admin/admins/${telegramId}`, {
+    method: "PATCH",
+    body: payload
   });
 }
 

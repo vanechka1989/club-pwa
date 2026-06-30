@@ -17,8 +17,13 @@ describe("admin panels", () => {
     expect(getVisibleAdminPanels("admin").map((panel) => panel.id)).not.toContain("mockups");
   });
 
-  it("shows storage settings only to the club owner", () => {
+  it("allows storage settings for owners or admins with storage permission", () => {
     expect(getVisibleAdminPanels("owner").map((panel) => panel.id)).toContain("storage");
-    expect(getVisibleAdminPanels("admin").map((panel) => panel.id)).not.toContain("storage");
+    expect(getVisibleAdminPanels("admin", ["storage"]).map((panel) => panel.id)).toContain("storage");
+    expect(getVisibleAdminPanels("admin", ["users"]).map((panel) => panel.id)).not.toContain("storage");
+  });
+
+  it("limits admin panels by granted permissions", () => {
+    expect(getVisibleAdminPanels("admin", ["users", "mailings"]).map((panel) => panel.id)).toEqual(["users", "mailings"]);
   });
 });

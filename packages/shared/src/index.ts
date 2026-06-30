@@ -6,6 +6,32 @@ export type MembershipStatus = z.infer<typeof membershipStatusSchema>;
 export const userRoleSchema = z.enum(["member", "admin", "owner"]);
 export type UserRole = z.infer<typeof userRoleSchema>;
 
+export const adminPermissionValues = [
+  "statistics",
+  "users",
+  "mailings",
+  "payments",
+  "materials",
+  "support",
+  "community",
+  "storage",
+  "admins"
+] as const;
+export const adminPermissionSchema = z.enum(adminPermissionValues);
+export type AdminPermission = z.infer<typeof adminPermissionSchema>;
+export const allAdminPermissions: AdminPermission[] = [...adminPermissionValues];
+export const adminPermissionLabels: Record<AdminPermission, string> = {
+  statistics: "Статистика",
+  users: "Клиенты",
+  mailings: "Рассылки",
+  payments: "Оплаты",
+  materials: "Контент обучения",
+  support: "Поддержка",
+  community: "Общение",
+  storage: "Хранилище",
+  admins: "Админы"
+};
+
 export const clubUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
@@ -14,6 +40,8 @@ export const clubUserSchema = z.object({
   photoUrl: z.string().url().nullable(),
   role: userRoleSchema,
   realRole: userRoleSchema,
+  adminRoleLabel: z.string().nullable().default(null),
+  adminPermissions: z.array(adminPermissionSchema).default([]),
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
   paymentType: z.enum(["none", "manual", "one_time", "recurrent"]),
@@ -441,6 +469,9 @@ export const adminUserSchema = z.object({
   firstName: z.string().nullable(),
   username: z.string().nullable(),
   photoUrl: z.string().url().nullable(),
+  roleLabel: z.string().nullable(),
+  isActive: z.boolean(),
+  permissions: z.array(adminPermissionSchema),
   createdAt: z.string().datetime()
 });
 export type AdminUser = z.infer<typeof adminUserSchema>;
