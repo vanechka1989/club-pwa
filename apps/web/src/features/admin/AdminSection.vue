@@ -284,7 +284,8 @@ const storageObjectsLoading = ref(false);
 const storageObjectsCursor = ref<string | null>(null);
 const storagePrefix = ref("");
 const storageSearch = ref("");
-const showStorageSettings = ref(false);
+const showStorageFilesModal = ref(false);
+const showStorageSettingsModal = ref(false);
 const storageForm = ref({
   endpoint: "",
   region: "us-east-1",
@@ -1304,7 +1305,7 @@ function openStorageSettings() {
     "Изменение настроек S3 может привести к некорректной работе клуба и недоступности файлов. Точно открыть настройки?"
   );
   if (confirmed) {
-    showStorageSettings.value = true;
+    showStorageSettingsModal.value = true;
   }
 }
 
@@ -1365,7 +1366,8 @@ async function loadStorageSettings() {
     storageObjects.value = [];
     storageOverviewObjects.value = [];
     storageObjectsCursor.value = null;
-    showStorageSettings.value = false;
+    showStorageFilesModal.value = false;
+    showStorageSettingsModal.value = false;
     fillStorageForm(null);
     return;
   }
@@ -1418,7 +1420,7 @@ async function handleSaveStorageSettings() {
     const response = await updateAdminS3StorageSettings(payload);
     storageSettings.value = response.settings;
     fillStorageForm(response.settings);
-    showStorageSettings.value = false;
+    showStorageSettingsModal.value = false;
     await loadStorageObjects();
     showSuccessAlert("S3-хранилище сохранено.");
   } catch {
@@ -3027,91 +3029,125 @@ onUnmounted(() => {
               </template>
             </small>
           </div>
-          <button class="secondary-button" type="button" @click="openStorageSettings">Настройки S3</button>
         </div>
 
-        <section v-if="storageSettings?.configured" class="admin-storage-browser" aria-label="Файлы S3">
-          <div class="admin-storage-browser-head">
-            <div>
-              <strong>Обзор хранилища</strong>
-              <small>
-                {{ storageObjects.length }} файлов в списке
-                <template v-if="storageObjectsCursor"> · есть ещё файлы</template>
-              </small>
-            </div>
-            <button class="secondary-button" type="button" :disabled="storageObjectsLoading" @click="loadStorageObjects()">
-              {{ storageObjectsLoading ? "Загружаю..." : "Обновить" }}
-            </button>
-          </div>
-
-          <div class="admin-storage-folder-grid">
-            <button
-              v-for="folder in storageOverview"
-              :key="folder.value"
-              class="admin-storage-folder-card"
-              :class="{ active: storagePrefix === folder.value }"
-              type="button"
-              :disabled="storageObjectsLoading"
-              @click="storagePrefix = folder.value; loadStorageObjects()"
-            >
-              <span>{{ folder.label }}</span>
-              <strong>{{ folder.count }} файлов</strong>
-              <small>{{ formatStorageSize(folder.sizeBytes) }}</small>
-            </button>
-          </div>
-
-          <div class="admin-storage-browser-filters">
-            <select v-model="storagePrefix" class="text-input" :disabled="storageObjectsLoading" @change="loadStorageObjects()">
-              <option v-for="option in storagePrefixOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-            </select>
-            <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени, уроку или автору" />
-          </div>
-
-          <div class="admin-storage-object-list">
-            <article v-for="item in filteredStorageObjects" :key="item.key" class="admin-storage-object-card">
-              <span class="admin-storage-object-copy">
-                <strong>{{ storageObjectFileName(item.key) }}</strong>
-                <small>{{ item.categoryLabel }} · {{ item.fileKind }}</small>
-                <small v-if="item.entityTitle">Связано: {{ item.entityTitle }}</small>
-                <small v-if="item.uploadedBy">
-                  Загрузил:
-                  {{ item.uploadedBy.firstName || (item.uploadedBy.username ? `@${item.uploadedBy.username}` : `ID ${item.uploadedBy.telegramId}`) }}
-                </small>
-                <small>{{ item.key }}</small>
-                <em>
-                  {{ formatStorageSize(item.sizeBytes) }}
-                  <template v-if="item.lastModified"> · {{ new Date(item.lastModified).toLocaleString("ru-RU") }}</template>
-                </em>
-              </span>
-              <span class="admin-storage-object-actions">
-                <button class="secondary-button" type="button" @click="openStorageObject(item)">Открыть</button>
-                <button class="danger-button" type="button" :disabled="storageObjectsLoading" @click="handleDeleteStorageObject(item)">Удалить</button>
-              </span>
-            </article>
-            <p v-if="!filteredStorageObjects.length && !storageObjectsLoading" class="admin-empty">Файлы не найдены.</p>
-          </div>
-
-          <button
-            v-if="storageObjectsCursor"
-            class="secondary-button"
-            type="button"
-            :disabled="storageObjectsLoading"
-            @click="loadStorageObjects({ append: true })"
-          >
-            Загрузить ещё
+        <div class="admin-storage-action-grid">
+          <button class="admin-storage-action-card" type="button" @click="showStorageFilesModal = true">
+            <span>Обзор файлов</span>
+            <strong>{{ storageSettings?.configured ? `${storageOverviewObjects.length} файлов` : "S3 не подключено" }}</strong>
+            <small>Открыть файлы по папкам и источникам загрузки.</small>
           </button>
-        </section>
+          <button class="admin-storage-action-card" type="button" @click="openStorageSettings">
+            <span>Настройки S3</span>
+            <strong>{{ storageSettings?.configured ? "Подключено" : "Заполнить параметры" }}</strong>
+            <small>Endpoint, bucket, ключи и TTL подписанных ссылок.</small>
+          </button>
+        </div>
 
-        <p v-else class="admin-empty">S3 не подключено. Откройте настройки S3 и заполните параметры бакета.</p>
+        <Teleport to="body">
+          <div v-if="showStorageFilesModal" class="admin-modal-backdrop" @click.self="showStorageFilesModal = false">
+            <aside class="admin-detail admin-client-modal admin-storage-modal" role="dialog" aria-modal="true" aria-labelledby="admin-storage-files-title">
+              <header class="admin-client-modal-head">
+                <div>
+                  <h3 id="admin-storage-files-title">Обзор файлов</h3>
+                  <p>Файлы S3 по папкам, источникам и связанным данным.</p>
+                </div>
+                <button class="icon-button" type="button" aria-label="Закрыть обзор файлов" @click="showStorageFilesModal = false">
+                  <X class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </header>
 
-        <form v-if="showStorageSettings" class="admin-form admin-storage-settings-form" @submit.prevent="handleSaveStorageSettings">
-          <div class="admin-storage-browser-head">
-            <div>
-              <strong>Настройки S3</strong>
-              <small>Меняйте только если переносите или подключаете хранилище.</small>
-            </div>
-            <button class="secondary-button" type="button" @click="showStorageSettings = false">Закрыть</button>
+              <section v-if="storageSettings?.configured" class="admin-storage-browser" aria-label="Файлы S3">
+                <div class="admin-storage-browser-head">
+                  <div>
+                    <strong>Папки</strong>
+                    <small>
+                      {{ storageObjects.length }} файлов в списке
+                      <template v-if="storageObjectsCursor"> · есть ещё файлы</template>
+                    </small>
+                  </div>
+                  <button class="secondary-button" type="button" :disabled="storageObjectsLoading" @click="loadStorageObjects()">
+                    {{ storageObjectsLoading ? "Загружаю..." : "Обновить" }}
+                  </button>
+                </div>
+
+                <div class="admin-storage-folder-grid">
+                  <button
+                    v-for="folder in storageOverview"
+                    :key="folder.value"
+                    class="admin-storage-folder-card"
+                    :class="{ active: storagePrefix === folder.value }"
+                    type="button"
+                    :disabled="storageObjectsLoading"
+                    @click="storagePrefix = folder.value; loadStorageObjects()"
+                  >
+                    <span>{{ folder.label }}</span>
+                    <strong>{{ folder.count }} файлов</strong>
+                    <small>{{ formatStorageSize(folder.sizeBytes) }}</small>
+                  </button>
+                </div>
+
+                <div class="admin-storage-browser-filters">
+                  <select v-model="storagePrefix" class="text-input" :disabled="storageObjectsLoading" @change="loadStorageObjects()">
+                    <option v-for="option in storagePrefixOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                  <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени, уроку или автору" />
+                </div>
+
+                <div class="admin-storage-object-list">
+                  <article v-for="item in filteredStorageObjects" :key="item.key" class="admin-storage-object-card">
+                    <span class="admin-storage-object-copy">
+                      <strong>{{ storageObjectFileName(item.key) }}</strong>
+                      <small>{{ item.categoryLabel }} · {{ item.fileKind }}</small>
+                      <small v-if="item.entityTitle">Связано: {{ item.entityTitle }}</small>
+                      <small v-if="item.uploadedBy">
+                        Загрузил:
+                        {{ item.uploadedBy.firstName || (item.uploadedBy.username ? `@${item.uploadedBy.username}` : `ID ${item.uploadedBy.telegramId}`) }}
+                      </small>
+                      <small>{{ item.key }}</small>
+                      <em>
+                        {{ formatStorageSize(item.sizeBytes) }}
+                        <template v-if="item.lastModified"> · {{ new Date(item.lastModified).toLocaleString("ru-RU") }}</template>
+                      </em>
+                    </span>
+                    <span class="admin-storage-object-actions">
+                      <button class="secondary-button" type="button" @click="openStorageObject(item)">Открыть</button>
+                      <button class="danger-button" type="button" :disabled="storageObjectsLoading" @click="handleDeleteStorageObject(item)">Удалить</button>
+                    </span>
+                  </article>
+                  <p v-if="!filteredStorageObjects.length && !storageObjectsLoading" class="admin-empty">Файлы не найдены.</p>
+                </div>
+
+                <button
+                  v-if="storageObjectsCursor"
+                  class="secondary-button"
+                  type="button"
+                  :disabled="storageObjectsLoading"
+                  @click="loadStorageObjects({ append: true })"
+                >
+                  Загрузить ещё
+                </button>
+              </section>
+
+              <p v-else class="admin-empty">S3 не подключено. Откройте настройки S3 и заполните параметры бакета.</p>
+            </aside>
           </div>
+        </Teleport>
+
+        <Teleport to="body">
+          <div v-if="showStorageSettingsModal" class="admin-modal-backdrop" @click.self="showStorageSettingsModal = false">
+            <aside class="admin-detail admin-client-modal admin-storage-modal" role="dialog" aria-modal="true" aria-labelledby="admin-storage-settings-title">
+              <header class="admin-client-modal-head">
+                <div>
+                  <h3 id="admin-storage-settings-title">Настройки S3</h3>
+                  <p>Меняйте только если переносите или подключаете хранилище.</p>
+                </div>
+                <button class="icon-button" type="button" aria-label="Закрыть настройки S3" @click="showStorageSettingsModal = false">
+                  <X class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </header>
+
+              <form class="admin-form admin-storage-settings-form" @submit.prevent="handleSaveStorageSettings">
 
           <label class="admin-field">
             <span>Endpoint URL</span>
@@ -3162,7 +3198,10 @@ onUnmounted(() => {
           <button class="primary-button" type="submit" :disabled="saving">
             Сохранить S3
           </button>
-        </form>
+              </form>
+            </aside>
+          </div>
+        </Teleport>
       </article>
     </section>
 

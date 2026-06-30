@@ -3602,10 +3602,6 @@ body.club-keyboard-open .admin-modal-backdrop {
   gap: 0.28rem;
 }
 
-.admin-storage-status .secondary-button {
-  flex: 0 0 auto;
-}
-
 .admin-storage-status span {
   width: fit-content;
   border-radius: 999px;
@@ -3629,6 +3625,46 @@ body.club-keyboard-open .admin-modal-backdrop {
   border: 1px solid color-mix(in srgb, var(--danger) 54%, var(--border));
   background: color-mix(in srgb, var(--danger) 14%, var(--panel));
   color: var(--danger);
+}
+
+.admin-storage-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.admin-storage-action-card {
+  display: grid;
+  gap: 0.18rem;
+  min-height: 6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-strong) 66%, transparent);
+  color: var(--text);
+  padding: 0.82rem;
+  text-align: left;
+}
+
+.admin-storage-action-card:active {
+  transform: translateY(1px);
+}
+
+.admin-storage-action-card span,
+.admin-storage-action-card small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.admin-storage-action-card strong {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.admin-storage-modal {
+  max-width: 44rem;
 }
 
 .admin-storage-warning {
@@ -7491,6 +7527,7 @@ button.chat-message-author:active {
     display: grid;
   }
 
+  .admin-storage-action-grid,
   .admin-storage-folder-grid {
     grid-template-columns: 1fr;
   }
