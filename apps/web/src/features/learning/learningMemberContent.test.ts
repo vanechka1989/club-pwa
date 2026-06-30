@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getLearningContent, getLearningHome } from "@/api/client";
+import { getLearningContent, getLearningHome, saveLearningPlayback } from "@/api/client";
 import { useSessionStore } from "@/stores/session";
 import LearningSection from "./LearningSection.vue";
 
@@ -14,6 +14,7 @@ vi.mock("@/api/client", () => ({
   getLearningContent: vi.fn(),
   getLearningHome: vi.fn(),
   restoreAdminLearningMaterial: vi.fn(),
+  saveLearningPlayback: vi.fn(),
   updateAdminLearningCategory: vi.fn(),
   updateAdminLearningMaterial: vi.fn()
 }));
@@ -106,6 +107,10 @@ describe("Learning section member content", () => {
       },
       completedAt: null,
       playbackPositionSeconds: 0
+    });
+    vi.mocked(saveLearningPlayback).mockResolvedValue({
+      ok: true,
+      playbackPositionSeconds: 252
     });
   });
 
@@ -250,5 +255,150 @@ describe("Learning section member content", () => {
     expect(dialog.querySelector(".lesson-viewer-content")).toBeTruthy();
     expect(dialog.querySelector(".lesson-preview-body")).toBeNull();
     expect(dialog.querySelector('img[src="https://example.com/cover.jpg"]')).toBeNull();
+  });
+
+  it("shows a continue card for the last opened lesson", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-video",
+          slug: "module-video",
+          title: "Видео модуль",
+          description: "Материалы с видео",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [
+        {
+          id: "lesson-video",
+          categoryId: "module-video",
+          kind: "video",
+          title: "Голосовые практики",
+          summary: "Видео на 12 минут",
+          body: null,
+          mediaUrl: "https://example.com/video.mp4",
+          thumbnailUrl: "https://example.com/video-cover.jpg",
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        }
+      ],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: {
+          id: "lesson-video",
+          categoryId: "module-video",
+          kind: "video",
+          title: "Голосовые практики",
+          summary: "Видео на 12 минут",
+          body: null,
+          mediaUrl: "https://example.com/video.mp4",
+          thumbnailUrl: "https://example.com/video-cover.jpg",
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        },
+        lastOpenedAt: "2026-06-29T10:00:00.000Z",
+        lastOpenedPlaybackPositionSeconds: 252
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-video",
+        categoryId: "module-video",
+        kind: "video",
+        title: "Голосовые практики",
+        summary: "Видео на 12 минут",
+        body: null,
+        mediaUrl: "https://example.com/video.mp4",
+        thumbnailUrl: "https://example.com/video-cover.jpg",
+        cardLayout: "horizontal",
+        mediaContentType: "video/mp4",
+        mediaSizeBytes: 1024,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 252
+    });
+
+    renderAsMember();
+
+    expect(await screen.findByText("Продолжить урок")).toBeTruthy();
+    expect(screen.getByText("Голосовые практики")).toBeTruthy();
+    expect(screen.getAllByText("Видео модуль").length).toBeGreaterThan(0);
+    expect(screen.getByText("Продолжить с 4:12")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Продолжить урок Голосовые практики" }));
+
+    await waitFor(() => expect(getLearningContent).toHaveBeenCalledWith("lesson-video"));
+  });
+
+  it("starts a continued video from the saved playback position", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-video",
+          slug: "module-video",
+          title: "Видео модуль",
+          description: "Материалы с видео",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: {
+          id: "lesson-video",
+          categoryId: "module-video",
+          kind: "video",
+          title: "Голосовые практики",
+          summary: "Видео на 12 минут",
+          body: null,
+          mediaUrl: "https://example.com/video.mp4",
+          thumbnailUrl: null,
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        },
+        lastOpenedAt: "2026-06-29T10:00:00.000Z",
+        lastOpenedPlaybackPositionSeconds: 252
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-video",
+        categoryId: "module-video",
+        kind: "video",
+        title: "Голосовые практики",
+        summary: "Видео на 12 минут",
+        body: null,
+        mediaUrl: "https://example.com/video.mp4",
+        thumbnailUrl: null,
+        cardLayout: "horizontal",
+        mediaContentType: "video/mp4",
+        mediaSizeBytes: 1024,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 252
+    });
+
+    renderAsMember();
+    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
+
+    const video = document.querySelector("video") as HTMLVideoElement;
+    await fireEvent.loadedMetadata(video);
+
+    expect(Math.round(video.currentTime)).toBe(252);
   });
 });

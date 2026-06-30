@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { AdminLearningMaterial, ContentCardLayout, ContentKind, LearningCategory, LearningContent } from "@club/shared";
+import type { AdminLearningMaterial, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary } from "@club/shared";
 import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
@@ -11,6 +11,7 @@ import {
   getLearningContent,
   getLearningHome,
   restoreAdminLearningMaterial,
+  saveLearningPlayback,
   updateAdminLearningCategory,
   updateAdminLearningMaterial
 } from "@/api/client";
@@ -172,6 +173,7 @@ const initialModuleCards: ModuleCard[] = [
 
 const moduleCards = ref<ModuleCard[]>(initialModuleCards.map((module) => ({ ...module, images: module.images.map((lesson) => ({ ...lesson })) })));
 const deletedLessons = ref<ModuleLesson[]>([]);
+const learningProgress = ref<LearningProgressSummary | null>(null);
 const session = useSessionStore();
 const ui = useUiStore();
 const notifications = useNotificationsStore();
@@ -208,6 +210,9 @@ const lessonVideoCurrentTime = ref(0);
 const lessonVideoDuration = ref(0);
 const isLessonVideoFullscreen = ref(false);
 const showLessonVideoControls = ref(true);
+const pendingLessonVideoStartSeconds = ref(0);
+const lessonVideoStartApplied = ref(false);
+const lastSavedLessonVideoSeconds = ref(0);
 let voiceChunks: Blob[] = [];
 let lessonVideoControlsTimer: number | null = null;
 
@@ -218,6 +223,25 @@ const moduleModalDescription = computed(() => (editingModule.value ? "Измен
 const trimmedModuleTitle = computed(() => moduleTitle.value.trim());
 const selectedLessonModule = computed(() => moduleCards.value.find((module) => module.id === selectedLesson.value?.moduleId) ?? null);
 const selectedLessonItem = computed(() => selectedLessonModule.value?.images.find((lesson) => lesson.id === selectedLesson.value?.lessonId) ?? null);
+const lastOpenedLesson = computed(() => {
+  const item = learningProgress.value?.lastOpenedItem;
+  return item ? materialToLesson(item) : null;
+});
+const lastOpenedLessonModule = computed(() => {
+  const lesson = lastOpenedLesson.value;
+  return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? null : null;
+});
+const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
+const continueLessonButtonLabel = computed(() => (lastOpenedLesson.value ? `Продолжить урок ${lastOpenedLesson.value.title}` : "Продолжить урок"));
+const continueLessonProgressLabel = computed(() => {
+  const lesson = lastOpenedLesson.value;
+  const seconds = learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0;
+  if (lesson?.kind === "video" && seconds > 0) {
+    return `Продолжить с ${formatVideoTime(seconds)}`;
+  }
+
+  return "Продолжить";
+});
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
@@ -359,8 +383,15 @@ function collapseModule(moduleId: string) {
   }
 }
 
-function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
+function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStartSeconds = 0) {
+  resetLessonVideoState();
+  if (!module.images.some((item) => item.id === lesson.id)) {
+    module.images = [lesson, ...module.images];
+  }
   selectedLesson.value = { moduleId: module.id, lessonId: lesson.id };
+  pendingLessonVideoStartSeconds.value = playbackStartSeconds;
+  lessonVideoStartApplied.value = false;
+  lastSavedLessonVideoSeconds.value = playbackStartSeconds;
   lessonTitle.value = lesson.title;
   lessonDescription.value = lesson.description;
   lessonKind.value = lesson.kind;
@@ -375,6 +406,16 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson) {
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
   void loadLessonContentForMember(lesson);
+}
+
+function openLastLesson() {
+  const module = lastOpenedLessonModule.value;
+  const lesson = lastOpenedLesson.value;
+  if (!module || !lesson) {
+    return;
+  }
+
+  openLessonModal(module, lesson, learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0);
 }
 
 function openLessonCreateModal(module: ModuleCard) {
@@ -426,6 +467,9 @@ function resetLessonVideoState() {
   showLessonVideoControls.value = true;
   lessonVideoCurrentTime.value = 0;
   lessonVideoDuration.value = 0;
+  pendingLessonVideoStartSeconds.value = 0;
+  lessonVideoStartApplied.value = false;
+  lastSavedLessonVideoSeconds.value = 0;
 }
 
 function formatVideoTime(seconds: number) {
@@ -448,6 +492,39 @@ function syncLessonVideoState() {
   lessonVideoCurrentTime.value = video.currentTime;
   lessonVideoDuration.value = Number.isFinite(video.duration) ? video.duration : 0;
   isLessonVideoPlaying.value = !video.paused && !video.ended;
+}
+
+function applyPendingLessonVideoStart() {
+  const video = lessonVideoElement.value;
+  if (!video || lessonVideoStartApplied.value || pendingLessonVideoStartSeconds.value <= 0) {
+    syncLessonVideoState();
+    return;
+  }
+
+  video.currentTime = pendingLessonVideoStartSeconds.value;
+  lessonVideoStartApplied.value = true;
+  syncLessonVideoState();
+}
+
+async function persistLessonVideoPlayback(force = false) {
+  const lesson = selectedLessonItem.value;
+  const video = lessonVideoElement.value;
+  if (!lesson?.isPersisted || lesson.kind !== "video" || !video) {
+    return;
+  }
+
+  const positionSeconds = Math.max(0, Math.floor(video.currentTime));
+  if (!force && Math.abs(positionSeconds - lastSavedLessonVideoSeconds.value) < 10) {
+    return;
+  }
+
+  lastSavedLessonVideoSeconds.value = positionSeconds;
+  await saveLearningPlayback(lesson.id, positionSeconds).catch(() => {});
+}
+
+function handleLessonVideoTimeUpdate() {
+  syncLessonVideoState();
+  void persistLessonVideoPlayback(false);
 }
 
 function clearLessonVideoControlsTimer() {
@@ -481,6 +558,7 @@ async function toggleLessonVideoPlayback() {
     await video.play().catch(() => {});
   } else {
     video.pause();
+    void persistLessonVideoPlayback(true);
   }
   syncLessonVideoState();
   revealLessonVideoControls();
@@ -495,6 +573,7 @@ function handleLessonVideoSeek(event: Event) {
 
   video.currentTime = (Number(input.value) / 100) * lessonVideoDuration.value;
   syncLessonVideoState();
+  void persistLessonVideoPlayback(true);
   revealLessonVideoControls();
 }
 
@@ -533,6 +612,7 @@ function handleLessonFullscreenChange() {
 
 async function handleLessonVideoEnded() {
   syncLessonVideoState();
+  await persistLessonVideoPlayback(true);
   showLessonVideoControls.value = true;
   clearLessonVideoControlsTimer();
 
@@ -608,6 +688,8 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
     }
 
     replaceModuleLesson(materialToLesson(response.item));
+    pendingLessonVideoStartSeconds.value = Math.max(pendingLessonVideoStartSeconds.value, response.playbackPositionSeconds ?? 0);
+    lastSavedLessonVideoSeconds.value = pendingLessonVideoStartSeconds.value;
   } catch {
     if (selectedLesson.value?.lessonId === lessonId) {
       showLessonViewerError("Не удалось загрузить содержимое урока.");
@@ -640,12 +722,14 @@ async function loadModules() {
 
   try {
     if (canManageModules.value) {
+      learningProgress.value = null;
       const response = await getAdminLearning();
       const modules = categoriesToModules(response.categories, response.materials);
       moduleCards.value = modules.length ? modules : cloneInitialModules();
       deletedLessons.value = response.deletedMaterials.map(materialToLesson);
     } else {
       const response = await getLearningHome();
+      learningProgress.value = response.progress;
       const modules = categoriesToModules(response.categories, response.featured);
       moduleCards.value = modules.length ? modules : cloneInitialModules();
       deletedLessons.value = [];
@@ -655,6 +739,7 @@ async function loadModules() {
   } catch {
     moduleCards.value = moduleCards.value.length ? moduleCards.value : cloneInitialModules();
     deletedLessons.value = [];
+    learningProgress.value = null;
     modulesLoadedFromApi.value = false;
     collapseAllModules();
   } finally {
@@ -1071,6 +1156,22 @@ watch(
 
     <p v-if="isLoadingModules" class="modules-edit-hint">Загружаем модули...</p>
 
+    <button
+      v-if="shouldShowContinueLesson && lastOpenedLesson && lastOpenedLessonModule"
+      class="continue-lesson-card"
+      type="button"
+      :aria-label="continueLessonButtonLabel"
+      @click="openLastLesson"
+    >
+      <img :src="getModuleLessonImage(lastOpenedLessonModule, lastOpenedLesson)" :alt="lastOpenedLesson.title" loading="lazy" />
+      <span class="continue-lesson-copy">
+        <small>Продолжить урок</small>
+        <strong>{{ lastOpenedLesson.title }}</strong>
+        <em>{{ lastOpenedLessonModule.title }}</em>
+      </span>
+      <span class="continue-lesson-action">{{ continueLessonProgressLabel }}</span>
+    </button>
+
     <div class="admin-mockup-list">
       <article v-for="module in moduleCards" :key="module.id" class="admin-mockup-card" :class="{ 'module-card-collapsed': isModuleCollapsed(module.id) }">
         <div class="admin-mockup-card-head module-card-head">
@@ -1318,10 +1419,10 @@ watch(
                   :poster="lessonVideoPoster"
                   playsinline
                   preload="metadata"
-                  @loadedmetadata="syncLessonVideoState"
-                  @timeupdate="syncLessonVideoState"
+                  @loadedmetadata="applyPendingLessonVideoStart"
+                  @timeupdate="handleLessonVideoTimeUpdate"
                   @play="syncLessonVideoState"
-                  @pause="syncLessonVideoState"
+                  @pause="persistLessonVideoPlayback(true)"
                   @ended="handleLessonVideoEnded"
                 />
                 <button

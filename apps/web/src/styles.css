@@ -4396,6 +4396,66 @@ body.club-keyboard-open .admin-modal-backdrop {
   font-weight: 820;
 }
 
+.continue-lesson-card {
+  display: grid;
+  grid-template-columns: 4.8rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent-soft) 34%, var(--panel));
+  padding: 0.65rem;
+  color: var(--text);
+  text-align: left;
+  box-shadow: var(--shadow-soft);
+}
+
+.continue-lesson-card img {
+  width: 4.8rem;
+  aspect-ratio: 16 / 10;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
+  object-fit: cover;
+}
+
+.continue-lesson-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.continue-lesson-copy small,
+.continue-lesson-copy em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-lesson-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-lesson-action {
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  padding: 0.45rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .admin-mockup-card {
   display: grid;
   gap: 0.75rem;
