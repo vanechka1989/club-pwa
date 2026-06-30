@@ -314,7 +314,9 @@ function selectAdminPanel(panel: AdminPanel) {
 }
 
 const canUseStorage = computed(() => hasCurrentAdminPermission("storage"));
+const canGrantClientAccess = computed(() => hasCurrentAdminPermission("accesses"));
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
+const canManageSelectedUserAccess = computed(() => canGrantClientAccess.value && canManageSelectedUser.value);
 const clientAccessBusy = computed(() => Boolean(pendingClientAccessAction.value));
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
@@ -1619,6 +1621,10 @@ async function saveSelectedUserAccess(status: "active" | "inactive", expiresAtVa
   if (pendingClientAccessAction.value) {
     return;
   }
+  if (!canGrantClientAccess.value) {
+    setError("Нет права на выдачу доступов.");
+    return;
+  }
   if (selectedUser.value && !canManageSelectedUser.value) {
     setError("Менять доступ администраторов может только главный админ.");
     return;
@@ -2498,7 +2504,10 @@ onUnmounted(() => {
               </article>
             </section>
 
-            <p v-if="!canManageSelectedUser" class="admin-warning-line">
+            <p v-if="!canGrantClientAccess" class="admin-warning-line">
+              Для выдачи доступа нужно право Доступы.
+            </p>
+            <p v-else-if="!canManageSelectedUser" class="admin-warning-line">
               Менять доступ и ограничения администраторов может только главный админ.
             </p>
 
@@ -2512,7 +2521,7 @@ onUnmounted(() => {
                   class="admin-access-open"
                   :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'open' }"
                   type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
                   @click="handleOpenAccess"
                 >
                   {{ pendingClientAccessAction === "open" ? "Открываю..." : "Открыть доступ" }}
@@ -2521,7 +2530,7 @@ onUnmounted(() => {
                   class="admin-access-close"
                   :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'close' }"
                   type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
                   @click="handleCloseAccess"
                 >
                   {{ pendingClientAccessAction === "close" ? "Закрываю..." : "Закрыть доступ" }}
@@ -2530,7 +2539,7 @@ onUnmounted(() => {
                   class="admin-access-add"
                   :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend7' }"
                   type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
                   @click="handleExtendAccess(7)"
                 >
                   {{ pendingClientAccessAction === "extend7" ? "Продлеваю..." : "+7 дней" }}
@@ -2539,7 +2548,7 @@ onUnmounted(() => {
                   class="admin-access-add"
                   :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend30' }"
                   type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
                   @click="handleExtendAccess(30)"
                 >
                   {{ pendingClientAccessAction === "extend30" ? "Продлеваю..." : "+30 дней" }}
@@ -2548,13 +2557,13 @@ onUnmounted(() => {
               <form class="admin-compact-date-row" @submit.prevent="handleManualAccessSave">
                 <label class="admin-date-action">
                   <span>Ручной доступ</span>
-                  <input v-model="accessExpiresAt" type="date" aria-label="Дата окончания доступа" :disabled="!canManageSelectedUser" />
+                  <input v-model="accessExpiresAt" type="date" aria-label="Дата окончания доступа" :disabled="!canManageSelectedUserAccess" />
                 </label>
                 <button
                   class="admin-date-save"
                   :class="{ 'admin-save-success': accessSaveSucceeded, 'admin-access-button-pending': pendingClientAccessAction === 'manual' }"
                   type="submit"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUser"
+                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
                 >
                   {{ pendingClientAccessAction === "manual" ? "Сохраняю..." : accessSaveButtonText }}
                 </button>

@@ -9,6 +9,7 @@ export type UserRole = z.infer<typeof userRoleSchema>;
 export const adminPermissionValues = [
   "statistics",
   "users",
+  "accesses",
   "mailings",
   "payments",
   "materials",
@@ -24,6 +25,7 @@ export const newAdminDefaultPermissions: AdminPermission[] = [];
 export const adminPermissionLabels: Record<AdminPermission, string> = {
   statistics: "Статистика",
   users: "Клиенты",
+  accesses: "Доступы",
   mailings: "Рассылки",
   payments: "Оплаты",
   materials: "Контент обучения",

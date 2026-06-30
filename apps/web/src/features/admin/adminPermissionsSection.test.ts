@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
 const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
+const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/shared/src/index.ts"), "utf-8");
+const adminRouteSource = readFileSync(resolve(__dirname, "../../../../../apps/api/src/routes/admin.ts"), "utf-8");
 
 describe("admin permissions section", () => {
   it("supports searching admins by id, name, or username before adding access", () => {
@@ -18,6 +20,14 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("adminPermissionOptions");
     expect(adminSectionSource).toContain("toggleAdminPermission");
     expect(adminSectionSource).toContain("handleUpdateAdminAccess");
+  });
+
+  it("has a separate admin permission for granting client access", () => {
+    expect(sharedSource).toContain('"accesses"');
+    expect(sharedSource).toContain('accesses: "Доступы"');
+    expect(adminRouteSource).toContain('.use("/access", requireAdminPermission("accesses"))');
+    expect(adminSectionSource).toContain("canGrantClientAccess");
+    expect(adminSectionSource).toContain("Для выдачи доступа нужно право Доступы.");
   });
 
   it("places preview mode switcher inside the admins section", () => {
