@@ -14,6 +14,8 @@ export type UploadObjectInput = {
   contentType: string;
 };
 
+export type S3StorageTarget = "primary" | "reserve";
+
 async function requireS3Config() {
   const setting = await db.query.clubSettings.findFirst({
     where: eq(clubSettings.key, storageSettingKey)
@@ -37,6 +39,18 @@ function createS3Client(config: StoredS3Config) {
       secretAccessKey: config.secretAccessKey
     }
   });
+}
+
+function resolveS3TargetConfig(config: StoredS3Config, target: S3StorageTarget) {
+  if (target === "primary") {
+    return config;
+  }
+
+  if (!config.reserve) {
+    throw new Error("Reserve S3 storage is not configured");
+  }
+
+  return { ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null };
 }
 
 async function putObjectToConfig(config: StoredS3Config, key: string, body: UploadObjectInput["body"], contentType: string) {
@@ -97,9 +111,13 @@ export async function uploadObject({ key, body, contentType }: UploadObjectInput
   };
 }
 
-export async function getObjectReadUrl(key: string) {
+export async function getObjectReadUrl(key: string, target: S3StorageTarget = "primary") {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
+
+  if (target === "reserve") {
+    return buildObjectReadUrl(resolveS3TargetConfig(config, "reserve"), normalizedKey);
+  }
 
   try {
     return await buildObjectReadUrl(config, normalizedKey);
@@ -113,27 +131,39 @@ export async function getObjectReadUrl(key: string) {
   }
 }
 
-export async function deleteObject(key: string) {
+export async function deleteObject(key: string, target: S3StorageTarget = "primary") {
   const config = await requireS3Config();
-  const client = createS3Client(config);
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const client = createS3Client(targetConfig);
   const normalizedKey = normalizeS3ObjectKey(key);
 
   await client.send(
     new DeleteObjectCommand({
-      Bucket: config.bucket,
+      Bucket: targetConfig.bucket,
       Key: normalizedKey
     })
   );
 }
 
-export async function listObjects({ prefix, cursor, limit = 50 }: { prefix?: string | null; cursor?: string | null; limit?: number }) {
+export async function listObjects({
+  prefix,
+  cursor,
+  limit = 50,
+  target = "primary"
+}: {
+  prefix?: string | null;
+  cursor?: string | null;
+  limit?: number;
+  target?: S3StorageTarget;
+}) {
   const config = await requireS3Config();
-  const client = createS3Client(config);
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const client = createS3Client(targetConfig);
   const normalizedPrefix = normalizeS3ObjectPrefix(prefix);
 
   const response = await client.send(
     new ListObjectsV2Command({
-      Bucket: config.bucket,
+      Bucket: targetConfig.bucket,
       Prefix: normalizedPrefix,
       ContinuationToken: cursor || undefined,
       MaxKeys: Math.min(Math.max(limit, 1), 100)

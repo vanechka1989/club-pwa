@@ -269,8 +269,9 @@ export function updateAdminS3StorageSettings(payload: {
   });
 }
 
-export function getAdminS3Objects(prefix = "", cursor?: string | null) {
+export function getAdminS3Objects(prefix = "", cursor?: string | null, target: "primary" | "reserve" = "primary") {
   const query = new URLSearchParams();
+  query.set("target", target);
   if (prefix) {
     query.set("prefix", prefix);
   }
@@ -282,17 +283,17 @@ export function getAdminS3Objects(prefix = "", cursor?: string | null) {
   return api<S3StorageObjectsResponse>(`/admin/storage/s3/objects${suffix ? `?${suffix}` : ""}`);
 }
 
-export function getAdminS3ObjectUrl(key: string) {
+export function getAdminS3ObjectUrl(key: string, target: "primary" | "reserve" = "primary") {
   return api<S3StorageObjectUrlResponse>("/admin/storage/s3/objects/url", {
     method: "POST",
-    body: { key }
+    body: { key, target }
   });
 }
 
-export function deleteAdminS3Object(key: string) {
+export function deleteAdminS3Object(key: string, target: "primary" | "reserve" = "primary") {
   return api<AdminMutationResponse>("/admin/storage/s3/objects", {
     method: "DELETE",
-    body: { key }
+    body: { key, target }
   });
 }
 

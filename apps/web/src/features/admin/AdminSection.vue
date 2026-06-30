@@ -324,13 +324,12 @@ const selectedStorageFilesStatus = computed(() => {
     return "Не подключено";
   }
 
-  if (selectedStorageTarget.value === "reserve") {
-    return "Резервная S3";
-  }
-
   return `${storageOverviewObjects.value.length} файлов`;
 });
 const selectedStorageSettingsStatus = computed(() => (selectedStorageTargetConfigured.value ? "Подключено" : "Заполнить"));
+const selectedStorageSettingsTitle = computed(() =>
+  selectedStorageTarget.value === "primary" ? "Настройки S3 основного" : "Настройки S3 резервного"
+);
 const panels = computed(() =>
   getVisibleAdminPanels(session.user?.realRole, session.user?.adminPermissions).map((panel) => ({
     ...panel,
@@ -1398,6 +1397,12 @@ function openStorageSettings() {
 }
 
 async function openStorageStatusActions(target: "primary" | "reserve") {
+  if (selectedStorageTarget.value !== target) {
+    storageObjects.value = [];
+    storageOverviewObjects.value = [];
+    storageObjectsCursor.value = null;
+    storagePrefix.value = "";
+  }
   selectedStorageTarget.value = target;
   await nextTick();
   storageActionGridRef.value?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1405,7 +1410,7 @@ async function openStorageStatusActions(target: "primary" | "reserve") {
 }
 
 function openSelectedStorageFiles() {
-  if (!selectedStorageTargetConfigured.value || selectedStorageTarget.value === "reserve") {
+  if (!selectedStorageTargetConfigured.value) {
     openStorageSettings();
     return;
   }
@@ -1414,7 +1419,7 @@ function openSelectedStorageFiles() {
 }
 
 async function loadStorageObjects({ append = false } = {}) {
-  if (!isOwner.value || !storageSettings.value?.configured) {
+  if (!isOwner.value || !selectedStorageTargetConfigured.value) {
     storageObjects.value = [];
     storageOverviewObjects.value = [];
     storageObjectsCursor.value = null;
@@ -1423,7 +1428,7 @@ async function loadStorageObjects({ append = false } = {}) {
 
   storageObjectsLoading.value = true;
   try {
-    const response = await getAdminS3Objects(storagePrefix.value, append ? storageObjectsCursor.value : null);
+    const response = await getAdminS3Objects(storagePrefix.value, append ? storageObjectsCursor.value : null, selectedStorageTarget.value);
     storageObjects.value = append ? [...storageObjects.value, ...response.objects] : response.objects;
     if (!storagePrefix.value && !append) {
       storageOverviewObjects.value = response.objects;
@@ -1438,7 +1443,7 @@ async function loadStorageObjects({ append = false } = {}) {
 
 async function openStorageObject(item: S3StorageObject) {
   try {
-    const response = await getAdminS3ObjectUrl(item.key);
+    const response = await getAdminS3ObjectUrl(item.key, selectedStorageTarget.value);
     window.open(response.url, "_blank", "noopener,noreferrer");
   } catch {
     setError("Не удалось открыть файл.");
@@ -1453,7 +1458,7 @@ async function handleDeleteStorageObject(item: S3StorageObject) {
 
   storageObjectsLoading.value = true;
   try {
-    await deleteAdminS3Object(item.key);
+    await deleteAdminS3Object(item.key, selectedStorageTarget.value);
     storageObjects.value = storageObjects.value.filter((object) => object.key !== item.key);
     storageOverviewObjects.value = storageOverviewObjects.value.filter((object) => object.key !== item.key);
     setStatus("Файл удалён из S3.");
@@ -3193,7 +3198,7 @@ onUnmounted(() => {
             </span>
             <span class="admin-storage-action-label">Обзор файлов</span>
             <strong>{{ selectedStorageFilesStatus }}</strong>
-            <small>{{ selectedStorageTarget === "reserve" ? "Резерв открывается через настройки." : "Открыть файлы по папкам." }}</small>
+            <small>Открыть файлы по папкам.</small>
           </button>
           <button class="admin-storage-action-card" type="button" @click="openStorageSettings">
             <span class="admin-storage-action-top">
@@ -3344,7 +3349,7 @@ onUnmounted(() => {
             <aside class="admin-detail admin-client-modal admin-storage-modal" role="dialog" aria-modal="true" aria-labelledby="admin-storage-settings-title">
               <header class="admin-client-modal-head">
                 <div>
-                  <h3 id="admin-storage-settings-title">Настройки S3</h3>
+                  <h3 id="admin-storage-settings-title">{{ selectedStorageSettingsTitle }}</h3>
                   <p>Меняйте только если переносите или подключаете хранилище.</p>
                 </div>
                 <button class="icon-button" type="button" aria-label="Закрыть настройки S3" @click="showStorageSettingsModal = false">
@@ -3354,6 +3359,7 @@ onUnmounted(() => {
 
               <form class="admin-form admin-storage-settings-form" @submit.prevent="handleSaveStorageSettings">
 
+          <template v-if="selectedStorageTarget === 'primary'">
           <label class="admin-field">
             <span>Endpoint URL</span>
             <input v-model.trim="storageForm.endpoint" class="text-input" placeholder="https://s3.ru1.storage.beget.cloud" />
@@ -3389,8 +3395,9 @@ onUnmounted(() => {
             <input v-model.trim="storageForm.publicBaseUrl" class="text-input" placeholder="https://cdn.example.com или пусто" />
             <small>Необязательно. Если бакет публичный или есть CDN, файлы будут открываться по этому URL. Если пусто, приложение выдаст временную подписанную ссылку.</small>
           </label>
+          </template>
 
-          <section class="admin-storage-reserve">
+          <section v-if="selectedStorageTarget === 'reserve'" class="admin-storage-reserve">
             <header>
               <div>
                 <strong>Резервная S3</strong>
@@ -3435,7 +3442,7 @@ onUnmounted(() => {
             </label>
           </section>
 
-          <label class="admin-field">
+          <label v-if="selectedStorageTarget === 'primary'" class="admin-field">
             <span>TTL подписанной ссылки, сек.</span>
             <input v-model.number="storageForm.signedUrlTtlSeconds" class="text-input" min="60" max="86400" type="number" />
             <small>Сколько живёт приватная ссылка на файл. Обычно 3600 секунд достаточно.</small>

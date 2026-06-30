@@ -19,8 +19,15 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("selectedStorageTarget");
     expect(adminSectionSource).toContain("selectedStorageTargetLabel");
     expect(adminSectionSource).toContain("selectedStorageTargetConfigured");
+    expect(adminSectionSource).toContain("selectedStorageSettingsTitle");
     expect(adminSectionSource).toContain("openSelectedStorageFiles");
-    expect(adminSectionSource).toContain("selectedStorageTarget === \"reserve\"");
+    expect(adminSectionSource).toContain("selectedStorageTarget === 'reserve'");
+    expect(adminSectionSource).toContain("storageOverviewObjects.value = [];");
+    expect(adminSectionSource).toContain("getAdminS3Objects(storagePrefix.value, append ? storageObjectsCursor.value : null, selectedStorageTarget.value)");
+    expect(adminSectionSource).toContain("getAdminS3ObjectUrl(item.key, selectedStorageTarget.value)");
+    expect(adminSectionSource).toContain("deleteAdminS3Object(item.key, selectedStorageTarget.value)");
+    expect(adminSectionSource).toContain("v-if=\"selectedStorageTarget === 'primary'\"");
+    expect(adminSectionSource).toContain("v-if=\"selectedStorageTarget === 'reserve'\"");
     expect(adminSectionSource).not.toContain("Сейчас открыта");
     expect(adminSectionSource).toContain("admin-storage-action-grid");
     expect(stylesSource).toContain(".admin-storage-current");

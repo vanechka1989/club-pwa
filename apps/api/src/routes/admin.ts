@@ -137,8 +137,10 @@ const s3StoragePayloadSchema = z.object({
 });
 
 const s3ObjectPayloadSchema = z.object({
-  key: z.string().trim().min(1)
+  key: z.string().trim().min(1),
+  target: z.enum(["primary", "reserve"]).optional()
 });
+const s3StorageTargetSchema = z.enum(["primary", "reserve"]);
 
 const contentKinds = ["text", "photo", "video", "audio"] as const;
 const contentArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
@@ -881,9 +883,10 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     const prefix = c.req.query("prefix") ?? "";
     const cursor = c.req.query("cursor") ?? null;
+    const target = s3StorageTargetSchema.catch("primary").parse(c.req.query("target"));
 
     try {
-      const response = await listObjects({ prefix, cursor, limit: 50 });
+      const response = await listObjects({ prefix, cursor, limit: 50, target });
       const metadataByKey = await buildS3ObjectMetadata(response.objects.map((object) => object.key));
       return c.json({
         ...response,
@@ -910,7 +913,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     try {
-      return c.json({ url: await getObjectReadUrl(body.data.key) });
+      return c.json({ url: await getObjectReadUrl(body.data.key, body.data.target ?? "primary") });
     } catch {
       return c.json({ error: "Unable to open S3 object" }, 400);
     }
@@ -927,7 +930,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     try {
-      await deleteObject(body.data.key);
+      await deleteObject(body.data.key, body.data.target ?? "primary");
     } catch {
       return c.json({ error: "Unable to delete S3 object" }, 400);
     }
