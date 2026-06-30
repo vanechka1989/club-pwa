@@ -33,6 +33,8 @@ import type {
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
   PaymentProviderMutationResponse,
+  S3StorageObjectUrlResponse,
+  S3StorageObjectsResponse,
   S3StorageSettingsMutationResponse,
   S3StorageSettingsResponse,
   SubscribeResponse,
@@ -258,6 +260,33 @@ export function updateAdminS3StorageSettings(payload: {
   return api<S3StorageSettingsMutationResponse>("/admin/storage/s3", {
     method: "POST",
     body: payload
+  });
+}
+
+export function getAdminS3Objects(prefix = "", cursor?: string | null) {
+  const query = new URLSearchParams();
+  if (prefix) {
+    query.set("prefix", prefix);
+  }
+  if (cursor) {
+    query.set("cursor", cursor);
+  }
+
+  const suffix = query.toString();
+  return api<S3StorageObjectsResponse>(`/admin/storage/s3/objects${suffix ? `?${suffix}` : ""}`);
+}
+
+export function getAdminS3ObjectUrl(key: string) {
+  return api<S3StorageObjectUrlResponse>("/admin/storage/s3/objects/url", {
+    method: "POST",
+    body: { key }
+  });
+}
+
+export function deleteAdminS3Object(key: string) {
+  return api<AdminMutationResponse>("/admin/storage/s3/objects", {
+    method: "DELETE",
+    body: { key }
   });
 }
 

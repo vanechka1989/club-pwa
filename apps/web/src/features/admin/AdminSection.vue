@@ -18,6 +18,7 @@ import {
   type MailingChannel,
   type MailingFilters,
   type PaymentOrderLog,
+  type S3StorageObject,
   type S3StorageSettings
 } from "@club/shared";
 import {
@@ -44,12 +45,15 @@ import {
   createAdminLearningMaterial,
   createAdminClientSupportTicket,
   createUserMute,
+  deleteAdminS3Object,
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminActionLogs,
   getAdminLearning,
   getAdminMailings,
   getAdminPaymentHistory,
+  getAdminS3Objects,
+  getAdminS3ObjectUrl,
   getAdminS3StorageSettings,
   getAdminStats,
   getAdminUsers,
@@ -189,6 +193,13 @@ const mailingAccessTypeOptions: Array<{ value: MailingFilters["accessType"]; lab
   { value: "recurrent", label: "Автоподписка" },
   { value: "none", label: "Без типа доступа" }
 ];
+const storagePrefixOptions = [
+  { value: "", label: "Все файлы" },
+  { value: "learning/", label: "Уроки" },
+  { value: "support/", label: "Поддержка" },
+  { value: "mailings/", label: "Рассылки" },
+  { value: "notifications/", label: "Уведомления" }
+];
 const adminPermissionOptions = allAdminPermissions.map((permission) => ({
   value: permission,
   label: adminPermissionLabels[permission]
@@ -267,6 +278,11 @@ const accessSaveSucceeded = ref(false);
 const message = ref<string | null>(null);
 const error = ref<string | null>(null);
 const storageSettings = ref<S3StorageSettings | null>(null);
+const storageObjects = ref<S3StorageObject[]>([]);
+const storageObjectsLoading = ref(false);
+const storageObjectsCursor = ref<string | null>(null);
+const storagePrefix = ref("");
+const storageSearch = ref("");
 const storageForm = ref({
   endpoint: "",
   region: "us-east-1",
@@ -427,6 +443,14 @@ const adminStatistics = computed(() =>
     { period: statisticsPeriod.value }
   )
 );
+const filteredStorageObjects = computed(() => {
+  const query = storageSearch.value.trim().toLowerCase();
+  if (!query) {
+    return storageObjects.value;
+  }
+
+  return storageObjects.value.filter((item) => item.key.toLowerCase().includes(query));
+});
 const mailingBlockedUsers = computed(() => users.value.filter((user) => user.telegramBotStatus === "blocked").length);
 const mailingCanSubmit = computed(() => mailingTitle.value.trim().length > 0 && mailingBody.value.trim().length > 0);
 const mailingAttachmentLabel = computed(() => mailingAttachment.value?.name ?? "Добавить вложение");
@@ -1237,9 +1261,77 @@ function fillStorageForm(settings: S3StorageSettings | null) {
   };
 }
 
+function formatStorageSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} Б`;
+  }
+
+  const units = ["КБ", "МБ", "ГБ", "ТБ"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function storageObjectFileName(key: string) {
+  return key.split("/").filter(Boolean).at(-1) ?? key;
+}
+
+async function loadStorageObjects({ append = false } = {}) {
+  if (!isOwner.value || !storageSettings.value?.configured) {
+    storageObjects.value = [];
+    storageObjectsCursor.value = null;
+    return;
+  }
+
+  storageObjectsLoading.value = true;
+  try {
+    const response = await getAdminS3Objects(storagePrefix.value, append ? storageObjectsCursor.value : null);
+    storageObjects.value = append ? [...storageObjects.value, ...response.objects] : response.objects;
+    storageObjectsCursor.value = response.nextCursor;
+  } catch {
+    setError("Не удалось загрузить список файлов S3.");
+  } finally {
+    storageObjectsLoading.value = false;
+  }
+}
+
+async function openStorageObject(item: S3StorageObject) {
+  try {
+    const response = await getAdminS3ObjectUrl(item.key);
+    window.open(response.url, "_blank", "noopener,noreferrer");
+  } catch {
+    setError("Не удалось открыть файл.");
+  }
+}
+
+async function handleDeleteStorageObject(item: S3StorageObject) {
+  const confirmed = window.confirm(`Удалить файл из S3?\n\n${item.key}`);
+  if (!confirmed) {
+    return;
+  }
+
+  storageObjectsLoading.value = true;
+  try {
+    await deleteAdminS3Object(item.key);
+    storageObjects.value = storageObjects.value.filter((object) => object.key !== item.key);
+    setStatus("Файл удалён из S3.");
+  } catch {
+    setError("Не удалось удалить файл из S3.");
+  } finally {
+    storageObjectsLoading.value = false;
+  }
+}
+
 async function loadStorageSettings() {
   if (!isOwner.value) {
     storageSettings.value = null;
+    storageObjects.value = [];
+    storageObjectsCursor.value = null;
     fillStorageForm(null);
     return;
   }
@@ -1247,6 +1339,9 @@ async function loadStorageSettings() {
   const response = await getAdminS3StorageSettings();
   storageSettings.value = response.settings;
   fillStorageForm(response.settings);
+  if (response.settings.configured) {
+    await loadStorageObjects();
+  }
 }
 
 async function handleSaveStorageSettings() {
@@ -1289,6 +1384,7 @@ async function handleSaveStorageSettings() {
     const response = await updateAdminS3StorageSettings(payload);
     storageSettings.value = response.settings;
     fillStorageForm(response.settings);
+    await loadStorageObjects();
     showSuccessAlert("S3-хранилище сохранено.");
   } catch {
     setError("Не удалось подключиться к S3. Проверьте endpoint, bucket, region и ключи.");
@@ -2895,6 +2991,53 @@ onUnmounted(() => {
             </template>
           </small>
         </div>
+
+        <section v-if="storageSettings?.configured" class="admin-storage-browser" aria-label="Файлы S3">
+          <div class="admin-storage-browser-head">
+            <div>
+              <strong>Файлы S3</strong>
+              <small>{{ storageObjects.length }} загружено в списке</small>
+            </div>
+            <button class="secondary-button" type="button" :disabled="storageObjectsLoading" @click="loadStorageObjects()">
+              {{ storageObjectsLoading ? "Загружаю..." : "Обновить" }}
+            </button>
+          </div>
+
+          <div class="admin-storage-browser-filters">
+            <select v-model="storagePrefix" class="text-input" :disabled="storageObjectsLoading" @change="loadStorageObjects()">
+              <option v-for="option in storagePrefixOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+            <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени файла" />
+          </div>
+
+          <div class="admin-storage-object-list">
+            <article v-for="item in filteredStorageObjects" :key="item.key" class="admin-storage-object-card">
+              <span class="admin-storage-object-copy">
+                <strong>{{ storageObjectFileName(item.key) }}</strong>
+                <small>{{ item.key }}</small>
+                <em>
+                  {{ formatStorageSize(item.sizeBytes) }}
+                  <template v-if="item.lastModified"> · {{ new Date(item.lastModified).toLocaleString("ru-RU") }}</template>
+                </em>
+              </span>
+              <span class="admin-storage-object-actions">
+                <button class="secondary-button" type="button" @click="openStorageObject(item)">Открыть</button>
+                <button class="danger-button" type="button" :disabled="storageObjectsLoading" @click="handleDeleteStorageObject(item)">Удалить</button>
+              </span>
+            </article>
+            <p v-if="!filteredStorageObjects.length && !storageObjectsLoading" class="admin-empty">Файлы не найдены.</p>
+          </div>
+
+          <button
+            v-if="storageObjectsCursor"
+            class="secondary-button"
+            type="button"
+            :disabled="storageObjectsLoading"
+            @click="loadStorageObjects({ append: true })"
+          >
+            Загрузить ещё
+          </button>
+        </section>
 
         <form class="admin-form" @submit.prevent="handleSaveStorageSettings">
           <label class="admin-field">

@@ -690,6 +690,26 @@ export const s3StorageSettingsMutationResponseSchema = z.object({
 });
 export type S3StorageSettingsMutationResponse = z.infer<typeof s3StorageSettingsMutationResponseSchema>;
 
+export const s3StorageObjectSchema = z.object({
+  key: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  lastModified: z.string().datetime().nullable(),
+  etag: z.string().nullable()
+});
+export type S3StorageObject = z.infer<typeof s3StorageObjectSchema>;
+
+export const s3StorageObjectsResponseSchema = z.object({
+  prefix: z.string(),
+  objects: z.array(s3StorageObjectSchema),
+  nextCursor: z.string().nullable()
+});
+export type S3StorageObjectsResponse = z.infer<typeof s3StorageObjectsResponseSchema>;
+
+export const s3StorageObjectUrlResponseSchema = z.object({
+  url: z.string().url()
+});
+export type S3StorageObjectUrlResponse = z.infer<typeof s3StorageObjectUrlResponseSchema>;
+
 export const mailingChannelSchema = z.enum(["bot", "app", "all"]);
 export type MailingChannel = z.infer<typeof mailingChannelSchema>;
 

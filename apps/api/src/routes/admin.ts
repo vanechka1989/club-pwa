@@ -37,7 +37,7 @@ import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { deleteObject, getObjectReadUrl, testS3Connection, uploadObject } from "../storage/s3";
+import { deleteObject, getObjectReadUrl, listObjects, testS3Connection, uploadObject } from "../storage/s3";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import {
   buildS3SettingsResponse,
@@ -121,6 +121,10 @@ const s3StoragePayloadSchema = z.object({
     z.string().trim().url().nullable().optional()
   ),
   signedUrlTtlSeconds: z.coerce.number().int().positive().max(86_400).default(3600)
+});
+
+const s3ObjectPayloadSchema = z.object({
+  key: z.string().trim().min(1)
 });
 
 const contentKinds = ["text", "photo", "video", "audio"] as const;
@@ -603,6 +607,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/mutes", requireAdminPermission("users"))
   .use("/mutes/*", requireAdminPermission("users"))
   .use("/storage/s3", requireAdminPermission("storage"))
+  .use("/storage/s3/*", requireAdminPermission("storage"))
   .get("/admins", async (c) => {
     const ownerTelegramId = await getOwnerTelegramId();
     const admins = await db.query.adminUsers.findMany({
@@ -735,6 +740,67 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       ok: true,
       settings: buildActiveS3SettingsResponse(savedSetting ?? setting, nextConfig)
     });
+  })
+  .get("/storage/s3/objects", async (c) => {
+    const ownerError = await rejectIfNotOwner(c, "storage");
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const prefix = c.req.query("prefix") ?? "";
+    const cursor = c.req.query("cursor") ?? null;
+
+    try {
+      return c.json(await listObjects({ prefix, cursor, limit: 50 }));
+    } catch {
+      return c.json({ error: "Unable to list S3 objects" }, 400);
+    }
+  })
+  .post("/storage/s3/objects/url", async (c) => {
+    const ownerError = await rejectIfNotOwner(c, "storage");
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const body = s3ObjectPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid S3 object key" }, 400);
+    }
+
+    try {
+      return c.json({ url: await getObjectReadUrl(body.data.key) });
+    } catch {
+      return c.json({ error: "Unable to open S3 object" }, 400);
+    }
+  })
+  .delete("/storage/s3/objects", async (c) => {
+    const ownerError = await rejectIfNotOwner(c, "storage");
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const body = s3ObjectPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid S3 object key" }, 400);
+    }
+
+    try {
+      await deleteObject(body.data.key);
+    } catch {
+      return c.json({ error: "Unable to delete S3 object" }, 400);
+    }
+
+    await recordAdminAction(c, {
+      action: "storage.s3.object.deleted",
+      entityType: "storage",
+      entityId: body.data.key,
+      summary: `Удалил файл из S3: ${body.data.key}`,
+      metadata: {
+        key: body.data.key
+      }
+    });
+
+    return c.json({ ok: true });
   })
   .get("/stats", async (c) => {
     const totalItems = await getPublishedItemsCount();
