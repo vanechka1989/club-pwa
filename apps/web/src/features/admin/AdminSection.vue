@@ -77,6 +77,7 @@ import {
   getTelegramBotStatusHint,
   getTelegramBotStatusLabel
 } from "@/features/admin/adminClientCard";
+import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import {
   filterPaymentOrdersByBreakdown,
   type AdminPaymentBreakdownItem
@@ -290,6 +291,11 @@ const panels = computed(() =>
 );
 function hasCurrentAdminPermission(permission: AdminPermission) {
   return isOwner.value || Boolean(session.user?.adminPermissions.includes(permission));
+}
+
+function selectAdminPanel(panel: AdminPanel) {
+  blurActiveTextField();
+  activePanel.value = panel;
 }
 
 const canUseStorage = computed(() => hasCurrentAdminPermission("storage"));
@@ -1952,7 +1958,7 @@ onUnmounted(() => {
         class="admin-tab"
         :class="{ 'admin-tab-active': activePanel === panel.id }"
         type="button"
-        @click="activePanel = panel.id"
+        @click="selectAdminPanel(panel.id)"
       >
         <component :is="panel.icon" class="h-4 w-4" aria-hidden="true" />
         <span>{{ panel.label }}</span>

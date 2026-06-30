@@ -7,6 +7,7 @@ import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
+import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import NotificationCenter from "@/features/app/NotificationCenter.vue";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -65,6 +66,7 @@ function resetWindowScroll() {
 }
 
 async function selectSection(section: AppSection) {
+  blurActiveTextField();
   if (activeSection.value === section) {
     resetWindowScroll();
     return;
@@ -74,6 +76,11 @@ async function selectSection(section: AppSection) {
   activeSection.value = section;
   await nextTick();
   resetWindowScroll();
+}
+
+function toggleNavCollapsed() {
+  blurActiveTextField();
+  navCollapsed.value = !navCollapsed.value;
 }
 
 async function openAdminClientFromSupport(telegramId: string, ticketId: string) {
@@ -126,6 +133,9 @@ function syncViewportHeight() {
   const dynamicBottomInset = Math.max(telegramBottomInset, visualBottomGap);
 
   document.documentElement.style.setProperty("--club-system-bottom", `${dynamicBottomInset}px`);
+  document.documentElement.style.setProperty("--club-keyboard-bottom", `${visualBottomGap}px`);
+  document.documentElement.classList.toggle("club-keyboard-open", visualBottomGap > 80);
+  document.body.classList.toggle("club-keyboard-open", visualBottomGap > 80);
 }
 
 function syncTelegramFullscreen(isEnabled: boolean) {
@@ -327,6 +337,8 @@ onBeforeUnmount(() => {
   }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");
+  document.documentElement.classList.remove("club-keyboard-open");
+  document.body.classList.remove("club-keyboard-open");
 });
 </script>
 
@@ -375,7 +387,7 @@ onBeforeUnmount(() => {
       class="bottom-nav-toggle"
       type="button"
       :aria-label="navCollapsed ? 'Показать меню' : 'Свернуть меню'"
-      @click="navCollapsed = !navCollapsed"
+      @click="toggleNavCollapsed"
     >
       <ChevronUp v-if="navCollapsed" class="h-4 w-4" aria-hidden="true" />
       <ChevronDown v-else class="h-4 w-4" aria-hidden="true" />

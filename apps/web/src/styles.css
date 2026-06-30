@@ -30,6 +30,7 @@
   --shadow-soft: 0 14px 40px rgb(0 0 0 / 28%);
   --fullscreen-top-offset: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
   --club-system-bottom: 0px;
+  --club-keyboard-bottom: 0px;
   --screen-gutter: 0.8rem;
   --section-bleed: 0.5rem;
   --ui-gap: 0.65rem;
@@ -478,6 +479,10 @@ button:disabled {
 
 .club-telegram-fullscreen .app-shell {
   padding-top: var(--fullscreen-top-offset);
+}
+
+body.club-keyboard-open .app-shell {
+  padding-bottom: calc(1rem + var(--club-keyboard-bottom, 0px));
 }
 
 .community-active .app-shell {
@@ -1293,6 +1298,10 @@ button:disabled {
   justify-content: center;
   background: color-mix(in srgb, #000 58%, transparent);
   padding: max(0.6rem, env(safe-area-inset-top)) 0.55rem max(0.6rem, env(safe-area-inset-bottom));
+}
+
+body.club-keyboard-open .support-modal-backdrop {
+  padding-bottom: max(0.6rem, var(--club-keyboard-bottom, 0px));
 }
 
 .support-ticket-modal {
@@ -2999,6 +3008,10 @@ button:disabled {
   padding: 0;
   overflow: hidden;
   overscroll-behavior: contain;
+}
+
+body.club-keyboard-open .admin-modal-backdrop {
+  padding-bottom: var(--club-keyboard-bottom, 0px);
 }
 
 .payment-modal-backdrop {
