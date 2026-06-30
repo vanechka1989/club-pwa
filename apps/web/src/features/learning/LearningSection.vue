@@ -4,9 +4,10 @@ import type { AdminLearningMaterial, AdminLearningUploadedObject, ContentCardLay
 import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
+  completeAdminLearningMultipartUpload,
+  createAdminLearningMultipartUpload,
   createAdminLearningMaterial,
   createAdminLearningMaterialDirect,
-  createAdminLearningUpload,
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
@@ -54,6 +55,14 @@ type ModuleCard = {
 type PlaybackPersistOptions = {
   force?: boolean;
   keepalive?: boolean;
+};
+
+type BackgroundLessonUpload = {
+  id: string;
+  title: string;
+  status: "uploading" | "saving" | "done" | "error";
+  progress: number;
+  detail: string;
 };
 
 const deletedContentModuleId = "deleted-content-module";
@@ -213,6 +222,7 @@ const isVoiceRecording = ref(false);
 const voiceRecorder = ref<MediaRecorder | null>(null);
 const voiceStream = ref<MediaStream | null>(null);
 const lessonUploadProgress = ref<number | null>(null);
+const backgroundLessonUploads = ref<BackgroundLessonUpload[]>([]);
 const lessonVideoElement = ref<HTMLVideoElement | null>(null);
 const isLessonVideoPlaying = ref(false);
 const lessonVideoCurrentTime = ref(0);
@@ -923,21 +933,25 @@ function getUploadParts(file: File | NamedBlobUpload) {
   };
 }
 
-function putDirectLearningUpload(uploadUrl: string, blob: Blob, contentType: string, onProgress: (percent: number) => void) {
-  return new Promise<void>((resolve, reject) => {
+function putDirectLearningUploadPart(uploadUrl: string, blob: Blob, onProgress: (loadedBytes: number) => void) {
+  return new Promise<string>((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open("PUT", uploadUrl);
-    request.setRequestHeader("Content-Type", contentType);
     request.upload.onprogress = (event) => {
-      if (!event.lengthComputable || event.total <= 0) {
+      if (!event.lengthComputable) {
         return;
       }
-      onProgress(Math.min(99, Math.max(1, Math.round((event.loaded / event.total) * 100))));
+      onProgress(event.loaded);
     };
     request.onload = () => {
       if (request.status >= 200 && request.status < 300) {
-        onProgress(100);
-        resolve();
+        const etag = request.getResponseHeader("ETag");
+        if (!etag) {
+          reject(new Error("S3 не вернул ETag для части файла. Проверь ExposeHeaders: ETag в CORS."));
+          return;
+        }
+        onProgress(blob.size);
+        resolve(etag);
         return;
       }
       reject(new Error(`S3 upload failed with status ${request.status}`));
@@ -947,37 +961,79 @@ function putDirectLearningUpload(uploadUrl: string, blob: Blob, contentType: str
   });
 }
 
+async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
+  let index = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (index < items.length) {
+      const item = items[index];
+      index += 1;
+      if (item !== undefined) {
+        await worker(item);
+      }
+    }
+  });
+
+  await Promise.all(workers);
+}
+
 async function uploadLessonFileDirect({
   file,
   purpose,
   kind,
   progressBase,
-  progressSpan
+  progressSpan,
+  onProgress
 }: {
   file: File | NamedBlobUpload;
   purpose: "media" | "thumbnail";
   kind?: ContentKind;
   progressBase: number;
   progressSpan: number;
+  onProgress?: (percent: number) => void;
 }): Promise<AdminLearningUploadedObject> {
   const parts = getUploadParts(file);
-  const upload = await createAdminLearningUpload({
+  const upload = await createAdminLearningMultipartUpload({
     purpose,
     kind,
     fileName: parts.name,
     contentType: parts.contentType,
     sizeBytes: parts.sizeBytes
   });
+  const loadedByPart = new Map<number, number>();
+  const completedParts: Array<{ partNumber: number; etag: string }> = [];
+  const chunks = upload.parts.map((part) => {
+    const start = (part.partNumber - 1) * upload.partSizeBytes;
+    const end = Math.min(start + upload.partSizeBytes, parts.blob.size);
 
-  await putDirectLearningUpload(upload.uploadUrl, parts.blob, upload.contentType, (percent) => {
-    lessonUploadProgress.value = Math.min(100, Math.round(progressBase + (percent / 100) * progressSpan));
+    return {
+      ...part,
+      blob: parts.blob.slice(start, end)
+    };
   });
 
-  return {
+  await runWithConcurrency(chunks, 4, async (part) => {
+    const etag = await putDirectLearningUploadPart(part.uploadUrl, part.blob, (loadedBytes) => {
+      loadedByPart.set(part.partNumber, loadedBytes);
+      const loadedTotal = Array.from(loadedByPart.values()).reduce((sum, value) => sum + value, 0);
+      const percent = parts.sizeBytes > 0 ? Math.min(99, Math.max(1, Math.round((loadedTotal / parts.sizeBytes) * 100))) : 1;
+      const combinedPercent = Math.min(99, Math.round(progressBase + (percent / 100) * progressSpan));
+      lessonUploadProgress.value = combinedPercent;
+      onProgress?.(combinedPercent);
+    });
+    completedParts.push({ partNumber: part.partNumber, etag });
+  });
+
+  const completed = await completeAdminLearningMultipartUpload({
     objectKey: upload.objectKey,
+    uploadId: upload.uploadId,
     contentType: upload.contentType,
-    sizeBytes: upload.sizeBytes
-  };
+    sizeBytes: upload.sizeBytes,
+    parts: completedParts
+  });
+  lessonUploadProgress.value = Math.min(100, Math.round(progressBase + progressSpan));
+  onProgress?.(Math.min(100, Math.round(progressBase + progressSpan)));
+
+  return completed;
 }
 
 function buildLessonForm() {
@@ -1000,52 +1056,125 @@ function buildLessonForm() {
   return form;
 }
 
-function buildLessonDirectPayload(mediaObject?: AdminLearningUploadedObject | null, thumbnailObject?: AdminLearningUploadedObject | null) {
+function buildLessonDirectPayloadFromDraft(
+  draft: {
+    categoryId: string;
+    kind: ContentKind;
+    title: string;
+    summary: string;
+    body: string;
+    cardLayout: ContentCardLayout;
+    removeThumbnail: boolean;
+  },
+  mediaObject?: AdminLearningUploadedObject | null,
+  thumbnailObject?: AdminLearningUploadedObject | null
+) {
   return {
-    categoryId: selectedLessonModule.value?.id ?? "",
+    categoryId: draft.categoryId,
+    kind: draft.kind,
+    title: draft.title,
+    summary: draft.summary,
+    body: draft.body,
+    cardLayout: draft.cardLayout,
+    isPublished: true,
+    ...(mediaObject !== undefined ? { mediaObject } : {}),
+    ...(thumbnailObject !== undefined ? { thumbnailObject } : {}),
+    removeThumbnail: draft.removeThumbnail
+  };
+}
+
+function updateBackgroundLessonUpload(id: string, patch: Partial<BackgroundLessonUpload>) {
+  backgroundLessonUploads.value = backgroundLessonUploads.value.map((item) => (item.id === id ? { ...item, ...patch } : item));
+}
+
+function removeBackgroundLessonUpload(id: string) {
+  backgroundLessonUploads.value = backgroundLessonUploads.value.filter((item) => item.id !== id);
+}
+
+async function startBackgroundLessonUpload() {
+  const module = selectedLessonModule.value;
+  if (!module) {
+    showLessonError("Модуль не найден.");
+    return;
+  }
+
+  const draft = {
+    id: `lesson-upload-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    lessonId: selectedLessonItem.value?.isPersisted ? selectedLessonItem.value.id : null,
+    categoryId: module.id,
     kind: lessonKind.value,
     title: trimmedLessonTitle.value,
     summary: lessonDescription.value.trim(),
     body: lessonContent.value.trim(),
     cardLayout: selectedModuleLessonLayout.value,
-    isPublished: true,
-    ...(mediaObject !== undefined ? { mediaObject } : {}),
-    ...(thumbnailObject !== undefined ? { thumbnailObject } : {}),
-    removeThumbnail: shouldRemoveLessonThumbnail.value
+    removeThumbnail: shouldRemoveLessonThumbnail.value,
+    mediaFile: lessonFile.value,
+    thumbnailFile: lessonThumbnailFile.value
   };
-}
-
-async function uploadLessonFilesDirect() {
-  const hasMedia = Boolean(lessonFile.value);
-  const hasThumbnail = Boolean(lessonThumbnailFile.value);
+  const task: BackgroundLessonUpload = {
+    id: draft.id,
+    title: draft.title,
+    status: "uploading",
+    progress: 0,
+    detail: "Загружаем файл в S3"
+  };
+  const hasMedia = Boolean(draft.mediaFile);
+  const hasThumbnail = Boolean(draft.thumbnailFile);
   const totalParts = Number(hasMedia) + Number(hasThumbnail);
   let completedParts = 0;
-  let mediaObject: AdminLearningUploadedObject | null = null;
-  let thumbnailObject: AdminLearningUploadedObject | null = null;
 
-  lessonUploadProgress.value = 0;
+  backgroundLessonUploads.value = [task, ...backgroundLessonUploads.value];
+  closeLessonModal();
 
-  if (lessonFile.value) {
-    mediaObject = await uploadLessonFileDirect({
-      file: lessonFile.value,
-      purpose: "media",
-      kind: lessonKind.value,
-      progressBase: (completedParts / totalParts) * 100,
-      progressSpan: 100 / totalParts
+  try {
+    let mediaObject: AdminLearningUploadedObject | null = null;
+    let thumbnailObject: AdminLearningUploadedObject | null = null;
+
+    if (draft.mediaFile) {
+      mediaObject = await uploadLessonFileDirect({
+        file: draft.mediaFile,
+        purpose: "media",
+        kind: draft.kind,
+        progressBase: (completedParts / totalParts) * 90,
+        progressSpan: 90 / totalParts,
+        onProgress: (progress) => updateBackgroundLessonUpload(draft.id, { progress, detail: "Загружаем файл в S3" })
+      });
+      completedParts += 1;
+    }
+
+    if (draft.thumbnailFile) {
+      thumbnailObject = await uploadLessonFileDirect({
+        file: draft.thumbnailFile,
+        purpose: "thumbnail",
+        progressBase: (completedParts / totalParts) * 90,
+        progressSpan: 90 / totalParts,
+        onProgress: (progress) => updateBackgroundLessonUpload(draft.id, { progress, detail: "Загружаем обложку в S3" })
+      });
+    }
+
+    updateBackgroundLessonUpload(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока" });
+    const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject);
+    const response = draft.lessonId
+      ? await updateAdminLearningMaterialDirect(draft.lessonId, payload)
+      : await createAdminLearningMaterialDirect(payload);
+
+    if (draft.lessonId) {
+      replaceMaterialInModule(response.material);
+    } else {
+      addMaterialToModule(response.material);
+    }
+
+    updateBackgroundLessonUpload(draft.id, { status: "done", progress: 100, detail: "Урок сохранён" });
+    window.setTimeout(() => removeBackgroundLessonUpload(draft.id), 5000);
+  } catch (error) {
+    updateBackgroundLessonUpload(draft.id, {
+      status: "error",
+      detail: error instanceof Error && error.message ? error.message : "Не удалось сохранить урок.",
+      progress: 100
     });
-    completedParts += 1;
+  } finally {
+    lessonUploadProgress.value = null;
   }
-
-  if (lessonThumbnailFile.value) {
-    thumbnailObject = await uploadLessonFileDirect({
-      file: lessonThumbnailFile.value,
-      purpose: "thumbnail",
-      progressBase: (completedParts / totalParts) * 100,
-      progressSpan: 100 / totalParts
-    });
-  }
-
-  return { mediaObject, thumbnailObject };
 }
 
 async function saveModule() {
@@ -1208,32 +1337,16 @@ async function saveLesson() {
     return;
   }
 
+  if (lessonFile.value || lessonThumbnailFile.value) {
+    await startBackgroundLessonUpload();
+    return;
+  }
+
   isSaving.value = true;
   lessonUploadProgress.value = null;
   clearLessonError();
 
   try {
-    if (lessonFile.value || lessonThumbnailFile.value) {
-      try {
-        const { mediaObject, thumbnailObject } = await uploadLessonFilesDirect();
-        const payload = buildLessonDirectPayload(mediaObject, thumbnailObject);
-
-        if (selectedLessonItem.value?.isPersisted) {
-          const response = await updateAdminLearningMaterialDirect(selectedLessonItem.value.id, payload);
-          replaceMaterialInModule(response.material);
-          closeLessonModal();
-          return;
-        }
-
-        const response = await createAdminLearningMaterialDirect(payload);
-        addMaterialToModule(response.material);
-        closeLessonModal();
-        return;
-      } catch {
-        lessonUploadProgress.value = null;
-      }
-    }
-
     if (selectedLessonItem.value?.isPersisted) {
       const response = await updateAdminLearningMaterial(selectedLessonItem.value.id, buildLessonForm());
       replaceMaterialInModule(response.material);
@@ -1421,6 +1534,25 @@ watch(
     </div>
 
     <p v-if="isLoadingModules" class="modules-edit-hint">Загружаем модули...</p>
+
+    <section v-if="backgroundLessonUploads.length" class="admin-mockup-card background-upload-panel">
+      <div class="admin-mockup-card-head">
+        <div>
+          <strong>Фоновые загрузки</strong>
+          <small>Окно урока закрыто, работа продолжается.</small>
+        </div>
+      </div>
+      <div class="background-upload-list">
+        <article v-for="task in backgroundLessonUploads" :key="task.id" class="background-upload-item" :class="`background-upload-item-${task.status}`">
+          <div>
+            <strong>{{ task.title }}</strong>
+            <small>{{ task.detail }}</small>
+          </div>
+          <span>{{ task.progress }}%</span>
+          <progress :value="task.progress" max="100">{{ task.progress }}%</progress>
+        </article>
+      </div>
+    </section>
 
     <button
       v-if="shouldShowContinueLesson && lastOpenedLesson && lastOpenedLessonModule"

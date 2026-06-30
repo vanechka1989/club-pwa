@@ -5,6 +5,10 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
+  CreateMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+  UploadPartCommand,
   S3Client,
   type PutObjectCommandInput
 } from "@aws-sdk/client-s3";
@@ -151,6 +155,106 @@ export async function createObjectUploadUrl({ key, contentType, expiresInSeconds
     key: normalizedKey,
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000)
   };
+}
+
+export async function createMultipartUpload({
+  key,
+  contentType,
+  partsCount,
+  expiresInSeconds = 1800
+}: {
+  key: string;
+  contentType: string;
+  partsCount: number;
+  expiresInSeconds?: number;
+}) {
+  const config = await requireS3Config();
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const safePartsCount = Math.min(Math.max(partsCount, 1), 1000);
+  const client = createS3Client(config);
+  const multipart = await client.send(
+    new CreateMultipartUploadCommand({
+      Bucket: config.bucket,
+      Key: normalizedKey,
+      ContentType: contentType
+    })
+  );
+
+  if (!multipart.UploadId) {
+    throw new Error("S3 multipart upload id is missing");
+  }
+
+  const parts = await Promise.all(
+    Array.from({ length: safePartsCount }, async (_, index) => {
+      const partNumber = index + 1;
+      const uploadUrl = await getSignedUrl(
+        client,
+        new UploadPartCommand({
+          Bucket: config.bucket,
+          Key: normalizedKey,
+          UploadId: multipart.UploadId,
+          PartNumber: partNumber
+        }),
+        { expiresIn: expiresInSeconds }
+      );
+
+      return { partNumber, uploadUrl };
+    })
+  );
+
+  return {
+    key: normalizedKey,
+    uploadId: multipart.UploadId,
+    parts,
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000)
+  };
+}
+
+export async function completeMultipartUpload({
+  key,
+  uploadId,
+  parts
+}: {
+  key: string;
+  uploadId: string;
+  parts: Array<{ partNumber: number; etag: string }>;
+}) {
+  const config = await requireS3Config();
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const client = createS3Client(config);
+
+  await client.send(
+    new CompleteMultipartUploadCommand({
+      Bucket: config.bucket,
+      Key: normalizedKey,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts
+          .slice()
+          .sort((left, right) => left.partNumber - right.partNumber)
+          .map((part) => ({
+            PartNumber: part.partNumber,
+            ETag: part.etag
+          }))
+      }
+    })
+  );
+
+  return { key: normalizedKey };
+}
+
+export async function abortMultipartUpload({ key, uploadId }: { key: string; uploadId: string }) {
+  const config = await requireS3Config();
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const client = createS3Client(config);
+
+  await client.send(
+    new AbortMultipartUploadCommand({
+      Bucket: config.bucket,
+      Key: normalizedKey,
+      UploadId: uploadId
+    })
+  );
 }
 
 export async function getObjectMetadata(key: string, target: S3StorageTarget = "primary") {

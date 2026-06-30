@@ -6,6 +6,7 @@ import {
   type AdminActionLog,
   type AdminCommunityMessage,
   type AdminPermission,
+  type AdminServerErrorLog,
   type AdminMailing,
   type AdminMailingPreviewResponse,
   type AdminLearningMaterial,
@@ -54,6 +55,7 @@ import {
   getAdminS3Objects,
   getAdminS3ObjectUrl,
   getAdminS3StorageSettings,
+  getAdminServerErrors,
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
@@ -178,6 +180,7 @@ const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const adminActionAdmins = ref<AdminActionActor[]>([]);
 const adminActionLogs = ref<AdminActionLog[]>([]);
+const serverErrorLogs = ref<AdminServerErrorLog[]>([]);
 const adminActionActorFilter = ref("");
 const adminActionLogExpanded = ref(false);
 const users = ref<AdminStatsUser[]>([]);
@@ -1548,14 +1551,15 @@ async function loadAll() {
     const shouldLoadCommunity = hasCurrentAdminPermission("community");
     const shouldLoadMailings = hasCurrentAdminPermission("mailings");
     const shouldLoadAdminActions = hasCurrentAdminPermission("admins");
-    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse, actionLogsResponse] = await Promise.all([
+    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse, actionLogsResponse, serverErrorsResponse] = await Promise.all([
       shouldLoadAdmins ? getAdminUsers() : Promise.resolve(null),
       shouldLoadStats ? getAdminStats() : Promise.resolve(null),
       shouldLoadLearning ? getAdminLearning() : Promise.resolve(null),
       shouldLoadPayments ? getAdminPaymentHistory() : Promise.resolve(null),
       shouldLoadCommunity ? getCommunityTopics() : Promise.resolve(null),
       shouldLoadMailings ? getAdminMailings() : Promise.resolve(null),
-      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null)
+      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null),
+      shouldLoadAdmins ? getAdminServerErrors() : Promise.resolve(null)
     ]);
     if (adminsResponse) {
       ownerTelegramId.value = adminsResponse.ownerTelegramId;
@@ -1577,6 +1581,9 @@ async function loadAll() {
     if (actionLogsResponse) {
       adminActionAdmins.value = actionLogsResponse.admins;
       adminActionLogs.value = actionLogsResponse.logs;
+    }
+    if (serverErrorsResponse) {
+      serverErrorLogs.value = serverErrorsResponse.errors;
     }
     if (learningResponse) {
       learningCategories.value = learningResponse.categories;
@@ -3608,6 +3615,26 @@ onUnmounted(() => {
             </article>
             <p v-if="!adminActionLogs.length" class="admin-empty">Действий пока нет.</p>
           </div>
+        </div>
+      </section>
+
+      <section class="admin-crm-block admin-action-log-panel">
+        <header class="admin-action-log-head">
+          <div>
+            <h4>Ошибки сервера</h4>
+            <p>Понятные ошибки API: {{ serverErrorLogs.length ? `${serverErrorLogs.length} последних` : "ошибок пока нет" }}</p>
+          </div>
+        </header>
+
+        <div class="admin-action-log-list">
+          <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
+            <div>
+              <strong>{{ log.title }}</strong>
+              <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
+              <small>{{ log.detail }}</small>
+            </div>
+          </article>
+          <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
         </div>
       </section>
 

@@ -56,9 +56,14 @@ describe("admin S3 storage target routing", () => {
 describe("direct learning S3 uploads", () => {
   it("creates signed upload URLs and saves uploaded objects by key", () => {
     expect(s3Storage).toContain("createObjectUploadUrl");
+    expect(s3Storage).toContain("createMultipartUpload");
+    expect(s3Storage).toContain("completeMultipartUpload");
+    expect(s3Storage).toContain("UploadPartCommand");
     expect(s3Storage).toContain("PutObjectCommand");
     expect(s3Storage).toContain("getObjectMetadata");
     expect(adminRoutes).toContain('post("/learning/materials/uploads"');
+    expect(adminRoutes).toContain('post("/learning/materials/uploads/multipart"');
+    expect(adminRoutes).toContain('post("/learning/materials/uploads/multipart/complete"');
     expect(adminRoutes).toContain('post("/learning/materials/direct"');
     expect(adminRoutes).toContain('post("/learning/materials/:id/direct"');
     expect(adminRoutes).toContain("verifyDirectUploadedObject");

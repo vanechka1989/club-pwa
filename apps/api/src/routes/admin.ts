@@ -8,6 +8,7 @@ import {
   newAdminDefaultPermissions,
   type AdminActionActor,
   adminLearningDirectUploadRequestSchema,
+  adminLearningMultipartCompleteRequestSchema,
   adminLearningUploadedObjectSchema,
   type AdminLearningMaterial,
   type AdminPermission,
@@ -39,11 +40,24 @@ import {
 } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
+import { listServerErrors, recordServerError } from "../serverErrors";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { createObjectUploadUrl, deleteObject, getObjectMetadata, getObjectReadUrl, listObjects, mirrorObjectToReserve, testS3Connection, uploadObject } from "../storage/s3";
+import {
+  abortMultipartUpload,
+  completeMultipartUpload,
+  createMultipartUpload,
+  createObjectUploadUrl,
+  deleteObject,
+  getObjectMetadata,
+  getObjectReadUrl,
+  listObjects,
+  mirrorObjectToReserve,
+  testS3Connection,
+  uploadObject
+} from "../storage/s3";
 import { classifyS3ObjectKey } from "../storage/s3Object";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import {
@@ -775,6 +789,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/admins", requireAdminPermission("admins"))
   .use("/admins/*", requireAdminPermission("admins"))
   .use("/action-logs", requireAdminPermission("admins"))
+  .use("/server-errors", requireAdminPermission("admins"))
   .use("/stats", requireAnyAdminPermission(["statistics", "users"]))
   .use("/stats/*", requireAnyAdminPermission(["statistics", "users"]))
   .use("/access", requireAdminPermission("accesses"))
@@ -834,6 +849,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       logs: logs.map(serializeAdminActionLog)
     });
   })
+  .get("/server-errors", async (c) => c.json({ errors: listServerErrors() }))
   .get("/storage/s3", async (c) => {
     const ownerError = await rejectIfNotOwner(c, "storage");
     if (ownerError) {
@@ -1470,6 +1486,74 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       sizeBytes,
       expiresAt: upload.expiresAt.toISOString()
     });
+  })
+  .post("/learning/materials/uploads/multipart", async (c) => {
+    const body = adminLearningDirectUploadRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid upload payload" }, 400);
+    }
+
+    const { purpose, kind, fileName, sizeBytes } = body.data;
+    const contentType =
+      purpose === "media"
+        ? kind
+          ? getLearningMediaUploadContentType(kind, body.data.contentType, fileName)
+          : null
+        : body.data.contentType.startsWith("image/")
+          ? body.data.contentType
+          : null;
+
+    if (!contentType || rejectInvalidDirectUploadSize(purpose, sizeBytes)) {
+      return c.json({ error: "Invalid upload file" }, 400);
+    }
+
+    const objectKey =
+      purpose === "media"
+        ? buildLearningMediaObjectKey({ kind: kind as ContentKind, fileName, id: randomUUID(), now: new Date() })
+        : buildLearningThumbnailObjectKey({ fileName, id: randomUUID(), now: new Date() });
+    const partSizeBytes = 8 * 1024 * 1024;
+    const partsCount = Math.max(1, Math.ceil(sizeBytes / partSizeBytes));
+    const upload = await createMultipartUpload({ key: objectKey, contentType, partsCount });
+
+    return c.json({
+      objectKey: upload.key,
+      uploadId: upload.uploadId,
+      contentType,
+      sizeBytes,
+      partSizeBytes,
+      parts: upload.parts,
+      expiresAt: upload.expiresAt.toISOString()
+    });
+  })
+  .post("/learning/materials/uploads/multipart/complete", async (c) => {
+    const body = adminLearningMultipartCompleteRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid multipart upload payload" }, 400);
+    }
+
+    try {
+      const upload = await completeMultipartUpload({
+        key: body.data.objectKey,
+        uploadId: body.data.uploadId,
+        parts: body.data.parts
+      });
+
+      return c.json({
+        objectKey: upload.key,
+        contentType: body.data.contentType,
+        sizeBytes: body.data.sizeBytes
+      });
+    } catch (error) {
+      recordServerError({
+        error,
+        title: "Не удалось собрать файл урока из частей",
+        method: c.req.method,
+        path: c.req.path,
+        status: 400
+      });
+      await abortMultipartUpload({ key: body.data.objectKey, uploadId: body.data.uploadId }).catch(() => null);
+      return c.json({ error: "Unable to complete multipart upload" }, 400);
+    }
   })
   .post("/learning/materials/direct", async (c) => {
     const body = directLearningMaterialPayloadSchema.safeParse(await c.req.json().catch(() => null));

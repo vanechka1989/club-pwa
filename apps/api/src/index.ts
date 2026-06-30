@@ -14,6 +14,7 @@ import { subscriptionsRoute } from "./routes/subscriptions";
 import { supportRoute } from "./routes/support";
 import { telegramRoute } from "./routes/telegram";
 import { setTelegramWebhook, telegramWebhookAllowedUpdates } from "./telegram/webhook";
+import { recordServerError } from "./serverErrors";
 
 const app = new Hono();
 
@@ -45,7 +46,19 @@ if (env.NODE_ENV === "production") {
 
 app.use("*", async (c, next) => {
   const startedAt = performance.now();
-  await next();
+  try {
+    await next();
+  } catch (error) {
+    recordServerError({
+      error,
+      title: "API упал при обработке запроса",
+      method: c.req.method,
+      path: c.req.path,
+      status: 500
+    });
+    logger.error({ error, method: c.req.method, path: c.req.path }, "request failed");
+    throw error;
+  }
   logger.info(
     {
       method: c.req.method,

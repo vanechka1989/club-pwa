@@ -7,6 +7,8 @@ import type {
   AdminLearningCategoryMutationResponse,
   AdminLearningDirectUploadRequest,
   AdminLearningDirectUploadResponse,
+  AdminLearningMultipartCompleteRequest,
+  AdminLearningMultipartUploadResponse,
   AdminLearningMaterialMutationResponse,
   AdminLearningUploadedObject,
   AdminLearningResponse,
@@ -22,6 +24,7 @@ import type {
   ClubTopicMutationResponse,
   ClubTopicsResponse,
   AdminMutationResponse,
+  AdminServerErrorsResponse,
   AdminStatsResponse,
   AdminStatsUser,
   LearningContentResponse,
@@ -434,6 +437,10 @@ export function getAdminActionLogs(actorTelegramId?: string) {
     : api<AdminActionLogsResponse>("/admin/action-logs");
 }
 
+export function getAdminServerErrors() {
+  return api<AdminServerErrorsResponse>("/admin/server-errors");
+}
+
 export function getAdminMailings() {
   return api<AdminMailingsResponse>("/admin/mailings");
 }
@@ -561,6 +568,20 @@ export function createAdminLearningMaterial(payload: FormData) {
 
 export function createAdminLearningUpload(payload: AdminLearningDirectUploadRequest) {
   return api<AdminLearningDirectUploadResponse>("/admin/learning/materials/uploads", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function createAdminLearningMultipartUpload(payload: AdminLearningDirectUploadRequest) {
+  return api<AdminLearningMultipartUploadResponse>("/admin/learning/materials/uploads/multipart", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function completeAdminLearningMultipartUpload(payload: AdminLearningMultipartCompleteRequest) {
+  return api<AdminLearningUploadedObject>("/admin/learning/materials/uploads/multipart/complete", {
     method: "POST",
     body: payload
   });

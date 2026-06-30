@@ -637,12 +637,48 @@ export const adminLearningDirectUploadResponseSchema = z.object({
 });
 export type AdminLearningDirectUploadResponse = z.infer<typeof adminLearningDirectUploadResponseSchema>;
 
+export const adminLearningMultipartUploadResponseSchema = z.object({
+  objectKey: z.string(),
+  uploadId: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().positive(),
+  partSizeBytes: z.number().int().positive(),
+  expiresAt: z.string().datetime(),
+  parts: z.array(z.object({ partNumber: z.number().int().positive(), uploadUrl: z.string().url() }))
+});
+export type AdminLearningMultipartUploadResponse = z.infer<typeof adminLearningMultipartUploadResponseSchema>;
+
+export const adminLearningMultipartCompleteRequestSchema = z.object({
+  objectKey: z.string(),
+  uploadId: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().positive(),
+  parts: z.array(z.object({ partNumber: z.number().int().positive(), etag: z.string().min(1) })).min(1)
+});
+export type AdminLearningMultipartCompleteRequest = z.infer<typeof adminLearningMultipartCompleteRequestSchema>;
+
 export const adminLearningUploadedObjectSchema = z.object({
   objectKey: z.string(),
   contentType: z.string(),
   sizeBytes: z.number().int().positive()
 });
 export type AdminLearningUploadedObject = z.infer<typeof adminLearningUploadedObjectSchema>;
+
+export const adminServerErrorLogSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  detail: z.string(),
+  path: z.string().nullable(),
+  method: z.string().nullable(),
+  status: z.number().int().nullable(),
+  createdAt: z.string().datetime()
+});
+export type AdminServerErrorLog = z.infer<typeof adminServerErrorLogSchema>;
+
+export const adminServerErrorsResponseSchema = z.object({
+  errors: z.array(adminServerErrorLogSchema)
+});
+export type AdminServerErrorsResponse = z.infer<typeof adminServerErrorsResponseSchema>;
 
 export const adminLearningCategoryMutationResponseSchema = z.object({
   ok: z.boolean(),

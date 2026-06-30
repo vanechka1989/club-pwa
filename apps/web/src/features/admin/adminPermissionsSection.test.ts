@@ -60,6 +60,13 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("Все администраторы");
   });
 
+  it("shows understandable server errors in the admins section", () => {
+    expect(apiClientSource).toContain("getAdminServerErrors");
+    expect(adminSectionSource).toContain("serverErrorLogs");
+    expect(adminSectionSource).toContain("Ошибки сервера");
+    expect(adminSectionSource).toContain("Понятные ошибки API");
+  });
+
   it("keeps action journal collapsed by default and can expand it", () => {
     expect(adminSectionSource).toContain("adminActionLogExpanded");
     expect(adminSectionSource).toContain("Показать журнал");
