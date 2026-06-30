@@ -743,6 +743,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       orderBy: (table, { desc }) => [desc(table.updatedAt)],
       limit: 200
     });
+    const communityMessages = await db.query.clubChatMessages.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 10000,
+      with: {
+        user: true,
+        topic: true
+      }
+    });
     const statsUsers = await Promise.all(recentUsers.map((user) => buildStatsUser(user, totalItems)));
 
     return c.json({
@@ -750,7 +758,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       activeUsers: statsUsers.filter((user) => user.membershipStatus === "active").length,
       completedItems: statsUsers.reduce((sum, user) => sum + user.completedItems, 0),
       totalItems,
-      users: statsUsers
+      users: statsUsers,
+      communityMessages: communityMessages.map((message) => ({
+        id: message.id,
+        topicId: message.topicId,
+        topicTitle: message.topic.title,
+        isSystem: message.isSystem,
+        status: message.status,
+        author: {
+          id: message.user.id,
+          telegramId: message.user.telegramId,
+          firstName: message.user.firstName,
+          username: message.user.username,
+          photoUrl: message.user.photoUrl
+        },
+        createdAt: message.createdAt.toISOString()
+      }))
     });
   })
   .get("/stats/users/:telegramId", async (c) => {

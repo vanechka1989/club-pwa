@@ -1,4 +1,4 @@
-import type { AdminLearningMaterial, AdminStatsUser, ClubTopic, LearningCategory, PaymentOrderLog } from "@club/shared";
+import type { AdminCommunityMessage, AdminLearningMaterial, AdminStatsUser, ClubTopic, LearningCategory, PaymentOrderLog } from "@club/shared";
 import { describe, expect, it } from "vitest";
 import { buildAdminStatistics } from "./adminStatistics";
 
@@ -92,6 +92,25 @@ function topic(overrides: Partial<ClubTopic>): ClubTopic {
   };
 }
 
+function communityMessage(overrides: Partial<AdminCommunityMessage>): AdminCommunityMessage {
+  return {
+    id: "message-id",
+    topicId: "topic-id",
+    topicTitle: "Общение",
+    isSystem: false,
+    status: "visible",
+    author: {
+      id: "author-id",
+      telegramId: "100",
+      firstName: "Иван",
+      username: null,
+      photoUrl: null
+    },
+    createdAt: "2026-06-25T10:00:00.000Z",
+    ...overrides
+  };
+}
+
 const categories: LearningCategory[] = [
   { id: "start", slug: "start", title: "Старт", description: null, defaultCardLayout: "vertical", isPublished: true, itemsCount: 2 },
   { id: "advanced", slug: "advanced", title: "Продолжение", description: null, defaultCardLayout: "vertical", isPublished: false, itemsCount: 1 }
@@ -154,6 +173,45 @@ describe("admin statistics", () => {
         communityTopics: [
           topic({ id: "open", messagesCount: 34 }),
           topic({ id: "locked", isLocked: true, messagesCount: 2 })
+        ],
+        communityMessages: [
+          communityMessage({
+            id: "m1",
+            topicId: "open",
+            topicTitle: "Новости клуба",
+            author: { id: "ivan", telegramId: "1", firstName: "Иван", username: "ivan", photoUrl: null },
+            createdAt: "2026-06-25T10:00:00.000Z"
+          }),
+          communityMessage({
+            id: "m2",
+            topicId: "open",
+            topicTitle: "Новости клуба",
+            author: { id: "ivan", telegramId: "1", firstName: "Иван", username: "ivan", photoUrl: null },
+            createdAt: "2026-06-24T10:00:00.000Z"
+          }),
+          communityMessage({
+            id: "m3",
+            topicId: "locked",
+            topicTitle: "Вопросы",
+            author: { id: "anna", telegramId: "2", firstName: "Анна", username: null, photoUrl: null },
+            createdAt: "2026-06-10T10:00:00.000Z"
+          }),
+          communityMessage({
+            id: "m4",
+            topicId: "open",
+            topicTitle: "Новости клуба",
+            author: { id: "system", telegramId: "0", firstName: "Система", username: null, photoUrl: null },
+            isSystem: true,
+            createdAt: "2026-06-25T12:00:00.000Z"
+          }),
+          communityMessage({
+            id: "m5",
+            topicId: "open",
+            topicTitle: "Новости клуба",
+            author: { id: "hidden", telegramId: "3", firstName: "Скрыт", username: null, photoUrl: null },
+            status: "hidden",
+            createdAt: "2026-06-25T12:00:00.000Z"
+          })
         ]
       },
       { period: "30d", now }
@@ -210,8 +268,21 @@ describe("admin statistics", () => {
       topics: 2,
       openTopics: 1,
       lockedTopics: 1,
-      messages: 36
+      messages: 36,
+      memberMessages: 3,
+      messagesInPeriod: 3,
+      messagesLast7Days: 2,
+      messagesLast30Days: 3,
+      activeWriters: 2,
+      hotTopic: {
+        title: "Новости клуба",
+        messages: 2
+      }
     });
+    expect(stats.communication.topClients.map((client) => [client.telegramId, client.name, client.messages])).toEqual([
+      ["1", "Иван", 2],
+      ["2", "Анна", 1]
+    ]);
     expect(stats.tariffs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "Рекуррент Prodamus", value: 1, percent: 50 }),

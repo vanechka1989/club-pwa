@@ -4,6 +4,7 @@ import {
   allAdminPermissions,
   type AdminActionActor,
   type AdminActionLog,
+  type AdminCommunityMessage,
   type AdminPermission,
   type AdminMailing,
   type AdminMailingPreviewResponse,
@@ -220,6 +221,7 @@ const mailingPreviewLoading = ref(false);
 const showMailingComposer = ref(false);
 const paymentOrders = ref<PaymentOrderLog[]>([]);
 const communityTopics = ref<ClubTopic[]>([]);
+const communityMessages = ref<AdminCommunityMessage[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
@@ -419,7 +421,8 @@ const adminStatistics = computed(() =>
       paymentOrders: paymentOrders.value,
       learningCategories: learningCategories.value,
       learningMaterials: learningMaterials.value,
-      communityTopics: communityTopics.value
+      communityTopics: communityTopics.value,
+      communityMessages: communityMessages.value
     },
     { period: statisticsPeriod.value }
   )
@@ -1319,6 +1322,7 @@ async function loadAll() {
     }
     if (statsResponse) {
       users.value = statsResponse.users;
+      communityMessages.value = statsResponse.communityMessages ?? [];
     }
     if (paymentsResponse) {
       paymentOrders.value = paymentsResponse.orders;
@@ -2114,25 +2118,45 @@ onUnmounted(() => {
               <h4>Общение</h4>
               <p>Темы клуба и активность в чатах.</p>
             </div>
-            <strong>{{ adminStatistics.communication.messages }}</strong>
+            <strong>{{ adminStatistics.communication.messagesInPeriod }}</strong>
           </header>
           <div class="admin-stat-mini-grid admin-stat-mini-grid-two">
             <article>
-              <span>Темы</span>
-              <strong>{{ adminStatistics.communication.topics }}</strong>
+              <span>Всего сообщений</span>
+              <strong>{{ adminStatistics.communication.messages }}</strong>
             </article>
             <article>
-              <span>Открыты</span>
-              <strong>{{ adminStatistics.communication.openTopics }}</strong>
+              <span>За период</span>
+              <strong>{{ adminStatistics.communication.messagesInPeriod }}</strong>
             </article>
             <article>
-              <span>Закрыты</span>
-              <strong>{{ adminStatistics.communication.lockedTopics }}</strong>
+              <span>За 7 дней</span>
+              <strong>{{ adminStatistics.communication.messagesLast7Days }}</strong>
             </article>
             <article>
-              <span>В архиве</span>
-              <strong>{{ adminStatistics.communication.archivedTopics }}</strong>
+              <span>Активных клиентов</span>
+              <strong>{{ adminStatistics.communication.activeWriters }}</strong>
             </article>
+          </div>
+          <p class="admin-stat-note">
+            {{
+              adminStatistics.communication.hotTopic
+                ? `Горячая тема: ${adminStatistics.communication.hotTopic.title} · ${adminStatistics.communication.hotTopic.messages} сообщ.`
+                : "Пока нет сообщений за выбранный период."
+            }}
+          </p>
+          <div class="admin-stat-kind-list">
+            <span>Темы · {{ adminStatistics.communication.topics }}</span>
+            <span>Открыты · {{ adminStatistics.communication.openTopics }}</span>
+            <span>Закрыты · {{ adminStatistics.communication.lockedTopics }}</span>
+            <span>30 дней · {{ adminStatistics.communication.messagesLast30Days }}</span>
+          </div>
+          <div class="admin-stat-top-list">
+            <article v-for="client in adminStatistics.communication.topClients" :key="client.telegramId">
+              <span>{{ client.name }}</span>
+              <strong>{{ client.messages }}</strong>
+            </article>
+            <p v-if="!adminStatistics.communication.topClients.length" class="admin-empty">Активных клиентов в общении пока нет.</p>
           </div>
         </section>
       </div>

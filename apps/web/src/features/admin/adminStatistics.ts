@@ -1,4 +1,4 @@
-import type { AdminLearningMaterial, AdminStatsUser, ClubTopic, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
+import type { AdminCommunityMessage, AdminLearningMaterial, AdminStatsUser, ClubTopic, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
 import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
 import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
 
@@ -10,6 +10,7 @@ export type AdminStatisticsInput = {
   learningCategories: LearningCategory[];
   learningMaterials: AdminLearningMaterial[];
   communityTopics: ClubTopic[];
+  communityMessages: AdminCommunityMessage[];
 };
 
 export type AdminStatisticsOptions = {
@@ -105,6 +106,44 @@ function buildPopularTitle(users: AdminStatsUser[]) {
   return Array.from(counts.entries()).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "ru"))[0]?.[0] ?? null;
 }
 
+function authorDisplayName(message: AdminCommunityMessage) {
+  return message.author.firstName || (message.author.username ? `@${message.author.username}` : `ID ${message.author.telegramId}`);
+}
+
+function visibleMemberMessages(messages: AdminCommunityMessage[]) {
+  return messages.filter((message) => message.status === "visible" && !message.isSystem);
+}
+
+function buildHotTopic(messages: AdminCommunityMessage[]) {
+  const counts = new Map<string, { title: string; messages: number }>();
+  messages.forEach((message) => {
+    const current = counts.get(message.topicId) ?? { title: message.topicTitle, messages: 0 };
+    current.messages += 1;
+    counts.set(message.topicId, current);
+  });
+
+  return (
+    Array.from(counts.values()).sort((left, right) => right.messages - left.messages || left.title.localeCompare(right.title, "ru"))[0] ?? null
+  );
+}
+
+function buildTopCommunityClients(messages: AdminCommunityMessage[]) {
+  const counts = new Map<string, { telegramId: string; name: string; messages: number }>();
+  messages.forEach((message) => {
+    const current = counts.get(message.author.id) ?? {
+      telegramId: message.author.telegramId,
+      name: authorDisplayName(message),
+      messages: 0
+    };
+    current.messages += 1;
+    counts.set(message.author.id, current);
+  });
+
+  return Array.from(counts.values())
+    .sort((left, right) => right.messages - left.messages || left.name.localeCompare(right.name, "ru"))
+    .slice(0, 5);
+}
+
 export function buildAdminStatistics(input: AdminStatisticsInput, options: AdminStatisticsOptions) {
   const now = options.now ?? new Date();
   const activeUsers = input.users.filter((user) => user.membershipStatus === "active");
@@ -134,6 +173,11 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
   const archivedMaterials = input.learningMaterials.filter(isArchived);
   const openTopics = input.communityTopics.filter((topic) => topic.isPublished && !topic.isLocked && !topic.archivedUntil);
   const lockedTopics = input.communityTopics.filter((topic) => topic.isLocked);
+  const memberMessages = visibleMemberMessages(input.communityMessages);
+  const periodMessages = memberMessages.filter((message) => isInPeriod(message.createdAt, options.period, now));
+  const messagesLast7Days = memberMessages.filter((message) => isInPeriod(message.createdAt, "7d", now));
+  const messagesLast30Days = memberMessages.filter((message) => isInPeriod(message.createdAt, "30d", now));
+  const activeWriters = new Set(periodMessages.map((message) => message.author.id)).size;
 
   return {
     clients: {
@@ -183,7 +227,14 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       openTopics: openTopics.length,
       lockedTopics: lockedTopics.length,
       archivedTopics: input.communityTopics.filter((topic) => topic.archivedUntil).length,
-      messages: input.communityTopics.reduce((sum, topic) => sum + topic.messagesCount, 0)
+      messages: input.communityTopics.reduce((sum, topic) => sum + topic.messagesCount, 0),
+      memberMessages: memberMessages.length,
+      messagesInPeriod: periodMessages.length,
+      messagesLast7Days: messagesLast7Days.length,
+      messagesLast30Days: messagesLast30Days.length,
+      activeWriters,
+      hotTopic: buildHotTopic(periodMessages),
+      topClients: buildTopCommunityClients(periodMessages)
     },
     tariffs: buildTariffStats(activeUsers),
     contentKinds: buildContentKindStats(input.learningMaterials)

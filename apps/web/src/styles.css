@@ -1972,6 +1972,38 @@ body.club-keyboard-open .support-modal-backdrop {
   padding: 0.28rem 0.48rem;
 }
 
+.admin-stat-top-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-stat-top-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--panel-strong) 58%, transparent);
+  padding: 0.44rem 0.55rem;
+}
+
+.admin-stat-top-list span {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-stat-top-list strong {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
 .admin-search-row,
 .admin-form {
   display: grid;

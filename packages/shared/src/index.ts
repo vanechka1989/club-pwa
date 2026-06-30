@@ -542,6 +542,17 @@ export const adminStatsUserSchema = z.object({
 });
 export type AdminStatsUser = z.infer<typeof adminStatsUserSchema>;
 
+export const adminCommunityMessageSchema = z.object({
+  id: z.string(),
+  topicId: z.string(),
+  topicTitle: z.string(),
+  isSystem: z.boolean(),
+  status: moderationStatusSchema,
+  author: commentAuthorSchema,
+  createdAt: z.string().datetime()
+});
+export type AdminCommunityMessage = z.infer<typeof adminCommunityMessageSchema>;
+
 export const adminUserSubscriptionSchema = z.object({
   id: z.string(),
   status: membershipStatusSchema,
@@ -577,7 +588,8 @@ export const adminStatsResponseSchema = z.object({
   activeUsers: z.number().int().nonnegative(),
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),
-  users: z.array(adminStatsUserSchema)
+  users: z.array(adminStatsUserSchema),
+  communityMessages: z.array(adminCommunityMessageSchema).default([])
 });
 export type AdminStatsResponse = z.infer<typeof adminStatsResponseSchema>;
 
