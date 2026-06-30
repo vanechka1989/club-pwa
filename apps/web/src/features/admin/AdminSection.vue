@@ -290,6 +290,7 @@ const selectedStorageFolder = ref<(typeof storagePrefixOptions)[number] | null>(
 const storageFolderSort = ref<"date" | "size" | "uploader">("date");
 const showStorageSettingsModal = ref(false);
 const storageActionGridRef = ref<HTMLElement | null>(null);
+const selectedStorageTarget = ref<"primary" | "reserve">("primary");
 const storageForm = ref({
   endpoint: "",
   region: "us-east-1",
@@ -1380,7 +1381,8 @@ function openStorageSettings() {
   }
 }
 
-async function openStorageStatusActions() {
+async function openStorageStatusActions(target: "primary" | "reserve") {
+  selectedStorageTarget.value = target;
   await nextTick();
   storageActionGridRef.value?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   storageActionGridRef.value?.querySelector<HTMLButtonElement>("button")?.focus();
@@ -3120,8 +3122,11 @@ onUnmounted(() => {
               <button
                 class="admin-storage-status-card"
                 type="button"
-                :class="storageSettings?.configured ? 'admin-storage-status-card-ok' : 'admin-storage-status-card-error'"
-                @click="openStorageStatusActions"
+                :class="[
+                  storageSettings?.configured ? 'admin-storage-status-card-ok' : 'admin-storage-status-card-error',
+                  { 'admin-storage-status-card-active': selectedStorageTarget === 'primary' }
+                ]"
+                @click="openStorageStatusActions('primary')"
               >
                 <span>S3 основное</span>
                 <strong>{{ storageSettings?.configured ? "Подключено" : "Не подключено" }}</strong>
@@ -3129,8 +3134,11 @@ onUnmounted(() => {
               <button
                 class="admin-storage-status-card"
                 type="button"
-                :class="storageSettings?.reserveConfigured ? 'admin-storage-status-card-ok' : 'admin-storage-status-card-error'"
-                @click="openStorageStatusActions"
+                :class="[
+                  storageSettings?.reserveConfigured ? 'admin-storage-status-card-ok' : 'admin-storage-status-card-error',
+                  { 'admin-storage-status-card-active': selectedStorageTarget === 'reserve' }
+                ]"
+                @click="openStorageStatusActions('reserve')"
               >
                 <span>S3 резервное</span>
                 <strong>{{ storageSettings?.reserveConfigured ? "Подключено" : "Не подключено" }}</strong>
@@ -3146,6 +3154,11 @@ onUnmounted(() => {
               </template>
             </small>
           </div>
+        </div>
+
+        <div class="admin-storage-current" :class="selectedStorageTarget === 'primary' ? 'admin-storage-current-primary' : 'admin-storage-current-reserve'">
+          <span>Сейчас открыта</span>
+          <strong>{{ selectedStorageTarget === "primary" ? "S3 основное" : "S3 резервное" }}</strong>
         </div>
 
         <div ref="storageActionGridRef" class="admin-storage-action-grid">

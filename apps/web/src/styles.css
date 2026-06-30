@@ -3630,6 +3630,12 @@ body.club-keyboard-open .admin-modal-backdrop {
   transform: translateY(-1px);
 }
 
+.admin-storage-status-card-active {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 72%, transparent),
+    0 0.7rem 1.8rem color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 .admin-storage-status-card span,
 .admin-storage-status-card strong {
   min-width: 0;
@@ -3669,6 +3675,37 @@ body.club-keyboard-open .admin-modal-backdrop {
   border: 1px solid color-mix(in srgb, var(--danger) 54%, var(--border));
   background: color-mix(in srgb, var(--danger) 14%, var(--panel));
   color: var(--danger);
+}
+
+.admin-storage-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  padding: 0.55rem 0.68rem;
+}
+
+.admin-storage-current span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 780;
+}
+
+.admin-storage-current strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 880;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.admin-storage-current-reserve {
+  border-color: color-mix(in srgb, var(--warning) 44%, var(--border));
+  background: color-mix(in srgb, var(--warning) 12%, var(--panel));
 }
 
 .admin-storage-action-grid {
@@ -7698,10 +7735,6 @@ button.chat-message-author:active {
 
   .admin-storage-status {
     display: grid;
-  }
-
-  .admin-storage-status-grid {
-    grid-template-columns: 1fr;
   }
 
   .admin-storage-folder-grid {
