@@ -12,8 +12,8 @@ describe("admin panels", () => {
     expect(getVisibleAdminPanels("admin").map((panel) => panel.id)).not.toContain("overview");
   });
 
-  it("shows mockups only to the club owner", () => {
-    expect(getVisibleAdminPanels("owner").map((panel) => panel.id)).toContain("mockups");
+  it("does not show obsolete mockups panel", () => {
+    expect(getVisibleAdminPanels("owner").map((panel) => panel.id)).not.toContain("mockups");
     expect(getVisibleAdminPanels("admin").map((panel) => panel.id)).not.toContain("mockups");
   });
 

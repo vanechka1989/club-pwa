@@ -100,9 +100,11 @@ import { releaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
+import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
+const ui = useUiStore();
 
 const props = defineProps<{
   openClientTelegramId?: string | null;
@@ -133,49 +135,16 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
   payments: CreditCard,
   materials: ImageIcon,
   storage: Cloud,
-  mockups: ImageIcon,
   admins: Shield
 };
 
-const adminMockups = [
-  {
-    id: "admin-permissions-options",
-    title: "Админы: права и доступ",
-    description: "Четыре варианта раздела для выдачи доступа админам, снятия доступа и настройки прав по разделам.",
-    createdAt: "30.06.2026",
-    images: [
-      { title: "Вариант 1. Список и быстрые права", url: "/previews/admin-permissions-1.svg" },
-      { title: "Вариант 2. Роли и шаблоны", url: "/previews/admin-permissions-2.svg" },
-      { title: "Вариант 3. Матрица прав", url: "/previews/admin-permissions-3.svg" },
-      { title: "Вариант 4. Профиль доступа", url: "/previews/admin-permissions-4.svg" }
-    ]
-  },
-  {
-    id: "learning-redesign-options",
-    title: "Обучение: варианты визуала",
-    description: "Четыре разных направления для раздела обучения. Выберите номер варианта или комбинацию деталей.",
-    createdAt: "26.06.2026",
-    images: [
-      { title: "Вариант 1. Плеер и очередь", url: "/previews/learning-redesign-1.svg" },
-      { title: "Вариант 2. Модули и уроки", url: "/previews/learning-redesign-2.svg" },
-      { title: "Вариант 3. Библиотека", url: "/previews/learning-redesign-3.svg" },
-      { title: "Вариант 4. Маршрут обучения", url: "/previews/learning-redesign-4.svg" }
-    ]
-  },
-  {
-    id: "statistics-preview",
-    title: "Статистика клуба",
-    description: "Черновой макет будущей вкладки со статистикой по клиентам, оплатам, контенту и общению.",
-    createdAt: "26.06.2026",
-    images: [
-      { title: "Верх экрана", url: "/previews/admin-stats-preview-1.png" },
-      { title: "Оплаты и контент", url: "/previews/admin-stats-preview-2.png" },
-      { title: "Общение", url: "/previews/admin-stats-preview-3.png" }
-    ]
-  }
-] as const;
-
 const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
+const previewModeOptions: Array<{ value: PreviewMode; label: string }> = [
+  { value: "developer", label: "Разраб" },
+  { value: "admin", label: "Админ" },
+  { value: "member-active", label: "С доступом" },
+  { value: "member-inactive", label: "Без доступа" }
+];
 const mailingChannelOptions: Array<{ value: MailingChannel; label: string; hint: string }> = [
   { value: "bot", label: "В бот", hint: "Telegram sendMessage" },
   { value: "app", label: "В приложение", hint: "Колокольчик и системное сообщение" },
@@ -930,6 +899,11 @@ function closeReleaseNotesModal() {
   showReleaseNotesModal.value = false;
 }
 
+async function handlePreviewModeChange(mode: PreviewMode) {
+  ui.setPreviewMode(mode);
+  await session.load({ silent: true });
+}
+
 function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
   selectedPaymentBreakdown.value = item;
 }
@@ -1405,6 +1379,9 @@ async function openStorageStatusActions(target: "primary" | "reserve") {
   }
   selectedStorageTarget.value = target;
   await nextTick();
+  if (selectedStorageTargetConfigured.value) {
+    void loadStorageObjects();
+  }
   storageActionGridRef.value?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   storageActionGridRef.value?.querySelector<HTMLButtonElement>("button")?.focus();
 }
@@ -2101,6 +2078,22 @@ onUnmounted(() => {
         <small>{{ appVersionUpdatedAt }}</small>
       </button>
     </header>
+
+    <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
+      <span>Вид как</span>
+      <div>
+        <button
+          v-for="option in previewModeOptions"
+          :key="option.value"
+          class="admin-preview-option"
+          :class="{ 'admin-preview-option-active': ui.previewMode === option.value }"
+          type="button"
+          @click="handlePreviewModeChange(option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+    </section>
 
     <Teleport to="body">
       <div v-if="showReleaseNotesModal" class="admin-modal-backdrop" @click.self="closeReleaseNotesModal">
@@ -3460,37 +3453,6 @@ onUnmounted(() => {
           </div>
         </Teleport>
       </article>
-    </section>
-
-    <section v-else-if="activePanel === 'mockups' && isOwner" class="admin-panel">
-      <div class="admin-panel-head">
-        <div>
-          <h3>Макеты</h3>
-          <p>Черновые визуальные варианты будущих разделов. Доступно только главному админу.</p>
-        </div>
-      </div>
-
-      <div class="admin-mockup-list">
-        <article v-for="mockup in adminMockups" :key="mockup.id" class="admin-mockup-card">
-          <div class="admin-mockup-card-head">
-            <div>
-              <strong>{{ mockup.title }}</strong>
-              <small>Добавлено {{ mockup.createdAt }}</small>
-            </div>
-            <span>{{ mockup.images.length }} экрана</span>
-          </div>
-          <p>{{ mockup.description }}</p>
-          <div class="admin-mockup-grid">
-            <a v-for="image in mockup.images" :key="image.url" class="admin-mockup-thumb" :href="image.url" target="_blank" rel="noreferrer">
-              <img :src="image.url" :alt="image.title" loading="lazy" />
-              <span>
-                {{ image.title }}
-                <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
-              </span>
-            </a>
-          </div>
-        </article>
-      </div>
     </section>
 
     <section v-else-if="activePanel === 'materials'" class="admin-panel">

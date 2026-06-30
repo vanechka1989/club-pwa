@@ -21,8 +21,12 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("selectedStorageTargetConfigured");
     expect(adminSectionSource).toContain("selectedStorageSettingsTitle");
     expect(adminSectionSource).toContain("openSelectedStorageFiles");
+    expect(adminSectionSource).toContain("admin-preview-switcher");
+    expect(adminSectionSource).toContain("Вид как");
+    expect(adminSectionSource).toContain("ui.setPreviewMode");
     expect(adminSectionSource).toContain("selectedStorageTarget === 'reserve'");
     expect(adminSectionSource).toContain("storageOverviewObjects.value = [];");
+    expect(adminSectionSource).toContain("void loadStorageObjects();");
     expect(adminSectionSource).toContain("getAdminS3Objects(storagePrefix.value, append ? storageObjectsCursor.value : null, selectedStorageTarget.value)");
     expect(adminSectionSource).toContain("getAdminS3ObjectUrl(item.key, selectedStorageTarget.value)");
     expect(adminSectionSource).toContain("deleteAdminS3Object(item.key, selectedStorageTarget.value)");
