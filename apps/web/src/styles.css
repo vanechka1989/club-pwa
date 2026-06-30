@@ -507,7 +507,7 @@ body.club-keyboard-open .app-shell {
 
 .global-upload-status {
   position: fixed;
-  top: max(0.75rem, calc(var(--tg-safe-top, 0px) + 0.45rem));
+  top: max(3.85rem, calc(var(--tg-safe-top, 0px) + 3.25rem));
   left: 50%;
   z-index: 80;
   width: min(calc(100vw - 1.5rem), 34rem);
@@ -526,6 +526,16 @@ body.club-keyboard-open .app-shell {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.global-upload-status-head em {
+  flex: 1 1 auto;
+  color: #ef4444;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.15;
+  text-align: right;
 }
 
 .global-upload-status-head span {
@@ -552,10 +562,25 @@ body.club-keyboard-open .app-shell {
   white-space: nowrap;
 }
 
-.global-upload-status-title span {
+.global-upload-status-close {
   flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, #ef4444 44%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  color: #ef4444;
+  font-size: 0.72rem;
+  font-weight: 850;
+  padding: 0.32rem 0.58rem;
+}
+
+.global-upload-status-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  margin-top: 0.35rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  font-weight: 760;
 }
 
 .global-upload-status-track {

@@ -16,7 +16,7 @@ import { navItems, type AppSection } from "@/features/app/navigation";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
-import { useLessonUploadsStore } from "@/stores/lessonUploads";
+import { useLessonUploadsStore, type LessonUploadTask } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
 
@@ -37,6 +37,47 @@ let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
 let appNotificationTimer: number | null = null;
 let isAppMounted = false;
+
+function formatUploadBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 МБ";
+  }
+
+  const megabytes = bytes / 1024 / 1024;
+  if (megabytes < 1024) {
+    return `${megabytes.toFixed(megabytes >= 10 ? 0 : 1)} МБ`;
+  }
+
+  return `${(megabytes / 1024).toFixed(1)} ГБ`;
+}
+
+function formatUploadSpeed(bytesPerSecond: number) {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
+    return "скорость считается";
+  }
+
+  return `${formatUploadBytes(bytesPerSecond)}/с`;
+}
+
+function formatUploadEta(upload: LessonUploadTask) {
+  if (upload.status === "saving") {
+    return "сохраняем";
+  }
+
+  if (upload.status === "error") {
+    return "ошибка";
+  }
+
+  const remainingBytes = Math.max(0, upload.totalBytes - upload.loadedBytes);
+  if (!upload.speedBytesPerSecond || remainingBytes <= 0) {
+    return "время считается";
+  }
+
+  const seconds = Math.ceil(remainingBytes / upload.speedBytesPerSecond);
+  const minutes = Math.floor(seconds / 60);
+  const restSeconds = seconds % 60;
+  return minutes > 0 ? `~${minutes}м ${restSeconds}с` : `~${restSeconds}с`;
+}
 
 function showTelegramAlert(message: string) {
   notifications.showInfo(message);
@@ -414,11 +455,25 @@ onBeforeUnmount(() => {
     <aside v-if="lessonUploads.visibleUploads.length" class="global-upload-status" aria-label="Статус загрузки урока">
       <div class="global-upload-status-head">
         <span>Загрузка урока</span>
+        <em>Не закрывайте и не сворачивайте приложение</em>
         <strong>{{ lessonUploads.activeUpload?.progress ?? 0 }}%</strong>
       </div>
       <div class="global-upload-status-title">
         <strong>{{ lessonUploads.activeUpload?.title }}</strong>
-        <span>{{ lessonUploads.activeUpload?.detail }}</span>
+        <button
+          v-if="lessonUploads.activeUpload?.status === 'error'"
+          class="global-upload-status-close"
+          type="button"
+          aria-label="Закрыть ошибку загрузки"
+          @click="lessonUploads.activeUpload && lessonUploads.remove(lessonUploads.activeUpload.id)"
+        >
+          Закрыть
+        </button>
+      </div>
+      <div v-if="lessonUploads.activeUpload" class="global-upload-status-meta">
+        <span>{{ formatUploadBytes(lessonUploads.activeUpload.loadedBytes) }} / {{ formatUploadBytes(lessonUploads.activeUpload.totalBytes) }}</span>
+        <span>{{ formatUploadSpeed(lessonUploads.activeUpload.speedBytesPerSecond) }}</span>
+        <span>{{ formatUploadEta(lessonUploads.activeUpload) }}</span>
       </div>
       <div class="global-upload-status-track">
         <span :style="{ width: `${lessonUploads.activeUpload?.progress ?? 0}%` }"></span>

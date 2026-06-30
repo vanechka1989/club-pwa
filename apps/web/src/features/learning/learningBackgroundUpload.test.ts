@@ -18,7 +18,15 @@ describe("learning background uploads", () => {
     expect(learningSectionSource).not.toContain("Фоновые загрузки");
     expect(appSource).toContain("global-upload-status");
     expect(appSource).toContain("lessonUploads.visibleUploads");
+    expect(appSource).toContain("Не закрывайте и не сворачивайте приложение");
+    expect(appSource).toContain("formatUploadBytes");
+    expect(appSource).toContain("formatUploadSpeed");
+    expect(appSource).toContain("formatUploadEta");
+    expect(appSource).toContain("lessonUploads.remove");
     expect(uploadStoreSource).toContain("visibleUploads");
+    expect(uploadStoreSource).toContain("loadedBytes");
+    expect(uploadStoreSource).toContain("totalBytes");
+    expect(uploadStoreSource).toContain("speedBytesPerSecond");
   });
 
   it("does not show the manual video rotation control", () => {

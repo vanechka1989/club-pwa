@@ -982,9 +982,10 @@ async function uploadLessonFileDirect({
   kind?: ContentKind;
   progressBase: number;
   progressSpan: number;
-  onProgress?: (percent: number) => void;
+  onProgress?: (progress: { percent: number; loadedBytes: number; speedBytesPerSecond: number }) => void;
 }): Promise<AdminLearningUploadedObject> {
   const parts = getUploadParts(file);
+  const startedAt = Date.now();
   const upload = await createAdminLearningMultipartUpload({
     purpose,
     kind,
@@ -1010,8 +1011,13 @@ async function uploadLessonFileDirect({
       const loadedTotal = Array.from(loadedByPart.values()).reduce((sum, value) => sum + value, 0);
       const percent = parts.sizeBytes > 0 ? Math.min(99, Math.max(1, Math.round((loadedTotal / parts.sizeBytes) * 100))) : 1;
       const combinedPercent = Math.min(99, Math.round(progressBase + (percent / 100) * progressSpan));
+      const elapsedSeconds = Math.max(0.5, (Date.now() - startedAt) / 1000);
       lessonUploadProgress.value = combinedPercent;
-      onProgress?.(combinedPercent);
+      onProgress?.({
+        percent: combinedPercent,
+        loadedBytes: loadedTotal,
+        speedBytesPerSecond: loadedTotal / elapsedSeconds
+      });
     });
     completedParts.push({ partNumber: part.partNumber, etag });
   });
@@ -1024,7 +1030,11 @@ async function uploadLessonFileDirect({
     parts: completedParts
   });
   lessonUploadProgress.value = Math.min(100, Math.round(progressBase + progressSpan));
-  onProgress?.(Math.min(100, Math.round(progressBase + progressSpan)));
+  onProgress?.({
+    percent: Math.min(100, Math.round(progressBase + progressSpan)),
+    loadedBytes: parts.sizeBytes,
+    speedBytesPerSecond: parts.sizeBytes / Math.max(0.5, (Date.now() - startedAt) / 1000)
+  });
 
   return completed;
 }
@@ -1096,17 +1106,25 @@ async function startBackgroundLessonUpload() {
     mediaFile: lessonFile.value,
     thumbnailFile: lessonThumbnailFile.value
   };
+  const hasMedia = Boolean(draft.mediaFile);
+  const hasThumbnail = Boolean(draft.thumbnailFile);
+  const totalParts = Number(hasMedia) + Number(hasThumbnail);
+  const mediaSizeBytes = draft.mediaFile ? getUploadParts(draft.mediaFile).sizeBytes : 0;
+  const thumbnailSizeBytes = draft.thumbnailFile ? getUploadParts(draft.thumbnailFile).sizeBytes : 0;
+  const totalSizeBytes = mediaSizeBytes + thumbnailSizeBytes;
   const task = {
     id: draft.id,
     title: draft.title,
     status: "uploading",
     progress: 0,
-    detail: "Загружаем файл в S3"
+    detail: "Загрузка",
+    loadedBytes: 0,
+    totalBytes: totalSizeBytes,
+    speedBytesPerSecond: 0,
+    startedAt: Date.now()
   } as const;
-  const hasMedia = Boolean(draft.mediaFile);
-  const hasThumbnail = Boolean(draft.thumbnailFile);
-  const totalParts = Number(hasMedia) + Number(hasThumbnail);
   let completedParts = 0;
+  let completedBytes = 0;
 
   lessonUploads.add(task);
   closeLessonModal();
@@ -1122,9 +1140,16 @@ async function startBackgroundLessonUpload() {
         kind: draft.kind,
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
-        onProgress: (progress) => lessonUploads.update(draft.id, { progress, detail: "Загружаем файл в S3" })
+        onProgress: (progress) =>
+          lessonUploads.update(draft.id, {
+            progress: progress.percent,
+            detail: "Загрузка",
+            loadedBytes: completedBytes + progress.loadedBytes,
+            speedBytesPerSecond: progress.speedBytesPerSecond
+          })
       });
       completedParts += 1;
+      completedBytes += mediaSizeBytes;
     }
 
     if (draft.thumbnailFile) {
@@ -1133,11 +1158,17 @@ async function startBackgroundLessonUpload() {
         purpose: "thumbnail",
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
-        onProgress: (progress) => lessonUploads.update(draft.id, { progress, detail: "Загружаем обложку в S3" })
+        onProgress: (progress) =>
+          lessonUploads.update(draft.id, {
+            progress: progress.percent,
+            detail: "Загрузка обложки",
+            loadedBytes: completedBytes + progress.loadedBytes,
+            speedBytesPerSecond: progress.speedBytesPerSecond
+          })
       });
     }
 
-    lessonUploads.update(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока" });
+    lessonUploads.update(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока", loadedBytes: totalSizeBytes });
     const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject);
     const response = draft.lessonId
       ? await updateAdminLearningMaterialDirect(draft.lessonId, payload)
