@@ -28,7 +28,6 @@ import {
   Cloud,
   CreditCard,
   ExternalLink,
-  ImageIcon,
   Megaphone,
   Paperclip,
   Shield,
@@ -134,7 +133,6 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
   users: UsersRound,
   mailings: Megaphone,
   payments: CreditCard,
-  materials: ImageIcon,
   storage: Cloud,
   admins: Shield
 };
@@ -3439,160 +3437,6 @@ onUnmounted(() => {
           </div>
         </Teleport>
       </article>
-    </section>
-
-    <section v-else-if="activePanel === 'materials'" class="admin-panel">
-      <div class="admin-panel-head">
-        <div>
-          <h3>Контент обучения</h3>
-          <p>Категории, текст, фото, видео и аудио. Медиа загружается в облако сразу при добавлении.</p>
-        </div>
-        <button class="primary-button admin-add-button" type="button" :disabled="!learningCategories.length" @click="openMaterialModal">
-          Добавить контент
-        </button>
-      </div>
-
-      <section class="admin-crm-block">
-        <div class="admin-panel-head">
-          <div>
-            <h4>Категории</h4>
-            <p>Группы, внутри которых хранится контент.</p>
-          </div>
-          <button class="secondary-button admin-add-button" type="button" @click="openCategoryModal">
-            Добавить категорию
-          </button>
-        </div>
-
-        <div class="admin-list mt-3">
-          <article v-for="category in learningCategories" :key="category.id" class="admin-entity">
-            <div>
-              <strong>{{ category.title }}</strong>
-              <small>{{ category.itemsCount }} элементов контента</small>
-              <p v-if="category.description">{{ category.description }}</p>
-            </div>
-            <button class="icon-button" type="button" :disabled="saving" @click="handleDeleteCategory(category)">
-              <Trash2 class="h-4 w-4" aria-hidden="true" />
-            </button>
-          </article>
-          <p v-if="!learningCategories.length" class="admin-empty">Категорий пока нет. Добавьте первую, чтобы создавать контент.</p>
-        </div>
-      </section>
-
-      <Teleport to="body">
-        <div v-if="showCategoryModal" class="admin-modal-backdrop" @click.self="closeCategoryModal">
-          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-category-modal-title">
-            <header class="admin-client-modal-head">
-              <div>
-                <h3 id="admin-category-modal-title">Новая категория</h3>
-                <p>Создайте раздел для контента.</p>
-              </div>
-              <button class="icon-button" type="button" aria-label="Закрыть добавление категории" @click="closeCategoryModal">
-                <X class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </header>
-
-            <form class="admin-form" @submit.prevent="handleCreateCategory">
-              <input v-model.trim="categoryTitle" class="text-input" placeholder="Название категории" />
-              <input v-model.trim="categoryDescription" class="text-input" placeholder="Описание, необязательно" />
-              <button class="primary-button" type="submit" :disabled="saving">Добавить категорию</button>
-            </form>
-          </aside>
-        </div>
-      </Teleport>
-
-      <div class="admin-list">
-        <section v-for="group in materialsByCategory" :key="group.category.id" class="admin-crm-block">
-          <h4>{{ group.category.title }}</h4>
-          <article v-for="material in group.materials" :key="material.id" class="admin-entity">
-            <div>
-              <strong>{{ material.title }}</strong>
-              <small>
-                {{ material.kind }} · {{ material.isPublished ? "открыт" : "скрыт" }}
-                <template v-if="material.mediaSizeBytes"> · {{ Math.round(material.mediaSizeBytes / 1024 / 1024 * 10) / 10 }} МБ</template>
-              </small>
-              <p v-if="material.summary">{{ material.summary }}</p>
-            </div>
-            <div class="admin-inline-actions">
-              <button class="secondary-button" type="button" :disabled="saving" @click="handleToggleMaterial(material)">
-                {{ material.isPublished ? "Скрыть" : "Открыть" }}
-              </button>
-              <button class="icon-button" type="button" :disabled="saving" @click="handleDeleteMaterial(material)">
-                <Trash2 class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-          </article>
-          <p v-if="!group.materials.length" class="admin-empty">В этой категории пока нет контента.</p>
-        </section>
-        <p v-if="!learningMaterials.length" class="admin-empty">Контента пока нет.</p>
-      </div>
-
-      <Teleport to="body">
-        <div v-if="showMaterialModal" class="admin-modal-backdrop" @click.self="closeMaterialModal">
-          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-material-modal-title">
-            <header class="admin-client-modal-head">
-              <div>
-                <h3 id="admin-material-modal-title">Новый контент</h3>
-                <p>Добавьте текст, медиа и оформление контента.</p>
-              </div>
-              <button class="icon-button" type="button" aria-label="Закрыть добавление контента" @click="closeMaterialModal">
-                <X class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </header>
-
-            <form class="admin-form" @submit.prevent="handleCreateMaterial">
-              <select v-model="materialCategoryId" class="text-input">
-                <option value="" disabled>Категория контента</option>
-                <option v-for="category in learningCategories" :key="category.id" :value="category.id">
-                  {{ category.title }}
-                </option>
-              </select>
-              <select v-model="materialKind" class="text-input">
-                <option value="text">Текст</option>
-                <option value="photo">Фото</option>
-                <option value="video">Видео</option>
-                <option value="audio">Аудио</option>
-              </select>
-              <input v-model.trim="materialTitle" class="text-input" placeholder="Название контента" />
-              <input v-model.trim="materialSummary" class="text-input" placeholder="Краткое описание" />
-
-              <div class="admin-editor">
-                <div class="admin-editor-toolbar">
-                  <button class="icon-button" type="button" @click="applyEditorCommand('bold')">B</button>
-                  <button class="icon-button" type="button" @click="applyEditorCommand('italic')">I</button>
-                  <button class="icon-button" type="button" @click="applyEditorCommand('underline')">U</button>
-                  <button class="secondary-button" type="button" @click="applyEditorCommand('insertUnorderedList')">Список</button>
-                  <label class="admin-color-control">
-                    <span>Цвет</span>
-                    <input v-model="editorColor" type="color" @change="applyEditorCommand('foreColor', editorColor)" />
-                  </label>
-                </div>
-                <div
-                  ref="editorRef"
-                  class="admin-rich-editor"
-                  contenteditable="true"
-                  role="textbox"
-                  aria-label="Текст контента"
-                  data-placeholder="Текст, описание или конспект"
-                  @input="syncEditorBody"
-                ></div>
-              </div>
-
-              <input
-                v-if="materialKind !== 'text'"
-                class="text-input"
-                type="file"
-                :accept="materialKind === 'photo' ? 'image/*' : materialKind === 'video' ? 'video/*' : 'audio/*'"
-                @change="handleMaterialFileChange"
-              />
-              <label class="admin-check-row">
-                <input v-model="materialPublished" type="checkbox" />
-                <span>Сразу открыть клиентам</span>
-              </label>
-              <button class="primary-button" type="submit" :disabled="saving || !learningCategories.length">Добавить контент</button>
-            </form>
-          </aside>
-        </div>
-      </Teleport>
     </section>
 
     <section v-else class="admin-panel admin-permissions-panel">

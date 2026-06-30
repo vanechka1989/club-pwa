@@ -17,6 +17,11 @@ describe("admin panels", () => {
     expect(getVisibleAdminPanels("admin").map((panel) => panel.id)).not.toContain("mockups");
   });
 
+  it("does not show obsolete content panel", () => {
+    expect(getVisibleAdminPanels("owner").map((panel) => panel.id)).not.toContain("materials");
+    expect(getVisibleAdminPanels("admin", ["materials"]).map((panel) => panel.id)).not.toContain("materials");
+  });
+
   it("allows storage settings for owners or admins with storage permission", () => {
     expect(getVisibleAdminPanels("owner").map((panel) => panel.id)).toContain("storage");
     expect(getVisibleAdminPanels("admin", ["storage"]).map((panel) => panel.id)).toContain("storage");
