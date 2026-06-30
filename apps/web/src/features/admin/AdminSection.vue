@@ -287,6 +287,7 @@ const storageSearch = ref("");
 const showStorageFilesModal = ref(false);
 const showStorageFolderModal = ref(false);
 const selectedStorageFolder = ref<(typeof storagePrefixOptions)[number] | null>(null);
+const storageFolderSort = ref<"date" | "size" | "uploader">("date");
 const showStorageSettingsModal = ref(false);
 const storageForm = ref({
   endpoint: "",
@@ -490,9 +491,25 @@ const selectedStorageFolderObjects = computed(() => {
     )
   );
 });
+const sortedStorageFolderObjects = computed(() => {
+  const objects = [...selectedStorageFolderObjects.value];
+  if (storageFolderSort.value === "size") {
+    return objects.sort((left, right) => right.sizeBytes - left.sizeBytes);
+  }
+
+  if (storageFolderSort.value === "uploader") {
+    return objects.sort((left, right) => {
+      const leftName = left.uploadedBy?.firstName || left.uploadedBy?.username || left.uploadedBy?.telegramId || "";
+      const rightName = right.uploadedBy?.firstName || right.uploadedBy?.username || right.uploadedBy?.telegramId || "";
+      return leftName.localeCompare(rightName, "ru") || storageObjectFileName(left.key).localeCompare(storageObjectFileName(right.key), "ru");
+    });
+  }
+
+  return objects.sort((left, right) => Date.parse(right.lastModified ?? "") - Date.parse(left.lastModified ?? ""));
+});
 const storageFolderGroups = computed(() => {
   const groups = new Map<string, { title: string; objects: S3StorageObject[]; sizeBytes: number }>();
-  for (const item of selectedStorageFolderObjects.value) {
+  for (const item of sortedStorageFolderObjects.value) {
     const title = item.entityTitle || item.fileKind || "Без привязки";
     const group = groups.get(title) ?? { title, objects: [], sizeBytes: 0 };
     group.objects.push(item);
@@ -1336,6 +1353,7 @@ async function openStorageFolder(folder: (typeof storagePrefixOptions)[number]) 
   selectedStorageFolder.value = folder;
   storagePrefix.value = folder.value;
   storageSearch.value = "";
+  storageFolderSort.value = "date";
   await loadStorageObjects();
   showStorageFolderModal.value = true;
 }
@@ -3075,14 +3093,22 @@ onUnmounted(() => {
 
         <div class="admin-storage-action-grid">
           <button class="admin-storage-action-card" type="button" @click="showStorageFilesModal = true">
-            <span>Обзор файлов</span>
+            <span class="admin-storage-action-top">
+              <span class="admin-storage-action-icon"><Cloud class="h-4 w-4" aria-hidden="true" /></span>
+              <ChevronDown class="admin-storage-action-arrow h-4 w-4" aria-hidden="true" />
+            </span>
+            <span class="admin-storage-action-label">Обзор файлов</span>
             <strong>{{ storageSettings?.configured ? `${storageOverviewObjects.length} файлов` : "S3 не подключено" }}</strong>
-            <small>Открыть файлы по папкам и источникам загрузки.</small>
+            <small>Открыть файлы по папкам.</small>
           </button>
           <button class="admin-storage-action-card" type="button" @click="openStorageSettings">
-            <span>Настройки S3</span>
-            <strong>{{ storageSettings?.configured ? "Подключено" : "Заполнить параметры" }}</strong>
-            <small>Endpoint, bucket, ключи и TTL подписанных ссылок.</small>
+            <span class="admin-storage-action-top">
+              <span class="admin-storage-action-icon"><ExternalLink class="h-4 w-4" aria-hidden="true" /></span>
+              <ChevronDown class="admin-storage-action-arrow h-4 w-4" aria-hidden="true" />
+            </span>
+            <span class="admin-storage-action-label">Настройки S3</span>
+            <strong>{{ storageSettings?.configured ? "Подключено" : "Заполнить" }}</strong>
+            <small>Bucket, ключи и ссылки.</small>
           </button>
         </div>
 
@@ -3164,7 +3190,14 @@ onUnmounted(() => {
                   </button>
                 </div>
 
-                <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени, уроку или автору" />
+                <div class="admin-storage-browser-filters">
+                  <input v-model.trim="storageSearch" class="text-input" placeholder="Поиск по имени, уроку или автору" />
+                  <select v-model="storageFolderSort" class="text-input">
+                    <option value="date">По дате загрузки</option>
+                    <option value="size">По размеру</option>
+                    <option value="uploader">По автору</option>
+                  </select>
+                </div>
 
                 <div class="admin-storage-folder-group-list">
                   <section v-for="group in storageFolderGroups" :key="group.title" class="admin-storage-folder-group">

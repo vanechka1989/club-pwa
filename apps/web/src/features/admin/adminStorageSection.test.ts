@@ -9,6 +9,8 @@ describe("admin storage section", () => {
   it("opens file overview and S3 settings as separate modals from the storage landing", () => {
     expect(adminSectionSource).toContain("showStorageFilesModal");
     expect(adminSectionSource).toContain("showStorageSettingsModal");
+    expect(adminSectionSource).toContain("admin-storage-action-icon");
+    expect(adminSectionSource).toContain("admin-storage-action-arrow");
     expect(adminSectionSource).toContain("Обзор файлов");
     expect(adminSectionSource).toContain("Настройки S3");
     expect(adminSectionSource).toContain("admin-storage-action-grid");
@@ -21,6 +23,10 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("admin-storage-folder-modal");
     expect(adminSectionSource).toContain("storageFolderGroups");
     expect(adminSectionSource).toContain("selectedStorageFolder");
+    expect(adminSectionSource).toContain("storageFolderSort");
+    expect(adminSectionSource).toContain("По дате загрузки");
+    expect(adminSectionSource).toContain("По размеру");
+    expect(adminSectionSource).toContain("По автору");
     expect(adminSectionSource).toContain("v-for=\"group in storageFolderGroups\"");
     expect(stylesSource).toContain(".admin-storage-action-grid");
     expect(stylesSource).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");

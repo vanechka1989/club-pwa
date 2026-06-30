@@ -3635,26 +3635,71 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .admin-storage-action-card {
   display: grid;
-  gap: 0.18rem;
+  gap: 0.22rem;
   min-height: 6rem;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
   border-radius: 14px;
-  background: color-mix(in srgb, var(--panel-strong) 66%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--panel-strong));
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--text);
   padding: 0.82rem;
   text-align: left;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.admin-storage-action-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 15%, var(--panel-strong));
+  box-shadow: 0 13px 28px color-mix(in srgb, var(--accent) 16%, transparent);
+  transform: translateY(-1px);
 }
 
 .admin-storage-action-card:active {
   transform: translateY(1px);
 }
 
-.admin-storage-action-card span,
 .admin-storage-action-card small {
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 760;
   line-height: 1.35;
+}
+
+.admin-storage-action-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-storage-action-icon,
+.admin-storage-action-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  color: var(--accent-strong);
+}
+
+.admin-storage-action-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.admin-storage-action-arrow {
+  width: 1.75rem;
+  height: 1.75rem;
+  transform: rotate(-90deg);
+}
+
+.admin-storage-action-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 820;
 }
 
 .admin-storage-action-card strong {
