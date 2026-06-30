@@ -14,4 +14,11 @@ describe("learning background uploads", () => {
     expect(learningSectionSource).toContain("closeLessonModal()");
     expect(learningSectionSource).toContain("Фоновые загрузки");
   });
+
+  it("allows toggling fullscreen video between vertical and horizontal orientation", () => {
+    expect(learningSectionSource).toContain("lessonVideoRotated");
+    expect(learningSectionSource).toContain("toggleLessonVideoOrientation");
+    expect(learningSectionSource).toContain("lesson-video-element-rotated");
+    expect(learningSectionSource).toContain("Повернуть видео");
+  });
 });

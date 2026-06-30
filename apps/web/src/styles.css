@@ -5493,6 +5493,14 @@ body.club-keyboard-open .admin-modal-backdrop {
   border-radius: 0;
 }
 
+.lesson-video-player-fullscreen .lesson-video-element-rotated {
+  width: 100dvh;
+  height: 100dvw;
+  max-width: calc(100dvh - 1.5rem);
+  max-height: calc(100dvw - 1.5rem);
+  transform: rotate(90deg);
+}
+
 .lesson-video-play-button {
   position: absolute;
   top: 50%;

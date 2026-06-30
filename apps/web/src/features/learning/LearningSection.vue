@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { AdminLearningMaterial, AdminLearningUploadedObject, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary } from "@club/shared";
-import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
+import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, RotateCw, Square, Trash2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   completeAdminLearningMultipartUpload,
@@ -228,6 +228,7 @@ const isLessonVideoPlaying = ref(false);
 const lessonVideoCurrentTime = ref(0);
 const lessonVideoDuration = ref(0);
 const isLessonVideoFullscreen = ref(false);
+const lessonVideoRotated = ref(false);
 const showLessonVideoControls = ref(true);
 const pendingLessonVideoStartSeconds = ref(0);
 const lessonVideoStartApplied = ref(false);
@@ -492,6 +493,7 @@ function resetLessonVideoState() {
   showLessonVideoControls.value = true;
   lessonVideoCurrentTime.value = 0;
   lessonVideoDuration.value = 0;
+  lessonVideoRotated.value = false;
   pendingLessonVideoStartSeconds.value = 0;
   lessonVideoStartApplied.value = false;
   lastSavedLessonVideoSeconds.value = 0;
@@ -728,8 +730,14 @@ async function toggleLessonVideoFullscreen() {
 function handleLessonFullscreenChange() {
   if (!document.fullscreenElement) {
     isLessonVideoFullscreen.value = false;
+    lessonVideoRotated.value = false;
     revealLessonVideoControls();
   }
+}
+
+function toggleLessonVideoOrientation() {
+  lessonVideoRotated.value = !lessonVideoRotated.value;
+  revealLessonVideoControls();
 }
 
 async function handleLessonVideoEnded() {
@@ -1813,6 +1821,7 @@ watch(
                 <video
                   ref="lessonVideoElement"
                   class="lesson-video-element"
+                  :class="{ 'lesson-video-element-rotated': lessonVideoRotated }"
                   :src="selectedLessonItem.mediaUrl"
                   :poster="lessonVideoPoster"
                   playsinline
@@ -1856,6 +1865,16 @@ watch(
                     @input.stop="handleLessonVideoSeek"
                   />
                   <span>{{ formatVideoTime(lessonVideoDuration) }}</span>
+                  <button
+                    v-if="isLessonVideoFullscreen"
+                    class="lesson-video-fullscreen-button"
+                    type="button"
+                    :aria-label="lessonVideoRotated ? 'Вернуть видео вертикально' : 'Повернуть видео горизонтально'"
+                    title="Повернуть видео"
+                    @click.stop="toggleLessonVideoOrientation"
+                  >
+                    <RotateCw class="h-4 w-4" aria-hidden="true" />
+                  </button>
                   <button
                     class="lesson-video-fullscreen-button"
                     type="button"
