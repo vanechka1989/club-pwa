@@ -49,9 +49,9 @@ function renderAsMember() {
 
 describe("Learning section member content", () => {
   beforeEach(() => {
+    cleanup();
     vi.clearAllMocks();
     localStorage.clear();
-    cleanup();
 
     vi.mocked(getLearningHome).mockResolvedValue({
       categories: [
@@ -464,6 +464,148 @@ describe("Learning section member content", () => {
     await fireEvent.timeUpdate(video);
 
     expect(saveLearningPlayback).not.toHaveBeenCalledWith("lesson-video", 0);
+  });
+
+  it("forces playback save when leaving the page", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-video",
+          slug: "module-video",
+          title: "Видео модуль",
+          description: "Материалы с видео",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: {
+          id: "lesson-video",
+          categoryId: "module-video",
+          kind: "video",
+          title: "Голосовые практики",
+          summary: "Видео на 12 минут",
+          body: null,
+          mediaUrl: "https://example.com/video.mp4",
+          thumbnailUrl: null,
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        },
+        lastOpenedAt: "2026-06-29T10:00:00.000Z",
+        lastOpenedPlaybackPositionSeconds: 252
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-video",
+        categoryId: "module-video",
+        kind: "video",
+        title: "Голосовые практики",
+        summary: "Видео на 12 минут",
+        body: null,
+        mediaUrl: "https://example.com/video.mp4",
+        thumbnailUrl: null,
+        cardLayout: "horizontal",
+        mediaContentType: "video/mp4",
+        mediaSizeBytes: 1024,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 252
+    });
+    vi.mocked(saveLearningPlayback).mockResolvedValueOnce({
+      ok: true,
+      playbackPositionSeconds: 263
+    });
+
+    renderAsMember();
+    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
+
+    const video = document.querySelector("video") as HTMLVideoElement;
+    Object.defineProperty(video, "currentTime", { configurable: true, value: 263 });
+    window.dispatchEvent(new Event("pagehide"));
+
+    await waitFor(() => expect(saveLearningPlayback).toHaveBeenCalledWith("lesson-video", 263, { keepalive: true }));
+  });
+
+  it("does not mark playback as saved when the API save fails", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-video",
+          slug: "module-video",
+          title: "Видео модуль",
+          description: "Материалы с видео",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: {
+          id: "lesson-video",
+          categoryId: "module-video",
+          kind: "video",
+          title: "Голосовые практики",
+          summary: "Видео на 12 минут",
+          body: null,
+          mediaUrl: "https://example.com/video.mp4",
+          thumbnailUrl: null,
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        },
+        lastOpenedAt: "2026-06-29T10:00:00.000Z",
+        lastOpenedPlaybackPositionSeconds: 252
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-video",
+        categoryId: "module-video",
+        kind: "video",
+        title: "Голосовые практики",
+        summary: "Видео на 12 минут",
+        body: null,
+        mediaUrl: "https://example.com/video.mp4",
+        thumbnailUrl: null,
+        cardLayout: "horizontal",
+        mediaContentType: "video/mp4",
+        mediaSizeBytes: 1024,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 252
+    });
+    vi.mocked(saveLearningPlayback)
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce({
+        ok: true,
+        playbackPositionSeconds: 263
+      });
+
+    renderAsMember();
+    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
+
+    const video = document.querySelector("video") as HTMLVideoElement;
+    Object.defineProperty(video, "currentTime", { configurable: true, value: 263 });
+    await fireEvent.pause(video);
+    await fireEvent.pause(video);
+
+    await waitFor(() => expect(saveLearningPlayback).toHaveBeenCalledTimes(2));
+    expect(saveLearningPlayback).toHaveBeenLastCalledWith("lesson-video", 263, undefined);
   });
 
   it("continues audio lessons from the saved playback position", async () => {

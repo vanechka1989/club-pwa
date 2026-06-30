@@ -48,6 +48,11 @@ type ModuleCard = {
   images: ModuleLesson[];
 };
 
+type PlaybackPersistOptions = {
+  force?: boolean;
+  keepalive?: boolean;
+};
+
 const deletedContentModuleId = "deleted-content-module";
 
 const initialModuleCards: ModuleCard[] = [
@@ -213,6 +218,7 @@ const showLessonVideoControls = ref(true);
 const pendingLessonVideoStartSeconds = ref(0);
 const lessonVideoStartApplied = ref(false);
 const lastSavedLessonVideoSeconds = ref(0);
+const pendingPlaybackSaveKey = ref<string | null>(null);
 let voiceChunks: Blob[] = [];
 let lessonVideoControlsTimer: number | null = null;
 
@@ -474,6 +480,7 @@ function resetLessonVideoState() {
   pendingLessonVideoStartSeconds.value = 0;
   lessonVideoStartApplied.value = false;
   lastSavedLessonVideoSeconds.value = 0;
+  pendingPlaybackSaveKey.value = null;
 }
 
 function formatVideoTime(seconds: number) {
@@ -531,7 +538,41 @@ function applyPendingLessonVideoStart() {
   syncLessonVideoState();
 }
 
-async function persistLessonVideoPlayback(force = false) {
+function updateLearningPlaybackProgress(lesson: ModuleLesson, positionSeconds: number) {
+  if (!learningProgress.value) {
+    return;
+  }
+
+  const openedAt = new Date().toISOString();
+  const lastOpenedItem: LearningContent =
+    learningProgress.value.lastOpenedItem?.id === lesson.id
+      ? learningProgress.value.lastOpenedItem
+      : {
+          id: lesson.id,
+          categoryId: lesson.categoryId,
+          kind: lesson.kind,
+          title: lesson.title,
+          summary: lesson.description || null,
+          body: lesson.content || null,
+          mediaUrl: lesson.mediaUrl,
+          thumbnailUrl: lesson.thumbnailUrl,
+          cardLayout: lesson.cardLayout,
+          mediaContentType: null,
+          mediaSizeBytes: null,
+          publishedAt: openedAt
+        };
+
+  learningProgress.value = {
+    ...learningProgress.value,
+    lastOpenedItem,
+    lastOpenedAt: openedAt,
+    lastOpenedPlaybackPositionSeconds: positionSeconds
+  };
+}
+
+async function persistLessonVideoPlayback(options: PlaybackPersistOptions | boolean = {}) {
+  const force = typeof options === "boolean" ? options : options.force ?? false;
+  const keepalive = typeof options === "boolean" ? false : options.keepalive ?? false;
   const lesson = selectedLessonItem.value;
   const video = lessonVideoElement.value;
   if (!lesson?.isPersisted || !isResumableMediaKind(lesson.kind) || !video) {
@@ -546,12 +587,42 @@ async function persistLessonVideoPlayback(force = false) {
   }
 
   const positionSeconds = Math.max(0, Math.floor(video.currentTime));
-  if (!force && Math.abs(positionSeconds - lastSavedLessonVideoSeconds.value) < 10) {
+  if (!force && Math.abs(positionSeconds - lastSavedLessonVideoSeconds.value) < 5) {
     return;
   }
 
-  lastSavedLessonVideoSeconds.value = positionSeconds;
-  await saveLearningPlayback(lesson.id, positionSeconds).catch(() => {});
+  const saveKey = `${lesson.id}:${positionSeconds}`;
+  if (pendingPlaybackSaveKey.value === saveKey) {
+    return;
+  }
+
+  pendingPlaybackSaveKey.value = saveKey;
+  try {
+    const response = await saveLearningPlayback(
+      lesson.id,
+      positionSeconds,
+      keepalive ? { keepalive: true } : undefined
+    );
+    const savedSeconds = response.playbackPositionSeconds ?? positionSeconds;
+    lastSavedLessonVideoSeconds.value = savedSeconds;
+    updateLearningPlaybackProgress(lesson, savedSeconds);
+  } catch {
+    // Keep the previous saved marker so the next event retries this position.
+  } finally {
+    if (pendingPlaybackSaveKey.value === saveKey) {
+      pendingPlaybackSaveKey.value = null;
+    }
+  }
+}
+
+function persistLessonVideoPlaybackBeforeExit() {
+  void persistLessonVideoPlayback({ force: true, keepalive: true });
+}
+
+function handleLearningVisibilityChange() {
+  if (document.visibilityState === "hidden") {
+    persistLessonVideoPlaybackBeforeExit();
+  }
 }
 
 function handleLessonVideoTimeUpdate() {
@@ -1162,10 +1233,17 @@ function stopVoiceRecording() {
 onMounted(() => {
   void loadModules();
   document.addEventListener("fullscreenchange", handleLessonFullscreenChange);
+  document.addEventListener("visibilitychange", handleLearningVisibilityChange);
+  window.addEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
+  window.addEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
 });
 
 onBeforeUnmount(() => {
+  persistLessonVideoPlaybackBeforeExit();
   document.removeEventListener("fullscreenchange", handleLessonFullscreenChange);
+  document.removeEventListener("visibilitychange", handleLearningVisibilityChange);
+  window.removeEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
+  window.removeEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
   clearLessonVideoControlsTimer();
 });
 

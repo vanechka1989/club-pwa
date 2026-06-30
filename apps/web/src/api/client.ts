@@ -115,11 +115,14 @@ export function completeLearningContent(id: string) {
   return api<LearningProgressMutationResponse>(`/learning/items/${id}/complete`, { method: "POST" });
 }
 
-export function saveLearningPlayback(id: string, positionSeconds: number) {
-  return api<LearningPlaybackMutationResponse>(`/learning/items/${id}/playback`, {
+export function saveLearningPlayback(id: string, positionSeconds: number, options: { keepalive?: boolean } = {}) {
+  const fetchOptions = {
     method: "POST",
-    body: { positionSeconds }
-  });
+    body: { positionSeconds },
+    ...(options.keepalive ? { keepalive: true } : {})
+  };
+
+  return api<LearningPlaybackMutationResponse>(`/learning/items/${id}/playback`, fetchOptions);
 }
 
 export function getLessonComments(id: string) {
