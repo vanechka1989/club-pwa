@@ -3157,7 +3157,6 @@ onUnmounted(() => {
         </div>
 
         <div class="admin-storage-current" :class="selectedStorageTarget === 'primary' ? 'admin-storage-current-primary' : 'admin-storage-current-reserve'">
-          <span>Сейчас открыта</span>
           <strong>{{ selectedStorageTarget === "primary" ? "S3 основное" : "S3 резервное" }}</strong>
         </div>
 
