@@ -1,6 +1,6 @@
 import type { AdminPermission, UserRole } from "@club/shared";
 
-export type AdminPanel = "statistics" | "users" | "mailings" | "payments" | "storage" | "admins";
+export type AdminPanel = "statistics" | "users" | "mailings" | "payments" | "storage" | "admins" | "server-logs";
 export type AdminPanelRole = UserRole | undefined;
 
 export type AdminPanelDefinition = {
@@ -16,7 +16,8 @@ export const adminPanelDefinitions: AdminPanelDefinition[] = [
   { id: "mailings", label: "Рассылки", permission: "mailings" },
   { id: "payments", label: "Платежи", permission: "payments" },
   { id: "storage", label: "Хранилище", permission: "storage" },
-  { id: "admins", label: "Админы", permission: "admins" }
+  { id: "admins", label: "Админы", permission: "admins" },
+  { id: "server-logs", label: "Логи сервера", permission: "admins" }
 ];
 
 export function getVisibleAdminPanels(role: AdminPanelRole, permissions?: AdminPermission[]) {

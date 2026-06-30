@@ -136,7 +136,8 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
   mailings: Megaphone,
   payments: CreditCard,
   storage: Cloud,
-  admins: Shield
+  admins: Shield,
+  "server-logs": Paperclip
 };
 
 const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
@@ -279,6 +280,7 @@ const storageForm = ref({
 });
 let accessSaveTimer: number | null = null;
 let mailingPreviewTimer: number | null = null;
+let serverLogsRefreshTimer: number | null = null;
 const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
   subscriptions: false,
   payments: false,
@@ -1066,6 +1068,11 @@ async function loadAdminActionLogs() {
   adminActionLogs.value = response.logs;
 }
 
+async function loadServerErrorLogs() {
+  const response = await getAdminServerErrors();
+  serverErrorLogs.value = response.errors;
+}
+
 function adminRoleLabel(role: AdminStatsUser["role"]) {
   if (role === "owner") {
     return "Главный админ";
@@ -1551,15 +1558,14 @@ async function loadAll() {
     const shouldLoadCommunity = hasCurrentAdminPermission("community");
     const shouldLoadMailings = hasCurrentAdminPermission("mailings");
     const shouldLoadAdminActions = hasCurrentAdminPermission("admins");
-    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse, actionLogsResponse, serverErrorsResponse] = await Promise.all([
+    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse, actionLogsResponse] = await Promise.all([
       shouldLoadAdmins ? getAdminUsers() : Promise.resolve(null),
       shouldLoadStats ? getAdminStats() : Promise.resolve(null),
       shouldLoadLearning ? getAdminLearning() : Promise.resolve(null),
       shouldLoadPayments ? getAdminPaymentHistory() : Promise.resolve(null),
       shouldLoadCommunity ? getCommunityTopics() : Promise.resolve(null),
       shouldLoadMailings ? getAdminMailings() : Promise.resolve(null),
-      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null),
-      shouldLoadAdmins ? getAdminServerErrors() : Promise.resolve(null)
+      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null)
     ]);
     if (adminsResponse) {
       ownerTelegramId.value = adminsResponse.ownerTelegramId;
@@ -1581,9 +1587,6 @@ async function loadAll() {
     if (actionLogsResponse) {
       adminActionAdmins.value = actionLogsResponse.admins;
       adminActionLogs.value = actionLogsResponse.logs;
-    }
-    if (serverErrorsResponse) {
-      serverErrorLogs.value = serverErrorsResponse.errors;
     }
     if (learningResponse) {
       learningCategories.value = learningResponse.categories;
@@ -2070,12 +2073,43 @@ watch(
   }
 );
 
+function stopServerLogsAutoRefresh() {
+  if (serverLogsRefreshTimer !== null) {
+    window.clearInterval(serverLogsRefreshTimer);
+    serverLogsRefreshTimer = null;
+  }
+}
+
+function startServerLogsAutoRefresh() {
+  stopServerLogsAutoRefresh();
+  void loadServerErrorLogs().catch(() => null);
+  serverLogsRefreshTimer = window.setInterval(() => {
+    if (activePanel.value === "server-logs") {
+      void loadServerErrorLogs().catch(() => null);
+    }
+  }, 5000);
+}
+
+watch(
+  () => activePanel.value,
+  (panel) => {
+    if (panel === "server-logs") {
+      startServerLogsAutoRefresh();
+      return;
+    }
+
+    stopServerLogsAutoRefresh();
+  },
+  { immediate: true }
+);
+
 onUnmounted(() => {
   resetAccessSaveState();
   if (mailingPreviewTimer) {
     window.clearTimeout(mailingPreviewTimer);
     mailingPreviewTimer = null;
   }
+  stopServerLogsAutoRefresh();
 });
 </script>
 
@@ -3455,7 +3489,39 @@ onUnmounted(() => {
       </article>
     </section>
 
-    <section v-else class="admin-panel admin-permissions-panel">
+    <section v-else-if="activePanel === 'server-logs'" class="admin-panel admin-permissions-panel">
+      <div class="admin-panel-head">
+        <div>
+          <h3>Логи сервера</h3>
+          <p>Понятные ошибки API. Обновляются автоматически раз в 5 секунд.</p>
+        </div>
+        <button class="secondary-button" type="button" @click="loadServerErrorLogs">
+          Обновить
+        </button>
+      </div>
+
+      <section class="admin-crm-block admin-action-log-panel">
+        <header class="admin-action-log-head">
+          <div>
+            <h4>Ошибки сервера</h4>
+            <p>{{ serverErrorLogs.length ? `${serverErrorLogs.length} последних` : "ошибок пока нет" }}</p>
+          </div>
+        </header>
+
+        <div class="admin-action-log-list">
+          <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
+            <div>
+              <strong>{{ log.title }}</strong>
+              <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
+              <small>{{ log.detail }}</small>
+            </div>
+          </article>
+          <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
+        </div>
+      </section>
+    </section>
+
+    <section v-else-if="activePanel === 'admins'" class="admin-panel admin-permissions-panel">
       <div class="admin-panel-head">
         <div>
           <h3>Администраторы</h3>
@@ -3615,26 +3681,6 @@ onUnmounted(() => {
             </article>
             <p v-if="!adminActionLogs.length" class="admin-empty">Действий пока нет.</p>
           </div>
-        </div>
-      </section>
-
-      <section class="admin-crm-block admin-action-log-panel">
-        <header class="admin-action-log-head">
-          <div>
-            <h4>Ошибки сервера</h4>
-            <p>Понятные ошибки API: {{ serverErrorLogs.length ? `${serverErrorLogs.length} последних` : "ошибок пока нет" }}</p>
-          </div>
-        </header>
-
-        <div class="admin-action-log-list">
-          <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
-            <div>
-              <strong>{{ log.title }}</strong>
-              <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
-              <small>{{ log.detail }}</small>
-            </div>
-          </article>
-          <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
         </div>
       </section>
 

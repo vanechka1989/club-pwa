@@ -60,11 +60,14 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("Все администраторы");
   });
 
-  it("shows understandable server errors in the admins section", () => {
+  it("shows understandable server errors in a dedicated server logs panel with auto refresh", () => {
     expect(apiClientSource).toContain("getAdminServerErrors");
+    expect(adminSectionSource).toContain("activePanel === 'server-logs'");
     expect(adminSectionSource).toContain("serverErrorLogs");
     expect(adminSectionSource).toContain("Ошибки сервера");
     expect(adminSectionSource).toContain("Понятные ошибки API");
+    expect(adminSectionSource).toContain("serverLogsRefreshTimer");
+    expect(adminSectionSource).toContain("window.setInterval");
   });
 
   it("keeps action journal collapsed by default and can expand it", () => {
