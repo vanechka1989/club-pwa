@@ -8,12 +8,13 @@ export type NavItem = {
   labelKey: MessageKey;
   icon: LucideIcon;
   adminOnly?: boolean;
+  memberOnly?: boolean;
 };
 
 export const navItems: NavItem[] = [
   { id: "profile", labelKey: "navProfile", icon: UserCircle },
-  { id: "learning", labelKey: "navLearning", icon: BookOpen },
-  { id: "community", labelKey: "navCommunity", icon: MessagesSquare },
+  { id: "learning", labelKey: "navLearning", icon: BookOpen, memberOnly: true },
+  { id: "community", labelKey: "navCommunity", icon: MessagesSquare, memberOnly: true },
   { id: "payments", labelKey: "navPayments", icon: CreditCard },
   { id: "support", labelKey: "navSupport", icon: LifeBuoy },
   { id: "admin", labelKey: "navAdmin", icon: Shield, adminOnly: true }

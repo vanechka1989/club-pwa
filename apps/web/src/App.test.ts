@@ -43,4 +43,11 @@ describe("App", () => {
     expect(appSource).toContain('void selectSection("profile");');
     expect(appSource).toContain("@preview-mode-change=\"handlePreviewModeChange\"");
   });
+
+  it("hides member-only sections when access is inactive", () => {
+    expect(appSource).toContain("isSectionAvailable");
+    expect(appSource).toContain("item.memberOnly");
+    expect(appSource).toContain('session.user.membershipStatus !== "active"');
+    expect(appSource).toContain('activeSection.value = "profile";');
+  });
 });

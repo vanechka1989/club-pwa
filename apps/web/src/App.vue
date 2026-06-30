@@ -46,9 +46,19 @@ function showTelegramAlert(message: string) {
   window.alert(message);
 }
 
-const visibleNavItems = computed(() =>
-  navItems.filter((item) => !item.adminOnly || session.user?.realRole === "admin" || session.user?.realRole === "owner")
-);
+function isSectionAvailable(item: (typeof navItems)[number]) {
+  if (item.adminOnly && session.user?.realRole !== "admin" && session.user?.realRole !== "owner") {
+    return false;
+  }
+
+  if (item.memberOnly && session.user?.role === "member" && session.user.membershipStatus !== "active") {
+    return false;
+  }
+
+  return true;
+}
+
+const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
 
 function syncCommunityLock(isLocked: boolean) {
   document.documentElement.classList.toggle("club-community-locked", isLocked);
@@ -67,6 +77,13 @@ function resetWindowScroll() {
 
 async function selectSection(section: AppSection) {
   blurActiveTextField();
+  const nextItem = navItems.find((item) => item.id === section);
+  if (nextItem && !isSectionAvailable(nextItem)) {
+    activeSection.value = "profile";
+    resetWindowScroll();
+    return;
+  }
+
   if (activeSection.value === section) {
     resetWindowScroll();
     return;
@@ -325,6 +342,16 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => [session.user?.role, session.user?.membershipStatus, activeSection.value] as const,
+  () => {
+    const currentItem = navItems.find((item) => item.id === activeSection.value);
+    if (currentItem && !isSectionAvailable(currentItem)) {
+      void selectSection("profile");
+    }
+  }
 );
 
 onBeforeUnmount(() => {
