@@ -120,5 +120,8 @@ describe("App", () => {
     expect(styles).toContain("width: 1.9rem");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .soft-card");
     expect(styles).toContain("padding: 0.62rem");
+    expect(styles).toMatch(
+      /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta\s*{[^}]*display: grid;[^}]*grid-template-columns: 1fr;[^}]*justify-content: flex-start;/s
+    );
   });
 });

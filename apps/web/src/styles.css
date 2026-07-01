@@ -7287,6 +7287,21 @@ body.club-huawei.club-screen-narrow .soft-list-card p {
   font-size: 0.66rem;
 }
 
+body.club-huawei.club-screen-narrow .profile-subscription-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-content: flex-start;
+  gap: 0.12rem;
+}
+
+body.club-huawei.club-screen-narrow .profile-subscription-meta span {
+  min-width: 0;
+}
+
+body.club-huawei.club-screen-narrow .profile-subscription-meta span:last-child {
+  justify-self: start;
+}
+
 body.club-huawei.club-screen-narrow .profile-avatar-large {
   width: 3rem;
   height: 3rem;

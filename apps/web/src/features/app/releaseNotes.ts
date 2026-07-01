@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Huawei: строка подписки",
+    items: [
+      "На узких Huawei строка срока доступа переносится в две строки.",
+      "Текст вида 60 дн. осталось и до даты больше не слипается.",
+      "Правка применяется только к Huawei narrow."
+    ]
+  },
+  {
+    version: "2.89",
+    updatedAt: "01.07.2026 19:52",
     title: "Huawei: плотнее профиль и чат",
     items: [
       "На узких Huawei профиль стал компактнее по высоте.",
