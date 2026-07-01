@@ -185,6 +185,12 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*gap:\s*0\.38rem;/s);
   });
 
+  it("keeps vertical lesson cards readable on narrow screens", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(8rem,\s*1fr\)\);/s);
+  });
+
   it("keeps horizontal lesson covers wide instead of square", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
@@ -209,6 +215,26 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-label\s*\{[^}]*justify-content:\s*center;/s);
     expect(styles).toMatch(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s*\{[^}]*text-align:\s*center;/s);
     expect(styles).toMatch(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s+strong\s*\{[^}]*justify-content:\s*center;/s);
+  });
+
+  it("frames the whole lesson card instead of making title pills", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const thumbRule = styles.match(/\.admin-mockup-thumb\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
+    const labelRule =
+      styles.match(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s*\{(?<body>[^}]*)\}/s)?.groups?.body ??
+      "";
+    const horizontalRule =
+      styles.match(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{(?<body>[^}]*)\}/s)?.groups?.body ??
+      "";
+
+    expect(thumbRule).toMatch(/border:\s*1px\s+solid/);
+    expect(thumbRule).toMatch(/background:/);
+    expect(thumbRule).toMatch(/padding:\s*0\.34rem/);
+    expect(horizontalRule).not.toMatch(/border:\s*0;/);
+    expect(horizontalRule).not.toMatch(/padding:\s*0;/);
+    expect(labelRule).not.toMatch(/border:/);
+    expect(labelRule).not.toMatch(/background:/);
+    expect(labelRule).not.toMatch(/box-shadow:/);
   });
 
   it("creates modules with description and default lesson card layout", async () => {
