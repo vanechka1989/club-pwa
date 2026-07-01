@@ -74,6 +74,7 @@ describe("App", () => {
   it("keeps mobile fullscreen layouts on the measured Telegram viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
+    expect(appSource).toContain("club-telegram-webview");
     expect(appSource).toContain("--tg-safe-left");
     expect(appSource).toContain("--tg-safe-right");
     expect(appSource).toContain("--tg-viewport-height");
@@ -83,5 +84,8 @@ describe("App", () => {
     expect(styles).toContain("height: var(--club-viewport-height, 100dvh);");
     expect(styles).toContain("calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset))");
     expect(styles).toContain("@media (pointer: coarse)");
+    expect(styles).toContain(".club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
+    expect(styles).toContain("@media (max-width: 380px)");
+    expect(styles).toContain(".payment-product-pay");
   });
 });

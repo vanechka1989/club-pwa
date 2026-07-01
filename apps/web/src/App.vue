@@ -391,6 +391,8 @@ function handleTextFieldFocusIn(event: FocusEvent) {
 onMounted(() => {
   isAppMounted = true;
   window.Telegram?.WebApp?.ready();
+  document.documentElement.classList.toggle("club-telegram-webview", Boolean(window.Telegram?.WebApp));
+  document.body.classList.toggle("club-telegram-webview", Boolean(window.Telegram?.WebApp));
   syncTelegramFullscreen(ui.fullscreenEnabled);
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
   window.visualViewport?.addEventListener("scroll", syncViewportHeight);
@@ -484,6 +486,8 @@ onBeforeUnmount(() => {
   }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");
+  document.documentElement.classList.remove("club-telegram-webview");
+  document.body.classList.remove("club-telegram-webview");
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
 });
