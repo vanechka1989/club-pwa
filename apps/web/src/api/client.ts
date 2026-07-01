@@ -122,10 +122,13 @@ export function completeLearningContent(id: string) {
   return api<LearningProgressMutationResponse>(`/learning/items/${id}/complete`, { method: "POST" });
 }
 
-export function saveLearningPlayback(id: string, positionSeconds: number, options: { keepalive?: boolean } = {}) {
+export function saveLearningPlayback(id: string, positionSeconds: number, options: { keepalive?: boolean; materialId?: string | null } = {}) {
   const fetchOptions = {
     method: "POST",
-    body: { positionSeconds },
+    body: {
+      positionSeconds,
+      ...(options.materialId !== undefined ? { materialId: options.materialId } : {})
+    },
     ...(options.keepalive ? { keepalive: true } : {})
   };
 

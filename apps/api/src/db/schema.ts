@@ -273,6 +273,7 @@ export const userContentProgress = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    lastOpenedMaterialId: uuid("last_opened_material_id").references(() => lessonMaterials.id, { onDelete: "set null" }),
     playbackPositionSeconds: integer("playback_position_seconds").notNull().default(0),
     lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -282,6 +283,7 @@ export const userContentProgress = pgTable(
   (table) => ({
     userItemIdx: uniqueIndex("user_content_progress_user_item_idx").on(table.userId, table.contentItemId),
     userLastOpenedIdx: index("user_content_progress_user_last_opened_idx").on(table.userId, table.lastOpenedAt),
+    userLastMaterialIdx: index("user_content_progress_last_material_idx").on(table.lastOpenedMaterialId),
     userCompletedIdx: index("user_content_progress_user_completed_idx").on(table.userId, table.completedAt)
   })
 );
@@ -680,6 +682,10 @@ export const userContentProgressRelations = relations(userContentProgress, ({ on
   item: one(contentItems, {
     fields: [userContentProgress.contentItemId],
     references: [contentItems.id]
+  }),
+  lastOpenedMaterial: one(lessonMaterials, {
+    fields: [userContentProgress.lastOpenedMaterialId],
+    references: [lessonMaterials.id]
   })
 }));
 

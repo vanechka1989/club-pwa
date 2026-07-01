@@ -248,6 +248,7 @@ const pendingLessonVideoStartSeconds = ref(0);
 const lessonVideoStartApplied = ref(false);
 const lastSavedLessonVideoSeconds = ref(0);
 const pendingPlaybackSaveKey = ref<string | null>(null);
+const pendingPlaybackMaterialId = ref<string | null>(null);
 let voiceChunks: Blob[] = [];
 let lessonVideoControlsTimer: number | null = null;
 
@@ -262,20 +263,25 @@ const lastOpenedLesson = computed(() => {
   const item = learningProgress.value?.lastOpenedItem;
   return item ? materialToLesson(item) : null;
 });
+const lastOpenedMaterial = computed(() => {
+  const materialId = learningProgress.value?.lastOpenedMaterialId;
+  return materialId ? lastOpenedLesson.value?.materials.find((material) => material.id === materialId) ?? null : null;
+});
 const lastOpenedLessonModule = computed(() => {
   const lesson = lastOpenedLesson.value;
   return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? null : null;
 });
 const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
+const continueLessonTitle = computed(() => lastOpenedMaterial.value?.title ?? lastOpenedLesson.value?.title ?? "");
+const continueLessonKind = computed(() => lastOpenedMaterial.value?.kind ?? lastOpenedLesson.value?.kind ?? "text");
 const continueLessonButtonLabel = computed(() => (lastOpenedLesson.value ? `Продолжить урок ${lastOpenedLesson.value.title}` : "Продолжить урок"));
 const continueLessonCardClasses = computed(() => [
   "continue-lesson-card",
   lastOpenedLesson.value?.cardLayout === "horizontal" ? "continue-lesson-card-horizontal" : "continue-lesson-card-vertical"
 ]);
 const continueLessonProgressLabel = computed(() => {
-  const lesson = lastOpenedLesson.value;
   const seconds = learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0;
-  if (lesson && isResumableMediaKind(lesson.kind) && seconds > 0) {
+  if (isResumableMediaKind(continueLessonKind.value) && seconds > 0) {
     return `Продолжить с ${formatVideoTime(seconds)}`;
   }
 
@@ -444,12 +450,13 @@ function createLessonMaterialDraft(material?: LessonMaterial): LessonMaterialDra
   };
 }
 
-function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStartSeconds = 0) {
+function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStartSeconds = 0, materialId: string | null = null) {
   resetLessonVideoState();
   if (!module.images.some((item) => item.id === lesson.id)) {
     module.images = [lesson, ...module.images];
   }
   selectedLesson.value = { moduleId: module.id, lessonId: lesson.id };
+  pendingPlaybackMaterialId.value = materialId;
   pendingLessonVideoStartSeconds.value = playbackStartSeconds;
   lessonVideoStartApplied.value = false;
   lastSavedLessonVideoSeconds.value = playbackStartSeconds;
@@ -477,7 +484,12 @@ function openLastLesson() {
     return;
   }
 
-  openLessonModal(module, lesson, learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0);
+  openLessonModal(
+    module,
+    lesson,
+    learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0,
+    learningProgress.value?.lastOpenedMaterialId ?? null
+  );
 }
 
 function openLessonCreateModal(module: ModuleCard) {
@@ -535,6 +547,7 @@ function resetLessonVideoState() {
   lessonVideoStartApplied.value = false;
   lastSavedLessonVideoSeconds.value = 0;
   pendingPlaybackSaveKey.value = null;
+  pendingPlaybackMaterialId.value = null;
 }
 
 function formatVideoTime(seconds: number) {
@@ -565,7 +578,7 @@ function syncLessonVideoState() {
 
 function applyPendingLessonVideoStart() {
   const video = lessonVideoElement.value;
-  if (!video || lessonVideoStartApplied.value || pendingLessonVideoStartSeconds.value <= 0) {
+  if (!video || pendingPlaybackMaterialId.value || lessonVideoStartApplied.value || pendingLessonVideoStartSeconds.value <= 0) {
     syncLessonVideoState();
     return;
   }
@@ -592,7 +605,7 @@ function applyPendingLessonVideoStart() {
   syncLessonVideoState();
 }
 
-function updateLearningPlaybackProgress(lesson: ModuleLesson, positionSeconds: number) {
+function updateLearningPlaybackProgress(lesson: ModuleLesson, positionSeconds: number, material: LessonMaterial | null = null) {
   if (!learningProgress.value) {
     return;
   }
@@ -620,6 +633,7 @@ function updateLearningPlaybackProgress(lesson: ModuleLesson, positionSeconds: n
   learningProgress.value = {
     ...learningProgress.value,
     lastOpenedItem,
+    lastOpenedMaterialId: material?.id ?? null,
     lastOpenedAt: openedAt,
     lastOpenedPlaybackPositionSeconds: positionSeconds
   };
@@ -646,7 +660,7 @@ async function persistLessonVideoPlayback(options: PlaybackPersistOptions | bool
     return;
   }
 
-  const saveKey = `${lesson.id}:${positionSeconds}`;
+  const saveKey = `${lesson.id}:main:${positionSeconds}`;
   if (pendingPlaybackSaveKey.value === saveKey) {
     return;
   }
@@ -660,7 +674,7 @@ async function persistLessonVideoPlayback(options: PlaybackPersistOptions | bool
     );
     const savedSeconds = response.playbackPositionSeconds ?? positionSeconds;
     lastSavedLessonVideoSeconds.value = savedSeconds;
-    updateLearningPlaybackProgress(lesson, savedSeconds);
+    updateLearningPlaybackProgress(lesson, savedSeconds, null);
   } catch {
     // Keep the previous saved marker so the next event retries this position.
   } finally {
@@ -687,6 +701,87 @@ function handleLessonVideoTimeUpdate() {
     return;
   }
   void persistLessonVideoPlayback(false);
+}
+
+function getMediaElement(event: Event) {
+  return event.currentTarget instanceof HTMLMediaElement ? event.currentTarget : null;
+}
+
+function applyPendingLessonMaterialStart(material: LessonMaterial, event: Event) {
+  const media = getMediaElement(event);
+  if (!media || lessonVideoStartApplied.value || pendingPlaybackMaterialId.value !== material.id || pendingLessonVideoStartSeconds.value <= 0) {
+    return;
+  }
+
+  const targetSeconds =
+    Number.isFinite(media.duration) && media.duration > 0
+      ? Math.min(pendingLessonVideoStartSeconds.value, Math.max(0, media.duration - 0.25))
+      : pendingLessonVideoStartSeconds.value;
+
+  try {
+    media.currentTime = targetSeconds;
+  } catch {
+    return;
+  }
+
+  if (Math.abs(media.currentTime - targetSeconds) > 0.5) {
+    return;
+  }
+
+  lessonVideoStartApplied.value = true;
+  lastSavedLessonVideoSeconds.value = Math.floor(targetSeconds);
+}
+
+async function persistLessonMaterialPlayback(
+  material: LessonMaterial,
+  event: Event,
+  options: PlaybackPersistOptions | boolean = {}
+) {
+  const force = typeof options === "boolean" ? options : options.force ?? false;
+  const keepalive = typeof options === "boolean" ? false : options.keepalive ?? false;
+  const lesson = selectedLessonItem.value;
+  const media = getMediaElement(event);
+  if (!lesson?.isPersisted || !isResumableMediaKind(material.kind) || !media) {
+    return;
+  }
+
+  if (pendingPlaybackMaterialId.value === material.id && pendingLessonVideoStartSeconds.value > 0 && !lessonVideoStartApplied.value) {
+    applyPendingLessonMaterialStart(material, event);
+    if (!lessonVideoStartApplied.value) {
+      return;
+    }
+  }
+
+  const positionSeconds = Math.max(0, Math.floor(media.currentTime));
+  if (!force && Math.abs(positionSeconds - lastSavedLessonVideoSeconds.value) < 5) {
+    return;
+  }
+
+  const saveKey = `${lesson.id}:${material.id}:${positionSeconds}`;
+  if (pendingPlaybackSaveKey.value === saveKey) {
+    return;
+  }
+
+  pendingPlaybackSaveKey.value = saveKey;
+  try {
+    const response = await saveLearningPlayback(lesson.id, positionSeconds, {
+      ...(keepalive ? { keepalive: true } : {}),
+      materialId: material.id
+    });
+    const savedSeconds = response.playbackPositionSeconds ?? positionSeconds;
+    lastSavedLessonVideoSeconds.value = savedSeconds;
+    updateLearningPlaybackProgress(lesson, savedSeconds, material);
+  } catch {
+    // Keep the previous saved marker so the next event retries this position.
+  } finally {
+    if (pendingPlaybackSaveKey.value === saveKey) {
+      pendingPlaybackSaveKey.value = null;
+    }
+  }
+}
+
+function handleLessonMaterialTimeUpdate(material: LessonMaterial, event: Event) {
+  void persistLessonMaterialPlayback(material, event, false);
 }
 
 function clearLessonVideoControlsTimer() {
@@ -805,6 +900,19 @@ function getModuleLessonImage(module: ModuleCard | null, item: ModuleLesson) {
   return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
 }
 
+function getContinueLessonImage(module: ModuleCard | null, item: ModuleLesson) {
+  const material = lastOpenedMaterial.value;
+  if (material?.kind === "photo" && material.mediaUrl) {
+    return material.mediaUrl;
+  }
+
+  if (material) {
+    return getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
+  }
+
+  return getModuleLessonImage(module, item);
+}
+
 function materialToLesson(item: AdminLearningMaterial | LearningContent): ModuleLesson {
   const archivedUntil = "archivedUntil" in item ? item.archivedUntil : null;
   return {
@@ -851,6 +959,9 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
     }
 
     replaceModuleLesson(materialToLesson(response.item));
+    if (!pendingPlaybackMaterialId.value && response.lastOpenedMaterialId) {
+      pendingPlaybackMaterialId.value = response.lastOpenedMaterialId;
+    }
     pendingLessonVideoStartSeconds.value = Math.max(pendingLessonVideoStartSeconds.value, response.playbackPositionSeconds ?? 0);
     lastSavedLessonVideoSeconds.value = pendingLessonVideoStartSeconds.value;
     void nextTick().then(() => applyPendingLessonVideoStart());
@@ -1784,11 +1895,11 @@ watch(
       :aria-label="continueLessonButtonLabel"
       @click="openLastLesson"
     >
-      <img :src="getModuleLessonImage(lastOpenedLessonModule, lastOpenedLesson)" :alt="lastOpenedLesson.title" loading="lazy" />
+      <img :src="getContinueLessonImage(lastOpenedLessonModule, lastOpenedLesson)" :alt="continueLessonTitle" loading="lazy" />
       <span class="continue-lesson-copy">
         <small>Продолжить урок</small>
-        <strong>{{ lastOpenedLesson.title }}</strong>
-        <em>{{ lastOpenedLessonModule.title }}</em>
+        <strong>{{ continueLessonTitle }}</strong>
+        <em>{{ lastOpenedMaterial ? lastOpenedLesson.title : lastOpenedLessonModule.title }}</em>
       </span>
       <span class="continue-lesson-action">{{ continueLessonProgressLabel }}</span>
     </button>
@@ -2106,8 +2217,31 @@ watch(
                   </div>
                   <p v-if="material.body">{{ material.body }}</p>
                   <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
-                  <video v-else-if="material.kind === 'video' && material.mediaUrl" :src="material.mediaUrl" controls playsinline preload="metadata" />
-                  <audio v-else-if="material.kind === 'audio' && material.mediaUrl" :src="material.mediaUrl" controls preload="metadata" />
+                  <video
+                    v-else-if="material.kind === 'video' && material.mediaUrl"
+                    :src="material.mediaUrl"
+                    controls
+                    playsinline
+                    preload="metadata"
+                    @loadedmetadata="applyPendingLessonMaterialStart(material, $event)"
+                    @loadeddata="applyPendingLessonMaterialStart(material, $event)"
+                    @canplay="applyPendingLessonMaterialStart(material, $event)"
+                    @timeupdate="handleLessonMaterialTimeUpdate(material, $event)"
+                    @pause="persistLessonMaterialPlayback(material, $event, true)"
+                    @seeked="persistLessonMaterialPlayback(material, $event, true)"
+                  />
+                  <audio
+                    v-else-if="material.kind === 'audio' && material.mediaUrl"
+                    :src="material.mediaUrl"
+                    controls
+                    preload="metadata"
+                    @loadedmetadata="applyPendingLessonMaterialStart(material, $event)"
+                    @loadeddata="applyPendingLessonMaterialStart(material, $event)"
+                    @canplay="applyPendingLessonMaterialStart(material, $event)"
+                    @timeupdate="handleLessonMaterialTimeUpdate(material, $event)"
+                    @pause="persistLessonMaterialPlayback(material, $event, true)"
+                    @seeked="persistLessonMaterialPlayback(material, $event, true)"
+                  />
                 </article>
               </section>
             </article>

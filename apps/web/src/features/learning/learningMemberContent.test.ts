@@ -338,6 +338,94 @@ describe("Learning section member content", () => {
     await waitFor(() => expect(getLearningContent).toHaveBeenCalledWith("lesson-video"));
   });
 
+  it("continues the last opened lesson material instead of the lesson main media", async () => {
+    const audioMaterial = {
+      id: "material-audio",
+      kind: "audio" as const,
+      title: "Аудио дорожка",
+      description: "Последний открытый материал",
+      body: "",
+      mediaUrl: "https://example.com/material-audio.mp3",
+      mediaContentType: "audio/mpeg",
+      mediaSizeBytes: 2048
+    };
+    const photoMaterial = {
+      id: "material-photo",
+      kind: "photo" as const,
+      title: "Фото",
+      description: "",
+      body: "",
+      mediaUrl: "https://example.com/material-photo.jpg",
+      mediaContentType: "image/jpeg",
+      mediaSizeBytes: 1024
+    };
+    const lesson = {
+      id: "lesson-video",
+      categoryId: "module-video",
+      kind: "video" as const,
+      title: "Видео урок",
+      summary: "Видео, фото и аудио",
+      body: null,
+      mediaUrl: "https://example.com/video.mp4",
+      thumbnailUrl: "https://example.com/video-cover.jpg",
+      cardLayout: "horizontal" as const,
+      mediaContentType: "video/mp4",
+      mediaSizeBytes: 1024,
+      materials: [photoMaterial, audioMaterial],
+      publishedAt: "2026-06-29T10:00:00.000Z"
+    };
+
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-video",
+          slug: "module-video",
+          title: "Видео модуль",
+          description: "Материалы с видео",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: lesson,
+        lastOpenedMaterialId: "material-audio",
+        lastOpenedAt: "2026-06-29T10:00:00.000Z",
+        lastOpenedPlaybackPositionSeconds: 65
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: lesson,
+      completedAt: null,
+      lastOpenedMaterialId: "material-audio",
+      playbackPositionSeconds: 65
+    });
+    vi.mocked(saveLearningPlayback).mockResolvedValueOnce({
+      ok: true,
+      lastOpenedMaterialId: "material-audio",
+      playbackPositionSeconds: 70
+    });
+
+    renderAsMember();
+
+    expect(await screen.findByText("Аудио дорожка")).toBeTruthy();
+    expect(screen.getByText("Продолжить с 1:05")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Продолжить урок Видео урок" }));
+    await waitFor(() => expect(document.querySelector('audio[src="https://example.com/material-audio.mp3"]')).toBeTruthy());
+
+    const audio = document.querySelector('audio[src="https://example.com/material-audio.mp3"]') as HTMLAudioElement;
+    await fireEvent.loadedMetadata(audio);
+    expect(Math.round(audio.currentTime)).toBe(65);
+
+    Object.defineProperty(audio, "currentTime", { configurable: true, value: 70 });
+    await fireEvent.pause(audio);
+
+    await waitFor(() => expect(saveLearningPlayback).toHaveBeenCalledWith("lesson-video", 70, { materialId: "material-audio" }));
+  });
+
   it("starts a continued video from the saved playback position", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [

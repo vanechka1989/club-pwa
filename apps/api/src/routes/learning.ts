@@ -14,7 +14,8 @@ const commentPayloadSchema = z.object({
 });
 
 const playbackPayloadSchema = z.object({
-  positionSeconds: z.number().int().min(0).max(24 * 60 * 60)
+  positionSeconds: z.number().int().min(0).max(24 * 60 * 60),
+  materialId: z.string().uuid().nullable().optional()
 });
 
 function publishedContentWhere() {
@@ -160,7 +161,8 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       progress: {
         totalItems: totalItemsRow?.value ?? 0,
         completedItems: completedItemsRow?.value ?? 0,
-        lastOpenedItem: lastOpenedItem ? await serializeContentItem(lastOpenedItem) : null,
+        lastOpenedItem: lastOpenedItem ? await serializeContentItem(lastOpenedItem, true) : null,
+        lastOpenedMaterialId: lastOpenedItem ? lastOpenedProgress?.lastOpenedMaterialId ?? null : null,
         lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null,
         lastOpenedPlaybackPositionSeconds: lastOpenedItem ? lastOpenedProgress?.playbackPositionSeconds ?? 0 : 0
       }
@@ -197,6 +199,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       item: await serializeContentItem(item, true),
       completedAt: progress?.completedAt?.toISOString() ?? null,
+      lastOpenedMaterialId: progress?.lastOpenedMaterialId ?? null,
       playbackPositionSeconds: progress?.playbackPositionSeconds ?? 0
     });
   })
@@ -215,12 +218,23 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Learning content not found" }, 404);
     }
 
+    const materialId = body.data.materialId ?? null;
+    if (materialId) {
+      const material = await db.query.lessonMaterials.findFirst({
+        where: and(eq(lessonMaterials.id, materialId), eq(lessonMaterials.contentItemId, item.id))
+      });
+      if (!material) {
+        return c.json({ error: "Lesson material not found" }, 404);
+      }
+    }
+
     const now = new Date();
     const [progress] = await db
       .insert(userContentProgress)
       .values({
         userId,
         contentItemId: item.id,
+        lastOpenedMaterialId: materialId,
         playbackPositionSeconds: body.data.positionSeconds,
         lastOpenedAt: now,
         updatedAt: now
@@ -228,6 +242,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       .onConflictDoUpdate({
         target: [userContentProgress.userId, userContentProgress.contentItemId],
         set: {
+          lastOpenedMaterialId: materialId,
           playbackPositionSeconds: body.data.positionSeconds,
           lastOpenedAt: now,
           updatedAt: now
@@ -237,6 +252,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
+      lastOpenedMaterialId: progress?.lastOpenedMaterialId ?? materialId,
       playbackPositionSeconds: progress?.playbackPositionSeconds ?? body.data.positionSeconds
     });
   })

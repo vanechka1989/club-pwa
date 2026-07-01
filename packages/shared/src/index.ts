@@ -115,6 +115,7 @@ export const learningProgressSummarySchema = z.object({
   totalItems: z.number().int().nonnegative(),
   completedItems: z.number().int().nonnegative(),
   lastOpenedItem: learningContentSchema.nullable(),
+  lastOpenedMaterialId: z.string().nullable().optional(),
   lastOpenedAt: z.string().datetime().nullable(),
   lastOpenedPlaybackPositionSeconds: z.number().int().nonnegative()
 });
@@ -130,6 +131,7 @@ export type LearningHomeResponse = z.infer<typeof learningHomeResponseSchema>;
 export const learningContentResponseSchema = z.object({
   item: learningContentSchema,
   completedAt: z.string().datetime().nullable(),
+  lastOpenedMaterialId: z.string().nullable().optional(),
   playbackPositionSeconds: z.number().int().nonnegative()
 });
 export type LearningContentResponse = z.infer<typeof learningContentResponseSchema>;
@@ -143,6 +145,7 @@ export type LearningProgressMutationResponse = z.infer<typeof learningProgressMu
 
 export const learningPlaybackMutationResponseSchema = z.object({
   ok: z.boolean(),
+  lastOpenedMaterialId: z.string().nullable().optional(),
   playbackPositionSeconds: z.number().int().nonnegative()
 });
 export type LearningPlaybackMutationResponse = z.infer<typeof learningPlaybackMutationResponseSchema>;
