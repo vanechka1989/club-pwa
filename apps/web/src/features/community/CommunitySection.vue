@@ -60,6 +60,7 @@ let refreshInFlight = false;
 let topicsRefreshInFlight = false;
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
 const topicReadStorageKey = "club-community-topic-read-at";
+const chatViewportHeightCssVar = "--club-chat-viewport-height";
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isOwner = computed(() => session.user?.role === "owner");
@@ -643,7 +644,34 @@ async function handleReaction(message: ClubMessage, reaction: Exclude<MessageRea
   activeReactionMessageId.value = null;
 }
 
+function updateChatViewportHeight() {
+  if (document.body.classList.contains("club-ios")) {
+    document.documentElement.style.removeProperty(chatViewportHeightCssVar);
+    return;
+  }
+
+  const height = window.visualViewport?.height ?? window.innerHeight;
+  if (height > 0) {
+    document.documentElement.style.setProperty(chatViewportHeightCssVar, `${height}px`);
+  }
+}
+
+function bindChatViewportHeight() {
+  updateChatViewportHeight();
+  window.visualViewport?.addEventListener("resize", updateChatViewportHeight);
+  window.visualViewport?.addEventListener("scroll", updateChatViewportHeight);
+  window.addEventListener("resize", updateChatViewportHeight);
+}
+
+function unbindChatViewportHeight() {
+  window.visualViewport?.removeEventListener("resize", updateChatViewportHeight);
+  window.visualViewport?.removeEventListener("scroll", updateChatViewportHeight);
+  window.removeEventListener("resize", updateChatViewportHeight);
+  document.documentElement.style.removeProperty(chatViewportHeightCssVar);
+}
+
 onMounted(() => {
+  bindChatViewportHeight();
   loadTopicReadState();
   if (hasCommunityAccess.value) {
     void loadTopics({ showLoading: true });
@@ -690,6 +718,7 @@ watch(
 onBeforeUnmount(() => {
   stopMessageRefresh();
   stopTopicsRefresh();
+  unbindChatViewportHeight();
   emit("chatOpenChange", false);
 });
 </script>

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: Android и iPhone",
+    items: [
+      "Вернул отдельный пересчёт высоты чата для Android.",
+      "Этот пересчёт больше не влияет на iPhone.",
+      "Поле ввода на Android снова должно подниматься над клавиатурой."
+    ]
+  },
+  {
+    version: "2.76",
+    updatedAt: "01.07.2026 15:24",
     title: "Чат: iPhone и клавиатура",
     items: [
       "Чат на iPhone теперь использует нижнюю границу видимой области экрана, а не только высоту viewport.",

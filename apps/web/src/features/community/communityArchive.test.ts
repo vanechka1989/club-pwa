@@ -10,8 +10,9 @@ describe("community archive labels", () => {
     expect(source).not.toContain("В архиве до {{ formatArchiveUntil");
   });
 
-  it("does not override the global viewport height from the community section", () => {
+  it("keeps chat viewport sizing separate from the global app viewport", () => {
     expect(source).not.toContain("--club-viewport-height");
-    expect(source).not.toContain("visualViewport?.addEventListener");
+    expect(source).toContain("--club-chat-viewport-height");
+    expect(source).toContain('document.body.classList.contains("club-ios")');
   });
 });

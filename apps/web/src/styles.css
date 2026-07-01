@@ -319,7 +319,7 @@ button:disabled {
   position: fixed;
   inset: 0;
   width: 100%;
-  height: var(--app-viewport-height);
+  height: var(--club-chat-viewport-height, var(--app-viewport-height));
   overflow: hidden;
   padding-bottom: 0;
   overscroll-behavior: none;
@@ -501,7 +501,7 @@ body.club-keyboard-open .app-shell {
 }
 
 .community-chat-open .app-shell {
-  height: var(--app-viewport-height);
+  height: var(--club-chat-viewport-height, var(--app-viewport-height));
   padding: 0;
   overflow: hidden;
 }
@@ -7713,7 +7713,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .community-chat-open .chat-room {
-  height: var(--app-viewport-height);
+  height: var(--club-chat-viewport-height, var(--app-viewport-height));
   padding: 0.7rem 0.75rem calc(0.7rem + env(safe-area-inset-bottom));
 }
 
@@ -7723,7 +7723,7 @@ body.club-keyboard-open .community-chat-open .chat-room {
 }
 
 .club-telegram-webview:not(.club-telegram-fullscreen) .community-chat-open .chat-room {
-  height: calc(var(--app-viewport-height) - var(--chat-top-offset));
+  height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
   padding-top: var(--chat-top-offset);
 }
 
@@ -7744,7 +7744,7 @@ body.club-ios.club-keyboard-open.club-telegram-webview:not(.club-telegram-fullsc
 }
 
 .club-telegram-fullscreen .community-chat-open .chat-room {
-  height: calc(var(--app-viewport-height) - var(--chat-top-offset));
+  height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
   padding-top: var(--chat-top-offset);
 }
 
