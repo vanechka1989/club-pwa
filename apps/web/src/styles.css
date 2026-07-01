@@ -510,6 +510,10 @@ body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell
   padding-top: 4.8rem;
 }
 
+body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
+  padding-top: 0.4rem;
+}
+
 body.club-android-compact-top.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
   padding-top: 2.4rem;
 }
@@ -530,6 +534,10 @@ body.club-keyboard-open .app-shell {
 
 body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
   padding-top: 4.8rem;
+}
+
+body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
+  padding-top: 0.4rem;
 }
 
 body.club-android-compact-top.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {

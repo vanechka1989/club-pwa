@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Huawei: Telegram без fullscreen",
+    items: [
+      "Для Huawei на узком экране добавлен отдельный отступ в обычном Telegram WebView.",
+      "Правка убирает большой зазор под белой шапкой Telegram.",
+      "Samsung и iPhone не затрагиваются."
+    ]
+  },
+  {
+    version: "2.86",
+    updatedAt: "01.07.2026 17:43",
     title: "Huawei: узкий экран",
     items: [
       "Для Huawei JLN-LX1 и других узких Huawei WebView добавлен отдельный компактный верхний offset.",
