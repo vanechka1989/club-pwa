@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Huawei: компактный профиль и чат",
+    items: [
+      "На узких Huawei уменьшены шрифты и ослаблены свечения.",
+      "Исправлено появление крупного скрытого заголовка Профиль над разделами.",
+      "Чат на Huawei получил отдельный компактный верхний отступ."
+    ]
+  },
+  {
+    version: "2.87",
+    updatedAt: "01.07.2026 18:15",
     title: "Huawei: Telegram без fullscreen",
     items: [
       "Для Huawei на узком экране добавлен отдельный отступ в обычном Telegram WebView.",

@@ -285,6 +285,15 @@ body {
   text-rendering: geometricprecision;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 button {
   border: 0;
   border-radius: var(--ui-button-radius);
@@ -489,7 +498,7 @@ body.club-huawei {
 
 body.club-huawei.club-screen-narrow {
   --fullscreen-top-offset: 1.8rem;
-  --chat-top-offset: 4.4rem;
+  --chat-top-offset: 1.4rem;
 }
 
 body.club-samsung {
@@ -804,6 +813,10 @@ body.club-screen-narrow {
   --section-bleed: 0.35rem;
   --ui-gap: 0.5rem;
   --ui-card-padding: 0.72rem;
+}
+
+body.club-huawei.club-screen-narrow .content-panel {
+  box-shadow: 0 10px 22px color-mix(in srgb, #000 18%, transparent);
 }
 
 body.club-screen-short:not(.community-chat-open) {
@@ -7247,6 +7260,33 @@ body.club-keyboard-open .admin-modal-backdrop {
   box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
+body.club-huawei.club-screen-narrow .section-title {
+  font-size: 0.96rem;
+}
+
+body.club-huawei.club-screen-narrow .section-subtitle,
+body.club-huawei.club-screen-narrow .soft-hero p:last-child {
+  font-size: 0.7rem;
+}
+
+body.club-huawei.club-screen-narrow .soft-hero h2,
+body.club-huawei.club-screen-narrow .soft-card h3,
+body.club-huawei.club-screen-narrow .soft-list-card h4 {
+  font-size: 0.92rem;
+}
+
+body.club-huawei.club-screen-narrow .soft-pill,
+body.club-huawei.club-screen-narrow .profile-subscription-meta,
+body.club-huawei.club-screen-narrow .soft-list-card p {
+  font-size: 0.66rem;
+}
+
+body.club-huawei.club-screen-narrow .profile-avatar-large {
+  width: 3rem;
+  height: 3rem;
+  box-shadow: none;
+}
+
 .soft-link {
   color: var(--accent);
   font-size: 0.78rem;
@@ -8323,6 +8363,11 @@ body.club-ios .chat-input-row .text-input {
   color: var(--text);
   box-shadow: 0 7px 16px color-mix(in srgb, var(--accent) 16%, transparent);
   transform: translateY(-1px);
+}
+
+body.club-huawei.club-screen-narrow .bottom-nav,
+body.club-huawei.club-screen-narrow .bottom-nav-item-active {
+  box-shadow: none;
 }
 
 @media (pointer: coarse) {

@@ -107,7 +107,12 @@ describe("App", () => {
 
     expect(styles).toContain("body.club-huawei.club-screen-narrow");
     expect(styles).toContain("--fullscreen-top-offset: 1.8rem");
+    expect(styles).toContain("--chat-top-offset: 1.4rem");
     expect(styles).toContain("body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
     expect(styles).toContain("padding-top: 0.4rem");
+    expect(styles).toContain(".sr-only");
+    expect(styles).toContain("position: absolute");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .bottom-nav-item-active");
+    expect(styles).toContain("box-shadow: none");
   });
 });
