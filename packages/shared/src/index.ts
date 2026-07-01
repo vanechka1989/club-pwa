@@ -680,6 +680,37 @@ export const adminServerErrorsResponseSchema = z.object({
 });
 export type AdminServerErrorsResponse = z.infer<typeof adminServerErrorsResponseSchema>;
 
+export const adminServerUsageSchema = z.object({
+  usedBytes: z.number().int().nonnegative(),
+  totalBytes: z.number().int().nonnegative(),
+  freeBytes: z.number().int().nonnegative(),
+  usedPercent: z.number().min(0).max(100)
+});
+export type AdminServerUsage = z.infer<typeof adminServerUsageSchema>;
+
+export const adminServerStatusSchema = z.object({
+  ok: z.boolean(),
+  checkedAt: z.string().datetime(),
+  processUptimeSeconds: z.number().int().nonnegative(),
+  systemUptimeSeconds: z.number().int().nonnegative(),
+  cpuCount: z.number().int().nonnegative(),
+  loadAverage: z.array(z.number()).length(3),
+  processMemory: z.object({
+    rssBytes: z.number().int().nonnegative(),
+    heapUsedBytes: z.number().int().nonnegative(),
+    heapTotalBytes: z.number().int().nonnegative()
+  }),
+  systemMemory: adminServerUsageSchema,
+  disk: adminServerUsageSchema.nullable(),
+  serverErrorCount: z.number().int().nonnegative()
+});
+export type AdminServerStatus = z.infer<typeof adminServerStatusSchema>;
+
+export const adminServerStatusResponseSchema = z.object({
+  status: adminServerStatusSchema
+});
+export type AdminServerStatusResponse = z.infer<typeof adminServerStatusResponseSchema>;
+
 export const adminLearningCategoryMutationResponseSchema = z.object({
   ok: z.boolean(),
   category: learningCategorySchema

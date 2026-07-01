@@ -1,6 +1,8 @@
 import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
+import { statfs } from "node:fs/promises";
+import { cpus, freemem, loadavg, totalmem, uptime as systemUptime } from "node:os";
 import { z } from "zod";
 import {
   adminPermissionSchema,
@@ -40,7 +42,7 @@ import {
 } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
-import { listServerErrors, recordServerError } from "../serverErrors";
+import { countServerErrors, listServerErrors, recordServerError } from "../serverErrors";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
@@ -484,6 +486,56 @@ function requireAnyAdminPermission(permissions: AdminPermission[]) {
   };
 }
 
+function buildUsage(usedBytes: number, totalBytes: number, freeBytes: number) {
+  const normalizedTotal = Math.max(0, Math.round(totalBytes));
+  const normalizedUsed = Math.max(0, Math.round(usedBytes));
+  const normalizedFree = Math.max(0, Math.round(freeBytes));
+
+  return {
+    usedBytes: normalizedUsed,
+    totalBytes: normalizedTotal,
+    freeBytes: normalizedFree,
+    usedPercent: normalizedTotal > 0 ? Math.min(100, Math.round((normalizedUsed / normalizedTotal) * 1000) / 10) : 0
+  };
+}
+
+async function getDiskUsage() {
+  try {
+    const diskPath = process.platform === "win32" ? process.cwd() : "/";
+    const stats = await statfs(diskPath);
+    const blockSize = Number(stats.bsize);
+    const totalBytes = Number(stats.blocks) * blockSize;
+    const freeBytes = Number(stats.bavail) * blockSize;
+    return buildUsage(totalBytes - freeBytes, totalBytes, freeBytes);
+  } catch (error) {
+    logger.warn({ error }, "Unable to read server disk usage");
+    return null;
+  }
+}
+
+async function buildAdminServerStatus() {
+  const processMemory = process.memoryUsage();
+  const memoryTotal = totalmem();
+  const memoryFree = freemem();
+
+  return {
+    ok: true,
+    checkedAt: new Date().toISOString(),
+    processUptimeSeconds: Math.floor(process.uptime()),
+    systemUptimeSeconds: Math.floor(systemUptime()),
+    cpuCount: cpus().length,
+    loadAverage: loadavg().map((value) => Math.round(value * 100) / 100),
+    processMemory: {
+      rssBytes: processMemory.rss,
+      heapUsedBytes: processMemory.heapUsed,
+      heapTotalBytes: processMemory.heapTotal
+    },
+    systemMemory: buildUsage(memoryTotal - memoryFree, memoryTotal, memoryFree),
+    disk: await getDiskUsage(),
+    serverErrorCount: countServerErrors()
+  };
+}
+
 function serializeAdmin(admin: typeof adminUsers.$inferSelect, profile: typeof users.$inferSelect | undefined) {
   return {
     id: admin.id,
@@ -847,6 +899,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       admins: adminTelegramIds.map((telegramId) => serializeAdminActionActor(telegramId, profilesByTelegramId.get(telegramId))),
       logs: logs.map(serializeAdminActionLog)
     });
+  })
+  .get("/server-status", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    return c.json({ status: await buildAdminServerStatus() });
   })
   .get("/server-errors", async (c) => {
     const ownerError = await rejectIfNotOwner(c);

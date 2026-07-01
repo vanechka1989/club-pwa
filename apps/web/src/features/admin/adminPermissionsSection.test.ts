@@ -62,9 +62,13 @@ describe("admin permissions section", () => {
 
   it("shows understandable server errors in a dedicated server logs panel with auto refresh", () => {
     expect(apiClientSource).toContain("getAdminServerErrors");
+    expect(apiClientSource).toContain("getAdminServerStatus");
     expect(adminSectionSource).toContain("activePanel === 'server-logs'");
     expect(adminSectionSource).toContain("serverErrorLogs");
-    expect(adminSectionSource).toContain("Ошибки сервера");
+    expect(adminSectionSource).toContain("serverStatus");
+    expect(adminSectionSource).toContain("Сервер");
+    expect(adminSectionSource).toContain("Логи сервера");
+    expect(adminSectionSource).toContain("Открыть логи");
     expect(adminSectionSource).toContain("Доступно разработчику");
     expect(adminSectionSource).toContain("Здесь не Docker-логи");
     expect(adminSectionSource).toContain("последние 100 ошибок");

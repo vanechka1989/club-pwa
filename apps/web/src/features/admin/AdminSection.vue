@@ -7,6 +7,7 @@ import {
   type AdminCommunityMessage,
   type AdminPermission,
   type AdminServerErrorLog,
+  type AdminServerStatus,
   type AdminMailing,
   type AdminMailingPreviewResponse,
   type AdminLearningMaterial,
@@ -30,7 +31,7 @@ import {
   CreditCard,
   ExternalLink,
   Megaphone,
-  Paperclip,
+  Server,
   Shield,
   Trash2,
   UsersRound,
@@ -56,6 +57,7 @@ import {
   getAdminS3ObjectUrl,
   getAdminS3StorageSettings,
   getAdminServerErrors,
+  getAdminServerStatus,
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
@@ -137,7 +139,7 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
   payments: CreditCard,
   storage: Cloud,
   admins: Shield,
-  "server-logs": Paperclip
+  "server-logs": Server
 };
 
 const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
@@ -182,6 +184,8 @@ const admins = ref<AdminUser[]>([]);
 const adminActionAdmins = ref<AdminActionActor[]>([]);
 const adminActionLogs = ref<AdminActionLog[]>([]);
 const serverErrorLogs = ref<AdminServerErrorLog[]>([]);
+const serverStatus = ref<AdminServerStatus | null>(null);
+const showServerLogsModal = ref(false);
 const adminActionActorFilter = ref("");
 const adminActionLogExpanded = ref(false);
 const users = ref<AdminStatsUser[]>([]);
@@ -1089,6 +1093,24 @@ async function loadServerErrorLogs() {
   serverErrorLogs.value = response.errors;
 }
 
+async function loadServerStatus() {
+  const response = await getAdminServerStatus();
+  serverStatus.value = response.status;
+}
+
+async function loadServerDashboard() {
+  await Promise.all([loadServerStatus(), loadServerErrorLogs()]);
+}
+
+function openServerLogsModal() {
+  showServerLogsModal.value = true;
+  void loadServerErrorLogs().catch(() => null);
+}
+
+function closeServerLogsModal() {
+  showServerLogsModal.value = false;
+}
+
 function adminRoleLabel(role: AdminStatsUser["role"]) {
   if (role === "owner") {
     return "Главный админ";
@@ -1387,6 +1409,22 @@ function formatStorageSize(bytes: number) {
   }
 
   return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function formatServerUptime(seconds: number) {
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  if (days > 0) {
+    return `${days} д. ${hours} ч.`;
+  }
+
+  if (hours > 0) {
+    return `${hours} ч. ${minutes} мин.`;
+  }
+
+  return `${minutes} мин.`;
 }
 
 function storageObjectFileName(key: string) {
@@ -2111,10 +2149,10 @@ function stopServerLogsAutoRefresh() {
 
 function startServerLogsAutoRefresh() {
   stopServerLogsAutoRefresh();
-  void loadServerErrorLogs().catch(() => null);
+  void loadServerDashboard().catch(() => null);
   serverLogsRefreshTimer = window.setInterval(() => {
     if (activePanel.value === "server-logs") {
-      void loadServerErrorLogs().catch(() => null);
+      void loadServerDashboard().catch(() => null);
     }
   }, 5000);
 }
@@ -3533,37 +3571,111 @@ onUnmounted(() => {
     <section v-else-if="activePanel === 'server-logs'" class="admin-panel admin-permissions-panel">
       <div class="admin-panel-head">
         <div>
-          <h3>Логи сервера</h3>
-          <p>Только ошибки API, которые приложение успело записать. Доступно разработчику.</p>
+          <h3>Сервер</h3>
+          <p>Состояние, ресурсы и ошибки API. Доступно разработчику.</p>
         </div>
-        <button class="secondary-button" type="button" @click="loadServerErrorLogs">
+        <button class="secondary-button" type="button" @click="loadServerDashboard">
           Обновить
         </button>
       </div>
 
-      <section class="admin-crm-block admin-action-log-panel">
-        <header class="admin-action-log-head">
+      <section class="admin-server-grid">
+        <article class="admin-server-card admin-server-card-ok">
           <div>
-            <h4>Ошибки сервера</h4>
-            <p>{{ serverErrorLogs.length ? `${serverErrorLogs.length} последних` : "ошибок пока нет" }}</p>
+            <span>Статус</span>
+            <strong>{{ serverStatus?.ok ? "Работает" : "Нет данных" }}</strong>
+            <small>{{ serverStatus ? `Проверено ${formatDateTime(serverStatus.checkedAt)}` : "Обновление каждые 5 секунд" }}</small>
           </div>
-        </header>
-        <p class="admin-log-note">
-          Здесь не Docker-логи и не все запросы. Показываются последние 100 ошибок в памяти сервера: падения API 500 и ошибки сборки
-          загрузок уроков из частей. После перезапуска сервера список очищается.
-        </p>
+        </article>
 
-        <div class="admin-action-log-list">
-          <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
-            <div>
-              <strong>{{ log.title }}</strong>
-              <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
-              <small>{{ log.detail }}</small>
-            </div>
-          </article>
-          <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
-        </div>
+        <article class="admin-server-card">
+          <div>
+            <span>Uptime</span>
+            <strong>{{ serverStatus ? formatServerUptime(serverStatus.processUptimeSeconds) : "..." }}</strong>
+            <small>Процесс API</small>
+          </div>
+        </article>
+
+        <article class="admin-server-card">
+          <div>
+            <span>Память Node</span>
+            <strong>{{ serverStatus ? formatStorageSize(serverStatus.processMemory.rssBytes) : "..." }}</strong>
+            <small>
+              Heap {{ serverStatus ? `${formatStorageSize(serverStatus.processMemory.heapUsedBytes)} / ${formatStorageSize(serverStatus.processMemory.heapTotalBytes)}` : "..." }}
+            </small>
+          </div>
+        </article>
+
+        <article class="admin-server-card">
+          <div>
+            <span>Память сервера</span>
+            <strong>{{ serverStatus ? `${serverStatus.systemMemory.usedPercent}%` : "..." }}</strong>
+            <small>
+              {{ serverStatus ? `${formatStorageSize(serverStatus.systemMemory.usedBytes)} / ${formatStorageSize(serverStatus.systemMemory.totalBytes)}` : "..." }}
+            </small>
+          </div>
+        </article>
+
+        <article class="admin-server-card">
+          <div>
+            <span>Диск</span>
+            <strong>{{ serverStatus?.disk ? `${serverStatus.disk.usedPercent}%` : "нет данных" }}</strong>
+            <small>
+              {{ serverStatus?.disk ? `${formatStorageSize(serverStatus.disk.usedBytes)} / ${formatStorageSize(serverStatus.disk.totalBytes)}` : "statfs недоступен" }}
+            </small>
+          </div>
+        </article>
+
+        <article class="admin-server-card">
+          <div>
+            <span>Нагрузка</span>
+            <strong>{{ serverStatus ? serverStatus.loadAverage.join(" / ") : "..." }}</strong>
+            <small>{{ serverStatus ? `${serverStatus.cpuCount} CPU` : "Load average" }}</small>
+          </div>
+        </article>
       </section>
+
+      <section class="admin-crm-block admin-server-log-summary">
+        <div>
+          <h4>Логи сервера</h4>
+          <p>{{ serverStatus ? `${serverStatus.serverErrorCount} ошибок в памяти` : "Загрузка..." }}</p>
+          <small>Не Docker-логи. Только последние 100 ошибок API, список очищается после перезапуска сервера.</small>
+        </div>
+        <button class="secondary-button" type="button" @click="openServerLogsModal">
+          Открыть логи
+        </button>
+      </section>
+
+      <Teleport to="body">
+        <div v-if="showServerLogsModal" class="admin-modal-backdrop" @click.self="closeServerLogsModal">
+          <aside class="admin-detail admin-client-modal admin-server-logs-modal" role="dialog" aria-modal="true" aria-labelledby="admin-server-logs-title">
+            <header class="admin-client-modal-head">
+              <div>
+                <h3 id="admin-server-logs-title">Логи сервера</h3>
+                <p>{{ serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : "Ошибок пока нет" }}</p>
+              </div>
+              <button class="icon-button" type="button" aria-label="Закрыть логи сервера" @click="closeServerLogsModal">
+                <X class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </header>
+
+            <p class="admin-log-note">
+              Здесь не Docker-логи и не все запросы. Показываются падения API 500 и ошибки сборки загрузок уроков из частей.
+            </p>
+
+            <div class="admin-action-log-list">
+              <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
+                <div>
+                  <strong>{{ log.title }}</strong>
+                  <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
+                  <small>{{ log.detail }}</small>
+                </div>
+              </article>
+              <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
+            </div>
+          </aside>
+        </div>
+      </Teleport>
     </section>
 
     <section v-else-if="activePanel === 'admins'" class="admin-panel admin-permissions-panel">

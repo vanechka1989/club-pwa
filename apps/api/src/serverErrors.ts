@@ -41,3 +41,7 @@ export function recordServerError(input: {
 export function listServerErrors() {
   return [...serverErrors];
 }
+
+export function countServerErrors() {
+  return serverErrors.length;
+}

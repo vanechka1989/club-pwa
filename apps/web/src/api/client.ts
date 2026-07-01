@@ -25,6 +25,7 @@ import type {
   ClubTopicsResponse,
   AdminMutationResponse,
   AdminServerErrorsResponse,
+  AdminServerStatusResponse,
   AdminStatsResponse,
   AdminStatsUser,
   LearningContentResponse,
@@ -439,6 +440,10 @@ export function getAdminActionLogs(actorTelegramId?: string) {
 
 export function getAdminServerErrors() {
   return api<AdminServerErrorsResponse>("/admin/server-errors");
+}
+
+export function getAdminServerStatus() {
+  return api<AdminServerStatusResponse>("/admin/server-status");
 }
 
 export function getAdminMailings() {

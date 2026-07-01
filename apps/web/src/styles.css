@@ -4763,6 +4763,72 @@ body.club-keyboard-open .admin-modal-backdrop {
   padding: 0.75rem;
 }
 
+.admin-server-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.admin-server-card {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  padding: 0.7rem 0.72rem;
+}
+
+.admin-server-card-ok {
+  border-color: color-mix(in srgb, var(--success) 42%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, var(--panel));
+}
+
+.admin-server-card div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.admin-server-card span,
+.admin-server-card small,
+.admin-log-note {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 740;
+}
+
+.admin-server-card strong {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 880;
+}
+
+.admin-server-log-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 12rem);
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.75rem;
+}
+
+.admin-server-log-summary div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.admin-server-log-summary h4 {
+  font-size: 0.88rem;
+  font-weight: 860;
+}
+
+.admin-server-log-summary p,
+.admin-server-log-summary small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 740;
+}
+
+.admin-server-logs-modal {
+  gap: 0.7rem;
+}
+
 .admin-action-log-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(10rem, 13rem);
@@ -8045,8 +8111,13 @@ button.chat-message-author:active {
 
   .admin-permissions-owner,
   .admin-action-log-head,
+  .admin-server-log-summary,
   .admin-search-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-server-grid {
+    grid-template-columns: 1fr;
   }
 
   .admin-permission-head,
