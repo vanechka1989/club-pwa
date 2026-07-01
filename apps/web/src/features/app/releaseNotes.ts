@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Huawei: fallback отступа",
+    items: [
+      "Добавлен fallback для Android WebView без Samsung-маркеров.",
+      "На таких устройствах верхний отступ обычных разделов стал компактнее.",
+      "Samsung и iPhone остаются на своих отдельных режимах."
+    ]
+  },
+  {
+    version: "2.81",
+    updatedAt: "01.07.2026 16:58",
     title: "Huawei: верхний отступ",
     items: [
       "Добавлена отдельная адаптация для Huawei/Honor WebView.",

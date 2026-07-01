@@ -214,13 +214,18 @@ function syncPlatformClasses() {
   const platform = webAppWithPlatform?.platform?.toLowerCase() ?? "";
   const userAgent = window.navigator.userAgent;
   const isIos = platform === "ios" || platform === "macos" || /iPad|iPhone|iPod/.test(userAgent);
+  const isAndroid = platform === "android" || /Android/i.test(userAgent);
+  const isSamsung = /Samsung|SM-|SAMSUNG/i.test(userAgent);
   const isHuawei = /HUAWEI|HONOR|HarmonyOS|EMUI|JLN-LX1/i.test(userAgent);
+  const usesCompactAndroidTopOffset = isAndroid && !isSamsung;
   isIosPlatform = isIos;
 
   document.documentElement.classList.toggle("club-ios", isIos);
   document.body.classList.toggle("club-ios", isIos);
   document.documentElement.classList.toggle("club-huawei", isHuawei);
   document.body.classList.toggle("club-huawei", isHuawei);
+  document.documentElement.classList.toggle("club-android-compact-top", usesCompactAndroidTopOffset);
+  document.body.classList.toggle("club-android-compact-top", usesCompactAndroidTopOffset);
 }
 
 function syncViewportHeight() {
@@ -553,6 +558,8 @@ onBeforeUnmount(() => {
   document.body.classList.remove("club-ios");
   document.documentElement.classList.remove("club-huawei");
   document.body.classList.remove("club-huawei");
+  document.documentElement.classList.remove("club-android-compact-top");
+  document.body.classList.remove("club-android-compact-top");
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
 });
