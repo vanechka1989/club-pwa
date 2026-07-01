@@ -101,4 +101,11 @@ describe("App", () => {
     expect(styles).toContain("body.club-samsung");
     expect(styles).toContain("--fullscreen-top-offset: 4.8rem");
   });
+
+  it("uses the most compact top offset for narrow Huawei webviews", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("body.club-huawei.club-screen-narrow");
+    expect(styles).toContain("--fullscreen-top-offset: 1.8rem");
+  });
 });

@@ -487,6 +487,11 @@ body.club-huawei {
   --chat-top-offset: 4.8rem;
 }
 
+body.club-huawei.club-screen-narrow {
+  --fullscreen-top-offset: 1.8rem;
+  --chat-top-offset: 4.4rem;
+}
+
 body.club-samsung {
   --fullscreen-top-offset: 4.8rem;
   --chat-top-offset: 4.8rem;

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Huawei: узкий экран",
+    items: [
+      "Для Huawei JLN-LX1 и других узких Huawei WebView добавлен отдельный компактный верхний offset.",
+      "Правка применяется только при классе club-screen-narrow.",
+      "Samsung и iPhone не затрагиваются."
+    ]
+  },
+  {
+    version: "2.85",
+    updatedAt: "01.07.2026 17:35",
     title: "Samsung: верхний отступ",
     items: [
       "Для Samsung WebView добавлен отдельный верхний offset.",
