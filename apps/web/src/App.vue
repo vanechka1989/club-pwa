@@ -214,10 +214,13 @@ function syncPlatformClasses() {
   const platform = webAppWithPlatform?.platform?.toLowerCase() ?? "";
   const userAgent = window.navigator.userAgent;
   const isIos = platform === "ios" || platform === "macos" || /iPad|iPhone|iPod/.test(userAgent);
+  const isHuawei = /HUAWEI|HONOR|HarmonyOS|EMUI|JLN-LX1/i.test(userAgent);
   isIosPlatform = isIos;
 
   document.documentElement.classList.toggle("club-ios", isIos);
   document.body.classList.toggle("club-ios", isIos);
+  document.documentElement.classList.toggle("club-huawei", isHuawei);
+  document.body.classList.toggle("club-huawei", isHuawei);
 }
 
 function syncViewportHeight() {
@@ -548,6 +551,8 @@ onBeforeUnmount(() => {
   document.body.classList.remove("club-telegram-webview");
   document.documentElement.classList.remove("club-ios");
   document.body.classList.remove("club-ios");
+  document.documentElement.classList.remove("club-huawei");
+  document.body.classList.remove("club-huawei");
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
 });

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Huawei: верхний отступ",
+    items: [
+      "Добавлена отдельная адаптация для Huawei/Honor WebView.",
+      "На Huawei ограничен слишком большой верхний safe-area от Telegram.",
+      "Samsung и iPhone не затрагиваются этой правкой."
+    ]
+  },
+  {
+    version: "2.80",
+    updatedAt: "01.07.2026 16:43",
     title: "Telegram: отступ сверху",
     items: [
       "Убрано двойное сложение большого safe-area и дополнительного верхнего отступа.",

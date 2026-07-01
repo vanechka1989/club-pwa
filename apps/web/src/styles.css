@@ -482,8 +482,17 @@ button:disabled {
   padding-top: var(--fullscreen-top-offset);
 }
 
+body.club-huawei {
+  --fullscreen-top-offset: 4.8rem;
+  --chat-top-offset: 4.8rem;
+}
+
 .club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
   padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+}
+
+body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
+  padding-top: 4.8rem;
 }
 
 body.club-keyboard-open .app-shell {
@@ -498,6 +507,10 @@ body.club-keyboard-open .app-shell {
 
 .club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
   padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+}
+
+body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
+  padding-top: 4.8rem;
 }
 
 .community-chat-open .app-shell {
