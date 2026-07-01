@@ -2046,7 +2046,7 @@ watch(
             @click="openLessonModal(module, image)"
           >
             <template v-if="module.defaultCardLayout === 'horizontal'">
-              <span class="admin-mockup-thumb-copy">
+              <span class="admin-mockup-thumb-label">
                 <strong>
                   {{ image.title }}
                   <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
@@ -2055,11 +2055,11 @@ watch(
               <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
             </template>
             <template v-else>
-              <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
-              <span>
+              <span class="admin-mockup-thumb-label">
                 {{ image.title }}
                 <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
               </span>
+              <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
             </template>
           </button>
         </div>

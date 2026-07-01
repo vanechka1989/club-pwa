@@ -189,6 +189,87 @@ describe("Learning section member content", () => {
     expect(screen.queryByText("Содержимое урока пока не добавлено.")).toBeNull();
   });
 
+  it("renders lesson title labels above vertical and horizontal covers", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-vertical",
+          slug: "module-vertical",
+          title: "Вертикальный модуль",
+          description: "Вертикальные карточки",
+          defaultCardLayout: "vertical",
+          isPublished: true,
+          itemsCount: 1
+        },
+        {
+          id: "module-horizontal",
+          slug: "module-horizontal",
+          title: "Горизонтальный модуль",
+          description: "Горизонтальные карточки",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [
+        {
+          id: "lesson-vertical",
+          categoryId: "module-vertical",
+          kind: "photo",
+          title: "Вертикальный урок",
+          summary: null,
+          body: null,
+          mediaUrl: "https://example.com/vertical.jpg",
+          thumbnailUrl: "https://example.com/vertical-cover.jpg",
+          cardLayout: "vertical",
+          mediaContentType: "image/jpeg",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        },
+        {
+          id: "lesson-horizontal",
+          categoryId: "module-horizontal",
+          kind: "video",
+          title: "Горизонтальный урок",
+          summary: null,
+          body: null,
+          mediaUrl: "https://example.com/horizontal.mp4",
+          thumbnailUrl: "https://example.com/horizontal-cover.jpg",
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 2048,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        }
+      ],
+      progress: {
+        totalItems: 2,
+        completedItems: 0,
+        lastOpenedItem: null,
+        lastOpenedAt: null,
+        lastOpenedPlaybackPositionSeconds: 0
+      }
+    });
+
+    renderAsMember();
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Вертикальный модуль" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Горизонтальный модуль" }));
+
+    const verticalButton = screen.getByRole("button", { name: "Открыть урок Вертикальный урок" });
+    const horizontalButton = screen.getByRole("button", { name: "Открыть урок Горизонтальный урок" });
+    const verticalLabel = verticalButton.querySelector(".admin-mockup-thumb-label");
+    const horizontalLabel = horizontalButton.querySelector(".admin-mockup-thumb-label");
+    const verticalImage = verticalButton.querySelector("img");
+    const horizontalImage = horizontalButton.querySelector("img");
+
+    expect(verticalLabel).toBeTruthy();
+    expect(horizontalLabel).toBeTruthy();
+    expect(verticalLabel?.textContent).toContain("Вертикальный урок");
+    expect(horizontalLabel?.textContent).toContain("Горизонтальный урок");
+    expect(verticalLabel?.compareDocumentPosition(verticalImage as Node) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(horizontalLabel?.compareDocumentPosition(horizontalImage as Node) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("renders lesson and material text below their media content", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [

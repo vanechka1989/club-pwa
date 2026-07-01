@@ -198,7 +198,7 @@ describe("Learning section modules", () => {
     await expandModuleOne();
 
     const horizontalLesson = screen.getByRole("button", { name: /Вариант 2\. Модули и уроки/ });
-    expect(horizontalLesson.firstElementChild?.classList.contains("admin-mockup-thumb-copy")).toBe(true);
+    expect(horizontalLesson.firstElementChild?.classList.contains("admin-mockup-thumb-label")).toBe(true);
     expect(horizontalLesson.lastElementChild?.tagName.toLowerCase()).toBe("img");
     expect(horizontalLesson.textContent).not.toContain("Модульная структура с уроками внутри каждого блока.");
   });
@@ -206,9 +206,9 @@ describe("Learning section modules", () => {
   it("centers horizontal lesson titles above their covers", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-copy\s*\{[^}]*justify-content:\s*center;/s);
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-copy\s*\{[^}]*text-align:\s*center;/s);
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-copy\s+strong\s*\{[^}]*justify-content:\s*center;/s);
+    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-label\s*\{[^}]*justify-content:\s*center;/s);
+    expect(styles).toMatch(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s*\{[^}]*text-align:\s*center;/s);
+    expect(styles).toMatch(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s+strong\s*\{[^}]*justify-content:\s*center;/s);
   });
 
   it("creates modules with description and default lesson card layout", async () => {
