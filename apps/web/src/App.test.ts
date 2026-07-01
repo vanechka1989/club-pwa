@@ -106,6 +106,10 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(styles).toContain("body.club-huawei.club-screen-narrow");
+    expect(styles).toContain("html.club-huawei.club-screen-narrow");
+    expect(styles).toContain("font-size: 14px");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .app-root:not(.community-chat-open)");
+    expect(styles).toContain("--nav-space: calc(6.7rem + var(--club-system-bottom, 0px))");
     expect(styles).toContain("--fullscreen-top-offset: 1.8rem");
     expect(styles).toContain("--chat-top-offset: 1.4rem");
     expect(styles).toContain("body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
@@ -114,12 +118,16 @@ describe("App", () => {
     expect(styles).toContain("position: absolute");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .bottom-nav-item-active");
     expect(styles).toContain("box-shadow: none");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .bottom-nav-mail-badge");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-bubble");
-    expect(styles).toContain("max-width: min(64%, 20rem)");
+    expect(styles).toContain("max-width: min(74%, 22rem)");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-message-own .chat-bubble");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-avatar");
-    expect(styles).toContain("width: 1.9rem");
+    expect(styles).toContain("width: 1.75rem");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .soft-card");
-    expect(styles).toContain("padding: 0.62rem");
+    expect(styles).toContain("padding: 0.55rem");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .profile-info-row");
+    expect(styles).toContain("min-height: 2.05rem");
     expect(styles).toMatch(
       /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta\s*{[^}]*display: grid;[^}]*grid-template-columns: 1fr;[^}]*justify-content: flex-start;/s
     );
