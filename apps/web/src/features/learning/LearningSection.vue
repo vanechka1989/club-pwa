@@ -276,6 +276,13 @@ const lastOpenedLessonModule = computed(() => {
 const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
 const continueLessonTitle = computed(() => lastOpenedMaterial.value?.title ?? lastOpenedLesson.value?.title ?? "");
 const continueLessonKind = computed(() => lastOpenedMaterial.value?.kind ?? lastOpenedLesson.value?.kind ?? "text");
+const continueLessonContext = computed(() => {
+  if (lastOpenedMaterial.value && lastOpenedLesson.value && lastOpenedLessonModule.value) {
+    return `${lastOpenedLesson.value.title} · ${lastOpenedLessonModule.value.title}`;
+  }
+
+  return lastOpenedLessonModule.value?.title ?? "";
+});
 const continueLessonButtonLabel = computed(() => (lastOpenedLesson.value ? `Продолжить урок ${lastOpenedLesson.value.title}` : "Продолжить урок"));
 const continueLessonCardClasses = computed(() => [
   "continue-lesson-card",
@@ -1982,11 +1989,10 @@ watch(
     >
       <img :src="getContinueLessonImage(lastOpenedLessonModule, lastOpenedLesson)" :alt="continueLessonTitle" loading="lazy" />
       <span class="continue-lesson-copy">
-        <small>Продолжить урок</small>
         <strong>{{ continueLessonTitle }}</strong>
-        <em>{{ lastOpenedMaterial ? lastOpenedLesson.title : lastOpenedLessonModule.title }}</em>
+        <em>{{ continueLessonContext }}</em>
+        <span class="continue-lesson-action">{{ continueLessonProgressLabel }}</span>
       </span>
-      <span class="continue-lesson-action">{{ continueLessonProgressLabel }}</span>
     </button>
 
     <div class="admin-mockup-list">

@@ -494,12 +494,14 @@ describe("Learning section member content", () => {
 
     renderAsMember();
 
-    expect(await screen.findByText("Продолжить урок")).toBeTruthy();
+    const continueCard = await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" });
     expect(screen.getByText("Голосовые практики")).toBeTruthy();
     expect(screen.getAllByText("Видео модуль").length).toBeGreaterThan(0);
     expect(screen.getByText("Продолжить с 4:12")).toBeTruthy();
+    expect(continueCard.querySelector(".continue-lesson-copy small")).toBeNull();
+    expect(continueCard.querySelector(".continue-lesson-copy .continue-lesson-action")?.textContent).toBe("Продолжить с 4:12");
 
-    await fireEvent.click(screen.getByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await fireEvent.click(continueCard);
 
     await waitFor(() => expect(getLearningContent).toHaveBeenCalledWith("lesson-video"));
   });

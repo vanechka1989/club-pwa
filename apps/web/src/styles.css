@@ -5292,14 +5292,14 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .continue-lesson-card {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  grid-template-columns: 5.1rem minmax(0, 1fr);
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.7rem;
   width: 100%;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
   border-radius: 16px;
   background: color-mix(in srgb, var(--accent-soft) 34%, var(--panel));
-  padding: 0.65rem;
+  padding: 0.62rem;
   color: var(--text);
   text-align: left;
   box-shadow: var(--shadow-soft);
@@ -5315,7 +5315,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .continue-lesson-card-horizontal {
-  grid-template-columns: 5.7rem minmax(0, 1fr) auto;
+  grid-template-columns: 5.8rem minmax(0, 1fr);
 }
 
 .continue-lesson-card-horizontal img {
@@ -5323,8 +5323,8 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .continue-lesson-card-vertical {
-  grid-template-columns: 4.2rem minmax(0, 1fr) auto;
-  align-items: stretch;
+  grid-template-columns: 4.25rem minmax(0, 1fr);
+  align-items: center;
 }
 
 .continue-lesson-card-vertical img {
@@ -5335,10 +5335,9 @@ body.club-keyboard-open .admin-modal-backdrop {
   display: grid;
   align-content: center;
   min-width: 0;
-  gap: 0.12rem;
+  gap: 0.2rem;
 }
 
-.continue-lesson-copy small,
 .continue-lesson-copy em {
   overflow: hidden;
   color: var(--muted);
@@ -5352,20 +5351,26 @@ body.club-keyboard-open .admin-modal-backdrop {
 .continue-lesson-copy strong {
   overflow: hidden;
   color: var(--text);
-  font-size: 0.92rem;
+  display: -webkit-box;
+  font-size: 0.88rem;
   font-weight: 900;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.16;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .continue-lesson-action {
-  align-self: center;
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-text);
-  padding: 0.45rem 0.65rem;
-  font-size: 0.72rem;
+  margin-top: 0.08rem;
+  padding: 0.38rem 0.58rem;
+  font-size: 0.68rem;
   font-weight: 900;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
