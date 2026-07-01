@@ -71,6 +71,18 @@ export type ContentKind = z.infer<typeof contentKindSchema>;
 export const contentCardLayoutSchema = z.enum(["vertical", "horizontal"]);
 export type ContentCardLayout = z.infer<typeof contentCardLayoutSchema>;
 
+export const lessonMaterialSchema = z.object({
+  id: z.string(),
+  kind: contentKindSchema,
+  title: z.string(),
+  description: z.string().nullable(),
+  body: z.string().nullable(),
+  mediaUrl: z.string().url().nullable(),
+  mediaContentType: z.string().nullable(),
+  mediaSizeBytes: z.number().int().nonnegative().nullable()
+});
+export type LessonMaterial = z.infer<typeof lessonMaterialSchema>;
+
 export const learningCategorySchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -94,6 +106,7 @@ export const learningContentSchema = z.object({
   cardLayout: contentCardLayoutSchema,
   mediaContentType: z.string().nullable(),
   mediaSizeBytes: z.number().int().nonnegative().nullable(),
+  materials: z.array(lessonMaterialSchema).optional(),
   publishedAt: z.string().datetime().nullable()
 });
 export type LearningContent = z.infer<typeof learningContentSchema>;

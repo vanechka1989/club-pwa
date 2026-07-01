@@ -246,6 +246,27 @@ export const contentItems = pgTable(
   })
 );
 
+export const lessonMaterials = pgTable(
+  "lesson_materials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    kind: contentKind("kind").notNull(),
+    title: varchar("title", { length: 180 }).notNull(),
+    description: text("description"),
+    body: text("body"),
+    mediaObjectKey: text("media_object_key"),
+    mediaContentType: varchar("media_content_type", { length: 160 }),
+    mediaSizeBytes: integer("media_size_bytes"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    itemSortIdx: index("lesson_materials_item_sort_idx").on(table.contentItemId, table.sortOrder)
+  })
+);
+
 export const userContentProgress = pgTable(
   "user_content_progress",
   {
@@ -640,7 +661,15 @@ export const contentItemsRelations = relations(contentItems, ({ one, many }) => 
     fields: [contentItems.categoryId],
     references: [contentCategories.id]
   }),
-  comments: many(lessonComments)
+  comments: many(lessonComments),
+  materials: many(lessonMaterials)
+}));
+
+export const lessonMaterialsRelations = relations(lessonMaterials, ({ one }) => ({
+  item: one(contentItems, {
+    fields: [lessonMaterials.contentItemId],
+    references: [contentItems.id]
+  })
 }));
 
 export const userContentProgressRelations = relations(userContentProgress, ({ one }) => ({

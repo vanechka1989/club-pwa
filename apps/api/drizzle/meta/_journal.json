@@ -183,6 +183,13 @@
       "when": 1782809100000,
       "tag": "0025_admin_action_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782845100000,
+      "tag": "0026_lesson_materials",
+      "breakpoints": true
     }
   ]
 }

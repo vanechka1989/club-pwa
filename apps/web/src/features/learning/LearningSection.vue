@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { AdminLearningMaterial, AdminLearningUploadedObject, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary } from "@club/shared";
-import { ChevronDown, ExternalLink, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, X } from "lucide-vue-next";
+import type { AdminLearningMaterial, AdminLearningUploadedObject, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary, LessonMaterial } from "@club/shared";
+import { ChevronDown, ExternalLink, FileText, Image, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, Video, Volume2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   completeAdminLearningMultipartUpload,
@@ -38,6 +38,7 @@ type ModuleLesson = {
   content: string;
   mediaUrl: string | null;
   thumbnailUrl: string | null;
+  materials: LessonMaterial[];
   cardLayout: ContentCardLayout;
   isPersisted: boolean;
   archivedUntil: string | null;
@@ -56,6 +57,19 @@ type ModuleCard = {
 type PlaybackPersistOptions = {
   force?: boolean;
   keepalive?: boolean;
+};
+
+type LessonMaterialDraft = {
+  id: string;
+  kind: ContentKind;
+  title: string;
+  description: string;
+  body: string;
+  file: File | null;
+  fileName: string;
+  existingMediaUrl: string | null;
+  existingMediaContentType: string | null;
+  existingMediaSizeBytes: number | null;
 };
 
 const deletedContentModuleId = "deleted-content-module";
@@ -77,6 +91,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-1.svg",
+        materials: [],
         cardLayout: "vertical",
         isPersisted: false,
         archivedUntil: null
@@ -91,6 +106,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-2.svg",
+        materials: [],
         cardLayout: "horizontal",
         isPersisted: false,
         archivedUntil: null
@@ -105,6 +121,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-3.svg",
+        materials: [],
         cardLayout: "vertical",
         isPersisted: false,
         archivedUntil: null
@@ -119,6 +136,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/learning-redesign-4.svg",
+        materials: [],
         cardLayout: "vertical",
         isPersisted: false,
         archivedUntil: null
@@ -143,6 +161,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-1.png",
+        materials: [],
         cardLayout: "vertical",
         isPersisted: false,
         archivedUntil: null
@@ -157,6 +176,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-2.png",
+        materials: [],
         cardLayout: "vertical",
         isPersisted: false,
         archivedUntil: null
@@ -171,6 +191,7 @@ const initialModuleCards: ModuleCard[] = [
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
         thumbnailUrl: "/previews/admin-stats-preview-3.png",
+        materials: [],
         cardLayout: "vertical",
         isPersisted: false,
         archivedUntil: null
@@ -209,6 +230,7 @@ const lessonThumbnailFileName = ref("");
 const shouldRemoveLessonThumbnail = ref(false);
 const lessonCardLayout = ref<ContentCardLayout>("vertical");
 const lessonContent = ref("");
+const lessonMaterialDrafts = ref<LessonMaterialDraft[]>([]);
 const lessonError = ref("");
 const isLoadingLessonContent = ref(false);
 const lessonViewerError = ref("");
@@ -259,6 +281,12 @@ const continueLessonProgressLabel = computed(() => {
 
   return "Продолжить";
 });
+const contentKindOptions: Array<{ value: ContentKind; label: string; accept: string }> = [
+  { value: "text", label: "Текст", accept: "" },
+  { value: "photo", label: "Фото", accept: "image/*" },
+  { value: "video", label: "Видео", accept: "video/*" },
+  { value: "audio", label: "Аудио", accept: "audio/*" }
+];
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
@@ -401,6 +429,21 @@ function collapseModule(moduleId: string) {
   }
 }
 
+function createLessonMaterialDraft(material?: LessonMaterial): LessonMaterialDraft {
+  return {
+    id: material?.id ?? `lesson-material-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    kind: material?.kind ?? "text",
+    title: material?.title ?? "",
+    description: material?.description ?? "",
+    body: material?.body ?? "",
+    file: null,
+    fileName: material?.mediaUrl ? "Текущий файл сохранён" : "",
+    existingMediaUrl: material?.mediaUrl ?? null,
+    existingMediaContentType: material?.mediaContentType ?? null,
+    existingMediaSizeBytes: material?.mediaSizeBytes ?? null
+  };
+}
+
 function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStartSeconds = 0) {
   resetLessonVideoState();
   if (!module.images.some((item) => item.id === lesson.id)) {
@@ -420,6 +463,7 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStart
   shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = lesson.content;
+  lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -452,6 +496,7 @@ function openLessonCreateModal(module: ModuleCard) {
   shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = "";
+  lessonMaterialDrafts.value = [];
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -470,6 +515,7 @@ function closeLessonModal() {
   shouldRemoveLessonThumbnail.value = false;
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
+  lessonMaterialDrafts.value = [];
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -567,6 +613,7 @@ function updateLearningPlaybackProgress(lesson: ModuleLesson, positionSeconds: n
           cardLayout: lesson.cardLayout,
           mediaContentType: null,
           mediaSizeBytes: null,
+          materials: lesson.materials,
           publishedAt: openedAt
         };
 
@@ -770,6 +817,7 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     content: item.body ?? "",
     mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,
+    materials: item.materials ?? [],
     cardLayout: item.cardLayout,
     isPersisted: true,
     archivedUntil
@@ -1103,11 +1151,13 @@ function buildLessonDirectPayloadFromDraft(
     title: string;
     summary: string;
     body: string;
+    materials?: LessonMaterialDraft[];
     cardLayout: ContentCardLayout;
     removeThumbnail: boolean;
   },
   mediaObject?: AdminLearningUploadedObject | null,
-  thumbnailObject?: AdminLearningUploadedObject | null
+  thumbnailObject?: AdminLearningUploadedObject | null,
+  materialObjects: Map<string, AdminLearningUploadedObject> = new Map()
 ) {
   return {
     categoryId: draft.categoryId,
@@ -1115,6 +1165,14 @@ function buildLessonDirectPayloadFromDraft(
     title: draft.title,
     summary: draft.summary,
     body: draft.body,
+    materials: (draft.materials ?? []).map((material) => ({
+      ...(material.existingMediaUrl ? { id: material.id } : {}),
+      kind: material.kind,
+      title: material.title.trim(),
+      description: material.description.trim(),
+      body: material.body.trim(),
+      mediaObject: materialObjects.get(material.id) ?? null
+    })),
     cardLayout: draft.cardLayout,
     isPublished: true,
     ...(mediaObject !== undefined ? { mediaObject } : {}),
@@ -1141,14 +1199,17 @@ async function startBackgroundLessonUpload() {
     cardLayout: selectedModuleLessonLayout.value,
     removeThumbnail: shouldRemoveLessonThumbnail.value,
     mediaFile: lessonFile.value,
-    thumbnailFile: lessonThumbnailFile.value
+    thumbnailFile: lessonThumbnailFile.value,
+    materials: lessonMaterialDrafts.value.map((material) => ({ ...material }))
   };
   const hasMedia = Boolean(draft.mediaFile);
   const hasThumbnail = Boolean(draft.thumbnailFile);
-  const totalParts = Number(hasMedia) + Number(hasThumbnail);
+  const materialFiles = draft.materials.filter((material) => material.kind !== "text" && material.file);
+  const totalParts = Number(hasMedia) + Number(hasThumbnail) + materialFiles.length;
   const mediaSizeBytes = draft.mediaFile ? getUploadParts(draft.mediaFile).sizeBytes : 0;
   const thumbnailSizeBytes = draft.thumbnailFile ? getUploadParts(draft.thumbnailFile).sizeBytes : 0;
-  const totalSizeBytes = mediaSizeBytes + thumbnailSizeBytes;
+  const materialSizeBytes = materialFiles.reduce((sum, material) => sum + (material.file ? getUploadParts(material.file).sizeBytes : 0), 0);
+  const totalSizeBytes = mediaSizeBytes + thumbnailSizeBytes + materialSizeBytes;
   const abortController = new AbortController();
   const task = {
     id: draft.id,
@@ -1171,6 +1232,7 @@ async function startBackgroundLessonUpload() {
   try {
     let mediaObject: AdminLearningUploadedObject | null = null;
     let thumbnailObject: AdminLearningUploadedObject | null = null;
+    const materialObjects = new Map<string, AdminLearningUploadedObject>();
 
     if (draft.mediaFile) {
       mediaObject = await uploadLessonFileDirect({
@@ -1192,6 +1254,32 @@ async function startBackgroundLessonUpload() {
       completedBytes += mediaSizeBytes;
     }
 
+    for (const material of materialFiles) {
+      if (!material.file) {
+        continue;
+      }
+
+      const materialSize = getUploadParts(material.file).sizeBytes;
+      const materialObject = await uploadLessonFileDirect({
+        file: material.file,
+        purpose: "media",
+        kind: material.kind,
+        progressBase: (completedParts / totalParts) * 90,
+        progressSpan: 90 / totalParts,
+        signal: abortController.signal,
+        onProgress: (progress) =>
+          lessonUploads.update(draft.id, {
+            progress: progress.percent,
+            detail: "Загрузка материала",
+            loadedBytes: completedBytes + progress.loadedBytes,
+            speedBytesPerSecond: progress.speedBytesPerSecond
+          })
+      });
+      materialObjects.set(material.id, materialObject);
+      completedParts += 1;
+      completedBytes += materialSize;
+    }
+
     if (draft.thumbnailFile) {
       thumbnailObject = await uploadLessonFileDirect({
         file: draft.thumbnailFile,
@@ -1211,7 +1299,7 @@ async function startBackgroundLessonUpload() {
 
     throwIfUploadCancelled(abortController.signal);
     lessonUploads.update(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока", loadedBytes: totalSizeBytes });
-    const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject);
+    const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject, materialObjects);
     throwIfUploadCancelled(abortController.signal);
     const response = draft.lessonId
       ? await updateAdminLearningMaterialDirect(draft.lessonId, payload)
@@ -1356,6 +1444,16 @@ function saveLessonLocally() {
     content: lessonContent.value.trim() || "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
     mediaUrl: null,
     thumbnailUrl: shouldRemoveLessonThumbnail.value ? null : (selectedLessonItem.value?.thumbnailUrl ?? null),
+    materials: lessonMaterialDrafts.value.map((material) => ({
+      id: material.id,
+      kind: material.kind,
+      title: material.title.trim() || "Материал",
+      description: material.description.trim() || null,
+      body: material.body.trim() || null,
+      mediaUrl: material.existingMediaUrl,
+      mediaContentType: material.existingMediaContentType,
+      mediaSizeBytes: material.existingMediaSizeBytes
+    })),
     cardLayout: selectedModuleLessonLayout.value,
     isPersisted: false,
     archivedUntil: null
@@ -1396,13 +1494,34 @@ async function saveLesson() {
     return;
   }
 
+  for (const material of lessonMaterialDrafts.value) {
+    if (!material.title.trim()) {
+      showLessonError("Заполните название каждого дополнительного материала.");
+      return;
+    }
+
+    if (material.kind !== "text" && !material.file && !material.existingMediaUrl) {
+      showLessonError("Выберите файл для каждого фото, видео или аудио материала.");
+      return;
+    }
+  }
+
   if (!modulesLoadedFromApi.value) {
     saveLessonLocally();
     closeLessonModal();
     return;
   }
 
-  if (lessonFile.value || lessonThumbnailFile.value) {
+  const hasAdditionalMaterialFiles = lessonMaterialDrafts.value.some((material) => Boolean(material.file));
+  const shouldUseDirectLessonPayload = Boolean(
+    lessonFile.value ||
+      lessonThumbnailFile.value ||
+      hasAdditionalMaterialFiles ||
+      lessonMaterialDrafts.value.length ||
+      selectedLessonItem.value?.materials.length
+  );
+
+  if (lessonFile.value || lessonThumbnailFile.value || hasAdditionalMaterialFiles) {
     await startBackgroundLessonUpload();
     return;
   }
@@ -1412,6 +1531,30 @@ async function saveLesson() {
   clearLessonError();
 
   try {
+    if (shouldUseDirectLessonPayload) {
+      const payload = buildLessonDirectPayloadFromDraft({
+        categoryId: selectedLessonModule.value.id,
+        kind: lessonKind.value,
+        title: trimmedLessonTitle.value,
+        summary: lessonDescription.value.trim(),
+        body: lessonContent.value.trim(),
+        materials: lessonMaterialDrafts.value.map((material) => ({ ...material })),
+        cardLayout: selectedModuleLessonLayout.value,
+        removeThumbnail: shouldRemoveLessonThumbnail.value
+      });
+      const response = selectedLessonItem.value?.isPersisted
+        ? await updateAdminLearningMaterialDirect(selectedLessonItem.value.id, payload)
+        : await createAdminLearningMaterialDirect(payload);
+
+      if (selectedLessonItem.value?.isPersisted) {
+        replaceMaterialInModule(response.material);
+      } else {
+        addMaterialToModule(response.material);
+      }
+      closeLessonModal();
+      return;
+    }
+
     if (selectedLessonItem.value?.isPersisted) {
       const response = await updateAdminLearningMaterial(selectedLessonItem.value.id, buildLessonForm());
       replaceMaterialInModule(response.material);
@@ -1473,6 +1616,40 @@ function handleLessonFileChange(event: Event) {
   const file = input.files?.[0] ?? null;
   lessonFile.value = file;
   lessonFileName.value = file?.name ?? "";
+}
+
+function setLessonKind(kind: ContentKind) {
+  lessonKind.value = kind;
+  if (kind === "text") {
+    lessonFile.value = null;
+    lessonFileName.value = "";
+  }
+}
+
+function addLessonMaterialDraft() {
+  lessonMaterialDrafts.value = [...lessonMaterialDrafts.value, createLessonMaterialDraft()];
+}
+
+function removeLessonMaterialDraft(id: string) {
+  lessonMaterialDrafts.value = lessonMaterialDrafts.value.filter((material) => material.id !== id);
+}
+
+function setLessonMaterialKind(material: LessonMaterialDraft, kind: ContentKind) {
+  material.kind = kind;
+  if (kind === "text") {
+    material.file = null;
+    material.fileName = "";
+    material.existingMediaUrl = null;
+    material.existingMediaContentType = null;
+    material.existingMediaSizeBytes = null;
+  }
+}
+
+function handleLessonMaterialFileChange(material: LessonMaterialDraft, event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0] ?? null;
+  material.file = file;
+  material.fileName = file?.name ?? "";
 }
 
 function handleLessonThumbnailChange(event: Event) {
@@ -1919,6 +2096,20 @@ watch(
                 @pause="persistLessonVideoPlayback(true)"
                 @seeked="persistLessonVideoPlayback(true)"
               />
+
+              <section v-if="selectedLessonItem.materials.length" class="lesson-material-list">
+                <article v-for="material in selectedLessonItem.materials" :key="material.id" class="lesson-material-card">
+                  <div>
+                    <span>{{ contentKindOptions.find((option) => option.value === material.kind)?.label }}</span>
+                    <strong>{{ material.title }}</strong>
+                    <small v-if="material.description">{{ material.description }}</small>
+                  </div>
+                  <p v-if="material.body">{{ material.body }}</p>
+                  <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
+                  <video v-else-if="material.kind === 'video' && material.mediaUrl" :src="material.mediaUrl" controls playsinline preload="metadata" />
+                  <audio v-else-if="material.kind === 'audio' && material.mediaUrl" :src="material.mediaUrl" controls preload="metadata" />
+                </article>
+              </section>
             </article>
 
             <div v-if="canManageModules" class="admin-form lesson-editor-form">
@@ -1937,15 +2128,25 @@ watch(
                 <span>Описание урока</span>
                 <input v-model="lessonDescription" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание урока" />
               </label>
-              <label class="admin-field">
+              <div class="admin-field">
                 <span>Тип урока</span>
-                <select v-model="lessonKind" class="text-input" aria-label="Тип урока">
-                  <option value="text">Текст</option>
-                  <option value="photo">Фото</option>
-                  <option value="video">Видео</option>
-                  <option value="audio">Аудио</option>
-                </select>
-              </label>
+                <div class="lesson-kind-buttons" role="group" aria-label="Тип урока">
+                  <button
+                    v-for="option in contentKindOptions"
+                    :key="option.value"
+                    class="lesson-kind-button"
+                    :class="{ 'lesson-kind-button-active': lessonKind === option.value }"
+                    type="button"
+                    @click="setLessonKind(option.value)"
+                  >
+                    <FileText v-if="option.value === 'text'" class="h-4 w-4" aria-hidden="true" />
+                    <Image v-else-if="option.value === 'photo'" class="h-4 w-4" aria-hidden="true" />
+                    <Video v-else-if="option.value === 'video'" class="h-4 w-4" aria-hidden="true" />
+                    <Volume2 v-else class="h-4 w-4" aria-hidden="true" />
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
               <label v-if="lessonKind !== 'text'" class="admin-field">
                 <span>Файл урока</span>
                 <input
@@ -1984,6 +2185,69 @@ watch(
                 <span>Содержимое урока</span>
                 <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>
               </label>
+
+              <section class="lesson-extra-materials">
+                <header>
+                  <div>
+                    <span>Дополнительные материалы</span>
+                    <small>Текст, фото, видео или аудио внутри этого урока.</small>
+                  </div>
+                  <button class="secondary-button lesson-extra-add" type="button" @click="addLessonMaterialDraft">
+                    <Plus class="h-4 w-4" aria-hidden="true" />
+                    Добавить ещё материал
+                  </button>
+                </header>
+
+                <article v-for="material in lessonMaterialDrafts" :key="material.id" class="lesson-extra-card">
+                  <div class="lesson-extra-card-head">
+                    <strong>Материал</strong>
+                    <button class="icon-button" type="button" aria-label="Удалить дополнительный материал" @click="removeLessonMaterialDraft(material.id)">
+                      <Trash2 class="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div class="lesson-kind-buttons" role="group" aria-label="Тип дополнительного материала">
+                    <button
+                      v-for="option in contentKindOptions"
+                      :key="option.value"
+                      class="lesson-kind-button"
+                      :class="{ 'lesson-kind-button-active': material.kind === option.value }"
+                      type="button"
+                      @click="setLessonMaterialKind(material, option.value)"
+                    >
+                      <FileText v-if="option.value === 'text'" class="h-4 w-4" aria-hidden="true" />
+                      <Image v-else-if="option.value === 'photo'" class="h-4 w-4" aria-hidden="true" />
+                      <Video v-else-if="option.value === 'video'" class="h-4 w-4" aria-hidden="true" />
+                      <Volume2 v-else class="h-4 w-4" aria-hidden="true" />
+                      {{ option.label }}
+                    </button>
+                  </div>
+
+                  <label class="admin-field">
+                    <span>Название материала</span>
+                    <input v-model="material.title" class="text-input" type="text" placeholder="Например: Разбор задания" aria-label="Название дополнительного материала" />
+                  </label>
+                  <label class="admin-field">
+                    <span>Описание</span>
+                    <input v-model="material.description" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание дополнительного материала" />
+                  </label>
+                  <label v-if="material.kind !== 'text'" class="admin-field">
+                    <span>Файл материала</span>
+                    <input
+                      class="text-input"
+                      type="file"
+                      :accept="contentKindOptions.find((option) => option.value === material.kind)?.accept"
+                      aria-label="Файл дополнительного материала"
+                      @change="handleLessonMaterialFileChange(material, $event)"
+                    />
+                    <small>{{ material.fileName || "Файл не выбран" }}</small>
+                  </label>
+                  <label class="admin-field">
+                    <span>Текст / заметка</span>
+                    <textarea v-model="material.body" class="text-input lesson-extra-body" placeholder="Текст материала или комментарий к файлу" aria-label="Текст дополнительного материала"></textarea>
+                  </label>
+                </article>
+              </section>
               <p v-if="lessonError" class="admin-error-text">{{ lessonError }}</p>
             </div>
           </div>

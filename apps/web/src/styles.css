@@ -5839,6 +5839,50 @@ body.club-keyboard-open .admin-modal-backdrop {
   border-radius: 999px;
 }
 
+.lesson-material-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.lesson-material-card {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-strong) 70%, transparent);
+  padding: 0.65rem;
+}
+
+.lesson-material-card div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.lesson-material-card span,
+.lesson-material-card small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 780;
+}
+
+.lesson-material-card strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 880;
+}
+
+.lesson-material-card img,
+.lesson-material-card video {
+  width: 100%;
+  max-height: min(54vh, 24rem);
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.lesson-material-card audio {
+  width: 100%;
+}
+
 .lesson-editor-form {
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   padding-top: 0.75rem;
@@ -5846,6 +5890,92 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .lesson-content-input {
   min-height: 6rem;
+  resize: vertical;
+}
+
+.lesson-kind-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.lesson-kind-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 860;
+}
+
+.lesson-kind-button-active {
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  color: var(--text);
+}
+
+.lesson-extra-materials {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.lesson-extra-materials header,
+.lesson-extra-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.lesson-extra-materials header div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.lesson-extra-materials header span {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 860;
+}
+
+.lesson-extra-materials header small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.lesson-extra-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.35rem;
+  padding-inline: 0.75rem;
+}
+
+.lesson-extra-card {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  padding: 0.65rem;
+}
+
+.lesson-extra-card-head strong {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 860;
+}
+
+.lesson-extra-body {
+  min-height: 4.5rem;
   resize: vertical;
 }
 
@@ -8202,6 +8332,20 @@ button.chat-message-author:active {
 
   .admin-stat-layout {
     grid-template-columns: 1fr;
+  }
+
+  .lesson-kind-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lesson-extra-materials header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lesson-extra-add {
+    width: 100%;
+    justify-content: center;
   }
 
   .admin-statistics-head {

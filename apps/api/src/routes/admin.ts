@@ -33,6 +33,7 @@ import {
   clubChatMessages,
   contentCategories,
   contentItems,
+  lessonMaterials,
   lessonComments,
   subscriptions,
   supportTicketAttachments,
@@ -172,6 +173,20 @@ const directLearningMaterialPayloadSchema = z.object({
   title: z.string().trim().min(1),
   summary: z.string().trim().optional().default(""),
   body: z.string().trim().optional().default(""),
+  materials: z
+    .array(
+      z.object({
+        id: z.string().trim().optional(),
+        kind: z.enum(contentKinds),
+        title: z.string().trim().min(1).max(160),
+        description: z.string().trim().optional().default(""),
+        body: z.string().trim().optional().default(""),
+        mediaObject: adminLearningUploadedObjectSchema.nullable().optional()
+      })
+    )
+    .max(50)
+    .optional()
+    .default([]),
   cardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
   isPublished: z.boolean().default(true),
   mediaObject: adminLearningUploadedObjectSchema.nullable().optional(),
@@ -322,6 +337,138 @@ function mirrorDirectUploadToReserve(object: { objectKey: string; contentType: s
   });
 }
 
+async function serializeLessonMaterial(material: typeof lessonMaterials.$inferSelect) {
+  const mediaUrl = material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : null;
+
+  return {
+    id: material.id,
+    kind: material.kind,
+    title: material.title,
+    description: material.description,
+    body: material.body,
+    mediaUrl,
+    mediaContentType: material.mediaContentType,
+    mediaSizeBytes: material.mediaSizeBytes
+  };
+}
+
+async function getSerializedLessonMaterials(contentItemId: string) {
+  const materials = await db.query.lessonMaterials.findMany({
+    where: eq(lessonMaterials.contentItemId, contentItemId),
+    orderBy: [asc(lessonMaterials.sortOrder), asc(lessonMaterials.createdAt)]
+  });
+
+  return Promise.all(materials.map(serializeLessonMaterial));
+}
+
+async function deleteLessonMaterialObjects(contentItemId: string) {
+  const materials = await db.query.lessonMaterials.findMany({
+    where: eq(lessonMaterials.contentItemId, contentItemId)
+  });
+
+  for (const material of materials) {
+    if (material.mediaObjectKey) {
+      await deleteObject(material.mediaObjectKey).catch(() => null);
+    }
+  }
+}
+
+async function replaceDirectLessonMaterials(
+  contentItemId: string,
+  materials: z.infer<typeof directLearningMaterialPayloadSchema>["materials"]
+) {
+  const existingMaterials = await db.query.lessonMaterials.findMany({
+    where: eq(lessonMaterials.contentItemId, contentItemId)
+  });
+  const existingById = new Map(existingMaterials.map((material) => [material.id, material]));
+
+  const verifiedMaterials: Array<{
+    kind: ContentKind;
+    title: string;
+    description: string | null;
+    body: string | null;
+    mediaObjectKey: string | null;
+    mediaContentType: string | null;
+    mediaSizeBytes: number | null;
+    verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null;
+  }> = [];
+
+  for (const material of materials) {
+    let verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
+
+    if (material.kind !== "text") {
+      if (!material.mediaObject) {
+        throw new Error("Media file is required for lesson material");
+      }
+
+      verifiedMedia = await verifyDirectUploadedObject({ object: material.mediaObject, purpose: "media", kind: material.kind });
+      if (!verifiedMedia) {
+        throw new Error("Lesson material media type does not match kind");
+      }
+    } else if (material.kind !== "text") {
+      const existing = material.id ? existingById.get(material.id) : null;
+      if (!existing || existing.kind !== material.kind || !existing.mediaObjectKey) {
+        throw new Error("Media file is required for lesson material");
+      }
+
+      verifiedMaterials.push({
+        kind: material.kind,
+        title: material.title,
+        description: normalizeOptionalText(material.description),
+        body: normalizeOptionalText(material.body),
+        mediaObjectKey: existing.mediaObjectKey,
+        mediaContentType: existing.mediaContentType,
+        mediaSizeBytes: existing.mediaSizeBytes,
+        verifiedMedia: null
+      });
+      continue;
+    }
+
+    verifiedMaterials.push({
+      kind: material.kind,
+      title: material.title,
+      description: normalizeOptionalText(material.description),
+      body: normalizeOptionalText(material.body),
+      mediaObjectKey: verifiedMedia?.objectKey ?? null,
+      mediaContentType: verifiedMedia?.contentType ?? null,
+      mediaSizeBytes: verifiedMedia?.sizeBytes ?? null,
+      verifiedMedia
+    });
+  }
+
+  const nextObjectKeys = new Set(verifiedMaterials.map((material) => material.mediaObjectKey).filter(Boolean));
+  for (const existing of existingMaterials) {
+    if (existing.mediaObjectKey && !nextObjectKeys.has(existing.mediaObjectKey)) {
+      await deleteObject(existing.mediaObjectKey).catch(() => null);
+    }
+  }
+
+  await db.delete(lessonMaterials).where(eq(lessonMaterials.contentItemId, contentItemId));
+
+  if (verifiedMaterials.length) {
+    const now = new Date();
+    await db.insert(lessonMaterials).values(
+      verifiedMaterials.map((material, index) => ({
+        contentItemId,
+        kind: material.kind,
+        title: material.title,
+        description: material.description,
+        body: material.body,
+        mediaObjectKey: material.mediaObjectKey,
+        mediaContentType: material.mediaContentType,
+        mediaSizeBytes: material.mediaSizeBytes,
+        sortOrder: index,
+        createdAt: now,
+        updatedAt: now
+      }))
+    );
+  }
+
+  for (const material of verifiedMaterials) {
+    mirrorDirectUploadToReserve(material.verifiedMedia);
+  }
+}
+
 async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): Promise<AdminLearningMaterial> {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
   const thumbnailUrl = item.thumbnailObjectKey ? await getObjectReadUrl(item.thumbnailObjectKey) : item.thumbnailUrl;
@@ -338,6 +485,7 @@ async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): P
     cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
+    materials: await getSerializedLessonMaterials(item.id),
     publishedAt: item.publishedAt?.toISOString() ?? null,
     isPublished: item.isPublished,
     archivedUntil: item.archivedUntil?.toISOString() ?? null,
@@ -352,6 +500,7 @@ async function purgeExpiredArchivedContent() {
   });
 
   for (const item of expiredItems) {
+    await deleteLessonMaterialObjects(item.id);
     if (item.mediaObjectKey) {
       await deleteObject(item.mediaObjectKey).catch(() => null);
     }
@@ -1496,6 +1645,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     for (const item of category.items) {
+      await deleteLessonMaterialObjects(item.id);
       if (item.mediaObjectKey) {
         await deleteObject(item.mediaObjectKey).catch(() => null);
       }
@@ -1698,6 +1848,19 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!material) {
       return c.json({ error: "Unable to create material" }, 500);
+    }
+
+    try {
+      await replaceDirectLessonMaterials(material.id, body.data.materials);
+    } catch {
+      if (mediaObjectKey) {
+        await deleteObject(mediaObjectKey).catch(() => null);
+      }
+      if (thumbnailObjectKey) {
+        await deleteObject(thumbnailObjectKey).catch(() => null);
+      }
+      await db.delete(contentItems).where(eq(contentItems.id, material.id));
+      return c.json({ error: "Invalid lesson materials" }, 400);
     }
 
     mirrorDirectUploadToReserve(verifiedMedia);
@@ -1934,6 +2097,12 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!material) {
       return c.json({ error: "Unable to update material" }, 500);
+    }
+
+    try {
+      await replaceDirectLessonMaterials(material.id, body.data.materials);
+    } catch {
+      return c.json({ error: "Invalid lesson materials" }, 400);
     }
 
     mirrorDirectUploadToReserve(verifiedMedia);

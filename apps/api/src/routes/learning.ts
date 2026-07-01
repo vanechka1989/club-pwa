@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { contentCategories, contentItems, lessonComments, userContentProgress } from "../db/schema";
+import { contentCategories, contentItems, lessonComments, lessonMaterials, userContentProgress } from "../db/schema";
 import { db } from "../db/client";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
@@ -24,6 +24,12 @@ function publishedContentWhere() {
 async function serializeContentItem(item: typeof contentItems.$inferSelect, includeBody = false) {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
   const thumbnailUrl = item.thumbnailObjectKey ? await getObjectReadUrl(item.thumbnailObjectKey) : item.thumbnailUrl;
+  const materials = includeBody
+    ? await db.query.lessonMaterials.findMany({
+        where: eq(lessonMaterials.contentItemId, item.id),
+        orderBy: [asc(lessonMaterials.sortOrder), asc(lessonMaterials.createdAt)]
+      })
+    : [];
 
   return {
     id: item.id,
@@ -37,6 +43,18 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
     cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
+    materials: await Promise.all(
+      materials.map(async (material) => ({
+        id: material.id,
+        kind: material.kind,
+        title: material.title,
+        description: material.description,
+        body: material.body,
+        mediaUrl: material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : null,
+        mediaContentType: material.mediaContentType,
+        mediaSizeBytes: material.mediaSizeBytes
+      }))
+    ),
     publishedAt: item.publishedAt?.toISOString() ?? null
   };
 }

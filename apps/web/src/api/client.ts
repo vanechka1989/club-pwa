@@ -598,6 +598,14 @@ export function createAdminLearningMaterialDirect(payload: {
   title: string;
   summary?: string;
   body?: string;
+  materials?: Array<{
+    id?: string;
+    kind: "text" | "photo" | "video" | "audio";
+    title: string;
+    description?: string;
+    body?: string;
+    mediaObject?: AdminLearningUploadedObject | null;
+  }>;
   cardLayout: "vertical" | "horizontal";
   isPublished: boolean;
   mediaObject?: AdminLearningUploadedObject | null;
@@ -625,6 +633,14 @@ export function updateAdminLearningMaterialDirect(
     title: string;
     summary?: string;
     body?: string;
+    materials?: Array<{
+      id?: string;
+      kind: "text" | "photo" | "video" | "audio";
+      title: string;
+      description?: string;
+      body?: string;
+      mediaObject?: AdminLearningUploadedObject | null;
+    }>;
     cardLayout: "vertical" | "horizontal";
     isPublished: boolean;
     mediaObject?: AdminLearningUploadedObject | null;
