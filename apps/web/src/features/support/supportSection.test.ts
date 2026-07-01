@@ -78,7 +78,7 @@ describe("support section", () => {
     expect(styles).not.toContain(".support-attachment-preview img");
     expect(styles).toContain(".support-attachment-viewer-fullscreen");
     expect(styles).toContain("width: 100vw");
-    expect(styles).toContain("height: var(--tg-viewport-height, 100vh)");
+    expect(styles).toContain("height: var(--club-viewport-height, 100dvh)");
     expect(styles).toContain("border-radius: 0");
     expect(styles).toContain("top: 50%");
     expect(styles).toContain("transform: translateY(-50%)");

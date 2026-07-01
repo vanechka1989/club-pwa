@@ -562,7 +562,7 @@ body.club-keyboard-open .app-shell {
   top: max(2.2rem, calc(var(--tg-safe-top, 0px) + 1.65rem));
   left: 50%;
   z-index: 80;
-  width: min(calc(100vw - 1.25rem), 33rem);
+  width: min(calc(100vw - var(--tg-safe-left, 0px) - var(--tg-safe-right, 0px) - 1.25rem), 33rem);
   padding: 0.62rem 0.72rem 0.68rem;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   border-radius: 16px;
@@ -1173,7 +1173,7 @@ body.club-keyboard-open .app-shell {
 .support-thread {
   display: grid;
   align-content: start;
-  max-height: min(24rem, calc(var(--club-viewport-height, 100vh) * 0.44));
+  max-height: min(24rem, calc(var(--club-viewport-height, 100dvh) * 0.44));
   gap: 0.55rem;
   overflow: auto;
   padding-right: 0.2rem;
@@ -1284,7 +1284,7 @@ body.club-keyboard-open .app-shell {
 .support-attachment-viewer-panel {
   display: grid;
   width: min(100%, 42rem);
-  max-height: calc(var(--tg-viewport-height, 100vh) - 8.8rem);
+  max-height: calc(var(--club-viewport-height, 100dvh) - 8.8rem);
   gap: 0.7rem;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
@@ -1320,7 +1320,7 @@ body.club-keyboard-open .app-shell {
 
 .support-attachment-viewer-media {
   width: 100%;
-  max-height: calc(var(--tg-viewport-height, 100vh) - 12rem);
+  max-height: calc(var(--club-viewport-height, 100dvh) - 12rem);
   border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
   border-radius: 14px;
   background: #000;
@@ -1340,7 +1340,7 @@ body.club-keyboard-open .app-shell {
   inset: 0;
   display: block;
   width: 100vw;
-  height: var(--tg-viewport-height, 100vh);
+  height: var(--club-viewport-height, 100dvh);
   max-height: none;
   overflow: hidden;
   border: 0;
@@ -1387,7 +1387,7 @@ body.club-keyboard-open .app-shell {
 
 .support-attachment-viewer-fullscreen .support-attachment-viewer-media {
   width: 100vw;
-  height: var(--tg-viewport-height, 100vh);
+  height: var(--club-viewport-height, 100dvh);
   min-height: 0;
   max-height: none;
   border: 0;
@@ -1407,7 +1407,7 @@ body.club-keyboard-open .app-shell {
 
   .support-attachment-viewer-fullscreen .support-attachment-viewer-media {
     width: 100vw;
-    height: var(--tg-viewport-height, 100vh);
+    height: var(--club-viewport-height, 100dvh);
   }
 }
 
@@ -1478,7 +1478,7 @@ body.club-keyboard-open .support-modal-backdrop {
 .support-ticket-modal {
   display: grid;
   width: min(100%, 38rem);
-  max-height: min(88vh, calc(var(--tg-viewport-height, 100vh) - 1.2rem));
+  max-height: min(88dvh, calc(var(--club-viewport-height, 100dvh) - 1.2rem));
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 18px;
@@ -1487,11 +1487,11 @@ body.club-keyboard-open .support-modal-backdrop {
 }
 
 .support-ticket-modal:not(.support-ticket-modal-compact) {
-  height: min(88vh, calc(var(--tg-viewport-height, 100vh) - 1.2rem));
+  height: min(88dvh, calc(var(--club-viewport-height, 100dvh) - 1.2rem));
 }
 
 .support-ticket-modal-compact {
-  max-height: min(78vh, calc(var(--tg-viewport-height, 100vh) - 2rem));
+  max-height: min(78dvh, calc(var(--club-viewport-height, 100dvh) - 2rem));
 }
 
 .support-modal-head {
@@ -3257,7 +3257,7 @@ body.club-keyboard-open .admin-modal-backdrop {
   position: relative;
   top: auto;
   width: 100%;
-  height: 100vh;
+  height: var(--club-viewport-height, 100dvh);
   max-width: none;
   max-height: none;
   overflow: auto;
@@ -3272,7 +3272,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .club-telegram-fullscreen .admin-client-modal {
-  height: calc(100vh - var(--fullscreen-top-offset));
+  height: calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset));
 }
 
 .admin-client-modal-head {
@@ -4336,7 +4336,7 @@ body.club-keyboard-open .admin-modal-backdrop {
   gap: 0.7rem;
   height: auto;
   min-height: 0;
-  max-height: calc(100vh - var(--fullscreen-top-offset));
+  max-height: calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset));
 }
 
 .admin-payment-drilldown-list {
@@ -7276,9 +7276,9 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .bottom-nav {
   position: fixed;
-  right: 0.75rem;
+  right: max(0.75rem, calc(var(--tg-safe-right, 0px) + 0.75rem));
   bottom: var(--nav-bottom-offset);
-  left: 0.75rem;
+  left: max(0.75rem, calc(var(--tg-safe-left, 0px) + 0.75rem));
   z-index: 20;
   margin: 0 auto;
   display: grid;
@@ -7299,7 +7299,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .bottom-nav-toggle {
   position: fixed;
-  right: 1rem;
+  right: max(1rem, calc(var(--tg-safe-right, 0px) + 1rem));
   bottom: calc(var(--nav-bottom-offset) + 3.7rem);
   z-index: 25;
   display: grid;
@@ -7949,6 +7949,21 @@ button.chat-message-author:active {
   transform: translateY(-1px);
 }
 
+@media (pointer: coarse) {
+  .app-toast,
+  .app-operation-indicator,
+  .global-upload-indicator,
+  .global-upload-panel,
+  .bottom-nav,
+  .bottom-nav-toggle,
+  .lesson-video-controls,
+  .lesson-video-exit-fullscreen-button,
+  .support-attachment-viewer-fullscreen .support-attachment-viewer-head-actions {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 @media (max-width: 520px) {
   .admin-filter-grid,
   .admin-two-cols {
@@ -8082,13 +8097,13 @@ button.chat-message-author:active {
   }
 
   .admin-client-modal {
-    height: 100vh;
+    height: var(--club-viewport-height, 100dvh);
     max-height: none;
     border-radius: 0;
   }
 
   .club-telegram-fullscreen .admin-client-modal {
-    height: calc(100vh - var(--fullscreen-top-offset));
+    height: calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset));
   }
 
   .payment-form-modal {

@@ -189,9 +189,13 @@ function syncTelegramSafeArea() {
   const webApp = window.Telegram?.WebApp;
   const topInset = Math.max(webApp?.contentSafeAreaInset?.top ?? 0, webApp?.safeAreaInset?.top ?? 0);
   const bottomInset = Math.max(webApp?.contentSafeAreaInset?.bottom ?? 0, webApp?.safeAreaInset?.bottom ?? 0);
+  const leftInset = Math.max(webApp?.contentSafeAreaInset?.left ?? 0, webApp?.safeAreaInset?.left ?? 0);
+  const rightInset = Math.max(webApp?.contentSafeAreaInset?.right ?? 0, webApp?.safeAreaInset?.right ?? 0);
 
   document.documentElement.style.setProperty("--tg-safe-top", `${topInset}px`);
   document.documentElement.style.setProperty("--tg-safe-bottom", `${bottomInset}px`);
+  document.documentElement.style.setProperty("--tg-safe-left", `${leftInset}px`);
+  document.documentElement.style.setProperty("--tg-safe-right", `${rightInset}px`);
   document.documentElement.style.setProperty("--club-system-bottom", `${bottomInset}px`);
 }
 
@@ -205,6 +209,7 @@ function syncViewportHeight() {
 
   if (height > 0) {
     document.documentElement.style.setProperty("--club-viewport-height", `${height}px`);
+    document.documentElement.style.setProperty("--tg-viewport-height", `${height}px`);
   }
 
   const visualBottomGap =

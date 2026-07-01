@@ -70,4 +70,18 @@ describe("App", () => {
     expect(appSource).toContain("clearPaymentWatch();");
     expect(appSource).not.toContain("Оплата прошла. Доступ обновлен.");
   });
+
+  it("keeps mobile fullscreen layouts on the measured Telegram viewport", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("--tg-safe-left");
+    expect(appSource).toContain("--tg-safe-right");
+    expect(appSource).toContain("--tg-viewport-height");
+    expect(styles).not.toContain("var(--tg-viewport-height, 100vh)");
+    expect(styles).not.toContain("height: 100vh");
+    expect(styles).not.toContain("calc(100vh");
+    expect(styles).toContain("height: var(--club-viewport-height, 100dvh);");
+    expect(styles).toContain("calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset))");
+    expect(styles).toContain("@media (pointer: coarse)");
+  });
 });
