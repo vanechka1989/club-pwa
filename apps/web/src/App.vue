@@ -204,6 +204,20 @@ function syncTelegramSafeArea() {
   document.documentElement.style.setProperty("--club-system-bottom", `${bottomInset}px`);
 }
 
+function syncPlatformClasses() {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+
+  const webAppWithPlatform = window.Telegram?.WebApp as ({ platform?: string } | undefined);
+  const platform = webAppWithPlatform?.platform?.toLowerCase() ?? "";
+  const userAgent = window.navigator.userAgent;
+  const isIos = platform === "ios" || platform === "macos" || /iPad|iPhone|iPod/.test(userAgent);
+
+  document.documentElement.classList.toggle("club-ios", isIos);
+  document.body.classList.toggle("club-ios", isIos);
+}
+
 function syncViewportHeight() {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
@@ -426,6 +440,7 @@ function handleTextFieldFocusIn(event: FocusEvent) {
 onMounted(() => {
   isAppMounted = true;
   window.Telegram?.WebApp?.ready();
+  syncPlatformClasses();
   document.documentElement.classList.toggle("club-telegram-webview", Boolean(window.Telegram?.WebApp));
   document.body.classList.toggle("club-telegram-webview", Boolean(window.Telegram?.WebApp));
   syncTelegramFullscreen(ui.fullscreenEnabled);
@@ -527,6 +542,8 @@ onBeforeUnmount(() => {
   document.body.classList.remove("club-telegram-fullscreen");
   document.documentElement.classList.remove("club-telegram-webview");
   document.body.classList.remove("club-telegram-webview");
+  document.documentElement.classList.remove("club-ios");
+  document.body.classList.remove("club-ios");
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
 });

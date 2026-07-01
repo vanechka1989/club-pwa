@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: Android и клавиатура",
+    items: [
+      "Исправлен режим открытой клавиатуры в чате на Android.",
+      "Жёсткая фиксация чата теперь применяется только на iPhone/iPad.",
+      "На Android чат снова рассчитывает высоту обычным способом и не уезжает вниз."
+    ]
+  },
+  {
+    version: "2.71",
+    updatedAt: "01.07.2026 14:08",
     title: "Чат: iPhone и клавиатура",
     items: [
       "В открытом чате увеличен верхний безопасный отступ, чтобы заголовок не попадал под Dynamic Island и панель Telegram.",
