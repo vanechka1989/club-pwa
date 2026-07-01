@@ -36,6 +36,8 @@ describe("learning background uploads", () => {
     expect(appSource).toContain("stroke-dasharray");
     expect(appSource).toContain("Открыть статус загрузки");
     expect(appSource).toContain("Закрыть статус загрузки");
+    expect(appSource).toContain("toggleUploadDetails");
+    expect(appSource).toContain('@click="toggleUploadDetails"');
     expect(stylesSource).toContain(".global-upload-indicator");
     expect(stylesSource).toContain(".global-upload-panel");
   });

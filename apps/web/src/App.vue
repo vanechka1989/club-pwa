@@ -154,8 +154,8 @@ function toggleNavCollapsed() {
   navCollapsed.value = !navCollapsed.value;
 }
 
-function openUploadDetails() {
-  uploadDetailsOpen.value = true;
+function toggleUploadDetails() {
+  uploadDetailsOpen.value = !uploadDetailsOpen.value;
 }
 
 function closeUploadDetails() {
@@ -501,7 +501,7 @@ onBeforeUnmount(() => {
       :class="{ 'global-upload-indicator-error': lessonUploads.activeUpload?.status === 'error' }"
       type="button"
       aria-label="Открыть статус загрузки"
-      @click="openUploadDetails"
+      @click="toggleUploadDetails"
     >
       <svg viewBox="0 0 56 56" aria-hidden="true">
         <circle class="global-upload-ring-bg" cx="28" cy="28" r="23" />
