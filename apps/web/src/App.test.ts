@@ -94,4 +94,11 @@ describe("App", () => {
     expect(styles).toContain("@media (max-width: 380px)");
     expect(styles).toContain(".payment-product-pay");
   });
+
+  it("uses a lower top offset for Samsung fullscreen webviews", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("body.club-samsung");
+    expect(styles).toContain("--fullscreen-top-offset: 4.8rem");
+  });
 });
