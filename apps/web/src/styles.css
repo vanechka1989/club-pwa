@@ -781,6 +781,21 @@ body.club-keyboard-open .community-chat-open .app-shell {
   backdrop-filter: blur(12px);
 }
 
+body.club-screen-narrow {
+  --screen-gutter: 0.65rem;
+  --section-bleed: 0.35rem;
+  --ui-gap: 0.5rem;
+  --ui-card-padding: 0.72rem;
+}
+
+body.club-screen-short:not(.community-chat-open) {
+  --nav-space: calc(4.9rem + var(--club-system-bottom, 0px));
+}
+
+body.club-screen-tall:not(.community-chat-open) {
+  --screen-gutter: 0.9rem;
+}
+
 .content-panel-community {
   overflow: hidden;
 }

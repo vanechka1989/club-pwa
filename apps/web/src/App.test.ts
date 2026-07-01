@@ -75,10 +75,9 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(appSource).toContain("club-telegram-webview");
-    expect(appSource).toContain("club-huawei");
-    expect(appSource).toContain("HUAWEI|HONOR|HarmonyOS|EMUI|JLN-LX1");
-    expect(appSource).toContain("club-android-compact-top");
-    expect(appSource).toContain("isAndroid && !isSamsung");
+    expect(appSource).toContain("getViewportSizeClasses");
+    expect(appSource).toContain("getDeviceLayoutClasses");
+    expect(appSource).toContain("syncLayoutClasses");
     expect(appSource).toContain("--tg-safe-left");
     expect(appSource).toContain("--tg-safe-right");
     expect(appSource).toContain("--tg-viewport-height");

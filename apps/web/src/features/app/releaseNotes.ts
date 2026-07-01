@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Адаптация экранов",
+    items: [
+      "Добавлен общий модуль определения устройства и размеров экрана.",
+      "Приложение теперь выставляет классы для iOS, Android, Samsung, Huawei и размеров viewport.",
+      "Небольшие/низкие/высокие экраны получают отдельные CSS-настройки без ручной правки каждого раздела."
+    ]
+  },
+  {
+    version: "2.82",
+    updatedAt: "01.07.2026 17:11",
     title: "Huawei: fallback отступа",
     items: [
       "Добавлен fallback для Android WebView без Samsung-маркеров.",

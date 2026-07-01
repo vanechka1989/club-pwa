@@ -7,6 +7,7 @@ import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
+import { getDeviceLayoutClasses, getViewportSizeClasses, syncLayoutClasses } from "@/features/app/deviceLayout";
 import { blurActiveTextField, ensureFocusedTextFieldVisible } from "@/features/app/keyboardFocus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -211,21 +212,14 @@ function syncPlatformClasses() {
   }
 
   const webAppWithPlatform = window.Telegram?.WebApp as ({ platform?: string } | undefined);
-  const platform = webAppWithPlatform?.platform?.toLowerCase() ?? "";
-  const userAgent = window.navigator.userAgent;
-  const isIos = platform === "ios" || platform === "macos" || /iPad|iPhone|iPod/.test(userAgent);
-  const isAndroid = platform === "android" || /Android/i.test(userAgent);
-  const isSamsung = /Samsung|SM-|SAMSUNG/i.test(userAgent);
-  const isHuawei = /HUAWEI|HONOR|HarmonyOS|EMUI|JLN-LX1/i.test(userAgent);
-  const usesCompactAndroidTopOffset = isAndroid && !isSamsung;
+  const layoutClasses = getDeviceLayoutClasses({
+    platform: webAppWithPlatform?.platform,
+    userAgent: window.navigator.userAgent
+  });
+  const isIos = layoutClasses.includes("club-ios");
   isIosPlatform = isIos;
 
-  document.documentElement.classList.toggle("club-ios", isIos);
-  document.body.classList.toggle("club-ios", isIos);
-  document.documentElement.classList.toggle("club-huawei", isHuawei);
-  document.body.classList.toggle("club-huawei", isHuawei);
-  document.documentElement.classList.toggle("club-android-compact-top", usesCompactAndroidTopOffset);
-  document.body.classList.toggle("club-android-compact-top", usesCompactAndroidTopOffset);
+  syncLayoutClasses([document.documentElement, document.body], layoutClasses);
 }
 
 function syncViewportHeight() {
@@ -238,12 +232,21 @@ function syncViewportHeight() {
   const visualViewport = window.visualViewport;
   const visualHeight = visualViewport?.height ?? 0;
   const browserHeight = window.innerHeight || 0;
+  const browserWidth = window.innerWidth || 0;
   const height = Math.max(telegramHeight, visualHeight, browserHeight);
+  const width = Math.max(window.screen?.width ?? 0, visualViewport?.width ?? 0, browserWidth);
 
   if (height > 0) {
     document.documentElement.style.setProperty("--club-viewport-height", `${height}px`);
     document.documentElement.style.setProperty("--tg-viewport-height", `${height}px`);
   }
+  syncLayoutClasses([document.documentElement, document.body], [
+    ...getDeviceLayoutClasses({
+      platform: (window.Telegram?.WebApp as ({ platform?: string } | undefined))?.platform,
+      userAgent: window.navigator.userAgent
+    }),
+    ...getViewportSizeClasses({ width, height })
+  ]);
 
   const visibleHeight = visualHeight > 0 ? visualHeight : height;
   if (visibleHeight > 0) {
@@ -554,12 +557,7 @@ onBeforeUnmount(() => {
   document.body.classList.remove("club-telegram-fullscreen");
   document.documentElement.classList.remove("club-telegram-webview");
   document.body.classList.remove("club-telegram-webview");
-  document.documentElement.classList.remove("club-ios");
-  document.body.classList.remove("club-ios");
-  document.documentElement.classList.remove("club-huawei");
-  document.body.classList.remove("club-huawei");
-  document.documentElement.classList.remove("club-android-compact-top");
-  document.body.classList.remove("club-android-compact-top");
+  syncLayoutClasses([document.documentElement, document.body], []);
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
 });
