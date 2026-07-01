@@ -50,9 +50,12 @@ describe("support section", () => {
     expect(source).toContain("confirmCloseTicket");
   });
 
-  it("keeps admin support focused on tickets, not customer request creation", () => {
+  it("uses preview role for support mode instead of the real admin role", () => {
     expect(source).toContain("isSupportAdminRole");
-    expect(source).toMatch(/const isAdmin = computed\(\(\) => isSupportAdminRole\(session\.user\?\.realRole\) \|\| isSupportAdminRole\(session\.user\?\.role\)\);/);
+    expect(source).toMatch(/const isAdmin = computed\(\(\) => isSupportAdminRole\(session\.user\?\.role\)\);/);
+    expect(source).not.toContain(
+      "isSupportAdminRole(session.user?.realRole) || isSupportAdminRole(session.user?.role)"
+    );
     expect(source).toContain('v-else-if="!isAdmin"');
   });
 

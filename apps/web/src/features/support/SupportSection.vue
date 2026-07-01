@@ -66,7 +66,7 @@ function isSupportAdminRole(role: string | null | undefined) {
   return role === "admin" || role === "owner";
 }
 
-const isAdmin = computed(() => isSupportAdminRole(session.user?.realRole) || isSupportAdminRole(session.user?.role));
+const isAdmin = computed(() => isSupportAdminRole(session.user?.role));
 const visibleTopics = computed(() => (topics.value.length ? topics.value : defaultTopics));
 const selectedTicket = computed(() => tickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? null);
 const openTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "open"));
