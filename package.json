@@ -9,6 +9,7 @@
     "check": "pnpm -r check",
     "test": "pnpm -r test",
     "test:e2e": "playwright test",
+    "test:e2e:full": "playwright test -c playwright.full.config.ts",
     "db:generate": "pnpm --filter @club/api db:generate",
     "db:migrate": "pnpm --filter @club/api db:migrate",
     "db:seed": "pnpm --filter @club/api db:seed"

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Полная проверка адаптива",
+    items: [
+      "Добавлена команда pnpm test:e2e:full для расширенной Playwright-проверки.",
+      "Полная матрица проверяет 19 профилей устройств и 57 сценариев.",
+      "Быстрая команда pnpm test:e2e оставлена короткой для регулярных проверок."
+    ]
+  },
+  {
+    version: "2.91",
+    updatedAt: "01.07.2026 22:32",
     title: "Проверка адаптива",
     items: [
       "Добавлены Playwright-проверки для desktop, iPhone SE, iPhone 15 Pro Max, Pixel 7, Galaxy S24 и Huawei Nova 9 SE.",

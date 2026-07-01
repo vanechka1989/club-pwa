@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { smokeProjects } from "./tests/e2e/playwrightProjects";
+import { fullProjects } from "./tests/e2e/playwrightProjects";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -14,5 +14,5 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "on-first-retry"
   },
-  projects: smokeProjects
+  projects: fullProjects
 });
