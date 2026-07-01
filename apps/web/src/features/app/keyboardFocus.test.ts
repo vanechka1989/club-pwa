@@ -31,6 +31,8 @@ describe("keyboard focus handling", () => {
     expect(styles).toContain("body.club-keyboard-open .admin-modal-backdrop");
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
     expect(styles).toContain("var(--club-visible-viewport-bottom");
+    expect(styles).toContain("body.club-ios .chat-input-row .text-input");
+    expect(styles).toContain("font-size: 16px");
   });
 
   it("scrolls focused text fields into the visible viewport", () => {

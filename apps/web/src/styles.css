@@ -8194,6 +8194,10 @@ button.chat-message-author:active {
   flex: 1;
 }
 
+body.club-ios .chat-input-row .text-input {
+  font-size: 16px;
+}
+
 .mute-compose-notice {
   min-width: 0;
   flex: 1;

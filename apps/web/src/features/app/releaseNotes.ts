@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: автозум iPhone",
+    items: [
+      "Поле ввода сообщения на iPhone теперь имеет системные 16px.",
+      "iOS больше не должен увеличивать чат при нажатии на поле ввода.",
+      "Android эта правка не затрагивает."
+    ]
+  },
+  {
+    version: "2.77",
+    updatedAt: "01.07.2026 15:42",
     title: "Чат: Android и iPhone",
     items: [
       "Вернул отдельный пересчёт высоты чата для Android.",
