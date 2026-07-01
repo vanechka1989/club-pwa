@@ -709,6 +709,7 @@ onBeforeUnmount(() => {
         class="bottom-nav-item"
         :class="{ 'bottom-nav-item-active': activeSection === item.id }"
         type="button"
+        :aria-label="t(item.labelKey)"
         :aria-pressed="activeSection === item.id"
         @click="selectSection(item.id)"
       >

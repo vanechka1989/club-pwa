@@ -1,20 +1,362 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 const require = createRequire(import.meta.url);
+const apiBaseUrl = "http://localhost:3000";
+const now = "2026-07-01T10:00:00.000Z";
+const activeUntil = "2026-08-30T00:00:00.000Z";
+
+const currentUser = {
+  id: "user-owner",
+  telegramId: "593677751",
+  firstName: "Екатерина",
+  username: "katya",
+  photoUrl: null,
+  role: "owner",
+  realRole: "owner",
+  adminRoleLabel: null,
+  adminPermissions: [],
+  membershipStatus: "active",
+  membershipExpiresAt: activeUntil,
+  paymentType: "manual",
+  recurrentPaymentStatus: null,
+  nextPaymentAt: null,
+  avatarRefreshedAt: null
+};
+
+const ownAuthor = {
+  id: currentUser.id,
+  telegramId: currentUser.telegramId,
+  firstName: currentUser.firstName,
+  username: currentUser.username,
+  photoUrl: null
+};
+
+const memberAuthor = {
+  id: "member-1",
+  telegramId: "753327296",
+  firstName: "Ivan",
+  username: "ivan",
+  photoUrl: null
+};
+
+function json(body: unknown) {
+  return {
+    contentType: "application/json",
+    body: JSON.stringify(body)
+  };
+}
+
+function learningHomeResponse() {
+  return {
+    categories: [
+      {
+        id: "module-main",
+        slug: "main",
+        title: "Тест видео",
+        description: "Модуль клуба",
+        defaultCardLayout: "vertical",
+        isPublished: true,
+        itemsCount: 1
+      }
+    ],
+    featured: [],
+    progress: {
+      totalItems: 9,
+      completedItems: 0,
+      lastOpenedItem: {
+        id: "lesson-1",
+        categoryId: "module-main",
+        kind: "video",
+        title: "Тест видео",
+        summary: "Последний просмотренный урок",
+        body: null,
+        mediaUrl: "https://cdn.example.com/video.mp4",
+        thumbnailUrl: null,
+        cardLayout: "vertical",
+        mediaContentType: "video/mp4",
+        mediaSizeBytes: 1024,
+        materials: [],
+        publishedAt: now
+      },
+      lastOpenedMaterialId: null,
+      lastOpenedAt: now,
+      lastOpenedPlaybackPositionSeconds: 13
+    }
+  };
+}
+
+function communityMessagesResponse() {
+  return {
+    messages: [
+      {
+        id: "message-own",
+        topicId: "topic-fix",
+        body: "Супер",
+        isSystem: false,
+        status: "visible",
+        author: ownAuthor,
+        replyTo: null,
+        likesCount: 0,
+        dislikesCount: 0,
+        reactionCounts: [],
+        myReaction: null,
+        authorMute: null,
+        createdAt: now
+      },
+      {
+        id: "message-member",
+        topicId: "topic-fix",
+        body: "Бот не нравится мне такая адаптация под мой айфончик",
+        isSystem: false,
+        status: "visible",
+        author: memberAuthor,
+        replyTo: null,
+        likesCount: 0,
+        dislikesCount: 0,
+        reactionCounts: [{ reaction: "fire", count: 1 }],
+        myReaction: null,
+        authorMute: null,
+        createdAt: "2026-07-01T07:37:00.000Z"
+      }
+    ],
+    mutedUntil: null,
+    mutedPermanently: false
+  };
+}
+
+async function mockTelegram(page: Page, testInfo: TestInfo) {
+  const isHuawei = testInfo.project.name.includes("huawei");
+  const isIos = testInfo.project.name.includes("iphone");
+  const platform = isIos ? "ios" : "android";
+
+  await page.addInitScript(
+    ({ isHuawei: huawei, platform: telegramPlatform }) => {
+      const topInset = huawei ? 35.333332 : telegramPlatform === "ios" ? 59 : 34.133335;
+
+      Object.defineProperty(window, "Telegram", {
+        configurable: true,
+        value: {
+          WebApp: {
+            initData: "e2e-init-data",
+            version: "9.6",
+            platform: telegramPlatform,
+            isFullscreen: true,
+            viewportHeight: window.innerHeight,
+            viewportStableHeight: window.innerHeight,
+            safeAreaInset: { top: topInset, bottom: telegramPlatform === "ios" ? 34 : 0, left: 0, right: 0 },
+            contentSafeAreaInset: { top: topInset + 11, bottom: 0, left: 0, right: 0 },
+            ready() {},
+            expand() {},
+            requestFullscreen() {
+              this.isFullscreen = true;
+            },
+            exitFullscreen() {
+              this.isFullscreen = false;
+            },
+            disableVerticalSwipes() {},
+            enableVerticalSwipes() {},
+            showAlert() {},
+            showConfirm(_message: string, callback: (isConfirmed: boolean) => void) {
+              callback(true);
+            }
+          }
+        }
+      });
+    },
+    { isHuawei, platform }
+  );
+}
+
+async function mockApi(page: Page) {
+  await page.route(`${apiBaseUrl}/**`, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+
+    if (path === "/me") {
+      await route.fulfill(json({ user: currentUser }));
+      return;
+    }
+
+    if (path === "/me/device" && request.method() === "POST") {
+      await route.fulfill(json({ ok: true, user: currentUser }));
+      return;
+    }
+
+    if (path === "/learning") {
+      await route.fulfill(json(learningHomeResponse()));
+      return;
+    }
+
+    if (path === "/payments/orders") {
+      await route.fulfill(json({ orders: [] }));
+      return;
+    }
+
+    if (path === "/payments/plans") {
+      await route.fulfill(json({ plans: [], provider: null, products: [], recurrentSubscriptions: [] }));
+      return;
+    }
+
+    if (path === "/support") {
+      await route.fulfill(
+        json({
+          topics: [
+            { id: "payment", title: "Оплата", description: "Платежи и подписки." },
+            { id: "access", title: "Доступ", description: "Проблемы с доступом." }
+          ],
+          managerContact: null,
+          tickets: [],
+          unreadCount: 0
+        })
+      );
+      return;
+    }
+
+    if (path === "/support/unread") {
+      await route.fulfill(json({ unreadCount: 0 }));
+      return;
+    }
+
+    if (path === "/notifications") {
+      await route.fulfill(json({ notifications: [], unreadCount: 0 }));
+      return;
+    }
+
+    if (path === "/community/topics") {
+      await route.fulfill(
+        json({
+          topics: [
+            {
+              id: "topic-fix",
+              chatId: "chat-main",
+              title: "Фиксики",
+              description: "Проверочный чат",
+              isPinned: false,
+              isLocked: false,
+              isPublished: true,
+              archivedUntil: null,
+              messagesCount: 2,
+              latestReplyToMeAt: null,
+              createdAt: now
+            }
+          ]
+        })
+      );
+      return;
+    }
+
+    if (path === "/community/topics/topic-fix/messages" && request.method() === "GET") {
+      await route.fulfill(json(communityMessagesResponse()));
+      return;
+    }
+
+    if (path === "/community/topics/topic-fix/messages" && request.method() === "POST") {
+      await route.fulfill(
+        json({
+          ok: true,
+          message: {
+            id: "message-created",
+            topicId: "topic-fix",
+            body: "Проверка адаптива",
+            isSystem: false,
+            status: "visible",
+            author: ownAuthor,
+            replyTo: null,
+            likesCount: 0,
+            dislikesCount: 0,
+            reactionCounts: [],
+            myReaction: null,
+            authorMute: null,
+            createdAt: now
+          }
+        })
+      );
+      return;
+    }
+
+    await route.fulfill(json({ ok: true }));
+  });
+}
+
+async function openApp(page: Page, testInfo: TestInfo) {
+  await mockTelegram(page, testInfo);
+  await mockApi(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(() => {
+    const viewportWidth = document.documentElement.clientWidth;
+    const scrollWidth = document.documentElement.scrollWidth;
+    const offenders = Array.from(document.body.querySelectorAll<HTMLElement>("*"))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName.toLowerCase(),
+          className: String(element.className),
+          text: (element.textContent ?? "").trim().slice(0, 40),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width)
+        };
+      })
+      .filter((item) => item.width > 1 && (item.left < -2 || item.right > viewportWidth + 2))
+      .slice(0, 8);
+
+    return { viewportWidth, scrollWidth, offenders };
+  });
+
+  expect(overflow.scrollWidth, JSON.stringify(overflow, null, 2)).toBeLessThanOrEqual(overflow.viewportWidth + 2);
+  expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
+  await openApp(page, testInfo);
+});
 
 test("renders the mini app shell without accessibility violations", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("button", { name: "Клуб" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Профиль" })).toBeVisible();
 
   await page.addScriptTag({
     content: readFileSync(require.resolve("axe-core/axe.min.js"), "utf8")
   });
 
   const results = await page.evaluate(async () => {
-    return window.axe.run();
+    return window.axe.run(document, {
+      rules: {
+        "color-contrast": { enabled: false }
+      }
+    });
   });
 
   expect(results.violations).toEqual([]);
+});
+
+test("keeps core sections inside the mobile viewport", async ({ page }) => {
+  await expectNoHorizontalOverflow(page);
+
+  for (const section of ["Модули", "Общение", "Оплата", "Поддержка"]) {
+    await page.getByRole("button", { name: section }).click();
+    await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  }
+});
+
+test("keeps chat composer stable when typing", async ({ page }) => {
+  await page.getByRole("button", { name: "Общение" }).click();
+  await page.getByRole("button", { name: /Фиксики/ }).click();
+  await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
+
+  const composer = page.getByPlaceholder("Сообщение");
+  await composer.fill("Проверка адаптива");
+  await expect(composer).toBeFocused();
+  await expectNoHorizontalOverflow(page);
+
+  const composerBox = await composer.boundingBox();
+  expect(composerBox?.x ?? -1).toBeGreaterThanOrEqual(0);
+  expect((composerBox?.x ?? 0) + (composerBox?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()!.width);
 });

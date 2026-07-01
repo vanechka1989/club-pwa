@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Проверка адаптива",
+    items: [
+      "Добавлены Playwright-проверки для desktop, iPhone SE, iPhone 15 Pro Max, Pixel 7, Galaxy S24 и Huawei Nova 9 SE.",
+      "Тесты проверяют основные разделы, чат и отсутствие горизонтального разъезда.",
+      "У кнопок нижнего меню добавлены aria-label, чтобы скрытые подписи не ломали доступность на маленьких экранах."
+    ]
+  },
+  {
+    version: "2.90",
+    updatedAt: "01.07.2026 20:11",
     title: "Huawei: строка подписки",
     items: [
       "На узких Huawei строка срока доступа переносится в две строки.",
