@@ -65,7 +65,9 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("activePanel === 'server-logs'");
     expect(adminSectionSource).toContain("serverErrorLogs");
     expect(adminSectionSource).toContain("Ошибки сервера");
-    expect(adminSectionSource).toContain("Понятные ошибки API");
+    expect(adminSectionSource).toContain("Доступно разработчику");
+    expect(adminSectionSource).toContain("Здесь не Docker-логи");
+    expect(adminSectionSource).toContain("последние 100 ошибок");
     expect(adminSectionSource).toContain("serverLogsRefreshTimer");
     expect(adminSectionSource).toContain("window.setInterval");
   });

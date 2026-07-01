@@ -37,6 +37,7 @@ let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
 let appNotificationTimer: number | null = null;
+let fullscreenSyncTimer: number | null = null;
 let isAppMounted = false;
 
 function formatUploadBytes(bytes: number) {
@@ -186,6 +187,10 @@ function handlePreviewModeChange(mode: PreviewMode) {
 }
 
 function syncTelegramSafeArea() {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+
   const webApp = window.Telegram?.WebApp;
   const topInset = Math.max(webApp?.contentSafeAreaInset?.top ?? 0, webApp?.safeAreaInset?.top ?? 0);
   const bottomInset = Math.max(webApp?.contentSafeAreaInset?.bottom ?? 0, webApp?.safeAreaInset?.bottom ?? 0);
@@ -200,6 +205,10 @@ function syncTelegramSafeArea() {
 }
 
 function syncViewportHeight() {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+
   const webApp = window.Telegram?.WebApp;
   const telegramHeight = webApp?.viewportHeight || webApp?.viewportStableHeight || 0;
   const visualViewport = window.visualViewport;
@@ -234,6 +243,10 @@ function syncViewportHeight() {
 }
 
 function syncTelegramFullscreen(isEnabled: boolean) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+
   const webApp = window.Telegram?.WebApp;
   webApp?.expand();
   syncTelegramSafeArea();
@@ -249,7 +262,15 @@ function syncTelegramFullscreen(isEnabled: boolean) {
       document.documentElement.classList.remove("club-telegram-fullscreen");
       document.body.classList.remove("club-telegram-fullscreen");
     }
-    window.setTimeout(() => {
+    if (fullscreenSyncTimer) {
+      window.clearTimeout(fullscreenSyncTimer);
+    }
+    fullscreenSyncTimer = window.setTimeout(() => {
+      fullscreenSyncTimer = null;
+      if (!isAppMounted) {
+        return;
+      }
+
       syncTelegramSafeArea();
       syncViewportHeight();
     }, 250);
@@ -261,7 +282,15 @@ function syncTelegramFullscreen(isEnabled: boolean) {
   } catch {
     // Telegram clients without fullscreen support can ignore this path.
   }
-  window.setTimeout(() => {
+  if (fullscreenSyncTimer) {
+    window.clearTimeout(fullscreenSyncTimer);
+  }
+  fullscreenSyncTimer = window.setTimeout(() => {
+    fullscreenSyncTimer = null;
+    if (!isAppMounted) {
+      return;
+    }
+
     syncTelegramSafeArea();
     syncViewportHeight();
   }, 250);
@@ -488,6 +517,10 @@ onBeforeUnmount(() => {
   if (appNotificationTimer) {
     window.clearInterval(appNotificationTimer);
     appNotificationTimer = null;
+  }
+  if (fullscreenSyncTimer) {
+    window.clearTimeout(fullscreenSyncTimer);
+    fullscreenSyncTimer = null;
   }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");

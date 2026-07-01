@@ -17,7 +17,7 @@ export const adminPanelDefinitions: AdminPanelDefinition[] = [
   { id: "payments", label: "Платежи", permission: "payments" },
   { id: "storage", label: "Хранилище", permission: "storage" },
   { id: "admins", label: "Админы", permission: "admins" },
-  { id: "server-logs", label: "Логи сервера", permission: "admins" }
+  { id: "server-logs", label: "Логи сервера", ownerOnly: true }
 ];
 
 export function getVisibleAdminPanels(role: AdminPanelRole, permissions?: AdminPermission[]) {

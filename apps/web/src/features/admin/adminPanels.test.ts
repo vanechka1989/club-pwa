@@ -28,6 +28,11 @@ describe("admin panels", () => {
     expect(getVisibleAdminPanels("admin", ["users"]).map((panel) => panel.id)).not.toContain("storage");
   });
 
+  it("shows server logs only to the owner/developer", () => {
+    expect(getVisibleAdminPanels("owner").map((panel) => panel.id)).toContain("server-logs");
+    expect(getVisibleAdminPanels("admin", ["admins"]).map((panel) => panel.id)).not.toContain("server-logs");
+  });
+
   it("limits admin panels by granted permissions", () => {
     expect(getVisibleAdminPanels("admin", ["users", "mailings"]).map((panel) => panel.id)).toEqual(["users", "mailings"]);
   });

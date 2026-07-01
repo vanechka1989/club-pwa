@@ -789,7 +789,6 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/admins", requireAdminPermission("admins"))
   .use("/admins/*", requireAdminPermission("admins"))
   .use("/action-logs", requireAdminPermission("admins"))
-  .use("/server-errors", requireAdminPermission("admins"))
   .use("/stats", requireAnyAdminPermission(["statistics", "users"]))
   .use("/stats/*", requireAnyAdminPermission(["statistics", "users"]))
   .use("/access", requireAdminPermission("accesses"))
@@ -849,7 +848,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       logs: logs.map(serializeAdminActionLog)
     });
   })
-  .get("/server-errors", async (c) => c.json({ errors: listServerErrors() }))
+  .get("/server-errors", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    return c.json({ errors: listServerErrors() });
+  })
   .get("/storage/s3", async (c) => {
     const ownerError = await rejectIfNotOwner(c, "storage");
     if (ownerError) {

@@ -3534,7 +3534,7 @@ onUnmounted(() => {
       <div class="admin-panel-head">
         <div>
           <h3>Логи сервера</h3>
-          <p>Понятные ошибки API. Обновляются автоматически раз в 5 секунд.</p>
+          <p>Только ошибки API, которые приложение успело записать. Доступно разработчику.</p>
         </div>
         <button class="secondary-button" type="button" @click="loadServerErrorLogs">
           Обновить
@@ -3548,6 +3548,10 @@ onUnmounted(() => {
             <p>{{ serverErrorLogs.length ? `${serverErrorLogs.length} последних` : "ошибок пока нет" }}</p>
           </div>
         </header>
+        <p class="admin-log-note">
+          Здесь не Docker-логи и не все запросы. Показываются последние 100 ошибок в памяти сервера: падения API 500 и ошибки сборки
+          загрузок уроков из частей. После перезапуска сервера список очищается.
+        </p>
 
         <div class="admin-action-log-list">
           <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
