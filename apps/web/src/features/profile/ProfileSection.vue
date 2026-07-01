@@ -290,7 +290,7 @@ onMounted(async () => {
         <div class="subscription-bar">
           <span :style="{ width: `${subscriptionProgress}%` }"></span>
         </div>
-        <div class="mt-2 flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
+        <div class="profile-subscription-meta mt-2 flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
           <span>{{ subscriptionMeta }}</span>
           <span v-if="isMember">до {{ accessUntil }}</span>
         </div>

@@ -28,7 +28,7 @@
   --warning: #efe4a1;
   --shadow: 0 26px 80px rgb(0 0 0 / 44%);
   --shadow-soft: 0 14px 40px rgb(0 0 0 / 28%);
-  --fullscreen-top-offset: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+  --fullscreen-top-offset: max(6.2rem, calc(var(--tg-safe-top, 0px) + 4.6rem));
   --club-system-bottom: 0px;
   --club-keyboard-bottom: 0px;
   --screen-gutter: 0.8rem;
@@ -482,7 +482,7 @@ button:disabled {
 }
 
 .club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
-  padding-top: max(5.4rem, calc(var(--tg-safe-top, 0px) + 4.2rem));
+  padding-top: max(6.2rem, calc(var(--tg-safe-top, 0px) + 4.6rem));
 }
 
 body.club-keyboard-open .app-shell {
@@ -496,7 +496,7 @@ body.club-keyboard-open .app-shell {
 }
 
 .club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
-  padding-top: max(5.4rem, calc(var(--tg-safe-top, 0px) + 4.2rem));
+  padding-top: max(6.2rem, calc(var(--tg-safe-top, 0px) + 4.6rem));
 }
 
 .community-chat-open .app-shell {
@@ -6893,6 +6893,12 @@ body.club-keyboard-open .admin-modal-backdrop {
   background: var(--accent);
 }
 
+.profile-subscription-meta {
+  flex-wrap: wrap;
+  gap: 0.2rem 0.45rem;
+  line-height: 1.25;
+}
+
 .soft-hero h2 {
   max-width: 24rem;
   color: var(--text);
@@ -8203,27 +8209,38 @@ button.chat-message-author:active {
 
 @media (max-width: 380px) {
   .bottom-nav {
-    right: max(0.45rem, calc(var(--tg-safe-right, 0px) + 0.45rem));
-    left: max(0.45rem, calc(var(--tg-safe-left, 0px) + 0.45rem));
-    gap: 0.12rem;
-    padding: 0.28rem;
-    border-radius: 15px;
+    right: max(0.3rem, calc(var(--tg-safe-right, 0px) + 0.3rem));
+    left: max(0.3rem, calc(var(--tg-safe-left, 0px) + 0.3rem));
+    gap: 0.06rem;
+    padding: 0.24rem;
+    border-radius: 14px;
   }
 
   .bottom-nav-item {
-    min-height: 2.55rem;
-    gap: 0.12rem;
-    font-size: 0.58rem;
+    min-height: 2.45rem;
+    gap: 0.08rem;
+    font-size: 0.5rem;
+    font-weight: 720;
   }
 
   .bottom-nav-item svg {
-    width: 1.05rem;
-    height: 1.05rem;
+    width: 1rem;
+    height: 1rem;
   }
 
   .bottom-nav-mail-badge {
     top: 0.34rem;
     right: 0.75rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .bottom-nav-item > span:last-child {
+    display: none;
+  }
+
+  .bottom-nav-item {
+    min-height: 2.25rem;
   }
 }
 
