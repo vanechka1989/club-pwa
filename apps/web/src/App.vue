@@ -27,6 +27,7 @@ const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
+const uploadStatusCollapsed = ref(false);
 const communityChatOpen = ref(false);
 const supportUnreadCount = ref(0);
 const adminClientTelegramId = ref<string | null>(null);
@@ -106,6 +107,7 @@ function isSectionAvailable(item: (typeof navItems)[number]) {
 }
 
 const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
+const isUploadStatusCollapsed = computed(() => uploadStatusCollapsed.value && lessonUploads.activeUpload?.status !== "error");
 
 function syncCommunityLock(isLocked: boolean) {
   document.documentElement.classList.toggle("club-community-locked", isLocked);
@@ -145,6 +147,10 @@ async function selectSection(section: AppSection) {
 function toggleNavCollapsed() {
   blurActiveTextField();
   navCollapsed.value = !navCollapsed.value;
+}
+
+function toggleUploadStatusCollapsed() {
+  uploadStatusCollapsed.value = !uploadStatusCollapsed.value;
 }
 
 async function openAdminClientFromSupport(telegramId: string, ticketId: string) {
@@ -400,6 +406,15 @@ watch(
 );
 
 watch(
+  () => lessonUploads.activeUpload?.status,
+  (status) => {
+    if (status === "error") {
+      uploadStatusCollapsed.value = false;
+    }
+  }
+);
+
+watch(
   () => activeSection.value === "community",
   (isCommunity) => {
     syncCommunityLock(isCommunity);
@@ -462,13 +477,27 @@ onBeforeUnmount(() => {
     }"
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
-    <aside v-if="lessonUploads.visibleUploads.length" class="global-upload-status" aria-label="Статус загрузки урока">
+    <aside
+      v-if="lessonUploads.visibleUploads.length"
+      class="global-upload-status"
+      :class="{ 'global-upload-status-collapsed': isUploadStatusCollapsed }"
+      aria-label="Статус загрузки урока"
+    >
       <div class="global-upload-status-head">
         <span>Загрузка урока</span>
-        <em>Не закрывайте и не сворачивайте приложение</em>
+        <em v-if="!isUploadStatusCollapsed">Не закрывайте и не сворачивайте приложение</em>
         <strong>{{ lessonUploads.activeUpload?.progress ?? 0 }}%</strong>
+        <button
+          class="global-upload-status-toggle"
+          type="button"
+          :aria-label="isUploadStatusCollapsed ? 'Развернуть статус загрузки' : 'Свернуть статус загрузки'"
+          @click="toggleUploadStatusCollapsed"
+        >
+          <ChevronDown v-if="isUploadStatusCollapsed" class="h-4 w-4" aria-hidden="true" />
+          <ChevronUp v-else class="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
-      <div class="global-upload-status-title">
+      <div v-if="!isUploadStatusCollapsed" class="global-upload-status-title">
         <strong>{{ lessonUploads.activeUpload?.title }}</strong>
         <button
           v-if="lessonUploads.activeUpload?.status === 'error'"
@@ -480,7 +509,7 @@ onBeforeUnmount(() => {
           Закрыть
         </button>
       </div>
-      <div v-if="lessonUploads.activeUpload" class="global-upload-status-meta">
+      <div v-if="lessonUploads.activeUpload && !isUploadStatusCollapsed" class="global-upload-status-meta">
         <span>{{ formatUploadBytes(lessonUploads.activeUpload.loadedBytes) }} / {{ formatUploadBytes(lessonUploads.activeUpload.totalBytes) }}</span>
         <span>{{ formatUploadSpeed(lessonUploads.activeUpload.speedBytesPerSecond) }}</span>
         <span>{{ formatUploadEta(lessonUploads.activeUpload) }}</span>

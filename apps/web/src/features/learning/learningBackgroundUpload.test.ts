@@ -29,6 +29,14 @@ describe("learning background uploads", () => {
     expect(uploadStoreSource).toContain("speedBytesPerSecond");
   });
 
+  it("allows collapsing the global upload status to the progress indicator", () => {
+    expect(appSource).toContain("uploadStatusCollapsed");
+    expect(appSource).toContain("global-upload-status-collapsed");
+    expect(appSource).toContain("Свернуть статус загрузки");
+    expect(appSource).toContain("Развернуть статус загрузки");
+    expect(stylesSource).toContain(".global-upload-status-collapsed");
+  });
+
   it("does not show the manual video rotation control", () => {
     expect(learningSectionSource).not.toContain("lessonVideoRotated");
     expect(learningSectionSource).not.toContain("toggleLessonVideoOrientation");

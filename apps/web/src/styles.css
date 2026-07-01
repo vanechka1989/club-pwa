@@ -520,6 +520,13 @@ body.club-keyboard-open .app-shell {
   backdrop-filter: blur(18px);
 }
 
+.global-upload-status-collapsed {
+  width: min(calc(100vw - 2.5rem), 24rem);
+  padding: 0.48rem 0.55rem 0.55rem;
+  border-radius: 999px;
+  box-shadow: 0 12px 28px color-mix(in srgb, #000 18%, transparent);
+}
+
 .global-upload-status-head,
 .global-upload-status-title {
   display: flex;
@@ -548,6 +555,31 @@ body.club-keyboard-open .app-shell {
 .global-upload-status-head strong {
   color: var(--accent);
   font-size: 0.82rem;
+}
+
+.global-upload-status-collapsed .global-upload-status-head {
+  gap: 0.45rem;
+}
+
+.global-upload-status-collapsed .global-upload-status-head span {
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: 0.66rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-upload-status-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
 }
 
 .global-upload-status-title {
@@ -589,6 +621,11 @@ body.club-keyboard-open .app-shell {
   margin-top: 0.62rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.global-upload-status-collapsed .global-upload-status-track {
+  height: 0.28rem;
+  margin-top: 0.32rem;
 }
 
 .global-upload-status-track span {
