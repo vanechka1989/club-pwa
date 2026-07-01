@@ -240,6 +240,8 @@ function syncViewportHeight() {
   const visibleHeight = visualHeight > 0 ? visualHeight : height;
   if (visibleHeight > 0) {
     document.documentElement.style.setProperty("--club-visible-viewport-height", `${visibleHeight}px`);
+    const visibleBottom = visualViewport ? Math.round(visualViewport.offsetTop + visibleHeight) : visibleHeight;
+    document.documentElement.style.setProperty("--club-visible-viewport-bottom", `${visibleBottom}px`);
   }
 
   const viewportBaseHeight = Math.max(telegramHeight, browserHeight);

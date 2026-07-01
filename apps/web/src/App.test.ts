@@ -79,6 +79,7 @@ describe("App", () => {
     expect(appSource).toContain("--tg-safe-right");
     expect(appSource).toContain("--tg-viewport-height");
     expect(appSource).toContain("--club-visible-viewport-height");
+    expect(appSource).toContain("--club-visible-viewport-bottom");
     expect(styles).not.toContain("var(--tg-viewport-height, 100vh)");
     expect(styles).not.toContain("height: 100vh");
     expect(styles).not.toContain("calc(100vh");

@@ -9,4 +9,9 @@ describe("community archive labels", () => {
     expect(source).toContain("formatArchiveDeletionLabel(topic.archivedUntil)");
     expect(source).not.toContain("В архиве до {{ formatArchiveUntil");
   });
+
+  it("does not override the global viewport height from the community section", () => {
+    expect(source).not.toContain("--club-viewport-height");
+    expect(source).not.toContain("visualViewport?.addEventListener");
+  });
 });

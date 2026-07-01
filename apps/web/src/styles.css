@@ -7739,7 +7739,7 @@ body.club-ios.club-keyboard-open.club-telegram-webview:not(.club-telegram-fullsc
   right: 0;
   bottom: auto;
   left: 0;
-  height: calc(var(--club-visible-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
+  height: calc(var(--club-visible-viewport-bottom, var(--club-visible-viewport-height, var(--app-viewport-height))) - var(--chat-top-offset));
   padding: 0.55rem 0.75rem;
 }
 
@@ -7760,7 +7760,7 @@ body.club-ios.club-keyboard-open.club-telegram-fullscreen .community-chat-open .
   right: 0;
   bottom: auto;
   left: 0;
-  height: calc(var(--club-visible-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
+  height: calc(var(--club-visible-viewport-bottom, var(--club-visible-viewport-height, var(--app-viewport-height))) - var(--chat-top-offset));
   padding: 0.55rem 0.75rem;
 }
 

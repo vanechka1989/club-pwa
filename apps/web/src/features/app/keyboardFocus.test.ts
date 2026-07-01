@@ -22,6 +22,7 @@ describe("keyboard focus handling", () => {
 
   it("keeps focused text fields visible above the mobile keyboard", () => {
     expect(appSource).toContain("--club-keyboard-bottom");
+    expect(appSource).toContain("--club-visible-viewport-bottom");
     expect(appSource).toContain("club-keyboard-open");
     expect(appSource).toContain("visualBottomGap > 80");
     expect(appSource).toContain("ensureFocusedTextFieldVisible");
@@ -29,6 +30,7 @@ describe("keyboard focus handling", () => {
     expect(styles).toContain("body.club-keyboard-open .app-shell");
     expect(styles).toContain("body.club-keyboard-open .admin-modal-backdrop");
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
+    expect(styles).toContain("var(--club-visible-viewport-bottom");
   });
 
   it("scrolls focused text fields into the visible viewport", () => {
