@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: Android WebView",
+    items: [
+      "На Android отключён iOS-режим обработки клавиатуры.",
+      "Чат больше не получает лишний высокий отступ при открытой Samsung-клавиатуре.",
+      "iPhone-спецрежим сохранён отдельно и не влияет на Android."
+    ]
+  },
+  {
+    version: "2.72",
+    updatedAt: "01.07.2026 14:14",
     title: "Чат: Android и клавиатура",
     items: [
       "Исправлен режим открытой клавиатуры в чате на Android.",
