@@ -189,6 +189,91 @@ describe("Learning section member content", () => {
     expect(screen.queryByText("Содержимое урока пока не добавлено.")).toBeNull();
   });
 
+  it("renders lesson and material text below their media content", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-1",
+          slug: "module-1",
+          title: "Клиентский модуль",
+          description: "Материалы для клиента",
+          defaultCardLayout: "vertical",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [
+        {
+          id: "lesson-photo",
+          categoryId: "module-1",
+          kind: "photo",
+          title: "Фотоурок",
+          summary: null,
+          body: null,
+          mediaUrl: "https://example.com/photo.jpg",
+          thumbnailUrl: null,
+          cardLayout: "vertical",
+          mediaContentType: "image/jpeg",
+          mediaSizeBytes: 1024,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        }
+      ],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: null,
+        lastOpenedAt: null,
+        lastOpenedPlaybackPositionSeconds: 0
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-photo",
+        categoryId: "module-1",
+        kind: "photo",
+        title: "Фотоурок",
+        summary: null,
+        body: "Текст основного урока ниже фото.",
+        mediaUrl: "https://example.com/photo.jpg",
+        thumbnailUrl: null,
+        cardLayout: "vertical",
+        mediaContentType: "image/jpeg",
+        mediaSizeBytes: 1024,
+        materials: [
+          {
+            id: "material-photo",
+            kind: "photo",
+            title: "Фото внутри урока",
+            description: "Дополнительное фото",
+            body: "Описание дополнительного фото ниже изображения.",
+            mediaUrl: "https://example.com/material-photo.jpg",
+            mediaContentType: "image/jpeg",
+            mediaSizeBytes: 2048
+          }
+        ],
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 0
+    });
+
+    renderAsMember();
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
+    await fireEvent.click(screen.getByRole("button", { name: /Фотоурок/ }));
+
+    await waitFor(() => expect(screen.getByText("Текст основного урока ниже фото.")).toBeTruthy());
+    const lessonMedia = document.querySelector('.lesson-viewer-media[src="https://example.com/photo.jpg"]');
+    const lessonText = screen.getByText("Текст основного урока ниже фото.");
+    const materialMedia = document.querySelector('.lesson-material-card img[src="https://example.com/material-photo.jpg"]');
+    const materialText = screen.getByText("Описание дополнительного фото ниже изображения.");
+
+    expect(lessonMedia).toBeTruthy();
+    expect(materialMedia).toBeTruthy();
+    expect(lessonMedia?.compareDocumentPosition(lessonText) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(materialMedia?.compareDocumentPosition(materialText) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("opens member lessons directly on material instead of showing the cover inside the dialog", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [

@@ -2200,8 +2200,6 @@ watch(
               <span class="lesson-preview-kicker">Содержимое урока</span>
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
               <p v-else-if="lessonViewerError" class="lesson-viewer-empty">{{ lessonViewerError }}</p>
-              <p v-else-if="selectedLessonItem.content">{{ selectedLessonItem.content }}</p>
-              <p v-else-if="!selectedLessonItem.mediaUrl" class="lesson-viewer-empty">Содержимое урока пока не добавлено.</p>
 
               <img
                 v-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
@@ -2292,6 +2290,10 @@ watch(
                 @pause="persistLessonVideoPlayback(true)"
                 @seeked="persistLessonVideoPlayback(true)"
               />
+              <p v-if="!isLoadingLessonContent && !lessonViewerError && selectedLessonItem.content">{{ selectedLessonItem.content }}</p>
+              <p v-else-if="!isLoadingLessonContent && !lessonViewerError && !selectedLessonItem.mediaUrl" class="lesson-viewer-empty">
+                Содержимое урока пока не добавлено.
+              </p>
 
               <section v-if="selectedLessonItem.materials.length" class="lesson-material-list">
                 <article
@@ -2305,7 +2307,6 @@ watch(
                     <strong>{{ material.title }}</strong>
                     <small v-if="material.description">{{ material.description }}</small>
                   </div>
-                  <p v-if="material.body">{{ material.body }}</p>
                   <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"
@@ -2332,6 +2333,7 @@ watch(
                     @pause="persistLessonMaterialPlayback(material, $event, true)"
                     @seeked="persistLessonMaterialPlayback(material, $event, true)"
                   />
+                  <p v-if="material.body">{{ material.body }}</p>
                 </article>
               </section>
             </article>
