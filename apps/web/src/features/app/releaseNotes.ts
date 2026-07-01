@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Telegram: верхний отступ",
+    items: [
+      "Уменьшен верхний отступ обычных разделов в Telegram WebView.",
+      "Чат с открытой темой и правки клавиатуры не изменялись.",
+      "Контент должен начинаться выше, без лишней пустоты сверху."
+    ]
+  },
+  {
+    version: "2.78",
+    updatedAt: "01.07.2026 16:18",
     title: "Чат: автозум iPhone",
     items: [
       "Поле ввода сообщения на iPhone теперь имеет системные 16px.",
