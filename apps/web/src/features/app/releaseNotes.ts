@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: iPhone 15 Pro Max",
+    items: [
+      "Поле ввода в чате теперь привязано к видимой высоте экрана, а не к расчётной высоте клавиатуры.",
+      "Убрана большая пустая зона между полем ввода и клавиатурой на iPhone.",
+      "Правка применяется только к iOS-режиму чата."
+    ]
+  },
+  {
+    version: "2.73",
+    updatedAt: "01.07.2026 14:19",
     title: "Чат: Android WebView",
     items: [
       "На Android отключён iOS-режим обработки клавиатуры.",
