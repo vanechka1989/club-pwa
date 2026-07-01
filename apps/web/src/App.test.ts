@@ -114,5 +114,11 @@ describe("App", () => {
     expect(styles).toContain("position: absolute");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .bottom-nav-item-active");
     expect(styles).toContain("box-shadow: none");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-bubble");
+    expect(styles).toContain("max-width: min(64%, 20rem)");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-avatar");
+    expect(styles).toContain("width: 1.9rem");
+    expect(styles).toContain("body.club-huawei.club-screen-narrow .soft-card");
+    expect(styles).toContain("padding: 0.62rem");
   });
 });

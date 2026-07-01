@@ -819,6 +819,12 @@ body.club-huawei.club-screen-narrow .content-panel {
   box-shadow: 0 10px 22px color-mix(in srgb, #000 18%, transparent);
 }
 
+body.club-huawei.club-screen-narrow .section-head,
+body.club-huawei.club-screen-narrow .soft-card,
+body.club-huawei.club-screen-narrow .surface-card {
+  padding: 0.62rem;
+}
+
 body.club-screen-short:not(.community-chat-open) {
   --nav-space: calc(4.9rem + var(--club-system-bottom, 0px));
 }
@@ -8027,6 +8033,33 @@ body.club-ios.club-keyboard-open.club-telegram-fullscreen .community-chat-open .
   background: color-mix(in srgb, var(--panel-strong) 96%, transparent);
   padding: 0.55rem 0.65rem 0.45rem;
   box-shadow: 0 7px 18px color-mix(in srgb, #000 10%, transparent);
+}
+
+body.club-huawei.club-screen-narrow .chat-message {
+  gap: 0.28rem;
+  margin-top: 0.45rem;
+}
+
+body.club-huawei.club-screen-narrow .chat-bubble {
+  max-width: min(64%, 20rem);
+  padding: 0.48rem 0.55rem 0.4rem;
+}
+
+body.club-huawei.club-screen-narrow .chat-avatar {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-width: 1px;
+  box-shadow: none;
+}
+
+body.club-huawei.club-screen-narrow .chat-message-body {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+body.club-huawei.club-screen-narrow .chat-message-head {
+  gap: 0.38rem;
+  font-size: 0.62rem;
 }
 
 .chat-avatar {

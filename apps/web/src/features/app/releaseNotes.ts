@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Huawei: плотнее профиль и чат",
+    items: [
+      "На узких Huawei профиль стал компактнее по высоте.",
+      "Пузырьки чата и аватары уменьшены, чтобы чат не уезжал вправо.",
+      "Правка применяется только к Huawei narrow."
+    ]
+  },
+  {
+    version: "2.88",
+    updatedAt: "01.07.2026 19:30",
     title: "Huawei: компактный профиль и чат",
     items: [
       "На узких Huawei уменьшены шрифты и ослаблены свечения.",
