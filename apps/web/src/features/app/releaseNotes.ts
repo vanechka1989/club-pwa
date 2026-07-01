@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: iPhone и клавиатура",
+    items: [
+      "В открытом чате увеличен верхний безопасный отступ, чтобы заголовок не попадал под Dynamic Island и панель Telegram.",
+      "При открытой клавиатуре чат теперь фиксируется между верхней панелью и клавиатурой.",
+      "Определение высоты клавиатуры в Telegram WebView стало стабильнее на iPhone."
+    ]
+  },
+  {
+    version: "2.70",
+    updatedAt: "01.07.2026 14:02",
     title: "Адаптация: Telegram WebView",
     items: [
       "Увеличен верхний безопасный отступ в Telegram, чтобы заголовок не залезал под служебную панель.",

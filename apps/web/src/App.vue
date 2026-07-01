@@ -226,9 +226,10 @@ function syncViewportHeight() {
     document.documentElement.style.setProperty("--club-visible-viewport-height", `${visibleHeight}px`);
   }
 
+  const viewportBaseHeight = Math.max(telegramHeight, browserHeight);
   const visualBottomGap =
-    visualViewport && browserHeight > 0
-      ? Math.max(0, Math.round(browserHeight - visualViewport.height - visualViewport.offsetTop))
+    visualViewport && viewportBaseHeight > 0
+      ? Math.max(0, Math.round(viewportBaseHeight - visualViewport.height - visualViewport.offsetTop))
       : 0;
   const telegramBottomInset = Math.max(
     webApp?.contentSafeAreaInset?.bottom ?? 0,
