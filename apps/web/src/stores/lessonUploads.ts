@@ -13,6 +13,7 @@ export type LessonUploadTask = {
   totalBytes: number;
   speedBytesPerSecond: number;
   startedAt: number;
+  abortController?: AbortController;
 };
 
 export const useLessonUploadsStore = defineStore("lessonUploads", () => {
@@ -44,12 +45,19 @@ export const useLessonUploadsStore = defineStore("lessonUploads", () => {
     items.value = items.value.filter((item) => item.id !== id);
   }
 
+  function cancel(id: string) {
+    const task = items.value.find((item) => item.id === id);
+    task?.abortController?.abort();
+    remove(id);
+  }
+
   return {
     items,
     visibleUploads,
     activeUpload,
     add,
     update,
+    cancel,
     remove
   };
 });

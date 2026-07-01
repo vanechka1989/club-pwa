@@ -488,6 +488,14 @@ onBeforeUnmount(() => {
         <em v-if="!isUploadStatusCollapsed">Не закрывайте и не сворачивайте приложение</em>
         <strong>{{ lessonUploads.activeUpload?.progress ?? 0 }}%</strong>
         <button
+          v-if="lessonUploads.activeUpload?.status === 'uploading'"
+          class="global-upload-status-cancel"
+          type="button"
+          @click="lessonUploads.activeUpload && lessonUploads.cancel(lessonUploads.activeUpload.id)"
+        >
+          Отменить
+        </button>
+        <button
           class="global-upload-status-toggle"
           type="button"
           :aria-label="isUploadStatusCollapsed ? 'Развернуть статус загрузки' : 'Свернуть статус загрузки'"

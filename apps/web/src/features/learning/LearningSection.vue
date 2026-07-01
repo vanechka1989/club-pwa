@@ -926,9 +926,30 @@ function getUploadParts(file: File | NamedBlobUpload) {
   };
 }
 
-function putDirectLearningUploadPart(uploadUrl: string, blob: Blob, onProgress: (loadedBytes: number) => void) {
+function throwIfUploadCancelled(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException("Загрузка отменена.", "AbortError");
+  }
+}
+
+function isUploadCancelled(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function putDirectLearningUploadPart(uploadUrl: string, blob: Blob, onProgress: (loadedBytes: number) => void, signal?: AbortSignal) {
   return new Promise<string>((resolve, reject) => {
     const request = new XMLHttpRequest();
+    const abortUpload = () => {
+      request.abort();
+      reject(new DOMException("Загрузка отменена.", "AbortError"));
+    };
+
+    if (signal?.aborted) {
+      reject(new DOMException("Загрузка отменена.", "AbortError"));
+      return;
+    }
+
+    signal?.addEventListener("abort", abortUpload, { once: true });
     request.open("PUT", uploadUrl);
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) {
@@ -944,12 +965,21 @@ function putDirectLearningUploadPart(uploadUrl: string, blob: Blob, onProgress: 
           return;
         }
         onProgress(blob.size);
+        signal?.removeEventListener("abort", abortUpload);
         resolve(etag);
         return;
       }
+      signal?.removeEventListener("abort", abortUpload);
       reject(new Error(`S3 upload failed with status ${request.status}`));
     };
-    request.onerror = () => reject(new Error("S3 upload failed"));
+    request.onerror = () => {
+      signal?.removeEventListener("abort", abortUpload);
+      reject(new Error("S3 upload failed"));
+    };
+    request.onabort = () => {
+      signal?.removeEventListener("abort", abortUpload);
+      reject(new DOMException("Загрузка отменена.", "AbortError"));
+    };
     request.send(blob);
   });
 }
@@ -975,7 +1005,8 @@ async function uploadLessonFileDirect({
   kind,
   progressBase,
   progressSpan,
-  onProgress
+  onProgress,
+  signal
 }: {
   file: File | NamedBlobUpload;
   purpose: "media" | "thumbnail";
@@ -983,7 +1014,9 @@ async function uploadLessonFileDirect({
   progressBase: number;
   progressSpan: number;
   onProgress?: (progress: { percent: number; loadedBytes: number; speedBytesPerSecond: number }) => void;
+  signal?: AbortSignal;
 }): Promise<AdminLearningUploadedObject> {
+  throwIfUploadCancelled(signal);
   const parts = getUploadParts(file);
   const startedAt = Date.now();
   const upload = await createAdminLearningMultipartUpload({
@@ -993,6 +1026,7 @@ async function uploadLessonFileDirect({
     contentType: parts.contentType,
     sizeBytes: parts.sizeBytes
   });
+  throwIfUploadCancelled(signal);
   const loadedByPart = new Map<number, number>();
   const completedParts: Array<{ partNumber: number; etag: string }> = [];
   const chunks = upload.parts.map((part) => {
@@ -1006,6 +1040,7 @@ async function uploadLessonFileDirect({
   });
 
   await runWithConcurrency(chunks, 4, async (part) => {
+    throwIfUploadCancelled(signal);
     const etag = await putDirectLearningUploadPart(part.uploadUrl, part.blob, (loadedBytes) => {
       loadedByPart.set(part.partNumber, loadedBytes);
       const loadedTotal = Array.from(loadedByPart.values()).reduce((sum, value) => sum + value, 0);
@@ -1018,10 +1053,12 @@ async function uploadLessonFileDirect({
         loadedBytes: loadedTotal,
         speedBytesPerSecond: loadedTotal / elapsedSeconds
       });
-    });
+    }, signal);
+    throwIfUploadCancelled(signal);
     completedParts.push({ partNumber: part.partNumber, etag });
   });
 
+  throwIfUploadCancelled(signal);
   const completed = await completeAdminLearningMultipartUpload({
     objectKey: upload.objectKey,
     uploadId: upload.uploadId,
@@ -1112,6 +1149,7 @@ async function startBackgroundLessonUpload() {
   const mediaSizeBytes = draft.mediaFile ? getUploadParts(draft.mediaFile).sizeBytes : 0;
   const thumbnailSizeBytes = draft.thumbnailFile ? getUploadParts(draft.thumbnailFile).sizeBytes : 0;
   const totalSizeBytes = mediaSizeBytes + thumbnailSizeBytes;
+  const abortController = new AbortController();
   const task = {
     id: draft.id,
     title: draft.title,
@@ -1121,7 +1159,8 @@ async function startBackgroundLessonUpload() {
     loadedBytes: 0,
     totalBytes: totalSizeBytes,
     speedBytesPerSecond: 0,
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    abortController
   } as const;
   let completedParts = 0;
   let completedBytes = 0;
@@ -1140,6 +1179,7 @@ async function startBackgroundLessonUpload() {
         kind: draft.kind,
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
+        signal: abortController.signal,
         onProgress: (progress) =>
           lessonUploads.update(draft.id, {
             progress: progress.percent,
@@ -1158,6 +1198,7 @@ async function startBackgroundLessonUpload() {
         purpose: "thumbnail",
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
+        signal: abortController.signal,
         onProgress: (progress) =>
           lessonUploads.update(draft.id, {
             progress: progress.percent,
@@ -1168,11 +1209,14 @@ async function startBackgroundLessonUpload() {
       });
     }
 
+    throwIfUploadCancelled(abortController.signal);
     lessonUploads.update(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока", loadedBytes: totalSizeBytes });
     const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject);
+    throwIfUploadCancelled(abortController.signal);
     const response = draft.lessonId
       ? await updateAdminLearningMaterialDirect(draft.lessonId, payload)
       : await createAdminLearningMaterialDirect(payload);
+    throwIfUploadCancelled(abortController.signal);
 
     if (draft.lessonId) {
       replaceMaterialInModule(response.material);
@@ -1183,6 +1227,11 @@ async function startBackgroundLessonUpload() {
     lessonUploads.update(draft.id, { status: "done", progress: 100, detail: "Урок сохранён" });
     window.setTimeout(() => lessonUploads.remove(draft.id), 5000);
   } catch (error) {
+    if (isUploadCancelled(error)) {
+      lessonUploads.remove(draft.id);
+      return;
+    }
+
     lessonUploads.update(draft.id, {
       status: "error",
       detail: error instanceof Error && error.message ? error.message : "Не удалось сохранить урок.",

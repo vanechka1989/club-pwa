@@ -37,6 +37,16 @@ describe("learning background uploads", () => {
     expect(stylesSource).toContain(".global-upload-status-collapsed");
   });
 
+  it("allows cancelling an active lesson upload", () => {
+    expect(uploadStoreSource).toContain("cancel");
+    expect(uploadStoreSource).toContain("abortController");
+    expect(appSource).toContain("Отменить");
+    expect(appSource).toContain("lessonUploads.cancel");
+    expect(learningSectionSource).toContain("AbortController");
+    expect(learningSectionSource).toContain("signal");
+    expect(stylesSource).toContain("top: max(2.2rem");
+  });
+
   it("does not show the manual video rotation control", () => {
     expect(learningSectionSource).not.toContain("lessonVideoRotated");
     expect(learningSectionSource).not.toContain("toggleLessonVideoOrientation");

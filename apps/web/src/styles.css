@@ -507,24 +507,24 @@ body.club-keyboard-open .app-shell {
 
 .global-upload-status {
   position: fixed;
-  top: max(3.85rem, calc(var(--tg-safe-top, 0px) + 3.25rem));
+  top: max(2.2rem, calc(var(--tg-safe-top, 0px) + 1.65rem));
   left: 50%;
   z-index: 80;
-  width: min(calc(100vw - 1.5rem), 34rem);
-  padding: 0.75rem 0.85rem 0.8rem;
+  width: min(calc(100vw - 1.25rem), 33rem);
+  padding: 0.62rem 0.72rem 0.68rem;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--panel-strong) 94%, transparent);
-  box-shadow: 0 18px 44px color-mix(in srgb, #000 22%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-strong) 90%, transparent);
+  box-shadow: 0 12px 30px color-mix(in srgb, #000 18%, transparent);
   transform: translateX(-50%);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(14px);
 }
 
 .global-upload-status-collapsed {
-  width: min(calc(100vw - 2.5rem), 24rem);
-  padding: 0.48rem 0.55rem 0.55rem;
-  border-radius: 999px;
-  box-shadow: 0 12px 28px color-mix(in srgb, #000 18%, transparent);
+  width: min(calc(100vw - 1.5rem), 30rem);
+  padding: 0.42rem 0.5rem 0.48rem;
+  border-radius: 14px;
+  box-shadow: 0 10px 22px color-mix(in srgb, #000 14%, transparent);
 }
 
 .global-upload-status-head,
@@ -580,6 +580,18 @@ body.club-keyboard-open .app-shell {
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text);
+}
+
+.global-upload-status-cancel {
+  flex: 0 0 auto;
+  min-height: 1.85rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+  padding-inline: 0.62rem;
+  font-size: 0.68rem;
+  font-weight: 850;
 }
 
 .global-upload-status-title {
