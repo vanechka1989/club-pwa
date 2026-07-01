@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: ввод на iPhone",
+    items: [
+      "Отключён лишний автоскролл поля ввода в чате на iPhone.",
+      "Поле ввода больше не должно уходить вверх и оставлять пустую зону над клавиатурой.",
+      "Правка касается только чата на iOS."
+    ]
+  },
+  {
+    version: "2.74",
+    updatedAt: "01.07.2026 14:35",
     title: "Чат: iPhone 15 Pro Max",
     items: [
       "Поле ввода в чате теперь привязано к видимой высоте экрана, а не к расчётной высоте клавиатуры.",

@@ -44,6 +44,26 @@ describe("keyboard focus handling", () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", inline: "nearest", behavior: "smooth" });
   });
 
+  it("does not center-scroll the iOS chat composer input", () => {
+    document.body.classList.add("club-ios", "community-chat-open");
+    const form = document.createElement("form");
+    form.className = "chat-compose";
+    const input = document.createElement("input");
+    const scrollIntoView = vi.fn();
+    input.scrollIntoView = scrollIntoView;
+    form.append(input);
+    document.body.append(form);
+
+    ensureFocusedTextFieldVisible(input, (handler) => {
+      handler();
+      return 1;
+    });
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    form.remove();
+    document.body.classList.remove("club-ios", "community-chat-open");
+  });
+
   it("detects regular and rich text fields", () => {
     const input = document.createElement("input");
     const editor = document.createElement("div");

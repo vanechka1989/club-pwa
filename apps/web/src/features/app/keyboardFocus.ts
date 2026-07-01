@@ -23,6 +23,15 @@ export function ensureFocusedTextFieldVisible(
   }
 
   schedule(() => {
+    const isIosChatComposer =
+      document.body.classList.contains("club-ios") &&
+      document.body.classList.contains("community-chat-open") &&
+      element.closest(".chat-compose");
+
+    if (isIosChatComposer) {
+      return;
+    }
+
     element.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
   }, 320);
 }
