@@ -27,7 +27,7 @@ const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
-const uploadStatusCollapsed = ref(false);
+const uploadDetailsOpen = ref(false);
 const communityChatOpen = ref(false);
 const supportUnreadCount = ref(0);
 const adminClientTelegramId = ref<string | null>(null);
@@ -107,7 +107,12 @@ function isSectionAvailable(item: (typeof navItems)[number]) {
 }
 
 const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
-const isUploadStatusCollapsed = computed(() => uploadStatusCollapsed.value && lessonUploads.activeUpload?.status !== "error");
+const uploadProgressRadius = 23;
+const uploadProgressCircumference = Math.round(2 * Math.PI * uploadProgressRadius);
+const uploadProgressOffset = computed(() => {
+  const progress = lessonUploads.activeUpload?.progress ?? 0;
+  return uploadProgressCircumference - (Math.min(100, Math.max(0, progress)) / 100) * uploadProgressCircumference;
+});
 
 function syncCommunityLock(isLocked: boolean) {
   document.documentElement.classList.toggle("club-community-locked", isLocked);
@@ -149,8 +154,12 @@ function toggleNavCollapsed() {
   navCollapsed.value = !navCollapsed.value;
 }
 
-function toggleUploadStatusCollapsed() {
-  uploadStatusCollapsed.value = !uploadStatusCollapsed.value;
+function openUploadDetails() {
+  uploadDetailsOpen.value = true;
+}
+
+function closeUploadDetails() {
+  uploadDetailsOpen.value = false;
 }
 
 async function openAdminClientFromSupport(telegramId: string, ticketId: string) {
@@ -409,7 +418,16 @@ watch(
   () => lessonUploads.activeUpload?.status,
   (status) => {
     if (status === "error") {
-      uploadStatusCollapsed.value = false;
+      uploadDetailsOpen.value = true;
+    }
+  }
+);
+
+watch(
+  () => lessonUploads.visibleUploads.length,
+  (count) => {
+    if (!count) {
+      uploadDetailsOpen.value = false;
     }
   }
 );
@@ -477,15 +495,32 @@ onBeforeUnmount(() => {
     }"
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
-    <aside
+    <button
       v-if="lessonUploads.visibleUploads.length"
-      class="global-upload-status"
-      :class="{ 'global-upload-status-collapsed': isUploadStatusCollapsed }"
-      aria-label="Статус загрузки урока"
+      class="global-upload-indicator"
+      :class="{ 'global-upload-indicator-error': lessonUploads.activeUpload?.status === 'error' }"
+      type="button"
+      aria-label="Открыть статус загрузки"
+      @click="openUploadDetails"
     >
+      <svg viewBox="0 0 56 56" aria-hidden="true">
+        <circle class="global-upload-ring-bg" cx="28" cy="28" r="23" />
+        <circle
+          class="global-upload-ring-progress"
+          cx="28"
+          cy="28"
+          r="23"
+          :stroke-dasharray="uploadProgressCircumference"
+          :stroke-dashoffset="uploadProgressOffset"
+        />
+      </svg>
+      <span>{{ lessonUploads.activeUpload?.progress ?? 0 }}%</span>
+    </button>
+
+    <aside v-if="lessonUploads.visibleUploads.length && uploadDetailsOpen" class="global-upload-panel" aria-label="Статус загрузки урока">
       <div class="global-upload-status-head">
         <span>Загрузка урока</span>
-        <em v-if="!isUploadStatusCollapsed">Не закрывайте и не сворачивайте приложение</em>
+        <em>Не закрывайте и не сворачивайте приложение</em>
         <strong>{{ lessonUploads.activeUpload?.progress ?? 0 }}%</strong>
         <button
           v-if="lessonUploads.activeUpload?.status === 'uploading'"
@@ -498,14 +533,13 @@ onBeforeUnmount(() => {
         <button
           class="global-upload-status-toggle"
           type="button"
-          :aria-label="isUploadStatusCollapsed ? 'Развернуть статус загрузки' : 'Свернуть статус загрузки'"
-          @click="toggleUploadStatusCollapsed"
+          aria-label="Закрыть статус загрузки"
+          @click="closeUploadDetails"
         >
-          <ChevronDown v-if="isUploadStatusCollapsed" class="h-4 w-4" aria-hidden="true" />
-          <ChevronUp v-else class="h-4 w-4" aria-hidden="true" />
+          <ChevronUp class="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
-      <div v-if="!isUploadStatusCollapsed" class="global-upload-status-title">
+      <div class="global-upload-status-title">
         <strong>{{ lessonUploads.activeUpload?.title }}</strong>
         <button
           v-if="lessonUploads.activeUpload?.status === 'error'"
@@ -517,7 +551,7 @@ onBeforeUnmount(() => {
           Закрыть
         </button>
       </div>
-      <div v-if="lessonUploads.activeUpload && !isUploadStatusCollapsed" class="global-upload-status-meta">
+      <div v-if="lessonUploads.activeUpload" class="global-upload-status-meta">
         <span>{{ formatUploadBytes(lessonUploads.activeUpload.loadedBytes) }} / {{ formatUploadBytes(lessonUploads.activeUpload.totalBytes) }}</span>
         <span>{{ formatUploadSpeed(lessonUploads.activeUpload.speedBytesPerSecond) }}</span>
         <span>{{ formatUploadEta(lessonUploads.activeUpload) }}</span>

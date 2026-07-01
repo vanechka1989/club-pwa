@@ -29,12 +29,15 @@ describe("learning background uploads", () => {
     expect(uploadStoreSource).toContain("speedBytesPerSecond");
   });
 
-  it("allows collapsing the global upload status to the progress indicator", () => {
-    expect(appSource).toContain("uploadStatusCollapsed");
-    expect(appSource).toContain("global-upload-status-collapsed");
-    expect(appSource).toContain("Свернуть статус загрузки");
-    expect(appSource).toContain("Развернуть статус загрузки");
-    expect(stylesSource).toContain(".global-upload-status-collapsed");
+  it("shows a compact circular upload indicator that opens details", () => {
+    expect(appSource).toContain("uploadDetailsOpen");
+    expect(appSource).toContain("global-upload-indicator");
+    expect(appSource).toContain("global-upload-panel");
+    expect(appSource).toContain("stroke-dasharray");
+    expect(appSource).toContain("Открыть статус загрузки");
+    expect(appSource).toContain("Закрыть статус загрузки");
+    expect(stylesSource).toContain(".global-upload-indicator");
+    expect(stylesSource).toContain(".global-upload-panel");
   });
 
   it("allows cancelling an active lesson upload", () => {
