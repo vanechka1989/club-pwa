@@ -212,6 +212,11 @@ function syncViewportHeight() {
     document.documentElement.style.setProperty("--tg-viewport-height", `${height}px`);
   }
 
+  const visibleHeight = visualHeight > 0 ? visualHeight : height;
+  if (visibleHeight > 0) {
+    document.documentElement.style.setProperty("--club-visible-viewport-height", `${visibleHeight}px`);
+  }
+
   const visualBottomGap =
     visualViewport && browserHeight > 0
       ? Math.max(0, Math.round(browserHeight - visualViewport.height - visualViewport.offsetTop))

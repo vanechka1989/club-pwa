@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чат: клавиатура",
+    items: [
+      "Открытый чат теперь использует видимую высоту экрана при поднятой клавиатуре.",
+      "Поле ввода в чате больше не должно уезжать и сжимать экран по старой полной высоте Telegram WebView."
+    ]
+  },
+  {
+    version: "2.63",
+    updatedAt: "01.07.2026 10:01",
     title: "Мобильная адаптация: Telegram",
     items: [
       "Добавлен отдельный верхний отступ для Telegram WebView, чтобы заголовки не залезали под кнопку закрытия и системную панель.",

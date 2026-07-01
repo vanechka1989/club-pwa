@@ -78,6 +78,7 @@ describe("App", () => {
     expect(appSource).toContain("--tg-safe-left");
     expect(appSource).toContain("--tg-safe-right");
     expect(appSource).toContain("--tg-viewport-height");
+    expect(appSource).toContain("--club-visible-viewport-height");
     expect(styles).not.toContain("var(--tg-viewport-height, 100vh)");
     expect(styles).not.toContain("height: 100vh");
     expect(styles).not.toContain("calc(100vh");
@@ -85,6 +86,7 @@ describe("App", () => {
     expect(styles).toContain("calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset))");
     expect(styles).toContain("@media (pointer: coarse)");
     expect(styles).toContain(".club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
+    expect(styles).toContain("body.club-keyboard-open .community-chat-open .chat-room");
     expect(styles).toContain("@media (max-width: 380px)");
     expect(styles).toContain(".payment-product-pay");
   });
