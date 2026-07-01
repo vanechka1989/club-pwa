@@ -89,6 +89,10 @@ function showTelegramAlert(message: string) {
   window.alert(message);
 }
 
+function showPaymentSuccessAlert() {
+  showTelegramAlert("Оплата прошла. Доступ открыт.");
+}
+
 function isSectionAvailable(item: (typeof navItems)[number]) {
   if (item.adminOnly && session.user?.realRole !== "admin" && session.user?.realRole !== "owner") {
     return false;
@@ -257,7 +261,7 @@ async function checkPendingPaymentWatch() {
     if (paidOrder) {
       clearPaymentWatch();
       await session.load();
-      showTelegramAlert("Оплата прошла. Доступ обновлен.");
+      showPaymentSuccessAlert();
       return;
     }
 
@@ -281,6 +285,12 @@ async function refreshSessionAccessStatus(shouldNotify: boolean) {
   }
 
   if (shouldNotify && shouldShowAccessGrantedAlert(previousUser, session.user)) {
+    if (readPaymentWatch()) {
+      clearPaymentWatch();
+      showPaymentSuccessAlert();
+      return;
+    }
+
     showTelegramAlert("Доступ к клубу открыт.");
   }
 }

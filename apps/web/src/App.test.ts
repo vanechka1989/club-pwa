@@ -62,4 +62,12 @@ describe("App", () => {
     expect(styles).toContain(".bottom-nav-mail-badge");
     expect(styles).toContain("var(--danger)");
   });
+
+  it("uses one combined alert when payment opens access", () => {
+    expect(appSource).toContain("function showPaymentSuccessAlert");
+    expect(appSource).toContain("Оплата прошла. Доступ открыт.");
+    expect(appSource).toContain("if (readPaymentWatch())");
+    expect(appSource).toContain("clearPaymentWatch();");
+    expect(appSource).not.toContain("Оплата прошла. Доступ обновлен.");
+  });
 });
