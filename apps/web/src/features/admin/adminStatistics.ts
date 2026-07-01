@@ -2,7 +2,11 @@ import type { AdminCommunityMessage, AdminLearningMaterial, AdminStatsUser, Club
 import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
 import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
 
-export type AdminStatisticsPeriod = "7d" | "30d" | "all";
+export type AdminStatisticsPeriod = "7d" | "30d" | "all" | "custom";
+export type AdminStatisticsDateRange = {
+  from?: string;
+  to?: string;
+};
 
 export type AdminStatisticsInput = {
   users: AdminStatsUser[];
@@ -15,6 +19,7 @@ export type AdminStatisticsInput = {
 
 export type AdminStatisticsOptions = {
   period: AdminStatisticsPeriod;
+  dateRange?: AdminStatisticsDateRange;
   now?: Date;
 };
 
@@ -36,23 +41,46 @@ function percent(value: number, total: number) {
   return total > 0 ? Math.round((value / total) * 100) : 0;
 }
 
-function periodStart(period: AdminStatisticsPeriod, now: Date) {
-  if (period === "all") {
+function parseDateBoundary(value: string | undefined, endOfDay = false) {
+  if (!value) {
     return null;
   }
 
-  const days = period === "7d" ? 7 : 30;
-  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function isInPeriod(dateString: string | null, period: AdminStatisticsPeriod, now: Date) {
-  const start = periodStart(period, now);
-  if (!start || !dateString) {
+function periodRange(period: AdminStatisticsPeriod, now: Date, dateRange?: AdminStatisticsDateRange) {
+  if (period === "all") {
+    return { start: null, end: null };
+  }
+
+  if (period === "custom") {
+    return {
+      start: parseDateBoundary(dateRange?.from),
+      end: parseDateBoundary(dateRange?.to, true)
+    };
+  }
+
+  const days = period === "7d" ? 7 : 30;
+  return {
+    start: new Date(now.getTime() - days * 24 * 60 * 60 * 1000),
+    end: now
+  };
+}
+
+function isInPeriod(dateString: string | null, period: AdminStatisticsPeriod, now: Date, dateRange?: AdminStatisticsDateRange) {
+  const range = periodRange(period, now, dateRange);
+  if (!range.start && !range.end) {
     return true;
   }
 
+  if (!dateString) {
+    return false;
+  }
+
   const date = new Date(dateString);
-  return date >= start && date <= now;
+  return (!range.start || date >= range.start) && (!range.end || date <= range.end);
 }
 
 function orderDate(order: PaymentOrderLog) {
@@ -148,7 +176,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
   const now = options.now ?? new Date();
   const activeUsers = input.users.filter((user) => user.membershipStatus === "active");
   const inactiveUsers = input.users.filter((user) => user.membershipStatus !== "active");
-  const newUsers = input.users.filter((user) => isInPeriod(user.createdAt, options.period, now));
+  const newUsers = input.users.filter((user) => isInPeriod(user.createdAt, options.period, now, options.dateRange));
   const expiringSoon = activeUsers.filter((user) => {
     if (!user.membershipExpiresAt) {
       return false;
@@ -158,7 +186,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     return expiresAt >= now && expiresAt <= sevenDaysFromNow;
   });
-  const periodOrders = input.paymentOrders.filter((order) => isInPeriod(orderDate(order), options.period, now));
+  const periodOrders = input.paymentOrders.filter((order) => isInPeriod(orderDate(order), options.period, now, options.dateRange));
   const paidOrders = periodOrders.filter((order) => order.status === "paid");
   const pendingOrders = periodOrders.filter((order) => order.status === "pending").length;
   const failedOrders = periodOrders.filter((order) => order.status === "failed").length;
@@ -174,7 +202,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
   const openTopics = input.communityTopics.filter((topic) => topic.isPublished && !topic.isLocked && !topic.archivedUntil);
   const lockedTopics = input.communityTopics.filter((topic) => topic.isLocked);
   const memberMessages = visibleMemberMessages(input.communityMessages);
-  const periodMessages = memberMessages.filter((message) => isInPeriod(message.createdAt, options.period, now));
+  const periodMessages = memberMessages.filter((message) => isInPeriod(message.createdAt, options.period, now, options.dateRange));
   const messagesLast7Days = memberMessages.filter((message) => isInPeriod(message.createdAt, "7d", now));
   const messagesLast30Days = memberMessages.filter((message) => isInPeriod(message.createdAt, "30d", now));
   const activeWriters = new Set(periodMessages.map((message) => message.author.id)).size;

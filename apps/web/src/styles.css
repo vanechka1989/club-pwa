@@ -1834,11 +1834,16 @@ body.club-keyboard-open .support-modal-backdrop {
   flex-wrap: wrap;
 }
 
+.admin-stat-period-control {
+  display: grid;
+  gap: 0.45rem;
+  align-self: center;
+}
+
 .admin-stat-periods {
   display: flex;
   align-items: center;
   gap: 0.32rem;
-  align-self: center;
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel) 70%, transparent);
@@ -1858,6 +1863,33 @@ body.club-keyboard-open .support-modal-backdrop {
   background: var(--accent);
   color: var(--accent-text);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.admin-stat-custom-period {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.admin-stat-custom-period label {
+  display: grid;
+  gap: 0.18rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.admin-stat-custom-period input {
+  min-height: 2.35rem;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  color: var(--text);
+  padding-inline: 0.7rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 760;
 }
 
 .admin-stat-kpis,
@@ -7946,6 +7978,7 @@ button.chat-message-author:active {
     display: grid;
   }
 
+  .admin-stat-period-control,
   .admin-stat-periods {
     width: 100%;
   }

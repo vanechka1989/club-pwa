@@ -117,6 +117,38 @@ const categories: LearningCategory[] = [
 ];
 
 describe("admin statistics", () => {
+  it("filters period metrics by custom date range", () => {
+    const stats = buildAdminStatistics(
+      {
+        users: [
+          user({ telegramId: "1", createdAt: "2026-06-10T10:00:00.000Z" }),
+          user({ telegramId: "2", createdAt: "2026-06-20T10:00:00.000Z" })
+        ],
+        paymentOrders: [
+          payment({ id: "inside", status: "paid", amountRub: 100, paidAt: "2026-06-10T10:00:00.000Z" }),
+          payment({ id: "outside", status: "paid", amountRub: 900, paidAt: "2026-06-20T10:00:00.000Z" })
+        ],
+        learningCategories: categories,
+        learningMaterials: [],
+        communityTopics: [],
+        communityMessages: [
+          communityMessage({ id: "inside-message", createdAt: "2026-06-12T10:00:00.000Z" }),
+          communityMessage({ id: "outside-message", createdAt: "2026-06-20T10:00:00.000Z" })
+        ]
+      },
+      {
+        period: "custom",
+        dateRange: { from: "2026-06-09", to: "2026-06-15" },
+        now
+      }
+    );
+
+    expect(stats.clients.newInPeriod).toBe(1);
+    expect(stats.payments.paidOrders).toBe(1);
+    expect(stats.payments.revenueRub).toBe(100);
+    expect(stats.communication.messagesInPeriod).toBe(1);
+  });
+
   it("builds club metrics from users, payments, learning content and topics", () => {
     const stats = buildAdminStatistics(
       {

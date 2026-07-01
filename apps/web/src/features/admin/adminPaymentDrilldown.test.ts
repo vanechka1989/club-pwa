@@ -42,4 +42,18 @@ describe("admin payment drilldown", () => {
   it("filters webhook signature errors independently from payment status", () => {
     expect(filterPaymentOrdersByBreakdown("webhook_failed", orders).map((order) => order.id)).toEqual(["bad-webhook"]);
   });
+
+  it("filters payments by custom date range", () => {
+    const rangeOrders = [
+      payment({ id: "inside", status: "paid", paidAt: "2026-06-10T10:00:00.000Z" }),
+      payment({ id: "outside", status: "paid", paidAt: "2026-06-20T10:00:00.000Z" })
+    ];
+
+    expect(
+      filterPaymentOrdersByBreakdown("paid", rangeOrders, {
+        period: "custom",
+        dateRange: { from: "2026-06-09", to: "2026-06-15" }
+      }).map((order) => order.id)
+    ).toEqual(["inside"]);
+  });
 });

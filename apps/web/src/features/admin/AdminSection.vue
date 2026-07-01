@@ -218,6 +218,8 @@ const subscriptionFilter = ref<"all" | "active" | "closed">("all");
 const tariffFilter = ref("all");
 const restrictionFilter = ref<"all" | "restricted">("all");
 const statisticsPeriod = ref<AdminStatisticsPeriod>("30d");
+const statisticsCustomFrom = ref("");
+const statisticsCustomTo = ref("");
 const accessStatus = ref<"active" | "inactive">("active");
 const accessExpiresAt = ref("");
 const pendingClientAccessAction = ref<ClientAccessAction | null>(null);
@@ -411,9 +413,22 @@ const selectedUserLastPayment = computed(
     )[0] ?? null
 );
 const selectedUserPaidTotal = computed(() => selectedUserPaidOrders.value.reduce((sum, order) => sum + order.amountRub, 0));
+const statisticsDateRange = computed(() =>
+  statisticsPeriod.value === "custom"
+    ? {
+        from: statisticsCustomFrom.value,
+        to: statisticsCustomTo.value
+      }
+    : undefined
+);
+const statisticsOptions = computed(() =>
+  statisticsDateRange.value
+    ? { period: statisticsPeriod.value, dateRange: statisticsDateRange.value }
+    : { period: statisticsPeriod.value }
+);
 const paymentDrilldownOrders = computed(() =>
   selectedPaymentBreakdown.value
-    ? filterPaymentOrdersByBreakdown(selectedPaymentBreakdown.value.key, paymentOrders.value, { period: statisticsPeriod.value })
+    ? filterPaymentOrdersByBreakdown(selectedPaymentBreakdown.value.key, paymentOrders.value, statisticsOptions.value)
     : []
 );
 const userDrilldownUsers = computed(() => {
@@ -444,7 +459,7 @@ const adminStatistics = computed(() =>
       communityTopics: communityTopics.value,
       communityMessages: communityMessages.value
     },
-    { period: statisticsPeriod.value }
+    statisticsOptions.value
   )
 );
 const filteredStorageObjects = computed(() => {
@@ -589,6 +604,7 @@ const adminOperation = computed(() => {
 const statisticsPeriodOptions: Array<{ value: AdminStatisticsPeriod; label: string }> = [
   { value: "7d", label: "7 дней" },
   { value: "30d", label: "30 дней" },
+  { value: "custom", label: "Выбрать период" },
   { value: "all", label: "Всё время" }
 ];
 
@@ -1194,6 +1210,19 @@ function formatDateInput(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function selectStatisticsPeriod(period: AdminStatisticsPeriod) {
+  statisticsPeriod.value = period;
+  if (period !== "custom") {
+    return;
+  }
+
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - 6);
+  statisticsCustomFrom.value ||= formatDateInput(from);
+  statisticsCustomTo.value ||= formatDateInput(to);
 }
 
 function applySelectedUser(user: AdminStatsUser) {
@@ -2264,17 +2293,29 @@ onUnmounted(() => {
           <h3>Статистика клуба</h3>
           <p>Клиенты, оплаты, контент и общение по выбранному периоду.</p>
         </div>
-        <div class="admin-stat-periods" aria-label="Период статистики">
-          <button
-            v-for="period in statisticsPeriodOptions"
-            :key="period.value"
-            class="admin-stat-period"
-            :class="{ 'admin-stat-period-active': statisticsPeriod === period.value }"
-            type="button"
-            @click="statisticsPeriod = period.value"
-          >
-            {{ period.label }}
-          </button>
+        <div class="admin-stat-period-control">
+          <div class="admin-stat-periods" aria-label="Период статистики">
+            <button
+              v-for="period in statisticsPeriodOptions"
+              :key="period.value"
+              class="admin-stat-period"
+              :class="{ 'admin-stat-period-active': statisticsPeriod === period.value }"
+              type="button"
+              @click="selectStatisticsPeriod(period.value)"
+            >
+              {{ period.label }}
+            </button>
+          </div>
+          <div v-if="statisticsPeriod === 'custom'" class="admin-stat-custom-period">
+            <label>
+              <span>С</span>
+              <input v-model="statisticsCustomFrom" type="date" />
+            </label>
+            <label>
+              <span>По</span>
+              <input v-model="statisticsCustomTo" type="date" />
+            </label>
+          </div>
         </div>
       </div>
 
