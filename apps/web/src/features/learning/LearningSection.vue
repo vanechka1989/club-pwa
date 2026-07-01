@@ -249,8 +249,10 @@ const lessonVideoStartApplied = ref(false);
 const lastSavedLessonVideoSeconds = ref(0);
 const pendingPlaybackSaveKey = ref<string | null>(null);
 const pendingPlaybackMaterialId = ref<string | null>(null);
+const lastTrackedStaticMaterialId = ref<string | null>(null);
 let voiceChunks: Blob[] = [];
 let lessonVideoControlsTimer: number | null = null;
+let lessonMaterialObserver: IntersectionObserver | null = null;
 
 const canManageModules = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const editingModule = computed(() => moduleCards.value.find((module) => module.id === editingModuleId.value) ?? null);
@@ -548,6 +550,8 @@ function resetLessonVideoState() {
   lastSavedLessonVideoSeconds.value = 0;
   pendingPlaybackSaveKey.value = null;
   pendingPlaybackMaterialId.value = null;
+  lastTrackedStaticMaterialId.value = null;
+  clearLessonMaterialObserver();
 }
 
 function formatVideoTime(seconds: number) {
@@ -784,6 +788,82 @@ function handleLessonMaterialTimeUpdate(material: LessonMaterial, event: Event) 
   void persistLessonMaterialPlayback(material, event, false);
 }
 
+function findLessonMaterialElement(materialId: string) {
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-lesson-material-id]")).find(
+    (element) => element.dataset.lessonMaterialId === materialId
+  );
+}
+
+function scrollToPendingLessonMaterial() {
+  const materialId = pendingPlaybackMaterialId.value;
+  if (!materialId) {
+    return;
+  }
+
+  const element = findLessonMaterialElement(materialId);
+  element?.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function clearLessonMaterialObserver() {
+  lessonMaterialObserver?.disconnect();
+  lessonMaterialObserver = null;
+}
+
+function setupLessonMaterialObserver() {
+  clearLessonMaterialObserver();
+  const lesson = selectedLessonItem.value;
+  if (canManageModules.value || !lesson?.isPersisted || typeof IntersectionObserver === "undefined") {
+    return;
+  }
+
+  const staticMaterials = lesson.materials.filter((material) => material.kind === "text" || material.kind === "photo");
+  if (!staticMaterials.length) {
+    return;
+  }
+
+  const materialById = new Map(staticMaterials.map((material) => [material.id, material]));
+  const root = document.querySelector(".lesson-preview-scroll");
+  lessonMaterialObserver = new IntersectionObserver(
+    (entries) => {
+      const visibleEntry = entries
+        .filter((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.6)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      const materialId =
+        visibleEntry?.target instanceof HTMLElement ? visibleEntry.target.dataset.lessonMaterialId ?? null : null;
+      const material = materialId ? materialById.get(materialId) ?? null : null;
+      if (material) {
+        void trackStaticLessonMaterial(material);
+      }
+    },
+    {
+      root,
+      threshold: [0.6]
+    }
+  );
+
+  for (const material of staticMaterials) {
+    const element = findLessonMaterialElement(material.id);
+    if (element) {
+      lessonMaterialObserver.observe(element);
+    }
+  }
+}
+
+async function trackStaticLessonMaterial(material: LessonMaterial) {
+  const lesson = selectedLessonItem.value;
+  if (!lesson?.isPersisted || lastTrackedStaticMaterialId.value === material.id) {
+    return;
+  }
+
+  lastTrackedStaticMaterialId.value = material.id;
+  updateLearningPlaybackProgress(lesson, 0, material);
+  try {
+    await saveLearningPlayback(lesson.id, 0, { materialId: material.id });
+  } catch {
+    lastTrackedStaticMaterialId.value = null;
+  }
+}
+
 function clearLessonVideoControlsTimer() {
   if (lessonVideoControlsTimer !== null) {
     window.clearTimeout(lessonVideoControlsTimer);
@@ -964,7 +1044,11 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
     }
     pendingLessonVideoStartSeconds.value = Math.max(pendingLessonVideoStartSeconds.value, response.playbackPositionSeconds ?? 0);
     lastSavedLessonVideoSeconds.value = pendingLessonVideoStartSeconds.value;
-    void nextTick().then(() => applyPendingLessonVideoStart());
+    void nextTick().then(() => {
+      applyPendingLessonVideoStart();
+      scrollToPendingLessonMaterial();
+      setupLessonMaterialObserver();
+    });
   } catch {
     if (selectedLesson.value?.lessonId === lessonId) {
       showLessonViewerError("Не удалось загрузить содержимое урока.");
@@ -1862,6 +1946,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
   window.removeEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
   clearLessonVideoControlsTimer();
+  clearLessonMaterialObserver();
 });
 
 watch(
@@ -2209,7 +2294,12 @@ watch(
               />
 
               <section v-if="selectedLessonItem.materials.length" class="lesson-material-list">
-                <article v-for="material in selectedLessonItem.materials" :key="material.id" class="lesson-material-card">
+                <article
+                  v-for="material in selectedLessonItem.materials"
+                  :key="material.id"
+                  class="lesson-material-card"
+                  :data-lesson-material-id="material.id"
+                >
                   <div>
                     <span>{{ contentKindOptions.find((option) => option.value === material.kind)?.label }}</span>
                     <strong>{{ material.title }}</strong>

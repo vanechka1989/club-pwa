@@ -339,6 +339,11 @@ describe("Learning section member content", () => {
   });
 
   it("continues the last opened lesson material instead of the lesson main media", async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView
+    });
     const audioMaterial = {
       id: "material-audio",
       kind: "audio" as const,
@@ -417,6 +422,7 @@ describe("Learning section member content", () => {
     await waitFor(() => expect(document.querySelector('audio[src="https://example.com/material-audio.mp3"]')).toBeTruthy());
 
     const audio = document.querySelector('audio[src="https://example.com/material-audio.mp3"]') as HTMLAudioElement;
+    expect(scrollIntoView).toHaveBeenCalled();
     await fireEvent.loadedMetadata(audio);
     expect(Math.round(audio.currentTime)).toBe(65);
 
