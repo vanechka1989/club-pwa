@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   adminPermissionSchema,
   allAdminPermissions,
+  deviceDiagnosticsSchema,
   newAdminDefaultPermissions,
   type AdminActionActor,
   adminLearningDirectUploadRequestSchema,
@@ -936,6 +937,8 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
     }))
   ].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
+  const device = user.deviceSnapshot ? deviceDiagnosticsSchema.safeParse(user.deviceSnapshot) : null;
+
   return {
     user: statsUser,
     subscriptions: userSubscriptions.map((subscription) => ({
@@ -948,7 +951,8 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
       expiresAt: subscription.expiresAt?.toISOString() ?? null,
       createdAt: subscription.createdAt.toISOString()
     })),
-    moderationEvents
+    moderationEvents,
+    device: device?.success ? device.data : null
   };
 }
 

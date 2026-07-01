@@ -8,6 +8,55 @@ export type ViewportSizeInput = {
   height: number;
 };
 
+export type DeviceInsetInput = {
+  top?: number | null;
+  bottom?: number | null;
+  left?: number | null;
+  right?: number | null;
+};
+
+export type DeviceDiagnosticsInput = {
+  capturedAt?: string;
+  platform?: string | null;
+  colorScheme?: string | null;
+  userAgent: string;
+  screen: {
+    width?: number | null;
+    height?: number | null;
+    availWidth?: number | null;
+    availHeight?: number | null;
+    pixelRatio?: number | null;
+  };
+  viewport: {
+    width?: number | null;
+    height?: number | null;
+  };
+  visualViewport?: {
+    width?: number | null;
+    height?: number | null;
+    offsetTop?: number | null;
+    scale?: number | null;
+  } | null;
+  telegram: {
+    version?: string | null;
+    platform?: string | null;
+    viewportHeight?: number | null;
+    viewportStableHeight?: number | null;
+    safeAreaInset?: DeviceInsetInput | null;
+    contentSafeAreaInset?: DeviceInsetInput | null;
+  };
+  classes: string[];
+};
+
+type TelegramWebAppDiagnostics = {
+  version?: string;
+  platform?: string;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
+  safeAreaInset?: DeviceInsetInput;
+  contentSafeAreaInset?: DeviceInsetInput;
+};
+
 export const deviceLayoutClasses = [
   "club-ios",
   "club-android",
@@ -54,4 +103,104 @@ export function syncLayoutClasses(targets: Array<HTMLElement | null | undefined>
       target.classList.toggle(className, classes.includes(className));
     }
   }
+}
+
+function numberOrNull(value: number | null | undefined) {
+  return Number.isFinite(value) ? Number(value) : null;
+}
+
+function insetOrNull(value: DeviceInsetInput | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return {
+    top: numberOrNull(value.top),
+    bottom: numberOrNull(value.bottom),
+    left: numberOrNull(value.left),
+    right: numberOrNull(value.right)
+  };
+}
+
+export function collectDeviceDiagnostics(input: DeviceDiagnosticsInput) {
+  return {
+    capturedAt: input.capturedAt ?? new Date().toISOString(),
+    platform: input.platform ?? null,
+    colorScheme: input.colorScheme ?? null,
+    userAgent: input.userAgent,
+    screen: {
+      width: numberOrNull(input.screen.width),
+      height: numberOrNull(input.screen.height),
+      availWidth: numberOrNull(input.screen.availWidth),
+      availHeight: numberOrNull(input.screen.availHeight),
+      pixelRatio: numberOrNull(input.screen.pixelRatio)
+    },
+    viewport: {
+      width: numberOrNull(input.viewport.width),
+      height: numberOrNull(input.viewport.height)
+    },
+    visualViewport: input.visualViewport
+      ? {
+          width: numberOrNull(input.visualViewport.width),
+          height: numberOrNull(input.visualViewport.height),
+          offsetTop: numberOrNull(input.visualViewport.offsetTop),
+          scale: numberOrNull(input.visualViewport.scale)
+        }
+      : null,
+    telegram: {
+      version: input.telegram.version ?? null,
+      platform: input.telegram.platform ?? null,
+      viewportHeight: numberOrNull(input.telegram.viewportHeight),
+      viewportStableHeight: numberOrNull(input.telegram.viewportStableHeight),
+      safeAreaInset: insetOrNull(input.telegram.safeAreaInset),
+      contentSafeAreaInset: insetOrNull(input.telegram.contentSafeAreaInset)
+    },
+    classes: Array.from(new Set(input.classes))
+  };
+}
+
+export function collectCurrentDeviceDiagnostics() {
+  const webApp = window.Telegram?.WebApp as TelegramWebAppDiagnostics | undefined;
+  const viewportHeight = Math.max(webApp?.viewportHeight ?? 0, window.visualViewport?.height ?? 0, window.innerHeight ?? 0);
+  const viewportWidth = Math.max(window.visualViewport?.width ?? 0, window.innerWidth ?? 0);
+  const platform = webApp?.platform ?? navigator.platform ?? null;
+  const userAgent = navigator.userAgent;
+  const classes = [
+    ...getDeviceLayoutClasses({ platform: platform ?? "", userAgent }),
+    ...getViewportSizeClasses({ width: viewportWidth, height: viewportHeight })
+  ];
+
+  return collectDeviceDiagnostics({
+    platform,
+    colorScheme: window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+    userAgent,
+    screen: {
+      width: window.screen?.width ?? null,
+      height: window.screen?.height ?? null,
+      availWidth: window.screen?.availWidth ?? null,
+      availHeight: window.screen?.availHeight ?? null,
+      pixelRatio: window.devicePixelRatio ?? null
+    },
+    viewport: {
+      width: window.innerWidth ?? null,
+      height: window.innerHeight ?? null
+    },
+    visualViewport: window.visualViewport
+      ? {
+          width: window.visualViewport.width,
+          height: window.visualViewport.height,
+          offsetTop: window.visualViewport.offsetTop,
+          scale: window.visualViewport.scale
+        }
+      : null,
+    telegram: {
+      version: webApp?.version ?? null,
+      platform: webApp?.platform ?? null,
+      viewportHeight: webApp?.viewportHeight ?? null,
+      viewportStableHeight: webApp?.viewportStableHeight ?? null,
+      safeAreaInset: webApp?.safeAreaInset ?? null,
+      contentSafeAreaInset: webApp?.contentSafeAreaInset ?? null
+    },
+    classes
+  });
 }

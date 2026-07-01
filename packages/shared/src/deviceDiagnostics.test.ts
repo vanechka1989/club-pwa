@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import { adminUserDetailResponseSchema, deviceDiagnosticsSchema } from "./index";
+
+describe("device diagnostics schema", () => {
+  it("accepts client device diagnostics in the admin detail response", () => {
+    const device = {
+      capturedAt: "2026-07-01T10:00:00.000Z",
+      platform: "android",
+      colorScheme: "dark",
+      userAgent: "Mozilla/5.0 (Linux; Android 13; JLN-LX1)",
+      screen: { width: 1080, height: 2388, availWidth: 1080, availHeight: 2290, pixelRatio: 2.75 },
+      viewport: { width: 393, height: 851 },
+      visualViewport: { width: 393, height: 740, offsetTop: 0, scale: 1 },
+      telegram: {
+        version: "8.0",
+        platform: "android",
+        viewportHeight: 851,
+        viewportStableHeight: 851,
+        safeAreaInset: { top: 0, bottom: 24, left: 0, right: 0 },
+        contentSafeAreaInset: { top: 0, bottom: 24, left: 0, right: 0 }
+      },
+      classes: ["club-android", "club-huawei", "club-android-compact-top"]
+    };
+
+    expect(deviceDiagnosticsSchema.parse(device).platform).toBe("android");
+    expect(
+      adminUserDetailResponseSchema.parse({
+        user: {
+          id: "user-id",
+          telegramId: "100",
+          firstName: null,
+          username: null,
+          photoUrl: null,
+          role: "member",
+          membershipStatus: "inactive",
+          membershipExpiresAt: null,
+          tariff: null,
+          hasRestrictions: false,
+          completedItems: 0,
+          totalItems: 0,
+          lastOpenedItemTitle: null,
+          lastOpenedAt: null,
+          lastLoginAt: "2026-07-01T10:00:00.000Z",
+          telegramBotStatus: "unknown",
+          telegramBotBlockedAt: null,
+          telegramBotUnblockedAt: null,
+          createdAt: "2026-07-01T10:00:00.000Z"
+        },
+        subscriptions: [],
+        moderationEvents: [],
+        device
+      }).device
+    ).toEqual(device);
+  });
+});

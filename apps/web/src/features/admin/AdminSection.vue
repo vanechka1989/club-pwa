@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Check,
   Cloud,
+  Copy,
   CreditCard,
   ExternalLink,
   Megaphone,
@@ -417,6 +418,26 @@ const selectedUserLastPayment = computed(
     )[0] ?? null
 );
 const selectedUserPaidTotal = computed(() => selectedUserPaidOrders.value.reduce((sum, order) => sum + order.amountRub, 0));
+const selectedUserDeviceText = computed(() => {
+  const device = selectedUserDetail.value?.device;
+  if (!device) {
+    return "";
+  }
+
+  return JSON.stringify(device, null, 2);
+});
+const selectedUserDeviceSummary = computed(() => {
+  const device = selectedUserDetail.value?.device;
+  if (!device) {
+    return null;
+  }
+
+  return [
+    device.telegram.platform || device.platform || "платформа не определена",
+    `${device.viewport.width ?? "?"}x${device.viewport.height ?? "?"}`,
+    device.classes.join(", ") || "классов нет"
+  ].join(" · ");
+});
 const statisticsDateRange = computed(() =>
   statisticsPeriod.value === "custom"
     ? {
@@ -1191,6 +1212,27 @@ function formatAdminCompactDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+async function copyTextToClipboard(text: string) {
+  if (!text) {
+    return;
+  }
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
 }
 
 function selectedUserMeta(user: AdminStatsUser) {
@@ -2716,6 +2758,27 @@ onUnmounted(() => {
                   <strong>{{ selectedUser.hasRestrictions ? "Есть активные" : "Нет активных" }}</strong>
                 </article>
               </div>
+            </section>
+
+            <section class="admin-client-section">
+              <div class="admin-client-section-head">
+                <h4>Устройство</h4>
+                <button
+                  class="admin-client-copy-button"
+                  type="button"
+                  :disabled="!selectedUserDeviceText"
+                  @click="copyTextToClipboard(selectedUserDeviceText)"
+                >
+                  <Copy class="h-4 w-4" aria-hidden="true" />
+                  Скопировать
+                </button>
+              </div>
+              <div v-if="selectedUserDetail?.device" class="admin-client-device-card">
+                <strong>{{ selectedUserDeviceSummary }}</strong>
+                <span>Обновлено: {{ formatAdminCompactDateTime(selectedUserDetail.device.capturedAt) }}</span>
+                <small>{{ selectedUserDetail.device.userAgent }}</small>
+              </div>
+              <p v-else class="admin-empty">Данные появятся после следующего запуска приложения клиентом.</p>
             </section>
 
             <section class="admin-client-section">

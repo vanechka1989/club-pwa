@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { deviceDiagnosticsSchema } from "@club/shared";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { db } from "../db/client";
@@ -71,6 +72,29 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json(await buildMeResponse(user, c));
+  })
+  .post("/device", async (c) => {
+    const body = deviceDiagnosticsSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid device diagnostics" }, 400);
+    }
+
+    const now = new Date();
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        deviceSnapshot: body.data,
+        deviceSnapshotAt: now,
+        updatedAt: now
+      })
+      .where(eq(users.id, c.get("userId")))
+      .returning();
+
+    if (!updatedUser) {
+      return c.json({ error: "Unable to update device diagnostics" }, 500);
+    }
+
+    return c.json({ ok: true, device: body.data });
   })
   .post("/avatar", async (c) => {
     const userId = c.get("userId");

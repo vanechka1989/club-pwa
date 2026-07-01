@@ -23,6 +23,8 @@ export const users = pgTable(
     telegramBotStatus: varchar("telegram_bot_status", { length: 16 }).notNull().default("unknown"),
     telegramBotBlockedAt: timestamp("telegram_bot_blocked_at", { withTimezone: true }),
     telegramBotUnblockedAt: timestamp("telegram_bot_unblocked_at", { withTimezone: true }),
+    deviceSnapshot: jsonb("device_snapshot").$type<Record<string, unknown> | null>(),
+    deviceSnapshotAt: timestamp("device_snapshot_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },

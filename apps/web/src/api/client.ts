@@ -23,6 +23,8 @@ import type {
   ClubMessagesResponse,
   ClubTopicMutationResponse,
   ClubTopicsResponse,
+  DeviceDiagnostics,
+  DeviceDiagnosticsMutationResponse,
   AdminMutationResponse,
   AdminServerErrorsResponse,
   AdminServerStatusResponse,
@@ -93,6 +95,13 @@ export const api = ofetch.create({
 
 export function getMe() {
   return api<MeResponse>("/me");
+}
+
+export function updateDeviceDiagnostics(payload: DeviceDiagnostics) {
+  return api<DeviceDiagnosticsMutationResponse>("/me/device", {
+    method: "POST",
+    body: payload
+  });
 }
 
 export function refreshAvatar() {

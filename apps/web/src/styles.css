@@ -3505,6 +3505,54 @@ body.club-keyboard-open .admin-modal-backdrop {
   text-align: right;
 }
 
+.admin-client-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  color: var(--text);
+  padding: 0.34rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.admin-client-copy-button:disabled {
+  opacity: 0.48;
+}
+
+.admin-client-device-card {
+  display: grid;
+  gap: 0.34rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--panel) 74%, transparent);
+  padding: 0.65rem;
+}
+
+.admin-client-device-card strong,
+.admin-client-device-card span,
+.admin-client-device-card small {
+  overflow-wrap: anywhere;
+}
+
+.admin-client-device-card strong {
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.admin-client-device-card span,
+.admin-client-device-card small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
 .admin-access-toggle {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

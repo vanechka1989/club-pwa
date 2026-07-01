@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { getPaymentHistory, getSupportUnreadCount } from "@/api/client";
+import { getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
-import { getDeviceLayoutClasses, getViewportSizeClasses, syncLayoutClasses } from "@/features/app/deviceLayout";
+import { collectCurrentDeviceDiagnostics, getDeviceLayoutClasses, getViewportSizeClasses, syncLayoutClasses } from "@/features/app/deviceLayout";
 import { blurActiveTextField, ensureFocusedTextFieldVisible } from "@/features/app/keyboardFocus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -39,6 +39,7 @@ let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
 let appNotificationTimer: number | null = null;
 let fullscreenSyncTimer: number | null = null;
+let deviceDiagnosticsTimer: number | null = null;
 let isAppMounted = false;
 let isIosPlatform = false;
 
@@ -452,6 +453,18 @@ function handleTextFieldFocusIn(event: FocusEvent) {
   ensureFocusedTextFieldVisible(event.target instanceof Element ? event.target : null);
 }
 
+async function sendDeviceDiagnostics() {
+  if (!isAppMounted || typeof window === "undefined" || !session.user) {
+    return;
+  }
+
+  try {
+    await updateDeviceDiagnostics(collectCurrentDeviceDiagnostics());
+  } catch {
+    // Диагностика не должна мешать запуску приложения.
+  }
+}
+
 onMounted(() => {
   isAppMounted = true;
   window.Telegram?.WebApp?.ready();
@@ -476,6 +489,11 @@ onMounted(() => {
     void refreshSupportUnread(false);
     void notifications.loadAppNotifications();
     void checkPendingPaymentWatch();
+    void sendDeviceDiagnostics();
+    deviceDiagnosticsTimer = window.setTimeout(() => {
+      deviceDiagnosticsTimer = null;
+      void sendDeviceDiagnostics();
+    }, 1000);
   });
 });
 
@@ -552,6 +570,10 @@ onBeforeUnmount(() => {
   if (fullscreenSyncTimer) {
     window.clearTimeout(fullscreenSyncTimer);
     fullscreenSyncTimer = null;
+  }
+  if (deviceDiagnosticsTimer) {
+    window.clearTimeout(deviceDiagnosticsTimer);
+    deviceDiagnosticsTimer = null;
   }
   document.documentElement.classList.remove("club-telegram-fullscreen");
   document.body.classList.remove("club-telegram-fullscreen");

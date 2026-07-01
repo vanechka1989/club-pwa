@@ -594,10 +594,60 @@ export const adminUserModerationEventSchema = z.object({
 });
 export type AdminUserModerationEvent = z.infer<typeof adminUserModerationEventSchema>;
 
+export const deviceInsetSchema = z.object({
+  top: z.number().nullable(),
+  bottom: z.number().nullable(),
+  left: z.number().nullable(),
+  right: z.number().nullable()
+});
+
+export const deviceDiagnosticsSchema = z.object({
+  capturedAt: z.string().datetime(),
+  platform: z.string().nullable(),
+  colorScheme: z.string().nullable(),
+  userAgent: z.string(),
+  screen: z.object({
+    width: z.number().nullable(),
+    height: z.number().nullable(),
+    availWidth: z.number().nullable(),
+    availHeight: z.number().nullable(),
+    pixelRatio: z.number().nullable()
+  }),
+  viewport: z.object({
+    width: z.number().nullable(),
+    height: z.number().nullable()
+  }),
+  visualViewport: z
+    .object({
+      width: z.number().nullable(),
+      height: z.number().nullable(),
+      offsetTop: z.number().nullable(),
+      scale: z.number().nullable()
+    })
+    .nullable(),
+  telegram: z.object({
+    version: z.string().nullable(),
+    platform: z.string().nullable(),
+    viewportHeight: z.number().nullable(),
+    viewportStableHeight: z.number().nullable(),
+    safeAreaInset: deviceInsetSchema.nullable(),
+    contentSafeAreaInset: deviceInsetSchema.nullable()
+  }),
+  classes: z.array(z.string())
+});
+export type DeviceDiagnostics = z.infer<typeof deviceDiagnosticsSchema>;
+
+export const deviceDiagnosticsMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  device: deviceDiagnosticsSchema
+});
+export type DeviceDiagnosticsMutationResponse = z.infer<typeof deviceDiagnosticsMutationResponseSchema>;
+
 export const adminUserDetailResponseSchema = z.object({
   user: adminStatsUserSchema,
   subscriptions: z.array(adminUserSubscriptionSchema),
-  moderationEvents: z.array(adminUserModerationEventSchema)
+  moderationEvents: z.array(adminUserModerationEventSchema),
+  device: deviceDiagnosticsSchema.nullable().default(null)
 });
 export type AdminUserDetailResponse = z.infer<typeof adminUserDetailResponseSchema>;
 
