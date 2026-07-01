@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Telegram: отступ сверху",
+    items: [
+      "Убрано двойное сложение большого safe-area и дополнительного верхнего отступа.",
+      "Обычные разделы в Telegram WebView должны подниматься ближе к кнопке закрытия.",
+      "Чат и клавиатура не изменялись."
+    ]
+  },
+  {
+    version: "2.79",
+    updatedAt: "01.07.2026 16:33",
     title: "Telegram: верхний отступ",
     items: [
       "Уменьшен верхний отступ обычных разделов в Telegram WebView.",
