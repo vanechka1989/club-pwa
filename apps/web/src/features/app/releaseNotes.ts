@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Модули: YouTube fullscreen и превью",
+    items: [
+      "YouTube-превью в карточках показываются целиком, без обрезки.",
+      "В зоне родной кнопки YouTube fullscreen добавлен невидимый fallback, который разворачивает плеер на весь экран приложения.",
+      "Видимая лишняя кнопка поверх видео не возвращалась."
+    ]
+  },
+  {
+    version: "3.08",
+    updatedAt: "02.07.2026 13:30",
     title: "Модули: родной YouTube fullscreen",
     items: [
       "Убрана дополнительная кнопка разворота поверх YouTube-плеера.",

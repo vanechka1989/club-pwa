@@ -296,6 +296,7 @@ const isLessonVideoPlaying = ref(false);
 const lessonVideoCurrentTime = ref(0);
 const lessonVideoDuration = ref(0);
 const isLessonVideoFullscreen = ref(false);
+const fullscreenYouTubeKey = ref<string | null>(null);
 const showLessonVideoControls = ref(true);
 const pendingLessonVideoStartSeconds = ref(0);
 const lessonVideoStartApplied = ref(false);
@@ -394,6 +395,36 @@ function getVisibleMediaInputSources(kind: ContentKind) {
 
 function getYouTubePlayerUrl(value: string | null) {
   return getYouTubeEmbedUrl(value);
+}
+
+function getYouTubeFullscreenKey(item: Pick<ModuleLesson | LessonMaterial, "id">) {
+  return `youtube:${item.id}`;
+}
+
+function isYouTubeLessonImage(item: Pick<ModuleLesson, "mediaUrl">) {
+  return Boolean(getYouTubeThumbnailUrl(item.mediaUrl));
+}
+
+function isYouTubeFullscreen(item: Pick<ModuleLesson | LessonMaterial, "id">) {
+  return fullscreenYouTubeKey.value === getYouTubeFullscreenKey(item);
+}
+
+async function toggleYouTubeFullscreen(item: Pick<ModuleLesson | LessonMaterial, "id">) {
+  const key = getYouTubeFullscreenKey(item);
+
+  if (fullscreenYouTubeKey.value === key) {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+    }
+    fullscreenYouTubeKey.value = null;
+    return;
+  }
+
+  fullscreenYouTubeKey.value = key;
+  const shell = document.querySelector<HTMLElement>(`[data-youtube-fullscreen-key="${key}"]`);
+  if (shell?.requestFullscreen) {
+    await shell.requestFullscreen().catch(() => {});
+  }
 }
 
 function syncLessonYouTubeExternalUrl() {
@@ -760,6 +791,7 @@ function resetLessonVideoState() {
   if (document.fullscreenElement) {
     void document.exitFullscreen().catch(() => {});
   }
+  fullscreenYouTubeKey.value = null;
   clearLessonVideoControlsTimer();
   isLessonVideoFullscreen.value = false;
   isLessonVideoPlaying.value = false;
@@ -1165,6 +1197,7 @@ async function toggleLessonVideoFullscreen() {
 function handleLessonFullscreenChange() {
   if (!document.fullscreenElement) {
     isLessonVideoFullscreen.value = false;
+    fullscreenYouTubeKey.value = null;
     revealLessonVideoControls();
   }
 }
@@ -2391,7 +2424,10 @@ watch(
             </div>
             <button
               class="admin-mockup-thumb"
-              :class="module.defaultCardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical'"
+              :class="[
+                module.defaultCardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical',
+                isYouTubeLessonImage(image) ? 'admin-mockup-thumb-youtube' : ''
+              ]"
               type="button"
               :aria-label="`Открыть урок ${image.title}`"
               @click="openLessonModal(module, image)"
@@ -2553,16 +2589,28 @@ watch(
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
               <p v-else-if="lessonViewerError" class="lesson-viewer-empty">{{ lessonViewerError }}</p>
 
-              <iframe
+              <div
                 v-if="selectedLessonItem.mediaUrl && getYouTubePlayerUrl(selectedLessonItem.mediaUrl)"
-                class="lesson-youtube-player"
-                :src="getYouTubePlayerUrl(selectedLessonItem.mediaUrl) ?? undefined"
-                :title="selectedLessonItem.title"
-                allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen
-                webkitallowfullscreen
-                mozallowfullscreen
-              ></iframe>
+                class="lesson-youtube-player-shell"
+                :class="{ 'lesson-youtube-player-shell-fullscreen': isYouTubeFullscreen(selectedLessonItem) }"
+                :data-youtube-fullscreen-key="getYouTubeFullscreenKey(selectedLessonItem)"
+              >
+                <iframe
+                  class="lesson-youtube-player"
+                  :src="getYouTubePlayerUrl(selectedLessonItem.mediaUrl) ?? undefined"
+                  :title="selectedLessonItem.title"
+                  allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                  webkitallowfullscreen
+                  mozallowfullscreen
+                ></iframe>
+                <button
+                  class="lesson-youtube-native-fullscreen-hitbox"
+                  type="button"
+                  :aria-label="isYouTubeFullscreen(selectedLessonItem) ? 'Свернуть YouTube видео' : 'Открыть YouTube во весь экран'"
+                  @click.stop="toggleYouTubeFullscreen(selectedLessonItem)"
+                ></button>
+              </div>
               <img
                 v-else-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
                 class="lesson-viewer-media"
@@ -2669,16 +2717,28 @@ watch(
                     <strong>{{ material.title }}</strong>
                     <small v-if="material.description">{{ material.description }}</small>
                   </div>
-                  <iframe
+                  <div
                     v-if="material.mediaUrl && getYouTubePlayerUrl(material.mediaUrl)"
-                    class="lesson-youtube-player lesson-youtube-player-material"
-                    :src="getYouTubePlayerUrl(material.mediaUrl) ?? undefined"
-                    :title="material.title"
-                    allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowfullscreen
-                    webkitallowfullscreen
-                    mozallowfullscreen
-                  ></iframe>
+                    class="lesson-youtube-player-shell"
+                    :class="{ 'lesson-youtube-player-shell-fullscreen': isYouTubeFullscreen(material) }"
+                    :data-youtube-fullscreen-key="getYouTubeFullscreenKey(material)"
+                  >
+                    <iframe
+                      class="lesson-youtube-player lesson-youtube-player-material"
+                      :src="getYouTubePlayerUrl(material.mediaUrl) ?? undefined"
+                      :title="material.title"
+                      allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowfullscreen
+                      webkitallowfullscreen
+                      mozallowfullscreen
+                    ></iframe>
+                    <button
+                      class="lesson-youtube-native-fullscreen-hitbox"
+                      type="button"
+                      :aria-label="isYouTubeFullscreen(material) ? 'Свернуть YouTube видео' : 'Открыть YouTube во весь экран'"
+                      @click.stop="toggleYouTubeFullscreen(material)"
+                    ></button>
+                  </div>
                   <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"

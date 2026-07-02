@@ -257,7 +257,7 @@ describe("Learning section member content", () => {
     expect(document.querySelector(".lesson-viewer-media")).toBeNull();
   });
 
-  it("uses a YouTube thumbnail for lesson cards when a cover is not set", async () => {
+  it("uses an uncropped YouTube thumbnail for lesson cards when a cover is not set", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [
         {
@@ -299,10 +299,13 @@ describe("Learning section member content", () => {
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
 
+    const lessonButton = screen.getByRole("button", { name: /YouTube урок/ });
+
     expect(screen.getByAltText("YouTube урок").getAttribute("src")).toBe("https://img.youtube.com/vi/EVHs7jmRdXk/hqdefault.jpg");
+    expect(lessonButton.classList.contains("admin-mockup-thumb-youtube")).toBe(true);
   });
 
-  it("lets YouTube use the native fullscreen control", async () => {
+  it("provides an invisible fullscreen fallback over the YouTube native control area", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [
         {
@@ -374,6 +377,14 @@ describe("Learning section member content", () => {
     expect(player.hasAttribute("allowfullscreen")).toBe(true);
     expect(screen.queryByRole("button", { name: "Развернуть YouTube видео" })).toBeNull();
     expect(document.querySelector(".lesson-youtube-fullscreen-button")).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть YouTube во весь экран" }));
+
+    expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Свернуть YouTube видео" }));
+
+    expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeNull();
   });
 
   it("renders lesson title labels above vertical and horizontal covers", async () => {
