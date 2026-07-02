@@ -2610,6 +2610,15 @@ watch(
                   :aria-label="isYouTubeFullscreen(selectedLessonItem) ? 'Свернуть YouTube видео' : 'Открыть YouTube во весь экран'"
                   @click.stop="toggleYouTubeFullscreen(selectedLessonItem)"
                 ></button>
+                <button
+                  v-if="isYouTubeFullscreen(selectedLessonItem)"
+                  class="lesson-video-exit-fullscreen-button"
+                  type="button"
+                  aria-label="Выйти из полноэкранного YouTube видео"
+                  @click.stop="toggleYouTubeFullscreen(selectedLessonItem)"
+                >
+                  <X class="h-5 w-5" aria-hidden="true" />
+                </button>
               </div>
               <img
                 v-else-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
@@ -2738,6 +2747,15 @@ watch(
                       :aria-label="isYouTubeFullscreen(material) ? 'Свернуть YouTube видео' : 'Открыть YouTube во весь экран'"
                       @click.stop="toggleYouTubeFullscreen(material)"
                     ></button>
+                    <button
+                      v-if="isYouTubeFullscreen(material)"
+                      class="lesson-video-exit-fullscreen-button"
+                      type="button"
+                      aria-label="Выйти из полноэкранного YouTube видео"
+                      @click.stop="toggleYouTubeFullscreen(material)"
+                    >
+                      <X class="h-5 w-5" aria-hidden="true" />
+                    </button>
                   </div>
                   <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
                   <video

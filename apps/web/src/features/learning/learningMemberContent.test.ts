@@ -381,8 +381,9 @@ describe("Learning section member content", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Открыть YouTube во весь экран" }));
 
     expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Выйти из полноэкранного YouTube видео" })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Свернуть YouTube видео" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Выйти из полноэкранного YouTube видео" }));
 
     expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeNull();
   });

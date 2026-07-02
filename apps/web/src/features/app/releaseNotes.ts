@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Модули: закрытие YouTube fullscreen",
+    items: [
+      "В полноэкранном просмотре YouTube добавлен прозрачный крестик выхода, как у обычного видео.",
+      "Кнопка появляется только когда YouTube открыт на весь экран приложения.",
+      "Выход работает и для основного видео урока, и для дополнительных YouTube-материалов."
+    ]
+  },
+  {
+    version: "3.09",
+    updatedAt: "02.07.2026 13:47",
     title: "Модули: YouTube fullscreen и превью",
     items: [
       "YouTube-превью в карточках показываются целиком, без обрезки.",
