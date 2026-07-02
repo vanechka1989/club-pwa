@@ -115,6 +115,12 @@ describe("Learning section modules", () => {
     expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("admin-client-modal")).toBe(false);
     expect(screen.getByRole("dialog", { name: "Новый модуль" }).closest(".module-name-backdrop")?.parentElement).toBe(document.body);
     expect(screen.getByLabelText("Название модуля").classList.contains("text-input")).toBe(true);
+    expect(screen.getByLabelText("Описание модуля")).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Тип карточек модуля" })).toBeTruthy();
+
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const formRule = styles.match(/\.module-form\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
+    expect(formRule).toMatch(/flex:\s*0\s+1\s+auto;/);
 
     await fireEvent.update(screen.getByLabelText("Название модуля"), "Модуль 3");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));

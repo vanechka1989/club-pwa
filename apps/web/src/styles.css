@@ -5779,13 +5779,19 @@ body.club-keyboard-open .admin-modal-backdrop {
 }
 
 .module-form {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
+  max-height: min(18rem, calc(var(--club-viewport-height, 100dvh) - 8rem));
   overflow-y: auto;
   overscroll-behavior: contain;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   padding-bottom: 0.7rem;
   -webkit-overflow-scrolling: touch;
+}
+
+.module-name-backdrop {
+  align-items: start;
+  background: color-mix(in srgb, #000 20%, transparent);
 }
 
 .module-name-modal {
@@ -5798,7 +5804,7 @@ body.club-keyboard-open .admin-modal-backdrop {
   gap: 0.75rem;
   height: auto;
   min-height: 0;
-  max-height: min(34rem, calc(var(--club-viewport-height, 100dvh) - 1rem));
+  max-height: min(28rem, calc(var(--club-viewport-height, 100dvh) - 1rem));
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 0 0 18px 18px;
@@ -5809,7 +5815,7 @@ body.club-keyboard-open .admin-modal-backdrop {
 
 .club-telegram-fullscreen .module-name-modal {
   height: auto;
-  max-height: min(34rem, calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset) - 1rem));
+  max-height: min(28rem, calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset) - 1rem));
 }
 
 .module-name-modal .admin-form-actions {

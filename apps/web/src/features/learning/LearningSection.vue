@@ -309,7 +309,7 @@ let lessonMaterialObserver: IntersectionObserver | null = null;
 const canManageModules = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const editingModule = computed(() => moduleCards.value.find((module) => module.id === editingModuleId.value) ?? null);
 const moduleModalTitle = computed(() => (editingModule.value ? "Редактировать модуль" : "Новый модуль"));
-const moduleModalDescription = computed(() => (editingModule.value ? "Измените название выбранного модуля." : "Для модуля нужно только название."));
+const moduleModalDescription = computed(() => (editingModule.value ? "Измените название, описание и формат карточек." : "Название, описание и формат карточек модуля."));
 const trimmedModuleTitle = computed(() => moduleTitle.value.trim());
 const selectedLessonModule = computed(() => moduleCards.value.find((module) => module.id === selectedLesson.value?.moduleId) ?? null);
 const selectedLessonItem = computed(() => selectedLessonModule.value?.images.find((lesson) => lesson.id === selectedLesson.value?.lessonId) ?? null);
