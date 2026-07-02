@@ -576,6 +576,20 @@ export function getAdminLearning() {
   return api<AdminLearningResponse>("/admin/learning");
 }
 
+export function reorderAdminLearningCategories(ids: string[]) {
+  return api<AdminMutationResponse>("/admin/learning/categories/reorder", {
+    method: "POST",
+    body: { ids }
+  });
+}
+
+export function reorderAdminLearningMaterials(categoryId: string, ids: string[]) {
+  return api<AdminMutationResponse>("/admin/learning/materials/reorder", {
+    method: "POST",
+    body: { categoryId, ids }
+  });
+}
+
 export function createAdminLearningMaterial(payload: FormData) {
   return api<AdminLearningMaterialMutationResponse>("/admin/learning/materials", {
     method: "POST",

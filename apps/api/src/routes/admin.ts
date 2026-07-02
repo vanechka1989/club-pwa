@@ -84,6 +84,7 @@ import {
   encodeModuleCategoryDescription,
   isModuleCategoryDescription
 } from "../learning/moduleCategory";
+import { validateReorderIds } from "../learning/reorder";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -129,6 +130,14 @@ const materialStatusPayloadSchema = z.object({
 
 const categoryStatusPayloadSchema = z.object({
   isPublished: z.boolean()
+});
+
+const learningReorderPayloadSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(500)
+});
+
+const learningMaterialReorderPayloadSchema = learningReorderPayloadSchema.extend({
+  categoryId: z.string().uuid()
 });
 
 const learningCategoryPayloadSchema = z.object({
@@ -218,6 +227,16 @@ function getFormValue(form: FormData, key: string) {
 
 function normalizeOptionalText(value: string) {
   return value.length ? value : null;
+}
+
+async function getNextMaterialSortOrder(categoryId: string) {
+  const [lastItem] = await db.query.contentItems.findMany({
+    where: and(eq(contentItems.categoryId, categoryId), isNull(contentItems.archivedUntil)),
+    orderBy: [desc(contentItems.sortOrder), desc(contentItems.createdAt)],
+    limit: 1
+  });
+
+  return (lastItem?.sortOrder ?? -1) + 1;
 }
 
 function createCategorySlug(title: string) {
@@ -1593,6 +1612,44 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       }
     });
   })
+  .post("/learning/categories/reorder", async (c) => {
+    const body = learningReorderPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid category reorder payload" }, 400);
+    }
+
+    const categories = await db.query.contentCategories.findMany({
+      orderBy: [asc(contentCategories.sortOrder), asc(contentCategories.createdAt)]
+    });
+    const moduleIds = categories.filter((category) => isModuleCategoryDescription(category.description)).map((category) => category.id);
+    const validation = validateReorderIds(body.data.ids, moduleIds);
+    if (!validation.ok) {
+      return c.json({ error: "Invalid category order" }, 400);
+    }
+
+    await db.transaction(async (tx) => {
+      for (const update of validation.updates) {
+        await tx
+          .update(contentCategories)
+          .set({
+            sortOrder: update.sortOrder,
+            updatedAt: new Date()
+          })
+          .where(eq(contentCategories.id, update.id));
+      }
+    });
+
+    await recordAdminAction(c, {
+      action: "learning.category.reordered",
+      entityType: "learning_category",
+      summary: "Изменил порядок модулей",
+      metadata: {
+        ids: body.data.ids
+      }
+    });
+
+    return c.json({ ok: true });
+  })
   .post("/learning/categories/:id", async (c) => {
     const body = learningCategoryPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
@@ -1721,6 +1778,55 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       metadata: {
         title: category.title,
         itemsCount: category.items.length
+      }
+    });
+
+    return c.json({ ok: true });
+  })
+  .post("/learning/materials/reorder", async (c) => {
+    const body = learningMaterialReorderPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid material reorder payload" }, 400);
+    }
+
+    const category = await db.query.contentCategories.findFirst({
+      where: eq(contentCategories.id, body.data.categoryId)
+    });
+    if (!category || !isModuleCategoryDescription(category.description)) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    const materials = await db.query.contentItems.findMany({
+      where: and(eq(contentItems.categoryId, body.data.categoryId), isNull(contentItems.archivedUntil)),
+      orderBy: [asc(contentItems.sortOrder), desc(contentItems.createdAt)]
+    });
+    const validation = validateReorderIds(
+      body.data.ids,
+      materials.map((material) => material.id)
+    );
+    if (!validation.ok) {
+      return c.json({ error: "Invalid material order" }, 400);
+    }
+
+    await db.transaction(async (tx) => {
+      for (const update of validation.updates) {
+        await tx
+          .update(contentItems)
+          .set({
+            sortOrder: update.sortOrder,
+            updatedAt: new Date()
+          })
+          .where(eq(contentItems.id, update.id));
+      }
+    });
+
+    await recordAdminAction(c, {
+      action: "learning.material.reordered",
+      entityType: "learning_material",
+      summary: `Изменил порядок уроков в модуле "${category.title}"`,
+      metadata: {
+        categoryId: body.data.categoryId,
+        ids: body.data.ids
       }
     });
 
@@ -1883,6 +1989,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const now = new Date();
+    const sortOrder = await getNextMaterialSortOrder(categoryId);
     const [material] = await db
       .insert(contentItems)
       .values({
@@ -1899,6 +2006,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         thumbnailSizeBytes,
         mediaContentType,
         mediaSizeBytes,
+        sortOrder,
         isPublished,
         publishedAt: isPublished ? now : null,
         archivedUntil: null,
@@ -2006,6 +2114,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const now = new Date();
+    const sortOrder = await getNextMaterialSortOrder(categoryId);
     const [material] = await db
       .insert(contentItems)
       .values({
@@ -2021,6 +2130,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         thumbnailSizeBytes,
         mediaContentType,
         mediaSizeBytes,
+        sortOrder,
         isPublished,
         publishedAt: isPublished ? now : null,
         archivedUntil: null,

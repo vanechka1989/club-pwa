@@ -14,7 +14,27 @@ import {
   type LessonMaterial,
   type MediaSource
 } from "@club/shared";
-import { ChevronDown, ExternalLink, FileText, Image, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, Video, Volume2, X } from "lucide-vue-next";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ExternalLink,
+  FileText,
+  GripVertical,
+  Image,
+  Maximize2,
+  Mic,
+  Minimize2,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  Square,
+  Trash2,
+  Video,
+  Volume2,
+  X
+} from "lucide-vue-next";
 import {
   createAdminLearningCategory,
   completeAdminLearningMultipartUpload,
@@ -26,6 +46,8 @@ import {
   getAdminLearning,
   getLearningContent,
   getLearningHome,
+  reorderAdminLearningCategories,
+  reorderAdminLearningMaterials,
   restoreAdminLearningMaterial,
   saveLearningPlayback,
   updateAdminLearningCategory,
@@ -39,6 +61,7 @@ import { useLessonUploadsStore } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
 import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
+import { moveItemByDirection, moveItemToIndex, type SortDirection } from "./sortOrder";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 
 type ModuleLesson = {
@@ -89,6 +112,17 @@ type LessonMaterialDraft = {
   existingMediaContentType: string | null;
   existingMediaSizeBytes: number | null;
 };
+
+type LearningSortDragState =
+  | {
+      kind: "module";
+      moduleId: string;
+    }
+  | {
+      kind: "lesson";
+      moduleId: string;
+      lessonId: string;
+    };
 
 const deletedContentModuleId = "deleted-content-module";
 
@@ -237,6 +271,8 @@ const lessonUploads = useLessonUploadsStore();
 const modulesLoadedFromApi = ref(false);
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
+const isSorting = ref(false);
+const sortDragState = ref<LearningSortDragState | null>(null);
 const showModuleModal = ref(false);
 const editingModuleId = ref<string | null>(null);
 const collapsedModuleIds = ref<string[]>(initialModuleCards.map((module) => module.id));
@@ -505,6 +541,196 @@ function collapseModule(moduleId: string) {
   if (!collapsedModuleIds.value.includes(moduleId)) {
     collapsedModuleIds.value = [...collapsedModuleIds.value, moduleId];
   }
+}
+
+function cloneModuleCardsForRollback() {
+  return moduleCards.value.map((module) => ({
+    ...module,
+    images: module.images.map((lesson) => ({ ...lesson }))
+  }));
+}
+
+async function persistModuleOrder(previousCards: ModuleCard[]) {
+  if (!modulesLoadedFromApi.value || !moduleCards.value.every((module) => module.isPersisted)) {
+    return;
+  }
+
+  isSorting.value = true;
+  clearModuleError();
+
+  try {
+    await reorderAdminLearningCategories(moduleCards.value.map((module) => module.id));
+  } catch {
+    moduleCards.value = previousCards;
+    showModuleError("Не удалось сохранить порядок модулей.");
+  } finally {
+    isSorting.value = false;
+  }
+}
+
+async function persistLessonOrder(moduleId: string, previousCards: ModuleCard[]) {
+  const module = moduleCards.value.find((item) => item.id === moduleId);
+  if (!modulesLoadedFromApi.value || !module?.isPersisted || !module.images.every((lesson) => lesson.isPersisted)) {
+    return;
+  }
+
+  isSorting.value = true;
+  clearModuleError();
+
+  try {
+    await reorderAdminLearningMaterials(
+      moduleId,
+      module.images.map((lesson) => lesson.id)
+    );
+  } catch {
+    moduleCards.value = previousCards;
+    showModuleError("Не удалось сохранить порядок уроков.");
+  } finally {
+    isSorting.value = false;
+  }
+}
+
+async function moveModuleOrder(moduleId: string, direction: SortDirection) {
+  if (!canManageModules.value || isSorting.value) {
+    return;
+  }
+
+  const currentCards = moduleCards.value;
+  const nextCards = moveItemByDirection(currentCards, moduleId, direction);
+  if (nextCards === currentCards) {
+    return;
+  }
+
+  const previousCards = cloneModuleCardsForRollback();
+  moduleCards.value = nextCards;
+  await persistModuleOrder(previousCards);
+}
+
+async function moveModuleToIndex(moduleId: string, targetIndex: number) {
+  if (!canManageModules.value || isSorting.value) {
+    return;
+  }
+
+  const currentCards = moduleCards.value;
+  const nextCards = moveItemToIndex(currentCards, moduleId, targetIndex);
+  if (nextCards === currentCards) {
+    return;
+  }
+
+  const previousCards = cloneModuleCardsForRollback();
+  moduleCards.value = nextCards;
+  await persistModuleOrder(previousCards);
+}
+
+async function moveLessonOrder(moduleId: string, lessonId: string, direction: SortDirection) {
+  if (!canManageModules.value || isSorting.value) {
+    return;
+  }
+
+  const module = moduleCards.value.find((item) => item.id === moduleId);
+  if (!module) {
+    return;
+  }
+
+  const nextLessons = moveItemByDirection(module.images, lessonId, direction);
+  if (nextLessons === module.images) {
+    return;
+  }
+
+  const previousCards = cloneModuleCardsForRollback();
+  moduleCards.value = moduleCards.value.map((item) => (item.id === moduleId ? { ...item, images: nextLessons } : item));
+  await persistLessonOrder(moduleId, previousCards);
+}
+
+async function moveLessonToIndex(moduleId: string, lessonId: string, targetIndex: number) {
+  if (!canManageModules.value || isSorting.value) {
+    return;
+  }
+
+  const module = moduleCards.value.find((item) => item.id === moduleId);
+  if (!module) {
+    return;
+  }
+
+  const nextLessons = moveItemToIndex(module.images, lessonId, targetIndex);
+  if (nextLessons === module.images) {
+    return;
+  }
+
+  const previousCards = cloneModuleCardsForRollback();
+  moduleCards.value = moduleCards.value.map((item) => (item.id === moduleId ? { ...item, images: nextLessons } : item));
+  await persistLessonOrder(moduleId, previousCards);
+}
+
+function removeSortDragListeners() {
+  window.removeEventListener("pointerup", handleSortPointerUp);
+  window.removeEventListener("pointercancel", clearSortDrag);
+}
+
+function clearSortDrag() {
+  sortDragState.value = null;
+  removeSortDragListeners();
+}
+
+function startModuleSortDrag(moduleId: string, event: PointerEvent) {
+  if (!canManageModules.value || isSorting.value) {
+    return;
+  }
+
+  event.preventDefault();
+  sortDragState.value = { kind: "module", moduleId };
+  removeSortDragListeners();
+  window.addEventListener("pointerup", handleSortPointerUp, { once: true });
+  window.addEventListener("pointercancel", clearSortDrag, { once: true });
+}
+
+function startLessonSortDrag(moduleId: string, lessonId: string, event: PointerEvent) {
+  if (!canManageModules.value || isSorting.value) {
+    return;
+  }
+
+  event.preventDefault();
+  sortDragState.value = { kind: "lesson", moduleId, lessonId };
+  removeSortDragListeners();
+  window.addEventListener("pointerup", handleSortPointerUp, { once: true });
+  window.addEventListener("pointercancel", clearSortDrag, { once: true });
+}
+
+function handleSortPointerUp(event: PointerEvent) {
+  const state = sortDragState.value;
+  const element = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+  clearSortDrag();
+
+  if (!state || !element) {
+    return;
+  }
+
+  if (state.kind === "module") {
+    const target = element.closest<HTMLElement>("[data-module-id]");
+    const targetId = target?.dataset.moduleId;
+    const targetIndex = moduleCards.value.findIndex((module) => module.id === targetId);
+    if (targetId && targetId !== state.moduleId && targetIndex >= 0) {
+      void moveModuleToIndex(state.moduleId, targetIndex);
+    }
+    return;
+  }
+
+  const target = element.closest<HTMLElement>("[data-lesson-id]");
+  const targetModuleId = target?.dataset.moduleId;
+  const targetLessonId = target?.dataset.lessonId;
+  const module = moduleCards.value.find((item) => item.id === state.moduleId);
+  const targetIndex = module?.images.findIndex((lesson) => lesson.id === targetLessonId) ?? -1;
+  if (targetModuleId === state.moduleId && targetLessonId && targetLessonId !== state.lessonId && targetIndex >= 0) {
+    void moveLessonToIndex(state.moduleId, state.lessonId, targetIndex);
+  }
+}
+
+function isDraggingModule(moduleId: string) {
+  return sortDragState.value?.kind === "module" && sortDragState.value.moduleId === moduleId;
+}
+
+function isDraggingLesson(moduleId: string, lessonId: string) {
+  return sortDragState.value?.kind === "lesson" && sortDragState.value.moduleId === moduleId && sortDragState.value.lessonId === lessonId;
 }
 
 function createLessonMaterialDraft(material?: LessonMaterial): LessonMaterialDraft {
@@ -2098,6 +2324,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("visibilitychange", handleLearningVisibilityChange);
   window.removeEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
   window.removeEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
+  clearSortDrag();
   clearLessonVideoControlsTimer();
   clearLessonMaterialObserver();
 });
@@ -2142,7 +2369,13 @@ watch(
     </button>
 
     <div class="admin-mockup-list">
-      <article v-for="module in moduleCards" :key="module.id" class="admin-mockup-card" :class="{ 'module-card-collapsed': isModuleCollapsed(module.id) }">
+      <article
+        v-for="(module, moduleIndex) in moduleCards"
+        :key="module.id"
+        class="admin-mockup-card"
+        :class="{ 'module-card-collapsed': isModuleCollapsed(module.id), 'module-sort-dragging': isDraggingModule(module.id) }"
+        :data-module-id="module.id"
+      >
         <div class="admin-mockup-card-head module-card-head">
           <button
             class="module-card-toggle"
@@ -2158,6 +2391,35 @@ watch(
           </button>
           <div class="admin-mockup-card-actions">
             <span>{{ lessonCountLabel(module.images.length) }}</span>
+            <div v-if="canManageModules" class="module-sort-controls" aria-label="Сортировка модуля">
+              <button
+                class="icon-button module-sort-button module-sort-handle"
+                type="button"
+                :disabled="isSorting"
+                aria-label="Перетащить модуль"
+                @pointerdown="startModuleSortDrag(module.id, $event)"
+              >
+                <GripVertical class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                class="icon-button module-sort-button"
+                type="button"
+                :disabled="isSorting || moduleIndex === 0"
+                aria-label="Поднять модуль"
+                @click.stop="moveModuleOrder(module.id, 'up')"
+              >
+                <ArrowUp class="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                class="icon-button module-sort-button"
+                type="button"
+                :disabled="isSorting || moduleIndex === moduleCards.length - 1"
+                aria-label="Опустить модуль"
+                @click.stop="moveModuleOrder(module.id, 'down')"
+              >
+                <ArrowDown class="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </div>
             <button
               v-if="canManageModules"
               class="icon-button module-lesson-add"
@@ -2188,32 +2450,71 @@ watch(
         </div>
         <p v-if="!isModuleCollapsed(module.id)">{{ module.description }}</p>
         <div v-if="!isModuleCollapsed(module.id)" class="admin-mockup-grid">
-          <button
-            v-for="image in module.images"
+          <article
+            v-for="(image, lessonIndex) in module.images"
             :key="image.id"
-            class="admin-mockup-thumb"
-            :class="module.defaultCardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical'"
-            type="button"
-            :aria-label="`Открыть урок ${image.title}`"
-            @click="openLessonModal(module, image)"
+            class="module-lesson-sort-card"
+            :class="[
+              module.defaultCardLayout === 'horizontal' ? 'module-lesson-sort-card-horizontal' : 'module-lesson-sort-card-vertical',
+              { 'module-sort-dragging': isDraggingLesson(module.id, image.id) }
+            ]"
+            :data-module-id="module.id"
+            :data-lesson-id="image.id"
           >
-            <template v-if="module.defaultCardLayout === 'horizontal'">
-              <span class="admin-mockup-thumb-label">
-                <strong>
+            <div v-if="canManageModules" class="module-sort-controls module-lesson-sort-controls" aria-label="Сортировка урока">
+              <button
+                class="icon-button module-sort-button module-sort-handle"
+                type="button"
+                :disabled="isSorting"
+                aria-label="Перетащить урок"
+                @pointerdown="startLessonSortDrag(module.id, image.id, $event)"
+              >
+                <GripVertical class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                class="icon-button module-sort-button"
+                type="button"
+                :disabled="isSorting || lessonIndex === 0"
+                aria-label="Поднять урок"
+                @click.stop="moveLessonOrder(module.id, image.id, 'up')"
+              >
+                <ArrowUp class="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                class="icon-button module-sort-button"
+                type="button"
+                :disabled="isSorting || lessonIndex === module.images.length - 1"
+                aria-label="Опустить урок"
+                @click.stop="moveLessonOrder(module.id, image.id, 'down')"
+              >
+                <ArrowDown class="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </div>
+            <button
+              class="admin-mockup-thumb"
+              :class="module.defaultCardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical'"
+              type="button"
+              :aria-label="`Открыть урок ${image.title}`"
+              @click="openLessonModal(module, image)"
+            >
+              <template v-if="module.defaultCardLayout === 'horizontal'">
+                <span class="admin-mockup-thumb-label">
+                  <strong>
+                    {{ image.title }}
+                    <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                  </strong>
+                </span>
+                <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
+              </template>
+              <template v-else>
+                <span class="admin-mockup-thumb-label">
                   {{ image.title }}
                   <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
-                </strong>
-              </span>
-              <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
-            </template>
-            <template v-else>
-              <span class="admin-mockup-thumb-label">
-                {{ image.title }}
-                <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
-              </span>
-              <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
-            </template>
-          </button>
+                </span>
+                <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
+              </template>
+            </button>
+          </article>
         </div>
       </article>
 

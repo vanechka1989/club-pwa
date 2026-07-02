@@ -5446,6 +5446,39 @@ body.club-keyboard-open .admin-modal-backdrop {
   gap: 0.4rem;
 }
 
+.module-sort-controls {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.module-sort-button {
+  width: 1.7rem;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 10px;
+}
+
+.module-sort-button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.module-sort-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.module-sort-handle:active {
+  cursor: grabbing;
+}
+
+.module-sort-dragging {
+  opacity: 0.58;
+  transform: scale(0.995);
+}
+
 .module-lesson-add {
   width: 2rem;
   min-width: 2rem;
@@ -5469,6 +5502,24 @@ body.club-keyboard-open .admin-modal-backdrop {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: 0.38rem;
+}
+
+.module-lesson-sort-card {
+  display: grid;
+  min-width: 0;
+  gap: 0.28rem;
+}
+
+.module-lesson-sort-card-horizontal {
+  grid-column: 1 / -1;
+}
+
+.module-lesson-sort-controls {
+  justify-content: flex-end;
+}
+
+.module-lesson-sort-card > button {
+  width: 100%;
 }
 
 .admin-mockup-thumb {
