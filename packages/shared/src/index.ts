@@ -112,7 +112,7 @@ export function getYouTubeVideoId(value: string | null | undefined) {
     const parts = url.pathname.split("/").filter(Boolean);
     if (url.pathname === "/watch") {
       videoId = url.searchParams.get("v");
-    } else if (parts[0] === "shorts" || parts[0] === "embed") {
+    } else if (parts[0] === "shorts" || parts[0] === "embed" || parts[0] === "live") {
       videoId = parts[1] ?? null;
     }
   }

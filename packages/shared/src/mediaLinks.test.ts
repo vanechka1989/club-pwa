@@ -19,6 +19,9 @@ describe("media link helpers", () => {
     expect(getYouTubeEmbedUrl("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toBe(
       "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&playsinline=1"
     );
+    expect(getYouTubeEmbedUrl("https://www.youtube.com/live/EVHs7jmRdXk")).toBe(
+      "https://www.youtube.com/embed/EVHs7jmRdXk?rel=0&playsinline=1"
+    );
   });
 
   it("does not treat ordinary links as YouTube", () => {

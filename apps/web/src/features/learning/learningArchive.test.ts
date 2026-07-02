@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/vue";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { createPinia } from "pinia";
@@ -398,6 +398,39 @@ describe("Learning section modules", () => {
     expect(screen.queryByRole("dialog", { name: "Новый урок" })).toBeNull();
     expect(screen.getByRole("button", { name: /Новый урок/ })).toBeTruthy();
     expect(screen.getByText("5 уроков")).toBeTruthy();
+  });
+
+  it("switches a pasted YouTube link from photo url to video YouTube source", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await fireEvent.update(screen.getByLabelText("Название урока"), "YouTube урок");
+    await fireEvent.click(screen.getByRole("button", { name: "Фото" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Ссылка" }));
+    await fireEvent.update(screen.getByLabelText("Ссылка на файл урока"), "https://www.youtube.com/live/EVHs7jmRdXk");
+
+    await waitFor(() => expect(screen.getByLabelText("Ссылка YouTube")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Видео" }).classList.contains("lesson-kind-button-active")).toBe(true);
+    expect(screen.getByRole("button", { name: "YouTube" }).classList.contains("lesson-source-button-active")).toBe(true);
+  });
+
+  it("switches a pasted YouTube link in extra material to video YouTube source", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить ещё материал" }));
+
+    const materialCard = document.querySelector(".lesson-extra-card") as HTMLElement;
+    const material = within(materialCard);
+    await fireEvent.click(material.getByRole("button", { name: "Фото" }));
+    await fireEvent.click(material.getByRole("button", { name: "Ссылка" }));
+    await fireEvent.update(material.getByLabelText("Ссылка на файл материала"), "https://www.youtube.com/live/EVHs7jmRdXk");
+
+    await waitFor(() => expect(material.getByLabelText("Ссылка YouTube")).toBeTruthy());
+    expect(material.getByRole("button", { name: "Видео" }).classList.contains("lesson-kind-button-active")).toBe(true);
+    expect(material.getByRole("button", { name: "YouTube" }).classList.contains("lesson-source-button-active")).toBe(true);
   });
 
   it("saves lessons with the module card layout", async () => {

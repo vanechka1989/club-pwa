@@ -394,6 +394,37 @@ function getVisibleMediaInputSources(kind: ContentKind) {
 function getYouTubePlayerUrl(value: string | null) {
   return getYouTubeEmbedUrl(value);
 }
+
+function syncLessonYouTubeExternalUrl() {
+  if (lessonMediaSource.value === "file" || !isYouTubeMediaUrl(lessonExternalUrl.value)) {
+    return;
+  }
+
+  lessonKind.value = "video";
+  lessonMediaSource.value = "youtube";
+  lessonFile.value = null;
+  lessonFileName.value = "";
+}
+
+function syncLessonMaterialYouTubeExternalUrl(material: LessonMaterialDraft) {
+  if (material.mediaSource === "file" || !isYouTubeMediaUrl(material.externalUrl)) {
+    return;
+  }
+
+  material.kind = "video";
+  material.mediaSource = "youtube";
+  material.file = null;
+  material.fileName = "";
+}
+
+watch(lessonExternalUrl, syncLessonYouTubeExternalUrl);
+watch(
+  lessonMaterialDrafts,
+  (materials) => {
+    materials.forEach(syncLessonMaterialYouTubeExternalUrl);
+  },
+  { deep: true }
+);
 const lessonPreviewSource = computed(() => {
   if (selectedLessonItem.value) {
     return getModuleLessonImage(selectedLessonModule.value, selectedLessonItem.value);
@@ -2521,21 +2552,21 @@ watch(
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
               <p v-else-if="lessonViewerError" class="lesson-viewer-empty">{{ lessonViewerError }}</p>
 
-              <img
-                v-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
-                class="lesson-viewer-media"
-                :src="selectedLessonItem.mediaUrl"
-                :alt="selectedLessonItem.title"
-                loading="lazy"
-              />
               <iframe
-                v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl && getYouTubePlayerUrl(selectedLessonItem.mediaUrl)"
+                v-if="selectedLessonItem.mediaUrl && getYouTubePlayerUrl(selectedLessonItem.mediaUrl)"
                 class="lesson-youtube-player"
                 :src="getYouTubePlayerUrl(selectedLessonItem.mediaUrl) ?? undefined"
                 :title="selectedLessonItem.title"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowfullscreen
               ></iframe>
+              <img
+                v-else-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
+                class="lesson-viewer-media"
+                :src="selectedLessonItem.mediaUrl"
+                :alt="selectedLessonItem.title"
+                loading="lazy"
+              />
               <div
                 v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl"
                 class="lesson-video-player"
@@ -2635,15 +2666,15 @@ watch(
                     <strong>{{ material.title }}</strong>
                     <small v-if="material.description">{{ material.description }}</small>
                   </div>
-                  <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
                   <iframe
-                    v-else-if="material.kind === 'video' && material.mediaUrl && getYouTubePlayerUrl(material.mediaUrl)"
+                    v-if="material.mediaUrl && getYouTubePlayerUrl(material.mediaUrl)"
                     class="lesson-youtube-player lesson-youtube-player-material"
                     :src="getYouTubePlayerUrl(material.mediaUrl) ?? undefined"
                     :title="material.title"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowfullscreen
                   ></iframe>
+                  <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"
                     :src="material.mediaUrl"
