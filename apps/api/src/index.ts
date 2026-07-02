@@ -15,6 +15,7 @@ import { supportRoute } from "./routes/support";
 import { telegramRoute } from "./routes/telegram";
 import { setTelegramWebhook, telegramWebhookAllowedUpdates } from "./telegram/webhook";
 import { recordServerError } from "./serverErrors";
+import { buildClientErrorRecord, parseClientErrorPayload } from "./clientErrors";
 
 const app = new Hono();
 
@@ -79,6 +80,28 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+app.post("/client-errors", async (c) => {
+  const body = parseClientErrorPayload(await c.req.json().catch(() => null));
+  if (!body.success) {
+    return c.json({ ok: false }, 400);
+  }
+
+  const record = buildClientErrorRecord(body.data);
+  recordServerError(record);
+  logger.warn(
+    {
+      kind: body.data.kind,
+      message: body.data.message,
+      url: body.data.url,
+      platform: body.data.platform,
+      userAgent: body.data.userAgent
+    },
+    "client application error"
+  );
+
+  return c.json({ ok: true });
+});
 
 app.route("/me", meRoute);
 app.route("/admin/mailings", mailingsRoute);
