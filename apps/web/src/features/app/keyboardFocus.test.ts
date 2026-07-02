@@ -68,6 +68,32 @@ describe("keyboard focus handling", () => {
     document.body.classList.remove("club-ios", "community-chat-open");
   });
 
+  it("does not center-scroll the module modal fields", () => {
+    const modal = document.createElement("aside");
+    modal.className = "module-name-modal";
+    const input = document.createElement("input");
+    const scrollIntoView = vi.fn();
+    input.scrollIntoView = scrollIntoView;
+    modal.append(input);
+    document.body.append(modal);
+
+    ensureFocusedTextFieldVisible(input, (handler) => {
+      handler();
+      return 1;
+    });
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    modal.remove();
+  });
+
+  it("keeps the module modal footer compact above keyboard-safe areas", () => {
+    const moduleActionsRule = styles.match(/\.module-name-modal \.admin-form-actions\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
+
+    expect(moduleActionsRule).not.toContain("--club-system-bottom");
+    expect(moduleActionsRule).toContain("padding-bottom: 0;");
+    expect(styles).toContain("body.club-keyboard-open .module-name-backdrop");
+  });
+
   it("detects regular and rich text fields", () => {
     const input = document.createElement("input");
     const editor = document.createElement("div");

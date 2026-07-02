@@ -346,6 +346,30 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
   }
 });
 
+test("keeps module creation modal usable with a compact keyboard viewport", async ({ page }) => {
+  await page.getByRole("button", { name: "Модули" }).click();
+  await page.getByRole("button", { name: "Добавить модуль" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Новый модуль" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByLabel("Название модуля")).toBeVisible();
+  await expect(page.getByLabel("Описание модуля")).toBeVisible();
+  await expect(page.getByRole("group", { name: "Тип карточек модуля" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+    document.body.classList.add("club-keyboard-open");
+  });
+  await page.getByLabel("Название модуля").fill("Демо модуль");
+
+  const dialogBox = await dialog.boundingBox();
+  expect(dialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);
+  expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(422);
+  await expect(page.getByRole("button", { name: "Сохранить модуль" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("keeps chat composer stable when typing", async ({ page }) => {
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();

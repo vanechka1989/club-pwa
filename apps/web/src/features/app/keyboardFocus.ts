@@ -27,8 +27,9 @@ export function ensureFocusedTextFieldVisible(
       document.body.classList.contains("club-ios") &&
       document.body.classList.contains("community-chat-open") &&
       element.closest(".chat-compose");
+    const isModuleModalField = Boolean(element.closest(".module-name-modal"));
 
-    if (isIosChatComposer) {
+    if (isIosChatComposer || isModuleModalField) {
       return;
     }
 
