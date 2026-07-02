@@ -302,7 +302,7 @@ describe("Learning section member content", () => {
     expect(screen.getByAltText("YouTube урок").getAttribute("src")).toBe("https://img.youtube.com/vi/EVHs7jmRdXk/hqdefault.jpg");
   });
 
-  it("toggles the custom fullscreen shell for YouTube lessons", async () => {
+  it("lets YouTube use the native fullscreen control", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [
         {
@@ -362,13 +362,18 @@ describe("Learning section member content", () => {
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
     await fireEvent.click(screen.getByRole("button", { name: /YouTube урок/ }));
-    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть YouTube видео" }));
+    const player = await waitFor(() => {
+      const element = document.querySelector<HTMLIFrameElement>(".lesson-youtube-player");
+      if (!element) {
+        throw new Error("YouTube player was not rendered");
+      }
+      return element;
+    });
 
-    expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeTruthy();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Свернуть YouTube видео" }));
-
-    expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeNull();
+    expect(player.getAttribute("allow")).toContain("fullscreen");
+    expect(player.hasAttribute("allowfullscreen")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Развернуть YouTube видео" })).toBeNull();
+    expect(document.querySelector(".lesson-youtube-fullscreen-button")).toBeNull();
   });
 
   it("renders lesson title labels above vertical and horizontal covers", async () => {
