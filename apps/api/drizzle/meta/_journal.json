@@ -204,6 +204,13 @@
       "when": 1782860100000,
       "tag": "0028_user_device_snapshot",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782927600000,
+      "tag": "0029_lesson_material_media_url",
+      "breakpoints": true
     }
   ]
 }

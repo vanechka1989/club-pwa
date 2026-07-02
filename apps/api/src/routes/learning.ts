@@ -40,6 +40,7 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
     summary: item.summary,
     body: includeBody ? item.body : null,
     mediaUrl,
+    mediaSource: item.mediaObjectKey ? "s3" : item.mediaUrl ? "external" : null,
     thumbnailUrl,
     cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
@@ -51,7 +52,8 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
         title: material.title,
         description: material.description,
         body: material.body,
-        mediaUrl: material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : null,
+        mediaUrl: material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : material.mediaUrl,
+        mediaSource: material.mediaObjectKey ? "s3" : material.mediaUrl ? "external" : null,
         mediaContentType: material.mediaContentType,
         mediaSizeBytes: material.mediaSizeBytes
       }))

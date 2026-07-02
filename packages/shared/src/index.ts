@@ -71,6 +71,64 @@ export type ContentKind = z.infer<typeof contentKindSchema>;
 export const contentCardLayoutSchema = z.enum(["vertical", "horizontal"]);
 export type ContentCardLayout = z.infer<typeof contentCardLayoutSchema>;
 
+export const mediaSourceSchema = z.enum(["s3", "external"]);
+export type MediaSource = z.infer<typeof mediaSourceSchema>;
+
+export function normalizeExternalMediaUrl(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeYouTubeHost(hostname: string) {
+  return hostname.toLowerCase().replace(/^www\./, "").replace(/^m\./, "");
+}
+
+export function getYouTubeVideoId(value: string | null | undefined) {
+  const normalizedUrl = normalizeExternalMediaUrl(value);
+  if (!normalizedUrl) {
+    return null;
+  }
+
+  const url = new URL(normalizedUrl);
+  const host = normalizeYouTubeHost(url.hostname);
+  let videoId: string | null = null;
+
+  if (host === "youtu.be") {
+    videoId = url.pathname.split("/").filter(Boolean)[0] ?? null;
+  } else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (url.pathname === "/watch") {
+      videoId = url.searchParams.get("v");
+    } else if (parts[0] === "shorts" || parts[0] === "embed") {
+      videoId = parts[1] ?? null;
+    }
+  }
+
+  return videoId && /^[\w-]{6,32}$/.test(videoId) ? videoId : null;
+}
+
+export function isYouTubeMediaUrl(value: string | null | undefined) {
+  return Boolean(getYouTubeVideoId(value));
+}
+
+export function getYouTubeEmbedUrl(value: string | null | undefined) {
+  const videoId = getYouTubeVideoId(value);
+  return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&playsinline=1` : null;
+}
+
 export const lessonMaterialSchema = z.object({
   id: z.string(),
   kind: contentKindSchema,
@@ -78,6 +136,7 @@ export const lessonMaterialSchema = z.object({
   description: z.string().nullable(),
   body: z.string().nullable(),
   mediaUrl: z.string().url().nullable(),
+  mediaSource: mediaSourceSchema.nullable().optional(),
   mediaContentType: z.string().nullable(),
   mediaSizeBytes: z.number().int().nonnegative().nullable()
 });
@@ -102,6 +161,7 @@ export const learningContentSchema = z.object({
   summary: z.string().nullable(),
   body: z.string().nullable(),
   mediaUrl: z.string().url().nullable(),
+  mediaSource: mediaSourceSchema.nullable().optional(),
   thumbnailUrl: z.string().url().nullable(),
   cardLayout: contentCardLayoutSchema,
   mediaContentType: z.string().nullable(),

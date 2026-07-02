@@ -1,4 +1,6 @@
-import type { ContentKind } from "@club/shared";
+import { getYouTubeEmbedUrl, normalizeExternalMediaUrl, type ContentKind } from "@club/shared";
+
+export type MediaInputSource = "file" | "url" | "youtube";
 
 export type MaterialDraftValidationInput = {
   title: string;
@@ -7,6 +9,8 @@ export type MaterialDraftValidationInput = {
   currentKind: ContentKind | null;
   currentMediaUrl: string | null;
   hasMediaFile: boolean;
+  externalMediaUrl?: string;
+  mediaSource?: MediaInputSource;
   isVoiceRecording: boolean;
   isVoiceProcessing: boolean;
 };
@@ -38,6 +42,27 @@ export function getMaterialDraftError(input: MaterialDraftValidationInput) {
 
   if (input.kind === "audio" && input.isVoiceProcessing) {
     return "Дождитесь подготовки голосового сообщения.";
+  }
+
+  const mediaSource = input.mediaSource ?? "file";
+  if (input.kind !== "text" && mediaSource === "youtube") {
+    if (input.kind !== "video") {
+      return "YouTube можно добавить только для видео.";
+    }
+
+    if (!getYouTubeEmbedUrl(input.externalMediaUrl)) {
+      return "Введите корректную ссылку YouTube.";
+    }
+
+    return null;
+  }
+
+  if (input.kind !== "text" && mediaSource === "url") {
+    if (!normalizeExternalMediaUrl(input.externalMediaUrl)) {
+      return "Введите корректную ссылку на файл.";
+    }
+
+    return null;
   }
 
   const requiresMedia =

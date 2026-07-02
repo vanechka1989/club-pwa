@@ -257,6 +257,7 @@ export const lessonMaterials = pgTable(
     title: varchar("title", { length: 180 }).notNull(),
     description: text("description"),
     body: text("body"),
+    mediaUrl: text("media_url"),
     mediaObjectKey: text("media_object_key"),
     mediaContentType: varchar("media_content_type", { length: 160 }),
     mediaSizeBytes: integer("media_size_bytes"),

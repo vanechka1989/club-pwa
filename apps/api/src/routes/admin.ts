@@ -13,12 +13,14 @@ import {
   adminLearningDirectUploadRequestSchema,
   adminLearningMultipartCompleteRequestSchema,
   adminLearningUploadedObjectSchema,
+  normalizeExternalMediaUrl,
   type AdminLearningMaterial,
   type AdminPermission,
   type AdminUserDetailResponse,
   type AdminUserModerationEvent,
   type AdminStatsUser,
   type ContentKind,
+  type MediaSource,
   type MembershipStatus
 } from "@club/shared";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
@@ -168,6 +170,14 @@ const contentArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 const directLearningMediaUploadMaxBytes = 2 * 1024 * 1024 * 1024;
 const directLearningThumbnailUploadMaxBytes = 20 * 1024 * 1024;
 
+const externalMediaUrlSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2048)
+  .refine((value) => Boolean(normalizeExternalMediaUrl(value)))
+  .transform((value) => normalizeExternalMediaUrl(value)!);
+
 const directLearningMaterialPayloadSchema = z.object({
   categoryId: z.string().trim().min(1),
   kind: z.enum(contentKinds),
@@ -182,6 +192,7 @@ const directLearningMaterialPayloadSchema = z.object({
         title: z.string().trim().min(1).max(160),
         description: z.string().trim().optional().default(""),
         body: z.string().trim().optional().default(""),
+        mediaUrl: externalMediaUrlSchema.nullable().optional(),
         mediaObject: adminLearningUploadedObjectSchema.nullable().optional()
       })
     )
@@ -190,6 +201,7 @@ const directLearningMaterialPayloadSchema = z.object({
     .default([]),
   cardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
   isPublished: z.boolean().default(true),
+  mediaUrl: externalMediaUrlSchema.nullable().optional(),
   mediaObject: adminLearningUploadedObjectSchema.nullable().optional(),
   thumbnailObject: adminLearningUploadedObjectSchema.nullable().optional(),
   removeThumbnail: z.boolean().optional().default(false)
@@ -338,8 +350,16 @@ function mirrorDirectUploadToReserve(object: { objectKey: string; contentType: s
   });
 }
 
+function getSerializedMediaSource(mediaObjectKey: string | null, mediaUrl: string | null): MediaSource | null {
+  if (mediaObjectKey) {
+    return "s3";
+  }
+
+  return mediaUrl ? "external" : null;
+}
+
 async function serializeLessonMaterial(material: typeof lessonMaterials.$inferSelect) {
-  const mediaUrl = material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : null;
+  const mediaUrl = material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : material.mediaUrl;
 
   return {
     id: material.id,
@@ -348,6 +368,7 @@ async function serializeLessonMaterial(material: typeof lessonMaterials.$inferSe
     description: material.description,
     body: material.body,
     mediaUrl,
+    mediaSource: getSerializedMediaSource(material.mediaObjectKey, material.mediaUrl),
     mediaContentType: material.mediaContentType,
     mediaSizeBytes: material.mediaSizeBytes
   };
@@ -388,6 +409,7 @@ async function replaceDirectLessonMaterials(
     title: string;
     description: string | null;
     body: string | null;
+    mediaUrl: string | null;
     mediaObjectKey: string | null;
     mediaContentType: string | null;
     mediaSizeBytes: number | null;
@@ -396,19 +418,46 @@ async function replaceDirectLessonMaterials(
 
   for (const material of materials) {
     let verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
+    const mediaUrl = material.mediaUrl ?? null;
 
-    if (material.kind !== "text") {
-      if (!material.mediaObject) {
-        throw new Error("Media file is required for lesson material");
-      }
+    if (material.kind === "text") {
+      verifiedMaterials.push({
+        kind: material.kind,
+        title: material.title,
+        description: normalizeOptionalText(material.description),
+        body: normalizeOptionalText(material.body),
+        mediaUrl: null,
+        mediaObjectKey: null,
+        mediaContentType: null,
+        mediaSizeBytes: null,
+        verifiedMedia: null
+      });
+      continue;
+    }
 
+    if (mediaUrl) {
+      verifiedMaterials.push({
+        kind: material.kind,
+        title: material.title,
+        description: normalizeOptionalText(material.description),
+        body: normalizeOptionalText(material.body),
+        mediaUrl,
+        mediaObjectKey: null,
+        mediaContentType: null,
+        mediaSizeBytes: null,
+        verifiedMedia: null
+      });
+      continue;
+    }
+
+    if (material.mediaObject) {
       verifiedMedia = await verifyDirectUploadedObject({ object: material.mediaObject, purpose: "media", kind: material.kind });
       if (!verifiedMedia) {
         throw new Error("Lesson material media type does not match kind");
       }
-    } else if (material.kind !== "text") {
+    } else {
       const existing = material.id ? existingById.get(material.id) : null;
-      if (!existing || existing.kind !== material.kind || !existing.mediaObjectKey) {
+      if (!existing || existing.kind !== material.kind || (!existing.mediaObjectKey && !existing.mediaUrl)) {
         throw new Error("Media file is required for lesson material");
       }
 
@@ -417,6 +466,7 @@ async function replaceDirectLessonMaterials(
         title: material.title,
         description: normalizeOptionalText(material.description),
         body: normalizeOptionalText(material.body),
+        mediaUrl: existing.mediaUrl,
         mediaObjectKey: existing.mediaObjectKey,
         mediaContentType: existing.mediaContentType,
         mediaSizeBytes: existing.mediaSizeBytes,
@@ -430,6 +480,7 @@ async function replaceDirectLessonMaterials(
       title: material.title,
       description: normalizeOptionalText(material.description),
       body: normalizeOptionalText(material.body),
+      mediaUrl: null,
       mediaObjectKey: verifiedMedia?.objectKey ?? null,
       mediaContentType: verifiedMedia?.contentType ?? null,
       mediaSizeBytes: verifiedMedia?.sizeBytes ?? null,
@@ -455,6 +506,7 @@ async function replaceDirectLessonMaterials(
         title: material.title,
         description: material.description,
         body: material.body,
+        mediaUrl: material.mediaUrl,
         mediaObjectKey: material.mediaObjectKey,
         mediaContentType: material.mediaContentType,
         mediaSizeBytes: material.mediaSizeBytes,
@@ -482,6 +534,7 @@ async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): P
     summary: item.summary,
     body: item.body,
     mediaUrl,
+    mediaSource: getSerializedMediaSource(item.mediaObjectKey, item.mediaUrl),
     thumbnailUrl,
     cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
@@ -1792,6 +1845,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     let mediaObjectKey: string | null = null;
+    let mediaUrl: string | null = null;
     let mediaContentType: string | null = null;
     let mediaSizeBytes: number | null = null;
     let thumbnailObjectKey: string | null = null;
@@ -1801,18 +1855,20 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     let verifiedThumbnail: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
 
     if (kind !== "text") {
-      if (!body.data.mediaObject) {
+      if (body.data.mediaUrl) {
+        mediaUrl = body.data.mediaUrl;
+      } else if (body.data.mediaObject) {
+        verifiedMedia = await verifyDirectUploadedObject({ object: body.data.mediaObject, purpose: "media", kind });
+        if (!verifiedMedia) {
+          return c.json({ error: "Media file type does not match material kind" }, 400);
+        }
+
+        mediaObjectKey = verifiedMedia.objectKey;
+        mediaContentType = verifiedMedia.contentType;
+        mediaSizeBytes = verifiedMedia.sizeBytes;
+      } else {
         return c.json({ error: "Media file is required" }, 400);
       }
-
-      verifiedMedia = await verifyDirectUploadedObject({ object: body.data.mediaObject, purpose: "media", kind });
-      if (!verifiedMedia) {
-        return c.json({ error: "Media file type does not match material kind" }, 400);
-      }
-
-      mediaObjectKey = verifiedMedia.objectKey;
-      mediaContentType = verifiedMedia.contentType;
-      mediaSizeBytes = verifiedMedia.sizeBytes;
     }
 
     if (body.data.thumbnailObject) {
@@ -1836,6 +1892,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         summary,
         body: materialBody,
         cardLayout,
+        mediaUrl,
         mediaObjectKey,
         thumbnailObjectKey,
         thumbnailContentType,
@@ -2036,6 +2093,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       mediaUrl = null;
       mediaContentType = null;
       mediaSizeBytes = null;
+    } else if (body.data.mediaUrl) {
+      if (current.mediaObjectKey) {
+        await deleteObject(current.mediaObjectKey).catch(() => null);
+      }
+      mediaObjectKey = null;
+      mediaUrl = body.data.mediaUrl;
+      mediaContentType = null;
+      mediaSizeBytes = null;
     } else if (body.data.mediaObject) {
       verifiedMedia = await verifyDirectUploadedObject({ object: body.data.mediaObject, purpose: "media", kind });
       if (!verifiedMedia) {
@@ -2048,7 +2113,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       mediaUrl = null;
       mediaContentType = verifiedMedia.contentType;
       mediaSizeBytes = verifiedMedia.sizeBytes;
-    } else if (current.kind !== kind || !current.mediaObjectKey) {
+    } else if (current.kind !== kind || (!current.mediaObjectKey && !current.mediaUrl)) {
       return c.json({ error: "Media file is required when changing material kind" }, 400);
     }
 

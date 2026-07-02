@@ -5862,6 +5862,22 @@ body.club-keyboard-open .admin-modal-backdrop {
   box-shadow: 0 16px 34px color-mix(in srgb, #000 24%, transparent);
 }
 
+.lesson-youtube-player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 12rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 16px;
+  background: #000;
+  box-shadow: 0 16px 34px color-mix(in srgb, #000 20%, transparent);
+}
+
+.lesson-youtube-player-material {
+  min-height: 10rem;
+  border-radius: 12px;
+}
+
 .lesson-video-player-fullscreen {
   position: fixed;
   inset: 0;
@@ -6075,6 +6091,30 @@ body.club-keyboard-open .admin-modal-backdrop {
 .lesson-kind-button-active {
   border-color: color-mix(in srgb, var(--accent) 70%, white);
   background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  color: var(--text);
+}
+
+.lesson-source-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.lesson-source-button {
+  min-height: 2.05rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 860;
+}
+
+.lesson-source-button-active {
+  border-color: color-mix(in srgb, var(--accent) 66%, white);
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
   color: var(--text);
 }
 

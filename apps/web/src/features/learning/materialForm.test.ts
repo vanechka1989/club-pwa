@@ -56,9 +56,77 @@ describe("getMaterialDraftError", () => {
         currentKind: "audio",
         currentMediaUrl: "https://example.com/audio.webm",
         hasMediaFile: false,
+        externalMediaUrl: "",
+        mediaSource: "file",
         isVoiceRecording: false,
         isVoiceProcessing: false
       })
     ).toBeNull();
+  });
+
+  it("allows creating video content from a direct media link without uploading a file", () => {
+    expect(
+      getMaterialDraftError({
+        title: "Видео",
+        kind: "video",
+        isEditing: false,
+        currentKind: null,
+        currentMediaUrl: null,
+        hasMediaFile: false,
+        externalMediaUrl: "https://cdn.example.com/video.mp4",
+        mediaSource: "url",
+        isVoiceRecording: false,
+        isVoiceProcessing: false
+      })
+    ).toBeNull();
+  });
+
+  it("allows YouTube only for video content", () => {
+    expect(
+      getMaterialDraftError({
+        title: "Видео",
+        kind: "video",
+        isEditing: false,
+        currentKind: null,
+        currentMediaUrl: null,
+        hasMediaFile: false,
+        externalMediaUrl: "https://youtu.be/dQw4w9WgXcQ",
+        mediaSource: "youtube",
+        isVoiceRecording: false,
+        isVoiceProcessing: false
+      })
+    ).toBeNull();
+
+    expect(
+      getMaterialDraftError({
+        title: "Фото",
+        kind: "photo",
+        isEditing: false,
+        currentKind: null,
+        currentMediaUrl: null,
+        hasMediaFile: false,
+        externalMediaUrl: "https://youtu.be/dQw4w9WgXcQ",
+        mediaSource: "youtube",
+        isVoiceRecording: false,
+        isVoiceProcessing: false
+      })
+    ).toBe("YouTube можно добавить только для видео.");
+  });
+
+  it("rejects invalid external links", () => {
+    expect(
+      getMaterialDraftError({
+        title: "Видео",
+        kind: "video",
+        isEditing: false,
+        currentKind: null,
+        currentMediaUrl: null,
+        hasMediaFile: false,
+        externalMediaUrl: "ftp://example.com/video.mp4",
+        mediaSource: "url",
+        isVoiceRecording: false,
+        isVoiceProcessing: false
+      })
+    ).toBe("Введите корректную ссылку на файл.");
   });
 });

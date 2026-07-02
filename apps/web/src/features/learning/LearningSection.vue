@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { AdminLearningMaterial, AdminLearningUploadedObject, ContentCardLayout, ContentKind, LearningCategory, LearningContent, LearningProgressSummary, LessonMaterial } from "@club/shared";
+import {
+  getYouTubeEmbedUrl,
+  isYouTubeMediaUrl,
+  normalizeExternalMediaUrl,
+  type AdminLearningMaterial,
+  type AdminLearningUploadedObject,
+  type ContentCardLayout,
+  type ContentKind,
+  type LearningCategory,
+  type LearningContent,
+  type LearningProgressSummary,
+  type LessonMaterial,
+  type MediaSource
+} from "@club/shared";
 import { ChevronDown, ExternalLink, FileText, Image, Maximize2, Mic, Minimize2, Pause, Pencil, Play, Plus, Square, Trash2, Video, Volume2, X } from "lucide-vue-next";
 import {
   createAdminLearningCategory,
@@ -25,7 +38,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
-import { getMaterialDraftError } from "./materialForm";
+import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 
 type ModuleLesson = {
@@ -37,6 +50,7 @@ type ModuleLesson = {
   description: string;
   content: string;
   mediaUrl: string | null;
+  mediaSource: MediaSource | null;
   thumbnailUrl: string | null;
   materials: LessonMaterial[];
   cardLayout: ContentCardLayout;
@@ -65,6 +79,10 @@ type LessonMaterialDraft = {
   title: string;
   description: string;
   body: string;
+  existingKind: ContentKind | null;
+  existingMediaSource: MediaSource | null;
+  mediaSource: MediaInputSource;
+  externalUrl: string;
   file: File | null;
   fileName: string;
   existingMediaUrl: string | null;
@@ -90,6 +108,7 @@ const initialModuleCards: ModuleCard[] = [
         description: "Плеер, очередь просмотра и быстрый возврат к уроку.",
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
+        mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-1.svg",
         materials: [],
         cardLayout: "vertical",
@@ -105,6 +124,7 @@ const initialModuleCards: ModuleCard[] = [
         description: "Модульная структура с уроками внутри каждого блока.",
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
+        mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-2.svg",
         materials: [],
         cardLayout: "horizontal",
@@ -120,6 +140,7 @@ const initialModuleCards: ModuleCard[] = [
         description: "Библиотечный вид для быстрого поиска нужного урока.",
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
+        mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-3.svg",
         materials: [],
         cardLayout: "vertical",
@@ -135,6 +156,7 @@ const initialModuleCards: ModuleCard[] = [
         description: "Маршрут прохождения с понятными шагами.",
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
+        mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-4.svg",
         materials: [],
         cardLayout: "vertical",
@@ -160,6 +182,7 @@ const initialModuleCards: ModuleCard[] = [
         description: "Первый экран урока.",
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
+        mediaSource: null,
         thumbnailUrl: "/previews/admin-stats-preview-1.png",
         materials: [],
         cardLayout: "vertical",
@@ -175,6 +198,7 @@ const initialModuleCards: ModuleCard[] = [
         description: "Экран с данными по оплатам и контенту.",
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
+        mediaSource: null,
         thumbnailUrl: "/previews/admin-stats-preview-2.png",
         materials: [],
         cardLayout: "vertical",
@@ -190,6 +214,7 @@ const initialModuleCards: ModuleCard[] = [
         description: "Экран с данными по общению.",
         content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
         mediaUrl: null,
+        mediaSource: null,
         thumbnailUrl: "/previews/admin-stats-preview-3.png",
         materials: [],
         cardLayout: "vertical",
@@ -223,6 +248,8 @@ const selectedLesson = ref<{ moduleId: string; lessonId: string | null } | null>
 const lessonTitle = ref("");
 const lessonDescription = ref("");
 const lessonKind = ref<ContentKind>("text");
+const lessonMediaSource = ref<MediaInputSource>("file");
+const lessonExternalUrl = ref("");
 const lessonFile = ref<File | NamedBlobUpload | null>(null);
 const lessonFileName = ref("");
 const lessonThumbnailFile = ref<File | null>(null);
@@ -302,10 +329,46 @@ const contentKindOptions: Array<{ value: ContentKind; label: string; accept: str
   { value: "video", label: "Видео", accept: "video/*" },
   { value: "audio", label: "Аудио", accept: "audio/*" }
 ];
+const mediaInputSourceOptions: Array<{ value: MediaInputSource; label: string }> = [
+  { value: "file", label: "Файл" },
+  { value: "url", label: "Ссылка" },
+  { value: "youtube", label: "YouTube" }
+];
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
 const selectedModuleLessonLayout = computed(() => selectedLessonModule.value?.defaultCardLayout ?? "vertical");
+function getMediaInputSource(kind: ContentKind, mediaUrl: string | null, mediaSource: MediaSource | null | undefined): MediaInputSource {
+  if (kind === "text") {
+    return "file";
+  }
+
+  if (mediaSource === "external" && mediaUrl) {
+    return isYouTubeMediaUrl(mediaUrl) ? "youtube" : "url";
+  }
+
+  return "file";
+}
+
+function getExternalUrlForForm(mediaUrl: string | null, source: MediaInputSource) {
+  return source === "file" ? "" : mediaUrl ?? "";
+}
+
+function getNormalizedExternalUrl(source: MediaInputSource, value: string) {
+  if (source === "file") {
+    return null;
+  }
+
+  return normalizeExternalMediaUrl(value);
+}
+
+function getVisibleMediaInputSources(kind: ContentKind) {
+  return mediaInputSourceOptions.filter((option) => option.value !== "youtube" || kind === "video");
+}
+
+function getYouTubePlayerUrl(value: string | null) {
+  return getYouTubeEmbedUrl(value);
+}
 const lessonPreviewSource = computed(() => {
   if (selectedLessonItem.value) {
     return getModuleLessonImage(selectedLessonModule.value, selectedLessonItem.value);
@@ -445,14 +508,19 @@ function collapseModule(moduleId: string) {
 }
 
 function createLessonMaterialDraft(material?: LessonMaterial): LessonMaterialDraft {
+  const mediaSource = getMediaInputSource(material?.kind ?? "text", material?.mediaUrl ?? null, material?.mediaSource);
   return {
     id: material?.id ?? `lesson-material-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     kind: material?.kind ?? "text",
     title: material?.title ?? "",
     description: material?.description ?? "",
     body: material?.body ?? "",
+    existingKind: material?.kind ?? null,
+    existingMediaSource: material?.mediaSource ?? null,
+    mediaSource,
+    externalUrl: getExternalUrlForForm(material?.mediaUrl ?? null, mediaSource),
     file: null,
-    fileName: material?.mediaUrl ? "Текущий файл сохранён" : "",
+    fileName: material?.mediaUrl && mediaSource === "file" ? "Текущий файл сохранён" : "",
     existingMediaUrl: material?.mediaUrl ?? null,
     existingMediaContentType: material?.mediaContentType ?? null,
     existingMediaSizeBytes: material?.mediaSizeBytes ?? null
@@ -472,8 +540,10 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStart
   lessonTitle.value = lesson.title;
   lessonDescription.value = lesson.description;
   lessonKind.value = lesson.kind;
+  lessonMediaSource.value = getMediaInputSource(lesson.kind, lesson.mediaUrl, lesson.mediaSource);
+  lessonExternalUrl.value = getExternalUrlForForm(lesson.mediaUrl, lessonMediaSource.value);
   lessonFile.value = null;
-  lessonFileName.value = lesson.mediaUrl ? "Текущий файл сохранён" : "";
+  lessonFileName.value = lesson.mediaUrl && lessonMediaSource.value === "file" ? "Текущий файл сохранён" : "";
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = lesson.thumbnailUrl ? "Текущая обложка сохранена" : "";
   shouldRemoveLessonThumbnail.value = false;
@@ -510,6 +580,8 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonTitle.value = "";
   lessonDescription.value = "";
   lessonKind.value = "text";
+  lessonMediaSource.value = "file";
+  lessonExternalUrl.value = "";
   lessonFile.value = null;
   lessonFileName.value = "";
   lessonThumbnailFile.value = null;
@@ -529,6 +601,8 @@ function closeLessonModal() {
   lessonTitle.value = "";
   lessonDescription.value = "";
   lessonKind.value = "text";
+  lessonMediaSource.value = "file";
+  lessonExternalUrl.value = "";
   lessonFile.value = null;
   lessonFileName.value = "";
   lessonThumbnailFile.value = null;
@@ -633,6 +707,7 @@ function updateLearningPlaybackProgress(lesson: ModuleLesson, positionSeconds: n
           summary: lesson.description || null,
           body: lesson.content || null,
           mediaUrl: lesson.mediaUrl,
+          mediaSource: lesson.mediaSource,
           thumbnailUrl: lesson.thumbnailUrl,
           cardLayout: lesson.cardLayout,
           mediaContentType: null,
@@ -1011,6 +1086,7 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     description: item.summary ?? "",
     content: item.body ?? "",
     mediaUrl: item.mediaUrl,
+    mediaSource: item.mediaSource ?? null,
     thumbnailUrl: item.thumbnailUrl,
     materials: item.materials ?? [],
     cardLayout: item.cardLayout,
@@ -1353,6 +1429,8 @@ function buildLessonDirectPayloadFromDraft(
     title: string;
     summary: string;
     body: string;
+    mediaSource: MediaInputSource;
+    externalUrl: string;
     materials?: LessonMaterialDraft[];
     cardLayout: ContentCardLayout;
     removeThumbnail: boolean;
@@ -1373,10 +1451,12 @@ function buildLessonDirectPayloadFromDraft(
       title: material.title.trim(),
       description: material.description.trim(),
       body: material.body.trim(),
+      mediaUrl: getNormalizedExternalUrl(material.mediaSource, material.externalUrl),
       mediaObject: materialObjects.get(material.id) ?? null
     })),
     cardLayout: draft.cardLayout,
     isPublished: true,
+    mediaUrl: getNormalizedExternalUrl(draft.mediaSource, draft.externalUrl),
     ...(mediaObject !== undefined ? { mediaObject } : {}),
     ...(thumbnailObject !== undefined ? { thumbnailObject } : {}),
     removeThumbnail: draft.removeThumbnail
@@ -1398,6 +1478,8 @@ async function startBackgroundLessonUpload() {
     title: trimmedLessonTitle.value,
     summary: lessonDescription.value.trim(),
     body: lessonContent.value.trim(),
+    mediaSource: lessonMediaSource.value,
+    externalUrl: lessonExternalUrl.value.trim(),
     cardLayout: selectedModuleLessonLayout.value,
     removeThumbnail: shouldRemoveLessonThumbnail.value,
     mediaFile: lessonFile.value,
@@ -1644,7 +1726,8 @@ function saveLessonLocally() {
     url: lessonPreviewSource.value,
     description: lessonDescription.value.trim(),
     content: lessonContent.value.trim() || "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-    mediaUrl: null,
+    mediaUrl: getNormalizedExternalUrl(lessonMediaSource.value, lessonExternalUrl.value),
+    mediaSource: lessonMediaSource.value === "file" ? null : "external",
     thumbnailUrl: shouldRemoveLessonThumbnail.value ? null : (selectedLessonItem.value?.thumbnailUrl ?? null),
     materials: lessonMaterialDrafts.value.map((material) => ({
       id: material.id,
@@ -1652,7 +1735,8 @@ function saveLessonLocally() {
       title: material.title.trim() || "Материал",
       description: material.description.trim() || null,
       body: material.body.trim() || null,
-      mediaUrl: material.existingMediaUrl,
+      mediaUrl: material.mediaSource === "file" ? material.existingMediaUrl : getNormalizedExternalUrl(material.mediaSource, material.externalUrl),
+      mediaSource: material.mediaSource === "file" ? material.existingMediaUrl ? "s3" : null : "external",
       mediaContentType: material.existingMediaContentType,
       mediaSizeBytes: material.existingMediaSizeBytes
     })),
@@ -1685,8 +1769,13 @@ async function saveLesson() {
     kind: lessonKind.value,
     isEditing: Boolean(selectedLessonItem.value?.isPersisted),
     currentKind: selectedLessonItem.value?.kind ?? null,
-    currentMediaUrl: selectedLessonItem.value?.mediaUrl ?? null,
+    currentMediaUrl:
+      lessonMediaSource.value === "file" && selectedLessonItem.value?.mediaSource === "external"
+        ? null
+        : selectedLessonItem.value?.mediaUrl ?? null,
     hasMediaFile: Boolean(lessonFile.value),
+    externalMediaUrl: lessonExternalUrl.value,
+    mediaSource: lessonMediaSource.value,
     isVoiceRecording: isVoiceRecording.value,
     isVoiceProcessing: false
   });
@@ -1702,8 +1791,21 @@ async function saveLesson() {
       return;
     }
 
-    if (material.kind !== "text" && !material.file && !material.existingMediaUrl) {
-      showLessonError("Выберите файл для каждого фото, видео или аудио материала.");
+    const materialError = getMaterialDraftError({
+      title: material.title,
+      kind: material.kind,
+      isEditing: Boolean(material.existingMediaUrl),
+      currentKind: material.existingKind,
+      currentMediaUrl: material.mediaSource === "file" && material.existingMediaSource === "external" ? null : material.existingMediaUrl,
+      hasMediaFile: Boolean(material.file),
+      externalMediaUrl: material.externalUrl,
+      mediaSource: material.mediaSource,
+      isVoiceRecording: false,
+      isVoiceProcessing: false
+    });
+
+    if (materialError) {
+      showLessonError(materialError);
       return;
     }
   }
@@ -1715,10 +1817,14 @@ async function saveLesson() {
   }
 
   const hasAdditionalMaterialFiles = lessonMaterialDrafts.value.some((material) => Boolean(material.file));
+  const hasExternalLessonMedia = lessonKind.value !== "text" && lessonMediaSource.value !== "file";
+  const hasExternalMaterialMedia = lessonMaterialDrafts.value.some((material) => material.kind !== "text" && material.mediaSource !== "file");
   const shouldUseDirectLessonPayload = Boolean(
     lessonFile.value ||
       lessonThumbnailFile.value ||
       hasAdditionalMaterialFiles ||
+      hasExternalLessonMedia ||
+      hasExternalMaterialMedia ||
       lessonMaterialDrafts.value.length ||
       selectedLessonItem.value?.materials.length
   );
@@ -1740,6 +1846,8 @@ async function saveLesson() {
         title: trimmedLessonTitle.value,
         summary: lessonDescription.value.trim(),
         body: lessonContent.value.trim(),
+        mediaSource: lessonMediaSource.value,
+        externalUrl: lessonExternalUrl.value.trim(),
         materials: lessonMaterialDrafts.value.map((material) => ({ ...material })),
         cardLayout: selectedModuleLessonLayout.value,
         removeThumbnail: shouldRemoveLessonThumbnail.value
@@ -1818,6 +1926,21 @@ function handleLessonFileChange(event: Event) {
   const file = input.files?.[0] ?? null;
   lessonFile.value = file;
   lessonFileName.value = file?.name ?? "";
+  if (file) {
+    lessonMediaSource.value = "file";
+    lessonExternalUrl.value = "";
+  }
+}
+
+function setLessonMediaSource(source: MediaInputSource) {
+  lessonMediaSource.value = source;
+  if (source !== "file") {
+    lessonFile.value = null;
+    lessonFileName.value = "";
+    return;
+  }
+
+  lessonExternalUrl.value = "";
 }
 
 function setLessonKind(kind: ContentKind) {
@@ -1825,6 +1948,10 @@ function setLessonKind(kind: ContentKind) {
   if (kind === "text") {
     lessonFile.value = null;
     lessonFileName.value = "";
+    lessonMediaSource.value = "file";
+    lessonExternalUrl.value = "";
+  } else if (kind !== "video" && lessonMediaSource.value === "youtube") {
+    setLessonMediaSource("file");
   }
 }
 
@@ -1841,9 +1968,13 @@ function setLessonMaterialKind(material: LessonMaterialDraft, kind: ContentKind)
   if (kind === "text") {
     material.file = null;
     material.fileName = "";
+    material.mediaSource = "file";
+    material.externalUrl = "";
     material.existingMediaUrl = null;
     material.existingMediaContentType = null;
     material.existingMediaSizeBytes = null;
+  } else if (kind !== "video" && material.mediaSource === "youtube") {
+    setLessonMaterialMediaSource(material, "file");
   }
 }
 
@@ -1852,6 +1983,21 @@ function handleLessonMaterialFileChange(material: LessonMaterialDraft, event: Ev
   const file = input.files?.[0] ?? null;
   material.file = file;
   material.fileName = file?.name ?? "";
+  if (file) {
+    material.mediaSource = "file";
+    material.externalUrl = "";
+  }
+}
+
+function setLessonMaterialMediaSource(material: LessonMaterialDraft, source: MediaInputSource) {
+  material.mediaSource = source;
+  if (source !== "file") {
+    material.file = null;
+    material.fileName = "";
+    return;
+  }
+
+  material.externalUrl = "";
 }
 
 function handleLessonThumbnailChange(event: Event) {
@@ -2214,6 +2360,14 @@ watch(
                 :alt="selectedLessonItem.title"
                 loading="lazy"
               />
+              <iframe
+                v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl && getYouTubePlayerUrl(selectedLessonItem.mediaUrl)"
+                class="lesson-youtube-player"
+                :src="getYouTubePlayerUrl(selectedLessonItem.mediaUrl) ?? undefined"
+                :title="selectedLessonItem.title"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+              ></iframe>
               <div
                 v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl"
                 class="lesson-video-player"
@@ -2314,6 +2468,14 @@ watch(
                     <small v-if="material.description">{{ material.description }}</small>
                   </div>
                   <img v-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
+                  <iframe
+                    v-else-if="material.kind === 'video' && material.mediaUrl && getYouTubePlayerUrl(material.mediaUrl)"
+                    class="lesson-youtube-player lesson-youtube-player-material"
+                    :src="getYouTubePlayerUrl(material.mediaUrl) ?? undefined"
+                    :title="material.title"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                  ></iframe>
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"
                     :src="material.mediaUrl"
@@ -2379,16 +2541,40 @@ watch(
                   </button>
                 </div>
               </div>
+              <div v-if="lessonKind !== 'text'" class="admin-field">
+                <span>Источник контента</span>
+                <div class="lesson-source-buttons" role="group" aria-label="Источник контента урока">
+                  <button
+                    v-for="option in getVisibleMediaInputSources(lessonKind)"
+                    :key="option.value"
+                    class="lesson-source-button"
+                    :class="{ 'lesson-source-button-active': lessonMediaSource === option.value }"
+                    type="button"
+                    @click="setLessonMediaSource(option.value)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
               <label v-if="lessonKind !== 'text'" class="admin-field">
-                <span>Файл урока</span>
+                <span>{{ lessonMediaSource === "file" ? "Файл урока" : lessonMediaSource === "youtube" ? "Ссылка YouTube" : "Ссылка на файл" }}</span>
                 <input
+                  v-if="lessonMediaSource === 'file'"
                   class="text-input"
                   type="file"
                   :accept="lessonKind === 'photo' ? 'image/*' : lessonKind === 'video' ? 'video/*' : 'audio/*'"
                   aria-label="Файл урока"
                   @change="handleLessonFileChange"
                 />
-                <small>{{ lessonFileName || "Файл не выбран" }}</small>
+                <input
+                  v-else
+                  v-model.trim="lessonExternalUrl"
+                  class="text-input"
+                  type="url"
+                  :placeholder="lessonMediaSource === 'youtube' ? 'https://youtu.be/...' : 'https://cdn.example.com/file.mp4'"
+                  :aria-label="lessonMediaSource === 'youtube' ? 'Ссылка YouTube' : 'Ссылка на файл урока'"
+                />
+                <small>{{ lessonMediaSource === "file" ? lessonFileName || "Файл не выбран" : "Файл в S3 загружаться не будет." }}</small>
               </label>
               <div v-if="lessonKind === 'audio'" class="voice-record-row">
                 <button v-if="!isVoiceRecording" class="secondary-button" type="button" @click="startVoiceRecording">
@@ -2463,16 +2649,40 @@ watch(
                     <span>Описание</span>
                     <input v-model="material.description" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание дополнительного материала" />
                   </label>
+                  <div v-if="material.kind !== 'text'" class="admin-field">
+                    <span>Источник материала</span>
+                    <div class="lesson-source-buttons" role="group" aria-label="Источник дополнительного материала">
+                      <button
+                        v-for="option in getVisibleMediaInputSources(material.kind)"
+                        :key="option.value"
+                        class="lesson-source-button"
+                        :class="{ 'lesson-source-button-active': material.mediaSource === option.value }"
+                        type="button"
+                        @click="setLessonMaterialMediaSource(material, option.value)"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
+                  </div>
                   <label v-if="material.kind !== 'text'" class="admin-field">
-                    <span>Файл материала</span>
+                    <span>{{ material.mediaSource === "file" ? "Файл материала" : material.mediaSource === "youtube" ? "Ссылка YouTube" : "Ссылка на файл" }}</span>
                     <input
+                      v-if="material.mediaSource === 'file'"
                       class="text-input"
                       type="file"
                       :accept="contentKindOptions.find((option) => option.value === material.kind)?.accept"
                       aria-label="Файл дополнительного материала"
                       @change="handleLessonMaterialFileChange(material, $event)"
                     />
-                    <small>{{ material.fileName || "Файл не выбран" }}</small>
+                    <input
+                      v-else
+                      v-model.trim="material.externalUrl"
+                      class="text-input"
+                      type="url"
+                      :placeholder="material.mediaSource === 'youtube' ? 'https://youtu.be/...' : 'https://cdn.example.com/file.mp4'"
+                      :aria-label="material.mediaSource === 'youtube' ? 'Ссылка YouTube' : 'Ссылка на файл материала'"
+                    />
+                    <small>{{ material.mediaSource === "file" ? material.fileName || "Файл не выбран" : "Файл в S3 загружаться не будет." }}</small>
                   </label>
                   <label class="admin-field">
                     <span>Текст / заметка</span>
