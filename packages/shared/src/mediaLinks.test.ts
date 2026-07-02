@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getYouTubeEmbedUrl, isYouTubeMediaUrl, normalizeExternalMediaUrl } from "./index";
+import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl, isYouTubeMediaUrl, normalizeExternalMediaUrl } from "./index";
 
 describe("media link helpers", () => {
   it("accepts only http and https external media urls", () => {
@@ -27,5 +27,12 @@ describe("media link helpers", () => {
   it("does not treat ordinary links as YouTube", () => {
     expect(isYouTubeMediaUrl("https://cdn.example.com/video.mp4")).toBe(false);
     expect(getYouTubeEmbedUrl("https://cdn.example.com/video.mp4")).toBeNull();
+  });
+
+  it("builds YouTube thumbnail urls", () => {
+    expect(getYouTubeThumbnailUrl("https://www.youtube.com/live/EVHs7jmRdXk")).toBe(
+      "https://img.youtube.com/vi/EVHs7jmRdXk/hqdefault.jpg"
+    );
+    expect(getYouTubeThumbnailUrl("https://cdn.example.com/video.mp4")).toBeNull();
   });
 });

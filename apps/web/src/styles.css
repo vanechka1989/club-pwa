@@ -5798,6 +5798,11 @@ body.club-keyboard-open .module-name-backdrop {
   padding-bottom: 0;
 }
 
+body.club-keyboard-open .module-name-modal {
+  gap: 0.55rem;
+  padding: 0.65rem 0.8rem;
+}
+
 .module-name-modal {
   position: relative;
   display: flex;
@@ -5935,6 +5940,11 @@ body.club-keyboard-open .module-name-backdrop {
   box-shadow: 0 16px 34px color-mix(in srgb, #000 24%, transparent);
 }
 
+.lesson-youtube-player-shell {
+  position: relative;
+  width: 100%;
+}
+
 .lesson-youtube-player {
   display: block;
   width: 100%;
@@ -5944,6 +5954,26 @@ body.club-keyboard-open .module-name-backdrop {
   border-radius: 16px;
   background: #000;
   box-shadow: 0 16px 34px color-mix(in srgb, #000 20%, transparent);
+}
+
+.lesson-youtube-player-shell-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.lesson-youtube-player-shell-fullscreen .lesson-youtube-player {
+  width: min(100vw, calc((var(--club-visible-viewport-height, 100dvh) - 1.5rem) * 16 / 9));
+  max-width: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .lesson-youtube-player-material {
@@ -6060,6 +6090,30 @@ body.club-keyboard-open .module-name-backdrop {
   border-radius: 999px;
   background: color-mix(in srgb, #020617 72%, transparent);
   color: #f8fafc;
+}
+
+.lesson-youtube-fullscreen-button {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  z-index: 2;
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #fff 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #020617 54%, transparent);
+  color: #f8fafc;
+  box-shadow: 0 10px 24px color-mix(in srgb, #000 30%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.lesson-youtube-player-shell-fullscreen .lesson-youtube-fullscreen-button {
+  top: max(3.9rem, calc(env(safe-area-inset-top) + 3rem));
+  right: max(0.9rem, env(safe-area-inset-right));
+  bottom: auto;
+  background: color-mix(in srgb, #020617 34%, transparent);
 }
 
 .lesson-video-exit-fullscreen-button {

@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   getYouTubeEmbedUrl,
+  getYouTubeThumbnailUrl,
   isYouTubeMediaUrl,
   normalizeExternalMediaUrl,
   type AdminLearningMaterial,
@@ -295,6 +296,7 @@ const isLessonVideoPlaying = ref(false);
 const lessonVideoCurrentTime = ref(0);
 const lessonVideoDuration = ref(0);
 const isLessonVideoFullscreen = ref(false);
+const fullscreenYouTubeKey = ref<string | null>(null);
 const showLessonVideoControls = ref(true);
 const pendingLessonVideoStartSeconds = ref(0);
 const lessonVideoStartApplied = ref(false);
@@ -393,6 +395,19 @@ function getVisibleMediaInputSources(kind: ContentKind) {
 
 function getYouTubePlayerUrl(value: string | null) {
   return getYouTubeEmbedUrl(value);
+}
+
+function getYouTubeFullscreenKey(item: Pick<ModuleLesson | LessonMaterial, "id">) {
+  return `youtube:${item.id}`;
+}
+
+function isYouTubeFullscreen(item: Pick<ModuleLesson | LessonMaterial, "id">) {
+  return fullscreenYouTubeKey.value === getYouTubeFullscreenKey(item);
+}
+
+function toggleYouTubeFullscreen(item: Pick<ModuleLesson | LessonMaterial, "id">) {
+  const key = getYouTubeFullscreenKey(item);
+  fullscreenYouTubeKey.value = fullscreenYouTubeKey.value === key ? null : key;
 }
 
 function syncLessonYouTubeExternalUrl() {
@@ -759,6 +774,7 @@ function resetLessonVideoState() {
   if (document.fullscreenElement) {
     void document.exitFullscreen().catch(() => {});
   }
+  fullscreenYouTubeKey.value = null;
   clearLessonVideoControlsTimer();
   isLessonVideoFullscreen.value = false;
   isLessonVideoPlaying.value = false;
@@ -1186,7 +1202,7 @@ function cloneInitialModules() {
 }
 
 function materialPreviewUrl(item: AdminLearningMaterial | LearningContent) {
-  return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
+  return item.thumbnailUrl || getYouTubeThumbnailUrl(item.mediaUrl) || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
 }
 
 function getDefaultLessonCover(colorScheme: ColorScheme, cardLayout: ContentCardLayout) {
@@ -1194,11 +1210,11 @@ function getDefaultLessonCover(colorScheme: ColorScheme, cardLayout: ContentCard
 }
 
 function getLessonImage(item: ModuleLesson) {
-  return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
+  return item.thumbnailUrl || getYouTubeThumbnailUrl(item.mediaUrl) || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
 }
 
 function getModuleLessonImage(module: ModuleCard | null, item: ModuleLesson) {
-  return item.thumbnailUrl || getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
+  return item.thumbnailUrl || getYouTubeThumbnailUrl(item.mediaUrl) || getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
 }
 
 function getContinueLessonImage(module: ModuleCard | null, item: ModuleLesson) {
@@ -1208,7 +1224,7 @@ function getContinueLessonImage(module: ModuleCard | null, item: ModuleLesson) {
   }
 
   if (material) {
-    return getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
+    return getYouTubeThumbnailUrl(material.mediaUrl) || getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
   }
 
   return getModuleLessonImage(module, item);
@@ -2552,14 +2568,28 @@ watch(
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
               <p v-else-if="lessonViewerError" class="lesson-viewer-empty">{{ lessonViewerError }}</p>
 
-              <iframe
+              <div
                 v-if="selectedLessonItem.mediaUrl && getYouTubePlayerUrl(selectedLessonItem.mediaUrl)"
-                class="lesson-youtube-player"
-                :src="getYouTubePlayerUrl(selectedLessonItem.mediaUrl) ?? undefined"
-                :title="selectedLessonItem.title"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen
-              ></iframe>
+                class="lesson-youtube-player-shell"
+                :class="{ 'lesson-youtube-player-shell-fullscreen': isYouTubeFullscreen(selectedLessonItem) }"
+              >
+                <iframe
+                  class="lesson-youtube-player"
+                  :src="getYouTubePlayerUrl(selectedLessonItem.mediaUrl) ?? undefined"
+                  :title="selectedLessonItem.title"
+                  allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                ></iframe>
+                <button
+                  class="lesson-youtube-fullscreen-button"
+                  type="button"
+                  :aria-label="isYouTubeFullscreen(selectedLessonItem) ? 'Свернуть YouTube видео' : 'Развернуть YouTube видео'"
+                  @click.stop="toggleYouTubeFullscreen(selectedLessonItem)"
+                >
+                  <Minimize2 v-if="isYouTubeFullscreen(selectedLessonItem)" class="h-4 w-4" aria-hidden="true" />
+                  <Maximize2 v-else class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
               <img
                 v-else-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
                 class="lesson-viewer-media"
@@ -2666,14 +2696,28 @@ watch(
                     <strong>{{ material.title }}</strong>
                     <small v-if="material.description">{{ material.description }}</small>
                   </div>
-                  <iframe
+                  <div
                     v-if="material.mediaUrl && getYouTubePlayerUrl(material.mediaUrl)"
-                    class="lesson-youtube-player lesson-youtube-player-material"
-                    :src="getYouTubePlayerUrl(material.mediaUrl) ?? undefined"
-                    :title="material.title"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowfullscreen
-                  ></iframe>
+                    class="lesson-youtube-player-shell"
+                    :class="{ 'lesson-youtube-player-shell-fullscreen': isYouTubeFullscreen(material) }"
+                  >
+                    <iframe
+                      class="lesson-youtube-player lesson-youtube-player-material"
+                      :src="getYouTubePlayerUrl(material.mediaUrl) ?? undefined"
+                      :title="material.title"
+                      allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowfullscreen
+                    ></iframe>
+                    <button
+                      class="lesson-youtube-fullscreen-button"
+                      type="button"
+                      :aria-label="isYouTubeFullscreen(material) ? 'Свернуть YouTube видео' : 'Развернуть YouTube видео'"
+                      @click.stop="toggleYouTubeFullscreen(material)"
+                    >
+                      <Minimize2 v-if="isYouTubeFullscreen(material)" class="h-4 w-4" aria-hidden="true" />
+                      <Maximize2 v-else class="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
                   <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"

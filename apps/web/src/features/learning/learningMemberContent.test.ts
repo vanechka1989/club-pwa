@@ -257,6 +257,120 @@ describe("Learning section member content", () => {
     expect(document.querySelector(".lesson-viewer-media")).toBeNull();
   });
 
+  it("uses a YouTube thumbnail for lesson cards when a cover is not set", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-1",
+          slug: "module-1",
+          title: "Клиентский модуль",
+          description: "Материалы для клиента",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [
+        {
+          id: "lesson-youtube",
+          categoryId: "module-1",
+          kind: "video",
+          title: "YouTube урок",
+          summary: null,
+          body: null,
+          mediaUrl: "https://www.youtube.com/live/EVHs7jmRdXk",
+          thumbnailUrl: null,
+          cardLayout: "horizontal",
+          mediaContentType: null,
+          mediaSizeBytes: null,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        }
+      ],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: null,
+        lastOpenedAt: null,
+        lastOpenedPlaybackPositionSeconds: 0
+      }
+    });
+
+    renderAsMember();
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
+
+    expect(screen.getByAltText("YouTube урок").getAttribute("src")).toBe("https://img.youtube.com/vi/EVHs7jmRdXk/hqdefault.jpg");
+  });
+
+  it("toggles the custom fullscreen shell for YouTube lessons", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-1",
+          slug: "module-1",
+          title: "Клиентский модуль",
+          description: "Материалы для клиента",
+          defaultCardLayout: "vertical",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [
+        {
+          id: "lesson-youtube",
+          categoryId: "module-1",
+          kind: "video",
+          title: "YouTube урок",
+          summary: null,
+          body: null,
+          mediaUrl: "https://www.youtube.com/live/EVHs7jmRdXk",
+          thumbnailUrl: null,
+          cardLayout: "vertical",
+          mediaContentType: null,
+          mediaSizeBytes: null,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        }
+      ],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: null,
+        lastOpenedAt: null,
+        lastOpenedPlaybackPositionSeconds: 0
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-youtube",
+        categoryId: "module-1",
+        kind: "video",
+        title: "YouTube урок",
+        summary: null,
+        body: "Описание под видео.",
+        mediaUrl: "https://www.youtube.com/live/EVHs7jmRdXk",
+        thumbnailUrl: null,
+        cardLayout: "vertical",
+        mediaContentType: null,
+        mediaSizeBytes: null,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 0
+    });
+
+    renderAsMember();
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
+    await fireEvent.click(screen.getByRole("button", { name: /YouTube урок/ }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть YouTube видео" }));
+
+    expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Свернуть YouTube видео" }));
+
+    expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeNull();
+  });
+
   it("renders lesson title labels above vertical and horizontal covers", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [

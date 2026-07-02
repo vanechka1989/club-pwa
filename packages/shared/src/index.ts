@@ -129,6 +129,11 @@ export function getYouTubeEmbedUrl(value: string | null | undefined) {
   return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&playsinline=1` : null;
 }
 
+export function getYouTubeThumbnailUrl(value: string | null | undefined) {
+  const videoId = getYouTubeVideoId(value);
+  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+}
+
 export const lessonMaterialSchema = z.object({
   id: z.string(),
   kind: contentKindSchema,

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Модули: YouTube-превью и экран",
+    items: [
+      "Карточки YouTube-уроков без своей обложки теперь показывают превью с YouTube.",
+      "В просмотре YouTube-урока добавлена отдельная кнопка разворота на весь экран приложения.",
+      "Кнопка работает поверх встроенного YouTube-плеера, чтобы обходить ограничения Telegram WebView."
+    ]
+  },
+  {
+    version: "3.06",
+    updatedAt: "02.07.2026 12:55",
     title: "Модули: YouTube-ссылки",
     items: [
       "YouTube Live ссылки теперь распознаются как YouTube-контент.",
