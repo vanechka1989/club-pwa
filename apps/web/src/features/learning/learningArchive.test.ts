@@ -153,6 +153,29 @@ describe("Learning section modules", () => {
     expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
   });
 
+  it("uses arrow-only sort controls without manual drag handles", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+
+    expect(screen.queryByRole("button", { name: "Перетащить модуль" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Перетащить урок" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Поднять модуль" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Опустить модуль" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Сдвинуть урок влево" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Сдвинуть урок вправо" }).length).toBeGreaterThan(0);
+
+    await fireEvent.click(screen.getByRole("button", { name: "Свернуть Модуль 1" }));
+    await makeModuleOneHorizontal();
+    await expandModuleOne();
+
+    expect(screen.getAllByRole("button", { name: "Поднять урок" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Опустить урок" }).length).toBeGreaterThan(0);
+
+    const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
+    expect(source).not.toContain("GripVertical");
+  });
+
   it("opens a lesson modal from a module lesson card", async () => {
     renderAsOwner();
 
