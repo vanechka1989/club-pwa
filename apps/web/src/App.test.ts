@@ -132,4 +132,14 @@ describe("App", () => {
       /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta\s*{[^}]*display: grid;[^}]*grid-template-columns: 1fr;[^}]*justify-content: flex-start;/s
     );
   });
+
+  it("styles fullscreen video close control as a themed pill in portrait and landscape", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(
+      /\.lesson-video-exit-fullscreen-button\s*{[^}]*border-radius:\s*999px;[^}]*background:\s*color-mix\(in srgb, var\(--panel-strong\)/s
+    );
+    expect(styles).toMatch(/\.lesson-video-exit-fullscreen-button span\s*{[^}]*font-size:/s);
+    expect(styles).toMatch(/@media \(orientation: landscape\)\s*{[^}]*\.lesson-video-exit-fullscreen-button/s);
+  });
 });

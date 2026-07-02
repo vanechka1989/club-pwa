@@ -381,11 +381,78 @@ describe("Learning section member content", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Открыть YouTube во весь экран" }));
 
     expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Выйти из полноэкранного YouTube видео" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Выйти из полноэкранного YouTube видео" }).textContent).toContain("Закрыть");
 
     await fireEvent.click(screen.getByRole("button", { name: "Выйти из полноэкранного YouTube видео" }));
 
     expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeNull();
+  });
+
+  it("shows the same close pill in regular video fullscreen", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [
+        {
+          id: "module-1",
+          slug: "module-1",
+          title: "Клиентский модуль",
+          description: "Материалы для клиента",
+          defaultCardLayout: "horizontal",
+          isPublished: true,
+          itemsCount: 1
+        }
+      ],
+      featured: [
+        {
+          id: "lesson-video",
+          categoryId: "module-1",
+          kind: "video",
+          title: "Видео урок",
+          summary: null,
+          body: null,
+          mediaUrl: "https://example.com/video.mp4",
+          thumbnailUrl: null,
+          cardLayout: "horizontal",
+          mediaContentType: "video/mp4",
+          mediaSizeBytes: 2048,
+          publishedAt: "2026-06-29T10:00:00.000Z"
+        }
+      ],
+      progress: {
+        totalItems: 1,
+        completedItems: 0,
+        lastOpenedItem: null,
+        lastOpenedAt: null,
+        lastOpenedPlaybackPositionSeconds: 0
+      }
+    });
+    vi.mocked(getLearningContent).mockResolvedValueOnce({
+      item: {
+        id: "lesson-video",
+        categoryId: "module-1",
+        kind: "video",
+        title: "Видео урок",
+        summary: null,
+        body: null,
+        mediaUrl: "https://example.com/video.mp4",
+        thumbnailUrl: null,
+        cardLayout: "horizontal",
+        mediaContentType: "video/mp4",
+        mediaSizeBytes: 2048,
+        publishedAt: "2026-06-29T10:00:00.000Z"
+      },
+      completedAt: null,
+      playbackPositionSeconds: 0
+    });
+
+    renderAsMember();
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
+    await fireEvent.click(screen.getByRole("button", { name: /Видео урок/ }));
+    await waitFor(() => expect(document.querySelector(".lesson-video-player")).toBeTruthy());
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть видео во весь экран" }));
+
+    expect(document.querySelector(".lesson-video-player-fullscreen")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Выйти из полноэкранного видео" }).textContent).toContain("Закрыть");
   });
 
   it("renders lesson title labels above vertical and horizontal covers", async () => {

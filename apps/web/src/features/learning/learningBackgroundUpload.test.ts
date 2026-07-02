@@ -62,7 +62,8 @@ describe("learning background uploads", () => {
     expect(learningSectionSource).not.toContain('class="lesson-preview-body"');
     expect(learningSectionSource).not.toContain('class="lesson-preview-copy"');
     expect(stylesSource).toContain(".lesson-video-exit-fullscreen-button");
-    expect(stylesSource).toContain("top: max(3.9rem");
-    expect(stylesSource).toContain("background: color-mix(in srgb, #020617 34%, transparent)");
+    expect(stylesSource).toContain("top: max(4.6rem");
+    expect(stylesSource).toContain("background: color-mix(in srgb, var(--panel-strong) 78%, transparent)");
+    expect(stylesSource).toContain("@media (orientation: landscape)");
   });
 });

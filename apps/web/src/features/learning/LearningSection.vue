@@ -2617,7 +2617,8 @@ watch(
                   aria-label="Выйти из полноэкранного YouTube видео"
                   @click.stop="toggleYouTubeFullscreen(selectedLessonItem)"
                 >
-                  <X class="h-5 w-5" aria-hidden="true" />
+                  <X class="h-4 w-4" aria-hidden="true" />
+                  <span>Закрыть</span>
                 </button>
               </div>
               <img
@@ -2660,7 +2661,8 @@ watch(
                   aria-label="Выйти из полноэкранного видео"
                   @click.stop="toggleLessonVideoFullscreen"
                 >
-                  <X class="h-5 w-5" aria-hidden="true" />
+                  <X class="h-4 w-4" aria-hidden="true" />
+                  <span>Закрыть</span>
                 </button>
                 <button
                   class="lesson-video-play-button"
@@ -2754,7 +2756,8 @@ watch(
                       aria-label="Выйти из полноэкранного YouTube видео"
                       @click.stop="toggleYouTubeFullscreen(material)"
                     >
-                      <X class="h-5 w-5" aria-hidden="true" />
+                      <X class="h-4 w-4" aria-hidden="true" />
+                      <span>Закрыть</span>
                     </button>
                   </div>
                   <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />

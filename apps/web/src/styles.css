@@ -6120,20 +6120,35 @@ body.club-keyboard-open .module-name-modal {
 
 .lesson-video-exit-fullscreen-button {
   position: absolute;
-  top: max(3.9rem, calc(env(safe-area-inset-top) + 3rem));
+  top: max(4.6rem, calc(env(safe-area-inset-top) + 3.55rem));
   right: max(0.9rem, env(safe-area-inset-right));
   z-index: 3;
-  display: grid;
-  width: 2.25rem;
-  height: 2.25rem;
-  place-items: center;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32rem;
   border: 1px solid color-mix(in srgb, #fff 14%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, #020617 34%, transparent);
-  color: #f8fafc;
-  opacity: 0.72;
-  box-shadow: 0 10px 24px color-mix(in srgb, #000 22%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--panel-strong) 78%, transparent);
+  color: var(--text);
+  opacity: 0.86;
+  box-shadow: 0 10px 24px color-mix(in srgb, #000 24%, transparent);
+  padding: 0.34rem 0.64rem;
+  backdrop-filter: blur(12px);
+}
+
+.lesson-video-exit-fullscreen-button span {
+  font-size: 0.72rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+@media (orientation: landscape) {
+  .lesson-video-exit-fullscreen-button {
+    top: max(0.8rem, calc(env(safe-area-inset-top) + 0.7rem));
+    right: max(0.85rem, env(safe-area-inset-right));
+  }
 }
 
 .lesson-viewer-audio {
