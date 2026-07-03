@@ -76,6 +76,13 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("window.setInterval");
   });
 
+  it("shows release notes in the admin section only to the developer mode", () => {
+    expect(adminSectionSource).toContain("canViewReleaseNotes");
+    expect(adminSectionSource).toContain('ui.previewMode === "developer"');
+    expect(adminSectionSource).toContain('v-if="canViewReleaseNotes"');
+    expect(adminSectionSource).toContain('v-if="showReleaseNotesModal && canViewReleaseNotes"');
+  });
+
   it("keeps action journal collapsed by default and can expand it", () => {
     expect(adminSectionSource).toContain("adminActionLogExpanded");
     expect(adminSectionSource).toContain("Показать журнал");

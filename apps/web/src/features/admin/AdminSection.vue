@@ -300,6 +300,7 @@ const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
 });
 
 const isOwner = computed(() => session.user?.realRole === "owner");
+const canViewReleaseNotes = computed(() => ui.previewMode === "developer");
 const selectedStorageTargetLabel = computed(() => (selectedStorageTarget.value === "primary" ? "S3 основное" : "S3 резервное"));
 const selectedStorageTargetConfigured = computed(() =>
   selectedStorageTarget.value === "primary" ? Boolean(storageSettings.value?.configured) : Boolean(storageSettings.value?.reserveConfigured)
@@ -943,6 +944,10 @@ function userTitle(user: AdminStatsUser) {
 }
 
 function openReleaseNotesModal() {
+  if (!canViewReleaseNotes.value) {
+    return;
+  }
+
   expandedReleaseVersion.value = appVersion;
   showReleaseNotesModal.value = true;
 }
@@ -2234,14 +2239,14 @@ onUnmounted(() => {
         <h2 class="section-title">Админка</h2>
         <p class="section-subtitle">Клиенты, доступ и ограничения.</p>
       </div>
-      <button class="app-version-badge" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
+      <button v-if="canViewReleaseNotes" class="app-version-badge" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
         <span>v{{ appVersion }}</span>
         <small>{{ appVersionUpdatedAt }}</small>
       </button>
     </header>
 
     <Teleport to="body">
-      <div v-if="showReleaseNotesModal" class="admin-modal-backdrop" @click.self="closeReleaseNotesModal">
+      <div v-if="showReleaseNotesModal && canViewReleaseNotes" class="admin-modal-backdrop" @click.self="closeReleaseNotesModal">
         <aside class="admin-detail admin-client-modal release-notes-modal" role="dialog" aria-modal="true" aria-labelledby="release-notes-title">
           <header class="admin-client-modal-head">
             <div>
