@@ -26,7 +26,7 @@ export async function isOwnerTelegramId(telegramId: string) {
 
 export function normalizeAdminPermissions(value: unknown): AdminPermission[] {
   if (!Array.isArray(value)) {
-    return [...allAdminPermissions];
+    return [];
   }
 
   const permissions = value.filter((entry): entry is AdminPermission => adminPermissionSchema.safeParse(entry).success);

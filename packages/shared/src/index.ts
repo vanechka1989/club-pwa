@@ -82,7 +82,7 @@ export function normalizeExternalMediaUrl(value: string | null | undefined) {
 
   try {
     const url = new URL(trimmed);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
+    if (url.protocol !== "https:") {
       return null;
     }
 

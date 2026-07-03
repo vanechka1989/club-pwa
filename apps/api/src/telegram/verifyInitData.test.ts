@@ -15,6 +15,7 @@ function sign(params: Record<string, string>, botToken: string) {
 describe("verifyTelegramInitData", () => {
   it("accepts signed Telegram initData", () => {
     const botToken = "123:token";
+    const now = new Date("2024-10-27T04:00:00.000Z");
     const initData = sign(
       {
         auth_date: "1730000000",
@@ -24,7 +25,7 @@ describe("verifyTelegramInitData", () => {
       botToken
     );
 
-    expect(verifyTelegramInitData(initData, botToken)).toEqual({
+    expect(verifyTelegramInitData(initData, botToken, { now })).toEqual({
       id: "42",
       firstName: "Ivan",
       username: "ivan",
@@ -34,8 +35,22 @@ describe("verifyTelegramInitData", () => {
 
   it("rejects tampered data", () => {
     const botToken = "123:token";
-    const initData = sign({ user: JSON.stringify({ id: 42 }) }, botToken).replace("42", "43");
+    const initData = sign({ auth_date: "1730000000", user: JSON.stringify({ id: 42 }) }, botToken).replace("42", "43");
 
-    expect(verifyTelegramInitData(initData, botToken)).toBeNull();
+    expect(verifyTelegramInitData(initData, botToken, { now: new Date("2024-10-27T04:00:00.000Z") })).toBeNull();
+  });
+
+  it("rejects signed but expired initData", () => {
+    const botToken = "123:token";
+    const initData = sign({ auth_date: "1730000000", user: JSON.stringify({ id: 42 }) }, botToken);
+
+    expect(verifyTelegramInitData(initData, botToken, { now: new Date("2024-10-29T04:00:00.000Z") })).toBeNull();
+  });
+
+  it("rejects signed initData without auth_date", () => {
+    const botToken = "123:token";
+    const initData = sign({ user: JSON.stringify({ id: 42 }) }, botToken);
+
+    expect(verifyTelegramInitData(initData, botToken, { now: new Date("2024-10-27T04:00:00.000Z") })).toBeNull();
   });
 });

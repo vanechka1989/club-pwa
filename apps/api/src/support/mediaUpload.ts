@@ -25,6 +25,31 @@ function contentTypeFromExtension(fileName: string) {
   return imageTypes[extension] ?? videoTypes[extension] ?? null;
 }
 
+export const supportAttachmentLimits = {
+  maxFiles: 4,
+  maxFileBytes: 50 * 1024 * 1024,
+  maxTotalBytes: 100 * 1024 * 1024
+} as const;
+
+export type SupportAttachmentLimitError = "too_many_files" | "file_too_large" | "total_too_large";
+
+export function getSupportAttachmentLimitError(files: Array<{ size: number }>): SupportAttachmentLimitError | null {
+  if (files.length > supportAttachmentLimits.maxFiles) {
+    return "too_many_files";
+  }
+
+  if (files.some((file) => file.size > supportAttachmentLimits.maxFileBytes)) {
+    return "file_too_large";
+  }
+
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  if (totalBytes > supportAttachmentLimits.maxTotalBytes) {
+    return "total_too_large";
+  }
+
+  return null;
+}
+
 export function getSupportAttachmentUploadContentType(contentType: string, fileName: string) {
   if (contentType.startsWith("image/") || contentType.startsWith("video/")) {
     return contentType;

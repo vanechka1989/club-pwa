@@ -15,7 +15,18 @@ export type TelegramUser = {
   photoUrl: string | null;
 };
 
-export function verifyTelegramInitData(initData: string, botToken: string): TelegramUser | null {
+type VerifyTelegramInitDataOptions = {
+  now?: Date;
+  maxAgeSeconds?: number;
+};
+
+const defaultTelegramInitDataMaxAgeSeconds = 24 * 60 * 60;
+
+export function verifyTelegramInitData(
+  initData: string,
+  botToken: string,
+  options: VerifyTelegramInitDataOptions = {}
+): TelegramUser | null {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
 
@@ -36,6 +47,19 @@ export function verifyTelegramInitData(initData: string, botToken: string): Tele
   const expected = Buffer.from(calculatedHash, "hex");
 
   if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
+    return null;
+  }
+
+  const authDateValue = params.get("auth_date");
+  const authDateSeconds = authDateValue ? Number(authDateValue) : NaN;
+  if (!Number.isInteger(authDateSeconds) || authDateSeconds <= 0) {
+    return null;
+  }
+
+  const nowMs = options.now?.getTime() ?? Date.now();
+  const maxAgeMs = (options.maxAgeSeconds ?? defaultTelegramInitDataMaxAgeSeconds) * 1000;
+  const ageMs = nowMs - authDateSeconds * 1000;
+  if (ageMs < 0 || ageMs > maxAgeMs) {
     return null;
   }
 

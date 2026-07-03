@@ -3,88 +3,20 @@ import type { AppNotification } from "@club/shared";
 import { Bell, CheckCheck, Paperclip, X } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { useNotificationsStore } from "@/stores/notifications";
+import { escapeHtmlText, sanitizeHtml } from "@/utils/sanitizeHtml";
 
 const isOpen = ref(false);
 const notificationState = useNotificationsStore();
 
 const badgeLabel = computed(() => (notificationState.unreadCount > 9 ? "9+" : String(notificationState.unreadCount)));
 
-const allowedNotificationTags = new Set(["A", "B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "SPAN", "STRONG", "U", "UL"]);
-
-function escapeNotificationText(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function isSafeNotificationHref(value: string) {
-  try {
-    const url = new URL(value, window.location.origin);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function sanitizeNotificationNode(node: Node): Node | null {
-  if (node.nodeType === Node.TEXT_NODE) {
-    return document.createTextNode(node.textContent ?? "");
-  }
-
-  if (node.nodeType !== Node.ELEMENT_NODE) {
-    return null;
-  }
-
-  const element = node as HTMLElement;
-  const tagName = element.tagName.toUpperCase();
-  const nextElement = allowedNotificationTags.has(tagName) ? document.createElement(tagName.toLowerCase()) : document.createDocumentFragment();
-
-  if (nextElement instanceof HTMLElement && tagName === "A") {
-    const href = element.getAttribute("href")?.trim();
-    if (href && isSafeNotificationHref(href)) {
-      nextElement.setAttribute("href", href);
-      nextElement.setAttribute("target", "_blank");
-      nextElement.setAttribute("rel", "noreferrer");
-    }
-  }
-
-  for (const child of Array.from(element.childNodes)) {
-    const nextChild = sanitizeNotificationNode(child);
-    if (nextChild) {
-      nextElement.appendChild(nextChild);
-    }
-  }
-
-  return nextElement;
-}
-
-function sanitizeNotificationHtml(value: string) {
-  if (typeof DOMParser === "undefined" || typeof document === "undefined") {
-    return escapeNotificationText(value).replace(/\n/g, "<br>");
-  }
-
-  const parsed = new DOMParser().parseFromString(value, "text/html");
-  const container = document.createElement("div");
-  for (const child of Array.from(parsed.body.childNodes)) {
-    const nextChild = sanitizeNotificationNode(child);
-    if (nextChild) {
-      container.appendChild(nextChild);
-    }
-  }
-
-  return container.innerHTML;
-}
-
 function renderNotificationHtml(notification: AppNotification) {
   const html = notification.bodyHtml?.trim();
   if (html) {
-    return sanitizeNotificationHtml(html);
+    return sanitizeHtml(html);
   }
 
-  return escapeNotificationText(notification.body).replace(/\n/g, "<br>");
+  return escapeHtmlText(notification.body).replace(/\n/g, "<br>");
 }
 
 async function openCenter() {

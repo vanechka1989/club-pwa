@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl, isYouTubeMediaUrl, normalizeExternalMediaUrl } from "./index";
 
 describe("media link helpers", () => {
-  it("accepts only http and https external media urls", () => {
+  it("accepts only https external media urls", () => {
     expect(normalizeExternalMediaUrl(" https://cdn.example.com/video.mp4 ")).toBe("https://cdn.example.com/video.mp4");
-    expect(normalizeExternalMediaUrl("http://cdn.example.com/audio.mp3")).toBe("http://cdn.example.com/audio.mp3");
+    expect(normalizeExternalMediaUrl("http://cdn.example.com/audio.mp3")).toBeNull();
     expect(normalizeExternalMediaUrl("ftp://cdn.example.com/video.mp4")).toBeNull();
     expect(normalizeExternalMediaUrl("not a url")).toBeNull();
   });

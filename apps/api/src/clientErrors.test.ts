@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClientErrorRecord } from "./clientErrors";
+import { buildClientErrorRecord, createClientErrorRateLimiter } from "./clientErrors";
 
 describe("client error diagnostics", () => {
   it("converts a frontend boot failure into an understandable server log entry", () => {
@@ -23,5 +23,14 @@ describe("client error diagnostics", () => {
     expect(record.error).toContain("Vue app did not mount");
     expect(record.error).toContain("Telegram-Android/12.8 Chrome/92");
     expect(record.error).toContain("360x796");
+  });
+
+  it("rate-limits repeated public client error reports", () => {
+    const limiter = createClientErrorRateLimiter({ maxEvents: 2, windowMs: 1000 });
+
+    expect(limiter.consume("ip:1", 1000)).toBe(true);
+    expect(limiter.consume("ip:1", 1200)).toBe(true);
+    expect(limiter.consume("ip:1", 1300)).toBe(false);
+    expect(limiter.consume("ip:1", 2101)).toBe(true);
   });
 });

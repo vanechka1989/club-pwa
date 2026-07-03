@@ -266,6 +266,7 @@ const isSorting = ref(false);
 const showModuleModal = ref(false);
 const editingModuleId = ref<string | null>(null);
 const collapsedModuleIds = ref<string[]>(initialModuleCards.map((module) => module.id));
+const moduleCollapseTouched = ref(false);
 const moduleTitle = ref("");
 const moduleDescription = ref("");
 const moduleDefaultCardLayout = ref<ContentCardLayout>("vertical");
@@ -577,6 +578,7 @@ function isModuleCollapsed(moduleId: string) {
 }
 
 function toggleModule(moduleId: string) {
+  moduleCollapseTouched.value = true;
   collapsedModuleIds.value = isModuleCollapsed(moduleId)
     ? collapsedModuleIds.value.filter((id) => id !== moduleId)
     : [...collapsedModuleIds.value, moduleId];
@@ -1350,13 +1352,17 @@ async function loadModules() {
       deletedLessons.value = [];
     }
     modulesLoadedFromApi.value = true;
-    collapseAllModules();
+    if (!moduleCollapseTouched.value) {
+      collapseAllModules();
+    }
   } catch {
     moduleCards.value = moduleCards.value.length ? moduleCards.value : cloneInitialModules();
     deletedLessons.value = [];
     learningProgress.value = null;
     modulesLoadedFromApi.value = false;
-    collapseAllModules();
+    if (!moduleCollapseTouched.value) {
+      collapseAllModules();
+    }
   } finally {
     isLoadingModules.value = false;
   }

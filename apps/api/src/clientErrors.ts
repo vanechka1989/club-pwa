@@ -18,6 +18,30 @@ const clientErrorPayloadSchema = z.object({
 
 export type ClientErrorPayload = z.infer<typeof clientErrorPayloadSchema>;
 
+type ClientErrorRateLimiterOptions = {
+  maxEvents: number;
+  windowMs: number;
+};
+
+export function createClientErrorRateLimiter({ maxEvents, windowMs }: ClientErrorRateLimiterOptions) {
+  const buckets = new Map<string, number[]>();
+
+  return {
+    consume(key: string, now = Date.now()) {
+      const since = now - windowMs;
+      const events = (buckets.get(key) ?? []).filter((timestamp) => timestamp > since);
+      if (events.length >= maxEvents) {
+        buckets.set(key, events);
+        return false;
+      }
+
+      events.push(now);
+      buckets.set(key, events);
+      return true;
+    }
+  };
+}
+
 function stringifyDetail(value: unknown) {
   if (value === undefined || value === null) {
     return null;

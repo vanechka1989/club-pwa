@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildSupportAttachmentObjectKey,
   getSupportAttachmentExpiresAt,
-  getSupportAttachmentUploadContentType
+  getSupportAttachmentLimitError,
+  getSupportAttachmentUploadContentType,
+  supportAttachmentLimits
 } from "./mediaUpload";
 
 describe("support attachment uploads", () => {
@@ -27,5 +29,20 @@ describe("support attachment uploads", () => {
     expect(getSupportAttachmentExpiresAt(new Date("2026-06-27T01:00:00.000Z")).toISOString()).toBe(
       "2026-07-04T01:00:00.000Z"
     );
+  });
+
+  it("rejects too many or too large support attachments before reading them into memory", () => {
+    expect(getSupportAttachmentLimitError(Array.from({ length: supportAttachmentLimits.maxFiles + 1 }, () => ({ size: 1 })))).toBe(
+      "too_many_files"
+    );
+    expect(getSupportAttachmentLimitError([{ size: supportAttachmentLimits.maxFileBytes + 1 }])).toBe("file_too_large");
+    expect(
+      getSupportAttachmentLimitError([
+        { size: supportAttachmentLimits.maxTotalBytes / 3 + 1 },
+        { size: supportAttachmentLimits.maxTotalBytes / 3 + 1 },
+        { size: supportAttachmentLimits.maxTotalBytes / 3 + 1 }
+      ])
+    ).toBe("total_too_large");
+    expect(getSupportAttachmentLimitError([{ size: 1024 }])).toBeNull();
   });
 });

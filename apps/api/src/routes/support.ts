@@ -16,6 +16,7 @@ import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import {
   buildSupportAttachmentObjectKey,
   getSupportAttachmentExpiresAt,
+  getSupportAttachmentLimitError,
   getSupportAttachmentUploadContentType
 } from "../support/mediaUpload";
 import { sendTelegramMessage } from "../telegram/client";
@@ -90,8 +91,24 @@ function getFormString(form: FormData, key: string) {
 function getFormFiles(form: FormData) {
   return form
     .getAll("attachments")
-    .filter((value): value is File => typeof value === "object" && value instanceof File && value.size > 0)
-    .slice(0, 4);
+    .filter((value): value is File => typeof value === "object" && value instanceof File && value.size > 0);
+}
+
+function getAttachmentLimitMessage(files: File[]) {
+  const error = getSupportAttachmentLimitError(files);
+  if (!error) {
+    return null;
+  }
+
+  if (error === "too_many_files") {
+    return "Можно приложить не больше 4 файлов.";
+  }
+
+  if (error === "file_too_large") {
+    return "Файл слишком большой. Максимум 50 МБ на файл.";
+  }
+
+  return "Файлы слишком большие. Максимум 100 МБ за одно сообщение.";
 }
 
 async function getUnreadCount({ userId, role }: { userId: string; role: string }) {
@@ -355,6 +372,10 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const files = getFormFiles(form);
+    const attachmentLimitMessage = getAttachmentLimitMessage(files);
+    if (attachmentLimitMessage) {
+      return c.json({ error: attachmentLimitMessage }, 413);
+    }
     const now = new Date();
     const [ticket] = await db
       .insert(supportTickets)
@@ -428,6 +449,10 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     const form = await c.req.formData();
     const message = getFormString(form, "message");
     const files = getFormFiles(form);
+    const attachmentLimitMessage = getAttachmentLimitMessage(files);
+    if (attachmentLimitMessage) {
+      return c.json({ error: attachmentLimitMessage }, 413);
+    }
     if (!message && files.length === 0) {
       return c.json({ error: "Напишите сообщение или приложите файл." }, 400);
     }
@@ -588,6 +613,10 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     const form = await c.req.formData();
     const message = getFormString(form, "message");
     const files = getFormFiles(form);
+    const attachmentLimitMessage = getAttachmentLimitMessage(files);
+    if (attachmentLimitMessage) {
+      return c.json({ error: attachmentLimitMessage }, 413);
+    }
     if (!message && files.length === 0) {
       return c.json({ error: "Напишите сообщение или приложите файл." }, 400);
     }
@@ -683,6 +712,10 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     const form = await c.req.formData();
     const message = getFormString(form, "message");
     const files = getFormFiles(form);
+    const attachmentLimitMessage = getAttachmentLimitMessage(files);
+    if (attachmentLimitMessage) {
+      return c.json({ error: attachmentLimitMessage }, 413);
+    }
     if (!message && files.length === 0) {
       return c.json({ error: "Напишите ответ или приложите файл." }, 400);
     }

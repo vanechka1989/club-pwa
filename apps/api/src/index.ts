@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { env } from "./env";
 import { adminRoute } from "./routes/admin";
@@ -15,9 +15,15 @@ import { supportRoute } from "./routes/support";
 import { telegramRoute } from "./routes/telegram";
 import { setTelegramWebhook, telegramWebhookAllowedUpdates } from "./telegram/webhook";
 import { recordServerError } from "./serverErrors";
-import { buildClientErrorRecord, parseClientErrorPayload } from "./clientErrors";
+import { buildClientErrorRecord, createClientErrorRateLimiter, parseClientErrorPayload } from "./clientErrors";
 
 const app = new Hono();
+const clientErrorRateLimiter = createClientErrorRateLimiter({ maxEvents: 20, windowMs: 60 * 1000 });
+
+function getClientErrorRateLimitKey(c: Context) {
+  const forwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwardedFor || c.req.header("x-real-ip") || c.req.header("cf-connecting-ip") || c.req.header("user-agent") || "unknown";
+}
 
 startExpiredPendingPaymentOrderCleanup();
 startMailingDispatcher();
@@ -75,13 +81,17 @@ app.use(
   cors({
     origin: env.WEB_ORIGIN,
     allowHeaders: ["Authorization", "Content-Type", "X-Dev-Telegram-User"],
-    allowMethods: ["GET", "POST", "DELETE", "OPTIONS"]
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
   })
 );
 
 app.get("/health", (c) => c.json({ ok: true }));
 
 app.post("/client-errors", async (c) => {
+  if (!clientErrorRateLimiter.consume(getClientErrorRateLimitKey(c))) {
+    return c.json({ ok: false }, 429);
+  }
+
   const body = parseClientErrorPayload(await c.req.json().catch(() => null));
   if (!body.success) {
     return c.json({ ok: false }, 400);

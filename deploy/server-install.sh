@@ -27,6 +27,10 @@ random_password() {
   openssl rand -hex 32 | tr -d '\n'
 }
 
+random_secret() {
+  openssl rand -hex 32 | tr -d '\n'
+}
+
 existing_env_value() {
   local env_file="$1"
   local key="$2"
@@ -138,7 +142,9 @@ ADMIN_TELEGRAM_IDS="${ADMIN_TELEGRAM_IDS:-$(prompt "Telegram ID админов" 
 echo
 
 EXISTING_POSTGRES_PASSWORD="$(existing_env_value "$DEPLOY_DIR/.env" POSTGRES_PASSWORD || true)"
+EXISTING_TELEGRAM_WEBHOOK_SECRET="$(existing_env_value "$DEPLOY_DIR/.env" TELEGRAM_WEBHOOK_SECRET || true)"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-${EXISTING_POSTGRES_PASSWORD:-$(random_password)}}"
+TELEGRAM_WEBHOOK_SECRET="${TELEGRAM_WEBHOOK_SECRET:-${EXISTING_TELEGRAM_WEBHOOK_SECRET:-$(random_secret)}}"
 
 echo "6. Демо-контент."
 echo "Для тестового запуска лучше ответить y, чтобы сразу увидеть материалы в клубе."
@@ -179,9 +185,11 @@ PUBLIC_DOMAIN=$PUBLIC_DOMAIN
 WEB_ORIGIN=$PUBLIC_WEB_URL
 PUBLIC_API_URL=$PUBLIC_API_URL
 TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
+TELEGRAM_WEBHOOK_SECRET=$TELEGRAM_WEBHOOK_SECRET
 OWNER_TELEGRAM_ID=$OWNER_TELEGRAM_ID
 ADMIN_TELEGRAM_IDS=$ADMIN_TELEGRAM_IDS
 ENV
+chmod 600 "$DEPLOY_DIR/.env"
 
 cd "$DEPLOY_DIR"
 

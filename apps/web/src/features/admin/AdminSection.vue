@@ -40,6 +40,7 @@ import {
   type LucideIcon
 } from "lucide-vue-next";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import {
   addAdminUser,
   createAdminMailing,
@@ -215,6 +216,10 @@ const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
 const selectedMailing = ref<AdminMailing | null>(null);
+const selectedMailingBodyHtml = computed(() => {
+  const html = selectedMailing.value?.bodyHtml?.trim();
+  return html ? sanitizeHtml(html) : "";
+});
 const pendingOpenClientTelegramId = ref<string | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
 const learningMaterials = ref<AdminLearningMaterial[]>([]);
@@ -3219,7 +3224,7 @@ onUnmounted(() => {
 
             <section class="admin-mailing-detail-section">
               <span>Сообщение</span>
-              <div v-if="selectedMailing.bodyHtml" class="admin-mailing-detail-body" v-html="selectedMailing.bodyHtml"></div>
+              <div v-if="selectedMailingBodyHtml" class="admin-mailing-detail-body" v-html="selectedMailingBodyHtml"></div>
               <p v-else>{{ selectedMailing.body }}</p>
             </section>
 

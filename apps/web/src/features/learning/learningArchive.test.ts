@@ -65,11 +65,18 @@ function renderAsMember() {
   });
 }
 
-async function expandModuleOne() {
-  const toggle = screen.queryByRole("button", { name: "Развернуть Модуль 1" });
-  if (toggle) {
-    await fireEvent.click(toggle);
+async function expandModule(title: string) {
+  if (screen.queryByRole("button", { name: `Свернуть ${title}` })) {
+    return;
   }
+
+  await waitFor(() => expect(screen.getByRole("button", { name: `Развернуть ${title}` })).toBeTruthy());
+  await fireEvent.click(screen.getByRole("button", { name: `Развернуть ${title}` }));
+  await waitFor(() => expect(screen.getByRole("button", { name: `Свернуть ${title}` })).toBeTruthy());
+}
+
+async function expandModuleOne() {
+  await expandModule("Модуль 1");
 }
 
 async function makeModuleOneHorizontal() {
@@ -304,6 +311,7 @@ describe("Learning section modules", () => {
     await fireEvent.update(screen.getByLabelText("Название урока"), "Урок в формате модуля");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
 
+    await expandModule("Только горизонтальные");
     const lessonCard = screen.getByRole("button", { name: /Урок в формате модуля/ });
     expect(lessonCard.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
   });
@@ -444,6 +452,7 @@ describe("Learning section modules", () => {
     await fireEvent.update(screen.getByLabelText("Описание урока"), "Компактная карточка урока");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
 
+    await expandModuleOne();
     const lessonCard = screen.getByRole("button", { name: /Горизонтальный урок/ });
     expect(lessonCard.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
   });
@@ -464,6 +473,7 @@ describe("Learning section modules", () => {
     await fireEvent.update(screen.getByLabelText("Название урока"), "Урок без обложки");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
 
+    await expandModuleOne();
     const lessonCard = screen.getByRole("button", { name: /Урок без обложки/ });
     const cover = lessonCard.querySelector("img");
 
