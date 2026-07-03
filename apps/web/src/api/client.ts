@@ -57,7 +57,7 @@ import type {
 } from "@club/shared";
 import { ofetch } from "ofetch";
 
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const apiUrl = import.meta.env.VITE_API_URL ?? "/api";
 const devTelegramUser = import.meta.env.VITE_DEV_TELEGRAM_USER;
 const previewModeStorageKey = "club-preview-mode";
 

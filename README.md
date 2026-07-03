@@ -48,13 +48,28 @@ pnpm db:seed
 
 ## Установка На Сервер
 
-Основной сценарий: зайти на чистый VPS по SSH и вставить одну команду. Она спросит GitHub token, домен, Telegram bot token и сама установит Docker, склонирует закрытый репозиторий, применит миграции, выпустит HTTPS-сертификат через Caddy и запустит приложение.
+Основной сценарий для нового клиента: зайти на чистый VPS по SSH и вставить одну команду. Она не требует токена GitHub: сервер скачает готовые Docker-образы шаблонного клуба, создаст настройки, применит миграции, выпустит HTTPS-сертификат через Caddy и запустит приложение.
 
 ```bash
-read -rsp "GitHub token: " GITHUB_TOKEN; echo; export GITHUB_TOKEN; curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" https://api.github.com/repos/vanechka1989/club-crm/contents/deploy/server-install.sh | bash
+curl -fsSL https://club.myn8nservertest.ru/install-club.sh | bash
 ```
 
-GitHub token нужен потому, что репозиторий закрытый. Для token достаточно доступа `Contents: Read-only` к репозиторию `vanechka1989/club-crm`. После клонирования script возвращает Git remote к обычному URL без токена.
+Установщик спросит:
+
+- папку установки;
+- домен клиента;
+- адрес клуба;
+- токен Telegram-бота из BotFather;
+- Telegram ID владельца;
+- дополнительных админов;
+- добавлять ли базовый демо-контент.
+
+Важно: Docker-образы должны быть публичными в реестре контейнеров GitHub:
+
+- `ghcr.io/vanechka1989/club-crm-api`
+- `ghcr.io/vanechka1989/club-crm-web`
+
+После первого запуска GitHub Actions `Публикация образов шаблонного клуба` нужно один раз сделать эти образы публичными в GitHub: `Repository -> Packages -> package -> Package settings -> Change visibility -> Public`.
 
 Для Telegram Mini App нужен HTTPS-домен. API публикуется на том же домене по пути `/api`:
 
@@ -67,7 +82,7 @@ Health: https://club.example.com/api/health
 После установки обновление на сервере:
 
 ```bash
-DEPLOY_DIR=/opt/club-crm bash /opt/club-crm/deploy/update.sh
+bash /opt/club-crm/update.sh
 ```
 
 ## Админка
