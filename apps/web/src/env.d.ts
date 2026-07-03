@@ -8,6 +8,7 @@ interface TelegramWebApp {
   expand: () => void;
   requestFullscreen?: () => void;
   exitFullscreen?: () => void;
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   safeAreaInset?: {
     top: number;
     right: number;

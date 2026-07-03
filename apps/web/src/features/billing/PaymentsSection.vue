@@ -15,6 +15,7 @@ import {
   updatePaymentProductStatus
 } from "@/api/client";
 import { paymentRedirectNotice } from "@/features/billing/paymentMessages";
+import { openPaymentCheckoutUrl } from "@/features/billing/paymentRedirect";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
@@ -385,23 +386,19 @@ async function handleCheckout(product: PaymentProduct) {
   checkoutProductId.value = product.id;
   saving.value = true;
   error.value = null;
-  let navigating = false;
   try {
     const response = await createPaymentCheckout(product.id);
     if (response.checkoutUrl) {
       startPaymentWatch();
-      navigating = true;
-      window.location.href = response.checkoutUrl;
+      openPaymentCheckoutUrl(response.checkoutUrl);
       return;
     }
     showAlert(response.message, "info");
   } catch {
     showPaymentError("Не удалось открыть оплату.");
   } finally {
-    if (!navigating) {
-      saving.value = false;
-      checkoutProductId.value = null;
-    }
+    saving.value = false;
+    checkoutProductId.value = null;
   }
 }
 

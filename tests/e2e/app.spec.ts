@@ -343,12 +343,20 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
 }
 
-async function expectTelegramTopControlsClear(page: Page, selector: string) {
+async function expectTelegramTopControlsClear(
+  page: Page,
+  selector: string,
+  options: { minY?: number; maxY?: number } = {}
+) {
   const target = page.locator(selector).first();
   await expect(target).toBeVisible();
 
   const targetBox = await target.boundingBox();
-  expect(targetBox?.y ?? 0).toBeGreaterThanOrEqual(112);
+  const y = targetBox?.y ?? 0;
+  expect(y).toBeGreaterThanOrEqual(options.minY ?? 112);
+  if (options.maxY !== undefined) {
+    expect(y).toBeLessThanOrEqual(options.maxY);
+  }
 }
 
 function isFullVisualRun(testInfo: TestInfo) {
@@ -399,15 +407,15 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
 test("keeps compact Android headers below Telegram top controls", async ({ page }, testInfo) => {
   test.skip(!["huawei-nova-9-se", "oneplus-mt2111", "android-compact-320"].includes(testInfo.project.name));
 
-  await expectTelegramTopControlsClear(page, ".section-head");
+  await expectTelegramTopControlsClear(page, ".section-head", { minY: 96, maxY: 110 });
 
   await page.getByRole("button", { name: "Модули" }).click();
   await expect(page.getByRole("heading", { name: "Модули" }).first()).toBeVisible();
-  await expectTelegramTopControlsClear(page, ".admin-panel-head");
+  await expectTelegramTopControlsClear(page, ".admin-panel-head", { minY: 96, maxY: 110 });
 
   await page.getByRole("button", { name: "Оплата" }).click();
   await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();
-  await expectTelegramTopControlsClear(page, ".section-head");
+  await expectTelegramTopControlsClear(page, ".section-head", { minY: 96, maxY: 110 });
 
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
