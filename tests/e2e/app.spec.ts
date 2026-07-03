@@ -226,6 +226,31 @@ async function mockApi(page: Page) {
       return;
     }
 
+    if (path === "/admin/server-status") {
+      await route.fulfill(
+        json({
+          status: {
+            ok: true,
+            checkedAt: now,
+            processUptimeSeconds: 3600,
+            systemUptimeSeconds: 86400,
+            cpuCount: 2,
+            loadAverage: [0.12, 0.18, 0.21],
+            processMemory: { rssBytes: 84_000_000, heapUsedBytes: 32_000_000, heapTotalBytes: 64_000_000 },
+            systemMemory: { usedBytes: 1_000_000_000, totalBytes: 2_000_000_000, freeBytes: 1_000_000_000, usedPercent: 50 },
+            disk: { usedBytes: 6_000_000_000, totalBytes: 20_000_000_000, freeBytes: 14_000_000_000, usedPercent: 30 },
+            serverErrorCount: 0
+          }
+        })
+      );
+      return;
+    }
+
+    if (path === "/admin/server-errors") {
+      await route.fulfill(json({ errors: [] }));
+      return;
+    }
+
     if (path === "/community/topics") {
       await route.fulfill(
         json({
@@ -361,6 +386,17 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
+});
+
+test("keeps database backup tools usable in the server admin panel", async ({ page }) => {
+  await page.getByRole("button", { name: "Админ" }).click();
+  await expect(page.getByRole("heading", { name: "Админка" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Сервер" }).click();
+  await expect(page.getByRole("heading", { exact: true, name: "Сервер" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Скачать базу" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Восстановить базу" })).toBeVisible();
+  await expect(page.getByPlaceholder("Введите ВОССТАНОВИТЬ")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });
 
 test("matches full visual baselines for key screens", async ({ page }, testInfo) => {

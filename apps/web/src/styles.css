@@ -4975,6 +4975,47 @@ body.club-keyboard-open .admin-modal-backdrop {
   font-weight: 740;
 }
 
+.admin-database-tools {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.75rem;
+}
+
+.admin-database-tools-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 12rem);
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.admin-database-tools-head div {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.admin-database-tools h4 {
+  font-size: 0.88rem;
+  font-weight: 860;
+}
+
+.admin-database-tools p,
+.admin-database-tools small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 740;
+}
+
+.admin-database-restore {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.admin-database-restore .secondary-button {
+  grid-column: 1 / -1;
+}
+
 .admin-server-logs-modal {
   gap: 0.7rem;
 }
@@ -8758,6 +8799,8 @@ body.club-huawei.club-screen-narrow .bottom-nav-mail-badge {
   .admin-permissions-owner,
   .admin-action-log-head,
   .admin-server-log-summary,
+  .admin-database-tools-head,
+  .admin-database-restore,
   .admin-search-row {
     grid-template-columns: minmax(0, 1fr);
   }

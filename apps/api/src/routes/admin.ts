@@ -1,8 +1,9 @@
 import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
-import { statfs } from "node:fs/promises";
-import { cpus, freemem, loadavg, totalmem, uptime as systemUptime } from "node:os";
+import { statfs, unlink } from "node:fs/promises";
+import { cpus, freemem, loadavg, tmpdir, totalmem, uptime as systemUptime } from "node:os";
+import { join } from "node:path";
 import { z } from "zod";
 import {
   adminPermissionSchema,
@@ -85,6 +86,13 @@ import {
   isModuleCategoryDescription
 } from "../learning/moduleCategory";
 import { validateReorderIds } from "../learning/reorder";
+import {
+  buildPgDumpArgs,
+  buildPgRestoreArgs,
+  databaseRestoreConfirmationText,
+  getDatabaseBackupFileName,
+  validateDatabaseRestoreConfirmation
+} from "../db/backup";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -758,6 +766,65 @@ async function buildAdminServerStatus() {
   };
 }
 
+function buildDatabaseToolError(tool: string, detail: string) {
+  const trimmedDetail = detail.trim();
+  if (trimmedDetail) {
+    return `${tool} завершился с ошибкой: ${trimmedDetail}`;
+  }
+
+  return `${tool} завершился с ошибкой. Проверьте, что PostgreSQL client установлен на сервере.`;
+}
+
+async function runDatabaseBackupDump() {
+  let processResult: Bun.Subprocess<"pipe", "pipe", "pipe">;
+  try {
+    processResult = Bun.spawn(["pg_dump", ...buildPgDumpArgs(env.DATABASE_URL)], {
+      stdout: "pipe",
+      stderr: "pipe"
+    });
+  } catch (error) {
+    logger.error({ error }, "Unable to start pg_dump");
+    throw new Error("Не удалось запустить pg_dump. PostgreSQL client не установлен на сервере.");
+  }
+
+  const [exitCode, output, detail] = await Promise.all([
+    processResult.exited,
+    new Response(processResult.stdout).arrayBuffer(),
+    new Response(processResult.stderr).text()
+  ]);
+
+  if (exitCode !== 0) {
+    logger.error({ exitCode, detail }, "pg_dump failed");
+    throw new Error(buildDatabaseToolError("pg_dump", detail));
+  }
+
+  return output;
+}
+
+async function runDatabaseRestore(filePath: string) {
+  let processResult: Bun.Subprocess<"pipe", "pipe", "pipe">;
+  try {
+    processResult = Bun.spawn(["pg_restore", ...buildPgRestoreArgs(env.DATABASE_URL, filePath)], {
+      stdout: "pipe",
+      stderr: "pipe"
+    });
+  } catch (error) {
+    logger.error({ error }, "Unable to start pg_restore");
+    throw new Error("Не удалось запустить pg_restore. PostgreSQL client не установлен на сервере.");
+  }
+
+  const [exitCode, output, detail] = await Promise.all([
+    processResult.exited,
+    new Response(processResult.stdout).text(),
+    new Response(processResult.stderr).text()
+  ]);
+
+  if (exitCode !== 0) {
+    logger.error({ exitCode, output, detail }, "pg_restore failed");
+    throw new Error(buildDatabaseToolError("pg_restore", detail || output));
+  }
+}
+
 function serializeAdmin(admin: typeof adminUsers.$inferSelect, profile: typeof users.$inferSelect | undefined) {
   return {
     id: admin.id,
@@ -1140,6 +1207,79 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json({ errors: listServerErrors() });
+  })
+  .get("/database/backup", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    try {
+      const dump = await runDatabaseBackupDump();
+      const fileName = getDatabaseBackupFileName();
+
+      await recordAdminAction(c, {
+        action: "database.backup.downloaded",
+        entityType: "database",
+        summary: "Скачана резервная копия базы",
+        metadata: { fileName, sizeBytes: dump.byteLength }
+      }).catch((error) => logger.warn({ error }, "Unable to record database backup action"));
+
+      return new Response(dump, {
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${fileName}"`,
+          "Cache-Control": "no-store"
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось выгрузить базу.";
+      logger.error({ error }, "Unable to create database backup");
+      return c.json({ error: message }, 500);
+    }
+  })
+  .post("/database/restore", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const form = await c.req.raw.formData().catch(() => null);
+    if (!form) {
+      return c.json({ error: "Не удалось прочитать файл резервной копии." }, 400);
+    }
+
+    const confirmation = String(form.get("confirmation") ?? "");
+    if (!validateDatabaseRestoreConfirmation(confirmation)) {
+      return c.json({ error: `Для восстановления введите ${databaseRestoreConfirmationText}.` }, 400);
+    }
+
+    const file = form.get("backup");
+    if (!(file instanceof File) || file.size <= 0) {
+      return c.json({ error: "Выберите файл резервной копии базы." }, 400);
+    }
+
+    const tempFilePath = join(tmpdir(), `club-restore-${randomUUID()}.dump`);
+
+    try {
+      await Bun.write(tempFilePath, file);
+      await runDatabaseRestore(tempFilePath);
+
+      await recordAdminAction(c, {
+        action: "database.backup.restored",
+        entityType: "database",
+        summary: "База восстановлена из резервной копии",
+        metadata: { fileName: file.name, sizeBytes: file.size }
+      }).catch((error) => logger.warn({ error }, "Unable to record database restore action"));
+
+      return c.json({ ok: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось восстановить базу.";
+      logger.error({ error }, "Unable to restore database backup");
+      return c.json({ error: message }, 500);
+    } finally {
+      await unlink(tempFilePath).catch(() => null);
+    }
   })
   .get("/storage/s3", async (c) => {
     const ownerError = await rejectIfNotOwner(c, "storage");

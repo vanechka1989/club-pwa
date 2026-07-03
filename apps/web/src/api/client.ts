@@ -65,31 +65,32 @@ function getInitData() {
   return window.Telegram?.WebApp?.initData ?? "";
 }
 
+function withAuthHeaders(input?: HeadersInit) {
+  const headers = new Headers(input);
+  const initData = getInitData();
+  if (initData) {
+    headers.set("Authorization", `tma ${initData}`);
+  } else if (devTelegramUser) {
+    headers.set("X-Dev-Telegram-User", devTelegramUser);
+  }
+
+  const previewMode = localStorage.getItem(previewModeStorageKey);
+  if (
+    previewMode === "developer" ||
+    previewMode === "admin" ||
+    previewMode === "member-active" ||
+    previewMode === "member-inactive"
+  ) {
+    headers.set("X-Club-Preview-Mode", previewMode);
+  }
+
+  return headers;
+}
+
 export const api = ofetch.create({
   baseURL: apiUrl,
   onRequest({ options }) {
-    const initData = getInitData();
-    if (initData) {
-      const headers = new Headers(options.headers);
-      headers.set("Authorization", `tma ${initData}`);
-      options.headers = headers;
-    } else if (devTelegramUser) {
-      const headers = new Headers(options.headers);
-      headers.set("X-Dev-Telegram-User", devTelegramUser);
-      options.headers = headers;
-    }
-
-    const previewMode = localStorage.getItem(previewModeStorageKey);
-    if (
-      previewMode === "developer" ||
-      previewMode === "admin" ||
-      previewMode === "member-active" ||
-      previewMode === "member-inactive"
-    ) {
-      const headers = new Headers(options.headers);
-      headers.set("X-Club-Preview-Mode", previewMode);
-      options.headers = headers;
-    }
+    options.headers = withAuthHeaders(options.headers);
   }
 });
 
@@ -456,6 +457,38 @@ export function getAdminServerErrors() {
 
 export function getAdminServerStatus() {
   return api<AdminServerStatusResponse>("/admin/server-status");
+}
+
+function getFileNameFromContentDisposition(value: string | null, fallback: string) {
+  const match = value?.match(/filename="?(?<fileName>[^";]+)"?/);
+  return match?.groups?.fileName || fallback;
+}
+
+export async function downloadAdminDatabaseBackup() {
+  const response = await fetch(`${apiUrl.replace(/\/$/, "")}/admin/database/backup`, {
+    headers: withAuthHeaders()
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? "Не удалось скачать базу.");
+  }
+
+  return {
+    blob: await response.blob(),
+    fileName: getFileNameFromContentDisposition(response.headers.get("content-disposition"), "club-database.dump")
+  };
+}
+
+export function restoreAdminDatabaseBackup(payload: { file: File; confirmation: string }) {
+  const form = new FormData();
+  form.append("backup", payload.file);
+  form.append("confirmation", payload.confirmation);
+
+  return api<AdminMutationResponse>("/admin/database/restore", {
+    method: "POST",
+    body: form
+  });
 }
 
 export function getAdminMailings() {

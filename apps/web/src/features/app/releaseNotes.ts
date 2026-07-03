@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Админка: резервная копия базы",
+    items: [
+      "Во вкладке Сервер добавлена ручная выгрузка базы PostgreSQL в файл .dump.",
+      "Добавлено восстановление базы из резервной копии с обязательным подтверждением ВОССТАНОВИТЬ.",
+      "API-образ теперь содержит PostgreSQL client, чтобы pg_dump и pg_restore работали на сервере."
+    ]
+  },
+  {
+    version: "3.17",
+    updatedAt: "04.07.2026 01:04",
     title: "Адаптация: safe-area и визуальные тесты",
     items: [
       "Добавлен viewport-fit=cover, чтобы iOS корректно отдавала safe-area под Dynamic Island и чёлку.",

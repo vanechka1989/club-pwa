@@ -76,6 +76,17 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("window.setInterval");
   });
 
+  it("offers owner-only manual database backup and restore from the server panel", () => {
+    expect(apiClientSource).toContain("downloadAdminDatabaseBackup");
+    expect(apiClientSource).toContain("restoreAdminDatabaseBackup");
+    expect(adminRouteSource).toContain(".get(\"/database/backup\"");
+    expect(adminRouteSource).toContain(".post(\"/database/restore\"");
+    expect(adminSectionSource).toContain("Скачать базу");
+    expect(adminSectionSource).toContain("Восстановить базу");
+    expect(adminSectionSource).toContain("ВОССТАНОВИТЬ");
+    expect(adminSectionSource).toContain("databaseRestoreFile");
+  });
+
   it("shows release notes in the admin section only to the developer mode", () => {
     expect(adminSectionSource).toContain("canViewReleaseNotes");
     expect(adminSectionSource).toContain('ui.previewMode === "developer"');

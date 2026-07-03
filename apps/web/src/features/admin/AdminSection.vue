@@ -51,6 +51,7 @@ import {
   deleteAdminS3Object,
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
+  downloadAdminDatabaseBackup,
   getAdminActionLogs,
   getAdminLearning,
   getAdminMailings,
@@ -73,6 +74,7 @@ import {
   testAdminMailing,
   testAdminMailingDraft,
   transferClubOwner,
+  restoreAdminDatabaseBackup,
   updateAdminUserPermissions,
   updateAdminS3StorageSettings,
   updateAdminLearningMaterialStatus,
@@ -188,6 +190,11 @@ const adminActionLogs = ref<AdminActionLog[]>([]);
 const serverErrorLogs = ref<AdminServerErrorLog[]>([]);
 const serverStatus = ref<AdminServerStatus | null>(null);
 const showServerLogsModal = ref(false);
+const databaseBackupBusy = ref(false);
+const databaseRestoreBusy = ref(false);
+const databaseRestoreFile = ref<File | null>(null);
+const databaseRestoreConfirmation = ref("");
+const databaseRestoreInputRef = ref<HTMLInputElement | null>(null);
 const adminActionActorFilter = ref("");
 const adminActionLogExpanded = ref(false);
 const users = ref<AdminStatsUser[]>([]);
@@ -336,6 +343,9 @@ const canGrantClientAccess = computed(() => hasCurrentAdminPermission("accesses"
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const canManageSelectedUserAccess = computed(() => canGrantClientAccess.value && canManageSelectedUser.value);
 const clientAccessBusy = computed(() => Boolean(pendingClientAccessAction.value));
+const databaseRestoreCanSubmit = computed(
+  () => Boolean(databaseRestoreFile.value) && databaseRestoreConfirmation.value.trim() === "ВОССТАНОВИТЬ" && !databaseRestoreBusy.value
+);
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const restrictedUsers = computed(() => users.value.filter((user) => user.hasRestrictions).length);
@@ -1140,6 +1150,60 @@ function openServerLogsModal() {
 
 function closeServerLogsModal() {
   showServerLogsModal.value = false;
+}
+
+async function handleDownloadDatabaseBackup() {
+  if (databaseBackupBusy.value) {
+    return;
+  }
+
+  databaseBackupBusy.value = true;
+  try {
+    const { blob, fileName } = await downloadAdminDatabaseBackup();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setStatus("Резервная копия базы скачана.");
+  } catch {
+    setError("Не удалось скачать базу.");
+  } finally {
+    databaseBackupBusy.value = false;
+  }
+}
+
+function updateDatabaseRestoreFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  databaseRestoreFile.value = input.files?.[0] ?? null;
+}
+
+async function handleRestoreDatabaseBackup() {
+  if (!databaseRestoreFile.value || !databaseRestoreCanSubmit.value) {
+    return;
+  }
+
+  databaseRestoreBusy.value = true;
+  try {
+    await restoreAdminDatabaseBackup({
+      file: databaseRestoreFile.value,
+      confirmation: databaseRestoreConfirmation.value
+    });
+    databaseRestoreFile.value = null;
+    databaseRestoreConfirmation.value = "";
+    if (databaseRestoreInputRef.value) {
+      databaseRestoreInputRef.value.value = "";
+    }
+    setStatus("База восстановлена. Перезагрузите приложение и проверьте данные.");
+    await loadServerDashboard();
+  } catch {
+    setError("Не удалось восстановить базу. Проверьте файл резервной копии.");
+  } finally {
+    databaseRestoreBusy.value = false;
+  }
 }
 
 function adminRoleLabel(role: AdminStatsUser["role"]) {
@@ -3706,6 +3770,37 @@ onUnmounted(() => {
             <small>{{ serverStatus ? `${serverStatus.cpuCount} CPU` : "Load average" }}</small>
           </div>
         </article>
+      </section>
+
+      <section class="admin-crm-block admin-database-tools">
+        <div class="admin-database-tools-head">
+          <div>
+            <h4>База данных</h4>
+            <p>Ручная резервная копия и восстановление PostgreSQL.</p>
+            <small>Восстановление полностью заменит текущие данные клуба.</small>
+          </div>
+          <button class="secondary-button" type="button" :disabled="databaseBackupBusy" @click="handleDownloadDatabaseBackup">
+            {{ databaseBackupBusy ? "Скачиваю..." : "Скачать базу" }}
+          </button>
+        </div>
+
+        <div class="admin-database-restore">
+          <label class="admin-field">
+            <span>Файл резервной копии</span>
+            <input ref="databaseRestoreInputRef" class="text-input" type="file" accept=".dump,application/octet-stream" @change="updateDatabaseRestoreFile" />
+            <small>{{ databaseRestoreFile ? databaseRestoreFile.name : "Файл формата .dump, скачанный из этой вкладки." }}</small>
+          </label>
+
+          <label class="admin-field">
+            <span>Подтверждение</span>
+            <input v-model.trim="databaseRestoreConfirmation" class="text-input" autocomplete="off" placeholder="Введите ВОССТАНОВИТЬ" />
+            <small>Без этой фразы восстановление не запустится.</small>
+          </label>
+
+          <button class="secondary-button danger-action" type="button" :disabled="!databaseRestoreCanSubmit" @click="handleRestoreDatabaseBackup">
+            {{ databaseRestoreBusy ? "Восстанавливаю..." : "Восстановить базу" }}
+          </button>
+        </div>
       </section>
 
       <section class="admin-crm-block admin-server-log-summary">
