@@ -318,6 +318,19 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
 }
 
+function isFullVisualRun(testInfo: TestInfo) {
+  return testInfo.config.configFile.endsWith("playwright.full.config.ts");
+}
+
+async function expectStableScreenshot(page: Page, name: string) {
+  await expect(page).toHaveScreenshot(`${name}.png`, {
+    animations: "disabled",
+    caret: "hide",
+    fullPage: false,
+    maxDiffPixelRatio: 0.01
+  });
+}
+
 test.beforeEach(async ({ page }, testInfo) => {
   await openApp(page, testInfo);
 });
@@ -348,6 +361,20 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
+});
+
+test("matches full visual baselines for key screens", async ({ page }, testInfo) => {
+  test.skip(!isFullVisualRun(testInfo), "Visual baselines run only in test:e2e:full");
+
+  await expectStableScreenshot(page, "profile");
+
+  await page.getByRole("button", { name: "Модули" }).click();
+  await expect(page.getByRole("heading", { name: "Модули" }).first()).toBeVisible();
+  await expectStableScreenshot(page, "learning");
+
+  await page.getByRole("button", { name: "Общение" }).click();
+  await expect(page.getByRole("heading", { name: "Общение" }).first()).toBeVisible();
+  await expectStableScreenshot(page, "community");
 });
 
 test("keeps module creation modal usable with a compact keyboard viewport", async ({ page }) => {

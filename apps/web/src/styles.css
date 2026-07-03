@@ -1468,7 +1468,7 @@ body.club-screen-tall:not(.community-chat-open) {
   position: fixed;
   z-index: 3;
   top: 50%;
-  right: max(1.1rem, calc(env(safe-area-inset-right) + 0.75rem));
+  right: max(1.1rem, calc(var(--tg-safe-right, env(safe-area-inset-right)) + 0.75rem));
   left: auto;
   transform: translateY(-50%);
   pointer-events: none;
@@ -1516,7 +1516,7 @@ body.club-screen-tall:not(.community-chat-open) {
 @media (orientation: landscape) {
   .support-attachment-viewer-fullscreen .support-attachment-viewer-panel header {
     top: 50%;
-    right: max(4.4rem, calc(env(safe-area-inset-right) + 3.4rem));
+    right: max(4.4rem, calc(var(--tg-safe-right, env(safe-area-inset-right)) + 3.4rem));
   }
 
   .support-attachment-viewer-fullscreen .support-attachment-viewer-media {
@@ -1582,7 +1582,7 @@ body.club-screen-tall:not(.community-chat-open) {
   align-items: flex-end;
   justify-content: center;
   background: color-mix(in srgb, #000 58%, transparent);
-  padding: max(0.6rem, env(safe-area-inset-top)) 0.55rem max(0.6rem, env(safe-area-inset-bottom));
+  padding: max(0.6rem, var(--tg-safe-top, env(safe-area-inset-top))) 0.55rem max(0.6rem, var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 body.club-keyboard-open .support-modal-backdrop {
@@ -1809,9 +1809,9 @@ body.club-keyboard-open .support-modal-backdrop {
   place-items: center;
   background: color-mix(in srgb, #000 48%, transparent);
   padding:
-    max(1rem, env(safe-area-inset-top))
+    max(1rem, var(--tg-safe-top, env(safe-area-inset-top)))
     0.75rem
-    max(1rem, env(safe-area-inset-bottom));
+    max(1rem, var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 .support-confirm-card {
@@ -3231,7 +3231,7 @@ body.club-keyboard-open .support-modal-backdrop {
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.75rem;
   background: #000;
-  padding: calc(env(safe-area-inset-top) + 3.25rem) 0.75rem calc(env(safe-area-inset-bottom) + 1rem);
+  padding: calc(var(--tg-safe-top, env(safe-area-inset-top)) + 3.25rem) 0.75rem calc(var(--tg-safe-bottom, env(safe-area-inset-bottom)) + 1rem);
 }
 
 .video-viewer-close {
@@ -3879,7 +3879,7 @@ body.club-keyboard-open .admin-modal-backdrop {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 0.1rem calc(1rem + env(safe-area-inset-bottom)) 0;
+  padding: 0 0.1rem calc(1rem + var(--tg-safe-bottom, env(safe-area-inset-bottom))) 0;
 }
 
 .admin-crm-block {
@@ -4505,7 +4505,7 @@ body.club-keyboard-open .admin-modal-backdrop {
   display: grid;
   gap: 0.42rem;
   overflow-y: auto;
-  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(0.5rem + var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 .admin-payment-drilldown-card,
@@ -5896,7 +5896,7 @@ body.club-keyboard-open .module-name-modal {
   gap: 0.8rem;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: calc(0.8rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(0.8rem + var(--tg-safe-bottom, env(safe-area-inset-bottom)));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -5983,7 +5983,7 @@ body.club-keyboard-open .module-name-modal {
   align-items: center;
   justify-content: center;
   background: #000;
-  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  padding: max(0.75rem, var(--tg-safe-top, env(safe-area-inset-top))) 0.75rem max(0.75rem, var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 .lesson-youtube-player-shell-fullscreen .lesson-youtube-player {
@@ -6017,8 +6017,8 @@ body.club-keyboard-open .module-name-modal {
 }
 
 .lesson-youtube-player-shell-fullscreen .lesson-youtube-native-fullscreen-hitbox {
-  right: max(0.4rem, env(safe-area-inset-right));
-  bottom: max(0.4rem, env(safe-area-inset-bottom));
+  right: max(0.4rem, var(--tg-safe-right, env(safe-area-inset-right)));
+  bottom: max(0.4rem, var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 .lesson-video-player-fullscreen {
@@ -6031,7 +6031,7 @@ body.club-keyboard-open .module-name-modal {
   border: 0;
   border-radius: 0;
   background: #000;
-  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  padding: max(0.75rem, var(--tg-safe-top, env(safe-area-inset-top))) 0.75rem max(0.75rem, var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 .lesson-video-element {
@@ -6134,8 +6134,8 @@ body.club-keyboard-open .module-name-modal {
 
 .lesson-video-exit-fullscreen-button {
   position: absolute;
-  top: max(4.6rem, calc(env(safe-area-inset-top) + 3.55rem));
-  right: max(0.9rem, env(safe-area-inset-right));
+  top: max(4.6rem, calc(var(--tg-safe-top, env(safe-area-inset-top)) + 3.55rem));
+  right: max(0.9rem, var(--tg-safe-right, env(safe-area-inset-right)));
   z-index: 3;
   display: inline-flex;
   min-height: 2rem;
@@ -6160,8 +6160,8 @@ body.club-keyboard-open .module-name-modal {
 
 @media (orientation: landscape) {
   .lesson-video-exit-fullscreen-button {
-    top: max(0.8rem, calc(env(safe-area-inset-top) + 0.7rem));
-    right: max(0.85rem, env(safe-area-inset-right));
+    top: max(0.8rem, calc(var(--tg-safe-top, env(safe-area-inset-top)) + 0.7rem));
+    right: max(0.85rem, var(--tg-safe-right, env(safe-area-inset-right)));
   }
 }
 
@@ -6363,12 +6363,12 @@ body.club-keyboard-open .module-name-modal {
 .lesson-preview-actions {
   flex: 0 0 auto;
   margin-top: 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--tg-safe-bottom, env(safe-area-inset-bottom));
 }
 
 .admin-form-actions.lesson-preview-actions-edit {
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 0.7fr) minmax(0, 1fr);
-  padding-bottom: calc(1.15rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(1.15rem + var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 .lesson-delete-button {
@@ -6806,7 +6806,7 @@ body.club-keyboard-open .module-name-modal {
 .release-notes-list {
   display: grid;
   gap: 0.55rem;
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(1rem + var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 .release-note-card {
@@ -8141,7 +8141,7 @@ body.club-huawei.club-screen-narrow .profile-info-row strong {
 
 .community-chat-open .chat-room {
   height: var(--club-chat-viewport-height, var(--app-viewport-height));
-  padding: 0.7rem 0.75rem calc(0.7rem + env(safe-area-inset-bottom));
+  padding: 0.7rem 0.75rem calc(0.7rem + var(--tg-safe-bottom, env(safe-area-inset-bottom)));
 }
 
 body.club-keyboard-open .community-chat-open .chat-room {

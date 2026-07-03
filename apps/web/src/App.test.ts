@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.vue";
 
 const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
+const appIndexSource = readFileSync(resolve(__dirname, "../index.html"), "utf-8");
 
 describe("App", () => {
   beforeEach(() => {
@@ -93,6 +94,21 @@ describe("App", () => {
     expect(styles).toContain("body.club-keyboard-open .community-chat-open .chat-room");
     expect(styles).toContain("@media (max-width: 380px)");
     expect(styles).toContain(".payment-product-pay");
+  });
+
+  it("uses Telegram safe-area values with CSS env fallback", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const safeAreaSides = ["top", "right", "bottom", "left"];
+    const unsafeSafeAreaLines = styles
+      .split(/\r?\n/)
+      .flatMap((line, index) =>
+        safeAreaSides
+          .filter((side) => line.includes(`env(safe-area-inset-${side})`) && !line.includes(`var(--tg-safe-${side}, env(safe-area-inset-${side}))`))
+          .map((side) => `${index + 1}:${side}:${line.trim()}`)
+      );
+
+    expect(appIndexSource).toContain("viewport-fit=cover");
+    expect(unsafeSafeAreaLines).toEqual([]);
   });
 
   it("uses adaptive typography and spacing tokens for the app shell", () => {

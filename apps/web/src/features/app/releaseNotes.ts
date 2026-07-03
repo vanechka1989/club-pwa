@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Адаптация: safe-area и визуальные тесты",
+    items: [
+      "Добавлен viewport-fit=cover, чтобы iOS корректно отдавала safe-area под Dynamic Island и чёлку.",
+      "Все CSS safe-area отступы теперь сначала используют значения Telegram, а env() оставлен fallback для браузера.",
+      "В full Playwright-проверку добавлены визуальные снимки профиля, модулей и общения по расширенной матрице устройств."
+    ]
+  },
+  {
+    version: "3.16",
+    updatedAt: "04.07.2026 00:48",
     title: "Админка: версии только разработчику",
     items: [
       "Бейдж версии и история обновлений в админке теперь видны только в режиме Разраб.",
