@@ -95,6 +95,21 @@ describe("App", () => {
     expect(styles).toContain(".payment-product-pay");
   });
 
+  it("uses adaptive typography and spacing tokens for the app shell", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("--font-root: clamp(");
+    expect(styles).toContain("--font-base: clamp(");
+    expect(styles).toContain("--font-title: clamp(");
+    expect(styles).toContain("--space-section: clamp(");
+    expect(styles).toContain("--space-card: clamp(");
+    expect(styles).toContain("font-size: var(--font-root);");
+    expect(styles).toContain("font-size: var(--font-base);");
+    expect(styles).toContain("padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + var(--space-page-top)));");
+    expect(styles).toContain("gap: var(--space-section);");
+    expect(styles).toContain("padding: var(--space-card);");
+  });
+
   it("uses a lower top offset for Samsung fullscreen webviews", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

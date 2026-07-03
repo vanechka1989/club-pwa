@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 
 const require = createRequire(import.meta.url);
 const apiBaseUrl = "http://localhost:3000";
+const appApiUrlPattern = /^https?:\/\/(?:127\.0\.0\.1|localhost):5173\/api\/.*/;
 const now = "2026-07-01T10:00:00.000Z";
 const activeUntil = "2026-08-30T00:00:00.000Z";
 
@@ -170,10 +171,10 @@ async function mockTelegram(page: Page, testInfo: TestInfo) {
 }
 
 async function mockApi(page: Page) {
-  await page.route(`${apiBaseUrl}/**`, async (route) => {
+  const handleApiRoute = async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
-    const path = url.pathname;
+    const path = url.pathname.startsWith("/api/") ? url.pathname.slice(4) : url.pathname;
 
     if (path === "/me") {
       await route.fulfill(json({ user: currentUser }));
@@ -278,7 +279,10 @@ async function mockApi(page: Page) {
     }
 
     await route.fulfill(json({ ok: true }));
-  });
+  };
+
+  await page.route(`${apiBaseUrl}/**`, handleApiRoute);
+  await page.route(appApiUrlPattern, handleApiRoute);
 }
 
 async function openApp(page: Page, testInfo: TestInfo) {

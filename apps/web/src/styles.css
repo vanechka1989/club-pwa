@@ -28,16 +28,24 @@
   --warning: #efe4a1;
   --shadow: 0 26px 80px rgb(0 0 0 / 44%);
   --shadow-soft: 0 14px 40px rgb(0 0 0 / 28%);
+  --font-root: clamp(14px, 3.7vw, 16px);
+  --font-base: clamp(13px, 3.55vw, 15px);
+  --font-title: clamp(1.05rem, 0.92rem + 0.58vw, 1.32rem);
+  --font-section-title: clamp(1rem, 0.9rem + 0.42vw, 1.18rem);
+  --font-small: clamp(0.76rem, 0.71rem + 0.22vw, 0.86rem);
+  --space-page-top: clamp(0.72rem, 2.4vw, 1rem);
+  --space-section: clamp(0.7rem, 2.2vw, 1rem);
+  --space-card: clamp(0.72rem, 2.35vw, 1rem);
   --fullscreen-top-offset: max(6.2rem, calc(var(--tg-safe-top, 0px) + 4.6rem));
   --chat-top-offset: max(6.2rem, calc(var(--tg-safe-top, 0px) + 4.6rem));
   --club-system-bottom: 0px;
   --club-keyboard-bottom: 0px;
-  --screen-gutter: 0.8rem;
-  --section-bleed: 0.5rem;
-  --ui-gap: 0.65rem;
-  --ui-gap-sm: 0.45rem;
-  --ui-card-padding: 0.85rem;
-  --ui-card-padding-compact: 0.75rem;
+  --screen-gutter: clamp(0.62rem, 3vw, 0.95rem);
+  --section-bleed: clamp(0.35rem, 1.4vw, 0.55rem);
+  --ui-gap: clamp(0.5rem, 1.8vw, 0.72rem);
+  --ui-gap-sm: clamp(0.36rem, 1.25vw, 0.5rem);
+  --ui-card-padding: var(--space-card);
+  --ui-card-padding-compact: clamp(0.62rem, 2vw, 0.82rem);
   --ui-button-height: 2.45rem;
   --ui-button-radius: 12px;
   --ui-control-radius: 14px;
@@ -261,6 +269,7 @@
 
 html {
   color-scheme: dark;
+  font-size: var(--font-root);
 }
 
 html,
@@ -281,7 +290,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--font-base);
   text-rendering: geometricprecision;
 }
 
@@ -336,6 +345,11 @@ button:disabled {
 
 .app-root.community-chat-open {
   --nav-space: 0rem;
+}
+
+.app-shell {
+  gap: var(--space-section);
+  padding: var(--space-section) var(--screen-gutter);
 }
 
 .app-toast-viewport {
@@ -516,7 +530,7 @@ body.club-android-compact-top {
 }
 
 .club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
-  padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+  padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + var(--space-page-top)));
 }
 
 body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
@@ -546,7 +560,7 @@ body.club-keyboard-open .app-shell {
 }
 
 .club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
-  padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + 1rem));
+  padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + var(--space-page-top)));
 }
 
 body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
@@ -800,7 +814,7 @@ body.club-keyboard-open .community-chat-open .app-shell {
   margin-top: 0;
   max-width: 42rem;
   color: var(--text);
-  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  font-size: var(--font-title);
   font-weight: 780;
   line-height: 1.15;
 }
@@ -858,7 +872,7 @@ body.club-screen-tall:not(.community-chat-open) {
   border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
   background: color-mix(in srgb, var(--panel-strong) 94%, transparent);
   border-radius: 13px;
-  padding: var(--ui-card-padding);
+  padding: var(--space-card);
   box-shadow: var(--shadow-soft);
 }
 
