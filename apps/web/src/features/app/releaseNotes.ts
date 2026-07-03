@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Адаптация: верх Android",
+    items: [
+      "На узких Android в Telegram верхние заголовки больше не заезжают под кнопки Закрыть и меню.",
+      "Исправлен отдельный верхний отступ открытого чата.",
+      "В адаптационную проверку добавлен OnePlus MT2111 из присланных данных клиента."
+    ]
+  },
+  {
+    version: "3.18",
+    updatedAt: "04.07.2026 01:24",
     title: "Админка: резервная копия базы",
     items: [
       "Во вкладке Сервер добавлена ручная выгрузка базы PostgreSQL в файл .dump.",

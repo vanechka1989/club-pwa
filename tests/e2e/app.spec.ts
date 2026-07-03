@@ -343,6 +343,14 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
 }
 
+async function expectTelegramTopControlsClear(page: Page, selector: string) {
+  const target = page.locator(selector).first();
+  await expect(target).toBeVisible();
+
+  const targetBox = await target.boundingBox();
+  expect(targetBox?.y ?? 0).toBeGreaterThanOrEqual(112);
+}
+
 function isFullVisualRun(testInfo: TestInfo) {
   return testInfo.config.configFile.endsWith("playwright.full.config.ts");
 }
@@ -386,6 +394,34 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
+});
+
+test("keeps compact Android headers below Telegram top controls", async ({ page }, testInfo) => {
+  test.skip(!["huawei-nova-9-se", "oneplus-mt2111", "android-compact-320"].includes(testInfo.project.name));
+
+  await expectTelegramTopControlsClear(page, ".section-head");
+
+  await page.getByRole("button", { name: "Модули" }).click();
+  await expect(page.getByRole("heading", { name: "Модули" }).first()).toBeVisible();
+  await expectTelegramTopControlsClear(page, ".admin-panel-head");
+
+  await page.getByRole("button", { name: "Оплата" }).click();
+  await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();
+  await expectTelegramTopControlsClear(page, ".section-head");
+
+  await page.getByRole("button", { name: "Общение" }).click();
+  await page.getByRole("button", { name: /Фиксики/ }).click();
+  await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
+  await expectTelegramTopControlsClear(page, ".chat-room-header");
+});
+
+test("keeps Samsung chat header below Telegram top controls", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "galaxy-s24");
+
+  await page.getByRole("button", { name: "Общение" }).click();
+  await page.getByRole("button", { name: /Фиксики/ }).click();
+  await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
+  await expectTelegramTopControlsClear(page, ".chat-room-header");
 });
 
 test("keeps database backup tools usable in the server admin panel", async ({ page }) => {

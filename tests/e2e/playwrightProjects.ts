@@ -13,6 +13,19 @@ const huaweiNova9Se = {
   }
 };
 
+const oneplusMt2111 = {
+  name: "oneplus-mt2111",
+  use: {
+    viewport: { width: 360, height: 800 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.159 Mobile Safari/537.36 Telegram-Android/12.8.1.0 (Oneplus MT2111; Android 14; SDK 34; HIGH)"
+  }
+};
+
 const compactAndroid320 = {
   name: "android-compact-320",
   use: {
@@ -47,7 +60,8 @@ export const smokeProjects = [
     name: "galaxy-s24",
     use: { ...devices["Galaxy S24"] }
   },
-  huaweiNova9Se
+  huaweiNova9Se,
+  oneplusMt2111
 ];
 
 export const fullProjects = [

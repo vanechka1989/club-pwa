@@ -133,7 +133,7 @@ describe("App", () => {
     expect(styles).toContain("--fullscreen-top-offset: 4.8rem");
   });
 
-  it("uses the most compact top offset for narrow Huawei webviews", () => {
+  it("keeps narrow Huawei webviews below Telegram top controls", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(styles).toContain("body.club-huawei.club-screen-narrow");
@@ -141,10 +141,10 @@ describe("App", () => {
     expect(styles).toContain("font-size: 14px");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .app-root:not(.community-chat-open)");
     expect(styles).toContain("--nav-space: calc(6.7rem + var(--club-system-bottom, 0px))");
-    expect(styles).toContain("--fullscreen-top-offset: 1.8rem");
-    expect(styles).toContain("--chat-top-offset: 1.4rem");
+    expect(styles).toContain("--fullscreen-top-offset: max(8rem, calc(var(--tg-safe-top, 0px) + 5rem))");
+    expect(styles).toContain("--chat-top-offset: max(8rem, calc(var(--tg-safe-top, 0px) + 5rem))");
     expect(styles).toContain("body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
-    expect(styles).toContain("padding-top: 0.4rem");
+    expect(styles).toContain("padding-top: var(--fullscreen-top-offset)");
     expect(styles).toContain(".sr-only");
     expect(styles).toContain("position: absolute");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .bottom-nav-item-active");
