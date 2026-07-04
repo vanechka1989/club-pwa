@@ -3927,6 +3927,23 @@ body.club-keyboard-open .admin-modal-backdrop {
   padding-top: 0.65rem;
 }
 
+.admin-project-settings-card {
+  gap: 0.75rem;
+}
+
+.admin-project-settings-card p,
+.admin-form-note {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.admin-project-settings-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .admin-accordion-block {
   gap: 0.5rem;
 }
@@ -7365,6 +7382,80 @@ body.club-keyboard-open .module-name-modal {
 
 .profile-account-card {
   display: grid;
+}
+
+.profile-referral-card {
+  display: grid;
+}
+
+.profile-referral-body {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.profile-referral-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.35rem;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel-strong) 62%, transparent);
+  padding: 0.45rem;
+}
+
+.profile-referral-link span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-referral-link button {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--panel));
+  color: var(--accent);
+}
+
+.profile-referral-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.profile-referral-stats article {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 48%, transparent);
+  padding: 0.5rem;
+}
+
+.profile-referral-stats span {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-referral-stats strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 860;
 }
 
 .profile-info-list {

@@ -1,6 +1,14 @@
 import type { AdminPermission, UserRole } from "@club/shared";
 
-export type AdminPanel = "statistics" | "users" | "mailings" | "payments" | "storage" | "admins" | "server-logs";
+export type AdminPanel =
+  | "statistics"
+  | "users"
+  | "mailings"
+  | "payments"
+  | "storage"
+  | "project-settings"
+  | "admins"
+  | "server-logs";
 export type AdminPanelRole = UserRole | undefined;
 
 export type AdminPanelDefinition = {
@@ -16,6 +24,7 @@ export const adminPanelDefinitions: AdminPanelDefinition[] = [
   { id: "mailings", label: "Рассылки", permission: "mailings" },
   { id: "payments", label: "Платежи", permission: "payments" },
   { id: "storage", label: "Хранилище", permission: "storage" },
+  { id: "project-settings", label: "Настройки проекта", permission: "project_settings" },
   { id: "admins", label: "Админы", permission: "admins" },
   { id: "server-logs", label: "Сервер", ownerOnly: true }
 ];

@@ -36,6 +36,7 @@ import {
 } from "../payments/prodamus";
 import { decideProdamusWebhookAction, getProdamusWebhookSuccessResponse } from "../payments/prodamusWebhook";
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
+import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -259,6 +260,10 @@ async function grantPaidAccess(
       updatedAt: now
     })
     .where(eq(paymentOrders.id, order.id));
+
+  await awardReferralRewardForFirstPayment(order, user).catch((error) => {
+    logger.warn({ error, orderId: order.providerOrderId, userId: user.id }, "referral reward failed");
+  });
 
   await notifyPaymentReceived({
     telegramId: user.telegramId,

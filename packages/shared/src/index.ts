@@ -16,7 +16,8 @@ export const adminPermissionValues = [
   "support",
   "community",
   "storage",
-  "admins"
+  "admins",
+  "project_settings"
 ] as const;
 export const adminPermissionSchema = z.enum(adminPermissionValues);
 export type AdminPermission = z.infer<typeof adminPermissionSchema>;
@@ -32,7 +33,8 @@ export const adminPermissionLabels: Record<AdminPermission, string> = {
   support: "Поддержка",
   community: "Общение",
   storage: "Хранилище",
-  admins: "Админы"
+  admins: "Админы",
+  project_settings: "Настройки проекта"
 };
 
 export const clubUserSchema = z.object({
@@ -659,6 +661,78 @@ export const adminUserModerationEventSchema = z.object({
 });
 export type AdminUserModerationEvent = z.infer<typeof adminUserModerationEventSchema>;
 
+export const referralSummarySchema = z.object({
+  code: z.string(),
+  link: z.string().url(),
+  availableDays: z.number().int().nonnegative(),
+  invitedCount: z.number().int().nonnegative(),
+  paidCount: z.number().int().nonnegative(),
+  canActivate: z.boolean(),
+  activationBlockedReason: z.string().nullable()
+});
+export type ReferralSummary = z.infer<typeof referralSummarySchema>;
+
+export const referralProfileResponseSchema = z.object({
+  referral: referralSummarySchema
+});
+export type ReferralProfileResponse = z.infer<typeof referralProfileResponseSchema>;
+
+export const referralActivationResponseSchema = z.object({
+  ok: z.boolean(),
+  activatedDays: z.number().int().nonnegative(),
+  membershipExpiresAt: z.string().datetime().nullable(),
+  referral: referralSummarySchema
+});
+export type ReferralActivationResponse = z.infer<typeof referralActivationResponseSchema>;
+
+export const adminReferralUserSchema = z.object({
+  telegramId: z.string(),
+  firstName: z.string().nullable(),
+  username: z.string().nullable(),
+  photoUrl: z.string().url().nullable()
+});
+export type AdminReferralUser = z.infer<typeof adminReferralUserSchema>;
+
+export const adminUserReferralSchema = z.object({
+  id: z.string(),
+  invitedAt: z.string().datetime(),
+  firstPaidAt: z.string().datetime().nullable(),
+  rewardDays: z.number().int().nonnegative(),
+  rewardStatus: z.enum(["none", "available", "activated"]),
+  invitedUser: adminReferralUserSchema
+});
+export type AdminUserReferral = z.infer<typeof adminUserReferralSchema>;
+
+export const adminUserInvitedByReferralSchema = z.object({
+  id: z.string(),
+  invitedAt: z.string().datetime(),
+  firstPaidAt: z.string().datetime().nullable(),
+  inviterUser: adminReferralUserSchema
+});
+export type AdminUserInvitedByReferral = z.infer<typeof adminUserInvitedByReferralSchema>;
+
+export const adminUserReferralsSchema = z.object({
+  invitedBy: adminUserInvitedByReferralSchema.nullable(),
+  invited: z.array(adminUserReferralSchema)
+});
+export type AdminUserReferrals = z.infer<typeof adminUserReferralsSchema>;
+
+export const adminProjectSettingsSchema = z.object({
+  referralRewardDays: z.number().int().positive().max(3650)
+});
+export type AdminProjectSettings = z.infer<typeof adminProjectSettingsSchema>;
+
+export const adminProjectSettingsResponseSchema = z.object({
+  settings: adminProjectSettingsSchema
+});
+export type AdminProjectSettingsResponse = z.infer<typeof adminProjectSettingsResponseSchema>;
+
+export const adminProjectSettingsMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  settings: adminProjectSettingsSchema
+});
+export type AdminProjectSettingsMutationResponse = z.infer<typeof adminProjectSettingsMutationResponseSchema>;
+
 export const deviceInsetSchema = z.object({
   top: z.number().nullable(),
   bottom: z.number().nullable(),
@@ -712,7 +786,8 @@ export const adminUserDetailResponseSchema = z.object({
   user: adminStatsUserSchema,
   subscriptions: z.array(adminUserSubscriptionSchema),
   moderationEvents: z.array(adminUserModerationEventSchema),
-  device: deviceDiagnosticsSchema.nullable().default(null)
+  device: deviceDiagnosticsSchema.nullable().default(null),
+  referrals: adminUserReferralsSchema.default({ invitedBy: null, invited: [] })
 });
 export type AdminUserDetailResponse = z.infer<typeof adminUserDetailResponseSchema>;
 

@@ -180,6 +180,61 @@ export const userRecurrentSubscriptions = pgTable(
   })
 );
 
+export const referralCodes = pgTable(
+  "referral_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    code: varchar("code", { length: 32 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userIdx: uniqueIndex("referral_codes_user_idx").on(table.userId),
+    codeIdx: uniqueIndex("referral_codes_code_idx").on(table.code)
+  })
+);
+
+export const referrals = pgTable(
+  "referrals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    inviterUserId: uuid("inviter_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    invitedUserId: uuid("invited_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    code: varchar("code", { length: 32 }).notNull(),
+    invitedAt: timestamp("invited_at", { withTimezone: true }).notNull().defaultNow(),
+    firstPaidAt: timestamp("first_paid_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    invitedUserIdx: uniqueIndex("referrals_invited_user_idx").on(table.invitedUserId),
+    inviterCreatedIdx: index("referrals_inviter_created_idx").on(table.inviterUserId, table.createdAt),
+    firstPaidIdx: index("referrals_first_paid_idx").on(table.firstPaidAt)
+  })
+);
+
+export const referralRewards = pgTable(
+  "referral_rewards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    referralId: uuid("referral_id").notNull().references(() => referrals.id, { onDelete: "cascade" }),
+    inviterUserId: uuid("inviter_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    invitedUserId: uuid("invited_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    paymentOrderId: uuid("payment_order_id").references(() => paymentOrders.id, { onDelete: "set null" }),
+    bonusDays: integer("bonus_days").notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("available"),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    referralIdx: uniqueIndex("referral_rewards_referral_idx").on(table.referralId),
+    paymentOrderIdx: uniqueIndex("referral_rewards_payment_order_idx").on(table.paymentOrderId),
+    inviterStatusIdx: index("referral_rewards_inviter_status_idx").on(table.inviterUserId, table.status)
+  })
+);
+
 export const paymentWebhookEvents = pgTable(
   "payment_webhook_events",
   {
@@ -561,6 +616,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   subscriptions: many(subscriptions),
   paymentOrders: many(paymentOrders),
   recurrentSubscriptions: many(userRecurrentSubscriptions),
+  referralCodes: many(referralCodes),
+  invitedReferrals: many(referrals, { relationName: "referral_inviter" }),
+  referralSource: many(referrals, { relationName: "referral_invited" }),
+  referralRewards: many(referralRewards, { relationName: "referral_reward_inviter" }),
+  referralRewardSources: many(referralRewards, { relationName: "referral_reward_invited" }),
   supportTickets: many(supportTickets),
   supportMessages: many(supportTicketMessages),
   createdAdminUsers: many(adminUsers),
@@ -647,6 +707,48 @@ export const userRecurrentSubscriptionsRelations = relations(userRecurrentSubscr
   provider: one(paymentProviders, {
     fields: [userRecurrentSubscriptions.providerId],
     references: [paymentProviders.id]
+  })
+}));
+
+export const referralCodesRelations = relations(referralCodes, ({ one }) => ({
+  user: one(users, {
+    fields: [referralCodes.userId],
+    references: [users.id]
+  })
+}));
+
+export const referralsRelations = relations(referrals, ({ one, many }) => ({
+  inviter: one(users, {
+    fields: [referrals.inviterUserId],
+    references: [users.id],
+    relationName: "referral_inviter"
+  }),
+  invited: one(users, {
+    fields: [referrals.invitedUserId],
+    references: [users.id],
+    relationName: "referral_invited"
+  }),
+  rewards: many(referralRewards)
+}));
+
+export const referralRewardsRelations = relations(referralRewards, ({ one }) => ({
+  referral: one(referrals, {
+    fields: [referralRewards.referralId],
+    references: [referrals.id]
+  }),
+  inviter: one(users, {
+    fields: [referralRewards.inviterUserId],
+    references: [users.id],
+    relationName: "referral_reward_inviter"
+  }),
+  invited: one(users, {
+    fields: [referralRewards.invitedUserId],
+    references: [users.id],
+    relationName: "referral_reward_invited"
+  }),
+  paymentOrder: one(paymentOrders, {
+    fields: [referralRewards.paymentOrderId],
+    references: [paymentOrders.id]
   })
 }));
 
@@ -840,6 +942,9 @@ export type PaymentProvider = typeof paymentProviders.$inferSelect;
 export type PaymentProduct = typeof paymentProducts.$inferSelect;
 export type PaymentOrder = typeof paymentOrders.$inferSelect;
 export type UserRecurrentSubscription = typeof userRecurrentSubscriptions.$inferSelect;
+export type ReferralCode = typeof referralCodes.$inferSelect;
+export type Referral = typeof referrals.$inferSelect;
+export type ReferralReward = typeof referralRewards.$inferSelect;
 export type PaymentWebhookEvent = typeof paymentWebhookEvents.$inferSelect;
 export type ContentCategory = typeof contentCategories.$inferSelect;
 export type ContentItem = typeof contentItems.$inferSelect;

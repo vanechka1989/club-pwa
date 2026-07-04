@@ -95,6 +95,7 @@ import {
   getDatabaseBackupFileName,
   validateDatabaseRestoreConfirmation
 } from "../db/backup";
+import { getAdminUserReferrals, getReferralRewardDays, updateReferralRewardDays } from "../referrals/referrals";
 
 const adminPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/)
@@ -120,6 +121,10 @@ const accessPayloadSchema = z.object({
   telegramId: z.string().trim().regex(/^\d{3,32}$/),
   status: z.enum(["inactive", "active", "expired"]),
   expiresAt: z.string().datetime().nullable().optional()
+});
+
+const projectSettingsPayloadSchema = z.object({
+  referralRewardDays: z.number().int().positive().max(3650)
 });
 
 const moderationStatusPayloadSchema = z.object({
@@ -981,7 +986,7 @@ function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect
 
 async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
-  const [statsUser, userSubscriptions, mutes, comments, messages] = await Promise.all([
+  const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals] = await Promise.all([
     buildStatsUser(user, totalItems),
     db.query.subscriptions.findMany({
       where: eq(subscriptions.userId, user.id),
@@ -1008,7 +1013,8 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
       with: {
         topic: true
       }
-    })
+    }),
+    getAdminUserReferrals(user.id)
   ]);
 
   const adminActorIds = Array.from(
@@ -1093,7 +1099,8 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
       createdAt: subscription.createdAt.toISOString()
     })),
     moderationEvents,
-    device: device?.success ? device.data : null
+    device: device?.success ? device.data : null,
+    referrals: userReferrals
   };
 }
 
@@ -1170,6 +1177,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/mutes/*", requireAdminPermission("users"))
   .use("/storage/s3", requireAdminPermission("storage"))
   .use("/storage/s3/*", requireAdminPermission("storage"))
+  .use("/project-settings", requireAdminPermission("project_settings"))
   .get("/admins", async (c) => {
     const ownerTelegramId = await getOwnerTelegramId();
     const admins = await db.query.adminUsers.findMany({
@@ -1216,6 +1224,37 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       admins: adminTelegramIds.map((telegramId) => serializeAdminActionActor(telegramId, profilesByTelegramId.get(telegramId))),
       logs: logs.map(serializeAdminActionLog)
+    });
+  })
+  .get("/project-settings", async (c) => {
+    return c.json({
+      settings: {
+        referralRewardDays: await getReferralRewardDays()
+      }
+    });
+  })
+  .post("/project-settings", async (c) => {
+    const body = projectSettingsPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid project settings payload" }, 400);
+    }
+
+    const referralRewardDays = await updateReferralRewardDays(body.data.referralRewardDays, c.get("userId"));
+    await recordAdminAction(c, {
+      action: "project.settings.updated",
+      entityType: "club_settings",
+      entityId: "project",
+      summary: `Обновил реферальное вознаграждение: ${referralRewardDays} дн.`,
+      metadata: {
+        referralRewardDays
+      }
+    });
+
+    return c.json({
+      ok: true,
+      settings: {
+        referralRewardDays
+      }
     });
   })
   .get("/server-status", async (c) => {

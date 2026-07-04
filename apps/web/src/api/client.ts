@@ -13,6 +13,8 @@ import type {
   AdminLearningUploadedObject,
   AdminLearningResponse,
   AdminPaymentProviderResponse,
+  AdminProjectSettingsMutationResponse,
+  AdminProjectSettingsResponse,
   AdminListResponse,
   AdminModerationResponse,
   AdminUserDetailResponse,
@@ -42,6 +44,8 @@ import type {
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
   PaymentProviderMutationResponse,
+  ReferralActivationResponse,
+  ReferralProfileResponse,
   S3StorageObjectUrlResponse,
   S3StorageObjectsResponse,
   S3StorageSettingsMutationResponse,
@@ -107,6 +111,14 @@ export function updateDeviceDiagnostics(payload: DeviceDiagnostics) {
 
 export function refreshAvatar() {
   return api<MeResponse>("/me/avatar", { method: "POST" });
+}
+
+export function getReferralProfile() {
+  return api<ReferralProfileResponse>("/me/referrals");
+}
+
+export function activateReferralRewards() {
+  return api<ReferralActivationResponse>("/me/referrals/activate", { method: "POST" });
 }
 
 export function createCheckout() {
@@ -457,6 +469,17 @@ export function getAdminServerErrors() {
 
 export function getAdminServerStatus() {
   return api<AdminServerStatusResponse>("/admin/server-status");
+}
+
+export function getAdminProjectSettings() {
+  return api<AdminProjectSettingsResponse>("/admin/project-settings");
+}
+
+export function updateAdminProjectSettings(payload: { referralRewardDays: number }) {
+  return api<AdminProjectSettingsMutationResponse>("/admin/project-settings", {
+    method: "POST",
+    body: payload
+  });
 }
 
 function getFileNameFromContentDisposition(value: string | null, fallback: string) {

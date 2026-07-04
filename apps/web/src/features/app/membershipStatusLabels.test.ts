@@ -7,4 +7,10 @@ describe("membership status labels", () => {
     expect(formatMembershipStatus("inactive")).toBe("Доступ закрыт");
     expect(formatMembershipStatus("expired")).toBe("Доступ закрыт");
   });
+
+  it("supports English labels", () => {
+    expect(formatMembershipStatus("active", "en")).toBe("Access open");
+    expect(formatMembershipStatus("inactive", "en")).toBe("Access closed");
+    expect(formatMembershipStatus("expired", "en")).toBe("Access closed");
+  });
 });

@@ -7,6 +7,7 @@ import { isOwnerTelegramId } from "../admin/roles";
 import { verifyTelegramInitData, type TelegramUser } from "../telegram/verifyInitData";
 import { z } from "zod";
 import type { UserRole } from "@club/shared";
+import { captureReferralFromStartParam } from "../referrals/referrals";
 
 export type AuthVariables = {
   telegramUser: TelegramUser;
@@ -22,7 +23,8 @@ const devTelegramUserSchema = z.object({
   id: z.string().min(1),
   firstName: z.string().nullable().optional(),
   username: z.string().nullable().optional(),
-  photoUrl: z.string().url().nullable().optional()
+  photoUrl: z.string().url().nullable().optional(),
+  startParam: z.string().nullable().optional()
 });
 
 function getDevTelegramUser(header: string | undefined): TelegramUser | null {
@@ -40,7 +42,8 @@ function getDevTelegramUser(header: string | undefined): TelegramUser | null {
       id: parsed.data.id,
       firstName: parsed.data.firstName ?? null,
       username: parsed.data.username ?? null,
-      photoUrl: parsed.data.photoUrl ?? null
+      photoUrl: parsed.data.photoUrl ?? null,
+      startParam: parsed.data.startParam ?? null
     };
   } catch {
     return null;
@@ -94,6 +97,10 @@ export const telegramAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asy
   c.set("userId", resolvedUser.id);
   c.set("previewRole", null);
   c.set("previewMembershipStatus", null);
+
+  if (telegramUser.startParam) {
+    await captureReferralFromStartParam(resolvedUser, telegramUser.startParam).catch(() => null);
+  }
 
   const previewMode = previewModeSchema.safeParse(c.req.header("x-club-preview-mode"));
   const isOwner = await isOwnerTelegramId(telegramUser.id);

@@ -211,6 +211,13 @@
       "when": 1782927600000,
       "tag": "0029_lesson_material_media_url",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783258800000,
+      "tag": "0030_referrals_project_settings",
+      "breakpoints": true
     }
   ]
 }

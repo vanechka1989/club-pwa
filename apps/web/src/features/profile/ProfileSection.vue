@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { PaymentOrderLog, UserRecurrentSubscription } from "@club/shared";
-import { BarChart3, Check, Fingerprint, Maximize2, Minimize2, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
+import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
+import { BarChart3, Check, Copy, Fingerprint, Gift, Maximize2, Minimize2, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
-import { getLearningHome, getPaymentHistory, getPaymentPlans } from "@/api/client";
+import { activateReferralRewards, getLearningHome, getPaymentHistory, getPaymentPlans, getReferralProfile } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
 import NotificationCenter from "@/features/app/NotificationCenter.vue";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
@@ -24,13 +24,17 @@ const completedItems = ref(0);
 const lastOpenedTitle = ref<string | null>(null);
 const paymentOrders = ref<PaymentOrderLog[]>([]);
 const recurrentSubscriptions = ref<UserRecurrentSubscription[]>([]);
+const referral = ref<ReferralSummary | null>(null);
+const referralSaving = ref(false);
+const referralCopied = ref(false);
+const referralMessage = ref<string | null>(null);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
 const telegramIdVisible = ref(false);
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
-const displayName = computed(() => session.user?.firstName || session.user?.username || "Пользователь");
+const displayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase());
 const daysLeft = computed(() => {
   if (!session.user?.membershipExpiresAt || !isMember.value) {
@@ -60,33 +64,33 @@ const subscriptionProgress = computed(() => {
 });
 const subscriptionMeta = computed(() => {
   if (!isMember.value) {
-    return "Ожидает оплаты";
+    return t("profilePaymentWaiting");
   }
 
   if (daysLeft.value === 0) {
-    return "Доступ заканчивается сегодня";
+    return t("profileAccessEndsToday");
   }
 
-  return `${daysLeft.value} дн. осталось`;
+  return `${daysLeft.value} ${t("profileDaysLeft")}`;
 });
 const paymentStatusText = computed(() => {
   if (!isMember.value) {
-    return "Доступ не активен";
+    return t("homeInactive");
   }
 
   if (session.user?.paymentType === "recurrent") {
-    return session.user.recurrentPaymentStatus === "cancelled" ? "Автоматический платёж отменен" : "Автоматический платёж";
+    return session.user.recurrentPaymentStatus === "cancelled" ? t("profileRecurrentCancelled") : t("profileRecurrentPayment");
   }
 
   if (session.user?.paymentType === "one_time") {
-    return "Разовый платёж";
+    return t("profileOneTimePayment");
   }
 
   if (session.user?.paymentType === "manual") {
-    return "Ручной доступ";
+    return t("profileManualAccess");
   }
 
-  return "Доступ активен";
+  return t("profileAccessActive");
 });
 const paymentDateText = computed(() => {
   if (!isMember.value) {
@@ -94,15 +98,15 @@ const paymentDateText = computed(() => {
   }
 
   if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "active" && session.user.nextPaymentAt) {
-    return `следующее списание ${new Date(session.user.nextPaymentAt).toLocaleDateString("ru-RU")}`;
+    return `${t("profileNextPayment")} ${new Date(session.user.nextPaymentAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
   }
 
   if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "cancelled" && session.user.membershipExpiresAt) {
-    return `работает до ${new Date(session.user.membershipExpiresAt).toLocaleDateString("ru-RU")}`;
+    return `${t("profileWorksUntil")} ${new Date(session.user.membershipExpiresAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
   }
 
   if (session.user?.paymentType === "one_time" && session.user.membershipExpiresAt) {
-    return `работает до ${new Date(session.user.membershipExpiresAt).toLocaleDateString("ru-RU")}`;
+    return `${t("profileWorksUntil")} ${new Date(session.user.membershipExpiresAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
   }
 
   return null;
@@ -136,10 +140,10 @@ const avatarRefreshLocked = computed(() => {
 });
 const avatarRefreshHint = computed(() => {
   if (!avatarRefreshAvailableAt.value || !avatarRefreshLocked.value) {
-    return "Можно обновить, если фото изменилось в Telegram.";
+    return t("profileAvatarRefreshHint");
   }
 
-  return `Следующее ручное обновление: ${avatarRefreshAvailableAt.value.toLocaleDateString("ru-RU")}`;
+  return `${t("profileAvatarNextRefresh")}: ${avatarRefreshAvailableAt.value.toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
 });
 const learningProgress = computed(() => {
   if (!totalItems.value) {
@@ -149,18 +153,18 @@ const learningProgress = computed(() => {
   return Math.round((completedItems.value / totalItems.value) * 100);
 });
 const isStatsEmpty = computed(() => completedItems.value === 0 && !lastOpenedTitle.value);
-const themeOptions: Array<{ value: Theme; label: string; icon: typeof Moon }> = [
-  { value: "dark", label: "Ночь", icon: Moon },
-  { value: "light", label: "День", icon: Sun }
-];
-const colorOptions: Array<{ value: ColorScheme; label: string; colors: string[] }> = [
-  { value: "midnight", label: "Полночь", colors: ["#080922", "#f2f2f7"] },
-  { value: "emerald", label: "Хвоя", colors: ["#12382d", "#7dd3b0"] },
-  { value: "graphite", label: "Графит", colors: ["#242833", "#d6d9e2"] },
-  { value: "sakura", label: "Сакура", colors: ["#3a2034", "#f9a8d4"] },
-  { value: "azure", label: "Лагуна", colors: ["#0f2f5f", "#7dd3fc"] },
-  { value: "coffee", label: "Кофе", colors: ["#3a281f", "#d6ad7b"] }
-];
+const themeOptions = computed<Array<{ value: Theme; label: string; icon: typeof Moon }>>(() => [
+  { value: "dark", label: t("profileThemeNight"), icon: Moon },
+  { value: "light", label: t("profileThemeDay"), icon: Sun }
+]);
+const colorOptions = computed<Array<{ value: ColorScheme; label: string; colors: string[] }>>(() => [
+  { value: "midnight", label: t("profileSchemeMidnight"), colors: ["#080922", "#f2f2f7"] },
+  { value: "emerald", label: t("profileSchemeEmerald"), colors: ["#12382d", "#7dd3b0"] },
+  { value: "graphite", label: t("profileSchemeGraphite"), colors: ["#242833", "#d6d9e2"] },
+  { value: "sakura", label: t("profileSchemeSakura"), colors: ["#3a2034", "#f9a8d4"] },
+  { value: "azure", label: t("profileSchemeAzure"), colors: ["#0f2f5f", "#7dd3fc"] },
+  { value: "coffee", label: t("profileSchemeCoffee"), colors: ["#3a281f", "#d6ad7b"] }
+]);
 
 function changeLocale(locale: Locale) {
   setLocale(locale);
@@ -168,22 +172,22 @@ function changeLocale(locale: Locale) {
 
 function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
   if (status === "paid") {
-    return "Оплачен";
+    return t("paymentStatusPaid");
   }
 
   if (status === "failed") {
-    return "Ошибка";
+    return t("paymentStatusFailed");
   }
 
   if (status === "cancelled") {
-    return "Отменён";
+    return t("paymentStatusCancelled");
   }
 
-  return "Ожидает оплату";
+  return t("paymentStatusPending");
 }
 
 function paymentOrderDate(order: PaymentOrderLog) {
-  return new Date(order.paidAt ?? order.createdAt).toLocaleString("ru-RU", {
+  return new Date(order.paidAt ?? order.createdAt).toLocaleString(currentLocale.value === "ru" ? "ru-RU" : "en-US", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -212,26 +216,74 @@ async function handleAvatarRefresh() {
   avatarMessage.value = null;
   try {
     await session.updateAvatar();
-    avatarMessage.value = "Аватарка обновлена.";
+    avatarMessage.value = t("profileAvatarUpdated");
   } catch (reason) {
     const data = getErrorData(reason);
     if (getErrorStatus(reason) === 429 && data?.nextAllowedAt) {
-      avatarMessage.value = `Можно обновить после ${new Date(data.nextAllowedAt).toLocaleDateString("ru-RU")}.`;
+      avatarMessage.value = `${t("profileAvatarRefreshAfter")} ${new Date(data.nextAllowedAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}.`;
     } else if (getErrorStatus(reason) === 400) {
-      avatarMessage.value = "Telegram пока не передал фото профиля.";
+      avatarMessage.value = t("profileAvatarUnavailable");
     } else {
-      avatarMessage.value = "Не удалось обновить аватарку.";
+      avatarMessage.value = t("profileAvatarError");
     }
   } finally {
     avatarSaving.value = false;
   }
 }
 
+async function copyReferralLink() {
+  if (!referral.value?.link) {
+    return;
+  }
+
+  await navigator.clipboard.writeText(referral.value.link).catch(() => null);
+  referralCopied.value = true;
+  referralMessage.value = t("referralCopied");
+  window.setTimeout(() => {
+    referralCopied.value = false;
+  }, 1800);
+}
+
+function referralBlockReason() {
+  if (!referral.value?.activationBlockedReason) {
+    return null;
+  }
+
+  if (referral.value.activationBlockedReason === "active_recurrent_payment") {
+    return t("referralBlockedRecurrent");
+  }
+
+  if (referral.value.activationBlockedReason === "no_available_days") {
+    return t("referralNoDays");
+  }
+
+  return t("referralCannotActivate");
+}
+
+async function handleReferralActivation() {
+  referralSaving.value = true;
+  referralMessage.value = null;
+  try {
+    const response = await activateReferralRewards();
+    referral.value = response.referral;
+    referralMessage.value =
+      response.activatedDays > 0
+        ? `${t("referralActivated")} ${response.activatedDays} ${t("profileDaysShort")}`
+        : t("referralNoDays");
+    await session.load({ silent: true });
+  } catch {
+    referralMessage.value = referralBlockReason() ?? t("referralActivationError");
+  } finally {
+    referralSaving.value = false;
+  }
+}
+
 onMounted(async () => {
-  const [learningResult, paymentsResult, plansResult] = await Promise.allSettled([
+  const [learningResult, paymentsResult, plansResult, referralResult] = await Promise.allSettled([
     getLearningHome(),
     getPaymentHistory(),
-    getPaymentPlans()
+    getPaymentPlans(),
+    getReferralProfile()
   ]);
 
   if (learningResult.status === "fulfilled") {
@@ -246,6 +298,7 @@ onMounted(async () => {
 
   paymentOrders.value = paymentsResult.status === "fulfilled" ? paymentsResult.value.orders : [];
   recurrentSubscriptions.value = plansResult.status === "fulfilled" ? plansResult.value.recurrentSubscriptions : [];
+  referral.value = referralResult.status === "fulfilled" ? referralResult.value.referral : null;
 });
 </script>
 
@@ -327,15 +380,62 @@ onMounted(async () => {
       </div>
     </section>
 
+    <section class="soft-card profile-referral-card">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h3 class="soft-section-title">{{ t("referralTitle") }}</h3>
+          <p class="profile-empty-text">{{ t("referralSubtitle") }}</p>
+        </div>
+        <Gift class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
+      </div>
+
+      <div v-if="referral" class="profile-referral-body mt-3">
+        <div class="profile-referral-link">
+          <span>{{ referral.link }}</span>
+          <button type="button" :aria-label="t('referralCopy')" @click="copyReferralLink">
+            <Check v-if="referralCopied" class="h-4 w-4" aria-hidden="true" />
+            <Copy v-else class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div class="profile-referral-stats">
+          <article>
+            <span>{{ t("referralInvited") }}</span>
+            <strong>{{ referral.invitedCount }}</strong>
+          </article>
+          <article>
+            <span>{{ t("referralPaid") }}</span>
+            <strong>{{ referral.paidCount }}</strong>
+          </article>
+          <article>
+            <span>{{ t("referralAvailable") }}</span>
+            <strong>{{ referral.availableDays }}</strong>
+          </article>
+        </div>
+
+        <button
+          class="soft-inline-button"
+          type="button"
+          :disabled="referralSaving || !referral.canActivate"
+          @click="handleReferralActivation"
+        >
+          {{ referralSaving ? t("referralActivating") : t("referralActivate") }}
+        </button>
+        <p class="profile-empty-text">{{ referralMessage || referralBlockReason() || t("referralHint") }}</p>
+      </div>
+
+      <p v-else class="profile-empty-text mt-3">{{ t("referralLoading") }}</p>
+    </section>
+
     <section class="soft-card profile-account-card">
       <div class="flex items-center justify-between gap-3">
-        <h3 class="soft-section-title">Аккаунт</h3>
+        <h3 class="soft-section-title">{{ t("profileAccount") }}</h3>
         <UserCircle class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
       </div>
 
       <div class="profile-info-list mt-3">
         <div class="profile-info-row">
-          <span>Имя</span>
+          <span>{{ t("profileName") }}</span>
           <strong>{{ displayName }}</strong>
         </div>
         <div class="profile-info-row">
@@ -343,7 +443,7 @@ onMounted(async () => {
           <button
             class="profile-secret-value"
             type="button"
-            :aria-label="telegramIdVisible ? 'Telegram ID открыт' : 'Показать Telegram ID'"
+            :aria-label="telegramIdVisible ? t('profileTelegramVisible') : t('profileTelegramShow')"
             @click="telegramIdVisible = true"
           >
             <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
@@ -360,7 +460,7 @@ onMounted(async () => {
       <div class="profile-avatar-refresh mt-3">
         <button class="secondary-button" type="button" :disabled="avatarSaving || avatarRefreshLocked" @click="handleAvatarRefresh">
           <RefreshCw class="h-4 w-4" aria-hidden="true" />
-          <span>{{ avatarSaving ? "Обновляем..." : "Обновить аватарку" }}</span>
+          <span>{{ avatarSaving ? t("profileAvatarUpdating") : t("profileAvatarUpdate") }}</span>
         </button>
         <p>{{ avatarMessage || avatarRefreshHint }}</p>
       </div>
@@ -368,8 +468,8 @@ onMounted(async () => {
 
     <section class="soft-card">
       <div class="flex items-center justify-between gap-3">
-        <h3 class="soft-section-title">История оплат</h3>
-        <button class="soft-link" type="button" @click="$emit('openPayments')">Оплата</button>
+        <h3 class="soft-section-title">{{ t("profilePaymentHistory") }}</h3>
+        <button class="soft-link" type="button" @click="$emit('openPayments')">{{ t("payment") }}</button>
       </div>
       <div class="payment-log-list mt-3">
         <article v-for="order in paymentOrders.slice(0, 5)" :key="order.id" class="payment-log-card">
@@ -379,13 +479,13 @@ onMounted(async () => {
           </div>
           <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
         </article>
-        <p v-if="!paymentOrders.length" class="profile-empty-text">Оплат пока нет.</p>
+        <p v-if="!paymentOrders.length" class="profile-empty-text">{{ t("profileNoPayments") }}</p>
       </div>
     </section>
 
     <section class="soft-card profile-settings">
       <div class="flex items-center justify-between gap-3">
-        <h3 class="soft-section-title">Оформление</h3>
+        <h3 class="soft-section-title">{{ t("profileAppearance") }}</h3>
         <Palette class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
       </div>
 
@@ -405,8 +505,8 @@ onMounted(async () => {
 
       <div class="profile-window-mode mt-3">
         <div>
-          <h4>Режим окна</h4>
-          <p>Выберите, как удобнее открывать миниапп в Telegram.</p>
+          <h4>{{ t("profileWindowMode") }}</h4>
+          <p>{{ t("profileWindowModeText") }}</p>
         </div>
         <div class="theme-choice-row">
           <button
@@ -416,7 +516,7 @@ onMounted(async () => {
             @click="ui.setFullscreenEnabled(true)"
           >
             <Maximize2 class="h-4 w-4" aria-hidden="true" />
-            <span>Во весь экран</span>
+            <span>{{ t("profileFullscreen") }}</span>
           </button>
           <button
             class="theme-choice"
@@ -425,7 +525,7 @@ onMounted(async () => {
             @click="ui.setFullscreenEnabled(false)"
           >
             <Minimize2 class="h-4 w-4" aria-hidden="true" />
-            <span>Обычный</span>
+            <span>{{ t("profileWindowNormal") }}</span>
           </button>
         </div>
       </div>

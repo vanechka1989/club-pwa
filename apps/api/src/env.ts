@@ -9,6 +9,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
+  TELEGRAM_BOT_USERNAME: optionalString.default("tehnobot_club_bot"),
   TELEGRAM_WEBHOOK_SECRET: optionalString,
   OWNER_TELEGRAM_ID: z.string().default("593677751"),
   ADMIN_TELEGRAM_IDS: z.string().default(""),

@@ -13,6 +13,7 @@ export type TelegramUser = {
   firstName: string | null;
   username: string | null;
   photoUrl: string | null;
+  startParam: string | null;
 };
 
 type VerifyTelegramInitDataOptions = {
@@ -84,6 +85,7 @@ export function verifyTelegramInitData(
     id: String(parsed.data.id),
     firstName: parsed.data.first_name ?? null,
     username: parsed.data.username ?? null,
-    photoUrl: parsed.data.photo_url ?? null
+    photoUrl: parsed.data.photo_url ?? null,
+    startParam: params.get("start_param") ?? null
   };
 }

@@ -29,8 +29,24 @@ describe("verifyTelegramInitData", () => {
       id: "42",
       firstName: "Ivan",
       username: "ivan",
-      photoUrl: "https://example.com/ivan.jpg"
+      photoUrl: "https://example.com/ivan.jpg",
+      startParam: null
     });
+  });
+
+  it("returns Telegram start_param for deep links", () => {
+    const botToken = "123:token";
+    const now = new Date("2024-10-27T04:00:00.000Z");
+    const initData = sign(
+      {
+        auth_date: "1730000000",
+        start_param: "ref_abC123",
+        user: JSON.stringify({ id: 42 })
+      },
+      botToken
+    );
+
+    expect(verifyTelegramInitData(initData, botToken, { now })?.startParam).toBe("ref_abC123");
   });
 
   it("rejects tampered data", () => {

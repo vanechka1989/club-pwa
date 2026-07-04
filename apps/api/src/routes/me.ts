@@ -8,6 +8,7 @@ import { userRecurrentSubscriptions, users } from "../db/schema";
 import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 import { resolveMembershipProfileFields } from "../membership/profileFields";
+import { activateReferralRewards, getReferralSummary } from "../referrals/referrals";
 
 const avatarRefreshCooldownMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -72,6 +73,17 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json(await buildMeResponse(user, c));
+  })
+  .get("/referrals", async (c) => {
+    return c.json({ referral: await getReferralSummary(c.get("userId")) });
+  })
+  .post("/referrals/activate", async (c) => {
+    const result = await activateReferralRewards(c.get("userId"));
+    if (!result.ok) {
+      return c.json({ error: result.error }, 409);
+    }
+
+    return c.json(result);
   })
   .post("/device", async (c) => {
     const body = deviceDiagnosticsSchema.safeParse(await c.req.json().catch(() => null));

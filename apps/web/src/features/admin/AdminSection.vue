@@ -33,6 +33,7 @@ import {
   ExternalLink,
   Megaphone,
   Server,
+  SlidersHorizontal,
   Shield,
   Trash2,
   UsersRound,
@@ -57,6 +58,7 @@ import {
   getAdminLearning,
   getAdminMailings,
   getAdminPaymentHistory,
+  getAdminProjectSettings,
   getAdminS3Objects,
   getAdminS3ObjectUrl,
   getAdminS3StorageSettings,
@@ -77,6 +79,7 @@ import {
   transferClubOwner,
   restoreAdminDatabaseBackup,
   updateAdminUserPermissions,
+  updateAdminProjectSettings,
   updateAdminS3StorageSettings,
   updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
@@ -123,7 +126,7 @@ const emit = defineEmits<{
   "preview-mode-change": [mode: PreviewMode];
 }>();
 
-type ClientAccordionSection = "subscriptions" | "payments" | "restrictions";
+type ClientAccordionSection = "subscriptions" | "payments" | "referrals" | "restrictions";
 type ClientAccessAction = "open" | "close" | "extend7" | "extend30" | "manual";
 type UserDrilldownSelection =
   | {
@@ -143,6 +146,7 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
   mailings: Megaphone,
   payments: CreditCard,
   storage: Cloud,
+  "project-settings": SlidersHorizontal,
   admins: Shield,
   "server-logs": Server
 };
@@ -191,6 +195,9 @@ const adminActionLogs = ref<AdminActionLog[]>([]);
 const serverErrorLogs = ref<AdminServerErrorLog[]>([]);
 const serverStatus = ref<AdminServerStatus | null>(null);
 const showServerLogsModal = ref(false);
+const projectSettingsLoaded = ref(false);
+const projectSettingsMessage = ref<string | null>(null);
+const referralRewardDaysDraft = ref(7);
 const databaseBackupBusy = ref(false);
 const databaseRestoreBusy = ref(false);
 const databaseRestoreFile = ref<File | null>(null);
@@ -304,6 +311,7 @@ let serverLogsRefreshTimer: number | null = null;
 const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
   subscriptions: false,
   payments: false,
+  referrals: false,
   restrictions: false
 });
 
@@ -954,6 +962,22 @@ function userTitle(user: AdminStatsUser) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
 }
 
+function referralUserTitle(user: { telegramId: string; firstName: string | null; username: string | null }) {
+  return user.firstName || user.username || `ID ${user.telegramId}`;
+}
+
+function referralRewardStatusLabel(status: "none" | "available" | "activated") {
+  if (status === "activated") {
+    return "Дни активированы";
+  }
+
+  if (status === "available") {
+    return "Дни начислены";
+  }
+
+  return "Ждём первую оплату";
+}
+
 function openReleaseNotesModal() {
   if (!canViewReleaseNotes.value) {
     return;
@@ -1142,6 +1166,31 @@ async function loadServerStatus() {
 
 async function loadServerDashboard() {
   await Promise.all([loadServerStatus(), loadServerErrorLogs()]);
+}
+
+async function loadProjectSettings() {
+  const response = await getAdminProjectSettings();
+  referralRewardDaysDraft.value = response.settings.referralRewardDays;
+  projectSettingsLoaded.value = true;
+}
+
+async function saveProjectSettings() {
+  saving.value = true;
+  projectSettingsMessage.value = null;
+  try {
+    const response = await updateAdminProjectSettings({
+      referralRewardDays: Number(referralRewardDaysDraft.value)
+    });
+    referralRewardDaysDraft.value = response.settings.referralRewardDays;
+    projectSettingsLoaded.value = true;
+    projectSettingsMessage.value = "Настройки проекта сохранены.";
+    showSuccessAlert("Настройки проекта сохранены.");
+  } catch {
+    projectSettingsMessage.value = "Не удалось сохранить настройки проекта.";
+    setError("Не удалось сохранить настройки проекта.");
+  } finally {
+    saving.value = false;
+  }
 }
 
 function openServerLogsModal() {
@@ -1394,6 +1443,7 @@ function resetClientAccordion() {
   clientAccordion.value = {
     subscriptions: false,
     payments: false,
+    referrals: false,
     restrictions: false
   };
 }
@@ -1762,14 +1812,25 @@ async function loadAll() {
     const shouldLoadCommunity = hasCurrentAdminPermission("community");
     const shouldLoadMailings = hasCurrentAdminPermission("mailings");
     const shouldLoadAdminActions = hasCurrentAdminPermission("admins");
-    const [adminsResponse, statsResponse, learningResponse, paymentsResponse, topicsResponse, mailingsResponse, actionLogsResponse] = await Promise.all([
+    const shouldLoadProjectSettings = hasCurrentAdminPermission("project_settings");
+    const [
+      adminsResponse,
+      statsResponse,
+      learningResponse,
+      paymentsResponse,
+      topicsResponse,
+      mailingsResponse,
+      actionLogsResponse,
+      projectSettingsResponse
+    ] = await Promise.all([
       shouldLoadAdmins ? getAdminUsers() : Promise.resolve(null),
       shouldLoadStats ? getAdminStats() : Promise.resolve(null),
       shouldLoadLearning ? getAdminLearning() : Promise.resolve(null),
       shouldLoadPayments ? getAdminPaymentHistory() : Promise.resolve(null),
       shouldLoadCommunity ? getCommunityTopics() : Promise.resolve(null),
       shouldLoadMailings ? getAdminMailings() : Promise.resolve(null),
-      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null)
+      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null),
+      shouldLoadProjectSettings ? getAdminProjectSettings() : Promise.resolve(null)
     ]);
     if (adminsResponse) {
       ownerTelegramId.value = adminsResponse.ownerTelegramId;
@@ -1791,6 +1852,10 @@ async function loadAll() {
     if (actionLogsResponse) {
       adminActionAdmins.value = actionLogsResponse.admins;
       adminActionLogs.value = actionLogsResponse.logs;
+    }
+    if (projectSettingsResponse) {
+      referralRewardDaysDraft.value = projectSettingsResponse.settings.referralRewardDays;
+      projectSettingsLoaded.value = true;
     }
     if (learningResponse) {
       learningCategories.value = learningResponse.categories;
@@ -2300,6 +2365,12 @@ watch(
     if (panel === "server-logs") {
       startServerLogsAutoRefresh();
       return;
+    }
+
+    if (panel === "project-settings" && !projectSettingsLoaded.value) {
+      void loadProjectSettings().catch(() => {
+        projectSettingsMessage.value = "Не удалось загрузить настройки проекта.";
+      });
     }
 
     stopServerLogsAutoRefresh();
@@ -2967,6 +3038,59 @@ onUnmounted(() => {
                   <div class="admin-payment-ids">
                     <span>order: {{ order.providerOrderId }}</span>
                     <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="admin-crm-block admin-accordion-block">
+              <button
+                class="admin-accordion-head"
+                type="button"
+                :aria-expanded="clientAccordion.referrals"
+                @click="toggleClientAccordion('referrals')"
+              >
+                <span>
+                  <strong>Рефералы</strong>
+                  <small>{{ selectedUserDetail?.referrals.invited.length ?? 0 }} приглашённых</small>
+                </span>
+                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.referrals }" aria-hidden="true" />
+              </button>
+              <div v-if="clientAccordion.referrals" class="admin-accordion-body">
+                <article v-if="selectedUserDetail?.referrals.invitedBy" class="admin-payment-card admin-payment-card-compact">
+                  <div class="admin-payment-main">
+                    <div>
+                      <strong>Пришёл по ссылке</strong>
+                      <small>{{ referralUserTitle(selectedUserDetail.referrals.invitedBy.inviterUser) }}</small>
+                    </div>
+                    <em>{{ formatAdminDateTime(selectedUserDetail.referrals.invitedBy.invitedAt) }}</em>
+                  </div>
+                  <div class="admin-payment-meta">
+                    <span>ID {{ selectedUserDetail.referrals.invitedBy.inviterUser.telegramId }}</span>
+                    <span v-if="selectedUserDetail.referrals.invitedBy.firstPaidAt">
+                      первая оплата {{ formatAdminDateTime(selectedUserDetail.referrals.invitedBy.firstPaidAt) }}
+                    </span>
+                    <span v-else>первой оплаты ещё нет</span>
+                  </div>
+                </article>
+
+                <p v-if="!selectedUserDetail?.referrals.invitedBy && !selectedUserDetail?.referrals.invited.length" class="admin-empty">
+                  Реферальных связей пока нет.
+                </p>
+
+                <article v-for="referral in selectedUserDetail?.referrals.invited ?? []" :key="referral.id" class="admin-payment-card admin-payment-card-compact">
+                  <div class="admin-payment-main">
+                    <div>
+                      <strong>{{ referralUserTitle(referral.invitedUser) }}</strong>
+                      <small>приглашён {{ formatAdminDateTime(referral.invitedAt) }}</small>
+                    </div>
+                    <em>{{ referralRewardStatusLabel(referral.rewardStatus) }}</em>
+                  </div>
+                  <div class="admin-payment-meta">
+                    <span>ID {{ referral.invitedUser.telegramId }}</span>
+                    <span>{{ referral.rewardDays }} дн. вознаграждения</span>
+                    <span v-if="referral.firstPaidAt">первая оплата {{ formatAdminDateTime(referral.firstPaidAt) }}</span>
+                    <span v-else>оплаты ещё нет</span>
                   </div>
                 </article>
               </div>
@@ -3724,6 +3848,39 @@ onUnmounted(() => {
           </div>
         </Teleport>
       </article>
+    </section>
+
+    <section v-else-if="activePanel === 'project-settings'" class="admin-panel admin-permissions-panel">
+      <div class="admin-panel-head">
+        <div>
+          <h3>Настройки проекта</h3>
+          <p>Общие параметры клуба. Доступно разработчику и администраторам с правом.</p>
+        </div>
+        <button class="secondary-button" type="button" :disabled="saving" @click="loadProjectSettings">
+          Обновить
+        </button>
+      </div>
+
+      <section class="admin-crm-block admin-project-settings-card">
+        <div>
+          <h4>Реферальная система</h4>
+          <p>Сколько бонусных дней начислять пригласившему клиенту после первой оплаты приглашённого.</p>
+        </div>
+
+        <form class="admin-project-settings-form" @submit.prevent="saveProjectSettings">
+          <label class="admin-field">
+            <span>Реферальное вознаграждение</span>
+            <input v-model.number="referralRewardDaysDraft" class="text-input" min="1" max="3650" type="number" inputmode="numeric" />
+            <small>Дни копятся в профиле клиента и активируются вручную. При активной автоподписке активировать нельзя.</small>
+          </label>
+
+          <button class="primary-button" type="submit" :disabled="saving">
+            Сохранить настройки
+          </button>
+        </form>
+
+        <p v-if="projectSettingsMessage" class="admin-form-note">{{ projectSettingsMessage }}</p>
+      </section>
     </section>
 
     <section v-else-if="activePanel === 'server-logs'" class="admin-panel admin-permissions-panel">
