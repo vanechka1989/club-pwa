@@ -11,6 +11,8 @@ import {
   calculateLayoutCalibration,
   collectCurrentDeviceDiagnostics,
   getDeviceLayoutClasses,
+  getMeasuredKeyboardBottomGap,
+  getMeasuredVisibleViewportHeight,
   getViewportSizeClasses,
   syncLayoutClasses
 } from "@/features/app/deviceLayout";
@@ -46,6 +48,7 @@ let supportUnreadTimer: number | null = null;
 let appNotificationTimer: number | null = null;
 let fullscreenSyncTimer: number | null = null;
 let deviceDiagnosticsTimer: number | null = null;
+let keyboardFocusTimer: number | null = null;
 let isAppMounted = false;
 
 function formatUploadBytes(bytes: number) {
@@ -256,18 +259,20 @@ function syncViewportHeight() {
     ...getViewportSizeClasses({ width, height })
   ]);
 
-  const visibleHeight = visualHeight > 0 ? visualHeight : height;
+  const visibleHeight =
+    getMeasuredVisibleViewportHeight({ telegramHeight, visualHeight, browserHeight }) || height;
   if (visibleHeight > 0) {
     document.documentElement.style.setProperty("--club-visible-viewport-height", `${visibleHeight}px`);
     const visibleBottom = visualViewport ? Math.round(visualViewport.offsetTop + visibleHeight) : visibleHeight;
     document.documentElement.style.setProperty("--club-visible-viewport-bottom", `${visibleBottom}px`);
   }
 
-  const viewportBaseHeight = Math.max(telegramHeight, browserHeight);
-  const visualBottomGap =
-    visualViewport && viewportBaseHeight > 0
-      ? Math.max(0, Math.round(viewportBaseHeight - visualViewport.height - visualViewport.offsetTop))
-      : 0;
+  const viewportBaseHeight = Math.max(telegramHeight, visualHeight, browserHeight);
+  const visualBottomGap = getMeasuredKeyboardBottomGap({
+    viewportBaseHeight,
+    visibleHeight,
+    visibleOffsetTop: visualViewport?.offsetTop ?? 0
+  });
   const telegramBottomInset = Math.max(
     webApp?.contentSafeAreaInset?.bottom ?? 0,
     webApp?.safeAreaInset?.bottom ?? 0
@@ -472,6 +477,14 @@ function handleVisibilityChange() {
 
 function handleTextFieldFocusIn(event: FocusEvent) {
   ensureFocusedTextFieldVisible(event.target instanceof Element ? event.target : null);
+  syncViewportHeight();
+  if (keyboardFocusTimer) {
+    window.clearTimeout(keyboardFocusTimer);
+  }
+  keyboardFocusTimer = window.setTimeout(() => {
+    keyboardFocusTimer = null;
+    syncViewportHeight();
+  }, 360);
 }
 
 async function sendDeviceDiagnostics() {
@@ -572,6 +585,10 @@ onBeforeUnmount(() => {
   window.removeEventListener("resize", syncViewportHeight);
   document.removeEventListener("focusin", handleTextFieldFocusIn);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
+  if (keyboardFocusTimer) {
+    window.clearTimeout(keyboardFocusTimer);
+    keyboardFocusTimer = null;
+  }
   if (paymentWatchTimer) {
     window.clearInterval(paymentWatchTimer);
     paymentWatchTimer = null;

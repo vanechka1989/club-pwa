@@ -74,21 +74,23 @@ describe("keyboard focus handling", () => {
   });
 
   it("does not center-scroll fields inside keyboard-managed modals", () => {
-    const modal = document.createElement("article");
-    modal.className = "support-ticket-modal";
-    const input = document.createElement("textarea");
-    const scrollIntoView = vi.fn();
-    input.scrollIntoView = scrollIntoView;
-    modal.append(input);
-    document.body.append(modal);
+    for (const className of ["support-ticket-modal", "admin-client-message-modal"]) {
+      const modal = document.createElement("article");
+      modal.className = className;
+      const input = document.createElement("textarea");
+      const scrollIntoView = vi.fn();
+      input.scrollIntoView = scrollIntoView;
+      modal.append(input);
+      document.body.append(modal);
 
-    ensureFocusedTextFieldVisible(input, (handler) => {
-      handler();
-      return 1;
-    });
+      ensureFocusedTextFieldVisible(input, (handler) => {
+        handler();
+        return 1;
+      });
 
-    expect(scrollIntoView).not.toHaveBeenCalled();
-    modal.remove();
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      modal.remove();
+    }
   });
 
   it("does not center-scroll the module modal fields", () => {

@@ -49,12 +49,18 @@ describe("admin client card helpers", () => {
   it("opens a support-style message modal from the client card", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const apiSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
     expect(source).toContain("admin-message-client-button");
     expect(source).toContain("admin-client-message-modal");
     expect(source).toContain("Paperclip");
+    expect(source).toContain("admin-client-file-button");
     expect(source).toContain("createAdminClientSupportTicket");
     expect(apiSource).toContain("/support/admin/users/${telegramId}/tickets");
+    expect(styles).toContain("body.club-keyboard-open .admin-client-message-layer");
+    expect(styles).toContain("body.club-keyboard-open .admin-client-message-modal");
+    expect(styles).toContain("body.club-keyboard-open .admin-client-message-row textarea");
+    expect(styles).toContain("body.club-keyboard-open .admin-client-file-button");
   });
 
   it("shows clear labels for manual access changes", () => {

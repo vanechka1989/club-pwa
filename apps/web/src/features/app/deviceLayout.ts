@@ -111,6 +111,38 @@ export function getViewportSizeClasses({ width, height }: ViewportSizeInput) {
   ].filter((className): className is string => Boolean(className));
 }
 
+export function getMeasuredVisibleViewportHeight({
+  telegramHeight,
+  visualHeight,
+  browserHeight
+}: {
+  telegramHeight?: number | null;
+  visualHeight?: number | null;
+  browserHeight?: number | null;
+}) {
+  const candidates = [telegramHeight, visualHeight, browserHeight].filter(
+    (height): height is number => Number.isFinite(height) && Number(height) > 0
+  );
+
+  return candidates.length ? Math.min(...candidates) : 0;
+}
+
+export function getMeasuredKeyboardBottomGap({
+  viewportBaseHeight,
+  visibleHeight,
+  visibleOffsetTop = 0
+}: {
+  viewportBaseHeight: number;
+  visibleHeight: number;
+  visibleOffsetTop?: number;
+}) {
+  if (!viewportBaseHeight || !visibleHeight) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round(viewportBaseHeight - visibleHeight - visibleOffsetTop));
+}
+
 export function syncLayoutClasses(targets: Array<HTMLElement | null | undefined>, classes: string[]) {
   for (const target of targets) {
     if (!target) {

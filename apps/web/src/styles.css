@@ -601,6 +601,7 @@ body.club-android-compact-top.club-telegram-webview:not(.club-telegram-fullscree
 
 body.club-keyboard-open .community-chat-open .app-shell {
   height: var(--club-visible-viewport-height, var(--app-viewport-height));
+  padding-bottom: 0;
 }
 
 .club-telegram-fullscreen .community-active:not(.community-chat-open) .app-shell {
@@ -1618,13 +1619,13 @@ body.club-screen-tall:not(.community-chat-open) {
 }
 
 body.club-keyboard-open .support-modal-backdrop {
-  --support-modal-top-clearance: max(0.6rem, var(--club-safe-top));
+  --support-modal-top-clearance: 0px;
   --support-modal-bottom-clearance: 0.6rem;
   --support-modal-height-limit: calc(
-    var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) -
-      var(--support-modal-top-clearance) -
-      var(--support-modal-bottom-clearance)
+    var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) - 0.75rem
   );
+  align-items: flex-start;
+  padding: 0 0.55rem var(--support-modal-bottom-clearance);
 }
 
 .support-ticket-modal {
@@ -1650,6 +1651,15 @@ body.club-keyboard-open .support-ticket-modal:not(.support-ticket-modal-compact)
 
 .support-ticket-modal-compact {
   max-height: min(78dvh, var(--support-modal-height-limit));
+}
+
+body.club-keyboard-open .support-ticket-modal {
+  align-self: flex-start;
+  border-radius: 0 0 18px 18px;
+}
+
+body.club-keyboard-open .support-ticket-modal-compact {
+  max-height: var(--support-modal-height-limit);
 }
 
 .support-modal-head {
@@ -3897,6 +3907,36 @@ body.club-keyboard-open .lesson-preview-modal {
 
 .admin-client-file-button {
   align-self: stretch;
+  min-height: 2.52rem;
+}
+
+body.club-keyboard-open .admin-client-message-layer {
+  align-items: start;
+  padding: 0 0.75rem 0.75rem;
+  overflow: hidden;
+}
+
+body.club-keyboard-open .admin-client-message-modal {
+  width: min(100%, 32rem);
+  max-height: calc(var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) - 0.75rem);
+  overflow: hidden;
+  border-radius: 0 0 18px 18px;
+}
+
+body.club-keyboard-open .admin-client-message-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+body.club-keyboard-open .admin-client-message-row textarea {
+  min-height: 2.8rem;
+  max-height: 4rem;
+  resize: none;
+}
+
+body.club-keyboard-open .admin-client-file-button {
+  align-self: start;
+  height: 2.52rem;
 }
 
 .admin-client-file-list {

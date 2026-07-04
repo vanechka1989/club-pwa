@@ -123,6 +123,8 @@ describe("support section", () => {
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
     expect(styles).toContain("var(--club-visible-viewport-height");
     expect(styles).toContain("body.club-keyboard-open .support-ticket-modal:not(.support-ticket-modal-compact)");
+    expect(styles).toMatch(/body\.club-keyboard-open \.support-modal-backdrop\s*\{[^}]*align-items:\s*flex-start;/s);
+    expect(styles).toMatch(/body\.club-keyboard-open \.support-ticket-modal\s*\{[^}]*border-radius:\s*0 0 18px 18px;/s);
     expect(styles).toContain("--support-modal-bottom-clearance: 0.6rem");
     expect(styles).toContain("-webkit-text-fill-color: var(--text)");
     expect(styles).toContain("caret-color: var(--accent)");

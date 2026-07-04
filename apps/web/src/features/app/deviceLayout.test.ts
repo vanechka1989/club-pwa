@@ -3,6 +3,8 @@ import {
   calculateLayoutCalibration,
   collectDeviceDiagnostics,
   getDeviceLayoutClasses,
+  getMeasuredKeyboardBottomGap,
+  getMeasuredVisibleViewportHeight,
   getViewportSizeClasses
 } from "./deviceLayout";
 
@@ -99,6 +101,22 @@ describe("device layout detection", () => {
       "club-screen-short"
     ]);
     expect(getViewportSizeClasses({ width: 430, height: 940 })).toEqual(["club-screen-tall"]);
+  });
+
+  it("uses the smallest live viewport height when Android Telegram keeps visualViewport stale", () => {
+    const visibleHeight = getMeasuredVisibleViewportHeight({
+      telegramHeight: 820,
+      visualHeight: 796,
+      browserHeight: 455
+    });
+    const keyboardBottomGap = getMeasuredKeyboardBottomGap({
+      viewportBaseHeight: 820,
+      visibleHeight,
+      visibleOffsetTop: 0
+    });
+
+    expect(visibleHeight).toBe(455);
+    expect(keyboardBottomGap).toBe(365);
   });
 
   it("collects copyable diagnostics from the current device", () => {

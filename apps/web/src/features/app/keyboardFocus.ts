@@ -29,6 +29,7 @@ export function ensureFocusedTextFieldVisible(
           ".chat-compose",
           ".support-ticket-modal",
           ".admin-client-modal",
+          ".admin-client-message-modal",
           ".module-name-modal",
           ".lesson-preview-modal",
           ".notification-center-panel"
