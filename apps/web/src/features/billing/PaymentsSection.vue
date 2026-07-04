@@ -19,12 +19,14 @@ import { openPaymentCheckoutUrl } from "@/features/billing/paymentRedirect";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
+import { useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
+const { currentLocale, t } = useI18n();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -443,11 +445,13 @@ async function handleRestoreSubscription(subscription: UserRecurrentSubscription
 }
 
 function formatMoney(amountRub: number) {
-  return `${amountRub.toLocaleString("ru-RU")} ₽`;
+  return `${amountRub.toLocaleString(currentLocale.value === "en" ? "en-US" : "ru-RU")} ₽`;
 }
 
 function productPeriod(product: PaymentProduct) {
-  return product.kind === "recurrent" ? `Автосписание каждые ${product.accessDays} дн.` : `Доступ на ${product.accessDays} дн.`;
+  return product.kind === "recurrent"
+    ? `${t("paymentsRecurringPeriod")} ${product.accessDays} ${t("paymentsDaysShort")}`
+    : `${t("paymentsOneTimePeriod")} ${product.accessDays} ${t("paymentsDaysShort")}`;
 }
 
 onMounted(async () => {
@@ -477,8 +481,8 @@ watch(showProductModal, async (isOpen) => {
   <section class="space-y-5">
     <div class="section-head">
       <div>
-        <h2 class="section-title">Оплата</h2>
-        <p class="section-subtitle">Тарифы, подписки и платежные системы.</p>
+        <h2 class="section-title">{{ t("paymentsTitle") }}</h2>
+        <p class="section-subtitle">{{ t("paymentsSubtitle") }}</p>
       </div>
       <button v-if="isOwner" class="icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
         <Plus :size="20" />
@@ -491,13 +495,13 @@ watch(showProductModal, async (isOpen) => {
     <div v-if="isAdmin" class="surface-card space-y-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="font-semibold text-[var(--text)]">Платежная система</p>
+          <p class="font-semibold text-[var(--text)]">{{ t("paymentsProvider") }}</p>
           <div class="payment-provider-status" :class="provider?.isEnabled ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled'">
-            {{ provider?.isEnabled ? "Prodamus подключен" : "Prodamus не подключен" }}
+            {{ provider?.isEnabled ? t("paymentsProviderEnabled") : t("paymentsProviderDisabled") }}
           </div>
         </div>
         <button v-if="isOwner" class="secondary-button w-auto px-4" type="button" @click="openProviderForm">
-          {{ provider ? "Настроить" : "Подключить" }}
+          {{ provider ? t("paymentsSetup") : t("paymentsConnect") }}
         </button>
       </div>
     </div>
@@ -505,8 +509,8 @@ watch(showProductModal, async (isOpen) => {
     <div class="surface-card">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p class="font-semibold text-[var(--text)]">Тарифы</p>
-          <p class="mt-1 text-sm text-[var(--muted)]">Обычные платежи и рекуррентные подписки.</p>
+          <p class="font-semibold text-[var(--text)]">{{ t("paymentsPlans") }}</p>
+          <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsPlansText") }}</p>
         </div>
         <button v-if="isOwner" class="icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
           <Plus :size="20" />
@@ -515,20 +519,20 @@ watch(showProductModal, async (isOpen) => {
 
       <div v-if="activeRecurrentSubscription && !isOwner" class="rounded-[18px] bg-[var(--field)] p-4">
         <p class="font-semibold text-[var(--text)]">{{ activeRecurrentSubscription.title }}</p>
-        <p class="mt-1 text-sm text-[var(--muted)]">Автоподписка активна. Новые оплаты доступны после отмены подписки.</p>
+        <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsRecurringActive") }}</p>
         <button
           class="secondary-button mt-3"
           type="button"
           :disabled="saving"
           @click="handleCancelSubscription(activeRecurrentSubscription)"
         >
-          Отменить подписку
+          {{ t("paymentsCancelSubscription") }}
         </button>
       </div>
       <div v-else-if="restorableRecurrentSubscription && !isOwner" class="rounded-[18px] bg-[var(--field)] p-4">
         <p class="font-semibold text-[var(--text)]">{{ restorableRecurrentSubscription.title }}</p>
         <p class="mt-1 text-sm text-[var(--muted)]">
-          Автоподписка отменена, но доступ ещё действует. Можно восстановить подписку без новой оплаты.
+          {{ t("paymentsRecurringCancelledHint") }}
         </p>
         <button
           class="secondary-button mt-3"
@@ -536,12 +540,12 @@ watch(showProductModal, async (isOpen) => {
           :disabled="saving"
           @click="handleRestoreSubscription(restorableRecurrentSubscription)"
         >
-          Восстановить подписку
+          {{ t("paymentsRestoreSubscription") }}
         </button>
       </div>
-      <p v-else-if="loading" class="text-sm text-[var(--muted)]">Загрузка оплаты...</p>
+      <p v-else-if="loading" class="text-sm text-[var(--muted)]">{{ t("paymentsLoading") }}</p>
       <p v-else-if="!activeProducts.length" class="rounded-[18px] bg-[var(--field)] p-4 text-sm text-[var(--muted)]">
-        Тарифы появятся после добавления админом.
+        {{ t("paymentsEmpty") }}
       </p>
 
       <div v-else class="space-y-3">
@@ -560,7 +564,7 @@ watch(showProductModal, async (isOpen) => {
               :aria-busy="checkoutProductId === product.id"
               @click="handleCheckout(product)"
             >
-              <span>{{ checkoutProductId === product.id ? "Открываю..." : product.kind === "recurrent" ? "Оформить подписку" : "Оплатить" }}</span>
+              <span>{{ checkoutProductId === product.id ? t("paymentsOpening") : product.kind === "recurrent" ? t("paymentsSubscribe") : t("paymentsPay") }}</span>
             </button>
             <div v-if="isOwner" class="payment-product-admin-actions">
               <button class="icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">
@@ -579,12 +583,12 @@ watch(showProductModal, async (isOpen) => {
     </div>
 
     <div v-if="activeRecurrentSubscription && isOwner" class="surface-card space-y-3">
-      <p class="font-semibold text-[var(--text)]">Активная автоподписка</p>
+      <p class="font-semibold text-[var(--text)]">{{ t("profileRecurrentPayment") }}</p>
       <article class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="font-semibold text-[var(--text)]">{{ activeRecurrentSubscription.title }}</p>
-            <p class="mt-1 text-sm text-[var(--muted)]">Новые оплаты заблокированы до отмены.</p>
+            <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsRecurringActive") }}</p>
           </div>
           <button
             class="secondary-button w-auto px-4"
@@ -592,19 +596,19 @@ watch(showProductModal, async (isOpen) => {
             :disabled="saving"
             @click="handleCancelSubscription(activeRecurrentSubscription)"
           >
-            Отменить
+            {{ t("supportCancel") }}
           </button>
         </div>
       </article>
     </div>
 
     <div v-if="restorableRecurrentSubscription && isOwner" class="surface-card space-y-3">
-      <p class="font-semibold text-[var(--text)]">Отмененная автоподписка</p>
+      <p class="font-semibold text-[var(--text)]">{{ t("profileRecurrentCancelled") }}</p>
       <article class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="font-semibold text-[var(--text)]">{{ restorableRecurrentSubscription.title }}</p>
-            <p class="mt-1 text-sm text-[var(--muted)]">Можно восстановить, пока доступ ещё активен.</p>
+            <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsRecurringCancelledHint") }}</p>
           </div>
           <button
             class="secondary-button w-auto px-4"
@@ -612,20 +616,20 @@ watch(showProductModal, async (isOpen) => {
             :disabled="saving"
             @click="handleRestoreSubscription(restorableRecurrentSubscription)"
           >
-            Восстановить
+            {{ t("paymentsRestoreSubscription") }}
           </button>
         </div>
       </article>
     </div>
 
     <div v-if="recurrentSubscriptionHistory.length" class="surface-card space-y-3">
-      <p class="font-semibold text-[var(--text)]">Ваши подписки</p>
+      <p class="font-semibold text-[var(--text)]">{{ t("paymentsSubscriptions") }}</p>
       <article v-for="subscription in recurrentSubscriptionHistory" :key="subscription.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <p class="font-semibold text-[var(--text)]">{{ subscription.title }}</p>
             <p class="mt-1 text-sm text-[var(--muted)]">
-              {{ subscription.status === "active" ? "Активна" : "Отменена" }}
+              {{ subscription.status === "active" ? t("paymentsActive") : t("paymentsCancelled") }}
             </p>
           </div>
           <button
@@ -635,14 +639,14 @@ watch(showProductModal, async (isOpen) => {
             :disabled="saving"
             @click="handleCancelSubscription(subscription)"
           >
-            Отменить
+            {{ t("supportCancel") }}
           </button>
         </div>
       </article>
     </div>
 
     <div v-if="isOwner && hiddenProducts.length" class="surface-card space-y-3">
-      <p class="font-semibold text-[var(--text)]">Скрытые тарифы</p>
+      <p class="font-semibold text-[var(--text)]">{{ t("paymentsHiddenPlans") }}</p>
       <article v-for="product in hiddenProducts" :key="product.id" class="flex items-center justify-between gap-3 rounded-[18px] bg-[var(--field)] p-4">
         <div>
           <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
@@ -660,7 +664,7 @@ watch(showProductModal, async (isOpen) => {
     </div>
 
     <div v-if="isOwner && archivedProducts.length" class="surface-card space-y-3 opacity-75">
-      <p class="font-semibold text-[var(--text)]">Удаленные тарифы</p>
+      <p class="font-semibold text-[var(--text)]">{{ t("paymentsArchivedPlans") }}</p>
       <article v-for="product in archivedProducts" :key="product.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
         <p class="text-sm text-[var(--muted)]">{{ formatArchiveDeletionLabel(product.archivedUntil) }}</p>

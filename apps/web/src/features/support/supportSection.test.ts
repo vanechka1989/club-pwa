@@ -10,16 +10,16 @@ describe("support section", () => {
   it("has separate customer and admin support experiences", () => {
     expect(source).toContain("support-customer-form");
     expect(source).toContain("support-admin-board");
-    expect(source).toContain("Обратиться в поддержку");
+    expect(source).toContain('t("supportCreateTicket")');
     expect(source).toContain("support-topic-options");
-    expect(source).toContain("Обучение");
-    expect(source).toContain("Другая причина");
+    expect(source).toContain("supportMediaTopic");
+    expect(source).toContain("supportOtherTopic");
     expect(source).not.toContain("<select v-model=\"topic\">");
-    expect(source).toContain("Отправить ответ");
-    expect(source).toContain("Отправить сообщение");
+    expect(source).toContain("supportSendReply");
+    expect(source).toContain("supportFollowupPlaceholder");
     expect(source).not.toContain("Дополнить обращение");
-    expect(source).toContain("Закрыть обращение");
-    expect(source).toContain("Время ожидания");
+    expect(source).toContain("supportCloseTicket");
+    expect(source).toContain("supportWaitingTime");
   });
 
   it("opens tickets in a modal and marks them read only when opened", () => {
@@ -61,7 +61,7 @@ describe("support section", () => {
 
   it("shows average support response time in admin support stats", () => {
     expect(source).toContain("averageResponseTimeLabel");
-    expect(source).toContain("Среднее время ответа");
+    expect(source).toContain("supportStatsAverage");
     expect(source).toContain("calculateAverageResponseMinutes");
   });
 
@@ -76,7 +76,7 @@ describe("support section", () => {
     expect(source).toContain("support-attachment-viewer-close");
     expect(source).toContain("<video");
     expect(source).toContain("openedAttachment.kind === 'photo'");
-    expect(source).toContain("Открыть вложение");
+    expect(source).toContain("supportOpenAttachment");
     expect(styles).toContain(".support-attachment-open");
     expect(styles).not.toContain(".support-attachment-preview img");
     expect(styles).toContain(".support-attachment-viewer-fullscreen");
@@ -93,7 +93,7 @@ describe("support section", () => {
 
   it("uses a compact clickable customer row in admin ticket modal", () => {
     expect(source).toContain("support-customer-strip");
-    expect(source).toContain('title="Открыть карточку клиента"');
+    expect(source).toContain("supportOpenClientCard");
     expect(source).not.toContain("support-client-open");
     expect(styles).toContain(".support-customer-strip");
   });
@@ -122,9 +122,20 @@ describe("support section", () => {
     expect(styles).toContain("calc(var(--club-safe-top) + 2.5rem)");
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
     expect(styles).toContain("var(--club-visible-viewport-height");
-    expect(styles).toContain("height: min(88dvh, var(--support-modal-height-limit))");
+    expect(styles).toContain("body.club-keyboard-open .support-ticket-modal:not(.support-ticket-modal-compact)");
+    expect(styles).toContain("--support-modal-bottom-clearance: 0.6rem");
     expect(styles).toContain("-webkit-text-fill-color: var(--text)");
     expect(styles).toContain("caret-color: var(--accent)");
+  });
+
+  it("localizes support labels instead of hardcoding only Russian UI", () => {
+    expect(source).toContain("useI18n");
+    expect(source).toContain("ticketTopicTitle");
+    expect(source).toContain("ticketStatusLabel");
+    expect(source).toContain("currentLocale.value === \"en\" ? \"en-US\" : \"ru-RU\"");
+    expect(source).toContain('t("support")');
+    expect(source).toContain('t("supportSectionSubtitleAdmin")');
+    expect(source).not.toContain("<h2 class=\"section-title\">Поддержка</h2>");
   });
 
   it("keeps a single support message compact inside ticket modals", () => {

@@ -11,6 +11,7 @@ import {
   markSupportTicketRead,
   replyAdminSupportTicket
 } from "@/api/client";
+import { useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
@@ -27,6 +28,7 @@ const props = defineProps<{
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
+const { currentLocale, t } = useI18n();
 const loading = ref(true);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
@@ -55,19 +57,18 @@ const refreshingSupport = ref(false);
 const supportRefreshIntervalMs = 10_000;
 let supportRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
-const defaultTopics = [
-  { id: "payment", title: "Оплата", description: "Платежи и подписки." },
-  { id: "access", title: "Доступ", description: "Проблемы с доступом." },
-  { id: "media", title: "Обучение", description: "Уроки, модули и воспроизведение." },
-  { id: "other", title: "Другая причина", description: "Если подходящей причины нет." }
-];
-
 function isSupportAdminRole(role: string | null | undefined) {
   return role === "admin" || role === "owner";
 }
 
 const isAdmin = computed(() => isSupportAdminRole(session.user?.role));
-const visibleTopics = computed(() => (topics.value.length ? topics.value : defaultTopics));
+const defaultTopics = computed(() => [
+  { id: "payment", title: t("supportPaymentTopic"), description: t("supportPaymentTopicDescription") },
+  { id: "access", title: t("supportAccessTopic"), description: t("supportAccessTopicDescription") },
+  { id: "media", title: t("supportMediaTopic"), description: t("supportMediaTopicDescription") },
+  { id: "other", title: t("supportOtherTopic"), description: t("supportOtherTopicDescription") }
+]);
+const visibleTopics = computed(() => (topics.value.length ? topics.value : defaultTopics.value).map(localizeTopic));
 const selectedTicket = computed(() => tickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? null);
 const openTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "open"));
 const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "answered"));
@@ -77,7 +78,7 @@ const supportBusy = computed(() => sendingTicket.value || sendingReply.value || 
 const isVideoAttachment = computed(() => openedAttachment.value?.kind === "video");
 const averageResponseTimeLabel = computed(() => {
   const averageMinutes = calculateAverageResponseMinutes(tickets.value);
-  return averageMinutes === null ? "Нет ответов" : formatDurationMinutes(averageMinutes);
+  return averageMinutes === null ? t("supportNoAnswers") : formatDurationMinutes(averageMinutes);
 });
 const supportOperation = computed(() => {
   if (sendingTicket.value) {
@@ -114,7 +115,7 @@ const supportOperation = computed(() => {
 useOperationIndicator(supportOperation);
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(currentLocale.value === "en" ? "en-US" : "ru-RU", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
@@ -124,7 +125,7 @@ function formatDate(value: string) {
 
 function waitingTime(value: string | null) {
   if (!value) {
-    return "Ответ отправлен";
+    return t("supportAnswerSent");
   }
 
   const minutes = Math.max(1, Math.floor((Date.now() - Date.parse(value)) / 60000));
@@ -133,10 +134,10 @@ function waitingTime(value: string | null) {
 
 function formatDurationMinutes(minutes: number) {
   if (minutes < 60) {
-    return `${minutes} мин.`;
+    return `${minutes} ${t("supportMinutesShort")}`;
   }
 
-  return `${Math.floor(minutes / 60)} ч. ${minutes % 60} мин.`;
+  return `${Math.floor(minutes / 60)} ${t("supportHoursShort")} ${minutes % 60} ${t("supportMinutesShort")}`;
 }
 
 function calculateAverageResponseMinutes(items: SupportTicket[]) {
@@ -183,6 +184,47 @@ function statusTone(ticket: SupportTicket) {
     return "support-status-answered";
   }
   return "support-status-open";
+}
+
+function localizeTopic(item: { id: string; title: string; description: string }) {
+  if (item.id === "payment") {
+    return { ...item, title: t("supportPaymentTopic"), description: t("supportPaymentTopicDescription") };
+  }
+  if (item.id === "access") {
+    return { ...item, title: t("supportAccessTopic"), description: t("supportAccessTopicDescription") };
+  }
+  if (item.id === "media") {
+    return { ...item, title: t("supportMediaTopic"), description: t("supportMediaTopicDescription") };
+  }
+  if (item.id === "other") {
+    return { ...item, title: t("supportOtherTopic"), description: t("supportOtherTopicDescription") };
+  }
+
+  return item;
+}
+
+function ticketTopicTitle(ticket: SupportTicket) {
+  if (ticket.topic === "other" && ticket.customTopic) {
+    return ticket.customTopic;
+  }
+
+  return localizeTopic({ id: ticket.topic, title: ticket.topicTitle, description: "" }).title;
+}
+
+function ticketStatusLabel(ticket: SupportTicket) {
+  if (ticket.unread) {
+    return isAdmin.value ? t("supportUnreadAdmin") : t("supportNewAnswer");
+  }
+
+  if (ticket.status === "closed") {
+    return t("supportStatusClosed");
+  }
+
+  if (ticket.status === "answered") {
+    return t("supportStatusAnswered");
+  }
+
+  return t("supportStatusOpen");
 }
 
 function updateFiles(event: Event, target: "ticket" | "reply" | "followUp") {
@@ -550,9 +592,9 @@ watch(
   <section class="support-section space-y-4">
     <div class="section-head">
       <div>
-        <h2 class="section-title">Поддержка</h2>
+        <h2 class="section-title">{{ t("support") }}</h2>
         <p class="section-subtitle">
-          {{ isAdmin ? "Обращения клиентов и ответы поддержки." : "Опишите проблему, и мы ответим в приложении." }}
+          {{ isAdmin ? t("supportSectionSubtitleAdmin") : t("supportSectionSubtitleUser") }}
         </p>
       </div>
     </div>
@@ -560,29 +602,29 @@ watch(
     <p v-if="error" class="support-alert support-alert-error">{{ error }}</p>
     <p v-if="success" class="support-alert support-alert-success">{{ success }}</p>
 
-    <div v-if="loading" class="surface-card text-sm text-[var(--muted)]">Загрузка поддержки...</div>
+    <div v-if="loading" class="surface-card text-sm text-[var(--muted)]">{{ t("supportLoading") }}</div>
 
     <template v-else-if="!isAdmin">
       <div class="surface-card support-create-entry">
         <div>
-          <h3>Нужна помощь?</h3>
-          <p class="support-muted">Создайте обращение, и ответ появится здесь же.</p>
+          <h3>{{ t("supportNeedHelpTitle") }}</h3>
+          <p class="support-muted">{{ t("supportNeedHelpText") }}</p>
         </div>
         <button class="support-compact-button support-primary-button" type="button" @click="openCreateTicket">
-          Обратиться в поддержку
+          {{ t("supportCreateTicket") }}
         </button>
       </div>
 
       <div class="support-list surface-card">
-        <h3>Мои обращения</h3>
-        <p v-if="!tickets.length" class="support-muted">Обращений пока нет.</p>
+        <h3>{{ t("supportMyTickets") }}</h3>
+        <p v-if="!tickets.length" class="support-muted">{{ t("supportNoTickets") }}</p>
         <button v-for="ticket in tickets" :key="ticket.id" class="support-ticket-card" type="button" @click="openTicket(ticket.id)">
           <div>
-            <p class="support-ticket-title">{{ ticket.topicTitle }}</p>
-            <p class="support-muted">{{ formatDate(ticket.createdAt) }} · {{ ticket.messages.length }} сообщ.</p>
+            <p class="support-ticket-title">{{ ticketTopicTitle(ticket) }}</p>
+            <p class="support-muted">{{ formatDate(ticket.createdAt) }} · {{ ticket.messages.length }} {{ t("supportMessagesShort") }}</p>
           </div>
           <span class="support-status" :class="statusTone(ticket)">
-            {{ ticket.unread ? "Новый ответ" : ticket.statusLabel }}
+            {{ ticketStatusLabel(ticket) }}
           </span>
         </button>
       </div>
@@ -592,36 +634,36 @@ watch(
       <div class="support-admin-board">
         <div class="support-admin-stats">
           <article class="surface-card">
-            <span>Новые</span>
+            <span>{{ t("supportStatsNew") }}</span>
             <strong>{{ adminUnreadTickets.length }}</strong>
           </article>
           <article class="surface-card">
-            <span>Открытые</span>
+            <span>{{ t("supportStatsOpen") }}</span>
             <strong>{{ openTickets.length }}</strong>
           </article>
           <article class="surface-card">
-            <span>Закрытые</span>
+            <span>{{ t("supportStatsClosed") }}</span>
             <strong>{{ closedTickets.length }}</strong>
           </article>
           <article class="surface-card">
-            <span>Среднее время ответа</span>
+            <span>{{ t("supportStatsAverage") }}</span>
             <strong>{{ averageResponseTimeLabel }}</strong>
           </article>
         </div>
 
         <div class="surface-card support-ticket-list">
-          <h3>Запросы клиентов</h3>
+          <h3>{{ t("supportRequests") }}</h3>
           <button v-for="ticket in tickets" :key="ticket.id" class="support-admin-ticket" type="button" @click="openTicket(ticket.id)">
             <div class="support-admin-ticket-main">
               <span>{{ userName(ticket.customer) }}</span>
-              <small>ID {{ ticket.customer.telegramId }} · {{ ticket.topicTitle }}</small>
-              <em>Время ожидания: {{ waitingTime(ticket.waitingSince) }}</em>
+              <small>ID {{ ticket.customer.telegramId }} · {{ ticketTopicTitle(ticket) }}</small>
+              <em>{{ t("supportWaitingTime") }}: {{ waitingTime(ticket.waitingSince) }}</em>
             </div>
             <span class="support-status" :class="statusTone(ticket)">
-              {{ ticket.unread ? "Новое" : ticket.statusLabel }}
+              {{ ticketStatusLabel(ticket) }}
             </span>
           </button>
-          <p v-if="!tickets.length" class="support-muted">Новых обращений пока нет.</p>
+          <p v-if="!tickets.length" class="support-muted">{{ t("supportNoNewTickets") }}</p>
         </div>
       </div>
     </template>
@@ -631,11 +673,11 @@ watch(
         <article class="support-ticket-modal support-ticket-modal-compact">
           <header class="support-modal-head">
             <div>
-              <p class="support-kicker">Новое обращение</p>
-              <h3>Обратиться в поддержку</h3>
-              <p class="support-muted">Опишите проблему и приложите фото или видео, если нужно.</p>
+              <p class="support-kicker">{{ t("supportNewTicket") }}</p>
+              <h3>{{ t("supportCreateTicket") }}</h3>
+              <p class="support-muted">{{ t("supportCreateHint") }}</p>
             </div>
-            <button class="support-modal-close" type="button" aria-label="Закрыть" @click="closeCreateTicket">
+            <button class="support-modal-close" type="button" :aria-label="t('supportClose')" @click="closeCreateTicket">
               <X class="h-5 w-5" aria-hidden="true" />
             </button>
           </header>
@@ -643,8 +685,8 @@ watch(
           <form class="support-modal-body support-customer-form" @submit.prevent="submitTicket">
             <div class="support-form-grid">
               <div class="support-field support-field-wide">
-                <span>Причина обращения</span>
-                <div class="support-topic-options" role="radiogroup" aria-label="Причина обращения">
+                <span>{{ t("supportReason") }}</span>
+                <div class="support-topic-options" role="radiogroup" :aria-label="t('supportReason')">
                   <button
                     v-for="item in visibleTopics"
                     :key="item.id"
@@ -666,18 +708,18 @@ watch(
               </div>
 
               <label v-if="topic === 'other'" class="support-field">
-                <span>Своя причина</span>
-                <input v-model="customTopic" type="text" placeholder="Например: вопрос по уроку" />
+                <span>{{ t("supportOwnReason") }}</span>
+                <input v-model="customTopic" type="text" :placeholder="t('supportOwnReasonPlaceholder')" />
               </label>
 
               <label class="support-field support-field-wide">
-                <span>Сообщение</span>
-                <textarea v-model="message" rows="4" placeholder="Напишите, что случилось и где именно." />
+                <span>{{ t("supportMessage") }}</span>
+                <textarea v-model="message" rows="4" :placeholder="t('supportMessagePlaceholder')" />
               </label>
 
               <label class="support-upload support-field-wide">
                 <Paperclip class="h-5 w-5" aria-hidden="true" />
-                <span>{{ attachments.length ? `${attachments.length} файл(а)` : "Добавить фото или видео" }}</span>
+                <span>{{ attachments.length ? `${attachments.length} ${t("supportFileCount")}` : t("supportAddPhotoVideo") }}</span>
                 <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'ticket')" />
               </label>
             </div>
@@ -688,7 +730,7 @@ watch(
 
             <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingTicket">
               <Send class="h-4 w-4" aria-hidden="true" />
-              {{ sendingTicket ? "Отправляем..." : "Отправить обращение" }}
+              {{ sendingTicket ? t("supportSending") : t("supportSendTicket") }}
             </button>
           </form>
         </article>
@@ -698,14 +740,14 @@ watch(
         <article class="support-ticket-modal">
           <header class="support-modal-head">
             <div>
-              <p class="support-kicker">{{ isAdmin ? "Карточка обращения" : "Ваше обращение" }}</p>
-              <h3>{{ selectedTicket.topicTitle }}</h3>
-              <p class="support-muted">{{ formatDate(selectedTicket.createdAt) }} · {{ selectedTicket.statusLabel }}</p>
+              <p class="support-kicker">{{ isAdmin ? t("supportTicketCardAdmin") : t("supportTicketCardUser") }}</p>
+              <h3>{{ ticketTopicTitle(selectedTicket) }}</h3>
+              <p class="support-muted">{{ formatDate(selectedTicket.createdAt) }} · {{ ticketStatusLabel(selectedTicket) }}</p>
               <button
                 v-if="isAdmin"
                 class="support-ticket-summary"
                 type="button"
-                title="Открыть карточку клиента"
+                :title="t('supportOpenClientCard')"
                 @click="openClientCard"
               >
                 <img
@@ -722,10 +764,10 @@ watch(
                     {{ selectedTicket.customer.username ? `@${selectedTicket.customer.username}` : `ID ${selectedTicket.customer.telegramId}` }}
                   </small>
                 </span>
-                <span class="support-status" :class="statusTone(selectedTicket)">{{ selectedTicket.statusLabel }}</span>
+                <span class="support-status" :class="statusTone(selectedTicket)">{{ ticketStatusLabel(selectedTicket) }}</span>
               </button>
             </div>
-            <button class="support-modal-close" type="button" aria-label="Закрыть" @click="closeModal">
+            <button class="support-modal-close" type="button" :aria-label="t('supportClose')" @click="closeModal">
               <X class="h-5 w-5" aria-hidden="true" />
             </button>
           </header>
@@ -741,14 +783,14 @@ watch(
                 <div class="support-message-head">
                   <img v-if="item.author.photoUrl" :src="item.author.photoUrl" :alt="userName(item.author)" />
                   <span v-else class="support-message-avatar">{{ userName(item.author).slice(0, 1) }}</span>
-                  <strong>{{ item.authorRole === "admin" ? "Поддержка" : userName(item.author) }}</strong>
+                  <strong>{{ item.authorRole === "admin" ? t("supportAdminAuthor") : userName(item.author) }}</strong>
                 </div>
                 <p>{{ item.body }}</p>
                 <div v-if="item.attachments.length" class="support-attachments">
                   <div v-for="attachment in item.attachments" :key="attachment.id" class="support-attachment-preview">
                     <button class="support-attachment-open" type="button" @click="openAttachment(attachment)">
                       <component :is="attachmentIcon(attachment.kind)" class="h-4 w-4" aria-hidden="true" />
-                      <span>Открыть вложение</span>
+                      <span>{{ t("supportOpenAttachment") }}</span>
                       <small>{{ attachment.fileName }}</small>
                     </button>
                   </div>
@@ -759,12 +801,12 @@ watch(
 
             <form v-if="isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitReply">
               <div class="support-reply-input-row">
-                <label class="support-file-icon-button" title="Добавить файл" aria-label="Добавить файл">
+                <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
                   <Paperclip class="h-4 w-4" aria-hidden="true" />
                   <span v-if="replyAttachments.length" class="support-file-count">{{ replyAttachments.length }}</span>
                   <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'reply')" />
                 </label>
-                <textarea v-model="replyMessage" rows="2" placeholder="Ответ клиенту" />
+                <textarea v-model="replyMessage" rows="2" :placeholder="t('supportReplyPlaceholder')" />
               </div>
               <div class="support-reply-actions">
                 <button
@@ -774,22 +816,22 @@ watch(
                   @click="closeTicket"
                 >
                   <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
-                  {{ closingTicket ? "Закрываем..." : "Закрыть обращение" }}
+                  {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
                 </button>
                 <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingReply">
-                  {{ sendingReply ? "Отправляем..." : "Отправить ответ" }}
+                  {{ sendingReply ? t("supportSending") : t("supportSendReply") }}
                 </button>
               </div>
             </form>
 
             <form v-else-if="!isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitFollowUp">
               <div class="support-reply-input-row">
-                <label class="support-file-icon-button" title="Добавить файл" aria-label="Добавить файл">
+                <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
                   <Paperclip class="h-4 w-4" aria-hidden="true" />
                   <span v-if="followUpAttachments.length" class="support-file-count">{{ followUpAttachments.length }}</span>
                   <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'followUp')" />
                 </label>
-                <textarea v-model="followUpMessage" rows="2" placeholder="Отправить сообщение" />
+                <textarea v-model="followUpMessage" rows="2" :placeholder="t('supportFollowupPlaceholder')" />
               </div>
               <div class="support-reply-actions">
                 <button
@@ -799,10 +841,10 @@ watch(
                   @click="closeTicket"
                 >
                   <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
-                  {{ closingTicket ? "Закрываем..." : "Закрыть обращение" }}
+                  {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
                 </button>
                 <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingFollowUp">
-                  {{ sendingFollowUp ? "Отправляем..." : "Отправить" }}
+                  {{ sendingFollowUp ? t("supportSending") : t("supportSend") }}
                 </button>
               </div>
             </form>
@@ -810,7 +852,7 @@ watch(
             <div v-else class="support-modal-actions">
               <span class="support-closed-note">
                 <CircleDot class="h-4 w-4" aria-hidden="true" />
-                Обращение закрыто
+                {{ t("supportClosedNote") }}
               </span>
             </div>
           </div>
@@ -819,12 +861,12 @@ watch(
 
       <div v-if="closeConfirmOpen && selectedTicket" class="support-confirm-backdrop" @click.self="cancelCloseTicket">
         <article class="support-confirm-card">
-          <h3>Закрыть обращение?</h3>
-          <p>Если вопрос снова появится, можно открыть новое обращение.</p>
+          <h3>{{ t("supportCloseConfirmTitle") }}</h3>
+          <p>{{ t("supportCloseConfirmText") }}</p>
           <div class="support-confirm-actions">
-            <button class="support-compact-button support-secondary-button" type="button" @click="cancelCloseTicket">Отмена</button>
+            <button class="support-compact-button support-secondary-button" type="button" @click="cancelCloseTicket">{{ t("supportCancel") }}</button>
             <button class="support-compact-button support-danger-button" type="button" :disabled="closingTicket" @click="confirmCloseTicket">
-              {{ closingTicket ? "Закрываем..." : "Закрыть" }}
+              {{ closingTicket ? t("supportClosing") : t("supportClose") }}
             </button>
           </div>
         </article>
@@ -851,7 +893,7 @@ watch(
                 <Minimize2 v-if="attachmentInlineFullscreen" class="h-5 w-5" aria-hidden="true" />
                 <Maximize2 v-else class="h-5 w-5" aria-hidden="true" />
               </button>
-              <button class="support-modal-close" type="button" aria-label="Закрыть вложение" @click="closeAttachment">
+              <button class="support-modal-close" type="button" :aria-label="t('supportCloseAttachment')" @click="closeAttachment">
                 <X class="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
@@ -871,7 +913,7 @@ watch(
             playsinline
           />
           <button class="support-attachment-viewer-close" type="button" @click="closeAttachment">
-            Закрыть вложение
+            {{ t("supportCloseAttachment") }}
           </button>
         </article>
       </div>

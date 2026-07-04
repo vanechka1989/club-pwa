@@ -728,8 +728,8 @@ onBeforeUnmount(() => {
     <div v-if="!selectedTopic" class="space-y-3">
       <div class="section-head">
         <div>
-          <h2 class="section-title">Общение</h2>
-          <p class="section-subtitle">Темы клуба и живые обсуждения.</p>
+          <h2 class="section-title">{{ t("communitySectionTitle") }}</h2>
+          <p class="section-subtitle">{{ t("communitySectionSubtitle") }}</p>
         </div>
         <div class="community-topline-actions">
           <button

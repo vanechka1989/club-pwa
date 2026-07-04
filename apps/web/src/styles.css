@@ -1618,11 +1618,12 @@ body.club-screen-tall:not(.community-chat-open) {
 }
 
 body.club-keyboard-open .support-modal-backdrop {
-  --support-modal-bottom-clearance: max(0.6rem, var(--club-keyboard-bottom, 0px));
+  --support-modal-top-clearance: max(0.6rem, var(--club-safe-top));
+  --support-modal-bottom-clearance: 0.6rem;
   --support-modal-height-limit: calc(
     var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) -
       var(--support-modal-top-clearance) -
-      0.6rem
+      var(--support-modal-bottom-clearance)
   );
 }
 
@@ -1640,6 +1641,11 @@ body.club-keyboard-open .support-modal-backdrop {
 
 .support-ticket-modal:not(.support-ticket-modal-compact) {
   height: min(88dvh, var(--support-modal-height-limit));
+}
+
+body.club-keyboard-open .support-ticket-modal:not(.support-ticket-modal-compact) {
+  height: min(100%, var(--support-modal-height-limit));
+  max-height: min(100%, var(--support-modal-height-limit));
 }
 
 .support-ticket-modal-compact {

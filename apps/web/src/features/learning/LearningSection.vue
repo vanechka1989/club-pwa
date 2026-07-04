@@ -58,6 +58,7 @@ import {
 } from "@/api/client";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
+import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
@@ -259,6 +260,7 @@ const session = useSessionStore();
 const ui = useUiStore();
 const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
+const { t } = useI18n();
 const modulesLoadedFromApi = ref(false);
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
@@ -338,7 +340,9 @@ const continueLessonContext = computed(() => {
 
   return lastOpenedLessonModule.value?.title ?? "";
 });
-const continueLessonButtonLabel = computed(() => (lastOpenedLesson.value ? `Продолжить урок ${lastOpenedLesson.value.title}` : "Продолжить урок"));
+const continueLessonButtonLabel = computed(() =>
+  lastOpenedLesson.value ? `${t("modulesContinueLesson")} ${lastOpenedLesson.value.title}` : t("modulesContinueLesson")
+);
 const continueLessonCardClasses = computed(() => [
   "continue-lesson-card",
   lastOpenedLesson.value?.cardLayout === "horizontal" ? "continue-lesson-card-horizontal" : "continue-lesson-card-vertical"
@@ -346,10 +350,10 @@ const continueLessonCardClasses = computed(() => [
 const continueLessonProgressLabel = computed(() => {
   const seconds = learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0;
   if (isResumableMediaKind(continueLessonKind.value) && seconds > 0) {
-    return `Продолжить с ${formatVideoTime(seconds)}`;
+    return `${t("modulesContinueFrom")} ${formatVideoTime(seconds)}`;
   }
 
-  return "Продолжить";
+  return t("modulesContinue");
 });
 const contentKindOptions: Array<{ value: ContentKind; label: string; accept: string }> = [
   { value: "text", label: "Текст", accept: "" },
@@ -505,18 +509,22 @@ function lessonCountLabel(count: number) {
   const last = count % 10;
 
   if (lastTwo >= 11 && lastTwo <= 14) {
-    return `${count} уроков`;
+    return `${count} ${t("modulesLessonMany")}`;
   }
 
   if (last === 1) {
-    return `${count} урок`;
+    return `${count} ${t("modulesLessonOne")}`;
   }
 
   if (last >= 2 && last <= 4) {
-    return `${count} урока`;
+    return `${count} ${t("modulesLessonFew")}`;
   }
 
-  return `${count} уроков`;
+  return `${count} ${t("modulesLessonMany")}`;
+}
+
+function moduleMetaLabel(meta: string) {
+  return meta === "Модуль клуба" ? t("modulesClubModule") : meta;
 }
 
 function clearModuleError() {
@@ -2293,8 +2301,8 @@ watch(
   <section class="admin-panel modules-panel">
     <div class="admin-panel-head">
       <div>
-        <h3>Модули</h3>
-        <p>Разделы клуба и материалы внутри них.</p>
+        <h3>{{ t("modulesTitle") }}</h3>
+        <p>{{ t("modulesSubtitle") }}</p>
       </div>
       <div v-if="canManageModules" class="modules-panel-actions" aria-label="Управление модулями">
         <button class="icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
@@ -2303,7 +2311,7 @@ watch(
       </div>
     </div>
 
-    <p v-if="isLoadingModules" class="modules-edit-hint">Загружаем модули...</p>
+    <p v-if="isLoadingModules" class="modules-edit-hint">{{ t("modulesLoading") }}</p>
 
     <button
       v-if="shouldShowContinueLesson && lastOpenedLesson && lastOpenedLessonModule"
@@ -2338,7 +2346,7 @@ watch(
           >
             <span>
               <strong>{{ module.title }}</strong>
-              <small>{{ module.meta }}</small>
+              <small>{{ moduleMetaLabel(module.meta) }}</small>
             </span>
           </button>
           <div class="admin-mockup-card-actions">
