@@ -47,7 +47,6 @@ let appNotificationTimer: number | null = null;
 let fullscreenSyncTimer: number | null = null;
 let deviceDiagnosticsTimer: number | null = null;
 let isAppMounted = false;
-let isIosPlatform = false;
 
 function formatUploadBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -228,9 +227,6 @@ function syncPlatformClasses() {
     platform: webAppWithPlatform?.platform,
     userAgent: window.navigator.userAgent
   });
-  const isIos = layoutClasses.includes("club-ios");
-  isIosPlatform = isIos;
-
   syncLayoutClasses([document.documentElement, document.body], layoutClasses);
 }
 
@@ -293,8 +289,9 @@ function syncViewportHeight() {
   setLayoutCssVariable("--club-calibrated-top-offset", `${calibration.topOffsetPx}px`);
   setLayoutCssVariable("--club-calibrated-chat-top-offset", `${calibration.chatTopOffsetPx}px`);
   setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);
-  document.documentElement.classList.toggle("club-keyboard-open", isIosPlatform && visualBottomGap > 80);
-  document.body.classList.toggle("club-keyboard-open", isIosPlatform && visualBottomGap > 80);
+  const isKeyboardOpen = visualBottomGap > 80;
+  document.documentElement.classList.toggle("club-keyboard-open", isKeyboardOpen);
+  document.body.classList.toggle("club-keyboard-open", isKeyboardOpen);
 }
 
 function syncTelegramFullscreen(isEnabled: boolean) {

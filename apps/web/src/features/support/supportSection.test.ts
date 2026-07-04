@@ -115,6 +115,18 @@ describe("support section", () => {
     expect(styles).toContain("var(--club-modal-bottom-offset");
   });
 
+  it("keeps support modals below Telegram controls and readable above keyboards", () => {
+    expect(styles).toContain("--support-modal-top-clearance");
+    expect(styles).toContain("--support-modal-height-limit");
+    expect(styles).toContain(".club-telegram-webview .support-modal-backdrop");
+    expect(styles).toContain("calc(var(--club-safe-top) + 2.5rem)");
+    expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
+    expect(styles).toContain("var(--club-visible-viewport-height");
+    expect(styles).toContain("height: min(88dvh, var(--support-modal-height-limit))");
+    expect(styles).toContain("-webkit-text-fill-color: var(--text)");
+    expect(styles).toContain("caret-color: var(--accent)");
+  });
+
   it("keeps a single support message compact inside ticket modals", () => {
     expect(styles).toMatch(/\.support-thread\s*\{[^}]*align-content:\s*start;/s);
     expect(styles).toMatch(/\.support-message\s*\{[^}]*align-self:\s*start;/s);

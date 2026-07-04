@@ -942,6 +942,8 @@ body.club-screen-tall:not(.community-chat-open) {
   background: color-mix(in srgb, var(--panel) 84%, transparent);
   padding: 0.7rem 0.8rem;
   color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--accent);
   font-size: 0.95rem;
   outline: none;
 }
@@ -1593,6 +1595,13 @@ body.club-screen-tall:not(.community-chat-open) {
 }
 
 .support-modal-backdrop {
+  --support-modal-top-clearance: var(--club-modal-top-padding);
+  --support-modal-bottom-clearance: var(--club-modal-bottom-padding);
+  --support-modal-height-limit: calc(
+    var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) -
+      var(--support-modal-top-clearance) -
+      max(0.6rem, var(--club-modal-bottom-offset))
+  );
   position: fixed;
   z-index: 80;
   inset: 0;
@@ -1600,17 +1609,28 @@ body.club-screen-tall:not(.community-chat-open) {
   align-items: flex-end;
   justify-content: center;
   background: color-mix(in srgb, #000 58%, transparent);
-  padding: var(--club-modal-top-padding) 0.55rem var(--club-modal-bottom-padding);
+  padding: var(--support-modal-top-clearance) 0.55rem var(--support-modal-bottom-clearance);
+  overflow: hidden;
+}
+
+.club-telegram-webview .support-modal-backdrop {
+  --support-modal-top-clearance: max(5.2rem, calc(var(--club-safe-top) + 2.5rem));
 }
 
 body.club-keyboard-open .support-modal-backdrop {
-  padding-bottom: max(0.6rem, var(--club-keyboard-bottom, 0px));
+  --support-modal-bottom-clearance: max(0.6rem, var(--club-keyboard-bottom, 0px));
+  --support-modal-height-limit: calc(
+    var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) -
+      var(--support-modal-top-clearance) -
+      0.6rem
+  );
 }
 
 .support-ticket-modal {
   display: grid;
   width: min(100%, 38rem);
-  max-height: min(88dvh, calc(var(--club-viewport-height, 100dvh) - 1.2rem));
+  max-height: min(88dvh, var(--support-modal-height-limit));
+  min-height: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 18px;
@@ -1619,11 +1639,11 @@ body.club-keyboard-open .support-modal-backdrop {
 }
 
 .support-ticket-modal:not(.support-ticket-modal-compact) {
-  height: min(88dvh, calc(var(--club-viewport-height, 100dvh) - 1.2rem));
+  height: min(88dvh, var(--support-modal-height-limit));
 }
 
 .support-ticket-modal-compact {
-  max-height: min(78dvh, calc(var(--club-viewport-height, 100dvh) - 2rem));
+  max-height: min(78dvh, var(--support-modal-height-limit));
 }
 
 .support-modal-head {
