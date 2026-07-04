@@ -112,7 +112,7 @@ describe("support section", () => {
     expect(styles).toContain(".support-reply-actions .support-danger-button");
     expect(styles).toContain("scroll-padding-bottom");
     expect(styles).toContain(".support-attachment-viewer-close");
-    expect(styles).toContain("var(--tg-safe-bottom");
+    expect(styles).toContain("var(--club-modal-bottom-offset");
   });
 
   it("keeps a single support message compact inside ticket modals", () => {

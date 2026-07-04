@@ -95,7 +95,7 @@ describe("App", () => {
     expect(styles).toContain("var(--club-calibrated-chat-top-offset");
     expect(styles).toContain("var(--club-calibrated-bottom-offset");
     expect(styles).toContain("height: var(--club-viewport-height, 100dvh);");
-    expect(styles).toContain("calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset))");
+    expect(styles).toContain("calc(var(--club-viewport-height, 100dvh) - var(--club-modal-top-offset))");
     expect(styles).toContain("@media (pointer: coarse)");
     expect(styles).toContain(".club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
     expect(styles).toContain("body.club-keyboard-open .community-chat-open .chat-room");
@@ -118,6 +118,29 @@ describe("App", () => {
     expect(unsafeSafeAreaLines).toEqual([]);
   });
 
+  it("routes modal safe-area spacing through calibrated club variables", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const rawSafeAreaLines = styles
+      .split(/\r?\n/)
+      .flatMap((line, index) =>
+        line.includes("env(safe-area-inset") && !line.trim().startsWith("--club-safe-")
+          ? [`${index + 1}:${line.trim()}`]
+          : []
+      );
+
+    expect(styles).toContain("--club-safe-top: var(--tg-safe-top, env(safe-area-inset-top));");
+    expect(styles).toContain("--club-safe-bottom: var(--club-calibrated-bottom-offset");
+    expect(styles).toContain("--club-modal-top-offset: max(0.6rem, var(--club-safe-top));");
+    expect(styles).toContain("--club-modal-bottom-padding");
+    expect(styles).toContain(".club-telegram-webview");
+    expect(styles).toContain("--club-modal-top-offset: var(--fullscreen-top-offset);");
+    expect(styles).toContain("padding-top: var(--club-modal-top-offset)");
+    expect(styles).toContain("var(--club-modal-bottom-padding)");
+    expect(styles).toContain("var(--club-safe-right)");
+    expect(styles).toContain("var(--club-safe-left)");
+    expect(rawSafeAreaLines).toEqual([]);
+  });
+
   it("uses adaptive typography and spacing tokens for the app shell", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
@@ -128,7 +151,7 @@ describe("App", () => {
     expect(styles).toContain("--space-card: clamp(");
     expect(styles).toContain("font-size: var(--font-root);");
     expect(styles).toContain("font-size: var(--font-base);");
-    expect(styles).toContain("padding-top: max(4.8rem, calc(var(--tg-safe-top, 0px) + var(--space-page-top)));");
+    expect(styles).toContain("padding-top: max(4.8rem, calc(var(--club-safe-top) + var(--space-page-top)));");
     expect(styles).toContain("gap: var(--space-section);");
     expect(styles).toContain("padding: var(--space-card);");
   });
@@ -149,10 +172,10 @@ describe("App", () => {
     expect(styles).toContain("body.club-huawei.club-screen-narrow .app-root:not(.community-chat-open)");
     expect(styles).toContain("--nav-space: calc(6.7rem + var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)))");
     expect(styles).toContain(
-      "--fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.6rem, calc(var(--tg-safe-top, 0px) + 3.8rem)))"
+      "--fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.6rem, calc(var(--club-safe-top) + 3.8rem)))"
     );
     expect(styles).toContain(
-      "--chat-top-offset: var(--club-calibrated-chat-top-offset, max(8rem, calc(var(--tg-safe-top, 0px) + 5rem)))"
+      "--chat-top-offset: var(--club-calibrated-chat-top-offset, max(8rem, calc(var(--club-safe-top) + 5rem)))"
     );
     expect(styles).toContain("body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
     expect(styles).toContain("padding-top: var(--fullscreen-top-offset)");
