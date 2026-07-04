@@ -7,7 +7,13 @@ import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
-import { collectCurrentDeviceDiagnostics, getDeviceLayoutClasses, getViewportSizeClasses, syncLayoutClasses } from "@/features/app/deviceLayout";
+import {
+  calculateLayoutCalibration,
+  collectCurrentDeviceDiagnostics,
+  getDeviceLayoutClasses,
+  getViewportSizeClasses,
+  syncLayoutClasses
+} from "@/features/app/deviceLayout";
 import { blurActiveTextField, ensureFocusedTextFieldVisible } from "@/features/app/keyboardFocus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -207,6 +213,11 @@ function syncTelegramSafeArea() {
   document.documentElement.style.setProperty("--club-system-bottom", `${bottomInset}px`);
 }
 
+function setLayoutCssVariable(name: string, value: string) {
+  document.documentElement.style.setProperty(name, value);
+  document.body.style.setProperty(name, value);
+}
+
 function syncPlatformClasses() {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
@@ -266,9 +277,22 @@ function syncViewportHeight() {
     webApp?.safeAreaInset?.bottom ?? 0
   );
   const dynamicBottomInset = Math.max(telegramBottomInset, visualBottomGap);
+  const platform = (webApp as ({ platform?: string } | undefined))?.platform;
+  const calibration = calculateLayoutCalibration({
+    platform: platform ?? null,
+    userAgent: window.navigator.userAgent,
+    viewportWidth: width,
+    viewportHeight: height,
+    safeAreaInset: webApp?.safeAreaInset ?? null,
+    contentSafeAreaInset: webApp?.contentSafeAreaInset ?? null,
+    visualBottomGap
+  });
 
   document.documentElement.style.setProperty("--club-system-bottom", `${dynamicBottomInset}px`);
   document.documentElement.style.setProperty("--club-keyboard-bottom", `${visualBottomGap}px`);
+  setLayoutCssVariable("--club-calibrated-top-offset", `${calibration.topOffsetPx}px`);
+  setLayoutCssVariable("--club-calibrated-chat-top-offset", `${calibration.chatTopOffsetPx}px`);
+  setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);
   document.documentElement.classList.toggle("club-keyboard-open", isIosPlatform && visualBottomGap > 80);
   document.body.classList.toggle("club-keyboard-open", isIosPlatform && visualBottomGap > 80);
 }
@@ -582,6 +606,12 @@ onBeforeUnmount(() => {
   syncLayoutClasses([document.documentElement, document.body], []);
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
+  document.documentElement.style.removeProperty("--club-calibrated-top-offset");
+  document.documentElement.style.removeProperty("--club-calibrated-chat-top-offset");
+  document.documentElement.style.removeProperty("--club-calibrated-bottom-offset");
+  document.body.style.removeProperty("--club-calibrated-top-offset");
+  document.body.style.removeProperty("--club-calibrated-chat-top-offset");
+  document.body.style.removeProperty("--club-calibrated-bottom-offset");
 });
 </script>
 

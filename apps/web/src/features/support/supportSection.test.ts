@@ -155,10 +155,11 @@ describe("support section", () => {
 
   it("keeps bottom navigation above Android system navigation", () => {
     expect(appSource).toContain("--club-system-bottom");
+    expect(appSource).toContain("--club-calibrated-bottom-offset");
     expect(appSource).toContain("visualViewport.offsetTop");
     expect(appSource).toContain("visualBottomGap");
     expect(styles).toContain("--nav-bottom-offset");
     expect(styles).toContain("bottom: var(--nav-bottom-offset)");
-    expect(styles).toContain("calc(5.4rem + var(--club-system-bottom");
+    expect(styles).toContain("calc(5.4rem + var(--club-calibrated-bottom-offset");
   });
 });

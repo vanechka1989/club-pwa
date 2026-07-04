@@ -1,7 +1,65 @@
 import { describe, expect, it } from "vitest";
-import { collectDeviceDiagnostics, getDeviceLayoutClasses, getViewportSizeClasses } from "./deviceLayout";
+import {
+  calculateLayoutCalibration,
+  collectDeviceDiagnostics,
+  getDeviceLayoutClasses,
+  getViewportSizeClasses
+} from "./deviceLayout";
 
 describe("device layout detection", () => {
+  it("calculates separate compact Android offsets for normal tabs and open chat", () => {
+    const calibration = calculateLayoutCalibration({
+      platform: "android",
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 12; K) AppleWebKit/537.36 Telegram-Android/12.8.3 (Huawei JLN-LX1; Android 12)",
+      viewportWidth: 360,
+      viewportHeight: 796,
+      safeAreaInset: { top: 35.333332, bottom: 0, left: 0, right: 0 },
+      contentSafeAreaInset: { top: 46, bottom: 0, left: 0, right: 0 },
+      visualBottomGap: 0
+    });
+
+    expect(calibration.topOffsetPx).toBe(98);
+    expect(calibration.chatTopOffsetPx).toBe(116);
+    expect(calibration.bottomOffsetPx).toBe(0);
+    expect(calibration.source).toBe("android-narrow");
+  });
+
+  it("keeps wider Samsung Android screens from receiving the narrow top air", () => {
+    const calibration = calculateLayoutCalibration({
+      platform: "android",
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 16; K) AppleWebKit/537.36 Telegram-Android/12.8.3 (Samsung SM-S938B; Android 16)",
+      viewportWidth: 385,
+      viewportHeight: 833,
+      safeAreaInset: { top: 34.133335, bottom: 48, left: 0, right: 0 },
+      contentSafeAreaInset: { top: 46.133335, bottom: 0, left: 0, right: 0 },
+      visualBottomGap: 0
+    });
+
+    expect(calibration.topOffsetPx).toBe(74);
+    expect(calibration.chatTopOffsetPx).toBe(90);
+    expect(calibration.bottomOffsetPx).toBe(48);
+    expect(calibration.source).toBe("android-wide");
+  });
+
+  it("uses iOS safe areas without Android-specific extra spacing", () => {
+    const calibration = calculateLayoutCalibration({
+      platform: "ios",
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+      viewportWidth: 430,
+      viewportHeight: 932,
+      safeAreaInset: { top: 59, bottom: 34, left: 0, right: 0 },
+      contentSafeAreaInset: { top: 70, bottom: 0, left: 0, right: 0 },
+      visualBottomGap: 0
+    });
+
+    expect(calibration.topOffsetPx).toBe(86);
+    expect(calibration.chatTopOffsetPx).toBe(104);
+    expect(calibration.bottomOffsetPx).toBe(34);
+    expect(calibration.source).toBe("ios");
+  });
+
   it("keeps Samsung Android out of compact top mode", () => {
     const layout = getDeviceLayoutClasses({
       platform: "android",

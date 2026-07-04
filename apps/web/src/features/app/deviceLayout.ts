@@ -45,7 +45,25 @@ export type DeviceDiagnosticsInput = {
     safeAreaInset?: DeviceInsetInput | null;
     contentSafeAreaInset?: DeviceInsetInput | null;
   };
+  layoutCalibration?: LayoutCalibration | null;
   classes: string[];
+};
+
+export type LayoutCalibrationInput = {
+  platform?: string | null;
+  userAgent?: string;
+  viewportWidth?: number | null;
+  viewportHeight?: number | null;
+  safeAreaInset?: DeviceInsetInput | null;
+  contentSafeAreaInset?: DeviceInsetInput | null;
+  visualBottomGap?: number | null;
+};
+
+export type LayoutCalibration = {
+  topOffsetPx: number;
+  chatTopOffsetPx: number;
+  bottomOffsetPx: number;
+  source: "android-narrow" | "android-wide" | "ios" | "default";
 };
 
 type TelegramWebAppDiagnostics = {
@@ -109,6 +127,22 @@ function numberOrNull(value: number | null | undefined) {
   return Number.isFinite(value) ? Number(value) : null;
 }
 
+function finiteNumber(value: number | null | undefined, fallback = 0) {
+  return Number.isFinite(value) ? Number(value) : fallback;
+}
+
+function rounded(value: number) {
+  return Math.round(value);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function maxInsetSide(side: keyof DeviceInsetInput, ...insets: Array<DeviceInsetInput | null | undefined>) {
+  return Math.max(0, ...insets.map((inset) => finiteNumber(inset?.[side], 0)));
+}
+
 function insetOrNull(value: DeviceInsetInput | null | undefined) {
   if (!value) {
     return null;
@@ -119,6 +153,55 @@ function insetOrNull(value: DeviceInsetInput | null | undefined) {
     bottom: numberOrNull(value.bottom),
     left: numberOrNull(value.left),
     right: numberOrNull(value.right)
+  };
+}
+
+export function calculateLayoutCalibration(input: LayoutCalibrationInput): LayoutCalibration {
+  const userAgent = input.userAgent ?? "";
+  const classes = getDeviceLayoutClasses({ platform: input.platform ?? "", userAgent });
+  const isAndroid = classes.includes("club-android");
+  const isIos = classes.includes("club-ios");
+  const width = finiteNumber(input.viewportWidth, 0);
+  const height = finiteNumber(input.viewportHeight, 0);
+  const isNarrow = width > 0 && width <= 380;
+  const isShort = height > 0 && height <= 780;
+  const topInset = maxInsetSide("top", input.safeAreaInset, input.contentSafeAreaInset);
+  const bottomInset = maxInsetSide("bottom", input.safeAreaInset, input.contentSafeAreaInset);
+  const bottomOffsetPx = rounded(Math.max(bottomInset, finiteNumber(input.visualBottomGap, 0)));
+
+  if (isAndroid) {
+    if (isNarrow) {
+      const shortBonus = isShort ? 4 : 0;
+      return {
+        topOffsetPx: rounded(clamp(topInset + 52 + shortBonus, 92, 106)),
+        chatTopOffsetPx: rounded(clamp(topInset + 70 + shortBonus, 112, 126)),
+        bottomOffsetPx,
+        source: "android-narrow"
+      };
+    }
+
+    return {
+      topOffsetPx: rounded(clamp(topInset + 28, 72, 92)),
+      chatTopOffsetPx: rounded(clamp(topInset + 44, 88, 112)),
+      bottomOffsetPx,
+      source: "android-wide"
+    };
+  }
+
+  if (isIos) {
+    return {
+      topOffsetPx: rounded(clamp(topInset + 16, 76, 96)),
+      chatTopOffsetPx: rounded(clamp(topInset + 34, 96, 112)),
+      bottomOffsetPx,
+      source: "ios"
+    };
+  }
+
+  return {
+    topOffsetPx: rounded(clamp(topInset + 32, 72, 100)),
+    chatTopOffsetPx: rounded(clamp(topInset + 48, 88, 116)),
+    bottomOffsetPx,
+    source: "default"
   };
 }
 
@@ -155,6 +238,7 @@ export function collectDeviceDiagnostics(input: DeviceDiagnosticsInput) {
       safeAreaInset: insetOrNull(input.telegram.safeAreaInset),
       contentSafeAreaInset: insetOrNull(input.telegram.contentSafeAreaInset)
     },
+    layoutCalibration: input.layoutCalibration ?? null,
     classes: Array.from(new Set(input.classes))
   };
 }
@@ -201,6 +285,18 @@ export function collectCurrentDeviceDiagnostics() {
       safeAreaInset: webApp?.safeAreaInset ?? null,
       contentSafeAreaInset: webApp?.contentSafeAreaInset ?? null
     },
+    layoutCalibration: calculateLayoutCalibration({
+      platform,
+      userAgent,
+      viewportWidth,
+      viewportHeight,
+      safeAreaInset: webApp?.safeAreaInset ?? null,
+      contentSafeAreaInset: webApp?.contentSafeAreaInset ?? null,
+      visualBottomGap:
+        window.visualViewport && viewportHeight > 0
+          ? Math.max(0, Math.round(viewportHeight - window.visualViewport.height - window.visualViewport.offsetTop))
+          : 0
+    }),
     classes
   });
 }

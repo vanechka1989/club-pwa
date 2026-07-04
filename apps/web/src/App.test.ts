@@ -76,6 +76,10 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(appSource).toContain("club-telegram-webview");
+    expect(appSource).toContain("calculateLayoutCalibration");
+    expect(appSource).toContain("--club-calibrated-top-offset");
+    expect(appSource).toContain("--club-calibrated-chat-top-offset");
+    expect(appSource).toContain("--club-calibrated-bottom-offset");
     expect(appSource).toContain("getViewportSizeClasses");
     expect(appSource).toContain("getDeviceLayoutClasses");
     expect(appSource).toContain("syncLayoutClasses");
@@ -87,6 +91,9 @@ describe("App", () => {
     expect(styles).not.toContain("var(--tg-viewport-height, 100vh)");
     expect(styles).not.toContain("height: 100vh");
     expect(styles).not.toContain("calc(100vh");
+    expect(styles).toContain("var(--club-calibrated-top-offset");
+    expect(styles).toContain("var(--club-calibrated-chat-top-offset");
+    expect(styles).toContain("var(--club-calibrated-bottom-offset");
     expect(styles).toContain("height: var(--club-viewport-height, 100dvh);");
     expect(styles).toContain("calc(var(--club-viewport-height, 100dvh) - var(--fullscreen-top-offset))");
     expect(styles).toContain("@media (pointer: coarse)");
@@ -130,7 +137,7 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(styles).toContain("body.club-samsung");
-    expect(styles).toContain("--fullscreen-top-offset: 4.8rem");
+    expect(styles).toContain("--fullscreen-top-offset: var(--club-calibrated-top-offset, 4.8rem)");
   });
 
   it("keeps narrow Huawei webviews below Telegram top controls without extra air on normal tabs", () => {
@@ -140,9 +147,13 @@ describe("App", () => {
     expect(styles).toContain("html.club-huawei.club-screen-narrow");
     expect(styles).toContain("font-size: 14px");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .app-root:not(.community-chat-open)");
-    expect(styles).toContain("--nav-space: calc(6.7rem + var(--club-system-bottom, 0px))");
-    expect(styles).toContain("--fullscreen-top-offset: max(6.6rem, calc(var(--tg-safe-top, 0px) + 3.8rem))");
-    expect(styles).toContain("--chat-top-offset: max(8rem, calc(var(--tg-safe-top, 0px) + 5rem))");
+    expect(styles).toContain("--nav-space: calc(6.7rem + var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)))");
+    expect(styles).toContain(
+      "--fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.6rem, calc(var(--tg-safe-top, 0px) + 3.8rem)))"
+    );
+    expect(styles).toContain(
+      "--chat-top-offset: var(--club-calibrated-chat-top-offset, max(8rem, calc(var(--tg-safe-top, 0px) + 5rem)))"
+    );
     expect(styles).toContain("body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
     expect(styles).toContain("padding-top: var(--fullscreen-top-offset)");
     expect(styles).toContain(".sr-only");
