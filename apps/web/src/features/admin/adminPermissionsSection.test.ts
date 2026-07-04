@@ -78,9 +78,14 @@ describe("admin permissions section", () => {
 
   it("offers owner-only manual database backup and restore from the server panel", () => {
     expect(apiClientSource).toContain("downloadAdminDatabaseBackup");
+    expect(apiClientSource).toContain("createAdminDatabaseBackupDownloadLink");
     expect(apiClientSource).toContain("restoreAdminDatabaseBackup");
     expect(adminRouteSource).toContain(".get(\"/database/backup\"");
+    expect(adminRouteSource).toContain(".post(\"/database/backup-link\"");
+    expect(adminRouteSource).toContain(".get(\"/database/backup-download/:token\"");
     expect(adminRouteSource).toContain(".post(\"/database/restore\"");
+    expect(adminSectionSource).toContain("openDatabaseBackupDownloadUrl");
+    expect(adminSectionSource).toContain("window.Telegram?.WebApp?.openLink");
     expect(adminSectionSource).toContain("Скачать базу");
     expect(adminSectionSource).toContain("Восстановить базу");
     expect(adminSectionSource).toContain("ВОССТАНОВИТЬ");

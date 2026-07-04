@@ -464,6 +464,21 @@ function getFileNameFromContentDisposition(value: string | null, fallback: strin
   return match?.groups?.fileName || fallback;
 }
 
+function buildAbsoluteApiUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const base = apiUrl.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  if (/^https?:\/\//i.test(base)) {
+    return `${base}${normalizedPath}`;
+  }
+
+  return new URL(`${base}${normalizedPath}`, window.location.origin).toString();
+}
+
 export async function downloadAdminDatabaseBackup() {
   const response = await fetch(`${apiUrl.replace(/\/$/, "")}/admin/database/backup`, {
     headers: withAuthHeaders()
@@ -477,6 +492,17 @@ export async function downloadAdminDatabaseBackup() {
   return {
     blob: await response.blob(),
     fileName: getFileNameFromContentDisposition(response.headers.get("content-disposition"), "club-database.dump")
+  };
+}
+
+export async function createAdminDatabaseBackupDownloadLink() {
+  const response = await api<{ url: string; expiresAt: string }>("/admin/database/backup-link", {
+    method: "POST"
+  });
+
+  return {
+    ...response,
+    url: buildAbsoluteApiUrl(response.url)
   };
 }
 

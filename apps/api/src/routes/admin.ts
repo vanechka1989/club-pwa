@@ -89,6 +89,8 @@ import { validateReorderIds } from "../learning/reorder";
 import {
   buildPgDumpArgs,
   buildPgRestoreArgs,
+  consumeDatabaseBackupDownloadToken,
+  createDatabaseBackupDownloadToken,
   databaseRestoreConfirmationText,
   getDatabaseBackupFileName,
   validateDatabaseRestoreConfirmation
@@ -1121,6 +1123,30 @@ async function findOrCreateUserByTelegramId(telegramId: string) {
 }
 
 export const adminRoute = new Hono<{ Variables: AuthVariables }>()
+  .get("/database/backup-download/:token", async (c) => {
+    const token = c.req.param("token");
+    if (!consumeDatabaseBackupDownloadToken(token)) {
+      return c.json({ error: "Ссылка на скачивание устарела. Создайте новую резервную копию." }, 410);
+    }
+
+    try {
+      const dump = await runDatabaseBackupDump();
+      const fileName = getDatabaseBackupFileName();
+
+      return new Response(dump, {
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${fileName}"`,
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff"
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось выгрузить базу.";
+      logger.error({ error }, "Unable to create database backup from download token");
+      return c.json({ error: message }, 500);
+    }
+  })
   .use("*", telegramAuth)
   .use("*", async (c, next) => {
     const role = await getUserRole(c.get("telegramUser").id);
@@ -1207,6 +1233,26 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json({ errors: listServerErrors() });
+  })
+  .post("/database/backup-link", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const { token, expiresAt } = createDatabaseBackupDownloadToken(randomUUID());
+
+    await recordAdminAction(c, {
+      action: "database.backup.link_created",
+      entityType: "database",
+      summary: "Создана одноразовая ссылка для скачивания базы",
+      metadata: { expiresAt: expiresAt.toISOString() }
+    }).catch((error) => logger.warn({ error }, "Unable to record database backup link action"));
+
+    return c.json({
+      url: `/admin/database/backup-download/${token}`,
+      expiresAt: expiresAt.toISOString()
+    });
   })
   .get("/database/backup", async (c) => {
     const ownerError = await rejectIfNotOwner(c);

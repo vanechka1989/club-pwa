@@ -43,6 +43,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import {
   addAdminUser,
+  createAdminDatabaseBackupDownloadLink,
   createAdminMailing,
   createAdminLearningCategory,
   createAdminLearningMaterial,
@@ -1152,6 +1153,19 @@ function closeServerLogsModal() {
   showServerLogsModal.value = false;
 }
 
+function openDatabaseBackupDownloadUrl(url: string) {
+  const openLink = window.Telegram?.WebApp?.openLink;
+  if (openLink) {
+    openLink(url, { try_instant_view: false });
+    return;
+  }
+
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    window.location.assign(url);
+  }
+}
+
 async function handleDownloadDatabaseBackup() {
   if (databaseBackupBusy.value) {
     return;
@@ -1159,6 +1173,13 @@ async function handleDownloadDatabaseBackup() {
 
   databaseBackupBusy.value = true;
   try {
+    if (window.Telegram?.WebApp) {
+      const response = await createAdminDatabaseBackupDownloadLink();
+      openDatabaseBackupDownloadUrl(response.url);
+      setStatus("Скачивание базы открыто. Проверьте загрузки Telegram или браузера.");
+      return;
+    }
+
     const { blob, fileName } = await downloadAdminDatabaseBackup();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1168,7 +1189,7 @@ async function handleDownloadDatabaseBackup() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setStatus("Резервная копия базы скачана.");
+    setStatus("Скачивание базы запущено.");
   } catch {
     setError("Не удалось скачать базу.");
   } finally {
