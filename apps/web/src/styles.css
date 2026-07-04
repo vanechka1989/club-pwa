@@ -3404,7 +3404,13 @@ body.club-keyboard-open .support-ticket-modal:not(.support-ticket-modal-compact)
 }
 
 body.club-keyboard-open .admin-modal-backdrop {
-  padding-bottom: var(--club-keyboard-bottom, 0px);
+  padding-bottom: 0;
+}
+
+body.club-keyboard-open .admin-client-modal,
+body.club-keyboard-open .lesson-preview-modal {
+  height: var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh));
+  max-height: var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh));
 }
 
 .payment-modal-backdrop {

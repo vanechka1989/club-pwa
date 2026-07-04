@@ -23,13 +23,20 @@ export function ensureFocusedTextFieldVisible(
   }
 
   schedule(() => {
-    const isIosChatComposer =
-      document.body.classList.contains("club-ios") &&
-      document.body.classList.contains("community-chat-open") &&
-      element.closest(".chat-compose");
-    const isModuleModalField = Boolean(element.closest(".module-name-modal"));
+    const isKeyboardManagedField = Boolean(
+      element.closest(
+        [
+          ".chat-compose",
+          ".support-ticket-modal",
+          ".admin-client-modal",
+          ".module-name-modal",
+          ".lesson-preview-modal",
+          ".notification-center-panel"
+        ].join(", ")
+      )
+    );
 
-    if (isIosChatComposer || isModuleModalField) {
+    if (isKeyboardManagedField) {
       return;
     }
 

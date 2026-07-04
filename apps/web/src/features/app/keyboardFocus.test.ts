@@ -32,6 +32,9 @@ describe("keyboard focus handling", () => {
     expect(styles).toContain("body.club-keyboard-open .app-shell");
     expect(styles).toContain("body.club-keyboard-open .admin-modal-backdrop");
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
+    expect(styles).toContain("body.club-keyboard-open .admin-client-modal");
+    expect(styles).toContain("body.club-keyboard-open .lesson-preview-modal");
+    expect(styles).toContain("max-height: var(--club-visible-viewport-height");
     expect(styles).toContain("var(--club-visible-viewport-bottom");
     expect(styles).toContain("body.club-ios .chat-input-row .text-input");
     expect(styles).toContain("font-size: 16px");
@@ -50,8 +53,8 @@ describe("keyboard focus handling", () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", inline: "nearest", behavior: "smooth" });
   });
 
-  it("does not center-scroll the iOS chat composer input", () => {
-    document.body.classList.add("club-ios", "community-chat-open");
+  it("does not center-scroll the chat composer input", () => {
+    document.body.classList.add("club-android", "community-chat-open");
     const form = document.createElement("form");
     form.className = "chat-compose";
     const input = document.createElement("input");
@@ -67,7 +70,25 @@ describe("keyboard focus handling", () => {
 
     expect(scrollIntoView).not.toHaveBeenCalled();
     form.remove();
-    document.body.classList.remove("club-ios", "community-chat-open");
+    document.body.classList.remove("club-android", "community-chat-open");
+  });
+
+  it("does not center-scroll fields inside keyboard-managed modals", () => {
+    const modal = document.createElement("article");
+    modal.className = "support-ticket-modal";
+    const input = document.createElement("textarea");
+    const scrollIntoView = vi.fn();
+    input.scrollIntoView = scrollIntoView;
+    modal.append(input);
+    document.body.append(modal);
+
+    ensureFocusedTextFieldVisible(input, (handler) => {
+      handler();
+      return 1;
+    });
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    modal.remove();
   });
 
   it("does not center-scroll the module modal fields", () => {
