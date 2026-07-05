@@ -3459,6 +3459,7 @@ body.club-keyboard-open .lesson-preview-modal {
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 0;
   background: var(--panel-strong);
+  padding-bottom: max(1.35rem, calc(var(--club-safe-bottom) + 1rem));
   box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
 }
 

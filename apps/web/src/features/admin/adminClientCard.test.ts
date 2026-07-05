@@ -63,6 +63,14 @@ describe("admin client card helpers", () => {
     expect(styles).toContain("body.club-keyboard-open .admin-client-file-button");
   });
 
+  it("keeps the client card scrollable above the phone bottom controls", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(
+      /\.admin-client-modal\s*\{[^}]*padding-bottom:\s*max\(1\.35rem,\s*calc\(var\(--club-safe-bottom\) \+ 1rem\)\);/s
+    );
+  });
+
   it("shows clear labels for manual access changes", () => {
     const manualGrant = {
       status: "active",

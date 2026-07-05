@@ -15,4 +15,8 @@ describe("community archive labels", () => {
     expect(source).toContain("--club-chat-viewport-height");
     expect(source).toContain('document.body.classList.contains("club-ios")');
   });
+
+  it("does not show a chat update alert for automatic polling failures", () => {
+    expect(source).toContain("void refreshSelectedTopic({ silent: true });");
+  });
 });

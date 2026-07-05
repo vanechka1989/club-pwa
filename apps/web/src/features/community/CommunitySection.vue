@@ -365,7 +365,7 @@ function messagesSignature(nextMessages: ClubMessage[]) {
   return nextMessages.map(messageSignature).join("\u001e");
 }
 
-async function refreshSelectedTopic({ keepScroll = true } = {}) {
+async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
   if (!hasCommunityAccess.value || !selectedTopic.value || refreshInFlight) {
     return;
   }
@@ -396,7 +396,9 @@ async function refreshSelectedTopic({ keepScroll = true } = {}) {
       scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
     }
   } catch {
-    showCommunityError("Не удалось обновить чат.");
+    if (!silent) {
+      showCommunityError("Не удалось обновить чат.");
+    }
   } finally {
     refreshInFlight = false;
   }
@@ -413,7 +415,7 @@ function startMessageRefresh() {
   stopMessageRefresh();
   refreshTimer = globalThis.setInterval(() => {
     if (document.visibilityState === "visible") {
-      void refreshSelectedTopic();
+      void refreshSelectedTopic({ silent: true });
     }
   }, 2000);
 }
