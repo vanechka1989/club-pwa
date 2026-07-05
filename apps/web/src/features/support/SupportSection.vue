@@ -13,6 +13,7 @@ import {
 } from "@/api/client";
 import { useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
+import { sortSupportTickets } from "@/features/support/supportTickets";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 
@@ -242,13 +243,11 @@ function updateFiles(event: Event, target: "ticket" | "reply" | "followUp") {
 }
 
 function replaceTicket(ticket: SupportTicket) {
-  tickets.value = [ticket, ...tickets.value.filter((item) => item.id !== ticket.id)].sort(
-    (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
-  );
+  tickets.value = sortSupportTickets([ticket, ...tickets.value.filter((item) => item.id !== ticket.id)]);
 }
 
 function replaceTickets(nextTickets: SupportTicket[]) {
-  tickets.value = [...nextTickets].sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
+  tickets.value = sortSupportTickets(nextTickets);
 }
 
 function resetCustomerForm() {
@@ -385,7 +384,7 @@ async function openTicket(ticketId: string) {
 
   try {
     const response = await markSupportTicketRead(ticketId);
-    tickets.value = tickets.value.map((ticket) => (ticket.id === response.ticket.id ? response.ticket : ticket));
+    replaceTicket(response.ticket);
     emit("unread-change", response.unreadCount);
   } catch {
     // Если отметка прочтения не прошла, само обращение всё равно можно посмотреть.
