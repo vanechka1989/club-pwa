@@ -156,6 +156,19 @@ describe("App", () => {
     expect(styles).toContain("padding: var(--space-card);");
   });
 
+  it("keeps one compact side gutter across normal section tabs", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("--screen-gutter: clamp(0.42rem, 1.7vw, 0.72rem);");
+    expect(styles).toContain("--section-bleed: clamp(0.18rem, 0.7vw, 0.28rem);");
+    expect(styles).toContain("body.club-screen-narrow");
+    expect(styles).toContain("--screen-gutter: 0.42rem;");
+    expect(styles).toContain("--section-bleed: 0.18rem;");
+    expect(styles).toContain(".community-active .app-shell");
+    expect(styles).toContain("padding: 1rem var(--screen-gutter) calc(1rem + var(--club-safe-bottom));");
+    expect(styles).not.toContain("--screen-gutter: 0.9rem;");
+  });
+
   it("uses a lower top offset for Samsung fullscreen webviews", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

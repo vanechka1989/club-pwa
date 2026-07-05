@@ -49,8 +49,8 @@
   --club-modal-bottom-padding: max(0.6rem, calc(var(--club-modal-bottom-offset) + 0.6rem));
   --fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.2rem, calc(var(--club-safe-top) + 4.6rem)));
   --chat-top-offset: var(--club-calibrated-chat-top-offset, max(6.2rem, calc(var(--club-safe-top) + 4.6rem)));
-  --screen-gutter: clamp(0.62rem, 3vw, 0.95rem);
-  --section-bleed: clamp(0.35rem, 1.4vw, 0.55rem);
+  --screen-gutter: clamp(0.42rem, 1.7vw, 0.72rem);
+  --section-bleed: clamp(0.18rem, 0.7vw, 0.28rem);
   --ui-gap: clamp(0.5rem, 1.8vw, 0.72rem);
   --ui-gap-sm: clamp(0.36rem, 1.25vw, 0.5rem);
   --ui-card-padding: var(--space-card);
@@ -574,7 +574,7 @@ body.club-keyboard-open .app-shell {
 .community-active .app-shell {
   min-height: 0 !important;
   max-width: none;
-  padding: 1rem 0.25rem calc(1rem + var(--club-safe-bottom));
+  padding: 1rem var(--screen-gutter) calc(1rem + var(--club-safe-bottom));
 }
 
 .club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
@@ -850,8 +850,8 @@ body.club-keyboard-open .community-chat-open .app-shell {
 }
 
 body.club-screen-narrow {
-  --screen-gutter: 0.65rem;
-  --section-bleed: 0.35rem;
+  --screen-gutter: 0.42rem;
+  --section-bleed: 0.18rem;
   --ui-gap: 0.5rem;
   --ui-card-padding: 0.72rem;
 }
@@ -869,10 +869,6 @@ body.club-huawei.club-screen-narrow .surface-card {
 
 body.club-screen-short:not(.community-chat-open) {
   --nav-space: calc(4.9rem + var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)));
-}
-
-body.club-screen-tall:not(.community-chat-open) {
-  --screen-gutter: 0.9rem;
 }
 
 .content-panel-community {
