@@ -66,7 +66,11 @@ describe("support section", () => {
   });
 
   it("keeps admin support stats in an even mobile grid", () => {
+    expect(styles).toMatch(/\.support-admin-board\s*\{[^}]*display:\s*grid;[^}]*gap:\s*0\.75rem;/s);
     expect(styles).toMatch(/\.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styles).toMatch(/\.support-admin-stats article\s*\{[^}]*min-height:\s*4\.15rem;[^}]*padding:\s*0\.58rem 0\.65rem;/s);
+    expect(styles).toMatch(/\.support-admin-stats span\s*\{[^}]*font-size:\s*0\.68rem;/s);
+    expect(styles).toMatch(/\.support-admin-stats strong\s*\{[^}]*font-size:\s*1\.18rem;/s);
     expect(styles).toMatch(/@media \(min-width:\s*620px\)\s*\{[^}]*\.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/s);
   });
 
