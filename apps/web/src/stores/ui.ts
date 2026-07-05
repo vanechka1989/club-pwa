@@ -7,7 +7,7 @@ export type PreviewMode = "developer" | "admin" | "member-active" | "member-inac
 
 export const useUiStore = defineStore("ui", () => {
   const savedTheme = localStorage.getItem("club-theme");
-  const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
+  const theme = ref<Theme>(savedTheme === "dark" ? "dark" : "light");
   const savedColorScheme = localStorage.getItem("club-color-scheme");
   const colorScheme = ref<ColorScheme>(
     savedColorScheme === "emerald" ||
@@ -16,7 +16,7 @@ export const useUiStore = defineStore("ui", () => {
       savedColorScheme === "azure" ||
       savedColorScheme === "coffee"
       ? savedColorScheme
-      : "midnight"
+      : "azure"
   );
   const savedPreviewMode = localStorage.getItem("club-preview-mode");
   const previewMode = ref<PreviewMode>(
