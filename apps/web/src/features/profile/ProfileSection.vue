@@ -473,7 +473,7 @@ onMounted(async () => {
     </section>
 
     <section class="soft-card profile-account-card">
-      <div class="flex items-center justify-between gap-3">
+      <div class="profile-card-head">
         <h3 class="soft-section-title">{{ t("profileAccount") }}</h3>
         <UserCircle class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
       </div>

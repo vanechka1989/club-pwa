@@ -193,9 +193,18 @@ describe("App", () => {
     expect(styles).toContain("padding: 0.55rem");
     expect(styles).toContain("body.club-huawei.club-screen-narrow .profile-info-row");
     expect(styles).toContain("min-height: 2.05rem");
+    expect(styles).toMatch(/\.profile-subscription-meta\s*{[^}]*flex-wrap: nowrap;/s);
     expect(styles).toMatch(
-      /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta\s*{[^}]*display: grid;[^}]*grid-template-columns: 1fr;[^}]*justify-content: flex-start;/s
+      /\.profile-subscription-meta span:last-child\s*{[^}]*margin-left: auto;[^}]*white-space: nowrap;/s
     );
+    expect(styles).toMatch(
+      /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta\s*{[^}]*display: flex;[^}]*justify-content: space-between;[^}]*flex-wrap: nowrap;/s
+    );
+    expect(styles).toMatch(
+      /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta span:first-child\s*{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s
+    );
+    expect(styles).toMatch(/\.profile-card-head\s*{[^}]*display: flex;[^}]*justify-content: space-between;[^}]*flex-wrap: nowrap;/s);
+    expect(styles).toMatch(/\.profile-card-head svg\s*{[^}]*flex: 0 0 auto;/s);
   });
 
   it("styles fullscreen video close control as a themed pill in portrait and landscape", () => {

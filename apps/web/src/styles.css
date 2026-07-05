@@ -7444,9 +7444,27 @@ body.club-keyboard-open .module-name-modal {
 }
 
 .profile-subscription-meta {
-  flex-wrap: wrap;
+  min-width: 0;
+  flex-wrap: nowrap;
   gap: 0.2rem 0.45rem;
   line-height: 1.25;
+}
+
+.profile-subscription-meta span {
+  min-width: 0;
+}
+
+.profile-subscription-meta span:first-child {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-subscription-meta span:last-child {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .profile-subscription-status {
@@ -7502,6 +7520,19 @@ body.club-keyboard-open .module-name-modal {
 
 .profile-account-card {
   display: grid;
+}
+
+.profile-card-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: nowrap;
+}
+
+.profile-card-head svg {
+  flex: 0 0 auto;
 }
 
 .profile-referral-card {
@@ -7826,18 +7857,27 @@ body.club-huawei.club-screen-narrow .profile-hero-row p {
 }
 
 body.club-huawei.club-screen-narrow .profile-subscription-meta {
-  display: grid;
-  grid-template-columns: 1fr;
-  justify-content: flex-start;
-  gap: 0.12rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
 }
 
 body.club-huawei.club-screen-narrow .profile-subscription-meta span {
   min-width: 0;
 }
 
+body.club-huawei.club-screen-narrow .profile-subscription-meta span:first-child {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 body.club-huawei.club-screen-narrow .profile-subscription-meta span:last-child {
-  justify-self: start;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 body.club-huawei.club-screen-narrow .profile-avatar-large {
