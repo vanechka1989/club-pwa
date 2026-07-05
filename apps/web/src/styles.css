@@ -2529,7 +2529,7 @@ body.club-keyboard-open .support-ticket-modal-compact {
   border: 0;
   background: transparent;
   box-shadow: none;
-  padding: var(--screen-gutter);
+  padding: var(--screen-gutter) var(--screen-gutter) max(1.35rem, calc(var(--club-safe-bottom) + 1rem));
 }
 
 .admin-mailing-modal-actions {
@@ -2601,6 +2601,10 @@ body.club-keyboard-open .support-ticket-modal-compact {
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: center;
+}
+
+.admin-mailing-submit-row {
+  padding-bottom: 0.25rem;
 }
 
 .admin-mailing-submit-row .primary-button,

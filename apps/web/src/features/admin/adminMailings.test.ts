@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const adminPanelsSource = readFileSync(resolve(__dirname, "adminPanels.ts"), "utf-8");
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
 const clientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
+const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
 
 describe("admin mailings panel", () => {
   it("adds mailings next to clients in the admin tabs", () => {
@@ -45,6 +46,13 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).not.toContain('<section class="admin-crm-block admin-mailing-preview">');
     expect(composerPreview).toContain("Пересчитать");
     expect(composerPreview).toContain("Примерное время");
+  });
+
+  it("keeps composer submit buttons above the bottom edge", () => {
+    expect(stylesSource).toMatch(
+      /\.admin-mailing-composer-modal \.admin-mailing-builder\s*\{[^}]*padding:\s*var\(--screen-gutter\)\s+var\(--screen-gutter\)\s+max\(1\.35rem,\s*calc\(var\(--club-safe-bottom\) \+ 1rem\)\);/s
+    );
+    expect(stylesSource).toMatch(/\.admin-mailing-submit-row\s*\{[^}]*padding-bottom:\s*0\.25rem;/s);
   });
 
   it("has API client methods for previewing and controlling mailings", () => {
