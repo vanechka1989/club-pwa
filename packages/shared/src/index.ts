@@ -673,7 +673,10 @@ export const referralSummarySchema = z.object({
 export type ReferralSummary = z.infer<typeof referralSummarySchema>;
 
 export const referralProfileResponseSchema = z.object({
-  referral: referralSummarySchema
+  referral: referralSummarySchema,
+  settings: z.object({
+    referralRewardDays: z.number().int().positive().max(3650)
+  })
 });
 export type ReferralProfileResponse = z.infer<typeof referralProfileResponseSchema>;
 

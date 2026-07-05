@@ -23,10 +23,14 @@ describe("referral contracts", () => {
         paidCount: 2,
         canActivate: true,
         activationBlockedReason: null
+      },
+      settings: {
+        referralRewardDays: 7
       }
     });
 
     expect(parsed.referral.availableDays).toBe(14);
+    expect(parsed.settings.referralRewardDays).toBe(7);
   });
 
   it("parses project settings", () => {

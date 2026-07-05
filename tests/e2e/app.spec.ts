@@ -186,6 +186,27 @@ async function mockApi(page: Page) {
       return;
     }
 
+    if (path === "/me/referrals" && request.method() === "GET") {
+      await route.fulfill(
+        json({
+          referral: {
+            code: "ref_demo",
+            link: "https://t.me/tehnobot_club_bot?start=ref_demo",
+            invitedCount: 1,
+            paidCount: 0,
+            availableDays: 0,
+            activatedDays: 0,
+            canActivate: false,
+            activationBlockedReason: "no_available_days"
+          },
+          settings: {
+            referralRewardDays: 7
+          }
+        })
+      );
+      return;
+    }
+
     if (path === "/learning") {
       await route.fulfill(json(learningHomeResponse()));
       return;

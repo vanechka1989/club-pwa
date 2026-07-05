@@ -449,6 +449,10 @@ export function markAppNotificationsRead() {
   return api<AppNotificationMutationResponse>("/notifications/read", { method: "POST" });
 }
 
+export function clearAppNotifications() {
+  return api<AppNotificationMutationResponse>("/notifications", { method: "DELETE" });
+}
+
 export function markAppNotificationRead(id: string) {
   return api<AppNotificationMutationResponse>(`/notifications/${id}/read`, { method: "POST" });
 }

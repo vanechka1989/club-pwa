@@ -7176,6 +7176,32 @@ body.club-keyboard-open .module-name-modal {
   border-bottom: 1px solid var(--border);
 }
 
+.notification-center-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.notification-center-clear {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-muted) 78%, transparent);
+  color: var(--muted);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.notification-center-clear:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .notification-center-head h3 {
   color: var(--text);
   font-size: 1.15rem;
@@ -7423,6 +7449,27 @@ body.club-keyboard-open .module-name-modal {
   line-height: 1.25;
 }
 
+.profile-subscription-status {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.profile-subscription-status-active {
+  background: color-mix(in srgb, var(--success-soft) 70%, transparent);
+  color: var(--success-text);
+}
+
+.profile-subscription-status-inactive {
+  background: color-mix(in srgb, var(--danger-soft) 70%, transparent);
+  color: var(--danger-text);
+}
+
 .soft-hero h2 {
   max-width: 24rem;
   color: var(--text);
@@ -7464,6 +7511,14 @@ body.club-keyboard-open .module-name-modal {
 .profile-referral-body {
   display: grid;
   gap: 0.65rem;
+}
+
+.profile-referral-reward {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  line-height: 1.25;
 }
 
 .profile-referral-link {
@@ -7992,6 +8047,13 @@ body.club-huawei.club-screen-narrow .profile-info-row strong {
   color: var(--accent-text);
   padding: 0.8rem 1rem;
   font-weight: 850;
+}
+
+.soft-inline-button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.25);
+  opacity: 0.55;
+  box-shadow: none;
 }
 
 .club-home {

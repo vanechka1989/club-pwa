@@ -8,7 +8,7 @@ import { userRecurrentSubscriptions, users } from "../db/schema";
 import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 import { resolveMembershipProfileFields } from "../membership/profileFields";
-import { activateReferralRewards, getReferralSummary } from "../referrals/referrals";
+import { activateReferralRewards, getReferralRewardDays, getReferralSummary } from "../referrals/referrals";
 
 const avatarRefreshCooldownMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -75,7 +75,12 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json(await buildMeResponse(user, c));
   })
   .get("/referrals", async (c) => {
-    return c.json({ referral: await getReferralSummary(c.get("userId")) });
+    const [referral, referralRewardDays] = await Promise.all([
+      getReferralSummary(c.get("userId")),
+      getReferralRewardDays()
+    ]);
+
+    return c.json({ referral, settings: { referralRewardDays } });
   })
   .post("/referrals/activate", async (c) => {
     const result = await activateReferralRewards(c.get("userId"));

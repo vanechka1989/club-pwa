@@ -6,7 +6,13 @@ import { activateReferralRewards, getLearningHome, getPaymentHistory, getPayment
 import { useI18n, type Locale } from "@/features/app/i18n";
 import NotificationCenter from "@/features/app/NotificationCenter.vue";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
-import { getProfilePaymentActionText } from "@/features/profile/profileSubscriptionCopy";
+import {
+  canUseReferralActivation,
+  getProfileMembershipStatusText,
+  getProfileMembershipStatusTone,
+  getProfilePaymentActionText,
+  getReferralRewardText
+} from "@/features/profile/profileSubscriptionCopy";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme, type Theme } from "@/stores/ui";
 
@@ -25,6 +31,7 @@ const lastOpenedTitle = ref<string | null>(null);
 const paymentOrders = ref<PaymentOrderLog[]>([]);
 const recurrentSubscriptions = ref<UserRecurrentSubscription[]>([]);
 const referral = ref<ReferralSummary | null>(null);
+const referralRewardDays = ref(7);
 const referralSaving = ref(false);
 const referralCopied = ref(false);
 const referralMessage = ref<string | null>(null);
@@ -128,6 +135,34 @@ const paymentActionText = computed(() => {
     joinText: t("joinClub")
   });
 });
+const profileSubscriptionStatusText = computed(() =>
+  getProfileMembershipStatusText({
+    isMember: isMember.value,
+    activeText: t("profileSubscriptionActive"),
+    inactiveText: t("profileSubscriptionInactive")
+  })
+);
+const profileSubscriptionStatusClass = computed(() => getProfileMembershipStatusTone({ isMember: isMember.value }));
+const referralRewardText = computed(() =>
+  getReferralRewardText({
+    rewardDays: referralRewardDays.value,
+    prefix: t("referralRewardPrefix"),
+    daysUnit: t("profileDaysShort"),
+    suffix: t("referralRewardSuffix")
+  })
+);
+const canActivateReferral = computed(() =>
+  Boolean(
+    referral.value &&
+      canUseReferralActivation({
+        isSaving: referralSaving.value,
+        canActivate: referral.value.canActivate,
+        availableDays: referral.value.availableDays,
+        paymentType: session.user?.paymentType,
+        recurrentPaymentStatus: session.user?.recurrentPaymentStatus
+      })
+  )
+);
 const avatarRefreshAvailableAt = computed(() => {
   if (!session.user?.avatarRefreshedAt) {
     return null;
@@ -246,6 +281,10 @@ async function copyReferralLink() {
 
 function referralBlockReason() {
   if (!referral.value?.activationBlockedReason) {
+    if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "active") {
+      return t("referralBlockedRecurrent");
+    }
+
     return null;
   }
 
@@ -298,7 +337,12 @@ onMounted(async () => {
 
   paymentOrders.value = paymentsResult.status === "fulfilled" ? paymentsResult.value.orders : [];
   recurrentSubscriptions.value = plansResult.status === "fulfilled" ? plansResult.value.recurrentSubscriptions : [];
-  referral.value = referralResult.status === "fulfilled" ? referralResult.value.referral : null;
+  if (referralResult.status === "fulfilled") {
+    referral.value = referralResult.value.referral;
+    referralRewardDays.value = referralResult.value.settings.referralRewardDays;
+  } else {
+    referral.value = null;
+  }
 });
 </script>
 
@@ -330,8 +374,8 @@ onMounted(async () => {
         <div class="min-w-0 flex-1">
           <p class="section-eyebrow">{{ t("status") }}</p>
           <h3>{{ displayName }}</h3>
-          <p class="mt-1 text-sm font-semibold text-[var(--muted)]">
-            {{ isMember ? t("softPremiumActive") : t("homeInactive") }}
+          <p class="profile-subscription-status mt-1" :class="profileSubscriptionStatusClass">
+            {{ profileSubscriptionStatusText }}
           </p>
           <p class="mt-1 text-xs font-semibold text-[var(--muted)]">
             {{ paymentStatusText }}<template v-if="paymentDateText"> · {{ paymentDateText }}</template>
@@ -385,6 +429,7 @@ onMounted(async () => {
         <div>
           <h3 class="soft-section-title">{{ t("referralTitle") }}</h3>
           <p class="profile-empty-text">{{ t("referralSubtitle") }}</p>
+          <p class="profile-referral-reward">{{ referralRewardText }}</p>
         </div>
         <Gift class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
       </div>
@@ -416,7 +461,7 @@ onMounted(async () => {
         <button
           class="soft-inline-button"
           type="button"
-          :disabled="referralSaving || !referral.canActivate"
+          :disabled="!canActivateReferral"
           @click="handleReferralActivation"
         >
           {{ referralSaving ? t("referralActivating") : t("referralActivate") }}

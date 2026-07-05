@@ -1,7 +1,7 @@
 import type { AppNotification as ClubAppNotification } from "@club/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { getAppNotifications, markAppNotificationsRead } from "@/api/client";
+import { clearAppNotifications, getAppNotifications, markAppNotificationsRead } from "@/api/client";
 
 export type AppNotificationKind = "error" | "success" | "info";
 
@@ -81,6 +81,12 @@ export const useNotificationsStore = defineStore("notifications", () => {
     }));
   }
 
+  async function clearAppNotificationsInApp() {
+    const response = await clearAppNotifications();
+    setUnreadCount(response.unreadCount);
+    appNotifications.value = [];
+  }
+
   return {
     items,
     appNotifications,
@@ -93,6 +99,7 @@ export const useNotificationsStore = defineStore("notifications", () => {
     clear,
     setUnreadCount,
     loadAppNotifications,
-    markAppNotificationsReadInApp
+    markAppNotificationsReadInApp,
+    clearAppNotificationsInApp
   };
 });

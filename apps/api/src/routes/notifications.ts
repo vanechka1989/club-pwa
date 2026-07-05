@@ -35,6 +35,12 @@ export const notificationsRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({ ok: true, unreadCount: 0 });
   })
+  .delete("/", async (c) => {
+    const userId = c.get("userId");
+    await db.delete(appNotifications).where(eq(appNotifications.userId, userId));
+
+    return c.json({ ok: true, unreadCount: 0 });
+  })
   .post("/:id/read", async (c) => {
     const idResult = z.string().uuid().safeParse(c.req.param("id"));
     if (!idResult.success) {

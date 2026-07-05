@@ -52,6 +52,26 @@ describe("app notifications", () => {
     expect(styles).toContain(".notification-center-media");
   });
 
+  it("allows clearing all app notifications from the notification center", () => {
+    const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
+    const storeSource = readFileSync(resolve(__dirname, "../../stores/notifications.ts"), "utf8");
+    const clientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
+
+    expect(source).toContain("clearAppNotificationsInApp");
+    expect(source).toContain("notificationsClear");
+    expect(storeSource).toContain("clearAppNotifications");
+    expect(clientSource).toContain('"/notifications"');
+    expect(clientSource).toContain('method: "DELETE"');
+  });
+
+  it("exposes a delete endpoint for clearing stored notifications", () => {
+    const routeSource = readFileSync(resolve(__dirname, "../../../../api/src/routes/notifications.ts"), "utf8");
+
+    expect(routeSource).toContain('.delete("/", async (c) =>');
+    expect(routeSource).toContain("db.delete(appNotifications)");
+    expect(routeSource).toContain("unreadCount: 0");
+  });
+
   it("places the notification bell in the profile compact controls instead of the app top center", () => {
     const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
     const profileSource = readFileSync(resolve(__dirname, "../profile/ProfileSection.vue"), "utf8");
