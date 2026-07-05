@@ -65,6 +65,11 @@ describe("support section", () => {
     expect(source).toContain("calculateAverageResponseMinutes");
   });
 
+  it("keeps admin support stats in an even mobile grid", () => {
+    expect(styles).toMatch(/\.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styles).toMatch(/@media \(min-width:\s*620px\)\s*\{[^}]*\.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/s);
+  });
+
   it("opens compact attachment pills from the support thread", () => {
     expect(source).toContain("support-attachment-preview");
     expect(source).toContain("support-attachment-open");
