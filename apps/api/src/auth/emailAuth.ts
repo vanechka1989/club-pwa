@@ -1,6 +1,7 @@
 import { createHash, randomInt } from "node:crypto";
 
 const loginCodeLength = 6;
+export const emailLoginCodeCooldownSeconds = 60;
 
 export function normalizeEmail(value: string | null | undefined) {
   const email = value?.trim().toLowerCase();
@@ -17,6 +18,16 @@ export function createLoginCode() {
 
 export function hashAuthToken(value: string) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+export function getEmailLoginCodeCooldownSeconds(issuedAt: Date | null | undefined, now = new Date()) {
+  if (!issuedAt) {
+    return 0;
+  }
+
+  const elapsedMs = now.getTime() - issuedAt.getTime();
+  const remainingMs = emailLoginCodeCooldownSeconds * 1000 - elapsedMs;
+  return Math.max(0, Math.ceil(remainingMs / 1000));
 }
 
 export function buildEmailLoginMessage(input: { code: string; expiresInMinutes: number }) {

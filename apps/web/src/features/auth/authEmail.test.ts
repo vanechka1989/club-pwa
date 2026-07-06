@@ -25,12 +25,14 @@ function renderAuth(pinia = createPinia()) {
 
 describe("email auth UI", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     vi.mocked(requestEmailCode).mockResolvedValue({ ok: true, devCode: null });
     vi.mocked(verifyEmailCode).mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     cleanup();
   });
 
@@ -69,16 +71,49 @@ describe("email auth UI", () => {
     expect(screen.getByLabelText("Код")).toBeTruthy();
   });
 
-  it("lets users resend the code without entering the email again", async () => {
+  it("lets users resend the code without entering the email again after the cooldown", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     renderAuth();
 
     await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
     await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Отправить код ещё раз" })).toBeTruthy());
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз через 60с" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз" }) as HTMLButtonElement).disabled).toBe(false);
+    });
 
     await fireEvent.click(screen.getByRole("button", { name: "Отправить код ещё раз" }));
 
     expect(requestEmailCode).toHaveBeenCalledTimes(2);
     expect(requestEmailCode).toHaveBeenLastCalledWith({ email: "ivan@example.com" });
+  });
+
+  it("waits one minute before allowing a repeated email code request", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderAuth();
+
+    await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
+    await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз через 60с" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Отправить код ещё раз через 60с" }));
+    expect(requestEmailCode).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect((screen.getByRole("button", { name: "Отправить код ещё раз через 1с" }) as HTMLButtonElement).disabled).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Отправить код ещё раз" }));
+    expect(requestEmailCode).toHaveBeenCalledTimes(2);
   });
 });

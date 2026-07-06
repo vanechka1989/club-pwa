@@ -221,6 +221,23 @@ function setLayoutCssVariable(name: string, value: string) {
   document.body.style.setProperty(name, value);
 }
 
+function syncDesktopViewportMobileScale(layoutWidth: number) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return;
+  }
+
+  const screenWidths = [window.screen?.width, window.screen?.availWidth].filter((value): value is number => Number.isFinite(value) && value > 0);
+  const deviceScreenWidth = screenWidths.length ? Math.min(...screenWidths) : 0;
+  const hasTouchInput = Boolean(window.matchMedia?.("(pointer: coarse)").matches || window.navigator.maxTouchPoints > 0);
+  const viewportScale = deviceScreenWidth > 0 ? layoutWidth / deviceScreenWidth : 1;
+  const isDesktopViewportMobile = hasTouchInput && layoutWidth >= 700 && viewportScale >= 1.35;
+  const scale = isDesktopViewportMobile ? Math.min(2.8, Math.max(1, viewportScale)) : 1;
+
+  document.documentElement.classList.toggle("club-desktop-viewport-mobile", isDesktopViewportMobile);
+  document.body.classList.toggle("club-desktop-viewport-mobile", isDesktopViewportMobile);
+  setLayoutCssVariable("--club-mobile-viewport-scale", scale.toFixed(3));
+}
+
 function syncPlatformClasses() {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
@@ -271,6 +288,7 @@ function syncViewportHeight() {
   const browserWidth = window.innerWidth || 0;
   const height = Math.max(visualHeight, browserHeight);
   const width = Math.max(window.screen?.width ?? 0, visualViewport?.width ?? 0, browserWidth);
+  syncDesktopViewportMobileScale(width);
 
   if (height > 0) {
     document.documentElement.style.setProperty("--club-viewport-height", `${height}px`);
@@ -628,6 +646,8 @@ onBeforeUnmount(() => {
   document.body.classList.remove("club-telegram-fullscreen");
   document.documentElement.classList.remove("club-telegram-webview");
   document.body.classList.remove("club-telegram-webview");
+  document.documentElement.classList.remove("club-desktop-viewport-mobile");
+  document.body.classList.remove("club-desktop-viewport-mobile");
   syncLayoutClasses([document.documentElement, document.body], []);
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
@@ -637,6 +657,8 @@ onBeforeUnmount(() => {
   document.body.style.removeProperty("--club-calibrated-top-offset");
   document.body.style.removeProperty("--club-calibrated-chat-top-offset");
   document.body.style.removeProperty("--club-calibrated-bottom-offset");
+  document.documentElement.style.removeProperty("--club-mobile-viewport-scale");
+  document.body.style.removeProperty("--club-mobile-viewport-scale");
 });
 </script>
 

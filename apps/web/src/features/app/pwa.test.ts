@@ -82,7 +82,7 @@ describe("PWA shell", () => {
     await vi.advanceTimersByTimeAsync(400);
     await nextTick();
 
-    expect(screen.getByRole("dialog", { name: "Установите Club как приложение" })).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "Установите Club как приложение" })).toBeTruthy();
     expect(screen.getByText(/Если кнопки установки нет/)).toBeTruthy();
   });
 });

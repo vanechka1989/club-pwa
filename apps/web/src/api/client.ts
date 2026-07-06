@@ -88,7 +88,7 @@ export const api = ofetch.create({
 });
 
 export function requestEmailCode(payload: { email: string; referralCode?: string | null }) {
-  return api<{ ok: boolean; devCode: string | null }>("/auth/email/start", {
+  return api<{ ok: boolean; devCode: string | null; retryAfterSeconds?: number }>("/auth/email/start", {
     method: "POST",
     body: payload
   });

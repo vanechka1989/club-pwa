@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEmailLoginMessage, createLoginCode, hashAuthToken, normalizeEmail } from "./emailAuth";
+import { buildEmailLoginMessage, createLoginCode, getEmailLoginCodeCooldownSeconds, hashAuthToken, normalizeEmail } from "./emailAuth";
 
 describe("email auth", () => {
   it("normalizes email addresses before identity lookup", () => {
@@ -27,5 +27,13 @@ describe("email auth", () => {
     expect(message.text).toContain("123456");
     expect(message.text).toContain("10 минут");
     expect(message.text.toLowerCase()).not.toContain("telegram");
+  });
+
+  it("requires a one minute pause before issuing another login code", () => {
+    const issuedAt = new Date("2026-07-06T09:00:00.000Z");
+
+    expect(getEmailLoginCodeCooldownSeconds(issuedAt, new Date("2026-07-06T09:00:00.000Z"))).toBe(60);
+    expect(getEmailLoginCodeCooldownSeconds(issuedAt, new Date("2026-07-06T09:00:59.000Z"))).toBe(1);
+    expect(getEmailLoginCodeCooldownSeconds(issuedAt, new Date("2026-07-06T09:01:00.000Z"))).toBe(0);
   });
 });

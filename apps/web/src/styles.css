@@ -1000,6 +1000,32 @@ body.club-keyboard-open .community-chat-open .app-shell {
   padding: clamp(1rem, 4vw, 1.35rem);
 }
 
+.club-desktop-viewport-mobile .app-shell-auth {
+  overflow: hidden;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
+.club-desktop-viewport-mobile .content-panel-auth {
+  overflow: visible;
+}
+
+.club-desktop-viewport-mobile .content-panel-auth .auth-panel {
+  width: min(calc((100vw - 2rem) / var(--club-mobile-viewport-scale)), 28rem);
+  max-width: none;
+  transform: scale(var(--club-mobile-viewport-scale));
+  transform-origin: center;
+}
+
+.club-desktop-viewport-mobile .pwa-install-card {
+  right: auto;
+  left: 50%;
+  width: min(calc((100vw - 2rem) / var(--club-mobile-viewport-scale)), 30rem);
+  max-width: none;
+  transform: translateX(-50%) scale(var(--club-mobile-viewport-scale));
+  transform-origin: bottom center;
+}
+
 .auth-panel {
   display: grid;
   gap: 1rem;

@@ -289,6 +289,18 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.app-layout-auth\s*{[\s\S]*display: block;/);
   });
 
+  it("rescales auth and install surfaces when a touch browser exposes a desktop layout viewport", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("syncDesktopViewportMobileScale");
+    expect(appSource).toContain("club-desktop-viewport-mobile");
+    expect(appSource).toContain("--club-mobile-viewport-scale");
+    expect(styles).toContain(".club-desktop-viewport-mobile .content-panel-auth .auth-panel");
+    expect(styles).toContain(".club-desktop-viewport-mobile .pwa-install-card");
+    expect(styles).toContain("transform: scale(var(--club-mobile-viewport-scale));");
+    expect(styles).toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
+  });
+
   it("keeps one compact side gutter across normal section tabs", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

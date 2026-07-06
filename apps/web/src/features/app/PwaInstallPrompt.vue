@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside v-if="isVisible" class="pwa-install-card" role="dialog" aria-live="polite" :aria-label="title">
+  <aside v-if="isVisible" class="pwa-install-card" aria-live="polite" :aria-label="title">
     <button class="pwa-install-close" type="button" aria-label="Закрыть подсказку установки" @click="dismissInstallCard">
       <X class="h-4 w-4" aria-hidden="true" />
     </button>

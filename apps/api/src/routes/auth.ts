@@ -3,7 +3,7 @@ import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { Hono } from "hono";
 import { z } from "zod";
-import { buildEmailLoginMessage, createLoginCode, hashAuthToken, normalizeEmail } from "../auth/emailAuth";
+import { buildEmailLoginMessage, createLoginCode, getEmailLoginCodeCooldownSeconds, hashAuthToken, normalizeEmail } from "../auth/emailAuth";
 import { sendEmail } from "../auth/emailDelivery";
 import { db } from "../db/client";
 import { authEmailLoginCodes, authSessions, users } from "../db/schema";
@@ -80,6 +80,15 @@ export const authRoute = new Hono()
     const email = body.success ? normalizeEmail(body.data.email) : null;
     if (!email) {
       return c.json({ error: "Введите корректный email." }, 400);
+    }
+
+    const latestLoginCode = await db.query.authEmailLoginCodes.findFirst({
+      where: eq(authEmailLoginCodes.email, email),
+      orderBy: [desc(authEmailLoginCodes.createdAt)]
+    });
+    const retryAfterSeconds = getEmailLoginCodeCooldownSeconds(latestLoginCode?.createdAt);
+    if (retryAfterSeconds > 0) {
+      return c.json({ error: `Повторный код можно получить через ${retryAfterSeconds}с.`, retryAfterSeconds }, 429);
     }
 
     const code = createLoginCode();
