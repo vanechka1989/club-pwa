@@ -55,6 +55,9 @@ function testUser(overrides: Partial<ClubUser> = {}): ClubUser {
     paymentType: "manual",
     recurrentPaymentStatus: null,
     nextPaymentAt: null,
+    avatarPositionX: 50,
+    avatarPositionY: 50,
+    avatarScale: 1,
     avatarRefreshedAt: null,
     ...overrides
   };
@@ -205,6 +208,8 @@ describe("App", () => {
 
     const logoutButton = await screen.findByRole("button", { name: "Выйти" });
     await logoutButton.click();
+    const confirmButton = await screen.findByRole("button", { name: "Да, выйти" });
+    await confirmButton.click();
 
     await waitFor(() => expect(logoutSession).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole("heading", { name: "Вход в клуб" })).toBeTruthy();
@@ -276,6 +281,26 @@ describe("App", () => {
     expect(sessionSource).toContain("uploadAvatar");
     expect(styles).toContain(".profile-access-card");
     expect(styles).toContain(".profile-avatar-upload");
+  });
+
+  it("keeps profile avatar controls compact and adds crop and logout confirmation flows", () => {
+    const apiSource = readFileSync(resolve(__dirname, "api/client.ts"), "utf-8");
+    const sessionSource = readFileSync(resolve(__dirname, "stores/session.ts"), "utf-8");
+    const uiSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(profileSource).toContain("profile-avatar-icon-button");
+    expect(profileSource).toContain("profile-avatar-editor-modal");
+    expect(profileSource).toContain("handleAvatarDisplaySave");
+    expect(profileSource).toContain("showLogoutConfirm");
+    expect(profileSource).toContain("profile-logout-confirm");
+    expect(profileSource).not.toContain("avatarMessage || t(\"profileAvatarUploadHint\")");
+    expect(apiSource).toContain("updateAvatarDisplay");
+    expect(apiSource).toContain("/me/avatar/display");
+    expect(sessionSource).toContain("updateAvatarDisplay");
+    expect(uiSource).toContain("VisualScale");
+    expect(styles).toContain(".profile-avatar-editor-modal");
+    expect(styles).toContain(":root[data-visual-scale=\"large\"]");
   });
 
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {

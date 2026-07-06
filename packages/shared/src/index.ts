@@ -53,6 +53,9 @@ export const clubUserSchema = z.object({
   paymentType: z.enum(["none", "manual", "one_time", "recurrent"]),
   recurrentPaymentStatus: z.enum(["active", "cancelled"]).nullable(),
   nextPaymentAt: z.string().datetime().nullable(),
+  avatarPositionX: z.number().min(0).max(100).default(50),
+  avatarPositionY: z.number().min(0).max(100).default(50),
+  avatarScale: z.number().min(1).max(2.5).default(1),
   avatarRefreshedAt: z.string().datetime().nullable()
 });
 export type ClubUser = z.infer<typeof clubUserSchema>;

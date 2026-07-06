@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
-import { BarChart3, Camera, Check, Copy, Fingerprint, Gift, LogOut, Moon, Palette, Sun } from "lucide-vue-next";
+import { BarChart3, Camera, Check, Copy, Crop, Fingerprint, Gift, LogOut, Moon, Palette, Sun } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { activateReferralRewards, getLearningHome, getPaymentHistory, getPaymentPlans, getReferralProfile } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
@@ -14,7 +14,7 @@ import {
   getReferralRewardText
 } from "@/features/profile/profileSubscriptionCopy";
 import { useSessionStore } from "@/stores/session";
-import { useUiStore, type ColorScheme, type Theme } from "@/stores/ui";
+import { useUiStore, type ColorScheme, type Theme, type VisualScale } from "@/stores/ui";
 
 defineEmits<{
   openPayments: [];
@@ -37,9 +37,24 @@ const referralCopied = ref(false);
 const referralMessage = ref<string | null>(null);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
+const avatarEditorOpen = ref(false);
+const avatarDisplaySaving = ref(false);
+const avatarDraftX = ref(50);
+const avatarDraftY = ref(50);
+const avatarDraftScale = ref(1);
+const avatarDragState = ref<{
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startPositionX: number;
+  startPositionY: number;
+  rectWidth: number;
+  rectHeight: number;
+} | null>(null);
 const emailVisible = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
+const showLogoutConfirm = ref(false);
 const avatarMaxSizeBytes = 5 * 1024 * 1024;
 const avatarAllowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const avatarAllowedExtension = /\.(jpe?g|png|webp)$/i;
@@ -49,6 +64,22 @@ const accessUntil = computed(() =>
 const displayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const accountEmail = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase());
+const avatarDisplayStyle = computed(() => {
+  const positionX = session.user?.avatarPositionX ?? 50;
+  const positionY = session.user?.avatarPositionY ?? 50;
+  const scale = session.user?.avatarScale ?? 1;
+
+  return {
+    objectPosition: `${positionX}% ${positionY}%`,
+    transform: `scale(${scale})`,
+    transformOrigin: `${positionX}% ${positionY}%`
+  };
+});
+const avatarDraftStyle = computed(() => ({
+  objectPosition: `${avatarDraftX.value}% ${avatarDraftY.value}%`,
+  transform: `scale(${avatarDraftScale.value})`,
+  transformOrigin: `${avatarDraftX.value}% ${avatarDraftY.value}%`
+}));
 const daysLeft = computed(() => {
   if (!session.user?.membershipExpiresAt || !isMember.value) {
     return 0;
@@ -181,6 +212,11 @@ const themeOptions = computed<Array<{ value: Theme; label: string; icon: typeof 
   { value: "dark", label: t("profileThemeNight"), icon: Moon },
   { value: "light", label: t("profileThemeDay"), icon: Sun }
 ]);
+const visualScaleOptions = computed<Array<{ value: VisualScale; label: string; caption: string }>>(() => [
+  { value: "compact", label: t("profileVisualScaleCompact"), caption: t("profileVisualScaleCompactText") },
+  { value: "standard", label: t("profileVisualScaleStandard"), caption: t("profileVisualScaleStandardText") },
+  { value: "large", label: t("profileVisualScaleLarge"), caption: t("profileVisualScaleLargeText") }
+]);
 const colorOptions = computed<Array<{ value: ColorScheme; label: string; colors: string[] }>>(() => [
   { value: "midnight", label: t("profileSchemeMidnight"), colors: ["#080922", "#f2f2f7"] },
   { value: "emerald", label: t("profileSchemeEmerald"), colors: ["#12382d", "#7dd3b0"] },
@@ -223,6 +259,83 @@ function isAvatarFileAllowed(file: File) {
   return file.size > 0 && file.size <= avatarMaxSizeBytes && (avatarAllowedTypes.has(file.type) || avatarAllowedExtension.test(file.name));
 }
 
+function clampAvatarPosition(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function clampAvatarScale(value: number) {
+  return Math.min(2.5, Math.max(1, Math.round(value * 100) / 100));
+}
+
+function openAvatarEditor() {
+  if (!session.user?.photoUrl) {
+    avatarMessage.value = t("profileAvatarUploadFirst");
+    return;
+  }
+
+  avatarDraftX.value = session.user.avatarPositionX ?? 50;
+  avatarDraftY.value = session.user.avatarPositionY ?? 50;
+  avatarDraftScale.value = session.user.avatarScale ?? 1;
+  avatarMessage.value = null;
+  avatarEditorOpen.value = true;
+}
+
+function handleAvatarPointerDown(event: PointerEvent) {
+  const target = event.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  avatarDragState.value = {
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startPositionX: avatarDraftX.value,
+    startPositionY: avatarDraftY.value,
+    rectWidth: rect.width || 1,
+    rectHeight: rect.height || 1
+  };
+  target.setPointerCapture?.(event.pointerId);
+}
+
+function handleAvatarPointerMove(event: PointerEvent) {
+  const drag = avatarDragState.value;
+  if (!drag || drag.pointerId !== event.pointerId) {
+    return;
+  }
+
+  const scaleFactor = Math.max(1, avatarDraftScale.value);
+  const deltaX = ((event.clientX - drag.startClientX) / drag.rectWidth) * (100 / scaleFactor);
+  const deltaY = ((event.clientY - drag.startClientY) / drag.rectHeight) * (100 / scaleFactor);
+  avatarDraftX.value = clampAvatarPosition(drag.startPositionX - deltaX);
+  avatarDraftY.value = clampAvatarPosition(drag.startPositionY - deltaY);
+}
+
+function handleAvatarPointerUp(event: PointerEvent) {
+  const target = event.currentTarget as HTMLElement;
+  target.releasePointerCapture?.(event.pointerId);
+  avatarDragState.value = null;
+}
+
+function handleAvatarScaleInput(event: Event) {
+  avatarDraftScale.value = clampAvatarScale(Number((event.target as HTMLInputElement).value));
+}
+
+async function handleAvatarDisplaySave() {
+  avatarDisplaySaving.value = true;
+  avatarMessage.value = null;
+  try {
+    await session.updateAvatarDisplay({
+      avatarPositionX: avatarDraftX.value,
+      avatarPositionY: avatarDraftY.value,
+      avatarScale: avatarDraftScale.value
+    });
+    avatarEditorOpen.value = false;
+    avatarMessage.value = t("profileAvatarDisplaySaved");
+  } catch {
+    avatarMessage.value = t("profileAvatarDisplayError");
+  } finally {
+    avatarDisplaySaving.value = false;
+  }
+}
+
 async function handleAvatarUpload(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
@@ -259,6 +372,11 @@ async function handleLogout() {
   } finally {
     logoutSaving.value = false;
   }
+}
+
+async function confirmLogout() {
+  showLogoutConfirm.value = false;
+  await handleLogout();
 }
 
 async function copyReferralLink() {
@@ -364,20 +482,36 @@ onMounted(async () => {
       <div class="profile-access-layout">
         <div class="profile-avatar-stack">
           <div class="profile-avatar profile-avatar-large">
-            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" />
+            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
             <span v-else>{{ avatarInitial }}</span>
           </div>
-          <label class="profile-avatar-upload" :class="{ 'profile-avatar-upload-disabled': avatarSaving }">
-            <Camera class="h-4 w-4" aria-hidden="true" />
-            <span>{{ avatarSaving ? t("profileAvatarUploading") : t("profileAvatarUpload") }}</span>
-            <input
-              class="profile-upload-input"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              :disabled="avatarSaving"
-              @change="handleAvatarUpload"
-            />
-          </label>
+          <div class="profile-avatar-actions">
+            <label
+              class="profile-avatar-icon-button"
+              :class="{ 'profile-avatar-upload-disabled': avatarSaving }"
+              :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
+              :title="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
+            >
+              <Camera class="h-4 w-4" aria-hidden="true" />
+              <input
+                class="profile-upload-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                :disabled="avatarSaving"
+                @change="handleAvatarUpload"
+              />
+            </label>
+            <button
+              class="profile-avatar-icon-button"
+              type="button"
+              :disabled="!session.user?.photoUrl || avatarSaving"
+              :aria-label="t('profileAvatarAdjust')"
+              :title="t('profileAvatarAdjust')"
+              @click="openAvatarEditor"
+            >
+              <Crop class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <div class="profile-access-main">
           <div class="profile-access-head">
@@ -426,12 +560,12 @@ onMounted(async () => {
         <button class="soft-inline-button" type="button" @click="$emit('openPayments')">
           {{ paymentActionText }}
         </button>
-        <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="handleLogout">
+        <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
           <LogOut class="h-4 w-4" aria-hidden="true" />
           <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
         </button>
       </div>
-      <p class="profile-avatar-help">{{ avatarMessage || t("profileAvatarUploadHint") }}</p>
+      <p v-if="avatarMessage" class="profile-avatar-help">{{ avatarMessage }}</p>
       <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
     </section>
 
@@ -547,6 +681,20 @@ onMounted(async () => {
         </button>
       </div>
 
+      <div class="visual-scale-row mt-3">
+        <button
+          v-for="option in visualScaleOptions"
+          :key="option.value"
+          class="visual-scale-choice"
+          :class="{ 'visual-scale-choice-active': ui.visualScale === option.value }"
+          type="button"
+          @click="ui.setVisualScale(option.value)"
+        >
+          <strong>{{ option.label }}</strong>
+          <span>{{ option.caption }}</span>
+        </button>
+      </div>
+
       <div class="scheme-grid mt-3">
         <button
           v-for="option in colorOptions"
@@ -565,5 +713,68 @@ onMounted(async () => {
         </button>
       </div>
     </section>
+
+    <div v-if="avatarEditorOpen" class="profile-modal-backdrop" @click.self="avatarEditorOpen = false">
+      <section class="profile-avatar-editor-modal" role="dialog" aria-modal="true" :aria-label="t('profileAvatarEditorTitle')">
+        <div class="profile-modal-head">
+          <div>
+            <h3>{{ t("profileAvatarEditorTitle") }}</h3>
+            <p>{{ t("profileAvatarEditorText") }}</p>
+          </div>
+          <button class="profile-modal-close" type="button" :aria-label="t('close')" @click="avatarEditorOpen = false">×</button>
+        </div>
+
+        <div
+          class="profile-avatar-crop-preview"
+          @pointerdown="handleAvatarPointerDown"
+          @pointermove="handleAvatarPointerMove"
+          @pointerup="handleAvatarPointerUp"
+          @pointercancel="handleAvatarPointerUp"
+        >
+          <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDraftStyle" draggable="false" />
+          <span v-else>{{ avatarInitial }}</span>
+        </div>
+
+        <div class="profile-avatar-editor-controls">
+          <label class="profile-range-row">
+            <span>{{ t("profileAvatarMoveX") }}</span>
+            <input v-model.number="avatarDraftX" type="range" min="0" max="100" step="1" />
+          </label>
+          <label class="profile-range-row">
+            <span>{{ t("profileAvatarMoveY") }}</span>
+            <input v-model.number="avatarDraftY" type="range" min="0" max="100" step="1" />
+          </label>
+          <label class="profile-range-row">
+            <span>{{ t("profileAvatarZoom") }}</span>
+            <input v-model.number="avatarDraftScale" type="range" min="1" max="2.5" step="0.05" @input="handleAvatarScaleInput" />
+          </label>
+        </div>
+
+        <div class="profile-modal-actions">
+          <button class="secondary-button" type="button" @click="avatarEditorOpen = false">{{ t("cancel") }}</button>
+          <button class="soft-inline-button" type="button" :disabled="avatarDisplaySaving" @click="handleAvatarDisplaySave">
+            {{ avatarDisplaySaving ? t("saving") : t("save") }}
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="showLogoutConfirm" class="profile-modal-backdrop" @click.self="showLogoutConfirm = false">
+      <section class="profile-logout-confirm" role="dialog" aria-modal="true" :aria-label="t('profileLogoutConfirmTitle')">
+        <div class="profile-modal-head">
+          <div>
+            <h3>{{ t("profileLogoutConfirmTitle") }}</h3>
+            <p>{{ t("profileLogoutConfirmText") }}</p>
+          </div>
+        </div>
+        <div class="profile-modal-actions">
+          <button class="secondary-button" type="button" @click="showLogoutConfirm = false">{{ t("profileLogoutCancel") }}</button>
+          <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="confirmLogout">
+            <LogOut class="h-4 w-4" aria-hidden="true" />
+            <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogoutConfirmAction") }}</span>
+          </button>
+        </div>
+      </section>
+    </div>
   </section>
 </template>

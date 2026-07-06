@@ -10,6 +10,7 @@ import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 import { resolveMembershipProfileFields } from "../membership/profileFields";
 import { logger } from "../logger";
+import { normalizeAvatarDisplay } from "../profile/avatarDisplay";
 import { buildAvatarObjectKey, getAvatarUploadContentType, getAvatarUploadLimitError } from "../profile/avatarUpload";
 import { activateReferralRewards, getReferralRewardDays, getReferralSummary } from "../referrals/referrals";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
@@ -101,6 +102,9 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       paymentType: membershipProfile.paymentType,
       recurrentPaymentStatus: membershipProfile.recurrentPaymentStatus,
       nextPaymentAt: membershipProfile.nextPaymentAt,
+      avatarPositionX: user.avatarPositionX ?? 50,
+      avatarPositionY: user.avatarPositionY ?? 50,
+      avatarScale: (user.avatarScale ?? 100) / 100,
       avatarRefreshedAt: user.avatarRefreshedAt?.toISOString() ?? null
     }
   };
@@ -213,6 +217,9 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
       .set({
         avatarObjectKey: storedAvatar.avatarObjectKey,
         photoUrl: storedAvatar.photoUrl ?? user.photoUrl,
+        avatarPositionX: 50,
+        avatarPositionY: 50,
+        avatarScale: 100,
         avatarRefreshedAt: now,
         updatedAt: now
       })
@@ -221,6 +228,27 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!updatedUser) {
       return c.json({ error: "Unable to update avatar" }, 500);
+    }
+
+    return c.json(await buildMeResponse(updatedUser, c));
+  })
+  .patch("/avatar/display", async (c) => {
+    const userId = c.get("userId");
+    const display = normalizeAvatarDisplay(await c.req.json().catch(() => null));
+    const now = new Date();
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        avatarPositionX: Math.round(display.avatarPositionX),
+        avatarPositionY: Math.round(display.avatarPositionY),
+        avatarScale: Math.round(display.avatarScale * 100),
+        updatedAt: now
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      return c.json({ error: "Unable to update avatar display" }, 500);
     }
 
     return c.json(await buildMeResponse(updatedUser, c));
@@ -251,6 +279,9 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
       .set({
         photoUrl: telegramUser.photoUrl,
         avatarObjectKey: null,
+        avatarPositionX: 50,
+        avatarPositionY: 50,
+        avatarScale: 100,
         avatarRefreshedAt: now,
         updatedAt: now
       })

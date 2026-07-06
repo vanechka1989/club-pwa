@@ -3,6 +3,7 @@ import { ref } from "vue";
 
 export type Theme = "dark" | "light";
 export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azure" | "coffee";
+export type VisualScale = "compact" | "standard" | "large";
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 export const useUiStore = defineStore("ui", () => {
@@ -24,10 +25,15 @@ export const useUiStore = defineStore("ui", () => {
       ? savedPreviewMode
       : "developer"
   );
+  const savedVisualScale = localStorage.getItem("club-visual-scale");
+  const visualScale = ref<VisualScale>(
+    savedVisualScale === "compact" || savedVisualScale === "large" ? savedVisualScale : "standard"
+  );
 
   function applyTheme() {
     document.documentElement.dataset.theme = theme.value;
     document.documentElement.dataset.scheme = colorScheme.value;
+    document.documentElement.dataset.visualScale = visualScale.value;
     document.documentElement.style.colorScheme = theme.value;
   }
 
@@ -49,7 +55,13 @@ export const useUiStore = defineStore("ui", () => {
     localStorage.removeItem("club-preview-membership");
   }
 
+  function setVisualScale(nextVisualScale: VisualScale) {
+    visualScale.value = nextVisualScale;
+    localStorage.setItem("club-visual-scale", nextVisualScale);
+    applyTheme();
+  }
+
   applyTheme();
 
-  return { theme, colorScheme, previewMode, setTheme, setColorScheme, setPreviewMode };
+  return { theme, colorScheme, visualScale, previewMode, setTheme, setColorScheme, setVisualScale, setPreviewMode };
 });

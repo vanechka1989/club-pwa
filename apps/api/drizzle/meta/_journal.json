@@ -232,6 +232,13 @@
       "when": 1783420800000,
       "tag": "0032_user_avatar_object_key",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783510800000,
+      "tag": "0033_user_avatar_display",
+      "breakpoints": true
     }
   ]
 }

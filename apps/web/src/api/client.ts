@@ -150,6 +150,13 @@ export function uploadAvatar(file: File) {
   });
 }
 
+export function updateAvatarDisplay(payload: { avatarPositionX: number; avatarPositionY: number; avatarScale: number }) {
+  return api<MeResponse>("/me/avatar/display", {
+    method: "PATCH",
+    body: payload
+  });
+}
+
 export function getReferralProfile() {
   return api<ReferralProfileResponse>("/me/referrals");
 }

@@ -1,7 +1,15 @@
 import type { ClubUser } from "@club/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { createCheckout, getMe, logoutSession, requestEmailCode as requestEmailCodeApi, uploadAvatar as uploadAvatarApi, verifyEmailCode as verifyEmailCodeApi } from "@/api/client";
+import {
+  createCheckout,
+  getMe,
+  logoutSession,
+  requestEmailCode as requestEmailCodeApi,
+  updateAvatarDisplay as updateAvatarDisplayApi,
+  uploadAvatar as uploadAvatarApi,
+  verifyEmailCode as verifyEmailCodeApi
+} from "@/api/client";
 
 type AuthRequestError = Error & { retryAfterSeconds?: number };
 
@@ -136,6 +144,12 @@ export const useSessionStore = defineStore("session", () => {
     return response.user;
   }
 
+  async function updateAvatarDisplay(payload: { avatarPositionX: number; avatarPositionY: number; avatarScale: number }) {
+    const response = await updateAvatarDisplayApi(payload);
+    user.value = response.user;
+    return response.user;
+  }
+
   async function requestEmailCode(email: string, referralCode?: string | null) {
     const normalizedEmail = email.trim().toLowerCase();
     loading.value = true;
@@ -229,6 +243,7 @@ export const useSessionStore = defineStore("session", () => {
     load,
     subscribe,
     uploadAvatar,
+    updateAvatarDisplay,
     requestEmailCode,
     verifyEmailCode,
     resetEmailAuth,

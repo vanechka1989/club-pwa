@@ -25,6 +25,9 @@ function renderAsOwner() {
     paymentType: "none",
     recurrentPaymentStatus: null,
     nextPaymentAt: null,
+    avatarPositionX: 50,
+    avatarPositionY: 50,
+    avatarScale: 1,
     avatarRefreshedAt: null
   };
 
@@ -55,6 +58,9 @@ function renderAsMember() {
     paymentType: "manual",
     recurrentPaymentStatus: null,
     nextPaymentAt: null,
+    avatarPositionX: 50,
+    avatarPositionY: 50,
+    avatarScale: 1,
     avatarRefreshedAt: null
   };
 
