@@ -4,7 +4,16 @@ import { createPinia } from "pinia";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getMe, getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
+import {
+  getLearningHome,
+  getMe,
+  getPaymentHistory,
+  getPaymentPlans,
+  getReferralProfile,
+  getSupportUnreadCount,
+  logoutSession,
+  updateDeviceDiagnostics
+} from "@/api/client";
 import App from "./App.vue";
 
 const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
@@ -14,9 +23,13 @@ vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
   return {
     ...actual,
+    getLearningHome: vi.fn(),
     getMe: vi.fn(),
     getPaymentHistory: vi.fn(),
+    getPaymentPlans: vi.fn(),
+    getReferralProfile: vi.fn(),
     getSupportUnreadCount: vi.fn(),
+    logoutSession: vi.fn(),
     updateDeviceDiagnostics: vi.fn()
   };
 });
@@ -77,9 +90,13 @@ describe("App", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    vi.mocked(getLearningHome).mockRejectedValue(new Error("not loaded"));
     vi.mocked(getMe).mockRejectedValue(new Error("unauthorized"));
     vi.mocked(getPaymentHistory).mockResolvedValue({ orders: [] });
+    vi.mocked(getPaymentPlans).mockResolvedValue({ plans: [], provider: null, products: [], recurrentSubscriptions: [] });
+    vi.mocked(getReferralProfile).mockRejectedValue(new Error("not loaded"));
     vi.mocked(getSupportUnreadCount).mockResolvedValue({ unreadCount: 0 });
+    vi.mocked(logoutSession).mockResolvedValue({ ok: true });
     vi.mocked(updateDeviceDiagnostics).mockResolvedValue({ ok: true, device: testDeviceDiagnostics() });
   });
 
@@ -108,6 +125,22 @@ describe("App", () => {
     await screen.getByRole("button", { name: "Модули" }).click();
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
+  });
+
+  it("lets the signed-in member log out from profile", async () => {
+    vi.mocked(getMe).mockResolvedValue({ user: testUser() });
+
+    render(App, {
+      global: {
+        plugins: [createPinia()]
+      }
+    });
+
+    const logoutButton = await screen.findByRole("button", { name: "Выйти" });
+    await logoutButton.click();
+
+    await waitFor(() => expect(logoutSession).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("heading", { name: "Вход в клуб" })).toBeTruthy();
   });
 
   it("moves from admin to profile when owner previews member modes", () => {

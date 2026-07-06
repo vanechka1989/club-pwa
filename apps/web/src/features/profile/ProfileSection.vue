@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
-import { BarChart3, Check, Copy, Fingerprint, Gift, Maximize2, Minimize2, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
+import { BarChart3, Check, Copy, Fingerprint, Gift, LogOut, Maximize2, Minimize2, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { activateReferralRewards, getLearningHome, getPaymentHistory, getPaymentPlans, getReferralProfile } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
@@ -38,6 +38,8 @@ const referralMessage = ref<string | null>(null);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
 const emailVisible = ref(false);
+const logoutSaving = ref(false);
+const logoutMessage = ref<string | null>(null);
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
@@ -264,6 +266,18 @@ async function handleAvatarRefresh() {
     }
   } finally {
     avatarSaving.value = false;
+  }
+}
+
+async function handleLogout() {
+  logoutSaving.value = true;
+  logoutMessage.value = null;
+  try {
+    await session.logout();
+  } catch {
+    logoutMessage.value = t("profileLogoutError");
+  } finally {
+    logoutSaving.value = false;
   }
 }
 
@@ -509,6 +523,13 @@ onMounted(async () => {
           <span>{{ avatarSaving ? t("profileAvatarUpdating") : t("profileAvatarUpdate") }}</span>
         </button>
         <p>{{ avatarMessage || avatarRefreshHint }}</p>
+      </div>
+      <div class="profile-account-actions mt-3">
+        <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="handleLogout">
+          <LogOut class="h-4 w-4" aria-hidden="true" />
+          <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
+        </button>
+        <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
       </div>
     </section>
 
