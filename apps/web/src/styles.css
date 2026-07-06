@@ -1005,11 +1005,30 @@ body.club-mobile-device .auth-form label {
   font-size: 0.98rem;
 }
 
+html.club-mobile-auth-scaled,
+body.club-mobile-auth-scaled {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.club-mobile-auth-scaled .app-root-no-user,
+body.club-mobile-auth-scaled .app-layout-auth,
+body.club-mobile-auth-scaled .app-shell-auth {
+  height: var(--app-viewport-height);
+  min-height: var(--app-viewport-height);
+  max-height: var(--app-viewport-height);
+  overflow: hidden;
+}
+
+body.club-mobile-auth-scaled {
+  --club-auth-wide-viewport-shift: clamp(0.85rem, 4vh, 1.35rem);
+}
+
 body.club-mobile-auth-scaled .content-panel-auth .auth-panel,
 body.club-mobile-auth-scaled .content-panel-auth .auth-install-required {
   width: calc(100% / var(--club-auth-wide-viewport-scale, 1));
   max-width: none;
-  transform: scale(var(--club-auth-wide-viewport-scale, 1));
+  transform: translateY(calc(-1 * var(--club-auth-wide-viewport-shift, 1.15rem))) scale(var(--club-auth-wide-viewport-scale, 1));
   transform-origin: top center;
 }
 

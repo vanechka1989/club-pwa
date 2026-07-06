@@ -416,8 +416,13 @@ describe("App", () => {
 
     expect(appSource).toContain("club-mobile-auth-scaled");
     expect(appSource).toContain("--club-auth-wide-viewport-scale");
+    expect(styles).toMatch(/html\.club-mobile-auth-scaled,\s*body\.club-mobile-auth-scaled\s*{[\s\S]*overflow: hidden;[\s\S]*overscroll-behavior: none;/);
     expect(styles).toMatch(
-      /body\.club-mobile-auth-scaled \.content-panel-auth \.auth-panel,\s*body\.club-mobile-auth-scaled \.content-panel-auth \.auth-install-required\s*{[\s\S]*width: calc\(100% \/ var\(--club-auth-wide-viewport-scale, 1\)\);[\s\S]*transform: scale\(var\(--club-auth-wide-viewport-scale, 1\)\);/
+      /body\.club-mobile-auth-scaled \.app-root-no-user,\s*body\.club-mobile-auth-scaled \.app-layout-auth,\s*body\.club-mobile-auth-scaled \.app-shell-auth\s*{[\s\S]*height: var\(--app-viewport-height\);[\s\S]*max-height: var\(--app-viewport-height\);[\s\S]*overflow: hidden;/
+    );
+    expect(styles).toContain("--club-auth-wide-viewport-shift");
+    expect(styles).toMatch(
+      /body\.club-mobile-auth-scaled \.content-panel-auth \.auth-panel,\s*body\.club-mobile-auth-scaled \.content-panel-auth \.auth-install-required\s*{[\s\S]*width: calc\(100% \/ var\(--club-auth-wide-viewport-scale, 1\)\);[\s\S]*transform: translateY\(calc\(-1 \* var\(--club-auth-wide-viewport-shift, 1\.15rem\)\)\) scale\(var\(--club-auth-wide-viewport-scale, 1\)\);/
     );
   });
 
