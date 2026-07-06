@@ -37,11 +37,12 @@ const referralCopied = ref(false);
 const referralMessage = ref<string | null>(null);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
-const telegramIdVisible = ref(false);
+const emailVisible = ref(false);
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
 const displayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
+const accountEmail = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase());
 const daysLeft = computed(() => {
   if (!session.user?.membershipExpiresAt || !isMember.value) {
@@ -488,12 +489,12 @@ onMounted(async () => {
           <button
             class="profile-secret-value"
             type="button"
-            :aria-label="telegramIdVisible ? t('profileTelegramVisible') : t('profileTelegramShow')"
-            @click="telegramIdVisible = true"
+            :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')"
+            @click="emailVisible = true"
           >
             <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
-            <strong :class="{ 'profile-secret-blurred': !telegramIdVisible }">
-              {{ session.user?.telegramId }}
+            <strong :class="{ 'profile-secret-blurred': !emailVisible }">
+              {{ accountEmail }}
             </strong>
           </button>
         </div>

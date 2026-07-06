@@ -43,4 +43,27 @@ describe("PWA shell", () => {
     expect(html).toContain("manifest.webmanifest");
     expect(html).not.toContain("telegram.org/js/telegram-web-app.js");
   });
+
+  it("serves the web manifest with a single installable content type", () => {
+    const nginx = readFileSync(resolve(process.cwd(), "nginx.conf"), "utf8");
+
+    expect(nginx).toContain("application/manifest+json webmanifest;");
+    expect(nginx).not.toContain("add_header Content-Type application/manifest+json");
+  });
+
+  it("shows an in-app install prompt for supported browsers and iOS instructions", () => {
+    const app = readFileSync(resolve(process.cwd(), "src/App.vue"), "utf8");
+    const prompt = readFileSync(resolve(process.cwd(), "src/features/app/PwaInstallPrompt.vue"), "utf8");
+    const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+
+    expect(app).toContain("PwaInstallPrompt");
+    expect(prompt).toContain("beforeinstallprompt");
+    expect(prompt).toContain("appinstalled");
+    expect(prompt).toContain("standalone === true");
+    expect(prompt).toContain("display-mode: standalone");
+    expect(prompt).toContain("prompt()");
+    expect(prompt).toContain("Safari");
+    expect(prompt).toContain("На экран Домой");
+    expect(styles).toContain("bottom: calc(var(--nav-space, 0rem) + 0.75rem);");
+  });
 });

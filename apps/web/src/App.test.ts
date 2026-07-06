@@ -25,6 +25,7 @@ function testUser(overrides: Partial<ClubUser> = {}): ClubUser {
   return {
     id: "member-id",
     telegramId: "member@example.com",
+    email: "member@example.com",
     firstName: "Иван",
     username: "member@example.com",
     photoUrl: null,

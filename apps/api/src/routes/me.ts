@@ -43,6 +43,7 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
     user: {
       id: user.id,
       telegramId: user.telegramId,
+      email: user.email,
       firstName: user.firstName,
       username: user.username,
       photoUrl: user.photoUrl,

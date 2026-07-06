@@ -410,6 +410,100 @@ button:disabled {
   pointer-events: auto;
 }
 
+.pwa-install-card {
+  position: fixed;
+  right: max(0.75rem, calc(var(--club-safe-right) + 0.75rem));
+  bottom: calc(var(--nav-space, 0rem) + 0.75rem);
+  left: max(0.75rem, calc(var(--club-safe-left) + 0.75rem));
+  z-index: 70;
+  display: grid;
+  max-width: 30rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+  margin: 0 auto;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  color: var(--text);
+  padding: 0.85rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+}
+
+.pwa-install-icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.pwa-install-copy {
+  min-width: 0;
+  padding-right: 2.2rem;
+}
+
+.pwa-install-copy strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 820;
+  line-height: 1.2;
+}
+
+.pwa-install-copy p,
+.pwa-install-steps {
+  margin-top: 0.32rem;
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.pwa-install-steps {
+  display: grid;
+  gap: 0.18rem;
+  padding-left: 1.1rem;
+}
+
+.pwa-install-note {
+  padding-left: 0;
+}
+
+.pwa-install-action {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-text);
+  padding: 0 1rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.pwa-install-action:disabled {
+  opacity: 0.68;
+}
+
+.pwa-install-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  color: var(--muted-strong);
+}
+
 .app-toast-icon {
   width: 1.1rem;
   height: 1.1rem;
@@ -9320,6 +9414,7 @@ body.club-huawei.club-screen-narrow .bottom-nav-mail-badge {
 
 @media (pointer: coarse) {
   .app-toast,
+  .pwa-install-card,
   .app-operation-indicator,
   .global-upload-indicator,
   .global-upload-panel,

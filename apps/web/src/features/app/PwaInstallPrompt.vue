@@ -1,0 +1,157 @@
+<script setup lang="ts">
+import { Download, Share, X } from "lucide-vue-next";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+
+type BeforeInstallPromptChoice = {
+  outcome: "accepted" | "dismissed";
+  platform: string;
+};
+
+type BeforeInstallPromptEvent = Event & {
+  platforms: string[];
+  userChoice: Promise<BeforeInstallPromptChoice>;
+  prompt: () => Promise<void>;
+};
+
+const installPrompt = ref<BeforeInstallPromptEvent | null>(null);
+const isVisible = ref(false);
+const isInstalled = ref(false);
+const isPrompting = ref(false);
+const isIos = ref(false);
+const isDismissedForSession = ref(false);
+let showTimer: number | null = null;
+
+const canUseNativePrompt = computed(() => Boolean(installPrompt.value));
+const shouldShowIosInstructions = computed(() => isIos.value && !isInstalled.value);
+const title = computed(() => (shouldShowIosInstructions.value ? "Добавьте Club на экран Домой" : "Установите Club как приложение"));
+const lead = computed(() =>
+  shouldShowIosInstructions.value
+    ? "На iPhone установка делается через меню Safari. После добавления клуб откроется без адресной строки, как обычное приложение."
+    : "Так клуб появится иконкой на телефоне и будет открываться без браузерной панели."
+);
+
+function isStandaloneDisplay() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+  const isStandaloneMode = window.matchMedia?.("(display-mode: standalone)").matches ?? false;
+  return isStandaloneMode || navigatorWithStandalone.standalone === true;
+}
+
+function detectPlatform() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const userAgent = window.navigator.userAgent;
+  const platform = window.navigator.platform;
+  isIos.value =
+    /iphone|ipad|ipod/i.test(userAgent) ||
+    (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  isInstalled.value = isStandaloneDisplay();
+}
+
+function scheduleInstallCard() {
+  if (showTimer || isInstalled.value || isDismissedForSession.value) {
+    return;
+  }
+
+  showTimer = window.setTimeout(() => {
+    showTimer = null;
+    if (!isInstalled.value && !isDismissedForSession.value && (canUseNativePrompt.value || shouldShowIosInstructions.value)) {
+      isVisible.value = true;
+    }
+  }, 900);
+}
+
+function handleBeforeInstallPrompt(event: Event) {
+  event.preventDefault();
+  installPrompt.value = event as BeforeInstallPromptEvent;
+  scheduleInstallCard();
+}
+
+function handleAppInstalled() {
+  isInstalled.value = true;
+  isVisible.value = false;
+  installPrompt.value = null;
+}
+
+async function installApp() {
+  if (!installPrompt.value || isPrompting.value) {
+    return;
+  }
+
+  isPrompting.value = true;
+  const promptEvent = installPrompt.value;
+  try {
+    await promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
+    installPrompt.value = null;
+
+    if (choice.outcome === "accepted") {
+      isInstalled.value = true;
+    } else {
+      isDismissedForSession.value = true;
+    }
+
+    isVisible.value = false;
+  } finally {
+    isPrompting.value = false;
+  }
+}
+
+function dismissInstallCard() {
+  isDismissedForSession.value = true;
+  isVisible.value = false;
+}
+
+onMounted(() => {
+  detectPlatform();
+  window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  window.addEventListener("appinstalled", handleAppInstalled);
+  scheduleInstallCard();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  window.removeEventListener("appinstalled", handleAppInstalled);
+  if (showTimer) {
+    window.clearTimeout(showTimer);
+    showTimer = null;
+  }
+});
+</script>
+
+<template>
+  <aside v-if="isVisible" class="pwa-install-card" role="dialog" aria-live="polite" :aria-label="title">
+    <button class="pwa-install-close" type="button" aria-label="Закрыть подсказку установки" @click="dismissInstallCard">
+      <X class="h-4 w-4" aria-hidden="true" />
+    </button>
+
+    <div class="pwa-install-icon" aria-hidden="true">
+      <Download v-if="canUseNativePrompt" class="h-5 w-5" />
+      <Share v-else class="h-5 w-5" />
+    </div>
+
+    <div class="pwa-install-copy">
+      <strong>{{ title }}</strong>
+      <p>{{ lead }}</p>
+
+      <ol v-if="shouldShowIosInstructions" class="pwa-install-steps">
+        <li>Откройте сайт в Safari.</li>
+        <li>Нажмите кнопку “Поделиться”.</li>
+        <li>Выберите “На экран Домой”.</li>
+      </ol>
+
+      <p v-else-if="!canUseNativePrompt" class="pwa-install-steps pwa-install-note">
+        Если кнопки установки нет, откройте меню браузера и выберите “Установить приложение”.
+      </p>
+    </div>
+
+    <button v-if="canUseNativePrompt" class="pwa-install-action" type="button" :disabled="isPrompting" @click="installApp">
+      {{ isPrompting ? "Открываем..." : "Установить" }}
+    </button>
+  </aside>
+</template>

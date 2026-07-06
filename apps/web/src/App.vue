@@ -8,6 +8,7 @@ import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
+import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
 import {
   calculateLayoutCalibration,
   collectCurrentDeviceDiagnostics,
@@ -120,7 +121,7 @@ function isSectionAvailable(item: (typeof navItems)[number]) {
 
 const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
 const userDisplayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
-const userContact = computed(() => session.user?.username || session.user?.telegramId || "");
+const userContact = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const userInitial = computed(() => userDisplayName.value.trim().slice(0, 1).toUpperCase() || "C");
 const membershipLabel = computed(() => {
   if (!session.user) {
@@ -822,5 +823,6 @@ onBeforeUnmount(() => {
     </nav>
     <AppOperationIndicator />
     <AppNotifications />
+    <PwaInstallPrompt />
   </main>
 </template>

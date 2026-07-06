@@ -40,6 +40,7 @@ export const adminPermissionLabels: Record<AdminPermission, string> = {
 export const clubUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
+  email: z.string().email().nullable().optional(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
   photoUrl: z.string().url().nullable(),
