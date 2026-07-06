@@ -62,13 +62,17 @@ describe("PWA shell", () => {
   it("shows an in-app install prompt for supported browsers and iOS instructions", () => {
     const app = readFileSync(resolve(process.cwd(), "src/App.vue"), "utf8");
     const prompt = readFileSync(resolve(process.cwd(), "src/features/app/PwaInstallPrompt.vue"), "utf8");
+    const display = readFileSync(resolve(process.cwd(), "src/features/app/pwaDisplay.ts"), "utf8");
     const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
     expect(app).toContain("PwaInstallPrompt");
     expect(prompt).toContain("beforeinstallprompt");
     expect(prompt).toContain("appinstalled");
-    expect(prompt).toContain("standalone === true");
-    expect(prompt).toContain("display-mode: standalone");
+    expect(prompt).toContain("isInstalledPwaDisplay");
+    expect(display).toContain("standalone");
+    expect(display).toContain("window-controls-overlay");
+    expect(display).toContain("navigatorWithStandalone.standalone === true");
+    expect(display).toContain("display-mode: ${mode}");
     expect(prompt).toContain("prompt()");
     expect(prompt).toContain("Safari");
     expect(prompt).toContain("На экран Домой");

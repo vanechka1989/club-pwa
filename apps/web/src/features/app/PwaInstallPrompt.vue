@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Download, Share, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import { pwaInstallRequestEventName } from "@/features/app/pwaInstall";
 
 const props = withDefaults(
@@ -42,16 +43,6 @@ const lead = computed(() =>
     : "Так клуб появится иконкой на телефоне и будет открываться без браузерной панели."
 );
 
-function isStandaloneDisplay() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
-  const isStandaloneMode = window.matchMedia?.("(display-mode: standalone)").matches ?? false;
-  return isStandaloneMode || navigatorWithStandalone.standalone === true;
-}
-
 function detectPlatform() {
   if (typeof window === "undefined") {
     return;
@@ -62,7 +53,7 @@ function detectPlatform() {
   isIos.value =
     /iphone|ipad|ipod/i.test(userAgent) ||
     (platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  isInstalled.value = isStandaloneDisplay();
+  isInstalled.value = isInstalledPwaDisplay();
 }
 
 function scheduleInstallCard() {

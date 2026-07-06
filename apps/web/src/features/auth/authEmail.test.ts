@@ -15,11 +15,17 @@ vi.mock("@/api/client", async (importOriginal) => {
   };
 });
 
-function stubStandaloneDisplay(isStandalone = true) {
+function stubStandaloneDisplay(isStandalone = true, installedDisplayModes: string[] = []) {
+  const modes = new Set([...(isStandalone ? ["standalone"] : []), ...installedDisplayModes]);
+  const getDisplayMode = (query: string) => {
+    const match = query.match(/^\(display-mode:\s*([^)]+)\)$/);
+    return match?.[1]?.trim() ?? null;
+  };
+
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn((query: string) => ({
-      matches: query === "(display-mode: standalone)" ? isStandalone : false,
+      matches: modes.has(getDisplayMode(query) ?? ""),
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
@@ -31,8 +37,8 @@ function stubStandaloneDisplay(isStandalone = true) {
   });
 }
 
-function renderAuth(pinia = createPinia(), options: { standalone?: boolean } = {}) {
-  stubStandaloneDisplay(options.standalone ?? true);
+function renderAuth(pinia = createPinia(), options: { standalone?: boolean; installedDisplayModes?: string[] } = {}) {
+  stubStandaloneDisplay(options.standalone ?? true, options.installedDisplayModes ?? []);
 
   return render(AuthSection, {
     global: {
@@ -62,6 +68,45 @@ describe("email auth UI", () => {
     expect(screen.queryByLabelText("Email")).toBeNull();
     expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy();
     expect(screen.getByText(/Вход по email доступен только из установленного приложения/)).toBeTruthy();
+  });
+
+  it("shows email login inside installed desktop PWA display modes", () => {
+    renderAuth(createPinia(), { standalone: false, installedDisplayModes: ["window-controls-overlay"] });
+
+    expect(screen.getByRole("heading", { name: "Вход в клуб" })).toBeTruthy();
+    expect(screen.getByLabelText("Email")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Установите приложение" })).toBeNull();
+  });
+
+  it("switches from install gate to email login after the app opens as standalone", async () => {
+    let isStandalone = false;
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        matches: query === "(display-mode: standalone)" ? isStandalone : false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn()
+      }))
+    });
+
+    render(AuthSection, {
+      global: {
+        plugins: [createPinia()]
+      }
+    });
+
+    expect(screen.getByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+
+    isStandalone = true;
+    window.dispatchEvent(new Event("appinstalled"));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Вход в клуб" })).toBeTruthy());
+    expect(screen.queryByRole("heading", { name: "Установите приложение" })).toBeNull();
   });
 
   it("asks the shell to open the PWA installation prompt from the login gate", async () => {

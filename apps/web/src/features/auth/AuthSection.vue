@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { getInstalledPwaDisplayModeQueries, isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import { Download, Mail, ShieldCheck } from "lucide-vue-next";
 import { requestPwaInstallPrompt } from "@/features/app/pwaInstall";
 import { useSessionStore } from "@/stores/session";
@@ -16,6 +17,7 @@ const isInstalledPwa = ref(isStandalonePwa());
 const installFallbackVisible = ref(false);
 const resendCooldownMs = 60_000;
 let resendCooldownTimer: number | null = null;
+let removeInstalledPwaListeners: Array<() => void> = [];
 
 const isCodeStep = computed(() => Boolean(session.pendingEmail));
 const resendRemainingSeconds = computed(() => {
@@ -35,12 +37,7 @@ const canRequestCode = computed(() => !session.loading && Boolean(email.value) &
 const canResendCode = computed(() => !session.loading && resendRemainingSeconds.value <= 0);
 
 function isStandalonePwa() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
-  return (window.matchMedia?.("(display-mode: standalone)").matches ?? false) || navigatorWithStandalone.standalone === true;
+  return isInstalledPwaDisplay();
 }
 
 const referralCode = computed(() => {
@@ -140,12 +137,53 @@ function installApp() {
   requestPwaInstallPrompt();
 }
 
-onMounted(() => {
+function refreshInstalledPwaState() {
   isInstalledPwa.value = isStandalonePwa();
+}
+
+function addInstalledPwaListeners() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  removeInstalledPwaListeners.forEach((removeListener) => removeListener());
+  removeInstalledPwaListeners = [];
+
+  const addWindowListener = (eventName: string) => {
+    window.addEventListener(eventName, refreshInstalledPwaState);
+    removeInstalledPwaListeners.push(() => window.removeEventListener(eventName, refreshInstalledPwaState));
+  };
+
+  addWindowListener("appinstalled");
+  addWindowListener("focus");
+  addWindowListener("pageshow");
+  document.addEventListener("visibilitychange", refreshInstalledPwaState);
+  removeInstalledPwaListeners.push(() => document.removeEventListener("visibilitychange", refreshInstalledPwaState));
+
+  getInstalledPwaDisplayModeQueries().forEach((query) => {
+    const mediaQuery = window.matchMedia?.(query);
+    if (!mediaQuery) {
+      return;
+    }
+
+    mediaQuery.addEventListener?.("change", refreshInstalledPwaState);
+    mediaQuery.addListener?.(refreshInstalledPwaState);
+    removeInstalledPwaListeners.push(() => {
+      mediaQuery.removeEventListener?.("change", refreshInstalledPwaState);
+      mediaQuery.removeListener?.(refreshInstalledPwaState);
+    });
+  });
+}
+
+onMounted(() => {
+  refreshInstalledPwaState();
+  addInstalledPwaListeners();
 });
 
 onBeforeUnmount(() => {
   stopResendCooldownTimer();
+  removeInstalledPwaListeners.forEach((removeListener) => removeListener());
+  removeInstalledPwaListeners = [];
 });
 </script>
 

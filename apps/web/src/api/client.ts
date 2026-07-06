@@ -59,6 +59,7 @@ import type {
   SupportTicketMutationResponse,
   SupportUnreadResponse
 } from "@club/shared";
+import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import { ofetch } from "ofetch";
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "/api";
@@ -66,12 +67,7 @@ const previewModeStorageKey = "club-preview-mode";
 const pwaStandaloneAuthHeaderName = "X-Club-PWA-Standalone";
 
 function isStandalonePwa() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
-  return (window.matchMedia?.("(display-mode: standalone)").matches ?? false) || navigatorWithStandalone.standalone === true;
+  return isInstalledPwaDisplay();
 }
 
 function withAuthHeaders(input?: HeadersInit) {
