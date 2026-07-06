@@ -79,11 +79,18 @@ describe("email auth UI", () => {
     renderAuth(createPinia(), { standalone: false });
 
     expect(screen.queryByText(/Chrome не открыл окно установки автоматически/)).toBeNull();
+    expect(screen.queryByText("Safari iPhone")).toBeNull();
 
     await fireEvent.click(screen.getByRole("button", { name: "Установить приложение" }));
 
     expect(screen.getByText(/Chrome не открыл окно установки автоматически/)).toBeTruthy();
     expect(screen.getByText(/иконку установки в адресной строке/)).toBeTruthy();
+    expect(screen.getByText("Chrome")).toBeTruthy();
+    expect(screen.getAllByText(/Сохранить и поделиться/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Добавить на главный экран/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Safari iPhone")).toBeTruthy();
+    expect(screen.getAllByText(/Поделиться/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/На экран Домой/).length).toBeGreaterThan(0);
   });
 
   it("uses email auth endpoints instead of Telegram initData", () => {

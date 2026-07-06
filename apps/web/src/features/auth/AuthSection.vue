@@ -171,10 +171,59 @@ onBeforeUnmount(() => {
       Установить приложение
     </button>
 
-    <p v-if="installFallbackVisible" class="auth-hint" aria-live="polite">
-      Chrome не открыл окно установки автоматически. Нажмите иконку установки в адресной строке или откройте меню ⋮ и выберите
-      “Установить приложение”.
-    </p>
+    <div v-if="installFallbackVisible" class="auth-install-manual" aria-live="polite">
+      <div class="auth-install-manual-head">
+        <strong>Chrome не открыл окно установки автоматически</strong>
+        <span>Если окно установки не появилось, выберите свой браузер и установите Club вручную.</span>
+      </div>
+
+      <div class="auth-install-guide-grid">
+        <article class="auth-install-guide-card" aria-labelledby="install-chrome-title">
+          <div class="auth-install-shot auth-install-shot-chrome" aria-hidden="true">
+            <div class="auth-install-shot-bar">
+              <span>club2.myn8nservertest.ru</span>
+              <b>+</b>
+              <em>⋮</em>
+            </div>
+            <div class="auth-install-shot-menu">
+              <span>Сохранить и поделиться</span>
+              <strong>Установить страницу как приложение</strong>
+            </div>
+          </div>
+          <div>
+            <strong id="install-chrome-title">Chrome</strong>
+            <ol>
+              <li>Нажмите иконку установки в адресной строке.</li>
+              <li>Если её нет, откройте меню Chrome, затем Сохранить и поделиться и Установить страницу как приложение.</li>
+              <li>На Android откройте меню Chrome, затем Добавить на главный экран и Установить.</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="auth-install-guide-card" aria-labelledby="install-safari-title">
+          <div class="auth-install-shot auth-install-shot-safari" aria-hidden="true">
+            <div class="auth-install-phone-top"></div>
+            <div class="auth-install-safari-toolbar">
+              <span>AA</span>
+              <b>Поделиться</b>
+              <em>...</em>
+            </div>
+            <div class="auth-install-share-sheet">
+              <strong>На экран Домой</strong>
+              <span>Добавить</span>
+            </div>
+          </div>
+          <div>
+            <strong id="install-safari-title">Safari iPhone</strong>
+            <ol>
+              <li>Откройте сайт в Safari.</li>
+              <li>Нажмите Поделиться.</li>
+              <li>Выберите На экран Домой и нажмите Добавить.</li>
+            </ol>
+          </div>
+        </article>
+      </div>
+    </div>
   </section>
 
   <section v-else class="auth-panel" aria-labelledby="auth-title">
