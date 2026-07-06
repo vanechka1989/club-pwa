@@ -19,3 +19,5 @@ export const navItems: NavItem[] = [
   { id: "support", labelKey: "navSupport", icon: LifeBuoy },
   { id: "admin", labelKey: "navAdmin", icon: Shield, adminOnly: true }
 ];
+
+export const mobilePrimaryNavIds: AppSection[] = ["profile", "learning", "community", "payments", "support"];

@@ -353,10 +353,28 @@ describe("App", () => {
     expect(appSource).toContain("mobile-bottom-nav");
     expect(appSource).toContain("desktop-sidebar-user");
     expect(appSource).toContain("visibleNavItems");
+    expect(appSource).toContain("visibleMobileNavItems");
     expect(styles).toContain("@media (min-width: 1024px)");
     expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.desktop-sidebar\s*{[\s\S]*display: flex;/);
     expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.mobile-bottom-nav\s*{[\s\S]*display: none;/);
     expect(styles).toMatch(/@media \(max-width: 1023px\)[\s\S]*\.desktop-sidebar\s*{[\s\S]*display: none;/);
+  });
+
+  it("keeps admin out of the mobile primary tab bar", () => {
+    expect(appSource).toContain("mobileNavItems");
+    expect(appSource).toContain("visibleMobileNavItems");
+    expect(appSource).toContain('item.id !== "admin"');
+    expect(appSource).toContain("mobile-admin-entry");
+  });
+
+  it("removes the collapsible mobile nav control from the PWA shell", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).not.toContain("navCollapsed");
+    expect(appSource).not.toContain("toggleNavCollapsed");
+    expect(appSource).not.toContain("bottom-nav-toggle");
+    expect(styles).not.toContain(".bottom-nav-toggle");
+    expect(styles).not.toContain(".bottom-nav-collapsed");
   });
 
   it("uses a standalone responsive auth layout before login", () => {
@@ -383,14 +401,35 @@ describe("App", () => {
     expect(appSource).toContain("isMobileDeviceShell");
     expect(appSource).toContain("showDesktopNavigation");
     expect(appSource).toContain("showMobileNavigation");
-    expect(appSource).toContain("--club-mobile-device-scale");
+    expect(appSource).not.toContain("--club-mobile-device-scale");
     expect(styles).toContain("html.club-mobile-device");
-    expect(styles).toContain("font-size: calc(16px * var(--club-mobile-device-scale, 1));");
+    expect(styles).not.toContain("--club-mobile-device-scale");
+    expect(styles).not.toContain("font-size: calc(16px * var(--club-mobile-device-scale, 1));");
+    expect(styles).toContain("body.club-mobile-device .app-root:not(.app-root-no-user) .app-shell");
     expect(styles).toContain("body.club-mobile-device .desktop-sidebar");
     expect(styles).toContain("body.club-mobile-device .mobile-bottom-nav");
     expect(styles).not.toContain("club-desktop-viewport-mobile");
     expect(styles).not.toContain("zoom: var(--club-mobile-viewport-scale);");
     expect(styles).not.toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
+  });
+
+  it("keeps email resend disabled with a visible timer during cooldown", () => {
+    const authSource = readFileSync(resolve(__dirname, "features/auth/AuthSection.vue"), "utf-8");
+
+    expect(authSource).toContain(':disabled="!canResendCode"');
+    expect(authSource).toContain("resendRemainingSeconds.value > 0");
+    expect(authSource).toContain("Отправить код ещё раз через");
+    expect(authSource).not.toContain("Код отправлен на");
+  });
+
+  it("uses readable mobile app typography for signed-in content", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("body.club-mobile-device .soft-home");
+    expect(styles).toContain("body.club-mobile-device .section-title");
+    expect(styles).toContain("body.club-mobile-device .profile-info-row span");
+    expect(styles).toContain("body.club-mobile-device .soft-inline-button");
+    expect(styles).toContain("body.club-mobile-device .theme-choice");
   });
 
   it("keeps one compact side gutter across normal section tabs", () => {

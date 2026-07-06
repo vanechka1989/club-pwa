@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronUp } from "lucide-vue-next";
+import { ChevronUp, Shield } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
@@ -25,7 +25,7 @@ import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
 import LearningSection from "@/features/learning/LearningSection.vue";
-import { navItems, type AppSection } from "@/features/app/navigation";
+import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -38,7 +38,6 @@ const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
 const activeSection = ref<AppSection>("profile");
-const navCollapsed = ref(false);
 const uploadDetailsOpen = ref(false);
 const communityChatOpen = ref(false);
 const isDesktopLayout = ref(false);
@@ -121,8 +120,13 @@ function isSectionAvailable(item: (typeof navItems)[number]) {
 }
 
 const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
+const mobileNavItems = computed(() => navItems.filter((item) => mobilePrimaryNavIds.includes(item.id) && item.id !== "admin"));
+const visibleMobileNavItems = computed(() => mobileNavItems.value.filter(isSectionAvailable));
 const showDesktopNavigation = computed(() => Boolean(session.user && isDesktopLayout.value && !isMobileDeviceShell.value));
 const showMobileNavigation = computed(() => Boolean(session.user && (!isDesktopLayout.value || isMobileDeviceShell.value)));
+const showMobileAdminEntry = computed(() =>
+  Boolean(session.user && (session.user.realRole === "admin" || session.user.realRole === "owner"))
+);
 const userDisplayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const userContact = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const userInitial = computed(() => userDisplayName.value.trim().slice(0, 1).toUpperCase() || "C");
@@ -173,11 +177,6 @@ async function selectSection(section: AppSection) {
   activeSection.value = section;
   await nextTick();
   resetWindowScroll();
-}
-
-function toggleNavCollapsed() {
-  blurActiveTextField();
-  navCollapsed.value = !navCollapsed.value;
 }
 
 function toggleUploadDetails() {
@@ -241,7 +240,6 @@ function syncMobileDeviceShell(layoutWidth: number) {
   isMobileDeviceShell.value = mobileDeviceShell.isMobileDeviceShell;
   document.documentElement.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
   document.body.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
-  setLayoutCssVariable("--club-mobile-device-scale", mobileDeviceShell.scale.toFixed(3));
 }
 
 function syncPlatformClasses() {
@@ -607,8 +605,6 @@ onBeforeUnmount(() => {
   document.body.classList.remove("club-keyboard-open");
   document.documentElement.style.removeProperty("--club-calibrated-bottom-offset");
   document.body.style.removeProperty("--club-calibrated-bottom-offset");
-  document.documentElement.style.removeProperty("--club-mobile-device-scale");
-  document.body.style.removeProperty("--club-mobile-device-scale");
 });
 </script>
 
@@ -616,7 +612,6 @@ onBeforeUnmount(() => {
   <main
     class="app-root min-h-screen text-[var(--text)]"
     :class="{
-      'nav-is-collapsed': navCollapsed,
       'learning-active': activeSection === 'learning',
       'community-active': activeSection === 'community',
       'community-chat-open': activeSection === 'community' && communityChatOpen,
@@ -735,6 +730,19 @@ onBeforeUnmount(() => {
       </aside>
 
       <section class="app-shell" :class="{ 'app-shell-auth': !session.user }">
+        <div v-if="showMobileAdminEntry" class="mobile-admin-actions">
+          <button
+            class="mobile-admin-entry"
+            type="button"
+            :aria-label="t('navAdmin')"
+            :aria-pressed="activeSection === 'admin'"
+            @click="selectSection('admin')"
+          >
+            <Shield class="h-4 w-4" aria-hidden="true" />
+            <span>{{ t("navAdmin") }}</span>
+          </button>
+        </div>
+
         <div
           class="content-panel"
           :class="{ 'content-panel-community': activeSection === 'community', 'content-panel-auth': !session.user }"
@@ -766,25 +774,13 @@ onBeforeUnmount(() => {
       </section>
     </div>
 
-    <button
-      v-if="showMobileNavigation"
-      class="bottom-nav-toggle mobile-bottom-nav-toggle"
-      type="button"
-      :aria-label="navCollapsed ? 'Показать меню' : 'Свернуть меню'"
-      @click="toggleNavCollapsed"
-    >
-      <ChevronUp v-if="navCollapsed" class="h-4 w-4" aria-hidden="true" />
-      <ChevronDown v-else class="h-4 w-4" aria-hidden="true" />
-    </button>
-
     <nav
       v-if="showMobileNavigation"
       class="bottom-nav mobile-bottom-nav"
-      :class="{ 'bottom-nav-collapsed': navCollapsed }"
       aria-label="Club sections"
     >
       <button
-        v-for="item in visibleNavItems"
+        v-for="item in visibleMobileNavItems"
         :key="item.id"
         class="bottom-nav-item"
         :class="{ 'bottom-nav-item-active': activeSection === item.id }"

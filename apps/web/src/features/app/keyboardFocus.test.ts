@@ -11,7 +11,9 @@ describe("keyboard focus handling", () => {
   it("blurs active text fields when switching main sections", () => {
     expect(appSource).toContain("blurActiveTextField");
     expect(appSource).toMatch(/async function selectSection[\s\S]*blurActiveTextField\(\)/);
-    expect(appSource).toContain("@click=\"toggleNavCollapsed\"");
+    expect(appSource).toContain("@click=\"selectSection(item.id)\"");
+    expect(appSource).toContain("@click=\"selectSection('admin')\"");
+    expect(appSource).not.toContain("@click=\"toggleNavCollapsed\"");
   });
 
   it("blurs active text fields when switching admin tabs", () => {

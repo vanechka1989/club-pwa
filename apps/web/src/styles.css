@@ -865,8 +865,7 @@ body.club-keyboard-open .community-chat-open .app-shell {
   backdrop-filter: none;
 }
 
-.community-chat-open .bottom-nav,
-.community-chat-open .bottom-nav-toggle {
+.community-chat-open .bottom-nav {
   display: none;
 }
 
@@ -934,7 +933,7 @@ body.club-keyboard-open .community-chat-open .app-shell {
 }
 
 html.club-mobile-device {
-  font-size: calc(16px * var(--club-mobile-device-scale, 1));
+  font-size: 16px;
 }
 
 body.club-mobile-device {
@@ -945,10 +944,6 @@ body.club-mobile-device {
 body.club-mobile-device .app-root {
   --nav-space: calc(5.4rem + var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)));
   padding-bottom: var(--nav-space);
-}
-
-body.club-mobile-device .app-root.nav-is-collapsed {
-  --nav-space: calc(2.5rem + var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)));
 }
 
 body.club-mobile-device .app-shell-auth {
@@ -982,12 +977,51 @@ body.club-mobile-device .desktop-sidebar {
 }
 
 body.club-mobile-device .app-root:not(.app-root-no-user) .app-shell {
+  width: 100%;
   max-width: none;
-  padding: max(0.72rem, var(--club-safe-top)) var(--screen-gutter) calc(var(--nav-space) + 0.9rem);
+  min-height: var(--club-viewport-height, 100dvh);
+  padding: max(0.75rem, var(--club-safe-top)) 0 calc(5.75rem + var(--club-safe-bottom));
+}
+
+body.club-mobile-device .app-root:not(.app-root-no-user) .content-panel {
+  width: 100%;
+  max-width: none;
+  min-height: auto;
+  border: 0;
+  background: transparent;
+  padding: 0.75rem;
+  overflow: visible;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 body.club-mobile-device .mobile-bottom-nav {
   display: grid;
+}
+
+.mobile-admin-actions {
+  display: none;
+}
+
+.mobile-admin-entry {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  color: var(--muted-strong);
+  padding: 0 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 760;
+  box-shadow: var(--shadow-soft);
+}
+
+body.club-mobile-device .mobile-admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 0.75rem 0;
 }
 
 .auth-panel {
@@ -8410,6 +8444,120 @@ body.club-keyboard-open .module-name-modal {
   box-shadow: none;
 }
 
+body.club-mobile-device .soft-home {
+  display: grid;
+  gap: 1rem;
+}
+
+body.club-mobile-device .section-host > section {
+  margin: 0;
+}
+
+body.club-mobile-device .section-head,
+body.club-mobile-device .soft-card,
+body.club-mobile-device .soft-list-card {
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+body.club-mobile-device .section-title {
+  font-size: 1.25rem;
+  line-height: 1.18;
+}
+
+body.club-mobile-device .section-subtitle,
+body.club-mobile-device .soft-list-card p,
+body.club-mobile-device .profile-empty-text,
+body.club-mobile-device .profile-referral-reward,
+body.club-mobile-device .profile-avatar-refresh p {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+body.club-mobile-device .section-eyebrow,
+body.club-mobile-device .soft-link,
+body.club-mobile-device .soft-pill {
+  font-size: 0.82rem;
+}
+
+body.club-mobile-device .soft-card h3,
+body.club-mobile-device .soft-list-card h4,
+body.club-mobile-device .soft-section-title {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+body.club-mobile-device .profile-hero-row {
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+body.club-mobile-device .profile-avatar-large {
+  width: 3.8rem;
+  height: 3.8rem;
+  font-size: 1.38rem;
+}
+
+body.club-mobile-device .profile-subscription-status {
+  padding: 0.22rem 0.58rem;
+  font-size: 0.86rem;
+}
+
+body.club-mobile-device .profile-subscription-meta {
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+body.club-mobile-device .profile-referral-link {
+  grid-template-columns: minmax(0, 1fr) 2.75rem;
+  padding: 0.58rem;
+}
+
+body.club-mobile-device .profile-referral-link span {
+  font-size: 0.86rem;
+}
+
+body.club-mobile-device .profile-referral-link button {
+  width: 2.65rem;
+  height: 2.65rem;
+}
+
+body.club-mobile-device .profile-referral-stats article {
+  padding: 0.65rem;
+}
+
+body.club-mobile-device .profile-referral-stats span {
+  font-size: 0.76rem;
+  white-space: normal;
+}
+
+body.club-mobile-device .profile-info-row {
+  min-height: 3rem;
+  border-radius: 14px;
+  padding: 0.72rem 0.8rem;
+}
+
+body.club-mobile-device .profile-info-row span {
+  font-size: 0.86rem;
+}
+
+body.club-mobile-device .profile-info-row strong {
+  font-size: 0.92rem;
+}
+
+body.club-mobile-device .soft-inline-button,
+body.club-mobile-device .secondary-button,
+body.club-mobile-device .theme-choice,
+body.club-mobile-device .scheme-choice {
+  min-height: 3rem;
+  font-size: 0.9rem;
+}
+
+body.club-mobile-device .bottom-nav-item {
+  min-height: 3.25rem;
+  font-size: 0.72rem;
+}
+
 .club-home {
   margin: -0.5rem;
 }
@@ -8724,8 +8872,7 @@ body.club-keyboard-open .module-name-modal {
   margin: 0 auto;
   display: grid;
   max-width: 38rem;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.25rem;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: 18px;
@@ -8738,38 +8885,11 @@ body.club-keyboard-open .module-name-modal {
     transform 160ms ease;
 }
 
-.bottom-nav-toggle {
-  position: fixed;
-  right: max(1rem, calc(var(--club-safe-right) + 1rem));
-  bottom: calc(var(--nav-bottom-offset) + 3.7rem);
-  z-index: 25;
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
-  color: var(--muted-strong);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px);
-}
-
-.nav-is-collapsed .bottom-nav-toggle {
-  bottom: var(--nav-bottom-offset);
-}
-
-.bottom-nav-collapsed {
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(1rem);
-}
-
 .bottom-nav-item {
   position: relative;
   display: flex;
   min-width: 0;
-  min-height: 2.85rem;
+  min-height: 3rem;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -8777,6 +8897,7 @@ body.club-keyboard-open .module-name-modal {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 650;
+  touch-action: manipulation;
   transition:
     background 150ms ease,
     color 150ms ease,
@@ -9471,9 +9592,6 @@ body.club-ios .chat-input-row .text-input {
     display: none;
   }
 
-  .mobile-bottom-nav-toggle {
-    display: none;
-  }
 }
 
 @media (pointer: coarse) {
@@ -9483,7 +9601,6 @@ body.club-ios .chat-input-row .text-input {
   .global-upload-indicator,
   .global-upload-panel,
   .bottom-nav,
-  .bottom-nav-toggle,
   .lesson-video-controls,
   .lesson-video-exit-fullscreen-button,
   .support-attachment-viewer-fullscreen .support-attachment-viewer-head-actions {
