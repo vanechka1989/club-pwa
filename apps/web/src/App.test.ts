@@ -393,6 +393,14 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.app-layout-auth\s*{[\s\S]*display: block;/);
   });
 
+  it("keeps the pre-login auth form readable on narrow phones without relying on JS device classes", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.app-shell-auth\s*{[\s\S]*align-items: stretch;/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.content-panel-auth \.auth-panel\s*{[\s\S]*width: 100%;[\s\S]*max-width: none;/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.auth-panel h2\s*{[\s\S]*font-size: 1.35rem;/);
+  });
+
   it("uses a PWA-first mobile device shell instead of zooming a desktop viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

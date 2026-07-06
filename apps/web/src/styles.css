@@ -1284,6 +1284,72 @@ body.club-mobile-device .mobile-admin-actions {
   }
 }
 
+@media (max-width: 640px) {
+  .app-shell-auth {
+    align-items: stretch;
+    justify-content: center;
+    padding: max(1rem, calc(var(--club-safe-top) + 1rem)) max(0.85rem, var(--screen-gutter))
+      max(2rem, calc(var(--club-safe-bottom) + 2rem));
+  }
+
+  .content-panel-auth {
+    justify-items: stretch;
+  }
+
+  .content-panel-auth .auth-panel,
+  .content-panel-auth .auth-install-required {
+    width: 100%;
+    max-width: none;
+  }
+
+  .content-panel-auth .auth-panel {
+    margin: 0 auto;
+    border-radius: 18px;
+    padding: 1.25rem;
+  }
+
+  .auth-panel {
+    gap: 1.05rem;
+  }
+
+  .auth-panel-head {
+    gap: 0.9rem;
+  }
+
+  .auth-panel-icon {
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 14px;
+  }
+
+  .auth-panel h2 {
+    font-size: 1.35rem;
+    line-height: 1.12;
+  }
+
+  .auth-panel p {
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+
+  .auth-form {
+    gap: 0.9rem;
+  }
+
+  .auth-form label {
+    gap: 0.48rem;
+    font-size: 0.98rem;
+  }
+
+  .auth-hint,
+  .auth-error {
+    border-radius: 12px;
+    padding: 0.82rem 0.9rem;
+    font-size: 0.96rem;
+    line-height: 1.4;
+  }
+}
+
 body.club-screen-narrow {
   --screen-gutter: 0.42rem;
   --section-bleed: 0.18rem;
