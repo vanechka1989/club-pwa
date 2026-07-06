@@ -18,6 +18,7 @@ import App from "./App.vue";
 
 const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
 const appIndexSource = readFileSync(resolve(__dirname, "../index.html"), "utf-8");
+const deviceLayoutSource = readFileSync(resolve(__dirname, "features/app/deviceLayout.ts"), "utf-8");
 const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
 const uiStoreSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
 const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");
@@ -265,8 +266,7 @@ describe("App", () => {
     expect(appSource).not.toContain("club-telegram-fullscreen");
     expect(appSource).toContain("calculateLayoutCalibration");
     expect(appSource).toContain("--club-calibrated-bottom-offset");
-    expect(appSource).toContain("getViewportSizeClasses");
-    expect(appSource).toContain("getDeviceLayoutClasses");
+    expect(appSource).toContain("createDeviceLayoutSnapshot");
     expect(appSource).toContain("syncLayoutClasses");
     expect(appSource).toContain("--club-visible-viewport-height");
     expect(appSource).toContain("--club-visible-viewport-bottom");
@@ -414,8 +414,8 @@ describe("App", () => {
   it("scales only the pre-login auth surface when a mobile PWA reports a desktop-width viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(appSource).toContain("club-mobile-auth-scaled");
-    expect(appSource).toContain("--club-auth-wide-viewport-scale");
+    expect(deviceLayoutSource).toContain("club-mobile-auth-scaled");
+    expect(deviceLayoutSource).toContain("--club-auth-wide-viewport-scale");
     expect(styles).toMatch(/html\.club-mobile-auth-scaled,\s*body\.club-mobile-auth-scaled\s*{[\s\S]*overflow: hidden;[\s\S]*overscroll-behavior: none;/);
     expect(styles).toMatch(
       /body\.club-mobile-auth-scaled \.app-root-no-user,\s*body\.club-mobile-auth-scaled \.app-layout-auth,\s*body\.club-mobile-auth-scaled \.app-shell-auth\s*{[\s\S]*height: var\(--app-viewport-height\);[\s\S]*max-height: var\(--app-viewport-height\);[\s\S]*overflow: hidden;/
@@ -429,11 +429,11 @@ describe("App", () => {
   it("uses a separate scaled typography shell after login on wide mobile PWA viewports", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(appSource).toContain("club-mobile-app-scaled");
-    expect(appSource).toContain("--club-app-wide-viewport-scale");
-    expect(appSource).toContain("--club-app-wide-font-root");
-    expect(appSource).toContain("--club-app-wide-font-base");
-    expect(appSource).toContain("Boolean(session.user)");
+    expect(deviceLayoutSource).toContain("club-mobile-app-scaled");
+    expect(deviceLayoutSource).toContain("--club-app-wide-viewport-scale");
+    expect(deviceLayoutSource).toContain("--club-app-wide-font-root");
+    expect(deviceLayoutSource).toContain("--club-app-wide-font-base");
+    expect(appSource).toContain('session.user ? "signed-in" : "signed-out"');
     expect(styles).toMatch(/html\.club-mobile-app-scaled\s*{[\s\S]*font-size: var\(--club-app-wide-font-root, 16px\);/);
     expect(styles).toMatch(
       /body\.club-mobile-app-scaled\s*{[\s\S]*overflow-x: hidden;[\s\S]*font-size: var\(--club-app-wide-font-base, 16px\);/
@@ -447,7 +447,7 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(appSource).toContain("syncMobileDeviceShell");
-    expect(appSource).toContain("club-mobile-device");
+    expect(deviceLayoutSource).toContain("club-mobile-device");
     expect(appSource).toContain("isMobileDeviceShell");
     expect(appSource).toContain("showDesktopNavigation");
     expect(appSource).toContain("showMobileNavigation");
@@ -461,6 +461,15 @@ describe("App", () => {
     expect(styles).not.toContain("club-desktop-viewport-mobile");
     expect(styles).not.toContain("zoom: var(--club-mobile-viewport-scale);");
     expect(styles).not.toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
+  });
+
+  it("routes PWA platform and scale decisions through one device layout adapter", () => {
+    expect(appSource).toContain("createDeviceLayoutSnapshot");
+    expect(appSource).toContain("snapshot.cssVariables");
+    expect(appSource).toContain("snapshot.removedCssVariables");
+    expect(appSource).not.toContain("function syncWideViewportAppScale");
+    expect(appSource).not.toContain("function formatScaledCssPx");
+    expect(appSource).not.toContain("getMobileDeviceShellScale");
   });
 
   it("keeps email resend disabled with a visible timer during cooldown", () => {

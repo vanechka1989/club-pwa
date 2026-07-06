@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateLayoutCalibration,
   collectDeviceDiagnostics,
+  createDeviceLayoutSnapshot,
   getDeviceLayoutClasses,
   getMobileDeviceShellScale,
   getMeasuredKeyboardBottomGap,
@@ -149,6 +150,110 @@ describe("device layout detection", () => {
           "Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
       })
     ).toEqual({ isMobileDeviceShell: true, scale: 2.513 });
+  });
+
+  it("creates a signed-out mobile PWA auth layout snapshot for wide Android viewports", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 980,
+      viewportHeight: 851,
+      screenWidth: 1080,
+      screenAvailWidth: 1080,
+      devicePixelRatio: 1,
+      hasTouchInput: true,
+      platform: "android",
+      sessionMode: "signed-out",
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(true);
+    expect(snapshot.scale).toBe(2.513);
+    expect(snapshot.classes).toEqual(["club-android", "club-mobile-device", "club-mobile-auth-scaled"]);
+    expect(snapshot.cssVariables).toMatchObject({
+      "--club-auth-wide-viewport-scale": "2.513"
+    });
+    expect(snapshot.removedCssVariables).toEqual([
+      "--club-app-wide-viewport-scale",
+      "--club-app-wide-font-root",
+      "--club-app-wide-font-base"
+    ]);
+  });
+
+  it("creates a signed-in mobile PWA app layout snapshot for wide Android viewports", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 980,
+      viewportHeight: 851,
+      screenWidth: 1080,
+      screenAvailWidth: 1080,
+      devicePixelRatio: 1,
+      hasTouchInput: true,
+      platform: "android",
+      sessionMode: "signed-in",
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(true);
+    expect(snapshot.scale).toBe(2.513);
+    expect(snapshot.classes).toEqual(["club-android", "club-mobile-device", "club-mobile-app-scaled"]);
+    expect(snapshot.cssVariables).toMatchObject({
+      "--club-app-wide-viewport-scale": "2.513",
+      "--club-app-wide-font-root": "40.21px",
+      "--club-app-wide-font-base": "40.21px"
+    });
+    expect(snapshot.removedCssVariables).toEqual(["--club-auth-wide-viewport-scale"]);
+  });
+
+  it("keeps a real CSS-width mobile viewport unscaled while still using the mobile shell", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 393,
+      viewportHeight: 851,
+      screenWidth: 1080,
+      screenAvailWidth: 1080,
+      devicePixelRatio: 2.75,
+      hasTouchInput: true,
+      platform: "android",
+      sessionMode: "signed-in",
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(true);
+    expect(snapshot.scale).toBe(1);
+    expect(snapshot.classes).toEqual(["club-android", "club-mobile-device"]);
+    expect(snapshot.cssVariables).toEqual({});
+    expect(snapshot.removedCssVariables).toEqual([
+      "--club-auth-wide-viewport-scale",
+      "--club-app-wide-viewport-scale",
+      "--club-app-wide-font-root",
+      "--club-app-wide-font-base"
+    ]);
+  });
+
+  it("keeps desktop browser layouts out of the mobile shell adapter", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 1280,
+      viewportHeight: 820,
+      screenWidth: 1920,
+      screenAvailWidth: 1920,
+      devicePixelRatio: 1,
+      hasTouchInput: false,
+      platform: "Win32",
+      sessionMode: "signed-in",
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(false);
+    expect(snapshot.scale).toBe(1);
+    expect(snapshot.classes).toEqual([]);
+    expect(snapshot.cssVariables).toEqual({});
+    expect(snapshot.removedCssVariables).toEqual([
+      "--club-auth-wide-viewport-scale",
+      "--club-app-wide-viewport-scale",
+      "--club-app-wide-font-root",
+      "--club-app-wide-font-base"
+    ]);
   });
 
   it("uses the smallest live viewport height when mobile browsers expose stale visualViewport values", () => {

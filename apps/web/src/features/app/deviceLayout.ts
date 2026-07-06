@@ -22,6 +22,22 @@ export type MobileDeviceShellScaleInput = ViewportWidthInput & {
   userAgent?: string | null;
 };
 
+export type DeviceLayoutSessionMode = "signed-out" | "signed-in";
+
+export type DeviceLayoutSnapshotInput = MobileDeviceShellScaleInput & {
+  platform?: string | null;
+  viewportHeight?: number | null;
+  sessionMode: DeviceLayoutSessionMode;
+};
+
+export type DeviceLayoutSnapshot = {
+  isMobileDeviceShell: boolean;
+  scale: number;
+  classes: string[];
+  cssVariables: Record<string, string>;
+  removedCssVariables: string[];
+};
+
 export type DeviceInsetInput = {
   top?: number | null;
   bottom?: number | null;
@@ -80,7 +96,17 @@ export const deviceLayoutClasses = [
   "club-android",
   "club-screen-narrow",
   "club-screen-short",
-  "club-screen-tall"
+  "club-screen-tall",
+  "club-mobile-device",
+  "club-mobile-auth-scaled",
+  "club-mobile-app-scaled"
+] as const;
+
+export const deviceLayoutCssVariables = [
+  "--club-auth-wide-viewport-scale",
+  "--club-app-wide-viewport-scale",
+  "--club-app-wide-font-root",
+  "--club-app-wide-font-base"
 ] as const;
 
 export function getDeviceLayoutClasses({ platform = "", userAgent }: DeviceLayoutInput) {
@@ -135,13 +161,15 @@ export function getMeasuredKeyboardBottomGap({
 }
 
 export function syncLayoutClasses(targets: Array<HTMLElement | null | undefined>, classes: string[]) {
+  const enabledClasses = new Set(classes);
+
   for (const target of targets) {
     if (!target) {
       continue;
     }
 
     for (const className of deviceLayoutClasses) {
-      target.classList.toggle(className, classes.includes(className));
+      target.classList.toggle(className, enabledClasses.has(className));
     }
   }
 }
@@ -217,6 +245,47 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   return {
     isMobileDeviceShell,
     scale
+  };
+}
+
+function formatScaledCssPx(basePx: number, scale: number) {
+  return `${roundedTo(basePx * scale, 2)}px`;
+}
+
+export function createDeviceLayoutSnapshot(input: DeviceLayoutSnapshotInput): DeviceLayoutSnapshot {
+  const userAgent = input.userAgent ?? "";
+  const mobileDeviceShell = getMobileDeviceShellScale(input);
+  const shouldScaleWideViewport = mobileDeviceShell.isMobileDeviceShell && mobileDeviceShell.scale > 1;
+  const shouldScaleAuth = shouldScaleWideViewport && input.sessionMode === "signed-out";
+  const shouldScaleApp = shouldScaleWideViewport && input.sessionMode === "signed-in";
+  const cssVariables: Record<string, string> = {};
+  const classes = [
+    ...getDeviceLayoutClasses({ platform: input.platform ?? "", userAgent }),
+    ...getViewportSizeClasses({
+      width: input.layoutWidth,
+      height: finiteNumber(input.viewportHeight, 0)
+    }),
+    mobileDeviceShell.isMobileDeviceShell && "club-mobile-device",
+    shouldScaleAuth && "club-mobile-auth-scaled",
+    shouldScaleApp && "club-mobile-app-scaled"
+  ].filter((className): className is string => Boolean(className));
+
+  if (shouldScaleAuth) {
+    cssVariables["--club-auth-wide-viewport-scale"] = `${mobileDeviceShell.scale}`;
+  }
+
+  if (shouldScaleApp) {
+    cssVariables["--club-app-wide-viewport-scale"] = `${mobileDeviceShell.scale}`;
+    cssVariables["--club-app-wide-font-root"] = formatScaledCssPx(16, mobileDeviceShell.scale);
+    cssVariables["--club-app-wide-font-base"] = formatScaledCssPx(16, mobileDeviceShell.scale);
+  }
+
+  return {
+    isMobileDeviceShell: mobileDeviceShell.isMobileDeviceShell,
+    scale: mobileDeviceShell.scale,
+    classes: Array.from(new Set(classes)),
+    cssVariables,
+    removedCssVariables: deviceLayoutCssVariables.filter((variableName) => !(variableName in cssVariables))
   };
 }
 
