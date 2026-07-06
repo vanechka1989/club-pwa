@@ -29,10 +29,9 @@ import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore, type LessonUploadTask } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
-import { useUiStore, type PreviewMode } from "@/stores/ui";
+import type { PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
-const ui = useUiStore();
 const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
@@ -51,7 +50,6 @@ let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
 let appNotificationTimer: number | null = null;
-let fullscreenSyncTimer: number | null = null;
 let deviceDiagnosticsTimer: number | null = null;
 let keyboardFocusTimer: number | null = null;
 let isAppMounted = false;
@@ -337,46 +335,6 @@ function syncViewportHeight() {
   document.body.classList.toggle("club-keyboard-open", isKeyboardOpen);
 }
 
-function syncAppFullscreen(isEnabled: boolean) {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return;
-  }
-
-  syncBrowserSafeArea();
-  syncViewportHeight();
-  document.documentElement.classList.toggle("club-telegram-fullscreen", isEnabled);
-  document.body.classList.toggle("club-telegram-fullscreen", isEnabled);
-
-  if (isEnabled) {
-    if (fullscreenSyncTimer) {
-      window.clearTimeout(fullscreenSyncTimer);
-    }
-    fullscreenSyncTimer = window.setTimeout(() => {
-      fullscreenSyncTimer = null;
-      if (!isAppMounted) {
-        return;
-      }
-
-      syncBrowserSafeArea();
-      syncViewportHeight();
-    }, 250);
-    return;
-  }
-
-  if (fullscreenSyncTimer) {
-    window.clearTimeout(fullscreenSyncTimer);
-  }
-  fullscreenSyncTimer = window.setTimeout(() => {
-    fullscreenSyncTimer = null;
-    if (!isAppMounted) {
-      return;
-    }
-
-    syncBrowserSafeArea();
-    syncViewportHeight();
-  }, 250);
-}
-
 async function checkPendingPaymentWatch() {
   const watch = readPaymentWatch();
   if (!watch) {
@@ -528,7 +486,8 @@ onMounted(() => {
   syncPlatformClasses();
   document.documentElement.classList.remove("club-telegram-webview");
   document.body.classList.remove("club-telegram-webview");
-  syncAppFullscreen(ui.fullscreenEnabled);
+  syncBrowserSafeArea();
+  syncViewportHeight();
   syncDesktopLayout();
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
   window.visualViewport?.addEventListener("scroll", syncViewportHeight);
@@ -554,13 +513,6 @@ onMounted(() => {
     }, 1000);
   });
 });
-
-watch(
-  () => ui.fullscreenEnabled,
-  (isEnabled) => {
-    syncAppFullscreen(isEnabled);
-  }
-);
 
 watch(
   () => lessonUploads.activeUpload?.status,
@@ -634,16 +586,10 @@ onBeforeUnmount(() => {
     window.clearInterval(appNotificationTimer);
     appNotificationTimer = null;
   }
-  if (fullscreenSyncTimer) {
-    window.clearTimeout(fullscreenSyncTimer);
-    fullscreenSyncTimer = null;
-  }
   if (deviceDiagnosticsTimer) {
     window.clearTimeout(deviceDiagnosticsTimer);
     deviceDiagnosticsTimer = null;
   }
-  document.documentElement.classList.remove("club-telegram-fullscreen");
-  document.body.classList.remove("club-telegram-fullscreen");
   document.documentElement.classList.remove("club-telegram-webview");
   document.body.classList.remove("club-telegram-webview");
   document.documentElement.classList.remove("club-desktop-viewport-mobile");

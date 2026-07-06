@@ -24,16 +24,6 @@ export const useUiStore = defineStore("ui", () => {
       ? savedPreviewMode
       : "developer"
   );
-  const fullscreenDefaultVersion = "1.07";
-  const savedFullscreenPreference = localStorage.getItem("club-fullscreen-enabled");
-  const savedFullscreenDefaultVersion = localStorage.getItem("club-fullscreen-default-version");
-  const shouldApplyFullscreenDefault = savedFullscreenDefaultVersion !== fullscreenDefaultVersion;
-  const fullscreenEnabled = ref(shouldApplyFullscreenDefault ? true : savedFullscreenPreference !== "false");
-
-  if (shouldApplyFullscreenDefault) {
-    localStorage.setItem("club-fullscreen-enabled", "true");
-    localStorage.setItem("club-fullscreen-default-version", fullscreenDefaultVersion);
-  }
 
   function applyTheme() {
     document.documentElement.dataset.theme = theme.value;
@@ -59,12 +49,7 @@ export const useUiStore = defineStore("ui", () => {
     localStorage.removeItem("club-preview-membership");
   }
 
-  function setFullscreenEnabled(isEnabled: boolean) {
-    fullscreenEnabled.value = isEnabled;
-    localStorage.setItem("club-fullscreen-enabled", String(isEnabled));
-  }
-
   applyTheme();
 
-  return { theme, colorScheme, previewMode, fullscreenEnabled, setTheme, setColorScheme, setPreviewMode, setFullscreenEnabled };
+  return { theme, colorScheme, previewMode, setTheme, setColorScheme, setPreviewMode };
 });

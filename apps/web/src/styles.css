@@ -7956,28 +7956,6 @@ body.club-keyboard-open .module-name-modal {
   color: color-mix(in srgb, var(--danger) 74%, var(--text));
 }
 
-.profile-window-mode {
-  display: grid;
-  gap: 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--panel-strong) 46%, transparent);
-  padding: 0.65rem;
-}
-
-.profile-window-mode h4 {
-  color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 820;
-}
-
-.profile-window-mode p {
-  margin-top: 0.15rem;
-  color: var(--muted);
-  font-size: 0.7rem;
-  line-height: 1.35;
-}
-
 .theme-choice-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

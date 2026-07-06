@@ -127,49 +127,6 @@ function communityMessagesResponse() {
   };
 }
 
-async function mockTelegram(page: Page, testInfo: TestInfo) {
-  const isHuawei = testInfo.project.name.includes("huawei");
-  const isIos = testInfo.project.name.includes("iphone");
-  const platform = isIos ? "ios" : "android";
-
-  await page.addInitScript(
-    ({ isHuawei: huawei, platform: telegramPlatform }) => {
-      const topInset = huawei ? 35.333332 : telegramPlatform === "ios" ? 59 : 34.133335;
-
-      Object.defineProperty(window, "Telegram", {
-        configurable: true,
-        value: {
-          WebApp: {
-            initData: "e2e-init-data",
-            version: "9.6",
-            platform: telegramPlatform,
-            isFullscreen: true,
-            viewportHeight: window.innerHeight,
-            viewportStableHeight: window.innerHeight,
-            safeAreaInset: { top: topInset, bottom: telegramPlatform === "ios" ? 34 : 0, left: 0, right: 0 },
-            contentSafeAreaInset: { top: topInset + 11, bottom: 0, left: 0, right: 0 },
-            ready() {},
-            expand() {},
-            requestFullscreen() {
-              this.isFullscreen = true;
-            },
-            exitFullscreen() {
-              this.isFullscreen = false;
-            },
-            disableVerticalSwipes() {},
-            enableVerticalSwipes() {},
-            showAlert() {},
-            showConfirm(_message: string, callback: (isConfirmed: boolean) => void) {
-              callback(true);
-            }
-          }
-        }
-      });
-    },
-    { isHuawei, platform }
-  );
-}
-
 async function mockApi(page: Page) {
   const handleApiRoute = async (route: Route) => {
     const request = route.request();
@@ -331,8 +288,7 @@ async function mockApi(page: Page) {
   await page.route(appApiUrlPattern, handleApiRoute);
 }
 
-async function openApp(page: Page, testInfo: TestInfo) {
-  await mockTelegram(page, testInfo);
+async function openApp(page: Page) {
   await mockApi(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
@@ -364,7 +320,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
 }
 
-async function expectTelegramTopControlsClear(
+async function expectPwaTopEdgeClear(
   page: Page,
   selector: string,
   options: { minY?: number; maxY?: number } = {}
@@ -374,7 +330,7 @@ async function expectTelegramTopControlsClear(
 
   const targetBox = await target.boundingBox();
   const y = targetBox?.y ?? 0;
-  expect(y).toBeGreaterThanOrEqual(options.minY ?? 112);
+  expect(y).toBeGreaterThanOrEqual(options.minY ?? 0);
   if (options.maxY !== undefined) {
     expect(y).toBeLessThanOrEqual(options.maxY);
   }
@@ -393,12 +349,22 @@ async function expectStableScreenshot(page: Page, name: string) {
   });
 }
 
-test.beforeEach(async ({ page }, testInfo) => {
-  await openApp(page, testInfo);
+test.beforeEach(async ({ page }) => {
+  await openApp(page);
 });
 
-test("renders the mini app shell without accessibility violations", async ({ page }) => {
+test("renders the PWA shell without accessibility violations", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Профиль" })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        hasTelegramRuntime: "Telegram" in window,
+        hasTelegramClass: [...document.documentElement.classList, ...document.body.classList].some((className) =>
+          className.includes("telegram")
+        )
+      }))
+    )
+    .toEqual({ hasTelegramRuntime: false, hasTelegramClass: false });
 
   await page.addScriptTag({
     content: readFileSync(require.resolve("axe-core/axe.min.js"), "utf8")
@@ -442,32 +408,32 @@ test("uses the desktop sidebar only above the app breakpoint", async ({ page }) 
   await expectNoHorizontalOverflow(page);
 });
 
-test("keeps compact Android headers below Telegram top controls", async ({ page }, testInfo) => {
+test("keeps compact Android headers aligned to the PWA viewport", async ({ page }, testInfo) => {
   test.skip(!["huawei-nova-9-se", "oneplus-mt2111", "android-compact-320"].includes(testInfo.project.name));
 
-  await expectTelegramTopControlsClear(page, ".section-head", { minY: 96, maxY: 110 });
+  await expectPwaTopEdgeClear(page, ".section-head", { maxY: 32 });
 
   await page.getByRole("button", { name: "Модули" }).click();
   await expect(page.getByRole("heading", { name: "Модули" }).first()).toBeVisible();
-  await expectTelegramTopControlsClear(page, ".admin-panel-head", { minY: 96, maxY: 110 });
+  await expectPwaTopEdgeClear(page, ".admin-panel-head", { maxY: 32 });
 
   await page.getByRole("button", { name: "Оплата" }).click();
   await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();
-  await expectTelegramTopControlsClear(page, ".section-head", { minY: 96, maxY: 110 });
+  await expectPwaTopEdgeClear(page, ".section-head", { maxY: 32 });
 
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
-  await expectTelegramTopControlsClear(page, ".chat-room-header");
+  await expectPwaTopEdgeClear(page, ".chat-room-header", { maxY: 32 });
 });
 
-test("keeps Samsung chat header below Telegram top controls", async ({ page }, testInfo) => {
+test("keeps Samsung chat header aligned to the PWA viewport", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "galaxy-s24");
 
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
-  await expectTelegramTopControlsClear(page, ".chat-room-header");
+  await expectPwaTopEdgeClear(page, ".chat-room-header", { maxY: 32 });
 });
 
 test("keeps database backup tools usable in the server admin panel", async ({ page }) => {

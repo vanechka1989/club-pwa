@@ -18,6 +18,9 @@ import App from "./App.vue";
 
 const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
 const appIndexSource = readFileSync(resolve(__dirname, "../index.html"), "utf-8");
+const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
+const uiStoreSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
+const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -175,6 +178,20 @@ describe("App", () => {
     expect(appSource).toContain("if (readPaymentWatch())");
     expect(appSource).toContain("clearPaymentWatch();");
     expect(appSource).not.toContain("Оплата прошла. Доступ обновлен.");
+  });
+
+  it("does not expose legacy Telegram window/fullscreen mode controls", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(profileSource).not.toContain("profile-window-mode");
+    expect(profileSource).not.toContain("fullscreenEnabled");
+    expect(profileSource).not.toContain("setFullscreenEnabled");
+    expect(uiStoreSource).not.toContain("club-fullscreen-enabled");
+    expect(uiStoreSource).not.toContain("setFullscreenEnabled");
+    expect(appSource).not.toContain("syncAppFullscreen");
+    expect(appSource).not.toContain("club-telegram-fullscreen");
+    expect(i18nSource).not.toContain("profileWindowMode");
+    expect(styles).not.toContain(".profile-window-mode");
   });
 
   it("keeps mobile fullscreen layouts on the measured browser viewport without Telegram runtime", () => {
