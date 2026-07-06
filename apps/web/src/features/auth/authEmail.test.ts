@@ -90,6 +90,14 @@ describe("email auth UI", () => {
     expect(screen.getByText(/Вход по email доступен только из установленного приложения/)).toBeTruthy();
   });
 
+  it("keeps the native install request path for desktop browsers", () => {
+    renderAuth(createPinia(), { standalone: false });
+
+    expect(screen.getByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Добавьте Club на экран Домой" })).toBeNull();
+  });
+
   it("shows iPhone manual install steps immediately instead of a dead native install button", () => {
     stubNavigatorPlatform({
       userAgent:

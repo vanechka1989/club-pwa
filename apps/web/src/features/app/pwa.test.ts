@@ -77,6 +77,8 @@ describe("PWA shell", () => {
     expect(display).toContain("isNonBrowserDisplaySurface");
     expect(display).toContain("display-mode: ${mode}");
     expect(prompt).toContain("prompt()");
+    expect(prompt).toContain("detectInstallPlatform");
+    expect(prompt).not.toContain("/iphone|ipad|ipod/i.test(userAgent)");
     expect(prompt).toContain("Safari");
     expect(prompt).toContain("На экран Домой");
     expect(styles).toContain("bottom: calc(var(--nav-space, 0rem) + 0.75rem);");

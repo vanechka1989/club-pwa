@@ -8453,11 +8453,38 @@ body.club-mobile-device .section-host > section {
   margin: 0;
 }
 
+body.club-mobile-device .app-root:not(.app-root-no-user) .section-host {
+  width: 100%;
+}
+
 body.club-mobile-device .section-head,
 body.club-mobile-device .soft-card,
 body.club-mobile-device .soft-list-card {
   border-radius: 18px;
   padding: 1rem;
+}
+
+body.club-mobile-device .learning-hero-card,
+body.club-mobile-device .learning-progress-card,
+body.club-mobile-device .learning-last-card,
+body.club-mobile-device .learning-category-card,
+body.club-mobile-device .soft-payment-card,
+body.club-mobile-device .support-topic-option,
+body.club-mobile-device .support-ticket-card {
+  border-radius: 18px;
+  padding: 0.9rem;
+}
+
+body.club-mobile-device .soft-payment-card,
+body.club-mobile-device .learning-item-row,
+body.club-mobile-device .support-topic-option {
+  min-height: 3.25rem;
+}
+
+body.club-mobile-device .payment-product-actions,
+body.club-mobile-device .support-reply-actions {
+  width: 100%;
+  grid-template-columns: 1fr;
 }
 
 body.club-mobile-device .section-title {
@@ -8556,6 +8583,11 @@ body.club-mobile-device .scheme-choice {
 body.club-mobile-device .bottom-nav-item {
   min-height: 3.25rem;
   font-size: 0.72rem;
+}
+
+body.club-mobile-device .bottom-nav {
+  right: max(0.75rem, calc(var(--club-safe-right) + 0.75rem));
+  left: max(0.75rem, calc(var(--club-safe-left) + 0.75rem));
 }
 
 .club-home {

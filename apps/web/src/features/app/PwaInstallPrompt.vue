@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Download, Share, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { detectInstallPlatform } from "@/features/app/installPlatform";
 import { isInstalledPwaDisplay, markInstalledPwa } from "@/features/app/pwaDisplay";
 import { pwaInstallRequestEventName } from "@/features/app/pwaInstall";
 
@@ -48,11 +49,7 @@ function detectPlatform() {
     return;
   }
 
-  const userAgent = window.navigator.userAgent;
-  const platform = window.navigator.platform;
-  isIos.value =
-    /iphone|ipad|ipod/i.test(userAgent) ||
-    (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  isIos.value = detectInstallPlatform().isIos;
   isInstalled.value = isInstalledPwaDisplay();
 }
 

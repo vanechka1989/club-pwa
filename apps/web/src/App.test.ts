@@ -430,6 +430,11 @@ describe("App", () => {
     expect(styles).toContain("body.club-mobile-device .profile-info-row span");
     expect(styles).toContain("body.club-mobile-device .soft-inline-button");
     expect(styles).toContain("body.club-mobile-device .theme-choice");
+    expect(styles).toContain("body.club-mobile-device .app-root:not(.app-root-no-user) .section-host");
+    expect(styles).toContain("body.club-mobile-device .learning-hero-card");
+    expect(styles).toContain("body.club-mobile-device .soft-payment-card");
+    expect(styles).toContain("body.club-mobile-device .support-topic-option");
+    expect(styles).toContain("body.club-mobile-device .bottom-nav");
   });
 
   it("keeps one compact side gutter across normal section tabs", () => {

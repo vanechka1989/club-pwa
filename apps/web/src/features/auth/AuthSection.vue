@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { detectInstallPlatform } from "@/features/app/installPlatform";
 import { getInstalledPwaDisplayModeQueries, isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import { Download, Mail, Share, ShieldCheck } from "lucide-vue-next";
 import { requestPwaInstallPrompt } from "@/features/app/pwaInstall";
@@ -154,12 +155,7 @@ function changeEmail() {
 }
 
 function detectIosInstallDevice() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  const { maxTouchPoints, platform, userAgent } = window.navigator;
-  return /iphone|ipad|ipod/i.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
+  return detectInstallPlatform().isIos;
 }
 
 function installApp() {
