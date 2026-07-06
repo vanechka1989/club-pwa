@@ -22,9 +22,11 @@ describe("mailing draft test endpoint", () => {
     expect(routeSource).toContain("createdBy: true");
   });
 
-  it("sends mailing HTML to Telegram using safe HTML parse mode", () => {
-    expect(routeSource).toContain("buildTelegramHtml");
-    expect(routeSource).toContain("parseMode: \"HTML\"");
-    expect(routeSource).toContain("sanitizeTelegramHtml");
+  it("sends mailing HTML as an app/PWA notification without Telegram delivery", () => {
+    expect(routeSource).toContain("createAppNotification");
+    expect(routeSource).toContain("source: \"mailing_test\"");
+    expect(routeSource).toContain("bodyHtml");
+    expect(routeSource).not.toContain("sendTelegram");
+    expect(routeSource).not.toContain("parseMode: \"HTML\"");
   });
 });

@@ -62,22 +62,10 @@ import type {
 import { ofetch } from "ofetch";
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "/api";
-const devTelegramUser = import.meta.env.VITE_DEV_TELEGRAM_USER;
 const previewModeStorageKey = "club-preview-mode";
-
-function getInitData() {
-  return window.Telegram?.WebApp?.initData ?? "";
-}
 
 function withAuthHeaders(input?: HeadersInit) {
   const headers = new Headers(input);
-  const initData = getInitData();
-  if (initData) {
-    headers.set("Authorization", `tma ${initData}`);
-  } else if (devTelegramUser) {
-    headers.set("X-Dev-Telegram-User", devTelegramUser);
-  }
-
   const previewMode = localStorage.getItem(previewModeStorageKey);
   if (
     previewMode === "developer" ||
@@ -93,10 +81,40 @@ function withAuthHeaders(input?: HeadersInit) {
 
 export const api = ofetch.create({
   baseURL: apiUrl,
+  credentials: "include",
   onRequest({ options }) {
     options.headers = withAuthHeaders(options.headers);
   }
 });
+
+export function requestEmailCode(payload: { email: string; referralCode?: string | null }) {
+  return api<{ ok: boolean; devCode: string | null }>("/auth/email/start", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function verifyEmailCode(payload: { email: string; code: string; referralCode?: string | null }) {
+  return api<{ ok: boolean }>("/auth/email/verify", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function logoutSession() {
+  return api<{ ok: boolean }>("/auth/logout", { method: "POST" });
+}
+
+export function getWebPushPublicKey() {
+  return api<{ publicKey: string | null }>("/push/vapid-public-key");
+}
+
+export function saveWebPushSubscription(subscription: PushSubscriptionJSON) {
+  return api<{ ok: boolean }>("/push/subscriptions", {
+    method: "POST",
+    body: subscription
+  });
+}
 
 export function getMe() {
   return api<MeResponse>("/me");
@@ -508,7 +526,8 @@ function buildAbsoluteApiUrl(path: string) {
 
 export async function downloadAdminDatabaseBackup() {
   const response = await fetch(`${apiUrl.replace(/\/$/, "")}/admin/database/backup`, {
-    headers: withAuthHeaders()
+    headers: withAuthHeaders(),
+    credentials: "include"
   });
 
   if (!response.ok) {

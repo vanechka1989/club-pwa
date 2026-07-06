@@ -74,6 +74,46 @@ install_packages() {
   exit 1
 }
 
+generate_vapid_keys() {
+  docker run --rm -i node:22-alpine node <<'NODE'
+const { generateKeyPairSync } = require("node:crypto");
+
+function fromBase64Url(value) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  return Buffer.from(`${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+
+function toBase64Url(value) {
+  return Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+const privateJwk = privateKey.export({ format: "jwk" });
+const publicJwk = publicKey.export({ format: "jwk" });
+const publicBytes = Buffer.concat([Buffer.from([4]), fromBase64Url(publicJwk.x), fromBase64Url(publicJwk.y)]);
+
+console.log(toBase64Url(publicBytes));
+console.log(privateJwk.d);
+NODE
+}
+
+ensure_vapid_keys() {
+  if [[ -n "$WEB_PUSH_PUBLIC_KEY" && -n "$WEB_PUSH_PRIVATE_KEY" ]]; then
+    return
+  fi
+
+  echo "Генерируем Web Push VAPID ключи..."
+  local generated_keys
+  generated_keys="$(generate_vapid_keys)"
+  WEB_PUSH_PUBLIC_KEY="$(printf '%s\n' "$generated_keys" | sed -n '1p')"
+  WEB_PUSH_PRIVATE_KEY="$(printf '%s\n' "$generated_keys" | sed -n '2p')"
+
+  if [[ -z "$WEB_PUSH_PUBLIC_KEY" || -z "$WEB_PUSH_PRIVATE_KEY" ]]; then
+    echo "Не удалось сгенерировать Web Push VAPID ключи." >&2
+    exit 1
+  fi
+}
+
 wait_for_health() {
   local health_url="$1"
 
@@ -103,8 +143,8 @@ pull_images() {
 1. На сервере есть интернет.
 2. Docker работает: docker ps
 3. Образы в реестре контейнеров GitHub открыты публично:
-   - ghcr.io/vanechka1989/club-crm-api
-   - ghcr.io/vanechka1989/club-crm-web
+   - ghcr.io/vanechka1989/club-pwa-api
+   - ghcr.io/vanechka1989/club-pwa-web
 
 Если образы ещё закрыты, один раз откройте их в GitHub:
 Repository -> Packages -> package -> Package settings -> Change visibility -> Public.
@@ -113,11 +153,11 @@ MESSAGE
 }
 
 echo
-echo "Установка шаблонного Telegram-клуба без токена GitHub"
+echo "Установка PWA-клуба без токена GitHub"
 echo "Если значение в квадратных скобках подходит, просто нажмите Enter."
 echo
 
-DEPLOY_DIR="${DEPLOY_DIR:-$(prompt "Папка установки" "/opt/club-crm")}"
+DEPLOY_DIR="${DEPLOY_DIR:-$(prompt "Папка установки" "/opt/club-pwa")}"
 
 DEFAULT_SERVER_HOST="$(hostname -I 2>/dev/null | awk '{print $1}')"
 SERVER_HOST="${SERVER_HOST:-$(prompt "IP сервера или домен" "$DEFAULT_SERVER_HOST")}"
@@ -134,29 +174,42 @@ PUBLIC_WEB_URL="${PUBLIC_WEB_URL:-$(prompt "Адрес клуба" "https://$PUB
 PUBLIC_API_URL="${PUBLIC_API_URL:-$(prompt "Адрес API" "${PUBLIC_WEB_URL%/}/api")}"
 
 echo
-echo "Токен Telegram-бота из BotFather."
-TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-$(prompt_secret "Токен Telegram-бота")}"
+echo "Email-доступ."
+OWNER_EMAIL="${OWNER_EMAIL:-$(prompt "Email владельца клуба")}"
+ADMIN_EMAILS="${ADMIN_EMAILS:-$(prompt "Дополнительные email админов через запятую" "")}"
 
 echo
-echo "Telegram ID владельца клуба. Его можно узнать через @userinfobot."
-OWNER_TELEGRAM_ID="${OWNER_TELEGRAM_ID:-$(prompt "Telegram ID владельца")}"
-ADMIN_TELEGRAM_IDS="${ADMIN_TELEGRAM_IDS:-$(prompt "Дополнительные Telegram ID админов через запятую" "")}"
+echo "SMTP для кодов входа."
+echo "В production нужен SMTP, иначе email-коды не будут отправляться."
+SMTP_HOST="${SMTP_HOST:-$(prompt "SMTP host" "")}"
+SMTP_PORT="${SMTP_PORT:-$(prompt "SMTP port" "587")}"
+SMTP_USER="${SMTP_USER:-$(prompt "SMTP user" "")}"
+SMTP_PASSWORD="${SMTP_PASSWORD:-$(prompt_secret "SMTP password")}"
+SMTP_FROM="${SMTP_FROM:-$(prompt "SMTP from" "$OWNER_EMAIL")}"
+
+echo
+echo "Web Push VAPID ключи."
+echo "Если ключи не переданы через env, установщик создаст их автоматически."
+EXISTING_WEB_PUSH_PUBLIC_KEY="$(existing_env_value "$DEPLOY_DIR/.env" WEB_PUSH_PUBLIC_KEY || true)"
+EXISTING_WEB_PUSH_PRIVATE_KEY="$(existing_env_value "$DEPLOY_DIR/.env" WEB_PUSH_PRIVATE_KEY || true)"
+WEB_PUSH_PUBLIC_KEY="${WEB_PUSH_PUBLIC_KEY:-$EXISTING_WEB_PUSH_PUBLIC_KEY}"
+WEB_PUSH_PRIVATE_KEY="${WEB_PUSH_PRIVATE_KEY:-$EXISTING_WEB_PUSH_PRIVATE_KEY}"
+WEB_PUSH_SUBJECT="${WEB_PUSH_SUBJECT:-$(prompt "Web Push contact" "mailto:$OWNER_EMAIL")}"
 
 echo
 RUN_SEED="${RUN_SEED:-$(prompt "Добавить базовый демо-контент? y/n" "y")}"
 
 IMAGE_TAG="${IMAGE_TAG:-latest}"
-CLUB_API_IMAGE="${CLUB_API_IMAGE:-ghcr.io/vanechka1989/club-crm-api:$IMAGE_TAG}"
-CLUB_WEB_IMAGE="${CLUB_WEB_IMAGE:-ghcr.io/vanechka1989/club-crm-web:$IMAGE_TAG}"
+CLUB_API_IMAGE="${CLUB_API_IMAGE:-ghcr.io/vanechka1989/club-pwa-api:$IMAGE_TAG}"
+CLUB_WEB_IMAGE="${CLUB_WEB_IMAGE:-ghcr.io/vanechka1989/club-pwa-web:$IMAGE_TAG}"
 
 EXISTING_POSTGRES_PASSWORD="$(existing_env_value "$DEPLOY_DIR/.env" POSTGRES_PASSWORD || true)"
-EXISTING_TELEGRAM_WEBHOOK_SECRET="$(existing_env_value "$DEPLOY_DIR/.env" TELEGRAM_WEBHOOK_SECRET || true)"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-${EXISTING_POSTGRES_PASSWORD:-$(random_secret)}}"
-TELEGRAM_WEBHOOK_SECRET="${TELEGRAM_WEBHOOK_SECRET:-${EXISTING_TELEGRAM_WEBHOOK_SECRET:-$(random_secret)}}"
 
 echo
 echo "Устанавливаем Docker и системные зависимости..."
 install_packages
+ensure_vapid_keys
 
 mkdir -p "$DEPLOY_DIR/deploy"
 
@@ -167,10 +220,19 @@ POSTGRES_DB=club
 PUBLIC_DOMAIN=$PUBLIC_DOMAIN
 WEB_ORIGIN=$PUBLIC_WEB_URL
 PUBLIC_API_URL=$PUBLIC_API_URL
-TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
-TELEGRAM_WEBHOOK_SECRET=$TELEGRAM_WEBHOOK_SECRET
-OWNER_TELEGRAM_ID=$OWNER_TELEGRAM_ID
-ADMIN_TELEGRAM_IDS=$ADMIN_TELEGRAM_IDS
+OWNER_EMAIL=$OWNER_EMAIL
+ADMIN_EMAILS=$ADMIN_EMAILS
+AUTH_LOGIN_CODE_TTL_MINUTES=10
+AUTH_SESSION_TTL_DAYS=30
+AUTH_DEV_CODE_ENABLED=false
+SMTP_HOST=$SMTP_HOST
+SMTP_PORT=$SMTP_PORT
+SMTP_USER=$SMTP_USER
+SMTP_PASSWORD=$SMTP_PASSWORD
+SMTP_FROM=$SMTP_FROM
+WEB_PUSH_PUBLIC_KEY=$WEB_PUSH_PUBLIC_KEY
+WEB_PUSH_PRIVATE_KEY=$WEB_PUSH_PRIVATE_KEY
+WEB_PUSH_SUBJECT=$WEB_PUSH_SUBJECT
 CLUB_API_IMAGE=$CLUB_API_IMAGE
 CLUB_WEB_IMAGE=$CLUB_WEB_IMAGE
 S3_ENDPOINT=
@@ -187,7 +249,7 @@ cat >"$DEPLOY_DIR/deploy/Caddyfile" <<'CADDY'
 {$PUBLIC_DOMAIN} {
   encode gzip
   header {
-    Content-Security-Policy "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-src https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://t.me https://telegram.org; object-src 'none'; base-uri 'self'; frame-ancestors https://web.telegram.org https://*.telegram.org"
+    Content-Security-Policy "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-src https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     X-Content-Type-Options "nosniff"
     Referrer-Policy "strict-origin-when-cross-origin"
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
@@ -228,10 +290,19 @@ services:
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER:-club}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-club}
       WEB_ORIGIN: ${WEB_ORIGIN}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
-      OWNER_TELEGRAM_ID: ${OWNER_TELEGRAM_ID}
-      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
+      OWNER_EMAIL: ${OWNER_EMAIL}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      AUTH_LOGIN_CODE_TTL_MINUTES: ${AUTH_LOGIN_CODE_TTL_MINUTES:-10}
+      AUTH_SESSION_TTL_DAYS: ${AUTH_SESSION_TTL_DAYS:-30}
+      AUTH_DEV_CODE_ENABLED: ${AUTH_DEV_CODE_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
+      WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
+      WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-}
@@ -252,10 +323,19 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-club}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-club}
       WEB_ORIGIN: ${WEB_ORIGIN}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
-      OWNER_TELEGRAM_ID: ${OWNER_TELEGRAM_ID}
-      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
+      OWNER_EMAIL: ${OWNER_EMAIL}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      AUTH_LOGIN_CODE_TTL_MINUTES: ${AUTH_LOGIN_CODE_TTL_MINUTES:-10}
+      AUTH_SESSION_TTL_DAYS: ${AUTH_SESSION_TTL_DAYS:-30}
+      AUTH_DEV_CODE_ENABLED: ${AUTH_DEV_CODE_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
+      WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
+      WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-}

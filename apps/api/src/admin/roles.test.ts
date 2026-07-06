@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 async function loadRoles() {
   process.env.DATABASE_URL = "postgres://club:club@localhost:5432/club";
-  process.env.TELEGRAM_BOT_TOKEN = "123:token";
+  process.env.OWNER_EMAIL = "owner@example.com";
   return import("./roles");
 }
 

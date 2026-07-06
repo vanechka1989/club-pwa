@@ -849,6 +849,75 @@ body.club-keyboard-open .community-chat-open .app-shell {
   backdrop-filter: blur(12px);
 }
 
+.auth-panel {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+  margin: clamp(2rem, 10vh, 5rem) auto;
+  padding: 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface) 94%, white);
+  box-shadow: 0 1.2rem 3rem color-mix(in srgb, var(--shadow) 16%, transparent);
+}
+
+.auth-panel-head {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.auth-panel-icon {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.5rem;
+  color: white;
+  background: var(--accent);
+}
+
+.auth-panel h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 750;
+}
+
+.auth-panel p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.auth-hint,
+.auth-error {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.45rem;
+  font-size: 0.9rem;
+}
+
+.auth-hint {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+}
+
+.auth-error {
+  background: color-mix(in srgb, #ef4444 11%, transparent);
+  color: #b91c1c;
+}
+
 body.club-screen-narrow {
   --screen-gutter: 0.42rem;
   --section-bleed: 0.18rem;

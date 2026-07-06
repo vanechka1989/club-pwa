@@ -89,9 +89,7 @@ import {
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
   getAdminSubscriptionTitle,
-  getAdminTariffLabel,
-  getTelegramBotStatusHint,
-  getTelegramBotStatusLabel
+  getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import {
@@ -159,9 +157,7 @@ const previewModeOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "member-inactive", label: "Без доступа" }
 ];
 const mailingChannelOptions: Array<{ value: MailingChannel; label: string; hint: string }> = [
-  { value: "bot", label: "В бот", hint: "Telegram sendMessage" },
-  { value: "app", label: "В приложение", hint: "Колокольчик и системное сообщение" },
-  { value: "all", label: "Везде", hint: "Telegram + приложение" }
+  { value: "app", label: "В приложение", hint: "Колокольчик и PWA push" }
 ];
 const mailingAccessStatusOptions: Array<{ value: MailingFilters["accessStatus"]; label: string }> = [
   { value: "active", label: "Активна подписка" },
@@ -582,7 +578,6 @@ const storageFolderGroups = computed(() => {
 
   return Array.from(groups.values()).sort((left, right) => left.title.localeCompare(right.title, "ru"));
 });
-const mailingBlockedUsers = computed(() => users.value.filter((user) => user.telegramBotStatus === "blocked").length);
 const mailingCanSubmit = computed(() => mailingTitle.value.trim().length > 0 && mailingBody.value.trim().length > 0);
 const mailingAttachmentLabel = computed(() => mailingAttachment.value?.name ?? "Добавить вложение");
 const adminOperation = computed(() => {
@@ -1203,12 +1198,6 @@ function closeServerLogsModal() {
 }
 
 function openDatabaseBackupDownloadUrl(url: string) {
-  const openLink = window.Telegram?.WebApp?.openLink;
-  if (openLink) {
-    openLink(url, { try_instant_view: false });
-    return;
-  }
-
   const opened = window.open(url, "_blank", "noopener,noreferrer");
   if (!opened) {
     window.location.assign(url);
@@ -1222,13 +1211,6 @@ async function handleDownloadDatabaseBackup() {
 
   databaseBackupBusy.value = true;
   try {
-    if (window.Telegram?.WebApp) {
-      const response = await createAdminDatabaseBackupDownloadLink();
-      openDatabaseBackupDownloadUrl(response.url);
-      setStatus("Скачивание базы открыто. Проверьте загрузки Telegram или браузера.");
-      return;
-    }
-
     const { blob, fileName } = await downloadAdminDatabaseBackup();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1240,7 +1222,13 @@ async function handleDownloadDatabaseBackup() {
     URL.revokeObjectURL(url);
     setStatus("Скачивание базы запущено.");
   } catch {
-    setError("Не удалось скачать базу.");
+    try {
+      const response = await createAdminDatabaseBackupDownloadLink();
+      openDatabaseBackupDownloadUrl(response.url);
+      setStatus("Скачивание базы открыто в новой вкладке.");
+    } catch {
+      setError("Не удалось скачать базу.");
+    }
   } finally {
     databaseBackupBusy.value = false;
   }
@@ -1396,23 +1384,6 @@ function getLastPaymentSummary(order: PaymentOrderLog | null) {
   return `${order.amountRub.toLocaleString("ru-RU")} ₽ · ${paymentOrderStatusLabel(order.status).toLowerCase()}`;
 }
 
-function getTelegramBotStatusChangedLabel(user: AdminStatsUser) {
-  const changedAt =
-    user.telegramBotStatus === "blocked"
-      ? user.telegramBotBlockedAt
-      : user.telegramBotStatus === "active"
-        ? user.telegramBotUnblockedAt
-        : null;
-
-  if (!changedAt) {
-    return null;
-  }
-
-  return user.telegramBotStatus === "blocked"
-    ? `Заблокировал: ${formatAdminDateTime(changedAt)}`
-    : `Разблокировал: ${formatAdminDateTime(changedAt)}`;
-}
-
 function formatDateInput(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -1544,12 +1515,7 @@ function setError(text: string) {
 
 function showSuccessAlert(text: string) {
   setStatus(text);
-  const showAlert = window.Telegram?.WebApp?.showAlert;
-  if (showAlert) {
-    showAlert(text);
-  } else {
-    window.alert(text);
-  }
+  window.alert(text);
 }
 
 function storageSourceLabel(source: S3StorageSettings["source"]) {
@@ -2783,9 +2749,6 @@ onUnmounted(() => {
             </span>
             <span class="admin-list-badges">
               <em class="admin-access-badge">{{ user.hasRestrictions ? "Ограничен" : formatMembershipStatus(user.membershipStatus) }}</em>
-              <em class="admin-bot-badge" :class="`admin-bot-badge-${user.telegramBotStatus}`" :title="getTelegramBotStatusHint(user.telegramBotStatus)">
-                Бот {{ getTelegramBotStatusLabel(user.telegramBotStatus) }}
-              </em>
             </span>
           </button>
         </div>
@@ -2802,9 +2765,6 @@ onUnmounted(() => {
               <div class="admin-client-card-title">
                 <div class="admin-client-title-row">
                   <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
-                  <em class="admin-bot-badge" :class="`admin-bot-badge-${selectedUser.telegramBotStatus}`" :title="getTelegramBotStatusHint(selectedUser.telegramBotStatus)">
-                    Бот {{ getTelegramBotStatusLabel(selectedUser.telegramBotStatus) }}
-                  </em>
                 </div>
                 <p>{{ selectedUserMeta(selectedUser) }}</p>
                 <div class="admin-client-status-row">
@@ -2963,12 +2923,7 @@ onUnmounted(() => {
                   <strong>Оплата: {{ selectedUserLastPayment.amountRub.toLocaleString("ru-RU") }} ₽</strong>
                   <time>{{ paymentOrderDate(selectedUserLastPayment) }}</time>
                 </article>
-                <article v-if="getTelegramBotStatusChangedLabel(selectedUser)">
-                  <span class="admin-client-dot" :class="selectedUser.telegramBotStatus === 'blocked' ? 'admin-client-dot-red' : 'admin-client-dot-green'"></span>
-                  <strong>{{ getTelegramBotStatusChangedLabel(selectedUser) }}</strong>
-                  <time>статус бота</time>
-                </article>
-                <p v-if="!selectedUser.lastOpenedItemTitle && !selectedUserLastPayment && !getTelegramBotStatusChangedLabel(selectedUser)" class="admin-empty">
+                <p v-if="!selectedUser.lastOpenedItemTitle && !selectedUserLastPayment" class="admin-empty">
                   Последних событий пока нет.
                 </p>
               </div>
@@ -3172,7 +3127,7 @@ onUnmounted(() => {
       <div class="admin-panel-head">
         <div>
           <h3>Рассылки</h3>
-          <p>Сообщения в Telegram, приложение или сразу везде. Заблокировавшие бота исключаются автоматически.</p>
+          <p>Сообщения в приложение и PWA push для выбранной аудитории.</p>
         </div>
         <button class="primary-button admin-add-button" type="button" @click="openMailingComposer()">Новая рассылка</button>
       </div>
@@ -3373,10 +3328,6 @@ onUnmounted(() => {
                   <article>
                     <span>Примерное время</span>
                     <strong>{{ mailingPreviewLoading ? "считаем..." : mailingPreview?.estimatedLabel ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Бот заблокирован</span>
-                    <strong>{{ mailingPreview?.excludedBotBlocked ?? mailingBlockedUsers }}</strong>
                   </article>
                   <article>
                     <span>Не прошли фильтры</span>
@@ -4072,11 +4023,11 @@ onUnmounted(() => {
       <section v-if="isOwner" class="admin-crm-block admin-add-admin-block">
         <div>
           <h4>Добавить администратора</h4>
-          <p>Введите Telegram ID или найдите клиента по имени, username либо ID.</p>
+          <p>Введите email или найдите клиента по имени, username либо ID.</p>
         </div>
 
         <form class="admin-search-row" @submit.prevent="handleAddAdmin()">
-          <input v-model.trim="adminSearchQuery" class="text-input" placeholder="Telegram ID, имя или username" />
+          <input v-model.trim="adminSearchQuery" class="text-input" placeholder="email, имя или username" />
           <button class="primary-button admin-add-button" type="submit" :disabled="saving || !resolveAdminSearchTelegramId()">Добавить</button>
         </form>
 

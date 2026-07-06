@@ -10,14 +10,13 @@
   }
 
   function collectPayload(kind, message, detail) {
-    var webApp = window.Telegram && window.Telegram.WebApp;
     var visualViewport = window.visualViewport;
     return {
       kind: safeText(kind) || "client-error",
       message: safeText(message) || "Неизвестная ошибка клиента",
       url: window.location.href,
       userAgent: navigator.userAgent,
-      platform: (webApp && webApp.platform) || navigator.platform || null,
+      platform: navigator.platform || null,
       viewport: {
         width: window.innerWidth || (visualViewport && visualViewport.width) || null,
         height: window.innerHeight || (visualViewport && visualViewport.height) || null

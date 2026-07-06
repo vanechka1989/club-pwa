@@ -6,10 +6,7 @@ import {
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
   getAdminSubscriptionTitle,
-  getAdminTariffLabel,
-  getTelegramBotStatusHint,
-  getTelegramBotStatusLabel,
-  getTelegramBotStatusTitle
+  getAdminTariffLabel
 } from "./adminClientCard";
 
 describe("admin client card helpers", () => {
@@ -20,19 +17,20 @@ describe("admin client card helpers", () => {
     expect(source).toContain("selectedUser.lastLoginAt");
   });
 
-  it("shows the Telegram bot status in the client card header stats", () => {
+  it("keeps bot status out of the PWA client card header", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 
     expect(source).toContain("admin-client-title-row");
     expect(source).toContain("admin-client-card-head");
-    expect(source).toContain("selectedUser.telegramBotStatus");
+    expect(source).not.toContain("Бот {{");
+    expect(source).not.toContain("getTelegramBotStatusLabel");
     expect(source).not.toContain("admin-contact-health");
   });
 
-  it("shows the Telegram bot status in the client list", () => {
+  it("keeps bot status out of the PWA client list", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 
-    expect(source).toContain("getTelegramBotStatusLabel(user.telegramBotStatus)");
+    expect(source).not.toContain("getTelegramBotStatusLabel(user.telegramBotStatus)");
   });
 
   it("labels the custom access date as manual access", () => {
@@ -123,18 +121,5 @@ describe("admin client card helpers", () => {
     expect(getAdminTariffLabel("prodamus_recurrent")).toBe("Автоподписка");
     expect(getAdminTariffLabel("future")).toBe("Без тарифа");
     expect(getAdminTariffLabel(null)).toBe("Без тарифа");
-  });
-
-  it("shows readable Telegram bot status labels", () => {
-    expect(getTelegramBotStatusLabel("active")).toBe("активен");
-    expect(getTelegramBotStatusLabel("blocked")).toBe("заблокирован");
-    expect(getTelegramBotStatusLabel("unknown")).toBe("неизвестно");
-  });
-
-  it("shows actionable Telegram bot status copy", () => {
-    expect(getTelegramBotStatusTitle("active")).toBe("Связь через бота доступна");
-    expect(getTelegramBotStatusTitle("blocked")).toBe("Клиент заблокировал бота");
-    expect(getTelegramBotStatusTitle("unknown")).toBe("Статус бота неизвестен");
-    expect(getTelegramBotStatusHint("blocked")).toBe("Сообщения из админки не дойдут, пока клиент не запустит бота снова.");
   });
 });

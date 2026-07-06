@@ -5,23 +5,31 @@ import { adminUsers, clubSettings } from "../db/schema";
 import { env } from "../env";
 
 export const ownerTelegramIdSettingKey = "club_owner_telegram_id";
+export const ownerEmailSettingKey = "club_owner_email";
 
 function parseAdminIds() {
-  return env.ADMIN_TELEGRAM_IDS.split(",")
+  return env.ADMIN_EMAILS
+    .split(",")
     .map((id) => id.trim())
+    .map((id) => id.toLowerCase())
     .filter(Boolean);
 }
 
 export async function getOwnerTelegramId() {
-  const setting = await db.query.clubSettings.findFirst({
-    where: eq(clubSettings.key, ownerTelegramIdSettingKey)
-  });
+  const [emailSetting, legacySetting] = await Promise.all([
+    db.query.clubSettings.findFirst({
+      where: eq(clubSettings.key, ownerEmailSettingKey)
+    }),
+    db.query.clubSettings.findFirst({
+      where: eq(clubSettings.key, ownerTelegramIdSettingKey)
+    })
+  ]);
 
-  return setting?.value ?? env.OWNER_TELEGRAM_ID;
+  return (emailSetting?.value ?? legacySetting?.value ?? env.OWNER_EMAIL).toLowerCase();
 }
 
 export async function isOwnerTelegramId(telegramId: string) {
-  return telegramId === (await getOwnerTelegramId());
+  return telegramId.toLowerCase() === (await getOwnerTelegramId());
 }
 
 export function normalizeAdminPermissions(value: unknown): AdminPermission[] {
@@ -42,7 +50,7 @@ export async function getAdminAccessProfile(telegramId: string) {
     };
   }
 
-  if (parseAdminIds().includes(telegramId)) {
+  if (parseAdminIds().includes(telegramId.toLowerCase())) {
     return {
       roleLabel: "Админ",
       isActive: true,
@@ -79,7 +87,7 @@ export async function getUserRole(telegramId: string): Promise<UserRole> {
     return "owner";
   }
 
-  if (parseAdminIds().includes(telegramId)) {
+  if (parseAdminIds().includes(telegramId.toLowerCase())) {
     return "admin";
   }
 

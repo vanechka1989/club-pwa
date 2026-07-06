@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
+import AuthSection from "@/features/auth/AuthSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
@@ -92,18 +93,14 @@ function formatUploadEta(upload: LessonUploadTask) {
   return minutes > 0 ? `~${minutes}м ${restSeconds}с` : `~${restSeconds}с`;
 }
 
-function showTelegramAlert(message: string) {
+function showAppAlert(message: string) {
   notifications.showInfo(message);
-  if (window.Telegram?.WebApp?.showAlert) {
-    window.Telegram.WebApp.showAlert(message);
-    return;
-  }
 
   window.alert(message);
 }
 
 function showPaymentSuccessAlert() {
-  showTelegramAlert("Оплата прошла. Доступ открыт.");
+  showAppAlert("Оплата прошла. Доступ открыт.");
 }
 
 function isSectionAvailable(item: (typeof navItems)[number]) {
@@ -197,22 +194,12 @@ function handlePreviewModeChange(mode: PreviewMode) {
   }
 }
 
-function syncTelegramSafeArea() {
+function syncBrowserSafeArea() {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
   }
 
-  const webApp = window.Telegram?.WebApp;
-  const topInset = Math.max(webApp?.contentSafeAreaInset?.top ?? 0, webApp?.safeAreaInset?.top ?? 0);
-  const bottomInset = Math.max(webApp?.contentSafeAreaInset?.bottom ?? 0, webApp?.safeAreaInset?.bottom ?? 0);
-  const leftInset = Math.max(webApp?.contentSafeAreaInset?.left ?? 0, webApp?.safeAreaInset?.left ?? 0);
-  const rightInset = Math.max(webApp?.contentSafeAreaInset?.right ?? 0, webApp?.safeAreaInset?.right ?? 0);
-
-  document.documentElement.style.setProperty("--tg-safe-top", `${topInset}px`);
-  document.documentElement.style.setProperty("--tg-safe-bottom", `${bottomInset}px`);
-  document.documentElement.style.setProperty("--tg-safe-left", `${leftInset}px`);
-  document.documentElement.style.setProperty("--tg-safe-right", `${rightInset}px`);
-  document.documentElement.style.setProperty("--club-system-bottom", `${bottomInset}px`);
+  document.documentElement.style.setProperty("--club-system-bottom", "0px");
 }
 
 function setLayoutCssVariable(name: string, value: string) {
@@ -225,9 +212,8 @@ function syncPlatformClasses() {
     return;
   }
 
-  const webAppWithPlatform = window.Telegram?.WebApp as ({ platform?: string } | undefined);
   const layoutClasses = getDeviceLayoutClasses({
-    platform: webAppWithPlatform?.platform,
+    platform: window.navigator.platform,
     userAgent: window.navigator.userAgent
   });
   syncLayoutClasses([document.documentElement, document.body], layoutClasses);
@@ -238,54 +224,47 @@ function syncViewportHeight() {
     return;
   }
 
-  const webApp = window.Telegram?.WebApp;
-  const telegramHeight = webApp?.viewportHeight || webApp?.viewportStableHeight || 0;
   const visualViewport = window.visualViewport;
   const visualHeight = visualViewport?.height ?? 0;
   const browserHeight = window.innerHeight || 0;
   const browserWidth = window.innerWidth || 0;
-  const height = Math.max(telegramHeight, visualHeight, browserHeight);
+  const height = Math.max(visualHeight, browserHeight);
   const width = Math.max(window.screen?.width ?? 0, visualViewport?.width ?? 0, browserWidth);
 
   if (height > 0) {
     document.documentElement.style.setProperty("--club-viewport-height", `${height}px`);
-    document.documentElement.style.setProperty("--tg-viewport-height", `${height}px`);
   }
   syncLayoutClasses([document.documentElement, document.body], [
     ...getDeviceLayoutClasses({
-      platform: (window.Telegram?.WebApp as ({ platform?: string } | undefined))?.platform,
+      platform: window.navigator.platform,
       userAgent: window.navigator.userAgent
     }),
     ...getViewportSizeClasses({ width, height })
   ]);
 
   const visibleHeight =
-    getMeasuredVisibleViewportHeight({ telegramHeight, visualHeight, browserHeight }) || height;
+    getMeasuredVisibleViewportHeight({ visualHeight, browserHeight }) || height;
   if (visibleHeight > 0) {
     document.documentElement.style.setProperty("--club-visible-viewport-height", `${visibleHeight}px`);
     const visibleBottom = visualViewport ? Math.round(visualViewport.offsetTop + visibleHeight) : visibleHeight;
     document.documentElement.style.setProperty("--club-visible-viewport-bottom", `${visibleBottom}px`);
   }
 
-  const viewportBaseHeight = Math.max(telegramHeight, visualHeight, browserHeight);
+  const viewportBaseHeight = Math.max(visualHeight, browserHeight);
   const visualBottomGap = getMeasuredKeyboardBottomGap({
     viewportBaseHeight,
     visibleHeight,
     visibleOffsetTop: visualViewport?.offsetTop ?? 0
   });
-  const telegramBottomInset = Math.max(
-    webApp?.contentSafeAreaInset?.bottom ?? 0,
-    webApp?.safeAreaInset?.bottom ?? 0
-  );
-  const dynamicBottomInset = Math.max(telegramBottomInset, visualBottomGap);
-  const platform = (webApp as ({ platform?: string } | undefined))?.platform;
+  const dynamicBottomInset = visualBottomGap;
+  const platform = window.navigator.platform;
   const calibration = calculateLayoutCalibration({
     platform: platform ?? null,
     userAgent: window.navigator.userAgent,
     viewportWidth: width,
     viewportHeight: height,
-    safeAreaInset: webApp?.safeAreaInset ?? null,
-    contentSafeAreaInset: webApp?.contentSafeAreaInset ?? null,
+    safeAreaInset: null,
+    contentSafeAreaInset: null,
     visualBottomGap
   });
 
@@ -299,26 +278,17 @@ function syncViewportHeight() {
   document.body.classList.toggle("club-keyboard-open", isKeyboardOpen);
 }
 
-function syncTelegramFullscreen(isEnabled: boolean) {
+function syncAppFullscreen(isEnabled: boolean) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
   }
 
-  const webApp = window.Telegram?.WebApp;
-  webApp?.expand();
-  syncTelegramSafeArea();
+  syncBrowserSafeArea();
   syncViewportHeight();
   document.documentElement.classList.toggle("club-telegram-fullscreen", isEnabled);
   document.body.classList.toggle("club-telegram-fullscreen", isEnabled);
 
   if (isEnabled) {
-    try {
-      webApp?.requestFullscreen?.();
-    } catch {
-      ui.setFullscreenEnabled(false);
-      document.documentElement.classList.remove("club-telegram-fullscreen");
-      document.body.classList.remove("club-telegram-fullscreen");
-    }
     if (fullscreenSyncTimer) {
       window.clearTimeout(fullscreenSyncTimer);
     }
@@ -328,17 +298,12 @@ function syncTelegramFullscreen(isEnabled: boolean) {
         return;
       }
 
-      syncTelegramSafeArea();
+      syncBrowserSafeArea();
       syncViewportHeight();
     }, 250);
     return;
   }
 
-  try {
-    webApp?.exitFullscreen?.();
-  } catch {
-    // Telegram clients without fullscreen support can ignore this path.
-  }
   if (fullscreenSyncTimer) {
     window.clearTimeout(fullscreenSyncTimer);
   }
@@ -348,7 +313,7 @@ function syncTelegramFullscreen(isEnabled: boolean) {
       return;
     }
 
-    syncTelegramSafeArea();
+    syncBrowserSafeArea();
     syncViewportHeight();
   }, 250);
 }
@@ -379,7 +344,7 @@ async function checkPendingPaymentWatch() {
     const failedOrder = watchedOrders.find((order) => order.status === "failed" || order.status === "cancelled");
     if (failedOrder) {
       clearPaymentWatch();
-      showTelegramAlert("Оплата не прошла. Проверьте платеж или попробуйте еще раз.");
+      showAppAlert("Оплата не прошла. Проверьте платеж или попробуйте еще раз.");
     }
   } catch {
     // Следующая проверка повторится по таймеру.
@@ -391,7 +356,7 @@ async function refreshSessionAccessStatus(shouldNotify: boolean) {
   await session.load({ silent: true });
 
   if (shouldNotify && shouldShowAccessClosedAlert(previousUser, session.user)) {
-    showTelegramAlert("Доступ к клубу закрыт. Разделы клуба больше недоступны.");
+    showAppAlert("Доступ к клубу закрыт. Разделы клуба больше недоступны.");
     return;
   }
 
@@ -402,7 +367,7 @@ async function refreshSessionAccessStatus(shouldNotify: boolean) {
       return;
     }
 
-    showTelegramAlert("Доступ к клубу открыт.");
+    showAppAlert("Доступ к клубу открыт.");
   }
 }
 
@@ -419,7 +384,7 @@ async function refreshSupportUnread(shouldNotify: boolean) {
 
     const isAdmin = session.user.realRole === "admin" || session.user.realRole === "owner";
     if (shouldNotify && !isAdmin && activeSection.value !== "support" && response.unreadCount > previousCount) {
-      showTelegramAlert("Вам ответили в поддержке.");
+      showAppAlert("Вам ответили в поддержке.");
     }
   } catch {
     // Следующая проверка повторится по таймеру.
@@ -501,11 +466,10 @@ async function sendDeviceDiagnostics() {
 
 onMounted(() => {
   isAppMounted = true;
-  window.Telegram?.WebApp?.ready();
   syncPlatformClasses();
-  document.documentElement.classList.toggle("club-telegram-webview", Boolean(window.Telegram?.WebApp));
-  document.body.classList.toggle("club-telegram-webview", Boolean(window.Telegram?.WebApp));
-  syncTelegramFullscreen(ui.fullscreenEnabled);
+  document.documentElement.classList.remove("club-telegram-webview");
+  document.body.classList.remove("club-telegram-webview");
+  syncAppFullscreen(ui.fullscreenEnabled);
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
   window.visualViewport?.addEventListener("scroll", syncViewportHeight);
   window.addEventListener("resize", syncViewportHeight);
@@ -534,7 +498,7 @@ onMounted(() => {
 watch(
   () => ui.fullscreenEnabled,
   (isEnabled) => {
-    syncTelegramFullscreen(isEnabled);
+    syncAppFullscreen(isEnabled);
   }
 );
 
@@ -709,10 +673,7 @@ onBeforeUnmount(() => {
       <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
         <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
 
-        <div v-else-if="session.error" class="space-y-3">
-          <p class="text-lg font-semibold">{{ t("authTitle") }}</p>
-          <p class="text-sm leading-6 text-[var(--muted)]">{{ session.error }}</p>
-        </div>
+        <AuthSection v-else-if="session.error || !session.user" />
 
         <div v-else-if="session.user" class="section-host">
           <ProfileSection v-if="activeSection === 'profile'" @open-payments="selectSection('payments')" />
@@ -737,6 +698,7 @@ onBeforeUnmount(() => {
     </section>
 
     <button
+      v-if="session.user"
       class="bottom-nav-toggle"
       type="button"
       :aria-label="navCollapsed ? 'Показать меню' : 'Свернуть меню'"
@@ -746,7 +708,7 @@ onBeforeUnmount(() => {
       <ChevronDown v-else class="h-4 w-4" aria-hidden="true" />
     </button>
 
-    <nav class="bottom-nav" :class="{ 'bottom-nav-collapsed': navCollapsed }" aria-label="Club sections">
+    <nav v-if="session.user" class="bottom-nav" :class="{ 'bottom-nav-collapsed': navCollapsed }" aria-label="Club sections">
       <button
         v-for="item in visibleNavItems"
         :key="item.id"

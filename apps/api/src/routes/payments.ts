@@ -266,11 +266,10 @@ async function grantPaidAccess(
   });
 
   await notifyPaymentReceived({
-    telegramId: user.telegramId,
+    userId: user.id,
     productTitle: product.title,
     amountRub: order.amountRub,
-    expiresAt,
-    webOrigin: env.WEB_ORIGIN
+    expiresAt
   }).catch((error) => {
     logger.warn({ error, orderId: order.providerOrderId, userId: user.id }, "payment notification failed");
   });

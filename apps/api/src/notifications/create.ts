@@ -1,5 +1,6 @@
 import { db } from "../db/client";
 import { appNotifications } from "../db/schema";
+import { sendWebPushToUser } from "../push/webPush";
 
 export type CreateAppNotificationInput = {
   userId: string;
@@ -36,6 +37,14 @@ export async function createAppNotification(input: CreateAppNotificationInput) {
       attachmentSizeBytes: input.attachment?.sizeBytes ?? null
     })
     .returning();
+
+  if (notification) {
+    void sendWebPushToUser(input.userId, {
+      title: input.title,
+      body: input.body,
+      url: "/"
+    });
+  }
 
   return notification ?? null;
 }

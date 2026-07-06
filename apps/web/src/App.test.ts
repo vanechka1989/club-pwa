@@ -1,31 +1,101 @@
-import { cleanup, render, screen } from "@testing-library/vue";
+import type { ClubUser } from "@club/shared";
+import { cleanup, render, screen, waitFor } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getMe, getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
 import App from "./App.vue";
 
 const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
 const appIndexSource = readFileSync(resolve(__dirname, "../index.html"), "utf-8");
 
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return {
+    ...actual,
+    getMe: vi.fn(),
+    getPaymentHistory: vi.fn(),
+    getSupportUnreadCount: vi.fn(),
+    updateDeviceDiagnostics: vi.fn()
+  };
+});
+
+function testUser(overrides: Partial<ClubUser> = {}): ClubUser {
+  return {
+    id: "member-id",
+    telegramId: "member@example.com",
+    firstName: "Иван",
+    username: "member@example.com",
+    photoUrl: null,
+    role: "member",
+    realRole: "member",
+    adminRoleLabel: null,
+    adminPermissions: [],
+    membershipStatus: "active",
+    membershipExpiresAt: null,
+    paymentType: "manual",
+    recurrentPaymentStatus: null,
+    nextPaymentAt: null,
+    avatarRefreshedAt: null,
+    ...overrides
+  };
+}
+
+function testDeviceDiagnostics() {
+  return {
+    capturedAt: "2026-07-06T00:00:00.000Z",
+    platform: null,
+    colorScheme: null,
+    userAgent: "vitest",
+    screen: {
+      width: null,
+      height: null,
+      availWidth: null,
+      availHeight: null,
+      pixelRatio: null
+    },
+    viewport: {
+      width: null,
+      height: null
+    },
+    visualViewport: null,
+    telegram: {
+      version: null,
+      platform: null,
+      viewportHeight: null,
+      viewportStableHeight: null,
+      safeAreaInset: null,
+      contentSafeAreaInset: null
+    },
+    classes: []
+  };
+}
+
 describe("App", () => {
   beforeEach(() => {
     cleanup();
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    vi.mocked(getMe).mockRejectedValue(new Error("unauthorized"));
+    vi.mocked(getPaymentHistory).mockResolvedValue({ orders: [] });
+    vi.mocked(getSupportUnreadCount).mockResolvedValue({ unreadCount: 0 });
+    vi.mocked(updateDeviceDiagnostics).mockResolvedValue({ ok: true, device: testDeviceDiagnostics() });
   });
 
-  it("renders the app shell", () => {
+  it("renders email login when no session is present", async () => {
     render(App, {
       global: {
         plugins: [createPinia()]
       }
     });
 
-    expect(screen.getByRole("button", { name: "Профиль" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Вход в клуб" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Получить код" })).toBeTruthy();
   });
 
   it("resets window scroll when changing sections", async () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    vi.mocked(getMe).mockResolvedValue({ user: testUser() });
 
     render(App, {
       global: {
@@ -33,6 +103,7 @@ describe("App", () => {
       }
     });
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "Модули" })).toBeTruthy());
     await screen.getByRole("button", { name: "Модули" }).click();
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
@@ -72,9 +143,10 @@ describe("App", () => {
     expect(appSource).not.toContain("Оплата прошла. Доступ обновлен.");
   });
 
-  it("keeps mobile fullscreen layouts on the measured Telegram viewport", () => {
+  it("keeps mobile fullscreen layouts on the measured browser viewport without Telegram runtime", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
+    expect(appSource).not.toContain("window.Telegram");
     expect(appSource).toContain("club-telegram-webview");
     expect(appSource).toContain("calculateLayoutCalibration");
     expect(appSource).toContain("--club-calibrated-top-offset");
@@ -83,9 +155,6 @@ describe("App", () => {
     expect(appSource).toContain("getViewportSizeClasses");
     expect(appSource).toContain("getDeviceLayoutClasses");
     expect(appSource).toContain("syncLayoutClasses");
-    expect(appSource).toContain("--tg-safe-left");
-    expect(appSource).toContain("--tg-safe-right");
-    expect(appSource).toContain("--tg-viewport-height");
     expect(appSource).toContain("--club-visible-viewport-height");
     expect(appSource).toContain("--club-visible-viewport-bottom");
     expect(styles).not.toContain("var(--tg-viewport-height, 100vh)");
@@ -103,7 +172,7 @@ describe("App", () => {
     expect(styles).toContain(".payment-product-pay");
   });
 
-  it("uses Telegram safe-area values with CSS env fallback", () => {
+  it("uses browser safe-area env fallback", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
     const safeAreaSides = ["top", "right", "bottom", "left"];
     const unsafeSafeAreaLines = styles

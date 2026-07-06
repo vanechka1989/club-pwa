@@ -16,12 +16,12 @@ describe("admin mailings panel", () => {
   });
 
   it("offers channel choices, filters, attachments, test send, and ETA", () => {
-    expect(adminSectionSource).toContain("В бот");
     expect(adminSectionSource).toContain("В приложение");
-    expect(adminSectionSource).toContain("Везде");
+    expect(adminSectionSource).toContain("Колокольчик и PWA push");
     expect(adminSectionSource).toContain("Статус доступа");
     expect(adminSectionSource).toContain("Тип доступа");
-    expect(adminSectionSource).toContain("Бот заблокирован");
+    expect(adminSectionSource).not.toContain("Бот заблокирован");
+    expect(adminSectionSource).not.toContain("В бот");
     expect(adminSectionSource).toContain("Тест себе");
     expect(adminSectionSource).toContain("handleTestMailingDraft");
     expect(adminSectionSource).toContain("Примерное время");

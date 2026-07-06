@@ -97,8 +97,10 @@ import {
 } from "../db/backup";
 import { getAdminUserReferrals, getReferralRewardDays, updateReferralRewardDays } from "../referrals/referrals";
 
+const userIdentifierSchema = z.string().trim().min(3).max(320);
+
 const adminPayloadSchema = z.object({
-  telegramId: z.string().trim().regex(/^\d{3,32}$/)
+  telegramId: userIdentifierSchema
 });
 
 const adminUpdatePayloadSchema = z.object({
@@ -114,11 +116,11 @@ const adminUpdatePayloadSchema = z.object({
 });
 
 const ownerTransferPayloadSchema = z.object({
-  telegramId: z.string().trim().regex(/^\d{3,32}$/)
+  telegramId: userIdentifierSchema
 });
 
 const accessPayloadSchema = z.object({
-  telegramId: z.string().trim().regex(/^\d{3,32}$/),
+  telegramId: userIdentifierSchema,
   status: z.enum(["inactive", "active", "expired"]),
   expiresAt: z.string().datetime().nullable().optional()
 });
@@ -133,7 +135,7 @@ const moderationStatusPayloadSchema = z.object({
 });
 
 const mutePayloadSchema = z.object({
-  telegramId: z.string().trim().regex(/^\d{3,32}$/),
+  telegramId: userIdentifierSchema,
   kind: z.enum(["temporary", "permanent"]),
   reason: z.string().trim().max(1000).nullable().optional(),
   expiresAt: z.string().datetime().nullable().optional()
@@ -3026,7 +3028,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     const body = adminPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
-      return c.json({ error: "Telegram ID must contain only digits" }, 400);
+      return c.json({ error: "User email or id is invalid" }, 400);
     }
 
     if (await isOwnerTelegramId(body.data.telegramId)) {
@@ -3118,7 +3120,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     const body = ownerTransferPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
-      return c.json({ error: "Telegram ID must contain only digits" }, 400);
+      return c.json({ error: "User email or id is invalid" }, 400);
     }
 
     const targetAdmin = await db.query.adminUsers.findFirst({

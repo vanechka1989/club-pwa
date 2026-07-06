@@ -8,24 +8,21 @@ const adminRoutes = readFileSync(resolve(__dirname, "../routes/admin.ts"), "utf-
 const s3Storage = readFileSync(resolve(__dirname, "../storage/s3.ts"), "utf-8");
 
 describe("deploy update script", () => {
-  it("serializes deploys and notifies Telegram after pulling the latest commit", () => {
+  it("serializes deploys and updates after pulling the latest commit without bot notifications", () => {
     expect(updateScript).toContain("flock 9");
-    expect(updateScript).toContain("/tmp/club-crm-deploy.lock");
-    expect(updateScript).toContain("notify_deploy_start()");
-    expect(updateScript).toContain("Обновление клуба началось.");
+    expect(updateScript).toContain("/tmp/club-pwa-deploy.lock");
     expect(updateScript).toContain("Already up to date; deployment skipped.");
+    expect(updateScript).not.toContain("api.telegram.org");
+    expect(updateScript).not.toContain("notify_deploy_start");
 
-    const startNotifyIndex = updateScript.lastIndexOf("notify_deploy_start");
     const gitPullIndex = updateScript.indexOf("git pull --ff-only");
     const buildIndex = updateScript.indexOf("docker compose -f docker-compose.prod.yml build");
     const skipIndex = updateScript.indexOf("Already up to date; deployment skipped.");
 
-    expect(startNotifyIndex).toBeGreaterThan(-1);
     expect(gitPullIndex).toBeGreaterThan(-1);
     expect(buildIndex).toBeGreaterThan(-1);
     expect(skipIndex).toBeGreaterThan(gitPullIndex);
-    expect(gitPullIndex).toBeLessThan(startNotifyIndex);
-    expect(startNotifyIndex).toBeLessThan(buildIndex);
+    expect(gitPullIndex).toBeLessThan(buildIndex);
   });
 
   it("lets the server update script own start notifications in GitHub Actions", () => {

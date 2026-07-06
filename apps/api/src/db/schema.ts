@@ -15,7 +15,9 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    telegramId: varchar("telegram_id", { length: 32 }).notNull(),
+    telegramId: varchar("telegram_id", { length: 320 }).notNull(),
+    email: varchar("email", { length: 320 }),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     firstName: varchar("first_name", { length: 128 }),
     username: varchar("username", { length: 64 }),
     photoUrl: text("photo_url"),
@@ -29,7 +31,8 @@ export const users = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    telegramIdIdx: uniqueIndex("users_telegram_id_idx").on(table.telegramId)
+    telegramIdIdx: uniqueIndex("users_telegram_id_idx").on(table.telegramId),
+    emailIdx: uniqueIndex("users_email_idx").on(table.email)
   })
 );
 
@@ -37,7 +40,7 @@ export const adminUsers = pgTable(
   "admin_users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    telegramId: varchar("telegram_id", { length: 32 }).notNull(),
+    telegramId: varchar("telegram_id", { length: 320 }).notNull(),
     roleLabel: varchar("role_label", { length: 80 }),
     isActive: boolean("is_active").notNull().default(true),
     permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
@@ -54,12 +57,12 @@ export const adminActionLogs = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
-    actorTelegramId: varchar("actor_telegram_id", { length: 32 }).notNull(),
+    actorTelegramId: varchar("actor_telegram_id", { length: 320 }).notNull(),
     action: varchar("action", { length: 96 }).notNull(),
     entityType: varchar("entity_type", { length: 64 }).notNull(),
     entityId: varchar("entity_id", { length: 128 }),
     targetUserId: uuid("target_user_id").references(() => users.id, { onDelete: "set null" }),
-    targetTelegramId: varchar("target_telegram_id", { length: 32 }),
+    targetTelegramId: varchar("target_telegram_id", { length: 320 }),
     summary: text("summary").notNull(),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
@@ -79,6 +82,58 @@ export const clubSettings = pgTable("club_settings", {
   updatedByUserId: uuid("updated_by_user_id").references(() => users.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 });
+
+export const authEmailLoginCodes = pgTable(
+  "auth_email_login_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: varchar("email", { length: 320 }).notNull(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    emailCreatedIdx: index("auth_email_login_codes_email_created_idx").on(table.email, table.createdAt),
+    codeHashIdx: index("auth_email_login_codes_code_hash_idx").on(table.codeHash)
+  })
+);
+
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    tokenHashIdx: uniqueIndex("auth_sessions_token_hash_idx").on(table.tokenHash),
+    userIdx: index("auth_sessions_user_idx").on(table.userId, table.expiresAt)
+  })
+);
+
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    endpointIdx: uniqueIndex("push_subscriptions_endpoint_idx").on(table.endpoint),
+    userIdx: index("push_subscriptions_user_idx").on(table.userId, table.revokedAt)
+  })
+);
 
 export const subscriptions = pgTable(
   "subscriptions",
@@ -599,7 +654,7 @@ export const adminMailingRecipients = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     mailingId: uuid("mailing_id").notNull().references(() => adminMailings.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    telegramId: varchar("telegram_id", { length: 32 }).notNull(),
+    telegramId: varchar("telegram_id", { length: 320 }).notNull(),
     status: varchar("status", { length: 32 }).notNull().default("pending"),
     error: text("error"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -613,6 +668,8 @@ export const adminMailingRecipients = pgTable(
 );
 
 export const usersRelations = relations(users, ({ many }) => ({
+  authSessions: many(authSessions),
+  pushSubscriptions: many(pushSubscriptions),
   subscriptions: many(subscriptions),
   paymentOrders: many(paymentOrders),
   recurrentSubscriptions: many(userRecurrentSubscriptions),
@@ -633,6 +690,20 @@ export const usersRelations = relations(users, ({ many }) => ({
   notifications: many(appNotifications),
   createdMailings: many(adminMailings),
   mailingRecipients: many(adminMailingRecipients)
+}));
+
+export const authSessionsRelations = relations(authSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [authSessions.userId],
+    references: [users.id]
+  })
+}));
+
+export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [pushSubscriptions.userId],
+    references: [users.id]
+  })
 }));
 
 export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
@@ -937,6 +1008,9 @@ export type User = typeof users.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type AdminActionLog = typeof adminActionLogs.$inferSelect;
 export type ClubSetting = typeof clubSettings.$inferSelect;
+export type AuthEmailLoginCode = typeof authEmailLoginCodes.$inferSelect;
+export type AuthSession = typeof authSessions.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type PaymentProvider = typeof paymentProviders.$inferSelect;
 export type PaymentProduct = typeof paymentProducts.$inferSelect;

@@ -1,17 +1,28 @@
 import type { MiddlewareHandler } from "hono";
-import { eq } from "drizzle-orm";
-import { db } from "../db/client";
-import { users } from "../db/schema";
-import { env } from "../env";
-import { isOwnerTelegramId } from "../admin/roles";
-import { verifyTelegramInitData, type TelegramUser } from "../telegram/verifyInitData";
-import { z } from "zod";
+import { and, eq, gt, isNull } from "drizzle-orm";
+import { getCookie } from "hono/cookie";
 import type { UserRole } from "@club/shared";
-import { captureReferralFromStartParam } from "../referrals/referrals";
+import { z } from "zod";
+import { hashAuthToken } from "../auth/emailAuth";
+import { db } from "../db/client";
+import { authSessions, users, type User } from "../db/schema";
+import { isOwnerTelegramId } from "../admin/roles";
+
+export const sessionCookieName = "club_session";
+
+export type SessionUser = {
+  id: string;
+  firstName: string | null;
+  username: string | null;
+  photoUrl: string | null;
+  startParam: string | null;
+};
 
 export type AuthVariables = {
-  telegramUser: TelegramUser;
+  telegramUser: SessionUser;
+  currentUser: User;
   userId: string;
+  sessionTokenHash: string;
   previewRole: UserRole | null;
   previewMembershipStatus: "active" | "inactive" | null;
 };
@@ -19,91 +30,44 @@ export type AuthVariables = {
 const previewModeSchema = z.enum(["developer", "admin", "member-active", "member-inactive"]);
 type PreviewMode = z.infer<typeof previewModeSchema>;
 
-const devTelegramUserSchema = z.object({
-  id: z.string().min(1),
-  firstName: z.string().nullable().optional(),
-  username: z.string().nullable().optional(),
-  photoUrl: z.string().url().nullable().optional(),
-  startParam: z.string().nullable().optional()
-});
-
-function getDevTelegramUser(header: string | undefined): TelegramUser | null {
-  if (env.NODE_ENV !== "development" || !env.DEV_AUTH_ENABLED || !header) {
-    return null;
+export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
+  const token = getCookie(c, sessionCookieName);
+  if (!token) {
+    return c.json({ error: "Email session is required" }, 401);
   }
 
-  try {
-    const parsed = devTelegramUserSchema.safeParse(JSON.parse(header));
-    if (!parsed.success) {
-      return null;
+  const tokenHash = hashAuthToken(token);
+  const session = await db.query.authSessions.findFirst({
+    where: and(eq(authSessions.tokenHash, tokenHash), isNull(authSessions.revokedAt), gt(authSessions.expiresAt, new Date())),
+    with: {
+      user: true
     }
+  });
 
-    return {
-      id: parsed.data.id,
-      firstName: parsed.data.firstName ?? null,
-      username: parsed.data.username ?? null,
-      photoUrl: parsed.data.photoUrl ?? null,
-      startParam: parsed.data.startParam ?? null
-    };
-  } catch {
-    return null;
-  }
-}
-
-export const telegramAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
-  const authorization = c.req.header("authorization");
-  const initData = authorization?.startsWith("tma ") ? authorization.slice(4) : null;
-  const devTelegramUser = getDevTelegramUser(c.req.header("x-dev-telegram-user"));
-
-  if (!initData && !devTelegramUser) {
-    return c.json({ error: "Telegram initData is required" }, 401);
+  if (!session?.user) {
+    return c.json({ error: "Invalid email session" }, 401);
   }
 
-  const telegramUser = devTelegramUser ?? verifyTelegramInitData(initData ?? "", env.TELEGRAM_BOT_TOKEN);
-  if (!telegramUser) {
-    return c.json({ error: "Invalid Telegram initData" }, 401);
-  }
+  const resolvedUser = session.user;
+  const sessionUser: SessionUser = {
+    id: resolvedUser.telegramId,
+    firstName: resolvedUser.firstName,
+    username: resolvedUser.username,
+    photoUrl: resolvedUser.photoUrl,
+    startParam: null
+  };
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      telegramId: telegramUser.id,
-      firstName: telegramUser.firstName,
-      username: telegramUser.username,
-      photoUrl: telegramUser.photoUrl
-    })
-    .onConflictDoUpdate({
-      target: users.telegramId,
-      set: {
-        firstName: telegramUser.firstName,
-        username: telegramUser.username,
-        photoUrl: telegramUser.photoUrl,
-        updatedAt: new Date()
-      }
-    })
-    .returning();
+  await db.update(authSessions).set({ lastSeenAt: new Date() }).where(eq(authSessions.id, session.id));
 
-  const resolvedUser =
-    user ??
-    (await db.query.users.findFirst({
-      where: eq(users.telegramId, telegramUser.id)
-    }));
-
-  if (!resolvedUser) {
-    return c.json({ error: "Unable to resolve user" }, 500);
-  }
-
-  c.set("telegramUser", telegramUser);
+  c.set("telegramUser", sessionUser);
+  c.set("currentUser", resolvedUser);
   c.set("userId", resolvedUser.id);
+  c.set("sessionTokenHash", tokenHash);
   c.set("previewRole", null);
   c.set("previewMembershipStatus", null);
 
-  if (telegramUser.startParam) {
-    await captureReferralFromStartParam(resolvedUser, telegramUser.startParam).catch(() => null);
-  }
-
   const previewMode = previewModeSchema.safeParse(c.req.header("x-club-preview-mode"));
-  const isOwner = await isOwnerTelegramId(telegramUser.id);
+  const isOwner = await isOwnerTelegramId(sessionUser.id);
   if (isOwner && previewMode.success) {
     const roleByMode: Record<PreviewMode, UserRole> = {
       developer: "owner",
@@ -127,3 +91,5 @@ export const telegramAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asy
 
   await next();
 };
+
+export const telegramAuth = sessionAuth;

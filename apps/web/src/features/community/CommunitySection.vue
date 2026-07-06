@@ -202,11 +202,6 @@ function showMuteAlert() {
     : `На вас наложен мут до ${mutedUntil.value ? new Date(mutedUntil.value).toLocaleString("ru-RU") : ""}. Вы пока не можете писать в чат.`;
 
   notifications.showError(message);
-  if (window.Telegram?.WebApp?.showAlert) {
-    window.Telegram.WebApp.showAlert(message);
-    return;
-  }
-
   window.alert(message);
 }
 

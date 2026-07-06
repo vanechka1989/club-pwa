@@ -1,12 +1,13 @@
 import type { ClubUser } from "@club/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { createCheckout, getMe, refreshAvatar } from "@/api/client";
+import { createCheckout, getMe, logoutSession, refreshAvatar, requestEmailCode as requestEmailCodeApi, verifyEmailCode as verifyEmailCodeApi } from "@/api/client";
 
 export const useSessionStore = defineStore("session", () => {
   const user = ref<ClubUser | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const authMessage = ref<string | null>(null);
 
   const isMember = computed(() => user.value?.membershipStatus === "active");
 
@@ -22,7 +23,8 @@ export const useSessionStore = defineStore("session", () => {
       error.value = null;
     } catch {
       if (!options.silent) {
-        error.value = "Откройте приложение внутри Telegram, чтобы подтвердить доступ к клубу.";
+        user.value = null;
+        error.value = "Войдите по email, чтобы открыть клуб.";
       }
     } finally {
       if (!options.silent) {
@@ -45,5 +47,51 @@ export const useSessionStore = defineStore("session", () => {
     return response.user;
   }
 
-  return { user, loading, error, isMember, load, subscribe, updateAvatar };
+  async function requestEmailCode(email: string, referralCode?: string | null) {
+    loading.value = true;
+    error.value = null;
+    authMessage.value = null;
+    try {
+      const response = await requestEmailCodeApi({
+        email,
+        ...(referralCode !== undefined ? { referralCode } : {})
+      });
+      authMessage.value = response.devCode
+        ? `Код для разработки: ${response.devCode}`
+        : "Код отправлен на email.";
+      return response;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось отправить код.";
+      authMessage.value = null;
+      throw new Error(message);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function verifyEmailCode(email: string, code: string, referralCode?: string | null) {
+    loading.value = true;
+    error.value = null;
+    try {
+      await verifyEmailCodeApi({
+        email,
+        code,
+        ...(referralCode !== undefined ? { referralCode } : {})
+      });
+      await load({ silent: true });
+      authMessage.value = null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось войти.";
+      throw new Error(message);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function logout() {
+    await logoutSession();
+    user.value = null;
+  }
+
+  return { user, loading, error, authMessage, isMember, load, subscribe, updateAvatar, requestEmailCode, verifyEmailCode, logout };
 });

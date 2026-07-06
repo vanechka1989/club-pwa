@@ -38,12 +38,35 @@ existing_env_value() {
   grep -E "^${key}=" "$env_file" | tail -n 1 | cut -d= -f2-
 }
 
+generate_remote_vapid_keys() {
+  ssh "$SSH_TARGET" "docker run --rm -i node:22-alpine node" <<'NODE'
+const { generateKeyPairSync } = require("node:crypto");
+
+function fromBase64Url(value) {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  return Buffer.from(`${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+
+function toBase64Url(value) {
+  return Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+const privateJwk = privateKey.export({ format: "jwk" });
+const publicJwk = publicKey.export({ format: "jwk" });
+const publicBytes = Buffer.concat([Buffer.from([4]), fromBase64Url(publicJwk.x), fromBase64Url(publicJwk.y)]);
+
+console.log(toBase64Url(publicBytes));
+console.log(privateJwk.d);
+NODE
+}
+
 echo
-echo "Установка Telegram-клуба на удалённый сервер по SSH"
+echo "Установка PWA-клуба на удалённый сервер по SSH"
 echo "Если значение в квадратных скобках подходит, просто нажмите Enter."
 echo
 
-REPO_URL="${REPO_URL:-$(prompt "GitHub repo URL репозитория" "https://github.com/vanechka1989/club-crm.git")}"
+REPO_URL="${REPO_URL:-$(prompt "GitHub repo URL репозитория" "https://github.com/vanechka1989/club-pwa.git")}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 if [[ "$REPO_URL" == https://github.com/* && -z "$GITHUB_TOKEN" ]]; then
   GITHUB_TOKEN="$(prompt_secret "GitHub token для private repo")"
@@ -52,12 +75,12 @@ fi
 echo "1. Сервер для установки."
 SERVER_HOST="${SERVER_HOST:-$(prompt "IP сервера или домен SSH")}"
 SERVER_USER="${SERVER_USER:-$(prompt "SSH пользователь" "root")}"
-DEPLOY_DIR="${DEPLOY_DIR:-$(prompt "Папка установки на сервере" "/opt/club-crm")}"
+DEPLOY_DIR="${DEPLOY_DIR:-$(prompt "Папка установки на сервере" "/opt/club-pwa")}"
 SSH_TARGET="$SERVER_USER@$SERVER_HOST"
 echo
 
 echo "2. Публичные адреса."
-echo "Для Telegram Mini App нужен HTTPS-домен. API работает на том же домене по пути /api."
+echo "Для PWA нужен HTTPS-домен. API работает на том же домене по пути /api."
 PUBLIC_WEB_URL="${PUBLIC_WEB_URL:-$(prompt "Web URL" "https://$SERVER_HOST")}"
 PUBLIC_API_URL="${PUBLIC_API_URL:-$(prompt "API URL" "https://$SERVER_HOST/api")}"
 DEFAULT_PUBLIC_DOMAIN="$PUBLIC_WEB_URL"
@@ -69,15 +92,27 @@ PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-$(prompt "Домен для HTTPS без http/ht
 PUBLIC_DOMAIN="${PUBLIC_DOMAIN%.}"
 echo
 
-echo "3. Telegram bot token из BotFather."
-echo "Ввод скрыт: символы не будут отображаться."
-TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-$(prompt_secret "Telegram bot token")}"
+echo "3. Email-доступ."
+OWNER_EMAIL="${OWNER_EMAIL:-$(prompt "Email владельца клуба")}"
+ADMIN_EMAILS="${ADMIN_EMAILS:-$(prompt "Дополнительные email админов через запятую" "")}"
 echo
 
-echo "4. Telegram ID администраторов."
-echo "Главный админ уже задан по умолчанию: 593677751. Здесь можно добавить дополнительных админов."
-OWNER_TELEGRAM_ID="${OWNER_TELEGRAM_ID:-593677751}"
-ADMIN_TELEGRAM_IDS="${ADMIN_TELEGRAM_IDS:-$(prompt "Telegram ID админов" "")}"
+echo "4. SMTP для кодов входа."
+SMTP_HOST="${SMTP_HOST:-$(prompt "SMTP host" "")}"
+SMTP_PORT="${SMTP_PORT:-$(prompt "SMTP port" "587")}"
+SMTP_USER="${SMTP_USER:-$(prompt "SMTP user" "")}"
+SMTP_PASSWORD="${SMTP_PASSWORD:-$(prompt_secret "SMTP password")}"
+SMTP_FROM="${SMTP_FROM:-$(prompt "SMTP from" "$OWNER_EMAIL")}"
+echo
+
+echo "4.1. Web Push VAPID ключи."
+echo "Если ключи не переданы через env, установщик создаст их автоматически на сервере."
+EXISTING_WEB_PUSH_PUBLIC_KEY="$(ssh "$SSH_TARGET" "if [ -f '$DEPLOY_DIR/.env' ]; then grep -E '^WEB_PUSH_PUBLIC_KEY=' '$DEPLOY_DIR/.env' | tail -n 1 | cut -d= -f2-; fi" || true)"
+EXISTING_WEB_PUSH_PRIVATE_KEY="$(ssh "$SSH_TARGET" "if [ -f '$DEPLOY_DIR/.env' ]; then grep -E '^WEB_PUSH_PRIVATE_KEY=' '$DEPLOY_DIR/.env' | tail -n 1 | cut -d= -f2-; fi" || true)"
+WEB_PUSH_PUBLIC_KEY="${WEB_PUSH_PUBLIC_KEY:-$EXISTING_WEB_PUSH_PUBLIC_KEY}"
+WEB_PUSH_PRIVATE_KEY="${WEB_PUSH_PRIVATE_KEY:-$EXISTING_WEB_PUSH_PRIVATE_KEY}"
+WEB_PUSH_SUBJECT="${WEB_PUSH_SUBJECT:-$(prompt "Web Push contact" "mailto:$OWNER_EMAIL")}"
+
 EXISTING_POSTGRES_PASSWORD="$(ssh "$SSH_TARGET" "if [ -f '$DEPLOY_DIR/.env' ]; then grep -E '^POSTGRES_PASSWORD=' '$DEPLOY_DIR/.env' | tail -n 1 | cut -d= -f2-; fi" || true)"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-${EXISTING_POSTGRES_PASSWORD:-$(random_password)}}"
 echo
@@ -125,6 +160,18 @@ ssh "$SSH_TARGET" "set -e
   fi
 "
 
+if [[ -z "$WEB_PUSH_PUBLIC_KEY" || -z "$WEB_PUSH_PRIVATE_KEY" ]]; then
+  echo "Генерируем Web Push VAPID ключи..."
+  GENERATED_VAPID_KEYS="$(generate_remote_vapid_keys)"
+  WEB_PUSH_PUBLIC_KEY="$(printf '%s\n' "$GENERATED_VAPID_KEYS" | sed -n '1p')"
+  WEB_PUSH_PRIVATE_KEY="$(printf '%s\n' "$GENERATED_VAPID_KEYS" | sed -n '2p')"
+
+  if [[ -z "$WEB_PUSH_PUBLIC_KEY" || -z "$WEB_PUSH_PRIVATE_KEY" ]]; then
+    echo "Не удалось сгенерировать Web Push VAPID ключи." >&2
+    exit 1
+  fi
+fi
+
 ssh "$SSH_TARGET" "set -e
   if [ -d '$DEPLOY_DIR/.git' ]; then
     git -C '$DEPLOY_DIR' pull --ff-only
@@ -143,13 +190,24 @@ POSTGRES_DB=club
 PUBLIC_DOMAIN=$PUBLIC_DOMAIN
 WEB_ORIGIN=$PUBLIC_WEB_URL
 PUBLIC_API_URL=$PUBLIC_API_URL
-TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
-OWNER_TELEGRAM_ID=$OWNER_TELEGRAM_ID
-ADMIN_TELEGRAM_IDS=$ADMIN_TELEGRAM_IDS
+OWNER_EMAIL=$OWNER_EMAIL
+ADMIN_EMAILS=$ADMIN_EMAILS
+AUTH_LOGIN_CODE_TTL_MINUTES=10
+AUTH_SESSION_TTL_DAYS=30
+AUTH_DEV_CODE_ENABLED=false
+SMTP_HOST=$SMTP_HOST
+SMTP_PORT=$SMTP_PORT
+SMTP_USER=$SMTP_USER
+SMTP_PASSWORD=$SMTP_PASSWORD
+SMTP_FROM=$SMTP_FROM
+WEB_PUSH_PUBLIC_KEY=$WEB_PUSH_PUBLIC_KEY
+WEB_PUSH_PRIVATE_KEY=$WEB_PUSH_PRIVATE_KEY
+WEB_PUSH_SUBJECT=$WEB_PUSH_SUBJECT
 ENV
 
 scp "$ENV_FILE" "$SSH_TARGET:$DEPLOY_DIR/.env"
 rm -f "$ENV_FILE"
+ssh "$SSH_TARGET" "chmod 600 '$DEPLOY_DIR/.env'"
 
 ssh "$SSH_TARGET" "set -e
   cd '$DEPLOY_DIR'

@@ -63,10 +63,6 @@ const productForm = ref({
   isPublished: true
 });
 
-type TelegramWebAppWithConfirm = {
-  showConfirm?: (message: string, callback: (isConfirmed: boolean) => void) => void;
-};
-
 const isAdmin = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isOwner = computed(() => session.user?.role === "owner");
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
@@ -134,19 +130,10 @@ function showAlert(message: string, tone: "success" | "info" = "success") {
   } else {
     notifications.showInfo(message);
   }
-  if (window.Telegram?.WebApp?.showAlert) {
-    window.Telegram.WebApp.showAlert(message);
-  }
 }
 
 function confirmPaymentRedirect() {
   return new Promise<boolean>((resolve) => {
-    const webApp = window.Telegram?.WebApp as TelegramWebAppWithConfirm | undefined;
-    if (webApp?.showConfirm) {
-      webApp.showConfirm(paymentRedirectNotice, resolve);
-      return;
-    }
-
     resolve(window.confirm(paymentRedirectNotice));
   });
 }

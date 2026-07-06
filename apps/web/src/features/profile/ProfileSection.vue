@@ -484,7 +484,7 @@ onMounted(async () => {
           <strong>{{ displayName }}</strong>
         </div>
         <div class="profile-info-row">
-          <span>Telegram ID</span>
+          <span>Email</span>
           <button
             class="profile-secret-value"
             type="button"

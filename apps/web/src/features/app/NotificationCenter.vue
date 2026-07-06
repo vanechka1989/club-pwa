@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AppNotification } from "@club/shared";
-import { Bell, CheckCheck, Paperclip, Trash2, X } from "lucide-vue-next";
+import { Bell, BellPlus, CheckCheck, Paperclip, Trash2, X } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -47,6 +47,14 @@ async function clearNotifications() {
   await notificationState.clearAppNotificationsInApp();
 }
 
+async function enableBrowserPush() {
+  if (notificationState.pushStatus === "enabled") {
+    return;
+  }
+
+  await notificationState.enableBrowserPush();
+}
+
 function formatNotificationDate(value: string) {
   return new Date(value).toLocaleString(currentLocale.value === "ru" ? "ru-RU" : "en-US", {
     day: "2-digit",
@@ -74,6 +82,15 @@ function formatNotificationDate(value: string) {
               <p>{{ notificationState.unreadCount ? `${notificationState.unreadCount} ${t("notificationsNew")}` : t("notificationsRead") }}</p>
             </div>
             <div class="notification-center-actions">
+              <button
+                class="notification-center-clear"
+                type="button"
+                :disabled="notificationState.pushStatus === 'enabled'"
+                @click="enableBrowserPush"
+              >
+                <BellPlus class="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{{ notificationState.pushStatus === "enabled" ? "Push включены" : "Включить push" }}</span>
+              </button>
               <button
                 class="notification-center-clear"
                 type="button"

@@ -12,13 +12,12 @@ import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { db } from "../db/client";
 import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions, userMutes, users } from "../db/schema";
-import { env } from "../env";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
-import { sendTelegramMessage } from "../telegram/client";
+import { createAppNotification } from "../notifications/create";
 
 const chatPayloadSchema = z.object({
   title: z.string().trim().min(2).max(160),
@@ -40,14 +39,14 @@ const reactionPayloadSchema = z.object({
 });
 
 const chatMutePayloadSchema = z.object({
-  telegramId: z.string().trim().regex(/^\d{3,32}$/),
+  telegramId: z.string().trim().min(3).max(320),
   kind: z.enum(["temporary", "permanent"]),
   reason: z.string().trim().max(1000).nullable().optional(),
   expiresAt: z.string().datetime().nullable().optional()
 });
 
 const deleteAuthorMessagesPayloadSchema = z.object({
-  telegramId: z.string().trim().regex(/^\d{3,32}$/)
+  telegramId: z.string().trim().min(3).max(320)
 });
 
 const topicSettingsSchema = z.object({
@@ -368,25 +367,17 @@ async function notifyReplyRecipient({
     return;
   }
 
-  await sendTelegramMessage({
-    chatId: replyToMessage.user.telegramId,
-    text: formatReplyNotificationText({
+  await createAppNotification({
+    userId: replyToMessage.user.id,
+    kind: "client",
+    title: `Ответ в чате: ${topic.title}`,
+    body: formatReplyNotificationText({
       senderName: userName(sender),
       topicTitle: topic.title,
       body
     }),
-    replyMarkup: {
-      inline_keyboard: [
-        [
-          {
-            text: "Открыть клуб",
-            web_app: {
-              url: env.WEB_ORIGIN
-            }
-          }
-        ]
-      ]
-    }
+    source: "community_reply",
+    sourceId: topic.id
   });
 }
 

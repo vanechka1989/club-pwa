@@ -1,7 +1,7 @@
 import type { AppNotification as ClubAppNotification } from "@club/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { clearAppNotifications, getAppNotifications, markAppNotificationsRead } from "@/api/client";
+import { clearAppNotifications, getAppNotifications, getWebPushPublicKey, markAppNotificationsRead, saveWebPushSubscription } from "@/api/client";
 
 export type AppNotificationKind = "error" | "success" | "info";
 
@@ -18,6 +18,7 @@ export const useNotificationsStore = defineStore("notifications", () => {
   const appNotifications = ref<ClubAppNotification[]>([]);
   const unreadCount = ref(0);
   const appNotificationsLoading = ref(false);
+  const pushStatus = ref<"idle" | "unsupported" | "denied" | "enabled" | "error">("idle");
 
   function dismiss(id: number) {
     items.value = items.value.filter((item) => item.id !== id);
@@ -87,11 +88,63 @@ export const useNotificationsStore = defineStore("notifications", () => {
     appNotifications.value = [];
   }
 
+  function urlBase64ToUint8Array(value: string) {
+    const padding = "=".repeat((4 - (value.length % 4)) % 4);
+    const base64 = `${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let index = 0; index < rawData.length; index += 1) {
+      outputArray[index] = rawData.charCodeAt(index);
+    }
+
+    return outputArray;
+  }
+
+  async function enableBrowserPush() {
+    if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      pushStatus.value = "unsupported";
+      showError("Этот браузер не поддерживает PWA push-уведомления.");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      pushStatus.value = "denied";
+      showError("Разрешение на push-уведомления не выдано.");
+      return;
+    }
+
+    try {
+      const [{ publicKey }, registration] = await Promise.all([getWebPushPublicKey(), navigator.serviceWorker.ready]);
+      if (!publicKey) {
+        pushStatus.value = "error";
+        showError("Push-ключи еще не настроены на сервере.");
+        return;
+      }
+
+      const subscription =
+        (await registration.pushManager.getSubscription()) ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        }));
+
+      await saveWebPushSubscription(subscription.toJSON());
+      pushStatus.value = "enabled";
+      showSuccess("Push-уведомления включены.");
+    } catch {
+      pushStatus.value = "error";
+      showError("Не удалось включить push-уведомления.");
+    }
+  }
+
   return {
     items,
     appNotifications,
     unreadCount,
     appNotificationsLoading,
+    pushStatus,
     dismiss,
     showError,
     showSuccess,
@@ -100,6 +153,7 @@ export const useNotificationsStore = defineStore("notifications", () => {
     setUnreadCount,
     loadAppNotifications,
     markAppNotificationsReadInApp,
-    clearAppNotificationsInApp
+    clearAppNotificationsInApp,
+    enableBrowserPush
   };
 });

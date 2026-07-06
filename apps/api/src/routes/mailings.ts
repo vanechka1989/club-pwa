@@ -14,8 +14,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { createAppNotification } from "../notifications/create";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
-import { getObjectReadUrl, uploadObject } from "../storage/s3";
-import { sendTelegramMedia, sendTelegramMessage } from "../telegram/client";
+import { uploadObject } from "../storage/s3";
 import { filterMailingAudience, type MailingAudienceUser } from "../mailings/audience";
 import { estimateMailingDurationSeconds, formatMailingDuration } from "../mailings/estimate";
 import {
@@ -62,59 +61,6 @@ function htmlToText(html: string) {
 
 function buildTelegramText(mailing: { title: string; body: string }) {
   return mailing.title ? `${mailing.title}\n\n${mailing.body}` : mailing.body;
-}
-
-function escapeTelegramHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function isSafeTelegramUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function sanitizeTelegramHtml(html: string) {
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div)>/gi, "\n")
-    .replace(/<li\b[^>]*>/gi, "• ")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<\/?(ul|ol|p|div|span)\b[^>]*>/gi, "")
-    .replace(/<a\b[^>]*href=(["']?)([^"'\s>]+)\1[^>]*>/gi, (_match, _quote: string, href: string) =>
-      isSafeTelegramUrl(href) ? `<a href="${escapeTelegramHtml(href)}">` : ""
-    )
-    .replace(/<(b|strong|i|em|u|s|strike|del|code|pre|blockquote)\b[^>]*>/gi, "<$1>")
-    .replace(/<\/(a|b|strong|i|em|u|s|strike|del|code|pre|blockquote)>/gi, "</$1>")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function buildTelegramHtml(mailing: { title: string; body: string; bodyHtml?: string | null }) {
-  const title = mailing.title ? `<b>${escapeTelegramHtml(mailing.title)}</b>` : "";
-  const body = mailing.bodyHtml?.trim()
-    ? sanitizeTelegramHtml(mailing.bodyHtml)
-    : escapeTelegramHtml(mailing.body);
-  return title ? `${title}\n\n${body}` : body;
-}
-
-function buildTelegramCaption(mailing: { title: string; body: string; bodyHtml?: string | null }) {
-  const html = buildTelegramHtml(mailing);
-  if (html.length <= 1024) {
-    return html;
-  }
-
-  return escapeTelegramHtml(buildTelegramText(mailing).slice(0, 1000).trim());
 }
 
 async function rejectIfNotAdmin(c: Context<{ Variables: AuthVariables }>) {
@@ -166,12 +112,6 @@ async function uploadMailingAttachment(file: File) {
 }
 
 type UploadedMailingAttachment = NonNullable<Awaited<ReturnType<typeof uploadMailingAttachment>>>;
-
-function buildMailingReplyMarkup() {
-  return {
-    inline_keyboard: [[{ text: "Открыть клуб", web_app: { url: env.WEB_ORIGIN } }]]
-  };
-}
 
 function parseMailingFilters(value: string) {
   try {
@@ -246,15 +186,15 @@ async function getAudiencePreview(channel: "bot" | "app" | "all", filters: unkno
 async function sendMailingToRecipient(
   mailing: typeof adminMailings.$inferSelect,
   recipient: typeof adminMailingRecipients.$inferSelect,
-  options: { sendApp?: boolean; sendBot?: boolean } = {}
+  options: { sendApp?: boolean } = {}
 ) {
   const target = await db.query.users.findFirst({
     where: eq(users.id, recipient.userId)
   });
-  if (!target || target.telegramBotStatus === "blocked") {
+  if (!target) {
     await db
       .update(adminMailingRecipients)
-      .set({ status: "skipped_bot_blocked", updatedAt: new Date() })
+      .set({ status: "skipped_missing_user", updatedAt: new Date() })
       .where(eq(adminMailingRecipients.id, recipient.id));
     return "skipped" as const;
   }
@@ -272,8 +212,7 @@ async function sendMailingToRecipient(
           sizeBytes: mailing.attachmentSizeBytes ?? 0
         }
       : null;
-  const shouldSendApp = options.sendApp ?? (mailing.channel === "app" || mailing.channel === "all");
-  const shouldSendBot = options.sendBot ?? (mailing.channel === "bot" || mailing.channel === "all");
+  const shouldSendApp = options.sendApp ?? true;
 
   if (shouldSendApp) {
     await createAppNotification({
@@ -286,27 +225,6 @@ async function sendMailingToRecipient(
       sourceId: mailing.id,
       attachment
     });
-  }
-
-  if (shouldSendBot) {
-    const replyMarkup = buildMailingReplyMarkup();
-    if (attachment) {
-      await sendTelegramMedia({
-        chatId: recipient.telegramId,
-        kind: attachment.kind,
-        url: await getObjectReadUrl(attachment.objectKey),
-        caption: buildTelegramCaption(mailing),
-        parseMode: "HTML",
-        replyMarkup
-      });
-    } else {
-      await sendTelegramMessage({
-        chatId: recipient.telegramId,
-        text: buildTelegramHtml(mailing),
-        parseMode: "HTML",
-        replyMarkup
-      });
-    }
   }
 
   await db
@@ -332,8 +250,7 @@ async function sendDraftMailingTest({
   attachment: UploadedMailingAttachment | null;
 }) {
   const mailing = { title, body, bodyHtml };
-  const shouldSendApp = channel === "app" || channel === "all";
-  const shouldSendBot = channel === "bot" || channel === "all";
+  const shouldSendApp = true;
 
   if (shouldSendApp) {
     await createAppNotification({
@@ -346,27 +263,6 @@ async function sendDraftMailingTest({
       sourceId: null,
       attachment
     });
-  }
-
-  if (shouldSendBot) {
-    const replyMarkup = buildMailingReplyMarkup();
-    if (attachment) {
-      await sendTelegramMedia({
-        chatId: admin.telegramId,
-        kind: attachment.kind,
-        url: await getObjectReadUrl(attachment.objectKey),
-        caption: buildTelegramCaption(mailing),
-        parseMode: "HTML",
-        replyMarkup
-      });
-    } else {
-      await sendTelegramMessage({
-        chatId: admin.telegramId,
-        text: buildTelegramHtml(mailing),
-        parseMode: "HTML",
-        replyMarkup
-      });
-    }
   }
 }
 
@@ -511,10 +407,6 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
     });
     if (!admin) {
       return c.json({ error: "Администратор не найден." }, 404);
-    }
-
-    if ((channelResult.data === "bot" || channelResult.data === "all") && admin.telegramBotStatus === "blocked") {
-      return c.json({ error: "Вы заблокировали бота, тест в Telegram не уйдет." }, 400);
     }
 
     const file = getFormFile(form);
@@ -670,40 +562,28 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       updatedAt: new Date()
     } satisfies typeof adminMailingRecipients.$inferSelect;
 
-    if (mailing.channel === "bot" || mailing.channel === "all") {
-      if (admin.telegramBotStatus === "blocked") {
-        return c.json({ error: "Вы заблокировали бота, тест в Telegram не уйдет." }, 400);
-      }
-    }
-
-    if (mailing.channel === "app" || mailing.channel === "all") {
-      await createAppNotification({
-        userId: admin.id,
-        kind: "mailing",
-        title: "Тест: Сообщение от клуба",
-        body: buildTelegramText(mailing),
-        bodyHtml: mailing.bodyHtml,
-        source: "mailing",
-        sourceId: mailing.id,
-        attachment:
-          mailing.attachmentKind &&
-          mailing.attachmentFileName &&
-          mailing.attachmentObjectKey &&
-          mailing.attachmentContentType
-            ? {
-                kind: mailing.attachmentKind as "photo" | "video" | "document",
-                fileName: mailing.attachmentFileName,
-                objectKey: mailing.attachmentObjectKey,
-                contentType: mailing.attachmentContentType,
-                sizeBytes: mailing.attachmentSizeBytes ?? 0
-              }
-            : null
-      });
-    }
-
-    if (mailing.channel === "bot" || mailing.channel === "all") {
-      await sendMailingToRecipient(mailing, fakeRecipient, { sendApp: false, sendBot: true });
-    }
+    await createAppNotification({
+      userId: admin.id,
+      kind: "mailing",
+      title: "Тест: Сообщение от клуба",
+      body: buildTelegramText(mailing),
+      bodyHtml: mailing.bodyHtml,
+      source: "mailing",
+      sourceId: mailing.id,
+      attachment:
+        mailing.attachmentKind &&
+        mailing.attachmentFileName &&
+        mailing.attachmentObjectKey &&
+        mailing.attachmentContentType
+          ? {
+              kind: mailing.attachmentKind as "photo" | "video" | "document",
+              fileName: mailing.attachmentFileName,
+              objectKey: mailing.attachmentObjectKey,
+              contentType: mailing.attachmentContentType,
+              sizeBytes: mailing.attachmentSizeBytes ?? 0
+            }
+          : null
+    });
 
     await recordAdminAction(c, {
       action: "mailing.test.sent",

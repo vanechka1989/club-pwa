@@ -3,7 +3,6 @@ import { and, count, desc, eq } from "drizzle-orm";
 import type { AdminUserReferrals, ReferralSummary } from "@club/shared";
 import { db } from "../db/client";
 import {
-  appNotifications,
   clubSettings,
   paymentOrders,
   referralCodes,
@@ -18,7 +17,7 @@ import {
 import { env } from "../env";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
-import { sendTelegramMessage } from "../telegram/client";
+import { createAppNotification } from "../notifications/create";
 import { canActivateReferralRewards, normalizeReferralRewardDays, parseReferralStartParam } from "./rules";
 
 export const referralRewardDaysSettingKey = "referral_reward_days";
@@ -27,12 +26,8 @@ function createReferralCode() {
   return randomBytes(8).toString("base64url").slice(0, 10);
 }
 
-function getBotUsername() {
-  return (env.TELEGRAM_BOT_USERNAME ?? "tehnobot_club_bot").replace(/^@/, "");
-}
-
 function buildReferralLink(code: string) {
-  return `https://t.me/${getBotUsername()}?start=ref_${code}`;
+  return `${env.WEB_ORIGIN.replace(/\/$/, "")}/?ref=${encodeURIComponent(code)}`;
 }
 
 function displayUser(user: Pick<User, "firstName" | "username" | "telegramId">) {
@@ -52,38 +47,17 @@ async function notifyUser({
   sourceId?: string;
   kind?: "system" | "payment";
 }) {
-  await db
-    .insert(appNotifications)
-    .values({
-      userId: user.id,
-      kind,
-      title,
-      body,
-      source: "referral",
-      sourceId: sourceId ?? null
-    })
+  await createAppNotification({
+    userId: user.id,
+    kind,
+    title,
+    body,
+    source: "referral",
+    sourceId: sourceId ?? null
+  })
     .catch((error) => {
       logger.warn({ error, userId: user.id }, "referral app notification failed");
     });
-
-  await sendTelegramMessage({
-    chatId: user.telegramId,
-    text: `${title}\n${body}`,
-    replyMarkup: {
-      inline_keyboard: [
-        [
-          {
-            text: "Открыть клуб",
-            web_app: {
-              url: env.WEB_ORIGIN
-            }
-          }
-        ]
-      ]
-    }
-  }).catch((error) => {
-    logger.warn({ error, telegramId: user.telegramId }, "referral telegram notification failed");
-  });
 }
 
 export async function getReferralRewardDays() {

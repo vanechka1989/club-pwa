@@ -19,7 +19,6 @@ import {
   getSupportAttachmentLimitError,
   getSupportAttachmentUploadContentType
 } from "../support/mediaUpload";
-import { sendTelegramMessage } from "../telegram/client";
 
 const supportTopics = [
   {
@@ -275,17 +274,6 @@ async function notifyCustomerAboutReply(ticket: NonNullable<Awaited<ReturnType<t
     logger.warn({ error, ticketId: ticket.id }, "Unable to create support app notification");
   });
 
-  try {
-    await sendTelegramMessage({
-      chatId: ticket.user.telegramId,
-      text: "Вам ответили в поддержке. Откройте приложение, чтобы посмотреть ответ.",
-      replyMarkup: {
-        inline_keyboard: [[{ text: "Открыть клуб", web_app: { url: env.WEB_ORIGIN } }]]
-      }
-    });
-  } catch (error) {
-    logger.warn({ error, ticketId: ticket.id }, "Unable to send support reply notification");
-  }
 }
 
 async function notifyAdminsAboutCustomerMessage(ticket: NonNullable<Awaited<ReturnType<typeof getTicketById>>>) {

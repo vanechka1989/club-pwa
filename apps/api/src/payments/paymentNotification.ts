@@ -1,15 +1,4 @@
-type TelegramMessagePayload = {
-  chatId: string | number;
-  text: string;
-  replyMarkup?: unknown;
-};
-
-type SendTelegramMessage = (payload: TelegramMessagePayload) => Promise<void>;
-
-async function defaultSendTelegramMessage(payload: TelegramMessagePayload) {
-  const { sendTelegramMessage } = await import("../telegram/client");
-  await sendTelegramMessage(payload);
-}
+import { createAppNotification } from "../notifications/create";
 
 export function formatPaymentReceivedMessage({
   productTitle,
@@ -29,34 +18,22 @@ export function formatPaymentReceivedMessage({
 }
 
 export async function notifyPaymentReceived({
-  telegramId,
+  userId,
   productTitle,
   amountRub,
-  expiresAt,
-  webOrigin,
-  send = defaultSendTelegramMessage
+  expiresAt
 }: {
-  telegramId: string;
+  userId: string;
   productTitle: string;
   amountRub: number;
   expiresAt: Date;
-  webOrigin: string;
-  send?: SendTelegramMessage;
 }) {
-  await send({
-    chatId: telegramId,
-    text: formatPaymentReceivedMessage({ productTitle, amountRub, expiresAt }),
-    replyMarkup: {
-      inline_keyboard: [
-        [
-          {
-            text: "Открыть клуб",
-            web_app: {
-              url: webOrigin
-            }
-          }
-        ]
-      ]
-    }
+  await createAppNotification({
+    userId,
+    kind: "payment",
+    title: "Оплата получена",
+    body: formatPaymentReceivedMessage({ productTitle, amountRub, expiresAt }),
+    source: "payment",
+    sourceId: null
   });
 }

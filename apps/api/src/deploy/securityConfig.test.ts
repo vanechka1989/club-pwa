@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const caddyfile = readFileSync(resolve(__dirname, "../../../../deploy/Caddyfile"), "utf-8");
 const nginxConf = readFileSync(resolve(__dirname, "../../../../apps/web/nginx.conf"), "utf-8");
 const serverInstall = readFileSync(resolve(__dirname, "../../../../deploy/server-install.sh"), "utf-8");
+const sshInstall = readFileSync(resolve(__dirname, "../../../../deploy/install.sh"), "utf-8");
 const publicInstall = readFileSync(resolve(__dirname, "../../../../apps/web/public/install-club.sh"), "utf-8");
 
 describe("production security config", () => {
@@ -17,10 +18,24 @@ describe("production security config", () => {
     }
   });
 
-  it("generates a Telegram webhook secret and protects the env file in installers", () => {
-    for (const source of [serverInstall, publicInstall]) {
-      expect(source).toContain("TELEGRAM_WEBHOOK_SECRET");
+  it("configures email and PWA push env while protecting the env file in installers", () => {
+    for (const source of [serverInstall, sshInstall, publicInstall]) {
+      expect(source).toContain("OWNER_EMAIL");
+      expect(source).toContain("SMTP_HOST");
+      expect(source).toContain("WEB_PUSH_PUBLIC_KEY");
       expect(source).toContain("chmod 600");
+    }
+  });
+
+  it("generates PWA push VAPID keys automatically during installation", () => {
+    expect(serverInstall).toContain("generate_vapid_keys");
+    expect(publicInstall).toContain("generate_vapid_keys");
+    expect(sshInstall).toContain("generate_remote_vapid_keys");
+
+    for (const source of [serverInstall, sshInstall, publicInstall]) {
+      expect(source).toContain("node:22-alpine");
+      expect(source).toContain("WEB_PUSH_PRIVATE_KEY");
+      expect(source).toContain("Генерируем Web Push VAPID ключи");
     }
   });
 });

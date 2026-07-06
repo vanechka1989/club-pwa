@@ -66,15 +66,6 @@ export type LayoutCalibration = {
   source: "android-narrow" | "android-wide" | "ios" | "default";
 };
 
-type TelegramWebAppDiagnostics = {
-  version?: string;
-  platform?: string;
-  viewportHeight?: number;
-  viewportStableHeight?: number;
-  safeAreaInset?: DeviceInsetInput;
-  contentSafeAreaInset?: DeviceInsetInput;
-};
-
 export const deviceLayoutClasses = [
   "club-ios",
   "club-android",
@@ -276,10 +267,9 @@ export function collectDeviceDiagnostics(input: DeviceDiagnosticsInput) {
 }
 
 export function collectCurrentDeviceDiagnostics() {
-  const webApp = window.Telegram?.WebApp as TelegramWebAppDiagnostics | undefined;
-  const viewportHeight = Math.max(webApp?.viewportHeight ?? 0, window.visualViewport?.height ?? 0, window.innerHeight ?? 0);
+  const viewportHeight = Math.max(window.visualViewport?.height ?? 0, window.innerHeight ?? 0);
   const viewportWidth = Math.max(window.visualViewport?.width ?? 0, window.innerWidth ?? 0);
-  const platform = webApp?.platform ?? navigator.platform ?? null;
+  const platform = navigator.platform ?? null;
   const userAgent = navigator.userAgent;
   const classes = [
     ...getDeviceLayoutClasses({ platform: platform ?? "", userAgent }),
@@ -310,20 +300,20 @@ export function collectCurrentDeviceDiagnostics() {
         }
       : null,
     telegram: {
-      version: webApp?.version ?? null,
-      platform: webApp?.platform ?? null,
-      viewportHeight: webApp?.viewportHeight ?? null,
-      viewportStableHeight: webApp?.viewportStableHeight ?? null,
-      safeAreaInset: webApp?.safeAreaInset ?? null,
-      contentSafeAreaInset: webApp?.contentSafeAreaInset ?? null
+      version: null,
+      platform: null,
+      viewportHeight: null,
+      viewportStableHeight: null,
+      safeAreaInset: null,
+      contentSafeAreaInset: null
     },
     layoutCalibration: calculateLayoutCalibration({
       platform,
       userAgent,
       viewportWidth,
       viewportHeight,
-      safeAreaInset: webApp?.safeAreaInset ?? null,
-      contentSafeAreaInset: webApp?.contentSafeAreaInset ?? null,
+      safeAreaInset: null,
+      contentSafeAreaInset: null,
       visualBottomGap:
         window.visualViewport && viewportHeight > 0
           ? Math.max(0, Math.round(viewportHeight - window.visualViewport.height - window.visualViewport.offsetTop))

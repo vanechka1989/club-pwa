@@ -8,10 +8,10 @@ const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/sh
 const adminRouteSource = readFileSync(resolve(__dirname, "../../../../../apps/api/src/routes/admin.ts"), "utf-8");
 
 describe("admin permissions section", () => {
-  it("supports searching admins by id, name, or username before adding access", () => {
+  it("supports searching admins by email, name, or username before adding access", () => {
     expect(adminSectionSource).toContain("adminSearchQuery");
     expect(adminSectionSource).toContain("adminSearchCandidates");
-    expect(adminSectionSource).toContain("Telegram ID, имя или username");
+    expect(adminSectionSource).toContain("email, имя или username");
   });
 
   it("renders manual role label, access toggle, and permission switches", () => {
@@ -85,7 +85,7 @@ describe("admin permissions section", () => {
     expect(adminRouteSource).toContain(".get(\"/database/backup-download/:token\"");
     expect(adminRouteSource).toContain(".post(\"/database/restore\"");
     expect(adminSectionSource).toContain("openDatabaseBackupDownloadUrl");
-    expect(adminSectionSource).toContain("window.Telegram?.WebApp?.openLink");
+    expect(adminSectionSource).toContain('window.open(url, "_blank", "noopener,noreferrer")');
     expect(adminSectionSource).toContain("Скачать базу");
     expect(adminSectionSource).toContain("Восстановить базу");
     expect(adminSectionSource).toContain("ВОССТАНОВИТЬ");
