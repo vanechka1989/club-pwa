@@ -137,6 +137,20 @@ describe("device layout detection", () => {
     ).toEqual({ isMobileDeviceShell: true, scale: 2.495 });
   });
 
+  it("treats touch Android PWA with a physical screen-width viewport as a mobile shell", () => {
+    expect(
+      getMobileDeviceShellScale({
+        layoutWidth: 980,
+        screenWidth: 1080,
+        screenAvailWidth: 1080,
+        devicePixelRatio: 1,
+        hasTouchInput: true,
+        userAgent:
+          "Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+      })
+    ).toEqual({ isMobileDeviceShell: true, scale: 1 });
+  });
+
   it("uses the smallest live viewport height when mobile browsers expose stale visualViewport values", () => {
     const visibleHeight = getMeasuredVisibleViewportHeight({
       appHeight: 820,

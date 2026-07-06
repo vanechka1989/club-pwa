@@ -401,6 +401,16 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.auth-panel h2\s*{[\s\S]*font-size: 1.35rem;/);
   });
 
+  it("keeps installed mobile PWA auth full-width even when Android reports a wide layout viewport", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(/body\.club-mobile-device \.app-shell-auth\s*{[\s\S]*align-items: stretch;/);
+    expect(styles).toMatch(/body\.club-mobile-device \.content-panel-auth\s*{[\s\S]*justify-items: stretch;/);
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.content-panel-auth \.auth-panel,\s*body\.club-mobile-device \.content-panel-auth \.auth-install-required\s*{[\s\S]*width: 100%;[\s\S]*max-width: none;/
+    );
+  });
+
   it("uses a PWA-first mobile device shell instead of zooming a desktop viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

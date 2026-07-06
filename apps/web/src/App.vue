@@ -234,7 +234,8 @@ function syncMobileDeviceShell(layoutWidth: number) {
     screenWidth: window.screen?.width ?? null,
     screenAvailWidth: window.screen?.availWidth ?? null,
     devicePixelRatio: window.devicePixelRatio ?? null,
-    hasTouchInput
+    hasTouchInput,
+    userAgent: window.navigator.userAgent
   });
 
   isMobileDeviceShell.value = mobileDeviceShell.isMobileDeviceShell;

@@ -19,6 +19,7 @@ export type ViewportWidthInput = {
 export type MobileDeviceShellScaleInput = ViewportWidthInput & {
   layoutWidth: number;
   hasTouchInput: boolean;
+  userAgent?: string | null;
 };
 
 export type DeviceInsetInput = {
@@ -179,6 +180,10 @@ function getCssDeviceScreenWidth(input: ViewportWidthInput) {
   return looksLikePhysicalPixels ? cssWidthFromPhysicalPixels : rawScreenWidth;
 }
 
+function hasMobileUserAgent(userAgent: string | null | undefined) {
+  return /Android|iPhone|iPad|iPod/i.test(userAgent ?? "");
+}
+
 export function getMeasuredViewportWidth(input: ViewportWidthInput) {
   const liveWidths = [input.visualWidth, input.browserWidth].filter(
     (width): width is number => Number.isFinite(width) && Number(width) > 0
@@ -194,7 +199,9 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const deviceScreenWidth = getCssDeviceScreenWidth(input);
   const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
   const needsViewportCompensation = input.hasTouchInput && input.layoutWidth >= 700 && viewportScale >= 1.35;
-  const isMobileDeviceShell = input.hasTouchInput && (needsViewportCompensation || (deviceScreenWidth > 0 && deviceScreenWidth <= 720));
+  const isMobileUserAgent = input.hasTouchInput && hasMobileUserAgent(input.userAgent);
+  const isMobileDeviceShell =
+    input.hasTouchInput && (isMobileUserAgent || needsViewportCompensation || (deviceScreenWidth > 0 && deviceScreenWidth <= 720));
 
   return {
     isMobileDeviceShell,
