@@ -228,6 +228,26 @@ function removeLayoutCssVariable(name: string) {
   document.body.style.removeProperty(name);
 }
 
+function formatScaledCssPx(basePx: number, scale: number) {
+  return `${Math.round(basePx * scale * 100) / 100}px`;
+}
+
+function syncWideViewportAppScale(scale: number, isEnabled: boolean) {
+  document.documentElement.classList.toggle("club-mobile-app-scaled", isEnabled);
+  document.body.classList.toggle("club-mobile-app-scaled", isEnabled);
+
+  if (!isEnabled) {
+    removeLayoutCssVariable("--club-app-wide-viewport-scale");
+    removeLayoutCssVariable("--club-app-wide-font-root");
+    removeLayoutCssVariable("--club-app-wide-font-base");
+    return;
+  }
+
+  setLayoutCssVariable("--club-app-wide-viewport-scale", `${scale}`);
+  setLayoutCssVariable("--club-app-wide-font-root", formatScaledCssPx(16, scale));
+  setLayoutCssVariable("--club-app-wide-font-base", formatScaledCssPx(16, scale));
+}
+
 function syncMobileDeviceShell(layoutWidth: number) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
@@ -244,11 +264,14 @@ function syncMobileDeviceShell(layoutWidth: number) {
   });
 
   isMobileDeviceShell.value = mobileDeviceShell.isMobileDeviceShell;
-  const shouldScaleAuth = mobileDeviceShell.isMobileDeviceShell && mobileDeviceShell.scale > 1;
+  const shouldScaleWideViewport = mobileDeviceShell.isMobileDeviceShell && mobileDeviceShell.scale > 1;
+  const shouldScaleAuth = shouldScaleWideViewport && !session.user;
+  const shouldScaleApp = shouldScaleWideViewport && Boolean(session.user);
   document.documentElement.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
   document.body.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
   document.documentElement.classList.toggle("club-mobile-auth-scaled", shouldScaleAuth);
   document.body.classList.toggle("club-mobile-auth-scaled", shouldScaleAuth);
+  syncWideViewportAppScale(mobileDeviceShell.scale, shouldScaleApp);
 
   if (shouldScaleAuth) {
     setLayoutCssVariable("--club-auth-wide-viewport-scale", `${mobileDeviceShell.scale}`);
@@ -576,6 +599,13 @@ watch(
   }
 );
 
+watch(
+  () => Boolean(session.user),
+  () => {
+    syncViewportHeight();
+  }
+);
+
 onBeforeUnmount(() => {
   isAppMounted = false;
   syncCommunityLock(false);
@@ -617,12 +647,15 @@ onBeforeUnmount(() => {
   document.body.classList.remove("club-mobile-device");
   document.documentElement.classList.remove("club-mobile-auth-scaled");
   document.body.classList.remove("club-mobile-auth-scaled");
+  document.documentElement.classList.remove("club-mobile-app-scaled");
+  document.body.classList.remove("club-mobile-app-scaled");
   syncLayoutClasses([document.documentElement, document.body], []);
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
   document.documentElement.style.removeProperty("--club-calibrated-bottom-offset");
   document.body.style.removeProperty("--club-calibrated-bottom-offset");
   removeLayoutCssVariable("--club-auth-wide-viewport-scale");
+  syncWideViewportAppScale(1, false);
 });
 </script>
 

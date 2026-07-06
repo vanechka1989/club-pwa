@@ -426,6 +426,23 @@ describe("App", () => {
     );
   });
 
+  it("uses a separate scaled typography shell after login on wide mobile PWA viewports", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("club-mobile-app-scaled");
+    expect(appSource).toContain("--club-app-wide-viewport-scale");
+    expect(appSource).toContain("--club-app-wide-font-root");
+    expect(appSource).toContain("--club-app-wide-font-base");
+    expect(appSource).toContain("Boolean(session.user)");
+    expect(styles).toMatch(/html\.club-mobile-app-scaled\s*{[\s\S]*font-size: var\(--club-app-wide-font-root, 16px\);/);
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled\s*{[\s\S]*overflow-x: hidden;[\s\S]*font-size: var\(--club-app-wide-font-base, 16px\);/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop\s*{[\s\S]*font-size: var\(--club-app-wide-font-base, 16px\);/
+    );
+  });
+
   it("uses a PWA-first mobile device shell instead of zooming a desktop viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

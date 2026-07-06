@@ -1032,6 +1032,23 @@ body.club-mobile-auth-scaled .content-panel-auth .auth-install-required {
   transform-origin: top center;
 }
 
+html.club-mobile-app-scaled {
+  overflow-x: hidden;
+  font-size: var(--club-app-wide-font-root, 16px);
+}
+
+body.club-mobile-app-scaled {
+  overflow-x: hidden;
+  font-size: var(--club-app-wide-font-base, 16px);
+  text-size-adjust: 100%;
+}
+
+body.club-mobile-app-scaled .admin-modal-backdrop,
+body.club-mobile-app-scaled .support-modal-backdrop,
+body.club-mobile-app-scaled .payment-modal-backdrop {
+  font-size: var(--club-app-wide-font-base, 16px);
+}
+
 body.club-mobile-device .app-root:not(.app-root-no-user) .app-layout {
   display: block;
   grid-template-columns: none;

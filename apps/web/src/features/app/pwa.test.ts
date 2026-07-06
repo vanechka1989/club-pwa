@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v7"');
+    expect(worker).toContain('const cacheName = "club-pwa-v8"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
   });
