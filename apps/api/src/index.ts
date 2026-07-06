@@ -57,7 +57,7 @@ app.use(
   "*",
   cors({
     origin: env.WEB_ORIGIN,
-    allowHeaders: ["Content-Type", "X-Club-Preview-Mode"],
+    allowHeaders: ["Content-Type", "X-Club-Preview-Mode", "X-Club-PWA-Standalone"],
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     credentials: true
   })

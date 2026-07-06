@@ -89,10 +89,27 @@ function testDeviceDiagnostics() {
   };
 }
 
+function stubStandaloneDisplay(isStandalone = true) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({
+      matches: query === "(display-mode: standalone)" ? isStandalone : false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+  });
+}
+
 describe("App", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    stubStandaloneDisplay(true);
     vi.mocked(getLearningHome).mockRejectedValue(new Error("not loaded"));
     vi.mocked(getMe).mockRejectedValue(new Error("unauthorized"));
     vi.mocked(getPaymentHistory).mockResolvedValue({ orders: [] });
@@ -274,6 +291,15 @@ describe("App", () => {
     expect(styles).toContain("padding-top: max(4.8rem, calc(var(--club-safe-top) + var(--space-page-top)));");
     expect(styles).toContain("gap: var(--space-section);");
     expect(styles).toContain("padding: var(--space-card);");
+  });
+
+  it("starts from light theme variables before the UI store hydrates", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const rootBlock = styles.match(/:root\s*{([\s\S]*?)}/)?.[1] ?? "";
+
+    expect(rootBlock).toContain("color-scheme: light;");
+    expect(rootBlock).toContain("--bg: #f4f6fb;");
+    expect(rootBlock).not.toContain("--bg: #050509;");
   });
 
   it("defines separate mobile bottom navigation and desktop sidebar surfaces", () => {

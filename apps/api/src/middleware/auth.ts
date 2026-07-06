@@ -3,7 +3,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { getCookie } from "hono/cookie";
 import type { UserRole } from "@club/shared";
 import { z } from "zod";
-import { hashAuthToken } from "../auth/emailAuth";
+import { hasPwaStandaloneAuthHeader, hashAuthToken, pwaInstallRequiredMessage, pwaStandaloneAuthHeaderName } from "../auth/emailAuth";
 import { db } from "../db/client";
 import { authSessions, users, type User } from "../db/schema";
 import { isOwnerTelegramId } from "../admin/roles";
@@ -31,6 +31,10 @@ const previewModeSchema = z.enum(["developer", "admin", "member-active", "member
 type PreviewMode = z.infer<typeof previewModeSchema>;
 
 export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
+  if (!hasPwaStandaloneAuthHeader(c.req.header(pwaStandaloneAuthHeaderName))) {
+    return c.json({ error: pwaInstallRequiredMessage }, 403);
+  }
+
   const token = getCookie(c, sessionCookieName);
   if (!token) {
     return c.json({ error: "Email session is required" }, 401);

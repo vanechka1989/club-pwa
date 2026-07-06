@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildEmailLoginMessage, createLoginCode, getEmailLoginCodeCooldownSeconds, hashAuthToken, normalizeEmail } from "./emailAuth";
+import {
+  buildEmailLoginMessage,
+  createLoginCode,
+  getEmailLoginCodeCooldownSeconds,
+  hasPwaStandaloneAuthHeader,
+  hashAuthToken,
+  normalizeEmail,
+  pwaInstallRequiredMessage,
+  pwaStandaloneAuthHeaderName
+} from "./emailAuth";
 
 describe("email auth", () => {
   it("normalizes email addresses before identity lookup", () => {
@@ -35,5 +44,13 @@ describe("email auth", () => {
     expect(getEmailLoginCodeCooldownSeconds(issuedAt, new Date("2026-07-06T09:00:00.000Z"))).toBe(60);
     expect(getEmailLoginCodeCooldownSeconds(issuedAt, new Date("2026-07-06T09:00:59.000Z"))).toBe(1);
     expect(getEmailLoginCodeCooldownSeconds(issuedAt, new Date("2026-07-06T09:01:00.000Z"))).toBe(0);
+  });
+
+  it("requires an installed PWA marker for email auth requests", () => {
+    expect(pwaStandaloneAuthHeaderName).toBe("X-Club-PWA-Standalone");
+    expect(hasPwaStandaloneAuthHeader("1")).toBe(true);
+    expect(hasPwaStandaloneAuthHeader("true")).toBe(false);
+    expect(hasPwaStandaloneAuthHeader(null)).toBe(false);
+    expect(pwaInstallRequiredMessage).toContain("установленного приложения");
   });
 });

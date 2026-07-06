@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
-import { Mail, ShieldCheck } from "lucide-vue-next";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { Download, Mail, ShieldCheck } from "lucide-vue-next";
 import { useSessionStore } from "@/stores/session";
+
+type AuthRequestError = Error & { retryAfterSeconds?: number };
 
 const session = useSessionStore();
 const email = ref("");
@@ -9,6 +11,7 @@ const code = ref("");
 const localError = ref<string | null>(null);
 const resendAvailableAt = ref<number | null>(null);
 const nowMs = ref(Date.now());
+const isInstalledPwa = ref(isStandalonePwa());
 const resendCooldownMs = 60_000;
 let resendCooldownTimer: number | null = null;
 
@@ -23,7 +26,20 @@ const resendRemainingSeconds = computed(() => {
 const resendButtonLabel = computed(() =>
   resendRemainingSeconds.value > 0 ? `Отправить код ещё раз через ${resendRemainingSeconds.value}с` : "Отправить код ещё раз"
 );
+const requestButtonLabel = computed(() =>
+  resendRemainingSeconds.value > 0 ? `Получить код через ${resendRemainingSeconds.value}с` : "Получить код"
+);
+const canRequestCode = computed(() => !session.loading && Boolean(email.value) && resendRemainingSeconds.value <= 0);
 const canResendCode = computed(() => !session.loading && resendRemainingSeconds.value <= 0);
+
+function isStandalonePwa() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+  return (window.matchMedia?.("(display-mode: standalone)").matches ?? false) || navigatorWithStandalone.standalone === true;
+}
 
 const referralCode = computed(() => {
   if (typeof window === "undefined") {
@@ -48,21 +64,35 @@ function tickResendCooldown() {
   }
 }
 
-function startResendCooldown() {
+function startResendCooldown(seconds = resendCooldownMs / 1000) {
   const timestamp = Date.now();
-  resendAvailableAt.value = timestamp + resendCooldownMs;
+  resendAvailableAt.value = timestamp + Math.max(1, seconds) * 1000;
   nowMs.value = timestamp;
   stopResendCooldownTimer();
   resendCooldownTimer = window.setInterval(tickResendCooldown, 1000);
 }
 
+function getRetryAfterSeconds(error: unknown) {
+  return typeof error === "object" && error && "retryAfterSeconds" in error && typeof (error as AuthRequestError).retryAfterSeconds === "number"
+    ? (error as AuthRequestError).retryAfterSeconds
+    : null;
+}
+
 async function submitEmail() {
+  if (!canRequestCode.value) {
+    return;
+  }
+
   localError.value = null;
   try {
     await session.requestEmailCode(email.value, referralCode.value);
     code.value = "";
     startResendCooldown();
   } catch (error) {
+    const retryAfterSeconds = getRetryAfterSeconds(error);
+    if (retryAfterSeconds) {
+      startResendCooldown(retryAfterSeconds);
+    }
     localError.value = error instanceof Error ? error.message : "Не удалось отправить код.";
   }
 }
@@ -87,6 +117,10 @@ async function resendCode() {
     code.value = "";
     startResendCooldown();
   } catch (error) {
+    const retryAfterSeconds = getRetryAfterSeconds(error);
+    if (retryAfterSeconds) {
+      startResendCooldown(retryAfterSeconds);
+    }
     localError.value = error instanceof Error ? error.message : "Не удалось отправить код.";
   }
 }
@@ -99,13 +133,33 @@ function changeEmail() {
   stopResendCooldownTimer();
 }
 
+onMounted(() => {
+  isInstalledPwa.value = isStandalonePwa();
+});
+
 onBeforeUnmount(() => {
   stopResendCooldownTimer();
 });
 </script>
 
 <template>
-  <section class="auth-panel" aria-labelledby="auth-title">
+  <section v-if="!isInstalledPwa" class="auth-panel auth-install-required" aria-labelledby="auth-install-title">
+    <div class="auth-panel-head">
+      <span class="auth-panel-icon">
+        <Download class="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div>
+        <h2 id="auth-install-title">Установите приложение</h2>
+        <p>Вход по email доступен только из установленного приложения Club.</p>
+      </div>
+    </div>
+
+    <p class="auth-hint">
+      Установите PWA на телефон или компьютер, затем откройте Club через иконку приложения.
+    </p>
+  </section>
+
+  <section v-else class="auth-panel" aria-labelledby="auth-title">
     <div class="auth-panel-head">
       <span class="auth-panel-icon">
         <Mail v-if="!isCodeStep" class="h-5 w-5" aria-hidden="true" />
@@ -122,8 +176,8 @@ onBeforeUnmount(() => {
         <span>Email</span>
         <input v-model.trim="email" class="text-input" type="email" autocomplete="email" placeholder="you@example.com" required />
       </label>
-      <button class="primary-button" type="submit" :disabled="session.loading || !email">
-        Получить код
+      <button class="primary-button" type="submit" :disabled="!canRequestCode">
+        {{ requestButtonLabel }}
       </button>
     </form>
 

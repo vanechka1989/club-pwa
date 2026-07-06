@@ -3,6 +3,19 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { createCheckout, getMe, logoutSession, refreshAvatar, requestEmailCode as requestEmailCodeApi, verifyEmailCode as verifyEmailCodeApi } from "@/api/client";
 
+type AuthRequestError = Error & { retryAfterSeconds?: number };
+
+function getRetryAfterSeconds(reason: unknown) {
+  if (typeof reason !== "object" || !reason || !("data" in reason) || typeof reason.data !== "object" || !reason.data) {
+    return null;
+  }
+
+  const retryAfterSeconds = (reason.data as { retryAfterSeconds?: unknown }).retryAfterSeconds;
+  return typeof retryAfterSeconds === "number" && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+    ? Math.ceil(retryAfterSeconds)
+    : null;
+}
+
 export const useSessionStore = defineStore("session", () => {
   const user = ref<ClubUser | null>(null);
   const loading = ref(false);
@@ -65,8 +78,13 @@ export const useSessionStore = defineStore("session", () => {
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось отправить код.";
+      const authError: AuthRequestError = new Error(message);
+      const retryAfterSeconds = getRetryAfterSeconds(error);
+      if (retryAfterSeconds) {
+        authError.retryAfterSeconds = retryAfterSeconds;
+      }
       authMessage.value = null;
-      throw new Error(message);
+      throw authError;
     } finally {
       loading.value = false;
     }

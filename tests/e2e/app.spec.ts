@@ -288,7 +288,32 @@ async function mockApi(page: Page) {
   await page.route(appApiUrlPattern, handleApiRoute);
 }
 
+async function mockInstalledPwa(page: Page) {
+  await page.addInitScript(() => {
+    const originalMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query: string) => {
+      if (query === "(display-mode: standalone)") {
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addEventListener() {},
+          removeEventListener() {},
+          addListener() {},
+          removeListener() {},
+          dispatchEvent() {
+            return false;
+          }
+        } as MediaQueryList;
+      }
+
+      return originalMatchMedia(query);
+    };
+  });
+}
+
 async function openApp(page: Page) {
+  await mockInstalledPwa(page);
   await mockApi(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();

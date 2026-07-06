@@ -15,7 +15,25 @@ vi.mock("@/api/client", async (importOriginal) => {
   };
 });
 
-function renderAuth(pinia = createPinia()) {
+function stubStandaloneDisplay(isStandalone = true) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn((query: string) => ({
+      matches: query === "(display-mode: standalone)" ? isStandalone : false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+  });
+}
+
+function renderAuth(pinia = createPinia(), options: { standalone?: boolean } = {}) {
+  stubStandaloneDisplay(options.standalone ?? true);
+
   return render(AuthSection, {
     global: {
       plugins: [pinia]
@@ -34,6 +52,14 @@ describe("email auth UI", () => {
   afterEach(() => {
     vi.useRealTimers();
     cleanup();
+  });
+
+  it("requires the installed PWA before showing the email login form", () => {
+    renderAuth(createPinia(), { standalone: false });
+
+    expect(screen.getByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    expect(screen.getByText(/Вход по email доступен только из установленного приложения/)).toBeTruthy();
   });
 
   it("uses email auth endpoints instead of Telegram initData", () => {
@@ -115,5 +141,32 @@ describe("email auth UI", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Отправить код ещё раз" }));
     expect(requestEmailCode).toHaveBeenCalledTimes(2);
+  });
+
+  it("blocks the first code button with a timer when the server returns a cooldown", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(requestEmailCode).mockRejectedValueOnce(
+      Object.assign(new Error("Повторный код можно получить через 42с."), {
+        data: { retryAfterSeconds: 42 },
+        status: 429
+      })
+    );
+    renderAuth();
+
+    await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
+    await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Получить код через 42с" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    await vi.advanceTimersByTimeAsync(41_000);
+    expect((screen.getByRole("button", { name: "Получить код через 1с" }) as HTMLButtonElement).disabled).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Получить код" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+    expect(requestEmailCode).toHaveBeenCalledTimes(1);
   });
 });

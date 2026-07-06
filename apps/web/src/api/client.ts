@@ -63,6 +63,16 @@ import { ofetch } from "ofetch";
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "/api";
 const previewModeStorageKey = "club-preview-mode";
+const pwaStandaloneAuthHeaderName = "X-Club-PWA-Standalone";
+
+function isStandalonePwa() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+  return (window.matchMedia?.("(display-mode: standalone)").matches ?? false) || navigatorWithStandalone.standalone === true;
+}
 
 function withAuthHeaders(input?: HeadersInit) {
   const headers = new Headers(input);
@@ -74,6 +84,9 @@ function withAuthHeaders(input?: HeadersInit) {
     previewMode === "member-inactive"
   ) {
     headers.set("X-Club-Preview-Mode", previewMode);
+  }
+  if (isStandalonePwa()) {
+    headers.set(pwaStandaloneAuthHeaderName, "1");
   }
 
   return headers;

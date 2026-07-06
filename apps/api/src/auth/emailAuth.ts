@@ -2,6 +2,8 @@ import { createHash, randomInt } from "node:crypto";
 
 const loginCodeLength = 6;
 export const emailLoginCodeCooldownSeconds = 60;
+export const pwaStandaloneAuthHeaderName = "X-Club-PWA-Standalone";
+export const pwaInstallRequiredMessage = "Вход по email доступен только из установленного приложения.";
 
 export function normalizeEmail(value: string | null | undefined) {
   const email = value?.trim().toLowerCase();
@@ -28,6 +30,10 @@ export function getEmailLoginCodeCooldownSeconds(issuedAt: Date | null | undefin
   const elapsedMs = now.getTime() - issuedAt.getTime();
   const remainingMs = emailLoginCodeCooldownSeconds * 1000 - elapsedMs;
   return Math.max(0, Math.ceil(remainingMs / 1000));
+}
+
+export function hasPwaStandaloneAuthHeader(value: string | null | undefined) {
+  return value === "1";
 }
 
 export function buildEmailLoginMessage(input: { code: string; expiresInMinutes: number }) {

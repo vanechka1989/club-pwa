@@ -3,7 +3,16 @@ import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { Hono } from "hono";
 import { z } from "zod";
-import { buildEmailLoginMessage, createLoginCode, getEmailLoginCodeCooldownSeconds, hashAuthToken, normalizeEmail } from "../auth/emailAuth";
+import {
+  buildEmailLoginMessage,
+  createLoginCode,
+  getEmailLoginCodeCooldownSeconds,
+  hasPwaStandaloneAuthHeader,
+  hashAuthToken,
+  normalizeEmail,
+  pwaInstallRequiredMessage,
+  pwaStandaloneAuthHeaderName
+} from "../auth/emailAuth";
 import { sendEmail } from "../auth/emailDelivery";
 import { db } from "../db/client";
 import { authEmailLoginCodes, authSessions, users } from "../db/schema";
@@ -76,6 +85,10 @@ async function findOrCreateEmailUser(email: string) {
 
 export const authRoute = new Hono()
   .post("/email/start", async (c) => {
+    if (!hasPwaStandaloneAuthHeader(c.req.header(pwaStandaloneAuthHeaderName))) {
+      return c.json({ error: pwaInstallRequiredMessage }, 403);
+    }
+
     const body = startSchema.safeParse(await c.req.json().catch(() => null));
     const email = body.success ? normalizeEmail(body.data.email) : null;
     if (!email) {
@@ -111,6 +124,10 @@ export const authRoute = new Hono()
     });
   })
   .post("/email/verify", async (c) => {
+    if (!hasPwaStandaloneAuthHeader(c.req.header(pwaStandaloneAuthHeaderName))) {
+      return c.json({ error: pwaInstallRequiredMessage }, 403);
+    }
+
     const body = verifySchema.safeParse(await c.req.json().catch(() => null));
     const email = body.success ? normalizeEmail(body.data.email) : null;
     if (!body.success || !email) {
