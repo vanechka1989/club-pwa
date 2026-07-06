@@ -40,8 +40,9 @@ export function isInstalledPwaDisplay() {
     (query) => window.matchMedia?.(query).matches ?? false
   );
   const isBrowserDisplayMode = window.matchMedia?.("(display-mode: browser)").matches ?? false;
+  const isNonBrowserDisplaySurface = typeof window.matchMedia === "function" && !isBrowserDisplayMode;
   const isAndroidAppLaunch = typeof document !== "undefined" && document.referrer.startsWith("android-app://");
   const hasAppLaunchHint = hasPwaStartSource() || (hasInstalledPwaHint() && !isBrowserDisplayMode);
 
-  return isInstalledDisplayMode || isStandaloneNavigator || isAndroidAppLaunch || hasAppLaunchHint;
+  return isInstalledDisplayMode || isStandaloneNavigator || isAndroidAppLaunch || hasAppLaunchHint || isNonBrowserDisplaySurface;
 }

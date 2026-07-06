@@ -90,7 +90,7 @@ function stubStandaloneDisplay(isStandalone = true) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn((query: string) => ({
-      matches: query === "(display-mode: standalone)" ? isStandalone : false,
+      matches: query === "(display-mode: standalone)" ? isStandalone : query === "(display-mode: browser)" ? !isStandalone : false,
       media: query,
       onchange: null,
       addEventListener: vi.fn(),

@@ -74,6 +74,7 @@ describe("PWA shell", () => {
     expect(display).toContain("navigatorWithStandalone.standalone === true");
     expect(display).toContain('searchParams.get("source") === "pwa"');
     expect(display).toContain("club-pwa-installed");
+    expect(display).toContain("isNonBrowserDisplaySurface");
     expect(display).toContain("display-mode: ${mode}");
     expect(prompt).toContain("prompt()");
     expect(prompt).toContain("Safari");

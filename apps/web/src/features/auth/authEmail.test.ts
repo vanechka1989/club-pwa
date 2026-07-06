@@ -17,6 +17,7 @@ vi.mock("@/api/client", async (importOriginal) => {
 
 function stubStandaloneDisplay(isStandalone = true, installedDisplayModes: string[] = []) {
   const modes = new Set([...(isStandalone ? ["standalone"] : []), ...installedDisplayModes]);
+  const isInstalledMode = modes.size > 0;
   const getDisplayMode = (query: string) => {
     const match = query.match(/^\(display-mode:\s*([^)]+)\)$/);
     return match?.[1]?.trim() ?? null;
@@ -25,7 +26,7 @@ function stubStandaloneDisplay(isStandalone = true, installedDisplayModes: strin
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn((query: string) => ({
-      matches: modes.has(getDisplayMode(query) ?? ""),
+      matches: getDisplayMode(query) === "browser" ? !isInstalledMode : modes.has(getDisplayMode(query) ?? ""),
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
@@ -81,9 +82,9 @@ describe("email auth UI", () => {
   it("switches from install gate to email login after the app opens as standalone", async () => {
     let isStandalone = false;
     Object.defineProperty(window, "matchMedia", {
-      configurable: true,
-      value: vi.fn((query: string) => ({
-        matches: query === "(display-mode: standalone)" ? isStandalone : false,
+    configurable: true,
+    value: vi.fn((query: string) => ({
+        matches: query === "(display-mode: standalone)" ? isStandalone : query === "(display-mode: browser)" ? !isStandalone : false,
         media: query,
         onchange: null,
         addEventListener: vi.fn(),
