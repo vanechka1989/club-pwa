@@ -109,6 +109,8 @@ export const deviceLayoutCssVariables = [
   "--club-app-wide-font-base"
 ] as const;
 
+const mobileAppWideViewportFontBasePx = 13;
+
 export function getDeviceLayoutClasses({ platform = "", userAgent }: DeviceLayoutInput) {
   const normalizedPlatform = platform.toLowerCase();
   const isIos = normalizedPlatform === "ios" || normalizedPlatform === "macos" || /iPad|iPhone|iPod/.test(userAgent);
@@ -276,8 +278,8 @@ export function createDeviceLayoutSnapshot(input: DeviceLayoutSnapshotInput): De
 
   if (shouldScaleApp) {
     cssVariables["--club-app-wide-viewport-scale"] = `${mobileDeviceShell.scale}`;
-    cssVariables["--club-app-wide-font-root"] = formatScaledCssPx(16, mobileDeviceShell.scale);
-    cssVariables["--club-app-wide-font-base"] = formatScaledCssPx(16, mobileDeviceShell.scale);
+    cssVariables["--club-app-wide-font-root"] = formatScaledCssPx(mobileAppWideViewportFontBasePx, mobileDeviceShell.scale);
+    cssVariables["--club-app-wide-font-base"] = formatScaledCssPx(mobileAppWideViewportFontBasePx, mobileDeviceShell.scale);
   }
 
   return {

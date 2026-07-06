@@ -496,6 +496,23 @@ describe("App", () => {
     expect(styles).toContain("body.club-mobile-device .bottom-nav");
   });
 
+  it("uses compact polished density for wide mobile PWA app surfaces", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("--club-mobile-card-radius: 24px;");
+    expect(styles).toContain("--club-mobile-sheet-radius: 28px;");
+    expect(styles).toMatch(/body\.club-mobile-app-scaled\s*\{[\s\S]*--space-section: clamp\(0\.46rem, 1\.2vw, 0\.68rem\);[\s\S]*--ui-button-height: 2\.32rem;/);
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled \.section-head,\s*body\.club-mobile-app-scaled \.soft-card,\s*body\.club-mobile-app-scaled \.soft-list-card\s*\{[\s\S]*border-radius: var\(--club-mobile-card-radius\);[\s\S]*padding: 0\.74rem;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled \.bottom-nav\s*\{[\s\S]*border-radius: 24px;[\s\S]*padding: 0\.26rem;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled \.admin-client-modal,\s*body\.club-mobile-app-scaled \.payment-form-modal,\s*body\.club-mobile-app-scaled \.support-ticket-modal,\s*body\.club-mobile-app-scaled \.lesson-preview-modal,\s*body\.club-mobile-app-scaled \.module-name-modal\s*\{[\s\S]*border-radius: var\(--club-mobile-sheet-radius\) var\(--club-mobile-sheet-radius\) 0 0;/
+    );
+  });
+
   it("keeps one compact side gutter across normal section tabs", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

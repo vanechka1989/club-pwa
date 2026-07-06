@@ -198,8 +198,8 @@ describe("device layout detection", () => {
     expect(snapshot.classes).toEqual(["club-android", "club-mobile-device", "club-mobile-app-scaled"]);
     expect(snapshot.cssVariables).toMatchObject({
       "--club-app-wide-viewport-scale": "2.513",
-      "--club-app-wide-font-root": "40.21px",
-      "--club-app-wide-font-base": "40.21px"
+      "--club-app-wide-font-root": "32.67px",
+      "--club-app-wide-font-base": "32.67px"
     });
     expect(snapshot.removedCssVariables).toEqual(["--club-auth-wide-viewport-scale"]);
   });
