@@ -12,4 +12,18 @@ describe("email delivery diagnostics", () => {
     expect(source).toContain("rejected");
     expect(source).not.toContain("SMTP_PASSWORD,");
   });
+
+  it("can sign outgoing login emails with app-managed DKIM keys", () => {
+    const source = readFileSync(resolve(__dirname, "emailDelivery.ts"), "utf8");
+    const envSource = readFileSync(resolve(__dirname, "../env.ts"), "utf8");
+
+    expect(envSource).toContain("DKIM_DOMAIN");
+    expect(envSource).toContain("DKIM_SELECTOR");
+    expect(envSource).toContain("DKIM_PRIVATE_KEY");
+    expect(source).toContain("buildDkimConfig");
+    expect(source).toContain("keySelector: env.DKIM_SELECTOR");
+    expect(source).toContain("domainName: env.DKIM_DOMAIN");
+    expect(source).toContain('replace(/\\\\n/g, "\\n")');
+    expect(source).toContain("dkim: buildDkimConfig()");
+  });
 });

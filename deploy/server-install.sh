@@ -213,7 +213,14 @@ fi
 SMTP_FROM="${SMTP_FROM:-$(prompt "SMTP from (пример: Club <club@myn8nservertest.ru>)" "Club <$SMTP_FROM_DEFAULT>")}"
 echo
 
-echo "5.2. Web Push VAPID ключи."
+echo "5.2. DKIM для писем."
+echo "Если у почтового сервиса нет готовой DKIM-записи, можно настроить app-managed DKIM позже."
+DKIM_DOMAIN="${DKIM_DOMAIN:-$(prompt "DKIM domain (пусто = пропустить)" "")}"
+DKIM_SELECTOR="${DKIM_SELECTOR:-$(prompt "DKIM selector (например club; пусто = пропустить)" "")}"
+DKIM_PRIVATE_KEY="${DKIM_PRIVATE_KEY:-$(prompt_secret "DKIM private key PEM одной строкой с \\n (пусто = пропустить)")}"
+echo
+
+echo "5.3. Web Push VAPID ключи."
 echo "PWA push-ключи создаются автоматически, вручную их готовить не нужно."
 echo "Контакт обычно выглядит так: mailto:club@myn8nservertest.ru"
 EXISTING_WEB_PUSH_PUBLIC_KEY="$(existing_env_value "$DEPLOY_DIR/.env" WEB_PUSH_PUBLIC_KEY || true)"
@@ -269,6 +276,9 @@ SMTP_PORT=$SMTP_PORT
 SMTP_USER=$SMTP_USER
 SMTP_PASSWORD=$SMTP_PASSWORD
 SMTP_FROM=$SMTP_FROM
+DKIM_DOMAIN=$DKIM_DOMAIN
+DKIM_SELECTOR=$DKIM_SELECTOR
+DKIM_PRIVATE_KEY=$DKIM_PRIVATE_KEY
 WEB_PUSH_PUBLIC_KEY=$WEB_PUSH_PUBLIC_KEY
 WEB_PUSH_PRIVATE_KEY=$WEB_PUSH_PRIVATE_KEY
 WEB_PUSH_SUBJECT=$WEB_PUSH_SUBJECT
