@@ -184,6 +184,11 @@ function hasMobileUserAgent(userAgent: string | null | undefined) {
   return /Android|iPhone|iPad|iPod/i.test(userAgent ?? "");
 }
 
+function hasHandheldMobileUserAgent(userAgent: string | null | undefined) {
+  const normalizedUserAgent = userAgent ?? "";
+  return /iPhone|iPod/i.test(normalizedUserAgent) || (/Android/i.test(normalizedUserAgent) && /Mobile/i.test(normalizedUserAgent));
+}
+
 export function getMeasuredViewportWidth(input: ViewportWidthInput) {
   const liveWidths = [input.visualWidth, input.browserWidth].filter(
     (width): width is number => Number.isFinite(width) && Number(width) > 0
@@ -200,12 +205,18 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
   const needsViewportCompensation = input.hasTouchInput && input.layoutWidth >= 700 && viewportScale >= 1.35;
   const isMobileUserAgent = input.hasTouchInput && hasMobileUserAgent(input.userAgent);
+  const needsHandheldWideViewportScale = input.hasTouchInput && input.layoutWidth >= 700 && hasHandheldMobileUserAgent(input.userAgent);
   const isMobileDeviceShell =
     input.hasTouchInput && (isMobileUserAgent || needsViewportCompensation || (deviceScreenWidth > 0 && deviceScreenWidth <= 720));
+  const scale = needsViewportCompensation
+    ? roundedTo(Math.min(2.8, Math.max(1, viewportScale)), 3)
+    : needsHandheldWideViewportScale
+      ? roundedTo(Math.min(2.8, Math.max(1, input.layoutWidth / 390)), 3)
+      : 1;
 
   return {
     isMobileDeviceShell,
-    scale: needsViewportCompensation ? roundedTo(Math.min(2.8, Math.max(1, viewportScale)), 3) : 1
+    scale
   };
 }
 

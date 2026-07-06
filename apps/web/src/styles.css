@@ -1005,6 +1005,14 @@ body.club-mobile-device .auth-form label {
   font-size: 0.98rem;
 }
 
+body.club-mobile-auth-scaled .content-panel-auth .auth-panel,
+body.club-mobile-auth-scaled .content-panel-auth .auth-install-required {
+  width: calc(100% / var(--club-auth-wide-viewport-scale, 1));
+  max-width: none;
+  transform: scale(var(--club-auth-wide-viewport-scale, 1));
+  transform-origin: top center;
+}
+
 body.club-mobile-device .app-root:not(.app-root-no-user) .app-layout {
   display: block;
   grid-template-columns: none;

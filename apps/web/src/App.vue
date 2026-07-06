@@ -223,6 +223,11 @@ function setLayoutCssVariable(name: string, value: string) {
   document.body.style.setProperty(name, value);
 }
 
+function removeLayoutCssVariable(name: string) {
+  document.documentElement.style.removeProperty(name);
+  document.body.style.removeProperty(name);
+}
+
 function syncMobileDeviceShell(layoutWidth: number) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
@@ -239,8 +244,17 @@ function syncMobileDeviceShell(layoutWidth: number) {
   });
 
   isMobileDeviceShell.value = mobileDeviceShell.isMobileDeviceShell;
+  const shouldScaleAuth = mobileDeviceShell.isMobileDeviceShell && mobileDeviceShell.scale > 1;
   document.documentElement.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
   document.body.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
+  document.documentElement.classList.toggle("club-mobile-auth-scaled", shouldScaleAuth);
+  document.body.classList.toggle("club-mobile-auth-scaled", shouldScaleAuth);
+
+  if (shouldScaleAuth) {
+    setLayoutCssVariable("--club-auth-wide-viewport-scale", `${mobileDeviceShell.scale}`);
+  } else {
+    removeLayoutCssVariable("--club-auth-wide-viewport-scale");
+  }
 }
 
 function syncPlatformClasses() {
@@ -601,11 +615,14 @@ onBeforeUnmount(() => {
   }
   document.documentElement.classList.remove("club-mobile-device");
   document.body.classList.remove("club-mobile-device");
+  document.documentElement.classList.remove("club-mobile-auth-scaled");
+  document.body.classList.remove("club-mobile-auth-scaled");
   syncLayoutClasses([document.documentElement, document.body], []);
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
   document.documentElement.style.removeProperty("--club-calibrated-bottom-offset");
   document.body.style.removeProperty("--club-calibrated-bottom-offset");
+  removeLayoutCssVariable("--club-auth-wide-viewport-scale");
 });
 </script>
 

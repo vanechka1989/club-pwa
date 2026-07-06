@@ -411,6 +411,16 @@ describe("App", () => {
     );
   });
 
+  it("scales only the pre-login auth surface when a mobile PWA reports a desktop-width viewport", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("club-mobile-auth-scaled");
+    expect(appSource).toContain("--club-auth-wide-viewport-scale");
+    expect(styles).toMatch(
+      /body\.club-mobile-auth-scaled \.content-panel-auth \.auth-panel,\s*body\.club-mobile-auth-scaled \.content-panel-auth \.auth-install-required\s*{[\s\S]*width: calc\(100% \/ var\(--club-auth-wide-viewport-scale, 1\)\);[\s\S]*transform: scale\(var\(--club-auth-wide-viewport-scale, 1\)\);/
+    );
+  });
+
   it("uses a PWA-first mobile device shell instead of zooming a desktop viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
