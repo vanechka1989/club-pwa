@@ -225,6 +225,20 @@ describe("App", () => {
     expect(styles).toContain("padding: var(--space-card);");
   });
 
+  it("defines separate mobile bottom navigation and desktop sidebar surfaces", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("desktop-sidebar");
+    expect(appSource).toContain("desktop-sidebar-nav");
+    expect(appSource).toContain("mobile-bottom-nav");
+    expect(appSource).toContain("desktop-sidebar-user");
+    expect(appSource).toContain("visibleNavItems");
+    expect(styles).toContain("@media (min-width: 1024px)");
+    expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.desktop-sidebar\s*{[\s\S]*display: flex;/);
+    expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.mobile-bottom-nav\s*{[\s\S]*display: none;/);
+    expect(styles).toMatch(/@media \(max-width: 1023px\)[\s\S]*\.desktop-sidebar\s*{[\s\S]*display: none;/);
+  });
+
   it("keeps one compact side gutter across normal section tabs", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

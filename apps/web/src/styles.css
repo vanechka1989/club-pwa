@@ -58,6 +58,9 @@
   --ui-button-height: 2.45rem;
   --ui-button-radius: 12px;
   --ui-control-radius: 14px;
+  --desktop-sidebar-width: clamp(15rem, 18vw, 17.5rem);
+  --desktop-content-max: 82.5rem;
+  --desktop-shell-gutter: clamp(1rem, 2.6vw, 2.5rem);
 }
 
 :root[data-theme="dark"] {
@@ -356,7 +359,22 @@ button:disabled {
   --nav-space: 0rem;
 }
 
+.app-layout {
+  width: 100%;
+  min-height: var(--app-viewport-height);
+}
+
+.desktop-sidebar {
+  display: none;
+}
+
 .app-shell {
+  display: flex;
+  width: 100%;
+  max-width: 56rem;
+  min-height: var(--app-viewport-height);
+  flex-direction: column;
+  margin: 0 auto;
   gap: var(--space-section);
   padding: var(--space-section) var(--screen-gutter);
 }
@@ -8331,6 +8349,146 @@ body.club-huawei.club-screen-narrow .profile-info-row strong {
   padding: 1rem;
 }
 
+.desktop-sidebar-brand,
+.desktop-sidebar-user {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 78%, transparent);
+  padding: 0.72rem;
+}
+
+.desktop-sidebar-brand strong,
+.desktop-sidebar-brand span,
+.desktop-sidebar-user strong,
+.desktop-sidebar-user span,
+.desktop-sidebar-user em {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-sidebar-brand strong,
+.desktop-sidebar-user strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 820;
+}
+
+.desktop-sidebar-brand span,
+.desktop-sidebar-user span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.desktop-sidebar-user em {
+  margin-top: 0.16rem;
+  color: var(--success-text);
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 780;
+}
+
+.desktop-sidebar-logo,
+.desktop-sidebar-avatar {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 28% 22%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 42%),
+    color-mix(in srgb, var(--accent-soft) 86%, var(--panel));
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.desktop-sidebar-avatar {
+  border-radius: 999px;
+}
+
+.desktop-sidebar-nav {
+  display: grid;
+  gap: 0.38rem;
+  margin-top: 0.3rem;
+}
+
+.desktop-sidebar-item {
+  position: relative;
+  display: grid;
+  min-height: 2.85rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--muted-strong);
+  padding: 0 0.78rem;
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.desktop-sidebar-item > span:not(.desktop-sidebar-dot, .desktop-sidebar-badge) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.desktop-sidebar-item:hover,
+.desktop-sidebar-item:focus-visible {
+  border-color: color-mix(in srgb, var(--border) 76%, transparent);
+  background: color-mix(in srgb, var(--panel-strong) 68%, transparent);
+  color: var(--text);
+}
+
+.desktop-sidebar-item-active {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel-strong));
+  color: var(--text);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.desktop-sidebar-dot,
+.desktop-sidebar-badge {
+  display: grid;
+  place-items: center;
+  border: 2px solid color-mix(in srgb, var(--panel) 92%, transparent);
+  border-radius: 999px;
+  background: var(--danger);
+  color: white;
+  box-shadow: 0 7px 15px color-mix(in srgb, var(--danger) 28%, transparent);
+}
+
+.desktop-sidebar-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+}
+
+.desktop-sidebar-badge {
+  min-width: 1.12rem;
+  height: 1.12rem;
+  padding: 0 0.25rem;
+  font-size: 0.6rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .bottom-nav {
   position: fixed;
   right: max(0.75rem, calc(var(--club-safe-right) + 0.75rem));
@@ -9099,6 +9257,65 @@ body.club-huawei.club-screen-narrow .bottom-nav-item-active {
 
 body.club-huawei.club-screen-narrow .bottom-nav-mail-badge {
   box-shadow: none;
+}
+
+@media (max-width: 1023px) {
+  .desktop-sidebar {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-root {
+    --nav-space: 0px;
+    min-height: var(--app-viewport-height);
+    padding-bottom: 0;
+  }
+
+  .app-root.nav-is-collapsed,
+  body.club-screen-short:not(.community-chat-open) {
+    --nav-space: 0px;
+  }
+
+  .app-layout {
+    display: grid;
+    min-height: var(--app-viewport-height);
+    grid-template-columns: var(--desktop-sidebar-width) minmax(0, 1fr);
+  }
+
+  .desktop-sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    height: var(--app-viewport-height);
+    min-height: 100dvh;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    border-right: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    padding: 1.1rem;
+    color: var(--text);
+    box-shadow: 16px 0 48px rgb(0 0 0 / 18%);
+  }
+
+  .app-shell {
+    max-width: var(--desktop-content-max);
+    min-height: var(--app-viewport-height);
+    padding: clamp(1rem, 2vw, 1.6rem) var(--desktop-shell-gutter) 2rem;
+  }
+
+  .content-panel {
+    min-height: calc(var(--app-viewport-height) - 3.2rem);
+  }
+
+  .mobile-bottom-nav {
+    display: none;
+  }
+
+  .mobile-bottom-nav-toggle {
+    display: none;
+  }
 }
 
 @media (pointer: coarse) {

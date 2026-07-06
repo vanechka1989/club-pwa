@@ -425,6 +425,23 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
   }
 });
 
+test("uses the desktop sidebar only above the app breakpoint", async ({ page }) => {
+  const isDesktop = (page.viewportSize()?.width ?? 0) >= 1024;
+  const sidebar = page.locator(".desktop-sidebar");
+  const bottomNav = page.locator(".mobile-bottom-nav");
+
+  if (isDesktop) {
+    await expect(sidebar).toBeVisible();
+    await expect(bottomNav).toHaveCount(0);
+    await expect(page.locator(".app-layout")).toHaveCSS("display", "grid");
+  } else {
+    await expect(sidebar).toHaveCount(0);
+    await expect(bottomNav).toBeVisible();
+  }
+
+  await expectNoHorizontalOverflow(page);
+});
+
 test("keeps compact Android headers below Telegram top controls", async ({ page }, testInfo) => {
   test.skip(!["huawei-nova-9-se", "oneplus-mt2111", "android-compact-320"].includes(testInfo.project.name));
 

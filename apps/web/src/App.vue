@@ -39,10 +39,13 @@ const activeSection = ref<AppSection>("profile");
 const navCollapsed = ref(false);
 const uploadDetailsOpen = ref(false);
 const communityChatOpen = ref(false);
+const isDesktopLayout = ref(false);
 const supportUnreadCount = ref(0);
 const adminClientTelegramId = ref<string | null>(null);
 const supportReturnTicketId = ref<string | null>(null);
 const adminClientOpenedFromSupport = ref(false);
+let desktopLayoutQuery: MediaQueryList | null = null;
+let removeDesktopLayoutListener: (() => void) | null = null;
 let paymentWatchTimer: number | null = null;
 let sessionRefreshTimer: number | null = null;
 let supportUnreadTimer: number | null = null;
@@ -116,6 +119,16 @@ function isSectionAvailable(item: (typeof navItems)[number]) {
 }
 
 const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
+const userDisplayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
+const userContact = computed(() => session.user?.username || session.user?.telegramId || "");
+const userInitial = computed(() => userDisplayName.value.trim().slice(0, 1).toUpperCase() || "C");
+const membershipLabel = computed(() => {
+  if (!session.user) {
+    return "";
+  }
+
+  return session.user.membershipStatus === "active" ? t("profileAccessActive") : t("profileSubscriptionInactive");
+});
 const uploadProgressRadius = 23;
 const uploadProgressCircumference = Math.round(2 * Math.PI * uploadProgressRadius);
 const uploadProgressOffset = computed(() => {
@@ -217,6 +230,33 @@ function syncPlatformClasses() {
     userAgent: window.navigator.userAgent
   });
   syncLayoutClasses([document.documentElement, document.body], layoutClasses);
+}
+
+function syncDesktopLayout() {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    isDesktopLayout.value = false;
+    return;
+  }
+
+  if (removeDesktopLayoutListener) {
+    removeDesktopLayoutListener();
+    removeDesktopLayoutListener = null;
+  }
+
+  desktopLayoutQuery = window.matchMedia("(min-width: 1024px)");
+  const updateDesktopLayout = (event?: MediaQueryListEvent) => {
+    isDesktopLayout.value = event?.matches ?? desktopLayoutQuery?.matches ?? false;
+  };
+  updateDesktopLayout();
+
+  if (desktopLayoutQuery.addEventListener) {
+    desktopLayoutQuery.addEventListener("change", updateDesktopLayout);
+    removeDesktopLayoutListener = () => desktopLayoutQuery?.removeEventListener("change", updateDesktopLayout);
+    return;
+  }
+
+  desktopLayoutQuery.addListener(updateDesktopLayout);
+  removeDesktopLayoutListener = () => desktopLayoutQuery?.removeListener(updateDesktopLayout);
 }
 
 function syncViewportHeight() {
@@ -470,6 +510,7 @@ onMounted(() => {
   document.documentElement.classList.remove("club-telegram-webview");
   document.body.classList.remove("club-telegram-webview");
   syncAppFullscreen(ui.fullscreenEnabled);
+  syncDesktopLayout();
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
   window.visualViewport?.addEventListener("scroll", syncViewportHeight);
   window.addEventListener("resize", syncViewportHeight);
@@ -549,6 +590,11 @@ onBeforeUnmount(() => {
   window.removeEventListener("resize", syncViewportHeight);
   document.removeEventListener("focusin", handleTextFieldFocusIn);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
+  if (removeDesktopLayoutListener) {
+    removeDesktopLayoutListener();
+    removeDesktopLayoutListener = null;
+  }
+  desktopLayoutQuery = null;
   if (keyboardFocusTimer) {
     window.clearTimeout(keyboardFocusTimer);
     keyboardFocusTimer = null;
@@ -669,37 +715,82 @@ onBeforeUnmount(() => {
         <span :style="{ width: `${lessonUploads.activeUpload?.progress ?? 0}%` }"></span>
       </div>
     </aside>
-    <section class="app-shell mx-auto flex min-h-screen w-full max-w-4xl flex-col px-1 py-4 sm:px-6 sm:py-6">
-      <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
-        <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
-
-        <AuthSection v-else-if="session.error || !session.user" />
-
-        <div v-else-if="session.user" class="section-host">
-          <ProfileSection v-if="activeSection === 'profile'" @open-payments="selectSection('payments')" />
-          <LearningSection v-else-if="activeSection === 'learning'" />
-          <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
-          <PaymentsSection v-else-if="activeSection === 'payments'" />
-          <SupportSection
-            v-else-if="activeSection === 'support'"
-            :open-ticket-id="supportReturnTicketId"
-            @unread-change="supportUnreadCount = $event"
-            @open-client="openAdminClientFromSupport"
-            @return-ticket-consumed="supportReturnTicketId = null"
-          />
-          <AdminSection
-            v-else
-            :open-client-telegram-id="adminClientTelegramId"
-            @client-card-close="handleAdminClientCardClose"
-            @preview-mode-change="handlePreviewModeChange"
-          />
+    <div class="app-layout">
+      <aside v-if="session.user && isDesktopLayout" class="desktop-sidebar" aria-label="Club sections">
+        <div class="desktop-sidebar-brand">
+          <span class="desktop-sidebar-logo">C</span>
+          <div>
+            <strong>{{ t("tagline") }}</strong>
+            <span>{{ t("headline") }}</span>
+          </div>
         </div>
-      </div>
-    </section>
+
+        <div class="desktop-sidebar-user">
+          <span class="desktop-sidebar-avatar">{{ userInitial }}</span>
+          <div>
+            <strong>{{ userDisplayName }}</strong>
+            <span>{{ userContact }}</span>
+            <em>{{ membershipLabel }}</em>
+          </div>
+        </div>
+
+        <nav class="desktop-sidebar-nav" aria-label="Club sections">
+          <button
+            v-for="item in visibleNavItems"
+            :key="`desktop-${item.id}`"
+            class="desktop-sidebar-item"
+            :class="{ 'desktop-sidebar-item-active': activeSection === item.id }"
+            type="button"
+            :aria-label="t(item.labelKey)"
+            :aria-pressed="activeSection === item.id"
+            @click="selectSection(item.id)"
+          >
+            <component :is="item.icon" class="h-5 w-5" aria-hidden="true" />
+            <span>{{ t(item.labelKey) }}</span>
+            <span
+              v-if="item.id === 'profile' && notifications.unreadCount > 0"
+              class="desktop-sidebar-dot"
+              aria-label="Есть новые уведомления"
+            ></span>
+            <span v-if="item.id === 'support' && supportUnreadCount > 0" class="desktop-sidebar-badge">
+              {{ supportUnreadCount > 9 ? "9+" : supportUnreadCount }}
+            </span>
+          </button>
+        </nav>
+      </aside>
+
+      <section class="app-shell">
+        <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
+          <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
+
+          <AuthSection v-else-if="session.error || !session.user" />
+
+          <div v-else-if="session.user" class="section-host">
+            <ProfileSection v-if="activeSection === 'profile'" @open-payments="selectSection('payments')" />
+            <LearningSection v-else-if="activeSection === 'learning'" />
+            <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
+            <PaymentsSection v-else-if="activeSection === 'payments'" />
+            <SupportSection
+              v-else-if="activeSection === 'support'"
+              :open-ticket-id="supportReturnTicketId"
+              @unread-change="supportUnreadCount = $event"
+              @open-client="openAdminClientFromSupport"
+              @return-ticket-consumed="supportReturnTicketId = null"
+            />
+            <AdminSection
+              v-else
+              :open-client-telegram-id="adminClientTelegramId"
+              @client-card-close="handleAdminClientCardClose"
+              @preview-mode-change="handlePreviewModeChange"
+            />
+          </div>
+        </div>
+      </section>
+    </div>
 
     <button
-      v-if="session.user"
-      class="bottom-nav-toggle"
+      v-if="session.user && !isDesktopLayout"
+      class="bottom-nav-toggle mobile-bottom-nav-toggle"
       type="button"
       :aria-label="navCollapsed ? 'Показать меню' : 'Свернуть меню'"
       @click="toggleNavCollapsed"
@@ -708,7 +799,7 @@ onBeforeUnmount(() => {
       <ChevronDown v-else class="h-4 w-4" aria-hidden="true" />
     </button>
 
-    <nav v-if="session.user" class="bottom-nav" :class="{ 'bottom-nav-collapsed': navCollapsed }" aria-label="Club sections">
+    <nav v-if="session.user && !isDesktopLayout" class="bottom-nav mobile-bottom-nav" :class="{ 'bottom-nav-collapsed': navCollapsed }" aria-label="Club sections">
       <button
         v-for="item in visibleNavItems"
         :key="item.id"
