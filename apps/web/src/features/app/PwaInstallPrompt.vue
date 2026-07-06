@@ -3,6 +3,15 @@ import { Download, Share, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { pwaInstallRequestEventName } from "@/features/app/pwaInstall";
 
+const props = withDefaults(
+  defineProps<{
+    showCard?: boolean;
+  }>(),
+  {
+    showCard: true
+  }
+);
+
 type BeforeInstallPromptChoice = {
   outcome: "accepted" | "dismissed";
   platform: string;
@@ -57,13 +66,14 @@ function detectPlatform() {
 }
 
 function scheduleInstallCard() {
-  if (showTimer || isInstalled.value || isDismissedForSession.value) {
+  if (!props.showCard || showTimer || isInstalled.value || isDismissedForSession.value) {
     return;
   }
 
   showTimer = window.setTimeout(() => {
     showTimer = null;
     if (
+      props.showCard &&
       !isInstalled.value &&
       !isDismissedForSession.value &&
       (canUseNativePrompt.value || shouldShowIosInstructions.value || shouldShowFallbackInstructions.value)
@@ -121,7 +131,7 @@ function handleInstallRequest() {
     return;
   }
 
-  if (!isInstalled.value) {
+  if (props.showCard && !isInstalled.value) {
     isVisible.value = true;
   }
 }
@@ -146,7 +156,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside v-if="isVisible" class="pwa-install-card" aria-live="polite" :aria-label="title">
+  <aside v-if="props.showCard && isVisible" class="pwa-install-card" aria-live="polite" :aria-label="title">
     <button class="pwa-install-close" type="button" aria-label="Закрыть подсказку установки" @click="dismissInstallCard">
       <X class="h-4 w-4" aria-hidden="true" />
     </button>

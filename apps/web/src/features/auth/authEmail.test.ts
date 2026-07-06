@@ -75,6 +75,17 @@ describe("email auth UI", () => {
     window.removeEventListener("club-pwa-install-request", installRequest);
   });
 
+  it("shows a desktop Chrome fallback after the install button is pressed", async () => {
+    renderAuth(createPinia(), { standalone: false });
+
+    expect(screen.queryByText(/Chrome не открыл окно установки автоматически/)).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Установить приложение" }));
+
+    expect(screen.getByText(/Chrome не открыл окно установки автоматически/)).toBeTruthy();
+    expect(screen.getByText(/иконку установки в адресной строке/)).toBeTruthy();
+  });
+
   it("uses email auth endpoints instead of Telegram initData", () => {
     const client = readFileSync(resolve(process.cwd(), "src/api/client.ts"), "utf8");
     const session = readFileSync(resolve(process.cwd(), "src/stores/session.ts"), "utf8");

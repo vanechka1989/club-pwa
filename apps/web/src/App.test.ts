@@ -132,6 +132,21 @@ describe("App", () => {
     expect(await screen.findByRole("button", { name: "Получить код" })).toBeTruthy();
   });
 
+  it("uses one install surface before login", async () => {
+    stubStandaloneDisplay(false);
+    render(App, {
+      global: {
+        plugins: [createPinia()]
+      }
+    });
+
+    expect(await screen.findByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy());
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
+
+    expect(screen.queryByRole("complementary", { name: "Установите Club как приложение" })).toBeNull();
+  });
+
   it("restores the email code form without the generic login error after returning from mail", async () => {
     let rejectLoad!: (reason?: unknown) => void;
     vi.mocked(getMe).mockImplementationOnce(

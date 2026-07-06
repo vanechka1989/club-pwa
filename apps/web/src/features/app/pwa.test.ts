@@ -86,6 +86,16 @@ describe("PWA shell", () => {
     expect(screen.getByText(/Если кнопки установки нет/)).toBeTruthy();
   });
 
+  it("can hide the floating install card while still listening for install requests", async () => {
+    vi.useFakeTimers();
+
+    render(PwaInstallPrompt, { props: { showCard: false } });
+    await vi.advanceTimersByTimeAsync(400);
+    await nextTick();
+
+    expect(screen.queryByRole("complementary", { name: "Установите Club как приложение" })).toBeNull();
+  });
+
   it("opens the native install prompt when the login gate requests installation", async () => {
     const prompt = vi.fn().mockResolvedValue(undefined);
     const event = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
@@ -97,7 +107,7 @@ describe("PWA shell", () => {
     event.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
     event.platforms = ["web"];
 
-    render(PwaInstallPrompt);
+    render(PwaInstallPrompt, { props: { showCard: false } });
     window.dispatchEvent(event);
     window.dispatchEvent(new CustomEvent("club-pwa-install-request"));
 

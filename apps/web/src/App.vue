@@ -795,6 +795,6 @@ onBeforeUnmount(() => {
     </nav>
     <AppOperationIndicator />
     <AppNotifications />
-    <PwaInstallPrompt />
+    <PwaInstallPrompt :show-card="Boolean(session.user)" />
   </main>
 </template>

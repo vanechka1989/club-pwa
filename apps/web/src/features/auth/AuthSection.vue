@@ -13,6 +13,7 @@ const localError = ref<string | null>(null);
 const resendAvailableAt = ref<number | null>(null);
 const nowMs = ref(Date.now());
 const isInstalledPwa = ref(isStandalonePwa());
+const installFallbackVisible = ref(false);
 const resendCooldownMs = 60_000;
 let resendCooldownTimer: number | null = null;
 
@@ -135,6 +136,7 @@ function changeEmail() {
 }
 
 function installApp() {
+  installFallbackVisible.value = true;
   requestPwaInstallPrompt();
 }
 
@@ -169,8 +171,9 @@ onBeforeUnmount(() => {
       Установить приложение
     </button>
 
-    <p class="auth-hint">
-      Если окно установки не открылось, нажмите меню браузера ⋮ и выберите “Установить приложение”.
+    <p v-if="installFallbackVisible" class="auth-hint" aria-live="polite">
+      Chrome не открыл окно установки автоматически. Нажмите иконку установки в адресной строке или откройте меню ⋮ и выберите
+      “Установить приложение”.
     </p>
   </section>
 
