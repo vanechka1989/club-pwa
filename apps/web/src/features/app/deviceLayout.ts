@@ -16,7 +16,7 @@ export type ViewportWidthInput = {
   devicePixelRatio?: number | null;
 };
 
-export type DesktopViewportMobileScaleInput = ViewportWidthInput & {
+export type MobileDeviceShellScaleInput = ViewportWidthInput & {
   layoutWidth: number;
   hasTouchInput: boolean;
 };
@@ -190,14 +190,15 @@ export function getMeasuredViewportWidth(input: ViewportWidthInput) {
   return rounded(getCssDeviceScreenWidth(input));
 }
 
-export function getDesktopViewportMobileScale(input: DesktopViewportMobileScaleInput) {
+export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const deviceScreenWidth = getCssDeviceScreenWidth(input);
   const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
-  const isDesktopViewportMobile = input.hasTouchInput && input.layoutWidth >= 700 && viewportScale >= 1.35;
+  const needsViewportCompensation = input.hasTouchInput && input.layoutWidth >= 700 && viewportScale >= 1.35;
+  const isMobileDeviceShell = input.hasTouchInput && (needsViewportCompensation || (deviceScreenWidth > 0 && deviceScreenWidth <= 720));
 
   return {
-    isDesktopViewportMobile,
-    scale: isDesktopViewportMobile ? roundedTo(Math.min(2.8, Math.max(1, viewportScale)), 3) : 1
+    isMobileDeviceShell,
+    scale: needsViewportCompensation ? roundedTo(Math.min(2.8, Math.max(1, viewportScale)), 3) : 1
   };
 }
 

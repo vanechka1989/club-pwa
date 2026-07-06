@@ -161,7 +161,8 @@ describe("email auth UI", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy());
-    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.getByText("Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.queryByText("Код из письма. Введите 6 цифр из письма.")).toBeNull();
     expect(screen.queryByText(/Код отправлен на ivan.club@example.com/)).toBeNull();
     expect(screen.getByLabelText("Код")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Получить код" })).toBeNull();
@@ -170,7 +171,8 @@ describe("email auth UI", () => {
     renderAuth(pinia);
 
     expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
-    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.getByText("Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.queryByText("Код из письма. Введите 6 цифр из письма.")).toBeNull();
     expect(screen.getByLabelText("Код")).toBeTruthy();
   });
 
@@ -185,7 +187,8 @@ describe("email auth UI", () => {
     renderAuth(createPinia());
 
     expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
-    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.getByText("Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.queryByText("Код из письма. Введите 6 цифр из письма.")).toBeNull();
     expect(screen.getByLabelText("Код")).toBeTruthy();
   });
 

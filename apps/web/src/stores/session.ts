@@ -15,10 +15,6 @@ type StoredPendingEmailAuth = {
   resendAvailableAt?: number | null;
 };
 
-function buildEmailCodeMessage() {
-  return "Код из письма. Введите 6 цифр из письма.";
-}
-
 function normalizeStoredPendingEmail(value: unknown) {
   if (typeof value !== "string") {
     return null;
@@ -94,7 +90,7 @@ export const useSessionStore = defineStore("session", () => {
   const user = ref<ClubUser | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
-  const authMessage = ref<string | null>(restoredPendingEmailAuth.email ? buildEmailCodeMessage() : null);
+  const authMessage = ref<string | null>(null);
   const pendingEmail = ref(restoredPendingEmailAuth.email);
   const pendingEmailResendAvailableAt = ref<number | null>(restoredPendingEmailAuth.resendAvailableAt);
 
@@ -156,7 +152,7 @@ export const useSessionStore = defineStore("session", () => {
       savePendingEmailAuth(normalizedEmail, resendAvailableAt);
       authMessage.value = response.devCode
         ? `Код для разработки: ${response.devCode}. Введите его ниже.`
-        : buildEmailCodeMessage();
+        : null;
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось отправить код.";
@@ -167,7 +163,7 @@ export const useSessionStore = defineStore("session", () => {
         pendingEmail.value = normalizedEmail;
         pendingEmailResendAvailableAt.value = resendAvailableAt;
         savePendingEmailAuth(normalizedEmail, resendAvailableAt);
-        authMessage.value = buildEmailCodeMessage();
+        authMessage.value = null;
         authError.retryAfterSeconds = retryAfterSeconds;
       } else {
         authMessage.value = null;

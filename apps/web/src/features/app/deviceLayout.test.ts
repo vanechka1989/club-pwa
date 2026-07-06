@@ -3,7 +3,7 @@ import {
   calculateLayoutCalibration,
   collectDeviceDiagnostics,
   getDeviceLayoutClasses,
-  getDesktopViewportMobileScale,
+  getMobileDeviceShellScale,
   getMeasuredKeyboardBottomGap,
   getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
@@ -115,26 +115,26 @@ describe("device layout detection", () => {
     expect(getViewportSizeClasses({ width, height: 851 })).toEqual([]);
   });
 
-  it("only rescales touch browsers that really expose a desktop layout viewport", () => {
+  it("uses a mobile device shell for touch phones and only scales desktop layout viewports", () => {
     expect(
-      getDesktopViewportMobileScale({
+      getMobileDeviceShellScale({
         layoutWidth: 393,
         screenWidth: 1080,
         screenAvailWidth: 1080,
         devicePixelRatio: 2.75,
         hasTouchInput: true
       })
-    ).toEqual({ isDesktopViewportMobile: false, scale: 1 });
+    ).toEqual({ isMobileDeviceShell: true, scale: 1 });
 
     expect(
-      getDesktopViewportMobileScale({
+      getMobileDeviceShellScale({
         layoutWidth: 980,
         screenWidth: 1080,
         screenAvailWidth: 1080,
         devicePixelRatio: 2.75,
         hasTouchInput: true
       })
-    ).toEqual({ isDesktopViewportMobile: true, scale: 2.495 });
+    ).toEqual({ isMobileDeviceShell: true, scale: 2.495 });
   });
 
   it("uses the smallest live viewport height when mobile browsers expose stale visualViewport values", () => {

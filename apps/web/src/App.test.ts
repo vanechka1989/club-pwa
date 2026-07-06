@@ -172,7 +172,8 @@ describe("App", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(screen.queryByText("Войдите по email, чтобы открыть клуб.")).toBeNull();
-    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.getByText("Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.queryByText("Код из письма. Введите 6 цифр из письма.")).toBeNull();
     expect(screen.queryByText(/Код отправлен на ivan@example.com/)).toBeNull();
   });
 
@@ -374,22 +375,22 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.app-layout-auth\s*{[\s\S]*display: block;/);
   });
 
-  it("rescales auth and signed-in surfaces when a touch browser exposes a desktop layout viewport", () => {
+  it("uses a PWA-first mobile device shell instead of zooming a desktop viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(appSource).toContain("syncDesktopViewportMobileScale");
-    expect(appSource).toContain("club-desktop-viewport-mobile");
-    expect(appSource).toContain("isDesktopViewportMobile");
-    expect(appSource).toContain("isDesktopLayout && !isDesktopViewportMobile");
-    expect(appSource).toContain("!isDesktopLayout || isDesktopViewportMobile");
-    expect(appSource).toContain("--club-mobile-viewport-scale");
-    expect(styles).toContain(".club-desktop-viewport-mobile .content-panel-auth .auth-panel");
-    expect(styles).toContain(".club-desktop-viewport-mobile .app-root:not(.app-root-no-user)");
-    expect(styles).toContain("zoom: var(--club-mobile-viewport-scale);");
-    expect(styles).toContain(".club-desktop-viewport-mobile .app-root:not(.app-root-no-user) .app-shell");
-    expect(styles).toContain(".club-desktop-viewport-mobile .pwa-install-card");
-    expect(styles).toContain("transform: scale(var(--club-mobile-viewport-scale));");
-    expect(styles).toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
+    expect(appSource).toContain("syncMobileDeviceShell");
+    expect(appSource).toContain("club-mobile-device");
+    expect(appSource).toContain("isMobileDeviceShell");
+    expect(appSource).toContain("showDesktopNavigation");
+    expect(appSource).toContain("showMobileNavigation");
+    expect(appSource).toContain("--club-mobile-device-scale");
+    expect(styles).toContain("html.club-mobile-device");
+    expect(styles).toContain("font-size: calc(16px * var(--club-mobile-device-scale, 1));");
+    expect(styles).toContain("body.club-mobile-device .desktop-sidebar");
+    expect(styles).toContain("body.club-mobile-device .mobile-bottom-nav");
+    expect(styles).not.toContain("club-desktop-viewport-mobile");
+    expect(styles).not.toContain("zoom: var(--club-mobile-viewport-scale);");
+    expect(styles).not.toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
   });
 
   it("keeps one compact side gutter across normal section tabs", () => {

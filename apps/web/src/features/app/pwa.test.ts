@@ -28,7 +28,7 @@ describe("PWA shell", () => {
     const worker = readFileSync(workerPath, "utf8");
 
     expect(manifest.name).toContain("PWA");
-    expect(manifest.start_url).toBe("/");
+    expect(manifest.start_url).toBe("/?source=pwa");
     expect(manifest.display).toBe("standalone");
     expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
     expect(worker).toContain("push");
@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v2"');
+    expect(worker).toContain('const cacheName = "club-pwa-v3"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
   });
@@ -72,6 +72,8 @@ describe("PWA shell", () => {
     expect(display).toContain("standalone");
     expect(display).toContain("window-controls-overlay");
     expect(display).toContain("navigatorWithStandalone.standalone === true");
+    expect(display).toContain('searchParams.get("source") === "pwa"');
+    expect(display).toContain("club-pwa-installed");
     expect(display).toContain("display-mode: ${mode}");
     expect(prompt).toContain("prompt()");
     expect(prompt).toContain("Safari");

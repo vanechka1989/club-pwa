@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Download, Share, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
+import { isInstalledPwaDisplay, markInstalledPwa } from "@/features/app/pwaDisplay";
 import { pwaInstallRequestEventName } from "@/features/app/pwaInstall";
 
 const props = withDefaults(
@@ -81,6 +81,7 @@ function handleBeforeInstallPrompt(event: Event) {
 }
 
 function handleAppInstalled() {
+  markInstalledPwa();
   isInstalled.value = true;
   isVisible.value = false;
   installPrompt.value = null;
@@ -99,6 +100,7 @@ async function installApp() {
     installPrompt.value = null;
 
     if (choice.outcome === "accepted") {
+      markInstalledPwa();
       isInstalled.value = true;
     } else {
       isDismissedForSession.value = true;

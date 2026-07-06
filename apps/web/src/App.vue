@@ -12,11 +12,11 @@ import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
 import {
   calculateLayoutCalibration,
   collectCurrentDeviceDiagnostics,
-  getDesktopViewportMobileScale,
   getDeviceLayoutClasses,
   getMeasuredKeyboardBottomGap,
   getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
+  getMobileDeviceShellScale,
   getViewportSizeClasses,
   syncLayoutClasses
 } from "@/features/app/deviceLayout";
@@ -42,7 +42,7 @@ const navCollapsed = ref(false);
 const uploadDetailsOpen = ref(false);
 const communityChatOpen = ref(false);
 const isDesktopLayout = ref(false);
-const isDesktopViewportMobile = ref(false);
+const isMobileDeviceShell = ref(false);
 const supportUnreadCount = ref(0);
 const adminClientTelegramId = ref<string | null>(null);
 const supportReturnTicketId = ref<string | null>(null);
@@ -121,6 +121,8 @@ function isSectionAvailable(item: (typeof navItems)[number]) {
 }
 
 const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
+const showDesktopNavigation = computed(() => Boolean(session.user && isDesktopLayout.value && !isMobileDeviceShell.value));
+const showMobileNavigation = computed(() => Boolean(session.user && (!isDesktopLayout.value || isMobileDeviceShell.value)));
 const userDisplayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const userContact = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const userInitial = computed(() => userDisplayName.value.trim().slice(0, 1).toUpperCase() || "C");
@@ -222,13 +224,13 @@ function setLayoutCssVariable(name: string, value: string) {
   document.body.style.setProperty(name, value);
 }
 
-function syncDesktopViewportMobileScale(layoutWidth: number) {
+function syncMobileDeviceShell(layoutWidth: number) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
   }
 
   const hasTouchInput = Boolean(window.matchMedia?.("(pointer: coarse)").matches || window.navigator.maxTouchPoints > 0);
-  const desktopViewportMobileResult = getDesktopViewportMobileScale({
+  const mobileDeviceShell = getMobileDeviceShellScale({
     layoutWidth,
     screenWidth: window.screen?.width ?? null,
     screenAvailWidth: window.screen?.availWidth ?? null,
@@ -236,10 +238,10 @@ function syncDesktopViewportMobileScale(layoutWidth: number) {
     hasTouchInput
   });
 
-  isDesktopViewportMobile.value = desktopViewportMobileResult.isDesktopViewportMobile;
-  document.documentElement.classList.toggle("club-desktop-viewport-mobile", desktopViewportMobileResult.isDesktopViewportMobile);
-  document.body.classList.toggle("club-desktop-viewport-mobile", desktopViewportMobileResult.isDesktopViewportMobile);
-  setLayoutCssVariable("--club-mobile-viewport-scale", desktopViewportMobileResult.scale.toFixed(3));
+  isMobileDeviceShell.value = mobileDeviceShell.isMobileDeviceShell;
+  document.documentElement.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
+  document.body.classList.toggle("club-mobile-device", mobileDeviceShell.isMobileDeviceShell);
+  setLayoutCssVariable("--club-mobile-device-scale", mobileDeviceShell.scale.toFixed(3));
 }
 
 function syncPlatformClasses() {
@@ -298,7 +300,7 @@ function syncViewportHeight() {
     screenAvailWidth: window.screen?.availWidth ?? null,
     devicePixelRatio: window.devicePixelRatio ?? null
   });
-  syncDesktopViewportMobileScale(width);
+  syncMobileDeviceShell(width);
 
   if (height > 0) {
     document.documentElement.style.setProperty("--club-viewport-height", `${height}px`);
@@ -598,15 +600,15 @@ onBeforeUnmount(() => {
     window.clearTimeout(deviceDiagnosticsTimer);
     deviceDiagnosticsTimer = null;
   }
-  document.documentElement.classList.remove("club-desktop-viewport-mobile");
-  document.body.classList.remove("club-desktop-viewport-mobile");
+  document.documentElement.classList.remove("club-mobile-device");
+  document.body.classList.remove("club-mobile-device");
   syncLayoutClasses([document.documentElement, document.body], []);
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
   document.documentElement.style.removeProperty("--club-calibrated-bottom-offset");
   document.body.style.removeProperty("--club-calibrated-bottom-offset");
-  document.documentElement.style.removeProperty("--club-mobile-viewport-scale");
-  document.body.style.removeProperty("--club-mobile-viewport-scale");
+  document.documentElement.style.removeProperty("--club-mobile-device-scale");
+  document.body.style.removeProperty("--club-mobile-device-scale");
 });
 </script>
 
@@ -618,7 +620,8 @@ onBeforeUnmount(() => {
       'learning-active': activeSection === 'learning',
       'community-active': activeSection === 'community',
       'community-chat-open': activeSection === 'community' && communityChatOpen,
-      'app-root-no-user': !session.user
+      'app-root-no-user': !session.user,
+      'mobile-device-shell': isMobileDeviceShell
     }"
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
@@ -688,7 +691,7 @@ onBeforeUnmount(() => {
       </div>
     </aside>
     <div class="app-layout" :class="{ 'app-layout-auth': !session.user }">
-      <aside v-if="session.user && isDesktopLayout && !isDesktopViewportMobile" class="desktop-sidebar" aria-label="Club sections">
+      <aside v-if="showDesktopNavigation" class="desktop-sidebar" aria-label="Club sections">
         <div class="desktop-sidebar-brand">
           <span class="desktop-sidebar-logo">C</span>
           <div>
@@ -764,7 +767,7 @@ onBeforeUnmount(() => {
     </div>
 
     <button
-      v-if="session.user && (!isDesktopLayout || isDesktopViewportMobile)"
+      v-if="showMobileNavigation"
       class="bottom-nav-toggle mobile-bottom-nav-toggle"
       type="button"
       :aria-label="navCollapsed ? 'Показать меню' : 'Свернуть меню'"
@@ -775,7 +778,7 @@ onBeforeUnmount(() => {
     </button>
 
     <nav
-      v-if="session.user && (!isDesktopLayout || isDesktopViewportMobile)"
+      v-if="showMobileNavigation"
       class="bottom-nav mobile-bottom-nav"
       :class="{ 'bottom-nav-collapsed': navCollapsed }"
       aria-label="Club sections"

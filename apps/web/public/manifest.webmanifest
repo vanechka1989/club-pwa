@@ -2,7 +2,7 @@
   "name": "Club PWA",
   "short_name": "Club",
   "description": "Закрытый клуб в формате PWA",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f7f5ef",
