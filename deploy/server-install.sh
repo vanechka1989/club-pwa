@@ -122,6 +122,13 @@ echo
 echo "Установка PWA-клуба"
 echo "Если значение в квадратных скобках подходит, просто нажмите Enter."
 echo
+echo "Перед началом подготовьте:"
+echo "- домен для PWA с A-записью на IP сервера, например club2.myn8nservertest.ru"
+echo "- email владельца клуба, например owner@example.com"
+echo "- SMTP-ящик для кодов входа, например club@myn8nservertest.ru"
+echo "- SMTP пример Timeweb: host smtp.timeweb.ru, port 465, user полный ящик, password пароль от ящика"
+echo "- PWA push-ключи создаются автоматически, вручную их готовить не нужно"
+echo
 
 REPO_URL="${REPO_URL:-https://github.com/vanechka1989/club-pwa.git}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -177,15 +184,21 @@ echo
 
 echo "5.1. SMTP для кодов входа."
 echo "В production нужен SMTP, иначе email-коды не будут отправляться."
-SMTP_HOST="${SMTP_HOST:-$(prompt "SMTP host" "")}"
-SMTP_PORT="${SMTP_PORT:-$(prompt "SMTP port" "587")}"
-SMTP_USER="${SMTP_USER:-$(prompt "SMTP user" "")}"
-SMTP_PASSWORD="${SMTP_PASSWORD:-$(prompt_secret "SMTP password")}"
-SMTP_FROM="${SMTP_FROM:-$(prompt "SMTP from" "$OWNER_EMAIL")}"
+echo "SMTP пример Timeweb: host smtp.timeweb.ru, port 465, user club@myn8nservertest.ru"
+SMTP_HOST="${SMTP_HOST:-$(prompt "SMTP host (Timeweb: smtp.timeweb.ru)" "smtp.timeweb.ru")}"
+SMTP_PORT="${SMTP_PORT:-$(prompt "SMTP port (Timeweb SSL: 465)" "465")}"
+SMTP_USER="${SMTP_USER:-$(prompt "SMTP user (полный ящик, например club@myn8nservertest.ru)" "")}"
+SMTP_PASSWORD="${SMTP_PASSWORD:-$(prompt_secret "SMTP password (пароль от этого ящика; ввод скрыт)")}"
+SMTP_FROM_DEFAULT="$OWNER_EMAIL"
+if [[ -n "$SMTP_USER" ]]; then
+  SMTP_FROM_DEFAULT="$SMTP_USER"
+fi
+SMTP_FROM="${SMTP_FROM:-$(prompt "SMTP from (пример: Club <club@myn8nservertest.ru>)" "Club <$SMTP_FROM_DEFAULT>")}"
 echo
 
 echo "5.2. Web Push VAPID ключи."
-echo "Если ключи не переданы через env, установщик создаст их автоматически."
+echo "PWA push-ключи создаются автоматически, вручную их готовить не нужно."
+echo "Контакт обычно выглядит так: mailto:club@myn8nservertest.ru"
 EXISTING_WEB_PUSH_PUBLIC_KEY="$(existing_env_value "$DEPLOY_DIR/.env" WEB_PUSH_PUBLIC_KEY || true)"
 EXISTING_WEB_PUSH_PRIVATE_KEY="$(existing_env_value "$DEPLOY_DIR/.env" WEB_PUSH_PRIVATE_KEY || true)"
 WEB_PUSH_PUBLIC_KEY="${WEB_PUSH_PUBLIC_KEY:-$EXISTING_WEB_PUSH_PUBLIC_KEY}"

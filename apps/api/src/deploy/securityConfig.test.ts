@@ -45,4 +45,14 @@ describe("production security config", () => {
       expect(source).not.toContain("GitHub token нужен");
     }
   });
+
+  it("explains production prerequisites and SMTP inputs in the installers", () => {
+    for (const source of [serverInstall, sshInstall, publicInstall]) {
+      expect(source).toContain("Перед началом подготовьте");
+      expect(source).toContain("SMTP пример Timeweb");
+      expect(source).toContain("smtp.timeweb.ru");
+      expect(source).toContain("Club <club@myn8nservertest.ru>");
+      expect(source).toContain("PWA push-ключи создаются автоматически");
+    }
+  });
 });
