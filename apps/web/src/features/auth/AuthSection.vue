@@ -59,16 +59,29 @@ function stopResendCooldownTimer() {
 function tickResendCooldown() {
   nowMs.value = Date.now();
   if (resendRemainingSeconds.value <= 0) {
+    resendAvailableAt.value = null;
+    session.setPendingEmailResendAvailableAt(null);
     stopResendCooldownTimer();
   }
 }
 
-function startResendCooldown(seconds = resendCooldownMs / 1000) {
-  const timestamp = Date.now();
-  resendAvailableAt.value = timestamp + Math.max(1, seconds) * 1000;
-  nowMs.value = timestamp;
+function applyResendCooldown(availableAt: number | null) {
   stopResendCooldownTimer();
-  resendCooldownTimer = window.setInterval(tickResendCooldown, 1000);
+  nowMs.value = Date.now();
+  resendAvailableAt.value = availableAt && availableAt > nowMs.value ? availableAt : null;
+  if (resendAvailableAt.value) {
+    resendCooldownTimer = window.setInterval(tickResendCooldown, 1000);
+  }
+}
+
+function startResendCooldown(seconds = resendCooldownMs / 1000) {
+  const availableAt = Date.now() + Math.max(1, seconds) * 1000;
+  session.setPendingEmailResendAvailableAt(availableAt);
+  applyResendCooldown(availableAt);
+}
+
+function restoreResendCooldown() {
+  applyResendCooldown(session.pendingEmailResendAvailableAt);
 }
 
 function getRetryAfterSeconds(error: unknown) {
@@ -178,6 +191,7 @@ function addInstalledPwaListeners() {
 onMounted(() => {
   refreshInstalledPwaState();
   addInstalledPwaListeners();
+  restoreResendCooldown();
 });
 
 onBeforeUnmount(() => {

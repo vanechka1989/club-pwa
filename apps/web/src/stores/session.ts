@@ -7,14 +7,16 @@ type AuthRequestError = Error & { retryAfterSeconds?: number };
 
 const pendingEmailAuthStorageKey = "club-pending-email-auth";
 const pendingEmailAuthTtlMs = 10 * 60 * 1000;
+const pendingEmailResendCooldownMs = 60 * 1000;
 
 type StoredPendingEmailAuth = {
   email: string;
   expiresAt: number;
+  resendAvailableAt?: number | null;
 };
 
-function buildEmailCodeMessage(email: string) {
-  return `Код отправлен на ${email}. Введите 6 цифр ниже.`;
+function buildEmailCodeMessage() {
+  return "Код из письма. Введите 6 цифр из письма.";
 }
 
 function normalizeStoredPendingEmail(value: unknown) {
@@ -26,9 +28,13 @@ function normalizeStoredPendingEmail(value: unknown) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 320 ? email : null;
 }
 
+function normalizeStoredTimestamp(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > Date.now() ? value : null;
+}
+
 function readPendingEmailAuth() {
   if (typeof localStorage === "undefined") {
-    return "";
+    return { email: "", resendAvailableAt: null };
   }
 
   try {
@@ -36,23 +42,27 @@ function readPendingEmailAuth() {
     const email = normalizeStoredPendingEmail(parsed?.email);
     if (!email || typeof parsed?.expiresAt !== "number" || parsed.expiresAt <= Date.now()) {
       localStorage.removeItem(pendingEmailAuthStorageKey);
-      return "";
+      return { email: "", resendAvailableAt: null };
     }
 
-    return email;
+    return {
+      email,
+      resendAvailableAt: normalizeStoredTimestamp(parsed.resendAvailableAt)
+    };
   } catch {
     localStorage.removeItem(pendingEmailAuthStorageKey);
-    return "";
+    return { email: "", resendAvailableAt: null };
   }
 }
 
-function savePendingEmailAuth(email: string) {
+function savePendingEmailAuth(email: string, resendAvailableAt?: number | null) {
   try {
     localStorage.setItem(
       pendingEmailAuthStorageKey,
       JSON.stringify({
         email,
-        expiresAt: Date.now() + pendingEmailAuthTtlMs
+        expiresAt: Date.now() + pendingEmailAuthTtlMs,
+        resendAvailableAt: normalizeStoredTimestamp(resendAvailableAt)
       } satisfies StoredPendingEmailAuth)
     );
   } catch {
@@ -80,12 +90,13 @@ function getRetryAfterSeconds(reason: unknown) {
 }
 
 export const useSessionStore = defineStore("session", () => {
-  const restoredPendingEmail = readPendingEmailAuth();
+  const restoredPendingEmailAuth = readPendingEmailAuth();
   const user = ref<ClubUser | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
-  const authMessage = ref<string | null>(restoredPendingEmail ? buildEmailCodeMessage(restoredPendingEmail) : null);
-  const pendingEmail = ref(restoredPendingEmail);
+  const authMessage = ref<string | null>(restoredPendingEmailAuth.email ? buildEmailCodeMessage() : null);
+  const pendingEmail = ref(restoredPendingEmailAuth.email);
+  const pendingEmailResendAvailableAt = ref<number | null>(restoredPendingEmailAuth.resendAvailableAt);
 
   const isMember = computed(() => user.value?.membershipStatus === "active");
 
@@ -100,6 +111,7 @@ export const useSessionStore = defineStore("session", () => {
       user.value = response.user;
       error.value = null;
       pendingEmail.value = "";
+      pendingEmailResendAvailableAt.value = null;
       authMessage.value = null;
       clearPendingEmailAuth();
     } catch {
@@ -138,20 +150,24 @@ export const useSessionStore = defineStore("session", () => {
         email: normalizedEmail,
         ...(referralCode ? { referralCode } : {})
       });
+      const resendAvailableAt = Date.now() + pendingEmailResendCooldownMs;
       pendingEmail.value = normalizedEmail;
-      savePendingEmailAuth(normalizedEmail);
+      pendingEmailResendAvailableAt.value = resendAvailableAt;
+      savePendingEmailAuth(normalizedEmail, resendAvailableAt);
       authMessage.value = response.devCode
         ? `Код для разработки: ${response.devCode}. Введите его ниже.`
-        : buildEmailCodeMessage(normalizedEmail);
+        : buildEmailCodeMessage();
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось отправить код.";
       const authError: AuthRequestError = new Error(message);
       const retryAfterSeconds = getRetryAfterSeconds(error);
       if (retryAfterSeconds) {
+        const resendAvailableAt = Date.now() + retryAfterSeconds * 1000;
         pendingEmail.value = normalizedEmail;
-        savePendingEmailAuth(normalizedEmail);
-        authMessage.value = buildEmailCodeMessage(normalizedEmail);
+        pendingEmailResendAvailableAt.value = resendAvailableAt;
+        savePendingEmailAuth(normalizedEmail, resendAvailableAt);
+        authMessage.value = buildEmailCodeMessage();
         authError.retryAfterSeconds = retryAfterSeconds;
       } else {
         authMessage.value = null;
@@ -174,6 +190,7 @@ export const useSessionStore = defineStore("session", () => {
       });
       await load({ silent: true });
       pendingEmail.value = "";
+      pendingEmailResendAvailableAt.value = null;
       authMessage.value = null;
       clearPendingEmailAuth();
     } catch (error) {
@@ -186,9 +203,17 @@ export const useSessionStore = defineStore("session", () => {
 
   function resetEmailAuth() {
     pendingEmail.value = "";
+    pendingEmailResendAvailableAt.value = null;
     authMessage.value = null;
     error.value = null;
     clearPendingEmailAuth();
+  }
+
+  function setPendingEmailResendAvailableAt(value: number | null) {
+    pendingEmailResendAvailableAt.value = normalizeStoredTimestamp(value);
+    if (pendingEmail.value) {
+      savePendingEmailAuth(pendingEmail.value, pendingEmailResendAvailableAt.value);
+    }
   }
 
   async function logout() {
@@ -197,5 +222,21 @@ export const useSessionStore = defineStore("session", () => {
     resetEmailAuth();
   }
 
-  return { user, loading, error, authMessage, pendingEmail, isMember, load, subscribe, updateAvatar, requestEmailCode, verifyEmailCode, resetEmailAuth, logout };
+  return {
+    user,
+    loading,
+    error,
+    authMessage,
+    pendingEmail,
+    pendingEmailResendAvailableAt,
+    isMember,
+    load,
+    subscribe,
+    updateAvatar,
+    requestEmailCode,
+    verifyEmailCode,
+    resetEmailAuth,
+    setPendingEmailResendAvailableAt,
+    logout
+  };
 });

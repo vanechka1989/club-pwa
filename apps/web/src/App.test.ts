@@ -175,7 +175,8 @@ describe("App", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(screen.queryByText("Войдите по email, чтобы открыть клуб.")).toBeNull();
-    expect(screen.getByText("Код отправлен на ivan@example.com. Введите 6 цифр ниже.")).toBeTruthy();
+    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.queryByText(/Код отправлен на ivan@example.com/)).toBeNull();
   });
 
   it("resets window scroll when changing sections", async () => {

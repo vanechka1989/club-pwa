@@ -161,7 +161,8 @@ describe("email auth UI", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy());
-    expect(screen.getByText("Код отправлен на ivan.club@example.com. Введите 6 цифр ниже.")).toBeTruthy();
+    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
+    expect(screen.queryByText(/Код отправлен на ivan.club@example.com/)).toBeNull();
     expect(screen.getByLabelText("Код")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Получить код" })).toBeNull();
 
@@ -169,7 +170,7 @@ describe("email auth UI", () => {
     renderAuth(pinia);
 
     expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
-    expect(screen.getByText("Код отправлен на ivan.club@example.com. Введите 6 цифр ниже.")).toBeTruthy();
+    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
     expect(screen.getByLabelText("Код")).toBeTruthy();
   });
 
@@ -184,8 +185,32 @@ describe("email auth UI", () => {
     renderAuth(createPinia());
 
     expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
-    expect(screen.getByText("Код отправлен на ivan@example.com. Введите 6 цифр ниже.")).toBeTruthy();
+    expect(screen.getByText("Код из письма. Введите 6 цифр из письма.")).toBeTruthy();
     expect(screen.getByLabelText("Код")).toBeTruthy();
+  });
+
+  it("keeps the resend button disabled with a timer after the code step reloads", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderAuth(createPinia());
+
+    await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
+    await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз через 60с" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    cleanup();
+    renderAuth(createPinia());
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /Отправить код ещё раз через \d+с/ }) as HTMLButtonElement).disabled).toBe(true);
+    });
+    expect(screen.queryByRole("button", { name: "Отправить код ещё раз" })).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз" }) as HTMLButtonElement).disabled).toBe(false);
+    });
   });
 
   it("lets users resend the code without entering the email again after the cooldown", async () => {
