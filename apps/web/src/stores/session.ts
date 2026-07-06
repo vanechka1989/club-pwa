@@ -8,6 +8,7 @@ export const useSessionStore = defineStore("session", () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const authMessage = ref<string | null>(null);
+  const pendingEmail = ref("");
 
   const isMember = computed(() => user.value?.membershipStatus === "active");
 
@@ -48,17 +49,19 @@ export const useSessionStore = defineStore("session", () => {
   }
 
   async function requestEmailCode(email: string, referralCode?: string | null) {
+    const normalizedEmail = email.trim().toLowerCase();
     loading.value = true;
     error.value = null;
     authMessage.value = null;
     try {
       const response = await requestEmailCodeApi({
-        email,
-        ...(referralCode !== undefined ? { referralCode } : {})
+        email: normalizedEmail,
+        ...(referralCode ? { referralCode } : {})
       });
+      pendingEmail.value = normalizedEmail;
       authMessage.value = response.devCode
-        ? `Код для разработки: ${response.devCode}`
-        : "Код отправлен на email.";
+        ? `Код для разработки: ${response.devCode}. Введите его ниже.`
+        : `Код отправлен на ${normalizedEmail}. Введите 6 цифр ниже.`;
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось отправить код.";
@@ -70,15 +73,17 @@ export const useSessionStore = defineStore("session", () => {
   }
 
   async function verifyEmailCode(email: string, code: string, referralCode?: string | null) {
+    const normalizedEmail = email.trim().toLowerCase();
     loading.value = true;
     error.value = null;
     try {
       await verifyEmailCodeApi({
-        email,
+        email: normalizedEmail,
         code,
-        ...(referralCode !== undefined ? { referralCode } : {})
+        ...(referralCode ? { referralCode } : {})
       });
       await load({ silent: true });
+      pendingEmail.value = "";
       authMessage.value = null;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось войти.";
@@ -88,10 +93,17 @@ export const useSessionStore = defineStore("session", () => {
     }
   }
 
+  function resetEmailAuth() {
+    pendingEmail.value = "";
+    authMessage.value = null;
+    error.value = null;
+  }
+
   async function logout() {
     await logoutSession();
     user.value = null;
+    resetEmailAuth();
   }
 
-  return { user, loading, error, authMessage, isMember, load, subscribe, updateAvatar, requestEmailCode, verifyEmailCode, logout };
+  return { user, loading, error, authMessage, pendingEmail, isMember, load, subscribe, updateAvatar, requestEmailCode, verifyEmailCode, resetEmailAuth, logout };
 });

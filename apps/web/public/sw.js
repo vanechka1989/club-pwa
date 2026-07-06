@@ -1,5 +1,5 @@
-const cacheName = "club-pwa-v1";
-const appShell = ["/", "/manifest.webmanifest", "/icons/icon.svg"];
+const cacheName = "club-pwa-v2";
+const appShell = ["/manifest.webmanifest", "/icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(cacheName).then((cache) => cache.addAll(appShell)));
@@ -21,10 +21,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request, { cache: "no-store" }).catch(
+        () =>
+          new Response("Приложение временно недоступно без интернета. Обновите страницу, когда сеть вернётся.", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" }
+          })
+      )
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (request.mode === "navigate" || request.url.includes("/assets/")) {
+        if (request.url.includes("/assets/")) {
           const copy = response.clone();
           caches.open(cacheName).then((cache) => cache.put(request, copy));
         }

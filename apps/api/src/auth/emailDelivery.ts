@@ -30,10 +30,21 @@ export async function sendEmail(input: { to: string; subject: string; text: stri
         : undefined
   });
 
-  await transporter.sendMail({
+  const result = await transporter.sendMail({
     from: env.SMTP_FROM,
     to: input.to,
     subject: input.subject,
     text: input.text
   });
+
+  logger.info(
+    {
+      to: input.to,
+      subject: input.subject,
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected
+    },
+    "email delivered through SMTP"
+  );
 }
