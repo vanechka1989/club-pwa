@@ -379,6 +379,24 @@ button:disabled {
   padding: var(--space-section) var(--screen-gutter);
 }
 
+.app-root-no-user {
+  --nav-space: 0rem;
+  padding-bottom: 0;
+}
+
+.app-layout-auth {
+  display: block;
+  min-height: var(--app-viewport-height);
+}
+
+.app-shell-auth {
+  max-width: none;
+  align-items: center;
+  justify-content: center;
+  padding: max(1rem, calc(var(--club-safe-top) + 1rem)) max(1rem, var(--screen-gutter))
+    max(7rem, calc(var(--club-safe-bottom) + 6rem));
+}
+
 .club-telegram-webview {
   --club-modal-top-offset: var(--fullscreen-top-offset);
 }
@@ -959,6 +977,27 @@ body.club-keyboard-open .community-chat-open .app-shell {
   overflow: hidden;
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
+}
+
+.content-panel-auth {
+  display: grid;
+  width: 100%;
+  min-height: auto;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  overflow: visible;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.content-panel-auth .auth-panel {
+  width: min(100%, 28rem);
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 1.35rem);
 }
 
 .auth-panel {
@@ -9420,6 +9459,21 @@ body.club-huawei.club-screen-narrow .bottom-nav-mail-badge {
 
   .content-panel {
     min-height: calc(var(--app-viewport-height) - 3.2rem);
+  }
+
+  .app-layout-auth {
+    display: block;
+    grid-template-columns: none;
+  }
+
+  .app-layout-auth .app-shell-auth {
+    max-width: none;
+    padding: clamp(2rem, 5vw, 4rem) clamp(1rem, 4vw, 3rem)
+      max(7rem, clamp(2rem, 5vw, 4rem));
+  }
+
+  .app-layout-auth .content-panel-auth {
+    min-height: auto;
   }
 
   .mobile-bottom-nav {

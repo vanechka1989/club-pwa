@@ -647,7 +647,8 @@ onBeforeUnmount(() => {
       'nav-is-collapsed': navCollapsed,
       'learning-active': activeSection === 'learning',
       'community-active': activeSection === 'community',
-      'community-chat-open': activeSection === 'community' && communityChatOpen
+      'community-chat-open': activeSection === 'community' && communityChatOpen,
+      'app-root-no-user': !session.user
     }"
   >
     <h1 class="sr-only">{{ t("brand") }}</h1>
@@ -716,7 +717,7 @@ onBeforeUnmount(() => {
         <span :style="{ width: `${lessonUploads.activeUpload?.progress ?? 0}%` }"></span>
       </div>
     </aside>
-    <div class="app-layout">
+    <div class="app-layout" :class="{ 'app-layout-auth': !session.user }">
       <aside v-if="session.user && isDesktopLayout" class="desktop-sidebar" aria-label="Club sections">
         <div class="desktop-sidebar-brand">
           <span class="desktop-sidebar-logo">C</span>
@@ -760,8 +761,11 @@ onBeforeUnmount(() => {
         </nav>
       </aside>
 
-      <section class="app-shell">
-        <div class="content-panel" :class="{ 'content-panel-community': activeSection === 'community' }">
+      <section class="app-shell" :class="{ 'app-shell-auth': !session.user }">
+        <div
+          class="content-panel"
+          :class="{ 'content-panel-community': activeSection === 'community', 'content-panel-auth': !session.user }"
+        >
           <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
 
           <AuthSection v-else-if="session.error || !session.user" />

@@ -273,6 +273,22 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(max-width: 1023px\)[\s\S]*\.desktop-sidebar\s*{[\s\S]*display: none;/);
   });
 
+  it("uses a standalone responsive auth layout before login", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("'app-root-no-user': !session.user");
+    expect(appSource).toContain("'app-layout-auth': !session.user");
+    expect(appSource).toContain("'app-shell-auth': !session.user");
+    expect(appSource).toContain("'content-panel-auth': !session.user");
+    expect(styles).toContain(".app-root-no-user");
+    expect(styles).toContain(".app-layout-auth");
+    expect(styles).toContain(".app-shell-auth");
+    expect(styles).toContain(".content-panel-auth");
+    expect(styles).toMatch(/\.content-panel-auth\s*{[\s\S]*background: transparent;[\s\S]*box-shadow: none;/);
+    expect(styles).toMatch(/\.content-panel-auth \.auth-panel\s*{[\s\S]*width: min\(100%, 28rem\);[\s\S]*margin: 0 auto;/);
+    expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.app-layout-auth\s*{[\s\S]*display: block;/);
+  });
+
   it("keeps one compact side gutter across normal section tabs", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
