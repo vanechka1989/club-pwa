@@ -29,8 +29,8 @@
   --warning: #a16207;
   --shadow: 0 22px 60px rgb(15 23 42 / 12%);
   --shadow-soft: 0 12px 30px rgb(15 23 42 / 8%);
-  --font-root: clamp(14px, 3.7vw, 16px);
-  --font-base: clamp(13px, 3.55vw, 15px);
+  --font-root: clamp(16px, 4vw, 17px);
+  --font-base: clamp(15px, 3.8vw, 16px);
   --font-title: clamp(1.05rem, 0.92rem + 0.58vw, 1.32rem);
   --font-section-title: clamp(1rem, 0.9rem + 0.42vw, 1.18rem);
   --font-small: clamp(0.76rem, 0.71rem + 0.22vw, 0.86rem);
@@ -654,7 +654,7 @@ body.club-huawei {
   --chat-top-offset: var(--club-calibrated-chat-top-offset, 4.8rem);
 }
 
-html.club-huawei.club-screen-narrow {
+html.club-huawei.club-screen-narrow.club-telegram-webview {
   font-size: 14px;
 }
 
@@ -6275,7 +6275,7 @@ body.club-keyboard-open .admin-client-file-button {
 }
 
 .module-description-input {
-  min-height: 4.2rem;
+  min-height: 3.55rem;
   resize: vertical;
 }
 
@@ -6441,12 +6441,13 @@ body.club-keyboard-open .module-name-modal {
 
 .module-name-modal {
   position: relative;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   width: 100%;
   align-self: start;
   justify-self: stretch;
-  gap: 0.75rem;
+  gap: 0.62rem;
   height: auto;
   min-height: 0;
   max-height: calc(var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) - 0.75rem);
@@ -6454,8 +6455,12 @@ body.club-keyboard-open .module-name-modal {
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 0 0 18px 18px;
   background: var(--panel-strong);
-  padding: 0.8rem;
+  padding: 0.7rem 0.8rem;
   box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
+}
+
+.module-name-modal .admin-client-modal-head {
+  padding-bottom: 0.45rem;
 }
 
 .club-telegram-fullscreen .module-name-modal {
@@ -6465,7 +6470,9 @@ body.club-keyboard-open .module-name-modal {
 
 .module-name-modal .admin-form-actions {
   flex: 0 0 auto;
+  gap: 0.42rem;
   margin-top: 0;
+  padding-top: 0.24rem;
   padding-bottom: 0;
 }
 
@@ -6486,6 +6493,38 @@ body.club-keyboard-open .module-name-modal {
   background: var(--panel-strong);
   padding: 0.8rem;
   box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
+}
+
+body.club-keyboard-open .module-name-modal {
+  max-height: var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh));
+}
+
+@media (max-width: 520px) {
+  .module-name-modal {
+    gap: 0.48rem;
+    padding: 0.62rem 0.75rem;
+  }
+
+  .module-name-modal .admin-client-modal-head {
+    padding-bottom: 0.45rem;
+  }
+
+  .module-name-modal .admin-form-actions {
+    gap: 0.42rem;
+    padding-top: 0.24rem;
+  }
+
+  .module-name-modal .text-input {
+    padding-block: 0.54rem;
+  }
+
+  .module-name-modal .lesson-layout-option {
+    min-height: 2.45rem;
+  }
+
+  .module-description-input {
+    min-height: 3rem;
+  }
 }
 
 .club-telegram-fullscreen .lesson-preview-modal {
@@ -9723,7 +9762,7 @@ body.club-huawei.club-screen-narrow .bottom-nav-mail-badge {
   .bottom-nav-item {
     min-height: 2.45rem;
     gap: 0.08rem;
-    font-size: 0.5rem;
+    font-size: 0.58rem;
     font-weight: 720;
   }
 

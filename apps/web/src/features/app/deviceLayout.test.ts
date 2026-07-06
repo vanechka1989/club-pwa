@@ -3,7 +3,9 @@ import {
   calculateLayoutCalibration,
   collectDeviceDiagnostics,
   getDeviceLayoutClasses,
+  getDesktopViewportMobileScale,
   getMeasuredKeyboardBottomGap,
+  getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
   getViewportSizeClasses
 } from "./deviceLayout";
@@ -101,6 +103,41 @@ describe("device layout detection", () => {
       "club-screen-short"
     ]);
     expect(getViewportSizeClasses({ width: 430, height: 940 })).toEqual(["club-screen-tall"]);
+  });
+
+  it("uses CSS viewport width instead of physical Android screen pixels", () => {
+    const width = getMeasuredViewportWidth({
+      browserWidth: 393,
+      visualWidth: 393,
+      screenWidth: 1080,
+      screenAvailWidth: 1080,
+      devicePixelRatio: 2.75
+    });
+
+    expect(width).toBe(393);
+    expect(getViewportSizeClasses({ width, height: 851 })).toEqual([]);
+  });
+
+  it("only rescales touch browsers that really expose a desktop layout viewport", () => {
+    expect(
+      getDesktopViewportMobileScale({
+        layoutWidth: 393,
+        screenWidth: 1080,
+        screenAvailWidth: 1080,
+        devicePixelRatio: 2.75,
+        hasTouchInput: true
+      })
+    ).toEqual({ isDesktopViewportMobile: false, scale: 1 });
+
+    expect(
+      getDesktopViewportMobileScale({
+        layoutWidth: 980,
+        screenWidth: 1080,
+        screenAvailWidth: 1080,
+        devicePixelRatio: 2.75,
+        hasTouchInput: true
+      })
+    ).toEqual({ isDesktopViewportMobile: true, scale: 2.495 });
   });
 
   it("uses the smallest live viewport height when Android Telegram keeps visualViewport stale", () => {

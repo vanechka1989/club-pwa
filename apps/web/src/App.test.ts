@@ -455,6 +455,13 @@ describe("App", () => {
     expect(styles).toMatch(/\.profile-card-head svg\s*{[^}]*flex: 0 0 auto;/s);
   });
 
+  it("does not shrink standalone Huawei PWA typography to Telegram webview scale", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("html.club-huawei.club-screen-narrow.club-telegram-webview");
+    expect(styles).not.toMatch(/html\.club-huawei\.club-screen-narrow\s*{[^}]*font-size:\s*14px/s);
+  });
+
   it("styles fullscreen video close control as a themed pill in portrait and landscape", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

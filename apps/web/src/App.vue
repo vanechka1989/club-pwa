@@ -12,8 +12,10 @@ import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
 import {
   calculateLayoutCalibration,
   collectCurrentDeviceDiagnostics,
+  getDesktopViewportMobileScale,
   getDeviceLayoutClasses,
   getMeasuredKeyboardBottomGap,
+  getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
   getViewportSizeClasses,
   syncLayoutClasses
@@ -224,12 +226,14 @@ function syncDesktopViewportMobileScale(layoutWidth: number) {
     return;
   }
 
-  const screenWidths = [window.screen?.width, window.screen?.availWidth].filter((value): value is number => Number.isFinite(value) && value > 0);
-  const deviceScreenWidth = screenWidths.length ? Math.min(...screenWidths) : 0;
   const hasTouchInput = Boolean(window.matchMedia?.("(pointer: coarse)").matches || window.navigator.maxTouchPoints > 0);
-  const viewportScale = deviceScreenWidth > 0 ? layoutWidth / deviceScreenWidth : 1;
-  const isDesktopViewportMobile = hasTouchInput && layoutWidth >= 700 && viewportScale >= 1.35;
-  const scale = isDesktopViewportMobile ? Math.min(2.8, Math.max(1, viewportScale)) : 1;
+  const { isDesktopViewportMobile, scale } = getDesktopViewportMobileScale({
+    layoutWidth,
+    screenWidth: window.screen?.width ?? null,
+    screenAvailWidth: window.screen?.availWidth ?? null,
+    devicePixelRatio: window.devicePixelRatio ?? null,
+    hasTouchInput
+  });
 
   document.documentElement.classList.toggle("club-desktop-viewport-mobile", isDesktopViewportMobile);
   document.body.classList.toggle("club-desktop-viewport-mobile", isDesktopViewportMobile);
@@ -285,7 +289,13 @@ function syncViewportHeight() {
   const browserHeight = window.innerHeight || 0;
   const browserWidth = window.innerWidth || 0;
   const height = Math.max(visualHeight, browserHeight);
-  const width = Math.max(window.screen?.width ?? 0, visualViewport?.width ?? 0, browserWidth);
+  const width = getMeasuredViewportWidth({
+    browserWidth,
+    visualWidth: visualViewport?.width ?? null,
+    screenWidth: window.screen?.width ?? null,
+    screenAvailWidth: window.screen?.availWidth ?? null,
+    devicePixelRatio: window.devicePixelRatio ?? null
+  });
   syncDesktopViewportMobileScale(width);
 
   if (height > 0) {

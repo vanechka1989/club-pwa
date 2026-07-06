@@ -8,6 +8,19 @@ export type ViewportSizeInput = {
   height: number;
 };
 
+export type ViewportWidthInput = {
+  browserWidth?: number | null;
+  visualWidth?: number | null;
+  screenWidth?: number | null;
+  screenAvailWidth?: number | null;
+  devicePixelRatio?: number | null;
+};
+
+export type DesktopViewportMobileScaleInput = ViewportWidthInput & {
+  layoutWidth: number;
+  hasTouchInput: boolean;
+};
+
 export type DeviceInsetInput = {
   top?: number | null;
   bottom?: number | null;
@@ -158,8 +171,52 @@ function rounded(value: number) {
   return Math.round(value);
 }
 
+function roundedTo(value: number, digits: number) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getCssDeviceScreenWidth(input: ViewportWidthInput) {
+  const screenWidths = [input.screenWidth, input.screenAvailWidth].filter(
+    (width): width is number => Number.isFinite(width) && Number(width) > 0
+  );
+  if (!screenWidths.length) {
+    return 0;
+  }
+
+  const rawScreenWidth = Math.min(...screenWidths);
+  const pixelRatio = finiteNumber(input.devicePixelRatio, 1);
+  const cssWidthFromPhysicalPixels = pixelRatio > 1 ? rawScreenWidth / pixelRatio : 0;
+  const looksLikePhysicalPixels =
+    cssWidthFromPhysicalPixels >= 280 && cssWidthFromPhysicalPixels <= 720 && cssWidthFromPhysicalPixels < rawScreenWidth * 0.75;
+
+  return looksLikePhysicalPixels ? cssWidthFromPhysicalPixels : rawScreenWidth;
+}
+
+export function getMeasuredViewportWidth(input: ViewportWidthInput) {
+  const liveWidths = [input.visualWidth, input.browserWidth].filter(
+    (width): width is number => Number.isFinite(width) && Number(width) > 0
+  );
+  if (liveWidths.length) {
+    return rounded(Math.max(...liveWidths));
+  }
+
+  return rounded(getCssDeviceScreenWidth(input));
+}
+
+export function getDesktopViewportMobileScale(input: DesktopViewportMobileScaleInput) {
+  const deviceScreenWidth = getCssDeviceScreenWidth(input);
+  const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
+  const isDesktopViewportMobile = input.hasTouchInput && input.layoutWidth >= 700 && viewportScale >= 1.35;
+
+  return {
+    isDesktopViewportMobile,
+    scale: isDesktopViewportMobile ? roundedTo(Math.min(2.8, Math.max(1, viewportScale)), 3) : 1
+  };
 }
 
 function maxInsetSide(side: keyof DeviceInsetInput, ...insets: Array<DeviceInsetInput | null | undefined>) {
@@ -268,7 +325,13 @@ export function collectDeviceDiagnostics(input: DeviceDiagnosticsInput) {
 
 export function collectCurrentDeviceDiagnostics() {
   const viewportHeight = Math.max(window.visualViewport?.height ?? 0, window.innerHeight ?? 0);
-  const viewportWidth = Math.max(window.visualViewport?.width ?? 0, window.innerWidth ?? 0);
+  const viewportWidth = getMeasuredViewportWidth({
+    browserWidth: window.innerWidth ?? null,
+    visualWidth: window.visualViewport?.width ?? null,
+    screenWidth: window.screen?.width ?? null,
+    screenAvailWidth: window.screen?.availWidth ?? null,
+    devicePixelRatio: window.devicePixelRatio ?? null
+  });
   const platform = navigator.platform ?? null;
   const userAgent = navigator.userAgent;
   const classes = [
