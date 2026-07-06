@@ -1,5 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Club PWA">
-  <rect width="512" height="512" rx="112" fill="#f7f5ef"/>
-  <circle cx="256" cy="256" r="172" fill="#2563eb"/>
-  <path fill="#ffffff" d="M169 321c23 33 54 49 93 49 47 0 83-24 105-72l-47-22c-13 28-31 42-56 42-19 0-35-8-48-24-12-16-18-38-18-66 0-29 6-51 19-67 13-16 30-24 50-24 24 0 42 13 54 38l47-24c-22-44-57-66-104-66-39 0-71 14-95 43-24 28-36 62-36 102 0 36 12 67 36 91z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Club">
+  <defs>
+    <linearGradient id="club-bg" x1="94" y1="64" x2="430" y2="450" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f1b2a"/>
+      <stop offset="0.58" stop-color="#081522"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="club-mark" x1="135" y1="124" x2="382" y2="379" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f7fff6"/>
+      <stop offset="1" stop-color="#e4f5ec"/>
+    </linearGradient>
+    <linearGradient id="club-key" x1="238" y1="212" x2="282" y2="310" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff0b8"/>
+      <stop offset="1" stop-color="#d7a83b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#club-bg)"/>
+  <path
+    d="M360 169a132 132 0 1 0 0 174"
+    fill="none"
+    stroke="url(#club-mark)"
+    stroke-width="72"
+    stroke-linecap="butt"
+  />
+  <circle cx="256" cy="246" r="27" fill="url(#club-key)"/>
+  <path d="M244 267h24l8 58h-40z" fill="url(#club-key)"/>
 </svg>
