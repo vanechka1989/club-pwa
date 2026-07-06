@@ -38,4 +38,11 @@ describe("production security config", () => {
       expect(source).toContain("Генерируем Web Push VAPID ключи");
     }
   });
+
+  it("does not prompt for a GitHub token when installing from a public repository", () => {
+    for (const source of [serverInstall, sshInstall]) {
+      expect(source).not.toContain('prompt_secret "GitHub token');
+      expect(source).not.toContain("GitHub token нужен");
+    }
+  });
 });

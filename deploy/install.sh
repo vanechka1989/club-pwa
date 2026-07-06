@@ -68,9 +68,6 @@ echo
 
 REPO_URL="${REPO_URL:-$(prompt "GitHub repo URL репозитория" "https://github.com/vanechka1989/club-pwa.git")}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-if [[ "$REPO_URL" == https://github.com/* && -z "$GITHUB_TOKEN" ]]; then
-  GITHUB_TOKEN="$(prompt_secret "GitHub token для private repo")"
-fi
 
 echo "1. Сервер для установки."
 SERVER_HOST="${SERVER_HOST:-$(prompt "IP сервера или домен SSH")}"

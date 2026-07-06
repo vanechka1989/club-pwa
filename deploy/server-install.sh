@@ -215,12 +215,6 @@ echo "Готовим репозиторий в $DEPLOY_DIR..."
 if [[ -d "$DEPLOY_DIR/.git" ]]; then
   git -C "$DEPLOY_DIR" pull --ff-only
 else
-  if [[ "$REPO_URL" == https://github.com/* && -z "$GITHUB_TOKEN" ]]; then
-    echo "GitHub token нужен только если репозиторий ещё не склонирован по SSH."
-    GITHUB_TOKEN="$(prompt_secret "GitHub token для private repo")"
-    CLONE_URL="${REPO_URL/https:\/\/github.com\//https:\/\/x-access-token:$GITHUB_TOKEN@github.com\/}"
-  fi
-
   mkdir -p "$DEPLOY_DIR"
   git clone "$CLONE_URL" "$DEPLOY_DIR"
   if [[ "$REPO_URL" == https://github.com/* ]]; then
