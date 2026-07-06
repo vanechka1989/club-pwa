@@ -77,13 +77,10 @@ function testDeviceDiagnostics() {
       height: null
     },
     visualViewport: null,
-    telegram: {
-      version: null,
-      platform: null,
-      viewportHeight: null,
-      viewportStableHeight: null,
-      safeAreaInset: null,
-      contentSafeAreaInset: null
+    browser: {
+      displayMode: "standalone",
+      standalone: true,
+      safeAreaInset: null
     },
     classes: []
   };
@@ -259,14 +256,13 @@ describe("App", () => {
     expect(styles).not.toContain(".profile-window-mode");
   });
 
-  it("keeps mobile fullscreen layouts on the measured browser viewport without Telegram runtime", () => {
+  it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(appSource).not.toContain("window.Telegram");
-    expect(appSource).toContain("club-telegram-webview");
+    expect(appSource).not.toContain("club-telegram-webview");
+    expect(appSource).not.toContain("club-telegram-fullscreen");
     expect(appSource).toContain("calculateLayoutCalibration");
-    expect(appSource).toContain("--club-calibrated-top-offset");
-    expect(appSource).toContain("--club-calibrated-chat-top-offset");
     expect(appSource).toContain("--club-calibrated-bottom-offset");
     expect(appSource).toContain("getViewportSizeClasses");
     expect(appSource).toContain("getDeviceLayoutClasses");
@@ -276,13 +272,12 @@ describe("App", () => {
     expect(styles).not.toContain("var(--tg-viewport-height, 100vh)");
     expect(styles).not.toContain("height: 100vh");
     expect(styles).not.toContain("calc(100vh");
-    expect(styles).toContain("var(--club-calibrated-top-offset");
-    expect(styles).toContain("var(--club-calibrated-chat-top-offset");
     expect(styles).toContain("var(--club-calibrated-bottom-offset");
     expect(styles).toContain("height: var(--club-viewport-height, 100dvh);");
     expect(styles).toContain("calc(var(--club-viewport-height, 100dvh) - var(--club-modal-top-offset))");
     expect(styles).toContain("@media (pointer: coarse)");
-    expect(styles).toContain(".club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
+    expect(styles).not.toContain("club-telegram-webview");
+    expect(styles).not.toContain("club-telegram-fullscreen");
     expect(styles).toContain("body.club-keyboard-open .community-chat-open .chat-room");
     expect(styles).toContain("@media (max-width: 380px)");
     expect(styles).toContain(".payment-product-pay");
@@ -295,12 +290,13 @@ describe("App", () => {
       .split(/\r?\n/)
       .flatMap((line, index) =>
         safeAreaSides
-          .filter((side) => line.includes(`env(safe-area-inset-${side})`) && !line.includes(`var(--tg-safe-${side}, env(safe-area-inset-${side}))`))
+          .filter((side) => line.includes(`env(safe-area-inset-${side})`) && !line.trim().startsWith(`--club-safe-${side}`))
           .map((side) => `${index + 1}:${side}:${line.trim()}`)
       );
 
     expect(appIndexSource).toContain("viewport-fit=cover");
     expect(unsafeSafeAreaLines).toEqual([]);
+    expect(styles).not.toContain("--tg-safe");
   });
 
   it("routes modal safe-area spacing through calibrated club variables", () => {
@@ -313,13 +309,11 @@ describe("App", () => {
           : []
       );
 
-    expect(styles).toContain("--club-safe-top: var(--tg-safe-top, env(safe-area-inset-top));");
-    expect(styles).toContain("--club-safe-bottom: var(--club-calibrated-bottom-offset");
+    expect(styles).toContain("--club-safe-top: env(safe-area-inset-top);");
+    expect(styles).toContain("--club-safe-bottom: max(var(--club-calibrated-bottom-offset");
     expect(styles).toContain("--club-modal-top-offset: max(0.6rem, var(--club-safe-top));");
     expect(styles).toContain("--club-modal-bottom-padding");
-    expect(styles).toContain(".club-telegram-webview");
-    expect(styles).toContain("--club-modal-top-offset: var(--fullscreen-top-offset);");
-    expect(styles).toContain("padding-top: var(--club-modal-top-offset)");
+    expect(styles).toContain("--support-modal-top-clearance: var(--club-modal-top-padding)");
     expect(styles).toContain("var(--club-modal-bottom-padding)");
     expect(styles).toContain("var(--club-safe-right)");
     expect(styles).toContain("var(--club-safe-left)");
@@ -336,7 +330,7 @@ describe("App", () => {
     expect(styles).toContain("--space-card: clamp(");
     expect(styles).toContain("font-size: var(--font-root);");
     expect(styles).toContain("font-size: var(--font-base);");
-    expect(styles).toContain("padding-top: max(4.8rem, calc(var(--club-safe-top) + var(--space-page-top)));");
+    expect(styles).toContain("padding: var(--space-section) var(--screen-gutter);");
     expect(styles).toContain("gap: var(--space-section);");
     expect(styles).toContain("padding: var(--space-card);");
   });
@@ -380,13 +374,19 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(min-width: 1024px\)[\s\S]*\.app-layout-auth\s*{[\s\S]*display: block;/);
   });
 
-  it("rescales auth and install surfaces when a touch browser exposes a desktop layout viewport", () => {
+  it("rescales auth and signed-in surfaces when a touch browser exposes a desktop layout viewport", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(appSource).toContain("syncDesktopViewportMobileScale");
     expect(appSource).toContain("club-desktop-viewport-mobile");
+    expect(appSource).toContain("isDesktopViewportMobile");
+    expect(appSource).toContain("isDesktopLayout && !isDesktopViewportMobile");
+    expect(appSource).toContain("!isDesktopLayout || isDesktopViewportMobile");
     expect(appSource).toContain("--club-mobile-viewport-scale");
     expect(styles).toContain(".club-desktop-viewport-mobile .content-panel-auth .auth-panel");
+    expect(styles).toContain(".club-desktop-viewport-mobile .app-root:not(.app-root-no-user)");
+    expect(styles).toContain("zoom: var(--club-mobile-viewport-scale);");
+    expect(styles).toContain(".club-desktop-viewport-mobile .app-root:not(.app-root-no-user) .app-shell");
     expect(styles).toContain(".club-desktop-viewport-mobile .pwa-install-card");
     expect(styles).toContain("transform: scale(var(--club-mobile-viewport-scale));");
     expect(styles).toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
@@ -405,62 +405,38 @@ describe("App", () => {
     expect(styles).not.toContain("--screen-gutter: 0.9rem;");
   });
 
-  it("uses a lower top offset for Samsung fullscreen webviews", () => {
+  it("does not keep vendor-specific Telegram fullscreen offsets in the PWA shell", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(styles).toContain("body.club-samsung");
-    expect(styles).toContain("--fullscreen-top-offset: var(--club-calibrated-top-offset, 4.8rem)");
+    expect(styles).not.toContain("--fullscreen-top-offset");
+    expect(styles).not.toContain("--chat-top-offset");
+    expect(styles).not.toContain("body.club-samsung");
+    expect(styles).not.toContain("body.club-huawei");
+    expect(styles).not.toContain("body.club-android-compact-top");
   });
 
-  it("keeps narrow Huawei webviews below Telegram top controls without extra air on normal tabs", () => {
+  it("keeps narrow Android PWA layouts readable without Huawei webview shrink rules", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(styles).toContain("body.club-huawei.club-screen-narrow");
-    expect(styles).toContain("html.club-huawei.club-screen-narrow");
-    expect(styles).toContain("font-size: 14px");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .app-root:not(.community-chat-open)");
-    expect(styles).toContain("--nav-space: calc(6.7rem + var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)))");
-    expect(styles).toContain(
-      "--fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.6rem, calc(var(--club-safe-top) + 3.8rem)))"
-    );
-    expect(styles).toContain(
-      "--chat-top-offset: var(--club-calibrated-chat-top-offset, max(8rem, calc(var(--club-safe-top) + 5rem)))"
-    );
-    expect(styles).toContain("body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell");
-    expect(styles).toContain("padding-top: var(--fullscreen-top-offset)");
     expect(styles).toContain(".sr-only");
     expect(styles).toContain("position: absolute");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .bottom-nav-item-active");
-    expect(styles).toContain("box-shadow: none");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .bottom-nav-mail-badge");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-bubble");
-    expect(styles).toContain("max-width: min(74%, 22rem)");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-message-own .chat-bubble");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .chat-avatar");
-    expect(styles).toContain("width: 1.75rem");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .soft-card");
-    expect(styles).toContain("padding: 0.55rem");
-    expect(styles).toContain("body.club-huawei.club-screen-narrow .profile-info-row");
-    expect(styles).toContain("min-height: 2.05rem");
+    expect(styles).not.toMatch(/body\.club-huawei\.club-screen-narrow\s+\.(soft-card|profile-info-row|bottom-nav|chat-bubble)/);
+    expect(styles).not.toMatch(/html\.club-huawei\.club-screen-narrow[^.{]*\s*{[^}]*font-size:\s*14px/s);
+    expect(styles).toContain("body.club-screen-narrow");
+    expect(styles).toContain("--screen-gutter: 0.42rem;");
     expect(styles).toMatch(/\.profile-subscription-meta\s*{[^}]*flex-wrap: nowrap;/s);
     expect(styles).toMatch(
       /\.profile-subscription-meta span:last-child\s*{[^}]*margin-left: auto;[^}]*white-space: nowrap;/s
-    );
-    expect(styles).toMatch(
-      /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta\s*{[^}]*display: flex;[^}]*justify-content: space-between;[^}]*flex-wrap: nowrap;/s
-    );
-    expect(styles).toMatch(
-      /body\.club-huawei\.club-screen-narrow \.profile-subscription-meta span:first-child\s*{[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s
     );
     expect(styles).toMatch(/\.profile-card-head\s*{[^}]*display: flex;[^}]*justify-content: space-between;[^}]*flex-wrap: nowrap;/s);
     expect(styles).toMatch(/\.profile-card-head svg\s*{[^}]*flex: 0 0 auto;/s);
   });
 
-  it("does not shrink standalone Huawei PWA typography to Telegram webview scale", () => {
+  it("does not shrink standalone Android PWA typography to legacy webview scale", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(styles).toContain("html.club-huawei.club-screen-narrow.club-telegram-webview");
-    expect(styles).not.toMatch(/html\.club-huawei\.club-screen-narrow\s*{[^}]*font-size:\s*14px/s);
+    expect(styles).not.toContain("html.club-huawei.club-screen-narrow");
+    expect(styles).not.toMatch(/club-screen-narrow[^}]*font-size:\s*14px/s);
   });
 
   it("styles fullscreen video close control as a themed pill in portrait and landscape", () => {

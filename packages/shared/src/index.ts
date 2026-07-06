@@ -768,14 +768,18 @@ export const deviceDiagnosticsSchema = z.object({
       scale: z.number().nullable()
     })
     .nullable(),
-  telegram: z.object({
-    version: z.string().nullable(),
-    platform: z.string().nullable(),
-    viewportHeight: z.number().nullable(),
-    viewportStableHeight: z.number().nullable(),
-    safeAreaInset: deviceInsetSchema.nullable(),
-    contentSafeAreaInset: deviceInsetSchema.nullable()
+  browser: z.object({
+    displayMode: z.string().nullable(),
+    standalone: z.boolean().nullable(),
+    safeAreaInset: deviceInsetSchema.nullable()
   }),
+  layoutCalibration: z
+    .object({
+      bottomOffsetPx: z.number(),
+      source: z.enum(["android", "ios", "browser"])
+    })
+    .nullable()
+    .optional(),
   classes: z.array(z.string())
 });
 export type DeviceDiagnostics = z.infer<typeof deviceDiagnosticsSchema>;

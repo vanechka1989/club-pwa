@@ -40,16 +40,14 @@
   --club-system-bottom: 0px;
   --club-keyboard-bottom: 0px;
   --club-calibrated-bottom-offset: var(--club-system-bottom, 0px);
-  --club-safe-top: var(--tg-safe-top, env(safe-area-inset-top));
-  --club-safe-right: var(--tg-safe-right, env(safe-area-inset-right));
-  --club-safe-bottom: var(--club-calibrated-bottom-offset, var(--club-system-bottom, var(--tg-safe-bottom, env(safe-area-inset-bottom))));
-  --club-safe-left: var(--tg-safe-left, env(safe-area-inset-left));
+  --club-safe-top: env(safe-area-inset-top);
+  --club-safe-right: env(safe-area-inset-right);
+  --club-safe-bottom: max(var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)), env(safe-area-inset-bottom));
+  --club-safe-left: env(safe-area-inset-left);
   --club-modal-top-offset: max(0.6rem, var(--club-safe-top));
   --club-modal-bottom-offset: var(--club-safe-bottom);
   --club-modal-top-padding: max(0.6rem, var(--club-modal-top-offset));
   --club-modal-bottom-padding: max(0.6rem, calc(var(--club-modal-bottom-offset) + 0.6rem));
-  --fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.2rem, calc(var(--club-safe-top) + 4.6rem)));
-  --chat-top-offset: var(--club-calibrated-chat-top-offset, max(6.2rem, calc(var(--club-safe-top) + 4.6rem)));
   --screen-gutter: clamp(0.42rem, 1.7vw, 0.72rem);
   --section-bleed: clamp(0.18rem, 0.7vw, 0.28rem);
   --ui-gap: clamp(0.5rem, 1.8vw, 0.72rem);
@@ -281,7 +279,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
   font-size: var(--font-root);
 }
 
@@ -396,10 +394,6 @@ button:disabled {
   justify-content: center;
   padding: max(1rem, calc(var(--club-safe-top) + 1rem)) max(1rem, var(--screen-gutter))
     max(7rem, calc(var(--club-safe-bottom) + 6rem));
-}
-
-.club-telegram-webview {
-  --club-modal-top-offset: var(--fullscreen-top-offset);
 }
 
 .app-toast-viewport {
@@ -645,59 +639,6 @@ button:disabled {
   }
 }
 
-.club-telegram-fullscreen .app-shell {
-  padding-top: var(--fullscreen-top-offset);
-}
-
-body.club-huawei {
-  --fullscreen-top-offset: var(--club-calibrated-top-offset, 4.8rem);
-  --chat-top-offset: var(--club-calibrated-chat-top-offset, 4.8rem);
-}
-
-html.club-huawei.club-screen-narrow.club-telegram-webview {
-  font-size: 14px;
-}
-
-body.club-huawei.club-screen-narrow {
-  --fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.6rem, calc(var(--club-safe-top) + 3.8rem)));
-  --chat-top-offset: var(--club-calibrated-chat-top-offset, max(8rem, calc(var(--club-safe-top) + 5rem)));
-}
-
-body.club-samsung {
-  --fullscreen-top-offset: var(--club-calibrated-top-offset, 4.8rem);
-  --chat-top-offset: var(--club-calibrated-chat-top-offset, 4.8rem);
-}
-
-body.club-android-compact-top {
-  --fullscreen-top-offset: var(--club-calibrated-top-offset, 2.4rem);
-  --chat-top-offset: var(--club-calibrated-chat-top-offset, 4.8rem);
-}
-
-body.club-android-compact-top.club-screen-narrow {
-  --fullscreen-top-offset: var(--club-calibrated-top-offset, max(6.6rem, calc(var(--club-safe-top) + 3.8rem)));
-  --chat-top-offset: var(--club-calibrated-chat-top-offset, max(8rem, calc(var(--club-safe-top) + 5rem)));
-}
-
-.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
-  padding-top: max(4.8rem, calc(var(--club-safe-top) + var(--space-page-top)));
-}
-
-body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
-  padding-top: 4.8rem;
-}
-
-body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
-  padding-top: var(--fullscreen-top-offset);
-}
-
-body.club-huawei.club-screen-narrow .app-root:not(.community-chat-open) {
-  --nav-space: calc(6.7rem + var(--club-calibrated-bottom-offset, var(--club-system-bottom, 0px)));
-}
-
-body.club-android-compact-top.club-telegram-webview:not(.club-telegram-fullscreen) .app-shell {
-  padding-top: var(--fullscreen-top-offset);
-}
-
 body.club-keyboard-open .app-shell {
   padding-bottom: calc(1rem + var(--club-keyboard-bottom, 0px));
 }
@@ -706,22 +647,6 @@ body.club-keyboard-open .app-shell {
   min-height: 0 !important;
   max-width: none;
   padding: 1rem var(--screen-gutter) calc(1rem + var(--club-safe-bottom));
-}
-
-.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
-  padding-top: max(4.8rem, calc(var(--club-safe-top) + var(--space-page-top)));
-}
-
-body.club-huawei.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
-  padding-top: 4.8rem;
-}
-
-body.club-huawei.club-screen-narrow.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
-  padding-top: var(--fullscreen-top-offset);
-}
-
-body.club-android-compact-top.club-telegram-webview:not(.club-telegram-fullscreen) .community-active:not(.community-chat-open) .app-shell {
-  padding-top: var(--fullscreen-top-offset);
 }
 
 .community-chat-open .app-shell {
@@ -733,14 +658,6 @@ body.club-android-compact-top.club-telegram-webview:not(.club-telegram-fullscree
 body.club-keyboard-open .community-chat-open .app-shell {
   height: var(--club-visible-viewport-height, var(--app-viewport-height));
   padding-bottom: 0;
-}
-
-.club-telegram-fullscreen .community-active:not(.community-chat-open) .app-shell {
-  padding-top: var(--fullscreen-top-offset);
-}
-
-.club-telegram-fullscreen .community-chat-open .app-shell {
-  padding-top: 0;
 }
 
 .global-upload-indicator {
@@ -1036,6 +953,33 @@ body.club-keyboard-open .community-chat-open .app-shell {
   transform-origin: bottom center;
 }
 
+.club-desktop-viewport-mobile .app-root:not(.app-root-no-user) {
+  width: calc(100% / var(--club-mobile-viewport-scale));
+  min-width: calc(100% / var(--club-mobile-viewport-scale));
+  max-width: calc(100% / var(--club-mobile-viewport-scale));
+  margin: 0 auto;
+  zoom: var(--club-mobile-viewport-scale);
+}
+
+.club-desktop-viewport-mobile .app-root:not(.app-root-no-user) .app-layout {
+  display: block;
+  grid-template-columns: none;
+}
+
+.club-desktop-viewport-mobile .app-root:not(.app-root-no-user) .desktop-sidebar {
+  display: none;
+}
+
+.club-desktop-viewport-mobile .app-root:not(.app-root-no-user) .app-shell {
+  max-width: none;
+  padding: var(--space-section) var(--screen-gutter) calc(var(--nav-space) + var(--space-section));
+}
+
+.club-desktop-viewport-mobile .app-root:not(.app-root-no-user) .pwa-install-card {
+  width: min(calc((100vw - 1rem) / var(--club-mobile-viewport-scale)), 30rem);
+  transform: translateX(-50%);
+}
+
 .auth-panel {
   display: grid;
   gap: 1rem;
@@ -1301,17 +1245,6 @@ body.club-screen-narrow {
   --section-bleed: 0.18rem;
   --ui-gap: 0.5rem;
   --ui-card-padding: 0.72rem;
-}
-
-body.club-huawei.club-screen-narrow .content-panel {
-  box-shadow: 0 10px 22px color-mix(in srgb, #000 18%, transparent);
-}
-
-body.club-huawei.club-screen-narrow .section-head,
-body.club-huawei.club-screen-narrow .soft-card,
-body.club-huawei.club-screen-narrow .surface-card {
-  padding: 0.55rem;
-  box-shadow: none;
 }
 
 body.club-screen-short:not(.community-chat-open) {
@@ -2076,10 +2009,6 @@ body.club-screen-short:not(.community-chat-open) {
   background: color-mix(in srgb, #000 58%, transparent);
   padding: var(--support-modal-top-clearance) 0.55rem var(--support-modal-bottom-clearance);
   overflow: hidden;
-}
-
-.club-telegram-webview .support-modal-backdrop {
-  --support-modal-top-clearance: max(5.2rem, calc(var(--club-safe-top) + 2.5rem));
 }
 
 body.club-keyboard-open .support-modal-backdrop {
@@ -3908,14 +3837,6 @@ body.club-keyboard-open .lesson-preview-modal {
   background: var(--panel-strong);
   padding-bottom: max(1.35rem, calc(var(--club-safe-bottom) + 1rem));
   box-shadow: 0 20px 60px color-mix(in srgb, #000 36%, transparent);
-}
-
-.club-telegram-fullscreen .admin-modal-backdrop {
-  padding-top: var(--club-modal-top-offset);
-}
-
-.club-telegram-fullscreen .admin-client-modal {
-  height: calc(var(--club-viewport-height, 100dvh) - var(--club-modal-top-offset));
 }
 
 .admin-client-modal-head {
@@ -6463,11 +6384,6 @@ body.club-keyboard-open .module-name-modal {
   padding-bottom: 0.45rem;
 }
 
-.club-telegram-fullscreen .module-name-modal {
-  height: auto;
-  max-height: calc(var(--club-visible-viewport-height, var(--club-viewport-height, 100dvh)) - var(--club-modal-top-offset) - 0.75rem);
-}
-
 .module-name-modal .admin-form-actions {
   flex: 0 0 auto;
   gap: 0.42rem;
@@ -6527,21 +6443,11 @@ body.club-keyboard-open .module-name-modal {
   }
 }
 
-.club-telegram-fullscreen .lesson-preview-modal {
-  height: calc(var(--club-viewport-height, 100dvh) - var(--club-modal-top-offset));
-  max-height: none;
-}
-
 .lesson-preview-modal-view {
   align-self: start;
   height: auto;
   max-height: var(--club-viewport-height, 100dvh);
   border-radius: 0 0 18px 18px;
-}
-
-.club-telegram-fullscreen .lesson-preview-modal-view {
-  height: auto;
-  max-height: calc(var(--club-viewport-height, 100dvh) - var(--club-modal-top-offset));
 }
 
 .lesson-preview-scroll {
@@ -6559,10 +6465,6 @@ body.club-keyboard-open .module-name-modal {
 .lesson-preview-modal-view .lesson-preview-scroll {
   flex: 0 1 auto;
   max-height: calc(var(--club-viewport-height, 100dvh) - 9.5rem);
-}
-
-.club-telegram-fullscreen .lesson-preview-modal-view .lesson-preview-scroll {
-  max-height: calc(var(--club-viewport-height, 100dvh) - var(--club-modal-top-offset) - 9.5rem);
 }
 
 .lesson-preview-kicker {
@@ -8307,88 +8209,6 @@ body.club-keyboard-open .module-name-modal {
   box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-body.club-huawei.club-screen-narrow .section-title {
-  font-size: 0.96rem;
-}
-
-body.club-huawei.club-screen-narrow .section-subtitle,
-body.club-huawei.club-screen-narrow .soft-hero p:last-child {
-  font-size: 0.7rem;
-}
-
-body.club-huawei.club-screen-narrow .soft-hero h2,
-body.club-huawei.club-screen-narrow .soft-card h3,
-body.club-huawei.club-screen-narrow .soft-list-card h4 {
-  font-size: 0.92rem;
-}
-
-body.club-huawei.club-screen-narrow .soft-pill,
-body.club-huawei.club-screen-narrow .profile-subscription-meta,
-body.club-huawei.club-screen-narrow .soft-list-card p {
-  font-size: 0.66rem;
-}
-
-body.club-huawei.club-screen-narrow .profile-hero-row {
-  gap: 0.55rem;
-}
-
-body.club-huawei.club-screen-narrow .profile-hero-row h3 {
-  font-size: 0.9rem;
-}
-
-body.club-huawei.club-screen-narrow .profile-hero-row p {
-  font-size: 0.72rem;
-}
-
-body.club-huawei.club-screen-narrow .profile-subscription-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem;
-  flex-wrap: nowrap;
-}
-
-body.club-huawei.club-screen-narrow .profile-subscription-meta span {
-  min-width: 0;
-}
-
-body.club-huawei.club-screen-narrow .profile-subscription-meta span:first-child {
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-body.club-huawei.club-screen-narrow .profile-subscription-meta span:last-child {
-  flex: 0 0 auto;
-  margin-left: auto;
-}
-
-body.club-huawei.club-screen-narrow .profile-avatar-large {
-  width: 3rem;
-  height: 3rem;
-  box-shadow: none;
-}
-
-body.club-huawei.club-screen-narrow .profile-info-list {
-  gap: 0.35rem;
-}
-
-body.club-huawei.club-screen-narrow .profile-info-row {
-  min-height: 2.05rem;
-  gap: 0.5rem;
-  padding: 0.42rem 0.5rem;
-}
-
-body.club-huawei.club-screen-narrow .profile-info-row span,
-body.club-huawei.club-screen-narrow .profile-info-row strong {
-  font-size: 0.66rem;
-}
-
-body.club-huawei.club-screen-narrow .profile-info-row strong {
-  max-width: 64%;
-}
-
 .soft-link {
   color: var(--accent);
   font-size: 0.78rem;
@@ -9118,48 +8938,6 @@ body.club-keyboard-open .community-chat-open .chat-room {
   padding-bottom: 0.55rem;
 }
 
-.club-telegram-webview:not(.club-telegram-fullscreen) .community-chat-open .chat-room {
-  height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
-  padding-top: var(--chat-top-offset);
-}
-
-body.club-keyboard-open.club-telegram-webview:not(.club-telegram-fullscreen) .community-chat-open .chat-room {
-  height: calc(var(--club-visible-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
-  padding-top: var(--chat-top-offset);
-  padding-bottom: 0.55rem;
-}
-
-body.club-ios.club-keyboard-open.club-telegram-webview:not(.club-telegram-fullscreen) .community-chat-open .chat-room {
-  position: fixed;
-  top: var(--chat-top-offset);
-  right: 0;
-  bottom: auto;
-  left: 0;
-  height: calc(var(--club-visible-viewport-bottom, var(--club-visible-viewport-height, var(--app-viewport-height))) - var(--chat-top-offset));
-  padding: 0.55rem 0.75rem;
-}
-
-.club-telegram-fullscreen .community-chat-open .chat-room {
-  height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
-  padding-top: var(--chat-top-offset);
-}
-
-body.club-keyboard-open.club-telegram-fullscreen .community-chat-open .chat-room {
-  height: calc(var(--club-visible-viewport-height, var(--app-viewport-height)) - var(--chat-top-offset));
-  padding-top: var(--chat-top-offset);
-  padding-bottom: 0.55rem;
-}
-
-body.club-ios.club-keyboard-open.club-telegram-fullscreen .community-chat-open .chat-room {
-  position: fixed;
-  top: var(--chat-top-offset);
-  right: 0;
-  bottom: auto;
-  left: 0;
-  height: calc(var(--club-visible-viewport-bottom, var(--club-visible-viewport-height, var(--app-viewport-height))) - var(--chat-top-offset));
-  padding: 0.55rem 0.75rem;
-}
-
 .nav-is-collapsed .chat-room {
   min-height: 0;
 }
@@ -9276,38 +9054,6 @@ body.club-ios.club-keyboard-open.club-telegram-fullscreen .community-chat-open .
   background: color-mix(in srgb, var(--panel-strong) 96%, transparent);
   padding: 0.55rem 0.65rem 0.45rem;
   box-shadow: 0 7px 18px color-mix(in srgb, #000 10%, transparent);
-}
-
-body.club-huawei.club-screen-narrow .chat-message {
-  gap: 0.22rem;
-  margin-top: 0.45rem;
-}
-
-body.club-huawei.club-screen-narrow .chat-bubble {
-  max-width: min(74%, 22rem);
-  padding: 0.44rem 0.52rem 0.38rem;
-  box-shadow: none;
-}
-
-body.club-huawei.club-screen-narrow .chat-message-own .chat-bubble {
-  max-width: min(70%, 21rem);
-}
-
-body.club-huawei.club-screen-narrow .chat-avatar {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-width: 1px;
-  box-shadow: none;
-}
-
-body.club-huawei.club-screen-narrow .chat-message-body {
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-body.club-huawei.club-screen-narrow .chat-message-head {
-  gap: 0.38rem;
-  font-size: 0.62rem;
 }
 
 .chat-avatar {
@@ -9646,15 +9392,6 @@ body.club-ios .chat-input-row .text-input {
   transform: translateY(-1px);
 }
 
-body.club-huawei.club-screen-narrow .bottom-nav,
-body.club-huawei.club-screen-narrow .bottom-nav-item-active {
-  box-shadow: none;
-}
-
-body.club-huawei.club-screen-narrow .bottom-nav-mail-badge {
-  box-shadow: none;
-}
-
 @media (max-width: 1023px) {
   .desktop-sidebar {
     display: none;
@@ -9944,10 +9681,6 @@ body.club-huawei.club-screen-narrow .bottom-nav-mail-badge {
     height: var(--club-viewport-height, 100dvh);
     max-height: none;
     border-radius: 0;
-  }
-
-  .club-telegram-fullscreen .admin-client-modal {
-    height: calc(var(--club-viewport-height, 100dvh) - var(--club-modal-top-offset));
   }
 
   .payment-form-modal {

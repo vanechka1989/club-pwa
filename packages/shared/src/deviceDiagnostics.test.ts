@@ -11,15 +11,13 @@ describe("device diagnostics schema", () => {
       screen: { width: 1080, height: 2388, availWidth: 1080, availHeight: 2290, pixelRatio: 2.75 },
       viewport: { width: 393, height: 851 },
       visualViewport: { width: 393, height: 740, offsetTop: 0, scale: 1 },
-      telegram: {
-        version: "8.0",
-        platform: "android",
-        viewportHeight: 851,
-        viewportStableHeight: 851,
-        safeAreaInset: { top: 0, bottom: 24, left: 0, right: 0 },
-        contentSafeAreaInset: { top: 0, bottom: 24, left: 0, right: 0 }
+      browser: {
+        displayMode: "standalone",
+        standalone: true,
+        safeAreaInset: { top: 0, bottom: 24, left: 0, right: 0 }
       },
-      classes: ["club-android", "club-huawei", "club-android-compact-top"]
+      layoutCalibration: { bottomOffsetPx: 24, source: "android" },
+      classes: ["club-android"]
     };
 
     expect(deviceDiagnosticsSchema.parse(device).platform).toBe("android");

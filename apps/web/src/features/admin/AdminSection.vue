@@ -454,7 +454,7 @@ const selectedUserDeviceSummary = computed(() => {
   }
 
   return [
-    device.telegram.platform || device.platform || "платформа не определена",
+    device.browser.displayMode || device.platform || "платформа не определена",
     `${device.viewport.width ?? "?"}x${device.viewport.height ?? "?"}`,
     device.classes.join(", ") || "классов нет"
   ].join(" · ");

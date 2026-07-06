@@ -125,11 +125,11 @@ describe("support section", () => {
     expect(styles).toContain("var(--club-modal-bottom-offset");
   });
 
-  it("keeps support modals below Telegram controls and readable above keyboards", () => {
+  it("keeps support modals inside PWA safe areas and readable above keyboards", () => {
     expect(styles).toContain("--support-modal-top-clearance");
     expect(styles).toContain("--support-modal-height-limit");
-    expect(styles).toContain(".club-telegram-webview .support-modal-backdrop");
-    expect(styles).toContain("calc(var(--club-safe-top) + 2.5rem)");
+    expect(styles).not.toContain(".club-telegram-webview .support-modal-backdrop");
+    expect(styles).toContain("--support-modal-top-clearance: var(--club-modal-top-padding)");
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
     expect(styles).toContain("var(--club-visible-viewport-height");
     expect(styles).toContain("body.club-keyboard-open .support-ticket-modal:not(.support-ticket-modal-compact)");

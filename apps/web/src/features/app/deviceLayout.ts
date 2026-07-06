@@ -50,13 +50,10 @@ export type DeviceDiagnosticsInput = {
     offsetTop?: number | null;
     scale?: number | null;
   } | null;
-  telegram: {
-    version?: string | null;
-    platform?: string | null;
-    viewportHeight?: number | null;
-    viewportStableHeight?: number | null;
+  browser: {
+    displayMode?: string | null;
+    standalone?: boolean | null;
     safeAreaInset?: DeviceInsetInput | null;
-    contentSafeAreaInset?: DeviceInsetInput | null;
   };
   layoutCalibration?: LayoutCalibration | null;
   classes: string[];
@@ -73,18 +70,13 @@ export type LayoutCalibrationInput = {
 };
 
 export type LayoutCalibration = {
-  topOffsetPx: number;
-  chatTopOffsetPx: number;
   bottomOffsetPx: number;
-  source: "android-narrow" | "android-wide" | "ios" | "default";
+  source: "android" | "ios" | "browser";
 };
 
 export const deviceLayoutClasses = [
   "club-ios",
   "club-android",
-  "club-samsung",
-  "club-huawei",
-  "club-android-compact-top",
   "club-screen-narrow",
   "club-screen-short",
   "club-screen-tall"
@@ -94,16 +86,10 @@ export function getDeviceLayoutClasses({ platform = "", userAgent }: DeviceLayou
   const normalizedPlatform = platform.toLowerCase();
   const isIos = normalizedPlatform === "ios" || normalizedPlatform === "macos" || /iPad|iPhone|iPod/.test(userAgent);
   const isAndroid = normalizedPlatform === "android" || /Android/i.test(userAgent);
-  const isSamsung = /Samsung|SM-|SAMSUNG/i.test(userAgent);
-  const isHuawei = /HUAWEI|HONOR|HarmonyOS|EMUI|JLN-LX1/i.test(userAgent);
-  const usesCompactAndroidTopOffset = isAndroid && !isSamsung;
 
   return [
     isIos && "club-ios",
-    isAndroid && "club-android",
-    isSamsung && "club-samsung",
-    isHuawei && "club-huawei",
-    usesCompactAndroidTopOffset && "club-android-compact-top"
+    isAndroid && "club-android"
   ].filter((className): className is string => Boolean(className));
 }
 
@@ -116,15 +102,15 @@ export function getViewportSizeClasses({ width, height }: ViewportSizeInput) {
 }
 
 export function getMeasuredVisibleViewportHeight({
-  telegramHeight,
+  appHeight,
   visualHeight,
   browserHeight
 }: {
-  telegramHeight?: number | null;
+  appHeight?: number | null;
   visualHeight?: number | null;
   browserHeight?: number | null;
 }) {
-  const candidates = [telegramHeight, visualHeight, browserHeight].filter(
+  const candidates = [appHeight, visualHeight, browserHeight].filter(
     (height): height is number => Number.isFinite(height) && Number(height) > 0
   );
 
@@ -174,10 +160,6 @@ function rounded(value: number) {
 function roundedTo(value: number, digits: number) {
   const factor = 10 ** digits;
   return Math.round(value * factor) / factor;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function getCssDeviceScreenWidth(input: ViewportWidthInput) {
@@ -241,47 +223,12 @@ export function calculateLayoutCalibration(input: LayoutCalibrationInput): Layou
   const classes = getDeviceLayoutClasses({ platform: input.platform ?? "", userAgent });
   const isAndroid = classes.includes("club-android");
   const isIos = classes.includes("club-ios");
-  const width = finiteNumber(input.viewportWidth, 0);
-  const height = finiteNumber(input.viewportHeight, 0);
-  const isNarrow = width > 0 && width <= 380;
-  const isShort = height > 0 && height <= 780;
-  const topInset = maxInsetSide("top", input.safeAreaInset, input.contentSafeAreaInset);
   const bottomInset = maxInsetSide("bottom", input.safeAreaInset, input.contentSafeAreaInset);
   const bottomOffsetPx = rounded(Math.max(bottomInset, finiteNumber(input.visualBottomGap, 0)));
 
-  if (isAndroid) {
-    if (isNarrow) {
-      const shortBonus = isShort ? 4 : 0;
-      return {
-        topOffsetPx: rounded(clamp(topInset + 52 + shortBonus, 92, 106)),
-        chatTopOffsetPx: rounded(clamp(topInset + 70 + shortBonus, 112, 126)),
-        bottomOffsetPx,
-        source: "android-narrow"
-      };
-    }
-
-    return {
-      topOffsetPx: rounded(clamp(topInset + 28, 72, 92)),
-      chatTopOffsetPx: rounded(clamp(topInset + 44, 88, 112)),
-      bottomOffsetPx,
-      source: "android-wide"
-    };
-  }
-
-  if (isIos) {
-    return {
-      topOffsetPx: rounded(clamp(topInset + 16, 76, 96)),
-      chatTopOffsetPx: rounded(clamp(topInset + 34, 96, 112)),
-      bottomOffsetPx,
-      source: "ios"
-    };
-  }
-
   return {
-    topOffsetPx: rounded(clamp(topInset + 32, 72, 100)),
-    chatTopOffsetPx: rounded(clamp(topInset + 48, 88, 116)),
     bottomOffsetPx,
-    source: "default"
+    source: isAndroid ? "android" : isIos ? "ios" : "browser"
   };
 }
 
@@ -310,13 +257,10 @@ export function collectDeviceDiagnostics(input: DeviceDiagnosticsInput) {
           scale: numberOrNull(input.visualViewport.scale)
         }
       : null,
-    telegram: {
-      version: input.telegram.version ?? null,
-      platform: input.telegram.platform ?? null,
-      viewportHeight: numberOrNull(input.telegram.viewportHeight),
-      viewportStableHeight: numberOrNull(input.telegram.viewportStableHeight),
-      safeAreaInset: insetOrNull(input.telegram.safeAreaInset),
-      contentSafeAreaInset: insetOrNull(input.telegram.contentSafeAreaInset)
+    browser: {
+      displayMode: input.browser.displayMode ?? null,
+      standalone: input.browser.standalone ?? null,
+      safeAreaInset: insetOrNull(input.browser.safeAreaInset)
     },
     layoutCalibration: input.layoutCalibration ?? null,
     classes: Array.from(new Set(input.classes))
@@ -334,6 +278,15 @@ export function collectCurrentDeviceDiagnostics() {
   });
   const platform = navigator.platform ?? null;
   const userAgent = navigator.userAgent;
+  const isStandaloneDisplay =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    window.matchMedia?.("(display-mode: fullscreen)").matches ||
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+  const displayMode = window.matchMedia?.("(display-mode: fullscreen)").matches
+    ? "fullscreen"
+    : isStandaloneDisplay
+      ? "standalone"
+      : "browser";
   const classes = [
     ...getDeviceLayoutClasses({ platform: platform ?? "", userAgent }),
     ...getViewportSizeClasses({ width: viewportWidth, height: viewportHeight })
@@ -362,13 +315,10 @@ export function collectCurrentDeviceDiagnostics() {
           scale: window.visualViewport.scale
         }
       : null,
-    telegram: {
-      version: null,
-      platform: null,
-      viewportHeight: null,
-      viewportStableHeight: null,
-      safeAreaInset: null,
-      contentSafeAreaInset: null
+    browser: {
+      displayMode,
+      standalone: isStandaloneDisplay,
+      safeAreaInset: null
     },
     layoutCalibration: calculateLayoutCalibration({
       platform,

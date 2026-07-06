@@ -35,7 +35,6 @@ describe("keyboard focus handling", () => {
     expect(styles).toContain("body.club-keyboard-open .admin-client-modal");
     expect(styles).toContain("body.club-keyboard-open .lesson-preview-modal");
     expect(styles).toContain("max-height: var(--club-visible-viewport-height");
-    expect(styles).toContain("var(--club-visible-viewport-bottom");
     expect(styles).toContain("body.club-ios .chat-input-row .text-input");
     expect(styles).toContain("font-size: 16px");
   });

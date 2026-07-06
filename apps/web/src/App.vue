@@ -42,6 +42,7 @@ const navCollapsed = ref(false);
 const uploadDetailsOpen = ref(false);
 const communityChatOpen = ref(false);
 const isDesktopLayout = ref(false);
+const isDesktopViewportMobile = ref(false);
 const supportUnreadCount = ref(0);
 const adminClientTelegramId = ref<string | null>(null);
 const supportReturnTicketId = ref<string | null>(null);
@@ -227,7 +228,7 @@ function syncDesktopViewportMobileScale(layoutWidth: number) {
   }
 
   const hasTouchInput = Boolean(window.matchMedia?.("(pointer: coarse)").matches || window.navigator.maxTouchPoints > 0);
-  const { isDesktopViewportMobile, scale } = getDesktopViewportMobileScale({
+  const desktopViewportMobileResult = getDesktopViewportMobileScale({
     layoutWidth,
     screenWidth: window.screen?.width ?? null,
     screenAvailWidth: window.screen?.availWidth ?? null,
@@ -235,9 +236,10 @@ function syncDesktopViewportMobileScale(layoutWidth: number) {
     hasTouchInput
   });
 
-  document.documentElement.classList.toggle("club-desktop-viewport-mobile", isDesktopViewportMobile);
-  document.body.classList.toggle("club-desktop-viewport-mobile", isDesktopViewportMobile);
-  setLayoutCssVariable("--club-mobile-viewport-scale", scale.toFixed(3));
+  isDesktopViewportMobile.value = desktopViewportMobileResult.isDesktopViewportMobile;
+  document.documentElement.classList.toggle("club-desktop-viewport-mobile", desktopViewportMobileResult.isDesktopViewportMobile);
+  document.body.classList.toggle("club-desktop-viewport-mobile", desktopViewportMobileResult.isDesktopViewportMobile);
+  setLayoutCssVariable("--club-mobile-viewport-scale", desktopViewportMobileResult.scale.toFixed(3));
 }
 
 function syncPlatformClasses() {
@@ -337,8 +339,6 @@ function syncViewportHeight() {
 
   document.documentElement.style.setProperty("--club-system-bottom", `${dynamicBottomInset}px`);
   document.documentElement.style.setProperty("--club-keyboard-bottom", `${visualBottomGap}px`);
-  setLayoutCssVariable("--club-calibrated-top-offset", `${calibration.topOffsetPx}px`);
-  setLayoutCssVariable("--club-calibrated-chat-top-offset", `${calibration.chatTopOffsetPx}px`);
   setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);
   const isKeyboardOpen = visualBottomGap > 80;
   document.documentElement.classList.toggle("club-keyboard-open", isKeyboardOpen);
@@ -494,8 +494,6 @@ async function sendDeviceDiagnostics() {
 onMounted(() => {
   isAppMounted = true;
   syncPlatformClasses();
-  document.documentElement.classList.remove("club-telegram-webview");
-  document.body.classList.remove("club-telegram-webview");
   syncBrowserSafeArea();
   syncViewportHeight();
   syncDesktopLayout();
@@ -600,18 +598,12 @@ onBeforeUnmount(() => {
     window.clearTimeout(deviceDiagnosticsTimer);
     deviceDiagnosticsTimer = null;
   }
-  document.documentElement.classList.remove("club-telegram-webview");
-  document.body.classList.remove("club-telegram-webview");
   document.documentElement.classList.remove("club-desktop-viewport-mobile");
   document.body.classList.remove("club-desktop-viewport-mobile");
   syncLayoutClasses([document.documentElement, document.body], []);
   document.documentElement.classList.remove("club-keyboard-open");
   document.body.classList.remove("club-keyboard-open");
-  document.documentElement.style.removeProperty("--club-calibrated-top-offset");
-  document.documentElement.style.removeProperty("--club-calibrated-chat-top-offset");
   document.documentElement.style.removeProperty("--club-calibrated-bottom-offset");
-  document.body.style.removeProperty("--club-calibrated-top-offset");
-  document.body.style.removeProperty("--club-calibrated-chat-top-offset");
   document.body.style.removeProperty("--club-calibrated-bottom-offset");
   document.documentElement.style.removeProperty("--club-mobile-viewport-scale");
   document.body.style.removeProperty("--club-mobile-viewport-scale");
@@ -696,7 +688,7 @@ onBeforeUnmount(() => {
       </div>
     </aside>
     <div class="app-layout" :class="{ 'app-layout-auth': !session.user }">
-      <aside v-if="session.user && isDesktopLayout" class="desktop-sidebar" aria-label="Club sections">
+      <aside v-if="session.user && isDesktopLayout && !isDesktopViewportMobile" class="desktop-sidebar" aria-label="Club sections">
         <div class="desktop-sidebar-brand">
           <span class="desktop-sidebar-logo">C</span>
           <div>
@@ -772,7 +764,7 @@ onBeforeUnmount(() => {
     </div>
 
     <button
-      v-if="session.user && !isDesktopLayout"
+      v-if="session.user && (!isDesktopLayout || isDesktopViewportMobile)"
       class="bottom-nav-toggle mobile-bottom-nav-toggle"
       type="button"
       :aria-label="navCollapsed ? 'Показать меню' : 'Свернуть меню'"
@@ -782,7 +774,12 @@ onBeforeUnmount(() => {
       <ChevronDown v-else class="h-4 w-4" aria-hidden="true" />
     </button>
 
-    <nav v-if="session.user && !isDesktopLayout" class="bottom-nav mobile-bottom-nav" :class="{ 'bottom-nav-collapsed': navCollapsed }" aria-label="Club sections">
+    <nav
+      v-if="session.user && (!isDesktopLayout || isDesktopViewportMobile)"
+      class="bottom-nav mobile-bottom-nav"
+      :class="{ 'bottom-nav-collapsed': navCollapsed }"
+      aria-label="Club sections"
+    >
       <button
         v-for="item in visibleNavItems"
         :key="item.id"
