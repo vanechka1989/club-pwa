@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { getInstalledPwaDisplayModeQueries, isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
-import { Download, Mail, ShieldCheck } from "lucide-vue-next";
+import { Download, Mail, Share, ShieldCheck } from "lucide-vue-next";
 import { requestPwaInstallPrompt } from "@/features/app/pwaInstall";
 import { useSessionStore } from "@/stores/session";
 
@@ -14,6 +14,7 @@ const localError = ref<string | null>(null);
 const resendAvailableAt = ref<number | null>(null);
 const nowMs = ref(Date.now());
 const isInstalledPwa = ref(isStandalonePwa());
+const isIosInstallDevice = ref(detectIosInstallDevice());
 const installFallbackVisible = ref(false);
 const resendCooldownMs = 60_000;
 let resendCooldownTimer: number | null = null;
@@ -35,6 +36,13 @@ const requestButtonLabel = computed(() =>
 );
 const canRequestCode = computed(() => !session.loading && Boolean(email.value) && resendRemainingSeconds.value <= 0);
 const canResendCode = computed(() => !session.loading && resendRemainingSeconds.value <= 0);
+const isIosInstallFlow = computed(() => isIosInstallDevice.value && !isInstalledPwa.value);
+const installTitle = computed(() => (isIosInstallFlow.value ? "Добавьте Club на экран Домой" : "Установите приложение"));
+const installLead = computed(() =>
+  isIosInstallFlow.value
+    ? "На iPhone кнопка сайта не может открыть окно установки автоматически. Установите Club через меню браузера, затем откройте новую иконку."
+    : "Вход по email доступен только из установленного приложения Club."
+);
 
 function isStandalonePwa() {
   return isInstalledPwaDisplay();
@@ -145,8 +153,21 @@ function changeEmail() {
   stopResendCooldownTimer();
 }
 
+function detectIosInstallDevice() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const { maxTouchPoints, platform, userAgent } = window.navigator;
+  return /iphone|ipad|ipod/i.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
+}
+
 function installApp() {
   installFallbackVisible.value = true;
+  if (isIosInstallFlow.value) {
+    return;
+  }
+
   requestPwaInstallPrompt();
 }
 
@@ -189,6 +210,7 @@ function addInstalledPwaListeners() {
 }
 
 onMounted(() => {
+  isIosInstallDevice.value = detectIosInstallDevice();
   refreshInstalledPwaState();
   addInstalledPwaListeners();
   restoreResendCooldown();
@@ -205,28 +227,41 @@ onBeforeUnmount(() => {
   <section v-if="!isInstalledPwa" class="auth-panel auth-install-required" aria-labelledby="auth-install-title">
     <div class="auth-panel-head">
       <span class="auth-panel-icon">
-        <Download class="h-5 w-5" aria-hidden="true" />
+        <Share v-if="isIosInstallFlow" class="h-5 w-5" aria-hidden="true" />
+        <Download v-else class="h-5 w-5" aria-hidden="true" />
       </span>
       <div>
-        <h2 id="auth-install-title">Установите приложение</h2>
-        <p>Вход по email доступен только из установленного приложения Club.</p>
+        <h2 id="auth-install-title">{{ installTitle }}</h2>
+        <p>{{ installLead }}</p>
       </div>
     </div>
 
-    <ol class="auth-install-steps">
+    <ol v-if="isIosInstallFlow" class="auth-install-steps">
+      <li>Откройте сайт в Safari или текущем браузере на iPhone.</li>
+      <li>Нажмите “Поделиться”.</li>
+      <li>Выберите “На экран Домой” и нажмите “Добавить”.</li>
+      <li>Откройте Club через новую иконку на экране телефона.</li>
+    </ol>
+    <ol v-else class="auth-install-steps">
       <li>Нажмите “Установить приложение”.</li>
       <li>Подтвердите установку в окне браузера.</li>
       <li>Откройте Club через новую иконку на экране телефона.</li>
     </ol>
 
-    <button class="primary-button" type="button" @click="installApp">
+    <button v-if="!isIosInstallFlow" class="primary-button" type="button" @click="installApp">
       Установить приложение
     </button>
 
-    <div v-if="installFallbackVisible" class="auth-install-manual" aria-live="polite">
+    <div v-if="installFallbackVisible || isIosInstallFlow" class="auth-install-manual" aria-live="polite">
       <div class="auth-install-manual-head">
-        <strong>Chrome не открыл окно установки автоматически</strong>
-        <span>Если окно установки не появилось, выберите свой браузер и установите Club вручную.</span>
+        <strong>{{ isIosInstallFlow ? "Как установить на iPhone" : "Chrome не открыл окно установки автоматически" }}</strong>
+        <span>
+          {{
+            isIosInstallFlow
+              ? "Системное окно установки на iPhone не открывается кнопкой сайта. Используйте меню браузера."
+              : "Если окно установки не появилось, выберите свой браузер и установите Club вручную."
+          }}
+        </span>
       </div>
 
       <div class="auth-install-guide-grid">

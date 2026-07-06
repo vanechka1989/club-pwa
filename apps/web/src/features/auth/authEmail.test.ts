@@ -48,11 +48,30 @@ function renderAuth(pinia = createPinia(), options: { standalone?: boolean; inst
   });
 }
 
+function stubNavigatorPlatform({ userAgent, platform, maxTouchPoints = 0 }: { userAgent: string; platform: string; maxTouchPoints?: number }) {
+  Object.defineProperty(window.navigator, "userAgent", {
+    configurable: true,
+    value: userAgent
+  });
+  Object.defineProperty(window.navigator, "platform", {
+    configurable: true,
+    value: platform
+  });
+  Object.defineProperty(window.navigator, "maxTouchPoints", {
+    configurable: true,
+    value: maxTouchPoints
+  });
+}
+
 describe("email auth UI", () => {
   beforeEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
     localStorage.clear();
+    stubNavigatorPlatform({
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
+      platform: "Win32"
+    });
     vi.mocked(requestEmailCode).mockResolvedValue({ ok: true, devCode: null });
     vi.mocked(verifyEmailCode).mockResolvedValue({ ok: true });
   });
@@ -69,6 +88,24 @@ describe("email auth UI", () => {
     expect(screen.queryByLabelText("Email")).toBeNull();
     expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy();
     expect(screen.getByText(/Вход по email доступен только из установленного приложения/)).toBeTruthy();
+  });
+
+  it("shows iPhone manual install steps immediately instead of a dead native install button", () => {
+    stubNavigatorPlatform({
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+      platform: "iPhone",
+      maxTouchPoints: 5
+    });
+
+    renderAuth(createPinia(), { standalone: false });
+
+    expect(screen.getByRole("heading", { name: "Добавьте Club на экран Домой" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Установить приложение" })).toBeNull();
+    expect(screen.getByText(/На iPhone кнопка сайта не может открыть окно установки автоматически/)).toBeTruthy();
+    expect(screen.getByText("Safari iPhone")).toBeTruthy();
+    expect(screen.getAllByText(/Поделиться/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/На экран Домой/).length).toBeGreaterThan(0);
   });
 
   it("shows email login inside installed desktop PWA display modes", () => {
