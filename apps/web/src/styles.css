@@ -8111,6 +8111,170 @@ body.club-keyboard-open .module-name-modal {
   gap: 0.1rem;
 }
 
+.profile-access-card {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.profile-access-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 0.82rem;
+}
+
+.profile-avatar-stack {
+  display: grid;
+  gap: 0.42rem;
+  justify-items: center;
+}
+
+.profile-avatar-upload {
+  position: relative;
+  display: inline-flex;
+  min-height: 2.28rem;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 54%, var(--panel));
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0.42rem 0.68rem;
+  font-size: 0.72rem;
+  font-weight: 820;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.profile-avatar-upload svg {
+  flex: 0 0 auto;
+}
+
+.profile-avatar-upload-disabled {
+  cursor: default;
+  opacity: 0.68;
+}
+
+.profile-upload-input {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.profile-upload-input:disabled {
+  cursor: default;
+}
+
+.profile-access-main {
+  display: grid;
+  min-width: 0;
+  gap: 0.48rem;
+}
+
+.profile-access-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.profile-access-head h3 {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 860;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-access-badges {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.profile-role-pill {
+  display: inline-flex;
+  min-height: 1.45rem;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-strong) 70%, transparent);
+  color: var(--muted);
+  padding: 0.18rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 780;
+  line-height: 1.15;
+}
+
+.profile-account-inline {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--panel-strong) 56%, transparent);
+  color: var(--muted);
+  padding: 0.5rem 0.62rem;
+  text-align: left;
+}
+
+.profile-account-inline span {
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.profile-account-inline strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 780;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-payment-caption,
+.profile-avatar-help {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.profile-access-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.08rem;
+}
+
+.profile-access-actions .soft-inline-button,
+.profile-access-actions .secondary-button {
+  min-height: 2.7rem;
+}
+
+.profile-access-actions .profile-logout-button {
+  display: inline-flex;
+  min-width: 7.6rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
 .profile-account-card {
   display: grid;
 }
@@ -8656,7 +8820,7 @@ body.club-mobile-device .section-subtitle,
 body.club-mobile-device .soft-list-card p,
 body.club-mobile-device .profile-empty-text,
 body.club-mobile-device .profile-referral-reward,
-body.club-mobile-device .profile-avatar-refresh p {
+body.club-mobile-device .profile-avatar-help {
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -8672,6 +8836,50 @@ body.club-mobile-device .soft-list-card h4,
 body.club-mobile-device .soft-section-title {
   font-size: 1rem;
   line-height: 1.25;
+}
+
+body.club-mobile-device .profile-access-layout {
+  grid-template-columns: 1fr;
+  gap: 0.78rem;
+}
+
+body.club-mobile-device .profile-avatar-stack {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+}
+
+body.club-mobile-device .profile-avatar-upload {
+  min-height: 2.7rem;
+  width: 100%;
+  padding: 0.58rem 0.78rem;
+  font-size: 0.86rem;
+}
+
+body.club-mobile-device .profile-access-head h3 {
+  font-size: 1.18rem;
+  line-height: 1.12;
+}
+
+body.club-mobile-device .profile-role-pill,
+body.club-mobile-device .profile-account-inline span,
+body.club-mobile-device .profile-account-inline strong,
+body.club-mobile-device .profile-payment-caption {
+  font-size: 0.86rem;
+}
+
+body.club-mobile-device .profile-account-inline {
+  min-height: 3rem;
+  border-radius: 15px;
+  padding: 0.72rem 0.82rem;
+}
+
+body.club-mobile-device .profile-access-actions {
+  grid-template-columns: 1fr;
+}
+
+body.club-mobile-device .profile-access-actions .profile-logout-button {
+  width: 100%;
 }
 
 body.club-mobile-device .profile-hero-row {
@@ -8795,7 +9003,7 @@ body.club-mobile-app-scaled .section-subtitle,
 body.club-mobile-app-scaled .soft-list-card p,
 body.club-mobile-app-scaled .profile-empty-text,
 body.club-mobile-app-scaled .profile-referral-reward,
-body.club-mobile-app-scaled .profile-avatar-refresh p {
+body.club-mobile-app-scaled .profile-avatar-help {
   font-size: 0.8rem;
   line-height: 1.38;
 }
@@ -8810,6 +9018,50 @@ body.club-mobile-app-scaled .soft-card h3,
 body.club-mobile-app-scaled .soft-list-card h4,
 body.club-mobile-app-scaled .soft-section-title {
   font-size: 0.9rem;
+}
+
+body.club-mobile-app-scaled .profile-access-layout {
+  grid-template-columns: 1fr;
+  gap: 0.62rem;
+}
+
+body.club-mobile-app-scaled .profile-avatar-stack {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-items: start;
+}
+
+body.club-mobile-app-scaled .profile-avatar-upload {
+  min-height: 2.28rem;
+  width: 100%;
+  padding: 0.46rem 0.62rem;
+  font-size: 0.74rem;
+}
+
+body.club-mobile-app-scaled .profile-access-head h3 {
+  font-size: 0.98rem;
+}
+
+body.club-mobile-app-scaled .profile-role-pill,
+body.club-mobile-app-scaled .profile-account-inline span,
+body.club-mobile-app-scaled .profile-account-inline strong,
+body.club-mobile-app-scaled .profile-payment-caption {
+  font-size: 0.74rem;
+}
+
+body.club-mobile-app-scaled .profile-account-inline {
+  min-height: 2.45rem;
+  border-radius: 13px;
+  padding: 0.56rem 0.66rem;
+}
+
+body.club-mobile-app-scaled .profile-access-actions {
+  grid-template-columns: 1fr;
+  gap: 0.42rem;
+}
+
+body.club-mobile-app-scaled .profile-access-actions .profile-logout-button {
+  width: 100%;
 }
 
 body.club-mobile-app-scaled .profile-hero-row {

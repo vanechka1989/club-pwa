@@ -1,7 +1,7 @@
 import type { ClubUser } from "@club/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { createCheckout, getMe, logoutSession, refreshAvatar, requestEmailCode as requestEmailCodeApi, verifyEmailCode as verifyEmailCodeApi } from "@/api/client";
+import { createCheckout, getMe, logoutSession, requestEmailCode as requestEmailCodeApi, uploadAvatar as uploadAvatarApi, verifyEmailCode as verifyEmailCodeApi } from "@/api/client";
 
 type AuthRequestError = Error & { retryAfterSeconds?: number };
 
@@ -130,8 +130,8 @@ export const useSessionStore = defineStore("session", () => {
     return response.message;
   }
 
-  async function updateAvatar() {
-    const response = await refreshAvatar();
+  async function uploadAvatar(file: File) {
+    const response = await uploadAvatarApi(file);
     user.value = response.user;
     return response.user;
   }
@@ -228,7 +228,7 @@ export const useSessionStore = defineStore("session", () => {
     isMember,
     load,
     subscribe,
-    updateAvatar,
+    uploadAvatar,
     requestEmailCode,
     verifyEmailCode,
     resetEmailAuth,

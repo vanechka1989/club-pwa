@@ -225,6 +225,13 @@
       "when": 1783345200000,
       "tag": "0031_pwa_email_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783420800000,
+      "tag": "0032_user_avatar_object_key",
+      "breakpoints": true
     }
   ]
 }

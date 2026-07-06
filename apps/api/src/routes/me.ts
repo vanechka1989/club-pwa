@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { randomUUID } from "node:crypto";
 import { deviceDiagnosticsSchema } from "@club/shared";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
@@ -8,12 +9,56 @@ import { userRecurrentSubscriptions, users } from "../db/schema";
 import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 import { resolveMembershipProfileFields } from "../membership/profileFields";
+import { logger } from "../logger";
+import { buildAvatarObjectKey, getAvatarUploadContentType, getAvatarUploadLimitError } from "../profile/avatarUpload";
 import { activateReferralRewards, getReferralRewardDays, getReferralSummary } from "../referrals/referrals";
+import { optimizeImageForUpload } from "../storage/imageOptimizer";
+import { saveLocalUpload } from "../storage/localUploads";
+import { getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const avatarRefreshCooldownMs = 7 * 24 * 60 * 60 * 1000;
 
+async function resolveUserPhotoUrl(user: typeof users.$inferSelect) {
+  if (!user.avatarObjectKey) {
+    return user.photoUrl;
+  }
+
+  try {
+    return await getObjectReadUrl(user.avatarObjectKey);
+  } catch (error) {
+    logger.warn({ error, userId: user.id, avatarObjectKey: user.avatarObjectKey }, "Failed to build avatar read URL");
+    return user.photoUrl;
+  }
+}
+
+async function storeAvatarObject({
+  key,
+  body,
+  contentType
+}: {
+  key: string;
+  body: Uint8Array;
+  contentType: string;
+}) {
+  try {
+    const s3Upload = await uploadObject({ key, body, contentType });
+    return {
+      avatarObjectKey: s3Upload.key,
+      photoUrl: s3Upload.url
+    };
+  } catch (error) {
+    logger.warn({ error, key }, "S3 avatar upload failed, saving avatar locally");
+    const localUpload = await saveLocalUpload({ key, body });
+    return {
+      avatarObjectKey: null,
+      photoUrl: localUpload.url
+    };
+  }
+}
+
 async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T extends keyof AuthVariables>(key: T) => AuthVariables[T] }) {
   const membership = await getMembership(user.id);
+  const photoUrl = await resolveUserPhotoUrl(user);
   const recurrentSubscription =
     membership.subscription?.provider === "prodamus_recurrent"
       ? await db.query.userRecurrentSubscriptions.findFirst({
@@ -46,7 +91,7 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       email: user.email,
       firstName: user.firstName,
       username: user.username,
-      photoUrl: user.photoUrl,
+      photoUrl,
       role,
       realRole,
       adminRoleLabel: adminAccess.roleLabel,
@@ -114,6 +159,72 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({ ok: true, device: body.data });
   })
+  .post("/avatar/upload", async (c) => {
+    const userId = c.get("userId");
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId)
+    });
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    const formData = await c.req.formData().catch(() => null);
+    const avatar = formData?.get("avatar");
+    if (!(avatar instanceof File)) {
+      return c.json({ error: "Avatar file is required" }, 400);
+    }
+
+    const limitError = getAvatarUploadLimitError(avatar);
+    if (limitError === "empty_file") {
+      return c.json({ error: "Avatar file is empty" }, 400);
+    }
+    if (limitError === "file_too_large") {
+      return c.json({ error: "Avatar file is too large" }, 413);
+    }
+
+    const sourceContentType = getAvatarUploadContentType(avatar.type, avatar.name);
+    if (!sourceContentType) {
+      return c.json({ error: "Unsupported avatar file type" }, 400);
+    }
+
+    const sourceBytes = new Uint8Array(await avatar.arrayBuffer());
+    const optimizedAvatar = await optimizeImageForUpload({
+      bytes: sourceBytes,
+      contentType: sourceContentType,
+      fileName: avatar.name || "avatar",
+      maxDimension: 512
+    });
+    const now = new Date();
+    const avatarKey = buildAvatarObjectKey({
+      userId: user.id,
+      fileName: optimizedAvatar.fileName,
+      id: randomUUID(),
+      now
+    });
+    const storedAvatar = await storeAvatarObject({
+      key: avatarKey,
+      body: optimizedAvatar.body,
+      contentType: optimizedAvatar.contentType
+    });
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        avatarObjectKey: storedAvatar.avatarObjectKey,
+        photoUrl: storedAvatar.photoUrl ?? user.photoUrl,
+        avatarRefreshedAt: now,
+        updatedAt: now
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      return c.json({ error: "Unable to update avatar" }, 500);
+    }
+
+    return c.json(await buildMeResponse(updatedUser, c));
+  })
   .post("/avatar", async (c) => {
     const userId = c.get("userId");
     const telegramUser = c.get("telegramUser");
@@ -139,6 +250,7 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
       .update(users)
       .set({
         photoUrl: telegramUser.photoUrl,
+        avatarObjectKey: null,
         avatarRefreshedAt: now,
         updatedAt: now
       })

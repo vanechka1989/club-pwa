@@ -33,7 +33,8 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: optionalString,
   S3_SECRET_ACCESS_KEY: optionalString,
   S3_PUBLIC_BASE_URL: optionalUrl,
-  S3_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(3600)
+  S3_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
+  UPLOADS_DIR: z.string().default("/app/uploads")
 });
 
 export const env = envSchema.parse(process.env);

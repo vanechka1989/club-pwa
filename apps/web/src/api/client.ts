@@ -140,6 +140,16 @@ export function refreshAvatar() {
   return api<MeResponse>("/me/avatar", { method: "POST" });
 }
 
+export function uploadAvatar(file: File) {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  return api<MeResponse>("/me/avatar/upload", {
+    method: "POST",
+    body: formData
+  });
+}
+
 export function getReferralProfile() {
   return api<ReferralProfileResponse>("/me/referrals");
 }

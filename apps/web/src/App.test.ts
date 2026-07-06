@@ -258,6 +258,26 @@ describe("App", () => {
     expect(styles).not.toContain(".profile-window-mode");
   });
 
+  it("combines profile status and account identity into one card with avatar upload", () => {
+    const apiSource = readFileSync(resolve(__dirname, "api/client.ts"), "utf-8");
+    const sessionSource = readFileSync(resolve(__dirname, "stores/session.ts"), "utf-8");
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(profileSource).toContain("profile-access-card");
+    expect(profileSource).toContain("profile-upload-input");
+    expect(profileSource).toContain('type="file"');
+    expect(profileSource).toContain('accept="image/jpeg,image/png,image/webp"');
+    expect(profileSource).toContain("handleAvatarUpload");
+    expect(profileSource).not.toContain("profile-account-card");
+    expect(profileSource).not.toContain("handleAvatarRefresh");
+    expect(profileSource).not.toContain("avatarRefreshLocked");
+    expect(apiSource).toContain("uploadAvatar");
+    expect(apiSource).toContain("/me/avatar/upload");
+    expect(sessionSource).toContain("uploadAvatar");
+    expect(styles).toContain(".profile-access-card");
+    expect(styles).toContain(".profile-avatar-upload");
+  });
+
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

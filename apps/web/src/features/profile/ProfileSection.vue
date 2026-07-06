@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
-import { BarChart3, Check, Copy, Fingerprint, Gift, LogOut, Moon, Palette, RefreshCw, Sun, UserCircle } from "lucide-vue-next";
+import { BarChart3, Camera, Check, Copy, Fingerprint, Gift, LogOut, Moon, Palette, Sun } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { activateReferralRewards, getLearningHome, getPaymentHistory, getPaymentPlans, getReferralProfile } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
@@ -40,6 +40,9 @@ const avatarMessage = ref<string | null>(null);
 const emailVisible = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
+const avatarMaxSizeBytes = 5 * 1024 * 1024;
+const avatarAllowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const avatarAllowedExtension = /\.(jpe?g|png|webp)$/i;
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
@@ -166,23 +169,6 @@ const canActivateReferral = computed(() =>
       })
   )
 );
-const avatarRefreshAvailableAt = computed(() => {
-  if (!session.user?.avatarRefreshedAt) {
-    return null;
-  }
-
-  return new Date(new Date(session.user.avatarRefreshedAt).getTime() + 7 * 24 * 60 * 60 * 1000);
-});
-const avatarRefreshLocked = computed(() => {
-  return Boolean(avatarRefreshAvailableAt.value && avatarRefreshAvailableAt.value.getTime() > Date.now());
-});
-const avatarRefreshHint = computed(() => {
-  if (!avatarRefreshAvailableAt.value || !avatarRefreshLocked.value) {
-    return t("profileAvatarRefreshHint");
-  }
-
-  return `${t("profileAvatarNextRefresh")}: ${avatarRefreshAvailableAt.value.toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
-});
 const learningProgress = computed(() => {
   if (!totalItems.value) {
     return 0;
@@ -233,39 +219,33 @@ function paymentOrderDate(order: PaymentOrderLog) {
   });
 }
 
-function getErrorStatus(reason: unknown) {
-  if (typeof reason === "object" && reason && "status" in reason && typeof reason.status === "number") {
-    return reason.status;
-  }
-
-  return null;
+function isAvatarFileAllowed(file: File) {
+  return file.size > 0 && file.size <= avatarMaxSizeBytes && (avatarAllowedTypes.has(file.type) || avatarAllowedExtension.test(file.name));
 }
 
-function getErrorData(reason: unknown) {
-  if (typeof reason === "object" && reason && "data" in reason && typeof reason.data === "object") {
-    return reason.data as { nextAllowedAt?: string; error?: string };
+async function handleAvatarUpload(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
   }
 
-  return null;
-}
+  if (!isAvatarFileAllowed(file)) {
+    avatarMessage.value = t("profileAvatarInvalid");
+    input.value = "";
+    return;
+  }
 
-async function handleAvatarRefresh() {
   avatarSaving.value = true;
   avatarMessage.value = null;
   try {
-    await session.updateAvatar();
+    await session.uploadAvatar(file);
     avatarMessage.value = t("profileAvatarUpdated");
-  } catch (reason) {
-    const data = getErrorData(reason);
-    if (getErrorStatus(reason) === 429 && data?.nextAllowedAt) {
-      avatarMessage.value = `${t("profileAvatarRefreshAfter")} ${new Date(data.nextAllowedAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}.`;
-    } else if (getErrorStatus(reason) === 400) {
-      avatarMessage.value = t("profileAvatarUnavailable");
-    } else {
-      avatarMessage.value = t("profileAvatarError");
-    }
+  } catch {
+    avatarMessage.value = t("profileAvatarError");
   } finally {
     avatarSaving.value = false;
+    input.value = "";
   }
 }
 
@@ -380,23 +360,58 @@ onMounted(async () => {
       </div>
     </div>
 
-    <section class="soft-card">
-      <div class="profile-hero-row">
-        <div class="profile-avatar profile-avatar-large">
-          <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" />
-          <span v-else>{{ avatarInitial }}</span>
+    <section class="soft-card profile-access-card">
+      <div class="profile-access-layout">
+        <div class="profile-avatar-stack">
+          <div class="profile-avatar profile-avatar-large">
+            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" />
+            <span v-else>{{ avatarInitial }}</span>
+          </div>
+          <label class="profile-avatar-upload" :class="{ 'profile-avatar-upload-disabled': avatarSaving }">
+            <Camera class="h-4 w-4" aria-hidden="true" />
+            <span>{{ avatarSaving ? t("profileAvatarUploading") : t("profileAvatarUpload") }}</span>
+            <input
+              class="profile-upload-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              :disabled="avatarSaving"
+              @change="handleAvatarUpload"
+            />
+          </label>
         </div>
-        <div class="min-w-0 flex-1">
-          <p class="section-eyebrow">{{ t("status") }}</p>
-          <h3>{{ displayName }}</h3>
-          <p class="profile-subscription-status mt-1" :class="profileSubscriptionStatusClass">
-            {{ profileSubscriptionStatusText }}
-          </p>
-          <p class="mt-1 text-xs font-semibold text-[var(--muted)]">
+        <div class="profile-access-main">
+          <div class="profile-access-head">
+            <div class="min-w-0">
+              <p class="section-eyebrow">{{ t("status") }}</p>
+              <h3>{{ displayName }}</h3>
+            </div>
+            <span class="soft-pill">{{ accessUntil }}</span>
+          </div>
+
+          <div class="profile-access-badges">
+            <p class="profile-subscription-status" :class="profileSubscriptionStatusClass">
+              {{ profileSubscriptionStatusText }}
+            </p>
+            <span class="profile-role-pill">{{ roleLabel }}</span>
+          </div>
+
+          <button
+            class="profile-account-inline"
+            type="button"
+            :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')"
+            @click="emailVisible = true"
+          >
+            <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
+            <span>Email</span>
+            <strong :class="{ 'profile-secret-blurred': !emailVisible }">
+              {{ accountEmail }}
+            </strong>
+          </button>
+
+          <p class="profile-payment-caption">
             {{ paymentStatusText }}<template v-if="paymentDateText"> · {{ paymentDateText }}</template>
           </p>
         </div>
-        <span class="soft-pill">{{ accessUntil }}</span>
       </div>
       <div class="mt-4">
         <div class="subscription-bar">
@@ -407,9 +422,17 @@ onMounted(async () => {
           <span v-if="isMember">до {{ accessUntil }}</span>
         </div>
       </div>
-      <button class="soft-inline-button mt-4" type="button" @click="$emit('openPayments')">
-        {{ paymentActionText }}
-      </button>
+      <div class="profile-access-actions">
+        <button class="soft-inline-button" type="button" @click="$emit('openPayments')">
+          {{ paymentActionText }}
+        </button>
+        <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="handleLogout">
+          <LogOut class="h-4 w-4" aria-hidden="true" />
+          <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
+        </button>
+      </div>
+      <p class="profile-avatar-help">{{ avatarMessage || t("profileAvatarUploadHint") }}</p>
+      <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
     </section>
 
     <section class="space-y-3">
@@ -485,52 +508,6 @@ onMounted(async () => {
       </div>
 
       <p v-else class="profile-empty-text mt-3">{{ t("referralLoading") }}</p>
-    </section>
-
-    <section class="soft-card profile-account-card">
-      <div class="profile-card-head">
-        <h3 class="soft-section-title">{{ t("profileAccount") }}</h3>
-        <UserCircle class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
-      </div>
-
-      <div class="profile-info-list mt-3">
-        <div class="profile-info-row">
-          <span>{{ t("profileName") }}</span>
-          <strong>{{ displayName }}</strong>
-        </div>
-        <div class="profile-info-row">
-          <span>Email</span>
-          <button
-            class="profile-secret-value"
-            type="button"
-            :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')"
-            @click="emailVisible = true"
-          >
-            <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
-            <strong :class="{ 'profile-secret-blurred': !emailVisible }">
-              {{ accountEmail }}
-            </strong>
-          </button>
-        </div>
-        <div class="profile-info-row">
-          <span>{{ t("role") }}</span>
-          <strong>{{ roleLabel }}</strong>
-        </div>
-      </div>
-      <div class="profile-avatar-refresh mt-3">
-        <button class="secondary-button" type="button" :disabled="avatarSaving || avatarRefreshLocked" @click="handleAvatarRefresh">
-          <RefreshCw class="h-4 w-4" aria-hidden="true" />
-          <span>{{ avatarSaving ? t("profileAvatarUpdating") : t("profileAvatarUpdate") }}</span>
-        </button>
-        <p>{{ avatarMessage || avatarRefreshHint }}</p>
-      </div>
-      <div class="profile-account-actions mt-3">
-        <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="handleLogout">
-          <LogOut class="h-4 w-4" aria-hidden="true" />
-          <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
-        </button>
-        <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
-      </div>
     </section>
 
     <section class="soft-card">

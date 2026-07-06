@@ -14,6 +14,7 @@ import { paymentsRoute } from "./routes/payments";
 import { pushRoute } from "./routes/push";
 import { subscriptionsRoute } from "./routes/subscriptions";
 import { supportRoute } from "./routes/support";
+import { getLocalUploadResponse } from "./storage/localUploads";
 import { recordServerError } from "./serverErrors";
 import { buildClientErrorRecord, createClientErrorRateLimiter, parseClientErrorPayload } from "./clientErrors";
 
@@ -64,6 +65,15 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ ok: true }));
+app.get("/uploads/*", async (c) => {
+  const uploadKey = c.req.path.replace(/^\/uploads\/+/, "");
+  const response = await getLocalUploadResponse(uploadKey);
+  if (!response) {
+    return c.notFound();
+  }
+
+  return response;
+});
 app.route("/auth", authRoute);
 
 app.post("/client-errors", async (c) => {

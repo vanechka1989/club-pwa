@@ -47,9 +47,12 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
       S3_SIGNED_URL_TTL_SECONDS: ${S3_SIGNED_URL_TTL_SECONDS:-3600}
+      UPLOADS_DIR: /app/uploads
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - api-uploads:/app/uploads
     expose:
       - "3000"
 
@@ -118,5 +121,6 @@ services:
 
 volumes:
   postgres-data:
+  api-uploads:
   caddy-data:
   caddy-config:

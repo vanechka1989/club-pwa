@@ -38,9 +38,11 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v10"');
+    expect(worker).toContain('const cacheName = "club-pwa-v11"');
     expect(worker).toContain('if (request.mode === "navigate")');
+    expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
+    expect(worker).not.toContain('cached || caches.match("/")');
   });
 
   it("registers the service worker and does not load Telegram WebApp script", () => {
