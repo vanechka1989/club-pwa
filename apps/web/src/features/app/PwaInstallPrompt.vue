@@ -20,9 +20,11 @@ const isPrompting = ref(false);
 const isIos = ref(false);
 const isDismissedForSession = ref(false);
 let showTimer: number | null = null;
+const installPromptDelayMs = 350;
 
 const canUseNativePrompt = computed(() => Boolean(installPrompt.value));
 const shouldShowIosInstructions = computed(() => isIos.value && !isInstalled.value);
+const shouldShowFallbackInstructions = computed(() => !isInstalled.value && !canUseNativePrompt.value && !shouldShowIosInstructions.value);
 const title = computed(() => (shouldShowIosInstructions.value ? "Добавьте Club на экран Домой" : "Установите Club как приложение"));
 const lead = computed(() =>
   shouldShowIosInstructions.value
@@ -60,10 +62,14 @@ function scheduleInstallCard() {
 
   showTimer = window.setTimeout(() => {
     showTimer = null;
-    if (!isInstalled.value && !isDismissedForSession.value && (canUseNativePrompt.value || shouldShowIosInstructions.value)) {
+    if (
+      !isInstalled.value &&
+      !isDismissedForSession.value &&
+      (canUseNativePrompt.value || shouldShowIosInstructions.value || shouldShowFallbackInstructions.value)
+    ) {
       isVisible.value = true;
     }
-  }, 900);
+  }, installPromptDelayMs);
 }
 
 function handleBeforeInstallPrompt(event: Event) {

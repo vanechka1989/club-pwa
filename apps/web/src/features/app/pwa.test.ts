@@ -1,6 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/vue";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import PwaInstallPrompt from "./PwaInstallPrompt.vue";
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("PWA shell", () => {
   it("publishes a manifest and service worker from public assets", () => {
@@ -65,5 +73,16 @@ describe("PWA shell", () => {
     expect(prompt).toContain("Safari");
     expect(prompt).toContain("На экран Домой");
     expect(styles).toContain("bottom: calc(var(--nav-space, 0rem) + 0.75rem);");
+  });
+
+  it("shows install guidance before login even when the native install prompt is not ready", async () => {
+    vi.useFakeTimers();
+
+    render(PwaInstallPrompt);
+    await vi.advanceTimersByTimeAsync(400);
+    await nextTick();
+
+    expect(screen.getByRole("dialog", { name: "Установите Club как приложение" })).toBeTruthy();
+    expect(screen.getByText(/Если кнопки установки нет/)).toBeTruthy();
   });
 });
