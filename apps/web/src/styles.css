@@ -1079,6 +1079,19 @@ body.club-keyboard-open .community-chat-open .app-shell {
   font-size: 0.9rem;
 }
 
+.auth-install-steps {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 72%, transparent);
+  color: var(--muted-strong);
+  padding: 0.72rem 0.82rem 0.72rem 1.8rem;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
 .auth-hint,
 .auth-error {
   padding: 0.65rem 0.75rem;

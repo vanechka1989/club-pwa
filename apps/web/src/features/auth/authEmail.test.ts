@@ -45,6 +45,7 @@ describe("email auth UI", () => {
   beforeEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+    localStorage.clear();
     vi.mocked(requestEmailCode).mockResolvedValue({ ok: true, devCode: null });
     vi.mocked(verifyEmailCode).mockResolvedValue({ ok: true });
   });
@@ -59,7 +60,19 @@ describe("email auth UI", () => {
 
     expect(screen.getByRole("heading", { name: "Установите приложение" })).toBeTruthy();
     expect(screen.queryByLabelText("Email")).toBeNull();
+    expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy();
     expect(screen.getByText(/Вход по email доступен только из установленного приложения/)).toBeTruthy();
+  });
+
+  it("asks the shell to open the PWA installation prompt from the login gate", async () => {
+    const installRequest = vi.fn();
+    window.addEventListener("club-pwa-install-request", installRequest);
+    renderAuth(createPinia(), { standalone: false });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Установить приложение" }));
+
+    expect(installRequest).toHaveBeenCalledTimes(1);
+    window.removeEventListener("club-pwa-install-request", installRequest);
   });
 
   it("uses email auth endpoints instead of Telegram initData", () => {
@@ -94,6 +107,21 @@ describe("email auth UI", () => {
 
     expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
     expect(screen.getByText("Код отправлен на ivan.club@example.com. Введите 6 цифр ниже.")).toBeTruthy();
+    expect(screen.getByLabelText("Код")).toBeTruthy();
+  });
+
+  it("restores the code entry step after the app reloads while the user checks email", async () => {
+    renderAuth(createPinia());
+
+    await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
+    await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy());
+
+    cleanup();
+    renderAuth(createPinia());
+
+    expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
+    expect(screen.getByText("Код отправлен на ivan@example.com. Введите 6 цифр ниже.")).toBeTruthy();
     expect(screen.getByLabelText("Код")).toBeTruthy();
   });
 
@@ -143,7 +171,7 @@ describe("email auth UI", () => {
     expect(requestEmailCode).toHaveBeenCalledTimes(2);
   });
 
-  it("blocks the first code button with a timer when the server returns a cooldown", async () => {
+  it("keeps users on the code step with a resend timer when the server returns a cooldown", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.mocked(requestEmailCode).mockRejectedValueOnce(
       Object.assign(new Error("Повторный код можно получить через 42с."), {
@@ -157,15 +185,16 @@ describe("email auth UI", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
 
     await waitFor(() => {
-      expect((screen.getByRole("button", { name: "Получить код через 42с" }) as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз через 42с" }) as HTMLButtonElement).disabled).toBe(true);
     });
 
     await vi.advanceTimersByTimeAsync(41_000);
-    expect((screen.getByRole("button", { name: "Получить код через 1с" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Отправить код ещё раз через 1с" }) as HTMLButtonElement).disabled).toBe(true);
 
     await vi.advanceTimersByTimeAsync(1_000);
     await waitFor(() => {
-      expect((screen.getByRole("button", { name: "Получить код" }) as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByRole("button", { name: "Отправить код ещё раз" }) as HTMLButtonElement).disabled).toBe(false);
     });
     expect(requestEmailCode).toHaveBeenCalledTimes(1);
   });

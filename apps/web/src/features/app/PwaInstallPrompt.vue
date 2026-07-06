@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Download, Share, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { pwaInstallRequestEventName } from "@/features/app/pwaInstall";
 
 type BeforeInstallPromptChoice = {
   outcome: "accepted" | "dismissed";
@@ -113,16 +114,30 @@ function dismissInstallCard() {
   isVisible.value = false;
 }
 
+function handleInstallRequest() {
+  isDismissedForSession.value = false;
+  if (installPrompt.value) {
+    void installApp();
+    return;
+  }
+
+  if (!isInstalled.value) {
+    isVisible.value = true;
+  }
+}
+
 onMounted(() => {
   detectPlatform();
   window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   window.addEventListener("appinstalled", handleAppInstalled);
+  window.addEventListener(pwaInstallRequestEventName, handleInstallRequest);
   scheduleInstallCard();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   window.removeEventListener("appinstalled", handleAppInstalled);
+  window.removeEventListener(pwaInstallRequestEventName, handleInstallRequest);
   if (showTimer) {
     window.clearTimeout(showTimer);
     showTimer = null;

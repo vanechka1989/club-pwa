@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { cleanup, render, screen } from "@testing-library/vue";
+import { cleanup, render, screen, waitFor } from "@testing-library/vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import PwaInstallPrompt from "./PwaInstallPrompt.vue";
@@ -84,5 +84,23 @@ describe("PWA shell", () => {
 
     expect(screen.getByRole("complementary", { name: "Установите Club как приложение" })).toBeTruthy();
     expect(screen.getByText(/Если кнопки установки нет/)).toBeTruthy();
+  });
+
+  it("opens the native install prompt when the login gate requests installation", async () => {
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const event = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: "accepted"; platform: string }>;
+      platforms: string[];
+    };
+    event.prompt = prompt;
+    event.userChoice = Promise.resolve({ outcome: "accepted", platform: "web" });
+    event.platforms = ["web"];
+
+    render(PwaInstallPrompt);
+    window.dispatchEvent(event);
+    window.dispatchEvent(new CustomEvent("club-pwa-install-request"));
+
+    await waitFor(() => expect(prompt).toHaveBeenCalledTimes(1));
   });
 });

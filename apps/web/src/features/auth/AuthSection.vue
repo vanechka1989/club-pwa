@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { Download, Mail, ShieldCheck } from "lucide-vue-next";
+import { requestPwaInstallPrompt } from "@/features/app/pwaInstall";
 import { useSessionStore } from "@/stores/session";
 
 type AuthRequestError = Error & { retryAfterSeconds?: number };
@@ -133,6 +134,10 @@ function changeEmail() {
   stopResendCooldownTimer();
 }
 
+function installApp() {
+  requestPwaInstallPrompt();
+}
+
 onMounted(() => {
   isInstalledPwa.value = isStandalonePwa();
 });
@@ -154,8 +159,18 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <ol class="auth-install-steps">
+      <li>Нажмите “Установить приложение”.</li>
+      <li>Подтвердите установку в окне браузера.</li>
+      <li>Откройте Club через новую иконку на экране телефона.</li>
+    </ol>
+
+    <button class="primary-button" type="button" @click="installApp">
+      Установить приложение
+    </button>
+
     <p class="auth-hint">
-      Установите PWA на телефон или компьютер, затем откройте Club через иконку приложения.
+      Если окно установки не открылось, нажмите меню браузера ⋮ и выберите “Установить приложение”.
     </p>
   </section>
 

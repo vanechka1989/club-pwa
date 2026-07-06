@@ -109,6 +109,7 @@ describe("App", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    localStorage.clear();
     stubStandaloneDisplay(true);
     vi.mocked(getLearningHome).mockRejectedValue(new Error("not loaded"));
     vi.mocked(getMe).mockRejectedValue(new Error("unauthorized"));
@@ -129,6 +130,37 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "Вход в клуб" })).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Получить код" })).toBeTruthy();
+  });
+
+  it("restores the email code form without the generic login error after returning from mail", async () => {
+    let rejectLoad!: (reason?: unknown) => void;
+    vi.mocked(getMe).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectLoad = reject;
+        })
+    );
+    localStorage.setItem(
+      "club-pending-email-auth",
+      JSON.stringify({
+        email: "ivan@example.com",
+        expiresAt: Date.now() + 10 * 60 * 1000
+      })
+    );
+
+    render(App, {
+      global: {
+        plugins: [createPinia()]
+      }
+    });
+
+    expect(await screen.findByRole("heading", { name: "Код из письма" })).toBeTruthy();
+    await waitFor(() => expect(getMe).toHaveBeenCalledTimes(1));
+    rejectLoad(new Error("unauthorized"));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(screen.queryByText("Войдите по email, чтобы открыть клуб.")).toBeNull();
+    expect(screen.getByText("Код отправлен на ivan@example.com. Введите 6 цифр ниже.")).toBeTruthy();
   });
 
   it("resets window scroll when changing sections", async () => {
