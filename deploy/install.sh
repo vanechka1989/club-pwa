@@ -61,6 +61,23 @@ console.log(privateJwk.d);
 NODE
 }
 
+wait_for_api_container() {
+  ssh "$SSH_TARGET" "set -e
+    cd '$DEPLOY_DIR'
+    echo 'Ждём готовность API перед следующими шагами...'
+    for _ in {1..60}; do
+      if docker compose -f docker-compose.prod.yml exec -T api bun -e 'try { const response = await fetch(\"http://127.0.0.1:3000/health\"); process.exit(response.ok ? 0 : 1); } catch { process.exit(1); }' >/dev/null 2>&1; then
+        echo 'API готов.'
+        exit 0
+      fi
+      sleep 2
+    done
+    echo 'API не успел запуститься. Последние логи:' >&2
+    docker compose -f docker-compose.prod.yml logs --tail=120 api >&2 || true
+    exit 1
+  "
+}
+
 echo
 echo "Установка PWA-клуба на удалённый сервер по SSH"
 echo "Если значение в квадратных скобках подходит, просто нажмите Enter."
@@ -226,6 +243,8 @@ ssh "$SSH_TARGET" "set -e
   docker compose -f docker-compose.prod.yml run --rm migrate
   docker compose -f docker-compose.prod.yml up -d
 "
+
+wait_for_api_container
 
 if [[ "$RUN_SEED" == "y" || "$RUN_SEED" == "yes" ]]; then
   ssh "$SSH_TARGET" "set -e

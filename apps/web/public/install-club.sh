@@ -114,6 +114,23 @@ ensure_vapid_keys() {
   fi
 }
 
+wait_for_api_container() {
+  echo "Ждём готовность API перед следующими шагами..."
+
+  for _ in {1..60}; do
+    if docker compose exec -T api bun -e 'try { const response = await fetch("http://127.0.0.1:3000/health"); process.exit(response.ok ? 0 : 1); } catch { process.exit(1); }' >/dev/null 2>&1; then
+      echo "API готов."
+      return 0
+    fi
+
+    sleep 2
+  done
+
+  echo "API не успел запуститься. Последние логи:" >&2
+  docker compose logs --tail=120 api >&2 || true
+  return 1
+}
+
 wait_for_health() {
   local health_url="$1"
 
@@ -438,6 +455,7 @@ docker compose run --rm migrate
 echo
 echo "Запускаем клуб..."
 docker compose up -d
+wait_for_api_container
 
 if [[ "$RUN_SEED" == "y" || "$RUN_SEED" == "yes" ]]; then
   echo

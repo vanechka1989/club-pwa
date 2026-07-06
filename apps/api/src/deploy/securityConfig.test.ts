@@ -55,4 +55,15 @@ describe("production security config", () => {
       expect(source).toContain("PWA push-ключи создаются автоматически");
     }
   });
+
+  it("waits for the API before adding demo content", () => {
+    for (const source of [serverInstall, sshInstall, publicInstall]) {
+      expect(source).toContain("wait_for_api_container");
+
+      const firstWaitIndex = source.indexOf("wait_for_api_container");
+      const seedIndex = source.indexOf("db:seed");
+
+      expect(seedIndex).toBeGreaterThan(firstWaitIndex);
+    }
+  });
 });
