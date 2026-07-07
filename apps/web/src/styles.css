@@ -6887,50 +6887,9 @@ body.club-keyboard-open .module-name-modal {
   box-shadow: 0 16px 34px color-mix(in srgb, #000 20%, transparent);
 }
 
-.lesson-youtube-player-shell-fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-  padding: max(0.75rem, var(--club-modal-top-offset)) 0.75rem max(0.75rem, var(--club-modal-bottom-offset));
-}
-
-.lesson-youtube-player-shell-fullscreen .lesson-youtube-player {
-  width: min(100vw, calc((var(--club-visible-viewport-height, 100dvh) - 1.5rem) * 16 / 9));
-  max-width: 100%;
-  min-height: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
 .lesson-youtube-player-material {
   min-height: 10rem;
   border-radius: 12px;
-}
-
-.lesson-youtube-native-fullscreen-hitbox {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  top: 44%;
-  z-index: 2;
-  width: 4.6rem;
-  height: auto;
-  border: 0;
-  background: transparent;
-  color: transparent;
-  cursor: pointer;
-  opacity: 0;
-  padding: 0;
-}
-
-.lesson-youtube-player-shell-fullscreen .lesson-youtube-native-fullscreen-hitbox {
-  right: max(0.4rem, var(--club-safe-right));
-  bottom: max(0.4rem, var(--club-modal-bottom-offset));
 }
 
 .lesson-video-player-fullscreen {
@@ -9451,19 +9410,56 @@ body.club-mobile-device .profile-access-actions .profile-logout-button {
 }
 
 body.club-mobile-device .profile-modal-backdrop {
-  align-items: end;
-  justify-items: stretch;
-  padding: max(0.7rem, var(--club-modal-top-offset)) 0 0;
+  align-items: center;
+  justify-items: center;
+  padding:
+    max(0.7rem, var(--club-modal-top-offset))
+    max(0.7rem, calc(var(--club-safe-right) + 0.7rem))
+    max(0.7rem, calc(var(--club-safe-bottom) + 0.7rem))
+    max(0.7rem, calc(var(--club-safe-left) + 0.7rem));
 }
 
 body.club-mobile-device .profile-avatar-editor-modal,
 body.club-mobile-device .profile-logout-confirm {
-  width: 100%;
-  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(0.7rem, var(--club-modal-top-offset)));
+  width: min(100%, 31rem);
+  max-width: calc(100vw - var(--club-safe-left) - var(--club-safe-right) - 1.4rem);
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(1.4rem, var(--club-modal-top-offset)));
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 24px 24px 0 0;
-  padding: 1rem 1rem max(1rem, calc(var(--club-safe-bottom) + 0.9rem));
+  border-radius: 24px;
+  padding: 1rem;
+}
+
+body.club-mobile-device .admin-modal-backdrop,
+body.club-mobile-device .payment-modal-backdrop,
+body.club-mobile-device .support-modal-backdrop {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  padding:
+    max(0.7rem, var(--club-modal-top-offset))
+    max(0.7rem, calc(var(--club-safe-right) + 0.7rem))
+    max(0.7rem, calc(var(--club-safe-bottom) + 0.7rem))
+    max(0.7rem, calc(var(--club-safe-left) + 0.7rem));
+  overflow: hidden;
+}
+
+body.club-mobile-device .admin-client-modal,
+body.club-mobile-device .payment-form-modal,
+body.club-mobile-device .support-ticket-modal,
+body.club-mobile-device .lesson-preview-modal,
+body.club-mobile-device .module-name-modal {
+  width: min(100%, 34rem);
+  max-width: calc(100vw - var(--club-safe-left) - var(--club-safe-right) - 1.4rem);
+  height: auto;
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(1.4rem, var(--club-modal-top-offset)));
+  align-self: center;
+  justify-self: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 24px;
+  box-shadow: 0 18px 48px color-mix(in srgb, #000 28%, transparent);
 }
 
 body.club-mobile-device .profile-avatar-editor-controls {
@@ -9672,19 +9668,24 @@ body.club-mobile-app-scaled .profile-access-actions .profile-logout-button {
 }
 
 body.club-mobile-app-scaled .profile-modal-backdrop {
-  align-items: end;
-  justify-items: stretch;
-  padding: max(0.54rem, var(--club-modal-top-offset)) 0 0;
+  align-items: center;
+  justify-items: center;
+  padding:
+    max(0.54rem, var(--club-modal-top-offset))
+    max(0.62rem, calc(var(--club-safe-right) + 0.62rem))
+    max(0.62rem, calc(var(--club-safe-bottom) + 0.62rem))
+    max(0.62rem, calc(var(--club-safe-left) + 0.62rem));
 }
 
 body.club-mobile-app-scaled .profile-avatar-editor-modal,
 body.club-mobile-app-scaled .profile-logout-confirm {
-  width: 100%;
-  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(0.7rem, var(--club-modal-top-offset)));
+  width: min(100%, 31rem);
+  max-width: calc(100vw - var(--club-safe-left) - var(--club-safe-right) - 1.24rem);
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(1.2rem, var(--club-modal-top-offset)));
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: var(--club-mobile-sheet-radius) var(--club-mobile-sheet-radius) 0 0;
-  padding: 0.82rem 0.82rem max(0.9rem, calc(var(--club-safe-bottom) + 0.72rem));
+  border-radius: var(--club-mobile-sheet-radius);
+  padding: 0.82rem;
 }
 
 body.club-mobile-app-scaled .profile-modal-head h3 {
@@ -9817,10 +9818,14 @@ body.club-mobile-app-scaled .admin-modal-backdrop,
 body.club-mobile-app-scaled .payment-modal-backdrop,
 body.club-mobile-app-scaled .support-modal-backdrop {
   display: grid;
-  align-items: end;
-  justify-content: stretch;
-  justify-items: stretch;
-  padding: max(0.54rem, var(--club-modal-top-offset)) 0 0;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  padding:
+    max(0.54rem, var(--club-modal-top-offset))
+    max(0.62rem, calc(var(--club-safe-right) + 0.62rem))
+    max(0.62rem, calc(var(--club-safe-bottom) + 0.62rem))
+    max(0.62rem, calc(var(--club-safe-left) + 0.62rem));
   background: color-mix(in srgb, #000 54%, transparent);
 }
 
@@ -9829,12 +9834,15 @@ body.club-mobile-app-scaled .payment-form-modal,
 body.club-mobile-app-scaled .support-ticket-modal,
 body.club-mobile-app-scaled .lesson-preview-modal,
 body.club-mobile-app-scaled .module-name-modal {
-  width: 100%;
+  width: min(100%, 31rem);
+  max-width: calc(100vw - var(--club-safe-left) - var(--club-safe-right) - 1.24rem);
   height: auto;
-  max-height: calc(var(--club-viewport-height, 100dvh) - max(0.7rem, var(--club-modal-top-offset)));
-  border-radius: var(--club-mobile-sheet-radius) var(--club-mobile-sheet-radius) 0 0;
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(1.2rem, var(--club-modal-top-offset)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--club-mobile-sheet-radius);
   background: color-mix(in srgb, var(--panel-strong) 94%, var(--panel));
-  box-shadow: 0 -18px 48px color-mix(in srgb, #000 36%, transparent);
+  box-shadow: 0 18px 48px color-mix(in srgb, #000 28%, transparent);
 }
 
 body.club-mobile-app-scaled .admin-client-modal-head,

@@ -559,6 +559,9 @@ describe("App", () => {
     expect(styles).toMatch(
       /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop\s*{[\s\S]*font-size: calc\(var\(--club-app-wide-font-base, 16px\) \* var\(--club-user-visual-scale, 1\)\);/
     );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-client-modal,\s*body\.club-mobile-device \.payment-form-modal,\s*body\.club-mobile-device \.support-ticket-modal,\s*body\.club-mobile-device \.lesson-preview-modal,\s*body\.club-mobile-device \.module-name-modal\s*\{[\s\S]*width: min\(100%, 34rem\);[\s\S]*border-radius: 24px;/
+    );
   });
 
   it("uses a PWA-first mobile device shell instead of zooming a desktop viewport", () => {
@@ -642,7 +645,10 @@ describe("App", () => {
       /body\.club-mobile-app-scaled \.bottom-nav\s*\{[\s\S]*border-radius: 24px;[\s\S]*padding: 0\.26rem;/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-app-scaled \.admin-client-modal,\s*body\.club-mobile-app-scaled \.payment-form-modal,\s*body\.club-mobile-app-scaled \.support-ticket-modal,\s*body\.club-mobile-app-scaled \.lesson-preview-modal,\s*body\.club-mobile-app-scaled \.module-name-modal\s*\{[\s\S]*border-radius: var\(--club-mobile-sheet-radius\) var\(--club-mobile-sheet-radius\) 0 0;/
+      /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop\s*\{[\s\S]*align-items: center;[\s\S]*justify-content: center;[\s\S]*justify-items: center;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled \.admin-client-modal,\s*body\.club-mobile-app-scaled \.payment-form-modal,\s*body\.club-mobile-app-scaled \.support-ticket-modal,\s*body\.club-mobile-app-scaled \.lesson-preview-modal,\s*body\.club-mobile-app-scaled \.module-name-modal\s*\{[\s\S]*width: min\(100%, 31rem\);[\s\S]*border-radius: var\(--club-mobile-sheet-radius\);/
     );
   });
 
@@ -771,5 +777,9 @@ describe("App", () => {
     expect(learningSource).not.toContain("document.exitFullscreen");
     expect(learningSource).not.toContain("document.fullscreenElement");
     expect(learningSource).not.toContain("fullscreenchange");
+    expect(learningSource).not.toContain("toggleYouTubeFullscreen");
+    expect(learningSource).not.toContain("lesson-youtube-native-fullscreen-hitbox");
+    expect(learningSource).not.toContain("lesson-youtube-player-shell-fullscreen");
+    expect(learningSource).toContain("allowfullscreen");
   });
 });

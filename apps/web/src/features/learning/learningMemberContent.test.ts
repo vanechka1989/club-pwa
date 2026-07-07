@@ -380,14 +380,9 @@ describe("Learning section member content", () => {
     expect(player.hasAttribute("allowfullscreen")).toBe(true);
     expect(screen.queryByRole("button", { name: "Развернуть YouTube видео" })).toBeNull();
     expect(document.querySelector(".lesson-youtube-fullscreen-button")).toBeNull();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Открыть YouTube во весь экран" }));
-
-    expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Выйти из полноэкранного YouTube видео" }).textContent).toContain("Закрыть");
-
-    await fireEvent.click(screen.getByRole("button", { name: "Выйти из полноэкранного YouTube видео" }));
-
+    expect(screen.queryByRole("button", { name: "Открыть YouTube во весь экран" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Выйти из полноэкранного YouTube видео" })).toBeNull();
+    expect(document.querySelector(".lesson-youtube-native-fullscreen-hitbox")).toBeNull();
     expect(document.querySelector(".lesson-youtube-player-shell-fullscreen")).toBeNull();
   });
 
