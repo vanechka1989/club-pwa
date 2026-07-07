@@ -25,6 +25,21 @@ describe("ui store", () => {
     expect(document.documentElement.style.colorScheme).toBe("light");
   });
 
+  it("accepts and persists soft touch appearance presets", () => {
+    localStorage.setItem("club-color-scheme", "soft-black");
+
+    const ui = useUiStore();
+
+    expect(ui.colorScheme).toBe("soft-black");
+    expect(document.documentElement.dataset.scheme).toBe("soft-black");
+
+    ui.setColorScheme("soft-black");
+
+    expect(ui.colorScheme).toBe("soft-black");
+    expect(localStorage.getItem("club-color-scheme")).toBe("soft-black");
+    expect(document.documentElement.dataset.scheme).toBe("soft-black");
+  });
+
   it("persists visual scale as a numeric root variable for adaptive UI density", () => {
     const ui = useUiStore();
 

@@ -2,11 +2,33 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export type Theme = "dark" | "light";
-export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azure" | "coffee";
+export type ColorScheme =
+  | "midnight"
+  | "emerald"
+  | "graphite"
+  | "sakura"
+  | "azure"
+  | "coffee"
+  | "soft-black"
+  | "soft-graphite"
+  | "soft-milk"
+  | "soft-blue";
 export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 const visualScaleStorageVersion = "2";
+const colorSchemes = new Set<ColorScheme>([
+  "midnight",
+  "emerald",
+  "graphite",
+  "sakura",
+  "azure",
+  "coffee",
+  "soft-black",
+  "soft-graphite",
+  "soft-milk",
+  "soft-blue"
+]);
 
 function clampVisualScale(value: number | string | null) {
   const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
@@ -14,19 +36,15 @@ function clampVisualScale(value: number | string | null) {
   return Math.min(2, Math.max(1, Math.round(safeValue * 10) / 10));
 }
 
+function isColorScheme(value: string | null): value is ColorScheme {
+  return Boolean(value && colorSchemes.has(value as ColorScheme));
+}
+
 export const useUiStore = defineStore("ui", () => {
   const savedTheme = localStorage.getItem("club-theme");
   const theme = ref<Theme>(savedTheme === "dark" ? "dark" : "light");
   const savedColorScheme = localStorage.getItem("club-color-scheme");
-  const colorScheme = ref<ColorScheme>(
-    savedColorScheme === "emerald" ||
-      savedColorScheme === "graphite" ||
-      savedColorScheme === "sakura" ||
-      savedColorScheme === "azure" ||
-      savedColorScheme === "coffee"
-      ? savedColorScheme
-      : "azure"
-  );
+  const colorScheme = ref<ColorScheme>(isColorScheme(savedColorScheme) ? savedColorScheme : "azure");
   const savedPreviewMode = localStorage.getItem("club-preview-mode");
   const previewMode = ref<PreviewMode>(
     savedPreviewMode === "admin" || savedPreviewMode === "member-active" || savedPreviewMode === "member-inactive"
