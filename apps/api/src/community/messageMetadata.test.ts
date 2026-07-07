@@ -34,7 +34,10 @@ describe("messageMetadata", () => {
         telegramId: "42",
         firstName: "Ivan",
         username: null,
-        photoUrl: "https://example.com/avatar.jpg"
+        photoUrl: "https://example.com/avatar.jpg",
+        avatarPositionX: 36,
+        avatarPositionY: 64,
+        avatarScale: 1.5
       }
     });
 
@@ -46,7 +49,10 @@ describe("messageMetadata", () => {
         telegramId: "42",
         firstName: "Ivan",
         username: null,
-        photoUrl: "https://example.com/avatar.jpg"
+        photoUrl: "https://example.com/avatar.jpg",
+        avatarPositionX: 36,
+        avatarPositionY: 64,
+        avatarScale: 1.5
       }
     });
   });

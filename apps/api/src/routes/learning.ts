@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { contentCategories, contentItems, lessonComments, lessonMaterials, userContentProgress } from "../db/schema";
 import { db } from "../db/client";
+import { buildMessageAuthor } from "../community/messageMetadata";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
@@ -64,7 +65,16 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
 
 function serializeComment(
   comment: typeof lessonComments.$inferSelect & {
-    user: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
+    user: {
+      id: string;
+      telegramId: string;
+      firstName: string | null;
+      username: string | null;
+      photoUrl: string | null;
+      avatarPositionX?: number | null;
+      avatarPositionY?: number | null;
+      avatarScale?: number | null;
+    };
   }
 ) {
   return {
@@ -72,13 +82,7 @@ function serializeComment(
     contentItemId: comment.contentItemId,
     body: comment.body,
     status: comment.status,
-    author: {
-      id: comment.user.id,
-      telegramId: comment.user.telegramId,
-      firstName: comment.user.firstName,
-      username: comment.user.username,
-      photoUrl: comment.user.photoUrl
-    },
+    author: buildMessageAuthor(comment.user),
     createdAt: comment.createdAt.toISOString()
   };
 }

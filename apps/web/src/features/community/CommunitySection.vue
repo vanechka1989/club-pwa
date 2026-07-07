@@ -106,6 +106,18 @@ function authorInitial(message: ClubMessage) {
   return authorName(message).slice(0, 1).toUpperCase();
 }
 
+function avatarImageStyle(author: ClubMessage["author"]) {
+  const positionX = author.avatarPositionX ?? 50;
+  const positionY = author.avatarPositionY ?? 50;
+  const scale = author.avatarScale ?? 1;
+
+  return {
+    objectPosition: `${positionX}% ${positionY}%`,
+    transform: `scale(${scale})`,
+    transformOrigin: `${positionX}% ${positionY}%`
+  };
+}
+
 function reactionLabel(reaction: MessageReaction) {
   return reactionOptions.find((option) => option.value === reaction)?.label ?? "";
 }
@@ -863,7 +875,7 @@ onBeforeUnmount(() => {
             ↩
           </span>
           <div v-if="!message.isSystem && !isOwnMessage(message)" class="chat-avatar">
-            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" />
+            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" :style="avatarImageStyle(message.author)" />
             <span v-else>{{ authorInitial(message) }}</span>
           </div>
           <div v-if="!message.isSystem" class="chat-bubble">
@@ -930,7 +942,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div v-if="!message.isSystem && isOwnMessage(message)" class="chat-avatar">
-            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" />
+            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" :style="avatarImageStyle(message.author)" />
             <span v-else>{{ authorInitial(message) }}</span>
           </div>
           <p v-if="message.isSystem" class="chat-system-body">

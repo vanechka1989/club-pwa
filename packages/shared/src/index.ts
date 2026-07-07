@@ -235,7 +235,10 @@ export const commentAuthorSchema = z.object({
   telegramId: z.string(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
-  photoUrl: z.string().url().nullable()
+  photoUrl: z.string().url().nullable(),
+  avatarPositionX: z.number().min(0).max(100).default(50),
+  avatarPositionY: z.number().min(0).max(100).default(50),
+  avatarScale: z.number().min(1).max(2.5).default(1)
 });
 export type CommentAuthor = z.infer<typeof commentAuthorSchema>;
 

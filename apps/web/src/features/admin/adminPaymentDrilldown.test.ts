@@ -16,7 +16,10 @@ function payment(overrides: Partial<PaymentOrderLog>): PaymentOrderLog {
       telegramId: "100",
       firstName: "Иван",
       username: null,
-      photoUrl: null
+      photoUrl: null,
+      avatarPositionX: 50,
+      avatarPositionY: 50,
+      avatarScale: 1
     },
     webhook: null,
     paidAt: null,

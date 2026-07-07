@@ -1,6 +1,25 @@
 <script setup lang="ts">
 import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
-import { BarChart3, Camera, Check, Copy, Crop, Fingerprint, Gift, LogOut, Moon, Palette, Sun } from "lucide-vue-next";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  BarChart3,
+  Camera,
+  Check,
+  Copy,
+  Crop,
+  Fingerprint,
+  Gift,
+  LogOut,
+  Minus,
+  Moon,
+  Palette,
+  Plus,
+  RotateCcw,
+  Sun
+} from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { activateReferralRewards, getLearningHome, getPaymentHistory, getPaymentPlans, getReferralProfile } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
@@ -42,15 +61,6 @@ const avatarDisplaySaving = ref(false);
 const avatarDraftX = ref(50);
 const avatarDraftY = ref(50);
 const avatarDraftScale = ref(1);
-const avatarDragState = ref<{
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startPositionX: number;
-  startPositionY: number;
-  rectWidth: number;
-  rectHeight: number;
-} | null>(null);
 const emailVisible = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
@@ -280,42 +290,23 @@ function openAvatarEditor() {
   avatarEditorOpen.value = true;
 }
 
-function handleAvatarPointerDown(event: PointerEvent) {
-  const target = event.currentTarget as HTMLElement;
-  const rect = target.getBoundingClientRect();
-  avatarDragState.value = {
-    pointerId: event.pointerId,
-    startClientX: event.clientX,
-    startClientY: event.clientY,
-    startPositionX: avatarDraftX.value,
-    startPositionY: avatarDraftY.value,
-    rectWidth: rect.width || 1,
-    rectHeight: rect.height || 1
-  };
-  target.setPointerCapture?.(event.pointerId);
-}
-
-function handleAvatarPointerMove(event: PointerEvent) {
-  const drag = avatarDragState.value;
-  if (!drag || drag.pointerId !== event.pointerId) {
+function nudgeAvatar(axis: "x" | "y", amount: number) {
+  if (axis === "x") {
+    avatarDraftX.value = clampAvatarPosition(avatarDraftX.value + amount);
     return;
   }
 
-  const scaleFactor = Math.max(1, avatarDraftScale.value);
-  const deltaX = ((event.clientX - drag.startClientX) / drag.rectWidth) * (100 / scaleFactor);
-  const deltaY = ((event.clientY - drag.startClientY) / drag.rectHeight) * (100 / scaleFactor);
-  avatarDraftX.value = clampAvatarPosition(drag.startPositionX - deltaX);
-  avatarDraftY.value = clampAvatarPosition(drag.startPositionY - deltaY);
+  avatarDraftY.value = clampAvatarPosition(avatarDraftY.value + amount);
 }
 
-function handleAvatarPointerUp(event: PointerEvent) {
-  const target = event.currentTarget as HTMLElement;
-  target.releasePointerCapture?.(event.pointerId);
-  avatarDragState.value = null;
+function zoomAvatar(amount: number) {
+  avatarDraftScale.value = clampAvatarScale(avatarDraftScale.value + amount);
 }
 
-function handleAvatarScaleInput(event: Event) {
-  avatarDraftScale.value = clampAvatarScale(Number((event.target as HTMLInputElement).value));
+function resetAvatarDraft() {
+  avatarDraftX.value = 50;
+  avatarDraftY.value = 50;
+  avatarDraftScale.value = 1;
 }
 
 async function handleAvatarDisplaySave() {
@@ -724,30 +715,51 @@ onMounted(async () => {
           <button class="profile-modal-close" type="button" :aria-label="t('close')" @click="avatarEditorOpen = false">×</button>
         </div>
 
-        <div
-          class="profile-avatar-crop-preview"
-          @pointerdown="handleAvatarPointerDown"
-          @pointermove="handleAvatarPointerMove"
-          @pointerup="handleAvatarPointerUp"
-          @pointercancel="handleAvatarPointerUp"
-        >
-          <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDraftStyle" draggable="false" />
-          <span v-else>{{ avatarInitial }}</span>
-        </div>
+        <div class="profile-avatar-editor-workspace">
+          <div class="profile-avatar-crop-preview" aria-live="polite">
+            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDraftStyle" draggable="false" />
+            <span v-else>{{ avatarInitial }}</span>
+          </div>
 
-        <div class="profile-avatar-editor-controls">
-          <label class="profile-range-row">
-            <span>{{ t("profileAvatarMoveX") }}</span>
-            <input v-model.number="avatarDraftX" type="range" min="0" max="100" step="1" />
-          </label>
-          <label class="profile-range-row">
-            <span>{{ t("profileAvatarMoveY") }}</span>
-            <input v-model.number="avatarDraftY" type="range" min="0" max="100" step="1" />
-          </label>
-          <label class="profile-range-row">
-            <span>{{ t("profileAvatarZoom") }}</span>
-            <input v-model.number="avatarDraftScale" type="range" min="1" max="2.5" step="0.05" @input="handleAvatarScaleInput" />
-          </label>
+          <div class="profile-avatar-editor-controls">
+            <div class="profile-avatar-control-card">
+              <p>{{ t("profileAvatarMoveTitle") }}</p>
+              <div class="profile-avatar-nudge-grid">
+                <span aria-hidden="true"></span>
+                <button type="button" :aria-label="t('profileAvatarMoveUp')" @click="nudgeAvatar('y', -5)">
+                  <ArrowUp class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <span aria-hidden="true"></span>
+                <button type="button" :aria-label="t('profileAvatarMoveLeft')" @click="nudgeAvatar('x', -5)">
+                  <ArrowLeft class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button type="button" :aria-label="t('profileAvatarCenter')" @click="resetAvatarDraft">
+                  <RotateCcw class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button type="button" :aria-label="t('profileAvatarMoveRight')" @click="nudgeAvatar('x', 5)">
+                  <ArrowRight class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <span aria-hidden="true"></span>
+                <button type="button" :aria-label="t('profileAvatarMoveDown')" @click="nudgeAvatar('y', 5)">
+                  <ArrowDown class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <span aria-hidden="true"></span>
+              </div>
+            </div>
+
+            <div class="profile-avatar-control-card">
+              <p>{{ t("profileAvatarZoom") }}</p>
+              <div class="profile-avatar-zoom-row">
+                <button type="button" :aria-label="t('profileAvatarZoomOut')" @click="zoomAvatar(-0.1)">
+                  <Minus class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <strong>{{ Math.round(avatarDraftScale * 100) }}%</strong>
+                <button type="button" :aria-label="t('profileAvatarZoomIn')" @click="zoomAvatar(0.1)">
+                  <Plus class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="profile-modal-actions">

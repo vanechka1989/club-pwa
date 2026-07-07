@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
-import { buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
+import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
@@ -212,7 +212,16 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, current
 
 async function serializeMessage(
   message: typeof clubChatMessages.$inferSelect & {
-    user: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
+    user: {
+      id: string;
+      telegramId: string;
+      firstName: string | null;
+      username: string | null;
+      photoUrl: string | null;
+      avatarPositionX?: number | null;
+      avatarPositionY?: number | null;
+      avatarScale?: number | null;
+    };
   },
   currentUserId: string
 ): Promise<ClubMessage> {
@@ -236,13 +245,7 @@ async function serializeMessage(
     body: message.body,
     isSystem: message.isSystem,
     status: message.status,
-    author: {
-      id: message.user.id,
-      telegramId: message.user.telegramId,
-      firstName: message.user.firstName,
-      username: message.user.username,
-      photoUrl: message.user.photoUrl
-    },
+    author: buildMessageAuthor(message.user),
     replyTo: buildReplyPreview(replyTo ?? null),
     likesCount: reactionSummary.likesCount,
     dislikesCount: reactionSummary.dislikesCount,
@@ -358,9 +361,27 @@ async function notifyReplyRecipient({
 }: {
   topic: typeof clubChatTopics.$inferSelect;
   replyToMessage: typeof clubChatMessages.$inferSelect & {
-    user: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
+    user: {
+      id: string;
+      telegramId: string;
+      firstName: string | null;
+      username: string | null;
+      photoUrl: string | null;
+      avatarPositionX?: number | null;
+      avatarPositionY?: number | null;
+      avatarScale?: number | null;
+    };
   };
-  sender: { id: string; telegramId: string; firstName: string | null; username: string | null; photoUrl: string | null };
+  sender: {
+    id: string;
+    telegramId: string;
+    firstName: string | null;
+    username: string | null;
+    photoUrl: string | null;
+    avatarPositionX?: number | null;
+    avatarPositionY?: number | null;
+    avatarScale?: number | null;
+  };
   body: string;
 }) {
   if (replyToMessage.userId === sender.id) {

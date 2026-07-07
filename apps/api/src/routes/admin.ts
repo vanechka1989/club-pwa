@@ -27,6 +27,7 @@ import {
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
+import { buildMessageAuthor } from "../community/messageMetadata";
 import { db } from "../db/client";
 import {
   adminActionLogs,
@@ -1584,13 +1585,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         topicTitle: message.topic.title,
         isSystem: message.isSystem,
         status: message.status,
-        author: {
-          id: message.user.id,
-          telegramId: message.user.telegramId,
-          firstName: message.user.firstName,
-          username: message.user.username,
-          photoUrl: message.user.photoUrl
-        },
+        author: buildMessageAuthor(message.user),
         createdAt: message.createdAt.toISOString()
       }))
     });
@@ -1713,13 +1708,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         kind: "lesson_comment" as const,
         body: comment.body,
         status: comment.status,
-        author: {
-          id: comment.user.id,
-          telegramId: comment.user.telegramId,
-          firstName: comment.user.firstName,
-          username: comment.user.username,
-          photoUrl: comment.user.photoUrl
-        },
+        author: buildMessageAuthor(comment.user),
         sourceTitle: comment.item.title,
         createdAt: comment.createdAt.toISOString()
       })),
@@ -1728,13 +1717,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         kind: "chat_message" as const,
         body: message.body,
         status: message.status,
-        author: {
-          id: message.user.id,
-          telegramId: message.user.telegramId,
-          firstName: message.user.firstName,
-          username: message.user.username,
-          photoUrl: message.user.photoUrl
-        },
+        author: buildMessageAuthor(message.user),
         sourceTitle: message.topic.title,
         createdAt: message.createdAt.toISOString()
       }))

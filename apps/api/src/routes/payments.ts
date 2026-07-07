@@ -160,7 +160,10 @@ function mapPaymentOrderLog(
       telegramId: order.user.telegramId,
       firstName: order.user.firstName,
       username: order.user.username,
-      photoUrl: order.user.photoUrl
+      photoUrl: order.user.photoUrl,
+      avatarPositionX: order.user.avatarPositionX ?? 50,
+      avatarPositionY: order.user.avatarPositionY ?? 50,
+      avatarScale: (order.user.avatarScale ?? 100) / 100
     },
     webhook: webhook
       ? {

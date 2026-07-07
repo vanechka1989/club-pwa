@@ -20,6 +20,7 @@ const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
 const appIndexSource = readFileSync(resolve(__dirname, "../index.html"), "utf-8");
 const deviceLayoutSource = readFileSync(resolve(__dirname, "features/app/deviceLayout.ts"), "utf-8");
 const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
+const communitySource = readFileSync(resolve(__dirname, "features/community/CommunitySection.vue"), "utf-8");
 const uiStoreSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
 const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");
 
@@ -291,15 +292,25 @@ describe("App", () => {
 
     expect(profileSource).toContain("profile-avatar-icon-button");
     expect(profileSource).toContain("profile-avatar-editor-modal");
+    expect(profileSource).toContain("profile-avatar-nudge-grid");
+    expect(profileSource).toContain("nudgeAvatar");
+    expect(profileSource).toContain("resetAvatarDraft");
     expect(profileSource).toContain("handleAvatarDisplaySave");
     expect(profileSource).toContain("showLogoutConfirm");
     expect(profileSource).toContain("profile-logout-confirm");
+    expect(profileSource).not.toContain("profile-range-row");
+    expect(profileSource).not.toContain('type="range"');
     expect(profileSource).not.toContain("avatarMessage || t(\"profileAvatarUploadHint\")");
     expect(apiSource).toContain("updateAvatarDisplay");
     expect(apiSource).toContain("/me/avatar/display");
     expect(sessionSource).toContain("updateAvatarDisplay");
     expect(uiSource).toContain("VisualScale");
+    expect(communitySource).toContain("avatarImageStyle");
+    expect(communitySource).toContain(":style=\"avatarImageStyle(message.author)\"");
     expect(styles).toContain(".profile-avatar-editor-modal");
+    expect(styles).toContain(".profile-avatar-nudge-grid");
+    expect(styles).toContain(".chat-avatar img");
+    expect(styles).toContain("transform-origin");
     expect(styles).toContain(":root[data-visual-scale=\"large\"]");
   });
 

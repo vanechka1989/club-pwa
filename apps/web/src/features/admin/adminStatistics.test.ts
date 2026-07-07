@@ -3,6 +3,23 @@ import { describe, expect, it } from "vitest";
 import { buildAdminStatistics } from "./adminStatistics";
 
 const now = new Date("2026-06-26T12:00:00.000Z");
+const defaultAvatarDisplay = {
+  avatarPositionX: 50,
+  avatarPositionY: 50,
+  avatarScale: 1
+};
+
+function author(overrides: Partial<AdminCommunityMessage["author"]>): AdminCommunityMessage["author"] {
+  return {
+    id: "author-id",
+    telegramId: "100",
+    firstName: "Иван",
+    username: null,
+    photoUrl: null,
+    ...defaultAvatarDisplay,
+    ...overrides
+  };
+}
 
 function user(overrides: Partial<AdminStatsUser>): AdminStatsUser {
   return {
@@ -43,7 +60,8 @@ function payment(overrides: Partial<PaymentOrderLog>): PaymentOrderLog {
       telegramId: "100",
       firstName: "Иван",
       username: null,
-      photoUrl: null
+      photoUrl: null,
+      ...defaultAvatarDisplay
     },
     webhook: null,
     paidAt: null,
@@ -99,13 +117,7 @@ function communityMessage(overrides: Partial<AdminCommunityMessage>): AdminCommu
     topicTitle: "Общение",
     isSystem: false,
     status: "visible",
-    author: {
-      id: "author-id",
-      telegramId: "100",
-      firstName: "Иван",
-      username: null,
-      photoUrl: null
-    },
+    author: author({}),
     createdAt: "2026-06-25T10:00:00.000Z",
     ...overrides
   };
@@ -211,28 +223,28 @@ describe("admin statistics", () => {
             id: "m1",
             topicId: "open",
             topicTitle: "Новости клуба",
-            author: { id: "ivan", telegramId: "1", firstName: "Иван", username: "ivan", photoUrl: null },
+            author: author({ id: "ivan", telegramId: "1", firstName: "Иван", username: "ivan", photoUrl: null }),
             createdAt: "2026-06-25T10:00:00.000Z"
           }),
           communityMessage({
             id: "m2",
             topicId: "open",
             topicTitle: "Новости клуба",
-            author: { id: "ivan", telegramId: "1", firstName: "Иван", username: "ivan", photoUrl: null },
+            author: author({ id: "ivan", telegramId: "1", firstName: "Иван", username: "ivan", photoUrl: null }),
             createdAt: "2026-06-24T10:00:00.000Z"
           }),
           communityMessage({
             id: "m3",
             topicId: "locked",
             topicTitle: "Вопросы",
-            author: { id: "anna", telegramId: "2", firstName: "Анна", username: null, photoUrl: null },
+            author: author({ id: "anna", telegramId: "2", firstName: "Анна", username: null, photoUrl: null }),
             createdAt: "2026-06-10T10:00:00.000Z"
           }),
           communityMessage({
             id: "m4",
             topicId: "open",
             topicTitle: "Новости клуба",
-            author: { id: "system", telegramId: "0", firstName: "Система", username: null, photoUrl: null },
+            author: author({ id: "system", telegramId: "0", firstName: "Система", username: null, photoUrl: null }),
             isSystem: true,
             createdAt: "2026-06-25T12:00:00.000Z"
           }),
@@ -240,7 +252,7 @@ describe("admin statistics", () => {
             id: "m5",
             topicId: "open",
             topicTitle: "Новости клуба",
-            author: { id: "hidden", telegramId: "3", firstName: "Скрыт", username: null, photoUrl: null },
+            author: author({ id: "hidden", telegramId: "3", firstName: "Скрыт", username: null, photoUrl: null }),
             status: "hidden",
             createdAt: "2026-06-25T12:00:00.000Z"
           })

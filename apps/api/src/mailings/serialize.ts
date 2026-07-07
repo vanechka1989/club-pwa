@@ -76,7 +76,10 @@ export async function serializeAdminMailing(mailing: AdminMailingRow): Promise<A
           telegramId: creator.telegramId,
           firstName: creator.firstName,
           username: creator.username,
-          photoUrl: creator.photoUrl
+          photoUrl: creator.photoUrl,
+          avatarPositionX: creator.avatarPositionX ?? 50,
+          avatarPositionY: creator.avatarPositionY ?? 50,
+          avatarScale: (creator.avatarScale ?? 100) / 100
         }
       : null,
     targetCount: mailing.targetCount,

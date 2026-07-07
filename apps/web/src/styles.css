@@ -8609,7 +8609,7 @@ body.club-keyboard-open .module-name-modal {
 .profile-avatar-crop-preview {
   position: relative;
   display: grid;
-  width: min(13.5rem, 62vw);
+  width: min(12.4rem, 58vw);
   aspect-ratio: 1;
   place-self: center;
   place-items: center;
@@ -8620,15 +8620,9 @@ body.club-keyboard-open .module-name-modal {
     radial-gradient(circle at 32% 22%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 42%),
     color-mix(in srgb, var(--accent-soft) 72%, var(--panel));
   color: var(--text);
-  cursor: grab;
   font-size: 3rem;
   font-weight: 900;
-  touch-action: none;
   user-select: none;
-}
-
-.profile-avatar-crop-preview:active {
-  cursor: grabbing;
 }
 
 .profile-avatar-crop-preview::after {
@@ -8648,25 +8642,89 @@ body.club-keyboard-open .module-name-modal {
   transition: transform 120ms ease, object-position 120ms ease;
 }
 
+.profile-avatar-editor-workspace {
+  display: grid;
+  gap: 0.85rem;
+}
+
 .profile-avatar-editor-controls {
   display: grid;
-  gap: 0.58rem;
+  grid-template-columns: minmax(0, 1fr) minmax(8.4rem, 0.78fr);
+  gap: 0.62rem;
 }
 
-.profile-range-row {
+.profile-avatar-control-card {
   display: grid;
-  gap: 0.35rem;
+  align-content: start;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel-strong) 72%, transparent);
+  padding: 0.68rem;
 }
 
-.profile-range-row span {
+.profile-avatar-control-card p {
   color: var(--muted-strong);
   font-size: 0.76rem;
   font-weight: 780;
+  line-height: 1.2;
 }
 
-.profile-range-row input {
-  width: 100%;
-  accent-color: var(--accent);
+.profile-avatar-nudge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 2.55rem);
+  gap: 0.36rem;
+  justify-content: center;
+}
+
+.profile-avatar-nudge-grid button,
+.profile-avatar-zoom-row button {
+  display: inline-flex;
+  width: 2.55rem;
+  height: 2.55rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
+  color: var(--accent);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.profile-avatar-nudge-grid button:hover,
+.profile-avatar-zoom-row button:hover {
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 84%, var(--panel));
+}
+
+.profile-avatar-nudge-grid button:active,
+.profile-avatar-zoom-row button:active {
+  transform: scale(0.94);
+}
+
+.profile-avatar-zoom-row {
+  display: grid;
+  grid-template-columns: auto minmax(3.5rem, 1fr) auto;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.profile-avatar-zoom-row strong {
+  display: inline-flex;
+  min-height: 2.55rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 860;
+  font-variant-numeric: tabular-nums;
 }
 
 .profile-modal-actions {
@@ -9171,6 +9229,10 @@ body.club-mobile-device .profile-logout-confirm {
   padding: 1rem 1rem max(1rem, calc(var(--club-safe-bottom) + 0.9rem));
 }
 
+body.club-mobile-device .profile-avatar-editor-controls {
+  grid-template-columns: 1fr;
+}
+
 body.club-mobile-device .profile-avatar-crop-preview {
   width: min(14.5rem, 68vw);
 }
@@ -9391,8 +9453,34 @@ body.club-mobile-app-scaled .profile-modal-head h3 {
 }
 
 body.club-mobile-app-scaled .profile-modal-head p,
-body.club-mobile-app-scaled .profile-range-row span {
+body.club-mobile-app-scaled .profile-avatar-control-card p {
   font-size: 0.74rem;
+}
+
+body.club-mobile-app-scaled .profile-avatar-editor-controls {
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+body.club-mobile-app-scaled .profile-avatar-control-card {
+  border-radius: 16px;
+  padding: 0.58rem;
+}
+
+body.club-mobile-app-scaled .profile-avatar-nudge-grid {
+  grid-template-columns: repeat(3, 2.36rem);
+  gap: 0.3rem;
+}
+
+body.club-mobile-app-scaled .profile-avatar-nudge-grid button,
+body.club-mobile-app-scaled .profile-avatar-zoom-row button {
+  width: 2.36rem;
+  height: 2.36rem;
+}
+
+body.club-mobile-app-scaled .profile-avatar-zoom-row strong {
+  min-height: 2.36rem;
+  font-size: 0.78rem;
 }
 
 body.club-mobile-app-scaled .profile-avatar-crop-preview {
@@ -10178,6 +10266,7 @@ body.club-keyboard-open .community-chat-open .chat-room {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform-origin: 50% 50%;
 }
 
 .chat-message-own {

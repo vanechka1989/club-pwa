@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v12"');
+    expect(worker).toContain('const cacheName = "club-pwa-v13"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
@@ -50,6 +50,7 @@ describe("PWA shell", () => {
     const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
 
     expect(main).toContain("serviceWorker.register");
+    expect(main).toContain("registration?.update?.()");
     expect(html).toContain("manifest.webmanifest");
     expect(html).not.toContain("telegram.org/js/telegram-web-app.js");
   });

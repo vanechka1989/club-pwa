@@ -16,8 +16,31 @@ export type ReplySourceMessage = {
     firstName: string | null;
     username: string | null;
     photoUrl: string | null;
+    avatarPositionX?: number | null;
+    avatarPositionY?: number | null;
+    avatarScale?: number | null;
   };
 };
+
+export type MessageAuthorSource = ReplySourceMessage["user"];
+
+function normalizeAvatarScale(value: number | null | undefined) {
+  const scale = value ?? 100;
+  return scale > 2.5 ? scale / 100 : scale;
+}
+
+export function buildMessageAuthor(user: MessageAuthorSource) {
+  return {
+    id: user.id,
+    telegramId: user.telegramId,
+    firstName: user.firstName,
+    username: user.username,
+    photoUrl: user.photoUrl,
+    avatarPositionX: user.avatarPositionX ?? 50,
+    avatarPositionY: user.avatarPositionY ?? 50,
+    avatarScale: normalizeAvatarScale(user.avatarScale)
+  };
+}
 
 export function summarizeReactions(reactions: MessageReactionRow[], currentUserId: string) {
   const counts = new Map<ReactionValue, number>();
@@ -50,12 +73,6 @@ export function buildReplyPreview(message: ReplySourceMessage | null) {
   return {
     id: message.id,
     body,
-    author: {
-      id: message.user.id,
-      telegramId: message.user.telegramId,
-      firstName: message.user.firstName,
-      username: message.user.username,
-      photoUrl: message.user.photoUrl
-    }
+    author: buildMessageAuthor(message.user)
   };
 }

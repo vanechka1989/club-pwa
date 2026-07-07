@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clubUserSchema } from "./index";
+import { clubUserSchema, commentAuthorSchema } from "./index";
 
 const userBase = {
   id: "user-id",
@@ -38,5 +38,38 @@ describe("club user avatar display schema", () => {
     expect(parsed.avatarPositionX).toBe(42);
     expect(parsed.avatarPositionY).toBe(58);
     expect(parsed.avatarScale).toBe(1.4);
+  });
+});
+
+describe("comment author avatar display schema", () => {
+  it("defaults author avatar display to the centered crop used in profile", () => {
+    const parsed = commentAuthorSchema.parse({
+      id: "author-id",
+      telegramId: "author@example.com",
+      firstName: "Author",
+      username: null,
+      photoUrl: "https://example.com/avatar.jpg"
+    });
+
+    expect(parsed.avatarPositionX).toBe(50);
+    expect(parsed.avatarPositionY).toBe(50);
+    expect(parsed.avatarScale).toBe(1);
+  });
+
+  it("accepts persisted author avatar display preferences", () => {
+    const parsed = commentAuthorSchema.parse({
+      id: "author-id",
+      telegramId: "author@example.com",
+      firstName: "Author",
+      username: null,
+      photoUrl: "https://example.com/avatar.jpg",
+      avatarPositionX: 31,
+      avatarPositionY: 67,
+      avatarScale: 1.75
+    });
+
+    expect(parsed.avatarPositionX).toBe(31);
+    expect(parsed.avatarPositionY).toBe(67);
+    expect(parsed.avatarScale).toBe(1.75);
   });
 });
