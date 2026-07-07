@@ -305,6 +305,9 @@ describe("App", () => {
     expect(profileSource).toContain("visualScaleDisplayValue");
     expect(profileSource).toContain("handleVisualScaleRange");
     expect(profileSource).toContain('type="range"');
+    expect(profileSource).toContain('min="1"');
+    expect(profileSource).toContain('max="2"');
+    expect(profileSource).toContain('step="0.1"');
     expect(profileSource).toContain("nudgeVisualScale");
     expect(profileSource).not.toContain("profile-range-row");
     expect(profileSource).not.toContain("visual-scale-choice");
@@ -315,6 +318,8 @@ describe("App", () => {
     expect(apiSource).toContain("/me/avatar/display");
     expect(sessionSource).toContain("updateAvatarDisplay");
     expect(uiSource).toContain("VisualScale");
+    expect(uiSource).toContain("clampVisualScale");
+    expect(uiSource).toContain("--club-user-font-root");
     expect(communitySource).toContain("avatarImageStyle");
     expect(communitySource).toContain("messageAuthorPhotoUrl");
     expect(communitySource).toContain("session.user?.photoUrl");
@@ -328,7 +333,7 @@ describe("App", () => {
     expect(styles).toContain(".visual-scale-control");
     expect(styles).toContain(".visual-scale-range");
     expect(styles).toContain(".visual-scale-step-button");
-    expect(styles).toContain(":root[data-visual-scale=\"large\"]");
+    expect(styles).toContain("var(--club-user-font-root");
   });
 
   it("keeps mobile payment plans readable with a right-aligned pay button", () => {
@@ -409,8 +414,8 @@ describe("App", () => {
   it("uses adaptive typography and spacing tokens for the app shell", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
-    expect(styles).toContain("--font-root: clamp(");
-    expect(styles).toContain("--font-base: clamp(");
+    expect(styles).toContain("--font-root: var(--club-user-font-root, clamp(");
+    expect(styles).toContain("--font-base: var(--club-user-font-base, clamp(");
     expect(styles).toContain("--font-title: clamp(");
     expect(styles).toContain("--space-section: clamp(");
     expect(styles).toContain("--space-card: clamp(");
@@ -519,12 +524,14 @@ describe("App", () => {
     expect(deviceLayoutSource).toContain("--club-app-wide-font-root");
     expect(deviceLayoutSource).toContain("--club-app-wide-font-base");
     expect(appSource).toContain('session.user ? "signed-in" : "signed-out"');
-    expect(styles).toMatch(/html\.club-mobile-app-scaled\s*{[\s\S]*font-size: var\(--club-app-wide-font-root, 16px\);/);
     expect(styles).toMatch(
-      /body\.club-mobile-app-scaled\s*{[\s\S]*overflow-x: hidden;[\s\S]*font-size: var\(--club-app-wide-font-base, 16px\);/
+      /html\.club-mobile-app-scaled\s*{[\s\S]*font-size: var\(--club-user-font-root, var\(--club-app-wide-font-root, 16px\)\);/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop\s*{[\s\S]*font-size: var\(--club-app-wide-font-base, 16px\);/
+      /body\.club-mobile-app-scaled\s*{[\s\S]*overflow-x: hidden;[\s\S]*font-size: var\(--club-user-font-base, var\(--club-app-wide-font-base, 16px\)\);/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop\s*{[\s\S]*font-size: var\(--club-user-font-base, var\(--club-app-wide-font-base, 16px\)\);/
     );
   });
 
@@ -656,17 +663,17 @@ describe("App", () => {
   it("keeps the mobile chat composer visible above the keyboard", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
+    expect(appSource).toContain("showBottomNavigation");
+    expect(appSource).toContain("!communityChatOpen");
+    expect(appSource).toContain('v-if="showBottomNavigation"');
     expect(styles).toMatch(
       /\.community-chat-open \.chat-room\s*\{[\s\S]*padding: 0\.7rem 0\.42rem calc\(0\.25rem \+ var\(--club-safe-bottom\)\);/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-device \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*right: max\(0\.2rem, calc\(var\(--club-safe-right\) \+ 0\.2rem\)\);[\s\S]*bottom: calc\(var\(--nav-bottom-offset\) \+ 0\.8rem\);[\s\S]*left: max\(0\.2rem, calc\(var\(--club-safe-left\) \+ 0\.2rem\)\);[\s\S]*width: auto;/
+      /body\.club-mobile-device \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*right: max\(0\.2rem, calc\(var\(--club-safe-right\) \+ 0\.2rem\)\);[\s\S]*bottom: max\(0\.28rem, var\(--club-safe-bottom\)\);[\s\S]*left: max\(0\.2rem, calc\(var\(--club-safe-left\) \+ 0\.2rem\)\);[\s\S]*width: auto;/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-app-scaled \.community-chat-open \.chat-compose\s*\{[\s\S]*bottom: calc\(var\(--nav-bottom-offset\) \+ 0\.45rem\);/
-    );
-    expect(styles).toMatch(
-      /body\.club-keyboard-open \.community-chat-open \.bottom-nav\s*\{[\s\S]*display: none;/
+      /body\.club-mobile-device \.community-chat-open \.chat-messages\s*\{[\s\S]*padding-bottom: 4\.8rem;/
     );
     expect(styles).toMatch(
       /body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*bottom: max\(0\.28rem, var\(--club-safe-bottom\)\);/

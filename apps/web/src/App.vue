@@ -123,6 +123,7 @@ const mobileNavItems = computed(() => navItems.filter((item) => mobilePrimaryNav
 const visibleMobileNavItems = computed(() => mobileNavItems.value.filter(isSectionAvailable));
 const showDesktopNavigation = computed(() => Boolean(session.user && isDesktopLayout.value && !isMobileDeviceShell.value));
 const showMobileNavigation = computed(() => Boolean(session.user && (!isDesktopLayout.value || isMobileDeviceShell.value)));
+const showBottomNavigation = computed(() => showMobileNavigation.value && (activeSection.value !== "community" || !communityChatOpen.value));
 const showMobileAdminEntry = computed(() =>
   Boolean(session.user && (session.user.realRole === "admin" || session.user.realRole === "owner"))
 );
@@ -778,7 +779,7 @@ onBeforeUnmount(() => {
     </div>
 
     <nav
-      v-if="showMobileNavigation"
+      v-if="showBottomNavigation"
       class="bottom-nav mobile-bottom-nav"
       aria-label="Club sections"
     >

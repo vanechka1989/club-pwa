@@ -3,8 +3,14 @@ import { ref } from "vue";
 
 export type Theme = "dark" | "light";
 export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azure" | "coffee";
-export type VisualScale = "compact" | "standard" | "large";
+export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
+
+function clampVisualScale(value: number | string | null) {
+  const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
+  const safeValue = Number.isFinite(parsedValue) ? parsedValue : 1;
+  return Math.min(2, Math.max(1, Math.round(safeValue * 10) / 10));
+}
 
 export const useUiStore = defineStore("ui", () => {
   const savedTheme = localStorage.getItem("club-theme");
@@ -26,14 +32,16 @@ export const useUiStore = defineStore("ui", () => {
       : "developer"
   );
   const savedVisualScale = localStorage.getItem("club-visual-scale");
-  const visualScale = ref<VisualScale>(
-    savedVisualScale === "compact" || savedVisualScale === "large" ? savedVisualScale : "standard"
-  );
+  const visualScale = ref<VisualScale>(clampVisualScale(savedVisualScale));
 
   function applyTheme() {
+    const visualScaleText = visualScale.value.toFixed(1);
     document.documentElement.dataset.theme = theme.value;
     document.documentElement.dataset.scheme = colorScheme.value;
-    document.documentElement.dataset.visualScale = visualScale.value;
+    document.documentElement.dataset.visualScale = visualScaleText;
+    document.documentElement.style.setProperty("--club-user-visual-scale", visualScaleText);
+    document.documentElement.style.setProperty("--club-user-font-root", `${(16 * visualScale.value).toFixed(1)}px`);
+    document.documentElement.style.setProperty("--club-user-font-base", `${(15 * visualScale.value).toFixed(1)}px`);
     document.documentElement.style.colorScheme = theme.value;
   }
 
@@ -55,9 +63,9 @@ export const useUiStore = defineStore("ui", () => {
     localStorage.removeItem("club-preview-membership");
   }
 
-  function setVisualScale(nextVisualScale: VisualScale) {
-    visualScale.value = nextVisualScale;
-    localStorage.setItem("club-visual-scale", nextVisualScale);
+  function setVisualScale(nextVisualScale: number | string) {
+    visualScale.value = clampVisualScale(nextVisualScale);
+    localStorage.setItem("club-visual-scale", visualScale.value.toFixed(1));
     applyTheme();
   }
 
