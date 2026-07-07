@@ -348,6 +348,16 @@ describe("App", () => {
     expect(styles).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[\s\S]*width: clamp\(7\.2rem, 28vw, 8\.8rem\);/);
   });
 
+  it("visually separates payment tariff cards", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const paymentsSource = readFileSync(resolve(__dirname, "features/billing/PaymentsSection.vue"), "utf-8");
+
+    expect(paymentsSource).toContain("payment-product-list");
+    expect(styles).toMatch(/\.payment-product-list\s*\{[\s\S]*display: grid;[\s\S]*gap: 0\.75rem;/);
+    expect(styles).toMatch(/\.payment-product-list \.soft-payment-card\s*\{[\s\S]*box-shadow:/);
+    expect(styles).toMatch(/\.payment-product-list \.soft-payment-card \+ \.soft-payment-card\s*\{[\s\S]*margin-top:/);
+  });
+
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

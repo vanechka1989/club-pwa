@@ -535,7 +535,7 @@ watch(showProductModal, async (isOpen) => {
         {{ t("paymentsEmpty") }}
       </p>
 
-      <div v-else class="space-y-3">
+      <div v-else class="payment-product-list">
         <article v-for="product in activeProducts" :key="product.id" class="soft-payment-card">
           <div class="payment-product-main">
             <p class="payment-product-title">{{ product.title }}</p>
