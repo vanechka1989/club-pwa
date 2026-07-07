@@ -301,8 +301,13 @@ describe("App", () => {
     expect(profileSource).toContain("handleAvatarDisplaySave");
     expect(profileSource).toContain("showLogoutConfirm");
     expect(profileSource).toContain("profile-logout-confirm");
+    expect(profileSource).toContain("visual-scale-control");
+    expect(profileSource).toContain("visualScaleDisplayValue");
+    expect(profileSource).toContain("handleVisualScaleRange");
+    expect(profileSource).toContain('type="range"');
+    expect(profileSource).toContain("nudgeVisualScale");
     expect(profileSource).not.toContain("profile-range-row");
-    expect(profileSource).not.toContain('type="range"');
+    expect(profileSource).not.toContain("visual-scale-choice");
     expect(profileSource).not.toContain("profile-avatar-nudge-grid");
     expect(profileSource).not.toContain("nudgeAvatar");
     expect(profileSource).not.toContain("avatarMessage || t(\"profileAvatarUploadHint\")");
@@ -320,6 +325,9 @@ describe("App", () => {
     expect(styles).toContain("touch-action: none");
     expect(styles).toContain(".chat-avatar img");
     expect(styles).toContain("transform-origin");
+    expect(styles).toContain(".visual-scale-control");
+    expect(styles).toContain(".visual-scale-range");
+    expect(styles).toContain(".visual-scale-step-button");
     expect(styles).toContain(":root[data-visual-scale=\"large\"]");
   });
 
@@ -649,7 +657,13 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(styles).toMatch(
-      /\.community-chat-open \.chat-room\s*\{[\s\S]*padding: 0\.7rem 0\.75rem calc\(0\.25rem \+ var\(--club-safe-bottom\)\);/
+      /\.community-chat-open \.chat-room\s*\{[\s\S]*padding: 0\.7rem 0\.42rem calc\(0\.25rem \+ var\(--club-safe-bottom\)\);/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*right: max\(0\.2rem, calc\(var\(--club-safe-right\) \+ 0\.2rem\)\);[\s\S]*bottom: calc\(var\(--nav-bottom-offset\) \+ 0\.8rem\);[\s\S]*left: max\(0\.2rem, calc\(var\(--club-safe-left\) \+ 0\.2rem\)\);[\s\S]*width: auto;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled \.community-chat-open \.chat-compose\s*\{[\s\S]*bottom: calc\(var\(--nav-bottom-offset\) \+ 0\.45rem\);/
     );
     expect(styles).toMatch(
       /body\.club-keyboard-open \.community-chat-open \.bottom-nav\s*\{[\s\S]*display: none;/
@@ -662,6 +676,9 @@ describe("App", () => {
     );
     expect(styles).toMatch(
       /\.community-chat-open \.chat-input-row \.icon-button\s*\{[\s\S]*height: 2\.55rem;[\s\S]*min-width: 2\.55rem;/
+    );
+    expect(styles).toMatch(
+      /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*flex: 1 1 auto;[\s\S]*min-width: 0;/
     );
   });
 

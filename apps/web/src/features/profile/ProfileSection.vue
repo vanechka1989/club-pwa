@@ -226,11 +226,14 @@ const themeOptions = computed<Array<{ value: Theme; label: string; icon: typeof 
   { value: "dark", label: t("profileThemeNight"), icon: Moon },
   { value: "light", label: t("profileThemeDay"), icon: Sun }
 ]);
-const visualScaleOptions = computed<Array<{ value: VisualScale; label: string; caption: string }>>(() => [
-  { value: "compact", label: t("profileVisualScaleCompact"), caption: t("profileVisualScaleCompactText") },
-  { value: "standard", label: t("profileVisualScaleStandard"), caption: t("profileVisualScaleStandardText") },
-  { value: "large", label: t("profileVisualScaleLarge"), caption: t("profileVisualScaleLargeText") }
-]);
+const visualScaleSteps: VisualScale[] = ["compact", "standard", "large"];
+const visualScaleLabels: Record<VisualScale, string> = {
+  compact: "0.9",
+  standard: "1.0",
+  large: "1.1"
+};
+const visualScaleIndex = computed(() => Math.max(0, visualScaleSteps.indexOf(ui.visualScale)));
+const visualScaleDisplayValue = computed(() => visualScaleLabels[ui.visualScale]);
 const colorOptions = computed<Array<{ value: ColorScheme; label: string; colors: string[] }>>(() => [
   { value: "midnight", label: t("profileSchemeMidnight"), colors: ["#080922", "#f2f2f7"] },
   { value: "emerald", label: t("profileSchemeEmerald"), colors: ["#12382d", "#7dd3b0"] },
@@ -258,6 +261,21 @@ type AvatarGestureSession = {
 
 function changeLocale(locale: Locale) {
   setLocale(locale);
+}
+
+function setVisualScaleIndex(nextIndex: number | string) {
+  const parsedIndex = typeof nextIndex === "number" ? nextIndex : Number.parseInt(nextIndex, 10);
+  const safeIndex = Number.isFinite(parsedIndex) ? parsedIndex : 1;
+  const clampedIndex = Math.min(visualScaleSteps.length - 1, Math.max(0, safeIndex));
+  ui.setVisualScale(visualScaleSteps[clampedIndex] ?? "standard");
+}
+
+function handleVisualScaleRange(event: Event) {
+  setVisualScaleIndex((event.target as HTMLInputElement).value);
+}
+
+function nudgeVisualScale(delta: number) {
+  setVisualScaleIndex(visualScaleIndex.value + delta);
 }
 
 function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
@@ -779,18 +797,41 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div class="visual-scale-row mt-3">
-        <button
-          v-for="option in visualScaleOptions"
-          :key="option.value"
-          class="visual-scale-choice"
-          :class="{ 'visual-scale-choice-active': ui.visualScale === option.value }"
-          type="button"
-          @click="ui.setVisualScale(option.value)"
-        >
-          <strong>{{ option.label }}</strong>
-          <span>{{ option.caption }}</span>
-        </button>
+      <div class="visual-scale-control mt-3">
+        <div class="visual-scale-control-head">
+          <span>{{ t("profileVisualScaleControl") }}</span>
+          <strong>{{ visualScaleDisplayValue }}</strong>
+        </div>
+        <div class="visual-scale-slider-row">
+          <button
+            class="visual-scale-step-button"
+            type="button"
+            :aria-label="t('profileVisualScaleDecrease')"
+            :disabled="visualScaleIndex <= 0"
+            @click="nudgeVisualScale(-1)"
+          >
+            <Minus class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <input
+            class="visual-scale-range"
+            type="range"
+            min="0"
+            max="2"
+            step="1"
+            :value="visualScaleIndex"
+            :aria-label="t('profileVisualScaleControl')"
+            @input="handleVisualScaleRange"
+          />
+          <button
+            class="visual-scale-step-button"
+            type="button"
+            :aria-label="t('profileVisualScaleIncrease')"
+            :disabled="visualScaleIndex >= visualScaleSteps.length - 1"
+            @click="nudgeVisualScale(1)"
+          >
+            <Plus class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       <div class="scheme-grid mt-3">
