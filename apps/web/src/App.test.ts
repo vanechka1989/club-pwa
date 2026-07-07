@@ -624,10 +624,10 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(styles).toMatch(
-      /body\.club-mobile-device \.admin-tabs\s*\{[\s\S]*display: flex;[\s\S]*overflow-x: auto;/
+      /body\.club-mobile-device \.admin-tabs\s*\{[\s\S]*display: grid;[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);[\s\S]*overflow: visible;/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-device \.admin-tab\s*\{[\s\S]*flex: 0 0 auto;[\s\S]*min-height: 2\.86rem;/
+      /body\.club-mobile-device \.admin-tab\s*\{[\s\S]*min-width: 0;[\s\S]*min-height: 2\.86rem;/
     );
     expect(styles).toMatch(
       /body\.club-mobile-device \.admin-stat-kpis\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[\s\S]*gap: 0\.42rem;/

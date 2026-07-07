@@ -10994,26 +10994,22 @@ body.club-mobile-device .admin-panel p {
 }
 
 body.club-mobile-device .admin-tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.28rem;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
+  overflow: visible;
   border-radius: 22px;
   padding: 0.28rem;
 }
 
-body.club-mobile-device .admin-tabs::-webkit-scrollbar {
-  display: none;
-}
-
 body.club-mobile-device .admin-tab {
-  flex: 0 0 auto;
-  min-width: 4.45rem;
+  min-width: 0;
   min-height: 2.86rem;
   border-radius: 16px;
-  padding: 0.38rem 0.48rem;
-  font-size: 0.66rem;
+  padding: 0.36rem 0.28rem;
+  font-size: 0.62rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
 }
 
 body.club-mobile-device .admin-tab svg {
