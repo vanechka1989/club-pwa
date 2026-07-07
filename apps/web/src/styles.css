@@ -10969,3 +10969,266 @@ body.club-ios .chat-input-row .text-input {
     grid-template-columns: 1fr;
   }
 }
+
+body.club-mobile-device .admin-panel,
+body.club-mobile-device .support-admin-board {
+  gap: 0.5rem;
+  padding: 0.68rem;
+  padding-bottom: calc(4.9rem + var(--club-safe-bottom));
+  border-radius: 22px;
+}
+
+body.club-mobile-device .admin-panel-head {
+  gap: 0.45rem;
+}
+
+body.club-mobile-device .admin-panel h3,
+body.club-mobile-device .support-ticket-list h3 {
+  font-size: 1rem;
+  line-height: 1.18;
+}
+
+body.club-mobile-device .admin-panel p {
+  font-size: 0.76rem;
+  line-height: 1.28;
+}
+
+body.club-mobile-device .admin-tabs {
+  display: flex;
+  gap: 0.28rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  border-radius: 22px;
+  padding: 0.28rem;
+}
+
+body.club-mobile-device .admin-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+body.club-mobile-device .admin-tab {
+  flex: 0 0 auto;
+  min-width: 4.45rem;
+  min-height: 2.86rem;
+  border-radius: 16px;
+  padding: 0.38rem 0.48rem;
+  font-size: 0.66rem;
+}
+
+body.club-mobile-device .admin-tab svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+body.club-mobile-device .admin-statistics-head {
+  gap: 0.5rem;
+}
+
+body.club-mobile-device .admin-stat-periods {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding: 0.25rem;
+  scrollbar-width: none;
+}
+
+body.club-mobile-device .admin-stat-periods::-webkit-scrollbar {
+  display: none;
+}
+
+body.club-mobile-device .admin-stat-period {
+  flex: 0 0 auto;
+  min-height: 2.28rem;
+  padding: 0 0.72rem;
+  font-size: 0.72rem;
+}
+
+body.club-mobile-device .admin-stat-kpis {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+body.club-mobile-device .admin-stat-kpi {
+  min-height: 4.25rem;
+  border-radius: 18px;
+  padding: 0.56rem;
+}
+
+body.club-mobile-device .admin-stat-kpi span {
+  font-size: 0.68rem;
+  line-height: 1.16;
+}
+
+body.club-mobile-device .admin-stat-kpi strong {
+  font-size: 1.18rem;
+}
+
+body.club-mobile-device .admin-stat-kpi small {
+  font-size: 0.64rem;
+  line-height: 1.18;
+}
+
+body.club-mobile-device .admin-stat-layout {
+  gap: 0.48rem;
+  grid-template-columns: 1fr;
+}
+
+body.club-mobile-device .admin-stat-block {
+  gap: 0.5rem;
+  padding: 0.62rem;
+  border-radius: 20px;
+}
+
+body.club-mobile-device .admin-stat-block header {
+  gap: 0.45rem;
+}
+
+body.club-mobile-device .admin-stat-block h4 {
+  font-size: 0.95rem;
+  line-height: 1.15;
+}
+
+body.club-mobile-device .admin-stat-block header > strong {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.76rem;
+}
+
+body.club-mobile-device .admin-stat-mini-grid,
+body.club-mobile-device .admin-stat-mini-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+body.club-mobile-device .admin-stat-mini-grid article,
+body.club-mobile-device .admin-stat-drilldown {
+  min-height: 3rem;
+  border-radius: 15px;
+  padding: 0.48rem;
+}
+
+body.club-mobile-device .admin-stat-drilldown {
+  padding-right: 1.7rem;
+}
+
+body.club-mobile-device .admin-stat-drilldown::after {
+  right: 0.46rem;
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+body.club-mobile-device .admin-stat-mini-grid span,
+body.club-mobile-device .admin-stat-drilldown span,
+body.club-mobile-device .admin-stat-drilldown small,
+body.club-mobile-device .admin-stat-note,
+body.club-mobile-device .admin-stat-kind-list span {
+  font-size: 0.64rem;
+  line-height: 1.18;
+}
+
+body.club-mobile-device .admin-stat-kind-list {
+  gap: 0.3rem;
+}
+
+body.club-mobile-device .admin-stat-kind-list span {
+  padding: 0.28rem 0.48rem;
+}
+
+body.club-mobile-device .admin-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.38rem;
+}
+
+body.club-mobile-device .admin-filter-grid .text-input:first-child {
+  grid-column: 1 / -1;
+}
+
+body.club-mobile-device .admin-filter-grid .text-input,
+body.club-mobile-device .admin-filter-reset {
+  min-height: 2.46rem;
+  border-radius: 15px;
+  padding: 0.5rem 0.58rem;
+  font-size: 0.76rem;
+}
+
+body.club-mobile-device .admin-list {
+  gap: 0.42rem;
+}
+
+body.club-mobile-device .admin-list-item {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.36rem;
+  border-radius: 18px;
+  padding: 0.62rem;
+}
+
+body.club-mobile-device .admin-list-item strong,
+body.club-mobile-device .admin-entity strong {
+  font-size: 0.9rem;
+}
+
+body.club-mobile-device .admin-list-item small,
+body.club-mobile-device .admin-list-item p {
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+body.club-mobile-device .admin-list-badges {
+  justify-content: flex-start;
+}
+
+body.club-mobile-device .admin-access-badge,
+body.club-mobile-device .admin-bot-badge {
+  padding: 0.22rem 0.48rem;
+  font-size: 0.62rem;
+}
+
+body.club-mobile-device .support-admin-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+body.club-mobile-device .support-admin-stats article {
+  min-height: 3.15rem;
+  border-radius: 18px;
+  padding: 0.42rem 0.34rem;
+}
+
+body.club-mobile-device .support-admin-stats span {
+  font-size: 0.58rem;
+  line-height: 1.1;
+}
+
+body.club-mobile-device .support-admin-stats strong {
+  font-size: 0.9rem;
+  line-height: 1.08;
+}
+
+body.club-mobile-device .support-ticket-list {
+  gap: 0.46rem;
+  border-radius: 20px;
+  padding: 0.64rem;
+}
+
+body.club-mobile-device .support-admin-ticket {
+  gap: 0.45rem;
+  padding: 0.58rem;
+  border-radius: 18px;
+}
+
+body.club-mobile-device .support-admin-ticket span {
+  font-size: 0.9rem;
+  line-height: 1.16;
+}
+
+body.club-mobile-device .support-admin-ticket small,
+body.club-mobile-device .support-admin-ticket em {
+  font-size: 0.68rem;
+  line-height: 1.22;
+}
+
+body.club-mobile-device .support-status {
+  padding: 0.28rem 0.48rem;
+  font-size: 0.64rem;
+}

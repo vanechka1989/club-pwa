@@ -620,6 +620,32 @@ describe("App", () => {
     );
   });
 
+  it("keeps mobile admin and support pages compact and scroll-safe", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-tabs\s*\{[\s\S]*display: flex;[\s\S]*overflow-x: auto;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-tab\s*\{[\s\S]*flex: 0 0 auto;[\s\S]*min-height: 2\.86rem;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-stat-kpis\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[\s\S]*gap: 0\.42rem;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-stat-block\s*\{[\s\S]*padding: 0\.62rem;[\s\S]*border-radius: 20px;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-filter-grid\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.support-admin-stats\s*\{[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.support-admin-ticket\s*\{[\s\S]*padding: 0\.58rem;[\s\S]*border-radius: 18px;/
+    );
+  });
+
   it("keeps one compact side gutter across normal section tabs", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
