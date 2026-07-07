@@ -118,6 +118,23 @@ function avatarImageStyle(author: ClubMessage["author"]) {
   };
 }
 
+function messageAuthorPhotoUrl(message: ClubMessage) {
+  return isOwnMessage(message) ? (session.user?.photoUrl ?? message.author.photoUrl) : message.author.photoUrl;
+}
+
+function messageAuthorAvatarStyle(message: ClubMessage) {
+  if (!isOwnMessage(message) || !session.user) {
+    return avatarImageStyle(message.author);
+  }
+
+  return avatarImageStyle({
+    ...message.author,
+    avatarPositionX: session.user.avatarPositionX,
+    avatarPositionY: session.user.avatarPositionY,
+    avatarScale: session.user.avatarScale
+  });
+}
+
 function reactionLabel(reaction: MessageReaction) {
   return reactionOptions.find((option) => option.value === reaction)?.label ?? "";
 }
@@ -356,6 +373,10 @@ function messageSignature(message: ClubMessage) {
     message.status,
     message.body,
     message.createdAt,
+    message.author.photoUrl ?? "",
+    message.author.avatarPositionX ?? "",
+    message.author.avatarPositionY ?? "",
+    message.author.avatarScale ?? "",
     message.likesCount,
     message.dislikesCount,
     message.reactionCounts.map((reaction) => `${reaction.reaction}:${reaction.count}`).join(","),
@@ -875,7 +896,12 @@ onBeforeUnmount(() => {
             ↩
           </span>
           <div v-if="!message.isSystem && !isOwnMessage(message)" class="chat-avatar">
-            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" :style="avatarImageStyle(message.author)" />
+            <img
+              v-if="messageAuthorPhotoUrl(message)"
+              :src="messageAuthorPhotoUrl(message) ?? ''"
+              :alt="authorName(message)"
+              :style="messageAuthorAvatarStyle(message)"
+            />
             <span v-else>{{ authorInitial(message) }}</span>
           </div>
           <div v-if="!message.isSystem" class="chat-bubble">
@@ -942,7 +968,12 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div v-if="!message.isSystem && isOwnMessage(message)" class="chat-avatar">
-            <img v-if="message.author.photoUrl" :src="message.author.photoUrl" :alt="authorName(message)" :style="avatarImageStyle(message.author)" />
+            <img
+              v-if="messageAuthorPhotoUrl(message)"
+              :src="messageAuthorPhotoUrl(message) ?? ''"
+              :alt="authorName(message)"
+              :style="messageAuthorAvatarStyle(message)"
+            />
             <span v-else>{{ authorInitial(message) }}</span>
           </div>
           <p v-if="message.isSystem" class="chat-system-body">

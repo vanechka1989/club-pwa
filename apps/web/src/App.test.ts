@@ -311,13 +311,28 @@ describe("App", () => {
     expect(sessionSource).toContain("updateAvatarDisplay");
     expect(uiSource).toContain("VisualScale");
     expect(communitySource).toContain("avatarImageStyle");
-    expect(communitySource).toContain(":style=\"avatarImageStyle(message.author)\"");
+    expect(communitySource).toContain("messageAuthorPhotoUrl");
+    expect(communitySource).toContain("session.user?.photoUrl");
+    expect(communitySource).toContain("message.author.photoUrl");
+    expect(communitySource).toContain(":style=\"messageAuthorAvatarStyle(message)\"");
     expect(styles).toContain(".profile-avatar-editor-modal");
     expect(styles).toContain(".profile-avatar-gesture-stage");
     expect(styles).toContain("touch-action: none");
     expect(styles).toContain(".chat-avatar img");
     expect(styles).toContain("transform-origin");
     expect(styles).toContain(":root[data-visual-scale=\"large\"]");
+  });
+
+  it("keeps mobile payment plans readable as stacked cards", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.soft-payment-card\s*\{[\s\S]*align-items: stretch;[\s\S]*flex-direction: column;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.payment-product-main,\s*body\.club-mobile-device \.payment-product-actions\s*\{[\s\S]*width: 100%;/
+    );
+    expect(styles).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[\s\S]*width: 100%;/);
   });
 
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {

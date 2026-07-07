@@ -9159,10 +9159,25 @@ body.club-mobile-device .support-topic-option {
   min-height: 3.25rem;
 }
 
+body.club-mobile-device .soft-payment-card {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+body.club-mobile-device .payment-product-main,
+body.club-mobile-device .payment-product-actions {
+  width: 100%;
+}
+
 body.club-mobile-device .payment-product-actions,
 body.club-mobile-device .support-reply-actions {
   width: 100%;
   grid-template-columns: 1fr;
+}
+
+body.club-mobile-device .payment-product-pay {
+  width: 100%;
 }
 
 body.club-mobile-device .section-title {
