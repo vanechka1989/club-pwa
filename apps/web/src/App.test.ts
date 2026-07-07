@@ -323,16 +323,16 @@ describe("App", () => {
     expect(styles).toContain(":root[data-visual-scale=\"large\"]");
   });
 
-  it("keeps mobile payment plans readable as stacked cards", () => {
+  it("keeps mobile payment plans readable with a right-aligned pay button", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(styles).toMatch(
-      /body\.club-mobile-device \.soft-payment-card\s*\{[\s\S]*align-items: stretch;[\s\S]*flex-direction: column;/
+      /body\.club-mobile-device \.soft-payment-card\s*\{[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*align-items: center;/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-device \.payment-product-main,\s*body\.club-mobile-device \.payment-product-actions\s*\{[\s\S]*width: 100%;/
+      /body\.club-mobile-device \.payment-product-actions\s*\{[\s\S]*justify-self: end;[\s\S]*width: auto;/
     );
-    expect(styles).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[\s\S]*width: 100%;/);
+    expect(styles).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[\s\S]*width: clamp\(7\.2rem, 28vw, 8\.8rem\);/);
   });
 
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {
@@ -590,6 +590,9 @@ describe("App", () => {
 
     expect(styles).toContain("--club-mobile-card-radius: 24px;");
     expect(styles).toContain("--club-mobile-sheet-radius: 28px;");
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.section-head,\s*body\.club-mobile-device \.soft-card,\s*body\.club-mobile-device \.soft-list-card\s*\{[\s\S]*border-radius: var\(--club-mobile-card-radius\);/
+    );
     expect(styles).toMatch(/body\.club-mobile-app-scaled\s*\{[\s\S]*--space-section: clamp\(0\.46rem, 1\.2vw, 0\.68rem\);[\s\S]*--ui-button-height: 2\.32rem;/);
     expect(styles).toMatch(
       /body\.club-mobile-app-scaled \.section-head,\s*body\.club-mobile-app-scaled \.soft-card,\s*body\.club-mobile-app-scaled \.soft-list-card\s*\{[\s\S]*border-radius: var\(--club-mobile-card-radius\);[\s\S]*padding: 0\.74rem;/
