@@ -645,6 +645,20 @@ describe("App", () => {
     expect(styles).toMatch(/\.profile-card-head svg\s*{[^}]*flex: 0 0 auto;/s);
   });
 
+  it("keeps the mobile chat composer visible above the keyboard", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(
+      /body\.club-keyboard-open \.community-chat-open \.bottom-nav\s*\{[\s\S]*display: none;/
+    );
+    expect(styles).toMatch(
+      /body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*bottom: max\(0\.45rem, var\(--club-safe-bottom\)\);/
+    );
+    expect(styles).toMatch(
+      /\.community-chat-open \.chat-compose\s*\{[\s\S]*border-radius: 22px;[\s\S]*box-shadow:/
+    );
+  });
+
   it("does not shrink standalone Android PWA typography to legacy webview scale", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 

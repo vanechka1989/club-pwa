@@ -10567,6 +10567,30 @@ button.chat-message-author:active {
   padding: 0.55rem 0 0;
 }
 
+.community-chat-open .chat-compose {
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  padding: 0.38rem;
+  box-shadow: 0 16px 38px color-mix(in srgb, #000 10%, transparent);
+}
+
+body.club-keyboard-open .community-chat-open .bottom-nav {
+  display: none;
+}
+
+body.club-keyboard-open .community-chat-open .chat-compose {
+  position: fixed;
+  right: max(0.45rem, calc(var(--club-safe-right) + 0.45rem));
+  bottom: max(0.45rem, var(--club-safe-bottom));
+  left: max(0.45rem, calc(var(--club-safe-left) + 0.45rem));
+  z-index: 80;
+}
+
+body.club-keyboard-open .community-chat-open .chat-messages {
+  padding-bottom: 4.8rem;
+}
+
 .chat-input-row {
   display: flex;
   align-items: center;
