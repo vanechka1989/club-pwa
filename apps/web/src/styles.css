@@ -944,6 +944,9 @@ body.club-keyboard-open .community-chat-open .app-shell {
 
 html.club-mobile-device {
   font-size: 16px;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 html.club-mobile-device[data-visual-scale="compact"] {
@@ -957,6 +960,24 @@ html.club-mobile-device[data-visual-scale="large"] {
 body.club-mobile-device {
   --screen-gutter: clamp(0.56rem, 2vw, 0.9rem);
   --section-bleed: 0rem;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body.club-mobile-device .app-root:not(.app-root-no-user) {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+
+body.club-mobile-device .app-root:not(.app-root-no-user) .app-layout,
+body.club-mobile-device .app-root:not(.app-root-no-user) .app-shell,
+body.club-mobile-device .app-root:not(.app-root-no-user) .content-panel,
+body.club-mobile-device .app-root:not(.app-root-no-user) .section-host {
+  max-width: 100vw;
+  overflow-x: clip;
 }
 
 body.club-mobile-device .app-root {

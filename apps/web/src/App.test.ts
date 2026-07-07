@@ -525,6 +525,18 @@ describe("App", () => {
     expect(styles).not.toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
   });
 
+  it("prevents signed-in mobile PWA content from stretching under page gestures", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.app-root:not\(\.app-root-no-user\)\s*\{[\s\S]*max-width: 100vw;[\s\S]*overflow-x: hidden;[\s\S]*touch-action: pan-y;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.app-root:not\(\.app-root-no-user\) \.app-layout,\s*body\.club-mobile-device \.app-root:not\(\.app-root-no-user\) \.app-shell,\s*body\.club-mobile-device \.app-root:not\(\.app-root-no-user\) \.content-panel,\s*body\.club-mobile-device \.app-root:not\(\.app-root-no-user\) \.section-host\s*\{[\s\S]*max-width: 100vw;[\s\S]*overflow-x: clip;/
+    );
+    expect(styles).toMatch(/\.profile-avatar-gesture-stage\s*\{[\s\S]*touch-action: none;/);
+  });
+
   it("routes PWA platform and scale decisions through one device layout adapter", () => {
     expect(appSource).toContain("createDeviceLayoutSnapshot");
     expect(appSource).toContain("snapshot.cssVariables");
