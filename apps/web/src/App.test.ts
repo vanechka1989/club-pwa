@@ -649,13 +649,19 @@ describe("App", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(styles).toMatch(
+      /\.community-chat-open \.chat-room\s*\{[\s\S]*padding: 0\.7rem 0\.75rem calc\(0\.25rem \+ var\(--club-safe-bottom\)\);/
+    );
+    expect(styles).toMatch(
       /body\.club-keyboard-open \.community-chat-open \.bottom-nav\s*\{[\s\S]*display: none;/
     );
     expect(styles).toMatch(
-      /body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*bottom: max\(0\.45rem, var\(--club-safe-bottom\)\);/
+      /body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*bottom: max\(0\.28rem, var\(--club-safe-bottom\)\);/
     );
     expect(styles).toMatch(
-      /\.community-chat-open \.chat-compose\s*\{[\s\S]*border-radius: 22px;[\s\S]*box-shadow:/
+      /\.community-chat-open \.chat-compose\s*\{[\s\S]*border-radius: 18px;[\s\S]*padding: 0\.22rem;/
+    );
+    expect(styles).toMatch(
+      /\.community-chat-open \.chat-input-row \.icon-button\s*\{[\s\S]*height: 2\.55rem;[\s\S]*min-width: 2\.55rem;/
     );
   });
 

@@ -10169,7 +10169,7 @@ body.club-mobile-app-scaled .support-modal-head {
 
 .community-chat-open .chat-room {
   height: var(--club-chat-viewport-height, var(--app-viewport-height));
-  padding: 0.7rem 0.75rem calc(0.7rem + var(--club-safe-bottom));
+  padding: 0.7rem 0.75rem calc(0.25rem + var(--club-safe-bottom));
 }
 
 body.club-keyboard-open .community-chat-open .chat-room {
@@ -10569,10 +10569,10 @@ button.chat-message-author:active {
 
 .community-chat-open .chat-compose {
   border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  border-radius: 22px;
+  border-radius: 18px;
   background: color-mix(in srgb, var(--panel) 94%, transparent);
-  padding: 0.38rem;
-  box-shadow: 0 16px 38px color-mix(in srgb, #000 10%, transparent);
+  padding: 0.22rem;
+  box-shadow: 0 10px 26px color-mix(in srgb, #000 8%, transparent);
 }
 
 body.club-keyboard-open .community-chat-open .bottom-nav {
@@ -10581,9 +10581,9 @@ body.club-keyboard-open .community-chat-open .bottom-nav {
 
 body.club-keyboard-open .community-chat-open .chat-compose {
   position: fixed;
-  right: max(0.45rem, calc(var(--club-safe-right) + 0.45rem));
-  bottom: max(0.45rem, var(--club-safe-bottom));
-  left: max(0.45rem, calc(var(--club-safe-left) + 0.45rem));
+  right: max(0.42rem, calc(var(--club-safe-right) + 0.42rem));
+  bottom: max(0.28rem, var(--club-safe-bottom));
+  left: max(0.42rem, calc(var(--club-safe-left) + 0.42rem));
   z-index: 80;
 }
 
@@ -10595,6 +10595,22 @@ body.club-keyboard-open .community-chat-open .chat-messages {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.community-chat-open .chat-input-row {
+  gap: 0.28rem;
+}
+
+.community-chat-open .chat-input-row .icon-button {
+  height: 2.55rem;
+  min-width: 2.55rem;
+  border-radius: 14px;
+}
+
+.community-chat-open .chat-input-row .text-input {
+  min-height: 2.55rem;
+  border-radius: 14px;
+  padding: 0.46rem 0.68rem;
 }
 
 .composer-emoji-wrap {
