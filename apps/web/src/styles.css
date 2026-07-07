@@ -4054,6 +4054,55 @@ body.club-keyboard-open .lesson-preview-modal {
   z-index: 145;
 }
 
+.payment-confirm-backdrop {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  padding: max(1rem, var(--club-modal-top-offset)) 1rem max(1rem, var(--club-modal-bottom-offset));
+}
+
+.payment-confirm-card {
+  width: min(100%, 25rem);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--panel-strong) 96%, var(--panel));
+  padding: 1.15rem;
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 34%, transparent);
+}
+
+.payment-confirm-card h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.payment-confirm-card p {
+  margin: 0.75rem 0 0;
+  color: var(--muted-strong);
+  font-size: 0.9rem;
+  font-weight: 620;
+  line-height: 1.45;
+}
+
+.payment-confirm-card .payment-confirm-plan {
+  display: inline-flex;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  padding: 0.3rem 0.7rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.payment-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
 .admin-client-modal {
   position: relative;
   top: auto;

@@ -47,6 +47,9 @@ const productFormBody = ref<HTMLElement | null>(null);
 const providerFormModalKey = ref(0);
 const productFormModalKey = ref(0);
 const checkoutProductId = ref<string | null>(null);
+const showCheckoutConfirm = ref(false);
+const checkoutConfirmProduct = ref<PaymentProduct | null>(null);
+let checkoutConfirmResolve: ((confirmed: boolean) => void) | null = null;
 
 const providerForm = ref({
   formUrl: "",
@@ -132,10 +135,24 @@ function showAlert(message: string, tone: "success" | "info" = "success") {
   }
 }
 
-function confirmPaymentRedirect() {
+function confirmPaymentRedirect(product: PaymentProduct) {
+  if (showCheckoutConfirm.value) {
+    return Promise.resolve(false);
+  }
+
+  checkoutConfirmProduct.value = product;
+  showCheckoutConfirm.value = true;
   return new Promise<boolean>((resolve) => {
-    resolve(window.confirm(paymentRedirectNotice));
+    checkoutConfirmResolve = resolve;
   });
+}
+
+function resolveCheckoutConfirm(confirmed: boolean) {
+  const resolve = checkoutConfirmResolve;
+  checkoutConfirmResolve = null;
+  showCheckoutConfirm.value = false;
+  checkoutConfirmProduct.value = null;
+  resolve?.(confirmed);
 }
 
 async function loadPayments() {
@@ -368,7 +385,7 @@ async function handleCheckout(product: PaymentProduct) {
     return;
   }
 
-  if (!(await confirmPaymentRedirect())) {
+  if (!(await confirmPaymentRedirect(product))) {
     return;
   }
 
@@ -659,6 +676,22 @@ watch(showProductModal, async (isOpen) => {
     </div>
 
     <Teleport to="body">
+      <div
+        v-if="showCheckoutConfirm"
+        class="admin-modal-backdrop payment-modal-backdrop payment-confirm-backdrop"
+        @click.self="resolveCheckoutConfirm(false)"
+      >
+        <aside class="payment-confirm-card" role="dialog" aria-modal="true" aria-labelledby="payment-confirm-title">
+          <h3 id="payment-confirm-title">Подтвердите оплату</h3>
+          <p v-if="checkoutConfirmProduct" class="payment-confirm-plan">{{ checkoutConfirmProduct.title }}</p>
+          <p>{{ paymentRedirectNotice }}</p>
+          <div class="payment-confirm-actions">
+            <button class="secondary-button" type="button" @click="resolveCheckoutConfirm(false)">Отмена</button>
+            <button class="primary-button" type="button" @click="resolveCheckoutConfirm(true)">Продолжить</button>
+          </div>
+        </aside>
+      </div>
+
       <div v-if="showProviderPicker" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProviderPicker">
         <aside class="admin-detail admin-client-modal payment-form-modal" role="dialog" aria-modal="true" aria-labelledby="provider-picker-title">
           <header class="admin-client-modal-head">

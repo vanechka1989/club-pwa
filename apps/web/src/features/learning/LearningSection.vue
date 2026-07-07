@@ -418,18 +418,11 @@ async function toggleYouTubeFullscreen(item: Pick<ModuleLesson | LessonMaterial,
   const key = getYouTubeFullscreenKey(item);
 
   if (fullscreenYouTubeKey.value === key) {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen().catch(() => {});
-    }
     fullscreenYouTubeKey.value = null;
     return;
   }
 
   fullscreenYouTubeKey.value = key;
-  const shell = document.querySelector<HTMLElement>(`[data-youtube-fullscreen-key="${key}"]`);
-  if (shell?.requestFullscreen) {
-    await shell.requestFullscreen().catch(() => {});
-  }
 }
 
 function syncLessonYouTubeExternalUrl() {
@@ -798,9 +791,6 @@ function closeLessonModal() {
 }
 
 function resetLessonVideoState() {
-  if (document.fullscreenElement) {
-    void document.exitFullscreen().catch(() => {});
-  }
   fullscreenYouTubeKey.value = null;
   clearLessonVideoControlsTimer();
   isLessonVideoFullscreen.value = false;
@@ -1185,31 +1175,13 @@ async function toggleLessonVideoFullscreen() {
   }
 
   if (isLessonVideoFullscreen.value) {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen().catch(() => {});
-    }
     isLessonVideoFullscreen.value = false;
     revealLessonVideoControls();
     return;
   }
 
-  if (player.requestFullscreen) {
-    await player.requestFullscreen().catch(() => {
-      isLessonVideoFullscreen.value = true;
-    });
-  } else {
-    isLessonVideoFullscreen.value = true;
-  }
   isLessonVideoFullscreen.value = true;
   revealLessonVideoControls();
-}
-
-function handleLessonFullscreenChange() {
-  if (!document.fullscreenElement) {
-    isLessonVideoFullscreen.value = false;
-    fullscreenYouTubeKey.value = null;
-    revealLessonVideoControls();
-  }
 }
 
 async function handleLessonVideoEnded() {
@@ -1217,10 +1189,6 @@ async function handleLessonVideoEnded() {
   await persistLessonVideoPlayback(true);
   showLessonVideoControls.value = true;
   clearLessonVideoControlsTimer();
-
-  if (document.fullscreenElement) {
-    await document.exitFullscreen().catch(() => {});
-  }
 
   isLessonVideoFullscreen.value = false;
 }
@@ -2273,7 +2241,6 @@ function stopVoiceRecording() {
 
 onMounted(() => {
   void loadModules();
-  document.addEventListener("fullscreenchange", handleLessonFullscreenChange);
   document.addEventListener("visibilitychange", handleLearningVisibilityChange);
   window.addEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
   window.addEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
@@ -2281,7 +2248,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   persistLessonVideoPlaybackBeforeExit();
-  document.removeEventListener("fullscreenchange", handleLessonFullscreenChange);
   document.removeEventListener("visibilitychange", handleLearningVisibilityChange);
   window.removeEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
   window.removeEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);

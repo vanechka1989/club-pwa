@@ -358,6 +358,16 @@ describe("App", () => {
     expect(styles).toMatch(/\.payment-product-list \.soft-payment-card \+ \.soft-payment-card\s*\{[\s\S]*margin-top:/);
   });
 
+  it("uses an in-app payment confirmation instead of the native browser confirm", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const paymentsSource = readFileSync(resolve(__dirname, "features/billing/PaymentsSection.vue"), "utf-8");
+
+    expect(paymentsSource).not.toContain("resolve(window.confirm(paymentRedirectNotice))");
+    expect(paymentsSource).toContain("showCheckoutConfirm");
+    expect(paymentsSource).toContain("payment-confirm-card");
+    expect(styles).toContain(".payment-confirm-card");
+  });
+
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
@@ -740,5 +750,14 @@ describe("App", () => {
     );
     expect(styles).toMatch(/\.lesson-video-exit-fullscreen-button span\s*{[^}]*font-size:/s);
     expect(styles).toMatch(/@media \(orientation: landscape\)\s*{[^}]*\.lesson-video-exit-fullscreen-button/s);
+  });
+
+  it("keeps lesson media fullscreen inside the app instead of browser fullscreen", () => {
+    const learningSource = readFileSync(resolve(__dirname, "features/learning/LearningSection.vue"), "utf-8");
+
+    expect(learningSource).not.toContain("requestFullscreen");
+    expect(learningSource).not.toContain("document.exitFullscreen");
+    expect(learningSource).not.toContain("document.fullscreenElement");
+    expect(learningSource).not.toContain("fullscreenchange");
   });
 });
