@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v28"');
+    expect(worker).toContain('const cacheName = "club-pwa-v29"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
@@ -53,6 +53,17 @@ describe("PWA shell", () => {
     expect(main).toContain("registration?.update?.()");
     expect(html).toContain("manifest.webmanifest");
     expect(html).not.toContain("telegram.org/js/telegram-web-app.js");
+  });
+
+  it("locks the PWA viewport so mobile app screens cannot be pinch-scaled like a web page", () => {
+    const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+
+    expect(html).toContain("width=device-width");
+    expect(html).toContain("initial-scale=1.0");
+    expect(html).toContain("maximum-scale=1.0");
+    expect(html).toContain("user-scalable=no");
+    expect(html).toContain("viewport-fit=cover");
+    expect(html).toContain("interactive-widget=resizes-content");
   });
 
   it("serves the web manifest with a single installable content type", () => {
