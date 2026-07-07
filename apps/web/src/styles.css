@@ -11439,3 +11439,92 @@ body.club-mobile-device .support-status {
   padding: 0.28rem 0.48rem;
   font-size: 0.64rem;
 }
+
+/* Final mobile modal guard: keep late breakpoint rules from turning dialogs into draggable full-width sheets. */
+body.club-mobile-device .admin-modal-backdrop,
+body.club-mobile-device .payment-modal-backdrop,
+body.club-mobile-device .support-modal-backdrop,
+body.club-mobile-device .profile-modal-backdrop,
+body.club-mobile-device .notification-center-backdrop {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  padding:
+    max(0.7rem, var(--club-modal-top-offset))
+    max(0.7rem, calc(var(--club-safe-right) + 0.7rem))
+    max(0.7rem, calc(var(--club-safe-bottom) + 0.7rem))
+    max(0.7rem, calc(var(--club-safe-left) + 0.7rem));
+  overflow: hidden;
+}
+
+body.club-mobile-device .admin-client-modal,
+body.club-mobile-device .payment-form-modal,
+body.club-mobile-device .support-ticket-modal,
+body.club-mobile-device .lesson-preview-modal,
+body.club-mobile-device .module-name-modal,
+body.club-mobile-device .profile-avatar-editor-modal,
+body.club-mobile-device .profile-logout-confirm,
+body.club-mobile-device .notification-center-panel,
+body.club-mobile-device .release-notes-modal,
+body.club-mobile-device .admin-mailing-composer-modal,
+body.club-mobile-device .admin-mailing-detail-modal,
+body.club-mobile-device .admin-storage-modal,
+body.club-mobile-device .admin-storage-folder-modal,
+body.club-mobile-device .admin-payment-drilldown-modal,
+body.club-mobile-device .admin-server-logs-modal,
+body.club-mobile-device .admin-permission-modal,
+body.club-mobile-device .payment-confirm-card,
+body.club-mobile-device .push-permission-card,
+body.club-mobile-device .admin-client-message-modal {
+  box-sizing: border-box;
+  width: min(100%, 34rem);
+  max-width: calc(100vw - var(--club-safe-left) - var(--club-safe-right) - 1.4rem);
+  height: auto;
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(1.4rem, var(--club-modal-top-offset)));
+  min-width: 0;
+  align-self: center;
+  justify-self: center;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  border-radius: 24px;
+}
+
+body.club-mobile-device .admin-client-modal,
+body.club-mobile-device .payment-form-modal,
+body.club-mobile-device .lesson-preview-modal,
+body.club-mobile-device .module-name-modal,
+body.club-mobile-device .notification-center-panel,
+body.club-mobile-device .release-notes-modal,
+body.club-mobile-device .admin-payment-drilldown-modal,
+body.club-mobile-device .admin-server-logs-modal,
+body.club-mobile-device .admin-permission-modal {
+  overflow-y: auto;
+}
+
+body.club-mobile-device .admin-access-toggle,
+body.club-mobile-device .admin-compact-date-row,
+body.club-mobile-device .notification-center-actions,
+body.club-mobile-device .push-permission-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.club-mobile-device .admin-date-action,
+body.club-mobile-device .notification-center-head {
+  grid-column: 1 / -1;
+}
+
+body.club-mobile-device .notification-center-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.club-mobile-device .notification-center-clear,
+body.club-mobile-device .push-permission-enable,
+body.club-mobile-device .push-permission-later,
+body.club-mobile-device .admin-access-toggle button,
+body.club-mobile-device .admin-date-save,
+body.club-mobile-device .admin-message-client-button {
+  min-width: 0;
+  white-space: normal;
+}

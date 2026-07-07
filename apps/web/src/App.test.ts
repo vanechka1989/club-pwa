@@ -652,6 +652,28 @@ describe("App", () => {
     );
   });
 
+  it("keeps mobile dialogs bounded after generic tablet breakpoint rules", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const genericFullscreenRule = Math.max(
+      styles.lastIndexOf(".admin-modal-backdrop {\r\n    align-items: stretch;"),
+      styles.lastIndexOf(".admin-modal-backdrop {\n    align-items: stretch;")
+    );
+    const mobileGuardRule = styles.lastIndexOf("Final mobile modal guard");
+
+    expect(mobileGuardRule).toBeGreaterThan(genericFullscreenRule);
+    const mobileGuard = styles.slice(mobileGuardRule);
+
+    expect(mobileGuard).toMatch(
+      /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop\s*\{[\s\S]*align-items: center;[\s\S]*justify-content: center;[\s\S]*overflow: hidden;/
+    );
+    expect(mobileGuard).toMatch(
+      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*max-width: calc\(100vw - var\(--club-safe-left\) - var\(--club-safe-right\) - 1\.4rem\);[\s\S]*overflow-x: hidden;/
+    );
+    expect(mobileGuard).toMatch(
+      /body\.club-mobile-device \.admin-access-toggle,\s*body\.club-mobile-device \.admin-compact-date-row,\s*body\.club-mobile-device \.notification-center-actions,\s*body\.club-mobile-device \.push-permission-actions\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/
+    );
+  });
+
   it("keeps mobile admin and support pages compact and scroll-safe", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
