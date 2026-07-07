@@ -11441,6 +11441,11 @@ body.club-mobile-device .support-status {
 }
 
 /* Final mobile modal guard: keep late breakpoint rules from turning dialogs into draggable full-width sheets. */
+body.club-mobile-device {
+  --club-mobile-modal-inline-gutter: clamp(12px, 4vw, 22px);
+  --club-mobile-modal-max-width: 36rem;
+}
+
 body.club-mobile-device .admin-modal-backdrop,
 body.club-mobile-device .payment-modal-backdrop,
 body.club-mobile-device .support-modal-backdrop,
@@ -11452,9 +11457,22 @@ body.club-mobile-device .notification-center-backdrop {
   justify-items: center;
   padding:
     max(12px, var(--club-safe-top))
-    max(12px, var(--club-safe-right))
+    max(var(--club-mobile-modal-inline-gutter), var(--club-safe-right))
     max(12px, var(--club-safe-bottom))
-    max(12px, var(--club-safe-left));
+    max(var(--club-mobile-modal-inline-gutter), var(--club-safe-left));
+  overflow: hidden;
+}
+
+body.club-mobile-device .push-permission-layer {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: stretch;
+  padding:
+    max(12px, var(--club-safe-top))
+    max(var(--club-mobile-modal-inline-gutter), var(--club-safe-right))
+    max(12px, var(--club-safe-bottom))
+    max(var(--club-mobile-modal-inline-gutter), var(--club-safe-left));
   overflow: hidden;
 }
 
@@ -11478,10 +11496,13 @@ body.club-mobile-device .payment-confirm-card,
 body.club-mobile-device .push-permission-card,
 body.club-mobile-device .admin-client-message-modal {
   box-sizing: border-box;
-  width: min(calc(100% - 44px), 760px);
-  max-width: calc(100% - 44px);
+  width: min(100%, var(--club-mobile-modal-max-width));
+  max-width: min(100%, var(--club-mobile-modal-max-width));
   height: auto;
-  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(32px, var(--club-safe-top)) - max(32px, var(--club-safe-bottom)));
+  max-height: min(
+    calc(var(--club-visible-viewport-height, 100dvh) - max(32px, var(--club-safe-top)) - max(32px, var(--club-safe-bottom))),
+    calc(100dvh - 24px)
+  );
   min-width: 0;
   align-self: center;
   justify-self: center;
@@ -11502,10 +11523,35 @@ body.club-mobile-device .admin-permission-modal {
   overflow-y: auto;
 }
 
+body.club-mobile-device :is(
+  .admin-client-modal,
+  .payment-form-modal,
+  .support-ticket-modal,
+  .lesson-preview-modal,
+  .module-name-modal,
+  .profile-avatar-editor-modal,
+  .profile-logout-confirm,
+  .notification-center-panel,
+  .release-notes-modal,
+  .admin-mailing-composer-modal,
+  .admin-mailing-detail-modal,
+  .admin-storage-modal,
+  .admin-storage-folder-modal,
+  .admin-payment-drilldown-modal,
+  .admin-server-logs-modal,
+  .admin-permission-modal,
+  .payment-confirm-card,
+  .push-permission-card,
+  .admin-client-message-modal
+) * {
+  min-width: 0;
+}
+
 body.club-mobile-device .admin-access-toggle,
 body.club-mobile-device .admin-compact-date-row,
 body.club-mobile-device .notification-center-actions,
 body.club-mobile-device .push-permission-actions {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -11534,4 +11580,15 @@ body.club-mobile-device .admin-client-modal .admin-client-profile-grid,
 body.club-mobile-device .admin-client-modal .admin-client-card-head,
 body.club-mobile-device .admin-client-modal .admin-compact-date-row {
   grid-template-columns: minmax(0, 1fr);
+}
+
+body.club-keyboard-open .module-name-modal {
+  height: calc(var(--club-visible-viewport-height, 100dvh) - 24px);
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - 24px);
+  overflow-y: auto;
+}
+
+body.club-keyboard-open .module-name-backdrop {
+  align-items: start;
+  justify-items: stretch;
 }

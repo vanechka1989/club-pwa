@@ -18,6 +18,7 @@ export type ViewportWidthInput = {
 
 export type MobileDeviceShellScaleInput = ViewportWidthInput & {
   layoutWidth: number;
+  layoutHeight?: number | null;
   hasTouchInput: boolean;
   userAgent?: string | null;
 };
@@ -232,15 +233,22 @@ export function getMeasuredViewportWidth(input: ViewportWidthInput) {
 
 export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const deviceScreenWidth = getCssDeviceScreenWidth(input);
+  const layoutHeight = finiteNumber(input.layoutHeight, 0);
   const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
   const needsViewportCompensation = input.hasTouchInput && input.layoutWidth >= 700 && viewportScale >= 1.35;
   const isMobileUserAgent = input.hasTouchInput && hasMobileUserAgent(input.userAgent);
   const needsHandheldWideViewportScale = input.hasTouchInput && input.layoutWidth >= 700 && hasHandheldMobileUserAgent(input.userAgent);
+  const needsTallPortraitWideViewportScale =
+    input.hasTouchInput && input.layoutWidth >= 700 && input.layoutWidth <= 1100 && layoutHeight >= input.layoutWidth * 1.45;
   const isMobileDeviceShell =
-    input.hasTouchInput && (isMobileUserAgent || needsViewportCompensation || (deviceScreenWidth > 0 && deviceScreenWidth <= 720));
+    input.hasTouchInput &&
+    (isMobileUserAgent ||
+      needsViewportCompensation ||
+      needsTallPortraitWideViewportScale ||
+      (deviceScreenWidth > 0 && deviceScreenWidth <= 720));
   const scale = needsViewportCompensation
     ? roundedTo(Math.min(2.8, Math.max(1, viewportScale)), 3)
-    : needsHandheldWideViewportScale
+    : needsHandheldWideViewportScale || needsTallPortraitWideViewportScale
       ? roundedTo(Math.min(2.8, Math.max(1, input.layoutWidth / 390)), 3)
       : 1;
 
@@ -256,7 +264,7 @@ function formatScaledCssPx(basePx: number, scale: number) {
 
 export function createDeviceLayoutSnapshot(input: DeviceLayoutSnapshotInput): DeviceLayoutSnapshot {
   const userAgent = input.userAgent ?? "";
-  const mobileDeviceShell = getMobileDeviceShellScale(input);
+  const mobileDeviceShell = getMobileDeviceShellScale({ ...input, layoutHeight: input.viewportHeight ?? null });
   const shouldScaleWideViewport = mobileDeviceShell.isMobileDeviceShell && mobileDeviceShell.scale > 1;
   const shouldScaleAuth = shouldScaleWideViewport && input.sessionMode === "signed-out";
   const shouldScaleApp = shouldScaleWideViewport && input.sessionMode === "signed-in";

@@ -142,12 +142,28 @@ describe("device layout detection", () => {
     expect(
       getMobileDeviceShellScale({
         layoutWidth: 980,
+        layoutHeight: 1914,
         screenWidth: 1080,
         screenAvailWidth: 1080,
         devicePixelRatio: 1,
         hasTouchInput: true,
         userAgent:
           "Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+      })
+    ).toEqual({ isMobileDeviceShell: true, scale: 2.513 });
+  });
+
+  it("treats standalone touch portrait PWA with desktop-like UA as a scaled mobile shell", () => {
+    expect(
+      getMobileDeviceShellScale({
+        layoutWidth: 980,
+        layoutHeight: 1914,
+        screenWidth: 1080,
+        screenAvailWidth: 1080,
+        devicePixelRatio: 1,
+        hasTouchInput: true,
+        userAgent:
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
       })
     ).toEqual({ isMobileDeviceShell: true, scale: 2.513 });
   });
@@ -202,6 +218,28 @@ describe("device layout detection", () => {
       "--club-app-wide-font-base": "32.67px"
     });
     expect(snapshot.removedCssVariables).toEqual(["--club-auth-wide-viewport-scale"]);
+  });
+
+  it("creates a signed-in mobile PWA app snapshot for desktop-like UA touch portrait shells", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 980,
+      viewportHeight: 1914,
+      screenWidth: 1080,
+      screenAvailWidth: 1080,
+      devicePixelRatio: 1,
+      hasTouchInput: true,
+      platform: "Linux x86_64",
+      sessionMode: "signed-in",
+      userAgent:
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(true);
+    expect(snapshot.scale).toBe(2.513);
+    expect(snapshot.classes).toEqual(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]);
+    expect(snapshot.cssVariables).toMatchObject({
+      "--club-app-wide-viewport-scale": "2.513"
+    });
   });
 
   it("keeps a real CSS-width mobile viewport unscaled while still using the mobile shell", () => {

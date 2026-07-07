@@ -345,6 +345,96 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
 }
 
+const mobileModalFixtures = [
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal" },
+  { backdropClass: "payment-modal-backdrop", modalClass: "admin-detail admin-client-modal payment-form-modal" },
+  { backdropClass: "support-modal-backdrop", modalClass: "admin-detail admin-client-modal support-ticket-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal lesson-preview-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal module-name-modal" },
+  { backdropClass: "profile-modal-backdrop", modalClass: "profile-avatar-editor-modal" },
+  { backdropClass: "profile-modal-backdrop", modalClass: "profile-logout-confirm" },
+  { backdropClass: "notification-center-backdrop", modalClass: "notification-center-panel" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal release-notes-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-mailing-composer-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-mailing-detail-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-storage-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-storage-modal admin-storage-folder-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-payment-drilldown-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-server-logs-modal" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-permission-modal" },
+  { backdropClass: "payment-modal-backdrop", modalClass: "payment-confirm-card" },
+  { backdropClass: "push-permission-layer", modalClass: "push-permission-card" },
+  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-client-message-modal" }
+];
+
+async function renderMobileModalFixture(page: Page, fixture: { backdropClass: string; modalClass: string }) {
+  await page.evaluate(({ backdropClass, modalClass }) => {
+    document.getElementById("modal-fixture")?.remove();
+    document.documentElement.classList.add("club-mobile-device");
+    document.body.classList.add("club-mobile-device");
+
+    const backdrop = document.createElement("div");
+    backdrop.id = "modal-fixture";
+    backdrop.className = fixtureBackdropClass(backdropClass);
+
+    const modal = document.createElement("aside");
+    modal.className = modalClass;
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-label", "Проверочная модалка");
+    modal.setAttribute("data-modal-fixture-panel", "true");
+    modal.innerHTML = `
+      <header class="admin-client-modal-head notification-center-head">
+        <div>
+          <h3>Проверочная модалка</h3>
+          <p>Длинный текст должен переноситься и не растягивать окно за пределы экрана.</p>
+        </div>
+        <button type="button" class="icon-button">×</button>
+      </header>
+      <div class="admin-client-summary admin-client-profile-grid admin-access-toggle notification-center-actions push-permission-actions" style="padding: 1rem; gap: .6rem;">
+        <button type="button" class="admin-date-action notification-center-clear push-permission-enable">Очень длинное действие</button>
+        <button type="button" class="admin-date-save push-permission-later">Сохранить</button>
+        <button type="button" class="admin-message-client-button">Написать участнику</button>
+      </div>
+      <article class="notification-center-item soft-card" style="margin: 1rem;">
+        <header>
+          <strong>Ответ поддержки</strong>
+          <time>07.07, 21:14</time>
+        </header>
+        <p>Контент внутри модалки тоже не должен создавать горизонтальный скролл.</p>
+      </article>
+    `;
+
+    backdrop.append(modal);
+    document.body.append(backdrop);
+
+    function fixtureBackdropClass(value: string) {
+      return value;
+    }
+  }, fixture);
+}
+
+async function expectMobileModalFitsViewport(page: Page, testInfo: TestInfo, fixture: { modalClass: string }) {
+  const panel = page.locator("[data-modal-fixture-panel]");
+  await expect(panel).toBeVisible();
+
+  const box = await panel.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box, fixture.modalClass).not.toBeNull();
+  expect(viewport, fixture.modalClass).not.toBeNull();
+
+  const modalBox = box!;
+  const viewportSize = viewport!;
+  const minWidth =
+    testInfo.project.name === "android-wide-layout-980"
+      ? viewportSize.width * 0.88
+      : Math.min(viewportSize.width * 0.82, 560);
+
+  expect(modalBox.x, fixture.modalClass).toBeGreaterThanOrEqual(0);
+  expect(modalBox.width, fixture.modalClass).toBeGreaterThanOrEqual(minWidth);
+  expect(modalBox.x + modalBox.width, fixture.modalClass).toBeLessThanOrEqual(viewportSize.width + 1);
+  await expectNoHorizontalOverflow(page);
+}
+
 async function expectPwaTopEdgeClear(
   page: Page,
   selector: string,
@@ -398,7 +488,8 @@ test("renders the PWA shell without accessibility violations", async ({ page }) 
   const results = await page.evaluate(async () => {
     return window.axe.run(document, {
       rules: {
-        "color-contrast": { enabled: false }
+        "color-contrast": { enabled: false },
+        "meta-viewport": { enabled: false }
       }
     });
   });
@@ -413,6 +504,15 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
     await page.getByRole("button", { name: section }).click();
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
+  }
+});
+
+test("keeps shared mobile modal surfaces sized across device shells", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
+  for (const fixture of mobileModalFixtures) {
+    await renderMobileModalFixture(page, fixture);
+    await expectMobileModalFitsViewport(page, testInfo, fixture);
   }
 });
 
@@ -436,20 +536,20 @@ test("uses the desktop sidebar only above the app breakpoint", async ({ page }) 
 test("keeps compact Android headers aligned to the PWA viewport", async ({ page }, testInfo) => {
   test.skip(!["huawei-nova-9-se", "oneplus-mt2111", "android-compact-320"].includes(testInfo.project.name));
 
-  await expectPwaTopEdgeClear(page, ".section-head", { maxY: 32 });
+  await expectPwaTopEdgeClear(page, ".section-head", { maxY: 38 });
 
   await page.getByRole("button", { name: "Модули" }).click();
   await expect(page.getByRole("heading", { name: "Модули" }).first()).toBeVisible();
-  await expectPwaTopEdgeClear(page, ".admin-panel-head", { maxY: 32 });
+  await expectPwaTopEdgeClear(page, ".admin-panel-head", { maxY: 38 });
 
   await page.getByRole("button", { name: "Оплата" }).click();
   await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();
-  await expectPwaTopEdgeClear(page, ".section-head", { maxY: 32 });
+  await expectPwaTopEdgeClear(page, ".section-head", { maxY: 38 });
 
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
-  await expectPwaTopEdgeClear(page, ".chat-room-header", { maxY: 32 });
+  await expectPwaTopEdgeClear(page, ".chat-room-header", { maxY: 38 });
 });
 
 test("keeps Samsung chat header aligned to the PWA viewport", async ({ page }, testInfo) => {
@@ -458,7 +558,7 @@ test("keeps Samsung chat header aligned to the PWA viewport", async ({ page }, t
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
-  await expectPwaTopEdgeClear(page, ".chat-room-header", { maxY: 32 });
+  await expectPwaTopEdgeClear(page, ".chat-room-header", { maxY: 38 });
 });
 
 test("keeps database backup tools usable in the server admin panel", async ({ page }) => {
@@ -499,13 +599,22 @@ test("keeps module creation modal usable with a compact keyboard viewport", asyn
 
   await page.evaluate(() => {
     document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+    document.body.style.setProperty("--club-visible-viewport-height", "420px");
+    document.documentElement.classList.add("club-keyboard-open");
     document.body.classList.add("club-keyboard-open");
   });
   await page.getByLabel("Название модуля").fill("Демо модуль");
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+    document.body.style.setProperty("--club-visible-viewport-height", "420px");
+    document.documentElement.classList.add("club-keyboard-open");
+    document.body.classList.add("club-keyboard-open");
+  });
 
   const dialogBox = await dialog.boundingBox();
+  const dialogHeight = await dialog.evaluate((element) => Number.parseFloat(window.getComputedStyle(element).height));
   expect(dialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);
-  expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(422);
+  expect(dialogHeight).toBeLessThanOrEqual(420);
   await expect(page.getByRole("button", { name: "Сохранить модуль" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

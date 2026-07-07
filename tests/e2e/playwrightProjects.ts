@@ -26,6 +26,19 @@ const oneplusMt2111 = {
   }
 };
 
+const androidWideLayout980 = {
+  name: "android-wide-layout-980",
+  use: {
+    viewport: { width: 980, height: 1914 },
+    deviceScaleFactor: 1,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+  }
+};
+
 const compactAndroid320 = {
   name: "android-compact-320",
   use: {
@@ -60,6 +73,7 @@ export const smokeProjects = [
     name: "galaxy-s24",
     use: { ...devices["Galaxy S24"] }
   },
+  androidWideLayout980,
   huaweiNova9Se,
   oneplusMt2111
 ];
