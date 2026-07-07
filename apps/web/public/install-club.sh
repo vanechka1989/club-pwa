@@ -290,9 +290,11 @@ cat >"$DEPLOY_DIR/deploy/Caddyfile" <<'CADDY'
   encode gzip
   header {
     Content-Security-Policy "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-src https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
     X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
     Referrer-Policy "strict-origin-when-cross-origin"
-    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
   }
 
   handle_path /api/* {
@@ -356,6 +358,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - api-uploads:/app/uploads
     expose:
       - "3000"
 
@@ -420,6 +424,7 @@ services:
 
 volumes:
   postgres-data:
+  api-uploads:
   caddy-data:
   caddy-config:
 COMPOSE

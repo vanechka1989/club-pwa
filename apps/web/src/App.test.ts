@@ -142,7 +142,7 @@ describe("App", () => {
       }
     });
 
-    expect(await screen.findByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Установите Club на Windows" })).toBeTruthy();
     await waitFor(() => expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy());
     await new Promise((resolve) => window.setTimeout(resolve, 450));
 

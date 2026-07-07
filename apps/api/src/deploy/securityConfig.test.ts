@@ -13,9 +13,13 @@ describe("production security config", () => {
     for (const source of [caddyfile, nginxConf]) {
       expect(source).toContain("Content-Security-Policy");
       expect(source).toContain("X-Content-Type-Options");
+      expect(source).toContain("X-Frame-Options");
       expect(source).toContain("Referrer-Policy");
       expect(source).toContain("Permissions-Policy");
+      expect(source).not.toContain("microphone=()");
     }
+    expect(caddyfile).toContain("Strict-Transport-Security");
+    expect(publicInstall).toContain("Strict-Transport-Security");
   });
 
   it("configures email and PWA push env while protecting the env file in installers", () => {
@@ -65,5 +69,10 @@ describe("production security config", () => {
 
       expect(seedIndex).toBeGreaterThan(firstWaitIndex);
     }
+  });
+
+  it("keeps local upload fallback data in a persistent installer volume", () => {
+    expect(publicInstall).toContain("- api-uploads:/app/uploads");
+    expect(publicInstall).toContain("api-uploads:");
   });
 });

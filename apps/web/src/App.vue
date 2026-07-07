@@ -9,6 +9,7 @@ import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/fea
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
 import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
+import PushPermissionPrompt from "@/features/app/PushPermissionPrompt.vue";
 import {
   calculateLayoutCalibration,
   collectCurrentDeviceDiagnostics,
@@ -805,6 +806,7 @@ onBeforeUnmount(() => {
     </nav>
     <AppOperationIndicator />
     <AppNotifications />
+    <PushPermissionPrompt v-if="session.user" />
     <PwaInstallPrompt :show-card="Boolean(session.user)" />
   </main>
 </template>

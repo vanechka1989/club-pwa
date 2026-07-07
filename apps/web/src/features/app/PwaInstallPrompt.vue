@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Download, Share, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { detectInstallPlatform } from "@/features/app/installPlatform";
+import { detectInstallPlatform, getInstallGuide } from "@/features/app/installPlatform";
 import { isInstalledPwaDisplay, markInstalledPwa } from "@/features/app/pwaDisplay";
 import { pwaInstallRequestEventName } from "@/features/app/pwaInstall";
 
@@ -29,27 +29,23 @@ const installPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const isVisible = ref(false);
 const isInstalled = ref(false);
 const isPrompting = ref(false);
-const isIos = ref(false);
+const installPlatform = ref(detectInstallPlatform());
 const isDismissedForSession = ref(false);
 let showTimer: number | null = null;
 const installPromptDelayMs = 350;
 
 const canUseNativePrompt = computed(() => Boolean(installPrompt.value));
-const shouldShowIosInstructions = computed(() => isIos.value && !isInstalled.value);
-const shouldShowFallbackInstructions = computed(() => !isInstalled.value && !canUseNativePrompt.value && !shouldShowIosInstructions.value);
-const title = computed(() => (shouldShowIosInstructions.value ? "Добавьте Club на экран Домой" : "Установите Club как приложение"));
-const lead = computed(() =>
-  shouldShowIosInstructions.value
-    ? "На iPhone установка делается через меню Safari. После добавления клуб откроется без адресной строки, как обычное приложение."
-    : "Так клуб появится иконкой на телефоне и будет открываться без браузерной панели."
-);
+const installGuide = computed(() => getInstallGuide(installPlatform.value));
+const shouldShowManualInstructions = computed(() => !isInstalled.value && !canUseNativePrompt.value);
+const title = computed(() => installGuide.value.title);
+const lead = computed(() => installGuide.value.lead);
 
 function detectPlatform() {
   if (typeof window === "undefined") {
     return;
   }
 
-  isIos.value = detectInstallPlatform().isIos;
+  installPlatform.value = detectInstallPlatform();
   isInstalled.value = isInstalledPwaDisplay();
 }
 
@@ -64,7 +60,7 @@ function scheduleInstallCard() {
       props.showCard &&
       !isInstalled.value &&
       !isDismissedForSession.value &&
-      (canUseNativePrompt.value || shouldShowIosInstructions.value || shouldShowFallbackInstructions.value)
+      (canUseNativePrompt.value || shouldShowManualInstructions.value)
     ) {
       isVisible.value = true;
     }
@@ -160,15 +156,9 @@ onBeforeUnmount(() => {
       <strong>{{ title }}</strong>
       <p>{{ lead }}</p>
 
-      <ol v-if="shouldShowIosInstructions" class="pwa-install-steps">
-        <li>Откройте сайт в Safari.</li>
-        <li>Нажмите кнопку “Поделиться”.</li>
-        <li>Выберите “На экран Домой”.</li>
+      <ol v-if="shouldShowManualInstructions" class="pwa-install-steps">
+        <li v-for="step in installGuide.primarySteps" :key="step">{{ step }}</li>
       </ol>
-
-      <p v-else-if="!canUseNativePrompt" class="pwa-install-steps pwa-install-note">
-        Если кнопки установки нет, откройте меню браузера и выберите “Установить приложение”.
-      </p>
     </div>
 
     <button v-if="canUseNativePrompt" class="pwa-install-action" type="button" :disabled="isPrompting" @click="installApp">

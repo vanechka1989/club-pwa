@@ -84,16 +84,16 @@ describe("email auth UI", () => {
   it("requires the installed PWA before showing the email login form", () => {
     renderAuth(createPinia(), { standalone: false });
 
-    expect(screen.getByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Установите Club на Windows" })).toBeTruthy();
     expect(screen.queryByLabelText("Email")).toBeNull();
     expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy();
-    expect(screen.getByText(/Вход по email доступен только из установленного приложения/)).toBeTruthy();
+    expect(screen.getByText(/появится в меню Пуск/)).toBeTruthy();
   });
 
   it("keeps the native install request path for desktop browsers", () => {
     renderAuth(createPinia(), { standalone: false });
 
-    expect(screen.getByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Установите Club на Windows" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Установить приложение" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Добавьте Club на экран Домой" })).toBeNull();
   });
@@ -110,7 +110,7 @@ describe("email auth UI", () => {
 
     expect(screen.getByRole("heading", { name: "Добавьте Club на экран Домой" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Установить приложение" })).toBeNull();
-    expect(screen.getByText(/На iPhone кнопка сайта не может открыть окно установки автоматически/)).toBeTruthy();
+    expect(screen.getByText(/На iPhone установка делается через меню Safari/)).toBeTruthy();
     expect(screen.getByText("Safari iPhone")).toBeTruthy();
     expect(screen.getAllByText(/Поделиться/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/На экран Домой/).length).toBeGreaterThan(0);
@@ -121,7 +121,7 @@ describe("email auth UI", () => {
 
     expect(screen.getByRole("heading", { name: "Вход в клуб" })).toBeTruthy();
     expect(screen.getByLabelText("Email")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Установите приложение" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Установите Club на Windows" })).toBeNull();
   });
 
   it("switches from install gate to email login after the app opens as standalone", async () => {
@@ -146,13 +146,13 @@ describe("email auth UI", () => {
       }
     });
 
-    expect(screen.getByRole("heading", { name: "Установите приложение" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Установите Club на Windows" })).toBeTruthy();
 
     isStandalone = true;
     window.dispatchEvent(new Event("appinstalled"));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Вход в клуб" })).toBeTruthy());
-    expect(screen.queryByRole("heading", { name: "Установите приложение" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Установите Club на Windows" })).toBeNull();
   });
 
   it("asks the shell to open the PWA installation prompt from the login gate", async () => {
@@ -169,19 +169,17 @@ describe("email auth UI", () => {
   it("shows a desktop Chrome fallback after the install button is pressed", async () => {
     renderAuth(createPinia(), { standalone: false });
 
-    expect(screen.queryByText(/Chrome не открыл окно установки автоматически/)).toBeNull();
+    expect(screen.queryByText(/Как установить на Windows/)).toBeNull();
     expect(screen.queryByText("Safari iPhone")).toBeNull();
 
     await fireEvent.click(screen.getByRole("button", { name: "Установить приложение" }));
 
-    expect(screen.getByText(/Chrome не открыл окно установки автоматически/)).toBeTruthy();
-    expect(screen.getByText(/иконку установки в адресной строке/)).toBeTruthy();
-    expect(screen.getByText("Chrome")).toBeTruthy();
+    expect(screen.getByText(/Как установить на Windows/)).toBeTruthy();
+    expect(screen.getAllByText(/иконку установки в адресной строке/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Chrome Windows")).toBeTruthy();
+    expect(screen.getByText("Edge Windows")).toBeTruthy();
     expect(screen.getAllByText(/Сохранить и поделиться/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Добавить на главный экран/).length).toBeGreaterThan(0);
-    expect(screen.getByText("Safari iPhone")).toBeTruthy();
-    expect(screen.getAllByText(/Поделиться/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/На экран Домой/).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Safari iPhone")).toBeNull();
   });
 
   it("uses email auth endpoints instead of Telegram initData", () => {

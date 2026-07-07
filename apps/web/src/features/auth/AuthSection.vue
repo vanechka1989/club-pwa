@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { detectInstallPlatform } from "@/features/app/installPlatform";
+import { detectInstallPlatform, getInstallGuide } from "@/features/app/installPlatform";
 import { getInstalledPwaDisplayModeQueries, isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import { Download, Mail, Share, ShieldCheck } from "lucide-vue-next";
 import { requestPwaInstallPrompt } from "@/features/app/pwaInstall";
@@ -15,7 +15,7 @@ const localError = ref<string | null>(null);
 const resendAvailableAt = ref<number | null>(null);
 const nowMs = ref(Date.now());
 const isInstalledPwa = ref(isStandalonePwa());
-const isIosInstallDevice = ref(detectIosInstallDevice());
+const installPlatform = ref(detectInstallPlatform());
 const installFallbackVisible = ref(false);
 const resendCooldownMs = 60_000;
 let resendCooldownTimer: number | null = null;
@@ -37,13 +37,10 @@ const requestButtonLabel = computed(() =>
 );
 const canRequestCode = computed(() => !session.loading && Boolean(email.value) && resendRemainingSeconds.value <= 0);
 const canResendCode = computed(() => !session.loading && resendRemainingSeconds.value <= 0);
-const isIosInstallFlow = computed(() => isIosInstallDevice.value && !isInstalledPwa.value);
-const installTitle = computed(() => (isIosInstallFlow.value ? "Добавьте Club на экран Домой" : "Установите приложение"));
-const installLead = computed(() =>
-  isIosInstallFlow.value
-    ? "На iPhone кнопка сайта не может открыть окно установки автоматически. Установите Club через меню браузера, затем откройте новую иконку."
-    : "Вход по email доступен только из установленного приложения Club."
-);
+const installGuide = computed(() => getInstallGuide(installPlatform.value));
+const isIosInstallFlow = computed(() => installPlatform.value.isIos && !isInstalledPwa.value);
+const installTitle = computed(() => installGuide.value.title);
+const installLead = computed(() => (isInstalledPwa.value ? "" : installGuide.value.lead));
 
 function isStandalonePwa() {
   return isInstalledPwaDisplay();
@@ -154,10 +151,6 @@ function changeEmail() {
   stopResendCooldownTimer();
 }
 
-function detectIosInstallDevice() {
-  return detectInstallPlatform().isIos;
-}
-
 function installApp() {
   installFallbackVisible.value = true;
   if (isIosInstallFlow.value) {
@@ -206,7 +199,7 @@ function addInstalledPwaListeners() {
 }
 
 onMounted(() => {
-  isIosInstallDevice.value = detectIosInstallDevice();
+  installPlatform.value = detectInstallPlatform();
   refreshInstalledPwaState();
   addInstalledPwaListeners();
   restoreResendCooldown();
@@ -232,76 +225,60 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <ol v-if="isIosInstallFlow" class="auth-install-steps">
-      <li>Откройте сайт в Safari или текущем браузере на iPhone.</li>
-      <li>Нажмите “Поделиться”.</li>
-      <li>Выберите “На экран Домой” и нажмите “Добавить”.</li>
-      <li>Откройте Club через новую иконку на экране телефона.</li>
-    </ol>
-    <ol v-else class="auth-install-steps">
-      <li>Нажмите “Установить приложение”.</li>
-      <li>Подтвердите установку в окне браузера.</li>
-      <li>Откройте Club через новую иконку на экране телефона.</li>
+    <ol class="auth-install-steps">
+      <li v-for="step in installGuide.primarySteps" :key="step">{{ step }}</li>
     </ol>
 
     <button v-if="!isIosInstallFlow" class="primary-button" type="button" @click="installApp">
       Установить приложение
     </button>
 
-    <div v-if="installFallbackVisible || isIosInstallFlow" class="auth-install-manual" aria-live="polite">
+    <div v-if="installFallbackVisible || installGuide.nativePromptUnavailable" class="auth-install-manual" aria-live="polite">
       <div class="auth-install-manual-head">
-        <strong>{{ isIosInstallFlow ? "Как установить на iPhone" : "Chrome не открыл окно установки автоматически" }}</strong>
-        <span>
-          {{
-            isIosInstallFlow
-              ? "Системное окно установки на iPhone не открывается кнопкой сайта. Используйте меню браузера."
-              : "Если окно установки не появилось, выберите свой браузер и установите Club вручную."
-          }}
-        </span>
+        <strong>{{ installGuide.manualTitle }}</strong>
+        <span>{{ installGuide.manualLead }}</span>
       </div>
 
       <div class="auth-install-guide-grid">
-        <article class="auth-install-guide-card" aria-labelledby="install-chrome-title">
-          <div class="auth-install-shot auth-install-shot-chrome" aria-hidden="true">
+        <article
+          v-for="card in installGuide.cards"
+          :key="card.title"
+          class="auth-install-guide-card"
+          :aria-labelledby="`install-${card.kind}-title`"
+        >
+          <div
+            v-if="card.kind === 'android' || card.kind === 'chrome-desktop' || card.kind === 'edge-desktop'"
+            class="auth-install-shot auth-install-shot-chrome"
+            aria-hidden="true"
+          >
             <div class="auth-install-shot-bar">
               <span>club2.myn8nservertest.ru</span>
-              <b>+</b>
+              <b>{{ card.kind === "edge-desktop" ? "▣" : "+" }}</b>
               <em>⋮</em>
             </div>
             <div class="auth-install-shot-menu">
-              <span>Сохранить и поделиться</span>
-              <strong>Установить страницу как приложение</strong>
+              <span>{{ card.kind === "android" ? "Добавить на главный экран" : "Сохранить и поделиться" }}</span>
+              <strong>{{ card.kind === "android" ? "Установить" : "Установить страницу как приложение" }}</strong>
             </div>
           </div>
-          <div>
-            <strong id="install-chrome-title">Chrome</strong>
-            <ol>
-              <li>Нажмите иконку установки в адресной строке.</li>
-              <li>Если её нет, откройте меню Chrome, затем Сохранить и поделиться и Установить страницу как приложение.</li>
-              <li>На Android откройте меню Chrome, затем Добавить на главный экран и Установить.</li>
-            </ol>
-          </div>
-        </article>
 
-        <article class="auth-install-guide-card" aria-labelledby="install-safari-title">
-          <div class="auth-install-shot auth-install-shot-safari" aria-hidden="true">
+          <div v-else class="auth-install-shot auth-install-shot-safari" aria-hidden="true">
             <div class="auth-install-phone-top"></div>
             <div class="auth-install-safari-toolbar">
               <span>AA</span>
-              <b>Поделиться</b>
+              <b>{{ card.kind === "safari-mac" ? "Поделиться" : "Поделиться" }}</b>
               <em>...</em>
             </div>
             <div class="auth-install-share-sheet">
-              <strong>На экран Домой</strong>
+              <strong>{{ card.kind === "safari-mac" ? "Добавить в Dock" : "На экран Домой" }}</strong>
               <span>Добавить</span>
             </div>
           </div>
+
           <div>
-            <strong id="install-safari-title">Safari iPhone</strong>
+            <strong :id="`install-${card.kind}-title`">{{ card.title }}</strong>
             <ol>
-              <li>Откройте сайт в Safari.</li>
-              <li>Нажмите Поделиться.</li>
-              <li>Выберите На экран Домой и нажмите Добавить.</li>
+              <li v-for="step in card.steps" :key="step">{{ step }}</li>
             </ol>
           </div>
         </article>

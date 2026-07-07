@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectInstallPlatform } from "./installPlatform";
+import { detectInstallPlatform, getInstallGuide } from "./installPlatform";
 
 describe("install platform detection", () => {
   it("detects iPhone Safari user agents", () => {
@@ -38,6 +38,31 @@ describe("install platform detection", () => {
         platform: "Win32",
         maxTouchPoints: 0
       }).kind
-    ).toBe("desktop");
+    ).toBe("windows");
+  });
+
+  it("detects macOS desktop browsers separately from iPadOS", () => {
+    expect(
+      detectInstallPlatform({
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
+        platform: "MacIntel",
+        maxTouchPoints: 0
+      }).kind
+    ).toBe("macos");
+  });
+
+  it("builds platform-specific installation guides", () => {
+    expect(getInstallGuide({ kind: "ios", isIos: true, isAndroid: false, isWindows: false, isMacOs: false }).primarySteps.join(" ")).toContain(
+      "Safari"
+    );
+    expect(
+      getInstallGuide({ kind: "android", isIos: false, isAndroid: true, isWindows: false, isMacOs: false }).primarySteps.join(" ")
+    ).toContain("Добавить на главный экран");
+    expect(
+      getInstallGuide({ kind: "windows", isIos: false, isAndroid: false, isWindows: true, isMacOs: false }).cards.map((card) => card.title)
+    ).toContain("Edge Windows");
+    expect(
+      getInstallGuide({ kind: "macos", isIos: false, isAndroid: false, isWindows: false, isMacOs: true }).cards.map((card) => card.title)
+    ).toContain("Safari macOS");
   });
 });

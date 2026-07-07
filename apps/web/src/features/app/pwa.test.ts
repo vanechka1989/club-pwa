@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v22"');
+    expect(worker).toContain('const cacheName = "club-pwa-v23"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
@@ -65,6 +65,7 @@ describe("PWA shell", () => {
   it("shows an in-app install prompt for supported browsers and iOS instructions", () => {
     const app = readFileSync(resolve(process.cwd(), "src/App.vue"), "utf8");
     const prompt = readFileSync(resolve(process.cwd(), "src/features/app/PwaInstallPrompt.vue"), "utf8");
+    const guide = readFileSync(resolve(process.cwd(), "src/features/app/installPlatform.ts"), "utf8");
     const display = readFileSync(resolve(process.cwd(), "src/features/app/pwaDisplay.ts"), "utf8");
     const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
@@ -82,9 +83,25 @@ describe("PWA shell", () => {
     expect(prompt).toContain("prompt()");
     expect(prompt).toContain("detectInstallPlatform");
     expect(prompt).not.toContain("/iphone|ipad|ipod/i.test(userAgent)");
-    expect(prompt).toContain("Safari");
-    expect(prompt).toContain("На экран Домой");
+    expect(guide).toContain("Safari iPhone");
+    expect(guide).toContain("Chrome Android");
+    expect(guide).toContain("Edge Windows");
+    expect(guide).toContain("Safari macOS");
+    expect(guide).toContain("На экран Домой");
     expect(styles).toContain("bottom: calc(var(--nav-space, 0rem) + 0.75rem);");
+  });
+
+  it("asks for PWA push permission after login through a user action", () => {
+    const app = readFileSync(resolve(process.cwd(), "src/App.vue"), "utf8");
+    const prompt = readFileSync(resolve(process.cwd(), "src/features/app/PushPermissionPrompt.vue"), "utf8");
+    const notifications = readFileSync(resolve(process.cwd(), "src/stores/notifications.ts"), "utf8");
+
+    expect(app).toContain("PushPermissionPrompt");
+    expect(prompt).toContain("club-push-onboarding-dismissed-v1");
+    expect(prompt).toContain('Notification.permission !== "default"');
+    expect(prompt).toContain("@click=\"enablePush\"");
+    expect(prompt).toContain("notifications.enableBrowserPush()");
+    expect(notifications).toContain("Notification.requestPermission()");
   });
 
   it("shows install guidance before login even when the native install prompt is not ready", async () => {
@@ -94,8 +111,8 @@ describe("PWA shell", () => {
     await vi.advanceTimersByTimeAsync(400);
     await nextTick();
 
-    expect(screen.getByRole("complementary", { name: "Установите Club как приложение" })).toBeTruthy();
-    expect(screen.getByText(/Если кнопки установки нет/)).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "Установите Club на Windows" })).toBeTruthy();
+    expect(screen.getByText(/Откройте сайт в Chrome или Edge/)).toBeTruthy();
   });
 
   it("can hide the floating install card while still listening for install requests", async () => {
@@ -105,7 +122,7 @@ describe("PWA shell", () => {
     await vi.advanceTimersByTimeAsync(400);
     await nextTick();
 
-    expect(screen.queryByRole("complementary", { name: "Установите Club как приложение" })).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "Установите Club на Windows" })).toBeNull();
   });
 
   it("opens the native install prompt when the login gate requests installation", async () => {
