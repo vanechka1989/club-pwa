@@ -12,7 +12,7 @@ describe("keyboard focus handling", () => {
     expect(appSource).toContain("blurActiveTextField");
     expect(appSource).toMatch(/async function selectSection[\s\S]*blurActiveTextField\(\)/);
     expect(appSource).toContain("@click=\"selectSection(item.id)\"");
-    expect(appSource).toContain("@click=\"selectSection('admin')\"");
+    expect(appSource).toContain('mobilePrimaryNavIds.includes(item.id)');
     expect(appSource).not.toContain("@click=\"toggleNavCollapsed\"");
   });
 

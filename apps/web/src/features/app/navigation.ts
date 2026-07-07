@@ -20,4 +20,4 @@ export const navItems: NavItem[] = [
   { id: "admin", labelKey: "navAdmin", icon: Shield, adminOnly: true }
 ];
 
-export const mobilePrimaryNavIds: AppSection[] = ["profile", "learning", "community", "payments", "support"];
+export const mobilePrimaryNavIds: AppSection[] = ["profile", "learning", "community", "payments", "support", "admin"];

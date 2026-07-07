@@ -470,11 +470,17 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(max-width: 1023px\)[\s\S]*\.desktop-sidebar\s*{[\s\S]*display: none;/);
   });
 
-  it("keeps admin out of the mobile primary tab bar", () => {
+  it("keeps admin inside the mobile bottom tab bar for admins", () => {
+    const navigationSource = readFileSync(resolve(__dirname, "features/app/navigation.ts"), "utf-8");
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
     expect(appSource).toContain("mobileNavItems");
     expect(appSource).toContain("visibleMobileNavItems");
-    expect(appSource).toContain('item.id !== "admin"');
-    expect(appSource).toContain("mobile-admin-entry");
+    expect(appSource).not.toContain('item.id !== "admin"');
+    expect(appSource).not.toContain("mobile-admin-entry");
+    expect(navigationSource).toContain('"support", "admin"');
+    expect(appSource).toContain("bottom-nav-admin");
+    expect(styles).toContain(".bottom-nav-admin");
   });
 
   it("removes the collapsible mobile nav control from the PWA shell", () => {

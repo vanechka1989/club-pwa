@@ -2361,10 +2361,27 @@ onUnmounted(() => {
         <h2 class="section-title">Админка</h2>
         <p class="section-subtitle">Клиенты, доступ и ограничения.</p>
       </div>
-      <button v-if="canViewReleaseNotes" class="app-version-badge" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
-        <span>v{{ appVersion }}</span>
-        <small>{{ appVersionUpdatedAt }}</small>
-      </button>
+      <div class="admin-head-actions">
+        <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
+          <span>Вид как</span>
+          <div>
+            <button
+              v-for="option in previewModeOptions"
+              :key="option.value"
+              class="admin-preview-option"
+              :class="{ 'admin-preview-option-active': ui.previewMode === option.value }"
+              type="button"
+              @click="handlePreviewModeChange(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </section>
+        <button v-if="canViewReleaseNotes" class="app-version-badge" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
+          <span>v{{ appVersion }}</span>
+          <small>{{ appVersionUpdatedAt }}</small>
+        </button>
+      </div>
     </header>
 
     <Teleport to="body">
@@ -3982,22 +3999,6 @@ onUnmounted(() => {
           <p>Доступ, роль вручную и права по всем разделам.</p>
         </div>
       </div>
-
-      <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
-        <span>Вид как</span>
-        <div>
-          <button
-            v-for="option in previewModeOptions"
-            :key="option.value"
-            class="admin-preview-option"
-            :class="{ 'admin-preview-option-active': ui.previewMode === option.value }"
-            type="button"
-            @click="handlePreviewModeChange(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-      </section>
 
       <section class="admin-permissions-owner">
         <article class="admin-permissions-owner-card">

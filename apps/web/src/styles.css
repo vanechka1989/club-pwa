@@ -1219,31 +1219,6 @@ body.club-mobile-device .mobile-bottom-nav {
   display: grid;
 }
 
-.mobile-admin-actions {
-  display: none;
-}
-
-.mobile-admin-entry {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  gap: 0.42rem;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel) 94%, transparent);
-  color: var(--muted-strong);
-  padding: 0 0.82rem;
-  font-size: 0.78rem;
-  font-weight: 760;
-  box-shadow: var(--shadow-soft);
-}
-
-body.club-mobile-device .mobile-admin-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.75rem 0.75rem 0;
-}
-
 .auth-panel {
   display: grid;
   gap: 1rem;
@@ -7694,6 +7669,22 @@ body.club-keyboard-open .module-name-modal {
   line-height: 1.1;
 }
 
+.admin-head-actions {
+  display: grid;
+  min-width: min(18rem, 100%);
+  flex-shrink: 0;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
+.admin-head-actions .admin-preview-switcher {
+  width: min(18rem, 100%);
+}
+
+.admin-head-actions .app-version-badge {
+  justify-self: end;
+}
+
 .admin-preview-switcher {
   display: grid;
   gap: 0.38rem;
@@ -9307,6 +9298,25 @@ body.club-mobile-device .soft-list-card {
   padding: 1rem;
 }
 
+body.club-mobile-device .admin-shell > .section-head {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+body.club-mobile-device .admin-head-actions {
+  width: 100%;
+  min-width: 0;
+  justify-items: stretch;
+}
+
+body.club-mobile-device .admin-head-actions .admin-preview-switcher {
+  width: 100%;
+}
+
+body.club-mobile-device .admin-head-actions .app-version-badge {
+  justify-self: end;
+}
+
 body.club-mobile-device .learning-hero-card,
 body.club-mobile-device .learning-progress-card,
 body.club-mobile-device .learning-last-card,
@@ -10155,6 +10165,15 @@ body.club-mobile-app-scaled .support-modal-head {
     transform 160ms ease;
 }
 
+.bottom-nav-admin {
+  max-width: 42rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.bottom-nav-admin .bottom-nav-item {
+  font-size: 0.62rem;
+}
+
 .bottom-nav-item {
   position: relative;
   display: flex;
@@ -10955,6 +10974,10 @@ body.club-ios .chat-input-row .text-input {
     gap: 0.08rem;
     font-size: 0.58rem;
     font-weight: 720;
+  }
+
+  .bottom-nav-admin .bottom-nav-item {
+    font-size: 0.53rem;
   }
 
   .bottom-nav-item svg {

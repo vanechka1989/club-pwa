@@ -30,14 +30,19 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("Для выдачи доступа нужно право Доступы.");
   });
 
-  it("places preview mode switcher inside the admins section", () => {
+  it("places preview mode switcher in the admin header, not inside the admins section", () => {
+    const adminTitleIndex = adminSectionSource.indexOf('<h2 class="section-title">Админка</h2>');
+    const tabsIndex = adminSectionSource.indexOf('class="admin-tabs"');
     const adminsTitleIndex = adminSectionSource.indexOf("<h3>Администраторы</h3>");
     const previewSwitcherIndex = adminSectionSource.indexOf('class="admin-preview-switcher"');
     const ownerCardIndex = adminSectionSource.indexOf('class="admin-permissions-owner"');
 
+    expect(adminTitleIndex).toBeGreaterThan(-1);
     expect(adminsTitleIndex).toBeGreaterThan(-1);
-    expect(previewSwitcherIndex).toBeGreaterThan(adminsTitleIndex);
-    expect(previewSwitcherIndex).toBeLessThan(ownerCardIndex);
+    expect(previewSwitcherIndex).toBeGreaterThan(adminTitleIndex);
+    expect(previewSwitcherIndex).toBeLessThan(tabsIndex);
+    expect(previewSwitcherIndex).toBeLessThan(adminsTitleIndex);
+    expect(ownerCardIndex).toBeGreaterThan(adminsTitleIndex);
   });
 
   it("keeps the admin list compact and opens permissions in a modal", () => {

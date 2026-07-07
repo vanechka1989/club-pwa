@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronUp, Shield } from "lucide-vue-next";
+import { ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
@@ -120,14 +120,11 @@ function isSectionAvailable(item: (typeof navItems)[number]) {
 }
 
 const visibleNavItems = computed(() => navItems.filter(isSectionAvailable));
-const mobileNavItems = computed(() => navItems.filter((item) => mobilePrimaryNavIds.includes(item.id) && item.id !== "admin"));
+const mobileNavItems = computed(() => navItems.filter((item) => mobilePrimaryNavIds.includes(item.id)));
 const visibleMobileNavItems = computed(() => mobileNavItems.value.filter(isSectionAvailable));
 const showDesktopNavigation = computed(() => Boolean(session.user && isDesktopLayout.value && !isMobileDeviceShell.value));
 const showMobileNavigation = computed(() => Boolean(session.user && (!isDesktopLayout.value || isMobileDeviceShell.value)));
 const showBottomNavigation = computed(() => showMobileNavigation.value && (activeSection.value !== "community" || !communityChatOpen.value));
-const showMobileAdminEntry = computed(() =>
-  Boolean(session.user && (session.user.realRole === "admin" || session.user.realRole === "owner"))
-);
 const userDisplayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const userContact = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const userInitial = computed(() => userDisplayName.value.trim().slice(0, 1).toUpperCase() || "C");
@@ -735,19 +732,6 @@ onBeforeUnmount(() => {
       </aside>
 
       <section class="app-shell" :class="{ 'app-shell-auth': !session.user }">
-        <div v-if="showMobileAdminEntry" class="mobile-admin-actions">
-          <button
-            class="mobile-admin-entry"
-            type="button"
-            :aria-label="t('navAdmin')"
-            :aria-pressed="activeSection === 'admin'"
-            @click="selectSection('admin')"
-          >
-            <Shield class="h-4 w-4" aria-hidden="true" />
-            <span>{{ t("navAdmin") }}</span>
-          </button>
-        </div>
-
         <div
           class="content-panel"
           :class="{ 'content-panel-community': activeSection === 'community', 'content-panel-auth': !session.user }"
@@ -782,6 +766,7 @@ onBeforeUnmount(() => {
     <nav
       v-if="showBottomNavigation"
       class="bottom-nav mobile-bottom-nav"
+      :class="{ 'bottom-nav-admin': visibleMobileNavItems.length > 5 }"
       aria-label="Club sections"
     >
       <button
