@@ -236,11 +236,7 @@ const colorOptions = computed<Array<{ value: ColorScheme; label: string; colors:
   { value: "graphite", label: t("profileSchemeGraphite"), colors: ["#242833", "#d6d9e2"] },
   { value: "sakura", label: t("profileSchemeSakura"), colors: ["#3a2034", "#f9a8d4"] },
   { value: "azure", label: t("profileSchemeAzure"), colors: ["#0f2f5f", "#7dd3fc"] },
-  { value: "coffee", label: t("profileSchemeCoffee"), colors: ["#3a281f", "#d6ad7b"] },
-  { value: "soft-black", label: t("profileSchemeSoftBlack"), colors: ["#0a0d12", "#b8c4d6"] },
-  { value: "soft-graphite", label: t("profileSchemeSoftGraphite"), colors: ["#1d232d", "#9fb2c9"] },
-  { value: "soft-milk", label: t("profileSchemeSoftMilk"), colors: ["#f3eee5", "#7a6b5b"] },
-  { value: "soft-blue", label: t("profileSchemeSoftBlue"), colors: ["#dfeef7", "#4f89a8"] }
+  { value: "coffee", label: t("profileSchemeCoffee"), colors: ["#3a281f", "#d6ad7b"] }
 ]);
 const avatarGesturePointers = new Map<number, AvatarGesturePointState>();
 let avatarGestureSession: AvatarGestureSession | null = null;

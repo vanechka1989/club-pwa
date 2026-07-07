@@ -336,27 +336,6 @@ describe("App", () => {
     expect(styles).toContain("var(--club-user-font-root");
   });
 
-  it("adds soft touch matte appearance presets", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
-
-    expect(uiStoreSource).toContain('"soft-black"');
-    expect(uiStoreSource).toContain('"soft-graphite"');
-    expect(uiStoreSource).toContain('"soft-milk"');
-    expect(uiStoreSource).toContain('"soft-blue"');
-    expect(profileSource).toContain("profileSchemeSoftBlack");
-    expect(profileSource).toContain("profileSchemeSoftGraphite");
-    expect(profileSource).toContain("profileSchemeSoftMilk");
-    expect(profileSource).toContain("profileSchemeSoftBlue");
-    expect(i18nSource).toContain('profileSchemeSoftBlack: "Софт тач чёрный"');
-    expect(i18nSource).toContain('profileSchemeSoftGraphite: "Софт тач графит"');
-    expect(i18nSource).toContain('profileSchemeSoftMilk: "Софт тач молочный"');
-    expect(i18nSource).toContain('profileSchemeSoftBlue: "Софт тач синий"');
-    expect(styles).toContain(':root[data-scheme="soft-black"]');
-    expect(styles).toContain(':root[data-theme="light"][data-scheme="soft-black"]');
-    expect(styles).toContain(':root[data-scheme="soft-milk"]');
-    expect(styles).toContain(':root[data-theme="light"][data-scheme="soft-milk"]');
-  });
-
   it("keeps mobile payment plans readable with a right-aligned pay button", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
