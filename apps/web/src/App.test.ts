@@ -667,10 +667,13 @@ describe("App", () => {
       /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop\s*\{[\s\S]*align-items: center;[\s\S]*justify-content: center;[\s\S]*overflow: hidden;/
     );
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*max-width: calc\(100vw - var\(--club-safe-left\) - var\(--club-safe-right\) - 1\.4rem\);[\s\S]*overflow-x: hidden;/
+      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*width: min\(calc\(100% - 44px\), 760px\);[\s\S]*max-width: calc\(100% - 44px\);[\s\S]*overflow-x: hidden;/
     );
     expect(mobileGuard).toMatch(
       /body\.club-mobile-device \.admin-access-toggle,\s*body\.club-mobile-device \.admin-compact-date-row,\s*body\.club-mobile-device \.notification-center-actions,\s*body\.club-mobile-device \.push-permission-actions\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/
+    );
+    expect(mobileGuard).toMatch(
+      /body\.club-mobile-device \.admin-client-modal \.admin-client-summary,\s*body\.club-mobile-device \.admin-client-modal \.admin-client-profile-grid,\s*body\.club-mobile-device \.admin-client-modal \.admin-client-card-head,\s*body\.club-mobile-device \.admin-client-modal \.admin-compact-date-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\);/
     );
   });
 

@@ -11451,10 +11451,10 @@ body.club-mobile-device .notification-center-backdrop {
   justify-content: center;
   justify-items: center;
   padding:
-    max(0.7rem, var(--club-modal-top-offset))
-    max(0.7rem, calc(var(--club-safe-right) + 0.7rem))
-    max(0.7rem, calc(var(--club-safe-bottom) + 0.7rem))
-    max(0.7rem, calc(var(--club-safe-left) + 0.7rem));
+    max(12px, var(--club-safe-top))
+    max(12px, var(--club-safe-right))
+    max(12px, var(--club-safe-bottom))
+    max(12px, var(--club-safe-left));
   overflow: hidden;
 }
 
@@ -11478,10 +11478,10 @@ body.club-mobile-device .payment-confirm-card,
 body.club-mobile-device .push-permission-card,
 body.club-mobile-device .admin-client-message-modal {
   box-sizing: border-box;
-  width: min(100%, 34rem);
-  max-width: calc(100vw - var(--club-safe-left) - var(--club-safe-right) - 1.4rem);
+  width: min(calc(100% - 44px), 760px);
+  max-width: calc(100% - 44px);
   height: auto;
-  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(1.4rem, var(--club-modal-top-offset)));
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(32px, var(--club-safe-top)) - max(32px, var(--club-safe-bottom)));
   min-width: 0;
   align-self: center;
   justify-self: center;
@@ -11527,4 +11527,11 @@ body.club-mobile-device .admin-date-save,
 body.club-mobile-device .admin-message-client-button {
   min-width: 0;
   white-space: normal;
+}
+
+body.club-mobile-device .admin-client-modal .admin-client-summary,
+body.club-mobile-device .admin-client-modal .admin-client-profile-grid,
+body.club-mobile-device .admin-client-modal .admin-client-card-head,
+body.club-mobile-device .admin-client-modal .admin-compact-date-row {
+  grid-template-columns: minmax(0, 1fr);
 }
