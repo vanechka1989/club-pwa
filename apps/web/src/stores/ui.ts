@@ -6,6 +6,8 @@ export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azur
 export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
+const visualScaleStorageVersion = "2";
+
 function clampVisualScale(value: number | string | null) {
   const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
   const safeValue = Number.isFinite(parsedValue) ? parsedValue : 1;
@@ -31,17 +33,25 @@ export const useUiStore = defineStore("ui", () => {
       ? savedPreviewMode
       : "developer"
   );
-  const savedVisualScale = localStorage.getItem("club-visual-scale");
+  const savedVisualScaleVersion = localStorage.getItem("club-visual-scale-version");
+  const savedVisualScale =
+    savedVisualScaleVersion === visualScaleStorageVersion ? localStorage.getItem("club-visual-scale") : null;
   const visualScale = ref<VisualScale>(clampVisualScale(savedVisualScale));
+
+  function persistVisualScale() {
+    localStorage.setItem("club-visual-scale", visualScale.value.toFixed(1));
+    localStorage.setItem("club-visual-scale-version", visualScaleStorageVersion);
+  }
 
   function applyTheme() {
     const visualScaleText = visualScale.value.toFixed(1);
+    const effectiveVisualScale = visualScale.value * 2;
     document.documentElement.dataset.theme = theme.value;
     document.documentElement.dataset.scheme = colorScheme.value;
     document.documentElement.dataset.visualScale = visualScaleText;
     document.documentElement.style.setProperty("--club-user-visual-scale", visualScaleText);
-    document.documentElement.style.setProperty("--club-user-font-root", `${(16 * visualScale.value).toFixed(1)}px`);
-    document.documentElement.style.setProperty("--club-user-font-base", `${(15 * visualScale.value).toFixed(1)}px`);
+    document.documentElement.style.setProperty("--club-user-font-root", `${(16 * effectiveVisualScale).toFixed(1)}px`);
+    document.documentElement.style.setProperty("--club-user-font-base", `${(15 * effectiveVisualScale).toFixed(1)}px`);
     document.documentElement.style.colorScheme = theme.value;
   }
 
@@ -65,8 +75,12 @@ export const useUiStore = defineStore("ui", () => {
 
   function setVisualScale(nextVisualScale: number | string) {
     visualScale.value = clampVisualScale(nextVisualScale);
-    localStorage.setItem("club-visual-scale", visualScale.value.toFixed(1));
+    persistVisualScale();
     applyTheme();
+  }
+
+  if (savedVisualScaleVersion !== visualScaleStorageVersion) {
+    persistVisualScale();
   }
 
   applyTheme();
