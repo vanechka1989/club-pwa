@@ -80,25 +80,27 @@ watch(
 </script>
 
 <template>
-  <aside v-if="isVisible" class="push-permission-card" role="dialog" aria-live="polite" aria-labelledby="push-permission-title">
-    <button class="push-permission-close" type="button" aria-label="Закрыть предложение уведомлений" @click="dismissPrompt">
-      <X class="h-4 w-4" aria-hidden="true" />
-    </button>
-
-    <span class="push-permission-icon" aria-hidden="true">
-      <BellPlus class="h-5 w-5" />
-    </span>
-
-    <div class="push-permission-copy">
-      <strong id="push-permission-title">Включите уведомления</strong>
-      <p>Коды, ответы поддержки, оплаты и новости клуба будут приходить сразу в приложение.</p>
-    </div>
-
-    <div class="push-permission-actions">
-      <button class="push-permission-enable" type="button" :disabled="isEnabling" @click="enablePush">
-        {{ isEnabling ? "Открываем..." : "Включить" }}
+  <div v-if="isVisible" class="push-permission-layer">
+    <aside class="push-permission-card" role="dialog" aria-live="polite" aria-labelledby="push-permission-title">
+      <button class="push-permission-close" type="button" aria-label="Закрыть предложение уведомлений" @click="dismissPrompt">
+        <X class="h-4 w-4" aria-hidden="true" />
       </button>
-      <button class="push-permission-later" type="button" :disabled="isEnabling" @click="dismissPrompt">Позже</button>
-    </div>
-  </aside>
+
+      <span class="push-permission-icon" aria-hidden="true">
+        <BellPlus class="h-5 w-5" />
+      </span>
+
+      <div class="push-permission-copy">
+        <strong id="push-permission-title">Включите уведомления</strong>
+        <p>Коды, ответы поддержки, оплаты и новости клуба будут приходить сразу в приложение.</p>
+      </div>
+
+      <div class="push-permission-actions">
+        <button class="push-permission-enable" type="button" :disabled="isEnabling" @click="enablePush">
+          {{ isEnabling ? "Открываем..." : "Включить" }}
+        </button>
+        <button class="push-permission-later" type="button" :disabled="isEnabling" @click="dismissPrompt">Позже</button>
+      </div>
+    </aside>
+  </div>
 </template>

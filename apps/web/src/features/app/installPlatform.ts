@@ -3,7 +3,12 @@ export type InstallPlatformKind = "ios" | "android" | "windows" | "macos" | "des
 export type InstallPlatformInput = {
   maxTouchPoints?: number;
   platform?: string;
+  userAgentData?: {
+    mobile?: boolean;
+    platform?: string;
+  };
   userAgent?: string;
+  viewportWidth?: number;
 };
 
 export type InstallPlatform = {
@@ -36,10 +41,22 @@ export function detectInstallPlatform(input: InstallPlatformInput = {}): Install
   const userAgent = input.userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : "");
   const platform = input.platform ?? (typeof navigator !== "undefined" ? navigator.platform : "");
   const maxTouchPoints = input.maxTouchPoints ?? (typeof navigator !== "undefined" ? navigator.maxTouchPoints : 0);
-  const isIos = /iphone|ipad|ipod/i.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
-  const isAndroid = /android/i.test(userAgent);
-  const isWindows = /windows|win32|win64/i.test(`${userAgent} ${platform}`);
-  const isMacOs = !isIos && /macintosh|mac os x|macintel/i.test(`${userAgent} ${platform}`);
+  const userAgentData =
+    input.userAgentData ??
+    (typeof navigator !== "undefined"
+      ? (navigator as Navigator & { userAgentData?: { mobile?: boolean; platform?: string } }).userAgentData
+      : undefined);
+  const userAgentDataPlatform = userAgentData?.platform ?? "";
+  const viewportWidth = input.viewportWidth ?? (typeof window !== "undefined" ? window.innerWidth : undefined);
+  const platformText = `${userAgent} ${platform} ${userAgentDataPlatform}`;
+  const isTouchPhoneViewport = maxTouchPoints > 1 && typeof viewportWidth === "number" && viewportWidth > 0 && viewportWidth <= 820;
+  const isIos = /iphone|ipad|ipod/i.test(platformText) || (platform === "MacIntel" && maxTouchPoints > 1);
+  const isWindows = /windows|win32|win64/i.test(platformText);
+  const isMacOs = !isIos && /macintosh|mac os x|macintel/i.test(platformText);
+  const isAndroid =
+    /android/i.test(platformText) ||
+    (!isIos && !isWindows && !isMacOs && maxTouchPoints > 1 && userAgentData?.mobile === true && /linux|arm|aarch/i.test(platformText)) ||
+    (!isIos && !isWindows && !isMacOs && isTouchPhoneViewport && /linux|arm|aarch/i.test(platformText));
 
   return {
     kind: isIos ? "ios" : isAndroid ? "android" : isWindows ? "windows" : isMacOs ? "macos" : "desktop",

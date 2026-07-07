@@ -518,34 +518,39 @@ button:disabled {
   color: var(--muted-strong);
 }
 
-.push-permission-card {
+.push-permission-layer {
   position: fixed;
-  right: max(0.75rem, calc(var(--club-safe-right) + 0.75rem));
-  bottom: calc(var(--nav-space, 0rem) + 0.75rem);
-  left: max(0.75rem, calc(var(--club-safe-left) + 0.75rem));
-  z-index: 70;
+  inset: 0;
+  z-index: 120;
   display: grid;
-  max-width: 30rem;
+  place-items: center;
+  padding: max(1rem, var(--club-safe-top)) max(1rem, var(--club-safe-right)) max(1rem, var(--club-safe-bottom)) max(1rem, var(--club-safe-left));
+  background: rgb(2 6 23 / 54%);
+  backdrop-filter: blur(5px);
+}
+
+.push-permission-card {
+  position: relative;
+  display: grid;
+  width: min(100%, 25rem);
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.75rem;
-  margin: 0 auto;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--panel) 96%, transparent);
-  color: var(--text);
-  padding: 0.85rem;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(14px);
+  border: 1px solid rgb(148 163 184 / 42%);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #eef8ff 100%);
+  color: #0f172a;
+  padding: 1rem;
+  box-shadow: 0 28px 90px rgb(0 0 0 / 42%);
 }
 
 .push-permission-icon {
   display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3rem;
+  height: 3rem;
   place-items: center;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  color: var(--text);
+  border-radius: 18px;
+  background: #0f172a;
+  color: #e0f2fe;
 }
 
 .push-permission-copy {
@@ -555,16 +560,16 @@ button:disabled {
 
 .push-permission-copy strong {
   display: block;
-  color: var(--text);
-  font-size: 0.98rem;
+  color: #0f172a;
+  font-size: 1.15rem;
   font-weight: 850;
   line-height: 1.18;
 }
 
 .push-permission-copy p {
-  margin-top: 0.3rem;
-  color: var(--muted-strong);
-  font-size: 0.8rem;
+  margin-top: 0.42rem;
+  color: #475569;
+  font-size: 0.92rem;
   line-height: 1.4;
 }
 
@@ -577,21 +582,21 @@ button:disabled {
 
 .push-permission-enable,
 .push-permission-later {
-  min-height: 2.7rem;
-  border-radius: 13px;
+  min-height: 3rem;
+  border-radius: 16px;
   padding: 0 1rem;
   font-weight: 850;
 }
 
 .push-permission-enable {
-  background: var(--accent);
-  color: var(--accent-text);
+  background: #0f172a;
+  color: #ffffff;
 }
 
 .push-permission-later {
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
-  color: var(--muted-strong);
+  border: 1px solid #cbd5e1;
+  background: #e8f2fb;
+  color: #334155;
 }
 
 .push-permission-enable:disabled,
@@ -601,16 +606,16 @@ button:disabled {
 
 .push-permission-close {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+  top: 0.7rem;
+  right: 0.7rem;
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  color: var(--muted-strong);
+  background: #ffffff;
+  color: #475569;
 }
 
 .app-toast-icon {

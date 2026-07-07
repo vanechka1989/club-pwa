@@ -48,7 +48,17 @@ function renderAuth(pinia = createPinia(), options: { standalone?: boolean; inst
   });
 }
 
-function stubNavigatorPlatform({ userAgent, platform, maxTouchPoints = 0 }: { userAgent: string; platform: string; maxTouchPoints?: number }) {
+function stubNavigatorPlatform({
+  userAgent,
+  platform,
+  maxTouchPoints = 0,
+  userAgentData
+}: {
+  userAgent: string;
+  platform: string;
+  maxTouchPoints?: number;
+  userAgentData?: { mobile?: boolean; platform?: string };
+}) {
   Object.defineProperty(window.navigator, "userAgent", {
     configurable: true,
     value: userAgent
@@ -60,6 +70,10 @@ function stubNavigatorPlatform({ userAgent, platform, maxTouchPoints = 0 }: { us
   Object.defineProperty(window.navigator, "maxTouchPoints", {
     configurable: true,
     value: maxTouchPoints
+  });
+  Object.defineProperty(window.navigator, "userAgentData", {
+    configurable: true,
+    value: userAgentData
   });
 }
 
@@ -114,6 +128,29 @@ describe("email auth UI", () => {
     expect(screen.getByText("Safari iPhone")).toBeTruthy();
     expect(screen.getAllByText(/Поделиться/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/На экран Домой/).length).toBeGreaterThan(0);
+  });
+
+  it("shows Android install steps on mobile Chrome instead of desktop Windows copy", () => {
+    stubNavigatorPlatform({
+      userAgent: "Mozilla/5.0 AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36",
+      platform: "Linux armv8l",
+      maxTouchPoints: 5,
+      userAgentData: {
+        mobile: true,
+        platform: "Android"
+      }
+    });
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 393
+    });
+
+    renderAuth(createPinia(), { standalone: false });
+
+    expect(screen.getByRole("heading", { name: "Установите Club на Android" })).toBeTruthy();
+    expect(screen.getByText(/Откройте сайт в Chrome на Android/)).toBeTruthy();
+    expect(screen.getByText(/Добавить на главный экран/)).toBeTruthy();
+    expect(screen.queryByText(/меню Пуск/)).toBeNull();
   });
 
   it("shows email login inside installed desktop PWA display modes", () => {

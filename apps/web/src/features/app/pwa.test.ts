@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v23"');
+    expect(worker).toContain('const cacheName = "club-pwa-v24"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
@@ -102,6 +102,12 @@ describe("PWA shell", () => {
     expect(prompt).toContain("@click=\"enablePush\"");
     expect(prompt).toContain("notifications.enableBrowserPush()");
     expect(notifications).toContain("Notification.requestPermission()");
+
+    const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    expect(prompt).toContain("push-permission-layer");
+    expect(styles).toContain(".push-permission-layer");
+    expect(styles).toContain("place-items: center");
+    expect(styles).toContain("background: rgb(2 6 23 / 54%)");
   });
 
   it("shows install guidance before login even when the native install prompt is not ready", async () => {

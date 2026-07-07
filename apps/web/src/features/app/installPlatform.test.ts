@@ -41,6 +41,34 @@ describe("install platform detection", () => {
     ).toBe("windows");
   });
 
+  it("keeps touch Android Chrome on Android instructions even with reduced user agent details", () => {
+    expect(
+      detectInstallPlatform({
+        userAgent: "Mozilla/5.0 AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36",
+        platform: "Linux armv8l",
+        maxTouchPoints: 5,
+        userAgentData: {
+          mobile: true,
+          platform: "Android"
+        },
+        viewportWidth: 393
+      }).kind
+    ).toBe("android");
+
+    expect(
+      detectInstallPlatform({
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36",
+        platform: "Win32",
+        maxTouchPoints: 10,
+        userAgentData: {
+          mobile: false,
+          platform: "Windows"
+        },
+        viewportWidth: 640
+      }).kind
+    ).toBe("windows");
+  });
+
   it("detects macOS desktop browsers separately from iPadOS", () => {
     expect(
       detectInstallPlatform({
