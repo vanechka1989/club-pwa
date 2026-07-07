@@ -1160,7 +1160,7 @@ body.club-mobile-auth-scaled .content-panel-auth .auth-install-required {
 
 html.club-mobile-app-scaled {
   overflow-x: hidden;
-  font-size: var(--club-user-font-root, var(--club-app-wide-font-root, 16px));
+  font-size: calc(var(--club-app-wide-font-root, 16px) * var(--club-user-visual-scale, 1));
 }
 
 body.club-mobile-app-scaled {
@@ -1177,14 +1177,14 @@ body.club-mobile-app-scaled {
   --ui-button-radius: 16px;
   --ui-control-radius: 18px;
   overflow-x: hidden;
-  font-size: var(--club-user-font-base, var(--club-app-wide-font-base, 16px));
+  font-size: calc(var(--club-app-wide-font-base, 16px) * var(--club-user-visual-scale, 1));
   text-size-adjust: 100%;
 }
 
 body.club-mobile-app-scaled .admin-modal-backdrop,
 body.club-mobile-app-scaled .support-modal-backdrop,
 body.club-mobile-app-scaled .payment-modal-backdrop {
-  font-size: var(--club-user-font-base, var(--club-app-wide-font-base, 16px));
+  font-size: calc(var(--club-app-wide-font-base, 16px) * var(--club-user-visual-scale, 1));
 }
 
 body.club-mobile-device .app-root:not(.app-root-no-user) .app-layout {
@@ -9300,20 +9300,24 @@ body.club-mobile-device .soft-list-card {
 
 body.club-mobile-device .admin-shell > .section-head {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 body.club-mobile-device .admin-head-actions {
-  width: 100%;
   min-width: 0;
-  justify-items: stretch;
+  display: contents;
 }
 
 body.club-mobile-device .admin-head-actions .admin-preview-switcher {
+  grid-column: 1 / -1;
   width: 100%;
+  margin-top: 0.38rem;
 }
 
 body.club-mobile-device .admin-head-actions .app-version-badge {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
   justify-self: end;
 }
 

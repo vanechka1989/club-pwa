@@ -32,31 +32,31 @@ describe("ui store", () => {
 
     expect(ui.visualScale).toBe(1.7);
     expect(localStorage.getItem("club-visual-scale")).toBe("1.7");
-    expect(localStorage.getItem("club-visual-scale-version")).toBe("2");
+    expect(localStorage.getItem("club-visual-scale-version")).toBe("3");
     expect(document.documentElement.dataset.visualScale).toBe("1.7");
     expect(document.documentElement.style.getPropertyValue("--club-user-visual-scale")).toBe("1.7");
-    expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("54.4px");
-    expect(document.documentElement.style.getPropertyValue("--club-user-font-base")).toBe("51.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("27.2px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-font-base")).toBe("25.5px");
   });
 
-  it("maps scale 1.0 to the previous 2.0 visual size", () => {
+  it("maps scale 1.0 to the normal mobile baseline", () => {
     const ui = useUiStore();
 
     ui.setVisualScale(1);
 
-    expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("32.0px");
-    expect(document.documentElement.style.getPropertyValue("--club-user-font-base")).toBe("30.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("16.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-font-base")).toBe("15.0px");
   });
 
-  it("migrates legacy saved visual scale to the new 1.0 baseline", () => {
+  it("migrates legacy saved visual scale to the normal 1.0 baseline", () => {
     localStorage.setItem("club-visual-scale", "2.0");
 
     const ui = useUiStore();
 
     expect(ui.visualScale).toBe(1);
     expect(localStorage.getItem("club-visual-scale")).toBe("1.0");
-    expect(localStorage.getItem("club-visual-scale-version")).toBe("2");
-    expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("32.0px");
+    expect(localStorage.getItem("club-visual-scale-version")).toBe("3");
+    expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("16.0px");
   });
 
   it("clamps visual scale to one decimal between 1 and 2", () => {

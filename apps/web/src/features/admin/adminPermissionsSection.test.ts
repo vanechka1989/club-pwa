@@ -35,14 +35,25 @@ describe("admin permissions section", () => {
     const tabsIndex = adminSectionSource.indexOf('class="admin-tabs"');
     const adminsTitleIndex = adminSectionSource.indexOf("<h3>Администраторы</h3>");
     const previewSwitcherIndex = adminSectionSource.indexOf('class="admin-preview-switcher"');
+    const versionBadgeIndex = adminSectionSource.indexOf('class="app-version-badge"');
     const ownerCardIndex = adminSectionSource.indexOf('class="admin-permissions-owner"');
 
     expect(adminTitleIndex).toBeGreaterThan(-1);
     expect(adminsTitleIndex).toBeGreaterThan(-1);
+    expect(versionBadgeIndex).toBeGreaterThan(adminTitleIndex);
+    expect(versionBadgeIndex).toBeLessThan(previewSwitcherIndex);
     expect(previewSwitcherIndex).toBeGreaterThan(adminTitleIndex);
     expect(previewSwitcherIndex).toBeLessThan(tabsIndex);
     expect(previewSwitcherIndex).toBeLessThan(adminsTitleIndex);
     expect(ownerCardIndex).toBeGreaterThan(adminsTitleIndex);
+  });
+
+  it("keeps member preview mode visual without surfacing admin API loading errors", () => {
+    expect(adminSectionSource).toContain("isMemberPreviewMode");
+    expect(adminSectionSource).toContain("clearAdminFeedback");
+    expect(adminSectionSource).toContain('mode === "member-active" || mode === "member-inactive"');
+    expect(adminSectionSource).toContain("void session.load({ silent: true }).catch(() => null)");
+    expect(adminSectionSource).toContain("if (isMemberPreviewMode.value)");
   });
 
   it("keeps the admin list compact and opens permissions in a modal", () => {

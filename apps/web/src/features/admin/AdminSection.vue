@@ -313,6 +313,7 @@ const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
 
 const isOwner = computed(() => session.user?.realRole === "owner");
 const canViewReleaseNotes = computed(() => ui.previewMode === "developer");
+const isMemberPreviewMode = computed(() => ui.previewMode === "member-active" || ui.previewMode === "member-inactive");
 const selectedStorageTargetLabel = computed(() => (selectedStorageTarget.value === "primary" ? "S3 основное" : "S3 резервное"));
 const selectedStorageTargetConfigured = computed(() =>
   selectedStorageTarget.value === "primary" ? Boolean(storageSettings.value?.configured) : Boolean(storageSettings.value?.reserveConfigured)
@@ -987,9 +988,16 @@ function closeReleaseNotesModal() {
 }
 
 async function handlePreviewModeChange(mode: PreviewMode) {
+  clearAdminFeedback();
   ui.setPreviewMode(mode);
-  await session.load({ silent: true });
   emit("preview-mode-change", mode);
+  if (mode === "member-active" || mode === "member-inactive") {
+    void session.load({ silent: true }).catch(() => null);
+    return;
+  }
+
+  await session.load({ silent: true });
+  await loadAll();
 }
 
 function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
@@ -1513,6 +1521,11 @@ function setError(text: string) {
   notifications.showError(text);
 }
 
+function clearAdminFeedback() {
+  error.value = null;
+  message.value = null;
+}
+
 function showSuccessAlert(text: string) {
   setStatus(text);
   window.alert(text);
@@ -1769,6 +1782,11 @@ async function handleSaveStorageSettings() {
 }
 
 async function loadAll() {
+  if (isMemberPreviewMode.value) {
+    clearAdminFeedback();
+    return;
+  }
+
   loading.value = true;
   try {
     const shouldLoadAdmins = hasCurrentAdminPermission("admins");
@@ -1852,6 +1870,10 @@ async function loadAll() {
       await loadStorageSettings();
     }
   } catch {
+    if (isMemberPreviewMode.value) {
+      clearAdminFeedback();
+      return;
+    }
     setError("Не удалось загрузить админку.");
   } finally {
     loading.value = false;
@@ -2362,6 +2384,10 @@ onUnmounted(() => {
         <p class="section-subtitle">Клиенты, доступ и ограничения.</p>
       </div>
       <div class="admin-head-actions">
+        <button v-if="canViewReleaseNotes" class="app-version-badge" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
+          <span>v{{ appVersion }}</span>
+          <small>{{ appVersionUpdatedAt }}</small>
+        </button>
         <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
           <span>Вид как</span>
           <div>
@@ -2377,10 +2403,6 @@ onUnmounted(() => {
             </button>
           </div>
         </section>
-        <button v-if="canViewReleaseNotes" class="app-version-badge" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
-          <span>v{{ appVersion }}</span>
-          <small>{{ appVersionUpdatedAt }}</small>
-        </button>
       </div>
     </header>
 

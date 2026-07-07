@@ -551,13 +551,13 @@ describe("App", () => {
     expect(deviceLayoutSource).toContain("--club-app-wide-font-base");
     expect(appSource).toContain('session.user ? "signed-in" : "signed-out"');
     expect(styles).toMatch(
-      /html\.club-mobile-app-scaled\s*{[\s\S]*font-size: var\(--club-user-font-root, var\(--club-app-wide-font-root, 16px\)\);/
+      /html\.club-mobile-app-scaled\s*{[\s\S]*font-size: calc\(var\(--club-app-wide-font-root, 16px\) \* var\(--club-user-visual-scale, 1\)\);/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-app-scaled\s*{[\s\S]*overflow-x: hidden;[\s\S]*font-size: var\(--club-user-font-base, var\(--club-app-wide-font-base, 16px\)\);/
+      /body\.club-mobile-app-scaled\s*{[\s\S]*overflow-x: hidden;[\s\S]*font-size: calc\(var\(--club-app-wide-font-base, 16px\) \* var\(--club-user-visual-scale, 1\)\);/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop\s*{[\s\S]*font-size: var\(--club-user-font-base, var\(--club-app-wide-font-base, 16px\)\);/
+      /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop\s*{[\s\S]*font-size: calc\(var\(--club-app-wide-font-base, 16px\) \* var\(--club-user-visual-scale, 1\)\);/
     );
   });
 
@@ -651,6 +651,12 @@ describe("App", () => {
 
     expect(styles).toMatch(
       /body\.club-mobile-device \.admin-tabs\s*\{[\s\S]*display: grid;[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);[\s\S]*overflow: visible;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-shell > \.section-head\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;/
+    );
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-head-actions\s*\{[\s\S]*display: contents;/
     );
     expect(styles).toMatch(
       /body\.club-mobile-device \.admin-tab\s*\{[\s\S]*min-width: 0;[\s\S]*min-height: 2\.86rem;/
