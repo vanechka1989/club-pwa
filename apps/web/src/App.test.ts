@@ -292,14 +292,19 @@ describe("App", () => {
 
     expect(profileSource).toContain("profile-avatar-icon-button");
     expect(profileSource).toContain("profile-avatar-editor-modal");
-    expect(profileSource).toContain("profile-avatar-nudge-grid");
-    expect(profileSource).toContain("nudgeAvatar");
+    expect(profileSource).toContain("profile-avatar-gesture-stage");
+    expect(profileSource).toContain("handleAvatarGestureStart");
+    expect(profileSource).toContain("handleAvatarGestureMove");
+    expect(profileSource).toContain("handleAvatarGestureEnd");
+    expect(profileSource).toContain("openAvatarEditor({ useCurrentAvatar: true })");
     expect(profileSource).toContain("resetAvatarDraft");
     expect(profileSource).toContain("handleAvatarDisplaySave");
     expect(profileSource).toContain("showLogoutConfirm");
     expect(profileSource).toContain("profile-logout-confirm");
     expect(profileSource).not.toContain("profile-range-row");
     expect(profileSource).not.toContain('type="range"');
+    expect(profileSource).not.toContain("profile-avatar-nudge-grid");
+    expect(profileSource).not.toContain("nudgeAvatar");
     expect(profileSource).not.toContain("avatarMessage || t(\"profileAvatarUploadHint\")");
     expect(apiSource).toContain("updateAvatarDisplay");
     expect(apiSource).toContain("/me/avatar/display");
@@ -308,7 +313,8 @@ describe("App", () => {
     expect(communitySource).toContain("avatarImageStyle");
     expect(communitySource).toContain(":style=\"avatarImageStyle(message.author)\"");
     expect(styles).toContain(".profile-avatar-editor-modal");
-    expect(styles).toContain(".profile-avatar-nudge-grid");
+    expect(styles).toContain(".profile-avatar-gesture-stage");
+    expect(styles).toContain("touch-action: none");
     expect(styles).toContain(".chat-avatar img");
     expect(styles).toContain("transform-origin");
     expect(styles).toContain(":root[data-visual-scale=\"large\"]");

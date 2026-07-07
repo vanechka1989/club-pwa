@@ -8550,7 +8550,7 @@ body.club-keyboard-open .module-name-modal {
   display: grid;
   align-items: center;
   justify-items: center;
-  overflow-y: auto;
+  overflow: hidden;
   background: color-mix(in srgb, #000 42%, transparent);
   padding: max(1rem, var(--club-safe-top)) max(1rem, var(--club-safe-right)) max(1rem, var(--club-safe-bottom)) max(1rem, var(--club-safe-left));
 }
@@ -8559,7 +8559,9 @@ body.club-keyboard-open .module-name-modal {
 .profile-logout-confirm {
   display: grid;
   width: min(100%, 25rem);
+  max-height: min(42rem, calc(var(--club-visible-viewport-height, 100dvh) - var(--club-safe-top) - var(--club-safe-bottom) - 1.5rem));
   gap: 0.9rem;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 22px;
   background: color-mix(in srgb, var(--panel) 96%, var(--panel-strong));
@@ -8609,7 +8611,7 @@ body.club-keyboard-open .module-name-modal {
 .profile-avatar-crop-preview {
   position: relative;
   display: grid;
-  width: min(12.4rem, 58vw);
+  width: min(15.5rem, 72vw);
   aspect-ratio: 1;
   place-self: center;
   place-items: center;
@@ -8622,6 +8624,7 @@ body.club-keyboard-open .module-name-modal {
   color: var(--text);
   font-size: 3rem;
   font-weight: 900;
+  touch-action: none;
   user-select: none;
 }
 
@@ -8644,78 +8647,82 @@ body.club-keyboard-open .module-name-modal {
 
 .profile-avatar-editor-workspace {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.72rem;
 }
 
-.profile-avatar-editor-controls {
+.profile-avatar-gesture-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(8.4rem, 0.78fr);
   gap: 0.62rem;
-}
-
-.profile-avatar-control-card {
-  display: grid;
-  align-content: start;
-  gap: 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--panel-strong) 72%, transparent);
-  padding: 0.68rem;
-}
-
-.profile-avatar-control-card p {
-  color: var(--muted-strong);
-  font-size: 0.76rem;
-  font-weight: 780;
-  line-height: 1.2;
-}
-
-.profile-avatar-nudge-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 2.55rem);
-  gap: 0.36rem;
-  justify-content: center;
-}
-
-.profile-avatar-nudge-grid button,
-.profile-avatar-zoom-row button {
-  display: inline-flex;
-  width: 2.55rem;
-  height: 2.55rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
-  color: var(--accent);
-  cursor: pointer;
+  justify-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--accent-soft) 68%, transparent), transparent 54%),
+    color-mix(in srgb, var(--panel-strong) 70%, transparent);
+  padding: 0.82rem 0.7rem 0.72rem;
+  touch-action: none;
   transition:
     border-color 140ms ease,
     background 140ms ease,
     transform 140ms ease;
 }
 
-.profile-avatar-nudge-grid button:hover,
-.profile-avatar-zoom-row button:hover {
+.profile-avatar-gesture-stage-active {
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--border));
+  background:
+    radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--accent-soft) 90%, transparent), transparent 54%),
+    color-mix(in srgb, var(--panel-strong) 82%, transparent);
+  transform: scale(0.995);
+}
+
+.profile-avatar-gesture-stage p {
+  max-width: 18rem;
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 680;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.profile-avatar-editor-controls {
+  display: grid;
+  grid-template-columns: auto minmax(4.5rem, 1fr) auto minmax(6.8rem, auto);
+  align-items: center;
+  gap: 0.48rem;
+}
+
+.profile-avatar-editor-controls button {
+  display: inline-flex;
+  min-width: 2.8rem;
+  min-height: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 820;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.profile-avatar-editor-controls button:hover {
   border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
   background: color-mix(in srgb, var(--accent-soft) 84%, var(--panel));
 }
 
-.profile-avatar-nudge-grid button:active,
-.profile-avatar-zoom-row button:active {
+.profile-avatar-editor-controls button:active {
   transform: scale(0.94);
 }
 
-.profile-avatar-zoom-row {
-  display: grid;
-  grid-template-columns: auto minmax(3.5rem, 1fr) auto;
-  align-items: center;
-  gap: 0.42rem;
-}
-
-.profile-avatar-zoom-row strong {
+.profile-avatar-editor-controls strong {
   display: inline-flex;
-  min-height: 2.55rem;
+  min-height: 2.8rem;
   align-items: center;
   justify-content: center;
   border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
@@ -8725,6 +8732,10 @@ body.club-keyboard-open .module-name-modal {
   font-size: 0.86rem;
   font-weight: 860;
   font-variant-numeric: tabular-nums;
+}
+
+.profile-avatar-center-button {
+  padding-inline: 0.82rem;
 }
 
 .profile-modal-actions {
@@ -9223,18 +9234,19 @@ body.club-mobile-device .profile-modal-backdrop {
 body.club-mobile-device .profile-avatar-editor-modal,
 body.club-mobile-device .profile-logout-confirm {
   width: 100%;
-  max-height: calc(var(--club-viewport-height, 100dvh) - max(0.7rem, var(--club-modal-top-offset)));
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(0.7rem, var(--club-modal-top-offset)));
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 24px 24px 0 0;
   padding: 1rem 1rem max(1rem, calc(var(--club-safe-bottom) + 0.9rem));
 }
 
 body.club-mobile-device .profile-avatar-editor-controls {
-  grid-template-columns: 1fr;
+  grid-template-columns: auto minmax(4.5rem, 1fr) auto minmax(6.6rem, auto);
 }
 
 body.club-mobile-device .profile-avatar-crop-preview {
-  width: min(14.5rem, 68vw);
+  width: min(16rem, 76vw);
 }
 
 body.club-mobile-device .visual-scale-row {
@@ -9442,8 +9454,9 @@ body.club-mobile-app-scaled .profile-modal-backdrop {
 body.club-mobile-app-scaled .profile-avatar-editor-modal,
 body.club-mobile-app-scaled .profile-logout-confirm {
   width: 100%;
-  max-height: calc(var(--club-viewport-height, 100dvh) - max(0.7rem, var(--club-modal-top-offset)));
+  max-height: calc(var(--club-visible-viewport-height, 100dvh) - max(0.7rem, var(--club-modal-top-offset)));
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: var(--club-mobile-sheet-radius) var(--club-mobile-sheet-radius) 0 0;
   padding: 0.82rem 0.82rem max(0.9rem, calc(var(--club-safe-bottom) + 0.72rem));
 }
@@ -9453,38 +9466,27 @@ body.club-mobile-app-scaled .profile-modal-head h3 {
 }
 
 body.club-mobile-app-scaled .profile-modal-head p,
-body.club-mobile-app-scaled .profile-avatar-control-card p {
+body.club-mobile-app-scaled .profile-avatar-gesture-stage p {
   font-size: 0.74rem;
 }
 
 body.club-mobile-app-scaled .profile-avatar-editor-controls {
-  grid-template-columns: 1fr;
-  gap: 0.5rem;
+  grid-template-columns: auto minmax(3.7rem, 1fr) auto minmax(5.6rem, auto);
+  gap: 0.36rem;
 }
 
-body.club-mobile-app-scaled .profile-avatar-control-card {
-  border-radius: 16px;
-  padding: 0.58rem;
+body.club-mobile-app-scaled .profile-avatar-editor-controls button {
+  min-width: 2.34rem;
+  min-height: 2.34rem;
 }
 
-body.club-mobile-app-scaled .profile-avatar-nudge-grid {
-  grid-template-columns: repeat(3, 2.36rem);
-  gap: 0.3rem;
-}
-
-body.club-mobile-app-scaled .profile-avatar-nudge-grid button,
-body.club-mobile-app-scaled .profile-avatar-zoom-row button {
-  width: 2.36rem;
-  height: 2.36rem;
-}
-
-body.club-mobile-app-scaled .profile-avatar-zoom-row strong {
-  min-height: 2.36rem;
+body.club-mobile-app-scaled .profile-avatar-editor-controls strong {
+  min-height: 2.34rem;
   font-size: 0.78rem;
 }
 
 body.club-mobile-app-scaled .profile-avatar-crop-preview {
-  width: min(13rem, 62vw);
+  width: min(14.2rem, 70vw);
 }
 
 body.club-mobile-app-scaled .profile-modal-actions .secondary-button,

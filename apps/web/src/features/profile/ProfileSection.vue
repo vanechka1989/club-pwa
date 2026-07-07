@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   BarChart3,
   Camera,
   Check,
@@ -25,6 +21,13 @@ import { activateReferralRewards, getLearningHome, getPaymentHistory, getPayment
 import { useI18n, type Locale } from "@/features/app/i18n";
 import NotificationCenter from "@/features/app/NotificationCenter.vue";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
+import {
+  applyAvatarGesture,
+  clampAvatarPosition,
+  clampAvatarScale,
+  getAvatarGestureMetrics,
+  type AvatarGestureMetrics
+} from "@/features/profile/avatarGesture";
 import {
   canUseReferralActivation,
   getProfileMembershipStatusText,
@@ -61,6 +64,7 @@ const avatarDisplaySaving = ref(false);
 const avatarDraftX = ref(50);
 const avatarDraftY = ref(50);
 const avatarDraftScale = ref(1);
+const avatarGestureActive = ref(false);
 const emailVisible = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
@@ -235,6 +239,22 @@ const colorOptions = computed<Array<{ value: ColorScheme; label: string; colors:
   { value: "azure", label: t("profileSchemeAzure"), colors: ["#0f2f5f", "#7dd3fc"] },
   { value: "coffee", label: t("profileSchemeCoffee"), colors: ["#3a281f", "#d6ad7b"] }
 ]);
+const avatarGesturePointers = new Map<number, AvatarGesturePointState>();
+let avatarGestureSession: AvatarGestureSession | null = null;
+
+type AvatarGesturePointState = {
+  clientX: number;
+  clientY: number;
+};
+
+type AvatarGestureSession = {
+  startPositionX: number;
+  startPositionY: number;
+  startScale: number;
+  startMetrics: AvatarGestureMetrics;
+  previewWidth: number;
+  previewHeight: number;
+};
 
 function changeLocale(locale: Locale) {
   setLocale(locale);
@@ -269,34 +289,121 @@ function isAvatarFileAllowed(file: File) {
   return file.size > 0 && file.size <= avatarMaxSizeBytes && (avatarAllowedTypes.has(file.type) || avatarAllowedExtension.test(file.name));
 }
 
-function clampAvatarPosition(value: number) {
-  return Math.min(100, Math.max(0, Math.round(value)));
+function startAvatarGestureSession(target: HTMLElement) {
+  const metrics = getAvatarGestureMetrics([...avatarGesturePointers.values()]);
+  if (!metrics) {
+    avatarGestureSession = null;
+    avatarGestureActive.value = false;
+    return;
+  }
+
+  const rect = target.getBoundingClientRect();
+  avatarGestureSession = {
+    startPositionX: avatarDraftX.value,
+    startPositionY: avatarDraftY.value,
+    startScale: avatarDraftScale.value,
+    startMetrics: metrics,
+    previewWidth: rect.width,
+    previewHeight: rect.height
+  };
+  avatarGestureActive.value = true;
 }
 
-function clampAvatarScale(value: number) {
-  return Math.min(2.5, Math.max(1, Math.round(value * 100) / 100));
+function applyCurrentAvatarGesture() {
+  if (!avatarGestureSession) {
+    return;
+  }
+
+  const metrics = getAvatarGestureMetrics([...avatarGesturePointers.values()]);
+  if (!metrics) {
+    return;
+  }
+
+  const next = applyAvatarGesture({
+    startPositionX: avatarGestureSession.startPositionX,
+    startPositionY: avatarGestureSession.startPositionY,
+    startScale: avatarGestureSession.startScale,
+    startCenterX: avatarGestureSession.startMetrics.centerX,
+    startCenterY: avatarGestureSession.startMetrics.centerY,
+    currentCenterX: metrics.centerX,
+    currentCenterY: metrics.centerY,
+    startDistance: avatarGestureSession.startMetrics.distance,
+    currentDistance: metrics.distance,
+    previewWidth: avatarGestureSession.previewWidth,
+    previewHeight: avatarGestureSession.previewHeight
+  });
+
+  avatarDraftX.value = next.positionX;
+  avatarDraftY.value = next.positionY;
+  avatarDraftScale.value = next.scale;
 }
 
-function openAvatarEditor() {
+function handleAvatarGestureStart(event: PointerEvent) {
+  if (!session.user?.photoUrl) {
+    return;
+  }
+
+  event.preventDefault();
+  const target = event.currentTarget as HTMLElement;
+  try {
+    target.setPointerCapture?.(event.pointerId);
+  } catch {
+    // Some browser shells reject capture for synthetic or already-captured pointers.
+  }
+  avatarGesturePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+  startAvatarGestureSession(target);
+}
+
+function handleAvatarGestureMove(event: PointerEvent) {
+  if (!avatarGesturePointers.has(event.pointerId)) {
+    return;
+  }
+
+  event.preventDefault();
+  avatarGesturePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+  applyCurrentAvatarGesture();
+}
+
+function handleAvatarGestureEnd(event: PointerEvent) {
+  event.preventDefault();
+  const target = event.currentTarget as HTMLElement;
+  try {
+    target.releasePointerCapture?.(event.pointerId);
+  } catch {
+    // The browser may already release capture before lostpointercapture fires.
+  }
+  avatarGesturePointers.delete(event.pointerId);
+  if (!avatarGesturePointers.size) {
+    avatarGestureSession = null;
+    avatarGestureActive.value = false;
+    return;
+  }
+
+  startAvatarGestureSession(target);
+}
+
+function handleAvatarWheel(event: WheelEvent) {
+  if (!session.user?.photoUrl) {
+    return;
+  }
+
+  avatarDraftScale.value = clampAvatarScale(avatarDraftScale.value + (event.deltaY < 0 ? 0.08 : -0.08));
+}
+
+function openAvatarEditor(options: { useCurrentAvatar?: boolean } = {}) {
   if (!session.user?.photoUrl) {
     avatarMessage.value = t("profileAvatarUploadFirst");
     return;
   }
 
-  avatarDraftX.value = session.user.avatarPositionX ?? 50;
-  avatarDraftY.value = session.user.avatarPositionY ?? 50;
-  avatarDraftScale.value = session.user.avatarScale ?? 1;
+  avatarGesturePointers.clear();
+  avatarGestureSession = null;
+  avatarGestureActive.value = false;
+  avatarDraftX.value = options.useCurrentAvatar ? 50 : (session.user.avatarPositionX ?? 50);
+  avatarDraftY.value = options.useCurrentAvatar ? 50 : (session.user.avatarPositionY ?? 50);
+  avatarDraftScale.value = options.useCurrentAvatar ? 1 : (session.user.avatarScale ?? 1);
   avatarMessage.value = null;
   avatarEditorOpen.value = true;
-}
-
-function nudgeAvatar(axis: "x" | "y", amount: number) {
-  if (axis === "x") {
-    avatarDraftX.value = clampAvatarPosition(avatarDraftX.value + amount);
-    return;
-  }
-
-  avatarDraftY.value = clampAvatarPosition(avatarDraftY.value + amount);
 }
 
 function zoomAvatar(amount: number) {
@@ -344,7 +451,7 @@ async function handleAvatarUpload(event: Event) {
   avatarMessage.value = null;
   try {
     await session.uploadAvatar(file);
-    avatarMessage.value = t("profileAvatarUpdated");
+    openAvatarEditor({ useCurrentAvatar: true });
   } catch {
     avatarMessage.value = t("profileAvatarError");
   } finally {
@@ -498,7 +605,7 @@ onMounted(async () => {
               :disabled="!session.user?.photoUrl || avatarSaving"
               :aria-label="t('profileAvatarAdjust')"
               :title="t('profileAvatarAdjust')"
-              @click="openAvatarEditor"
+              @click="openAvatarEditor()"
             >
               <Crop class="h-4 w-4" aria-hidden="true" />
             </button>
@@ -716,49 +823,37 @@ onMounted(async () => {
         </div>
 
         <div class="profile-avatar-editor-workspace">
-          <div class="profile-avatar-crop-preview" aria-live="polite">
-            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDraftStyle" draggable="false" />
-            <span v-else>{{ avatarInitial }}</span>
+          <div
+            class="profile-avatar-gesture-stage"
+            :class="{ 'profile-avatar-gesture-stage-active': avatarGestureActive }"
+            role="application"
+            :aria-label="t('profileAvatarGestureLabel')"
+            @pointerdown="handleAvatarGestureStart"
+            @pointermove="handleAvatarGestureMove"
+            @pointerup="handleAvatarGestureEnd"
+            @pointercancel="handleAvatarGestureEnd"
+            @lostpointercapture="handleAvatarGestureEnd"
+            @wheel.prevent="handleAvatarWheel"
+          >
+            <div class="profile-avatar-crop-preview" aria-live="polite">
+              <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDraftStyle" draggable="false" />
+              <span v-else>{{ avatarInitial }}</span>
+            </div>
+            <p>{{ t("profileAvatarGestureHint") }}</p>
           </div>
 
           <div class="profile-avatar-editor-controls">
-            <div class="profile-avatar-control-card">
-              <p>{{ t("profileAvatarMoveTitle") }}</p>
-              <div class="profile-avatar-nudge-grid">
-                <span aria-hidden="true"></span>
-                <button type="button" :aria-label="t('profileAvatarMoveUp')" @click="nudgeAvatar('y', -5)">
-                  <ArrowUp class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <span aria-hidden="true"></span>
-                <button type="button" :aria-label="t('profileAvatarMoveLeft')" @click="nudgeAvatar('x', -5)">
-                  <ArrowLeft class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button type="button" :aria-label="t('profileAvatarCenter')" @click="resetAvatarDraft">
-                  <RotateCcw class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button type="button" :aria-label="t('profileAvatarMoveRight')" @click="nudgeAvatar('x', 5)">
-                  <ArrowRight class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <span aria-hidden="true"></span>
-                <button type="button" :aria-label="t('profileAvatarMoveDown')" @click="nudgeAvatar('y', 5)">
-                  <ArrowDown class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <span aria-hidden="true"></span>
-              </div>
-            </div>
-
-            <div class="profile-avatar-control-card">
-              <p>{{ t("profileAvatarZoom") }}</p>
-              <div class="profile-avatar-zoom-row">
-                <button type="button" :aria-label="t('profileAvatarZoomOut')" @click="zoomAvatar(-0.1)">
-                  <Minus class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <strong>{{ Math.round(avatarDraftScale * 100) }}%</strong>
-                <button type="button" :aria-label="t('profileAvatarZoomIn')" @click="zoomAvatar(0.1)">
-                  <Plus class="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
+            <button type="button" :aria-label="t('profileAvatarZoomOut')" @click="zoomAvatar(-0.1)">
+              <Minus class="h-4 w-4" aria-hidden="true" />
+            </button>
+            <strong>{{ Math.round(avatarDraftScale * 100) }}%</strong>
+            <button type="button" :aria-label="t('profileAvatarZoomIn')" @click="zoomAvatar(0.1)">
+              <Plus class="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button class="profile-avatar-center-button" type="button" :aria-label="t('profileAvatarCenter')" @click="resetAvatarDraft">
+              <RotateCcw class="h-4 w-4" aria-hidden="true" />
+              <span>{{ t("profileAvatarCenterShort") }}</span>
+            </button>
           </div>
         </div>
 
