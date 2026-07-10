@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { PaymentProduct, PaymentProvider, UserRecurrentSubscription } from "@club/shared";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { Copy, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-vue-next";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { Copy, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-vue-next";
 import {
   cancelRecurrentSubscription,
   createPaymentCheckout,
@@ -19,6 +20,9 @@ import { openPaymentCheckoutUrl } from "@/features/billing/paymentRedirect";
 import { startPaymentWatch } from "@/features/billing/paymentWatch";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
+import BottomSheet from "@/features/app/BottomSheet.vue";
+import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
+import TaskScreen from "@/features/app/TaskScreen.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -26,6 +30,8 @@ import { useSessionStore } from "@/stores/session";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
+const route = useRoute();
+const router = useRouter();
 const { currentLocale, t } = useI18n();
 
 const loading = ref(false);
@@ -40,12 +46,6 @@ const showProviderPicker = ref(false);
 const showProviderForm = ref(false);
 const showProductModal = ref(false);
 const editingProduct = ref<PaymentProduct | null>(null);
-const providerFormModal = ref<HTMLElement | null>(null);
-const productFormModal = ref<HTMLElement | null>(null);
-const providerFormBody = ref<HTMLElement | null>(null);
-const productFormBody = ref<HTMLElement | null>(null);
-const providerFormModalKey = ref(0);
-const productFormModalKey = ref(0);
 const checkoutProductId = ref<string | null>(null);
 const showCheckoutConfirm = ref(false);
 const checkoutConfirmProduct = ref<PaymentProduct | null>(null);
@@ -196,43 +196,39 @@ function closeProviderPicker() {
   showProviderPicker.value = false;
 }
 
-function resetModalScroll(element: HTMLElement | null) {
-  if (!element) {
-    return;
+function openPaymentTask(path: string) {
+  if (route.path !== path) {
+    void router.push(path);
   }
-  element.scrollTop = 0;
-  element.scrollLeft = 0;
-  element.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
-async function resetModalScrollAfterRender(target: typeof providerFormModal | typeof productFormModal | typeof providerFormBody | typeof productFormBody) {
-  await nextTick();
-  resetModalScroll(target.value);
-  requestAnimationFrame(() => resetModalScroll(target.value));
-  requestAnimationFrame(() => requestAnimationFrame(() => resetModalScroll(target.value)));
-  window.setTimeout(() => resetModalScroll(target.value), 80);
+function closePaymentTask() {
+  if (route.path !== "/payments") {
+    void router.push("/payments");
+  }
 }
 
-async function openProviderForm() {
-  if (!isOwner.value) {
-    return;
-  }
+function setProviderForm() {
   providerForm.value = {
     formUrl: provider.value?.formUrl ?? "",
     secretKey: "",
     isEnabled: provider.value?.isEnabled ?? true
   };
+}
+
+function openProviderForm() {
+  if (!isOwner.value) {
+    return;
+  }
+  setProviderForm();
   showProviderPicker.value = false;
-  showProviderForm.value = false;
-  providerFormModalKey.value += 1;
-  await nextTick();
   showProviderForm.value = true;
-  await resetModalScrollAfterRender(providerFormModal);
-  await resetModalScrollAfterRender(providerFormBody);
+  openPaymentTask("/payments/provider");
 }
 
 function closeProviderForm() {
   showProviderForm.value = false;
+  closePaymentTask();
 }
 
 function resetProductForm() {
@@ -247,7 +243,7 @@ function resetProductForm() {
   };
 }
 
-async function openProductModal(product?: PaymentProduct) {
+function setProductForm(product?: PaymentProduct) {
   if (product) {
     editingProduct.value = product;
     productForm.value = {
@@ -261,17 +257,51 @@ async function openProductModal(product?: PaymentProduct) {
   } else {
     resetProductForm();
   }
-  showProductModal.value = false;
-  productFormModalKey.value += 1;
-  await nextTick();
+}
+
+function openProductModal(product?: PaymentProduct) {
+  setProductForm(product);
   showProductModal.value = true;
-  await resetModalScrollAfterRender(productFormModal);
-  await resetModalScrollAfterRender(productFormBody);
+  if (product) {
+    openPaymentTask(`/payments/plans/${product.id}/edit`);
+  } else {
+    openPaymentTask("/payments/plans/new");
+  }
 }
 
 function closeProductModal() {
   showProductModal.value = false;
   resetProductForm();
+  closePaymentTask();
+}
+
+function syncPaymentTaskRoute() {
+  if (route.path === "/payments/provider") {
+    if (isOwner.value) {
+      setProviderForm();
+      showProviderForm.value = true;
+    }
+    return;
+  }
+
+  if (route.path === "/payments/plans/new") {
+    resetProductForm();
+    showProductModal.value = true;
+    return;
+  }
+
+  const editMatch = route.path.match(/^\/payments\/plans\/([^/]+)\/edit$/);
+  if (editMatch) {
+    const product = products.value.find((entry) => entry.id === editMatch[1]);
+    if (product) {
+      setProductForm(product);
+      showProductModal.value = true;
+    }
+    return;
+  }
+
+  showProviderForm.value = false;
+  showProductModal.value = false;
 }
 
 async function copyWebhookUrl() {
@@ -460,25 +490,10 @@ function productPeriod(product: PaymentProduct) {
 
 onMounted(async () => {
   await Promise.all([loadPayments(), loadProviderForAdmin()]);
+  syncPaymentTaskRoute();
 });
 
-watch(showProviderForm, async (isOpen) => {
-  if (!isOpen) {
-    return;
-  }
-  await nextTick();
-  await resetModalScrollAfterRender(providerFormModal);
-  await resetModalScrollAfterRender(providerFormBody);
-});
-
-watch(showProductModal, async (isOpen) => {
-  if (!isOpen) {
-    return;
-  }
-  await nextTick();
-  await resetModalScrollAfterRender(productFormModal);
-  await resetModalScrollAfterRender(productFormBody);
-});
+watch(() => route.path, syncPaymentTaskRoute);
 </script>
 
 <template>
@@ -675,63 +690,32 @@ watch(showProductModal, async (isOpen) => {
       </article>
     </div>
 
-    <Teleport to="body">
-      <div
-        v-if="showCheckoutConfirm"
-        class="admin-modal-backdrop payment-modal-backdrop payment-confirm-backdrop"
-        @click.self="resolveCheckoutConfirm(false)"
-      >
-        <aside class="payment-confirm-card" role="dialog" aria-modal="true" aria-labelledby="payment-confirm-title">
-          <h3 id="payment-confirm-title">Подтвердите оплату</h3>
-          <p v-if="checkoutConfirmProduct" class="payment-confirm-plan">{{ checkoutConfirmProduct.title }}</p>
-          <p>{{ paymentRedirectNotice }}</p>
-          <div class="payment-confirm-actions">
-            <button class="secondary-button" type="button" @click="resolveCheckoutConfirm(false)">Отмена</button>
-            <button class="primary-button" type="button" @click="resolveCheckoutConfirm(true)">Продолжить</button>
-          </div>
-        </aside>
-      </div>
+    <ConfirmDialog
+      :open="showCheckoutConfirm"
+      title="Подтвердите оплату"
+      :description="checkoutConfirmProduct ? `${checkoutConfirmProduct.title}. ${paymentRedirectNotice}` : paymentRedirectNotice"
+      confirm-label="Продолжить"
+      cancel-label="Отмена"
+      @cancel="resolveCheckoutConfirm(false)"
+      @confirm="resolveCheckoutConfirm(true)"
+    />
 
-      <div v-if="showProviderPicker" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProviderPicker">
-        <aside class="admin-detail admin-client-modal payment-form-modal" role="dialog" aria-modal="true" aria-labelledby="provider-picker-title">
-          <header class="admin-client-modal-head">
-            <div>
-              <h3 id="provider-picker-title">Добавить платежную систему</h3>
-              <p>Сейчас доступен Prodamus.</p>
-            </div>
-            <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProviderPicker">
-              <X :size="18" />
-            </button>
-          </header>
-          <div class="payment-form-body space-y-3">
-            <button class="surface-card w-full text-left" type="button" @click="openProviderForm">
-              <p class="font-semibold text-[var(--text)]">Prodamus</p>
-              <p class="mt-1 text-sm text-[var(--muted)]">{{ provider ? "Подключена. Можно изменить настройки." : "Нажмите, чтобы подключить." }}</p>
-            </button>
-          </div>
-        </aside>
-      </div>
+    <BottomSheet :open="showProviderPicker" title="Добавить платежную систему" @close="closeProviderPicker">
+      <button class="bottom-sheet-option" type="button" @click="openProviderForm">
+        <span class="bottom-sheet-option-title">Prodamus</span>
+        <span class="bottom-sheet-option-text">{{ provider ? "Подключена. Можно изменить настройки." : "Нажмите, чтобы подключить." }}</span>
+      </button>
+    </BottomSheet>
 
-      <div v-if="showProviderForm" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProviderForm">
-        <aside
-          :key="providerFormModalKey"
-          ref="providerFormModal"
-          class="admin-detail admin-client-modal payment-form-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="provider-form-title"
-        >
-          <header class="admin-client-modal-head">
-            <div>
-              <h3 id="provider-form-title">Prodamus</h3>
-              <p>Данные платежной формы и URL уведомлений.</p>
-            </div>
-            <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProviderForm">
-              <X :size="18" />
-            </button>
-          </header>
-
-          <form ref="providerFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProvider">
+    <TaskScreen
+      v-if="showProviderForm"
+      class="payment-task-screen"
+      title="Prodamus"
+      subtitle="Данные платежной формы и URL уведомлений."
+      portal
+      @back="closeProviderForm"
+    >
+          <form class="payment-form-body space-y-3" @submit.prevent="handleSaveProvider">
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">URL платежной формы</span>
               <input v-model.trim="providerForm.formUrl" class="text-input mt-2" placeholder="https://xxx.payform.ru/" required />
@@ -770,29 +754,17 @@ watch(showProductModal, async (isOpen) => {
               </button>
             </div>
           </form>
-        </aside>
-      </div>
+    </TaskScreen>
 
-      <div v-if="showProductModal" class="admin-modal-backdrop payment-modal-backdrop" @click.self="closeProductModal">
-        <aside
-          :key="productFormModalKey"
-          ref="productFormModal"
-          class="admin-detail admin-client-modal payment-form-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="product-modal-title"
-        >
-          <header class="admin-client-modal-head">
-            <div>
-              <h3 id="product-modal-title">{{ editingProduct ? "Редактировать тариф" : "Новый тариф" }}</h3>
-              <p>Обычный платеж или рекуррентная подписка.</p>
-            </div>
-            <button class="icon-button" type="button" aria-label="Закрыть" @click="closeProductModal">
-              <X :size="18" />
-            </button>
-          </header>
-
-          <form ref="productFormBody" class="payment-form-body space-y-3" @submit.prevent="handleSaveProduct">
+    <TaskScreen
+      v-if="showProductModal"
+      class="payment-task-screen"
+      :title="editingProduct ? 'Редактировать тариф' : 'Новый тариф'"
+      subtitle="Обычный платеж или рекуррентная подписка."
+      portal
+      @back="closeProductModal"
+    >
+          <form class="payment-form-body space-y-3" @submit.prevent="handleSaveProduct">
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">Тип</span>
               <select v-model="productForm.kind" class="text-input mt-2">
@@ -829,8 +801,6 @@ watch(showProductModal, async (isOpen) => {
               </button>
             </div>
           </form>
-        </aside>
-      </div>
-    </Teleport>
+    </TaskScreen>
   </section>
 </template>

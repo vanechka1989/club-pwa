@@ -13117,6 +13117,39 @@ body.club-mobile-device .admin-panel-head {
   padding: 0 1rem max(1rem, var(--club-safe-bottom));
 }
 
+.bottom-sheet-option {
+  display: grid;
+  width: 100%;
+  min-height: 64px;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--field);
+  color: var(--text);
+  text-align: left;
+}
+
+.bottom-sheet-option-title {
+  font-weight: 800;
+}
+
+.bottom-sheet-option-text {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.payment-task-screen .payment-form-body {
+  width: min(100%, 48rem);
+  margin-inline: auto;
+}
+
+@media (max-width: 480px) {
+  .payment-task-screen .payment-form-body > .grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .confirm-dialog {
   display: grid;
   width: min(100%, 28rem);

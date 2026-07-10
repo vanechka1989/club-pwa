@@ -21,4 +21,13 @@ describe("payment provider status style", () => {
     expect(source).toContain("formatArchiveDeletionLabel(product.archivedUntil)");
     expect(source).not.toContain("В архиве до {{ product.archivedUntil");
   });
+
+  it("uses a provider sheet and routed task screens for long payment forms", () => {
+    expect(source).toContain('import BottomSheet from "@/features/app/BottomSheet.vue"');
+    expect(source).toContain('import TaskScreen from "@/features/app/TaskScreen.vue"');
+    expect(source).toContain('<BottomSheet :open="showProviderPicker"');
+    expect(source).toContain('openPaymentTask("/payments/provider")');
+    expect(source).toContain('openPaymentTask(`/payments/plans/${product.id}/edit`)');
+    expect(source).not.toContain('class="admin-modal-backdrop payment-modal-backdrop"');
+  });
 });

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ArrowLeft } from "lucide-vue-next";
 
+defineOptions({ inheritAttrs: false });
+
 defineProps<{
   title: string;
   subtitle?: string;
@@ -13,7 +15,7 @@ defineEmits<{ back: [] }>();
 
 <template>
   <Teleport to="body" :disabled="!portal">
-  <div :class="{ 'task-screen-route-layer': portal }">
+  <div :class="[$attrs.class, { 'task-screen-route-layer': portal }]">
   <section class="task-screen">
     <header class="task-screen-header">
       <button class="task-screen-back" type="button" :aria-label="backLabel || 'Назад'" @click="$emit('back')">
