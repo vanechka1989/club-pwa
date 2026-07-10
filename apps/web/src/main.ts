@@ -1,9 +1,10 @@
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import App from "./App.vue";
+import { router } from "./router";
 import "./styles.css";
 
-createApp(App).use(createPinia()).mount("#app");
+createApp(App).use(createPinia()).use(router).mount("#app");
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   let refreshing = false;

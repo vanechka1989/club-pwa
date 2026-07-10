@@ -1,0 +1,36 @@
+<script setup lang="ts">
+import { ArrowLeft } from "lucide-vue-next";
+
+defineProps<{
+  title: string;
+  subtitle?: string;
+  backLabel?: string;
+}>();
+
+defineEmits<{ back: [] }>();
+</script>
+
+<template>
+  <section class="task-screen">
+    <header class="task-screen-header">
+      <button class="task-screen-back" type="button" :aria-label="backLabel || 'Назад'" @click="$emit('back')">
+        <ArrowLeft class="h-5 w-5" aria-hidden="true" />
+      </button>
+      <div class="task-screen-heading">
+        <h2>{{ title }}</h2>
+        <p v-if="subtitle">{{ subtitle }}</p>
+      </div>
+      <div v-if="$slots.actions" class="task-screen-actions">
+        <slot name="actions" />
+      </div>
+    </header>
+
+    <div class="task-screen-body">
+      <slot />
+    </div>
+
+    <footer v-if="$slots.footer" class="task-screen-footer">
+      <slot name="footer" />
+    </footer>
+  </section>
+</template>
