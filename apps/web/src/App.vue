@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import AuthSection from "@/features/auth/AuthSection.vue";
@@ -26,6 +27,7 @@ import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
 import LearningSection from "@/features/learning/LearningSection.vue";
 import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
+import { isTaskPath, sectionFromPath, sectionPath } from "@/features/app/taskNavigation";
 import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
@@ -38,7 +40,9 @@ const session = useSessionStore();
 const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
-const activeSection = ref<AppSection>("profile");
+const route = useRoute();
+const router = useRouter();
+const activeSection = computed<AppSection>(() => sectionFromPath(route.path));
 const uploadDetailsOpen = ref(false);
 const communityChatOpen = ref(false);
 const isDesktopLayout = ref(false);
@@ -135,7 +139,9 @@ const mobileNavItems = computed(() => navItems.filter((item) => mobilePrimaryNav
 const visibleMobileNavItems = computed(() => mobileNavItems.value.filter(isSectionAvailable));
 const showDesktopNavigation = computed(() => Boolean(session.user && isDesktopLayout.value && !isMobileDeviceShell.value));
 const showMobileNavigation = computed(() => Boolean(session.user && (!isDesktopLayout.value || isMobileDeviceShell.value)));
-const showBottomNavigation = computed(() => showMobileNavigation.value && (activeSection.value !== "community" || !communityChatOpen.value));
+const showBottomNavigation = computed(
+  () => showMobileNavigation.value && !isTaskPath(route.path) && (activeSection.value !== "community" || !communityChatOpen.value)
+);
 const userDisplayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const userContact = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const userInitial = computed(() => userDisplayName.value.trim().slice(0, 1).toUpperCase() || "C");
@@ -197,18 +203,18 @@ async function selectSection(section: AppSection) {
   blurActiveTextField();
   const nextItem = navItems.find((item) => item.id === section);
   if (nextItem && !isSectionAvailable(nextItem)) {
-    activeSection.value = "profile";
+    void router.replace(sectionPath("profile"));
     resetWindowScroll();
     return;
   }
 
-  if (activeSection.value === section) {
+  if (route.path === sectionPath(section)) {
     resetWindowScroll();
     return;
   }
 
   resetWindowScroll();
-  activeSection.value = section;
+  void router.push(sectionPath(section));
   await nextTick();
   resetWindowScroll();
 }
@@ -586,11 +592,12 @@ watch(
 );
 
 watch(
-  () => [session.user?.role, session.user?.membershipStatus, activeSection.value] as const,
+  () => [session.user?.role, session.user?.realRole, session.user?.membershipStatus, route.path] as const,
   () => {
     const currentItem = navItems.find((item) => item.id === activeSection.value);
-    if (currentItem && !isSectionAvailable(currentItem)) {
-      void selectSection("profile");
+    const adminRouteDenied = Boolean(route.meta.adminOnly && session.user && session.user.realRole !== "admin" && session.user.realRole !== "owner");
+    if (session.user && (adminRouteDenied || (currentItem && !isSectionAvailable(currentItem)))) {
+      void router.replace(sectionPath("profile"));
     }
   }
 );

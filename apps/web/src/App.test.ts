@@ -1,6 +1,7 @@
 import type { ClubUser } from "@club/shared";
 import { cleanup, render, screen, waitFor } from "@testing-library/vue";
 import { createPinia } from "pinia";
+import { router } from "./router";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -126,7 +127,7 @@ describe("App", () => {
   it("renders email login when no session is present", async () => {
     render(App, {
       global: {
-        plugins: [createPinia()]
+        plugins: [createPinia(), router]
       }
     });
 
@@ -138,7 +139,7 @@ describe("App", () => {
     stubStandaloneDisplay(false);
     render(App, {
       global: {
-        plugins: [createPinia()]
+        plugins: [createPinia(), router]
       }
     });
 
@@ -167,7 +168,7 @@ describe("App", () => {
 
     render(App, {
       global: {
-        plugins: [createPinia()]
+        plugins: [createPinia(), router]
       }
     });
 
@@ -188,7 +189,7 @@ describe("App", () => {
 
     render(App, {
       global: {
-        plugins: [createPinia()]
+        plugins: [createPinia(), router]
       }
     });
 
@@ -203,7 +204,7 @@ describe("App", () => {
 
     render(App, {
       global: {
-        plugins: [createPinia()]
+        plugins: [createPinia(), router]
       }
     });
 
@@ -227,7 +228,15 @@ describe("App", () => {
     expect(appSource).toContain("isSectionAvailable");
     expect(appSource).toContain("item.memberOnly");
     expect(appSource).toContain('session.user.membershipStatus !== "active"');
-    expect(appSource).toContain('activeSection.value = "profile";');
+    expect(appSource).toContain('void router.replace(sectionPath("profile"))');
+  });
+
+  it("drives sections and task navigation from the URL", () => {
+    expect(appSource).toContain("const route = useRoute()");
+    expect(appSource).toContain("const router = useRouter()");
+    expect(appSource).toContain("const activeSection = computed<AppSection>(() => sectionFromPath(route.path))");
+    expect(appSource).toContain("void router.push(sectionPath(section))");
+    expect(appSource).toContain("!isTaskPath(route.path)");
   });
 
   it("shows a red mail marker on profile nav when app notifications are unread", () => {
