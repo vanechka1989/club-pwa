@@ -42,6 +42,75 @@ const memberAuthor = {
   photoUrl: null
 };
 
+const supportTicket = {
+  id: "ticket-payment",
+  topic: "payment",
+  topicTitle: "Оплата",
+  customTopic: null,
+  message: "Тест",
+  status: "open",
+  statusLabel: "Открыто",
+  waitingSince: now,
+  customer: {
+    telegramId: currentUser.telegramId,
+    firstName: currentUser.firstName,
+    username: currentUser.username,
+    photoUrl: null
+  },
+  messages: [
+    {
+      id: "ticket-message-customer",
+      authorRole: "customer",
+      body: "Тест",
+      author: ownAuthor,
+      attachments: [],
+      createdAt: now
+    },
+    {
+      id: "ticket-message-admin",
+      authorRole: "admin",
+      body: "Тру ля ля",
+      author: ownAuthor,
+      attachments: [],
+      createdAt: "2026-07-01T10:10:00.000Z"
+    }
+  ],
+  unread: false,
+  createdAt: now,
+  updatedAt: "2026-07-01T10:10:00.000Z"
+};
+
+const adminLearningCategory = {
+  id: "module-main",
+  slug: "main",
+  title: "Модуль 1",
+  description: "Первый модуль клуба. Внутри будут уроки и материалы первого блока.",
+  defaultCardLayout: "vertical",
+  isPublished: true,
+  itemsCount: 1
+};
+
+const adminLearningMaterial = {
+  id: "lesson-admin-1",
+  categoryId: adminLearningCategory.id,
+  kind: "video",
+  title: "Видео для теста ютуба",
+  summary: "Короткое описание",
+  body: "Содержимое урока",
+  mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  mediaSource: "youtube",
+  thumbnailUrl: null,
+  cardLayout: "vertical",
+  mediaContentType: "video/mp4",
+  mediaSizeBytes: 1024,
+  materials: [],
+  isPublished: true,
+  archivedUntil: null,
+  publishedAt: now,
+  createdAt: now,
+  updatedAt: now
+};
+
 function json(body: unknown) {
   return {
     contentType: "application/json",
@@ -223,10 +292,20 @@ async function mockApi(page: Page) {
             { id: "access", title: "Доступ", description: "Проблемы с доступом." }
           ],
           managerContact: null,
-          tickets: [],
+          tickets: [supportTicket],
           unreadCount: 0
         })
       );
+      return;
+    }
+
+    if (path === "/support/admin/tickets") {
+      await route.fulfill(json({ tickets: [supportTicket], unreadCount: 0 }));
+      return;
+    }
+
+    if (path === "/support/tickets/ticket-payment/read") {
+      await route.fulfill(json({ ok: true, ticket: supportTicket, unreadCount: 0 }));
       return;
     }
 
@@ -276,7 +355,7 @@ async function mockApi(page: Page) {
     }
 
     if (path === "/admin/learning") {
-      await route.fulfill(json({ categories: [], materials: [] }));
+      await route.fulfill(json({ categories: [adminLearningCategory], materials: [adminLearningMaterial], deletedMaterials: [] }));
       return;
     }
 
@@ -784,6 +863,28 @@ test("keeps the mailing task screen header and footer usable", async ({ page }, 
   await page.screenshot({ path: testInfo.outputPath("mailing-composer.png"), fullPage: false });
 });
 
+test("keeps routed support tickets inside the mobile viewport", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
+  await page.getByRole("button", { name: "Поддержка" }).click();
+  await page.locator(".support-admin-ticket, .support-ticket-card").first().click();
+
+  const taskScreen = page.locator(".support-task-screen .task-screen");
+  await expect(taskScreen).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Оплата" })).toBeVisible();
+  await expect(page.getByPlaceholder("Ответ клиенту")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  const box = await taskScreen.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
+
+  if (testInfo.project.name === "pixel-7") {
+    await page.screenshot({ path: testInfo.outputPath("support-ticket-task.png"), fullPage: false });
+  }
+});
+
 test("matches full visual baselines for key screens", async ({ page }, testInfo) => {
   test.skip(!isFullVisualRun(testInfo), "Visual baselines run only in test:e2e:full");
 
@@ -836,6 +937,31 @@ test("keeps module creation modal usable with a compact keyboard viewport", asyn
   expect(dialogHeight).toBeLessThanOrEqual(420);
   await expect(page.getByRole("button", { name: "Сохранить модуль" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+test("keeps lesson editor task screen inside the mobile viewport", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
+  await page.getByRole("button", { name: "Модули" }).click();
+  await page.getByRole("button", { name: "Переключить Модуль 1" }).click();
+  await page.getByRole("button", { name: "Добавить урок в Модуль 1" }).click();
+
+  const taskScreen = page.locator(".learning-task-screen .task-screen");
+  const editor = page.locator(".learning-task-screen .lesson-preview-modal-edit");
+  await expect(taskScreen).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Новый урок" })).toBeVisible();
+  await expect(page.getByLabel("Название урока")).toBeVisible();
+  await expect(page.getByText("Вертикальная карточка")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  const box = await editor.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
+
+  if (testInfo.project.name === "pixel-7") {
+    await page.screenshot({ path: testInfo.outputPath("lesson-editor-task.png"), fullPage: false });
+  }
 });
 
 test("keeps chat composer stable when typing", async ({ page }) => {
