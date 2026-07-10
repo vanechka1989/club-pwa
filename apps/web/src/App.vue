@@ -26,6 +26,7 @@ import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
 import LearningSection from "@/features/learning/LearningSection.vue";
 import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
+import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -239,6 +240,7 @@ function syncMobileDeviceShell(layoutWidth: number, viewportHeight: number) {
     screenAvailWidth: window.screen?.availWidth ?? null,
     devicePixelRatio: window.devicePixelRatio ?? null,
     hasTouchInput,
+    isStandaloneDisplay: isInstalledPwaDisplay(),
     platform: window.navigator.platform,
     sessionMode: session.user ? "signed-in" : "signed-out",
     userAgent: window.navigator.userAgent

@@ -20,6 +20,7 @@ export type MobileDeviceShellScaleInput = ViewportWidthInput & {
   layoutWidth: number;
   layoutHeight?: number | null;
   hasTouchInput: boolean;
+  isStandaloneDisplay?: boolean | null;
   userAgent?: string | null;
 };
 
@@ -235,20 +236,30 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const deviceScreenWidth = getCssDeviceScreenWidth(input);
   const layoutHeight = finiteNumber(input.layoutHeight, 0);
   const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
-  const needsViewportCompensation = input.hasTouchInput && input.layoutWidth >= 700 && viewportScale >= 1.35;
-  const isMobileUserAgent = input.hasTouchInput && hasMobileUserAgent(input.userAgent);
-  const needsHandheldWideViewportScale = input.hasTouchInput && input.layoutWidth >= 700 && hasHandheldMobileUserAgent(input.userAgent);
+  const isSmallCssScreen = deviceScreenWidth > 0 && deviceScreenWidth <= 480;
+  const needsStandaloneWideViewportScale =
+    Boolean(input.isStandaloneDisplay) &&
+    isSmallCssScreen &&
+    input.layoutWidth >= 700 &&
+    input.layoutWidth <= 1100 &&
+    layoutHeight >= input.layoutWidth * 1.45;
+  const hasMobileShellSignal = input.hasTouchInput || needsStandaloneWideViewportScale;
+  const needsViewportCompensation = hasMobileShellSignal && input.layoutWidth >= 700 && viewportScale >= 1.35;
+  const isMobileUserAgent = hasMobileShellSignal && hasMobileUserAgent(input.userAgent);
+  const needsHandheldWideViewportScale =
+    hasMobileShellSignal && input.layoutWidth >= 700 && hasHandheldMobileUserAgent(input.userAgent);
   const needsTallPortraitWideViewportScale =
-    input.hasTouchInput && input.layoutWidth >= 700 && input.layoutWidth <= 1100 && layoutHeight >= input.layoutWidth * 1.45;
+    hasMobileShellSignal && input.layoutWidth >= 700 && input.layoutWidth <= 1100 && layoutHeight >= input.layoutWidth * 1.45;
   const isMobileDeviceShell =
-    input.hasTouchInput &&
+    hasMobileShellSignal &&
     (isMobileUserAgent ||
       needsViewportCompensation ||
+      needsStandaloneWideViewportScale ||
       needsTallPortraitWideViewportScale ||
       (deviceScreenWidth > 0 && deviceScreenWidth <= 720));
   const scale = needsViewportCompensation
     ? roundedTo(Math.min(2.8, Math.max(1, viewportScale)), 3)
-    : needsHandheldWideViewportScale || needsTallPortraitWideViewportScale
+    : needsHandheldWideViewportScale || needsStandaloneWideViewportScale || needsTallPortraitWideViewportScale
       ? roundedTo(Math.min(2.8, Math.max(1, input.layoutWidth / 390)), 3)
       : 1;
 
@@ -379,6 +390,7 @@ export function collectCurrentDeviceDiagnostics() {
   const isStandaloneDisplay =
     window.matchMedia?.("(display-mode: standalone)").matches ||
     window.matchMedia?.("(display-mode: fullscreen)").matches ||
+    window.matchMedia?.("(display-mode: window-controls-overlay)").matches ||
     Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
   const displayMode = window.matchMedia?.("(display-mode: fullscreen)").matches
     ? "fullscreen"
@@ -387,7 +399,12 @@ export function collectCurrentDeviceDiagnostics() {
       : "browser";
   const classes = [
     ...getDeviceLayoutClasses({ platform: platform ?? "", userAgent }),
-    ...getViewportSizeClasses({ width: viewportWidth, height: viewportHeight })
+    ...getViewportSizeClasses({ width: viewportWidth, height: viewportHeight }),
+    ...(typeof document === "undefined"
+      ? []
+      : [...document.documentElement.classList, ...document.body.classList].filter((className) =>
+          className.startsWith("club-")
+        ))
   ];
 
   return collectDeviceDiagnostics({

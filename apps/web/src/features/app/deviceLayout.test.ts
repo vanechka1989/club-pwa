@@ -168,6 +168,22 @@ describe("device layout detection", () => {
     ).toEqual({ isMobileDeviceShell: true, scale: 2.513 });
   });
 
+  it("treats standalone small-screen PWA with desktop-like UA and no touch signal as a scaled mobile shell", () => {
+    expect(
+      getMobileDeviceShellScale({
+        layoutWidth: 980,
+        layoutHeight: 1914,
+        screenWidth: 385,
+        screenAvailWidth: 385,
+        devicePixelRatio: 3.75,
+        hasTouchInput: false,
+        isStandaloneDisplay: true,
+        userAgent:
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+      })
+    ).toEqual({ isMobileDeviceShell: true, scale: 2.545 });
+  });
+
   it("creates a signed-out mobile PWA auth layout snapshot for wide Android viewports", () => {
     const snapshot = createDeviceLayoutSnapshot({
       layoutWidth: 980,
@@ -239,6 +255,29 @@ describe("device layout detection", () => {
     expect(snapshot.classes).toEqual(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]);
     expect(snapshot.cssVariables).toMatchObject({
       "--club-app-wide-viewport-scale": "2.513"
+    });
+  });
+
+  it("creates a signed-in mobile app snapshot for standalone desktop-UA small-screen PWA shells", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 980,
+      viewportHeight: 1914,
+      screenWidth: 385,
+      screenAvailWidth: 385,
+      devicePixelRatio: 3.75,
+      hasTouchInput: false,
+      isStandaloneDisplay: true,
+      platform: "Linux armv81",
+      sessionMode: "signed-in",
+      userAgent:
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(true);
+    expect(snapshot.scale).toBe(2.545);
+    expect(snapshot.classes).toEqual(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]);
+    expect(snapshot.cssVariables).toMatchObject({
+      "--club-app-wide-viewport-scale": "2.545"
     });
   });
 

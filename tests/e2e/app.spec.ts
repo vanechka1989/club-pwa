@@ -288,8 +288,18 @@ async function mockApi(page: Page) {
   await page.route(appApiUrlPattern, handleApiRoute);
 }
 
-async function mockInstalledPwa(page: Page) {
-  await page.addInitScript(() => {
+async function mockInstalledPwa(page: Page, testInfo: TestInfo) {
+  await page.addInitScript((projectName) => {
+    if (projectName === "android-standalone-no-touch-980") {
+      Object.defineProperty(window.screen, "width", { configurable: true, get: () => 385 });
+      Object.defineProperty(window.screen, "height", { configurable: true, get: () => 833 });
+      Object.defineProperty(window.screen, "availWidth", { configurable: true, get: () => 385 });
+      Object.defineProperty(window.screen, "availHeight", { configurable: true, get: () => 833 });
+      Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => 3.75 });
+      Object.defineProperty(navigator, "platform", { configurable: true, get: () => "Linux armv81" });
+      Object.defineProperty(navigator, "maxTouchPoints", { configurable: true, get: () => 0 });
+    }
+
     const originalMatchMedia = window.matchMedia.bind(window);
     window.matchMedia = (query: string) => {
       if (query === "(display-mode: standalone)") {
@@ -309,11 +319,11 @@ async function mockInstalledPwa(page: Page) {
 
       return originalMatchMedia(query);
     };
-  });
+  }, testInfo.project.name);
 }
 
-async function openApp(page: Page) {
-  await mockInstalledPwa(page);
+async function openApp(page: Page, testInfo: TestInfo) {
+  await mockInstalledPwa(page, testInfo);
   await mockApi(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
@@ -464,8 +474,8 @@ async function expectStableScreenshot(page: Page, name: string) {
   });
 }
 
-test.beforeEach(async ({ page }) => {
-  await openApp(page);
+test.beforeEach(async ({ page }, testInfo) => {
+  await openApp(page, testInfo);
 });
 
 test("renders the PWA shell without accessibility violations", async ({ page }) => {
@@ -514,6 +524,24 @@ test("keeps shared mobile modal surfaces sized across device shells", async ({ p
     await renderMobileModalFixture(page, fixture);
     await expectMobileModalFitsViewport(page, testInfo, fixture);
   }
+});
+
+test("detects standalone small-screen desktop-UA PWA as a mobile app shell", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "android-standalone-no-touch-980");
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        htmlClasses: [...document.documentElement.classList],
+        bodyClasses: [...document.body.classList],
+        scale: getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale").trim()
+      }))
+    )
+    .toMatchObject({
+      htmlClasses: expect.arrayContaining(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]),
+      bodyClasses: expect.arrayContaining(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]),
+      scale: "2.545"
+    });
 });
 
 test("uses the desktop sidebar only above the app breakpoint", async ({ page }) => {
