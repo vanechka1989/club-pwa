@@ -12595,6 +12595,7 @@ textarea::placeholder {
   }
 }
 
+/* Responsive modal and mobile commerce system */
 /* Final mobile modal guard: keep this after every visual layer so local modal widths cannot win. */
 body.club-mobile-device {
   --club-mobile-modal-inline-gutter: clamp(0.75rem, 3.8vw, 1.1rem);
@@ -12652,8 +12653,6 @@ body.club-mobile-device .support-confirm-card {
   box-sizing: border-box;
   width: var(--club-mobile-modal-width);
   max-width: min(40rem, var(--club-mobile-modal-width));
-  height: var(--club-mobile-modal-height);
-  max-height: var(--club-mobile-modal-height);
   min-width: 0;
   align-self: center;
   justify-self: center;
@@ -12663,24 +12662,42 @@ body.club-mobile-device .support-confirm-card {
   touch-action: pan-y;
 }
 
+/* Modal sizing: workspace dialogs */
 body.club-mobile-device .admin-client-modal,
+body.club-mobile-device .lesson-preview-modal,
+body.club-mobile-device .admin-mailing-detail-modal,
+body.club-mobile-device .admin-storage-modal,
+body.club-mobile-device .admin-payment-drilldown-modal,
+body.club-mobile-device .admin-server-logs-modal {
+  height: var(--club-mobile-modal-height);
+  max-height: var(--club-mobile-modal-height);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modal sizing: form dialogs */
 body.club-mobile-device .payment-form-modal,
 body.club-mobile-device .support-ticket-modal,
-body.club-mobile-device .lesson-preview-modal,
-body.club-mobile-device .module-name-modal,
 body.club-mobile-device .profile-avatar-editor-modal,
+body.club-mobile-device .admin-mailing-composer-modal,
+body.club-mobile-device .admin-storage-folder-modal,
+body.club-mobile-device .admin-permission-modal {
+  height: var(--club-mobile-modal-height);
+  max-height: var(--club-mobile-modal-height);
+}
+
+/* Modal sizing: compact dialogs */
+body.club-mobile-device .module-name-modal,
+body.club-mobile-device .modal-size-compact,
 body.club-mobile-device .profile-logout-confirm,
 body.club-mobile-device .notification-center-panel,
 body.club-mobile-device .release-notes-modal,
-body.club-mobile-device .admin-mailing-composer-modal,
-body.club-mobile-device .admin-mailing-detail-modal,
-body.club-mobile-device .admin-storage-modal,
-body.club-mobile-device .admin-storage-folder-modal,
-body.club-mobile-device .admin-payment-drilldown-modal,
-body.club-mobile-device .admin-server-logs-modal,
-body.club-mobile-device .admin-permission-modal,
+body.club-mobile-device .payment-confirm-card,
+body.club-mobile-device .push-permission-card,
 body.club-mobile-device .admin-client-message-modal,
 body.club-mobile-device .support-confirm-card {
+  height: auto;
+  max-height: min(38rem, var(--club-mobile-modal-height));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -12741,4 +12758,209 @@ body.club-mobile-device .admin-client-modal .admin-client-profile-grid,
 body.club-mobile-device .admin-client-modal .admin-client-card-head,
 body.club-mobile-device .admin-client-modal .admin-compact-date-row {
   grid-template-columns: minmax(0, 1fr);
+}
+
+body.club-mobile-device .admin-mailing-composer-modal {
+  padding: 0;
+}
+
+body.club-mobile-device .admin-mailing-composer-modal .admin-mailing-builder {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+body.club-mobile-device .admin-mailing-builder-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 1rem;
+}
+
+body.club-mobile-device .admin-mailing-modal-actions {
+  display: grid;
+  grid-template-columns: auto 44px;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+body.club-mobile-device .admin-mailing-modal-actions .secondary-button,
+body.club-mobile-device .admin-mailing-modal-actions .icon-button {
+  min-height: 44px;
+}
+
+body.club-mobile-device .admin-mailing-builder-body {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.9rem 1rem 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.club-mobile-device .admin-mailing-builder-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 0.65rem;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--modal-bg) 94%, transparent);
+  padding: 0.75rem 1rem max(0.75rem, var(--club-safe-bottom));
+  backdrop-filter: blur(16px);
+}
+
+body.club-mobile-device .admin-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+body.club-mobile-device .admin-editor-toolbar .icon-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+}
+
+body.club-mobile-device .module-name-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+body.club-mobile-device .module-name-modal .admin-client-modal-head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+body.club-mobile-device .module-name-modal .admin-client-modal-head .icon-button {
+  flex: 0 0 44px;
+}
+
+body.club-mobile-device .module-name-modal .admin-form-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+}
+
+body.club-mobile-device .module-name-modal .admin-form-actions .primary-button {
+  grid-column: 1 / -1;
+}
+
+body.club-mobile-device .payment-product-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
+}
+
+body.club-mobile-device .payment-product-list .soft-payment-card {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0.75rem;
+  min-height: 0;
+  padding: 1rem;
+}
+
+body.club-mobile-device .payment-product-main {
+  min-width: 0;
+  padding-right: 4.75rem;
+}
+
+body.club-mobile-device .payment-product-title,
+body.club-mobile-device .payment-product-meta {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+body.club-mobile-device .payment-product-actions {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+  gap: 0.55rem;
+}
+
+body.club-mobile-device .payment-product-pay {
+  width: 100%;
+  min-height: 44px;
+}
+
+body.club-mobile-device .payment-product-admin-actions {
+  justify-content: flex-end;
+}
+
+:root[data-theme="light"] {
+  --shadow: 0 14px 34px rgba(57, 76, 104, 0.14), 0 1px 0 rgba(255, 255, 255, 0.82);
+  --shadow-soft: 0 8px 22px rgba(57, 76, 104, 0.12);
+  --shadow-inset: inset 0 2px 8px rgba(57, 76, 104, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-modal: 0 24px 70px rgba(31, 42, 58, 0.24);
+  --glow-primary: 0 0 0 1px rgba(124, 58, 237, 0.22), 0 10px 24px rgba(124, 58, 237, 0.13);
+  --noise-opacity: 0.04;
+}
+
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 18% -12%, rgba(124, 58, 237, 0.09), transparent 30rem),
+    radial-gradient(circle at 94% 8%, rgba(37, 99, 235, 0.07), transparent 28rem),
+    var(--bg);
+}
+
+:root[data-theme="light"] :is(
+  .section-head,
+  .surface-card,
+  .soft-card,
+  .admin-panel,
+  .admin-detail,
+  .admin-card,
+  .payment-product-list .soft-payment-card
+) {
+  background: var(--surface);
+}
+
+body.club-mobile-device .admin-shell {
+  gap: 0.65rem;
+}
+
+body.club-mobile-device .admin-shell > .section-head {
+  padding: 0.85rem;
+}
+
+body.club-mobile-device .admin-panel {
+  padding: 0.7rem;
+}
+
+body.club-mobile-device .admin-head-actions .admin-preview-switcher {
+  margin-top: 0.25rem;
+  padding: 0.45rem;
+}
+
+body.club-mobile-device .admin-tabs {
+  gap: 0.25rem;
+  padding: 0.35rem;
+}
+
+body.club-mobile-device .admin-tab {
+  min-height: 3.25rem;
+  border-radius: 18px;
+}
+
+body.club-mobile-device .admin-statistics-head,
+body.club-mobile-device .admin-panel-head {
+  gap: 0.4rem;
 }

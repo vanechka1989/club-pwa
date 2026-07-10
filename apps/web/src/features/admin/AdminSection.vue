@@ -3269,6 +3269,7 @@ onUnmounted(() => {
                 </div>
               </div>
 
+              <div class="admin-mailing-builder-body">
               <label class="admin-field">
                 <span>Заголовок</span>
                 <input v-model.trim="mailingTitle" class="text-input" placeholder="Например: Новая практика в клубе" />
@@ -3374,8 +3375,9 @@ onUnmounted(() => {
                   </article>
                 </div>
               </section>
+              </div>
 
-              <div class="admin-mailing-submit-row">
+              <div class="admin-mailing-submit-row admin-mailing-builder-footer">
                 <button class="secondary-button" type="button" :disabled="saving || !mailingCanSubmit" @click="handleTestMailingDraft">
                   Тест себе
                 </button>

@@ -125,6 +125,7 @@ describe("Learning section modules", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
 
     expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("module-name-modal")).toBe(true);
+    expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("modal-size-compact")).toBe(true);
     expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("admin-client-modal")).toBe(false);
     expect(screen.getByRole("dialog", { name: "Новый модуль" }).closest(".module-name-backdrop")?.parentElement).toBe(document.body);
     expect(screen.getByLabelText("Название модуля").classList.contains("text-input")).toBe(true);

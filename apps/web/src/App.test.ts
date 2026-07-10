@@ -336,16 +336,14 @@ describe("App", () => {
     expect(styles).toContain("var(--club-user-font-root");
   });
 
-  it("keeps mobile payment plans readable with a right-aligned pay button", () => {
+  it("keeps mobile payment plans readable in a single column", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const responsiveLayer = styles.slice(styles.lastIndexOf("Responsive modal and mobile commerce system"));
 
-    expect(styles).toMatch(
-      /body\.club-mobile-device \.soft-payment-card\s*\{[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;[\s\S]*align-items: center;/
-    );
-    expect(styles).toMatch(
-      /body\.club-mobile-device \.payment-product-actions\s*\{[\s\S]*justify-self: end;[\s\S]*width: auto;/
-    );
-    expect(styles).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[\s\S]*width: clamp\(7\.2rem, 28vw, 8\.8rem\);/);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list \.soft-payment-card\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-actions\s*\{[^}]*width: 100%;[^}]*justify-self: stretch;/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[^}]*width: 100%;/s);
   });
 
   it("visually separates payment tariff cards", () => {
@@ -651,16 +649,18 @@ describe("App", () => {
     expect(styles).not.toMatch(/:root,\s*:root\[data-theme="dark"\],\s*:root\[data-theme="light"\]\s*{[\s\S]*color-scheme: dark;/);
   });
 
-  it("uses roomy full-screen mobile modal shells with safe-area gutters", () => {
+  it("uses separate compact, form, and workspace mobile modal sizes", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
     const finalMobileGuard = styles.slice(styles.lastIndexOf("Final mobile modal guard"));
 
-    expect(styles).toMatch(
-      /body\.club-mobile-device \.admin-client-modal,\s*body\.club-mobile-device \.payment-form-modal,\s*body\.club-mobile-device \.support-ticket-modal,\s*body\.club-mobile-device \.lesson-preview-modal,\s*body\.club-mobile-device \.module-name-modal,\s*body\.club-mobile-device \.profile-avatar-editor-modal,\s*body\.club-mobile-device \.profile-logout-confirm,\s*body\.club-mobile-device \.notification-center-panel,\s*body\.club-mobile-device \.release-notes-modal,\s*body\.club-mobile-device \.admin-mailing-composer-modal,\s*body\.club-mobile-device \.admin-mailing-detail-modal,\s*body\.club-mobile-device \.admin-storage-modal,\s*body\.club-mobile-device \.admin-storage-folder-modal,\s*body\.club-mobile-device \.admin-payment-drilldown-modal,\s*body\.club-mobile-device \.admin-server-logs-modal,\s*body\.club-mobile-device \.admin-permission-modal,\s*body\.club-mobile-device \.payment-confirm-card,\s*body\.club-mobile-device \.push-permission-card,\s*body\.club-mobile-device \.admin-client-message-modal,\s*body\.club-mobile-device \.support-confirm-card\s*{[\s\S]*width: var\(--club-mobile-modal-width\);[\s\S]*height: var\(--club-mobile-modal-height\);[\s\S]*border-radius: clamp\(22px, 5vw, 32px\);/
-    );
     expect(finalMobileGuard).toContain("--club-mobile-modal-width: calc(100vw - (var(--club-mobile-modal-inline-gutter) * 2));");
     expect(finalMobileGuard).toContain("--club-mobile-modal-height: calc(");
-    expect(finalMobileGuard).toContain("max-height: var(--club-mobile-modal-height);");
+    expect(finalMobileGuard).toContain("Modal sizing: workspace dialogs");
+    expect(finalMobileGuard).toContain("Modal sizing: form dialogs");
+    expect(finalMobileGuard).toContain("Modal sizing: compact dialogs");
+    expect(finalMobileGuard).toMatch(/Modal sizing: workspace dialogs[\s\S]*\.admin-client-modal[\s\S]*height: var\(--club-mobile-modal-height\);/);
+    expect(finalMobileGuard).toMatch(/Modal sizing: form dialogs[\s\S]*\.admin-mailing-composer-modal[\s\S]*height: var\(--club-mobile-modal-height\);/);
+    expect(finalMobileGuard).toMatch(/Modal sizing: compact dialogs[\s\S]*\.module-name-modal[\s\S]*height: auto;[\s\S]*max-height: min\(38rem, var\(--club-mobile-modal-height\)\);/);
   });
 
   it("uses compact polished density for wide mobile PWA app surfaces", () => {
@@ -758,6 +758,16 @@ describe("App", () => {
     expect(styles).toMatch(
       /body\.club-mobile-device \.support-admin-ticket\s*\{[\s\S]*padding: 0\.58rem;[\s\S]*border-radius: 18px;/
     );
+  });
+
+  it("uses calmer light surfaces and tighter mobile admin spacing", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const responsiveLayer = styles.slice(styles.lastIndexOf("Responsive modal and mobile commerce system"));
+
+    expect(responsiveLayer).toMatch(/:root\[data-theme="light"\]\s*\{[^}]*--shadow-soft: 0 8px 22px rgba\(57, 76, 104, 0\.12\);/s);
+    expect(responsiveLayer).toMatch(/:root\[data-theme="light"\] body\s*\{[^}]*background:/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.admin-shell\s*\{[^}]*gap: 0\.65rem;/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.admin-tabs\s*\{[^}]*padding: 0\.35rem;/s);
   });
 
   it("keeps one compact side gutter across normal section tabs", () => {

@@ -36,6 +36,8 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("Новая рассылка");
     expect(adminSectionSource).toContain("applyMailingEditorLink");
     expect(adminSectionSource).toContain("Ссылка");
+    expect(adminSectionSource).toContain('class="admin-mailing-builder-body"');
+    expect(adminSectionSource).toContain('class="admin-mailing-submit-row admin-mailing-builder-footer"');
   });
 
   it("keeps the audience calculation block only inside the mailing composer", () => {

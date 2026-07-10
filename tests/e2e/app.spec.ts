@@ -175,7 +175,43 @@ async function mockApi(page: Page) {
     }
 
     if (path === "/payments/plans") {
-      await route.fulfill(json({ plans: [], provider: null, products: [], recurrentSubscriptions: [] }));
+      await route.fulfill(
+        json({
+          plans: [],
+          provider: null,
+          products: [
+            {
+              id: "product-30",
+              providerId: "provider-demo",
+              kind: "one_time",
+              title: "Разовая оплата 30 дней",
+              description: "Доступ на 30 дней",
+              amountRub: 500,
+              accessDays: 30,
+              prodamusSubscriptionId: null,
+              isPublished: true,
+              archivedUntil: null,
+              createdAt: now,
+              updatedAt: now
+            },
+            {
+              id: "product-180",
+              providerId: "provider-demo",
+              kind: "one_time",
+              title: "Разовая оплата 180 дней",
+              description: "Доступ на 180 дней",
+              amountRub: 2400,
+              accessDays: 180,
+              prodamusSubscriptionId: null,
+              isPublished: true,
+              archivedUntil: null,
+              createdAt: now,
+              updatedAt: now
+            }
+          ],
+          recurrentSubscriptions: []
+        })
+      );
       return;
     }
 
@@ -226,6 +262,54 @@ async function mockApi(page: Page) {
 
     if (path === "/admin/server-errors") {
       await route.fulfill(json({ errors: [] }));
+      return;
+    }
+
+    if (path === "/admin/admins") {
+      await route.fulfill(json({ ownerTelegramId: currentUser.telegramId, admins: [] }));
+      return;
+    }
+
+    if (path === "/admin/stats") {
+      await route.fulfill(json({ users: [], communityMessages: [] }));
+      return;
+    }
+
+    if (path === "/admin/learning") {
+      await route.fulfill(json({ categories: [], materials: [] }));
+      return;
+    }
+
+    if (path === "/payments/admin/orders") {
+      await route.fulfill(json({ orders: [] }));
+      return;
+    }
+
+    if (path === "/admin/action-logs") {
+      await route.fulfill(json({ admins: [], logs: [] }));
+      return;
+    }
+
+    if (path === "/admin/project-settings") {
+      await route.fulfill(json({ settings: { referralRewardDays: 7 } }));
+      return;
+    }
+
+    if (path === "/admin/mailings" && request.method() === "GET") {
+      await route.fulfill(json({ mailings: [] }));
+      return;
+    }
+
+    if (path === "/admin/mailings/preview") {
+      await route.fulfill(
+        json({
+          targetCount: 8,
+          excludedBotBlocked: 0,
+          excludedByFilters: 2,
+          estimatedSeconds: 12,
+          estimatedLabel: "около 12 секунд"
+        })
+      );
       return;
     }
 
@@ -377,6 +461,16 @@ const mobileModalFixtures = [
   { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-client-message-modal" }
 ];
 
+const compactMobileModalClasses = [
+  "module-name-modal",
+  "profile-logout-confirm",
+  "notification-center-panel",
+  "release-notes-modal",
+  "payment-confirm-card",
+  "push-permission-card",
+  "admin-client-message-modal"
+];
+
 async function renderMobileModalFixture(page: Page, fixture: { backdropClass: string; modalClass: string }) {
   await page.evaluate(({ backdropClass, modalClass }) => {
     document.getElementById("modal-fixture")?.remove();
@@ -442,6 +536,9 @@ async function expectMobileModalFitsViewport(page: Page, testInfo: TestInfo, fix
   expect(modalBox.x, fixture.modalClass).toBeGreaterThanOrEqual(0);
   expect(modalBox.width, fixture.modalClass).toBeGreaterThanOrEqual(minWidth);
   expect(modalBox.x + modalBox.width, fixture.modalClass).toBeLessThanOrEqual(viewportSize.width + 1);
+  if (compactMobileModalClasses.some((className) => fixture.modalClass.includes(className))) {
+    expect(modalBox.height, fixture.modalClass).toBeLessThan(viewportSize.height * 0.98);
+  }
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -529,6 +626,34 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
   }
 });
 
+test("stacks payment tariff cards into readable mobile rows", async ({ page }, testInfo) => {
+  const paymentNavigation = page.locator('.bottom-nav-item[aria-label="Оплата"], .desktop-sidebar-item[aria-label="Оплата"]');
+  await expect(paymentNavigation).toHaveCount(1);
+  await paymentNavigation.click();
+  await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();
+
+  const cards = page.locator(".payment-product-list .soft-payment-card");
+  await expect(cards).toHaveCount(2);
+  const boxes = await cards.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  }));
+  const viewport = page.viewportSize();
+
+  if ((viewport?.width ?? 0) < 1024) {
+    expect(boxes[0]?.width).toBeGreaterThan((viewport?.width ?? 0) * 0.82);
+    expect(boxes[1]?.y).toBeGreaterThan((boxes[0]?.y ?? 0) + (boxes[0]?.height ?? 0));
+  }
+  if (testInfo.project.name === "pixel-7") {
+    await page.screenshot({ path: testInfo.outputPath("payment-layout.png"), fullPage: false });
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = "light";
+    });
+    await page.screenshot({ path: testInfo.outputPath("payment-layout-light.png"), fullPage: false });
+  }
+  await expectNoHorizontalOverflow(page);
+});
+
 test("keeps shared mobile modal surfaces sized across device shells", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "desktop-chrome");
 
@@ -612,6 +737,32 @@ test("keeps database backup tools usable in the server admin panel", async ({ pa
   await expectNoHorizontalOverflow(page);
 });
 
+test("keeps the mailing composer header and footer usable", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "pixel-7");
+
+  await page.getByRole("button", { name: "Админ" }).click();
+  await page.getByRole("button", { name: "Рассылки" }).click();
+  await page.getByRole("button", { name: "Новая рассылка" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Новая рассылка" });
+  await expect(dialog).toBeVisible();
+  const body = dialog.locator(".admin-mailing-builder-body");
+  const footer = dialog.locator(".admin-mailing-builder-footer");
+  await expect(body).toBeVisible();
+  await expect(footer).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Сбросить" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Закрыть рассылку" })).toBeVisible();
+  const dialogBox = await dialog.boundingBox();
+  const footerBox = await footer.boundingBox();
+  const viewport = page.viewportSize();
+  expect(dialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);
+  expect(dialogBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(32);
+  expect(dialogBox?.width ?? 0).toBeGreaterThan((viewport?.width ?? 0) * 0.88);
+  expect((footerBox?.y ?? 0) + (footerBox?.height ?? 0)).toBeLessThanOrEqual(viewport?.height ?? 0);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("mailing-composer.png"), fullPage: false });
+});
+
 test("matches full visual baselines for key screens", async ({ page }, testInfo) => {
   test.skip(!isFullVisualRun(testInfo), "Visual baselines run only in test:e2e:full");
 
@@ -626,7 +777,7 @@ test("matches full visual baselines for key screens", async ({ page }, testInfo)
   await expectStableScreenshot(page, "community");
 });
 
-test("keeps module creation modal usable with a compact keyboard viewport", async ({ page }) => {
+test("keeps module creation modal usable with a compact keyboard viewport", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "Модули" }).click();
   await page.getByRole("button", { name: "Добавить модуль" }).click();
 
@@ -636,6 +787,13 @@ test("keeps module creation modal usable with a compact keyboard viewport", asyn
   await expect(page.getByLabel("Описание модуля")).toBeVisible();
   await expect(page.getByRole("group", { name: "Тип карточек модуля" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  if (testInfo.project.name === "pixel-7") {
+    await page.screenshot({ path: testInfo.outputPath("module-modal.png"), fullPage: false });
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = "light";
+    });
+    await page.screenshot({ path: testInfo.outputPath("module-modal-light.png"), fullPage: false });
+  }
 
   await page.evaluate(() => {
     document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
