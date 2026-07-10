@@ -13144,6 +13144,49 @@ body.club-mobile-device .admin-panel-head {
   margin-inline: auto;
 }
 
+/* Task screens are regular pages. Their legacy modal classes keep only the component styling. */
+.learning-task-screen .module-name-modal,
+.learning-task-screen .lesson-preview-modal,
+.profile-avatar-task-screen .profile-avatar-editor-modal {
+  position: static;
+  display: grid;
+  width: 100%;
+  max-width: 56rem;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  margin: 0 auto;
+  align-self: stretch;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
+  transform: none;
+}
+
+.learning-task-screen .module-name-modal .admin-client-modal-head,
+.learning-task-screen .lesson-preview-modal .admin-client-modal-head {
+  display: none;
+}
+
+.learning-task-screen .lesson-preview-scroll {
+  max-height: none;
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.profile-avatar-task-screen .profile-avatar-editor-workspace {
+  width: min(100%, 34rem);
+  margin: 0 auto;
+}
+
+.profile-avatar-task-screen .profile-modal-actions {
+  width: min(100%, 34rem);
+  margin-inline: auto;
+}
+
 @media (max-width: 480px) {
   .payment-task-screen .payment-form-body > .grid-cols-2 {
     grid-template-columns: minmax(0, 1fr);

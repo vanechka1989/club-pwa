@@ -371,8 +371,8 @@ describe("App", () => {
 
     expect(paymentsSource).not.toContain("resolve(window.confirm(paymentRedirectNotice))");
     expect(paymentsSource).toContain("showCheckoutConfirm");
-    expect(paymentsSource).toContain("payment-confirm-card");
-    expect(styles).toContain(".payment-confirm-card");
+    expect(paymentsSource).toContain("<ConfirmDialog");
+    expect(styles).toContain(".confirm-dialog");
   });
 
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {

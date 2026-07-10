@@ -16,10 +16,12 @@ import {
   RotateCcw,
   Sun
 } from "lucide-vue-next";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { activateReferralRewards, getLearningHome, getPaymentHistory, getPaymentPlans, getReferralProfile } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
 import NotificationCenter from "@/features/app/NotificationCenter.vue";
+import TaskScreen from "@/features/app/TaskScreen.vue";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import {
   applyAvatarGesture,
@@ -44,7 +46,22 @@ defineEmits<{
 
 const session = useSessionStore();
 const ui = useUiStore();
+const route = useRoute();
+const router = useRouter();
 const { currentLocale, setLocale, t } = useI18n();
+
+function openProfileTask(path: string) {
+  if (route.path !== path) {
+    void router.push(path);
+  }
+}
+
+function closeProfileTask() {
+  avatarEditorOpen.value = false;
+  if (route.path !== "/profile") {
+    void router.push("/profile");
+  }
+}
 
 const isMember = computed(() => session.user?.membershipStatus === "active");
 const totalItems = ref(0);
@@ -403,6 +420,7 @@ function openAvatarEditor(options: { useCurrentAvatar?: boolean } = {}) {
   avatarDraftScale.value = options.useCurrentAvatar ? 1 : (session.user.avatarScale ?? 1);
   avatarMessage.value = null;
   avatarEditorOpen.value = true;
+  openProfileTask("/profile/avatar");
 }
 
 function zoomAvatar(amount: number) {
@@ -425,6 +443,7 @@ async function handleAvatarDisplaySave() {
       avatarScale: avatarDraftScale.value
     });
     avatarEditorOpen.value = false;
+    closeProfileTask();
     avatarMessage.value = t("profileAvatarDisplaySaved");
   } catch {
     avatarMessage.value = t("profileAvatarDisplayError");
@@ -553,7 +572,24 @@ onMounted(async () => {
   } else {
     referral.value = null;
   }
+
+  if (route.path === "/profile/avatar" && session.user?.photoUrl) {
+    openAvatarEditor();
+  } else if (route.path === "/profile/avatar") {
+    closeProfileTask();
+  }
 });
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path === "/profile/avatar" && session.user?.photoUrl && !avatarEditorOpen.value) {
+      openAvatarEditor();
+    } else if (path !== "/profile/avatar") {
+      avatarEditorOpen.value = false;
+    }
+  }
+);
 </script>
 
 <template>
@@ -817,16 +853,15 @@ onMounted(async () => {
 
     </section>
 
-    <div v-if="avatarEditorOpen" class="profile-modal-backdrop" @click.self="avatarEditorOpen = false">
-      <section class="profile-avatar-editor-modal" role="dialog" aria-modal="true" :aria-label="t('profileAvatarEditorTitle')">
-        <div class="profile-modal-head">
-          <div>
-            <h3>{{ t("profileAvatarEditorTitle") }}</h3>
-            <p>{{ t("profileAvatarEditorText") }}</p>
-          </div>
-          <button class="profile-modal-close" type="button" :aria-label="t('close')" @click="avatarEditorOpen = false">×</button>
-        </div>
-
+    <TaskScreen
+      v-if="avatarEditorOpen"
+      class="profile-avatar-task-screen"
+      :title="t('profileAvatarEditorTitle')"
+      :subtitle="t('profileAvatarEditorText')"
+      portal
+      @back="closeProfileTask"
+    >
+      <section class="profile-avatar-editor-modal">
         <div class="profile-avatar-editor-workspace">
           <div
             class="profile-avatar-gesture-stage"
@@ -863,13 +898,13 @@ onMounted(async () => {
         </div>
 
         <div class="profile-modal-actions">
-          <button class="secondary-button" type="button" @click="avatarEditorOpen = false">{{ t("cancel") }}</button>
+          <button class="secondary-button" type="button" @click="closeProfileTask">{{ t("cancel") }}</button>
           <button class="soft-inline-button" type="button" :disabled="avatarDisplaySaving" @click="handleAvatarDisplaySave">
             {{ avatarDisplaySaving ? t("saving") : t("save") }}
           </button>
         </div>
       </section>
-    </div>
+    </TaskScreen>
 
     <div v-if="showLogoutConfirm" class="profile-modal-backdrop" @click.self="showLogoutConfirm = false">
       <section class="profile-logout-confirm" role="dialog" aria-modal="true" :aria-label="t('profileLogoutConfirmTitle')">

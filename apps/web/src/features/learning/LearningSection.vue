@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import {
   getYouTubeEmbedUrl,
   getYouTubeThumbnailUrl,
@@ -58,6 +59,7 @@ import {
 } from "@/api/client";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
+import TaskScreen from "@/features/app/TaskScreen.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore } from "@/stores/lessonUploads";
@@ -66,6 +68,21 @@ import { useUiStore, type ColorScheme } from "@/stores/ui";
 import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
 import { moveItemByDirection, type SortDirection } from "./sortOrder";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
+
+const route = useRoute() as ReturnType<typeof useRoute> | undefined;
+const router = useRouter() as ReturnType<typeof useRouter> | undefined;
+
+function openLearningTask(path: string) {
+  if (route?.path !== path) {
+    void router?.push(path);
+  }
+}
+
+function closeLearningTask() {
+  if (route?.path !== "/learning") {
+    void router?.push("/learning");
+  }
+}
 
 type ModuleLesson = {
   id: string;
@@ -534,6 +551,7 @@ function openModuleModal() {
   moduleDefaultCardLayout.value = "vertical";
   clearModuleError();
   showModuleModal.value = true;
+  openLearningTask("/learning/modules/new");
 }
 
 function openModuleEditModal(module: ModuleCard) {
@@ -543,6 +561,7 @@ function openModuleEditModal(module: ModuleCard) {
   moduleDefaultCardLayout.value = module.defaultCardLayout;
   clearModuleError();
   showModuleModal.value = true;
+  openLearningTask(`/learning/modules/${module.id}/edit`);
 }
 
 function closeModuleModal() {
@@ -552,6 +571,7 @@ function closeModuleModal() {
   moduleDescription.value = "";
   moduleDefaultCardLayout.value = "vertical";
   clearModuleError();
+  closeLearningTask();
 }
 
 function isModuleCollapsed(moduleId: string) {
@@ -708,6 +728,11 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStart
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
   void loadLessonContentForMember(lesson);
+  if (canManageModules.value) {
+    openLearningTask(`/learning/lessons/${lesson.id}/edit`);
+  } else {
+    openLearningTask(`/learning/lessons/${lesson.id}`);
+  }
 }
 
 function openLastLesson() {
@@ -747,6 +772,7 @@ function openLessonCreateModal(module: ModuleCard) {
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
+  openLearningTask(`/learning/lessons/new/${module.id}`);
 }
 
 function closeLessonModal() {
@@ -768,6 +794,7 @@ function closeLessonModal() {
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
+  closeLearningTask();
 }
 
 function resetLessonVideoState() {
@@ -2218,8 +2245,60 @@ function stopVoiceRecording() {
   }
 }
 
+async function syncLearningTaskRoute() {
+  if (!route) {
+    return;
+  }
+
+  const path = route?.path ?? "/learning";
+
+  if (path === "/learning") {
+    if (showModuleModal.value) closeModuleModal();
+    if (selectedLesson.value) closeLessonModal();
+    return;
+  }
+
+  const isLessonViewPath = /^\/learning\/lessons\/[^/]+$/.test(path);
+  if (!canManageModules.value && !isLessonViewPath) {
+    closeLearningTask();
+    return;
+  }
+
+  if (path === "/learning/modules/new") {
+    if (!showModuleModal.value || editingModuleId.value) openModuleModal();
+    return;
+  }
+
+  const moduleEditMatch = path.match(/^\/learning\/modules\/([^/]+)\/edit$/);
+  if (moduleEditMatch) {
+    const module = moduleCards.value.find((item) => item.id === decodeURIComponent(moduleEditMatch[1]!));
+    if (module && editingModuleId.value !== module.id) openModuleEditModal(module);
+    return;
+  }
+
+  const newLessonMatch = path.match(/^\/learning\/lessons\/new\/([^/]+)$/);
+  if (newLessonMatch) {
+    const module = moduleCards.value.find((item) => item.id === decodeURIComponent(newLessonMatch[1]!));
+    if (module && (selectedLesson.value?.moduleId !== module.id || selectedLesson.value.lessonId !== null)) {
+      openLessonCreateModal(module);
+    }
+    return;
+  }
+
+  const lessonMatch = path.match(/^\/learning\/lessons\/([^/]+)(?:\/edit)?$/);
+  if (lessonMatch) {
+    const lessonId = decodeURIComponent(lessonMatch[1]!);
+    const module = moduleCards.value.find((item) => item.images.some((lesson) => lesson.id === lessonId));
+    const lesson = module?.images.find((item) => item.id === lessonId);
+    if (module && lesson && selectedLesson.value?.lessonId !== lesson.id) openLessonModal(module, lesson);
+    return;
+  }
+
+  closeLearningTask();
+}
+
 onMounted(() => {
-  void loadModules();
+  void loadModules().then(syncLearningTaskRoute);
   document.addEventListener("visibilitychange", handleLearningVisibilityChange);
   window.addEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
   window.addEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
@@ -2238,7 +2317,13 @@ watch(
   () => canManageModules.value,
   () => {
     void loadModules();
+    void syncLearningTaskRoute();
   }
+);
+
+watch(
+  () => route?.path ?? "/learning",
+  () => void syncLearningTaskRoute()
 );
 </script>
 
@@ -2462,17 +2547,20 @@ watch(
       </article>
     </div>
 
-    <Teleport to="body">
-      <div v-if="showModuleModal && canManageModules" class="admin-modal-backdrop module-name-backdrop" @click.self="closeModuleModal">
-        <aside class="module-name-modal modal-size-compact" role="dialog" aria-modal="true" aria-labelledby="module-modal-title">
+    <TaskScreen
+      v-if="showModuleModal && canManageModules"
+      class="learning-task-screen"
+      :title="moduleModalTitle"
+      :subtitle="moduleModalDescription"
+      portal
+      @back="closeModuleModal"
+    >
+        <section class="module-name-modal modal-size-compact" role="dialog" aria-modal="true" :aria-label="moduleModalTitle">
           <header class="admin-client-modal-head">
             <div>
               <h3 id="module-modal-title">{{ moduleModalTitle }}</h3>
               <p>{{ moduleModalDescription }}</p>
             </div>
-            <button class="icon-button" type="button" :aria-label="`Закрыть окно: ${moduleModalTitle}`" @click="closeModuleModal">
-              <X class="h-5 w-5" aria-hidden="true" />
-            </button>
           </header>
 
           <div class="admin-form module-form">
@@ -2518,18 +2606,23 @@ watch(
               {{ isSaving ? "Сохраняем..." : "Сохранить модуль" }}
             </button>
           </div>
-        </aside>
-      </div>
-    </Teleport>
+        </section>
+    </TaskScreen>
 
-    <Teleport to="body">
-      <div v-if="selectedLesson && selectedLessonModule" class="admin-modal-backdrop lesson-preview-backdrop" @click.self="closeLessonModal">
-        <aside
+    <TaskScreen
+      v-if="selectedLesson && selectedLessonModule"
+      class="learning-task-screen"
+      :title="lessonModalTitle"
+      :subtitle="lessonModalSubtitle"
+      portal
+      @back="closeLessonModal"
+    >
+        <section
           class="lesson-preview-modal"
           :class="canManageModules ? 'lesson-preview-modal-edit' : 'lesson-preview-modal-view'"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="lesson-preview-title"
+          :aria-label="lessonModalTitle"
         >
           <header class="admin-client-modal-head">
             <div>
@@ -2537,9 +2630,6 @@ watch(
               <h3 id="lesson-preview-title">{{ lessonModalTitle }}</h3>
               <p>{{ lessonModalSubtitle }}</p>
             </div>
-            <button class="icon-button" type="button" :aria-label="`Закрыть урок: ${lessonModalTitle}`" @click="closeLessonModal">
-              <X class="h-5 w-5" aria-hidden="true" />
-            </button>
           </header>
 
           <div class="lesson-preview-scroll">
@@ -2918,8 +3008,7 @@ watch(
               {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}
             </button>
           </div>
-        </aside>
-      </div>
-    </Teleport>
+        </section>
+    </TaskScreen>
   </section>
 </template>

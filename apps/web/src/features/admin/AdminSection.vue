@@ -3393,8 +3393,11 @@ onUnmounted(() => {
       </div>
 
       <TaskScreen v-if="showMailingComposer" class="admin-task-screen admin-mailing-task-screen" title="Новая рассылка" subtitle="Текст, вложение, фильтры и планирование." portal @back="closeMailingComposer">
+        <template #actions>
+          <button class="secondary-button" type="button" @click="resetMailingForm">Сбросить</button>
+        </template>
           <section class="admin-detail admin-client-modal admin-mailing-composer-modal">
-            <form class="admin-crm-block admin-mailing-builder" @submit.prevent="handleCreateMailing">
+            <form id="admin-mailing-form" class="admin-crm-block admin-mailing-builder" @submit.prevent="handleCreateMailing">
               <div class="admin-panel-head admin-mailing-builder-head">
                 <div>
                   <p class="admin-overline">Рассылки</p>
@@ -3517,16 +3520,18 @@ onUnmounted(() => {
               </section>
               </div>
 
-              <div class="admin-mailing-submit-row admin-mailing-builder-footer">
-                <button class="secondary-button" type="button" :disabled="saving || !mailingCanSubmit" @click="handleTestMailingDraft">
-                  Тест себе
-                </button>
-                <button class="primary-button" type="submit" :disabled="saving || !mailingCanSubmit">
-                  {{ mailingScheduledAt ? "Запланировать рассылку" : "Запустить рассылку" }}
-                </button>
-              </div>
             </form>
           </section>
+        <template #footer>
+          <div class="admin-mailing-submit-row admin-mailing-builder-footer">
+            <button class="secondary-button" type="button" :disabled="saving || !mailingCanSubmit" @click="handleTestMailingDraft">
+              Тест себе
+            </button>
+            <button class="primary-button" form="admin-mailing-form" type="submit" :disabled="saving || !mailingCanSubmit">
+              {{ mailingScheduledAt ? "Запланировать рассылку" : "Запустить рассылку" }}
+            </button>
+          </div>
+        </template>
       </TaskScreen>
 
       <TaskScreen v-if="selectedMailing" class="admin-task-screen" :title="selectedMailing.title" :subtitle="`${formatDateTime(selectedMailing.createdAt)} · ${mailingAuthorLabel(selectedMailing)}`" portal @back="closeMailingDetail">

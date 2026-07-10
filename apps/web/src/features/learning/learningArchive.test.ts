@@ -124,10 +124,11 @@ describe("Learning section modules", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
 
-    expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("module-name-modal")).toBe(true);
-    expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("modal-size-compact")).toBe(true);
-    expect(screen.getByRole("dialog", { name: "Новый модуль" }).classList.contains("admin-client-modal")).toBe(false);
-    expect(screen.getByRole("dialog", { name: "Новый модуль" }).closest(".module-name-backdrop")?.parentElement).toBe(document.body);
+    const moduleTask = screen.getByRole("dialog", { name: "Новый модуль" });
+    expect(moduleTask.classList.contains("module-name-modal")).toBe(true);
+    expect(moduleTask.classList.contains("modal-size-compact")).toBe(true);
+    expect(moduleTask.classList.contains("admin-client-modal")).toBe(false);
+    expect(moduleTask.closest(".task-screen-route-layer")).toBeTruthy();
     expect(screen.getByLabelText("Название модуля").classList.contains("text-input")).toBe(true);
     expect(screen.getByLabelText("Описание модуля")).toBeTruthy();
     expect(screen.getByRole("group", { name: "Тип карточек модуля" })).toBeTruthy();

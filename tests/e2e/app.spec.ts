@@ -758,22 +758,22 @@ test("keeps database backup tools usable in the server admin panel", async ({ pa
   await expectNoHorizontalOverflow(page);
 });
 
-test("keeps the mailing composer header and footer usable", async ({ page }, testInfo) => {
+test("keeps the mailing task screen header and footer usable", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "pixel-7");
 
   await page.getByRole("button", { name: "Админ" }).click();
   await page.getByRole("button", { name: "Рассылки" }).click();
   await page.getByRole("button", { name: "Новая рассылка" }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Новая рассылка" });
-  await expect(dialog).toBeVisible();
-  const body = dialog.locator(".admin-mailing-builder-body");
-  const footer = dialog.locator(".admin-mailing-builder-footer");
+  const taskScreen = page.locator(".admin-mailing-task-screen .task-screen");
+  await expect(taskScreen).toBeVisible();
+  const body = taskScreen.locator(".admin-mailing-builder-body");
+  const footer = taskScreen.locator(".admin-mailing-builder-footer");
   await expect(body).toBeVisible();
   await expect(footer).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Сбросить" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Закрыть рассылку" })).toBeVisible();
-  const dialogBox = await dialog.boundingBox();
+  await expect(taskScreen.getByRole("button", { name: "Сбросить" })).toBeVisible();
+  await expect(taskScreen.getByRole("button", { name: "Назад" })).toBeVisible();
+  const dialogBox = await taskScreen.boundingBox();
   const footerBox = await footer.boundingBox();
   const viewport = page.viewportSize();
   expect(dialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);

@@ -31,6 +31,7 @@ export const taskRoutePaths = [
   "/payments/plans/:planId/edit",
   "/learning/modules/new",
   "/learning/modules/:moduleId/edit",
+  "/learning/lessons/new/:moduleId",
   "/learning/lessons/:lessonId",
   "/learning/lessons/:lessonId/edit"
 ] as const;
