@@ -8,6 +8,7 @@ import AuthSection from "@/features/auth/AuthSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
+import NotificationCenterScreen from "@/features/app/NotificationCenterScreen.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
 import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
 import PushPermissionPrompt from "@/features/app/PushPermissionPrompt.vue";
@@ -791,7 +792,8 @@ onBeforeUnmount(() => {
           <AuthSection v-else-if="session.error || !session.user" />
 
           <div v-else-if="session.user" class="section-host">
-            <ProfileSection v-if="activeSection === 'profile'" @open-payments="selectSection('payments')" />
+            <NotificationCenterScreen v-if="route.path === '/notifications'" />
+            <ProfileSection v-else-if="activeSection === 'profile'" @open-payments="selectSection('payments')" />
             <LearningSection v-else-if="activeSection === 'learning'" />
             <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
             <PaymentsSection v-else-if="activeSection === 'payments'" />

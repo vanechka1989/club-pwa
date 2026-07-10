@@ -42,23 +42,28 @@ describe("app notifications", () => {
 
   it("renders mailing HTML and inline media previews in the notification center", () => {
     const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
+    const screenSource = readFileSync(resolve(__dirname, "NotificationCenterScreen.vue"), "utf8");
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(source).toContain("renderNotificationHtml");
-    expect(source).toContain('v-html="renderNotificationHtml(notification)"');
-    expect(source).toContain("notification-center-media");
-    expect(source).toContain("notification.attachment.kind === \"photo\"");
-    expect(source).toContain("notification.attachment.kind === \"video\"");
+    expect(screenSource).toContain("renderNotificationHtml");
+    expect(screenSource).toContain('v-html="renderNotificationHtml(notification)"');
+    expect(screenSource).toContain("notification-center-media");
+    expect(screenSource).toContain("notification.attachment.kind === \"photo\"");
+    expect(screenSource).toContain("notification.attachment.kind === \"video\"");
     expect(styles).toContain(".notification-center-media");
   });
 
   it("allows clearing all app notifications from the notification center", () => {
     const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
+    const screenSource = readFileSync(resolve(__dirname, "NotificationCenterScreen.vue"), "utf8");
     const storeSource = readFileSync(resolve(__dirname, "../../stores/notifications.ts"), "utf8");
     const clientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
 
-    expect(source).toContain("clearAppNotificationsInApp");
-    expect(source).toContain("notificationsClear");
+    expect(source).toContain('router.push("/notifications")');
+    expect(screenSource).toContain("clearAppNotificationsInApp");
+    expect(screenSource).toContain("notificationsClear");
+    expect(screenSource).toContain("<TaskScreen");
+    expect(screenSource).not.toContain("notification-center-backdrop");
     expect(storeSource).toContain("clearAppNotifications");
     expect(clientSource).toContain('"/notifications"');
     expect(clientSource).toContain('method: "DELETE"');
@@ -77,7 +82,7 @@ describe("app notifications", () => {
     const profileSource = readFileSync(resolve(__dirname, "../profile/ProfileSection.vue"), "utf8");
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(appSource).not.toContain("<NotificationCenter");
+    expect(appSource).not.toMatch(/<NotificationCenter(?:\s|\/|>)/);
     expect(profileSource).toContain('import NotificationCenter from "@/features/app/NotificationCenter.vue";');
     expect(profileSource).toContain("<NotificationCenter");
     expect(profileSource).not.toContain("@click=\"changeTheme(ui.theme === 'dark' ? 'light' : 'dark')\"");

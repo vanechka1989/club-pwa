@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { CheckCircle2, CircleDot, Image, Maximize2, Minimize2, Paperclip, Send, Video, X } from "lucide-vue-next";
 import type { SupportAttachment, SupportTicket } from "@club/shared";
 import {
@@ -12,6 +13,8 @@ import {
   replyAdminSupportTicket
 } from "@/api/client";
 import { useI18n } from "@/features/app/i18n";
+import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
+import TaskScreen from "@/features/app/TaskScreen.vue";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { sortSupportTickets } from "@/features/support/supportTickets";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -28,6 +31,8 @@ const props = defineProps<{
 }>();
 
 const session = useSessionStore();
+const route = useRoute();
+const router = useRouter();
 const notifications = useNotificationsStore();
 const { currentLocale, t } = useI18n();
 const loading = ref(true);
@@ -36,7 +41,7 @@ const success = ref<string | null>(null);
 const topics = ref<Array<{ id: string; title: string; description: string }>>([]);
 const tickets = ref<SupportTicket[]>([]);
 const selectedTicketId = ref<string | null>(null);
-const createTicketOpen = ref(false);
+const createTicketOpen = computed(() => route.path === "/support/new");
 const closeConfirmOpen = ref(false);
 const openedAttachment = ref<SupportAttachment | null>(null);
 const threadRef = ref<HTMLElement | null>(null);
@@ -70,6 +75,7 @@ const defaultTopics = computed(() => [
   { id: "other", title: t("supportOtherTopic"), description: t("supportOtherTopicDescription") }
 ]);
 const visibleTopics = computed(() => (topics.value.length ? topics.value : defaultTopics.value).map(localizeTopic));
+const routeTicketId = computed(() => (typeof route.params.ticketId === "string" ? route.params.ticketId : null));
 const selectedTicket = computed(() => tickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? null);
 const openTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "open"));
 const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "answered"));
@@ -276,11 +282,11 @@ function showSupportSuccess(text: string) {
 
 function openCreateTicket() {
   clearSupportNotice();
-  createTicketOpen.value = true;
+  void router.push("/support/new");
 }
 
 function closeCreateTicket() {
-  createTicketOpen.value = false;
+  void router.push("/support");
 }
 
 async function scrollThreadToLatest() {
@@ -376,6 +382,9 @@ function stopSupportPolling() {
 
 async function openTicket(ticketId: string) {
   selectedTicketId.value = ticketId;
+  if (route.path !== `/support/tickets/${ticketId}`) {
+    await router.push(`/support/tickets/${ticketId}`);
+  }
   clearSupportNotice();
   replyMessage.value = "";
   replyAttachments.value = [];
@@ -400,6 +409,9 @@ function closeModal() {
   replyAttachments.value = [];
   followUpMessage.value = "";
   followUpAttachments.value = [];
+  if (route.path !== "/support") {
+    void router.push("/support");
+  }
 }
 
 function openAttachment(attachment: SupportAttachment) {
@@ -551,13 +563,33 @@ async function confirmCloseTicket() {
 }
 
 onMounted(() => {
-  void loadSupport();
+  void loadSupport().then(() => {
+    if (routeTicketId.value && tickets.value.some((ticket) => ticket.id === routeTicketId.value)) {
+      void openTicket(routeTicketId.value);
+    }
+  });
   startSupportPolling();
 });
 
 onUnmounted(() => {
   stopSupportPolling();
 });
+
+watch(
+  routeTicketId,
+  async (ticketId) => {
+    if (!ticketId) {
+      selectedTicketId.value = null;
+      return;
+    }
+    if (!tickets.value.some((ticket) => ticket.id === ticketId)) {
+      await refreshSupport({ silent: true });
+    }
+    if (tickets.value.some((ticket) => ticket.id === ticketId) && selectedTicketId.value !== ticketId) {
+      await openTicket(ticketId);
+    }
+  }
+);
 
 watch(
   () => props.openTicketId,
@@ -589,6 +621,7 @@ watch(
 
 <template>
   <section class="support-section space-y-4">
+    <template v-if="!createTicketOpen && !selectedTicket">
     <div class="section-head">
       <div>
         <h2 class="section-title">{{ t("support") }}</h2>
@@ -666,21 +699,15 @@ watch(
         </div>
       </div>
     </template>
+    </template>
 
-    <Teleport to="body">
-      <div v-if="createTicketOpen" class="support-modal-backdrop" @click.self="closeCreateTicket">
-        <article class="support-ticket-modal support-ticket-modal-compact">
-          <header class="support-modal-head">
-            <div>
-              <p class="support-kicker">{{ t("supportNewTicket") }}</p>
-              <h3>{{ t("supportCreateTicket") }}</h3>
-              <p class="support-muted">{{ t("supportCreateHint") }}</p>
-            </div>
-            <button class="support-modal-close" type="button" :aria-label="t('supportClose')" @click="closeCreateTicket">
-              <X class="h-5 w-5" aria-hidden="true" />
-            </button>
-          </header>
-
+      <TaskScreen
+        v-if="createTicketOpen"
+        class="support-task-screen"
+        :title="t('supportCreateTicket')"
+        :subtitle="t('supportCreateHint')"
+        @back="closeCreateTicket"
+      >
           <form class="support-modal-body support-customer-form" @submit.prevent="submitTicket">
             <div class="support-form-grid">
               <div class="support-field support-field-wide">
@@ -732,18 +759,25 @@ watch(
               {{ sendingTicket ? t("supportSending") : t("supportSendTicket") }}
             </button>
           </form>
-        </article>
-      </div>
+      </TaskScreen>
 
-      <div v-if="selectedTicket" class="support-modal-backdrop" @click.self="closeModal">
-        <article class="support-ticket-modal">
-          <header class="support-modal-head">
+      <TaskScreen
+        v-else-if="selectedTicket"
+        class="support-task-screen"
+        :title="ticketTopicTitle(selectedTicket)"
+        :subtitle="`${formatDate(selectedTicket.createdAt)} · ${ticketStatusLabel(selectedTicket)}`"
+        @back="closeModal"
+      >
+        <template v-if="isAdmin" #actions>
+          <button class="support-ticket-summary" type="button" :title="t('supportOpenClientCard')" @click="openClientCard">
+            <img v-if="selectedTicket.customer.photoUrl" :src="selectedTicket.customer.photoUrl" :alt="userName(selectedTicket.customer)" />
+            <span v-else class="support-customer-avatar support-customer-avatar-small">{{ userName(selectedTicket.customer).slice(0, 1) }}</span>
+          </button>
+        </template>
+          <header v-if="isAdmin" class="support-modal-head support-task-customer-head">
             <div>
               <p class="support-kicker">{{ isAdmin ? t("supportTicketCardAdmin") : t("supportTicketCardUser") }}</p>
-              <h3>{{ ticketTopicTitle(selectedTicket) }}</h3>
-              <p class="support-muted">{{ formatDate(selectedTicket.createdAt) }} · {{ ticketStatusLabel(selectedTicket) }}</p>
               <button
-                v-if="isAdmin"
                 class="support-ticket-summary"
                 type="button"
                 :title="t('supportOpenClientCard')"
@@ -766,9 +800,6 @@ watch(
                 <span class="support-status" :class="statusTone(selectedTicket)">{{ ticketStatusLabel(selectedTicket) }}</span>
               </button>
             </div>
-            <button class="support-modal-close" type="button" :aria-label="t('supportClose')" @click="closeModal">
-              <X class="h-5 w-5" aria-hidden="true" />
-            </button>
           </header>
 
           <div class="support-modal-body support-ticket-modal-body">
@@ -854,23 +885,22 @@ watch(
                 {{ t("supportClosedNote") }}
               </span>
             </div>
-          </div>
-        </article>
-      </div>
+            </div>
+      </TaskScreen>
 
-      <div v-if="closeConfirmOpen && selectedTicket" class="support-confirm-backdrop" @click.self="cancelCloseTicket">
-        <article class="support-confirm-card">
-          <h3>{{ t("supportCloseConfirmTitle") }}</h3>
-          <p>{{ t("supportCloseConfirmText") }}</p>
-          <div class="support-confirm-actions">
-            <button class="support-compact-button support-secondary-button" type="button" @click="cancelCloseTicket">{{ t("supportCancel") }}</button>
-            <button class="support-compact-button support-danger-button" type="button" :disabled="closingTicket" @click="confirmCloseTicket">
-              {{ closingTicket ? t("supportClosing") : t("supportClose") }}
-            </button>
-          </div>
-        </article>
-      </div>
+      <ConfirmDialog
+        :open="closeConfirmOpen && Boolean(selectedTicket)"
+        :title="t('supportCloseConfirmTitle')"
+        :description="t('supportCloseConfirmText')"
+        :confirm-label="closingTicket ? t('supportClosing') : t('supportClose')"
+        :cancel-label="t('supportCancel')"
+        :busy="closingTicket"
+        danger
+        @cancel="cancelCloseTicket"
+        @confirm="confirmCloseTicket"
+      />
 
+    <Teleport to="body">
       <div
         v-if="openedAttachment"
         class="support-attachment-viewer"

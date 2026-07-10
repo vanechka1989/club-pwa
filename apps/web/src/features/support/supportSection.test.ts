@@ -22,8 +22,14 @@ describe("support section", () => {
     expect(source).toContain("supportWaitingTime");
   });
 
-  it("opens tickets in a modal and marks them read only when opened", () => {
-    expect(source).toContain("support-ticket-modal");
+  it("opens tickets as routed task screens and marks them read only when opened", () => {
+    expect(source).toContain('import TaskScreen from "@/features/app/TaskScreen.vue"');
+    expect(source).toContain('router.push(`/support/tickets/${ticketId}`)');
+    expect(source).toContain('router.push("/support/new")');
+    expect(source).toContain("<TaskScreen");
+    expect(source).toContain('v-if="createTicketOpen"');
+    expect(source).toContain('v-else-if="selectedTicket"');
+    expect(source).not.toContain('v-if="selectedTicket" class="support-modal-backdrop"');
     expect(source).toContain("openTicket(ticket.id)");
     expect(source).toContain("markSupportTicketRead");
     expect(source).toContain("createSupportTicketMessage");
@@ -46,7 +52,8 @@ describe("support section", () => {
   it("uses an in-app close confirmation instead of the browser confirm", () => {
     expect(source).not.toContain("window.confirm");
     expect(source).toContain("closeConfirmOpen");
-    expect(source).toContain("support-confirm-card");
+    expect(source).toContain('import ConfirmDialog from "@/features/app/ConfirmDialog.vue"');
+    expect(source).toContain("<ConfirmDialog");
     expect(source).toContain("confirmCloseTicket");
   });
 
@@ -108,7 +115,7 @@ describe("support section", () => {
     expect(styles).toContain(".support-customer-strip");
   });
 
-  it("keeps support modal actions above the safe bottom area", () => {
+  it("keeps support task actions above the safe bottom area", () => {
     expect(source).toContain("support-ticket-modal-body");
     expect(source).not.toContain('support-secondary-button" type="button" @click="closeModal"');
     expect(styles).toContain(".support-ticket-modal-body");
@@ -125,17 +132,10 @@ describe("support section", () => {
     expect(styles).toContain("var(--club-modal-bottom-offset");
   });
 
-  it("keeps support modals inside PWA safe areas and readable above keyboards", () => {
-    expect(styles).toContain("--support-modal-top-clearance");
-    expect(styles).toContain("--support-modal-height-limit");
-    expect(styles).not.toContain(".club-telegram-webview .support-modal-backdrop");
-    expect(styles).toContain("--support-modal-top-clearance: var(--club-modal-top-padding)");
-    expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
-    expect(styles).toContain("var(--club-visible-viewport-height");
-    expect(styles).toContain("body.club-keyboard-open .support-ticket-modal:not(.support-ticket-modal-compact)");
-    expect(styles).toMatch(/body\.club-keyboard-open \.support-modal-backdrop\s*\{[^}]*align-items:\s*flex-start;/s);
-    expect(styles).toMatch(/body\.club-keyboard-open \.support-ticket-modal\s*\{[^}]*border-radius:\s*0 0 18px 18px;/s);
-    expect(styles).toContain("--support-modal-bottom-clearance: 0.6rem");
+  it("keeps support task screens readable above keyboards", () => {
+    expect(styles).toContain(".support-task-screen");
+    expect(styles).toContain(".support-task-screen .support-ticket-modal-body");
+    expect(styles).toContain("padding-bottom: max(1rem, var(--club-safe-bottom))");
     expect(styles).toContain("-webkit-text-fill-color: var(--text)");
     expect(styles).toContain("caret-color: var(--accent)");
   });

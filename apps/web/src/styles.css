@@ -13118,3 +13118,41 @@ body.club-mobile-device .admin-panel-head {
   .task-screen { min-height: calc(100dvh - 2rem); border-radius: 24px; }
   .bottom-sheet { border-radius: 28px; margin-bottom: 1rem; }
 }
+
+.support-task-screen {
+  min-height: var(--club-visible-viewport-height, 100dvh);
+}
+
+.support-task-screen .task-screen-body {
+  display: grid;
+  align-content: start;
+  padding-bottom: max(1rem, var(--club-safe-bottom));
+}
+
+.support-task-screen .support-modal-body,
+.support-task-screen .support-ticket-modal-body {
+  width: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+}
+
+.support-task-screen .support-ticket-modal-body {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.support-task-screen .support-task-customer-head {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 0.75rem;
+}
+
+.notification-task-screen .notification-center-list {
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+}
