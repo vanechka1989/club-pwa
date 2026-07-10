@@ -73,7 +73,12 @@ if [[ "$previous_commit" == "$current_commit" && "${DEPLOY_FORCE:-}" != "1" ]]; 
   exit 0
 fi
 
-docker compose -f docker-compose.prod.yml build
+build_args=()
+if [[ "${DEPLOY_FORCE:-}" == "1" ]]; then
+  build_args+=(--no-cache)
+fi
+
+docker compose -f docker-compose.prod.yml build "${build_args[@]}"
 docker compose -f docker-compose.prod.yml run --rm migrate
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml ps

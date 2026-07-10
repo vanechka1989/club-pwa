@@ -35,6 +35,13 @@ describe("deploy update script", () => {
     expect(deployWorkflow).not.toContain("git pull --ff-only && DEPLOY_NOTIFY_START_SENT");
     expect(deployWorkflow).toContain("DEPLOY_DIR='$DEPLOY_DIR' bash '$DEPLOY_DIR/deploy/update.sh'");
   });
+
+  it("rebuilds Docker images without stale cache when deployment is forced", () => {
+    expect(updateScript).toContain("build_args=()");
+    expect(updateScript).toContain('if [[ "${DEPLOY_FORCE:-}" == "1" ]]; then');
+    expect(updateScript).toContain("build_args+=(--no-cache)");
+    expect(updateScript).toContain('docker compose -f docker-compose.prod.yml build "${build_args[@]}"');
+  });
 });
 
 describe("admin S3 storage target routing", () => {
