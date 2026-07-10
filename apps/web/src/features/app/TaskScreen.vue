@@ -5,12 +5,15 @@ defineProps<{
   title: string;
   subtitle?: string;
   backLabel?: string;
+  portal?: boolean;
 }>();
 
 defineEmits<{ back: [] }>();
 </script>
 
 <template>
+  <Teleport to="body" :disabled="!portal">
+  <div :class="{ 'task-screen-route-layer': portal }">
   <section class="task-screen">
     <header class="task-screen-header">
       <button class="task-screen-back" type="button" :aria-label="backLabel || 'Назад'" @click="$emit('back')">
@@ -33,4 +36,6 @@ defineEmits<{ back: [] }>();
       <slot name="footer" />
     </footer>
   </section>
+  </div>
+  </Teleport>
 </template>

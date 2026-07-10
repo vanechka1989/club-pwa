@@ -56,11 +56,14 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("if (isMemberPreviewMode.value)");
   });
 
-  it("keeps the admin list compact and opens permissions in a modal", () => {
+  it("keeps the admin list compact and opens permissions in a routed task screen", () => {
     expect(adminSectionSource).toContain("selectedAdminAccess");
     expect(adminSectionSource).toContain("openAdminAccessModal");
     expect(adminSectionSource).toContain("admin-permission-row-button");
     expect(adminSectionSource).toContain("admin-permission-modal");
+    expect(adminSectionSource).toContain("`/admin/admins/${admin.id}`");
+    expect(adminSectionSource).toContain("<TaskScreen");
+    expect(adminSectionSource).not.toContain('aria-modal="true"');
   });
 
   it("has API client support for updating admin permissions", () => {
@@ -113,6 +116,7 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain('ui.previewMode === "developer"');
     expect(adminSectionSource).toContain('v-if="canViewReleaseNotes"');
     expect(adminSectionSource).toContain('v-if="showReleaseNotesModal && canViewReleaseNotes"');
+    expect(adminSectionSource).toContain('openAdminTask("/admin/releases")');
   });
 
   it("keeps action journal collapsed by default and can expand it", () => {

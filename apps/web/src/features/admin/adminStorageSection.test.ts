@@ -6,7 +6,7 @@ const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), 
 const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
 
 describe("admin storage section", () => {
-  it("opens file overview and S3 settings as separate modals from the storage landing", () => {
+  it("opens file overview and S3 settings as separate task screens from the storage landing", () => {
     expect(adminSectionSource).toContain("showStorageFilesModal");
     expect(adminSectionSource).toContain("showStorageSettingsModal");
     expect(adminSectionSource).toContain("admin-storage-action-icon");
@@ -49,10 +49,13 @@ describe("admin storage section", () => {
     expect(stylesSource).toContain("0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)");
     expect(stylesSource).toContain(".admin-storage-status-card-error.admin-storage-status-card-active");
     expect(stylesSource).not.toContain(".admin-storage-status-grid {\n    grid-template-columns: 1fr;");
-    expect(adminSectionSource).toContain("<Teleport to=\"body\">");
+    expect(adminSectionSource).toContain('openAdminTask("/admin/storage")');
+    expect(adminSectionSource).toContain('openAdminTask("/admin/storage/settings")');
+    expect(adminSectionSource).toContain("<TaskScreen");
+    expect(adminSectionSource).not.toContain("<Teleport to=\"body\">");
   });
 
-  it("opens every storage folder in a dedicated file modal and keeps landing actions side by side", () => {
+  it("opens every storage folder in a dedicated task screen and keeps landing actions side by side", () => {
     expect(adminSectionSource).toContain("showStorageFolderModal");
     expect(adminSectionSource).toContain("openStorageFolder");
     expect(adminSectionSource).toContain("admin-storage-folder-modal");

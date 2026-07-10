@@ -41,6 +41,7 @@ import {
   type LucideIcon
 } from "lucide-vue-next";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import {
   addAdminUser,
@@ -92,6 +93,7 @@ import {
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
+import TaskScreen from "@/features/app/TaskScreen.vue";
 import {
   filterPaymentOrdersByBreakdown,
   type AdminPaymentBreakdownItem
@@ -114,6 +116,16 @@ import { useUiStore, type PreviewMode } from "@/stores/ui";
 const session = useSessionStore();
 const notifications = useNotificationsStore();
 const ui = useUiStore();
+const route = useRoute();
+const router = useRouter();
+
+function openAdminTask(path: string) {
+  if (route.path !== path) void router.push(path);
+}
+
+function closeAdminTask() {
+  if (route.path !== "/admin") void router.push("/admin");
+}
 
 const props = defineProps<{
   openClientTelegramId?: string | null;
@@ -708,6 +720,7 @@ async function openMailingComposer(options: { reset?: boolean } = {}) {
   }
 
   showMailingComposer.value = true;
+  openAdminTask("/admin/mailings/new");
   await nextTick();
 
   if (mailingEditorRef.value) {
@@ -720,6 +733,7 @@ async function openMailingComposer(options: { reset?: boolean } = {}) {
 
 function closeMailingComposer() {
   showMailingComposer.value = false;
+  closeAdminTask();
 }
 
 function getMailingStatusLabel(status: AdminMailing["status"]) {
@@ -794,10 +808,12 @@ function mailingFilterSummary(mailing: AdminMailing) {
 
 function openMailingDetail(mailing: AdminMailing) {
   selectedMailing.value = mailing;
+  openAdminTask(`/admin/mailings/${mailing.id}`);
 }
 
 function closeMailingDetail() {
   selectedMailing.value = null;
+  closeAdminTask();
 }
 
 function renderMailingEditorHtml(mailing: AdminMailing) {
@@ -981,10 +997,12 @@ function openReleaseNotesModal() {
 
   expandedReleaseVersion.value = appVersion;
   showReleaseNotesModal.value = true;
+  openAdminTask("/admin/releases");
 }
 
 function closeReleaseNotesModal() {
   showReleaseNotesModal.value = false;
+  closeAdminTask();
 }
 
 async function handlePreviewModeChange(mode: PreviewMode) {
@@ -1002,10 +1020,12 @@ async function handlePreviewModeChange(mode: PreviewMode) {
 
 function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
   selectedPaymentBreakdown.value = item;
+  openAdminTask(`/admin/statistics/payments-${item.key}`);
 }
 
 function closePaymentDrilldown() {
   selectedPaymentBreakdown.value = null;
+  closeAdminTask();
 }
 
 function openUserAccessDrilldown(item: AdminAccessBreakdownItem) {
@@ -1014,6 +1034,7 @@ function openUserAccessDrilldown(item: AdminAccessBreakdownItem) {
     key: item.key,
     title: item.label
   };
+  openAdminTask(`/admin/statistics/access-${item.key}`);
 }
 
 function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
@@ -1022,10 +1043,12 @@ function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
     tariff: tariff.tariff,
     title: tariff.label
   };
+  openAdminTask(`/admin/statistics/tariff-${encodeURIComponent(tariff.tariff)}`);
 }
 
 function closeUserDrilldown() {
   selectedUserDrilldown.value = null;
+  closeAdminTask();
 }
 
 async function openPaymentDrilldownUser(order: PaymentOrderLog) {
@@ -1139,10 +1162,12 @@ function resolveAdminSearchTelegramId() {
 
 function openAdminAccessModal(admin: AdminUser) {
   selectedAdminAccess.value = admin;
+  openAdminTask(`/admin/admins/${admin.id}`);
 }
 
 function closeAdminAccessModal() {
   selectedAdminAccess.value = null;
+  closeAdminTask();
 }
 
 async function reloadAdmins() {
@@ -1198,11 +1223,13 @@ async function saveProjectSettings() {
 
 function openServerLogsModal() {
   showServerLogsModal.value = true;
+  openAdminTask("/admin/server");
   void loadServerErrorLogs().catch(() => null);
 }
 
 function closeServerLogsModal() {
   showServerLogsModal.value = false;
+  closeAdminTask();
 }
 
 function openDatabaseBackupDownloadUrl(url: string) {
@@ -1458,12 +1485,14 @@ function closeSelectedUser() {
   selectedUser.value = null;
   selectedUserDetail.value = null;
   emit("client-card-close");
+  closeAdminTask();
 }
 
 async function selectUser(user: AdminStatsUser) {
   resetAccessSaveState();
   resetClientAccordion();
   applySelectedUser(user);
+  openAdminTask(`/admin/clients/${user.telegramId}`);
   try {
     selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
     applySelectedUser(selectedUserDetail.value.user);
@@ -1604,6 +1633,7 @@ async function openStorageFolder(folder: (typeof storagePrefixOptions)[number]) 
   storageFolderSort.value = "date";
   await loadStorageObjects();
   showStorageFolderModal.value = true;
+  openAdminTask(`/admin/storage/${encodeURIComponent(folder.value || "all")}`);
 }
 
 function openStorageSettings() {
@@ -1612,6 +1642,7 @@ function openStorageSettings() {
   );
   if (confirmed) {
     showStorageSettingsModal.value = true;
+    openAdminTask("/admin/storage/settings");
   }
 }
 
@@ -1638,6 +1669,23 @@ function openSelectedStorageFiles() {
   }
 
   showStorageFilesModal.value = true;
+  openAdminTask("/admin/storage");
+}
+
+function closeStorageFiles() {
+  showStorageFilesModal.value = false;
+  closeAdminTask();
+}
+
+function closeStorageFolder() {
+  showStorageFolderModal.value = false;
+  selectedStorageFolder.value = null;
+  closeAdminTask();
+}
+
+function closeStorageSettings() {
+  showStorageSettingsModal.value = false;
+  closeAdminTask();
 }
 
 async function loadStorageObjects({ append = false } = {}) {
@@ -2051,11 +2099,13 @@ function closeCategoryModal() {
 function openTransferOwnerModal() {
   transferOwnerTelegramId.value = admins.value[0]?.telegramId ?? "";
   showTransferOwnerModal.value = true;
+  openAdminTask("/admin/owner/transfer");
 }
 
 function closeTransferOwnerModal() {
   showTransferOwnerModal.value = false;
   transferOwnerTelegramId.value = "";
+  closeAdminTask();
 }
 
 function syncEditorBody() {
@@ -2276,9 +2326,108 @@ async function handleTransferOwner() {
   }
 }
 
+async function syncAdminTaskRoute() {
+  const path = route.path;
+  if (!path.startsWith("/admin/")) {
+    showReleaseNotesModal.value = false;
+    selectedPaymentBreakdown.value = null;
+    selectedUserDrilldown.value = null;
+    selectedUser.value = null;
+    selectedMailing.value = null;
+    showMailingComposer.value = false;
+    showStorageFilesModal.value = false;
+    showStorageFolderModal.value = false;
+    showStorageSettingsModal.value = false;
+    showServerLogsModal.value = false;
+    showTransferOwnerModal.value = false;
+    selectedAdminAccess.value = null;
+    return;
+  }
+
+  if (path === "/admin/releases" && canViewReleaseNotes.value) {
+    showReleaseNotesModal.value = true;
+    return;
+  }
+  if (path === "/admin/mailings/new") {
+    activePanel.value = "mailings";
+    if (!showMailingComposer.value) await openMailingComposer();
+    return;
+  }
+  const mailingMatch = path.match(/^\/admin\/mailings\/([^/]+)$/);
+  if (mailingMatch) {
+    activePanel.value = "mailings";
+    selectedMailing.value = mailings.value.find((item) => item.id === decodeURIComponent(mailingMatch[1]!)) ?? null;
+    return;
+  }
+  const clientMatch = path.match(/^\/admin\/clients\/([^/]+)$/);
+  if (clientMatch) {
+    activePanel.value = "users";
+    const telegramId = decodeURIComponent(clientMatch[1]!);
+    const user = users.value.find((item) => item.telegramId === telegramId);
+    if (user && selectedUser.value?.telegramId !== telegramId) await selectUser(user);
+    return;
+  }
+  if (path === "/admin/storage") {
+    activePanel.value = "storage";
+    showStorageFilesModal.value = true;
+    return;
+  }
+  const storageMatch = path.match(/^\/admin\/storage\/([^/]+)$/);
+  if (storageMatch) {
+    activePanel.value = "storage";
+    const folderId = decodeURIComponent(storageMatch[1]!);
+    if (folderId === "settings") {
+      showStorageSettingsModal.value = true;
+      return;
+    }
+    const folder = storagePrefixOptions.find((item) => (item.value || "all") === folderId);
+    if (folder && selectedStorageFolder.value?.value !== folder.value) await openStorageFolder(folder);
+    return;
+  }
+  if (path === "/admin/server") {
+    activePanel.value = "server-logs";
+    showServerLogsModal.value = true;
+    void loadServerErrorLogs().catch(() => null);
+    return;
+  }
+  if (path === "/admin/owner/transfer") {
+    activePanel.value = "admins";
+    showTransferOwnerModal.value = true;
+    transferOwnerTelegramId.value ||= admins.value[0]?.telegramId ?? "";
+    return;
+  }
+  const adminMatch = path.match(/^\/admin\/admins\/([^/]+)$/);
+  if (adminMatch) {
+    activePanel.value = "admins";
+    const adminId = decodeURIComponent(adminMatch[1]!);
+    selectedAdminAccess.value = admins.value.find((item) => item.id === adminId) ?? null;
+    return;
+  }
+  const statsMatch = path.match(/^\/admin\/statistics\/(.+)$/);
+  if (statsMatch) {
+    activePanel.value = "statistics";
+    const segment = decodeURIComponent(statsMatch[1]!);
+    if (segment.startsWith("payments-")) {
+      selectedPaymentBreakdown.value =
+        adminStatistics.value.payments.breakdown.find((item) => item.key === segment.slice("payments-".length)) ?? null;
+    } else if (segment.startsWith("access-")) {
+      const item = adminStatistics.value.clients.accessBreakdown.find((entry) => entry.key === segment.slice("access-".length));
+      if (item) selectedUserDrilldown.value = { kind: "access", key: item.key, title: item.label };
+    } else if (segment.startsWith("tariff-")) {
+      const tariff = segment.slice("tariff-".length);
+      selectedUserDrilldown.value = { kind: "tariff", tariff, title: getAdminTariffLabel(tariff) };
+    }
+  }
+}
+
 onMounted(() => {
-  void loadAll();
+  void loadAll().then(syncAdminTaskRoute);
 });
+
+watch(
+  () => route.path,
+  () => void syncAdminTaskRoute()
+);
 
 watch(
   panels,
@@ -2406,9 +2555,8 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <Teleport to="body">
-      <div v-if="showReleaseNotesModal && canViewReleaseNotes" class="admin-modal-backdrop" @click.self="closeReleaseNotesModal">
-        <aside class="admin-detail admin-client-modal release-notes-modal" role="dialog" aria-modal="true" aria-labelledby="release-notes-title">
+    <TaskScreen v-if="showReleaseNotesModal && canViewReleaseNotes" class="admin-task-screen" title="Обновления" subtitle="История изменений приложения по версиям." portal @back="closeReleaseNotesModal">
+        <section class="admin-detail admin-client-modal release-notes-modal">
           <header class="admin-client-modal-head">
             <div>
               <h3 id="release-notes-title">Обновления</h3>
@@ -2434,13 +2582,11 @@ onUnmounted(() => {
               </ul>
             </article>
           </div>
-        </aside>
-      </div>
-    </Teleport>
+        </section>
+    </TaskScreen>
 
-    <Teleport to="body">
-      <div v-if="selectedPaymentBreakdown" class="admin-modal-backdrop" @click.self="closePaymentDrilldown">
-        <aside class="admin-detail admin-client-modal admin-payment-drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="payment-drilldown-title">
+    <TaskScreen v-if="selectedPaymentBreakdown" class="admin-task-screen" :title="selectedPaymentBreakdown.label" :subtitle="`${paymentDrilldownOrders.length} записей`" portal @back="closePaymentDrilldown">
+        <section class="admin-detail admin-client-modal admin-payment-drilldown-modal">
           <header class="admin-client-modal-head">
             <div>
               <h3 id="payment-drilldown-title">{{ selectedPaymentBreakdown.label }}</h3>
@@ -2475,13 +2621,11 @@ onUnmounted(() => {
             </button>
             <p v-if="!paymentDrilldownOrders.length" class="admin-empty">Записей по этому показателю пока нет.</p>
           </div>
-        </aside>
-      </div>
-    </Teleport>
+        </section>
+    </TaskScreen>
 
-    <Teleport to="body">
-      <div v-if="selectedUserDrilldown" class="admin-modal-backdrop" @click.self="closeUserDrilldown">
-        <aside class="admin-detail admin-client-modal admin-payment-drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="user-drilldown-title">
+    <TaskScreen v-if="selectedUserDrilldown" class="admin-task-screen" :title="selectedUserDrilldown.title" :subtitle="`${userDrilldownUsers.length} клиентов`" portal @back="closeUserDrilldown">
+        <section class="admin-detail admin-client-modal admin-payment-drilldown-modal">
           <header class="admin-client-modal-head">
             <div>
               <h3 id="user-drilldown-title">{{ selectedUserDrilldown.title }}</h3>
@@ -2517,9 +2661,8 @@ onUnmounted(() => {
             </button>
             <p v-if="!userDrilldownUsers.length" class="admin-empty">Клиентов по этому показателю пока нет.</p>
           </div>
-        </aside>
-      </div>
-    </Teleport>
+        </section>
+    </TaskScreen>
 
     <div class="admin-tabs">
       <button
@@ -2793,9 +2936,15 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <Teleport to="body">
-        <div v-if="selectedUser && activePanel === 'users'" class="admin-modal-backdrop" @click.self="closeSelectedUser">
-          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-client-modal-title">
+      <TaskScreen
+        v-if="selectedUser && activePanel === 'users'"
+        class="admin-task-screen"
+        :title="userTitle(selectedUser)"
+        :subtitle="selectedUserMeta(selectedUser)"
+        portal
+        @back="closeSelectedUser"
+      >
+          <section class="admin-detail admin-client-modal admin-client-task-card">
             <header class="admin-client-card-head">
               <span class="admin-client-avatar">
                 <img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" />
@@ -3128,9 +3277,8 @@ onUnmounted(() => {
                 </article>
               </div>
             </section>
-          </aside>
-          <div v-if="clientMessageOpen" class="admin-client-message-layer" @click.self="closeClientMessageModal">
-            <form class="admin-client-message-modal" @submit.prevent="submitClientMessage">
+          </section>
+            <form v-if="clientMessageOpen" class="admin-client-message-modal admin-client-message-inline" @submit.prevent="submitClientMessage">
               <header class="admin-client-message-head">
                 <div>
                   <h3>Сообщение клиенту</h3>
@@ -3157,9 +3305,7 @@ onUnmounted(() => {
                 {{ sendingClientMessage ? "Отправляем..." : "Отправить" }}
               </button>
             </form>
-          </div>
-        </div>
-      </Teleport>
+      </TaskScreen>
     </section>
 
     <section v-else-if="activePanel === 'mailings'" class="admin-panel admin-mailings-panel">
@@ -3246,14 +3392,8 @@ onUnmounted(() => {
         </aside>
       </div>
 
-      <Teleport to="body">
-        <div v-if="showMailingComposer" class="admin-modal-backdrop" @click.self="closeMailingComposer">
-          <aside
-            class="admin-detail admin-client-modal admin-mailing-composer-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="admin-mailing-composer-title"
-          >
+      <TaskScreen v-if="showMailingComposer" class="admin-task-screen admin-mailing-task-screen" title="Новая рассылка" subtitle="Текст, вложение, фильтры и планирование." portal @back="closeMailingComposer">
+          <section class="admin-detail admin-client-modal admin-mailing-composer-modal">
             <form class="admin-crm-block admin-mailing-builder" @submit.prevent="handleCreateMailing">
               <div class="admin-panel-head admin-mailing-builder-head">
                 <div>
@@ -3386,13 +3526,11 @@ onUnmounted(() => {
                 </button>
               </div>
             </form>
-          </aside>
-        </div>
-      </Teleport>
+          </section>
+      </TaskScreen>
 
-      <Teleport to="body">
-        <div v-if="selectedMailing" class="admin-modal-backdrop" @click.self="closeMailingDetail">
-          <aside class="admin-detail admin-client-modal admin-mailing-detail-modal" role="dialog" aria-modal="true" aria-labelledby="admin-mailing-detail-title">
+      <TaskScreen v-if="selectedMailing" class="admin-task-screen" :title="selectedMailing.title" :subtitle="`${formatDateTime(selectedMailing.createdAt)} · ${mailingAuthorLabel(selectedMailing)}`" portal @back="closeMailingDetail">
+          <section class="admin-detail admin-client-modal admin-mailing-detail-modal">
             <header class="admin-client-modal-head">
               <div>
                 <p class="admin-overline">Рассылка</p>
@@ -3457,9 +3595,8 @@ onUnmounted(() => {
                 Тест себе
               </button>
             </div>
-          </aside>
-        </div>
-      </Teleport>
+          </section>
+      </TaskScreen>
     </section>
 
     <section v-else-if="activePanel === 'payments'" class="admin-panel">
@@ -3591,15 +3728,14 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <Teleport to="body">
-          <div v-if="showStorageFilesModal" class="admin-modal-backdrop" @click.self="showStorageFilesModal = false">
-            <aside class="admin-detail admin-client-modal admin-storage-modal" role="dialog" aria-modal="true" aria-labelledby="admin-storage-files-title">
+        <TaskScreen v-if="showStorageFilesModal" class="admin-task-screen" title="Обзор файлов" subtitle="Файлы S3 по папкам и связанным данным." portal @back="closeStorageFiles">
+            <section class="admin-detail admin-client-modal admin-storage-modal">
               <header class="admin-client-modal-head">
                 <div>
                   <h3 id="admin-storage-files-title">Обзор файлов</h3>
                   <p>Файлы S3 по папкам, источникам и связанным данным.</p>
                 </div>
-                <button class="icon-button" type="button" aria-label="Закрыть обзор файлов" @click="showStorageFilesModal = false">
+                <button class="icon-button" type="button" aria-label="Закрыть обзор файлов" @click="closeStorageFiles">
                   <X class="h-4 w-4" aria-hidden="true" />
                 </button>
               </header>
@@ -3638,19 +3774,17 @@ onUnmounted(() => {
               </section>
 
               <p v-else class="admin-empty">S3 не подключено. Откройте настройки S3 и заполните параметры бакета.</p>
-            </aside>
-          </div>
-        </Teleport>
+            </section>
+        </TaskScreen>
 
-        <Teleport to="body">
-          <div v-if="showStorageFolderModal && selectedStorageFolder" class="admin-modal-backdrop" @click.self="showStorageFolderModal = false">
-            <aside class="admin-detail admin-client-modal admin-storage-modal admin-storage-folder-modal" role="dialog" aria-modal="true" aria-labelledby="admin-storage-folder-title">
+        <TaskScreen v-if="showStorageFolderModal && selectedStorageFolder" class="admin-task-screen" :title="selectedStorageFolder.label" :subtitle="`${selectedStorageFolderObjects.length} файлов`" portal @back="closeStorageFolder">
+            <section class="admin-detail admin-client-modal admin-storage-modal admin-storage-folder-modal">
               <header class="admin-client-modal-head">
                 <div>
                   <h3 id="admin-storage-folder-title">{{ selectedStorageFolder.label }}</h3>
                   <p>{{ selectedStorageFolderObjects.length }} файлов · {{ formatStorageSize(selectedStorageFolderObjects.reduce((sum, item) => sum + item.sizeBytes, 0)) }}</p>
                 </div>
-                <button class="icon-button" type="button" aria-label="Закрыть папку" @click="showStorageFolderModal = false">
+                <button class="icon-button" type="button" aria-label="Закрыть папку" @click="closeStorageFolder">
                   <X class="h-4 w-4" aria-hidden="true" />
                 </button>
               </header>
@@ -3720,19 +3854,17 @@ onUnmounted(() => {
                   Загрузить ещё
                 </button>
               </div>
-            </aside>
-          </div>
-        </Teleport>
+            </section>
+        </TaskScreen>
 
-        <Teleport to="body">
-          <div v-if="showStorageSettingsModal" class="admin-modal-backdrop" @click.self="showStorageSettingsModal = false">
-            <aside class="admin-detail admin-client-modal admin-storage-modal" role="dialog" aria-modal="true" aria-labelledby="admin-storage-settings-title">
+        <TaskScreen v-if="showStorageSettingsModal" class="admin-task-screen" :title="selectedStorageSettingsTitle" subtitle="Меняйте только при переносе или подключении хранилища." portal @back="closeStorageSettings">
+            <section class="admin-detail admin-client-modal admin-storage-modal">
               <header class="admin-client-modal-head">
                 <div>
                   <h3 id="admin-storage-settings-title">{{ selectedStorageSettingsTitle }}</h3>
                   <p>Меняйте только если переносите или подключаете хранилище.</p>
                 </div>
-                <button class="icon-button" type="button" aria-label="Закрыть настройки S3" @click="showStorageSettingsModal = false">
+                <button class="icon-button" type="button" aria-label="Закрыть настройки S3" @click="closeStorageSettings">
                   <X class="h-4 w-4" aria-hidden="true" />
                 </button>
               </header>
@@ -3836,9 +3968,8 @@ onUnmounted(() => {
             Сохранить S3
           </button>
               </form>
-            </aside>
-          </div>
-        </Teleport>
+            </section>
+        </TaskScreen>
       </article>
     </section>
 
@@ -3984,9 +4115,8 @@ onUnmounted(() => {
         </button>
       </section>
 
-      <Teleport to="body">
-        <div v-if="showServerLogsModal" class="admin-modal-backdrop" @click.self="closeServerLogsModal">
-          <aside class="admin-detail admin-client-modal admin-server-logs-modal" role="dialog" aria-modal="true" aria-labelledby="admin-server-logs-title">
+      <TaskScreen v-if="showServerLogsModal" class="admin-task-screen" title="Логи сервера" :subtitle="serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : 'Ошибок пока нет'" portal @back="closeServerLogsModal">
+          <section class="admin-detail admin-client-modal admin-server-logs-modal">
             <header class="admin-client-modal-head">
               <div>
                 <h3 id="admin-server-logs-title">Логи сервера</h3>
@@ -4011,9 +4141,8 @@ onUnmounted(() => {
               </article>
               <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
             </div>
-          </aside>
-        </div>
-      </Teleport>
+          </section>
+      </TaskScreen>
     </section>
 
     <section v-else-if="activePanel === 'admins'" class="admin-panel admin-permissions-panel">
@@ -4071,9 +4200,8 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <Teleport to="body">
-        <div v-if="showTransferOwnerModal" class="admin-modal-backdrop" @click.self="closeTransferOwnerModal">
-          <aside class="admin-detail admin-client-modal" role="dialog" aria-modal="true" aria-labelledby="admin-owner-transfer-title">
+      <TaskScreen v-if="showTransferOwnerModal" class="admin-task-screen" title="Передать клуб" subtitle="Новый владелец получит полный доступ." portal @back="closeTransferOwnerModal">
+          <section class="admin-detail admin-client-modal">
             <header class="admin-client-modal-head">
               <div>
                 <h3 id="admin-owner-transfer-title">Передать клуб</h3>
@@ -4098,9 +4226,8 @@ onUnmounted(() => {
                 Подтвердить передачу
               </button>
             </form>
-          </aside>
-        </div>
-      </Teleport>
+          </section>
+      </TaskScreen>
 
       <p v-if="!isOwner" class="admin-empty">Добавлять и удалять админов может только владелец.</p>
 
@@ -4163,9 +4290,8 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <Teleport to="body">
-        <div v-if="selectedAdminAccessCurrent" class="admin-modal-backdrop" @click.self="closeAdminAccessModal">
-          <aside class="admin-detail admin-client-modal admin-permission-modal" role="dialog" aria-modal="true" aria-labelledby="admin-permission-modal-title">
+      <TaskScreen v-if="selectedAdminAccessCurrent" class="admin-task-screen" :title="adminTitle(selectedAdminAccessCurrent)" subtitle="Права и доступ администратора" portal @back="closeAdminAccessModal">
+          <section class="admin-detail admin-client-modal admin-permission-modal">
             <header class="admin-client-modal-head">
               <div class="admin-permission-identity">
                 <img v-if="selectedAdminAccessCurrent.photoUrl" :src="selectedAdminAccessCurrent.photoUrl" :alt="adminTitle(selectedAdminAccessCurrent)" />
@@ -4243,9 +4369,8 @@ onUnmounted(() => {
                 </button>
               </footer>
             </section>
-          </aside>
-        </div>
-      </Teleport>
+          </section>
+      </TaskScreen>
     </section>
   </section>
 </template>

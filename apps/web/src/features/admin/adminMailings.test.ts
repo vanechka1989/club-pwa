@@ -29,10 +29,12 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("stopAdminMailing");
   });
 
-  it("creates new mailings from a modal composer with HTML controls", () => {
+  it("creates new mailings from a routed task screen with HTML controls", () => {
     expect(adminSectionSource).toContain("showMailingComposer");
     expect(adminSectionSource).toContain("openMailingComposer");
-    expect(adminSectionSource).toContain("admin-mailing-composer-modal");
+    expect(adminSectionSource).toContain("admin-mailing-task-screen");
+    expect(adminSectionSource).toContain('openAdminTask("/admin/mailings/new")');
+    expect(adminSectionSource).not.toContain('aria-modal="true"');
     expect(adminSectionSource).toContain("Новая рассылка");
     expect(adminSectionSource).toContain("applyMailingEditorLink");
     expect(adminSectionSource).toContain("Ссылка");
@@ -51,9 +53,7 @@ describe("admin mailings panel", () => {
   });
 
   it("keeps composer submit buttons above the bottom edge", () => {
-    expect(stylesSource).toMatch(
-      /\.admin-mailing-composer-modal \.admin-mailing-builder\s*\{[^}]*padding:\s*var\(--screen-gutter\)\s+var\(--screen-gutter\)\s+max\(1\.35rem,\s*calc\(var\(--club-safe-bottom\) \+ 1rem\)\);/s
-    );
+    expect(stylesSource).toContain(".admin-mailing-task-screen .admin-mailing-builder");
     expect(stylesSource).toMatch(/\.admin-mailing-submit-row\s*\{[^}]*padding-bottom:\s*0\.25rem;/s);
   });
 

@@ -12986,6 +12986,26 @@ body.club-mobile-device .admin-panel-head {
   background: var(--bg);
 }
 
+.task-screen-route-layer {
+  position: fixed;
+  z-index: 170;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.task-screen-route-layer > .task-screen {
+  height: var(--club-visible-viewport-height, 100dvh);
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  body:not(.club-mobile-device) .task-screen-route-layer {
+    left: var(--desktop-sidebar-width);
+    padding: 1rem;
+  }
+}
+
 .task-screen-header {
   position: sticky;
   top: 0;
@@ -13155,4 +13175,76 @@ body.club-mobile-device .admin-panel-head {
   width: 100%;
   max-width: 52rem;
   margin: 0 auto;
+}
+
+.admin-task-screen .task-screen-body {
+  padding-bottom: max(1rem, var(--club-safe-bottom));
+}
+
+.admin-task-screen .admin-client-modal,
+.admin-task-screen .admin-payment-drilldown-modal,
+.admin-task-screen .admin-mailing-composer-modal,
+.admin-task-screen .admin-mailing-detail-modal,
+.admin-task-screen .admin-storage-modal,
+.admin-task-screen .admin-server-logs-modal,
+.admin-task-screen .admin-permission-modal {
+  position: static;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+  transform: none;
+}
+
+.admin-task-screen .admin-client-modal > .admin-client-modal-head:first-child,
+.admin-task-screen .admin-client-task-card > .admin-client-card-head:first-child,
+.admin-task-screen .admin-mailing-builder > .admin-mailing-builder-head:first-child {
+  display: none;
+}
+
+.admin-task-screen .admin-client-task-card,
+.admin-task-screen .admin-mailing-detail-modal,
+.admin-task-screen .admin-storage-modal,
+.admin-task-screen .admin-server-logs-modal,
+.admin-task-screen .admin-permission-modal {
+  display: grid;
+  gap: 0.85rem;
+  border-radius: var(--radius-xl);
+  padding: clamp(0.85rem, 3vw, 1.25rem);
+}
+
+.admin-mailing-task-screen .admin-mailing-composer-modal,
+.admin-mailing-task-screen .admin-mailing-builder {
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+
+.admin-mailing-task-screen .admin-mailing-builder-body {
+  min-height: 0;
+  overflow: visible;
+}
+
+.admin-mailing-task-screen .admin-mailing-builder-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding-bottom: max(0.75rem, var(--club-safe-bottom));
+}
+
+.admin-client-message-inline {
+  position: static;
+  width: 100%;
+  max-width: none;
+  margin-top: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  padding: 0.85rem;
+  box-shadow: var(--shadow-soft);
 }

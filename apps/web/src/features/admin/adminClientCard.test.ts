@@ -44,29 +44,25 @@ describe("admin client card helpers", () => {
     expect(source).not.toContain("+90 дней");
   });
 
-  it("opens a support-style message modal from the client card", () => {
+  it("opens a support-style inline message form inside the client task screen", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const apiSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
     expect(source).toContain("admin-message-client-button");
-    expect(source).toContain("admin-client-message-modal");
+    expect(source).toContain("admin-client-message-inline");
     expect(source).toContain("Paperclip");
     expect(source).toContain("admin-client-file-button");
     expect(source).toContain("createAdminClientSupportTicket");
     expect(apiSource).toContain("/support/admin/users/${telegramId}/tickets");
-    expect(styles).toContain("body.club-keyboard-open .admin-client-message-layer");
-    expect(styles).toContain("body.club-keyboard-open .admin-client-message-modal");
-    expect(styles).toContain("body.club-keyboard-open .admin-client-message-row textarea");
-    expect(styles).toContain("body.club-keyboard-open .admin-client-file-button");
+    expect(styles).toContain(".admin-client-message-inline");
   });
 
-  it("keeps the client card scrollable above the phone bottom controls", () => {
+  it("keeps the client task screen scrollable above the phone bottom controls", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(
-      /\.admin-client-modal\s*\{[^}]*padding-bottom:\s*max\(1\.35rem,\s*calc\(var\(--club-safe-bottom\) \+ 1rem\)\);/s
-    );
+    expect(styles).toContain(".admin-task-screen .admin-client-modal");
+    expect(styles).toContain("padding-bottom: max(1rem, var(--club-safe-bottom))");
   });
 
   it("shows clear labels for manual access changes", () => {

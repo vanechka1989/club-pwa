@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { isTaskPath, sectionFromPath, sectionPath, taskRoutePaths } from "./taskNavigation";
 
 describe("task navigation", () => {
@@ -37,5 +39,13 @@ describe("task navigation", () => {
     expect(isTaskPath("/profile")).toBe(false);
     expect(isTaskPath("/support")).toBe(false);
     expect(isTaskPath("/admin")).toBe(false);
+  });
+
+  it("can render a routed task as a full app surface without dialog semantics", () => {
+    const source = readFileSync(resolve(__dirname, "TaskScreen.vue"), "utf8");
+    expect(source).toContain("portal?: boolean");
+    expect(source).toContain("task-screen-route-layer");
+    expect(source).not.toContain('role="dialog"');
+    expect(source).not.toContain('aria-modal="true"');
   });
 });
