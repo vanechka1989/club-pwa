@@ -726,6 +726,8 @@ test("keeps design theme independent from day and night mode", async ({ page }) 
   await expect
     .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()))
     .toBe("#eef3f9");
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundImage)).toContain("100% 0%");
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundImage)).not.toContain("124, 58, 237");
 
   await nightButton.click();
   await expect(root).toHaveAttribute("data-design-theme", "graphite-electric-blue");

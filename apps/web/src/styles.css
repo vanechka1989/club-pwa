@@ -11237,7 +11237,8 @@ body.club-ios .chat-input-row .text-input {
   background: var(--accent);
 }
 
-:root[data-design-theme="graphite-electric-blue"] body {
+:root[data-design-theme="graphite-electric-blue"][data-theme="dark"] body,
+:root[data-design-theme="graphite-electric-blue"][data-theme="light"] body {
   background:
     radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 28rem),
     var(--bg);
