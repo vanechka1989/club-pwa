@@ -7,6 +7,7 @@ describe("ui store", () => {
     localStorage.clear();
     document.documentElement.removeAttribute("data-theme");
     document.documentElement.removeAttribute("data-scheme");
+    document.documentElement.removeAttribute("data-design-theme");
     document.documentElement.removeAttribute("data-visual-scale");
     document.documentElement.style.removeProperty("--club-user-visual-scale");
     document.documentElement.style.removeProperty("--club-user-font-root");
@@ -20,10 +21,52 @@ describe("ui store", () => {
 
     expect(ui.theme).toBe("dark");
     expect(ui.colorScheme).toBe("midnight");
+    expect(ui.designTheme).toBe("dark-soft-touch");
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement.dataset.scheme).toBe("midnight");
+    expect(document.documentElement.dataset.designTheme).toBe("dark-soft-touch");
     expect(document.documentElement.style.colorScheme).toBe("dark");
-    expect(localStorage.getItem("club-appearance-version")).toBe("5");
+    expect(localStorage.getItem("club-appearance-version")).toBe("6");
+  });
+
+  it("switches design themes independently from day and night mode", () => {
+    const ui = useUiStore();
+
+    ui.setTheme("light");
+    ui.setDesignTheme("graphite-electric-blue");
+
+    expect(ui.theme).toBe("light");
+    expect(ui.designTheme).toBe("graphite-electric-blue");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.designTheme).toBe("graphite-electric-blue");
+    expect(localStorage.getItem("club-theme")).toBe("light");
+    expect(localStorage.getItem("club-design-theme")).toBe("graphite-electric-blue");
+
+    ui.setTheme("dark");
+
+    expect(ui.designTheme).toBe("graphite-electric-blue");
+    expect(document.documentElement.dataset.designTheme).toBe("graphite-electric-blue");
+  });
+
+  it("restores a saved Graphite design theme without changing the saved mode", () => {
+    localStorage.setItem("club-theme", "light");
+    localStorage.setItem("club-design-theme", "graphite-electric-blue");
+
+    const ui = useUiStore();
+
+    expect(ui.theme).toBe("light");
+    expect(ui.designTheme).toBe("graphite-electric-blue");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.designTheme).toBe("graphite-electric-blue");
+  });
+
+  it("falls back to Dark Soft Touch for an unknown saved design theme", () => {
+    localStorage.setItem("club-design-theme", "legacy-blue");
+
+    const ui = useUiStore();
+
+    expect(ui.designTheme).toBe("dark-soft-touch");
+    expect(localStorage.getItem("club-design-theme")).toBe("dark-soft-touch");
   });
 
   it("switches the browser controls between day and night themes", () => {
@@ -52,7 +95,7 @@ describe("ui store", () => {
     expect(ui.colorScheme).toBe("midnight");
     expect(document.documentElement.dataset.scheme).toBe("midnight");
     expect(localStorage.getItem("club-color-scheme")).toBe("midnight");
-    expect(localStorage.getItem("club-appearance-version")).toBe("5");
+    expect(localStorage.getItem("club-appearance-version")).toBe("6");
   });
 
   it("persists visual scale as a numeric root variable for adaptive UI density", () => {

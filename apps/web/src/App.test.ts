@@ -639,10 +639,15 @@ describe("App", () => {
     expect(styles).toContain("body.club-mobile-device .bottom-nav");
   });
 
-  it("keeps profile appearance to day and night only", () => {
+  it("keeps day and night separate from the two design themes", () => {
     const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
 
     expect(profileSource).toContain("themeOptions");
+    expect(profileSource).toContain("designThemeOptions");
+    expect(profileSource).toContain("ui.designTheme === option.value");
+    expect(profileSource).toContain("ui.setDesignTheme(option.value)");
+    expect(profileSource).toContain("design-theme-choice-grid");
+    expect(profileSource).toContain("design-theme-choice-active");
     expect(profileSource).not.toContain("colorOptions");
     expect(profileSource).not.toContain("scheme-grid");
     expect(profileSource).not.toContain("scheme-choice");

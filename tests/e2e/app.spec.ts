@@ -705,6 +705,42 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
   }
 });
 
+test("keeps design theme independent from day and night mode", async ({ page }) => {
+  const root = page.locator("html");
+  const dayButton = page.getByRole("button", { name: "День", exact: true });
+  const nightButton = page.getByRole("button", { name: "Ночь", exact: true });
+  const softTouchButton = page.getByRole("button", { name: /Dark Soft Touch Premium/ });
+  const graphiteButton = page.getByRole("button", { name: /Graphite \+ Electric Blue/ });
+
+  await softTouchButton.scrollIntoViewIfNeeded();
+  await expect(root).toHaveAttribute("data-design-theme", "dark-soft-touch");
+  await expect(root).toHaveAttribute("data-theme", "dark");
+
+  await dayButton.click();
+  await expect(root).toHaveAttribute("data-design-theme", "dark-soft-touch");
+  await expect(root).toHaveAttribute("data-theme", "light");
+
+  await graphiteButton.click();
+  await expect(root).toHaveAttribute("data-design-theme", "graphite-electric-blue");
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()))
+    .toBe("#eef3f9");
+
+  await nightButton.click();
+  await expect(root).toHaveAttribute("data-design-theme", "graphite-electric-blue");
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await expect
+    .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()))
+    .toBe("#070b12");
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
+  await expect(root).toHaveAttribute("data-design-theme", "graphite-electric-blue");
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await expectNoHorizontalOverflow(page);
+});
+
 test("stacks payment tariff cards into readable mobile rows", async ({ page }, testInfo) => {
   const paymentNavigation = page.locator('.bottom-nav-item[aria-label="Оплата"], .desktop-sidebar-item[aria-label="Оплата"]');
   await expect(paymentNavigation).toHaveCount(1);

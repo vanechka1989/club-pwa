@@ -31,4 +31,16 @@ describe("Dark Soft Touch Premium design system", () => {
     expect(styles).toContain(".support-task-screen .support-reply-actions");
     expect(styles).toContain("overflow-x: hidden");
   });
+
+  it("adds Graphite and Electric Blue as an independent day and night token layer", () => {
+    expect(styles).toContain('Graphite + Electric Blue design theme');
+    expect(styles).toMatch(
+      /:root\[data-design-theme="graphite-electric-blue"\]\[data-theme="dark"\]\s*\{[\s\S]*--ds-bg: #070b12;[\s\S]*--ds-surface: #111a28;[\s\S]*--ds-primary: #3b82f6;[\s\S]*--ds-primary-2: #7c3aed;/
+    );
+    expect(styles).toMatch(
+      /:root\[data-design-theme="graphite-electric-blue"\]\[data-theme="light"\]\s*\{[\s\S]*--ds-bg: #eef3f9;[\s\S]*--ds-surface: #f5f8fc;[\s\S]*--ds-primary: #2563eb;[\s\S]*--ds-primary-2: #6d28d9;/
+    );
+    expect(styles).toContain(':root[data-design-theme="graphite-electric-blue"] .design-theme-choice-active');
+    expect(styles).toContain('--theme-preview-graphite-accent: #3b82f6;');
+  });
 });

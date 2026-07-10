@@ -38,7 +38,7 @@ import {
   getReferralRewardText
 } from "@/features/profile/profileSubscriptionCopy";
 import { useSessionStore } from "@/stores/session";
-import { useUiStore, type Theme } from "@/stores/ui";
+import { useUiStore, type DesignTheme, type Theme } from "@/stores/ui";
 
 defineEmits<{
   openPayments: [];
@@ -242,6 +242,22 @@ const isStatsEmpty = computed(() => completedItems.value === 0 && !lastOpenedTit
 const themeOptions = computed<Array<{ value: Theme; label: string; icon: typeof Moon }>>(() => [
   { value: "dark", label: t("profileThemeNight"), icon: Moon },
   { value: "light", label: t("profileThemeDay"), icon: Sun }
+]);
+const designThemeOptions = computed<
+  Array<{ value: DesignTheme; label: string; description: string; previewClass: string }>
+>(() => [
+  {
+    value: "dark-soft-touch",
+    label: t("profileDesignThemeSoftTouch"),
+    description: t("profileDesignThemeSoftTouchText"),
+    previewClass: "design-theme-preview-soft-touch"
+  },
+  {
+    value: "graphite-electric-blue",
+    label: t("profileDesignThemeGraphite"),
+    description: t("profileDesignThemeGraphiteText"),
+    previewClass: "design-theme-preview-graphite"
+  }
 ]);
 const visualScaleMin = 1;
 const visualScaleMax = 2;
@@ -800,7 +816,9 @@ watch(
         <Palette class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
       </div>
 
-      <div class="theme-choice-row mt-3">
+      <div class="appearance-setting-group mt-3">
+        <span class="appearance-setting-label">{{ t("profileAppearanceMode") }}</span>
+        <div class="theme-choice-row">
         <button
           v-for="option in themeOptions"
           :key="option.value"
@@ -812,6 +830,33 @@ watch(
           <component :is="option.icon" class="h-4 w-4" aria-hidden="true" />
           <span>{{ option.label }}</span>
         </button>
+        </div>
+      </div>
+
+      <div class="appearance-setting-group mt-3">
+        <span class="appearance-setting-label">{{ t("profileAppearanceThemes") }}</span>
+        <div class="design-theme-choice-grid">
+          <button
+            v-for="option in designThemeOptions"
+            :key="option.value"
+            class="design-theme-choice"
+            :class="{ 'design-theme-choice-active': ui.designTheme === option.value }"
+            type="button"
+            :aria-pressed="ui.designTheme === option.value"
+            @click="ui.setDesignTheme(option.value)"
+          >
+            <span class="design-theme-preview" :class="option.previewClass" aria-hidden="true">
+              <i></i><i></i><i></i><i></i>
+            </span>
+            <span class="design-theme-copy">
+              <strong>{{ option.label }}</strong>
+              <small>{{ option.description }}</small>
+            </span>
+            <span class="design-theme-check" aria-hidden="true">
+              <Check v-if="ui.designTheme === option.value" class="h-4 w-4" />
+            </span>
+          </button>
+        </div>
       </div>
 
       <div class="visual-scale-control mt-3">

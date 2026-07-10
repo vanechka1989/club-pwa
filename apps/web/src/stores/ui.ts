@@ -2,12 +2,13 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export type Theme = "dark" | "light";
+export type DesignTheme = "dark-soft-touch" | "graphite-electric-blue";
 export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azure" | "coffee";
 export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 const visualScaleStorageVersion = "3";
-const appearanceStorageVersion = "5";
+const appearanceStorageVersion = "6";
 
 function clampVisualScale(value: number | string | null) {
   const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
@@ -18,6 +19,10 @@ function clampVisualScale(value: number | string | null) {
 export const useUiStore = defineStore("ui", () => {
   const savedTheme = localStorage.getItem("club-theme");
   const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
+  const savedDesignTheme = localStorage.getItem("club-design-theme");
+  const designTheme = ref<DesignTheme>(
+    savedDesignTheme === "graphite-electric-blue" ? "graphite-electric-blue" : "dark-soft-touch"
+  );
   const colorScheme = ref<ColorScheme>("midnight");
   const savedPreviewMode = localStorage.getItem("club-preview-mode");
   const previewMode = ref<PreviewMode>(
@@ -38,6 +43,7 @@ export const useUiStore = defineStore("ui", () => {
   function applyTheme() {
     const visualScaleText = visualScale.value.toFixed(1);
     document.documentElement.dataset.theme = theme.value;
+    document.documentElement.dataset.designTheme = designTheme.value;
     document.documentElement.dataset.scheme = colorScheme.value;
     document.documentElement.dataset.visualScale = visualScaleText;
     document.documentElement.style.setProperty("--club-user-visual-scale", visualScaleText);
@@ -49,6 +55,13 @@ export const useUiStore = defineStore("ui", () => {
   function setTheme(nextTheme: Theme) {
     theme.value = nextTheme;
     localStorage.setItem("club-theme", nextTheme);
+    localStorage.setItem("club-appearance-version", appearanceStorageVersion);
+    applyTheme();
+  }
+
+  function setDesignTheme(nextDesignTheme: DesignTheme) {
+    designTheme.value = nextDesignTheme;
+    localStorage.setItem("club-design-theme", nextDesignTheme);
     localStorage.setItem("club-appearance-version", appearanceStorageVersion);
     applyTheme();
   }
@@ -79,8 +92,20 @@ export const useUiStore = defineStore("ui", () => {
   applyTheme();
 
   localStorage.setItem("club-theme", theme.value);
+  localStorage.setItem("club-design-theme", designTheme.value);
   localStorage.setItem("club-color-scheme", colorScheme.value);
   localStorage.setItem("club-appearance-version", appearanceStorageVersion);
 
-  return { theme, colorScheme, visualScale, previewMode, setTheme, setColorScheme, setVisualScale, setPreviewMode };
+  return {
+    theme,
+    designTheme,
+    colorScheme,
+    visualScale,
+    previewMode,
+    setTheme,
+    setDesignTheme,
+    setColorScheme,
+    setVisualScale,
+    setPreviewMode
+  };
 });
