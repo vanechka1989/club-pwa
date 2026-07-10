@@ -56,6 +56,16 @@ let appNotificationTimer: number | null = null;
 let deviceDiagnosticsTimer: number | null = null;
 let keyboardFocusTimer: number | null = null;
 let isAppMounted = false;
+const modalPageGestureSurfaceSelector = [
+  ".admin-modal-backdrop",
+  ".payment-modal-backdrop",
+  ".support-modal-backdrop",
+  ".profile-modal-backdrop",
+  ".notification-center-backdrop",
+  ".push-permission-layer"
+].join(", ");
+const modalPageGestureAllowedSelector = ".profile-avatar-gesture-stage";
+const modalPageGestureListenerOptions = { capture: true, passive: false } as const;
 
 function formatUploadBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -150,6 +160,31 @@ function syncCommunityLock(isLocked: boolean) {
   if (isLocked) {
     window.scrollTo({ top: 0, left: 0 });
   }
+}
+
+function shouldPreventModalPageGesture(event: Event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target?.closest(modalPageGestureSurfaceSelector)) {
+    return false;
+  }
+
+  return !target.closest(modalPageGestureAllowedSelector);
+}
+
+function preventModalPagePinch(event: TouchEvent) {
+  if (event.touches.length < 2 || !shouldPreventModalPageGesture(event)) {
+    return;
+  }
+
+  event.preventDefault();
+}
+
+function preventModalWebKitGesture(event: Event) {
+  if (!shouldPreventModalPageGesture(event)) {
+    return;
+  }
+
+  event.preventDefault();
 }
 
 function resetWindowScroll() {
@@ -496,6 +531,9 @@ onMounted(() => {
   window.visualViewport?.addEventListener("resize", syncViewportHeight);
   window.visualViewport?.addEventListener("scroll", syncViewportHeight);
   window.addEventListener("resize", syncViewportHeight);
+  window.addEventListener("touchmove", preventModalPagePinch, modalPageGestureListenerOptions);
+  window.addEventListener("gesturestart", preventModalWebKitGesture, modalPageGestureListenerOptions);
+  window.addEventListener("gesturechange", preventModalWebKitGesture, modalPageGestureListenerOptions);
   document.addEventListener("focusin", handleTextFieldFocusIn);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   startPaymentWatchPolling();
@@ -570,6 +608,9 @@ onBeforeUnmount(() => {
   window.visualViewport?.removeEventListener("resize", syncViewportHeight);
   window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
   window.removeEventListener("resize", syncViewportHeight);
+  window.removeEventListener("touchmove", preventModalPagePinch, true);
+  window.removeEventListener("gesturestart", preventModalWebKitGesture, true);
+  window.removeEventListener("gesturechange", preventModalWebKitGesture, true);
   document.removeEventListener("focusin", handleTextFieldFocusIn);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   if (removeDesktopLayoutListener) {

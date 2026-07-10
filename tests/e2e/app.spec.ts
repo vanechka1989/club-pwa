@@ -442,6 +442,18 @@ async function expectMobileModalFitsViewport(page: Page, testInfo: TestInfo, fix
   expect(modalBox.x, fixture.modalClass).toBeGreaterThanOrEqual(0);
   expect(modalBox.width, fixture.modalClass).toBeGreaterThanOrEqual(minWidth);
   expect(modalBox.x + modalBox.width, fixture.modalClass).toBeLessThanOrEqual(viewportSize.width + 1);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const backdrop = document.getElementById("modal-fixture");
+        const modal = document.querySelector<HTMLElement>("[data-modal-fixture-panel]");
+        return {
+          backdropTouchAction: backdrop ? getComputedStyle(backdrop).touchAction : "",
+          modalTouchAction: modal ? getComputedStyle(modal).touchAction : ""
+        };
+      })
+    )
+    .toEqual({ backdropTouchAction: "pan-y", modalTouchAction: "pan-y" });
   await expectNoHorizontalOverflow(page);
 }
 

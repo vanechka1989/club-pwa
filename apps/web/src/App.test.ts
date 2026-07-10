@@ -587,6 +587,9 @@ describe("App", () => {
   it("prevents signed-in mobile PWA content from stretching under page gestures", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
+    expect(appSource).toContain("preventModalPagePinch");
+    expect(appSource).toContain("event.touches.length < 2");
+    expect(appSource).toContain(".profile-avatar-gesture-stage");
     expect(styles).toMatch(
       /body\.club-mobile-device \.app-root:not\(\.app-root-no-user\)\s*\{[\s\S]*max-width: 100vw;[\s\S]*overflow-x: hidden;[\s\S]*touch-action: pan-y;/
     );
@@ -667,7 +670,13 @@ describe("App", () => {
       /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop\s*\{[\s\S]*align-items: center;[\s\S]*justify-content: center;[\s\S]*overflow: hidden;/
     );
     expect(mobileGuard).toMatch(
+      /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop\s*\{[\s\S]*touch-action: pan-y;/
+    );
+    expect(mobileGuard).toMatch(
       /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*width: min\(100%, var\(--club-mobile-modal-max-width\)\);[\s\S]*max-width: min\(100%, var\(--club-mobile-modal-max-width\)\);[\s\S]*overflow-x: hidden;/
+    );
+    expect(mobileGuard).toMatch(
+      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*touch-action: pan-y;/
     );
     expect(mobileGuard).toContain("--club-mobile-modal-inline-gutter");
     expect(mobileGuard).toContain("--club-mobile-modal-max-width");

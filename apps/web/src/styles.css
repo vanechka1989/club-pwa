@@ -11455,6 +11455,7 @@ body.club-mobile-device .notification-center-backdrop {
   align-items: center;
   justify-content: center;
   justify-items: center;
+  touch-action: pan-y;
   padding:
     max(12px, var(--club-safe-top))
     max(var(--club-mobile-modal-inline-gutter), var(--club-safe-right))
@@ -11468,6 +11469,7 @@ body.club-mobile-device .push-permission-layer {
   align-items: center;
   justify-content: center;
   justify-items: stretch;
+  touch-action: pan-y;
   padding:
     max(12px, var(--club-safe-top))
     max(var(--club-mobile-modal-inline-gutter), var(--club-safe-right))
@@ -11508,6 +11510,7 @@ body.club-mobile-device .admin-client-message-modal {
   justify-self: center;
   overflow-x: hidden;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   border-radius: 24px;
 }
 
