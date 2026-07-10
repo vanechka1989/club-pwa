@@ -12594,3 +12594,151 @@ textarea::placeholder {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Final mobile modal guard: keep this after every visual layer so local modal widths cannot win. */
+body.club-mobile-device {
+  --club-mobile-modal-inline-gutter: clamp(0.75rem, 3.8vw, 1.1rem);
+  --club-mobile-modal-block-gutter: clamp(0.72rem, 2.6vh, 1rem);
+  --club-mobile-modal-width: calc(100vw - (var(--club-mobile-modal-inline-gutter) * 2));
+  --club-mobile-modal-height: calc(
+    var(--club-visible-viewport-height, 100dvh) -
+      max(var(--club-mobile-modal-block-gutter), var(--club-modal-top-offset)) -
+      max(var(--club-mobile-modal-block-gutter), var(--club-modal-bottom-offset))
+  );
+}
+
+body.club-mobile-device .admin-modal-backdrop,
+body.club-mobile-device .payment-modal-backdrop,
+body.club-mobile-device .support-modal-backdrop,
+body.club-mobile-device .profile-modal-backdrop,
+body.club-mobile-device .notification-center-backdrop,
+body.club-mobile-device .support-confirm-backdrop,
+body.club-mobile-device .payment-confirm-backdrop,
+body.club-mobile-device .push-permission-layer {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  padding:
+    max(var(--club-mobile-modal-block-gutter), var(--club-modal-top-offset))
+    max(var(--club-mobile-modal-inline-gutter), var(--club-safe-right))
+    max(var(--club-mobile-modal-block-gutter), var(--club-modal-bottom-offset))
+    max(var(--club-mobile-modal-inline-gutter), var(--club-safe-left));
+  overflow: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+body.club-mobile-device .admin-client-modal,
+body.club-mobile-device .payment-form-modal,
+body.club-mobile-device .support-ticket-modal,
+body.club-mobile-device .lesson-preview-modal,
+body.club-mobile-device .module-name-modal,
+body.club-mobile-device .profile-avatar-editor-modal,
+body.club-mobile-device .profile-logout-confirm,
+body.club-mobile-device .notification-center-panel,
+body.club-mobile-device .release-notes-modal,
+body.club-mobile-device .admin-mailing-composer-modal,
+body.club-mobile-device .admin-mailing-detail-modal,
+body.club-mobile-device .admin-storage-modal,
+body.club-mobile-device .admin-storage-folder-modal,
+body.club-mobile-device .admin-payment-drilldown-modal,
+body.club-mobile-device .admin-server-logs-modal,
+body.club-mobile-device .admin-permission-modal,
+body.club-mobile-device .payment-confirm-card,
+body.club-mobile-device .push-permission-card,
+body.club-mobile-device .admin-client-message-modal,
+body.club-mobile-device .support-confirm-card {
+  box-sizing: border-box;
+  width: var(--club-mobile-modal-width);
+  max-width: min(40rem, var(--club-mobile-modal-width));
+  height: var(--club-mobile-modal-height);
+  max-height: var(--club-mobile-modal-height);
+  min-width: 0;
+  align-self: center;
+  justify-self: center;
+  overflow: hidden;
+  border-radius: clamp(22px, 5vw, 32px);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+body.club-mobile-device .admin-client-modal,
+body.club-mobile-device .payment-form-modal,
+body.club-mobile-device .support-ticket-modal,
+body.club-mobile-device .lesson-preview-modal,
+body.club-mobile-device .module-name-modal,
+body.club-mobile-device .profile-avatar-editor-modal,
+body.club-mobile-device .profile-logout-confirm,
+body.club-mobile-device .notification-center-panel,
+body.club-mobile-device .release-notes-modal,
+body.club-mobile-device .admin-mailing-composer-modal,
+body.club-mobile-device .admin-mailing-detail-modal,
+body.club-mobile-device .admin-storage-modal,
+body.club-mobile-device .admin-storage-folder-modal,
+body.club-mobile-device .admin-payment-drilldown-modal,
+body.club-mobile-device .admin-server-logs-modal,
+body.club-mobile-device .admin-permission-modal,
+body.club-mobile-device .admin-client-message-modal,
+body.club-mobile-device .support-confirm-card {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.club-mobile-device :is(
+  .admin-client-modal,
+  .payment-form-modal,
+  .support-ticket-modal,
+  .lesson-preview-modal,
+  .module-name-modal,
+  .profile-avatar-editor-modal,
+  .profile-logout-confirm,
+  .notification-center-panel,
+  .release-notes-modal,
+  .admin-mailing-composer-modal,
+  .admin-mailing-detail-modal,
+  .admin-storage-modal,
+  .admin-storage-folder-modal,
+  .admin-payment-drilldown-modal,
+  .admin-server-logs-modal,
+  .admin-permission-modal,
+  .payment-confirm-card,
+  .push-permission-card,
+  .admin-client-message-modal,
+  .support-confirm-card
+) * {
+  min-width: 0;
+}
+
+body.club-mobile-device .notification-center-head,
+body.club-mobile-device .support-modal-head,
+body.club-mobile-device .admin-client-modal-head,
+body.club-mobile-device .profile-modal-head {
+  flex-wrap: wrap;
+}
+
+body.club-mobile-device .notification-center-actions,
+body.club-mobile-device .push-permission-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  align-items: stretch;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+body.club-mobile-device .notification-center-clear,
+body.club-mobile-device .push-permission-enable,
+body.club-mobile-device .push-permission-later,
+body.club-mobile-device .profile-modal-close,
+body.club-mobile-device .support-modal-close,
+body.club-mobile-device .push-permission-close {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+body.club-mobile-device .admin-client-modal .admin-client-summary,
+body.club-mobile-device .admin-client-modal .admin-client-profile-grid,
+body.club-mobile-device .admin-client-modal .admin-client-card-head,
+body.club-mobile-device .admin-client-modal .admin-compact-date-row {
+  grid-template-columns: minmax(0, 1fr);
+}

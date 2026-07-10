@@ -653,10 +653,14 @@ describe("App", () => {
 
   it("uses roomy full-screen mobile modal shells with safe-area gutters", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const finalMobileGuard = styles.slice(styles.lastIndexOf("Final mobile modal guard"));
 
     expect(styles).toMatch(
-      /body\.club-mobile-device \.admin-client-modal,\s*body\.club-mobile-device \.payment-form-modal,\s*body\.club-mobile-device \.support-ticket-modal,\s*body\.club-mobile-device \.lesson-preview-modal,\s*body\.club-mobile-device \.module-name-modal,\s*body\.club-mobile-device \.profile-avatar-editor-modal,\s*body\.club-mobile-device \.profile-logout-confirm,\s*body\.club-mobile-device \.notification-center-panel,\s*body\.club-mobile-device \.release-notes-modal,\s*body\.club-mobile-device \.admin-mailing-composer-modal,\s*body\.club-mobile-device \.admin-mailing-detail-modal,\s*body\.club-mobile-device \.admin-storage-modal,\s*body\.club-mobile-device \.admin-storage-folder-modal,\s*body\.club-mobile-device \.admin-payment-drilldown-modal,\s*body\.club-mobile-device \.admin-server-logs-modal,\s*body\.club-mobile-device \.admin-permission-modal,\s*body\.club-mobile-device \.payment-confirm-card,\s*body\.club-mobile-device \.push-permission-card,\s*body\.club-mobile-device \.admin-client-message-modal\s*{[\s\S]*width: min\(100%, 36rem\);[\s\S]*max-height: calc\(var\(--club-visible-viewport-height, 100dvh\) - max\(1\.6rem, var\(--club-modal-top-offset\)\) - max\(1\.2rem, var\(--club-modal-bottom-offset\)\)\);[\s\S]*border-radius: 30px;/
+      /body\.club-mobile-device \.admin-client-modal,\s*body\.club-mobile-device \.payment-form-modal,\s*body\.club-mobile-device \.support-ticket-modal,\s*body\.club-mobile-device \.lesson-preview-modal,\s*body\.club-mobile-device \.module-name-modal,\s*body\.club-mobile-device \.profile-avatar-editor-modal,\s*body\.club-mobile-device \.profile-logout-confirm,\s*body\.club-mobile-device \.notification-center-panel,\s*body\.club-mobile-device \.release-notes-modal,\s*body\.club-mobile-device \.admin-mailing-composer-modal,\s*body\.club-mobile-device \.admin-mailing-detail-modal,\s*body\.club-mobile-device \.admin-storage-modal,\s*body\.club-mobile-device \.admin-storage-folder-modal,\s*body\.club-mobile-device \.admin-payment-drilldown-modal,\s*body\.club-mobile-device \.admin-server-logs-modal,\s*body\.club-mobile-device \.admin-permission-modal,\s*body\.club-mobile-device \.payment-confirm-card,\s*body\.club-mobile-device \.push-permission-card,\s*body\.club-mobile-device \.admin-client-message-modal,\s*body\.club-mobile-device \.support-confirm-card\s*{[\s\S]*width: var\(--club-mobile-modal-width\);[\s\S]*height: var\(--club-mobile-modal-height\);[\s\S]*border-radius: clamp\(22px, 5vw, 32px\);/
     );
+    expect(finalMobileGuard).toContain("--club-mobile-modal-width: calc(100vw - (var(--club-mobile-modal-inline-gutter) * 2));");
+    expect(finalMobileGuard).toContain("--club-mobile-modal-height: calc(");
+    expect(finalMobileGuard).toContain("max-height: var(--club-mobile-modal-height);");
   });
 
   it("uses compact polished density for wide mobile PWA app surfaces", () => {
@@ -688,31 +692,36 @@ describe("App", () => {
       styles.lastIndexOf(".admin-modal-backdrop {\r\n    align-items: stretch;"),
       styles.lastIndexOf(".admin-modal-backdrop {\n    align-items: stretch;")
     );
+    const lateSoftTouchLayer = styles.lastIndexOf("Matte Soft Touch redesign");
+    const lateNotificationWidth = styles.lastIndexOf(".notification-center-panel {\n  width: min(30rem, 100%);");
     const mobileGuardRule = styles.lastIndexOf("Final mobile modal guard");
 
     expect(mobileGuardRule).toBeGreaterThan(genericFullscreenRule);
+    expect(mobileGuardRule).toBeGreaterThan(lateSoftTouchLayer);
+    expect(mobileGuardRule).toBeGreaterThan(lateNotificationWidth);
     const mobileGuard = styles.slice(mobileGuardRule);
 
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop\s*\{[\s\S]*align-items: center;[\s\S]*justify-content: center;[\s\S]*overflow: hidden;/
+      /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop,\s*body\.club-mobile-device \.support-confirm-backdrop,\s*body\.club-mobile-device \.payment-confirm-backdrop,\s*body\.club-mobile-device \.push-permission-layer\s*\{[\s\S]*align-items: center;[\s\S]*justify-content: center;[\s\S]*overflow: hidden;/
     );
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop\s*\{[\s\S]*touch-action: pan-y;/
+      /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop,\s*body\.club-mobile-device \.support-confirm-backdrop,\s*body\.club-mobile-device \.payment-confirm-backdrop,\s*body\.club-mobile-device \.push-permission-layer\s*\{[\s\S]*touch-action: pan-y;/
     );
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*width: min\(100%, 36rem\);[\s\S]*max-width: min\(100%, var\(--club-mobile-modal-max-width\)\);[\s\S]*overflow-x: hidden;/
+      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal,[\s\S]*body\.club-mobile-device \.support-confirm-card\s*\{[\s\S]*width: var\(--club-mobile-modal-width\);[\s\S]*max-width: min\(40rem, var\(--club-mobile-modal-width\)\);[\s\S]*overflow: hidden;/
     );
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*touch-action: pan-y;/
+      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal,[\s\S]*body\.club-mobile-device \.support-confirm-card\s*\{[\s\S]*touch-action: pan-y;/
     );
     expect(mobileGuard).toContain("--club-mobile-modal-inline-gutter");
-    expect(mobileGuard).toContain("--club-mobile-modal-max-width");
+    expect(mobileGuard).toContain("--club-mobile-modal-width");
+    expect(mobileGuard).toContain("--club-mobile-modal-height");
     expect(mobileGuard).not.toContain("760px");
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device :is\(\s*\.admin-client-modal,[\s\S]*\.admin-client-message-modal\s*\) \*\s*\{[\s\S]*min-width: 0;/
+      /body\.club-mobile-device :is\(\s*\.admin-client-modal,[\s\S]*\.support-confirm-card\s*\) \*\s*\{[\s\S]*min-width: 0;/
     );
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device \.admin-access-toggle,\s*body\.club-mobile-device \.admin-compact-date-row,\s*body\.club-mobile-device \.notification-center-actions,\s*body\.club-mobile-device \.push-permission-actions\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/
+      /body\.club-mobile-device \.notification-center-actions,\s*body\.club-mobile-device \.push-permission-actions\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) 44px;/
     );
     expect(mobileGuard).toMatch(
       /body\.club-mobile-device \.admin-client-modal \.admin-client-summary,\s*body\.club-mobile-device \.admin-client-modal \.admin-client-profile-grid,\s*body\.club-mobile-device \.admin-client-modal \.admin-client-card-head,\s*body\.club-mobile-device \.admin-client-modal \.admin-compact-date-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\);/
