@@ -7,6 +7,7 @@ export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 const visualScaleStorageVersion = "3";
+const appearanceStorageVersion = "4";
 
 function clampVisualScale(value: number | string | null) {
   const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
@@ -15,17 +16,19 @@ function clampVisualScale(value: number | string | null) {
 }
 
 export const useUiStore = defineStore("ui", () => {
-  const savedTheme = localStorage.getItem("club-theme");
-  const theme = ref<Theme>(savedTheme === "dark" ? "dark" : "light");
-  const savedColorScheme = localStorage.getItem("club-color-scheme");
+  const hasCurrentAppearance = localStorage.getItem("club-appearance-version") === appearanceStorageVersion;
+  const savedTheme = hasCurrentAppearance ? localStorage.getItem("club-theme") : "dark";
+  const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
+  const savedColorScheme = hasCurrentAppearance ? localStorage.getItem("club-color-scheme") : "midnight";
   const colorScheme = ref<ColorScheme>(
-    savedColorScheme === "emerald" ||
+    savedColorScheme === "midnight" ||
+      savedColorScheme === "emerald" ||
       savedColorScheme === "graphite" ||
       savedColorScheme === "sakura" ||
       savedColorScheme === "azure" ||
       savedColorScheme === "coffee"
       ? savedColorScheme
-      : "azure"
+      : "midnight"
   );
   const savedPreviewMode = localStorage.getItem("club-preview-mode");
   const previewMode = ref<PreviewMode>(
@@ -51,18 +54,20 @@ export const useUiStore = defineStore("ui", () => {
     document.documentElement.style.setProperty("--club-user-visual-scale", visualScaleText);
     document.documentElement.style.setProperty("--club-user-font-root", `${(16 * visualScale.value).toFixed(1)}px`);
     document.documentElement.style.setProperty("--club-user-font-base", `${(15 * visualScale.value).toFixed(1)}px`);
-    document.documentElement.style.colorScheme = theme.value;
+    document.documentElement.style.colorScheme = "dark";
   }
 
   function setTheme(nextTheme: Theme) {
     theme.value = nextTheme;
     localStorage.setItem("club-theme", nextTheme);
+    localStorage.setItem("club-appearance-version", appearanceStorageVersion);
     applyTheme();
   }
 
   function setColorScheme(nextColorScheme: ColorScheme) {
     colorScheme.value = nextColorScheme;
     localStorage.setItem("club-color-scheme", nextColorScheme);
+    localStorage.setItem("club-appearance-version", appearanceStorageVersion);
     applyTheme();
   }
 
@@ -83,6 +88,12 @@ export const useUiStore = defineStore("ui", () => {
   }
 
   applyTheme();
+
+  if (!hasCurrentAppearance) {
+    localStorage.setItem("club-theme", theme.value);
+    localStorage.setItem("club-color-scheme", colorScheme.value);
+    localStorage.setItem("club-appearance-version", appearanceStorageVersion);
+  }
 
   return { theme, colorScheme, visualScale, previewMode, setTheme, setColorScheme, setVisualScale, setPreviewMode };
 });

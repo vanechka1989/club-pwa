@@ -15,14 +15,15 @@ describe("ui store", () => {
     setActivePinia(createPinia());
   });
 
-  it("defaults new clients to the day lagoon appearance", () => {
+  it("defaults new clients to the dark soft-touch appearance", () => {
     const ui = useUiStore();
 
-    expect(ui.theme).toBe("light");
-    expect(ui.colorScheme).toBe("azure");
-    expect(document.documentElement.dataset.theme).toBe("light");
-    expect(document.documentElement.dataset.scheme).toBe("azure");
-    expect(document.documentElement.style.colorScheme).toBe("light");
+    expect(ui.theme).toBe("dark");
+    expect(ui.colorScheme).toBe("midnight");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(document.documentElement.dataset.scheme).toBe("midnight");
+    expect(document.documentElement.style.colorScheme).toBe("dark");
+    expect(localStorage.getItem("club-appearance-version")).toBe("4");
   });
 
   it("persists visual scale as a numeric root variable for adaptive UI density", () => {

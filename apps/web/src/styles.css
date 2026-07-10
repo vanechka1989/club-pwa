@@ -11595,3 +11595,1012 @@ body.club-keyboard-open .module-name-backdrop {
   align-items: start;
   justify-items: stretch;
 }
+
+/* Matte Soft Touch redesign. This layer intentionally lives last so it unifies the UI
+   without disturbing the existing data flow, routing, and modal gesture guards above. */
+:root,
+:root[data-theme="dark"],
+:root[data-theme="light"] {
+  color-scheme: dark;
+  --bg: #0b111a;
+  --surface: #121b28;
+  --surface-2: #162131;
+  --surface-3: #1a2636;
+  --panel: var(--surface);
+  --panel-strong: var(--surface-2);
+  --panel-soft: var(--surface-3);
+  --panel-muted: #101925;
+  --field: #101925;
+  --line: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.06);
+  --text: #f3f7ff;
+  --text-muted: #8fa0b7;
+  --muted: var(--text-muted);
+  --muted-strong: #c3cee0;
+  --primary: #7c3aed;
+  --primary-2: #2563eb;
+  --accent: var(--primary);
+  --accent-text: #f8fbff;
+  --accent-soft: rgba(124, 58, 237, 0.16);
+  --success: #10b981;
+  --success-text: #9df4d0;
+  --success-soft: rgba(16, 185, 129, 0.14);
+  --danger: #ef4444;
+  --danger-strong: #ef4444;
+  --danger-text: #ffb4b4;
+  --danger-soft: rgba(239, 68, 68, 0.13);
+  --warning: #f59e0b;
+  --gold: #f59e0b;
+  --gold-soft: rgba(245, 158, 11, 0.14);
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --ui-button-radius: 18px;
+  --ui-control-radius: 20px;
+  --ui-button-height: 2.9rem;
+  --shadow: 18px 22px 64px rgba(0, 0, 0, 0.46), -10px -10px 26px rgba(255, 255, 255, 0.028);
+  --shadow-soft: 8px 8px 24px rgba(0, 0, 0, 0.35), -6px -6px 18px rgba(255, 255, 255, 0.035);
+  --shadow-inset: inset 8px 8px 18px rgba(0, 0, 0, 0.28), inset -6px -6px 16px rgba(255, 255, 255, 0.035);
+  --glow-primary: 0 0 0 1px rgba(124, 58, 237, 0.26), 0 18px 44px rgba(124, 58, 237, 0.22);
+  --glow-blue: 0 18px 42px rgba(37, 99, 235, 0.22);
+}
+
+:root[data-scheme="emerald"] {
+  --primary: #7c3aed;
+  --primary-2: #10b981;
+  --accent: var(--primary);
+  --accent-soft: rgba(124, 58, 237, 0.16);
+}
+
+:root[data-scheme="graphite"] {
+  --primary: #8b5cf6;
+  --primary-2: #64748b;
+  --accent: var(--primary);
+  --accent-soft: rgba(139, 92, 246, 0.16);
+}
+
+:root[data-scheme="sakura"] {
+  --primary: #c084fc;
+  --primary-2: #ec4899;
+  --accent: var(--primary);
+  --accent-soft: rgba(192, 132, 252, 0.16);
+}
+
+:root[data-scheme="azure"] {
+  --primary: #7c3aed;
+  --primary-2: #2563eb;
+  --accent: var(--primary);
+  --accent-soft: rgba(124, 58, 237, 0.16);
+}
+
+:root[data-scheme="coffee"] {
+  --primary: #a78bfa;
+  --primary-2: #f59e0b;
+  --accent: var(--primary);
+  --accent-soft: rgba(167, 139, 250, 0.15);
+}
+
+html {
+  color-scheme: dark;
+  background: var(--bg);
+}
+
+body {
+  min-width: 320px;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 18% -12%, rgba(124, 58, 237, 0.22), transparent 36rem),
+    radial-gradient(circle at 94% 8%, rgba(37, 99, 235, 0.17), transparent 34rem),
+    radial-gradient(circle at 50% 112%, rgba(16, 185, 129, 0.08), transparent 32rem),
+    var(--bg);
+  color: var(--text);
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 4px);
+  opacity: 0.22;
+  content: "";
+  mix-blend-mode: soft-light;
+}
+
+#app,
+.app-root,
+.app-layout,
+.app-shell,
+.content-panel,
+.section-host {
+  position: relative;
+  z-index: 1;
+}
+
+.app-root {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 16rem),
+    transparent;
+}
+
+.app-shell,
+.content-panel {
+  background: transparent;
+}
+
+.content-panel:not(.content-panel-auth) {
+  padding-top: max(var(--space-page-top), calc(var(--club-safe-top) + 0.55rem));
+}
+
+:where(button, a, input, textarea, select, [role="button"]) {
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 72%, white);
+  outline-offset: 3px;
+}
+
+.section-title,
+.soft-section-title,
+.admin-panel h3,
+.admin-detail h3,
+.learning-hero-card h2,
+.learning-last-card-head h3,
+.support-ticket-title,
+.chat-topic-title,
+.payment-product-title {
+  color: var(--text);
+  letter-spacing: 0;
+}
+
+.section-subtitle,
+.section-eyebrow,
+.soft-card p,
+.surface-card p,
+.admin-panel p,
+.admin-list-item small,
+.admin-entity small,
+.learning-hero-card p,
+.learning-progress-head p,
+.learning-last-card-head p,
+.support-muted,
+.support-message small,
+.chat-topic-meta,
+.payment-product-meta,
+.profile-empty-text,
+.profile-payment-caption,
+.profile-avatar-help {
+  color: var(--text-muted);
+}
+
+.section-head,
+.surface-card,
+.soft-card,
+.soft-list-card,
+.message-card,
+.learning-hero-card,
+.learning-progress-card,
+.learning-last-card,
+.learning-category-card,
+.learning-item-row,
+.chat-create-form,
+.chat-topic-card,
+.support-topic-option,
+.support-ticket-card,
+.support-admin-ticket,
+.support-ticket-detail,
+.support-list,
+.support-ticket-list,
+.support-admin-stats article,
+.admin-hero,
+.admin-panel-head,
+.admin-card,
+.admin-panel,
+.admin-detail,
+.admin-entity,
+.admin-list-item,
+.admin-stat-kpi,
+.admin-stat-block,
+.admin-stat-mini-grid article,
+.admin-stat-drilldown,
+.admin-crm-block,
+.admin-server-card,
+.admin-storage-object-card,
+.profile-access-card,
+.profile-referral-card,
+.profile-settings,
+.payment-product-list .soft-payment-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.section-head,
+.admin-hero {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(124, 58, 237, 0.16), transparent 14rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.012)),
+    var(--surface);
+  padding: clamp(1rem, 4vw, 1.45rem);
+}
+
+.section-head::after,
+.admin-hero::after,
+.profile-access-card::after,
+.learning-hero-card::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.06), transparent 38%);
+  opacity: 0.5;
+  content: "";
+}
+
+.section-head,
+.admin-hero,
+.profile-access-card,
+.learning-hero-card,
+.payment-product-list .soft-payment-card {
+  position: relative;
+}
+
+.section-head > *,
+.profile-access-card > *,
+.learning-hero-card > *,
+.payment-product-list .soft-payment-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.section-title {
+  font-size: clamp(1.22rem, 5.6vw, 1.9rem);
+  font-weight: 880;
+}
+
+.section-subtitle {
+  max-width: 29rem;
+  font-size: clamp(0.86rem, 3.6vw, 1rem);
+  line-height: 1.45;
+}
+
+.soft-card,
+.surface-card,
+.admin-panel,
+.support-list,
+.support-ticket-list {
+  padding: clamp(0.95rem, 3.6vw, 1.25rem);
+}
+
+.primary-button,
+.soft-inline-button,
+.support-primary-button,
+.payment-product-pay,
+.admin-date-save,
+.admin-message-client-button,
+.push-permission-enable {
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--ui-button-radius);
+  background:
+    linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #f8fbff;
+  box-shadow:
+    0 16px 32px rgba(124, 58, 237, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.primary-button:hover:not(:disabled),
+.soft-inline-button:hover:not(:disabled),
+.support-primary-button:hover:not(:disabled),
+.payment-product-pay:hover:not(:disabled),
+.admin-date-save:hover:not(:disabled),
+.admin-message-client-button:hover:not(:disabled),
+.push-permission-enable:hover:not(:disabled) {
+  opacity: 1;
+  transform: translateY(-1px);
+  box-shadow:
+    0 20px 42px rgba(124, 58, 237, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.primary-button:active:not(:disabled),
+.soft-inline-button:active:not(:disabled),
+.support-primary-button:active:not(:disabled),
+.payment-product-pay:active:not(:disabled),
+.admin-date-save:active:not(:disabled),
+.admin-message-client-button:active:not(:disabled),
+.push-permission-enable:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: var(--shadow-inset);
+}
+
+.secondary-button,
+.support-secondary-button,
+.mini-action,
+.icon-button,
+.notification-center-clear,
+.push-permission-later,
+.profile-avatar-icon-button,
+.visual-scale-step-button,
+.theme-choice,
+.scheme-choice,
+.admin-preview-option,
+.admin-stat-period,
+.admin-tab,
+.segmented-control-item {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    var(--surface-2);
+  color: var(--muted-strong);
+  box-shadow: 5px 5px 16px rgba(0, 0, 0, 0.24), -4px -4px 12px rgba(255, 255, 255, 0.026);
+}
+
+.icon-button {
+  border-radius: 18px;
+}
+
+.secondary-button:hover:not(:disabled),
+.support-secondary-button:hover:not(:disabled),
+.mini-action:hover:not(:disabled),
+.icon-button:hover:not(:disabled),
+.profile-avatar-icon-button:hover:not(:disabled),
+.theme-choice:hover,
+.scheme-choice:hover,
+.admin-tab:hover,
+.segmented-control-item:hover:not(:disabled) {
+  border-color: rgba(124, 58, 237, 0.34);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.profile-logout-button,
+.danger-button,
+.support-danger-button,
+.danger-action {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.15), rgba(255, 255, 255, 0.012)), var(--surface-2);
+  color: var(--danger-text);
+}
+
+.text-input,
+input.text-input,
+select.text-input,
+textarea.text-input,
+.admin-rich-editor,
+.chat-input-row .text-input,
+.profile-account-inline,
+.profile-referral-link,
+.visual-scale-control,
+.support-field input,
+.support-field select,
+.support-field textarea,
+.support-reply-form textarea {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.006)),
+    var(--field);
+  color: var(--text);
+  box-shadow: var(--shadow-inset);
+}
+
+.text-input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: rgba(143, 160, 183, 0.7);
+}
+
+.text-input:focus,
+.admin-rich-editor:focus,
+.support-field input:focus,
+.support-field select:focus,
+.support-field textarea:focus,
+.support-reply-form textarea:focus {
+  border-color: rgba(124, 58, 237, 0.58);
+  box-shadow: var(--shadow-inset), 0 0 0 3px rgba(124, 58, 237, 0.16);
+}
+
+.soft-pill,
+.profile-role-pill,
+.role-badge,
+.admin-access-badge,
+.admin-bot-badge,
+.support-status,
+.payment-provider-status,
+.reply-topic-badge,
+.mute-inline-badge,
+.learning-archive-badge {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.13);
+  color: #d8c8ff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.profile-subscription-status-active,
+.support-status-closed,
+.support-status-answered,
+.payment-provider-status-enabled,
+.admin-status-ok,
+.admin-status-pill-green {
+  border-color: rgba(16, 185, 129, 0.24);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-text);
+}
+
+.profile-subscription-status-inactive,
+.support-status-hot,
+.payment-provider-status-disabled,
+.admin-status-error {
+  border-color: rgba(239, 68, 68, 0.26);
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger-text);
+}
+
+.subscription-bar,
+.learning-progress-track,
+.admin-stat-meter,
+.lesson-video-progress {
+  height: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.45);
+  box-shadow: var(--shadow-inset);
+}
+
+.subscription-bar span,
+.learning-progress-track i,
+.admin-stat-meter span,
+.lesson-video-progress span {
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  box-shadow: 0 0 18px rgba(124, 58, 237, 0.36);
+}
+
+.bottom-nav {
+  right: max(0.7rem, calc(var(--club-safe-right) + 0.7rem));
+  left: max(0.7rem, calc(var(--club-safe-left) + 0.7rem));
+  max-width: 40rem;
+  gap: 0.18rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 26px;
+  background: rgba(18, 27, 40, 0.82);
+  padding: 0.38rem;
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.bottom-nav-item {
+  min-height: 3.25rem;
+  border-radius: 20px;
+  color: #71839b;
+  font-size: 0.66rem;
+  font-weight: 780;
+}
+
+.bottom-nav-item svg,
+.desktop-sidebar-item svg,
+.admin-tab svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  stroke-width: 1.8;
+}
+
+.bottom-nav-item-active {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.16), transparent 65%),
+    linear-gradient(135deg, rgba(124, 58, 237, 0.34), rgba(37, 99, 235, 0.22));
+  color: var(--text);
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.22),
+    0 12px 30px rgba(124, 58, 237, 0.28);
+}
+
+.desktop-sidebar {
+  border-color: var(--border);
+  background: rgba(12, 18, 28, 0.82);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(18px);
+}
+
+.desktop-sidebar-logo,
+.desktop-sidebar-avatar,
+.profile-avatar,
+.soft-code,
+.chat-topic-icon,
+.notification-center-dot,
+.support-message-avatar,
+.support-customer-avatar,
+.admin-client-avatar {
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.24), transparent 30%),
+    linear-gradient(135deg, rgba(124, 58, 237, 0.64), rgba(37, 99, 235, 0.5));
+  color: #f8fbff;
+  box-shadow:
+    0 16px 32px rgba(37, 99, 235, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.profile-access-card {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 16% 8%, rgba(124, 58, 237, 0.16), transparent 16rem),
+    radial-gradient(circle at 100% 18%, rgba(37, 99, 235, 0.13), transparent 18rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+    var(--surface);
+}
+
+.profile-avatar-large {
+  width: clamp(4rem, 17vw, 5.1rem);
+  height: clamp(4rem, 17vw, 5.1rem);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow:
+    0 0 0 6px rgba(124, 58, 237, 0.08),
+    0 18px 42px rgba(37, 99, 235, 0.22);
+}
+
+.profile-access-head h3 {
+  font-size: clamp(1.12rem, 5vw, 1.55rem);
+  font-weight: 900;
+}
+
+.profile-access-badges {
+  gap: 0.45rem;
+}
+
+.profile-account-inline {
+  padding: 0.72rem 0.85rem;
+}
+
+.profile-access-actions {
+  gap: 0.7rem;
+}
+
+.profile-referral-stats article,
+.profile-info-row,
+.payment-log-card,
+.learning-last-action,
+.learning-category-tools article,
+.admin-client-summary article,
+.admin-client-profile-grid article,
+.admin-permission-card,
+.admin-permission-toggle,
+.support-message {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow: 4px 4px 14px rgba(0, 0, 0, 0.24), -3px -3px 10px rgba(255, 255, 255, 0.022);
+}
+
+.learning-hero-card {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 85% 12%, rgba(124, 58, 237, 0.22), transparent 13rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.01)),
+    var(--surface);
+}
+
+.learning-hero-card > strong,
+.learning-last-action strong {
+  color: #d8c8ff;
+}
+
+.learning-item-button {
+  border-radius: var(--radius-lg);
+}
+
+.chat-topic-card {
+  min-height: 4.75rem;
+}
+
+.chat-topic-card:hover,
+.learning-item-button:hover,
+.admin-list-item:hover,
+.admin-mailing-card:hover,
+.admin-stat-drilldown:not(:disabled):hover {
+  border-color: rgba(124, 58, 237, 0.28);
+  transform: translateY(-1px);
+  box-shadow: var(--glow-primary);
+}
+
+.reply-topic-badge,
+.bottom-nav-badge,
+.bottom-nav-mail-badge {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+}
+
+.chat-room-header {
+  border-bottom-color: var(--border);
+}
+
+.chat-bubble {
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: 22px 22px 22px 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    var(--surface-2);
+  box-shadow: 8px 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.chat-message-own .chat-bubble {
+  border-color: rgba(124, 58, 237, 0.28);
+  border-radius: 22px 22px 8px 22px;
+  background:
+    linear-gradient(135deg, rgba(124, 58, 237, 0.72), rgba(37, 99, 235, 0.68));
+}
+
+.chat-message-own .chat-message-author,
+.chat-message-own .chat-message-head,
+.chat-message-own .chat-message-body {
+  color: #f8fbff;
+}
+
+.chat-compose {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(18, 27, 40, 0.9);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(16px);
+}
+
+.community-chat-open .chat-compose {
+  border-radius: 24px;
+}
+
+.community-chat-open .chat-input-row .icon-button {
+  border-radius: 18px;
+}
+
+.community-chat-open .chat-input-row .icon-button:last-child {
+  border: 0;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #f8fbff;
+  box-shadow: 0 14px 26px rgba(124, 58, 237, 0.28);
+}
+
+.community-chat-open .chat-input-row .text-input {
+  border-radius: 18px;
+}
+
+.payment-product-list {
+  gap: 1rem;
+}
+
+.payment-product-list .soft-payment-card {
+  align-items: stretch;
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 90% 0%, rgba(124, 58, 237, 0.2), transparent 12rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    var(--surface);
+  padding: 1rem;
+}
+
+.payment-product-list .soft-payment-card::before {
+  width: 0.34rem;
+  background: linear-gradient(180deg, var(--primary), var(--primary-2));
+  box-shadow: 0 0 26px rgba(124, 58, 237, 0.5);
+}
+
+.payment-product-list .soft-payment-card:first-child::after {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 1;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #ffd98a;
+  padding: 0.28rem 0.62rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  content: "Выгодно";
+}
+
+.payment-product-title {
+  padding-right: 5.3rem;
+  font-size: clamp(1rem, 4vw, 1.18rem);
+  font-weight: 900;
+}
+
+.payment-product-meta {
+  color: #bca7ff;
+  font-size: 0.9rem;
+}
+
+.payment-product-actions {
+  width: min(12rem, 42%);
+  align-self: center;
+}
+
+.support-alert,
+.admin-error-text,
+.admin-warning-line,
+.support-closed-note {
+  border-radius: var(--radius-lg);
+}
+
+.support-status-closed {
+  color: var(--success-text);
+}
+
+.support-ticket-card,
+.support-admin-ticket {
+  padding: 1rem;
+}
+
+.support-admin-stats article {
+  min-height: 5.8rem;
+  place-content: center;
+}
+
+.admin-preview-switcher,
+.segmented-control,
+.admin-stat-period-control,
+.admin-stat-periods,
+.admin-tabs {
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(16, 25, 37, 0.72);
+  box-shadow: var(--shadow-inset);
+  backdrop-filter: blur(16px);
+}
+
+.admin-preview-option-active,
+.segmented-control-item-active,
+.admin-stat-period-active,
+.theme-choice-active,
+.scheme-choice-active,
+.admin-tab-active {
+  border-color: rgba(124, 58, 237, 0.34);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.34), rgba(37, 99, 235, 0.2));
+  color: var(--text);
+  box-shadow: var(--glow-primary);
+}
+
+.admin-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.45rem;
+}
+
+.admin-tab {
+  min-height: 4.15rem;
+  flex-direction: column;
+  gap: 0.28rem;
+  border-radius: 20px;
+  font-size: 0.76rem;
+}
+
+.admin-stat-kpis {
+  gap: 0.85rem;
+}
+
+.admin-stat-kpi strong,
+.admin-stat-mini-grid strong,
+.admin-stat-drilldown strong,
+.support-admin-stats strong {
+  color: var(--text);
+}
+
+.admin-empty {
+  border: 1px dashed rgba(255, 255, 255, 0.11);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.025);
+  padding: 1rem;
+  color: var(--text-muted);
+}
+
+.admin-modal-backdrop,
+.payment-modal-backdrop,
+.support-modal-backdrop,
+.profile-modal-backdrop,
+.notification-center-backdrop,
+.support-confirm-backdrop,
+.payment-confirm-backdrop,
+.push-permission-layer {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(124, 58, 237, 0.16), transparent 26rem),
+    rgba(1, 5, 12, 0.68);
+  backdrop-filter: blur(14px);
+}
+
+.admin-client-modal,
+.payment-form-modal,
+.support-ticket-modal,
+.lesson-preview-modal,
+.module-name-modal,
+.profile-avatar-editor-modal,
+.profile-logout-confirm,
+.notification-center-panel,
+.release-notes-modal,
+.admin-mailing-composer-modal,
+.admin-mailing-detail-modal,
+.admin-storage-modal,
+.admin-storage-folder-modal,
+.admin-payment-drilldown-modal,
+.admin-server-logs-modal,
+.admin-permission-modal,
+.payment-confirm-card,
+.push-permission-card,
+.admin-client-message-modal,
+.support-confirm-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    #111a27;
+  box-shadow:
+    28px 34px 90px rgba(0, 0, 0, 0.58),
+    -8px -8px 22px rgba(255, 255, 255, 0.028);
+}
+
+.notification-center-panel {
+  width: min(30rem, 100%);
+}
+
+.notification-center-item {
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.notification-center-item-unread {
+  border-color: rgba(124, 58, 237, 0.3);
+  background: linear-gradient(145deg, rgba(124, 58, 237, 0.14), rgba(255, 255, 255, 0.012)), var(--surface-2);
+}
+
+.push-permission-card {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(124, 58, 237, 0.2), transparent 12rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012)),
+    #111a27;
+}
+
+.profile-avatar-gesture-stage,
+.profile-avatar-crop-preview {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(124, 58, 237, 0.14), transparent 54%),
+    var(--surface-2);
+  box-shadow: var(--shadow-inset);
+}
+
+.lesson-viewer-content,
+.lesson-material-card,
+.lesson-extra-card {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.lesson-youtube-player-shell,
+.lesson-viewer-media,
+.lesson-video-player {
+  border-radius: var(--radius-lg);
+  background: #030712;
+}
+
+.lesson-video-exit-fullscreen-button {
+  background: rgba(17, 24, 39, 0.86);
+  color: var(--text);
+  backdrop-filter: blur(14px);
+}
+
+@media (max-width: 640px) {
+  .content-panel:not(.content-panel-auth) {
+    padding-inline: max(0.75rem, var(--club-safe-left)) max(0.75rem, var(--club-safe-right));
+  }
+
+  .section-host {
+    gap: 0.95rem;
+  }
+
+  .section-head,
+  .soft-card,
+  .surface-card,
+  .admin-panel,
+  .learning-hero-card,
+  .learning-progress-card,
+  .learning-last-card,
+  .learning-category-card,
+  .chat-topic-card,
+  .support-ticket-card,
+  .payment-product-list .soft-payment-card {
+    border-radius: 24px;
+  }
+
+  .profile-access-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-avatar-stack {
+    grid-template-columns: auto auto;
+    justify-content: start;
+    align-items: center;
+  }
+
+  .profile-avatar-actions {
+    align-self: center;
+  }
+
+  .profile-access-actions,
+  .payment-product-list .soft-payment-card,
+  .soft-payment-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-access-actions {
+    display: grid;
+  }
+
+  .profile-access-actions .profile-logout-button,
+  .payment-product-actions {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .payment-product-title {
+    padding-right: 5rem;
+  }
+
+  .admin-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .admin-tab {
+    min-height: 3.95rem;
+    padding-inline: 0.35rem;
+    font-size: 0.68rem;
+  }
+
+  .bottom-nav {
+    border-radius: 24px;
+  }
+
+  .bottom-nav-admin .bottom-nav-item {
+    font-size: 0.58rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .payment-product-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .payment-product-list .soft-payment-card {
+    min-height: 10rem;
+    flex-direction: column;
+  }
+
+  .payment-product-actions {
+    width: 100%;
+    margin-top: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(*, *::before, *::after) {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
