@@ -36,7 +36,7 @@ import {
   getReferralRewardText
 } from "@/features/profile/profileSubscriptionCopy";
 import { useSessionStore } from "@/stores/session";
-import { useUiStore, type ColorScheme, type Theme } from "@/stores/ui";
+import { useUiStore, type Theme } from "@/stores/ui";
 
 defineEmits<{
   openPayments: [];
@@ -230,14 +230,6 @@ const visualScaleMin = 1;
 const visualScaleMax = 2;
 const visualScaleStep = 0.1;
 const visualScaleDisplayValue = computed(() => ui.visualScale.toFixed(1));
-const colorOptions = computed<Array<{ value: ColorScheme; label: string; colors: string[] }>>(() => [
-  { value: "midnight", label: t("profileSchemeMidnight"), colors: ["#080922", "#f2f2f7"] },
-  { value: "emerald", label: t("profileSchemeEmerald"), colors: ["#12382d", "#7dd3b0"] },
-  { value: "graphite", label: t("profileSchemeGraphite"), colors: ["#242833", "#d6d9e2"] },
-  { value: "sakura", label: t("profileSchemeSakura"), colors: ["#3a2034", "#f9a8d4"] },
-  { value: "azure", label: t("profileSchemeAzure"), colors: ["#0f2f5f", "#7dd3fc"] },
-  { value: "coffee", label: t("profileSchemeCoffee"), colors: ["#3a281f", "#d6ad7b"] }
-]);
 const avatarGesturePointers = new Map<number, AvatarGesturePointState>();
 let avatarGestureSession: AvatarGestureSession | null = null;
 
@@ -823,23 +815,6 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="scheme-grid mt-3">
-        <button
-          v-for="option in colorOptions"
-          :key="option.value"
-          class="scheme-choice"
-          :class="{ 'scheme-choice-active': ui.colorScheme === option.value }"
-          type="button"
-          @click="ui.setColorScheme(option.value)"
-        >
-          <span class="scheme-swatch" aria-hidden="true">
-            <span :style="{ background: option.colors[0] }"></span>
-            <span :style="{ background: option.colors[1] }"></span>
-          </span>
-          <span>{{ option.label }}</span>
-          <Check v-if="ui.colorScheme === option.value" class="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </div>
     </section>
 
     <div v-if="avatarEditorOpen" class="profile-modal-backdrop" @click.self="avatarEditorOpen = false">

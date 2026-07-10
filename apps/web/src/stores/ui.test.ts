@@ -15,7 +15,7 @@ describe("ui store", () => {
     setActivePinia(createPinia());
   });
 
-  it("defaults new clients to the dark soft-touch appearance", () => {
+  it("defaults new clients to the dark soft-touch appearance with the single midnight palette", () => {
     const ui = useUiStore();
 
     expect(ui.theme).toBe("dark");
@@ -23,7 +23,36 @@ describe("ui store", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement.dataset.scheme).toBe("midnight");
     expect(document.documentElement.style.colorScheme).toBe("dark");
-    expect(localStorage.getItem("club-appearance-version")).toBe("4");
+    expect(localStorage.getItem("club-appearance-version")).toBe("5");
+  });
+
+  it("switches the browser controls between day and night themes", () => {
+    const ui = useUiStore();
+
+    ui.setTheme("light");
+
+    expect(ui.theme).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.style.colorScheme).toBe("light");
+
+    ui.setTheme("dark");
+
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(document.documentElement.style.colorScheme).toBe("dark");
+  });
+
+  it("keeps a saved day or night choice but collapses legacy color palettes to midnight", () => {
+    localStorage.setItem("club-appearance-version", "4");
+    localStorage.setItem("club-theme", "light");
+    localStorage.setItem("club-color-scheme", "coffee");
+
+    const ui = useUiStore();
+
+    expect(ui.theme).toBe("light");
+    expect(ui.colorScheme).toBe("midnight");
+    expect(document.documentElement.dataset.scheme).toBe("midnight");
+    expect(localStorage.getItem("club-color-scheme")).toBe("midnight");
+    expect(localStorage.getItem("club-appearance-version")).toBe("5");
   });
 
   it("persists visual scale as a numeric root variable for adaptive UI density", () => {

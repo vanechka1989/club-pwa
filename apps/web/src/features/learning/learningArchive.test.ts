@@ -463,7 +463,7 @@ describe("Learning section modules", () => {
     expect(lessonCard.classList.contains("admin-mockup-thumb-horizontal")).toBe(true);
   });
 
-  it("uses themed default covers when a lesson has no uploaded cover", async () => {
+  it("uses the single midnight default cover when a lesson has no uploaded cover", async () => {
     const pinia = renderAsOwner();
     const ui = useUiStore(pinia);
     ui.setColorScheme("azure");
@@ -483,7 +483,7 @@ describe("Learning section modules", () => {
     const lessonCard = screen.getByRole("button", { name: /Урок без обложки/ });
     const cover = lessonCard.querySelector("img");
 
-    expect(cover?.getAttribute("src")).toBe("/previews/default-lessons/azure-horizontal.webp");
+    expect(cover?.getAttribute("src")).toBe("/previews/default-lessons/midnight-horizontal.webp");
   });
 
   it("keeps default lesson covers lightweight", () => {
@@ -495,7 +495,7 @@ describe("Learning section modules", () => {
     expect(covers.every((file) => statSync(resolve(coversPath, file)).size < 80_000)).toBe(true);
   });
 
-  it("removes a custom lesson cover and returns the card to a themed default", async () => {
+  it("removes a custom lesson cover and returns the card to the midnight default", async () => {
     const pinia = renderAsOwner();
     const ui = useUiStore(pinia);
     ui.setColorScheme("graphite");
@@ -509,7 +509,7 @@ describe("Learning section modules", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
 
     const lessonCard = screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ });
-    expect(lessonCard.querySelector("img")?.getAttribute("src")).toBe("/previews/default-lessons/graphite-vertical.webp");
+    expect(lessonCard.querySelector("img")?.getAttribute("src")).toBe("/previews/default-lessons/midnight-vertical.webp");
   });
 
   it("edits lesson content from the same lesson modal", async () => {

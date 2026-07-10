@@ -7,7 +7,7 @@ export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 const visualScaleStorageVersion = "3";
-const appearanceStorageVersion = "4";
+const appearanceStorageVersion = "5";
 
 function clampVisualScale(value: number | string | null) {
   const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
@@ -16,20 +16,9 @@ function clampVisualScale(value: number | string | null) {
 }
 
 export const useUiStore = defineStore("ui", () => {
-  const hasCurrentAppearance = localStorage.getItem("club-appearance-version") === appearanceStorageVersion;
-  const savedTheme = hasCurrentAppearance ? localStorage.getItem("club-theme") : "dark";
+  const savedTheme = localStorage.getItem("club-theme");
   const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
-  const savedColorScheme = hasCurrentAppearance ? localStorage.getItem("club-color-scheme") : "midnight";
-  const colorScheme = ref<ColorScheme>(
-    savedColorScheme === "midnight" ||
-      savedColorScheme === "emerald" ||
-      savedColorScheme === "graphite" ||
-      savedColorScheme === "sakura" ||
-      savedColorScheme === "azure" ||
-      savedColorScheme === "coffee"
-      ? savedColorScheme
-      : "midnight"
-  );
+  const colorScheme = ref<ColorScheme>("midnight");
   const savedPreviewMode = localStorage.getItem("club-preview-mode");
   const previewMode = ref<PreviewMode>(
     savedPreviewMode === "admin" || savedPreviewMode === "member-active" || savedPreviewMode === "member-inactive"
@@ -54,7 +43,7 @@ export const useUiStore = defineStore("ui", () => {
     document.documentElement.style.setProperty("--club-user-visual-scale", visualScaleText);
     document.documentElement.style.setProperty("--club-user-font-root", `${(16 * visualScale.value).toFixed(1)}px`);
     document.documentElement.style.setProperty("--club-user-font-base", `${(15 * visualScale.value).toFixed(1)}px`);
-    document.documentElement.style.colorScheme = "dark";
+    document.documentElement.style.colorScheme = theme.value;
   }
 
   function setTheme(nextTheme: Theme) {
@@ -64,9 +53,9 @@ export const useUiStore = defineStore("ui", () => {
     applyTheme();
   }
 
-  function setColorScheme(nextColorScheme: ColorScheme) {
-    colorScheme.value = nextColorScheme;
-    localStorage.setItem("club-color-scheme", nextColorScheme);
+  function setColorScheme(_nextColorScheme: ColorScheme) {
+    colorScheme.value = "midnight";
+    localStorage.setItem("club-color-scheme", "midnight");
     localStorage.setItem("club-appearance-version", appearanceStorageVersion);
     applyTheme();
   }
@@ -89,11 +78,9 @@ export const useUiStore = defineStore("ui", () => {
 
   applyTheme();
 
-  if (!hasCurrentAppearance) {
-    localStorage.setItem("club-theme", theme.value);
-    localStorage.setItem("club-color-scheme", colorScheme.value);
-    localStorage.setItem("club-appearance-version", appearanceStorageVersion);
-  }
+  localStorage.setItem("club-theme", theme.value);
+  localStorage.setItem("club-color-scheme", colorScheme.value);
+  localStorage.setItem("club-appearance-version", appearanceStorageVersion);
 
   return { theme, colorScheme, visualScale, previewMode, setTheme, setColorScheme, setVisualScale, setPreviewMode };
 });

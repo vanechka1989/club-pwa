@@ -560,7 +560,7 @@ describe("App", () => {
       /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop\s*{[\s\S]*font-size: calc\(var\(--club-app-wide-font-base, 16px\) \* var\(--club-user-visual-scale, 1\)\);/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-device \.admin-client-modal,\s*body\.club-mobile-device \.payment-form-modal,\s*body\.club-mobile-device \.support-ticket-modal,\s*body\.club-mobile-device \.lesson-preview-modal,\s*body\.club-mobile-device \.module-name-modal\s*\{[\s\S]*width: min\(100%, 34rem\);[\s\S]*border-radius: 24px;/
+      /body\.club-mobile-device \.admin-client-modal,\s*body\.club-mobile-device \.payment-form-modal,\s*body\.club-mobile-device \.support-ticket-modal,\s*body\.club-mobile-device \.lesson-preview-modal,\s*body\.club-mobile-device \.module-name-modal,[\s\S]*width: min\(100%, 36rem\);[\s\S]*border-radius: 30px;/
     );
   });
 
@@ -632,6 +632,33 @@ describe("App", () => {
     expect(styles).toContain("body.club-mobile-device .bottom-nav");
   });
 
+  it("keeps profile appearance to day and night only", () => {
+    const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
+
+    expect(profileSource).toContain("themeOptions");
+    expect(profileSource).not.toContain("colorOptions");
+    expect(profileSource).not.toContain("scheme-grid");
+    expect(profileSource).not.toContain("scheme-choice");
+    expect(profileSource).not.toContain("ui.setColorScheme");
+  });
+
+  it("defines a real light soft-touch token set for day mode", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*color-scheme: light;[\s\S]*--bg: #eef5fc;/);
+    expect(styles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*--surface: #f8fbff;[\s\S]*--text: #0e1828;/);
+    expect(styles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*--floating-bg: rgba\(248, 251, 255, 0\.82\);/);
+    expect(styles).not.toMatch(/:root,\s*:root\[data-theme="dark"\],\s*:root\[data-theme="light"\]\s*{[\s\S]*color-scheme: dark;/);
+  });
+
+  it("uses roomy full-screen mobile modal shells with safe-area gutters", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-client-modal,\s*body\.club-mobile-device \.payment-form-modal,\s*body\.club-mobile-device \.support-ticket-modal,\s*body\.club-mobile-device \.lesson-preview-modal,\s*body\.club-mobile-device \.module-name-modal,\s*body\.club-mobile-device \.profile-avatar-editor-modal,\s*body\.club-mobile-device \.profile-logout-confirm,\s*body\.club-mobile-device \.notification-center-panel,\s*body\.club-mobile-device \.release-notes-modal,\s*body\.club-mobile-device \.admin-mailing-composer-modal,\s*body\.club-mobile-device \.admin-mailing-detail-modal,\s*body\.club-mobile-device \.admin-storage-modal,\s*body\.club-mobile-device \.admin-storage-folder-modal,\s*body\.club-mobile-device \.admin-payment-drilldown-modal,\s*body\.club-mobile-device \.admin-server-logs-modal,\s*body\.club-mobile-device \.admin-permission-modal,\s*body\.club-mobile-device \.payment-confirm-card,\s*body\.club-mobile-device \.push-permission-card,\s*body\.club-mobile-device \.admin-client-message-modal\s*{[\s\S]*width: min\(100%, 36rem\);[\s\S]*max-height: calc\(var\(--club-visible-viewport-height, 100dvh\) - max\(1\.6rem, var\(--club-modal-top-offset\)\) - max\(1\.2rem, var\(--club-modal-bottom-offset\)\)\);[\s\S]*border-radius: 30px;/
+    );
+  });
+
   it("uses compact polished density for wide mobile PWA app surfaces", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
@@ -651,7 +678,7 @@ describe("App", () => {
       /body\.club-mobile-app-scaled \.admin-modal-backdrop,\s*body\.club-mobile-app-scaled \.payment-modal-backdrop,\s*body\.club-mobile-app-scaled \.support-modal-backdrop\s*\{[\s\S]*align-items: center;[\s\S]*justify-content: center;[\s\S]*justify-items: center;/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-app-scaled \.admin-client-modal,\s*body\.club-mobile-app-scaled \.payment-form-modal,\s*body\.club-mobile-app-scaled \.support-ticket-modal,\s*body\.club-mobile-app-scaled \.lesson-preview-modal,\s*body\.club-mobile-app-scaled \.module-name-modal\s*\{[\s\S]*width: min\(100%, 31rem\);[\s\S]*border-radius: var\(--club-mobile-sheet-radius\);/
+      /body\.club-mobile-app-scaled \.admin-client-modal,\s*body\.club-mobile-app-scaled \.payment-form-modal,\s*body\.club-mobile-app-scaled \.support-ticket-modal,\s*body\.club-mobile-app-scaled \.lesson-preview-modal,\s*body\.club-mobile-app-scaled \.module-name-modal\s*\{[\s\S]*width: min\(100%, 36rem\);[\s\S]*border-radius: 30px;/
     );
   });
 
@@ -673,7 +700,7 @@ describe("App", () => {
       /body\.club-mobile-device \.admin-modal-backdrop,\s*body\.club-mobile-device \.payment-modal-backdrop,\s*body\.club-mobile-device \.support-modal-backdrop,\s*body\.club-mobile-device \.profile-modal-backdrop,\s*body\.club-mobile-device \.notification-center-backdrop\s*\{[\s\S]*touch-action: pan-y;/
     );
     expect(mobileGuard).toMatch(
-      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*width: min\(100%, var\(--club-mobile-modal-max-width\)\);[\s\S]*max-width: min\(100%, var\(--club-mobile-modal-max-width\)\);[\s\S]*overflow-x: hidden;/
+      /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*width: min\(100%, 36rem\);[\s\S]*max-width: min\(100%, var\(--club-mobile-modal-max-width\)\);[\s\S]*overflow-x: hidden;/
     );
     expect(mobileGuard).toMatch(
       /body\.club-mobile-device \.admin-client-modal,[\s\S]*body\.club-mobile-device \.push-permission-card,[\s\S]*body\.club-mobile-device \.admin-client-message-modal\s*\{[\s\S]*touch-action: pan-y;/
