@@ -12608,6 +12608,16 @@ body.club-mobile-device {
   );
 }
 
+body.club-mobile-device.club-keyboard-open {
+  --club-modal-bottom-offset: 0px;
+  --club-modal-bottom-padding: 0.6rem;
+  --club-mobile-modal-height: calc(
+    var(--club-visible-viewport-height, 100dvh) -
+      max(var(--club-mobile-modal-block-gutter), var(--club-modal-top-offset)) -
+      var(--club-mobile-modal-block-gutter)
+  );
+}
+
 body.club-mobile-device .admin-modal-backdrop,
 body.club-mobile-device .payment-modal-backdrop,
 body.club-mobile-device .support-modal-backdrop,
@@ -12819,7 +12829,7 @@ body.club-mobile-device .admin-mailing-builder-footer {
   margin: 0;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--modal-bg) 94%, transparent);
-  padding: 0.75rem 1rem max(0.75rem, var(--club-safe-bottom));
+  padding: 0.75rem 1rem max(0.75rem, var(--club-modal-bottom-offset));
   backdrop-filter: blur(16px);
 }
 

@@ -663,6 +663,27 @@ test("keeps shared mobile modal surfaces sized across device shells", async ({ p
   }
 });
 
+test("keeps support and mailing forms usable when the Android keyboard opens", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
+  const keyboardFixtures = [mobileModalFixtures[2], mobileModalFixtures[9]];
+  for (const fixture of keyboardFixtures) {
+    await renderMobileModalFixture(page, fixture);
+    await page.evaluate(() => {
+      document.documentElement.classList.add("club-keyboard-open");
+      document.body.classList.add("club-keyboard-open");
+      document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+      document.documentElement.style.setProperty("--club-system-bottom", "360px");
+      document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "360px");
+    });
+
+    const box = await page.locator("[data-modal-fixture-panel]").boundingBox();
+    expect(box, fixture.modalClass).not.toBeNull();
+    expect(box!.height, fixture.modalClass).toBeGreaterThan(340);
+    expect(box!.height, fixture.modalClass).toBeLessThanOrEqual(420);
+  }
+});
+
 test("detects standalone small-screen desktop-UA PWA as a mobile app shell", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "android-standalone-no-touch-980");
 

@@ -661,6 +661,12 @@ describe("App", () => {
     expect(finalMobileGuard).toMatch(/Modal sizing: workspace dialogs[\s\S]*\.admin-client-modal[\s\S]*height: var\(--club-mobile-modal-height\);/);
     expect(finalMobileGuard).toMatch(/Modal sizing: form dialogs[\s\S]*\.admin-mailing-composer-modal[\s\S]*height: var\(--club-mobile-modal-height\);/);
     expect(finalMobileGuard).toMatch(/Modal sizing: compact dialogs[\s\S]*\.module-name-modal[\s\S]*height: auto;[\s\S]*max-height: min\(38rem, var\(--club-mobile-modal-height\)\);/);
+    expect(finalMobileGuard).toMatch(
+      /body\.club-mobile-device\.club-keyboard-open\s*\{[\s\S]*--club-modal-bottom-offset: 0px;[\s\S]*--club-mobile-modal-height: calc\(/
+    );
+    expect(finalMobileGuard).toMatch(
+      /body\.club-mobile-device \.admin-mailing-builder-footer\s*\{[\s\S]*padding:[^;]*var\(--club-modal-bottom-offset\)/
+    );
   });
 
   it("uses compact polished density for wide mobile PWA app surfaces", () => {
