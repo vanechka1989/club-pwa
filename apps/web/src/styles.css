@@ -15961,12 +15961,13 @@ body.club-mobile-device .task-screen-route-layer :is(
    visible icon still looked tiny and inconsistent. Keep all icon-only actions visually
    aligned across profile, learning, community, payments, support and task screens. */
 :root {
-  --action-icon-button-size: 44px;
-  --action-icon-glyph-size: 20px;
+  --action-icon-button-size: 48px;
+  --action-icon-glyph-size: 22px;
   --action-icon-button-radius: 14px;
 }
 
-:is(
+html body :is(
+  .compact-controls > button,
   .icon-button,
   .notification-center-button,
   .profile-avatar-icon-button,
@@ -15976,22 +15977,34 @@ body.club-mobile-device .task-screen-route-layer :is(
   .module-sort-button,
   .module-lesson-add
 ) {
+  box-sizing: border-box;
   display: inline-flex;
   width: var(--action-icon-button-size) !important;
+  inline-size: var(--action-icon-button-size) !important;
   min-width: var(--action-icon-button-size) !important;
-  max-width: var(--action-icon-button-size);
+  min-inline-size: var(--action-icon-button-size) !important;
+  max-width: var(--action-icon-button-size) !important;
+  max-inline-size: var(--action-icon-button-size) !important;
   height: var(--action-icon-button-size) !important;
+  block-size: var(--action-icon-button-size) !important;
   min-height: var(--action-icon-button-size) !important;
-  max-height: var(--action-icon-button-size);
-  flex: 0 0 var(--action-icon-button-size);
+  min-block-size: var(--action-icon-button-size) !important;
+  max-height: var(--action-icon-button-size) !important;
+  max-block-size: var(--action-icon-button-size) !important;
+  flex: 0 0 var(--action-icon-button-size) !important;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  border-radius: var(--action-icon-button-radius);
-  line-height: 1;
+  overflow: hidden;
+  padding: 0 !important;
+  border-radius: var(--action-icon-button-radius) !important;
+  line-height: 1 !important;
+  overflow-wrap: normal !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
 }
 
-:is(
+html body :is(
+  .compact-controls > button,
   .icon-button,
   .notification-center-button,
   .profile-avatar-icon-button,
@@ -16002,10 +16015,14 @@ body.club-mobile-device .task-screen-route-layer :is(
   .module-lesson-add
 ) svg {
   width: var(--action-icon-glyph-size) !important;
+  inline-size: var(--action-icon-glyph-size) !important;
   min-width: var(--action-icon-glyph-size);
+  min-inline-size: var(--action-icon-glyph-size);
   height: var(--action-icon-glyph-size) !important;
+  block-size: var(--action-icon-glyph-size) !important;
   min-height: var(--action-icon-glyph-size);
-  flex: 0 0 var(--action-icon-glyph-size);
+  min-block-size: var(--action-icon-glyph-size);
+  flex: 0 0 var(--action-icon-glyph-size) !important;
   stroke-width: 2.2;
 }
 
@@ -16022,9 +16039,8 @@ body.club-mobile-device .task-screen-route-layer :is(
 }
 
 .compact-controls > button {
-  min-width: var(--action-icon-button-size) !important;
-  min-height: var(--action-icon-button-size) !important;
-  padding-inline: 12px;
+  font-size: 14px;
+  font-weight: 850;
 }
 
 .module-sort-controls {

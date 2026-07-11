@@ -129,7 +129,7 @@ describe("keyboard focus handling", () => {
       return 1;
     });
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", inline: "nearest", behavior: "smooth" });
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", inline: "nearest", behavior: "auto" });
     taskScreen.remove();
   });
 

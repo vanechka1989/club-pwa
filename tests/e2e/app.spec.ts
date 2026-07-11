@@ -753,13 +753,15 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           svgHeight: svgRect ? Math.round(svgRect.height) : null,
           minWidth: style.minWidth,
           minHeight: style.minHeight,
+          whiteSpace: style.whiteSpace,
           display: style.display,
           visible: isVisible,
-          hasSmallTarget: rect.width < 44 || rect.height < 44,
-          hasSmallIcon: Boolean(svgRect && (svgRect.width < 18 || svgRect.height < 18))
+          hasSmallTarget: rect.width < 48 || rect.height < 48,
+          hasSmallIcon: Boolean(svgRect && (svgRect.width < 21 || svgRect.height < 21)),
+          hasWrappingTextAction: target.matches(".compact-controls > button") && style.whiteSpace !== "nowrap"
         };
       })
-      .filter((item) => item.visible && (item.hasSmallTarget || item.hasSmallIcon));
+      .filter((item) => item.visible && (item.hasSmallTarget || item.hasSmallIcon || item.hasWrappingTextAction));
   }, context);
 
   expect(issues, `${context}\n${JSON.stringify(issues, null, 2)}`).toEqual([]);

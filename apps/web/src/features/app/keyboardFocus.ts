@@ -69,8 +69,9 @@ export function ensureFocusedTextFieldVisible(
     return;
   }
 
+  const isTaskScreenField = Boolean(element.closest(".task-screen"));
+
   schedule(() => {
-    const isTaskScreenField = Boolean(element.closest(".task-screen"));
     const isKeyboardManagedField = Boolean(
       !isTaskScreenField &&
         element.closest(
@@ -90,8 +91,10 @@ export function ensureFocusedTextFieldVisible(
       return;
     }
 
-    element.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    element.scrollIntoView({ block: "center", inline: "nearest", behavior: isTaskScreenField ? "auto" : "smooth" });
     nudgeFocusedFieldIntoVisibleViewport(element);
-    schedule(() => nudgeFocusedFieldIntoVisibleViewport(element), 180);
-  }, 320);
+    for (const timeout of isTaskScreenField ? [80, 180, 360, 640] : [180]) {
+      schedule(() => nudgeFocusedFieldIntoVisibleViewport(element), timeout);
+    }
+  }, isTaskScreenField ? 40 : 320);
 }
