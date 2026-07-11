@@ -69,13 +69,17 @@ describe("app notifications", () => {
     expect(clientSource).toContain('method: "DELETE"');
   });
 
-  it("keeps the mobile notification title intact and moves actions to their own row", () => {
+  it("keeps the notification header compact across two rows", () => {
     const foundation = readFileSync(resolve(__dirname, "../ui/foundation.css"), "utf8");
 
-    expect(foundation).toMatch(/\.notification-task-screen \.task-screen-header\s*\{[^}]*grid-template-columns:\s*44px minmax\(0, 1fr\);/s);
-    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__title\s*\{[^}]*white-space:\s*nowrap;/s);
-    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__actions\s*\{[^}]*grid-column:\s*2;/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.task-screen-header\s*\{[^}]*grid-template-columns:\s*44px minmax\(0, 1fr\) auto;/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__text\s*\{[^}]*display:\s*contents;/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__title\s*\{[^}]*grid-column:\s*2 \/ -1;[^}]*white-space:\s*nowrap;/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__subtitle\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*2;/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__actions\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*2;[^}]*width:\s*auto;/s);
     expect(foundation).toMatch(/\.notification-task-screen \.task-screen-actions\s*\{[^}]*flex-wrap:\s*nowrap;/s);
+    expect(foundation).toMatch(/@media \(max-width:\s*359px\)[\s\S]*?\.notification-task-screen \.ui-page-header__title,[\s\S]*?\.notification-task-screen \.ui-page-header__actions\s*\{[^}]*grid-column:\s*2;/s);
+    expect(foundation).toMatch(/@media \(max-width:\s*359px\)[\s\S]*?\.notification-task-screen \.ui-page-header__actions\s*\{[^}]*grid-row:\s*3;/s);
   });
 
   it("exposes a delete endpoint for clearing stored notifications", () => {
