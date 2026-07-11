@@ -7826,8 +7826,10 @@ body.club-keyboard-open .module-name-modal {
 }
 
 .compact-controls .notification-center-button {
-  width: 2rem;
-  height: 2rem;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
   box-shadow: none;
   opacity: 1;
   backdrop-filter: none;
@@ -8294,9 +8296,10 @@ body.club-keyboard-open .module-name-modal {
 .profile-avatar-icon-button {
   position: relative;
   display: inline-flex;
-  width: 2.45rem;
-  min-width: 2.45rem;
-  height: 2.45rem;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -8777,9 +8780,11 @@ body.club-keyboard-open .module-name-modal {
 
 .profile-avatar-editor-controls {
   display: grid;
-  grid-template-columns: auto minmax(4.5rem, 1fr) auto minmax(6.8rem, auto);
+  grid-template-columns: var(--icon-button-size) minmax(0, 1fr) var(--icon-button-size);
   align-items: center;
   gap: 0.48rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .profile-avatar-editor-controls button {
@@ -8814,6 +8819,7 @@ body.club-keyboard-open .module-name-modal {
 .profile-avatar-editor-controls strong {
   display: inline-flex;
   min-height: 2.8rem;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
@@ -8826,7 +8832,21 @@ body.club-keyboard-open .module-name-modal {
 }
 
 .profile-avatar-center-button {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
   padding-inline: 0.82rem;
+}
+
+@media (min-width: 420px) {
+  .profile-avatar-editor-controls {
+    grid-template-columns: var(--icon-button-size) minmax(4.5rem, 1fr) var(--icon-button-size) minmax(6.8rem, auto);
+  }
+
+  .profile-avatar-center-button {
+    grid-column: auto;
+    width: auto;
+  }
 }
 
 .profile-modal-actions {
@@ -9343,9 +9363,10 @@ body.club-mobile-device .profile-avatar-actions {
 }
 
 body.club-mobile-device .profile-avatar-icon-button {
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.75rem;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
 }
 
 body.club-mobile-device .profile-avatar-upload {
@@ -9435,7 +9456,13 @@ body.club-mobile-device .module-name-modal {
 }
 
 body.club-mobile-device .profile-avatar-editor-controls {
-  grid-template-columns: auto minmax(4.5rem, 1fr) auto minmax(6.6rem, auto);
+  grid-template-columns: var(--icon-button-size) minmax(0, 1fr) var(--icon-button-size);
+}
+
+body.club-mobile-device .profile-avatar-center-button {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
 }
 
 body.club-mobile-device .profile-avatar-crop-preview {
@@ -9600,9 +9627,10 @@ body.club-mobile-app-scaled .profile-avatar-actions {
 }
 
 body.club-mobile-app-scaled .profile-avatar-icon-button {
-  width: 2.42rem;
-  min-width: 2.42rem;
-  height: 2.42rem;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
 }
 
 body.club-mobile-app-scaled .profile-avatar-upload {
@@ -9669,18 +9697,24 @@ body.club-mobile-app-scaled .profile-avatar-gesture-stage p {
 }
 
 body.club-mobile-app-scaled .profile-avatar-editor-controls {
-  grid-template-columns: auto minmax(3.7rem, 1fr) auto minmax(5.6rem, auto);
+  grid-template-columns: var(--icon-button-size) minmax(0, 1fr) var(--icon-button-size);
   gap: 0.36rem;
 }
 
 body.club-mobile-app-scaled .profile-avatar-editor-controls button {
-  min-width: 2.34rem;
-  min-height: 2.34rem;
+  min-width: var(--icon-button-size);
+  min-height: var(--icon-button-size);
 }
 
 body.club-mobile-app-scaled .profile-avatar-editor-controls strong {
-  min-height: 2.34rem;
+  min-height: var(--icon-button-size);
   font-size: 0.78rem;
+}
+
+body.club-mobile-app-scaled .profile-avatar-center-button {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
 }
 
 body.club-mobile-app-scaled .profile-avatar-crop-preview {
@@ -13189,6 +13223,11 @@ body.club-mobile-device .payment-product-list .soft-payment-card {
   padding: 1rem;
 }
 
+body.club-mobile-device .payment-plans-card,
+body.club-mobile-app-scaled .payment-plans-card {
+  padding-inline: 12px;
+}
+
 body.club-mobile-device .payment-product-main {
   min-width: 0;
   padding-right: 4.75rem;
@@ -15064,11 +15103,11 @@ body {
 .bottom-sheet-header button,
 .support-file-icon-button,
 .profile-avatar-icon-button {
-  width: var(--button-height-compact);
-  min-width: var(--button-height-compact);
-  height: var(--button-height-compact);
-  min-height: var(--button-height-compact);
-  flex: 0 0 var(--button-height-compact);
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  flex: 0 0 var(--icon-button-size);
 }
 
 .text-input,
@@ -15521,7 +15560,7 @@ input[type="submit"],
 .compact-controls button,
 .notification-center-button {
   min-width: 0;
-  min-height: 44px !important;
+  min-height: 48px !important;
   overflow-wrap: anywhere;
   white-space: normal;
 }
@@ -15531,11 +15570,17 @@ input[type="submit"],
 .icon-button,
 .profile-avatar-icon-button,
 .visual-scale-step-button {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
-  flex: 0 0 44px;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  flex: 0 0 var(--icon-button-size);
+}
+
+.compact-controls button {
+  overflow-wrap: normal;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .soft-link {
@@ -15745,11 +15790,11 @@ input[type="submit"],
 }
 
 body.club-mobile-app-scaled .profile-avatar-icon-button {
-  width: var(--button-height-compact);
-  min-width: var(--button-height-compact);
-  height: var(--button-height-compact);
-  min-height: var(--button-height-compact);
-  flex: 0 0 var(--button-height-compact);
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  flex: 0 0 var(--icon-button-size);
 }
 
 body.club-mobile-app-scaled .profile-upload-input {

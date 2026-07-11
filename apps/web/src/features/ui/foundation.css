@@ -277,6 +277,11 @@ canvas {
   min-height: 100dvh;
 }
 
+.ui-page-container.task-screen-route-layer {
+  max-width: none;
+  padding: 0;
+}
+
 .ui-page-content {
   display: flex;
   min-width: 0;

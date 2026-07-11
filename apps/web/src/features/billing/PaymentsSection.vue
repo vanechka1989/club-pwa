@@ -525,7 +525,7 @@ watch(() => route.path, syncPaymentTaskRoute);
       </div>
     </div>
 
-    <div class="surface-card ui-card">
+    <div class="surface-card ui-card payment-plans-card">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
           <p class="font-semibold text-[var(--text)]">{{ t("paymentsPlans") }}</p>

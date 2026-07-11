@@ -4,9 +4,9 @@ import { ArrowLeft } from "lucide-vue-next";
 withDefaults(
   defineProps<{
     title: string;
-    subtitle?: string;
+    subtitle?: string | undefined;
     back?: boolean;
-    backLabel?: string;
+    backLabel?: string | undefined;
   }>(),
   {
     subtitle: "",

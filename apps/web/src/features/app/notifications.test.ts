@@ -87,7 +87,7 @@ describe("app notifications", () => {
     expect(profileSource).toContain("<NotificationCenter");
     expect(profileSource).not.toContain("@click=\"changeTheme(ui.theme === 'dark' ? 'light' : 'dark')\"");
     expect(styles).toMatch(/\.compact-controls\s+\.notification-center\s*\{/s);
-    expect(styles).toMatch(/\.compact-controls\s+\.notification-center-button\s*\{[^}]*width:\s*2rem;/s);
+    expect(styles).toMatch(/\.compact-controls\s+\.notification-center-button\s*\{[^}]*width:\s*var\(--icon-button-size\);/s);
     expect(styles).not.toMatch(/\.notification-center\s*\{[^}]*top:\s*calc\(var\(--tg-safe-top/s);
   });
 });
