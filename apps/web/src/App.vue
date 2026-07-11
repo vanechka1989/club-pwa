@@ -279,7 +279,9 @@ function syncMobileDeviceShell(layoutWidth: number, viewportHeight: number) {
     layoutWidth,
     viewportHeight,
     screenWidth: window.screen?.width ?? null,
+    screenHeight: window.screen?.height ?? null,
     screenAvailWidth: window.screen?.availWidth ?? null,
+    screenAvailHeight: window.screen?.availHeight ?? null,
     devicePixelRatio: window.devicePixelRatio ?? null,
     hasTouchInput,
     isStandaloneDisplay: isInstalledPwaDisplay(),
@@ -341,7 +343,9 @@ function syncViewportHeight() {
     browserWidth,
     visualWidth: visualViewport?.width ?? null,
     screenWidth: window.screen?.width ?? null,
+    screenHeight: window.screen?.height ?? null,
     screenAvailWidth: window.screen?.availWidth ?? null,
+    screenAvailHeight: window.screen?.availHeight ?? null,
     devicePixelRatio: window.devicePixelRatio ?? null
   });
   syncMobileDeviceShell(width, height);
@@ -371,6 +375,11 @@ function syncViewportHeight() {
     userAgent: window.navigator.userAgent,
     viewportWidth: width,
     viewportHeight: height,
+    screenWidth: window.screen?.width ?? null,
+    screenHeight: window.screen?.height ?? null,
+    screenAvailWidth: window.screen?.availWidth ?? null,
+    screenAvailHeight: window.screen?.availHeight ?? null,
+    devicePixelRatio: window.devicePixelRatio ?? null,
     safeAreaInset: null,
     contentSafeAreaInset: null,
     visualBottomGap

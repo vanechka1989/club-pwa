@@ -246,8 +246,8 @@ describe("device layout detection", () => {
     expect(snapshot.classes).toEqual(["club-android", "club-mobile-device", "club-mobile-app-scaled"]);
     expect(snapshot.cssVariables).toMatchObject({
       "--club-app-wide-viewport-scale": "2.513",
-      "--club-app-wide-font-root": "32.67px",
-      "--club-app-wide-font-base": "32.67px"
+      "--club-app-wide-font-root": "40.21px",
+      "--club-app-wide-font-base": "40.21px"
     });
     expect(snapshot.removedCssVariables).toEqual(["--club-auth-wide-viewport-scale"]);
   });
@@ -268,7 +268,8 @@ describe("device layout detection", () => {
 
     expect(snapshot.isMobileDeviceShell).toBe(true);
     expect(snapshot.scale).toBe(2.513);
-    expect(snapshot.classes).toEqual(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]);
+    expect(snapshot.classes).toEqual(["club-mobile-device", "club-mobile-app-scaled"]);
+    expect(snapshot.classes).not.toContain("club-screen-tall");
     expect(snapshot.cssVariables).toMatchObject({
       "--club-app-wide-viewport-scale": "2.513"
     });
@@ -279,7 +280,9 @@ describe("device layout detection", () => {
       layoutWidth: 980,
       viewportHeight: 1914,
       screenWidth: 385,
+      screenHeight: 833,
       screenAvailWidth: 385,
+      screenAvailHeight: 833,
       devicePixelRatio: 3.75,
       hasTouchInput: false,
       isStandaloneDisplay: true,
@@ -291,10 +294,38 @@ describe("device layout detection", () => {
 
     expect(snapshot.isMobileDeviceShell).toBe(true);
     expect(snapshot.scale).toBe(2.545);
-    expect(snapshot.classes).toEqual(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]);
+    expect(snapshot.classes).toEqual(["club-android", "club-screen-short", "club-mobile-device", "club-mobile-app-scaled"]);
+    expect(snapshot.classes).not.toContain("club-screen-tall");
     expect(snapshot.cssVariables).toMatchObject({
       "--club-app-wide-viewport-scale": "2.545"
     });
+  });
+
+  it("calibrates desktop-UA Linux standalone phones from physical screen signals instead of the fake browser viewport", () => {
+    const calibration = calculateLayoutCalibration({
+      platform: "Linux armv81",
+      userAgent:
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      viewportWidth: 980,
+      viewportHeight: 1914,
+      screenWidth: 385,
+      screenHeight: 833,
+      screenAvailWidth: 385,
+      screenAvailHeight: 833,
+      devicePixelRatio: 3.75,
+      safeAreaInset: null,
+      contentSafeAreaInset: null,
+      visualBottomGap: 0
+    } as Parameters<typeof calculateLayoutCalibration>[0] & {
+      screenWidth: number;
+      screenHeight: number;
+      screenAvailWidth: number;
+      screenAvailHeight: number;
+      devicePixelRatio: number;
+    });
+
+    expect(calibration.bottomOffsetPx).toBe(0);
+    expect(calibration.source).toBe("android");
   });
 
   it("keeps a real CSS-width mobile viewport unscaled while still using the mobile shell", () => {

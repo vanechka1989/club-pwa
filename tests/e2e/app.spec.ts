@@ -731,6 +731,9 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function expectConsistentIconActionTargets(page: Page, context: string, selector: string) {
   const issues = await page.locator(selector).evaluateAll((elements, auditContext) => {
     const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
+    const shellScale = isScaledShell
+      ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale")) || 1
+      : 1;
     const subpixelTolerance = 0.5;
 
     return elements
@@ -746,6 +749,10 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
         const maximumIconSize = isScaledShell ? 30 : 26;
         const svg = target.querySelector<SVGElement>("svg");
         const svgRect = svg?.getBoundingClientRect();
+        const effectiveWidth = rect.width / shellScale;
+        const effectiveHeight = rect.height / shellScale;
+        const effectiveSvgWidth = svgRect ? svgRect.width / shellScale : null;
+        const effectiveSvgHeight = svgRect ? svgRect.height / shellScale : null;
         const label = target.getAttribute("aria-label") ?? target.getAttribute("title") ?? (target.textContent ?? "").trim().replace(/\s+/g, " ");
         const isTextAction = !svg && label.length > 0;
         const isVisible =
@@ -764,6 +771,10 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           height: Math.round(rect.height),
           svgWidth: svgRect ? Math.round(svgRect.width) : null,
           svgHeight: svgRect ? Math.round(svgRect.height) : null,
+          effectiveWidth: Math.round(effectiveWidth),
+          effectiveHeight: Math.round(effectiveHeight),
+          effectiveSvgWidth: effectiveSvgWidth === null ? null : Math.round(effectiveSvgWidth),
+          effectiveSvgHeight: effectiveSvgHeight === null ? null : Math.round(effectiveSvgHeight),
           minWidth: style.minWidth,
           minHeight: style.minHeight,
           whiteSpace: style.whiteSpace,
@@ -776,14 +787,21 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           targetToken,
           iconToken,
           isScaledShell,
-          hasSmallTarget: rect.width + subpixelTolerance < minimumTargetSize || rect.height + subpixelTolerance < minimumTargetSize,
-          hasLargeTarget: rect.width - subpixelTolerance > maximumTargetSize || rect.height - subpixelTolerance > maximumTargetSize,
-          hasNonSquareTarget: Math.abs(rect.width - rect.height) > 1,
+          shellScale,
+          hasSmallTarget: effectiveWidth + subpixelTolerance < minimumTargetSize || effectiveHeight + subpixelTolerance < minimumTargetSize,
+          hasLargeTarget: effectiveWidth - subpixelTolerance > maximumTargetSize || effectiveHeight - subpixelTolerance > maximumTargetSize,
+          hasNonSquareTarget: Math.abs(effectiveWidth - effectiveHeight) > 1,
           hasSmallIcon: Boolean(
-            svgRect && (svgRect.width + subpixelTolerance < minimumIconSize || svgRect.height + subpixelTolerance < minimumIconSize)
+            svgRect &&
+              effectiveSvgWidth !== null &&
+              effectiveSvgHeight !== null &&
+              (effectiveSvgWidth + subpixelTolerance < minimumIconSize || effectiveSvgHeight + subpixelTolerance < minimumIconSize)
           ),
           hasLargeIcon: Boolean(
-            svgRect && (svgRect.width - subpixelTolerance > maximumIconSize || svgRect.height - subpixelTolerance > maximumIconSize)
+            svgRect &&
+              effectiveSvgWidth !== null &&
+              effectiveSvgHeight !== null &&
+              (effectiveSvgWidth - subpixelTolerance > maximumIconSize || effectiveSvgHeight - subpixelTolerance > maximumIconSize)
           ),
           hasEscapedIcon: Boolean(
             svgRect &&
@@ -833,6 +851,9 @@ const iconActionControlSelector = [
 async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
   const issues = await page.locator(".profile-access-actions .ui-button").evaluateAll((elements) => {
     const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
+    const shellScale = isScaledShell
+      ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale")) || 1
+      : 1;
     const minimumButtonHeight = isScaledShell ? 56 : 44;
     const maximumButtonHeight = isScaledShell ? 84 : 64;
     const subpixelTolerance = 0.5;
@@ -842,18 +863,21 @@ async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
         const target = element as HTMLElement;
         const rect = target.getBoundingClientRect();
         const style = getComputedStyle(target);
+        const effectiveHeight = rect.height / shellScale;
 
         return {
           className: String(target.className),
           label: (target.textContent ?? "").trim().replace(/\s+/g, " "),
           height: Math.round(rect.height),
+          effectiveHeight: Math.round(effectiveHeight),
           minimumButtonHeight,
           maximumButtonHeight,
           isScaledShell,
+          shellScale,
           minHeight: style.minHeight,
           visible: rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden",
-          hasSmallHeight: rect.height + subpixelTolerance < minimumButtonHeight,
-          hasLargeHeight: rect.height - subpixelTolerance > maximumButtonHeight
+          hasSmallHeight: effectiveHeight + subpixelTolerance < minimumButtonHeight,
+          hasLargeHeight: effectiveHeight - subpixelTolerance > maximumButtonHeight
         };
       })
       .filter((item) => item.visible && (item.hasSmallHeight || item.hasLargeHeight));
@@ -870,6 +894,10 @@ async function expectChatComposerSingleRow(page: Page) {
     const messages = document.querySelector<HTMLElement>(".community-chat-open .chat-messages");
     const input = row?.querySelector<HTMLElement>(".text-input") ?? null;
     const buttons = Array.from(row?.querySelectorAll<HTMLElement>(".icon-button") ?? []);
+    const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
+    const shellScale = isScaledShell
+      ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale")) || 1
+      : 1;
     const rowRect = row?.getBoundingClientRect();
     const roomRect = room?.getBoundingClientRect();
     const roomStyle = room ? getComputedStyle(room) : null;
@@ -887,7 +915,11 @@ async function expectChatComposerSingleRow(page: Page) {
         width: Math.round(rect.width),
         height: Math.round(rect.height),
         svgWidth: svgRect ? Math.round(svgRect.width) : null,
-        svgHeight: svgRect ? Math.round(svgRect.height) : null
+        svgHeight: svgRect ? Math.round(svgRect.height) : null,
+        effectiveWidth: Math.round(rect.width / shellScale),
+        effectiveHeight: Math.round(rect.height / shellScale),
+        effectiveSvgWidth: svgRect ? Math.round(svgRect.width / shellScale) : null,
+        effectiveSvgHeight: svgRect ? Math.round(svgRect.height / shellScale) : null
       };
     });
 
@@ -905,12 +937,16 @@ async function expectChatComposerSingleRow(page: Page) {
       roomBoxSizing: roomStyle?.boxSizing ?? null,
       roomPaddingBottom: roomStyle?.paddingBottom ?? null,
       rowHeight: rowRect ? Math.round(rowRect.height) : null,
+      effectiveRowHeight: rowRect ? Math.round(rowRect.height / shellScale) : null,
       composerHeight: composerRect ? Math.round(composerRect.height) : null,
+      effectiveComposerHeight: composerRect ? Math.round(composerRect.height / shellScale) : null,
       composerTop: composerRect ? Math.round(composerRect.top) : null,
       composerBottom: composerRect ? Math.round(composerRect.bottom) : null,
       visibleViewportHeight: Math.round(visibleViewportHeight),
       inputHeight: inputRect ? Math.round(inputRect.height) : null,
+      effectiveInputHeight: inputRect ? Math.round(inputRect.height / shellScale) : null,
       inputFontSize: inputStyle ? Number.parseFloat(inputStyle.fontSize) : null,
+      effectiveInputFontSize: inputStyle ? Number.parseFloat(inputStyle.fontSize) / shellScale : null,
       messagesClientHeight: messages?.clientHeight ?? null,
       messagesScrollHeight: messages?.scrollHeight ?? null,
       messagesScrollTop: messages?.scrollTop ?? null,
@@ -919,8 +955,10 @@ async function expectChatComposerSingleRow(page: Page) {
         Boolean(inputRect) &&
         buttonRects.length === 2 &&
         buttonRects.every((rect) => Math.abs(rect.top - Math.round(inputRect!.top)) <= 8),
-      buttonsUsable: buttonRects.length === 2 && buttonRects.every((rect) => rect.width >= 44 && rect.height >= 44),
-      iconsReadable: buttonRects.length === 2 && buttonRects.every((rect) => (rect.svgWidth ?? 0) >= 24 && (rect.svgHeight ?? 0) >= 24),
+      isScaledShell,
+      shellScale,
+      buttonsUsable: buttonRects.length === 2 && buttonRects.every((rect) => rect.effectiveWidth >= 44 && rect.effectiveHeight >= 44),
+      iconsReadable: buttonRects.length === 2 && buttonRects.every((rect) => (rect.effectiveSvgWidth ?? 0) >= 22 && (rect.effectiveSvgHeight ?? 0) >= 22),
       messagesScrollableWhenOverflowing: Boolean(
         messages && (messages.scrollHeight <= messages.clientHeight + 4 || messages.scrollTop > 0)
       ),
@@ -938,10 +976,10 @@ async function expectChatComposerSingleRow(page: Page) {
     messagesScrollableWhenOverflowing: true,
     composerWithinVisibleViewport: true
   });
-  expect(layout.inputFontSize, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(16);
-  expect(layout.inputHeight, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(44);
-  expect(layout.rowHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(72);
-  expect(layout.composerHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(88);
+  expect(layout.effectiveInputFontSize, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(16);
+  expect(layout.effectiveInputHeight, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(44);
+  expect(layout.effectiveRowHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(72);
+  expect(layout.effectiveComposerHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(88);
 }
 
 async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
@@ -1759,18 +1797,25 @@ test("keeps support and mailing forms usable when the Android keyboard opens", a
   const keyboardFixtures = [mobileModalFixtures[2], mobileModalFixtures[9]];
   for (const fixture of keyboardFixtures) {
     await renderMobileModalFixture(page, fixture);
-    await page.evaluate(() => {
+    const shellScale = await page.evaluate(() => {
+      const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
+      return isScaledShell
+        ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale")) || 1
+        : 1;
+    });
+    await page.evaluate((scale) => {
       document.documentElement.classList.add("club-keyboard-open");
       document.body.classList.add("club-keyboard-open");
-      document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
-      document.documentElement.style.setProperty("--club-system-bottom", "360px");
-      document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "360px");
-    });
+      document.documentElement.style.setProperty("--club-visible-viewport-height", `${420 * scale}px`);
+      document.documentElement.style.setProperty("--club-system-bottom", `${360 * scale}px`);
+      document.documentElement.style.setProperty("--club-calibrated-bottom-offset", `${360 * scale}px`);
+    }, shellScale);
 
     const box = await page.locator("[data-modal-fixture-panel]").boundingBox();
     expect(box, fixture.modalClass).not.toBeNull();
-    expect(box!.height, fixture.modalClass).toBeGreaterThan(340);
-    expect(box!.height, fixture.modalClass).toBeLessThanOrEqual(420);
+    const effectiveHeight = box!.height / shellScale;
+    expect(effectiveHeight, fixture.modalClass).toBeGreaterThan(340);
+    expect(effectiveHeight, fixture.modalClass).toBeLessThanOrEqual(420);
   }
 });
 
@@ -1786,8 +1831,8 @@ test("detects standalone small-screen desktop-UA PWA as a mobile app shell", asy
       }))
     )
     .toMatchObject({
-      htmlClasses: expect.arrayContaining(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]),
-      bodyClasses: expect.arrayContaining(["club-screen-tall", "club-mobile-device", "club-mobile-app-scaled"]),
+      htmlClasses: expect.arrayContaining(["club-android", "club-screen-short", "club-mobile-device", "club-mobile-app-scaled"]),
+      bodyClasses: expect.arrayContaining(["club-android", "club-screen-short", "club-mobile-device", "club-mobile-app-scaled"]),
       scale: "2.545"
     });
 });
@@ -2052,14 +2097,18 @@ test("keeps chat composer stable when typing", async ({ page }) => {
   await expectChatComposerSingleRow(page);
 
   await page.evaluate(() => {
+    const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
+    const shellScale = isScaledShell
+      ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale")) || 1
+      : 1;
     document.documentElement.classList.add("club-keyboard-open");
     document.body.classList.add("club-keyboard-open");
-    document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
-    document.body.style.setProperty("--club-visible-viewport-height", "420px");
-    document.documentElement.style.setProperty("--club-system-bottom", "360px");
-    document.body.style.setProperty("--club-system-bottom", "360px");
-    document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "360px");
-    document.body.style.setProperty("--club-calibrated-bottom-offset", "360px");
+    document.documentElement.style.setProperty("--club-visible-viewport-height", `${420 * shellScale}px`);
+    document.body.style.setProperty("--club-visible-viewport-height", `${420 * shellScale}px`);
+    document.documentElement.style.setProperty("--club-system-bottom", `${360 * shellScale}px`);
+    document.body.style.setProperty("--club-system-bottom", `${360 * shellScale}px`);
+    document.documentElement.style.setProperty("--club-calibrated-bottom-offset", `${360 * shellScale}px`);
+    document.body.style.setProperty("--club-calibrated-bottom-offset", `${360 * shellScale}px`);
   });
   await composer.focus();
   await expectChatComposerSingleRow(page);

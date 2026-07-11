@@ -691,7 +691,9 @@ describe("App", () => {
     expect(styles).toMatch(
       /body\.club-mobile-device \.section-head,\s*body\.club-mobile-device \.soft-card,\s*body\.club-mobile-device \.soft-list-card\s*\{[\s\S]*border-radius: var\(--club-mobile-card-radius\);/
     );
-    expect(styles).toMatch(/body\.club-mobile-app-scaled\s*\{[\s\S]*--space-section: clamp\(0\.46rem, 1\.2vw, 0\.68rem\);[\s\S]*--ui-button-height: 2\.32rem;/);
+    expect(styles).toMatch(
+      /body\.club-mobile-app-scaled\s*\{[\s\S]*--space-section: calc\(16px \* var\(--club-app-wide-viewport-scale, 1\)\);[\s\S]*--ui-button-height: var\(--button-height\);/
+    );
     expect(styles).toMatch(
       /body\.club-mobile-app-scaled \.section-head,\s*body\.club-mobile-app-scaled \.soft-card,\s*body\.club-mobile-app-scaled \.soft-list-card\s*\{[\s\S]*border-radius: var\(--club-mobile-card-radius\);[\s\S]*padding: 0\.74rem;/
     );
@@ -850,7 +852,7 @@ describe("App", () => {
       /\.community-chat-open \.chat-input-row \.icon-button\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*min-width: var\(--icon-button-size\);/
     );
     expect(foundation).toMatch(
-      /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*font-size: 16px;/
+      /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*font-size: 1rem;/
     );
   });
 

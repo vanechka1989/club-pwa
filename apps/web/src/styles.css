@@ -1166,16 +1166,16 @@ html.club-mobile-app-scaled {
 body.club-mobile-app-scaled {
   --club-mobile-card-radius: 24px;
   --club-mobile-sheet-radius: 28px;
-  --screen-gutter: clamp(0.44rem, 1.15vw, 0.62rem);
-  --space-section: clamp(0.46rem, 1.2vw, 0.68rem);
-  --space-card: clamp(0.52rem, 1.3vw, 0.74rem);
-  --ui-gap: clamp(0.38rem, 1vw, 0.56rem);
-  --ui-gap-sm: clamp(0.26rem, 0.8vw, 0.4rem);
+  --screen-gutter: calc(12px * var(--club-app-wide-viewport-scale, 1));
+  --space-section: calc(16px * var(--club-app-wide-viewport-scale, 1));
+  --space-card: calc(16px * var(--club-app-wide-viewport-scale, 1));
+  --ui-gap: calc(12px * var(--club-app-wide-viewport-scale, 1));
+  --ui-gap-sm: calc(8px * var(--club-app-wide-viewport-scale, 1));
   --ui-card-padding: var(--space-card);
-  --ui-card-padding-compact: clamp(0.44rem, 1.05vw, 0.58rem);
-  --ui-button-height: 2.32rem;
-  --ui-button-radius: 16px;
-  --ui-control-radius: 18px;
+  --ui-card-padding-compact: calc(14px * var(--club-app-wide-viewport-scale, 1));
+  --ui-button-height: var(--button-height);
+  --ui-button-radius: var(--button-radius);
+  --ui-control-radius: var(--button-radius);
   overflow-x: hidden;
   font-size: calc(var(--club-app-wide-font-base, 16px) * var(--club-user-visual-scale, 1));
   text-size-adjust: 100%;
@@ -10838,7 +10838,7 @@ body.club-keyboard-open .community-chat-open .chat-messages {
   min-height: var(--icon-button-size);
   border-radius: var(--icon-button-radius);
   padding: 0 14px;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.2;
 }
 
@@ -15141,7 +15141,7 @@ textarea.text-input,
   width: 100%;
   min-width: 0;
   min-height: var(--control-height);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.35;
 }
 

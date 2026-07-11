@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Samsung PWA: исправлен desktop-viewport 980px",
+    items: [
+      "Приложение теперь распознаёт установленный Samsung/Android PWA даже при desktop user-agent и viewport 980px: размер экрана берётся из физического screen 385×833, а не из фейкового layout viewport.",
+      "Классы адаптации больше не считают такой телефон “высоким desktop-экраном”: применяется mobile short layout, android-calibration и PWA scaled shell.",
+      "Кнопки, иконки, поля и чат в wide-viewport режиме масштабируются полным коэффициентом оболочки, поэтому visual touch-target остаётся нормальным после сжатия браузером.",
+      "Автотесты проверяют именно видимый effective-size в Samsung 980px shell, включая профиль, модули, оплату, чат и keyboard-сценарии."
+    ]
+  },
+  {
+    version: "3.49",
+    updatedAt: "11.07.2026 18:38",
     title: "Foundation: ровные icon-кнопки без legacy-overflow",
     items: [
       "Icon/action-кнопки переведены на спокойный единый размер 44px с читаемым 24px glyph: RU, уведомления, аватар, модули, тарифы, поддержка и чат больше не разъезжаются по разным размерам.",

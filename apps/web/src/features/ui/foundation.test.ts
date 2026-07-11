@@ -32,6 +32,15 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("--safe-bottom: env(safe-area-inset-bottom, 0px);");
   });
 
+  it("keeps desktop-UA phone PWA controls visually 44px by scaling tap targets with the full wide-viewport factor", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).toContain("--club-scaled-control-factor: var(--club-scaled-ui-factor, 1);");
+    expect(css).toContain("--icon-button-size: calc(48px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--icon-size: calc(24px * var(--club-scaled-control-factor));");
+    expect(css).not.toContain("--club-scaled-control-factor: min(");
+  });
+
   it("defines the four required theme variants through semantic tokens", () => {
     expect(existsSync(uiPath("foundation.css"))).toBe(true);
 

@@ -13,6 +13,8 @@ export type ViewportWidthInput = {
   visualWidth?: number | null;
   screenWidth?: number | null;
   screenAvailWidth?: number | null;
+  screenHeight?: number | null;
+  screenAvailHeight?: number | null;
   devicePixelRatio?: number | null;
 };
 
@@ -83,6 +85,11 @@ export type LayoutCalibrationInput = {
   userAgent?: string;
   viewportWidth?: number | null;
   viewportHeight?: number | null;
+  screenWidth?: number | null;
+  screenHeight?: number | null;
+  screenAvailWidth?: number | null;
+  screenAvailHeight?: number | null;
+  devicePixelRatio?: number | null;
   safeAreaInset?: DeviceInsetInput | null;
   contentSafeAreaInset?: DeviceInsetInput | null;
   visualBottomGap?: number | null;
@@ -111,7 +118,7 @@ export const deviceLayoutCssVariables = [
   "--club-app-wide-font-base"
 ] as const;
 
-const mobileAppWideViewportFontBasePx = 13;
+const mobileAppWideViewportFontBasePx = 16;
 
 export function getDeviceLayoutClasses({ platform = "", userAgent }: DeviceLayoutInput) {
   const normalizedPlatform = platform.toLowerCase();
@@ -125,10 +132,13 @@ export function getDeviceLayoutClasses({ platform = "", userAgent }: DeviceLayou
 }
 
 export function getViewportSizeClasses({ width, height }: ViewportSizeInput) {
+  const isMobileOrTabletWidth = width > 0 && width <= 768;
+  const isPhoneWidth = width > 0 && width <= 600;
+
   return [
     width > 0 && width <= 380 && "club-screen-narrow",
-    height > 0 && height <= 780 && "club-screen-short",
-    height >= 900 && "club-screen-tall"
+    isPhoneWidth && height > 0 && height <= 850 && "club-screen-short",
+    isMobileOrTabletWidth && height >= 900 && "club-screen-tall"
   ].filter((className): className is string => Boolean(className));
 }
 
@@ -212,6 +222,33 @@ function getCssDeviceScreenWidth(input: ViewportWidthInput) {
   return looksLikePhysicalPixels ? cssWidthFromPhysicalPixels : rawScreenWidth;
 }
 
+function getCssDeviceScreenHeight(input: ViewportWidthInput) {
+  const screenHeights = [input.screenHeight, input.screenAvailHeight].filter(
+    (height): height is number => Number.isFinite(height) && Number(height) > 0
+  );
+  if (!screenHeights.length) {
+    return 0;
+  }
+
+  const rawScreenHeight = Math.max(...screenHeights);
+  const pixelRatio = finiteNumber(input.devicePixelRatio, 1);
+  const cssHeightFromPhysicalPixels = pixelRatio > 1 ? rawScreenHeight / pixelRatio : 0;
+  const looksLikePhysicalPixels =
+    cssHeightFromPhysicalPixels >= 480 &&
+    cssHeightFromPhysicalPixels <= 1400 &&
+    cssHeightFromPhysicalPixels < rawScreenHeight * 0.75;
+
+  return looksLikePhysicalPixels ? cssHeightFromPhysicalPixels : rawScreenHeight;
+}
+
+function isPhysicalPhoneScreen(input: ViewportWidthInput) {
+  const screenWidth = getCssDeviceScreenWidth(input);
+  const screenHeight = getCssDeviceScreenHeight(input);
+  const pixelRatio = finiteNumber(input.devicePixelRatio, 1);
+
+  return screenWidth > 0 && screenWidth <= 600 && (screenHeight === 0 || screenHeight <= 1200) && pixelRatio >= 2;
+}
+
 function hasMobileUserAgent(userAgent: string | null | undefined) {
   return /Android|iPhone|iPad|iPod/i.test(userAgent ?? "");
 }
@@ -237,6 +274,7 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const layoutHeight = finiteNumber(input.layoutHeight, 0);
   const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
   const isSmallCssScreen = deviceScreenWidth > 0 && deviceScreenWidth <= 480;
+  const isPhysicalPhone = isPhysicalPhoneScreen(input);
   const isAnyMobileUserAgent = hasMobileUserAgent(input.userAgent);
   const isHandheldMobileUserAgent = hasHandheldMobileUserAgent(input.userAgent);
   const isTallPortraitWideViewport =
@@ -248,7 +286,11 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
     input.layoutWidth <= 1100 &&
     layoutHeight >= input.layoutWidth * 1.45;
   const hasMobileShellSignal =
-    input.hasTouchInput || isAnyMobileUserAgent || needsStandaloneWideViewportScale || (Boolean(input.isStandaloneDisplay) && isTallPortraitWideViewport);
+    input.hasTouchInput ||
+    isPhysicalPhone ||
+    isAnyMobileUserAgent ||
+    needsStandaloneWideViewportScale ||
+    (Boolean(input.isStandaloneDisplay) && isTallPortraitWideViewport);
   const needsViewportCompensation = hasMobileShellSignal && input.layoutWidth >= 700 && viewportScale >= 1.35;
   const isMobileUserAgent = hasMobileShellSignal && isAnyMobileUserAgent;
   const needsHandheldWideViewportScale =
@@ -283,12 +325,32 @@ export function createDeviceLayoutSnapshot(input: DeviceLayoutSnapshotInput): De
   const shouldScaleWideViewport = mobileDeviceShell.isMobileDeviceShell && mobileDeviceShell.scale > 1;
   const shouldScaleAuth = shouldScaleWideViewport && input.sessionMode === "signed-out";
   const shouldScaleApp = shouldScaleWideViewport && input.sessionMode === "signed-in";
+  const deviceScreenWidth = getCssDeviceScreenWidth(input);
+  const deviceScreenHeight = getCssDeviceScreenHeight(input);
+  const shouldUsePhysicalScreenForSizeClasses =
+    mobileDeviceShell.isMobileDeviceShell && shouldScaleWideViewport && deviceScreenWidth > 0 && deviceScreenHeight > 0;
+  const platformClasses = getDeviceLayoutClasses({ platform: input.platform ?? "", userAgent });
+  const inferredAndroidPhysicalShell =
+    !platformClasses.includes("club-ios") &&
+    !platformClasses.includes("club-android") &&
+    isLikelyAndroidPhysicalShell({
+      platform: input.platform ?? null,
+      userAgent,
+      viewportWidth: input.layoutWidth,
+      viewportHeight: input.viewportHeight ?? null,
+      screenWidth: input.screenWidth ?? null,
+      screenHeight: input.screenHeight ?? null,
+      screenAvailWidth: input.screenAvailWidth ?? null,
+      screenAvailHeight: input.screenAvailHeight ?? null,
+      devicePixelRatio: input.devicePixelRatio ?? null
+    });
   const cssVariables: Record<string, string> = {};
   const classes = [
-    ...getDeviceLayoutClasses({ platform: input.platform ?? "", userAgent }),
+    ...platformClasses,
+    inferredAndroidPhysicalShell && "club-android",
     ...getViewportSizeClasses({
-      width: input.layoutWidth,
-      height: finiteNumber(input.viewportHeight, 0)
+      width: shouldUsePhysicalScreenForSizeClasses ? deviceScreenWidth : input.layoutWidth,
+      height: shouldUsePhysicalScreenForSizeClasses ? deviceScreenHeight : finiteNumber(input.viewportHeight, 0)
     }),
     mobileDeviceShell.isMobileDeviceShell && "club-mobile-device",
     shouldScaleAuth && "club-mobile-auth-scaled",
@@ -334,7 +396,7 @@ function insetOrNull(value: DeviceInsetInput | null | undefined) {
 export function calculateLayoutCalibration(input: LayoutCalibrationInput): LayoutCalibration {
   const userAgent = input.userAgent ?? "";
   const classes = getDeviceLayoutClasses({ platform: input.platform ?? "", userAgent });
-  const isAndroid = classes.includes("club-android");
+  const isAndroid = classes.includes("club-android") || isLikelyAndroidPhysicalShell(input);
   const isIos = classes.includes("club-ios");
   const bottomInset = maxInsetSide("bottom", input.safeAreaInset, input.contentSafeAreaInset);
   const bottomOffsetPx = rounded(Math.max(bottomInset, finiteNumber(input.visualBottomGap, 0)));
@@ -343,6 +405,21 @@ export function calculateLayoutCalibration(input: LayoutCalibrationInput): Layou
     bottomOffsetPx,
     source: isAndroid ? "android" : isIos ? "ios" : "browser"
   };
+}
+
+function isLikelyAndroidPhysicalShell(input: LayoutCalibrationInput) {
+  if (getDeviceLayoutClasses({ platform: input.platform ?? "", userAgent: input.userAgent ?? "" }).includes("club-ios")) {
+    return false;
+  }
+
+  const platform = input.platform?.toLowerCase() ?? "";
+  const userAgent = input.userAgent?.toLowerCase() ?? "";
+  const isLinuxShell = platform.includes("linux") || userAgent.includes("linux");
+  const viewportWidth = finiteNumber(input.viewportWidth, 0);
+  const screenWidth = getCssDeviceScreenWidth(input);
+  const scale = screenWidth > 0 ? viewportWidth / screenWidth : 1;
+
+  return isLinuxShell && isPhysicalPhoneScreen(input) && (viewportWidth >= 700 || scale >= 1.35);
 }
 
 export function collectDeviceDiagnostics(input: DeviceDiagnosticsInput) {
@@ -402,8 +479,20 @@ export function collectCurrentDeviceDiagnostics() {
       ? "standalone"
       : "browser";
   const classes = [
-    ...getDeviceLayoutClasses({ platform: platform ?? "", userAgent }),
-    ...getViewportSizeClasses({ width: viewportWidth, height: viewportHeight }),
+    ...createDeviceLayoutSnapshot({
+      layoutWidth: viewportWidth,
+      viewportHeight,
+      screenWidth: window.screen?.width ?? null,
+      screenHeight: window.screen?.height ?? null,
+      screenAvailWidth: window.screen?.availWidth ?? null,
+      screenAvailHeight: window.screen?.availHeight ?? null,
+      devicePixelRatio: window.devicePixelRatio ?? null,
+      hasTouchInput: Boolean(window.matchMedia?.("(pointer: coarse)").matches || navigator.maxTouchPoints > 0),
+      isStandaloneDisplay,
+      platform,
+      sessionMode: "signed-in",
+      userAgent
+    }).classes,
     ...(typeof document === "undefined"
       ? []
       : [...document.documentElement.classList, ...document.body.classList].filter((className) =>
@@ -444,6 +533,11 @@ export function collectCurrentDeviceDiagnostics() {
       userAgent,
       viewportWidth,
       viewportHeight,
+      screenWidth: window.screen?.width ?? null,
+      screenHeight: window.screen?.height ?? null,
+      screenAvailWidth: window.screen?.availWidth ?? null,
+      screenAvailHeight: window.screen?.availHeight ?? null,
+      devicePixelRatio: window.devicePixelRatio ?? null,
       safeAreaInset: null,
       contentSafeAreaInset: null,
       visualBottomGap:
