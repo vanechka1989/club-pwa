@@ -433,7 +433,7 @@ async function handleTogglePin(message: ClubMessage) {
   } catch (error) {
     if (getErrorStatus(error) === 409) {
       activeModerationMessageId.value = null;
-      window.alert("Можно закрепить не больше 5 сообщений.");
+      notifications.showInfo("Можно закрепить не больше 5 сообщений.");
       return;
     }
     showCommunityError(error instanceof Error ? error.message : "Не удалось изменить закрепление.");

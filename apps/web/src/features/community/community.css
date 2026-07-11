@@ -14,6 +14,28 @@ body.club-keyboard-open .app-root.community-chat-open {
   height: var(--club-visible-viewport-height, 100dvh);
 }
 
+/* The generic mobile shell reserves navigation space and page gutters. A chat is
+   a full-screen route, so it must explicitly opt out with matching specificity. */
+body.club-mobile-device .app-root.community-chat-open:not(.app-root-no-user) .app-shell {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body.club-mobile-device .app-root.community-chat-open:not(.app-root-no-user) .content-panel {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 .community-chat-open .app-layout,
 .community-chat-open .app-shell,
 .community-chat-open .content-panel-community,

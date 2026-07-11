@@ -22,7 +22,11 @@ import {
   getMeasuredVisibleViewportHeight,
   syncLayoutClasses
 } from "@/features/app/deviceLayout";
-import { blurActiveTextField, ensureFocusedTextFieldVisible } from "@/features/app/keyboardFocus";
+import {
+  blurActiveTextField,
+  ensureFocusedTextFieldVisible,
+  isTextFieldElement
+} from "@/features/app/keyboardFocus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
@@ -388,7 +392,7 @@ function syncViewportHeight() {
   document.documentElement.style.setProperty("--club-system-bottom", `${dynamicBottomInset}px`);
   document.documentElement.style.setProperty("--club-keyboard-bottom", `${visualBottomGap}px`);
   setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);
-  const isKeyboardOpen = visualBottomGap > 80;
+  const isKeyboardOpen = visualBottomGap > 80 && isTextFieldElement(document.activeElement);
   document.documentElement.classList.toggle("club-keyboard-open", isKeyboardOpen);
   document.body.classList.toggle("club-keyboard-open", isKeyboardOpen);
 }

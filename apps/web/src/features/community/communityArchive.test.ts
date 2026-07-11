@@ -55,6 +55,8 @@ describe("community archive labels", () => {
     expect(source).toContain("pinnedMessages.length");
     expect(source).toContain("formatMessageTime(message.createdAt)");
     expect(source).toContain("Можно закрепить не больше 5 сообщений.");
+    expect(source).toContain('notifications.showInfo("Можно закрепить не больше 5 сообщений.")');
+    expect(source).not.toContain('window.alert("Можно закрепить не больше 5 сообщений.")');
   });
 
   it("uses one touch-friendly moderation action sheet instead of inline buttons", () => {
@@ -63,5 +65,14 @@ describe("community archive labels", () => {
     expect(source).toContain('role="dialog"');
     expect(source).not.toContain('class="moderation-menu"');
     expect(communityStyles).toMatch(/\.moderation-action-row\s*\{[^}]*min-height:\s*48px;/s);
+  });
+
+  it("removes the generic mobile shell padding while chat is open", () => {
+    expect(communityStyles).toMatch(
+      /body\.club-mobile-device \.app-root\.community-chat-open:not\(\.app-root-no-user\) \.app-shell\s*\{[^}]*padding:\s*0;/s
+    );
+    expect(communityStyles).toMatch(
+      /body\.club-mobile-device \.app-root\.community-chat-open:not\(\.app-root-no-user\) \.content-panel\s*\{[^}]*padding:\s*0;/s
+    );
   });
 });
