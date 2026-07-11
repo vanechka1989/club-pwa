@@ -347,14 +347,10 @@ const lastOpenedLessonModule = computed(() => {
   return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? null : null;
 });
 const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
-const continueLessonTitle = computed(() => lastOpenedMaterial.value?.title ?? lastOpenedLesson.value?.title ?? "");
+const continueLessonTitle = computed(() => lastOpenedLessonModule.value?.title ?? "");
 const continueLessonKind = computed(() => lastOpenedMaterial.value?.kind ?? lastOpenedLesson.value?.kind ?? "text");
 const continueLessonContext = computed(() => {
-  if (lastOpenedMaterial.value && lastOpenedLesson.value && lastOpenedLessonModule.value) {
-    return `${lastOpenedLesson.value.title} · ${lastOpenedLessonModule.value.title}`;
-  }
-
-  return lastOpenedLessonModule.value?.title ?? "";
+  return lastOpenedMaterial.value?.title ?? lastOpenedLesson.value?.title ?? "";
 });
 const continueLessonButtonLabel = computed(() =>
   lastOpenedLesson.value ? `${t("modulesContinueLesson")} ${lastOpenedLesson.value.title}` : t("modulesContinueLesson")

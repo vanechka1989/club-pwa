@@ -139,6 +139,14 @@ describe("Learning section modules", () => {
     expect(rule).toMatch(/gap:\s*12px/);
   });
 
+  it("shows the module before the lesson title in the continue card", () => {
+    const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
+
+    expect(source).toContain('const continueLessonTitle = computed(() => lastOpenedLessonModule.value?.title ?? "")');
+    expect(source).toContain("lastOpenedMaterial.value?.title ?? lastOpenedLesson.value?.title ?? \"\"");
+    expect(source).not.toContain('return lastOpenedLessonModule.value?.title ?? "";');
+  });
+
   it("renders collapsed modules as compact summary rows with separate admin actions", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
