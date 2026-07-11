@@ -253,6 +253,13 @@
       "when": 1783819800000,
       "tag": "0035_pinned_chat_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1783823520000,
+      "tag": "0036_user_display_name",
+      "breakpoints": true
     }
   ]
 }

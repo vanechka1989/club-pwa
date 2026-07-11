@@ -12,6 +12,7 @@ import {
   Minus,
   Moon,
   Palette,
+  Pencil,
   Plus,
   RotateCcw,
   Sun
@@ -86,13 +87,17 @@ const emailVisible = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
 const showLogoutConfirm = ref(false);
+const displayNameEditorOpen = ref(false);
+const displayNameDraft = ref("");
+const displayNameSaving = ref(false);
+const displayNameError = ref<string | null>(null);
 const avatarMaxSizeBytes = 5 * 1024 * 1024;
 const avatarAllowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const avatarAllowedExtension = /\.(jpe?g|png|webp)$/i;
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
-const displayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
+const displayName = computed(() => session.user?.displayName || session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const accountEmail = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase());
 const avatarDisplayStyle = computed(() => {
@@ -111,6 +116,31 @@ const avatarDraftStyle = computed(() => ({
   transform: `scale(${avatarDraftScale.value})`,
   transformOrigin: `${avatarDraftX.value}% ${avatarDraftY.value}%`
 }));
+
+function openDisplayNameEditor() {
+  if (session.user?.displayNameChangedByUserAt) return;
+  displayNameDraft.value = displayName.value;
+  displayNameError.value = null;
+  displayNameEditorOpen.value = true;
+}
+
+async function saveDisplayName() {
+  displayNameSaving.value = true;
+  displayNameError.value = null;
+  try {
+    await session.updateDisplayName(displayNameDraft.value);
+    displayNameEditorOpen.value = false;
+  } catch (error) {
+    const status = (error as { status?: number; statusCode?: number })?.status ?? (error as { statusCode?: number })?.statusCode;
+    displayNameError.value = status === 409
+      ? "Этот ник уже занят."
+      : status === 403
+        ? "Самостоятельная смена уже использована."
+        : "Используйте 3–20 букв, цифр, _ или -.";
+  } finally {
+    displayNameSaving.value = false;
+  }
+}
 const daysLeft = computed(() => {
   if (!session.user?.membershipExpiresAt || !isMember.value) {
     return 0;
@@ -664,46 +694,36 @@ watch(
           </div>
         </div>
         <div class="profile-access-main">
-          <div class="profile-access-head">
+          <div class="profile-access-head profile-identity-head">
             <div class="min-w-0">
-              <p class="section-eyebrow">{{ t("status") }}</p>
-              <h3>{{ displayName }}</h3>
+              <div class="profile-display-name-row">
+                <h3>{{ displayName }}</h3>
+                <button v-if="!session.user?.displayNameChangedByUserAt" class="profile-name-edit" type="button" aria-label="Изменить ник" @click="openDisplayNameEditor">
+                  <Pencil class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+              <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
             </div>
-            <span class="soft-pill">{{ accessUntil }}</span>
-          </div>
-
-          <div class="profile-access-badges">
-            <p class="profile-subscription-status" :class="profileSubscriptionStatusClass">
-              {{ profileSubscriptionStatusText }}
-            </p>
             <span class="profile-role-pill">{{ roleLabel }}</span>
           </div>
 
-          <button
-            class="profile-account-inline"
-            type="button"
-            :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')"
-            @click="emailVisible = true"
-          >
+          <button class="profile-account-inline" type="button" :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')" @click="emailVisible = true">
             <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
             <span>Email</span>
-            <strong :class="{ 'profile-secret-blurred': !emailVisible }">
-              {{ accountEmail }}
-            </strong>
+            <strong :class="{ 'profile-secret-blurred': !emailVisible }">{{ accountEmail }}</strong>
           </button>
-
-          <p class="profile-payment-caption">
-            {{ paymentStatusText }}<template v-if="paymentDateText"> · {{ paymentDateText }}</template>
-          </p>
         </div>
       </div>
-      <div class="mt-4">
+      <div class="profile-membership-row">
+        <div class="profile-membership-title">
+          <strong>{{ paymentStatusText }}</strong>
+          <span v-if="isMember">до {{ accessUntil }}</span>
+        </div>
         <div class="subscription-bar">
           <span :style="{ width: `${subscriptionProgress}%` }"></span>
         </div>
-        <div class="profile-subscription-meta mt-2 flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
+        <div class="profile-subscription-meta flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
           <span>{{ subscriptionMeta }}</span>
-          <span v-if="isMember">до {{ accessUntil }}</span>
         </div>
       </div>
       <div class="profile-access-actions">
@@ -718,6 +738,20 @@ watch(
       <p v-if="avatarMessage" class="profile-avatar-help">{{ avatarMessage }}</p>
       <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
     </section>
+
+    <div v-if="displayNameEditorOpen" class="profile-name-sheet-backdrop" @click.self="displayNameEditorOpen = false">
+      <form class="profile-name-sheet" @submit.prevent="saveDisplayName">
+        <div class="profile-name-sheet-head"><h3>Изменить ник</h3><button type="button" aria-label="Закрыть" @click="displayNameEditorOpen = false">×</button></div>
+        <label for="profile-display-name">Новый ник</label>
+        <input id="profile-display-name" v-model.trim="displayNameDraft" class="text-input" maxlength="20" autocomplete="nickname" />
+        <p class="profile-name-hint">От 3 до 20 символов: буквы, цифры, _ и -. Изменить самостоятельно можно один раз.</p>
+        <p v-if="displayNameError" class="profile-name-error">{{ displayNameError }}</p>
+        <div class="profile-name-sheet-actions">
+          <button class="secondary-button ui-button" type="button" @click="displayNameEditorOpen = false">Отмена</button>
+          <button class="soft-inline-button ui-button" type="submit" :disabled="displayNameSaving">{{ displayNameSaving ? "Сохранение…" : "Сохранить" }}</button>
+        </div>
+      </form>
+    </div>
 
     <section class="space-y-3">
       <div class="flex items-center justify-between gap-3">

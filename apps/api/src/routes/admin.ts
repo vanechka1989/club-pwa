@@ -15,6 +15,8 @@ import {
   adminLearningMultipartCompleteRequestSchema,
   adminLearningUploadedObjectSchema,
   normalizeExternalMediaUrl,
+  isValidDisplayName,
+  normalizeDisplayName,
   type AdminLearningMaterial,
   type AdminPermission,
   type AdminUserDetailResponse,
@@ -642,6 +644,8 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     telegramId: user.telegramId,
     firstName: user.firstName,
     username: user.username,
+    displayName: user.displayName,
+    displayNameChangedByUserAt: user.displayNameChangedByUserAt?.toISOString() ?? null,
     photoUrl: user.photoUrl,
     role,
     membershipStatus: membership.status,
@@ -1633,6 +1637,32 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json(await buildUserDetail(user));
+  })
+  .patch("/stats/users/:telegramId/display-name", async (c) => {
+    const permissionError = await rejectIfNotOwner(c, "users");
+    if (permissionError) return permissionError;
+    const user = await db.query.users.findFirst({ where: eq(users.telegramId, c.req.param("telegramId")) });
+    if (!user) return c.json({ error: "User not found" }, 404);
+    const raw = (await c.req.json().catch(() => null)) as { displayName?: unknown } | null;
+    if (typeof raw?.displayName !== "string" || !isValidDisplayName(raw.displayName)) return c.json({ error: "Invalid display name" }, 400);
+    const displayName = normalizeDisplayName(raw.displayName);
+    try {
+      const [updatedUser] = await db.update(users).set({ displayName, updatedAt: new Date() }).where(eq(users.id, user.id)).returning();
+      if (!updatedUser) return c.json({ error: "Unable to update display name" }, 500);
+      await recordAdminAction(c, {
+        action: "client.display_name.updated",
+        entityType: "user",
+        entityId: user.id,
+        targetUserId: user.id,
+        targetTelegramId: user.telegramId,
+        summary: `Изменил ник клиента на ${displayName}`,
+        metadata: { previousDisplayName: user.displayName, displayName }
+      });
+      return c.json(await buildStatsUser(updatedUser, await getPublishedItemsCount()));
+    } catch (error) {
+      if ((error as { code?: string })?.code === "23505") return c.json({ error: "Display name is already taken" }, 409);
+      throw error;
+    }
   })
   .post("/access", async (c) => {
     const body = accessPayloadSchema.safeParse(await c.req.json().catch(() => null));

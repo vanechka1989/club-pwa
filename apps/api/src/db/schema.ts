@@ -20,6 +20,8 @@ export const users = pgTable(
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     firstName: varchar("first_name", { length: 128 }),
     username: varchar("username", { length: 64 }),
+    displayName: varchar("display_name", { length: 20 }),
+    displayNameChangedByUserAt: timestamp("display_name_changed_by_user_at", { withTimezone: true }),
     photoUrl: text("photo_url"),
     avatarObjectKey: text("avatar_object_key"),
     avatarRefreshedAt: timestamp("avatar_refreshed_at", { withTimezone: true }),

@@ -165,6 +165,10 @@ export function updateAvatarDisplay(payload: { avatarPositionX: number; avatarPo
   });
 }
 
+export function updateDisplayName(displayName: string) {
+  return api<MeResponse>("/me/display-name", { method: "PATCH", body: { displayName } });
+}
+
 export function getReferralProfile() {
   return api<ReferralProfileResponse>("/me/referrals");
 }
@@ -685,6 +689,10 @@ export function getAdminUserStats(telegramId: string) {
 
 export function getAdminUserDetail(telegramId: string) {
   return api<AdminUserDetailResponse>(`/admin/stats/users/${telegramId}/detail`);
+}
+
+export function updateAdminUserDisplayName(telegramId: string, displayName: string) {
+  return api<AdminStatsUser>(`/admin/stats/users/${telegramId}/display-name`, { method: "PATCH", body: { displayName } });
 }
 
 export function getAdminUserLoginIps(telegramId: string) {

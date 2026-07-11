@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ClubMessage, ClubTopic, MessageReaction } from "@club/shared";
+import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
 import { ArrowLeft, Ban, MessageCircle, MoreVertical, Pin, PinOff, Plus, RotateCcw, Send, Smile, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
@@ -107,7 +107,7 @@ const reactionOptions: Array<{ value: Exclude<MessageReaction, "like" | "dislike
 ];
 
 function authorName(message: ClubMessage) {
-  return message.author.firstName || message.author.username || `ID ${message.author.telegramId}`;
+  return resolveDisplayName(message.author);
 }
 
 function authorInitial(message: ClubMessage) {
@@ -966,7 +966,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <div v-if="message.replyTo" class="reply-preview">
-              <span>{{ message.replyTo.author.firstName || message.replyTo.author.username || `ID ${message.replyTo.author.telegramId}` }}</span>
+              <span>{{ resolveDisplayName(message.replyTo.author) }}</span>
               <span>{{ message.replyTo.body }}</span>
             </div>
             <p class="chat-message-body">{{ message.body }}</p>

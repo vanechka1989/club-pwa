@@ -1,5 +1,21 @@
 import { z } from "zod";
 
+export const displayNamePattern = /^[\p{L}\p{N}_-]{3,20}$/u;
+export function normalizeDisplayName(value: string) {
+  return value.trim();
+}
+export function isValidDisplayName(value: string) {
+  return displayNamePattern.test(normalizeDisplayName(value));
+}
+export function resolveDisplayName(user: {
+  displayName?: string | null | undefined;
+  firstName?: string | null | undefined;
+  username?: string | null | undefined;
+  telegramId?: string | null | undefined;
+}) {
+  return user.displayName || user.firstName || user.username || (user.telegramId ? `ID ${user.telegramId}` : "Пользователь");
+}
+
 export const membershipStatusSchema = z.enum(["inactive", "active", "expired"]);
 export type MembershipStatus = z.infer<typeof membershipStatusSchema>;
 
@@ -45,6 +61,8 @@ export const clubUserSchema = z.object({
   email: z.string().email().nullable().optional(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
+  displayName: z.string().nullable().optional(),
+  displayNameChangedByUserAt: z.string().datetime().nullable().optional(),
   photoUrl: z.string().url().nullable(),
   role: userRoleSchema,
   realRole: userRoleSchema,
@@ -237,6 +255,7 @@ export const commentAuthorSchema = z.object({
   telegramId: z.string(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
+  displayName: z.string().nullable().optional(),
   photoUrl: z.string().url().nullable(),
   avatarPositionX: z.number().min(0).max(100).default(50),
   avatarPositionY: z.number().min(0).max(100).default(50),
@@ -619,6 +638,8 @@ export const adminStatsUserSchema = z.object({
   telegramId: z.string(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
+  displayName: z.string().nullable().optional(),
+  displayNameChangedByUserAt: z.string().datetime().nullable().optional(),
   photoUrl: z.string().url().nullable(),
   role: userRoleSchema,
   membershipStatus: membershipStatusSchema,

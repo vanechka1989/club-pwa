@@ -86,6 +86,7 @@ import {
   updateAdminS3StorageSettings,
   updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
+  updateAdminUserDisplayName,
 } from "@/api/client";
 import {
   getAccessSaveButtonText,
@@ -238,6 +239,9 @@ const communityTopics = ref<ClubTopic[]>([]);
 const communityMessages = ref<AdminCommunityMessage[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
+const selectedUserDisplayName = ref("");
+const selectedUserDisplayNameSaving = ref(false);
+const selectedUserDisplayNameError = ref<string | null>(null);
 const selectedUserLoginIps = ref<AdminLoginIp[]>([]);
 const selectedUserLoginIpsLoading = ref(false);
 const selectedUserLoginIpsError = ref(false);
@@ -1519,6 +1523,8 @@ async function selectUser(user: AdminStatsUser) {
   resetAccessSaveState();
   resetClientAccordion();
   applySelectedUser(user);
+  selectedUserDisplayName.value = user.displayName || user.firstName || user.username || "";
+  selectedUserDisplayNameError.value = null;
   openAdminTask(`/admin/clients/${user.telegramId}`);
   try {
     selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
@@ -1527,6 +1533,23 @@ async function selectUser(user: AdminStatsUser) {
   } catch {
     selectedUserDetail.value = null;
     setError("Не удалось загрузить карточку клиента.");
+  }
+}
+
+async function saveSelectedUserDisplayName() {
+  if (!selectedUser.value) return;
+  selectedUserDisplayNameSaving.value = true;
+  selectedUserDisplayNameError.value = null;
+  try {
+    const updated = await updateAdminUserDisplayName(selectedUser.value.telegramId, selectedUserDisplayName.value);
+    applySelectedUser(updated);
+    selectedUserDisplayName.value = updated.displayName || "";
+    selectedUserDetail.value = await getAdminUserDetail(updated.telegramId);
+  } catch (error) {
+    const status = (error as { status?: number; statusCode?: number })?.status ?? (error as { statusCode?: number })?.statusCode;
+    selectedUserDisplayNameError.value = status === 409 ? "Этот ник уже занят." : "Проверьте формат ника.";
+  } finally {
+    selectedUserDisplayNameSaving.value = false;
   }
 }
 
@@ -3092,6 +3115,11 @@ onUnmounted(() => {
                 <h4>Профиль</h4>
                 <small>обзор без открытия вкладок</small>
               </div>
+              <form class="admin-client-display-name" @submit.prevent="saveSelectedUserDisplayName">
+                <label for="admin-client-display-name">Ник</label>
+                <div><input id="admin-client-display-name" v-model.trim="selectedUserDisplayName" class="text-input" maxlength="20" /><button class="admin-date-save" type="submit" :disabled="selectedUserDisplayNameSaving">{{ selectedUserDisplayNameSaving ? "Сохраняю…" : "Сохранить" }}</button></div>
+                <small v-if="selectedUserDisplayNameError">{{ selectedUserDisplayNameError }}</small>
+              </form>
               <div class="admin-client-profile-grid">
                 <article>
                   <span>Прогресс</span>

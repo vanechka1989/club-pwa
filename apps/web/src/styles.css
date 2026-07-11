@@ -15781,6 +15781,34 @@ input[type="submit"],
   min-width: 0;
 }
 
+/* Compact profile identity and membership summary. */
+.profile-identity-head { align-items: flex-start; }
+.profile-display-name-row { display:flex; min-width:0; align-items:center; gap:8px; }
+.profile-name-edit { display:grid; width:44px; min-width:44px; height:44px; place-items:center; margin:-10px 0; border-radius:12px; color:var(--accent); }
+.profile-name-locked { display:block; margin-top:4px; color:var(--muted); font-size:11px; line-height:1.3; }
+.profile-membership-row { display:grid; gap:8px; margin-top:12px; padding:12px 14px; border:1px solid var(--border); border-radius:16px; background:var(--panel-strong); }
+.profile-membership-title { display:flex; min-width:0; align-items:center; justify-content:space-between; gap:12px; }
+.profile-membership-title strong { color:var(--text); font-size:14px; }
+.profile-membership-title span { color:var(--muted); font-size:13px; white-space:nowrap; }
+.profile-name-sheet-backdrop { position:fixed; z-index:1900; inset:0; display:grid; align-items:end; background:color-mix(in srgb,#000 55%,transparent); backdrop-filter:blur(4px); }
+.profile-name-sheet { display:grid; width:min(100%,768px); gap:12px; margin-inline:auto; border:1px solid var(--border); border-bottom:0; border-radius:24px 24px 0 0; background:var(--panel); padding:20px max(16px,var(--club-safe-right)) max(20px,var(--club-safe-bottom)) max(16px,var(--club-safe-left)); }
+.profile-name-sheet-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.profile-name-sheet-head h3 { font-size:20px; font-weight:850; }
+.profile-name-sheet-head button { width:44px; height:44px; border-radius:12px; color:var(--muted); font-size:26px; }
+.profile-name-sheet label { color:var(--muted); font-size:13px; font-weight:750; }
+.profile-name-sheet .text-input { width:100%; min-height:48px; font-size:16px; }
+.profile-name-hint,.profile-name-error { font-size:12px; line-height:1.4; }
+.profile-name-hint { color:var(--muted); }
+.profile-name-error { color:var(--danger-text); }
+.profile-name-sheet-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+@media (max-width:359px) { .profile-name-sheet-actions { grid-template-columns:1fr; } }
+.admin-client-display-name { display:grid; gap:8px; margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--panel-strong); }
+.admin-client-display-name > label { color:var(--muted); font-size:12px; font-weight:800; }
+.admin-client-display-name > div { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; }
+.admin-client-display-name .text-input { width:100%; min-height:44px; font-size:16px; }
+.admin-client-display-name > small { color:var(--danger-text); font-size:12px; }
+@media (max-width:359px) { .admin-client-display-name > div { grid-template-columns:1fr; } }
+
 .support-task-screen .support-message {
   max-width: 100%;
   box-sizing: border-box;

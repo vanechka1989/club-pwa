@@ -7,6 +7,7 @@ import {
   logoutSession,
   requestEmailCode as requestEmailCodeApi,
   updateAvatarDisplay as updateAvatarDisplayApi,
+  updateDisplayName as updateDisplayNameApi,
   uploadAvatar as uploadAvatarApi,
   verifyEmailCode as verifyEmailCodeApi
 } from "@/api/client";
@@ -150,6 +151,12 @@ export const useSessionStore = defineStore("session", () => {
     return response.user;
   }
 
+  async function updateDisplayName(displayName: string) {
+    const response = await updateDisplayNameApi(displayName);
+    user.value = response.user;
+    return response.user;
+  }
+
   async function requestEmailCode(email: string, referralCode?: string | null) {
     const normalizedEmail = email.trim().toLowerCase();
     loading.value = true;
@@ -244,6 +251,7 @@ export const useSessionStore = defineStore("session", () => {
     subscribe,
     uploadAvatar,
     updateAvatarDisplay,
+    updateDisplayName,
     requestEmailCode,
     verifyEmailCode,
     resetEmailAuth,

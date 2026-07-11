@@ -15,6 +15,7 @@ export type ReplySourceMessage = {
     telegramId: string;
     firstName: string | null;
     username: string | null;
+    displayName?: string | null;
     photoUrl: string | null;
     avatarPositionX?: number | null;
     avatarPositionY?: number | null;
@@ -35,6 +36,7 @@ export function buildMessageAuthor(user: MessageAuthorSource) {
     telegramId: user.telegramId,
     firstName: user.firstName,
     username: user.username,
+    displayName: user.displayName ?? null,
     photoUrl: user.photoUrl,
     avatarPositionX: user.avatarPositionX ?? 50,
     avatarPositionY: user.avatarPositionY ?? 50,

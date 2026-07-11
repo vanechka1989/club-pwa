@@ -160,6 +160,7 @@ function mapPaymentOrderLog(
       telegramId: order.user.telegramId,
       firstName: order.user.firstName,
       username: order.user.username,
+      displayName: order.user.displayName,
       photoUrl: order.user.photoUrl,
       avatarPositionX: order.user.avatarPositionX ?? 50,
       avatarPositionY: order.user.avatarPositionY ?? 50,

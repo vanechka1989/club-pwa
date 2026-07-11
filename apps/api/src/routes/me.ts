@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
-import { deviceDiagnosticsSchema } from "@club/shared";
+import { deviceDiagnosticsSchema, isValidDisplayName, normalizeDisplayName } from "@club/shared";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { db } from "../db/client";
@@ -92,6 +92,8 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       email: user.email,
       firstName: user.firstName,
       username: user.username,
+      displayName: user.displayName,
+      displayNameChangedByUserAt: user.displayNameChangedByUserAt?.toISOString() ?? null,
       photoUrl,
       role,
       realRole,
@@ -162,6 +164,28 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json({ ok: true, device: body.data });
+  })
+  .patch("/display-name", async (c) => {
+    const raw = (await c.req.json().catch(() => null)) as { displayName?: unknown } | null;
+    if (typeof raw?.displayName !== "string" || !isValidDisplayName(raw.displayName)) {
+      return c.json({ error: "Invalid display name" }, 400);
+    }
+    const user = await db.query.users.findFirst({ where: eq(users.id, c.get("userId")) });
+    if (!user) return c.json({ error: "User not found" }, 404);
+    if (user.displayNameChangedByUserAt) return c.json({ error: "Display name change already used" }, 403);
+    const now = new Date();
+    try {
+      const [updatedUser] = await db.update(users).set({
+        displayName: normalizeDisplayName(raw.displayName),
+        displayNameChangedByUserAt: now,
+        updatedAt: now
+      }).where(eq(users.id, user.id)).returning();
+      if (!updatedUser) return c.json({ error: "Unable to update display name" }, 500);
+      return c.json(await buildMeResponse(updatedUser, c));
+    } catch (error) {
+      if ((error as { code?: string })?.code === "23505") return c.json({ error: "Display name is already taken" }, 409);
+      throw error;
+    }
   })
   .post("/avatar/upload", async (c) => {
     const userId = c.get("userId");
