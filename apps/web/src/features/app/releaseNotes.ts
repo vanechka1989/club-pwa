@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Samsung PWA: масштаб кнопок и свежий cache",
+    items: [
+      "В Android/Samsung PWA wide-viewport режиме foundation-токены кнопок, иконок, полей, карточек и нижней навигации теперь масштабируются вместе с оболочкой.",
+      "Кнопки RU, уведомлений, загрузки/кадра аватара, Продлить и Выйти больше не остаются фиксированными 48px рядом с увеличенным интерфейсом.",
+      "Старый guard min-height: 48px !important заменён на токен, поэтому текстовые кнопки не схлопываются после применения PWA-компенсации.",
+      "Service worker регистрируется с updateViaCache: none, активирует waiting-версию через SKIP_WAITING и проверяет обновления при возврате в приложение."
+    ]
+  },
+  {
+    version: "3.45",
+    updatedAt: "11.07.2026 15:37",
     title: "PWA UI foundation: единая система экранов",
     items: [
       "Приложение переведено на общий mobile-first foundation: AppShell, PageContainer, PageHeader, PageSection, Card, Button, IconButton, формы, сетки и нижние панели.",

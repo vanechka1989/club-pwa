@@ -15560,7 +15560,7 @@ input[type="submit"],
 .compact-controls button,
 .notification-center-button {
   min-width: 0;
-  min-height: 48px !important;
+  min-height: var(--button-height) !important;
   overflow-wrap: anywhere;
   white-space: normal;
 }

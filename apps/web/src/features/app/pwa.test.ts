@@ -38,9 +38,10 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v46"');
+    expect(worker).toContain('const cacheName = "club-pwa-v47"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
+    expect(worker).toContain('event.data?.type === "SKIP_WAITING"');
     expect(worker).not.toContain('request.mode === "navigate" || request.url.includes("/assets/")');
     expect(worker).not.toContain('cached || caches.match("/")');
   });
@@ -49,8 +50,12 @@ describe("PWA shell", () => {
     const main = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
     const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
 
-    expect(main).toContain("serviceWorker.register");
-    expect(main).toContain("registration?.update?.()");
+    expect(main).toContain("navigator.serviceWorker");
+    expect(main).toContain('.register("/sw.js", { updateViaCache: "none" })');
+    expect(main).toContain("registration.update()");
+    expect(main).toContain('updateViaCache: "none"');
+    expect(main).toContain("visibilitychange");
+    expect(main).toContain("SKIP_WAITING");
     expect(html).toContain("manifest.webmanifest");
     expect(html).not.toContain("telegram.org/js/telegram-web-app.js");
   });

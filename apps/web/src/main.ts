@@ -9,6 +9,31 @@ createApp(App).use(createPinia()).use(router).mount("#app");
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   let refreshing = false;
+
+  const activateWaitingServiceWorker = (registration: ServiceWorkerRegistration) => {
+    registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+  };
+
+  const watchServiceWorkerUpdate = (registration: ServiceWorkerRegistration) => {
+    activateWaitingServiceWorker(registration);
+
+    registration.addEventListener("updatefound", () => {
+      const installingWorker = registration.installing;
+
+      installingWorker?.addEventListener("statechange", () => {
+        if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
+          activateWaitingServiceWorker(registration);
+        }
+      });
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        void registration.update().then(() => activateWaitingServiceWorker(registration));
+      }
+    });
+  };
+
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) {
       return;
@@ -18,6 +43,9 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
   });
 
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("/sw.js").then((registration) => registration?.update?.());
+    void navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .then((registration) => registration.update().then(() => registration))
+      .then(watchServiceWorkerUpdate);
   });
 }

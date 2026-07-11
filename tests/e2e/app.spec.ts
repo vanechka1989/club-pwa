@@ -730,6 +730,14 @@ async function expectNoHorizontalOverflow(page: Page) {
 
 async function expectConsistentIconActionTargets(page: Page, context: string, selector: string) {
   const issues = await page.locator(selector).evaluateAll((elements, auditContext) => {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const shellScale = document.documentElement.classList.contains("club-mobile-app-scaled")
+      ? Number.parseFloat(rootStyle.getPropertyValue("--club-app-wide-viewport-scale")) || 1
+      : 1;
+    const minimumTargetSize = 48 * shellScale;
+    const minimumIconSize = 21 * shellScale;
+    const subpixelTolerance = 0.5;
+
     return elements
       .map((element) => {
         const target = element as HTMLElement;
@@ -758,8 +766,12 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           whiteSpace: style.whiteSpace,
           display: style.display,
           visible: isVisible,
-          hasSmallTarget: rect.width < 48 || rect.height < 48,
-          hasSmallIcon: Boolean(svgRect && (svgRect.width < 21 || svgRect.height < 21)),
+          minimumTargetSize: Math.round(minimumTargetSize),
+          shellScale,
+          hasSmallTarget: rect.width + subpixelTolerance < minimumTargetSize || rect.height + subpixelTolerance < minimumTargetSize,
+          hasSmallIcon: Boolean(
+            svgRect && (svgRect.width + subpixelTolerance < minimumIconSize || svgRect.height + subpixelTolerance < minimumIconSize)
+          ),
           hasWrappingTextAction: target.matches(".compact-controls > button") && style.whiteSpace !== "nowrap"
         };
       })
@@ -767,6 +779,38 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
   }, context);
 
   expect(issues, `${context}\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
+}
+
+async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
+  const issues = await page.locator(".profile-access-actions .ui-button").evaluateAll((elements) => {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const shellScale = document.documentElement.classList.contains("club-mobile-app-scaled")
+      ? Number.parseFloat(rootStyle.getPropertyValue("--club-app-wide-viewport-scale")) || 1
+      : 1;
+    const minimumButtonHeight = 48 * shellScale;
+    const subpixelTolerance = 0.5;
+
+    return elements
+      .map((element) => {
+        const target = element as HTMLElement;
+        const rect = target.getBoundingClientRect();
+        const style = getComputedStyle(target);
+
+        return {
+          className: String(target.className),
+          label: (target.textContent ?? "").trim().replace(/\s+/g, " "),
+          height: Math.round(rect.height),
+          minimumButtonHeight: Math.round(minimumButtonHeight),
+          shellScale,
+          minHeight: style.minHeight,
+          visible: rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden",
+          hasSmallHeight: rect.height + subpixelTolerance < minimumButtonHeight
+        };
+      })
+      .filter((item) => item.visible && item.hasSmallHeight);
+  });
+
+  expect(issues, `profile access action buttons\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
 }
 
 async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
@@ -1342,6 +1386,14 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
     "payments add and tariff admin actions",
     ".section-head .icon-button, .surface-card .icon-button, .payment-product-admin-actions .icon-button"
   );
+});
+
+test("keeps profile action buttons visually sized in Android PWA scaled shells", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "android-wide-layout-980");
+
+  await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
+  await expectProfileActionButtonsUseScaledFoundation(page);
+  await page.screenshot({ path: testInfo.outputPath("profile-scaled-actions.png"), fullPage: false, animations: "disabled", caret: "hide" });
 });
 
 test("keeps every routed PWA screen responsive on audited viewports", async ({ page }, testInfo) => {
