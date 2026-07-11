@@ -15794,3 +15794,76 @@ body.club-keyboard-open .support-task-screen .support-reply-input-row textarea {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Wide Android/PWA route screens: use the whole mobile surface, not the desktop page rail. */
+body.club-mobile-app-scaled .task-screen-route-layer {
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  min-width: 0;
+  padding: 0;
+  overflow-x: clip;
+  background: var(--bg);
+}
+
+body.club-mobile-app-scaled .task-screen-route-layer > .task-screen,
+body.club-mobile-app-scaled .support-task-screen.task-screen-route-layer > .task-screen {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  min-height: var(--club-visible-viewport-height, 100dvh);
+  margin: 0;
+  overflow-x: clip;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+body.club-mobile-app-scaled .task-screen-route-layer .task-screen-body {
+  justify-items: stretch;
+  overflow-x: clip;
+}
+
+body.club-mobile-app-scaled .task-screen-route-layer .task-screen-body > *,
+body.club-mobile-app-scaled .task-screen-route-layer :is(
+  .admin-client-modal,
+  .admin-payment-drilldown-modal,
+  .admin-mailing-composer-modal,
+  .admin-mailing-detail-modal,
+  .admin-storage-modal,
+  .admin-storage-folder-modal,
+  .admin-server-logs-modal,
+  .admin-permission-modal,
+  .admin-client-task-card,
+  .admin-mailing-builder,
+  .module-name-modal,
+  .modal-size-compact,
+  .lesson-preview-modal,
+  .lesson-preview-modal-edit,
+  .payment-form-body,
+  .support-modal-body,
+  .support-ticket-modal-body,
+  .notification-center-list,
+  .release-notes-modal,
+  .profile-avatar-editor-modal
+) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: 0;
+  justify-self: stretch;
+  transform: none;
+}
+
+body.club-mobile-app-scaled .task-screen-route-layer :is(
+  .admin-client-modal,
+  .module-name-modal,
+  .modal-size-compact,
+  .lesson-preview-modal,
+  .lesson-preview-modal-edit,
+  .release-notes-modal,
+  .support-ticket-modal-body
+) {
+  overflow-x: clip;
+}

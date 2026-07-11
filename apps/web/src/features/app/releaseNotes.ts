@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "PWA: полноэкранные окна Samsung",
+    items: [
+      "Routed-экраны тикета, уведомлений, обновлений, обучения, оплаты и админки в wide Android/PWA viewport теперь занимают всю ширину экрана.",
+      "Убрано центрирование task-screen как узкой desktop-панели, из-за которого появлялись чёрные полосы по краям.",
+      "Внутренние карточки и формы task-экранов больше не раздуваются rem-ограничениями и не выходят вправо."
+    ]
+  },
+  {
+    version: "3.39",
+    updatedAt: "11.07.2026 11:29",
     title: "Адаптив: аудит маршрутов и стабильные размеры",
     items: [
       "Добавлена расширенная автоматическая проверка всех routed-экранов на точных mobile/tablet/desktop viewport.",

@@ -827,6 +827,49 @@ async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
   ).toEqual([]);
 }
 
+async function expectRoutedTaskScreenFillsMobilePwaViewport(page: Page, routePath: string) {
+  const metrics = await page.evaluate(() => {
+    const layer = document.querySelector<HTMLElement>(".task-screen-route-layer");
+    const taskScreen = document.querySelector<HTMLElement>(".task-screen-route-layer > .task-screen");
+    const layerRect = layer?.getBoundingClientRect();
+    const taskRect = taskScreen?.getBoundingClientRect();
+    const describe = (rect: DOMRect | undefined) =>
+      rect
+        ? {
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            right: Math.round(rect.right),
+            bottom: Math.round(rect.bottom)
+          }
+        : null;
+
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      isScaledMobilePwa: document.body.classList.contains("club-mobile-app-scaled"),
+      layer: describe(layerRect),
+      taskScreen: describe(taskRect)
+    };
+  });
+
+  if (!metrics.isScaledMobilePwa || !metrics.taskScreen) {
+    return;
+  }
+
+  expect(metrics.layer, `${routePath}\n${JSON.stringify(metrics, null, 2)}`).toMatchObject({
+    x: 0,
+    width: metrics.viewportWidth
+  });
+  expect(metrics.taskScreen.x, `${routePath}\n${JSON.stringify(metrics, null, 2)}`).toBeLessThanOrEqual(1);
+  expect(metrics.taskScreen.width, `${routePath}\n${JSON.stringify(metrics, null, 2)}`).toBeGreaterThanOrEqual(
+    metrics.viewportWidth - 2
+  );
+  expect(metrics.taskScreen.right, `${routePath}\n${JSON.stringify(metrics, null, 2)}`).toBeLessThanOrEqual(
+    metrics.viewportWidth + 1
+  );
+}
+
 async function expectKeyboardSafeIfFormRoute(page: Page, routePath: string) {
   const keyboardFieldSelector =
     "textarea:visible, input:not([type='hidden']):not([type='file']):not([type='checkbox']):not([type='radio']):not([type='range']):visible";
@@ -1073,6 +1116,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 });
 
 const responsiveRouteAuditProjects = new Set(["android-compact-320", "oneplus-mt2111", "viewport-390-844", "viewport-412-915", "tablet-768-1024"]);
+const wideMobilePwaRouteAuditProjects = new Set(["android-wide-layout-980", "android-standalone-no-touch-980"]);
 
 const exactMobileAuditViewports = [
   { name: "320x568", width: 320, height: 568 },
@@ -1172,6 +1216,18 @@ test("keeps every routed PWA screen responsive on audited viewports", async ({ p
     await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
     await expectResponsiveLayoutIntegrity(page, auditRoute.path);
     await expectKeyboardSafeIfFormRoute(page, auditRoute.path);
+  }
+});
+
+test("keeps routed task screens full width in wide mobile PWA viewports", async ({ page }, testInfo) => {
+  test.skip(!wideMobilePwaRouteAuditProjects.has(testInfo.project.name));
+  test.setTimeout(120_000);
+
+  for (const auditRoute of responsiveRouteAuditPaths.filter((route) => route.selector.includes("task-screen") || route.selector.includes("release-notes-modal"))) {
+    await page.goto(auditRoute.path);
+    await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
+    await expectResponsiveLayoutIntegrity(page, auditRoute.path);
+    await expectRoutedTaskScreenFillsMobilePwaViewport(page, auditRoute.path);
   }
 });
 
