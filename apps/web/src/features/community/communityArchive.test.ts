@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(__dirname, "CommunitySection.vue"), "utf8");
+const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
 describe("community archive labels", () => {
   it("shows when archived topics will be deleted", () => {
@@ -18,5 +19,12 @@ describe("community archive labels", () => {
 
   it("does not show a chat update alert for automatic polling failures", () => {
     expect(source).toContain("void refreshSelectedTopic({ silent: true });");
+  });
+
+  it("uses the compact shared gap below the community header", () => {
+    expect(source).toContain('class="community-section-content"');
+    const rule = styles.match(/\.community-section-content\s*\{(?<body>[^}]*)\}/g)?.at(-1) ?? "";
+
+    expect(rule).toMatch(/gap:\s*12px/);
   });
 });

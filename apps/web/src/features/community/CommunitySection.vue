@@ -755,7 +755,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="community-chat-shell ui-page-section">
-    <div v-if="!selectedTopic" class="space-y-3">
+    <div v-if="!selectedTopic" class="community-section-content">
       <div class="section-head ui-page-header">
         <div>
           <h2 class="section-title">{{ t("communitySectionTitle") }}</h2>

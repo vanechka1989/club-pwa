@@ -124,8 +124,17 @@ describe("Learning section modules", () => {
 
     expect(source).toContain('class="modules-section ui-page-section"');
     expect(source).toContain('class="section-head ui-page-header"');
+    expect(source).toContain('<h2 class="section-title">{{ t("modulesTitle") }}</h2>');
+    expect(source).toContain('<p class="section-subtitle">{{ t("modulesSubtitle") }}</p>');
     expect(source).toContain('class="modules-content"');
     expect(source).not.toContain('class="admin-panel modules-panel ui-page-section"');
+  });
+
+  it("uses the compact shared gap below the modules header", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const rule = styles.match(/\.modules-section\s*\{(?<body>[^}]*)\}/g)?.at(-1) ?? "";
+
+    expect(rule).toMatch(/gap:\s*12px/);
   });
 
   it("adds a module by title", async () => {

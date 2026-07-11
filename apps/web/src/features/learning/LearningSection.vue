@@ -2331,8 +2331,8 @@ watch(
   <section class="modules-section ui-page-section">
     <div class="section-head ui-page-header">
       <div>
-        <h3>{{ t("modulesTitle") }}</h3>
-        <p>{{ t("modulesSubtitle") }}</p>
+        <h2 class="section-title">{{ t("modulesTitle") }}</h2>
+        <p class="section-subtitle">{{ t("modulesSubtitle") }}</p>
       </div>
       <div v-if="canManageModules" class="modules-panel-actions" aria-label="Управление модулями">
         <button class="icon-button ui-icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">

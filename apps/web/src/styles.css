@@ -16122,6 +16122,17 @@ body.club-mobile-device .task-screen-route-layer :is(
   color: color-mix(in srgb, var(--warning) 82%, var(--text));
 }
 
+.modules-section {
+  gap: 12px;
+}
+
+.community-section-content {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+}
+
 /* Admin access task: one predictable surface instead of nested legacy modal cards. */
 .admin-task-screen .admin-permission-surface {
   box-sizing: border-box;
