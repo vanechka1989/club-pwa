@@ -291,6 +291,13 @@ export function reactToClubMessage(messageId: string, reaction: MessageReaction 
   });
 }
 
+export function setClubMessagePinned(messageId: string, pinned: boolean) {
+  return api<ClubMessageMutationResponse>(`/community/messages/${messageId}/pin`, {
+    method: "POST",
+    body: { pinned }
+  });
+}
+
 export function createTopicUserMute(
   topicId: string,
   payload: { telegramId: string; kind: "temporary" | "permanent"; reason?: string | null; expiresAt?: string | null }

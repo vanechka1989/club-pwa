@@ -246,6 +246,13 @@
       "when": 1783781640000,
       "tag": "0034_user_login_ips",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783819800000,
+      "tag": "0035_pinned_chat_messages",
+      "breakpoints": true
     }
   ]
 }

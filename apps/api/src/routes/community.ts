@@ -258,6 +258,7 @@ async function serializeMessage(
           expiresAt: authorMute.expiresAt?.toISOString() ?? null
         }
       : null,
+    pinnedAt: message.pinnedAt?.toISOString() ?? null,
     createdAt: message.createdAt.toISOString()
   };
 }
@@ -732,6 +733,63 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       message: await serializeMessage(createdMessage, c.get("userId"))
     });
   })
+  .post("/messages/:id/pin", async (c) => {
+    const role = await getCommunityRole(c);
+    if (role === "member") {
+      return c.json({ error: "Moderator access required" }, 403);
+    }
+
+    const payload = z.object({ pinned: z.boolean() }).safeParse(await c.req.json().catch(() => null));
+    if (!payload.success) {
+      return c.json({ error: "Invalid pin state" }, 400);
+    }
+
+    const current = await db.query.clubChatMessages.findFirst({
+      where: eq(clubChatMessages.id, c.req.param("id")),
+      with: { user: true }
+    });
+    if (!current) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+    if (current.status !== "visible" || current.isSystem) {
+      return c.json({ error: "Only visible user messages can be pinned" }, 400);
+    }
+
+    if (payload.data.pinned && !current.pinnedAt) {
+      const [row] = await db
+        .select({ value: count(clubChatMessages.id) })
+        .from(clubChatMessages)
+        .where(
+          and(
+            eq(clubChatMessages.topicId, current.topicId),
+            eq(clubChatMessages.status, "visible"),
+            gt(clubChatMessages.pinnedAt, new Date(0))
+          )
+        );
+      if ((row?.value ?? 0) >= 5) {
+        return c.json({ error: "Pinned messages limit reached" }, 409);
+      }
+    }
+
+    await db
+      .update(clubChatMessages)
+      .set({
+        pinnedAt: payload.data.pinned ? new Date() : null,
+        pinnedByUserId: payload.data.pinned ? c.get("userId") : null,
+        updatedAt: new Date()
+      })
+      .where(eq(clubChatMessages.id, current.id));
+
+    const updated = await db.query.clubChatMessages.findFirst({
+      where: eq(clubChatMessages.id, current.id),
+      with: { user: true }
+    });
+    if (!updated) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    return c.json({ ok: true, message: await serializeMessage(updated, c.get("userId")) });
+  })
   .post("/topics/:id/messages/delete-all", async (c) => {
     const role = await getCommunityRole(c);
     if (role === "member") {
@@ -760,6 +818,8 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           moderatedAt: now,
           moderationReason: "Bulk topic cleanup",
           purgeAt: getMessagePurgeAt("topic", role, now),
+          pinnedAt: null,
+          pinnedByUserId: null,
           updatedAt: now
         })
         .where(eq(clubChatMessages.topicId, topic.id));
@@ -812,6 +872,8 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           moderatedAt: now,
           moderationReason: "Bulk author cleanup",
           purgeAt: getMessagePurgeAt("message", role, now),
+          pinnedAt: null,
+          pinnedByUserId: null,
           updatedAt: now
         })
         .where(filter);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClubMessage, ClubTopic, MessageReaction } from "@club/shared";
-import { ArrowLeft, MessageCircle, MoreVertical, Plus, Send, Smile, Trash2, X } from "lucide-vue-next";
+import { ArrowLeft, MessageCircle, MoreVertical, Pin, Plus, Send, Smile, Trash2, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -11,6 +11,7 @@ import {
   getClubMessages,
   getCommunityTopics,
   reactToClubMessage,
+  setClubMessagePinned,
   revokeTopicUserMute,
   updateClubTopicSettings,
   updateModerationStatus
@@ -39,6 +40,7 @@ const newTopicTitle = ref("");
 const showCreateTopic = ref(false);
 const showTopicAdminMenu = ref(false);
 const showEmojiPicker = ref(false);
+const showPinnedMessages = ref(false);
 const replyToMessage = ref<ClubMessage | null>(null);
 const activeModerationMessageId = ref<string | null>(null);
 const activeReactionMessageId = ref<string | null>(null);
@@ -67,6 +69,9 @@ const isOwner = computed(() => session.user?.role === "owner");
 const hasCommunityAccess = computed(() => isModerator.value || session.user?.membershipStatus === "active");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 const orderedMessages = computed(() => [...messages.value].reverse());
+const pinnedMessages = computed(() =>
+  orderedMessages.value.filter((message) => Boolean(message.pinnedAt) && message.status === "visible" && !message.isSystem)
+);
 const activeTopics = computed(() => topics.value.filter((topic) => topic.isPublished));
 const archivedTopics = computed(() => topics.value.filter((topic) => !topic.isPublished && topic.archivedUntil));
 const canWrite = computed(
@@ -385,8 +390,24 @@ function messageSignature(message: ClubMessage) {
     message.authorMute?.kind ?? "",
     message.authorMute?.expiresAt ?? "",
     message.replyTo?.id ?? "",
-    message.replyTo?.body ?? ""
+    message.replyTo?.body ?? "",
+    message.pinnedAt ?? ""
   ].join("\u001f");
+}
+
+function scrollToMessage(messageId: string) {
+  showPinnedMessages.value = false;
+  nextTick(() => document.getElementById(`chat-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+}
+
+async function handleTogglePin(message: ClubMessage) {
+  try {
+    const response = await setClubMessagePinned(message.id, !message.pinnedAt);
+    messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
+    activeModerationMessageId.value = null;
+  } catch (error) {
+    showCommunityError(error instanceof Error ? error.message : "Не удалось изменить закрепление.");
+  }
 }
 
 function messagesSignature(nextMessages: ClubMessage[]) {
@@ -861,6 +882,22 @@ onBeforeUnmount(() => {
       </header>
 
       <div class="chat-room-notices">
+        <div v-if="pinnedMessages.length" class="chat-pinned-bar">
+          <button class="chat-pinned-current" type="button" @click="showPinnedMessages = !showPinnedMessages">
+            <Pin class="h-4 w-4" aria-hidden="true" />
+            <span>
+              <strong>Закреплено</strong>
+              <small>{{ pinnedMessages.at(-1)?.body }}</small>
+            </span>
+            <em>{{ pinnedMessages.length }}</em>
+          </button>
+          <div v-if="showPinnedMessages" class="chat-pinned-list">
+            <button v-for="message in pinnedMessages" :key="message.id" type="button" @click="scrollToMessage(message.id)">
+              <strong>{{ authorName(message) }}</strong>
+              <span>{{ message.body }}</span>
+            </button>
+          </div>
+        </div>
         <p v-if="communityError" class="px-1 text-xs text-[var(--danger)]">{{ communityError }}</p>
       </div>
 
@@ -869,6 +906,7 @@ onBeforeUnmount(() => {
         <article
           v-for="message in orderedMessages"
           :key="message.id"
+          :id="`chat-message-${message.id}`"
           class="chat-message"
           :class="{
             'opacity-55': message.status !== 'visible',
@@ -923,6 +961,7 @@ onBeforeUnmount(() => {
               <span>{{ message.replyTo.body }}</span>
             </div>
             <p class="chat-message-body">{{ message.body }}</p>
+            <span v-if="message.pinnedAt" class="chat-message-pinned"><Pin class="h-3 w-3" aria-hidden="true" /> Закреплено</span>
             <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
               {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
             </p>
@@ -958,6 +997,9 @@ onBeforeUnmount(() => {
               </div>
               <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
                 {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
+              </button>
+              <button class="mini-action" type="button" @click="handleTogglePin(message)">
+                {{ message.pinnedAt ? "Открепить" : "Закрепить" }}
               </button>
               <button class="mini-action" type="button" :disabled="Boolean(message.authorMute)" @click="handleMute(message)">
                 Мут пока не снимут

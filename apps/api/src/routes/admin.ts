@@ -2871,7 +2871,13 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           purgeAt:
             body.data.status === "deleted"
               ? getMessagePurgeAt("message", role, values.moderatedAt)
-              : null
+              : null,
+          ...(body.data.status === "visible"
+            ? {}
+            : {
+                pinnedAt: null,
+                pinnedByUserId: null
+              })
         })
         .where(eq(clubChatMessages.id, id));
       await recordAdminAction(c, {

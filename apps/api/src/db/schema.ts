@@ -523,6 +523,8 @@ export const clubChatMessages = pgTable(
     moderatedByUserId: uuid("moderated_by_user_id").references(() => users.id, { onDelete: "set null" }),
     moderatedAt: timestamp("moderated_at", { withTimezone: true }),
     moderationReason: text("moderation_reason"),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }),
+    pinnedByUserId: uuid("pinned_by_user_id").references(() => users.id, { onDelete: "set null" }),
     purgeAt: timestamp("purge_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
@@ -533,7 +535,8 @@ export const clubChatMessages = pgTable(
       table.status,
       table.createdAt
     ),
-    userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt)
+    userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt),
+    topicPinnedIdx: index("club_chat_messages_topic_pinned_idx").on(table.topicId, table.pinnedAt)
   })
 );
 

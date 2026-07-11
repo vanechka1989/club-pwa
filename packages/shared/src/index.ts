@@ -513,6 +513,7 @@ export const clubMessageSchema = z.object({
       expiresAt: z.string().datetime().nullable()
     })
     .nullable(),
+  pinnedAt: z.string().datetime().nullable().optional(),
   createdAt: z.string().datetime()
 });
 export type ClubMessage = z.infer<typeof clubMessageSchema>;
