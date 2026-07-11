@@ -18,6 +18,7 @@ import type {
   AdminListResponse,
   AdminModerationResponse,
   AdminUserDetailResponse,
+  AdminLoginIpsResponse,
   ClubChatMutationResponse,
   ClubChatsResponse,
   ClubMessageMutationResponse,
@@ -670,6 +671,10 @@ export function getAdminUserStats(telegramId: string) {
 
 export function getAdminUserDetail(telegramId: string) {
   return api<AdminUserDetailResponse>(`/admin/stats/users/${telegramId}/detail`);
+}
+
+export function getAdminUserLoginIps(telegramId: string) {
+  return api<AdminLoginIpsResponse>(`/admin/login-ips/${telegramId}`);
 }
 
 export function updateAdminUserAccess(payload: { telegramId: string; status: "inactive" | "active" | "expired"; expiresAt?: string | null }) {

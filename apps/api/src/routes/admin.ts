@@ -1169,6 +1169,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/admins", requireAdminPermission("admins"))
   .use("/admins/*", requireAdminPermission("admins"))
   .use("/action-logs", requireAdminPermission("admins"))
+  .use("/login-ips/*", requireAdminPermission("login_ips"))
   .use("/stats", requireAnyAdminPermission(["statistics", "users"]))
   .use("/stats/*", requireAnyAdminPermission(["statistics", "users"]))
   .use("/access", requireAdminPermission("accesses"))
@@ -1181,6 +1182,27 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/storage/s3", requireAdminPermission("storage"))
   .use("/storage/s3/*", requireAdminPermission("storage"))
   .use("/project-settings", requireAdminPermission("project_settings"))
+  .get("/login-ips/:telegramId", async (c) => {
+    const user = await db.query.users.findFirst({
+      where: eq(users.telegramId, c.req.param("telegramId"))
+    });
+    if (!user) return c.json({ error: "User not found" }, 404);
+
+    const loginIps = await db.query.userLoginIps.findMany({
+      where: (table, { eq }) => eq(table.userId, user.id),
+      orderBy: (table, { desc }) => [desc(table.lastSeenAt)]
+    });
+    c.header("Cache-Control", "no-store");
+    return c.json({
+      loginIps: loginIps.map((entry) => ({
+        id: entry.id,
+        ipAddress: entry.ipAddress,
+        firstSeenAt: entry.firstSeenAt.toISOString(),
+        lastSeenAt: entry.lastSeenAt.toISOString(),
+        loginCount: entry.loginCount
+      }))
+    });
+  })
   .get("/admins", async (c) => {
     const ownerTelegramId = await getOwnerTelegramId();
     const admins = await db.query.adminUsers.findMany({
