@@ -16,6 +16,11 @@ body.club-keyboard-open .app-root.community-chat-open {
 
 /* The generic mobile shell reserves navigation space and page gutters. A chat is
    a full-screen route, so it must explicitly opt out with matching specificity. */
+body.club-mobile-device .app-root.community-chat-open:not(.app-root-no-user) {
+  --nav-space: 0;
+  padding-bottom: 0;
+}
+
 body.club-mobile-device .app-root.community-chat-open:not(.app-root-no-user) .app-shell {
   width: 100%;
   max-width: none;

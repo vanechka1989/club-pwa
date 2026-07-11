@@ -69,6 +69,9 @@ describe("community archive labels", () => {
 
   it("removes the generic mobile shell padding while chat is open", () => {
     expect(communityStyles).toMatch(
+      /body\.club-mobile-device \.app-root\.community-chat-open:not\(\.app-root-no-user\)\s*\{[^}]*--nav-space:\s*0;[^}]*padding-bottom:\s*0;/s
+    );
+    expect(communityStyles).toMatch(
       /body\.club-mobile-device \.app-root\.community-chat-open:not\(\.app-root-no-user\) \.app-shell\s*\{[^}]*padding:\s*0;/s
     );
     expect(communityStyles).toMatch(
