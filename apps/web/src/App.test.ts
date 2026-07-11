@@ -852,7 +852,7 @@ describe("App", () => {
       /\.community-chat-open \.chat-input-row \.icon-button\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*min-width: var\(--icon-button-size\);/
     );
     expect(foundation).toMatch(
-      /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*font-size: 1rem;/
+      /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*font-size: max\(16px, 1rem\);/
     );
   });
 
