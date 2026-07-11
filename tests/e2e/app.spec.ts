@@ -731,10 +731,6 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function expectConsistentIconActionTargets(page: Page, context: string, selector: string) {
   const issues = await page.locator(selector).evaluateAll((elements, auditContext) => {
     const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
-    const minimumTargetSize = isScaledShell ? 60 : 52;
-    const maximumTargetSize = isScaledShell ? 80 : 64;
-    const minimumIconSize = isScaledShell ? 26 : 24;
-    const maximumIconSize = isScaledShell ? 34 : 30;
     const subpixelTolerance = 0.5;
 
     return elements
@@ -742,8 +738,16 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
         const target = element as HTMLElement;
         const rect = target.getBoundingClientRect();
         const style = getComputedStyle(target);
+        const targetToken = style.getPropertyValue("--icon-button-size").trim();
+        const iconToken = style.getPropertyValue("--icon-size").trim();
+        const minimumTargetSize = isScaledShell ? 48 : 44;
+        const maximumTargetSize = isScaledShell ? 58 : 48;
+        const minimumIconSize = isScaledShell ? 24 : 22;
+        const maximumIconSize = isScaledShell ? 30 : 26;
         const svg = target.querySelector<SVGElement>("svg");
         const svgRect = svg?.getBoundingClientRect();
+        const label = target.getAttribute("aria-label") ?? target.getAttribute("title") ?? (target.textContent ?? "").trim().replace(/\s+/g, " ");
+        const isTextAction = !svg && label.length > 0;
         const isVisible =
           rect.width > 0 &&
           rect.height > 0 &&
@@ -755,7 +759,7 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           context: auditContext,
           tag: target.tagName.toLowerCase(),
           className: String(target.className),
-          label: target.getAttribute("aria-label") ?? target.getAttribute("title") ?? (target.textContent ?? "").trim().replace(/\s+/g, " "),
+          label,
           width: Math.round(rect.width),
           height: Math.round(rect.height),
           svgWidth: svgRect ? Math.round(svgRect.width) : null,
@@ -769,9 +773,12 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           maximumTargetSize,
           minimumIconSize,
           maximumIconSize,
+          targetToken,
+          iconToken,
           isScaledShell,
           hasSmallTarget: rect.width + subpixelTolerance < minimumTargetSize || rect.height + subpixelTolerance < minimumTargetSize,
           hasLargeTarget: rect.width - subpixelTolerance > maximumTargetSize || rect.height - subpixelTolerance > maximumTargetSize,
+          hasNonSquareTarget: Math.abs(rect.width - rect.height) > 1,
           hasSmallIcon: Boolean(
             svgRect && (svgRect.width + subpixelTolerance < minimumIconSize || svgRect.height + subpixelTolerance < minimumIconSize)
           ),
@@ -785,7 +792,13 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
                 svgRect.right > rect.right + subpixelTolerance ||
                 svgRect.bottom > rect.bottom + subpixelTolerance)
           ),
-          hasWrappingTextAction: target.matches(".compact-controls > button") && style.whiteSpace !== "nowrap"
+          hasWrappingTextAction:
+            isTextAction &&
+            (style.whiteSpace !== "nowrap" ||
+              style.wordBreak === "break-word" ||
+              style.overflowWrap === "anywhere" ||
+              target.scrollWidth > target.clientWidth + 1 ||
+              target.scrollHeight > target.clientHeight + 1)
         };
       })
       .filter(
@@ -793,6 +806,7 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           item.visible &&
           (item.hasSmallTarget ||
             item.hasLargeTarget ||
+            item.hasNonSquareTarget ||
             item.hasSmallIcon ||
             item.hasLargeIcon ||
             item.hasEscapedIcon ||
@@ -802,6 +816,19 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
 
   expect(issues, `${context}\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
 }
+
+const iconActionControlSelector = [
+  ".ui-icon-button",
+  ".notification-center-button",
+  ".compact-controls > button",
+  ".profile-avatar-icon-button",
+  ".support-file-icon-button",
+  ".visual-scale-step-button",
+  ".module-sort-button",
+  ".module-lesson-add",
+  ".payment-product-admin-actions .icon-button",
+  ".chat-input-row .icon-button"
+].join(", ");
 
 async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
   const issues = await page.locator(".profile-access-actions .ui-button").evaluateAll((elements) => {
@@ -892,7 +919,7 @@ async function expectChatComposerSingleRow(page: Page) {
         Boolean(inputRect) &&
         buttonRects.length === 2 &&
         buttonRects.every((rect) => Math.abs(rect.top - Math.round(inputRect!.top)) <= 8),
-      buttonsUsable: buttonRects.length === 2 && buttonRects.every((rect) => rect.width >= 52 && rect.height >= 52),
+      buttonsUsable: buttonRects.length === 2 && buttonRects.every((rect) => rect.width >= 44 && rect.height >= 44),
       iconsReadable: buttonRects.length === 2 && buttonRects.every((rect) => (rect.svgWidth ?? 0) >= 24 && (rect.svgHeight ?? 0) >= 24),
       messagesScrollableWhenOverflowing: Boolean(
         messages && (messages.scrollHeight <= messages.clientHeight + 4 || messages.scrollTop > 0)
@@ -912,9 +939,9 @@ async function expectChatComposerSingleRow(page: Page) {
     composerWithinVisibleViewport: true
   });
   expect(layout.inputFontSize, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(16);
-  expect(layout.inputHeight, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(52);
-  expect(layout.rowHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(76);
-  expect(layout.composerHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(92);
+  expect(layout.inputHeight, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(44);
+  expect(layout.rowHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(72);
+  expect(layout.composerHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(88);
 }
 
 async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
@@ -1461,7 +1488,7 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
   await expectConsistentIconActionTargets(
     page,
     "profile header and avatar actions",
-    ".section-head .compact-controls > button, .section-head .notification-center-button, .profile-avatar-icon-button"
+    iconActionControlSelector
   );
 
   await page.getByRole("button", { name: "Модули" }).click();
@@ -1469,18 +1496,18 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
   await expectConsistentIconActionTargets(
     page,
     "learning module actions",
-    ".admin-panel-head .icon-button, .admin-mockup-card-actions .icon-button"
+    iconActionControlSelector
   );
 
   await page.getByRole("button", { name: "Общение" }).click();
   await expect(page.getByRole("heading", { name: "Общение" }).first()).toBeVisible();
-  await expectConsistentIconActionTargets(page, "community topic actions", ".section-head .icon-button");
+  await expectConsistentIconActionTargets(page, "community topic actions", iconActionControlSelector);
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
   await expectConsistentIconActionTargets(
     page,
     "community chat header and composer actions",
-    ".chat-room-header .icon-button, .chat-input-row .icon-button"
+    iconActionControlSelector
   );
   await expectChatComposerSingleRow(page);
 
@@ -1489,7 +1516,7 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
   await expectConsistentIconActionTargets(
     page,
     "payments add and tariff admin actions",
-    ".section-head .icon-button, .surface-card .icon-button, .payment-product-admin-actions .icon-button"
+    iconActionControlSelector
   );
 });
 

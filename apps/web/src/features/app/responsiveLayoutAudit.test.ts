@@ -40,9 +40,16 @@ describe("responsive layout audit contract", () => {
     expect(foundation).toContain("--control-height: 48px;");
     expect(foundation).toContain("--button-height: 48px;");
     expect(foundation).toContain("--button-height-large: 52px;");
-    expect(foundation).toContain("--icon-button-size: 52px;");
+    expect(foundation).toContain("--icon-button-size: 44px;");
     expect(foundation).toContain("--bottom-nav-height: 76px;");
     expect(foundation).toContain("--bottom-action-height: 72px;");
+  });
+
+  it("does not keep local tiny icon action overrides outside the foundation", () => {
+    expect(styles).not.toMatch(/\.payment-product-admin-actions\s+\.icon-button\s*\{[^}]*width:\s*2rem/s);
+    expect(styles).not.toMatch(/\.payment-product-admin-actions\s+\.icon-button\s*\{[^}]*height:\s*2rem/s);
+    expect(styles).not.toMatch(/\.module-sort-button\s*\{[^}]*width:\s*2rem/s);
+    expect(styles).not.toMatch(/\.module-lesson-add\s*\{[^}]*width:\s*2rem/s);
   });
 
   it("uses the same constrained page container for app and task screens", () => {

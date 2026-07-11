@@ -9211,10 +9211,11 @@ body.club-keyboard-open .module-name-modal {
 }
 
 .payment-product-admin-actions .icon-button {
-  width: 2rem;
-  min-width: 2rem;
-  height: 2rem;
-  border-radius: 10px;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  border-radius: var(--icon-button-radius);
 }
 
 .soft-inline-button {
@@ -16114,4 +16115,78 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
     max-width: calc(100% + 2px);
     justify-self: center;
   }
+}
+
+/* Final PWA UI foundation bridge: keep all icon/action controls square, readable and non-wrapping after legacy rules. */
+.ui-icon-button,
+.icon-button.ui-icon-button,
+.profile-avatar-icon-button,
+.notification-center-button,
+.compact-controls > button,
+.support-file-icon-button,
+.visual-scale-step-button,
+.module-sort-button,
+.module-lesson-add,
+.payment-product-admin-actions .icon-button,
+.chat-input-row .icon-button {
+  box-sizing: border-box;
+  display: inline-flex !important;
+  width: var(--icon-button-size) !important;
+  min-width: var(--icon-button-size) !important;
+  max-width: var(--icon-button-size);
+  height: var(--icon-button-size) !important;
+  min-height: var(--icon-button-size) !important;
+  max-height: var(--icon-button-size);
+  flex: 0 0 var(--icon-button-size) !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  border-radius: var(--icon-button-radius);
+  line-height: 1;
+  overflow-wrap: normal !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+}
+
+.ui-icon-button > svg,
+.icon-button.ui-icon-button > svg,
+.profile-avatar-icon-button > svg,
+.notification-center-button > svg,
+.compact-controls > button > svg,
+.support-file-icon-button > svg,
+.visual-scale-step-button > svg,
+.module-sort-button > svg,
+.module-lesson-add > svg,
+.payment-product-admin-actions .icon-button > svg,
+.chat-input-row .icon-button > svg {
+  display: block !important;
+  width: var(--icon-size) !important;
+  min-width: var(--icon-size) !important;
+  max-width: calc(var(--icon-button-size) - 14px) !important;
+  height: var(--icon-size) !important;
+  min-height: var(--icon-size) !important;
+  max-height: calc(var(--icon-button-size) - 14px) !important;
+  flex: 0 0 var(--icon-size) !important;
+  stroke-width: 2.25;
+}
+
+html body button.ui-icon-button,
+html body label.ui-icon-button,
+html body button.icon-button.ui-icon-button,
+html body .profile-avatar-icon-button,
+html body .notification-center .notification-center-button,
+html body .compact-controls > button,
+html body .support-file-icon-button,
+html body .visual-scale-step-button,
+html body .module-sort-button,
+html body .module-lesson-add,
+html body .payment-product-admin-actions .icon-button,
+html body .chat-input-row .icon-button {
+  width: var(--icon-button-size) !important;
+  min-width: var(--icon-button-size) !important;
+  max-width: var(--icon-button-size) !important;
+  height: var(--icon-button-size) !important;
+  min-height: var(--icon-button-size) !important;
+  max-height: var(--icon-button-size) !important;
+  flex-basis: var(--icon-button-size) !important;
 }
