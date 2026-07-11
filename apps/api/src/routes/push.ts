@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../db/client";
 import { pushSubscriptions } from "../db/schema";
@@ -54,7 +54,7 @@ export const pushRoute = new Hono<{ Variables: AuthVariables }>()
     await db
       .update(pushSubscriptions)
       .set({ revokedAt: new Date(), updatedAt: new Date() })
-      .where(eq(pushSubscriptions.endpoint, subscription.endpoint));
+      .where(and(eq(pushSubscriptions.endpoint, subscription.endpoint), eq(pushSubscriptions.userId, c.get("userId"))));
 
     return c.json({ ok: true });
   });

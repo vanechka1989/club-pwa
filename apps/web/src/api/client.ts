@@ -126,6 +126,13 @@ export function saveWebPushSubscription(subscription: PushSubscriptionJSON) {
   });
 }
 
+export function deleteWebPushSubscription(subscription: PushSubscriptionJSON) {
+  return api<{ ok: boolean }>("/push/subscriptions", {
+    method: "DELETE",
+    body: subscription
+  });
+}
+
 export function getMe() {
   return api<MeResponse>("/me");
 }
