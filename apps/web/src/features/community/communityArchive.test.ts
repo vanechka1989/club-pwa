@@ -34,13 +34,23 @@ describe("community archive labels", () => {
     expect(styles).toMatch(/\.community-chat-open \.chat-room\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(0, 1fr\) auto;/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-compose,[^}]*width:\s*100%;[^}]*max-width:\s*none;/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-room-header\s*\{[^}]*width:\s*100%;/s);
+    expect(styles).toMatch(/\.community-chat-open \.content-panel-community,[\s\S]*?\.community-chat-open \.section-host,[\s\S]*?\.community-chat-open \.community-chat-shell\s*\{[^}]*height:\s*100%;[^}]*margin:\s*0;[^}]*padding:\s*0;/s);
+    expect(styles).toMatch(/\.community-chat-open \.chat-compose,[^}]*padding-bottom:\s*max\(8px, var\(--club-safe-bottom\)\);/s);
   });
 
   it("uses a visible light-theme emoji and moderator message pins", () => {
     expect(styles).toMatch(/:root\[data-theme="light"\] \.community-chat-open \.composer-emoji-wrap \.icon-button\s*\{[^}]*color:\s*var\(--color-primary-strong\) !important;/s);
     expect(source).toContain("setClubMessagePinned");
     expect(source).toContain('class="chat-pinned-bar"');
-    expect(source).toContain('message.pinnedAt ? "Открепить" : "Закрепить"');
+    expect(source).toContain('activeModerationMessage.pinnedAt ? "Открепить сообщение" : "Закрепить сообщение"');
     expect(source).toContain("pinnedMessages.length");
+  });
+
+  it("uses one touch-friendly moderation action sheet instead of inline buttons", () => {
+    expect(source).toContain('class="moderation-action-sheet-backdrop"');
+    expect(source).toContain('class="moderation-action-sheet"');
+    expect(source).toContain('role="dialog"');
+    expect(source).not.toContain('class="moderation-menu"');
+    expect(styles).toMatch(/\.moderation-action-row\s*\{[^}]*min-height:\s*48px;/s);
   });
 });

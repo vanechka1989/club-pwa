@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ClubMessage, ClubTopic, MessageReaction } from "@club/shared";
-import { ArrowLeft, MessageCircle, MoreVertical, Pin, Plus, Send, Smile, Trash2, X } from "lucide-vue-next";
+import { ArrowLeft, Ban, MessageCircle, MoreVertical, Pin, PinOff, Plus, RotateCcw, Send, Smile, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -72,6 +72,9 @@ const orderedMessages = computed(() => [...messages.value].reverse());
 const pinnedMessages = computed(() =>
   orderedMessages.value.filter((message) => Boolean(message.pinnedAt) && message.status === "visible" && !message.isSystem)
 );
+const activeModerationMessage = computed(
+  () => orderedMessages.value.find((message) => message.id === activeModerationMessageId.value) ?? null
+);
 const activeTopics = computed(() => topics.value.filter((topic) => topic.isPublished));
 const archivedTopics = computed(() => topics.value.filter((topic) => !topic.isPublished && topic.archivedUntil));
 const canWrite = computed(
@@ -109,6 +112,16 @@ function authorName(message: ClubMessage) {
 
 function authorInitial(message: ClubMessage) {
   return authorName(message).slice(0, 1).toUpperCase();
+}
+
+function closeModerationSheet() {
+  activeModerationMessageId.value = null;
+}
+
+function handleModerationSheetKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && activeModerationMessageId.value) {
+    closeModerationSheet();
+  }
 }
 
 function avatarImageStyle(author: ClubMessage["author"]) {
@@ -723,6 +736,7 @@ function unbindChatViewportHeight() {
 
 onMounted(() => {
   bindChatViewportHeight();
+  document.addEventListener("keydown", handleModerationSheetKeydown);
   loadTopicReadState();
   if (hasCommunityAccess.value) {
     void loadTopics({ showLoading: true });
@@ -770,6 +784,7 @@ onBeforeUnmount(() => {
   stopMessageRefresh();
   stopTopicsRefresh();
   unbindChatViewportHeight();
+  document.removeEventListener("keydown", handleModerationSheetKeydown);
   emit("chatOpenChange", false);
 });
 </script>
@@ -944,17 +959,18 @@ onBeforeUnmount(() => {
           </div>
           <div v-if="!message.isSystem" class="chat-bubble">
             <div class="chat-message-head">
+              <span class="chat-message-author">{{ authorName(message) }}</span>
+              <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
+              <time>{{ formatMessageTime(message.createdAt) }}</time>
               <button
                 v-if="isModerator"
-                class="chat-message-author"
+                class="chat-message-moderation-trigger"
                 type="button"
-                @click.stop="activeModerationMessageId = activeModerationMessageId === message.id ? null : message.id"
+                :aria-label="`Действия с сообщением пользователя ${authorName(message)}`"
+                @click.stop="activeModerationMessageId = message.id"
               >
-                {{ authorName(message) }}
+                <MoreVertical class="h-4 w-4" aria-hidden="true" />
               </button>
-              <span v-else class="chat-message-author">{{ authorName(message) }}</span>
-              <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
-              <span>{{ formatMessageTime(message.createdAt) }}</span>
             </div>
             <div v-if="message.replyTo" class="reply-preview">
               <span>{{ message.replyTo.author.firstName || message.replyTo.author.username || `ID ${message.replyTo.author.telegramId}` }}</span>
@@ -988,24 +1004,6 @@ onBeforeUnmount(() => {
               >
                 <span>{{ reactionLabel(reaction.reaction) }}</span>
                 <small>{{ reaction.count }}</small>
-              </button>
-            </div>
-            <div v-if="isModerator && activeModerationMessageId === message.id" class="moderation-menu">
-              <div v-if="message.authorMute" class="moderation-status">
-                <span>{{ formatMuteLabel(message) }}</span>
-                <button class="mini-action" type="button" @click="handleRevokeMute(message)">Снять мут</button>
-              </div>
-              <button class="mini-action" type="button" @click="handleMessageStatus(message, message.status === 'visible' ? 'deleted' : 'visible')">
-                {{ message.status === "visible" ? "Удалить" : "Вернуть" }}
-              </button>
-              <button class="mini-action" type="button" @click="handleTogglePin(message)">
-                {{ message.pinnedAt ? "Открепить" : "Закрепить" }}
-              </button>
-              <button class="mini-action" type="button" :disabled="Boolean(message.authorMute)" @click="handleMute(message)">
-                Мут пока не снимут
-              </button>
-              <button class="mini-action danger-action" type="button" @click="handleDeleteAuthorMessages(message)">
-                Удалить все сообщения клиента
               </button>
             </div>
           </div>
@@ -1061,5 +1059,77 @@ onBeforeUnmount(() => {
         </div>
       </form>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="isModerator && activeModerationMessage"
+        class="moderation-action-sheet-backdrop"
+        @click.self="closeModerationSheet"
+      >
+        <section
+          class="moderation-action-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="moderation-sheet-title"
+        >
+          <header class="moderation-action-sheet-header">
+            <div>
+              <p>Действия с сообщением</p>
+              <h3 id="moderation-sheet-title">{{ authorName(activeModerationMessage) }}</h3>
+              <span v-if="activeModerationMessage.authorMute">{{ formatMuteLabel(activeModerationMessage) }}</span>
+            </div>
+            <button type="button" aria-label="Закрыть" @click="closeModerationSheet">
+              <X class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="moderation-action-list">
+            <button class="moderation-action-row" type="button" @click="handleTogglePin(activeModerationMessage)">
+              <PinOff v-if="activeModerationMessage.pinnedAt" class="h-5 w-5" aria-hidden="true" />
+              <Pin v-else class="h-5 w-5" aria-hidden="true" />
+              <span>{{ activeModerationMessage.pinnedAt ? "Открепить сообщение" : "Закрепить сообщение" }}</span>
+            </button>
+            <button
+              class="moderation-action-row"
+              :class="{ 'moderation-action-danger': activeModerationMessage.status === 'visible' }"
+              type="button"
+              @click="handleMessageStatus(activeModerationMessage, activeModerationMessage.status === 'visible' ? 'deleted' : 'visible')"
+            >
+              <Trash2 v-if="activeModerationMessage.status === 'visible'" class="h-5 w-5" aria-hidden="true" />
+              <RotateCcw v-else class="h-5 w-5" aria-hidden="true" />
+              <span>{{ activeModerationMessage.status === "visible" ? "Удалить сообщение" : "Вернуть сообщение" }}</span>
+            </button>
+            <button
+              v-if="activeModerationMessage.authorMute"
+              class="moderation-action-row"
+              type="button"
+              @click="handleRevokeMute(activeModerationMessage)"
+            >
+              <RotateCcw class="h-5 w-5" aria-hidden="true" />
+              <span>Снять ограничение</span>
+            </button>
+            <button
+              v-else
+              class="moderation-action-row"
+              type="button"
+              @click="handleMute(activeModerationMessage)"
+            >
+              <Ban class="h-5 w-5" aria-hidden="true" />
+              <span>Ограничить до ручного снятия</span>
+            </button>
+            <button
+              class="moderation-action-row moderation-action-danger"
+              type="button"
+              @click="handleDeleteAuthorMessages(activeModerationMessage)"
+            >
+              <UserX class="h-5 w-5" aria-hidden="true" />
+              <span>Удалить все сообщения пользователя</span>
+            </button>
+          </div>
+
+          <button class="moderation-action-cancel" type="button" @click="closeModerationSheet">Отмена</button>
+        </section>
+      </div>
+    </Teleport>
   </section>
 </template>
