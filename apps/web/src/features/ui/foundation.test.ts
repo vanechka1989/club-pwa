@@ -100,7 +100,7 @@ describe("PWA UI foundation", () => {
   });
 
   it("keeps chat emoji visible on the compact light action tile", () => {
-    const css = readUi("foundation.css");
+    const css = readFileSync(resolve(__dirname, "../community/community.css"), "utf8");
 
     expect(css).toMatch(/\.community-chat-open \.composer-emoji-wrap \.icon-button\s*\{[^}]*color:\s*var\(--color-text\);/s);
     expect(css).toMatch(/\.community-chat-open \.chat-input-row \.icon-button\[type="submit"\]\s*\{[^}]*color:\s*var\(--color-primary-text\);/s);

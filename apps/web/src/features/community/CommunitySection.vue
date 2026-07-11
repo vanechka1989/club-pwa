@@ -62,7 +62,6 @@ let refreshInFlight = false;
 let topicsRefreshInFlight = false;
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
 const topicReadStorageKey = "club-community-topic-read-at";
-const chatViewportHeightCssVar = "--club-chat-viewport-height";
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isOwner = computed(() => session.user?.role === "owner");
@@ -72,6 +71,7 @@ const orderedMessages = computed(() => [...messages.value].reverse());
 const pinnedMessages = computed(() =>
   orderedMessages.value.filter((message) => Boolean(message.pinnedAt) && message.status === "visible" && !message.isSystem)
 );
+const latestPinnedMessage = computed(() => pinnedMessages.value.at(-1) ?? null);
 const activeModerationMessage = computed(
   () => orderedMessages.value.find((message) => message.id === activeModerationMessageId.value) ?? null
 );
@@ -223,8 +223,20 @@ function hasNewReplyToMe(topic: ClubTopic) {
 }
 
 function getErrorStatus(reason: unknown) {
-  if (typeof reason === "object" && reason && "status" in reason && typeof reason.status === "number") {
+  if (typeof reason !== "object" || !reason) {
+    return null;
+  }
+
+  if ("status" in reason && typeof reason.status === "number") {
     return reason.status;
+  }
+
+  if ("statusCode" in reason && typeof reason.statusCode === "number") {
+    return reason.statusCode;
+  }
+
+  if ("response" in reason && typeof reason.response === "object" && reason.response && "status" in reason.response) {
+    return typeof reason.response.status === "number" ? reason.response.status : null;
   }
 
   return null;
@@ -419,6 +431,11 @@ async function handleTogglePin(message: ClubMessage) {
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
     activeModerationMessageId.value = null;
   } catch (error) {
+    if (getErrorStatus(error) === 409) {
+      activeModerationMessageId.value = null;
+      window.alert("Можно закрепить не больше 5 сообщений.");
+      return;
+    }
     showCommunityError(error instanceof Error ? error.message : "Не удалось изменить закрепление.");
   }
 }
@@ -708,34 +725,7 @@ async function handleReaction(message: ClubMessage, reaction: Exclude<MessageRea
   activeReactionMessageId.value = null;
 }
 
-function updateChatViewportHeight() {
-  if (document.body.classList.contains("club-ios")) {
-    document.documentElement.style.removeProperty(chatViewportHeightCssVar);
-    return;
-  }
-
-  const height = window.visualViewport?.height ?? window.innerHeight;
-  if (height > 0) {
-    document.documentElement.style.setProperty(chatViewportHeightCssVar, `${height}px`);
-  }
-}
-
-function bindChatViewportHeight() {
-  updateChatViewportHeight();
-  window.visualViewport?.addEventListener("resize", updateChatViewportHeight);
-  window.visualViewport?.addEventListener("scroll", updateChatViewportHeight);
-  window.addEventListener("resize", updateChatViewportHeight);
-}
-
-function unbindChatViewportHeight() {
-  window.visualViewport?.removeEventListener("resize", updateChatViewportHeight);
-  window.visualViewport?.removeEventListener("scroll", updateChatViewportHeight);
-  window.removeEventListener("resize", updateChatViewportHeight);
-  document.documentElement.style.removeProperty(chatViewportHeightCssVar);
-}
-
 onMounted(() => {
-  bindChatViewportHeight();
   document.addEventListener("keydown", handleModerationSheetKeydown);
   loadTopicReadState();
   if (hasCommunityAccess.value) {
@@ -783,7 +773,6 @@ watch(
 onBeforeUnmount(() => {
   stopMessageRefresh();
   stopTopicsRefresh();
-  unbindChatViewportHeight();
   document.removeEventListener("keydown", handleModerationSheetKeydown);
   emit("chatOpenChange", false);
 });
@@ -898,17 +887,21 @@ onBeforeUnmount(() => {
 
       <div class="chat-room-notices">
         <div v-if="pinnedMessages.length" class="chat-pinned-bar">
-          <button class="chat-pinned-current" type="button" @click="showPinnedMessages = !showPinnedMessages">
+          <button v-if="latestPinnedMessage" class="chat-pinned-current" type="button" @click="showPinnedMessages = !showPinnedMessages">
             <Pin class="h-4 w-4" aria-hidden="true" />
             <span>
               <strong>Закреплено</strong>
-              <small>{{ pinnedMessages.at(-1)?.body }}</small>
+              <small>{{ latestPinnedMessage.body }}</small>
+              <time>{{ authorName(latestPinnedMessage) }} · {{ formatMessageTime(latestPinnedMessage.createdAt) }}</time>
             </span>
             <em>{{ pinnedMessages.length }}</em>
           </button>
           <div v-if="showPinnedMessages" class="chat-pinned-list">
             <button v-for="message in pinnedMessages" :key="message.id" type="button" @click="scrollToMessage(message.id)">
-              <strong>{{ authorName(message) }}</strong>
+              <span class="chat-pinned-list-meta">
+                <strong>{{ authorName(message) }}</strong>
+                <time>{{ formatMessageTime(message.createdAt) }}</time>
+              </span>
               <span>{{ message.body }}</span>
             </button>
           </div>

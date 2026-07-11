@@ -377,6 +377,7 @@ describe("App", () => {
 
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const communityStyles = readFileSync(resolve(__dirname, "features/community/community.css"), "utf-8");
 
     expect(appSource).not.toContain("window.Telegram");
     expect(appSource).not.toContain("club-telegram-webview");
@@ -396,7 +397,7 @@ describe("App", () => {
     expect(styles).toContain("@media (pointer: coarse)");
     expect(styles).not.toContain("club-telegram-webview");
     expect(styles).not.toContain("club-telegram-fullscreen");
-    expect(styles).toContain("body.club-keyboard-open .community-chat-open .chat-room");
+    expect(communityStyles).toContain("body.club-keyboard-open .app-root.community-chat-open");
     expect(styles).toContain("@media (max-width: 380px)");
     expect(styles).toContain(".payment-product-pay");
   });
@@ -833,25 +834,21 @@ describe("App", () => {
   });
 
   it("keeps the mobile chat composer visible above the keyboard", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
-    const foundation = readFileSync(resolve(__dirname, "features/ui/foundation.css"), "utf-8");
+    const communityStyles = readFileSync(resolve(__dirname, "features/community/community.css"), "utf-8");
 
     expect(appSource).toContain("showBottomNavigation");
     expect(appSource).toContain("!communityChatOpen");
     expect(appSource).toContain('v-if="showBottomNavigation"');
-    expect(styles).toMatch(
-      /\.community-chat-open \.chat-room\s*\{[\s\S]*padding: 0\.7rem 0\.42rem calc\(0\.25rem \+ var\(--club-safe-bottom\)\);/
+    expect(communityStyles).toMatch(
+      /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[\s\S]*height: var\(--club-visible-viewport-height, 100dvh\);/
     );
-    expect(foundation).toMatch(
-      /body\.club-keyboard-open \.community-chat-open \.chat-room\s*\{[\s\S]*height: calc\(var\(--club-visible-viewport-height, var\(--app-viewport-height\)\) - var\(--page-padding\) - var\(--card-gap\)\);/
-    );
-    expect(foundation).toMatch(
+    expect(communityStyles).toMatch(
       /body\.club-mobile-device \.community-chat-open \.chat-compose,\s*body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: static;[\s\S]*width: 100%;/
     );
-    expect(foundation).toMatch(
+    expect(communityStyles).toMatch(
       /\.community-chat-open \.chat-input-row \.icon-button\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*min-width: var\(--icon-button-size\);/
     );
-    expect(foundation).toMatch(
+    expect(communityStyles).toMatch(
       /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*font-size: max\(16px, 1rem\);/
     );
   });

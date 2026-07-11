@@ -939,88 +939,6 @@ body.club-keyboard-open .ui-bottom-action-bar {
   box-shadow: none;
 }
 
-.chat-input-row .icon-button[type="submit"]::before {
-  border-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-border));
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
-}
-
-.community-chat-open .chat-input-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 0;
-}
-
-.community-chat-open .chat-room {
-  display: grid;
-  box-sizing: border-box;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--page-padding) - var(--card-gap));
-  max-height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--page-padding) - var(--card-gap));
-  min-height: 0;
-  overflow: hidden;
-}
-
-body.club-keyboard-open .community-chat-open .chat-room {
-  height: calc(var(--club-visible-viewport-height, var(--app-viewport-height)) - var(--page-padding) - var(--card-gap));
-  max-height: calc(var(--club-visible-viewport-height, var(--app-viewport-height)) - var(--page-padding) - var(--card-gap));
-  padding-bottom: 8px;
-}
-
-.community-chat-open .chat-compose {
-  width: 100%;
-  min-width: 0;
-  align-self: end;
-  border-radius: var(--icon-button-radius);
-  padding: 4px;
-}
-
-body.club-mobile-device .community-chat-open .chat-compose,
-body.club-keyboard-open .community-chat-open .chat-compose {
-  position: static;
-  right: auto;
-  bottom: auto;
-  left: auto;
-  width: 100%;
-  max-width: 100%;
-  transform: none;
-}
-
-body.club-mobile-device .community-chat-open .chat-messages,
-body.club-keyboard-open .community-chat-open .chat-messages {
-  padding-bottom: 8px;
-}
-
-.community-chat-open .chat-input-row .icon-button {
-  width: var(--icon-button-size);
-  min-width: var(--icon-button-size);
-  height: var(--icon-button-size);
-  min-height: var(--icon-button-size);
-  flex: 0 0 var(--icon-button-size);
-  border-radius: var(--icon-button-radius);
-}
-
-.community-chat-open .chat-input-row .text-input {
-  width: 100%;
-  min-width: 0;
-  height: var(--icon-button-size);
-  min-height: var(--icon-button-size);
-  border-radius: var(--icon-button-radius);
-  padding: 0 14px;
-  font-size: max(16px, 1rem);
-  line-height: 1.2;
-}
-
-body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
-  font-size: calc(16px * var(--club-scaled-control-factor));
-}
-
-.community-chat-open .composer-emoji-wrap {
-  flex: 0 0 var(--icon-button-size);
-  min-width: var(--icon-button-size);
-}
-
 .bottom-nav {
   width: min(calc(100% - 24px), var(--page-max-width));
   min-height: var(--bottom-nav-height);
@@ -1061,29 +979,6 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 
 .profile-access-actions {
   gap: 8px;
-}
-
-.community-chat-open .chat-room {
-  gap: 8px;
-}
-
-.community-chat-open .chat-bubble {
-  max-width: min(76%, 30rem);
-  border-radius: 14px 14px 14px 6px;
-  padding: 8px 10px 7px;
-}
-
-.community-chat-open .chat-message-own .chat-bubble {
-  border-radius: 14px 14px 6px 14px;
-}
-
-.community-chat-open .chat-avatar {
-  width: 32px;
-  height: 32px;
-}
-
-.community-chat-open .chat-compose {
-  border-radius: 16px;
 }
 
 .bottom-nav {
@@ -1178,15 +1073,6 @@ body.club-mobile-app-scaled .bottom-nav {
     grid-row: 3;
     justify-content: flex-start;
   }
-}
-
-/* The emoji tile is light; keep its glyph dark while the send action remains white. */
-.community-chat-open .composer-emoji-wrap .icon-button {
-  color: var(--color-text);
-}
-
-.community-chat-open .chat-input-row .icon-button[type="submit"] {
-  color: var(--color-primary-text);
 }
 
 /* Compact notification list, selected variant A. */

@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(__dirname, "CommunitySection.vue"), "utf8");
 const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const communityStyles = readFileSync(resolve(__dirname, "community.css"), "utf8");
+const foundation = readFileSync(resolve(__dirname, "../ui/foundation.css"), "utf8");
+const main = readFileSync(resolve(__dirname, "../../main.ts"), "utf8");
 
 describe("community archive labels", () => {
   it("shows when archived topics will be deleted", () => {
@@ -11,10 +14,16 @@ describe("community archive labels", () => {
     expect(source).not.toContain("В архиве до {{ formatArchiveUntil");
   });
 
-  it("keeps chat viewport sizing separate from the global app viewport", () => {
-    expect(source).not.toContain("--club-viewport-height");
-    expect(source).toContain("--club-chat-viewport-height");
-    expect(source).toContain('document.body.classList.contains("club-ios")');
+  it("uses the shared viewport measurement instead of a second chat viewport", () => {
+    expect(source).not.toContain("--club-chat-viewport-height");
+    expect(source).not.toContain("bindChatViewportHeight");
+  });
+
+  it("loads one canonical community stylesheet after foundation", () => {
+    expect(main.indexOf('import "./features/ui/foundation.css"')).toBeLessThan(
+      main.indexOf('import "./features/community/community.css"')
+    );
+    expect(foundation).not.toContain(".community-chat-open .chat-room");
   });
 
   it("does not show a chat update alert for automatic polling failures", () => {
@@ -30,20 +39,22 @@ describe("community archive labels", () => {
   });
 
   it("keeps chat chrome full width and the composer in the last viewport row", () => {
-    expect(styles).toMatch(/\.community-chat-open \.community-chat-shell,[\s\S]*?\.community-chat-open \.chat-room\s*\{[^}]*height:\s*100%;/s);
-    expect(styles).toMatch(/\.community-chat-open \.chat-room\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(0, 1fr\) auto;/s);
-    expect(styles).toMatch(/\.community-chat-open \.chat-compose,[^}]*width:\s*100%;[^}]*max-width:\s*none;/s);
-    expect(styles).toMatch(/\.community-chat-open \.chat-room-header\s*\{[^}]*width:\s*100%;/s);
-    expect(styles).toMatch(/\.community-chat-open \.content-panel-community,[\s\S]*?\.community-chat-open \.section-host,[\s\S]*?\.community-chat-open \.community-chat-shell\s*\{[^}]*height:\s*100%;[^}]*margin:\s*0;[^}]*padding:\s*0;/s);
-    expect(styles).toMatch(/\.community-chat-open \.chat-compose,[^}]*padding-bottom:\s*max\(8px, var\(--club-safe-bottom\)\);/s);
+    expect(communityStyles).toMatch(/\.community-chat-open \.community-chat-shell\s*\{[^}]*height:\s*100%;/s);
+    expect(communityStyles).toMatch(/\.community-chat-open \.chat-room\s*\{[^}]*grid-template-rows:\s*auto auto minmax\(0, 1fr\) auto;/s);
+    expect(communityStyles).toMatch(/\.community-chat-open \.chat-compose,[^}]*width:\s*100%;[^}]*max-width:\s*none;/s);
+    expect(communityStyles).toMatch(/\.community-chat-open \.chat-room-header\s*\{[^}]*width:\s*100%;/s);
+    expect(communityStyles).toMatch(/\.community-chat-open \.content-panel-community,[\s\S]*?\.community-chat-open \.section-host,[\s\S]*?\.community-chat-open \.community-chat-shell\s*\{[^}]*height:\s*100%;[^}]*margin:\s*0;[^}]*padding:\s*0;/s);
+    expect(communityStyles).toMatch(/padding:\s*8px max\(16px, var\(--club-safe-right\)\) max\(8px, var\(--club-safe-bottom\)\)/s);
   });
 
   it("uses a visible light-theme emoji and moderator message pins", () => {
-    expect(styles).toMatch(/:root\[data-theme="light"\] \.community-chat-open \.composer-emoji-wrap \.icon-button\s*\{[^}]*color:\s*var\(--color-primary-strong\) !important;/s);
+    expect(communityStyles).toMatch(/:root\[data-theme="light"\] \.community-chat-open \.composer-emoji-wrap \.icon-button\s*\{[^}]*color:\s*var\(--color-primary-strong\) !important;/s);
     expect(source).toContain("setClubMessagePinned");
     expect(source).toContain('class="chat-pinned-bar"');
     expect(source).toContain('activeModerationMessage.pinnedAt ? "Открепить сообщение" : "Закрепить сообщение"');
     expect(source).toContain("pinnedMessages.length");
+    expect(source).toContain("formatMessageTime(message.createdAt)");
+    expect(source).toContain("Можно закрепить не больше 5 сообщений.");
   });
 
   it("uses one touch-friendly moderation action sheet instead of inline buttons", () => {
@@ -51,6 +62,6 @@ describe("community archive labels", () => {
     expect(source).toContain('class="moderation-action-sheet"');
     expect(source).toContain('role="dialog"');
     expect(source).not.toContain('class="moderation-menu"');
-    expect(styles).toMatch(/\.moderation-action-row\s*\{[^}]*min-height:\s*48px;/s);
+    expect(communityStyles).toMatch(/\.moderation-action-row\s*\{[^}]*min-height:\s*48px;/s);
   });
 });
