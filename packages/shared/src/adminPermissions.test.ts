@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { adminListResponseSchema, allAdminPermissions, clubUserSchema, newAdminDefaultPermissions } from "./index";
+import { adminListResponseSchema, adminPermissionLabels, adminPermissionSchema, allAdminPermissions, clubUserSchema, newAdminDefaultPermissions } from "./index";
 
 describe("admin permissions contracts", () => {
   it("starts newly added admins without section permissions", () => {
     expect(newAdminDefaultPermissions).toEqual([]);
+  });
+
+  it("exposes a dedicated login IP permission", () => {
+    expect(adminPermissionSchema.parse("login_ips")).toBe("login_ips");
+    expect(adminPermissionLabels.login_ips).toBe("IP входов");
+    expect(allAdminPermissions).toContain("login_ips");
   });
 
   it("exposes active status, custom role label, and permission toggles for admins", () => {

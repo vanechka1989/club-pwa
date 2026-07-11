@@ -17,6 +17,7 @@ export const adminPermissionValues = [
   "community",
   "storage",
   "admins",
+  "login_ips",
   "project_settings"
 ] as const;
 export const adminPermissionSchema = z.enum(adminPermissionValues);
@@ -34,6 +35,7 @@ export const adminPermissionLabels: Record<AdminPermission, string> = {
   community: "Общение",
   storage: "Хранилище",
   admins: "Админы",
+  login_ips: "IP входов",
   project_settings: "Настройки проекта"
 };
 
@@ -795,6 +797,20 @@ export const deviceDiagnosticsMutationResponseSchema = z.object({
   device: deviceDiagnosticsSchema
 });
 export type DeviceDiagnosticsMutationResponse = z.infer<typeof deviceDiagnosticsMutationResponseSchema>;
+
+export const adminLoginIpSchema = z.object({
+  id: z.string().uuid(),
+  ipAddress: z.string().min(1),
+  firstSeenAt: z.string().datetime(),
+  lastSeenAt: z.string().datetime(),
+  loginCount: z.number().int().positive()
+});
+export type AdminLoginIp = z.infer<typeof adminLoginIpSchema>;
+
+export const adminLoginIpsResponseSchema = z.object({
+  loginIps: z.array(adminLoginIpSchema)
+});
+export type AdminLoginIpsResponse = z.infer<typeof adminLoginIpsResponseSchema>;
 
 export const adminUserDetailResponseSchema = z.object({
   user: adminStatsUserSchema,
