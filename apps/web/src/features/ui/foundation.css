@@ -1100,3 +1100,52 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 body.club-mobile-app-scaled .bottom-nav {
   width: auto;
 }
+
+/* Notification task header: title keeps its word intact, actions use a dedicated row. */
+.notification-task-screen .task-screen-header {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: start;
+}
+
+.notification-task-screen .ui-page-header__back {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+
+.notification-task-screen .ui-page-header__text {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.notification-task-screen .ui-page-header__title {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.notification-task-screen .ui-page-header__actions {
+  grid-column: 2;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.notification-task-screen .task-screen-actions {
+  max-width: none;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+.notification-task-screen .notification-center-clear {
+  width: auto;
+  white-space: nowrap;
+}
+
+/* The emoji tile is light; keep its glyph dark while the send action remains white. */
+.community-chat-open .composer-emoji-wrap .icon-button {
+  color: var(--color-text);
+}
+
+.community-chat-open .chat-input-row .icon-button[type="submit"] {
+  color: var(--color-primary-text);
+}

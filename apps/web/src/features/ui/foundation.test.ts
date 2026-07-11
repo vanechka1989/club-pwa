@@ -89,6 +89,13 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("height: var(--action-icon-glyph-size) !important;");
   });
 
+  it("keeps chat emoji visible on the compact light action tile", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).toMatch(/\.community-chat-open \.composer-emoji-wrap \.icon-button\s*\{[^}]*color:\s*var\(--color-text\);/s);
+    expect(css).toMatch(/\.community-chat-open \.chat-input-row \.icon-button\[type="submit"\]\s*\{[^}]*color:\s*var\(--color-primary-text\);/s);
+  });
+
   it("defines the four required theme variants through semantic tokens", () => {
     expect(existsSync(uiPath("foundation.css"))).toBe(true);
 

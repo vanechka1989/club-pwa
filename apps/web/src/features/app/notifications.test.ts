@@ -69,6 +69,15 @@ describe("app notifications", () => {
     expect(clientSource).toContain('method: "DELETE"');
   });
 
+  it("keeps the mobile notification title intact and moves actions to their own row", () => {
+    const foundation = readFileSync(resolve(__dirname, "../ui/foundation.css"), "utf8");
+
+    expect(foundation).toMatch(/\.notification-task-screen \.task-screen-header\s*\{[^}]*grid-template-columns:\s*44px minmax\(0, 1fr\);/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__title\s*\{[^}]*white-space:\s*nowrap;/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.ui-page-header__actions\s*\{[^}]*grid-column:\s*2;/s);
+    expect(foundation).toMatch(/\.notification-task-screen \.task-screen-actions\s*\{[^}]*flex-wrap:\s*nowrap;/s);
+  });
+
   it("exposes a delete endpoint for clearing stored notifications", () => {
     const routeSource = readFileSync(resolve(__dirname, "../../../../api/src/routes/notifications.ts"), "utf8");
 
