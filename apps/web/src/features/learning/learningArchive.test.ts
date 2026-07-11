@@ -254,8 +254,9 @@ describe("Learning section modules", () => {
   it("sizes horizontal lesson cards like a rotated vertical card", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s);
+    expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
+    expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*width:\s*min\(100%,\s*360px\);/s);
+    expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*height:\s*auto;/s);
     expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*gap:\s*0\.38rem;/s);
   });
 
@@ -268,7 +269,8 @@ describe("Learning section modules", () => {
   it("keeps horizontal lesson covers wide instead of square", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
+    expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
+    expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*max-height:\s*203px;/s);
   });
 
   it("places horizontal lesson title above the cover without description", async () => {
@@ -286,7 +288,7 @@ describe("Learning section modules", () => {
   it("centers horizontal lesson titles above their covers", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-label\s*\{[^}]*justify-content:\s*center;/s);
+    expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-label\s*\{[^}]*justify-content:\s*center;/s);
     expect(styles).toMatch(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s*\{[^}]*text-align:\s*center;/s);
     expect(styles).toMatch(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s+strong\s*\{[^}]*justify-content:\s*center;/s);
   });
@@ -298,7 +300,7 @@ describe("Learning section modules", () => {
       styles.match(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s*\{(?<body>[^}]*)\}/s)?.groups?.body ??
       "";
     const horizontalRule =
-      styles.match(/\.modules-panel\s+\.admin-mockup-thumb-horizontal\s*\{(?<body>[^}]*)\}/s)?.groups?.body ??
+      styles.match(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s*\{(?<body>[^}]*)\}/s)?.groups?.body ??
       "";
 
     expect(thumbRule).toMatch(/border:\s*1px\s+solid/);

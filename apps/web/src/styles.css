@@ -16067,6 +16067,39 @@ body.club-mobile-device .task-screen-route-layer :is(
   }
 }
 
+.modules-section .admin-mockup-thumb-horizontal {
+  width: min(100%, 360px);
+  height: auto;
+  min-height: 0;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
+  justify-self: start;
+  align-items: start;
+  gap: 6px;
+  padding: 8px;
+}
+
+.modules-section .admin-mockup-thumb-horizontal img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 203px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.modules-section .admin-mockup-thumb-horizontal .admin-mockup-thumb-label {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 8px;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+
 /* Unified section geometry: module header is a peer of its content, not part of the cards panel. */
 .modules-section,
 .modules-content {
