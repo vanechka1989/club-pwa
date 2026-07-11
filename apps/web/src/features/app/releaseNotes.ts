@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Foundation: кнопки и чат без legacy-конфликтов",
+    items: [
+      "Единый foundation-токен icon-button-size поднят до 52px, а glyph-size до 24px: кнопки добавления, редактирования, назад, уведомлений и чата больше не схлопываются в мелкие цели.",
+      "Для Samsung/Android wide-viewport режима закреплён безопасный диапазон 60–76px для action-кнопок и 26–30px для иконок.",
+      "Чат общения больше не держит composer на старом position: fixed при открытой клавиатуре: форма ввода остаётся внутри видимого viewport, сообщения скроллятся, кнопки не уезжают.",
+      "E2E-проверка теперь ловит маленькие action-кнопки, вылезшие за рамку SVG и сценарий набора сообщения с имитацией мобильной клавиатуры."
+    ]
+  },
+  {
+    version: "3.47",
+    updatedAt: "11.07.2026 17:24",
     title: "Samsung PWA: нормальный размер кнопок",
     items: [
       "Исправлен перебор после v3.46: action-кнопки больше не масштабируются до 120px+ в Samsung/Android wide-viewport режиме.",

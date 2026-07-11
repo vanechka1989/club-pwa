@@ -6368,11 +6368,12 @@ body.club-keyboard-open .admin-client-file-button {
 }
 
 .module-sort-button {
-  width: 1.48rem;
-  min-width: 1.48rem;
-  height: 1.48rem;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--icon-button-radius);
   background: transparent;
   box-shadow: none;
   color: var(--accent);
@@ -6389,10 +6390,11 @@ body.club-keyboard-open .admin-client-file-button {
 }
 
 .module-lesson-add {
-  width: 2rem;
-  min-width: 2rem;
-  height: 2rem;
-  border-radius: 12px;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  border-radius: var(--icon-button-radius);
 }
 
 .module-collapse-control svg {
@@ -7787,8 +7789,9 @@ body.club-keyboard-open .module-name-modal {
 
 .compact-controls button {
   display: grid;
-  min-width: 2rem;
-  height: 2rem;
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
   place-items: center;
   color: var(--text);
   font-size: 0.72rem;
@@ -7810,10 +7813,12 @@ body.club-keyboard-open .module-name-modal {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.8rem;
-  height: 2.8rem;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--icon-button-radius);
   color: var(--text);
   background: color-mix(in srgb, var(--panel) 78%, transparent);
   box-shadow: var(--shadow-soft);
@@ -10365,7 +10370,9 @@ body.club-mobile-app-scaled .support-modal-head {
 }
 
 .community-chat-open .chat-room {
-  height: var(--club-chat-viewport-height, var(--app-viewport-height));
+  box-sizing: border-box;
+  height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--page-padding) - var(--card-gap));
+  max-height: calc(var(--club-chat-viewport-height, var(--app-viewport-height)) - var(--page-padding) - var(--card-gap));
   padding: 0.7rem 0.42rem calc(0.25rem + var(--club-safe-bottom));
 }
 
@@ -10774,16 +10781,17 @@ button.chat-message-author:active {
 }
 
 body.club-mobile-device .community-chat-open .chat-compose {
-  position: fixed;
-  right: max(0.2rem, calc(var(--club-safe-right) + 0.2rem));
-  bottom: max(0.28rem, var(--club-safe-bottom));
-  left: max(0.2rem, calc(var(--club-safe-left) + 0.2rem));
-  width: auto;
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  max-width: 100%;
   z-index: 19;
 }
 
 body.club-mobile-device .community-chat-open .chat-messages {
-  padding-bottom: 4.8rem;
+  padding-bottom: 8px;
 }
 
 body.club-keyboard-open .community-chat-open .bottom-nav {
@@ -10791,15 +10799,17 @@ body.club-keyboard-open .community-chat-open .bottom-nav {
 }
 
 body.club-keyboard-open .community-chat-open .chat-compose {
-  position: fixed;
-  right: max(0.2rem, calc(var(--club-safe-right) + 0.2rem));
-  bottom: max(0.28rem, var(--club-safe-bottom));
-  left: max(0.2rem, calc(var(--club-safe-left) + 0.2rem));
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  max-width: 100%;
   z-index: 80;
 }
 
 body.club-keyboard-open .community-chat-open .chat-messages {
-  padding-bottom: 4.8rem;
+  padding-bottom: 8px;
 }
 
 .chat-input-row {
@@ -10813,17 +10823,22 @@ body.club-keyboard-open .community-chat-open .chat-messages {
 }
 
 .community-chat-open .chat-input-row .icon-button {
-  height: 2.55rem;
-  min-width: 2.55rem;
-  border-radius: 14px;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  border-radius: var(--icon-button-radius);
 }
 
 .community-chat-open .chat-input-row .text-input {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 2.55rem;
-  border-radius: 14px;
-  padding: 0.46rem 0.68rem;
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  border-radius: var(--icon-button-radius);
+  padding: 0 14px;
+  font-size: 16px;
+  line-height: 1.2;
 }
 
 .composer-emoji-wrap {

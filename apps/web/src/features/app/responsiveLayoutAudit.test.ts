@@ -40,7 +40,7 @@ describe("responsive layout audit contract", () => {
     expect(foundation).toContain("--control-height: 48px;");
     expect(foundation).toContain("--button-height: 48px;");
     expect(foundation).toContain("--button-height-large: 52px;");
-    expect(foundation).toContain("--icon-button-size: 48px;");
+    expect(foundation).toContain("--icon-button-size: 52px;");
     expect(foundation).toContain("--bottom-nav-height: 76px;");
     expect(foundation).toContain("--bottom-action-height: 72px;");
   });

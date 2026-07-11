@@ -731,9 +731,9 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function expectConsistentIconActionTargets(page: Page, context: string, selector: string) {
   const issues = await page.locator(selector).evaluateAll((elements, auditContext) => {
     const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
-    const minimumTargetSize = isScaledShell ? 56 : 44;
+    const minimumTargetSize = isScaledShell ? 60 : 52;
     const maximumTargetSize = isScaledShell ? 80 : 64;
-    const minimumIconSize = isScaledShell ? 22 : 18;
+    const minimumIconSize = isScaledShell ? 26 : 24;
     const maximumIconSize = isScaledShell ? 34 : 30;
     const subpixelTolerance = 0.5;
 
@@ -778,13 +778,25 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           hasLargeIcon: Boolean(
             svgRect && (svgRect.width - subpixelTolerance > maximumIconSize || svgRect.height - subpixelTolerance > maximumIconSize)
           ),
+          hasEscapedIcon: Boolean(
+            svgRect &&
+              (svgRect.left < rect.left - subpixelTolerance ||
+                svgRect.top < rect.top - subpixelTolerance ||
+                svgRect.right > rect.right + subpixelTolerance ||
+                svgRect.bottom > rect.bottom + subpixelTolerance)
+          ),
           hasWrappingTextAction: target.matches(".compact-controls > button") && style.whiteSpace !== "nowrap"
         };
       })
       .filter(
         (item) =>
           item.visible &&
-          (item.hasSmallTarget || item.hasLargeTarget || item.hasSmallIcon || item.hasLargeIcon || item.hasWrappingTextAction)
+          (item.hasSmallTarget ||
+            item.hasLargeTarget ||
+            item.hasSmallIcon ||
+            item.hasLargeIcon ||
+            item.hasEscapedIcon ||
+            item.hasWrappingTextAction)
       );
   }, context);
 
@@ -826,38 +838,83 @@ async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
 async function expectChatComposerSingleRow(page: Page) {
   const layout = await page.evaluate(() => {
     const row = document.querySelector<HTMLElement>(".community-chat-open .chat-input-row");
+    const room = document.querySelector<HTMLElement>(".community-chat-open .chat-room");
+    const composer = document.querySelector<HTMLElement>(".community-chat-open .chat-compose");
+    const messages = document.querySelector<HTMLElement>(".community-chat-open .chat-messages");
     const input = row?.querySelector<HTMLElement>(".text-input") ?? null;
     const buttons = Array.from(row?.querySelectorAll<HTMLElement>(".icon-button") ?? []);
     const rowRect = row?.getBoundingClientRect();
+    const roomRect = room?.getBoundingClientRect();
+    const roomStyle = room ? getComputedStyle(room) : null;
+    const composerRect = composer?.getBoundingClientRect();
     const inputRect = input?.getBoundingClientRect();
+    const inputStyle = input ? getComputedStyle(input) : null;
     const buttonRects = buttons.map((button) => {
       const rect = button.getBoundingClientRect();
+      const svg = button.querySelector<SVGElement>("svg");
+      const svgRect = svg?.getBoundingClientRect();
       return {
         label: button.getAttribute("aria-label") ?? "",
         top: Math.round(rect.top),
         bottom: Math.round(rect.bottom),
         width: Math.round(rect.width),
-        height: Math.round(rect.height)
+        height: Math.round(rect.height),
+        svgWidth: svgRect ? Math.round(svgRect.width) : null,
+        svgHeight: svgRect ? Math.round(svgRect.height) : null
       };
     });
 
+    if (messages) {
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    const visibleViewportHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-visible-viewport-height")) || window.innerHeight;
+
     return {
       display: row ? getComputedStyle(row).display : null,
+      roomHeight: roomRect ? Math.round(roomRect.height) : null,
+      roomTop: roomRect ? Math.round(roomRect.top) : null,
+      roomBottom: roomRect ? Math.round(roomRect.bottom) : null,
+      roomBoxSizing: roomStyle?.boxSizing ?? null,
+      roomPaddingBottom: roomStyle?.paddingBottom ?? null,
       rowHeight: rowRect ? Math.round(rowRect.height) : null,
+      composerHeight: composerRect ? Math.round(composerRect.height) : null,
+      composerTop: composerRect ? Math.round(composerRect.top) : null,
+      composerBottom: composerRect ? Math.round(composerRect.bottom) : null,
+      visibleViewportHeight: Math.round(visibleViewportHeight),
       inputHeight: inputRect ? Math.round(inputRect.height) : null,
+      inputFontSize: inputStyle ? Number.parseFloat(inputStyle.fontSize) : null,
+      messagesClientHeight: messages?.clientHeight ?? null,
+      messagesScrollHeight: messages?.scrollHeight ?? null,
+      messagesScrollTop: messages?.scrollTop ?? null,
       buttonRects,
       sameRow:
         Boolean(inputRect) &&
         buttonRects.length === 2 &&
-        buttonRects.every((rect) => Math.abs(rect.top - Math.round(inputRect!.top)) <= 8)
+        buttonRects.every((rect) => Math.abs(rect.top - Math.round(inputRect!.top)) <= 8),
+      buttonsUsable: buttonRects.length === 2 && buttonRects.every((rect) => rect.width >= 52 && rect.height >= 52),
+      iconsReadable: buttonRects.length === 2 && buttonRects.every((rect) => (rect.svgWidth ?? 0) >= 24 && (rect.svgHeight ?? 0) >= 24),
+      messagesScrollableWhenOverflowing: Boolean(
+        messages && (messages.scrollHeight <= messages.clientHeight + 4 || messages.scrollTop > 0)
+      ),
+      composerWithinVisibleViewport: Boolean(
+        composerRect && composerRect.top >= -1 && composerRect.bottom <= visibleViewportHeight + 1
+      )
     };
   });
 
   expect(layout, JSON.stringify(layout, null, 2)).toMatchObject({
     display: "flex",
-    sameRow: true
+    sameRow: true,
+    buttonsUsable: true,
+    iconsReadable: true,
+    messagesScrollableWhenOverflowing: true,
+    composerWithinVisibleViewport: true
   });
-  expect(layout.rowHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(88);
+  expect(layout.inputFontSize, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(16);
+  expect(layout.inputHeight, JSON.stringify(layout, null, 2)).toBeGreaterThanOrEqual(52);
+  expect(layout.rowHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(76);
+  expect(layout.composerHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(92);
 }
 
 async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
@@ -1960,10 +2017,25 @@ test("keeps chat composer stable when typing", async ({ page }) => {
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
+  await expectChatComposerSingleRow(page);
 
   const composer = page.getByPlaceholder("Сообщение");
   await composer.fill("Проверка адаптива");
   await expect(composer).toBeFocused();
+  await expectChatComposerSingleRow(page);
+
+  await page.evaluate(() => {
+    document.documentElement.classList.add("club-keyboard-open");
+    document.body.classList.add("club-keyboard-open");
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+    document.body.style.setProperty("--club-visible-viewport-height", "420px");
+    document.documentElement.style.setProperty("--club-system-bottom", "360px");
+    document.body.style.setProperty("--club-system-bottom", "360px");
+    document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "360px");
+    document.body.style.setProperty("--club-calibrated-bottom-offset", "360px");
+  });
+  await composer.focus();
+  await expectChatComposerSingleRow(page);
   await expectNoHorizontalOverflow(page);
 
   const composerBox = await composer.boundingBox();

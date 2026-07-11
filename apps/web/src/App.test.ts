@@ -832,6 +832,7 @@ describe("App", () => {
 
   it("keeps the mobile chat composer visible above the keyboard", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const foundation = readFileSync(resolve(__dirname, "features/ui/foundation.css"), "utf-8");
 
     expect(appSource).toContain("showBottomNavigation");
     expect(appSource).toContain("!communityChatOpen");
@@ -839,23 +840,17 @@ describe("App", () => {
     expect(styles).toMatch(
       /\.community-chat-open \.chat-room\s*\{[\s\S]*padding: 0\.7rem 0\.42rem calc\(0\.25rem \+ var\(--club-safe-bottom\)\);/
     );
-    expect(styles).toMatch(
-      /body\.club-mobile-device \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*right: max\(0\.2rem, calc\(var\(--club-safe-right\) \+ 0\.2rem\)\);[\s\S]*bottom: max\(0\.28rem, var\(--club-safe-bottom\)\);[\s\S]*left: max\(0\.2rem, calc\(var\(--club-safe-left\) \+ 0\.2rem\)\);[\s\S]*width: auto;/
+    expect(foundation).toMatch(
+      /body\.club-keyboard-open \.community-chat-open \.chat-room\s*\{[\s\S]*height: calc\(var\(--club-visible-viewport-height, var\(--app-viewport-height\)\) - var\(--page-padding\) - var\(--card-gap\)\);/
     );
-    expect(styles).toMatch(
-      /body\.club-mobile-device \.community-chat-open \.chat-messages\s*\{[\s\S]*padding-bottom: 4\.8rem;/
+    expect(foundation).toMatch(
+      /body\.club-mobile-device \.community-chat-open \.chat-compose,\s*body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: static;[\s\S]*width: 100%;/
     );
-    expect(styles).toMatch(
-      /body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: fixed;[\s\S]*bottom: max\(0\.28rem, var\(--club-safe-bottom\)\);/
+    expect(foundation).toMatch(
+      /\.community-chat-open \.chat-input-row \.icon-button\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*min-width: var\(--icon-button-size\);/
     );
-    expect(styles).toMatch(
-      /\.community-chat-open \.chat-compose\s*\{[\s\S]*border-radius: 18px;[\s\S]*padding: 0\.22rem;/
-    );
-    expect(styles).toMatch(
-      /\.community-chat-open \.chat-input-row \.icon-button\s*\{[\s\S]*height: 2\.55rem;[\s\S]*min-width: 2\.55rem;/
-    );
-    expect(styles).toMatch(
-      /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*flex: 1 1 auto;[\s\S]*min-width: 0;/
+    expect(foundation).toMatch(
+      /\.community-chat-open \.chat-input-row \.text-input\s*\{[\s\S]*height: var\(--icon-button-size\);[\s\S]*font-size: 16px;/
     );
   });
 

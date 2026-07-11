@@ -26,7 +26,7 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("--card-radius: 20px;");
     expect(css).toContain("--control-height: 48px;");
     expect(css).toContain("--button-height: 48px;");
-    expect(css).toContain("--icon-button-size: 48px;");
+    expect(css).toContain("--icon-button-size: 52px;");
     expect(css).toContain("--bottom-nav-height: 76px;");
     expect(css).toContain("--bottom-action-height: 72px;");
     expect(css).toContain("--safe-bottom: env(safe-area-inset-bottom, 0px);");
