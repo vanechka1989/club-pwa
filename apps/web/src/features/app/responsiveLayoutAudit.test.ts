@@ -1,10 +1,13 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 const taskNavigation = readFileSync(resolve(__dirname, "taskNavigation.ts"), "utf8");
 const adminSection = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
+const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
+const taskScreenSource = readFileSync(resolve(__dirname, "TaskScreen.vue"), "utf8");
+const foundationPath = resolve(__dirname, "../ui/foundation.css");
 
 function latestRule(selector: string) {
   const matches = [...styles.matchAll(/(?<selectors>[^{}]+)\s*\{(?<body>[^{}]*)\}/g)].filter((match) =>
@@ -19,37 +22,58 @@ function latestRule(selector: string) {
 
 describe("responsive layout audit contract", () => {
   it("defines one mobile-first page and component token layer", () => {
-    expect(styles).toContain("Responsive layout audit 2026");
-    expect(styles).toContain("--page-max-width: 768px;");
-    expect(styles).toContain("--page-padding: 16px;");
-    expect(styles).toContain("--page-padding-compact: 12px;");
-    expect(styles).toContain("--section-gap: 24px;");
-    expect(styles).toContain("--card-padding: 20px;");
-    expect(styles).toContain("--card-radius: 20px;");
-    expect(styles).toContain("--control-height: 48px;");
-    expect(styles).toContain("--button-height: 48px;");
-    expect(styles).toContain("--button-height-large: 52px;");
-    expect(styles).toContain("--header-height: 76px;");
-    expect(styles).toContain("--bottom-nav-height: 76px;");
-    expect(styles).toContain("--bottom-action-height: 72px;");
+    expect(existsSync(foundationPath)).toBe(true);
+    const foundation = readFileSync(foundationPath, "utf8");
+    expect(foundation).toContain("PWA UI Foundation 2026");
+    expect(foundation).toContain("--page-max-width: 768px;");
+    expect(foundation).toContain("--page-padding: 16px;");
+    expect(foundation).toContain("--page-padding-compact: 12px;");
+    expect(foundation).toContain("--section-gap: 24px;");
+    expect(foundation).toContain("--card-padding: 20px;");
+    expect(foundation).toContain("--card-radius: 20px;");
+    expect(foundation).toContain("--control-height: 48px;");
+    expect(foundation).toContain("--button-height: 48px;");
+    expect(foundation).toContain("--button-height-large: 52px;");
+    expect(foundation).toContain("--icon-button-size: 44px;");
+    expect(foundation).toContain("--bottom-nav-height: 76px;");
+    expect(foundation).toContain("--bottom-action-height: 72px;");
   });
 
   it("uses the same constrained page container for app and task screens", () => {
-    const appShellRule = latestRule(".app-shell");
-    const taskScreenRule = latestRule(".task-screen");
+    expect(existsSync(foundationPath)).toBe(true);
+    const foundation = readFileSync(foundationPath, "utf8");
+    const pageContainerRule = [...foundation.matchAll(/(?<selectors>[^{}]+)\s*\{(?<body>[^{}]*)\}/g)].find((match) =>
+      match.groups?.selectors
+        ?.split(",")
+        .map((candidate) => candidate.trim())
+        .includes(".ui-page-container")
+    )?.groups?.body ?? "";
 
-    expect(appShellRule).toContain("max-width: var(--page-max-width)");
-    expect(appShellRule).toContain("min-width: 0");
-    expect(appShellRule).toContain("padding-inline: var(--page-padding)");
-    expect(taskScreenRule).toContain("max-width: var(--page-max-width)");
-    expect(taskScreenRule).toContain("min-width: 0");
-    expect(taskScreenRule).toContain("overflow: visible");
+    expect(pageContainerRule).toContain("max-width: var(--page-max-width)");
+    expect(pageContainerRule).toContain("min-width: 0");
+    expect(pageContainerRule).toContain("padding-inline: var(--page-padding)");
+    expect(appSource).toContain("ui-app-shell");
+    expect(appSource).toContain("ui-page-container");
+    expect(taskScreenSource).toContain("UiPageContainer");
+    expect(taskScreenSource).toContain("UiPageHeader");
   });
 
   it("keeps routed task screens on one vertical scroll surface", () => {
+    expect(existsSync(foundationPath)).toBe(true);
+    const foundation = readFileSync(foundationPath, "utf8");
     const layerRule = latestRule(".task-screen-route-layer");
-    const bodyRule = latestRule(".task-screen-body");
-    const footerRule = latestRule(".task-screen-footer");
+    const bodyRule = [...foundation.matchAll(/(?<selectors>[^{}]+)\s*\{(?<body>[^{}]*)\}/g)].find((match) =>
+      match.groups?.selectors
+        ?.split(",")
+        .map((candidate) => candidate.trim())
+        .includes(".ui-page-content")
+    )?.groups?.body ?? "";
+    const footerRule = [...foundation.matchAll(/(?<selectors>[^{}]+)\s*\{(?<body>[^{}]*)\}/g)].find((match) =>
+      match.groups?.selectors
+        ?.split(",")
+        .map((candidate) => candidate.trim())
+        .includes(".ui-bottom-action-bar")
+    )?.groups?.body ?? "";
 
     expect(layerRule).toContain("overflow-y: auto");
     expect(layerRule).not.toContain("overflow: hidden");
@@ -57,6 +81,7 @@ describe("responsive layout audit contract", () => {
     expect(bodyRule).not.toContain("overflow-y: auto");
     expect(footerRule).toContain("position: sticky");
     expect(footerRule).toContain("bottom: 0");
+    expect(taskScreenSource).toContain("UiBottomActionBar");
   });
 
   it("uses approved task route paths in admin open and sync handlers", () => {

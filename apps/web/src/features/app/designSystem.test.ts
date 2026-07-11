@@ -1,46 +1,61 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-describe("Dark Soft Touch Premium design system", () => {
-  const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+describe("PWA UI foundation design system", () => {
+  const foundationPath = resolve(__dirname, "../ui/foundation.css");
+
+  function foundationCss() {
+    expect(existsSync(foundationPath)).toBe(true);
+    return readFileSync(foundationPath, "utf-8");
+  }
 
   it("defines the reference palette and shared component tokens", () => {
-    expect(styles).toContain("Design system: Dark Soft Touch Premium 2026");
-    expect(styles).toContain("--ds-bg: #0a0f17;");
-    expect(styles).toContain("--ds-surface: #182232;");
-    expect(styles).toContain("--ds-primary: #6c4dff;");
-    expect(styles).toContain("--ds-blue: #4f8cff;");
-    expect(styles).toContain("--ds-radius-card: 20px;");
-    expect(styles).toContain("--ds-control-height: 48px;");
+    const foundation = foundationCss();
+    expect(foundation).toContain("PWA UI Foundation 2026");
+    expect(foundation).toContain("--color-bg:");
+    expect(foundation).toContain("--color-surface:");
+    expect(foundation).toContain("--color-surface-elevated:");
+    expect(foundation).toContain("--color-text:");
+    expect(foundation).toContain("--color-text-muted:");
+    expect(foundation).toContain("--color-border:");
+    expect(foundation).toContain("--color-primary:");
+    expect(foundation).toContain("--color-primary-text:");
+    expect(foundation).toContain("--color-focus:");
+    expect(foundation).toContain("--card-radius: 20px;");
+    expect(foundation).toContain("--control-height: 48px;");
+    expect(foundation).toContain("--icon-button-size: 44px;");
   });
 
   it("defines the reference layout for admin navigation, KPI cards and mobile safe areas", () => {
-    expect(styles).toContain(".admin-tabs.ds-navigation-grid");
-    expect(styles).toContain(".admin-stat-kpis.ds-kpi-grid");
-    expect(styles).toContain("padding-bottom: calc(6.4rem + var(--club-safe-bottom));");
-    expect(styles).toContain("@media (max-width: 360px)");
-    expect(styles).toContain("@media (min-width: 1024px)");
+    const foundation = foundationCss();
+    expect(foundation).toContain(".ui-page-container");
+    expect(foundation).toContain(".ui-responsive-grid");
+    expect(foundation).toContain("padding-bottom: calc(24px + var(--safe-bottom));");
+    expect(foundation).toContain("@media (max-width: 360px)");
+    expect(foundation).toContain("@media (min-width: 1024px)");
   });
 
   it("normalizes routed support and lesson task screens after the redesign", () => {
-    expect(styles).toContain(".learning-task-screen .lesson-preview-modal-edit");
-    expect(styles).toContain(".learning-task-screen .lesson-editor-form .admin-field");
-    expect(styles).toContain(".learning-task-screen .lesson-kind-buttons");
-    expect(styles).toContain(".support-task-screen .support-task-customer-head");
-    expect(styles).toContain(".support-task-screen .support-reply-actions");
-    expect(styles).toContain("overflow-x: hidden");
+    const foundation = foundationCss();
+    expect(foundation).toContain(".ui-task-screen");
+    expect(foundation).toContain(".ui-page-header");
+    expect(foundation).toContain(".ui-page-content");
+    expect(foundation).toContain(".ui-bottom-action-bar");
+    expect(foundation).toContain("overflow-wrap: anywhere");
+    expect(foundation).not.toContain("overflow-x: hidden");
   });
 
   it("adds Graphite and Electric Blue as an independent day and night token layer", () => {
-    expect(styles).toContain('Graphite + Electric Blue design theme');
-    expect(styles).toMatch(
-      /:root\[data-design-theme="graphite-electric-blue"\]\[data-theme="dark"\]\s*\{[\s\S]*--ds-bg: #070b12;[\s\S]*--ds-surface: #111a28;[\s\S]*--ds-primary: #3b82f6;[\s\S]*--ds-primary-2: #7c3aed;/
+    const foundation = foundationCss();
+    expect(foundation).toContain('Graphite + Electric Blue theme identity');
+    expect(foundation).toMatch(
+      /:root\[data-design-theme="graphite-electric-blue"\]\[data-theme="dark"\]\s*\{[\s\S]*--color-bg: #070b12;[\s\S]*--color-surface: #111a28;[\s\S]*--color-primary: #3b82f6;/
     );
-    expect(styles).toMatch(
-      /:root\[data-design-theme="graphite-electric-blue"\]\[data-theme="light"\]\s*\{[\s\S]*--ds-bg: #eef3f9;[\s\S]*--ds-surface: #f5f8fc;[\s\S]*--ds-primary: #2563eb;[\s\S]*--ds-primary-2: #6d28d9;/
+    expect(foundation).toMatch(
+      /:root\[data-design-theme="graphite-electric-blue"\]\[data-theme="light"\]\s*\{[\s\S]*--color-bg: #eef3f9;[\s\S]*--color-surface: #ffffff;[\s\S]*--color-primary: #2563eb;/
     );
-    expect(styles).toContain(':root[data-design-theme="graphite-electric-blue"] .design-theme-choice-active');
-    expect(styles).toContain('--theme-preview-graphite-accent: #3b82f6;');
+    expect(foundation).toContain(':root[data-design-theme="soft-touch"][data-theme="dark"]');
+    expect(foundation).toContain(':root[data-design-theme="soft-touch"][data-theme="light"]');
   });
 });

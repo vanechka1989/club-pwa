@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft } from "lucide-vue-next";
+import { UiBottomActionBar, UiPageContainer, UiPageHeader } from "@/features/ui";
 
 defineOptions({ inheritAttrs: false });
 
@@ -16,28 +16,25 @@ defineEmits<{ back: [] }>();
 <template>
   <Teleport to="body" :disabled="!portal">
   <div :class="[$attrs.class, { 'task-screen-route-layer': portal }]">
-  <section class="task-screen">
-    <header class="task-screen-header">
-      <button class="task-screen-back" type="button" :aria-label="backLabel || 'Назад'" @click="$emit('back')">
-        <ArrowLeft class="h-5 w-5" aria-hidden="true" />
-      </button>
-      <div class="task-screen-heading">
-        <h2>{{ title }}</h2>
-        <p v-if="subtitle">{{ subtitle }}</p>
-      </div>
-      <div v-if="$slots.actions" class="task-screen-actions">
-        <slot name="actions" />
-      </div>
-    </header>
+  <UiPageContainer task>
+  <section class="task-screen ui-task-screen">
+    <UiPageHeader class="task-screen-header" :title="title" :subtitle="subtitle" back :back-label="backLabel || 'Назад'" @back="$emit('back')">
+      <template v-if="$slots.actions" #actions>
+        <div class="task-screen-actions">
+          <slot name="actions" />
+        </div>
+      </template>
+    </UiPageHeader>
 
-    <div class="task-screen-body">
+    <div class="task-screen-body ui-page-content">
       <slot />
     </div>
 
-    <footer v-if="$slots.footer" class="task-screen-footer">
+    <UiBottomActionBar v-if="$slots.footer" class="task-screen-footer">
       <slot name="footer" />
-    </footer>
+    </UiBottomActionBar>
   </section>
+  </UiPageContainer>
   </div>
   </Teleport>
 </template>

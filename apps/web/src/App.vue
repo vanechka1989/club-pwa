@@ -663,7 +663,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main
-    class="app-root min-h-screen text-[var(--text)]"
+    class="app-root ui-app-shell min-h-screen text-[var(--text)]"
     :class="{
       'learning-active': activeSection === 'learning',
       'community-active': activeSection === 'community',
@@ -782,7 +782,7 @@ onBeforeUnmount(() => {
         </nav>
       </aside>
 
-      <section class="app-shell" :class="{ 'app-shell-auth': !session.user }">
+      <section class="app-shell ui-page-container" :class="{ 'app-shell-auth': !session.user, 'ui-page-container--with-bottom-nav': showBottomNavigation }">
         <div
           class="content-panel"
           :class="{ 'content-panel-community': activeSection === 'community', 'content-panel-auth': !session.user }"
