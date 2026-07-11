@@ -7,6 +7,10 @@ const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), 
 const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/shared/src/index.ts"), "utf-8");
 const adminRouteSource = readFileSync(resolve(__dirname, "../../../../../apps/api/src/routes/admin.ts"), "utf-8");
 
+function indexOfClass(source: string, className: string) {
+  return source.match(new RegExp(`class="[^"]*\\b${className}\\b`))?.index ?? -1;
+}
+
 describe("admin permissions section", () => {
   it("supports searching admins by email, name, or username before adding access", () => {
     expect(adminSectionSource).toContain("adminSearchQuery");
@@ -32,11 +36,11 @@ describe("admin permissions section", () => {
 
   it("places preview mode switcher in the admin header, not inside the admins section", () => {
     const adminTitleIndex = adminSectionSource.indexOf('<h2 class="section-title">Админка</h2>');
-    const tabsIndex = adminSectionSource.indexOf('class="admin-tabs"');
+    const tabsIndex = indexOfClass(adminSectionSource, "admin-tabs");
     const adminsTitleIndex = adminSectionSource.indexOf("<h3>Администраторы</h3>");
-    const previewSwitcherIndex = adminSectionSource.indexOf('class="admin-preview-switcher"');
-    const versionBadgeIndex = adminSectionSource.indexOf('class="app-version-badge"');
-    const ownerCardIndex = adminSectionSource.indexOf('class="admin-permissions-owner"');
+    const previewSwitcherIndex = indexOfClass(adminSectionSource, "admin-preview-switcher");
+    const versionBadgeIndex = indexOfClass(adminSectionSource, "app-version-badge");
+    const ownerCardIndex = indexOfClass(adminSectionSource, "admin-permissions-owner");
 
     expect(adminTitleIndex).toBeGreaterThan(-1);
     expect(adminsTitleIndex).toBeGreaterThan(-1);

@@ -120,6 +120,15 @@ describe("responsive layout audit contract", () => {
     expect(notificationSource).toContain("ui-icon-button");
   });
 
+  it("migrates admin surfaces onto foundation classes", () => {
+    expect(adminSection).toContain("ui-page-section");
+    expect(adminSection).toContain("ui-page-header");
+    expect(adminSection).toContain("ui-card");
+    expect(adminSection).toContain("ui-button");
+    expect(adminSection).toContain("ui-icon-button");
+    expect(adminSection).toContain("ui-responsive-grid");
+  });
+
   it("uses approved task route paths in admin open and sync handlers", () => {
     expect(taskNavigation).toContain('"/admin/storage/files"');
     expect(taskNavigation).toContain('"/admin/storage/folders/:folderId"');
