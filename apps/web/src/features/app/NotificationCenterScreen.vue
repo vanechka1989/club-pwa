@@ -49,7 +49,7 @@ onMounted(() => void loadNotifications());
 </script>
 
 <template>
-  <TaskScreen class="notification-task-screen" :title="t('notificationsTitle')" :subtitle="subtitle" @back="router.push('/profile')">
+  <TaskScreen class="notification-task-screen" :title="t('notificationsTitle')" :subtitle="subtitle" portal @back="router.push('/profile')">
     <template #actions>
       <button
         class="notification-center-clear"

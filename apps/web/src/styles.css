@@ -15910,3 +15910,47 @@ body.club-mobile-device .task-screen-route-layer :is(
 ) {
   overflow-x: clip;
 }
+
+/* Fallback for Android/PWA shells that expose a 980px viewport before JS mobile classes are applied. */
+@media (max-width: 1023px) {
+  html .task-screen-route-layer,
+  body .task-screen-route-layer,
+  html .support-task-screen.task-screen-route-layer,
+  body .support-task-screen.task-screen-route-layer {
+    inset: 0;
+    width: 100vw;
+    max-width: none;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  html .task-screen-route-layer > .task-screen,
+  body .task-screen-route-layer > .task-screen,
+  html .support-task-screen.task-screen-route-layer > .task-screen,
+  body .support-task-screen.task-screen-route-layer > .task-screen {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: var(--club-visible-viewport-height, 100dvh);
+    max-height: var(--club-visible-viewport-height, 100dvh);
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 0;
+    box-shadow: none;
+    transform: none;
+  }
+
+  html .task-screen-route-layer .task-screen-body,
+  body .task-screen-route-layer .task-screen-body {
+    min-height: 0;
+    justify-items: stretch;
+    overflow-x: clip;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

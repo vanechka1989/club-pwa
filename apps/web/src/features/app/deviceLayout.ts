@@ -237,19 +237,23 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const layoutHeight = finiteNumber(input.layoutHeight, 0);
   const viewportScale = deviceScreenWidth > 0 ? input.layoutWidth / deviceScreenWidth : 1;
   const isSmallCssScreen = deviceScreenWidth > 0 && deviceScreenWidth <= 480;
+  const isAnyMobileUserAgent = hasMobileUserAgent(input.userAgent);
+  const isHandheldMobileUserAgent = hasHandheldMobileUserAgent(input.userAgent);
+  const isTallPortraitWideViewport =
+    input.layoutWidth >= 700 && input.layoutWidth <= 1100 && layoutHeight >= input.layoutWidth * 1.45;
   const needsStandaloneWideViewportScale =
     Boolean(input.isStandaloneDisplay) &&
     isSmallCssScreen &&
     input.layoutWidth >= 700 &&
     input.layoutWidth <= 1100 &&
     layoutHeight >= input.layoutWidth * 1.45;
-  const hasMobileShellSignal = input.hasTouchInput || needsStandaloneWideViewportScale;
+  const hasMobileShellSignal =
+    input.hasTouchInput || isAnyMobileUserAgent || needsStandaloneWideViewportScale || (Boolean(input.isStandaloneDisplay) && isTallPortraitWideViewport);
   const needsViewportCompensation = hasMobileShellSignal && input.layoutWidth >= 700 && viewportScale >= 1.35;
-  const isMobileUserAgent = hasMobileShellSignal && hasMobileUserAgent(input.userAgent);
+  const isMobileUserAgent = hasMobileShellSignal && isAnyMobileUserAgent;
   const needsHandheldWideViewportScale =
-    hasMobileShellSignal && input.layoutWidth >= 700 && hasHandheldMobileUserAgent(input.userAgent);
-  const needsTallPortraitWideViewportScale =
-    hasMobileShellSignal && input.layoutWidth >= 700 && input.layoutWidth <= 1100 && layoutHeight >= input.layoutWidth * 1.45;
+    hasMobileShellSignal && input.layoutWidth >= 700 && isHandheldMobileUserAgent;
+  const needsTallPortraitWideViewportScale = hasMobileShellSignal && isTallPortraitWideViewport;
   const isMobileDeviceShell =
     hasMobileShellSignal &&
     (isMobileUserAgent ||

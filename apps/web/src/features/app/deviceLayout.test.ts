@@ -168,6 +168,22 @@ describe("device layout detection", () => {
     ).toEqual({ isMobileDeviceShell: true, scale: 2.513 });
   });
 
+  it("treats Android mobile UA wide portrait PWA as mobile even when touch APIs report no touch", () => {
+    expect(
+      getMobileDeviceShellScale({
+        layoutWidth: 980,
+        layoutHeight: 1914,
+        screenWidth: 980,
+        screenAvailWidth: 980,
+        devicePixelRatio: 1,
+        hasTouchInput: false,
+        isStandaloneDisplay: true,
+        userAgent:
+          "Mozilla/5.0 (Linux; Android 16; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36"
+      })
+    ).toEqual({ isMobileDeviceShell: true, scale: 2.513 });
+  });
+
   it("treats standalone small-screen PWA with desktop-like UA and no touch signal as a scaled mobile shell", () => {
     expect(
       getMobileDeviceShellScale({

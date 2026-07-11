@@ -884,6 +884,18 @@ async function forcePlainMobileDeviceShell(page: Page) {
   });
 }
 
+async function stripMobileDeviceShell(page: Page) {
+  await page.evaluate(() => {
+    for (const target of [document.documentElement, document.body]) {
+      target.classList.remove("club-mobile-device", "club-mobile-app-scaled", "club-mobile-auth-scaled");
+      target.style.removeProperty("--club-app-wide-viewport-scale");
+      target.style.removeProperty("--club-auth-wide-viewport-scale");
+      target.style.removeProperty("--club-app-wide-font-root");
+      target.style.removeProperty("--club-app-wide-font-base");
+    }
+  });
+}
+
 async function expectKeyboardSafeIfFormRoute(page: Page, routePath: string) {
   const keyboardFieldSelector =
     "textarea:visible, input:not([type='hidden']):not([type='file']):not([type='checkbox']):not([type='radio']):not([type='range']):visible";
@@ -1255,6 +1267,51 @@ test("keeps routed task screens full width for plain Samsung mobile shells", asy
     await forcePlainMobileDeviceShell(page);
     await expectResponsiveLayoutIntegrity(page, auditRoute.path);
     await expectRoutedTaskScreenFillsMobilePwaViewport(page, auditRoute.path);
+  }
+});
+
+test("keeps routed task screens full width even when a 980px mobile shell misses mobile classes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "android-wide-layout-980");
+
+  const unclassifiedRoutes = [
+    { path: "/notifications", selector: ".notification-task-screen .task-screen" },
+    { path: "/support/tickets/ticket-payment", selector: ".support-ticket-task-screen .task-screen" },
+    { path: "/admin/releases", selector: ".admin-task-screen .task-screen" }
+  ];
+
+  for (const auditRoute of unclassifiedRoutes) {
+    await page.goto(auditRoute.path);
+    await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
+    await stripMobileDeviceShell(page);
+
+    const metrics = await page.evaluate((selector) => {
+      const task = document.querySelector<HTMLElement>(selector);
+      const layer = task?.closest<HTMLElement>(".task-screen-route-layer") ?? null;
+      const taskBox = task?.getBoundingClientRect();
+      const layerBox = layer?.getBoundingClientRect();
+      const describe = (box: DOMRect | undefined) =>
+        box
+          ? {
+              x: Math.round(box.x),
+              width: Math.round(box.width),
+              right: Math.round(box.right)
+            }
+          : null;
+      return {
+        viewportWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        hasRouteLayer: Boolean(layer),
+        task: describe(taskBox),
+        layer: describe(layerBox)
+      };
+    }, auditRoute.selector);
+
+    expect(metrics.hasRouteLayer, `${auditRoute.path}: ${JSON.stringify(metrics, null, 2)}`).toBe(true);
+    expect(metrics.scrollWidth, `${auditRoute.path}: ${JSON.stringify(metrics, null, 2)}`).toBeLessThanOrEqual(metrics.viewportWidth + 2);
+    expect(metrics.layer?.x, `${auditRoute.path}: ${JSON.stringify(metrics, null, 2)}`).toBe(0);
+    expect(metrics.layer?.width, `${auditRoute.path}: ${JSON.stringify(metrics, null, 2)}`).toBeGreaterThanOrEqual(metrics.viewportWidth - 2);
+    expect(metrics.task?.x, `${auditRoute.path}: ${JSON.stringify(metrics, null, 2)}`).toBe(0);
+    expect(metrics.task?.width, `${auditRoute.path}: ${JSON.stringify(metrics, null, 2)}`).toBeGreaterThanOrEqual(metrics.viewportWidth - 2);
   }
 });
 

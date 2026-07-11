@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Samsung PWA: уведомления и 980px окна",
+    items: [
+      "Экран уведомлений переведён в общий portal TaskScreen, как тикеты, обновления и остальные вложенные окна.",
+      "Добавлен fallback для Android/PWA viewport до 1023px: task-экраны больше не возвращаются к 768px карточке, даже если JS-класс mobile-device не успел или не смог определиться.",
+      "Детектор Samsung/Android wide viewport теперь учитывает Android Mobile user-agent даже при ложном no-touch сигнале."
+    ]
+  },
+  {
+    version: "3.41",
+    updatedAt: "11.07.2026 12:18",
     title: "Samsung PWA: окна без боковых полей",
     items: [
       "Полноэкранный режим routed-окон теперь применяется ко всей Samsung/Android PWA-оболочке, а не только к одному scaled-варианту.",
