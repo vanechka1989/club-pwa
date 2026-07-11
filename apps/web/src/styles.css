@@ -15718,6 +15718,57 @@ input[type="submit"],
   margin: 0;
 }
 
+.community-active:not(.community-chat-open) .app-shell {
+  max-width: var(--page-max-width);
+  padding-block: 16px calc(24px + var(--club-safe-bottom));
+  padding-inline: var(--page-padding);
+}
+
+.community-active:not(.community-chat-open) .content-panel-community,
+.community-active:not(.community-chat-open) .section-host {
+  width: 100%;
+  min-width: 0;
+}
+
+.support-task-screen .support-message {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.support-task-screen .support-message-admin {
+  margin-left: 0;
+}
+
+.visual-scale-range {
+  min-height: var(--button-height-compact);
+  touch-action: pan-x;
+}
+
+body.club-mobile-app-scaled .profile-avatar-icon-button {
+  width: var(--button-height-compact);
+  min-width: var(--button-height-compact);
+  height: var(--button-height-compact);
+  min-height: var(--button-height-compact);
+  flex: 0 0 var(--button-height-compact);
+}
+
+body.club-mobile-app-scaled .profile-upload-input {
+  width: 100%;
+  height: 100%;
+}
+
+@media (min-width: 1024px) {
+  body:not(.club-mobile-device) .task-screen-route-layer {
+    right: 0;
+    width: auto;
+    box-sizing: border-box;
+  }
+
+  .support-task-screen.task-screen-route-layer > .task-screen {
+    height: calc(var(--club-visible-viewport-height, 100dvh) - 48px);
+  }
+}
+
 body.club-keyboard-open .support-ticket-task-screen .task-screen-footer,
 body.club-keyboard-open .support-task-screen .support-reply-form {
   position: static;

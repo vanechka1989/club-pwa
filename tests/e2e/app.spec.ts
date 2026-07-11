@@ -773,7 +773,9 @@ async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
       .slice(0, 10);
 
     const smallButtons = Array.from(
-      document.body.querySelectorAll<HTMLElement>("button, a[role='button'], input[type='button'], input[type='submit']")
+      document.body.querySelectorAll<HTMLElement>(
+        "button, a[role='button'], input[type='button'], input[type='submit'], input[type='range']"
+      )
     )
       .filter((element) => {
         const rect = element.getBoundingClientRect();
@@ -1072,6 +1074,22 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 const responsiveRouteAuditProjects = new Set(["android-compact-320", "oneplus-mt2111", "viewport-390-844", "viewport-412-915", "tablet-768-1024"]);
 
+const exactMobileAuditViewports = [
+  { name: "320x568", width: 320, height: 568 },
+  { name: "360x640", width: 360, height: 640 },
+  { name: "375x667", width: 375, height: 667 },
+  { name: "390x844", width: 390, height: 844 },
+  { name: "412x915", width: 412, height: 915 },
+  { name: "768x1024", width: 768, height: 1024 }
+];
+
+const exactDesktopAuditViewports = [
+  { name: "1024x768", width: 1024, height: 768 },
+  { name: "1280x720", width: 1280, height: 720 },
+  { name: "1440x900", width: 1440, height: 900 },
+  { name: "1920x1080", width: 1920, height: 1080 }
+];
+
 const responsiveRouteAuditPaths = [
   { path: "/profile", selector: ".soft-home" },
   { path: "/profile/avatar", selector: ".profile-avatar-editor-modal" },
@@ -1154,6 +1172,42 @@ test("keeps every routed PWA screen responsive on audited viewports", async ({ p
     await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
     await expectResponsiveLayoutIntegrity(page, auditRoute.path);
     await expectKeyboardSafeIfFormRoute(page, auditRoute.path);
+  }
+});
+
+test("keeps routed PWA screens responsive across exact mobile audit sizes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "viewport-412-915");
+  test.setTimeout(240_000);
+
+  for (const viewport of exactMobileAuditViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.reload();
+    await expect(page.locator(".app-root")).toBeVisible();
+
+    for (const auditRoute of responsiveRouteAuditPaths) {
+      await page.goto(auditRoute.path);
+      await expect(page.locator(auditRoute.selector).first(), `${viewport.name} ${auditRoute.path}`).toBeVisible({ timeout: 12_000 });
+      await expectResponsiveLayoutIntegrity(page, `${viewport.name} ${auditRoute.path}`);
+      await expectKeyboardSafeIfFormRoute(page, `${viewport.name} ${auditRoute.path}`);
+    }
+  }
+});
+
+test("keeps routed PWA screens responsive across exact desktop audit sizes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  test.setTimeout(240_000);
+
+  for (const viewport of exactDesktopAuditViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.reload();
+    await expect(page.locator(".app-root")).toBeVisible();
+
+    for (const auditRoute of responsiveRouteAuditPaths) {
+      await page.goto(auditRoute.path);
+      await expect(page.locator(auditRoute.selector).first(), `${viewport.name} ${auditRoute.path}`).toBeVisible({ timeout: 12_000 });
+      await expectResponsiveLayoutIntegrity(page, `${viewport.name} ${auditRoute.path}`);
+      await expectKeyboardSafeIfFormRoute(page, `${viewport.name} ${auditRoute.path}`);
+    }
   }
 });
 
