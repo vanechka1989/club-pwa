@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AppNotification } from "@club/shared";
-import { Bell, BellPlus, CheckCheck, Paperclip, Trash2 } from "lucide-vue-next";
+import { Bell, BellOff, BellPlus, CheckCheck, Paperclip, Trash2 } from "lucide-vue-next";
 import { computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import TaskScreen from "@/features/app/TaskScreen.vue";
@@ -14,6 +14,8 @@ const { currentLocale, t } = useI18n();
 const subtitle = computed(() =>
   notificationState.unreadCount ? `${notificationState.unreadCount} ${t("notificationsNew")}` : t("notificationsRead")
 );
+const pushEnabled = computed(() => notificationState.pushStatus === "enabled");
+const pushActionBusy = computed(() => ["checking", "enabling", "disabling"].includes(notificationState.pushStatus));
 
 function renderNotificationHtml(notification: AppNotification) {
   const html = notification.bodyHtml?.trim();
@@ -32,8 +34,10 @@ async function clearNotifications() {
   await notificationState.clearAppNotificationsInApp();
 }
 
-async function enableBrowserPush() {
-  if (notificationState.pushStatus !== "enabled") await notificationState.enableBrowserPush();
+async function toggleBrowserPush() {
+  if (pushActionBusy.value) return;
+  if (pushEnabled.value) await notificationState.disableBrowserPush();
+  else await notificationState.enableBrowserPush();
 }
 
 function formatNotificationDate(value: string) {
@@ -45,7 +49,9 @@ function formatNotificationDate(value: string) {
   });
 }
 
-onMounted(() => void loadNotifications());
+onMounted(() => {
+  void Promise.all([loadNotifications(), notificationState.refreshBrowserPushStatus()]);
+});
 </script>
 
 <template>
@@ -54,11 +60,12 @@ onMounted(() => void loadNotifications());
       <button
         class="notification-center-clear ui-button"
         type="button"
-        :disabled="notificationState.pushStatus === 'enabled'"
-        @click="enableBrowserPush"
+        :disabled="pushActionBusy"
+        @click="toggleBrowserPush"
       >
-        <BellPlus class="h-4 w-4" aria-hidden="true" />
-        <span>{{ notificationState.pushStatus === "enabled" ? "Push включены" : "Включить push" }}</span>
+        <BellOff v-if="pushEnabled" class="h-4 w-4" aria-hidden="true" />
+        <BellPlus v-else class="h-4 w-4" aria-hidden="true" />
+        <span>{{ pushEnabled ? "Отключить push" : "Включить push" }}</span>
       </button>
       <button
         class="icon-button ui-icon-button"

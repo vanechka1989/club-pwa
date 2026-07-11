@@ -82,6 +82,19 @@ describe("app notifications", () => {
     expect(foundation).toMatch(/@media \(max-width:\s*359px\)[\s\S]*?\.notification-task-screen \.ui-page-header__actions\s*\{[^}]*grid-row:\s*3;/s);
   });
 
+  it("toggles push for the current device and keeps trash as the clear action", () => {
+    const source = readFileSync(resolve(__dirname, "NotificationCenterScreen.vue"), "utf8");
+
+    expect(source).toContain("refreshBrowserPushStatus");
+    expect(source).toContain("disableBrowserPush");
+    expect(source).toContain("BellPlus");
+    expect(source).toContain("BellOff");
+    expect(source).toContain('"Отключить push"');
+    expect(source).toContain('"Включить push"');
+    expect(source).toContain("Trash2");
+    expect(source).toContain("pushActionBusy");
+  });
+
   it("exposes a delete endpoint for clearing stored notifications", () => {
     const routeSource = readFileSync(resolve(__dirname, "../../../../api/src/routes/notifications.ts"), "utf8");
 

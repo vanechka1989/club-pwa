@@ -1188,3 +1188,54 @@ body.club-mobile-app-scaled .bottom-nav {
 .community-chat-open .chat-input-row .icon-button[type="submit"] {
   color: var(--color-primary-text);
 }
+
+/* Compact notification list, selected variant A. */
+.notification-task-screen .notification-center-list {
+  gap: 8px;
+  overflow: visible;
+  padding: 12px;
+}
+
+.notification-task-screen .notification-center-item {
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  height: auto;
+  padding: 10px 12px;
+  border-radius: var(--card-radius-compact);
+  background: var(--color-surface);
+}
+
+.notification-task-screen .notification-center-item-unread {
+  border-left: 3px solid var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface));
+}
+
+.notification-task-screen .notification-center-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+}
+
+.notification-task-screen .notification-center-item header {
+  min-width: 0;
+  gap: 8px;
+}
+
+.notification-task-screen .notification-center-item header strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.notification-task-screen .notification-center-item time {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 359px) {
+  .notification-task-screen .notification-center-item header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
