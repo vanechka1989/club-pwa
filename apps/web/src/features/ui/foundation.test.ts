@@ -21,14 +21,17 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("--page-max-width: 768px;");
     expect(css).toContain("--page-padding: 16px;");
     expect(css).toContain("--page-padding-compact: 12px;");
-    expect(css).toContain("--section-gap: 24px;");
-    expect(css).toContain("--card-padding: 20px;");
-    expect(css).toContain("--card-radius: 20px;");
+    expect(css).toContain("--section-gap: 16px;");
+    expect(css).toContain("--card-gap: 12px;");
+    expect(css).toContain("--card-padding: 16px;");
+    expect(css).toContain("--card-radius: 18px;");
     expect(css).toContain("--control-height: 48px;");
     expect(css).toContain("--button-height: 48px;");
     expect(css).toContain("--icon-button-size: 44px;");
-    expect(css).toContain("--bottom-nav-height: 76px;");
-    expect(css).toContain("--bottom-action-height: 72px;");
+    expect(css).toContain("--icon-size: 22px;");
+    expect(css).toContain("--header-min-height: 68px;");
+    expect(css).toContain("--bottom-nav-height: 68px;");
+    expect(css).toContain("--bottom-action-height: 64px;");
     expect(css).toContain("--safe-bottom: env(safe-area-inset-bottom, 0px);");
   });
 
@@ -36,9 +39,32 @@ describe("PWA UI foundation", () => {
     const css = readUi("foundation.css");
 
     expect(css).toContain("--club-scaled-control-factor: var(--club-scaled-ui-factor, 1);");
-    expect(css).toContain("--icon-button-size: calc(48px * var(--club-scaled-control-factor));");
-    expect(css).toContain("--icon-size: calc(24px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--section-gap: calc(16px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--card-gap: calc(12px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--card-padding: calc(16px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--card-radius: calc(18px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--button-height: calc(48px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--button-height-large: calc(52px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--button-height-compact: calc(44px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--icon-button-size: calc(44px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--icon-size: calc(22px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--header-min-height: calc(68px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--bottom-nav-height: calc(68px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--bottom-action-height: calc(64px * var(--club-scaled-control-factor));");
     expect(css).not.toContain("--club-scaled-control-factor: min(");
+  });
+
+  it("keeps page header actions inline until genuinely narrow phone widths", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).toMatch(/@media \(max-width: 380px\)\s*\{[\s\S]*?\.ui-page-header__actions\s*\{[\s\S]*?width: 100%;/);
+    expect(css).not.toMatch(/@media \(max-width: 480px\)\s*\{[\s\S]*?\.ui-page-header__actions\s*\{[\s\S]*?width: 100%;/);
+  });
+
+  it("lets a single custom footer form span the complete bottom action bar", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).toMatch(/\.ui-bottom-action-bar\s*>\s*:only-child\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1;/);
   });
 
   it("defines the four required theme variants through semantic tokens", () => {

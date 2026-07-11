@@ -743,10 +743,10 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
         const style = getComputedStyle(target);
         const targetToken = style.getPropertyValue("--icon-button-size").trim();
         const iconToken = style.getPropertyValue("--icon-size").trim();
-        const minimumTargetSize = isScaledShell ? 48 : 44;
-        const maximumTargetSize = isScaledShell ? 58 : 48;
-        const minimumIconSize = isScaledShell ? 24 : 22;
-        const maximumIconSize = isScaledShell ? 30 : 26;
+        const minimumTargetSize = 44;
+        const maximumTargetSize = 48;
+        const minimumIconSize = 22;
+        const maximumIconSize = 26;
         const svg = target.querySelector<SVGElement>("svg");
         const svgRect = svg?.getBoundingClientRect();
         const effectiveWidth = rect.width / shellScale;
@@ -854,8 +854,8 @@ async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
     const shellScale = isScaledShell
       ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale")) || 1
       : 1;
-    const minimumButtonHeight = isScaledShell ? 56 : 44;
-    const maximumButtonHeight = isScaledShell ? 84 : 64;
+    const minimumButtonHeight = isScaledShell ? 48 : 44;
+    const maximumButtonHeight = 64;
     const subpixelTolerance = 0.5;
 
     return elements
@@ -1936,6 +1936,13 @@ test("keeps routed support tickets inside the mobile viewport", async ({ page },
   expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
 
+  const replyFormBox = await page.locator(".support-reply-form").boundingBox();
+  const replyInputBox = await page.getByPlaceholder("Ответ клиенту").boundingBox();
+  const replyActionsBox = await page.locator(".support-reply-actions").boundingBox();
+  expect(replyFormBox?.width ?? 0).toBeGreaterThan((viewport?.width ?? 0) * 0.88);
+  expect(replyInputBox?.width ?? 0).toBeGreaterThan((viewport?.width ?? 0) * 0.66);
+  expect(replyActionsBox?.width ?? 0).toBeGreaterThan((viewport?.width ?? 0) * 0.88);
+
   if (["pixel-7", "viewport-390-844"].includes(testInfo.project.name)) {
     await page.screenshot({ path: testInfo.outputPath("support-ticket-task.png"), fullPage: false });
     await page.evaluate(() => {
@@ -2085,11 +2092,15 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
   }
 });
 
-test("keeps chat composer stable when typing", async ({ page }) => {
+test("keeps chat composer stable when typing", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
   await expectChatComposerSingleRow(page);
+
+  if (testInfo.project.name === "viewport-390-844") {
+    await page.screenshot({ path: testInfo.outputPath("chat-compact.png"), fullPage: false, animations: "disabled", caret: "hide" });
+  }
 
   const composer = page.getByPlaceholder("Сообщение");
   await composer.fill("Проверка адаптива");
@@ -2117,4 +2128,8 @@ test("keeps chat composer stable when typing", async ({ page }) => {
   const composerBox = await composer.boundingBox();
   expect(composerBox?.x ?? -1).toBeGreaterThanOrEqual(0);
   expect((composerBox?.x ?? 0) + (composerBox?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()!.width);
+
+  if (testInfo.project.name === "viewport-390-844") {
+    await page.screenshot({ path: testInfo.outputPath("chat-compact-keyboard.png"), fullPage: false, animations: "disabled", caret: "hide" });
+  }
 });

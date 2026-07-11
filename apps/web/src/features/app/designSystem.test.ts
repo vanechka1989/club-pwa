@@ -22,9 +22,10 @@ describe("PWA UI foundation design system", () => {
     expect(foundation).toContain("--color-primary:");
     expect(foundation).toContain("--color-primary-text:");
     expect(foundation).toContain("--color-focus:");
-    expect(foundation).toContain("--card-radius: 20px;");
+    expect(foundation).toContain("--card-radius: 18px;");
     expect(foundation).toContain("--control-height: 48px;");
     expect(foundation).toContain("--icon-button-size: 44px;");
+    expect(foundation).toContain("--icon-size: 22px;");
   });
 
   it("defines the reference layout for admin navigation, KPI cards and mobile safe areas", () => {

@@ -34,15 +34,18 @@ describe("responsive layout audit contract", () => {
     expect(foundation).toContain("--page-max-width: 768px;");
     expect(foundation).toContain("--page-padding: 16px;");
     expect(foundation).toContain("--page-padding-compact: 12px;");
-    expect(foundation).toContain("--section-gap: 24px;");
-    expect(foundation).toContain("--card-padding: 20px;");
-    expect(foundation).toContain("--card-radius: 20px;");
+    expect(foundation).toContain("--section-gap: 16px;");
+    expect(foundation).toContain("--card-gap: 12px;");
+    expect(foundation).toContain("--card-padding: 16px;");
+    expect(foundation).toContain("--card-radius: 18px;");
     expect(foundation).toContain("--control-height: 48px;");
     expect(foundation).toContain("--button-height: 48px;");
     expect(foundation).toContain("--button-height-large: 52px;");
     expect(foundation).toContain("--icon-button-size: 44px;");
-    expect(foundation).toContain("--bottom-nav-height: 76px;");
-    expect(foundation).toContain("--bottom-action-height: 72px;");
+    expect(foundation).toContain("--icon-size: 22px;");
+    expect(foundation).toContain("--header-min-height: 68px;");
+    expect(foundation).toContain("--bottom-nav-height: 68px;");
+    expect(foundation).toContain("--bottom-action-height: 64px;");
   });
 
   it("does not keep local tiny icon action overrides outside the foundation", () => {

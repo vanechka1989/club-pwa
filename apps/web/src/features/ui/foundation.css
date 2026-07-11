@@ -5,27 +5,27 @@
   --page-max-width: 768px;
   --page-padding: 16px;
   --page-padding-compact: 12px;
-  --section-gap: 24px;
-  --card-gap: 16px;
-  --card-padding: 20px;
-  --card-padding-compact: 16px;
-  --card-radius: 20px;
-  --card-radius-compact: 18px;
+  --section-gap: 16px;
+  --card-gap: 12px;
+  --card-padding: 16px;
+  --card-padding-compact: 14px;
+  --card-radius: 18px;
+  --card-radius-compact: 16px;
   --control-height: 48px;
   --button-height: 48px;
   --button-height-large: 52px;
   --button-height-compact: 44px;
-  --button-radius: 16px;
+  --button-radius: 14px;
   --icon-button-size: 44px;
   --icon-button-radius: 12px;
-  --icon-size: 24px;
+  --icon-size: 22px;
   --action-icon-button-size: var(--icon-button-size);
   --action-icon-glyph-size: var(--icon-size);
   --action-icon-button-radius: var(--icon-button-radius);
-  --header-min-height: 76px;
-  --bottom-nav-height: 76px;
-  --bottom-nav-item-height: 56px;
-  --bottom-action-height: 72px;
+  --header-min-height: 68px;
+  --bottom-nav-height: 68px;
+  --bottom-nav-item-height: 48px;
+  --bottom-action-height: 64px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -105,24 +105,24 @@ body.club-mobile-app-scaled {
   --page-max-width: min(100vw, calc(768px * var(--club-scaled-ui-factor)));
   --page-padding: calc(16px * var(--club-scaled-ui-factor));
   --page-padding-compact: calc(12px * var(--club-scaled-ui-factor));
-  --section-gap: calc(24px * var(--club-scaled-ui-factor));
-  --card-gap: calc(16px * var(--club-scaled-ui-factor));
-  --card-padding: calc(20px * var(--club-scaled-ui-factor));
-  --card-padding-compact: calc(16px * var(--club-scaled-ui-factor));
-  --card-radius: calc(20px * var(--club-scaled-ui-factor));
-  --card-radius-compact: calc(18px * var(--club-scaled-ui-factor));
+  --section-gap: calc(16px * var(--club-scaled-ui-factor));
+  --card-gap: calc(12px * var(--club-scaled-ui-factor));
+  --card-padding: calc(16px * var(--club-scaled-ui-factor));
+  --card-padding-compact: calc(14px * var(--club-scaled-ui-factor));
+  --card-radius: calc(18px * var(--club-scaled-ui-factor));
+  --card-radius-compact: calc(16px * var(--club-scaled-ui-factor));
   --control-height: calc(48px * var(--club-scaled-control-factor));
-  --button-height: calc(56px * var(--club-scaled-control-factor));
-  --button-height-large: calc(60px * var(--club-scaled-control-factor));
-  --button-height-compact: calc(48px * var(--club-scaled-control-factor));
-  --button-radius: calc(16px * var(--club-scaled-control-factor));
-  --icon-button-size: calc(48px * var(--club-scaled-control-factor));
+  --button-height: calc(48px * var(--club-scaled-control-factor));
+  --button-height-large: calc(52px * var(--club-scaled-control-factor));
+  --button-height-compact: calc(44px * var(--club-scaled-control-factor));
+  --button-radius: calc(14px * var(--club-scaled-control-factor));
+  --icon-button-size: calc(44px * var(--club-scaled-control-factor));
   --icon-button-radius: calc(12px * var(--club-scaled-control-factor));
-  --icon-size: calc(24px * var(--club-scaled-control-factor));
-  --header-min-height: calc(76px * var(--club-scaled-control-factor));
-  --bottom-nav-height: calc(76px * var(--club-scaled-control-factor));
-  --bottom-nav-item-height: calc(56px * var(--club-scaled-control-factor));
-  --bottom-action-height: calc(72px * var(--club-scaled-control-factor));
+  --icon-size: calc(22px * var(--club-scaled-control-factor));
+  --header-min-height: calc(68px * var(--club-scaled-control-factor));
+  --bottom-nav-height: calc(68px * var(--club-scaled-control-factor));
+  --bottom-nav-item-height: calc(48px * var(--club-scaled-control-factor));
+  --bottom-action-height: calc(64px * var(--club-scaled-control-factor));
   --ui-button-height: var(--button-height);
   --ui-button-radius: var(--button-radius);
 }
@@ -557,6 +557,12 @@ canvas {
   backdrop-filter: blur(18px);
 }
 
+.ui-bottom-action-bar > :only-child {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
 .ui-empty-state,
 .ui-loading-state,
 .ui-error-state {
@@ -611,7 +617,7 @@ canvas {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 380px) {
   .ui-page-header {
     flex-wrap: wrap;
   }
@@ -854,7 +860,7 @@ body.club-keyboard-open .ui-bottom-action-bar {
 .community-chat-open .chat-input-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   min-height: 0;
 }
@@ -880,7 +886,7 @@ body.club-keyboard-open .community-chat-open .chat-room {
   min-width: 0;
   align-self: end;
   border-radius: var(--icon-button-radius);
-  padding: 6px;
+  padding: 4px;
 }
 
 body.club-mobile-device .community-chat-open .chat-compose,
@@ -933,4 +939,49 @@ body.club-keyboard-open .community-chat-open .chat-messages {
 .bottom-nav-item {
   min-width: 0;
   min-height: var(--bottom-nav-item-height);
+}
+
+/* Compact density: smaller surfaces, unchanged 44px tap targets. */
+.section-head,
+.admin-hero {
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.profile-access-card,
+.profile-referral-card,
+.profile-settings {
+  gap: 10px;
+  padding: var(--card-padding);
+}
+
+.community-chat-open .chat-room {
+  gap: 8px;
+}
+
+.community-chat-open .chat-bubble {
+  max-width: min(76%, 30rem);
+  border-radius: 14px 14px 14px 6px;
+  padding: 8px 10px 7px;
+}
+
+.community-chat-open .chat-message-own .chat-bubble {
+  border-radius: 14px 14px 6px 14px;
+}
+
+.community-chat-open .chat-avatar {
+  width: 32px;
+  height: 32px;
+}
+
+.community-chat-open .chat-compose {
+  border-radius: 16px;
+}
+
+.bottom-nav {
+  width: min(calc(100% - 16px), var(--page-max-width));
+}
+
+body.club-mobile-app-scaled .bottom-nav {
+  width: auto;
 }
