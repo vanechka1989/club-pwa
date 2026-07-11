@@ -9,3 +9,4 @@ test-results
 .drizzle
 web-dev.log
 .superpowers/
+.worktrees/
