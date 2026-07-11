@@ -61,7 +61,7 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("openAdminAccessModal");
     expect(adminSectionSource).toContain("admin-permission-row-button");
     expect(adminSectionSource).toContain("admin-permission-modal");
-    expect(adminSectionSource).toContain("`/admin/admins/${admin.id}`");
+    expect(adminSectionSource).toContain("`/admin/admins/${admin.id}/access`");
     expect(adminSectionSource).toContain("<TaskScreen");
     expect(adminSectionSource).not.toContain('aria-modal="true"');
   });

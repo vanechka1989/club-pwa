@@ -14850,3 +14850,896 @@ textarea.text-input,
     grid-template-columns: 2.9rem minmax(0, 1fr);
   }
 }
+
+/* Responsive layout audit 2026: shared mobile-first layout contract. */
+:root {
+  --page-max-width: 768px;
+  --page-padding: 16px;
+  --page-padding-compact: 12px;
+  --section-gap: 24px;
+  --card-padding: 20px;
+  --card-padding-compact: 16px;
+  --card-radius: 20px;
+  --control-height: 48px;
+  --button-height: 48px;
+  --button-height-large: 52px;
+  --button-height-compact: 44px;
+  --header-height: 76px;
+  --bottom-nav-height: 76px;
+  --bottom-action-height: 72px;
+  --ui-card-padding: var(--card-padding);
+  --ui-button-height: var(--button-height);
+  --ui-control-radius: 14px;
+  --ds-control-height: var(--control-height);
+  --ds-radius-card: var(--card-radius);
+  --ds-space-card: var(--card-padding);
+  --ds-space-page: var(--page-padding);
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-width: 0;
+}
+
+body {
+  min-width: 0;
+}
+
+:where(.app-root, .app-layout, .app-shell, .content-panel, .section-host, .task-screen, .task-screen-route-layer),
+:where(.section-head, .soft-card, .surface-card, .admin-panel, .admin-detail, .admin-card),
+:where(.admin-client-modal, .support-ticket-modal-body, .lesson-preview-modal, .payment-form-body) {
+  min-width: 0;
+}
+
+:where(h1, h2, h3, h4, p, span, strong, small, em, a, button, label, input, textarea, select) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-root {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--bottom-nav-height) + 16px + var(--club-safe-bottom));
+}
+
+.app-root.nav-is-collapsed,
+.app-root-no-user {
+  padding-bottom: 0;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: var(--page-max-width);
+  min-width: 0;
+  min-height: auto;
+  gap: var(--section-gap);
+  margin-inline: auto;
+  padding-block: 16px calc(24px + var(--club-safe-bottom));
+  padding-inline: var(--page-padding);
+}
+
+.app-shell-auth {
+  max-width: min(100%, var(--page-max-width));
+  justify-content: start;
+}
+
+.content-panel:not(.content-panel-auth) {
+  padding-top: 0;
+}
+
+.section-host,
+.soft-home,
+.admin-shell,
+.modules-panel,
+.support-admin-board {
+  display: grid;
+  gap: var(--section-gap);
+  width: 100%;
+  min-width: 0;
+}
+
+.section-head,
+.admin-hero {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border-radius: var(--card-radius);
+  padding: 16px;
+}
+
+.section-head > div,
+.admin-hero > div,
+.admin-panel-head > div,
+.task-screen-heading,
+.task-screen-actions,
+.admin-client-card-title,
+.support-customer-strip-info {
+  min-width: 0;
+}
+
+.section-title,
+.task-screen-heading h2 {
+  font-size: clamp(1.375rem, 5.2vw, 1.625rem);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.section-subtitle,
+.task-screen-heading p {
+  max-width: 100%;
+  font-size: clamp(0.875rem, 3.6vw, 1rem);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.soft-card,
+.surface-card,
+.soft-list-card,
+.message-card,
+.learning-hero-card,
+.learning-progress-card,
+.learning-last-card,
+.learning-category-card,
+.learning-item-row,
+.chat-topic-card,
+.support-topic-option,
+.support-ticket-card,
+.support-admin-ticket,
+.support-list,
+.support-ticket-list,
+.support-admin-stats article,
+.admin-panel,
+.admin-detail,
+.admin-card,
+.admin-entity,
+.admin-list-item,
+.admin-stat-kpi,
+.admin-stat-block,
+.admin-stat-drilldown,
+.admin-crm-block,
+.admin-server-card,
+.admin-storage-object-card,
+.admin-client-task-card,
+.admin-client-summary article,
+.admin-client-profile-grid article,
+.profile-access-card,
+.profile-referral-card,
+.profile-settings,
+.payment-product-list .soft-payment-card,
+.support-task-screen .support-message,
+.learning-task-screen .lesson-layout-locked,
+.learning-task-screen .lesson-extra-card {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  border-radius: var(--card-radius);
+  overflow-wrap: anywhere;
+}
+
+.soft-card,
+.surface-card,
+.admin-panel,
+.support-list,
+.support-ticket-list,
+.admin-client-task-card,
+.admin-mailing-detail-modal,
+.admin-storage-modal,
+.admin-server-logs-modal,
+.admin-permission-modal {
+  padding: var(--card-padding);
+}
+
+.primary-button,
+.secondary-button,
+.support-primary-button,
+.support-secondary-button,
+.support-danger-button,
+.support-compact-button,
+.payment-product-pay,
+.admin-date-save,
+.admin-date-action,
+.admin-message-client-button,
+.admin-access-toggle button,
+.admin-mailing-channel,
+.admin-mailing-file,
+.admin-check-row,
+.bottom-sheet-option {
+  min-width: 0;
+  min-height: var(--button-height);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.primary-button,
+.support-primary-button {
+  min-height: var(--button-height-large);
+}
+
+.icon-button,
+.task-screen-back,
+.bottom-sheet-header button,
+.support-file-icon-button,
+.profile-avatar-icon-button {
+  width: var(--button-height-compact);
+  min-width: var(--button-height-compact);
+  height: var(--button-height-compact);
+  min-height: var(--button-height-compact);
+  flex: 0 0 var(--button-height-compact);
+}
+
+.text-input,
+input.text-input,
+select.text-input,
+textarea.text-input,
+.admin-rich-editor,
+.support-field input,
+.support-field select,
+.support-field textarea,
+.chat-input-row .text-input,
+.payment-form-body input,
+.payment-form-body select,
+.payment-form-body textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height);
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+textarea.text-input,
+.support-field textarea,
+.learning-task-screen .lesson-content-input,
+.learning-task-screen .lesson-extra-body {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.grid-cols-2,
+.admin-mailing-filter-grid,
+.admin-mailing-preview-grid,
+.admin-client-summary,
+.admin-client-profile-grid,
+.admin-access-toggle,
+.admin-compact-date-row,
+.support-admin-stats,
+.payment-form-body > .grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-mailing-channels,
+.admin-mailing-checks,
+.admin-mailing-row,
+.admin-mailing-submit-row,
+.support-reply-actions,
+.payment-form-body .grid,
+.confirm-dialog-actions,
+.button-group,
+.profile-modal-actions,
+.profile-access-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-mailing-channels {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-mailing-filter-grid,
+.admin-mailing-row {
+  align-items: stretch;
+}
+
+.admin-mailing-checks {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-check-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  text-align: left;
+}
+
+.admin-mailing-date,
+.admin-mailing-file {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-mailing-preview-grid article {
+  min-width: 0;
+  padding: 16px;
+}
+
+.admin-client-card-head {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.admin-client-card-head > .icon-button {
+  display: none;
+}
+
+.admin-client-card-title p,
+.admin-client-device-card small,
+.admin-payment-ids span,
+.admin-payment-meta span,
+.admin-list-item-copy small,
+.support-message p,
+.lesson-viewer-content p {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-compact-date-row {
+  align-items: stretch;
+}
+
+.admin-compact-date-row .admin-date-action {
+  text-align: left;
+}
+
+.task-screen {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  width: 100%;
+  max-width: var(--page-max-width);
+  min-width: 0;
+  min-height: 100dvh;
+  height: auto;
+  margin-inline: auto;
+  overflow: visible;
+  background: var(--bg);
+}
+
+.task-screen-route-layer {
+  position: fixed;
+  z-index: 170;
+  inset: 0;
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  -webkit-overflow-scrolling: touch;
+}
+
+.task-screen-route-layer > .task-screen {
+  height: auto;
+  min-height: 100dvh;
+}
+
+.task-screen-header {
+  min-height: var(--header-height);
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px;
+  padding-top: max(16px, calc(var(--club-safe-top) + 12px));
+  padding-right: max(16px, calc(var(--club-safe-right) + 16px));
+  padding-left: max(16px, calc(var(--club-safe-left) + 16px));
+}
+
+.task-screen-actions {
+  max-width: 42%;
+  flex-wrap: wrap;
+  justify-content: end;
+}
+
+.task-screen-body {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  justify-items: stretch;
+  gap: var(--section-gap);
+  overflow: visible;
+  overscroll-behavior: auto;
+  padding: 16px max(16px, calc(var(--club-safe-right) + 16px))
+    calc(24px + var(--club-safe-bottom)) max(16px, calc(var(--club-safe-left) + 16px));
+}
+
+.task-screen-body > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.task-screen-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  min-height: var(--bottom-action-height);
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  padding: 12px max(16px, calc(var(--club-safe-right) + 16px))
+    max(12px, calc(var(--club-safe-bottom) + 12px)) max(16px, calc(var(--club-safe-left) + 16px));
+  backdrop-filter: blur(16px);
+}
+
+.admin-mailing-task-screen .admin-mailing-composer-modal,
+.admin-mailing-task-screen .admin-mailing-builder,
+.admin-task-screen .admin-client-modal,
+.admin-task-screen .admin-payment-drilldown-modal,
+.admin-task-screen .admin-mailing-detail-modal,
+.admin-task-screen .admin-storage-modal,
+.admin-task-screen .admin-server-logs-modal,
+.admin-task-screen .admin-permission-modal,
+.learning-task-screen .module-name-modal,
+.learning-task-screen .lesson-preview-modal,
+.support-task-screen .support-modal-body,
+.support-task-screen .support-ticket-modal-body,
+.payment-task-screen .payment-form-body {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.admin-mailing-task-screen .admin-mailing-builder-body,
+.learning-task-screen .lesson-preview-scroll,
+.support-task-screen .support-thread,
+.support-task-screen .support-ticket-modal-body {
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.lesson-preview-modal-view,
+.lesson-viewer-content,
+.lesson-preview-scroll {
+  height: auto;
+  max-height: none;
+}
+
+.lesson-viewer-content {
+  align-self: start;
+}
+
+.lesson-youtube-player,
+.lesson-youtube-player-material {
+  min-height: 0;
+}
+
+.support-task-screen {
+  min-height: 0;
+}
+
+.support-task-screen .support-ticket-modal-body {
+  padding: var(--card-padding);
+}
+
+.support-task-screen .support-reply-input-row {
+  grid-template-columns: var(--button-height-large) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.support-task-screen .support-reply-input-row textarea {
+  min-height: 120px;
+  max-height: none;
+}
+
+.support-task-screen .support-reply-actions {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+}
+
+.support-file-icon-button {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.support-upload,
+.admin-mailing-file {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
+  color: var(--text);
+}
+
+.bottom-nav {
+  min-height: var(--bottom-nav-height);
+  right: max(8px, calc(var(--club-safe-right) + 8px));
+  bottom: max(8px, calc(var(--club-safe-bottom) + 8px));
+  left: max(8px, calc(var(--club-safe-left) + 8px));
+}
+
+body.club-keyboard-open .mobile-bottom-nav,
+body.club-keyboard-open .pwa-install-card {
+  display: none;
+}
+
+body.club-keyboard-open .task-screen-footer {
+  position: static;
+  backdrop-filter: none;
+}
+
+body.club-keyboard-open .task-screen-route-layer {
+  height: var(--club-visible-viewport-height, 100dvh);
+  max-height: var(--club-visible-viewport-height, 100dvh);
+  overflow-y: auto;
+}
+
+body.club-keyboard-open .task-screen-route-layer > .task-screen {
+  min-height: var(--club-visible-viewport-height, 100dvh);
+}
+
+body.club-keyboard-open .app-shell {
+  height: var(--club-visible-viewport-height, 100dvh);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.club-keyboard-open .content-panel,
+body.club-keyboard-open .section-host,
+body.club-keyboard-open .support-task-screen,
+body.club-keyboard-open .support-task-screen .task-screen {
+  min-height: 0;
+}
+
+body.club-keyboard-open .support-task-screen .task-screen-body {
+  padding-bottom: 24px;
+}
+
+@media (min-width: 1024px) {
+  .app-layout {
+    grid-template-columns: var(--desktop-sidebar-width) minmax(0, 1fr);
+  }
+
+  .app-shell {
+    max-width: var(--page-max-width);
+    min-height: auto;
+    padding: 24px var(--page-padding) 32px;
+  }
+
+  .content-panel {
+    min-height: auto;
+  }
+
+  body:not(.club-mobile-device) .task-screen-route-layer {
+    left: var(--desktop-sidebar-width);
+    padding: 24px;
+  }
+
+  .task-screen {
+    min-height: calc(100dvh - 48px);
+    border-radius: var(--card-radius);
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-cols-2,
+  .payment-form-body > .grid-cols-2,
+  .payment-form-body .grid,
+  .admin-mailing-filter-grid,
+  .admin-mailing-row,
+  .admin-client-summary,
+  .admin-client-profile-grid,
+  .admin-access-toggle,
+  .admin-compact-date-row,
+  .confirm-dialog-actions,
+  .profile-modal-actions,
+  .profile-access-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .task-screen-actions {
+    grid-column: 1 / -1;
+    max-width: none;
+    justify-content: stretch;
+  }
+
+  .task-screen-actions > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .support-task-screen .support-reply-actions,
+  .admin-mailing-submit-row,
+  .learning-task-screen .lesson-kind-buttons,
+  .learning-task-screen .lesson-source-buttons {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 360px) {
+  :root {
+    --page-padding: var(--page-padding-compact);
+    --card-padding: var(--card-padding-compact);
+    --ds-space-page: var(--page-padding-compact);
+    --ds-space-card: var(--card-padding-compact);
+  }
+
+  .app-shell,
+  .task-screen-body,
+  .task-screen-header,
+  .task-screen-footer {
+    padding-inline: var(--page-padding);
+  }
+
+  .section-head,
+  .admin-hero,
+  .soft-card,
+  .surface-card,
+  .admin-panel {
+    border-radius: 18px;
+  }
+}
+
+.app-shell {
+  max-width: var(--page-max-width);
+  min-width: 0;
+  padding-inline: var(--page-padding);
+}
+
+.task-screen {
+  max-width: var(--page-max-width);
+  min-width: 0;
+  overflow: visible;
+}
+
+.task-screen-route-layer {
+  overflow-y: auto;
+}
+
+.task-screen-body {
+  overflow: visible;
+}
+
+.task-screen-footer {
+  position: sticky;
+  bottom: 0;
+}
+
+button,
+a[role="button"],
+input[type="button"],
+input[type="submit"],
+.soft-link,
+.soft-inline-button,
+.support-compact-button,
+.support-danger-button,
+.admin-preview-option,
+.admin-stat-period,
+.lesson-layout-option,
+.compact-controls button,
+.notification-center-button {
+  min-width: 0;
+  min-height: 44px !important;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.compact-controls button,
+.notification-center-button,
+.icon-button,
+.profile-avatar-icon-button,
+.visual-scale-step-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
+}
+
+.soft-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.module-name-modal .lesson-layout-option {
+  min-height: 44px;
+  padding: 10px 12px;
+  line-height: 1.2;
+}
+
+.support-task-screen .support-reply-actions .support-primary-button,
+.support-task-screen .support-reply-actions .support-danger-button {
+  min-height: 44px;
+  height: auto;
+  padding: 10px 12px;
+  line-height: 1.2;
+}
+
+.admin-preview-option,
+.admin-stat-period {
+  min-height: 44px !important;
+  height: auto !important;
+  padding: 10px 12px !important;
+  line-height: 1.2;
+}
+
+/* Support ticket full-screen correction: route screen, not a nested modal card. */
+.support-task-screen.task-screen-route-layer {
+  padding: 0;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.support-task-screen.task-screen-route-layer > .task-screen {
+  width: 100%;
+  max-width: var(--page-max-width);
+  height: var(--club-visible-viewport-height, 100dvh);
+  min-height: 0;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.support-ticket-task-screen .task-screen-body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px max(var(--page-padding), var(--club-safe-right))
+    16px max(var(--page-padding), var(--club-safe-left));
+}
+
+.support-ticket-task-screen .task-screen-body > .support-ticket-modal-body:first-child {
+  grid-row: 1 / -1;
+}
+
+.support-task-screen .support-ticket-modal-body {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.support-ticket-task-screen .support-thread {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.support-ticket-task-screen .task-screen-footer {
+  position: sticky;
+  bottom: 0;
+  min-height: auto;
+  padding: 12px max(var(--page-padding), var(--club-safe-right))
+    max(12px, calc(var(--club-safe-bottom) + 12px)) max(var(--page-padding), var(--club-safe-left));
+}
+
+.support-task-screen .support-reply-form {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  padding: 0;
+}
+
+.support-task-screen .support-reply-input-row {
+  display: grid;
+  grid-template-columns: var(--button-height-large) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.support-task-screen .support-file-icon-button {
+  width: var(--button-height-large);
+  min-width: var(--button-height-large);
+  height: var(--button-height-large);
+  min-height: var(--button-height-large);
+  align-self: start;
+}
+
+.support-task-screen .support-reply-input-row textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--button-height-large);
+  max-height: 120px;
+  resize: vertical;
+}
+
+.support-task-screen .support-reply-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.support-ticket-task-screen .task-screen-actions {
+  grid-column: auto;
+  max-width: none;
+  width: auto;
+  justify-content: end;
+}
+
+.support-ticket-client-action {
+  display: grid;
+  width: var(--button-height-large);
+  min-width: var(--button-height-large);
+  height: var(--button-height-large);
+  min-height: var(--button-height-large);
+  flex: 0 0 var(--button-height-large);
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(var(--ds-primary-rgb), 0.22), rgba(var(--ds-blue-rgb), 0.1));
+  color: var(--text);
+  padding: 0;
+  box-shadow: var(--ds-shadow-inset);
+}
+
+.support-ticket-task-screen .task-screen-actions > .support-ticket-client-action {
+  width: var(--button-height-large);
+}
+
+.support-ticket-client-action img,
+.support-ticket-client-action .support-customer-avatar-small {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+}
+
+body.club-keyboard-open .support-ticket-task-screen .task-screen-footer,
+body.club-keyboard-open .support-task-screen .support-reply-form {
+  position: static;
+}
+
+body.club-keyboard-open .support-ticket-task-screen .task-screen-body {
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+body.club-keyboard-open .support-task-screen .support-reply-input-row textarea {
+  max-height: 96px;
+}
+
+@media (max-width: 768px) {
+  .support-task-screen.task-screen-route-layer > .task-screen {
+    max-width: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .support-task-screen .support-reply-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -6,6 +6,12 @@ const source = readFileSync(resolve(__dirname, "SupportSection.vue"), "utf8");
 const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 
+function latestRule(selector: string) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = [...styles.matchAll(new RegExp(`(?:^|}\\s*)${escaped}\\s*\\{(?<body>[^}]*)\\}`, "g"))];
+  return matches.at(-1)?.groups?.body ?? "";
+}
+
 describe("support section", () => {
   it("has separate customer and admin support experiences", () => {
     expect(source).toContain("support-customer-form");
@@ -39,6 +45,31 @@ describe("support section", () => {
     expect(source).toContain('emit("return-ticket-consumed")');
     expect(appSource).toContain("supportReturnTicketId");
     expect(appSource).toContain("handleAdminClientCardClose");
+  });
+
+  it("renders support task screens as full-screen routed surfaces", () => {
+    expect(source).toMatch(/<TaskScreen[\s\S]*v-if="createTicketOpen"[\s\S]*\sportal[\s\S]*@back="closeCreateTicket"/);
+    expect(source).toMatch(/<TaskScreen[\s\S]*v-else-if="selectedTicket"[\s\S]*\sportal[\s\S]*@back="closeModal"/);
+
+    expect(styles).toContain(".support-task-screen.task-screen-route-layer");
+    expect(styles).toContain(".support-task-screen.task-screen-route-layer > .task-screen");
+    expect(styles).toContain("height: var(--club-visible-viewport-height, 100dvh)");
+    expect(styles).toContain("border-radius: 0");
+  });
+
+  it("uses a chat-style ticket body and keyboard-safe reply composer", () => {
+    const ticketBodyRule = latestRule(".support-task-screen .support-ticket-modal-body");
+    const footerRule = latestRule(".task-screen-footer");
+    const replyFormRule = latestRule(".support-task-screen .support-reply-form");
+    const keyboardFooterRule = latestRule("body.club-keyboard-open .support-ticket-task-screen .task-screen-footer,\nbody.club-keyboard-open .support-task-screen .support-reply-form");
+
+    expect(ticketBodyRule).toContain("border: 0");
+    expect(ticketBodyRule).toContain("background: transparent");
+    expect(ticketBodyRule).toContain("box-shadow: none");
+    expect(footerRule).toContain("position: sticky");
+    expect(footerRule).toContain("bottom: 0");
+    expect(replyFormRule).toContain("border-top: 1px solid var(--border)");
+    expect(keyboardFooterRule).toContain("position: static");
   });
 
   it("polls tickets and open support threads without reopening the tab", () => {
@@ -113,6 +144,12 @@ describe("support section", () => {
     expect(source).toContain("supportOpenClientCard");
     expect(source).not.toContain("support-client-open");
     expect(styles).toContain(".support-customer-strip");
+  });
+
+  it("keeps the support ticket header action compact instead of reusing the full customer summary", () => {
+    expect(source).toContain("support-ticket-client-action");
+    expect(styles).toContain(".support-ticket-client-action");
+    expect(styles).toContain("width: var(--button-height-large)");
   });
 
   it("keeps support task actions above the safe bottom area", () => {

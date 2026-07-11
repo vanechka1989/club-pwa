@@ -65,6 +65,45 @@ const compactAndroid320 = {
   }
 };
 
+const viewport390x844 = {
+  name: "viewport-390-844",
+  use: {
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.159 Mobile Safari/537.36"
+  }
+};
+
+const viewport412x915 = {
+  name: "viewport-412-915",
+  use: {
+    viewport: { width: 412, height: 915 },
+    deviceScaleFactor: 2.75,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.159 Mobile Safari/537.36"
+  }
+};
+
+const tablet768x1024 = {
+  name: "tablet-768-1024",
+  use: {
+    viewport: { width: 768, height: 1024 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.7827.159 Safari/537.36"
+  }
+};
+
 export const smokeProjects = [
   {
     name: "desktop-chrome",
@@ -86,6 +125,10 @@ export const smokeProjects = [
     name: "galaxy-s24",
     use: { ...devices["Galaxy S24"] }
   },
+  compactAndroid320,
+  viewport390x844,
+  viewport412x915,
+  tablet768x1024,
   androidWideLayout980,
   androidStandaloneNoTouch980,
   huaweiNova9Se,
@@ -141,6 +184,5 @@ export const fullProjects = [
   {
     name: "galaxy-z-flip-6",
     use: { ...devices["Galaxy Z Flip 6"] }
-  },
-  compactAndroid320
+  }
 ];

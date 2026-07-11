@@ -13,7 +13,7 @@ const currentUser = {
   telegramId: "593677751",
   firstName: "Екатерина",
   username: "katya",
-  photoUrl: null,
+  photoUrl: "https://cdn.example.com/avatar.jpg",
   role: "owner",
   realRole: "owner",
   adminRoleLabel: null,
@@ -109,6 +109,134 @@ const adminLearningMaterial = {
   publishedAt: now,
   createdAt: now,
   updatedAt: now
+};
+
+const adminStatsUser = {
+  id: currentUser.id,
+  telegramId: currentUser.telegramId,
+  firstName: "Екатерина С Очень Длинной Фамилией Для Проверки Переноса",
+  username: "katya.long.username.with.many.parts",
+  photoUrl: currentUser.photoUrl,
+  role: "owner",
+  membershipStatus: "active",
+  membershipExpiresAt: activeUntil,
+  tariff: "manual",
+  hasRestrictions: false,
+  completedItems: 4,
+  totalItems: 9,
+  lastOpenedItemTitle: "Очень длинное название урока для проверки переноса текста в карточке клиента",
+  lastOpenedAt: now,
+  lastLoginAt: now,
+  telegramBotStatus: "active",
+  telegramBotBlockedAt: null,
+  telegramBotUnblockedAt: null,
+  createdAt: "2026-06-01T10:00:00.000Z"
+};
+
+const inactiveStatsUser = {
+  ...adminStatsUser,
+  id: "user-inactive",
+  telegramId: "777777777",
+  firstName: "Клиент Без Доступа",
+  username: "client.with.very.long.email.like.name@example.com",
+  role: "member",
+  membershipStatus: "inactive",
+  membershipExpiresAt: null,
+  tariff: null,
+  hasRestrictions: true,
+  completedItems: 0,
+  totalItems: 9,
+  lastOpenedItemTitle: null,
+  telegramBotStatus: "blocked",
+  telegramBotBlockedAt: now,
+  createdAt: "2026-06-15T10:00:00.000Z"
+};
+
+const adminUser = {
+  id: "admin-owner",
+  telegramId: currentUser.telegramId,
+  firstName: currentUser.firstName,
+  username: currentUser.username,
+  photoUrl: currentUser.photoUrl,
+  roleLabel: "Владелец",
+  isActive: true,
+  permissions: [],
+  createdAt: now
+};
+
+const adminPaymentOrder = {
+  id: "payment-paid-long-id",
+  status: "paid",
+  amountRub: 5000,
+  providerOrderId: "PROVIDER-ORDER-WITH-LONG-ID-1234567890",
+  providerPaymentId: "PROVIDER-PAYMENT-WITH-LONG-ID-0987654321",
+  productTitle: "Ручной доступ с очень длинным названием тарифа",
+  productKind: "one_time",
+  customer: ownAuthor,
+  webhook: { isValid: true, createdAt: now },
+  paidAt: now,
+  createdAt: now,
+  updatedAt: now
+};
+
+const adminMailing = {
+  id: "mailing-demo",
+  title: "Длинная рассылка для проверки переносов заголовка на узком экране",
+  body: "Текст рассылки с длинным URL https://example.com/some/really/long/path/that/must/wrap и обычным сообщением.",
+  bodyHtml: null,
+  channel: "app",
+  filters: {
+    accessStatus: "active",
+    accessType: "all",
+    excludeAdmins: true,
+    excludeRestricted: true
+  },
+  status: "completed",
+  scheduledAt: null,
+  startedAt: now,
+  completedAt: now,
+  createdBy: ownAuthor,
+  targetCount: 18,
+  sentCount: 17,
+  failedCount: 1,
+  skippedCount: 0,
+  estimatedSeconds: 12,
+  estimatedLabel: "около 12 секунд",
+  attachment: null,
+  createdAt: now,
+  updatedAt: now
+};
+
+const s3StorageSettings = {
+  configured: true,
+  source: "database",
+  endpoint: "https://storage.example.com",
+  bucket: "club-pwa",
+  region: "ru-1",
+  publicBaseUrl: "https://cdn.example.com",
+  signedUrlTtlSeconds: 900,
+  accessKeyConfigured: true,
+  secretKeyConfigured: true,
+  reserveConfigured: false,
+  reserveEndpoint: null,
+  reserveBucket: null,
+  reserveRegion: null,
+  reservePublicBaseUrl: null,
+  reserveAccessKeyConfigured: false,
+  reserveSecretKeyConfigured: false,
+  updatedAt: now
+};
+
+const s3StorageObject = {
+  key: "learning/very-long-folder-name/demo-file-with-long-readable-name.pdf",
+  sizeBytes: 1_048_576,
+  lastModified: now,
+  etag: "etag-demo",
+  category: "learning",
+  categoryLabel: "Уроки",
+  fileKind: "document",
+  entityTitle: "Длинное название файла в хранилище",
+  uploadedBy: ownAuthor
 };
 
 function json(body: unknown) {
@@ -238,8 +366,30 @@ async function mockApi(page: Page) {
       return;
     }
 
+    if (path === "/learning/items/lesson-admin-1") {
+      await route.fulfill(
+        json({
+          item: adminLearningMaterial,
+          completedAt: null,
+          lastOpenedMaterialId: null,
+          playbackPositionSeconds: 13
+        })
+      );
+      return;
+    }
+
+    if (path === "/learning/items/lesson-admin-1/comments") {
+      await route.fulfill(json({ comments: [], mutedUntil: null, mutedPermanently: false }));
+      return;
+    }
+
+    if (path === "/learning/items/lesson-admin-1/playback") {
+      await route.fulfill(json({ ok: true, lastOpenedMaterialId: null, playbackPositionSeconds: 13 }));
+      return;
+    }
+
     if (path === "/payments/orders") {
-      await route.fulfill(json({ orders: [] }));
+      await route.fulfill(json({ orders: [adminPaymentOrder] }));
       return;
     }
 
@@ -345,12 +495,60 @@ async function mockApi(page: Page) {
     }
 
     if (path === "/admin/admins") {
-      await route.fulfill(json({ ownerTelegramId: currentUser.telegramId, admins: [] }));
+      await route.fulfill(json({ ownerTelegramId: currentUser.telegramId, admins: [adminUser] }));
       return;
     }
 
     if (path === "/admin/stats") {
-      await route.fulfill(json({ users: [], communityMessages: [] }));
+      await route.fulfill(
+        json({
+          totalUsers: 2,
+          activeUsers: 1,
+          completedItems: 4,
+          totalItems: 18,
+          users: [adminStatsUser, inactiveStatsUser],
+          communityMessages: [
+            {
+              id: "admin-community-message",
+              topicId: "topic-fix",
+              topicTitle: "Фиксики",
+              isSystem: false,
+              status: "visible",
+              author: memberAuthor,
+              createdAt: now
+            }
+          ]
+        })
+      );
+      return;
+    }
+
+    if (path === "/admin/stats/users/593677751") {
+      await route.fulfill(json(adminStatsUser));
+      return;
+    }
+
+    if (path === "/admin/stats/users/593677751/detail") {
+      await route.fulfill(
+        json({
+          user: adminStatsUser,
+          subscriptions: [
+            {
+              id: "subscription-manual",
+              status: "active",
+              tariff: "manual",
+              provider: "manual",
+              providerPaymentId: null,
+              changedBy: currentUser.telegramId,
+              expiresAt: activeUntil,
+              createdAt: now
+            }
+          ],
+          moderationEvents: [],
+          device: null,
+          referrals: { invitedBy: null, invited: [] }
+        })
+      );
       return;
     }
 
@@ -360,7 +558,7 @@ async function mockApi(page: Page) {
     }
 
     if (path === "/payments/admin/orders") {
-      await route.fulfill(json({ orders: [] }));
+      await route.fulfill(json({ orders: [adminPaymentOrder] }));
       return;
     }
 
@@ -375,7 +573,17 @@ async function mockApi(page: Page) {
     }
 
     if (path === "/admin/mailings" && request.method() === "GET") {
-      await route.fulfill(json({ mailings: [] }));
+      await route.fulfill(json({ mailings: [adminMailing] }));
+      return;
+    }
+
+    if (path === "/admin/storage/s3") {
+      await route.fulfill(json({ settings: s3StorageSettings }));
+      return;
+    }
+
+    if (path.startsWith("/admin/storage/s3/objects")) {
+      await route.fulfill(json({ prefix: url.searchParams.get("prefix") ?? "", objects: [s3StorageObject], nextCursor: null }));
       return;
     }
 
@@ -516,6 +724,202 @@ async function expectNoHorizontalOverflow(page: Page) {
 
   expect(overflow.scrollWidth, JSON.stringify(overflow, null, 2)).toBeLessThanOrEqual(overflow.viewportWidth + 2);
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
+}
+
+async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => null);
+  await expect(page.locator(".app-root")).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight;
+    const significantSelector =
+      "main, section, article, aside, header, footer, form, nav, button, a, input, textarea, select, [role='button'], [role='dialog'], .task-screen, .soft-card, .surface-card";
+    const visibleElements = Array.from(document.body.querySelectorAll<HTMLElement>(significantSelector)).filter((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+    });
+
+    const describe = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        tag: element.tagName.toLowerCase(),
+        className: String(element.className),
+        text: (element.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 64),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        top: Math.round(rect.top),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      };
+    };
+
+    const offscreen = visibleElements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 1 && rect.height > 1 && rect.bottom > -1 && rect.top < viewportHeight + 1 && (rect.left < -2 || rect.right > viewportWidth + 2);
+      })
+      .map(describe)
+      .slice(0, 10);
+
+    const invalidSizes = visibleElements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width < 0 || rect.height < 0 || Number.isNaN(rect.width) || Number.isNaN(rect.height);
+      })
+      .map(describe)
+      .slice(0, 10);
+
+    const smallButtons = Array.from(
+      document.body.querySelectorAll<HTMLElement>("button, a[role='button'], input[type='button'], input[type='submit']")
+    )
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const isVisible = rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+        const isTinyIcon = element.classList.contains("icon-button") && rect.width <= 44 && rect.height >= 40;
+        return isVisible && !isTinyIcon && rect.height < 44;
+      })
+      .map(describe)
+      .slice(0, 10);
+
+    const fixedPanels = Array.from(document.body.querySelectorAll<HTMLElement>(".bottom-nav, .task-screen-footer, .app-operation-indicator"))
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          ...describe(element),
+          position: style.position,
+          withinViewport:
+            rect.left >= -1 && rect.right <= viewportWidth + 1 && rect.top >= -1 && rect.bottom <= viewportHeight + 1
+        };
+      });
+
+    return {
+      viewportWidth,
+      viewportHeight,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      offscreen,
+      invalidSizes,
+      smallButtons,
+      fixedPanels
+    };
+  });
+
+  expect(layout.documentScrollWidth, `${routePath}\n${JSON.stringify(layout, null, 2)}`).toBeLessThanOrEqual(layout.viewportWidth + 2);
+  expect(layout.bodyScrollWidth, `${routePath}\n${JSON.stringify(layout, null, 2)}`).toBeLessThanOrEqual(layout.viewportWidth + 2);
+  expect(layout.offscreen, `${routePath}\n${JSON.stringify(layout, null, 2)}`).toEqual([]);
+  expect(layout.invalidSizes, `${routePath}\n${JSON.stringify(layout, null, 2)}`).toEqual([]);
+  expect(layout.smallButtons, `${routePath}\n${JSON.stringify(layout, null, 2)}`).toEqual([]);
+  expect(
+    layout.fixedPanels.filter((panel) => !panel.withinViewport),
+    `${routePath}\n${JSON.stringify(layout, null, 2)}`
+  ).toEqual([]);
+}
+
+async function expectKeyboardSafeIfFormRoute(page: Page, routePath: string) {
+  const keyboardFieldSelector =
+    "textarea:visible, input:not([type='hidden']):not([type='file']):not([type='checkbox']):not([type='radio']):not([type='range']):visible";
+  const taskField = page
+    .locator(
+      [
+        `.task-screen-route-layer ${keyboardFieldSelector}`,
+        `.support-task-screen ${keyboardFieldSelector}`,
+        `.payment-task-screen ${keyboardFieldSelector}`,
+        `.learning-task-screen ${keyboardFieldSelector}`,
+        `.admin-mailing-task-screen ${keyboardFieldSelector}`
+      ].join(", ")
+    )
+    .first();
+  const hasPortalTaskLayer = (await page.locator(".task-screen-route-layer:visible").count()) > 0;
+  if ((await taskField.count()) === 0 && hasPortalTaskLayer) {
+    return;
+  }
+  const field = (await taskField.count()) > 0 ? taskField : page.locator(keyboardFieldSelector).first();
+  if ((await field.count()) === 0) {
+    return;
+  }
+
+  const applyKeyboardViewport = () =>
+    page.evaluate(() => {
+      document.documentElement.classList.add("club-keyboard-open");
+      document.body.classList.add("club-keyboard-open");
+      document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+      document.body.style.setProperty("--club-visible-viewport-height", "420px");
+      document.documentElement.style.setProperty("--club-system-bottom", "360px");
+      document.body.style.setProperty("--club-system-bottom", "360px");
+      document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "360px");
+      document.body.style.setProperty("--club-calibrated-bottom-offset", "360px");
+    });
+
+  await applyKeyboardViewport();
+  await field.scrollIntoViewIfNeeded();
+  await field.focus();
+  await applyKeyboardViewport();
+  await page.evaluate(() => {
+    window.setTimeout(() => {
+      document.documentElement.classList.add("club-keyboard-open");
+      document.body.classList.add("club-keyboard-open");
+      document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+      document.body.style.setProperty("--club-visible-viewport-height", "420px");
+      document.documentElement.style.setProperty("--club-system-bottom", "360px");
+      document.body.style.setProperty("--club-system-bottom", "360px");
+      document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "360px");
+      document.body.style.setProperty("--club-calibrated-bottom-offset", "360px");
+    }, 420);
+  });
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          const activeRect = active?.getBoundingClientRect();
+          const footer = document.querySelector<HTMLElement>(".task-screen-footer");
+          return {
+            active:
+              active && activeRect
+                ? {
+                    tag: active.tagName.toLowerCase(),
+                    top: Math.round(activeRect.top),
+                    bottom: Math.round(activeRect.bottom),
+                    height: Math.round(activeRect.height),
+                    visibleInReducedViewport: activeRect.top >= -1 && activeRect.bottom <= 420
+                  }
+                : null,
+            footerPosition: footer ? getComputedStyle(footer).position : null
+          };
+        }),
+      { timeout: 2_500, message: routePath }
+    )
+    .toMatchObject({ active: { visibleInReducedViewport: true } });
+
+  const finalKeyboardLayout = await page.evaluate(() => {
+    const footer = document.querySelector<HTMLElement>(".task-screen-footer");
+    return {
+      footerPosition: footer ? getComputedStyle(footer).position : null
+    };
+  });
+  if (finalKeyboardLayout.footerPosition) {
+    expect(finalKeyboardLayout.footerPosition, `${routePath}\n${JSON.stringify(finalKeyboardLayout, null, 2)}`).not.toBe("fixed");
+  }
+
+  await page.evaluate(() => {
+    document.documentElement.classList.remove("club-keyboard-open");
+    document.body.classList.remove("club-keyboard-open");
+    for (const name of ["--club-visible-viewport-height", "--club-system-bottom", "--club-calibrated-bottom-offset"]) {
+      document.documentElement.style.removeProperty(name);
+      document.body.style.removeProperty(name);
+    }
+  });
 }
 
 const mobileModalFixtures = [
@@ -666,6 +1070,42 @@ test.beforeEach(async ({ page }, testInfo) => {
   await openApp(page, testInfo);
 });
 
+const responsiveRouteAuditProjects = new Set(["android-compact-320", "oneplus-mt2111", "viewport-390-844", "viewport-412-915", "tablet-768-1024"]);
+
+const responsiveRouteAuditPaths = [
+  { path: "/profile", selector: ".soft-home" },
+  { path: "/profile/avatar", selector: ".profile-avatar-editor-modal" },
+  { path: "/notifications", selector: ".notification-task-screen .task-screen" },
+  { path: "/learning", selector: ".modules-panel" },
+  { path: "/learning/modules/new", selector: ".learning-task-screen .task-screen" },
+  { path: "/learning/modules/module-main/edit", selector: ".learning-task-screen .task-screen" },
+  { path: "/learning/lessons/new/module-main", selector: ".learning-task-screen .task-screen" },
+  { path: "/learning/lessons/lesson-admin-1", selector: ".learning-task-screen .task-screen" },
+  { path: "/learning/lessons/lesson-admin-1/edit", selector: ".learning-task-screen .task-screen" },
+  { path: "/community", selector: ".community-chat-shell" },
+  { path: "/payments", selector: ".payment-product-list, .surface-card" },
+  { path: "/payments/provider", selector: ".payment-task-screen .task-screen" },
+  { path: "/payments/plans/new", selector: ".payment-task-screen .task-screen" },
+  { path: "/payments/plans/product-30/edit", selector: ".payment-task-screen .task-screen" },
+  { path: "/support", selector: ".support-section" },
+  { path: "/support/new", selector: ".support-task-screen .task-screen" },
+  { path: "/support/tickets/ticket-payment", selector: ".support-task-screen .task-screen" },
+  { path: "/admin", selector: ".admin-shell" },
+  { path: "/admin/clients/593677751", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/statistics/payments/paid", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/statistics/users/access-inactive", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/statistics/users/tariff-manual", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/releases", selector: ".release-notes-modal" },
+  { path: "/admin/mailings/new", selector: ".admin-mailing-task-screen .task-screen" },
+  { path: "/admin/mailings/mailing-demo", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/storage/files", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/storage/folders/all", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/storage/settings", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/server/logs", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/owner/transfer", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/admins/admin-owner/access", selector: ".admin-task-screen .task-screen" }
+];
+
 test("renders the PWA shell without accessibility violations", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Профиль" })).toBeVisible();
   await expect
@@ -702,6 +1142,18 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
     await page.getByRole("button", { name: section }).click();
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
+  }
+});
+
+test("keeps every routed PWA screen responsive on audited viewports", async ({ page }, testInfo) => {
+  test.skip(!responsiveRouteAuditProjects.has(testInfo.project.name));
+  test.setTimeout(120_000);
+
+  for (const auditRoute of responsiveRouteAuditPaths) {
+    await page.goto(auditRoute.path);
+    await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
+    await expectResponsiveLayoutIntegrity(page, auditRoute.path);
+    await expectKeyboardSafeIfFormRoute(page, auditRoute.path);
   }
 });
 
@@ -918,8 +1370,18 @@ test("keeps routed support tickets inside the mobile viewport", async ({ page },
   expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
 
-  if (testInfo.project.name === "pixel-7") {
+  if (["pixel-7", "viewport-390-844"].includes(testInfo.project.name)) {
     await page.screenshot({ path: testInfo.outputPath("support-ticket-task.png"), fullPage: false });
+    await page.evaluate(() => {
+      document.documentElement.classList.add("club-keyboard-open");
+      document.body.classList.add("club-keyboard-open");
+      document.documentElement.style.setProperty("--club-visible-viewport-height", "520px");
+      document.documentElement.style.setProperty("--club-system-bottom", "324px");
+      document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "324px");
+    });
+    await page.getByPlaceholder("Ответ клиенту").fill("Проверка ответа");
+    await page.setViewportSize({ width: 390, height: 520 });
+    await page.screenshot({ path: testInfo.outputPath("support-ticket-keyboard.png"), fullPage: false });
   }
 });
 

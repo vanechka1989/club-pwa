@@ -703,9 +703,10 @@ watch(
 
       <TaskScreen
         v-if="createTicketOpen"
-        class="support-task-screen"
+        class="support-task-screen support-create-task-screen"
         :title="t('supportCreateTicket')"
         :subtitle="t('supportCreateHint')"
+        portal
         @back="closeCreateTicket"
       >
           <form class="support-modal-body support-customer-form" @submit.prevent="submitTicket">
@@ -763,13 +764,14 @@ watch(
 
       <TaskScreen
         v-else-if="selectedTicket"
-        class="support-task-screen"
+        class="support-task-screen support-ticket-task-screen"
         :title="ticketTopicTitle(selectedTicket)"
         :subtitle="`${formatDate(selectedTicket.createdAt)} · ${ticketStatusLabel(selectedTicket)}`"
+        portal
         @back="closeModal"
       >
         <template v-if="isAdmin" #actions>
-          <button class="support-ticket-summary" type="button" :title="t('supportOpenClientCard')" @click="openClientCard">
+          <button class="support-ticket-client-action" type="button" :title="t('supportOpenClientCard')" @click="openClientCard">
             <img v-if="selectedTicket.customer.photoUrl" :src="selectedTicket.customer.photoUrl" :alt="userName(selectedTicket.customer)" />
             <span v-else class="support-customer-avatar support-customer-avatar-small">{{ userName(selectedTicket.customer).slice(0, 1) }}</span>
           </button>
@@ -829,63 +831,64 @@ watch(
               </article>
             </div>
 
-            <form v-if="isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitReply">
-              <div class="support-reply-input-row">
-                <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
-                  <Paperclip class="h-4 w-4" aria-hidden="true" />
-                  <span v-if="replyAttachments.length" class="support-file-count">{{ replyAttachments.length }}</span>
-                  <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'reply')" />
-                </label>
-                <textarea v-model="replyMessage" rows="2" :placeholder="t('supportReplyPlaceholder')" />
-              </div>
-              <div class="support-reply-actions">
-                <button
-                  class="support-compact-button support-danger-button"
-                  type="button"
-                  :disabled="closingTicket"
-                  @click="closeTicket"
-                >
-                  <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
-                  {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
-                </button>
-                <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingReply">
-                  {{ sendingReply ? t("supportSending") : t("supportSendReply") }}
-                </button>
-              </div>
-            </form>
-
-            <form v-else-if="!isAdmin && selectedTicket.status !== 'closed'" class="support-reply-form" @submit.prevent="submitFollowUp">
-              <div class="support-reply-input-row">
-                <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
-                  <Paperclip class="h-4 w-4" aria-hidden="true" />
-                  <span v-if="followUpAttachments.length" class="support-file-count">{{ followUpAttachments.length }}</span>
-                  <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'followUp')" />
-                </label>
-                <textarea v-model="followUpMessage" rows="2" :placeholder="t('supportFollowupPlaceholder')" />
-              </div>
-              <div class="support-reply-actions">
-                <button
-                  class="support-compact-button support-danger-button"
-                  type="button"
-                  :disabled="closingTicket"
-                  @click="closeTicket"
-                >
-                  <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
-                  {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
-                </button>
-                <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingFollowUp">
-                  {{ sendingFollowUp ? t("supportSending") : t("supportSend") }}
-                </button>
-              </div>
-            </form>
-
-            <div v-else class="support-modal-actions">
+            <div v-if="selectedTicket.status === 'closed'" class="support-modal-actions">
               <span class="support-closed-note">
                 <CircleDot class="h-4 w-4" aria-hidden="true" />
                 {{ t("supportClosedNote") }}
               </span>
             </div>
             </div>
+        <template #footer v-if="selectedTicket.status !== 'closed'">
+          <form v-if="isAdmin" class="support-reply-form" @submit.prevent="submitReply">
+            <div class="support-reply-input-row">
+              <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
+                <Paperclip class="h-4 w-4" aria-hidden="true" />
+                <span v-if="replyAttachments.length" class="support-file-count">{{ replyAttachments.length }}</span>
+                <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'reply')" />
+              </label>
+              <textarea v-model="replyMessage" rows="2" :placeholder="t('supportReplyPlaceholder')" />
+            </div>
+            <div class="support-reply-actions">
+              <button
+                class="support-compact-button support-danger-button"
+                type="button"
+                :disabled="closingTicket"
+                @click="closeTicket"
+              >
+                <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
+                {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
+              </button>
+              <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingReply">
+                {{ sendingReply ? t("supportSending") : t("supportSendReply") }}
+              </button>
+            </div>
+          </form>
+
+          <form v-else class="support-reply-form" @submit.prevent="submitFollowUp">
+            <div class="support-reply-input-row">
+              <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
+                <Paperclip class="h-4 w-4" aria-hidden="true" />
+                <span v-if="followUpAttachments.length" class="support-file-count">{{ followUpAttachments.length }}</span>
+                <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'followUp')" />
+              </label>
+              <textarea v-model="followUpMessage" rows="2" :placeholder="t('supportFollowupPlaceholder')" />
+            </div>
+            <div class="support-reply-actions">
+              <button
+                class="support-compact-button support-danger-button"
+                type="button"
+                :disabled="closingTicket"
+                @click="closeTicket"
+              >
+                <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
+                {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
+              </button>
+              <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingFollowUp">
+                {{ sendingFollowUp ? t("supportSending") : t("supportSend") }}
+              </button>
+            </div>
+          </form>
+        </template>
       </TaskScreen>
 
       <ConfirmDialog

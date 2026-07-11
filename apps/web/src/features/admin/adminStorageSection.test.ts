@@ -49,7 +49,7 @@ describe("admin storage section", () => {
     expect(stylesSource).toContain("0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)");
     expect(stylesSource).toContain(".admin-storage-status-card-error.admin-storage-status-card-active");
     expect(stylesSource).not.toContain(".admin-storage-status-grid {\n    grid-template-columns: 1fr;");
-    expect(adminSectionSource).toContain('openAdminTask("/admin/storage")');
+    expect(adminSectionSource).toContain('openAdminTask("/admin/storage/files")');
     expect(adminSectionSource).toContain('openAdminTask("/admin/storage/settings")');
     expect(adminSectionSource).toContain("<TaskScreen");
     expect(adminSectionSource).not.toContain("<Teleport to=\"body\">");

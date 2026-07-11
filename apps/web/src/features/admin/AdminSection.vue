@@ -1020,7 +1020,7 @@ async function handlePreviewModeChange(mode: PreviewMode) {
 
 function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
   selectedPaymentBreakdown.value = item;
-  openAdminTask(`/admin/statistics/payments-${item.key}`);
+  openAdminTask(`/admin/statistics/payments/${item.key}`);
 }
 
 function closePaymentDrilldown() {
@@ -1034,7 +1034,7 @@ function openUserAccessDrilldown(item: AdminAccessBreakdownItem) {
     key: item.key,
     title: item.label
   };
-  openAdminTask(`/admin/statistics/access-${item.key}`);
+  openAdminTask(`/admin/statistics/users/access-${item.key}`);
 }
 
 function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
@@ -1043,7 +1043,7 @@ function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
     tariff: tariff.tariff,
     title: tariff.label
   };
-  openAdminTask(`/admin/statistics/tariff-${encodeURIComponent(tariff.tariff)}`);
+  openAdminTask(`/admin/statistics/users/tariff-${encodeURIComponent(tariff.tariff)}`);
 }
 
 function closeUserDrilldown() {
@@ -1162,7 +1162,7 @@ function resolveAdminSearchTelegramId() {
 
 function openAdminAccessModal(admin: AdminUser) {
   selectedAdminAccess.value = admin;
-  openAdminTask(`/admin/admins/${admin.id}`);
+  openAdminTask(`/admin/admins/${admin.id}/access`);
 }
 
 function closeAdminAccessModal() {
@@ -1223,7 +1223,7 @@ async function saveProjectSettings() {
 
 function openServerLogsModal() {
   showServerLogsModal.value = true;
-  openAdminTask("/admin/server");
+  openAdminTask("/admin/server/logs");
   void loadServerErrorLogs().catch(() => null);
 }
 
@@ -1633,7 +1633,7 @@ async function openStorageFolder(folder: (typeof storagePrefixOptions)[number]) 
   storageFolderSort.value = "date";
   await loadStorageObjects();
   showStorageFolderModal.value = true;
-  openAdminTask(`/admin/storage/${encodeURIComponent(folder.value || "all")}`);
+  openAdminTask(`/admin/storage/folders/${encodeURIComponent(folder.value || "all")}`);
 }
 
 function openStorageSettings() {
@@ -1669,7 +1669,7 @@ function openSelectedStorageFiles() {
   }
 
   showStorageFilesModal.value = true;
-  openAdminTask("/admin/storage");
+  openAdminTask("/admin/storage/files");
 }
 
 function closeStorageFiles() {
@@ -2367,24 +2367,26 @@ async function syncAdminTaskRoute() {
     if (user && selectedUser.value?.telegramId !== telegramId) await selectUser(user);
     return;
   }
-  if (path === "/admin/storage") {
+  if (path === "/admin/storage/files" || path === "/admin/storage") {
     activePanel.value = "storage";
     showStorageFilesModal.value = true;
     return;
   }
-  const storageMatch = path.match(/^\/admin\/storage\/([^/]+)$/);
-  if (storageMatch) {
+  if (path === "/admin/storage/settings") {
     activePanel.value = "storage";
-    const folderId = decodeURIComponent(storageMatch[1]!);
-    if (folderId === "settings") {
-      showStorageSettingsModal.value = true;
-      return;
-    }
+    showStorageSettingsModal.value = true;
+    return;
+  }
+  const storageFolderMatch =
+    path.match(/^\/admin\/storage\/folders\/([^/]+)$/) ?? path.match(/^\/admin\/storage\/(?!files$|settings$)([^/]+)$/);
+  if (storageFolderMatch) {
+    activePanel.value = "storage";
+    const folderId = decodeURIComponent(storageFolderMatch[1]!);
     const folder = storagePrefixOptions.find((item) => (item.value || "all") === folderId);
     if (folder && selectedStorageFolder.value?.value !== folder.value) await openStorageFolder(folder);
     return;
   }
-  if (path === "/admin/server") {
+  if (path === "/admin/server/logs" || path === "/admin/server") {
     activePanel.value = "server-logs";
     showServerLogsModal.value = true;
     void loadServerErrorLogs().catch(() => null);
@@ -2396,26 +2398,35 @@ async function syncAdminTaskRoute() {
     transferOwnerTelegramId.value ||= admins.value[0]?.telegramId ?? "";
     return;
   }
-  const adminMatch = path.match(/^\/admin\/admins\/([^/]+)$/);
+  const adminMatch = path.match(/^\/admin\/admins\/([^/]+)\/access$/) ?? path.match(/^\/admin\/admins\/([^/]+)$/);
   if (adminMatch) {
     activePanel.value = "admins";
     const adminId = decodeURIComponent(adminMatch[1]!);
     selectedAdminAccess.value = admins.value.find((item) => item.id === adminId) ?? null;
     return;
   }
-  const statsMatch = path.match(/^\/admin\/statistics\/(.+)$/);
-  if (statsMatch) {
+  const paymentStatsMatch =
+    path.match(/^\/admin\/statistics\/payments\/([^/]+)$/) ?? path.match(/^\/admin\/statistics\/payments-(.+)$/);
+  if (paymentStatsMatch) {
     activePanel.value = "statistics";
-    const segment = decodeURIComponent(statsMatch[1]!);
-    if (segment.startsWith("payments-")) {
-      selectedPaymentBreakdown.value =
-        adminStatistics.value.payments.breakdown.find((item) => item.key === segment.slice("payments-".length)) ?? null;
-    } else if (segment.startsWith("access-")) {
+    const key = decodeURIComponent(paymentStatsMatch[1]!);
+    selectedPaymentBreakdown.value = adminStatistics.value.payments.breakdown.find((item) => item.key === key) ?? null;
+    return;
+  }
+  const userStatsMatch =
+    path.match(/^\/admin\/statistics\/users\/([^/]+)$/) ?? path.match(/^\/admin\/statistics\/(access-.+|tariff-.+)$/);
+  if (userStatsMatch) {
+    activePanel.value = "statistics";
+    const segment = decodeURIComponent(userStatsMatch[1]!);
+    if (segment.startsWith("access-")) {
       const item = adminStatistics.value.clients.accessBreakdown.find((entry) => entry.key === segment.slice("access-".length));
       if (item) selectedUserDrilldown.value = { kind: "access", key: item.key, title: item.label };
-    } else if (segment.startsWith("tariff-")) {
+      return;
+    }
+    if (segment.startsWith("tariff-")) {
       const tariff = segment.slice("tariff-".length);
       selectedUserDrilldown.value = { kind: "tariff", tariff, title: getAdminTariffLabel(tariff) };
+      return;
     }
   }
 }

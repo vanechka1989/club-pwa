@@ -112,6 +112,27 @@ describe("keyboard focus handling", () => {
     modal.remove();
   });
 
+  it("center-scrolls module modal fields when they are inside a routed task screen", () => {
+    const taskScreen = document.createElement("section");
+    taskScreen.className = "task-screen";
+    const modal = document.createElement("aside");
+    modal.className = "module-name-modal";
+    const input = document.createElement("input");
+    const scrollIntoView = vi.fn();
+    input.scrollIntoView = scrollIntoView;
+    modal.append(input);
+    taskScreen.append(modal);
+    document.body.append(taskScreen);
+
+    ensureFocusedTextFieldVisible(input, (handler) => {
+      handler();
+      return 1;
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", inline: "nearest", behavior: "smooth" });
+    taskScreen.remove();
+  });
+
   it("keeps the module modal footer compact above keyboard-safe areas", () => {
     const moduleActionsRule = styles.match(/\.module-name-modal \.admin-form-actions\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
 
