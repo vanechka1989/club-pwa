@@ -847,13 +847,13 @@ async function expectRoutedTaskScreenFillsMobilePwaViewport(page: Page, routePat
 
     return {
       viewportWidth: document.documentElement.clientWidth,
-      isScaledMobilePwa: document.body.classList.contains("club-mobile-app-scaled"),
+      isMobileDevicePwa: document.body.classList.contains("club-mobile-device"),
       layer: describe(layerRect),
       taskScreen: describe(taskRect)
     };
   });
 
-  if (!metrics.isScaledMobilePwa || !metrics.taskScreen) {
+  if (!metrics.isMobileDevicePwa || !metrics.taskScreen) {
     return;
   }
 
@@ -868,6 +868,20 @@ async function expectRoutedTaskScreenFillsMobilePwaViewport(page: Page, routePat
   expect(metrics.taskScreen.right, `${routePath}\n${JSON.stringify(metrics, null, 2)}`).toBeLessThanOrEqual(
     metrics.viewportWidth + 1
   );
+}
+
+async function forcePlainMobileDeviceShell(page: Page) {
+  await page.evaluate(() => {
+    document.documentElement.classList.add("club-mobile-device");
+    document.body.classList.add("club-mobile-device");
+    document.documentElement.classList.remove("club-mobile-app-scaled");
+    document.body.classList.remove("club-mobile-app-scaled");
+    for (const target of [document.documentElement, document.body]) {
+      target.style.removeProperty("--club-app-wide-viewport-scale");
+      target.style.removeProperty("--club-app-wide-font-root");
+      target.style.removeProperty("--club-app-wide-font-base");
+    }
+  });
 }
 
 async function expectKeyboardSafeIfFormRoute(page: Page, routePath: string) {
@@ -1231,6 +1245,19 @@ test("keeps routed task screens full width in wide mobile PWA viewports", async 
   }
 });
 
+test("keeps routed task screens full width for plain Samsung mobile shells", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "android-wide-layout-980");
+  test.setTimeout(120_000);
+
+  for (const auditRoute of responsiveRouteAuditPaths.filter((route) => route.selector.includes("task-screen") || route.selector.includes("release-notes-modal"))) {
+    await page.goto(auditRoute.path);
+    await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
+    await forcePlainMobileDeviceShell(page);
+    await expectResponsiveLayoutIntegrity(page, auditRoute.path);
+    await expectRoutedTaskScreenFillsMobilePwaViewport(page, auditRoute.path);
+  }
+});
+
 test("keeps routed PWA screens responsive across exact mobile audit sizes", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "viewport-412-915");
   test.setTimeout(240_000);
@@ -1493,6 +1520,61 @@ test("keeps routed support tickets inside the mobile viewport", async ({ page },
     await page.setViewportSize({ width: 390, height: 520 });
     await page.screenshot({ path: testInfo.outputPath("support-ticket-keyboard.png"), fullPage: false });
   }
+});
+
+test("keeps support ticket composer anchored above keyboard in plain Samsung shells", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "android-wide-layout-980");
+
+  await page.goto("/support/tickets/ticket-payment");
+  await expect(page.locator(".support-ticket-task-screen .task-screen")).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByPlaceholder("Ответ клиенту")).toBeVisible();
+  await forcePlainMobileDeviceShell(page);
+  await page.evaluate(() => {
+    document.documentElement.classList.add("club-keyboard-open");
+    document.body.classList.add("club-keyboard-open");
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "620px");
+    document.body.style.setProperty("--club-visible-viewport-height", "620px");
+    document.documentElement.style.setProperty("--club-system-bottom", "360px");
+    document.body.style.setProperty("--club-system-bottom", "360px");
+    document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "360px");
+    document.body.style.setProperty("--club-calibrated-bottom-offset", "360px");
+  });
+  await page.getByPlaceholder("Ответ клиенту").fill("Проверка ответа");
+
+  const metrics = await page.evaluate(() => {
+    const task = document.querySelector<HTMLElement>(".support-ticket-task-screen .task-screen");
+    const body = document.querySelector<HTMLElement>(".support-ticket-task-screen .task-screen-body");
+    const footer = document.querySelector<HTMLElement>(".support-ticket-task-screen .task-screen-footer");
+    const textarea = document.querySelector<HTMLElement>(".support-ticket-task-screen textarea");
+    const rect = (element: HTMLElement | null) => {
+      const box = element?.getBoundingClientRect();
+      return box
+        ? {
+            top: Math.round(box.top),
+            bottom: Math.round(box.bottom),
+            height: Math.round(box.height),
+            width: Math.round(box.width)
+          }
+        : null;
+    };
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      visibleHeight: 620,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      task: rect(task),
+      body: rect(body),
+      footer: rect(footer),
+      textarea: rect(textarea),
+      footerPosition: footer ? getComputedStyle(footer).position : null
+    };
+  });
+
+  expect(metrics.documentScrollWidth, JSON.stringify(metrics, null, 2)).toBeLessThanOrEqual(metrics.viewportWidth + 2);
+  expect(metrics.task?.top, JSON.stringify(metrics, null, 2)).toBe(0);
+  expect(metrics.task?.height, JSON.stringify(metrics, null, 2)).toBeLessThanOrEqual(metrics.visibleHeight + 1);
+  expect(metrics.footer?.bottom, JSON.stringify(metrics, null, 2)).toBeGreaterThanOrEqual(metrics.visibleHeight - 2);
+  expect(metrics.footer?.bottom, JSON.stringify(metrics, null, 2)).toBeLessThanOrEqual(metrics.visibleHeight + 2);
+  expect(metrics.textarea?.bottom, JSON.stringify(metrics, null, 2)).toBeLessThanOrEqual(metrics.visibleHeight - 96);
 });
 
 test("matches full visual baselines for key screens", async ({ page }, testInfo) => {
