@@ -28,4 +28,4 @@
 ### Task 3: Verification and release
 
 - [x] Run all community API tests and focused web layout, keyboard, foundation and PWA tests.
-- [ ] Build, deploy version 3.67 with service-worker cache v68 and verify production assets.
+- [x] Build, deploy version 3.67 with service-worker cache v68 and verify production assets.
