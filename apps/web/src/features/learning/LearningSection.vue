@@ -2328,14 +2328,14 @@ watch(
 </script>
 
 <template>
-  <section class="admin-panel modules-panel">
-    <div class="admin-panel-head">
+  <section class="admin-panel modules-panel ui-page-section">
+    <div class="admin-panel-head ui-page-header">
       <div>
         <h3>{{ t("modulesTitle") }}</h3>
         <p>{{ t("modulesSubtitle") }}</p>
       </div>
       <div v-if="canManageModules" class="modules-panel-actions" aria-label="Управление модулями">
-        <button class="icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
+        <button class="icon-button ui-icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
           <Plus class="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
@@ -2362,7 +2362,7 @@ watch(
       <article
         v-for="(module, moduleIndex) in moduleCards"
         :key="module.id"
-        class="admin-mockup-card"
+      class="admin-mockup-card ui-card"
         :class="{ 'module-card-collapsed': isModuleCollapsed(module.id) }"
         :data-module-id="module.id"
       >
@@ -2383,7 +2383,7 @@ watch(
             <span>{{ lessonCountLabel(module.images.length) }}</span>
             <div v-if="canManageModules" class="module-sort-controls" aria-label="Сортировка модуля">
               <button
-                class="icon-button module-sort-button"
+                class="icon-button ui-icon-button module-sort-button"
                 type="button"
                 :disabled="isSorting || moduleIndex === 0"
                 aria-label="Поднять модуль"
@@ -2392,7 +2392,7 @@ watch(
                 <ArrowUp class="h-3.5 w-3.5" aria-hidden="true" />
               </button>
               <button
-                class="icon-button module-sort-button"
+                class="icon-button ui-icon-button module-sort-button"
                 type="button"
                 :disabled="isSorting || moduleIndex === moduleCards.length - 1"
                 aria-label="Опустить модуль"
@@ -2403,7 +2403,7 @@ watch(
             </div>
             <button
               v-if="canManageModules"
-              class="icon-button module-lesson-add"
+              class="icon-button ui-icon-button module-lesson-add"
               type="button"
               :aria-label="`Редактировать ${module.title}`"
               @click="openModuleEditModal(module)"
@@ -2412,7 +2412,7 @@ watch(
             </button>
             <button
               v-if="canManageModules && !isModuleCollapsed(module.id)"
-              class="icon-button module-lesson-add"
+              class="icon-button ui-icon-button module-lesson-add"
               type="button"
               :aria-label="`Добавить урок в ${module.title}`"
               @click="openLessonCreateModal(module)"
@@ -2420,7 +2420,7 @@ watch(
               <Plus class="h-4 w-4" aria-hidden="true" />
             </button>
             <button
-              class="icon-button module-lesson-add module-collapse-control"
+              class="icon-button ui-icon-button module-lesson-add module-collapse-control"
               type="button"
               :aria-label="`Переключить ${module.title}`"
               @click="toggleModule(module.id)"
@@ -2446,7 +2446,7 @@ watch(
               aria-label="Сортировка урока"
             >
               <button
-                class="icon-button module-sort-button"
+                class="icon-button ui-icon-button module-sort-button"
                 type="button"
                 :disabled="isSorting || lessonIndex === 0"
                 :aria-label="module.defaultCardLayout === 'horizontal' ? 'Поднять урок' : 'Сдвинуть урок влево'"
@@ -2456,7 +2456,7 @@ watch(
                 <ArrowLeft v-else class="h-3.5 w-3.5" aria-hidden="true" />
               </button>
               <button
-                class="icon-button module-sort-button"
+                class="icon-button ui-icon-button module-sort-button"
                 type="button"
                 :disabled="isSorting || lessonIndex === module.images.length - 1"
                 :aria-label="module.defaultCardLayout === 'horizontal' ? 'Опустить урок' : 'Сдвинуть урок вправо'"
@@ -2499,7 +2499,7 @@ watch(
 
       <article
         v-if="canManageModules && deletedLessons.length"
-        class="admin-mockup-card admin-mockup-deleted-module"
+        class="admin-mockup-card ui-card admin-mockup-deleted-module"
         :class="{ 'module-card-collapsed': isModuleCollapsed(deletedContentModuleId) }"
       >
         <div class="admin-mockup-card-head module-card-head">
@@ -2518,7 +2518,7 @@ watch(
           <div class="admin-mockup-card-actions">
             <span>{{ lessonCountLabel(deletedLessons.length) }}</span>
             <button
-              class="icon-button module-lesson-add module-collapse-control"
+              class="icon-button ui-icon-button module-lesson-add module-collapse-control"
               type="button"
               aria-label="Переключить Удалённый контент"
               @click="toggleModule(deletedContentModuleId)"
@@ -2539,7 +2539,7 @@ watch(
                 <small>{{ formatArchiveDeletionLabel(lesson.archivedUntil) }}</small>
               </div>
             </div>
-            <button class="restore-lesson-button" type="button" :disabled="isSaving" :aria-label="`Восстановить ${lesson.title}`" @click="restoreDeletedLesson(lesson)">
+            <button class="restore-lesson-button ui-button" type="button" :disabled="isSaving" :aria-label="`Восстановить ${lesson.title}`" @click="restoreDeletedLesson(lesson)">
               Восстановить
             </button>
           </article>
@@ -2555,7 +2555,7 @@ watch(
       portal
       @back="closeModuleModal"
     >
-        <section class="module-name-modal modal-size-compact" role="dialog" aria-modal="true" :aria-label="moduleModalTitle">
+        <section class="module-name-modal ui-card modal-size-compact" role="dialog" aria-modal="true" :aria-label="moduleModalTitle">
           <header class="admin-client-modal-head">
             <div>
               <h3 id="module-modal-title">{{ moduleModalTitle }}</h3>
@@ -2600,9 +2600,9 @@ watch(
           </div>
 
           <div class="admin-form-actions">
-            <button v-if="editingModule" class="secondary-button danger-action" type="button" :disabled="isSaving" @click="deleteModule">Удалить модуль</button>
-            <button class="secondary-button" type="button" :disabled="isSaving" @click="closeModuleModal">Закрыть</button>
-            <button class="primary-button" type="button" :disabled="isSaving" @click="saveModule">
+            <button v-if="editingModule" class="secondary-button ui-button danger-action" type="button" :disabled="isSaving" @click="deleteModule">Удалить модуль</button>
+            <button class="secondary-button ui-button" type="button" :disabled="isSaving" @click="closeModuleModal">Закрыть</button>
+            <button class="primary-button ui-button" type="button" :disabled="isSaving" @click="saveModule">
               {{ isSaving ? "Сохраняем..." : "Сохранить модуль" }}
             </button>
           </div>
@@ -2618,7 +2618,7 @@ watch(
       @back="closeLessonModal"
     >
         <section
-          class="lesson-preview-modal"
+          class="lesson-preview-modal ui-card"
           :class="canManageModules ? 'lesson-preview-modal-edit' : 'lesson-preview-modal-view'"
           role="dialog"
           aria-modal="true"
@@ -2875,11 +2875,11 @@ watch(
                 <small>{{ lessonMediaSource === "file" ? lessonFileName || "Файл не выбран" : "Файл в S3 загружаться не будет." }}</small>
               </label>
               <div v-if="lessonKind === 'audio'" class="voice-record-row">
-                <button v-if="!isVoiceRecording" class="secondary-button" type="button" @click="startVoiceRecording">
+                <button v-if="!isVoiceRecording" class="secondary-button ui-button" type="button" @click="startVoiceRecording">
                   <Mic class="h-4 w-4" aria-hidden="true" />
                   Записать голос
                 </button>
-                <button v-else class="secondary-button" type="button" @click="stopVoiceRecording">
+                <button v-else class="secondary-button ui-button" type="button" @click="stopVoiceRecording">
                   <Square class="h-4 w-4" aria-hidden="true" />
                   Остановить запись
                 </button>
@@ -2891,7 +2891,7 @@ watch(
               </label>
               <button
                 v-if="selectedLessonItem?.thumbnailUrl || lessonThumbnailFileName"
-                class="secondary-button cover-remove-button"
+                class="secondary-button ui-button cover-remove-button"
                 type="button"
                 @click="removeLessonThumbnail"
               >
@@ -2908,7 +2908,7 @@ watch(
                     <span>Дополнительные материалы</span>
                     <small>Текст, фото, видео или аудио внутри этого урока.</small>
                   </div>
-                  <button class="secondary-button lesson-extra-add" type="button" @click="addLessonMaterialDraft">
+                  <button class="secondary-button ui-button lesson-extra-add" type="button" @click="addLessonMaterialDraft">
                     <Plus class="h-4 w-4" aria-hidden="true" />
                     Добавить ещё материал
                   </button>
@@ -2917,7 +2917,7 @@ watch(
                 <article v-for="material in lessonMaterialDrafts" :key="material.id" class="lesson-extra-card">
                   <div class="lesson-extra-card-head">
                     <strong>Материал</strong>
-                    <button class="icon-button" type="button" aria-label="Удалить дополнительный материал" @click="removeLessonMaterialDraft(material.id)">
+                    <button class="icon-button ui-icon-button" type="button" aria-label="Удалить дополнительный материал" @click="removeLessonMaterialDraft(material.id)">
                       <Trash2 class="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
@@ -2995,7 +2995,7 @@ watch(
           <div v-if="canManageModules" class="admin-form-actions lesson-preview-actions lesson-preview-actions-edit">
             <button
               v-if="selectedLessonItem"
-              class="secondary-button lesson-delete-button"
+              class="secondary-button ui-button lesson-delete-button"
               type="button"
               :disabled="isSaving"
               @click="deleteLesson"
@@ -3003,8 +3003,8 @@ watch(
               <Trash2 class="h-4 w-4" aria-hidden="true" />
               Удалить урок
             </button>
-            <button class="secondary-button" type="button" :disabled="isSaving" @click="closeLessonModal">Закрыть</button>
-            <button v-if="canManageModules" class="primary-button" type="button" :disabled="isSaving" @click="saveLesson">
+            <button class="secondary-button ui-button" type="button" :disabled="isSaving" @click="closeLessonModal">Закрыть</button>
+            <button v-if="canManageModules" class="primary-button ui-button" type="button" :disabled="isSaving" @click="saveLesson">
               {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}
             </button>
           </div>

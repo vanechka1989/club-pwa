@@ -620,9 +620,9 @@ watch(
 </script>
 
 <template>
-  <section class="support-section space-y-4">
+  <section class="support-section ui-page-section space-y-4">
     <template v-if="!createTicketOpen && !selectedTicket">
-    <div class="section-head">
+    <div class="section-head ui-page-header">
       <div>
         <h2 class="section-title">{{ t("support") }}</h2>
         <p class="section-subtitle">
@@ -634,20 +634,20 @@ watch(
     <p v-if="error" class="support-alert support-alert-error">{{ error }}</p>
     <p v-if="success" class="support-alert support-alert-success">{{ success }}</p>
 
-    <div v-if="loading" class="surface-card text-sm text-[var(--muted)]">{{ t("supportLoading") }}</div>
+    <div v-if="loading" class="surface-card ui-card text-sm text-[var(--muted)]">{{ t("supportLoading") }}</div>
 
     <template v-else-if="!isAdmin">
-      <div class="surface-card support-create-entry">
+      <div class="surface-card ui-card support-create-entry">
         <div>
           <h3>{{ t("supportNeedHelpTitle") }}</h3>
           <p class="support-muted">{{ t("supportNeedHelpText") }}</p>
         </div>
-        <button class="support-compact-button support-primary-button" type="button" @click="openCreateTicket">
+        <button class="support-compact-button support-primary-button ui-button" type="button" @click="openCreateTicket">
           {{ t("supportCreateTicket") }}
         </button>
       </div>
 
-      <div class="support-list surface-card">
+      <div class="support-list surface-card ui-card">
         <h3>{{ t("supportMyTickets") }}</h3>
         <p v-if="!tickets.length" class="support-muted">{{ t("supportNoTickets") }}</p>
         <button v-for="ticket in tickets" :key="ticket.id" class="support-ticket-card" type="button" @click="openTicket(ticket.id)">
@@ -665,25 +665,25 @@ watch(
     <template v-else>
       <div class="support-admin-board">
         <div class="support-admin-stats">
-          <article class="surface-card">
+          <article class="surface-card ui-card">
             <span>{{ t("supportStatsNew") }}</span>
             <strong>{{ adminUnreadTickets.length }}</strong>
           </article>
-          <article class="surface-card">
+          <article class="surface-card ui-card">
             <span>{{ t("supportStatsOpen") }}</span>
             <strong>{{ openTickets.length }}</strong>
           </article>
-          <article class="surface-card">
+          <article class="surface-card ui-card">
             <span>{{ t("supportStatsClosed") }}</span>
             <strong>{{ closedTickets.length }}</strong>
           </article>
-          <article class="surface-card">
+          <article class="surface-card ui-card">
             <span>{{ t("supportStatsAverage") }}</span>
             <strong>{{ averageResponseTimeLabel }}</strong>
           </article>
         </div>
 
-        <div class="surface-card support-ticket-list">
+        <div class="surface-card ui-card support-ticket-list">
           <h3>{{ t("supportRequests") }}</h3>
           <button v-for="ticket in tickets" :key="ticket.id" class="support-admin-ticket" type="button" @click="openTicket(ticket.id)">
             <div class="support-admin-ticket-main">
@@ -709,7 +709,7 @@ watch(
         portal
         @back="closeCreateTicket"
       >
-          <form class="support-modal-body support-customer-form" @submit.prevent="submitTicket">
+          <form class="support-modal-body support-customer-form ui-card" @submit.prevent="submitTicket">
             <div class="support-form-grid">
               <div class="support-field support-field-wide">
                 <span>{{ t("supportReason") }}</span>
@@ -755,7 +755,7 @@ watch(
               <span v-for="file in attachments" :key="file.name">{{ file.name }}</span>
             </div>
 
-            <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingTicket">
+            <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="sendingTicket">
               <Send class="h-4 w-4" aria-hidden="true" />
               {{ sendingTicket ? t("supportSending") : t("supportSendTicket") }}
             </button>
@@ -776,7 +776,7 @@ watch(
             <span v-else class="support-customer-avatar support-customer-avatar-small">{{ userName(selectedTicket.customer).slice(0, 1) }}</span>
           </button>
         </template>
-          <header v-if="isAdmin" class="support-modal-head support-task-customer-head">
+          <header v-if="isAdmin" class="support-modal-head support-task-customer-head ui-card">
             <div>
               <p class="support-kicker">{{ isAdmin ? t("supportTicketCardAdmin") : t("supportTicketCardUser") }}</p>
               <button
@@ -804,7 +804,7 @@ watch(
             </div>
           </header>
 
-          <div class="support-modal-body support-ticket-modal-body">
+          <div class="support-modal-body support-ticket-modal-body ui-card">
             <div ref="threadRef" class="support-thread">
               <article
                 v-for="item in selectedTicket.messages"
@@ -841,16 +841,16 @@ watch(
         <template #footer v-if="selectedTicket.status !== 'closed'">
           <form v-if="isAdmin" class="support-reply-form" @submit.prevent="submitReply">
             <div class="support-reply-input-row">
-              <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
+              <label class="support-file-icon-button ui-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
                 <Paperclip class="h-4 w-4" aria-hidden="true" />
                 <span v-if="replyAttachments.length" class="support-file-count">{{ replyAttachments.length }}</span>
                 <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'reply')" />
               </label>
               <textarea v-model="replyMessage" rows="2" :placeholder="t('supportReplyPlaceholder')" />
             </div>
-            <div class="support-reply-actions">
+            <div class="support-reply-actions ui-button-group">
               <button
-                class="support-compact-button support-danger-button"
+                class="support-compact-button support-danger-button ui-button"
                 type="button"
                 :disabled="closingTicket"
                 @click="closeTicket"
@@ -858,7 +858,7 @@ watch(
                 <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
                 {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
               </button>
-              <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingReply">
+              <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="sendingReply">
                 {{ sendingReply ? t("supportSending") : t("supportSendReply") }}
               </button>
             </div>
@@ -866,16 +866,16 @@ watch(
 
           <form v-else class="support-reply-form" @submit.prevent="submitFollowUp">
             <div class="support-reply-input-row">
-              <label class="support-file-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
+              <label class="support-file-icon-button ui-icon-button" :title="t('supportAddFile')" :aria-label="t('supportAddFile')">
                 <Paperclip class="h-4 w-4" aria-hidden="true" />
                 <span v-if="followUpAttachments.length" class="support-file-count">{{ followUpAttachments.length }}</span>
                 <input type="file" accept="image/*,video/*" multiple @change="updateFiles($event, 'followUp')" />
               </label>
               <textarea v-model="followUpMessage" rows="2" :placeholder="t('supportFollowupPlaceholder')" />
             </div>
-            <div class="support-reply-actions">
+            <div class="support-reply-actions ui-button-group">
               <button
-                class="support-compact-button support-danger-button"
+                class="support-compact-button support-danger-button ui-button"
                 type="button"
                 :disabled="closingTicket"
                 @click="closeTicket"
@@ -883,7 +883,7 @@ watch(
                 <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
                 {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
               </button>
-              <button class="support-compact-button support-primary-button" type="submit" :disabled="sendingFollowUp">
+              <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="sendingFollowUp">
                 {{ sendingFollowUp ? t("supportSending") : t("supportSend") }}
               </button>
             </div>

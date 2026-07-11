@@ -497,13 +497,13 @@ watch(() => route.path, syncPaymentTaskRoute);
 </script>
 
 <template>
-  <section class="space-y-5">
-    <div class="section-head">
+  <section class="ui-page-section space-y-5">
+    <div class="section-head ui-page-header">
       <div>
         <h2 class="section-title">{{ t("paymentsTitle") }}</h2>
         <p class="section-subtitle">{{ t("paymentsSubtitle") }}</p>
       </div>
-      <button v-if="isOwner" class="icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
+      <button v-if="isOwner" class="icon-button ui-icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
         <Plus :size="20" />
       </button>
     </div>
@@ -511,7 +511,7 @@ watch(() => route.path, syncPaymentTaskRoute);
     <p v-if="error" class="text-sm text-[var(--danger-text)]">{{ error }}</p>
     <p v-else-if="notice" class="text-sm text-[var(--muted-strong)]">{{ notice }}</p>
 
-    <div v-if="isAdmin" class="surface-card space-y-3">
+    <div v-if="isAdmin" class="surface-card ui-card space-y-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="font-semibold text-[var(--text)]">{{ t("paymentsProvider") }}</p>
@@ -519,19 +519,19 @@ watch(() => route.path, syncPaymentTaskRoute);
             {{ provider?.isEnabled ? t("paymentsProviderEnabled") : t("paymentsProviderDisabled") }}
           </div>
         </div>
-        <button v-if="isOwner" class="secondary-button w-auto px-4" type="button" @click="openProviderForm">
+        <button v-if="isOwner" class="secondary-button ui-button w-auto px-4" type="button" @click="openProviderForm">
           {{ provider ? t("paymentsSetup") : t("paymentsConnect") }}
         </button>
       </div>
     </div>
 
-    <div class="surface-card">
+    <div class="surface-card ui-card">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
           <p class="font-semibold text-[var(--text)]">{{ t("paymentsPlans") }}</p>
           <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsPlansText") }}</p>
         </div>
-        <button v-if="isOwner" class="icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
+        <button v-if="isOwner" class="icon-button ui-icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
           <Plus :size="20" />
         </button>
       </div>
@@ -540,7 +540,7 @@ watch(() => route.path, syncPaymentTaskRoute);
         <p class="font-semibold text-[var(--text)]">{{ activeRecurrentSubscription.title }}</p>
         <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsRecurringActive") }}</p>
         <button
-          class="secondary-button mt-3"
+          class="secondary-button ui-button mt-3"
           type="button"
           :disabled="saving"
           @click="handleCancelSubscription(activeRecurrentSubscription)"
@@ -554,7 +554,7 @@ watch(() => route.path, syncPaymentTaskRoute);
           {{ t("paymentsRecurringCancelledHint") }}
         </p>
         <button
-          class="secondary-button mt-3"
+          class="secondary-button ui-button mt-3"
           type="button"
           :disabled="saving"
           @click="handleRestoreSubscription(restorableRecurrentSubscription)"
@@ -573,10 +573,10 @@ watch(() => route.path, syncPaymentTaskRoute);
             <p class="payment-product-title">{{ product.title }}</p>
             <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
           </div>
-          <div class="payment-product-actions">
+          <div class="payment-product-actions ui-button-group">
             <button
               v-if="!primaryRecurrentSubscription"
-              class="primary-button payment-product-pay"
+              class="primary-button ui-button payment-product-pay"
               :class="{ 'payment-product-pay-loading': checkoutProductId === product.id }"
               type="button"
               :disabled="saving || !provider?.isEnabled"
@@ -586,13 +586,13 @@ watch(() => route.path, syncPaymentTaskRoute);
               <span>{{ checkoutProductId === product.id ? t("paymentsOpening") : product.kind === "recurrent" ? t("paymentsSubscribe") : t("paymentsPay") }}</span>
             </button>
             <div v-if="isOwner" class="payment-product-admin-actions">
-              <button class="icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">
+              <button class="icon-button ui-icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">
                 <Pencil :size="16" />
               </button>
-              <button class="icon-button" type="button" aria-label="Скрыть тариф" @click="handleToggleProduct(product)">
+              <button class="icon-button ui-icon-button" type="button" aria-label="Скрыть тариф" @click="handleToggleProduct(product)">
                 <EyeOff :size="16" />
               </button>
-              <button class="icon-button" type="button" aria-label="Удалить тариф" @click="handleDeleteProduct(product)">
+              <button class="icon-button ui-icon-button" type="button" aria-label="Удалить тариф" @click="handleDeleteProduct(product)">
                 <Trash2 :size="16" />
               </button>
             </div>
@@ -601,7 +601,7 @@ watch(() => route.path, syncPaymentTaskRoute);
       </div>
     </div>
 
-    <div v-if="activeRecurrentSubscription && isOwner" class="surface-card space-y-3">
+    <div v-if="activeRecurrentSubscription && isOwner" class="surface-card ui-card space-y-3">
       <p class="font-semibold text-[var(--text)]">{{ t("profileRecurrentPayment") }}</p>
       <article class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
@@ -610,7 +610,7 @@ watch(() => route.path, syncPaymentTaskRoute);
             <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsRecurringActive") }}</p>
           </div>
           <button
-            class="secondary-button w-auto px-4"
+            class="secondary-button ui-button w-auto px-4"
             type="button"
             :disabled="saving"
             @click="handleCancelSubscription(activeRecurrentSubscription)"
@@ -621,7 +621,7 @@ watch(() => route.path, syncPaymentTaskRoute);
       </article>
     </div>
 
-    <div v-if="restorableRecurrentSubscription && isOwner" class="surface-card space-y-3">
+    <div v-if="restorableRecurrentSubscription && isOwner" class="surface-card ui-card space-y-3">
       <p class="font-semibold text-[var(--text)]">{{ t("profileRecurrentCancelled") }}</p>
       <article class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
@@ -630,7 +630,7 @@ watch(() => route.path, syncPaymentTaskRoute);
             <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsRecurringCancelledHint") }}</p>
           </div>
           <button
-            class="secondary-button w-auto px-4"
+            class="secondary-button ui-button w-auto px-4"
             type="button"
             :disabled="saving"
             @click="handleRestoreSubscription(restorableRecurrentSubscription)"
@@ -641,7 +641,7 @@ watch(() => route.path, syncPaymentTaskRoute);
       </article>
     </div>
 
-    <div v-if="recurrentSubscriptionHistory.length" class="surface-card space-y-3">
+    <div v-if="recurrentSubscriptionHistory.length" class="surface-card ui-card space-y-3">
       <p class="font-semibold text-[var(--text)]">{{ t("paymentsSubscriptions") }}</p>
       <article v-for="subscription in recurrentSubscriptionHistory" :key="subscription.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
@@ -653,7 +653,7 @@ watch(() => route.path, syncPaymentTaskRoute);
           </div>
           <button
             v-if="subscription.status === 'active'"
-            class="secondary-button w-auto px-4"
+            class="secondary-button ui-button w-auto px-4"
             type="button"
             :disabled="saving"
             @click="handleCancelSubscription(subscription)"
@@ -664,7 +664,7 @@ watch(() => route.path, syncPaymentTaskRoute);
       </article>
     </div>
 
-    <div v-if="isOwner && hiddenProducts.length" class="surface-card space-y-3">
+    <div v-if="isOwner && hiddenProducts.length" class="surface-card ui-card space-y-3">
       <p class="font-semibold text-[var(--text)]">{{ t("paymentsHiddenPlans") }}</p>
       <article v-for="product in hiddenProducts" :key="product.id" class="flex items-center justify-between gap-3 rounded-[18px] bg-[var(--field)] p-4">
         <div>
@@ -672,17 +672,17 @@ watch(() => route.path, syncPaymentTaskRoute);
           <p class="text-sm text-[var(--muted)]">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
         </div>
         <div class="flex gap-2">
-          <button class="icon-button" type="button" aria-label="Открыть тариф" @click="handleToggleProduct(product)">
+          <button class="icon-button ui-icon-button" type="button" aria-label="Открыть тариф" @click="handleToggleProduct(product)">
             <Eye :size="18" />
           </button>
-          <button class="icon-button" type="button" aria-label="Удалить тариф" @click="handleDeleteProduct(product)">
+          <button class="icon-button ui-icon-button" type="button" aria-label="Удалить тариф" @click="handleDeleteProduct(product)">
             <Trash2 :size="18" />
           </button>
         </div>
       </article>
     </div>
 
-    <div v-if="isOwner && archivedProducts.length" class="surface-card space-y-3 opacity-75">
+    <div v-if="isOwner && archivedProducts.length" class="surface-card ui-card space-y-3 opacity-75">
       <p class="font-semibold text-[var(--text)]">{{ t("paymentsArchivedPlans") }}</p>
       <article v-for="product in archivedProducts" :key="product.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
@@ -742,14 +742,14 @@ watch(() => route.path, syncPaymentTaskRoute);
               <p class="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">URL уведомлений</p>
               <div class="mt-2 flex items-center gap-2">
                 <input class="text-input" :value="webhookUrl" readonly />
-                <button class="icon-button shrink-0" type="button" aria-label="Скопировать URL уведомлений" @click="copyWebhookUrl">
+                <button class="icon-button ui-icon-button shrink-0" type="button" aria-label="Скопировать URL уведомлений" @click="copyWebhookUrl">
                   <Copy :size="18" />
                 </button>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
-              <button class="secondary-button" type="button" @click="closeProviderForm">Закрыть</button>
-              <button class="primary-button" type="submit" :disabled="saving">
+              <button class="secondary-button ui-button" type="button" @click="closeProviderForm">Закрыть</button>
+              <button class="primary-button ui-button" type="submit" :disabled="saving">
                 {{ provider ? "Сохранить" : "Подключить" }}
               </button>
             </div>
@@ -795,8 +795,8 @@ watch(() => route.path, syncPaymentTaskRoute);
               Показывать клиентам
             </label>
             <div class="grid grid-cols-2 gap-3">
-              <button class="secondary-button" type="button" @click="closeProductModal">Закрыть</button>
-              <button class="primary-button" type="submit" :disabled="saving">
+              <button class="secondary-button ui-button" type="button" @click="closeProductModal">Закрыть</button>
+              <button class="primary-button ui-button" type="submit" :disabled="saving">
                 {{ editingProduct ? "Сохранить тариф" : "Добавить тариф" }}
               </button>
             </div>

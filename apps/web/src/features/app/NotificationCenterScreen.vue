@@ -52,7 +52,7 @@ onMounted(() => void loadNotifications());
   <TaskScreen class="notification-task-screen" :title="t('notificationsTitle')" :subtitle="subtitle" portal @back="router.push('/profile')">
     <template #actions>
       <button
-        class="notification-center-clear"
+        class="notification-center-clear ui-button"
         type="button"
         :disabled="notificationState.pushStatus === 'enabled'"
         @click="enableBrowserPush"
@@ -61,7 +61,7 @@ onMounted(() => void loadNotifications());
         <span>{{ notificationState.pushStatus === "enabled" ? "Push включены" : "Включить push" }}</span>
       </button>
       <button
-        class="icon-button"
+        class="icon-button ui-icon-button"
         type="button"
         :aria-label="t('notificationsClear')"
         :disabled="notificationState.appNotificationsLoading || !notificationState.appNotifications.length"
@@ -75,7 +75,7 @@ onMounted(() => void loadNotifications());
       <article
         v-for="notification in notificationState.appNotifications"
         :key="notification.id"
-        class="notification-center-item"
+        class="notification-center-item ui-card"
         :class="{ 'notification-center-item-unread': !notification.readAt }"
       >
         <span class="notification-center-dot">

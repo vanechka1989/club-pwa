@@ -754,9 +754,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="community-chat-shell">
+  <section class="community-chat-shell ui-page-section">
     <div v-if="!selectedTopic" class="space-y-3">
-      <div class="section-head">
+      <div class="section-head ui-page-header">
         <div>
           <h2 class="section-title">{{ t("communitySectionTitle") }}</h2>
           <p class="section-subtitle">{{ t("communitySectionSubtitle") }}</p>
@@ -764,7 +764,7 @@ onBeforeUnmount(() => {
         <div class="community-topline-actions">
           <button
             v-if="isModerator"
-            class="icon-button"
+            class="icon-button ui-icon-button"
             type="button"
             aria-label="Добавить тему"
             @click="showCreateTopic = !showCreateTopic"
@@ -781,14 +781,14 @@ onBeforeUnmount(() => {
 
       <form v-if="hasCommunityAccess && isModerator && showCreateTopic" class="chat-create-form" @submit.prevent="createTopic">
         <input v-model.trim="newTopicTitle" class="text-input" placeholder="Название темы" />
-        <button class="primary-button" type="submit" :disabled="topicSaving">
+        <button class="primary-button ui-button" type="submit" :disabled="topicSaving">
           {{ topicSaving ? t("loading") : t("create") }}
         </button>
       </form>
 
       <p v-if="communityError" class="text-xs text-[var(--danger)]">{{ communityError }}</p>
 
-      <div v-if="hasCommunityAccess && !activeTopics.length && !archivedTopics.length && !loading" class="surface-card text-sm text-[var(--muted)]">
+      <div v-if="hasCommunityAccess && !activeTopics.length && !archivedTopics.length && !loading" class="surface-card ui-card text-sm text-[var(--muted)]">
         {{ t("communityEmpty") }}
       </div>
 
@@ -831,7 +831,7 @@ onBeforeUnmount(() => {
 
     <div v-else class="chat-room">
       <header class="chat-room-header">
-        <button class="icon-button" type="button" aria-label="Назад" @click="selectedTopic = null">
+        <button class="icon-button ui-icon-button" type="button" aria-label="Назад" @click="selectedTopic = null">
           <ArrowLeft class="h-4 w-4" aria-hidden="true" />
         </button>
         <div class="min-w-0 flex-1">
@@ -842,7 +842,7 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="isModerator" class="chat-room-admin">
           <button
-            class="icon-button"
+            class="icon-button ui-icon-button"
             type="button"
             aria-label="Меню чата"
             @click="showTopicAdminMenu = !showTopicAdminMenu"
@@ -994,9 +994,9 @@ onBeforeUnmount(() => {
             <X class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-        <div class="chat-input-row">
+        <div class="chat-input-row ui-bottom-action-bar">
           <div class="composer-emoji-wrap">
-            <button class="icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">
+            <button class="icon-button ui-icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">
               <Smile class="h-4 w-4" aria-hidden="true" />
             </button>
             <div v-if="showEmojiPicker" class="composer-emoji-popover">
@@ -1013,7 +1013,7 @@ onBeforeUnmount(() => {
             :placeholder="t('messagePlaceholder')"
             :disabled="!canWrite || messageSaving"
           />
-          <button class="icon-button" type="submit" aria-label="Отправить" :disabled="!canWrite || messageSaving || isMuted">
+          <button class="icon-button ui-icon-button" type="submit" aria-label="Отправить" :disabled="!canWrite || messageSaving || isMuted">
             <Send class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>

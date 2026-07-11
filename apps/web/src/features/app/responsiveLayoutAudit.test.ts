@@ -8,6 +8,12 @@ const adminSection = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const taskScreenSource = readFileSync(resolve(__dirname, "TaskScreen.vue"), "utf8");
 const foundationPath = resolve(__dirname, "../ui/foundation.css");
+const profileSource = readFileSync(resolve(__dirname, "../profile/ProfileSection.vue"), "utf8");
+const learningSource = readFileSync(resolve(__dirname, "../learning/LearningSection.vue"), "utf8");
+const communitySource = readFileSync(resolve(__dirname, "../community/CommunitySection.vue"), "utf8");
+const paymentsSource = readFileSync(resolve(__dirname, "../billing/PaymentsSection.vue"), "utf8");
+const supportSource = readFileSync(resolve(__dirname, "../support/SupportSection.vue"), "utf8");
+const notificationSource = readFileSync(resolve(__dirname, "NotificationCenterScreen.vue"), "utf8");
 
 function latestRule(selector: string) {
   const matches = [...styles.matchAll(/(?<selectors>[^{}]+)\s*\{(?<body>[^{}]*)\}/g)].filter((match) =>
@@ -82,6 +88,36 @@ describe("responsive layout audit contract", () => {
     expect(footerRule).toContain("position: sticky");
     expect(footerRule).toContain("bottom: 0");
     expect(taskScreenSource).toContain("UiBottomActionBar");
+  });
+
+  it("migrates user-facing sections onto foundation classes", () => {
+    expect(profileSource).toContain("ui-page-section");
+    expect(profileSource).toContain("ui-page-header");
+    expect(profileSource).toContain("ui-card");
+    expect(profileSource).toContain("ui-icon-button");
+
+    expect(learningSource).toContain("ui-page-section");
+    expect(learningSource).toContain("ui-card");
+    expect(learningSource).toContain("ui-icon-button");
+
+    expect(communitySource).toContain("ui-page-section");
+    expect(communitySource).toContain("ui-page-header");
+    expect(communitySource).toContain("ui-card");
+    expect(communitySource).toContain("ui-icon-button");
+
+    expect(paymentsSource).toContain("ui-page-section");
+    expect(paymentsSource).toContain("ui-page-header");
+    expect(paymentsSource).toContain("ui-card");
+    expect(paymentsSource).toContain("ui-button");
+    expect(paymentsSource).toContain("ui-icon-button");
+
+    expect(supportSource).toContain("ui-page-section");
+    expect(supportSource).toContain("ui-page-header");
+    expect(supportSource).toContain("ui-card");
+    expect(supportSource).toContain("ui-button-group");
+
+    expect(notificationSource).toContain("ui-card");
+    expect(notificationSource).toContain("ui-icon-button");
   });
 
   it("uses approved task route paths in admin open and sync handlers", () => {

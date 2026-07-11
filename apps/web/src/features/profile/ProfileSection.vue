@@ -609,14 +609,15 @@ watch(
 </script>
 
 <template>
-  <section class="soft-home space-y-4">
-    <div class="section-head">
+  <section class="soft-home ui-page-section space-y-4">
+    <div class="section-head ui-page-header">
       <div>
         <h2 class="section-title">Профиль</h2>
         <p class="section-subtitle">Доступ, статистика и настройки аккаунта.</p>
       </div>
       <div class="compact-controls shrink-0">
         <button
+          class="ui-icon-button"
           type="button"
           :aria-label="t('language')"
           @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')"
@@ -627,7 +628,7 @@ watch(
       </div>
     </div>
 
-    <section class="soft-card profile-access-card">
+    <section class="soft-card ui-card profile-access-card">
       <div class="profile-access-layout">
         <div class="profile-avatar-stack">
           <div class="profile-avatar profile-avatar-large">
@@ -636,7 +637,7 @@ watch(
           </div>
           <div class="profile-avatar-actions">
             <label
-              class="profile-avatar-icon-button"
+              class="profile-avatar-icon-button ui-icon-button"
               :class="{ 'profile-avatar-upload-disabled': avatarSaving }"
               :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
               :title="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
@@ -651,7 +652,7 @@ watch(
               />
             </label>
             <button
-              class="profile-avatar-icon-button"
+              class="profile-avatar-icon-button ui-icon-button"
               type="button"
               :disabled="!session.user?.photoUrl || avatarSaving"
               :aria-label="t('profileAvatarAdjust')"
@@ -706,10 +707,10 @@ watch(
         </div>
       </div>
       <div class="profile-access-actions">
-        <button class="soft-inline-button" type="button" @click="$emit('openPayments')">
+        <button class="soft-inline-button ui-button" type="button" @click="$emit('openPayments')">
           {{ paymentActionText }}
         </button>
-        <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
+        <button class="secondary-button ui-button profile-logout-button" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
           <LogOut class="h-4 w-4" aria-hidden="true" />
           <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
         </button>
@@ -745,7 +746,7 @@ watch(
       </div>
     </section>
 
-    <section class="soft-card profile-referral-card">
+    <section class="soft-card ui-card profile-referral-card">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h3 class="soft-section-title">{{ t("referralTitle") }}</h3>
@@ -758,7 +759,7 @@ watch(
       <div v-if="referral" class="profile-referral-body mt-3">
         <div class="profile-referral-link">
           <span>{{ referral.link }}</span>
-          <button type="button" :aria-label="t('referralCopy')" @click="copyReferralLink">
+          <button class="ui-icon-button" type="button" :aria-label="t('referralCopy')" @click="copyReferralLink">
             <Check v-if="referralCopied" class="h-4 w-4" aria-hidden="true" />
             <Copy v-else class="h-4 w-4" aria-hidden="true" />
           </button>
@@ -780,7 +781,7 @@ watch(
         </div>
 
         <button
-          class="soft-inline-button"
+          class="soft-inline-button ui-button"
           type="button"
           :disabled="!canActivateReferral"
           @click="handleReferralActivation"
@@ -793,10 +794,10 @@ watch(
       <p v-else class="profile-empty-text mt-3">{{ t("referralLoading") }}</p>
     </section>
 
-    <section class="soft-card">
+    <section class="soft-card ui-card">
       <div class="flex items-center justify-between gap-3">
         <h3 class="soft-section-title">{{ t("profilePaymentHistory") }}</h3>
-        <button class="soft-link" type="button" @click="$emit('openPayments')">{{ t("payment") }}</button>
+        <button class="soft-link ui-button ui-button--ghost" type="button" @click="$emit('openPayments')">{{ t("payment") }}</button>
       </div>
       <div class="payment-log-list mt-3">
         <article v-for="order in paymentOrders.slice(0, 5)" :key="order.id" class="payment-log-card">
@@ -810,7 +811,7 @@ watch(
       </div>
     </section>
 
-    <section class="soft-card profile-settings">
+    <section class="soft-card ui-card profile-settings">
       <div class="flex items-center justify-between gap-3">
         <h3 class="soft-section-title">{{ t("profileAppearance") }}</h3>
         <Palette class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
@@ -822,7 +823,7 @@ watch(
         <button
           v-for="option in themeOptions"
           :key="option.value"
-          class="theme-choice"
+          class="theme-choice ui-button"
           :class="{ 'theme-choice-active': ui.theme === option.value }"
           type="button"
           @click="ui.setTheme(option.value)"
@@ -839,7 +840,7 @@ watch(
           <button
             v-for="option in designThemeOptions"
             :key="option.value"
-            class="design-theme-choice"
+            class="design-theme-choice ui-button"
             :class="{ 'design-theme-choice-active': ui.designTheme === option.value }"
             type="button"
             :aria-pressed="ui.designTheme === option.value"
@@ -866,7 +867,7 @@ watch(
         </div>
         <div class="visual-scale-slider-row">
           <button
-            class="visual-scale-step-button"
+            class="visual-scale-step-button ui-icon-button"
             type="button"
             :aria-label="t('profileVisualScaleDecrease')"
             :disabled="ui.visualScale <= visualScaleMin"
@@ -885,7 +886,7 @@ watch(
             @input="handleVisualScaleRange"
           />
           <button
-            class="visual-scale-step-button"
+            class="visual-scale-step-button ui-icon-button"
             type="button"
             :aria-label="t('profileVisualScaleIncrease')"
             :disabled="ui.visualScale >= visualScaleMax"
@@ -906,7 +907,7 @@ watch(
       portal
       @back="closeProfileTask"
     >
-      <section class="profile-avatar-editor-modal">
+      <section class="profile-avatar-editor-modal ui-card">
         <div class="profile-avatar-editor-workspace">
           <div
             class="profile-avatar-gesture-stage"
@@ -928,14 +929,14 @@ watch(
           </div>
 
           <div class="profile-avatar-editor-controls">
-            <button type="button" :aria-label="t('profileAvatarZoomOut')" @click="zoomAvatar(-0.1)">
+            <button class="ui-icon-button" type="button" :aria-label="t('profileAvatarZoomOut')" @click="zoomAvatar(-0.1)">
               <Minus class="h-4 w-4" aria-hidden="true" />
             </button>
             <strong>{{ Math.round(avatarDraftScale * 100) }}%</strong>
-            <button type="button" :aria-label="t('profileAvatarZoomIn')" @click="zoomAvatar(0.1)">
+            <button class="ui-icon-button" type="button" :aria-label="t('profileAvatarZoomIn')" @click="zoomAvatar(0.1)">
               <Plus class="h-4 w-4" aria-hidden="true" />
             </button>
-            <button class="profile-avatar-center-button" type="button" :aria-label="t('profileAvatarCenter')" @click="resetAvatarDraft">
+            <button class="profile-avatar-center-button ui-button" type="button" :aria-label="t('profileAvatarCenter')" @click="resetAvatarDraft">
               <RotateCcw class="h-4 w-4" aria-hidden="true" />
               <span>{{ t("profileAvatarCenterShort") }}</span>
             </button>
@@ -943,8 +944,8 @@ watch(
         </div>
 
         <div class="profile-modal-actions">
-          <button class="secondary-button" type="button" @click="closeProfileTask">{{ t("cancel") }}</button>
-          <button class="soft-inline-button" type="button" :disabled="avatarDisplaySaving" @click="handleAvatarDisplaySave">
+          <button class="secondary-button ui-button" type="button" @click="closeProfileTask">{{ t("cancel") }}</button>
+          <button class="soft-inline-button ui-button" type="button" :disabled="avatarDisplaySaving" @click="handleAvatarDisplaySave">
             {{ avatarDisplaySaving ? t("saving") : t("save") }}
           </button>
         </div>
@@ -952,7 +953,7 @@ watch(
     </TaskScreen>
 
     <div v-if="showLogoutConfirm" class="profile-modal-backdrop" @click.self="showLogoutConfirm = false">
-      <section class="profile-logout-confirm" role="dialog" aria-modal="true" :aria-label="t('profileLogoutConfirmTitle')">
+      <section class="profile-logout-confirm ui-card" role="dialog" aria-modal="true" :aria-label="t('profileLogoutConfirmTitle')">
         <div class="profile-modal-head">
           <div>
             <h3>{{ t("profileLogoutConfirmTitle") }}</h3>
@@ -960,8 +961,8 @@ watch(
           </div>
         </div>
         <div class="profile-modal-actions">
-          <button class="secondary-button" type="button" @click="showLogoutConfirm = false">{{ t("profileLogoutCancel") }}</button>
-          <button class="secondary-button profile-logout-button" type="button" :disabled="logoutSaving" @click="confirmLogout">
+          <button class="secondary-button ui-button" type="button" @click="showLogoutConfirm = false">{{ t("profileLogoutCancel") }}</button>
+          <button class="secondary-button ui-button profile-logout-button" type="button" :disabled="logoutSaving" @click="confirmLogout">
             <LogOut class="h-4 w-4" aria-hidden="true" />
             <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogoutConfirmAction") }}</span>
           </button>
