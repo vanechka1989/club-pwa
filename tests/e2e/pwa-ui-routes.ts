@@ -1,6 +1,9 @@
 export const pwaUiScreenshotViewports = [
+  { name: "320x640", width: 320, height: 640 },
   { name: "320x720", width: 320, height: 720 },
+  { name: "360x800", width: 360, height: 800 },
   { name: "390x844", width: 390, height: 844 },
+  { name: "412x915", width: 412, height: 915 },
   { name: "768x1024", width: 768, height: 1024 },
   { name: "1024x768", width: 1024, height: 768 },
   { name: "1440x900", width: 1440, height: 900 }
