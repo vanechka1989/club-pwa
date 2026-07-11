@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { authSessions, userLoginIps } from "../db/schema";
 import { shouldRecordLoginIpChange } from "./loginIpPolicy";
@@ -18,7 +18,23 @@ export async function recordLoginIpChange({
 }) {
   if (!shouldRecordLoginIpChange(previousIpAddress, ipAddress) || !ipAddress) return false;
 
-  await db.transaction(async (tx) => {
+  const previousIpCondition = previousIpAddress === null
+    ? isNull(authSessions.lastIpAddress)
+    : eq(authSessions.lastIpAddress, previousIpAddress);
+
+  return db.transaction(async (tx) => {
+    const [claimedSession] = await tx
+      .update(authSessions)
+      .set({ lastIpAddress: ipAddress })
+      .where(and(
+        eq(authSessions.id, sessionId),
+        eq(authSessions.userId, userId),
+        previousIpCondition
+      ))
+      .returning({ id: authSessions.id });
+
+    if (!claimedSession) return false;
+
     await tx
       .insert(userLoginIps)
       .values({ userId, ipAddress, firstSeenAt: now, lastSeenAt: now, loginCount: 1 })
@@ -30,11 +46,6 @@ export async function recordLoginIpChange({
         }
       });
 
-    await tx
-      .update(authSessions)
-      .set({ lastIpAddress: ipAddress })
-      .where(and(eq(authSessions.id, sessionId), eq(authSessions.userId, userId)));
+    return true;
   });
-
-  return true;
 }

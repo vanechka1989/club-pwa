@@ -18,4 +18,12 @@ describe("login IP audit", () => {
     expect(source).toMatch(/loginCount:\s*sql`\$\{userLoginIps\.loginCount\} \+ 1`/);
     expect(source).toContain("lastIpAddress: ipAddress");
   });
+
+  it("claims the session IP transition before incrementing history", () => {
+    const source = readFileSync(resolve(__dirname, "loginIpAudit.ts"), "utf8");
+    expect(source).toContain("previousIpCondition");
+    expect(source).toContain("returning({ id: authSessions.id })");
+    expect(source.indexOf("update(authSessions)")).toBeLessThan(source.indexOf("insert(userLoginIps)"));
+    expect(source).toContain("if (!claimedSession) return false");
+  });
 });
