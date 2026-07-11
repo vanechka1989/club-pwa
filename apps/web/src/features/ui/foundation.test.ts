@@ -65,6 +65,16 @@ describe("PWA UI foundation", () => {
     expect(css).not.toMatch(/@media \(max-width: 480px\)\s*\{[\s\S]*?\.ui-page-header__actions\s*\{[\s\S]*?width: 100%;/);
   });
 
+  it("keeps all primary section headers on one shared geometry", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const rule = styles.match(/\.section-head\.ui-page-header\s*\{(?<body>[^}]*)\}/g)?.at(-1) ?? "";
+
+    expect(rule).toMatch(/padding:\s*16px/);
+    expect(rule).toMatch(/gap:\s*12px/);
+    expect(rule).toMatch(/margin-bottom:\s*4px/);
+    expect(rule).toMatch(/min-height:\s*0/);
+  });
+
   it("lets a single custom footer form span the complete bottom action bar", () => {
     const css = readUi("foundation.css");
 

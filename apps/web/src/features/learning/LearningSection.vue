@@ -2380,7 +2380,13 @@ watch(
               <small>{{ moduleMetaLabel(module.meta) }}</small>
             </span>
           </button>
-          <div class="admin-mockup-card-actions">
+          <div
+            class="admin-mockup-card-actions"
+            :class="{
+              'module-admin-actions': canManageModules,
+              'module-member-actions': !canManageModules
+            }"
+          >
             <span>{{ lessonCountLabel(module.images.length) }}</span>
             <div v-if="canManageModules" class="module-sort-controls" aria-label="Сортировка модуля">
               <button

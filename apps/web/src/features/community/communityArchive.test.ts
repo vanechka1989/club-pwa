@@ -25,6 +25,7 @@ describe("community archive labels", () => {
     expect(source).toContain('class="community-section-content"');
     const rule = styles.match(/\.community-section-content\s*\{(?<body>[^}]*)\}/g)?.at(-1) ?? "";
 
-    expect(rule).toMatch(/gap:\s*12px/);
+    expect(rule).toMatch(/gap:\s*8px/);
+    expect(styles).toMatch(/\.section-head\.ui-page-header\s*\{[^}]*margin-bottom:\s*4px/s);
   });
 });

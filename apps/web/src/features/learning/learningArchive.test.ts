@@ -127,6 +127,8 @@ describe("Learning section modules", () => {
     expect(source).toContain('<h2 class="section-title">{{ t("modulesTitle") }}</h2>');
     expect(source).toContain('<p class="section-subtitle">{{ t("modulesSubtitle") }}</p>');
     expect(source).toContain('class="modules-content"');
+    expect(source).toContain("'module-admin-actions': canManageModules");
+    expect(source).toContain("'module-member-actions': !canManageModules");
     expect(source).not.toContain('class="admin-panel modules-panel ui-page-section"');
   });
 
@@ -135,6 +137,15 @@ describe("Learning section modules", () => {
     const rule = styles.match(/\.modules-section\s*\{(?<body>[^}]*)\}/g)?.at(-1) ?? "";
 
     expect(rule).toMatch(/gap:\s*12px/);
+  });
+
+  it("renders collapsed modules as compact summary rows with separate admin actions", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.modules-section \.module-card-head\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/s);
+    expect(styles).toMatch(/\.modules-section \.module-card-collapsed\s*\{[^}]*min-height:\s*0;[^}]*height:\s*auto;/s);
+    expect(styles).toMatch(/\.modules-section \.module-admin-actions\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
+    expect(styles).toMatch(/\.modules-section \.module-member-actions\s*\{[^}]*width:\s*auto;/s);
   });
 
   it("adds a module by title", async () => {
