@@ -16067,6 +16067,61 @@ body.club-mobile-device .task-screen-route-layer :is(
   }
 }
 
+/* Unified section geometry: module header is a peer of its content, not part of the cards panel. */
+.modules-section,
+.modules-content {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+}
+
+.modules-section,
+.modules-content {
+  gap: var(--section-gap);
+}
+
+.support-section .support-admin-board {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  padding: 0;
+  padding-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.support-section .support-admin-stats,
+.support-section .support-ticket-list {
+  width: 100%;
+  min-width: 0;
+  margin-inline: 0;
+}
+
+.support-section .support-status-closed {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger) 14%, var(--panel));
+  color: var(--danger-text);
+}
+
+.support-section .support-status-answered {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  color: var(--accent);
+}
+
+.support-section .support-status-open {
+  border-color: color-mix(in srgb, var(--warning) 46%, var(--border));
+  background: color-mix(in srgb, var(--warning) 14%, var(--panel));
+  color: color-mix(in srgb, var(--warning) 82%, var(--text));
+}
+
+.support-section .support-status-hot {
+  border-color: color-mix(in srgb, var(--warning) 46%, var(--border));
+  background: color-mix(in srgb, var(--warning) 14%, var(--panel));
+  color: color-mix(in srgb, var(--warning) 82%, var(--text));
+}
+
 /* Admin access task: one predictable surface instead of nested legacy modal cards. */
 .admin-task-screen .admin-permission-surface {
   box-sizing: border-box;

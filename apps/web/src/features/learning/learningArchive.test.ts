@@ -119,6 +119,15 @@ describe("Learning section modules", () => {
     expect(screen.queryByRole("button", { name: "Добавить контент" })).toBeNull();
   });
 
+  it("separates the shared section header from module content", () => {
+    const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
+
+    expect(source).toContain('class="modules-section ui-page-section"');
+    expect(source).toContain('class="section-head ui-page-header"');
+    expect(source).toContain('class="modules-content"');
+    expect(source).not.toContain('class="admin-panel modules-panel ui-page-section"');
+  });
+
   it("adds a module by title", async () => {
     renderAsOwner();
 

@@ -2328,8 +2328,8 @@ watch(
 </script>
 
 <template>
-  <section class="admin-panel modules-panel ui-page-section">
-    <div class="admin-panel-head ui-page-header">
+  <section class="modules-section ui-page-section">
+    <div class="section-head ui-page-header">
       <div>
         <h3>{{ t("modulesTitle") }}</h3>
         <p>{{ t("modulesSubtitle") }}</p>
@@ -2341,6 +2341,7 @@ watch(
       </div>
     </div>
 
+    <div class="modules-content">
     <p v-if="isLoadingModules" class="modules-edit-hint">{{ t("modulesLoading") }}</p>
 
     <button
@@ -3010,5 +3011,6 @@ watch(
           </div>
         </section>
     </TaskScreen>
+    </div>
   </section>
 </template>

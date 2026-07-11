@@ -204,11 +204,17 @@ describe("support section", () => {
     expect(styles).toMatch(/\.support-danger-button\s*\{[^}]*border:[^;]*var\(--danger\)[^;]*;[^}]*color:[^;]*var\(--danger\)[^;]*;/s);
   });
 
-  it("uses soft success and cherry closed tones for support statuses", () => {
-    expect(styles).toContain("--success:");
-    expect(styles).toContain("--danger-strong:");
-    expect(styles).toMatch(/\.support-status-answered\s*\{[^}]*var\(--success\)[^}]*var\(--success-text\)[^}]*\}/s);
-    expect(styles).toMatch(/\.support-status-closed\s*\{[^}]*var\(--danger-strong\)[^}]*var\(--danger-text\)[^}]*\}/s);
+  it("uses red closed, blue answered, and orange waiting status tones", () => {
+    expect(latestRule(".support-section .support-status-closed")).toMatch(/var\(--danger\)/);
+    expect(latestRule(".support-section .support-status-closed")).toMatch(/var\(--danger-text\)/);
+    expect(latestRule(".support-section .support-status-answered")).toMatch(/var\(--accent\)/);
+    expect(latestRule(".support-section .support-status-open")).toMatch(/var\(--warning\)/);
+    expect(latestRule(".support-section .support-status-hot")).toMatch(/var\(--warning\)/);
+  });
+
+  it("aligns support statistics and tickets to the shared header gutter", () => {
+    expect(latestRule(".support-section .support-admin-board")).toMatch(/padding:\s*0/);
+    expect(latestRule(".support-section .support-admin-board")).toMatch(/width:\s*100%/);
   });
 
   it("shows an unread support badge in navigation", () => {
