@@ -7,6 +7,9 @@ import { hasPwaStandaloneAuthHeader, hashAuthToken, pwaInstallRequiredMessage, p
 import { db } from "../db/client";
 import { authSessions, users, type User } from "../db/schema";
 import { isOwnerTelegramId } from "../admin/roles";
+import { logger } from "../logger";
+import { getTrustedClientIp } from "../security/clientIp";
+import { recordLoginIpChange } from "../security/loginIpAudit";
 
 export const sessionCookieName = "club_session";
 
@@ -51,6 +54,13 @@ export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   if (!session?.user) {
     return c.json({ error: "Invalid email session" }, 401);
   }
+
+  await recordLoginIpChange({
+    userId: session.user.id,
+    sessionId: session.id,
+    previousIpAddress: session.lastIpAddress,
+    ipAddress: getTrustedClientIp(c.req.raw.headers)
+  }).catch((error) => logger.warn({ error, userId: session.user.id }, "Unable to update login IP"));
 
   const resolvedUser = session.user;
   const sessionUser: SessionUser = {

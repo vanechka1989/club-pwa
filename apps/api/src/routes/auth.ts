@@ -17,8 +17,11 @@ import { sendEmail } from "../auth/emailDelivery";
 import { db } from "../db/client";
 import { authEmailLoginCodes, authSessions, users } from "../db/schema";
 import { env } from "../env";
+import { logger } from "../logger";
 import { sessionCookieName } from "../middleware/auth";
 import { captureReferralFromStartParam } from "../referrals/referrals";
+import { getTrustedClientIp } from "../security/clientIp";
+import { recordLoginIpChange } from "../security/loginIpAudit";
 
 const startSchema = z.object({
   email: z.string(),
@@ -160,11 +163,23 @@ export const authRoute = new Hono()
 
     const token = createSessionToken();
     const expiresAt = new Date(Date.now() + env.AUTH_SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
-    await db.insert(authSessions).values({
+    const [session] = await db
+      .insert(authSessions)
+      .values({
+        userId: user.id,
+        tokenHash: hashAuthToken(token),
+        expiresAt
+      })
+      .returning({ id: authSessions.id });
+    if (!session) return c.json({ error: "Не удалось создать сессию." }, 500);
+
+    await recordLoginIpChange({
       userId: user.id,
-      tokenHash: hashAuthToken(token),
-      expiresAt
-    });
+      sessionId: session.id,
+      previousIpAddress: null,
+      ipAddress: getTrustedClientIp(c.req.raw.headers),
+      now
+    }).catch((error) => logger.warn({ error, userId: user.id }, "Unable to record login IP"));
     setCookie(c, sessionCookieName, token, sessionCookieOptions(expiresAt));
 
     return c.json({ ok: true });
