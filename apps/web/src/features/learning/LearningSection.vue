@@ -513,10 +513,6 @@ function lessonCountLabel(count: number) {
   return `${count} ${t("modulesLessonMany")}`;
 }
 
-function moduleMetaLabel(meta: string) {
-  return meta === "Модуль клуба" ? t("modulesClubModule") : meta;
-}
-
 function clearModuleError() {
   moduleError.value = "";
 }
@@ -1308,7 +1304,7 @@ function categoriesToModules(
   return categories.map((category) => ({
     id: category.id,
     title: category.title,
-    description: category.description ?? "Модуль клуба. Внутри будут уроки и материалы.",
+    description: category.description ?? "",
     defaultCardLayout: category.defaultCardLayout,
     meta,
     isPersisted: true,
@@ -2377,7 +2373,7 @@ watch(
           >
             <span>
               <strong>{{ module.title }}</strong>
-              <small>{{ moduleMetaLabel(module.meta) }}</small>
+              <small v-if="module.description">{{ module.description }}</small>
             </span>
           </button>
           <div
@@ -2436,7 +2432,6 @@ watch(
             </button>
           </div>
         </div>
-        <p v-if="!isModuleCollapsed(module.id)">{{ module.description }}</p>
         <div v-if="!isModuleCollapsed(module.id)" class="admin-mockup-grid">
           <article
             v-for="(image, lessonIndex) in module.images"

@@ -192,7 +192,8 @@ describe("Learning section modules", () => {
     renderAsOwner();
 
     expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
-    expect(screen.getAllByText("Модуль клуба").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Первый модуль клуба. Внутри будут уроки и материалы первого блока.")).toBeTruthy();
+    expect(screen.queryByText("Модуль клуба")).toBeNull();
 
     await expandModuleOne();
 
@@ -361,8 +362,10 @@ describe("Learning section modules", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
 
-    await expandModuleOne();
     expect(screen.getByText("Новое описание модуля")).toBeTruthy();
+
+    await expandModuleOne();
+    expect(screen.getAllByText("Новое описание модуля")).toHaveLength(1);
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
     expect(screen.getByText("Горизонтальная карточка")).toBeTruthy();
