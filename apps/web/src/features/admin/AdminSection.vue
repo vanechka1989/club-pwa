@@ -4358,25 +4358,8 @@ onUnmounted(() => {
       </section>
 
       <TaskScreen v-if="selectedAdminAccessCurrent" class="admin-task-screen" :title="adminTitle(selectedAdminAccessCurrent)" subtitle="Права и доступ администратора" portal @back="closeAdminAccessModal">
-          <section class="admin-detail ui-card admin-client-modal admin-permission-modal">
-            <header class="admin-client-modal-head">
-              <div class="admin-permission-identity">
-                <img v-if="selectedAdminAccessCurrent.photoUrl" :src="selectedAdminAccessCurrent.photoUrl" :alt="adminTitle(selectedAdminAccessCurrent)" />
-                <span v-else>{{ adminTitle(selectedAdminAccessCurrent).slice(0, 1).toUpperCase() }}</span>
-                <div>
-                  <h3 id="admin-permission-modal-title">{{ adminTitle(selectedAdminAccessCurrent) }}</h3>
-                  <p>
-                    {{ selectedAdminAccessCurrent.isActive ? "Админ активен" : "Админ выключен" }} ·
-                    {{ adminPermissionCount(selectedAdminAccessCurrent) }} / {{ adminPermissionOptions.length }} прав
-                  </p>
-                </div>
-              </div>
-              <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть права администратора" @click="closeAdminAccessModal">
-                <X class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </header>
-
-            <section class="admin-permission-card ui-card" :class="{ 'admin-permission-card-disabled': !selectedAdminAccessCurrent.isActive }">
+          <section class="admin-permission-surface ui-card" :class="{ 'admin-permission-card-disabled': !selectedAdminAccessCurrent.isActive }">
+            <div class="admin-permission-content">
               <div class="admin-permission-head">
                 <div>
                   <strong>{{ adminRoleTitle(selectedAdminAccessCurrent) }}</strong>
@@ -4435,7 +4418,7 @@ onUnmounted(() => {
                   <Trash2 class="h-4 w-4" aria-hidden="true" />
                 </button>
               </footer>
-            </section>
+            </div>
           </section>
       </TaskScreen>
     </section>

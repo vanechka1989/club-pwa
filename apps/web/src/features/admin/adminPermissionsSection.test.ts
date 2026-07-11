@@ -64,10 +64,20 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("selectedAdminAccess");
     expect(adminSectionSource).toContain("openAdminAccessModal");
     expect(adminSectionSource).toContain("admin-permission-row-button");
-    expect(adminSectionSource).toContain("admin-permission-modal");
+    expect(adminSectionSource).toContain("admin-permission-surface");
     expect(adminSectionSource).toContain("`/admin/admins/${admin.id}/access`");
     expect(adminSectionSource).toContain("<TaskScreen");
     expect(adminSectionSource).not.toContain('aria-modal="true"');
+  });
+
+  it("uses one clean permission surface and a single-column mobile permission list", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+
+    expect(adminSectionSource).toContain('class="admin-permission-surface ui-card"');
+    expect(adminSectionSource).not.toContain('class="admin-permission-card ui-card"');
+    expect(styles).toMatch(/\.admin-permission-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/);
+    expect(styles).toMatch(/\.admin-permission-toggle\s*\{[\s\S]*?min-height:\s*44px;/);
+    expect(styles).toMatch(/@media \(min-width:\s*600px\)[\s\S]*?\.admin-permission-grid\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
   });
 
   it("has API client support for updating admin permissions", () => {
