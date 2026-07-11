@@ -80,6 +80,23 @@ describe("admin permissions section", () => {
     expect(styles).toMatch(/@media \(min-width:\s*600px\)[\s\S]*?\.admin-permission-grid\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
   });
 
+  it("pins permission switches to a compact size despite global input styles", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+
+    expect(styles).toMatch(/\.admin-permission-surface :is\(\.admin-switch-row, \.admin-permission-toggle\) input\s*\{[\s\S]*?width:\s*44px !important;[\s\S]*?height:\s*24px !important;[\s\S]*?min-height:\s*24px !important;[\s\S]*?max-height:\s*24px !important;/);
+    expect(styles).toMatch(/\.admin-permission-surface :is\(\.admin-switch-row, \.admin-permission-toggle\) input::before\s*\{[\s\S]*?width:\s*18px;[\s\S]*?height:\s*18px;/);
+  });
+
+  it("saves access changes without green success alerts", () => {
+    const updateHandler = adminSectionSource.slice(
+      adminSectionSource.indexOf("async function handleUpdateAdminAccess"),
+      adminSectionSource.indexOf("async function handleAdminRoleLabelChange")
+    );
+
+    expect(updateHandler).not.toContain('setStatus("Права админа сохранены.")');
+    expect(updateHandler).toContain('setError("Не удалось сохранить права админа.")');
+  });
+
   it("has API client support for updating admin permissions", () => {
     expect(apiClientSource).toContain("updateAdminUserPermissions");
     expect(apiClientSource).toContain("`/admin/admins/${telegramId}`");

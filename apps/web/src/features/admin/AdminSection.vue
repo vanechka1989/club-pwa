@@ -2291,7 +2291,6 @@ async function handleUpdateAdminAccess(admin: AdminUser, patch: { roleLabel?: st
     await reloadAdmins();
     await loadAdminActionLogs();
     await session.load({ silent: true });
-    setStatus("Права админа сохранены.");
   } catch {
     setError("Не удалось сохранить права админа.");
   } finally {
