@@ -22,10 +22,12 @@ describe("PWA UI foundation design system", () => {
     expect(foundation).toContain("--color-primary:");
     expect(foundation).toContain("--color-primary-text:");
     expect(foundation).toContain("--color-focus:");
-    expect(foundation).toContain("--card-radius: 18px;");
+    expect(foundation).toContain("--card-radius: 14px;");
     expect(foundation).toContain("--control-height: 48px;");
     expect(foundation).toContain("--icon-button-size: 44px;");
     expect(foundation).toContain("--icon-size: 22px;");
+    expect(foundation).toContain("--action-icon-visual-size: 32px;");
+    expect(foundation).toContain("--action-icon-glyph-size: 16px;");
   });
 
   it("defines the reference layout for admin navigation, KPI cards and mobile safe areas", () => {
@@ -64,7 +66,7 @@ describe("PWA UI foundation design system", () => {
     const foundation = foundationCss();
     const legacyStyles = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
     expect(foundation).toContain("--action-icon-button-size: var(--icon-button-size);");
-    expect(foundation).toContain("--action-icon-glyph-size: var(--icon-size);");
+    expect(foundation).toContain("--action-icon-glyph-size: 16px;");
     expect(legacyStyles).not.toContain("Final action-control normalization");
     expect(legacyStyles).not.toContain("width: var(--action-icon-button-size) !important;");
     expect(legacyStyles).not.toContain("height: var(--action-icon-button-size) !important;");

@@ -745,8 +745,8 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
         const iconToken = style.getPropertyValue("--icon-size").trim();
         const minimumTargetSize = 44;
         const maximumTargetSize = 48;
-        const minimumIconSize = 22;
-        const maximumIconSize = 26;
+        const minimumIconSize = 16;
+        const maximumIconSize = 18;
         const svg = target.querySelector<SVGElement>("svg");
         const svgRect = svg?.getBoundingClientRect();
         const effectiveWidth = rect.width / shellScale;
@@ -958,7 +958,7 @@ async function expectChatComposerSingleRow(page: Page) {
       isScaledShell,
       shellScale,
       buttonsUsable: buttonRects.length === 2 && buttonRects.every((rect) => rect.effectiveWidth >= 44 && rect.effectiveHeight >= 44),
-      iconsReadable: buttonRects.length === 2 && buttonRects.every((rect) => (rect.effectiveSvgWidth ?? 0) >= 22 && (rect.effectiveSvgHeight ?? 0) >= 22),
+      iconsReadable: buttonRects.length === 2 && buttonRects.every((rect) => (rect.effectiveSvgWidth ?? 0) >= 16 && (rect.effectiveSvgHeight ?? 0) >= 16),
       messagesScrollableWhenOverflowing: Boolean(
         messages && (messages.scrollHeight <= messages.clientHeight + 4 || messages.scrollTop > 0)
       ),

@@ -20,7 +20,8 @@
   --icon-button-radius: 12px;
   --icon-size: 22px;
   --action-icon-button-size: var(--icon-button-size);
-  --action-icon-glyph-size: var(--icon-size);
+  --action-icon-visual-size: 32px;
+  --action-icon-glyph-size: 16px;
   --action-icon-button-radius: var(--icon-button-radius);
   --header-min-height: 56px;
   --bottom-nav-height: 60px;
@@ -119,6 +120,8 @@ body.club-mobile-app-scaled {
   --icon-button-size: calc(44px * var(--club-scaled-control-factor));
   --icon-button-radius: calc(12px * var(--club-scaled-control-factor));
   --icon-size: calc(22px * var(--club-scaled-control-factor));
+  --action-icon-visual-size: calc(32px * var(--club-scaled-control-factor));
+  --action-icon-glyph-size: calc(16px * var(--club-scaled-control-factor));
   --header-min-height: calc(56px * var(--club-scaled-control-factor));
   --bottom-nav-height: calc(60px * var(--club-scaled-control-factor));
   --bottom-nav-item-height: calc(44px * var(--club-scaled-control-factor));
@@ -857,6 +860,90 @@ body.club-keyboard-open .ui-bottom-action-bar {
   stroke-width: 2.25;
 }
 
+/* Action icons use a compact 32px visual tile inside a full 44px touch target. */
+:where(
+  .ui-icon-button,
+  .notification-center-button,
+  .profile-avatar-icon-button,
+  .support-file-icon-button,
+  .module-sort-button,
+  .module-lesson-add,
+  .task-screen-back,
+  .payment-product-admin-actions .icon-button,
+  .chat-input-row .icon-button
+) {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .ui-icon-button,
+  .notification-center-button,
+  .profile-avatar-icon-button,
+  .support-file-icon-button,
+  .module-sort-button,
+  .module-lesson-add,
+  .task-screen-back,
+  .payment-product-admin-actions .icon-button,
+  .chat-input-row .icon-button
+)::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: var(--action-icon-visual-size);
+  height: var(--action-icon-visual-size);
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--action-icon-visual-size) * 0.28);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-sm);
+  content: "";
+}
+
+.icon-button.ui-icon-button > svg,
+.ui-icon-button > svg,
+.notification-center-button > svg,
+.profile-avatar-icon-button > svg,
+.support-file-icon-button > svg,
+.module-sort-button > svg,
+.module-lesson-add > svg,
+.task-screen-back > svg,
+.payment-product-admin-actions .icon-button > svg,
+.chat-input-row .icon-button > svg {
+  width: var(--action-icon-glyph-size) !important;
+  min-width: var(--action-icon-glyph-size) !important;
+  max-width: var(--action-icon-glyph-size) !important;
+  height: var(--action-icon-glyph-size) !important;
+  min-height: var(--action-icon-glyph-size) !important;
+  max-height: var(--action-icon-glyph-size) !important;
+  flex: 0 0 var(--action-icon-glyph-size) !important;
+}
+
+:where(
+  .ui-icon-button,
+  .notification-center-button,
+  .profile-avatar-icon-button,
+  .support-file-icon-button,
+  .module-sort-button,
+  .module-lesson-add,
+  .task-screen-back,
+  .payment-product-admin-actions .icon-button,
+  .chat-input-row .icon-button
+):disabled::before {
+  border-color: var(--color-border);
+  background: var(--color-disabled);
+  box-shadow: none;
+}
+
+.chat-input-row .icon-button[type="submit"]::before {
+  border-color: color-mix(in srgb, var(--color-primary) 72%, var(--color-border));
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+}
+
 .community-chat-open .chat-input-row {
   display: flex;
   align-items: center;
@@ -923,6 +1010,10 @@ body.club-keyboard-open .community-chat-open .chat-messages {
   padding: 0 14px;
   font-size: max(16px, 1rem);
   line-height: 1.2;
+}
+
+body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
+  font-size: calc(16px * var(--club-scaled-control-factor));
 }
 
 .community-chat-open .composer-emoji-wrap {

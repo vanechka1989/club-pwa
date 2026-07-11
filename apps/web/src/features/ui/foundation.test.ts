@@ -29,6 +29,8 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("--button-height: 44px;");
     expect(css).toContain("--icon-button-size: 44px;");
     expect(css).toContain("--icon-size: 22px;");
+    expect(css).toContain("--action-icon-visual-size: 32px;");
+    expect(css).toContain("--action-icon-glyph-size: 16px;");
     expect(css).toContain("--header-min-height: 56px;");
     expect(css).toContain("--bottom-nav-height: 60px;");
     expect(css).toContain("--bottom-action-height: 56px;");
@@ -48,6 +50,8 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("--button-height-compact: calc(44px * var(--club-scaled-control-factor));");
     expect(css).toContain("--icon-button-size: calc(44px * var(--club-scaled-control-factor));");
     expect(css).toContain("--icon-size: calc(22px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--action-icon-visual-size: calc(32px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--action-icon-glyph-size: calc(16px * var(--club-scaled-control-factor));");
     expect(css).toContain("--header-min-height: calc(56px * var(--club-scaled-control-factor));");
     expect(css).toContain("--bottom-nav-height: calc(60px * var(--club-scaled-control-factor));");
     expect(css).toContain("--bottom-action-height: calc(56px * var(--club-scaled-control-factor));");
@@ -74,6 +78,15 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("font-size: clamp(1rem, 4.2vw, 1.3rem);");
     expect(css).toContain("padding: 10px 12px;");
     expect(css).toContain("min-height: 44px;");
+  });
+
+  it("renders action icons thirty percent smaller inside unchanged touch targets", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).toContain("width: var(--action-icon-visual-size);");
+    expect(css).toContain("height: var(--action-icon-visual-size);");
+    expect(css).toContain("width: var(--action-icon-glyph-size) !important;");
+    expect(css).toContain("height: var(--action-icon-glyph-size) !important;");
   });
 
   it("defines the four required theme variants through semantic tokens", () => {
