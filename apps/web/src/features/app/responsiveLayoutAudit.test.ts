@@ -32,20 +32,20 @@ describe("responsive layout audit contract", () => {
     const foundation = readFileSync(foundationPath, "utf8");
     expect(foundation).toContain("PWA UI Foundation 2026");
     expect(foundation).toContain("--page-max-width: 768px;");
-    expect(foundation).toContain("--page-padding: 16px;");
-    expect(foundation).toContain("--page-padding-compact: 12px;");
-    expect(foundation).toContain("--section-gap: 16px;");
-    expect(foundation).toContain("--card-gap: 12px;");
-    expect(foundation).toContain("--card-padding: 16px;");
-    expect(foundation).toContain("--card-radius: 18px;");
+    expect(foundation).toContain("--page-padding: 12px;");
+    expect(foundation).toContain("--page-padding-compact: 10px;");
+    expect(foundation).toContain("--section-gap: 12px;");
+    expect(foundation).toContain("--card-gap: 8px;");
+    expect(foundation).toContain("--card-padding: 12px;");
+    expect(foundation).toContain("--card-radius: 14px;");
     expect(foundation).toContain("--control-height: 48px;");
-    expect(foundation).toContain("--button-height: 48px;");
-    expect(foundation).toContain("--button-height-large: 52px;");
+    expect(foundation).toContain("--button-height: 44px;");
+    expect(foundation).toContain("--button-height-large: 48px;");
     expect(foundation).toContain("--icon-button-size: 44px;");
     expect(foundation).toContain("--icon-size: 22px;");
-    expect(foundation).toContain("--header-min-height: 68px;");
-    expect(foundation).toContain("--bottom-nav-height: 68px;");
-    expect(foundation).toContain("--bottom-action-height: 64px;");
+    expect(foundation).toContain("--header-min-height: 56px;");
+    expect(foundation).toContain("--bottom-nav-height: 60px;");
+    expect(foundation).toContain("--bottom-action-height: 56px;");
   });
 
   it("does not keep local tiny icon action overrides outside the foundation", () => {
