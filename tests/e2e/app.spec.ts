@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname } from "node:path";
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
+import { pwaUiScreenshotViewports } from "./pwa-ui-routes";
 
 const require = createRequire(import.meta.url);
 const apiBaseUrl = "http://localhost:3000";
@@ -1456,6 +1458,38 @@ test("keeps routed PWA screens responsive across exact desktop audit sizes", asy
       await expect(page.locator(auditRoute.selector).first(), `${viewport.name} ${auditRoute.path}`).toBeVisible({ timeout: 12_000 });
       await expectResponsiveLayoutIntegrity(page, `${viewport.name} ${auditRoute.path}`);
       await expectKeyboardSafeIfFormRoute(page, `${viewport.name} ${auditRoute.path}`);
+    }
+  }
+});
+
+test("captures PWA UI foundation screenshots for audited routes", async ({ page }, testInfo) => {
+  const isDesktopProject = testInfo.project.name === "desktop-chrome";
+  const isMobileProject = testInfo.project.name === "viewport-412-915";
+  test.skip(!isDesktopProject && !isMobileProject);
+  test.setTimeout(420_000);
+
+  const auditedViewports = pwaUiScreenshotViewports.filter((viewport) =>
+    isDesktopProject ? viewport.width >= 1024 : viewport.width < 1024
+  );
+
+  for (const viewport of auditedViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.reload();
+    await expect(page.locator(".app-root")).toBeVisible();
+
+    for (const auditRoute of responsiveRouteAuditPaths) {
+      await page.goto(auditRoute.path);
+      await expect(page.locator(auditRoute.selector).first(), `${viewport.name} ${auditRoute.path}`).toBeVisible({ timeout: 12_000 });
+      await expectResponsiveLayoutIntegrity(page, `${viewport.name} ${auditRoute.path}`);
+      const routeName = auditRoute.path.replace(/^\/$/, "root").replace(/[^\w-]+/g, "_").replace(/^_+|_+$/g, "") || "root";
+      const screenshotPath = testInfo.outputPath("pwa-ui-screenshots", `${viewport.name}-${routeName}.png`);
+      mkdirSync(dirname(screenshotPath), { recursive: true });
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: true,
+        animations: "disabled",
+        caret: "hide"
+      });
     }
   }
 });

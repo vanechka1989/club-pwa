@@ -15,9 +15,12 @@
   --button-height: 48px;
   --button-height-large: 52px;
   --button-height-compact: 44px;
-  --icon-button-size: 44px;
+  --icon-button-size: 48px;
   --icon-button-radius: 14px;
-  --icon-size: 20px;
+  --icon-size: 22px;
+  --action-icon-button-size: var(--icon-button-size);
+  --action-icon-glyph-size: var(--icon-size);
+  --action-icon-button-radius: var(--icon-button-radius);
   --header-min-height: 76px;
   --bottom-nav-height: 76px;
   --bottom-action-height: 72px;

@@ -24,7 +24,7 @@ describe("PWA UI foundation design system", () => {
     expect(foundation).toContain("--color-focus:");
     expect(foundation).toContain("--card-radius: 20px;");
     expect(foundation).toContain("--control-height: 48px;");
-    expect(foundation).toContain("--icon-button-size: 44px;");
+    expect(foundation).toContain("--icon-button-size: 48px;");
   });
 
   it("defines the reference layout for admin navigation, KPI cards and mobile safe areas", () => {
@@ -57,5 +57,15 @@ describe("PWA UI foundation design system", () => {
     );
     expect(foundation).toContain(':root[data-design-theme="soft-touch"][data-theme="dark"]');
     expect(foundation).toContain(':root[data-design-theme="soft-touch"][data-theme="light"]');
+  });
+
+  it("keeps action control sizing in foundation instead of legacy important overrides", () => {
+    const foundation = foundationCss();
+    const legacyStyles = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+    expect(foundation).toContain("--action-icon-button-size: var(--icon-button-size);");
+    expect(foundation).toContain("--action-icon-glyph-size: var(--icon-size);");
+    expect(legacyStyles).not.toContain("Final action-control normalization");
+    expect(legacyStyles).not.toContain("width: var(--action-icon-button-size) !important;");
+    expect(legacyStyles).not.toContain("height: var(--action-icon-button-size) !important;");
   });
 });

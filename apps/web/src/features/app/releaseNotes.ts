@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "PWA UI foundation: единая система экранов",
+    items: [
+      "Приложение переведено на общий mobile-first foundation: AppShell, PageContainer, PageHeader, PageSection, Card, Button, IconButton, формы, сетки и нижние панели.",
+      "Размер action-кнопок закреплён в токенах 48×48px с 22px иконкой, а старые конфликтующие !important-правила для маленьких кнопок удалены.",
+      "Основные пользовательские, админские и routed-экраны получили единые контейнеры, отступы, перенос длинного текста и защиту от горизонтального overflow.",
+      "Добавлена скриншот-проверка audited routes на mobile/tablet/desktop viewport, чтобы визуальные регрессии ловились автоматически."
+    ]
+  },
+  {
+    version: "3.44",
+    updatedAt: "11.07.2026 14:36",
     title: "Mobile UI: крупные action-кнопки",
     items: [
       "Кнопки добавления, редактирования, назад, уведомлений, аватара, сортировки модулей и действий чата переведены на видимый Android-size 48×48px.",
