@@ -730,12 +730,11 @@ async function expectNoHorizontalOverflow(page: Page) {
 
 async function expectConsistentIconActionTargets(page: Page, context: string, selector: string) {
   const issues = await page.locator(selector).evaluateAll((elements, auditContext) => {
-    const rootStyle = getComputedStyle(document.documentElement);
-    const shellScale = document.documentElement.classList.contains("club-mobile-app-scaled")
-      ? Number.parseFloat(rootStyle.getPropertyValue("--club-app-wide-viewport-scale")) || 1
-      : 1;
-    const minimumTargetSize = 48 * shellScale;
-    const minimumIconSize = 21 * shellScale;
+    const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
+    const minimumTargetSize = isScaledShell ? 56 : 44;
+    const maximumTargetSize = isScaledShell ? 80 : 64;
+    const minimumIconSize = isScaledShell ? 22 : 18;
+    const maximumIconSize = isScaledShell ? 34 : 30;
     const subpixelTolerance = 0.5;
 
     return elements
@@ -766,16 +765,27 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
           whiteSpace: style.whiteSpace,
           display: style.display,
           visible: isVisible,
-          minimumTargetSize: Math.round(minimumTargetSize),
-          shellScale,
+          minimumTargetSize,
+          maximumTargetSize,
+          minimumIconSize,
+          maximumIconSize,
+          isScaledShell,
           hasSmallTarget: rect.width + subpixelTolerance < minimumTargetSize || rect.height + subpixelTolerance < minimumTargetSize,
+          hasLargeTarget: rect.width - subpixelTolerance > maximumTargetSize || rect.height - subpixelTolerance > maximumTargetSize,
           hasSmallIcon: Boolean(
             svgRect && (svgRect.width + subpixelTolerance < minimumIconSize || svgRect.height + subpixelTolerance < minimumIconSize)
+          ),
+          hasLargeIcon: Boolean(
+            svgRect && (svgRect.width - subpixelTolerance > maximumIconSize || svgRect.height - subpixelTolerance > maximumIconSize)
           ),
           hasWrappingTextAction: target.matches(".compact-controls > button") && style.whiteSpace !== "nowrap"
         };
       })
-      .filter((item) => item.visible && (item.hasSmallTarget || item.hasSmallIcon || item.hasWrappingTextAction));
+      .filter(
+        (item) =>
+          item.visible &&
+          (item.hasSmallTarget || item.hasLargeTarget || item.hasSmallIcon || item.hasLargeIcon || item.hasWrappingTextAction)
+      );
   }, context);
 
   expect(issues, `${context}\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
@@ -783,11 +793,9 @@ async function expectConsistentIconActionTargets(page: Page, context: string, se
 
 async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
   const issues = await page.locator(".profile-access-actions .ui-button").evaluateAll((elements) => {
-    const rootStyle = getComputedStyle(document.documentElement);
-    const shellScale = document.documentElement.classList.contains("club-mobile-app-scaled")
-      ? Number.parseFloat(rootStyle.getPropertyValue("--club-app-wide-viewport-scale")) || 1
-      : 1;
-    const minimumButtonHeight = 48 * shellScale;
+    const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
+    const minimumButtonHeight = isScaledShell ? 56 : 44;
+    const maximumButtonHeight = isScaledShell ? 84 : 64;
     const subpixelTolerance = 0.5;
 
     return elements
@@ -800,17 +808,56 @@ async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
           className: String(target.className),
           label: (target.textContent ?? "").trim().replace(/\s+/g, " "),
           height: Math.round(rect.height),
-          minimumButtonHeight: Math.round(minimumButtonHeight),
-          shellScale,
+          minimumButtonHeight,
+          maximumButtonHeight,
+          isScaledShell,
           minHeight: style.minHeight,
           visible: rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden",
-          hasSmallHeight: rect.height + subpixelTolerance < minimumButtonHeight
+          hasSmallHeight: rect.height + subpixelTolerance < minimumButtonHeight,
+          hasLargeHeight: rect.height - subpixelTolerance > maximumButtonHeight
         };
       })
-      .filter((item) => item.visible && item.hasSmallHeight);
+      .filter((item) => item.visible && (item.hasSmallHeight || item.hasLargeHeight));
   });
 
   expect(issues, `profile access action buttons\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
+}
+
+async function expectChatComposerSingleRow(page: Page) {
+  const layout = await page.evaluate(() => {
+    const row = document.querySelector<HTMLElement>(".community-chat-open .chat-input-row");
+    const input = row?.querySelector<HTMLElement>(".text-input") ?? null;
+    const buttons = Array.from(row?.querySelectorAll<HTMLElement>(".icon-button") ?? []);
+    const rowRect = row?.getBoundingClientRect();
+    const inputRect = input?.getBoundingClientRect();
+    const buttonRects = buttons.map((button) => {
+      const rect = button.getBoundingClientRect();
+      return {
+        label: button.getAttribute("aria-label") ?? "",
+        top: Math.round(rect.top),
+        bottom: Math.round(rect.bottom),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      };
+    });
+
+    return {
+      display: row ? getComputedStyle(row).display : null,
+      rowHeight: rowRect ? Math.round(rowRect.height) : null,
+      inputHeight: inputRect ? Math.round(inputRect.height) : null,
+      buttonRects,
+      sameRow:
+        Boolean(inputRect) &&
+        buttonRects.length === 2 &&
+        buttonRects.every((rect) => Math.abs(rect.top - Math.round(inputRect!.top)) <= 8)
+    };
+  });
+
+  expect(layout, JSON.stringify(layout, null, 2)).toMatchObject({
+    display: "flex",
+    sameRow: true
+  });
+  expect(layout.rowHeight, JSON.stringify(layout, null, 2)).toBeLessThanOrEqual(88);
 }
 
 async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
@@ -1378,6 +1425,7 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
     "community chat header and composer actions",
     ".chat-room-header .icon-button, .chat-input-row .icon-button"
   );
+  await expectChatComposerSingleRow(page);
 
   await page.goto("/payments");
   await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();

@@ -994,7 +994,7 @@ onBeforeUnmount(() => {
             <X class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-        <div class="chat-input-row ui-bottom-action-bar">
+        <div class="chat-input-row">
           <div class="composer-emoji-wrap">
             <button class="icon-button ui-icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">
               <Smile class="h-4 w-4" aria-hidden="true" />
