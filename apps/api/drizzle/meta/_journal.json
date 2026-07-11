@@ -239,6 +239,13 @@
       "when": 1783510800000,
       "tag": "0033_user_avatar_display",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1783781640000,
+      "tag": "0034_user_login_ips",
+      "breakpoints": true
     }
   ]
 }

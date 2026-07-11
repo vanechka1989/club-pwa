@@ -111,12 +111,29 @@ export const authSessions = pgTable(
     tokenHash: varchar("token_hash", { length: 64 }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastIpAddress: varchar("last_ip_address", { length: 45 }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     tokenHashIdx: uniqueIndex("auth_sessions_token_hash_idx").on(table.tokenHash),
     userIdx: index("auth_sessions_user_idx").on(table.userId, table.expiresAt)
+  })
+);
+
+export const userLoginIps = pgTable(
+  "user_login_ips",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    loginCount: integer("login_count").notNull().default(1)
+  },
+  (table) => ({
+    userIpIdx: uniqueIndex("user_login_ips_user_ip_idx").on(table.userId, table.ipAddress),
+    userLastSeenIdx: index("user_login_ips_user_last_seen_idx").on(table.userId, table.lastSeenAt)
   })
 );
 
@@ -673,6 +690,7 @@ export const adminMailingRecipients = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   authSessions: many(authSessions),
+  loginIps: many(userLoginIps),
   pushSubscriptions: many(pushSubscriptions),
   subscriptions: many(subscriptions),
   paymentOrders: many(paymentOrders),
@@ -699,6 +717,13 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const authSessionsRelations = relations(authSessions, ({ one }) => ({
   user: one(users, {
     fields: [authSessions.userId],
+    references: [users.id]
+  })
+}));
+
+export const userLoginIpsRelations = relations(userLoginIps, ({ one }) => ({
+  user: one(users, {
+    fields: [userLoginIps.userId],
     references: [users.id]
   })
 }));
@@ -1014,6 +1039,7 @@ export type AdminActionLog = typeof adminActionLogs.$inferSelect;
 export type ClubSetting = typeof clubSettings.$inferSelect;
 export type AuthEmailLoginCode = typeof authEmailLoginCodes.$inferSelect;
 export type AuthSession = typeof authSessions.$inferSelect;
+export type UserLoginIp = typeof userLoginIps.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type PaymentProvider = typeof paymentProviders.$inferSelect;
