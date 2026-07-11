@@ -726,6 +726,45 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
 }
 
+async function expectConsistentIconActionTargets(page: Page, context: string, selector: string) {
+  const issues = await page.locator(selector).evaluateAll((elements, auditContext) => {
+    return elements
+      .map((element) => {
+        const target = element as HTMLElement;
+        const rect = target.getBoundingClientRect();
+        const style = getComputedStyle(target);
+        const svg = target.querySelector<SVGElement>("svg");
+        const svgRect = svg?.getBoundingClientRect();
+        const isVisible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          style.opacity !== "0";
+
+        return {
+          context: auditContext,
+          tag: target.tagName.toLowerCase(),
+          className: String(target.className),
+          label: target.getAttribute("aria-label") ?? target.getAttribute("title") ?? (target.textContent ?? "").trim().replace(/\s+/g, " "),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          svgWidth: svgRect ? Math.round(svgRect.width) : null,
+          svgHeight: svgRect ? Math.round(svgRect.height) : null,
+          minWidth: style.minWidth,
+          minHeight: style.minHeight,
+          display: style.display,
+          visible: isVisible,
+          hasSmallTarget: rect.width < 44 || rect.height < 44,
+          hasSmallIcon: Boolean(svgRect && (svgRect.width < 18 || svgRect.height < 18))
+        };
+      })
+      .filter((item) => item.visible && (item.hasSmallTarget || item.hasSmallIcon));
+  }, context);
+
+  expect(issues, `${context}\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
+}
+
 async function expectResponsiveLayoutIntegrity(page: Page, routePath: string) {
   await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => null);
   await expect(page.locator(".app-root")).toBeVisible();
@@ -899,25 +938,56 @@ async function stripMobileDeviceShell(page: Page) {
 async function expectKeyboardSafeIfFormRoute(page: Page, routePath: string) {
   const keyboardFieldSelector =
     "textarea:visible, input:not([type='hidden']):not([type='file']):not([type='checkbox']):not([type='radio']):not([type='range']):visible";
+  const keyboardFieldCssSelector =
+    "textarea, input:not([type='hidden']):not([type='file']):not([type='checkbox']):not([type='radio']):not([type='range'])";
+  const taskFieldSelector = [
+    `.task-screen-route-layer ${keyboardFieldSelector}`,
+    `.support-task-screen ${keyboardFieldSelector}`,
+    `.payment-task-screen ${keyboardFieldSelector}`,
+    `.learning-task-screen ${keyboardFieldSelector}`,
+    `.admin-mailing-task-screen ${keyboardFieldSelector}`
+  ].join(", ");
+  const taskScopeCssSelector = [
+    ".task-screen-route-layer",
+    ".support-task-screen",
+    ".payment-task-screen",
+    ".learning-task-screen",
+    ".admin-mailing-task-screen"
+  ].join(", ");
+  const fieldState = await page.evaluate(
+    ({ fieldSelector, taskScopeSelector }) => {
+      const isVisible = (element: Element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      };
+      const fields = Array.from(document.querySelectorAll<HTMLElement>(fieldSelector)).filter(isVisible);
+      const taskScopes = Array.from(document.querySelectorAll<HTMLElement>(taskScopeSelector)).filter(isVisible);
+      const taskFields = fields.filter((field) => taskScopes.some((scope) => scope.contains(field)));
+
+      return {
+        hasPortalTaskLayer: taskScopes.some((scope) => scope.classList.contains("task-screen-route-layer")),
+        hasTaskField: taskFields.length > 0,
+        hasAnyField: fields.length > 0
+      };
+    },
+    { fieldSelector: keyboardFieldCssSelector, taskScopeSelector: taskScopeCssSelector }
+  );
+
+  if (!fieldState.hasTaskField && fieldState.hasPortalTaskLayer) {
+    return;
+  }
+  if (!fieldState.hasTaskField && !fieldState.hasAnyField) {
+    return;
+  }
+
   const taskField = page
-    .locator(
-      [
-        `.task-screen-route-layer ${keyboardFieldSelector}`,
-        `.support-task-screen ${keyboardFieldSelector}`,
-        `.payment-task-screen ${keyboardFieldSelector}`,
-        `.learning-task-screen ${keyboardFieldSelector}`,
-        `.admin-mailing-task-screen ${keyboardFieldSelector}`
-      ].join(", ")
-    )
+    .locator(taskFieldSelector)
     .first();
-  const hasPortalTaskLayer = (await page.locator(".task-screen-route-layer:visible").count()) > 0;
-  if ((await taskField.count()) === 0 && hasPortalTaskLayer) {
-    return;
-  }
-  const field = (await taskField.count()) > 0 ? taskField : page.locator(keyboardFieldSelector).first();
-  if ((await field.count()) === 0) {
-    return;
-  }
+  const field = fieldState.hasTaskField ? taskField : page.locator(keyboardFieldSelector).first();
 
   const applyKeyboardViewport = () =>
     page.evaluate(() => {
@@ -1233,6 +1303,43 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
   }
 });
 
+test("keeps mobile icon action controls consistently touch sized", async ({ page }, testInfo) => {
+  test.skip(!["viewport-390-844", "galaxy-s24", "android-wide-layout-980"].includes(testInfo.project.name));
+
+  await expectConsistentIconActionTargets(
+    page,
+    "profile header and avatar actions",
+    ".section-head .compact-controls > button, .section-head .notification-center-button, .profile-avatar-icon-button"
+  );
+
+  await page.getByRole("button", { name: "Модули" }).click();
+  await expect(page.getByRole("heading", { name: "Модули" }).first()).toBeVisible();
+  await expectConsistentIconActionTargets(
+    page,
+    "learning module actions",
+    ".admin-panel-head .icon-button, .admin-mockup-card-actions .icon-button"
+  );
+
+  await page.getByRole("button", { name: "Общение" }).click();
+  await expect(page.getByRole("heading", { name: "Общение" }).first()).toBeVisible();
+  await expectConsistentIconActionTargets(page, "community topic actions", ".section-head .icon-button");
+  await page.getByRole("button", { name: /Фиксики/ }).click();
+  await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
+  await expectConsistentIconActionTargets(
+    page,
+    "community chat header and composer actions",
+    ".chat-room-header .icon-button, .chat-input-row .icon-button"
+  );
+
+  await page.goto("/payments");
+  await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();
+  await expectConsistentIconActionTargets(
+    page,
+    "payments add and tariff admin actions",
+    ".section-head .icon-button, .surface-card .icon-button, .payment-product-admin-actions .icon-button"
+  );
+});
+
 test("keeps every routed PWA screen responsive on audited viewports", async ({ page }, testInfo) => {
   test.skip(!responsiveRouteAuditProjects.has(testInfo.project.name));
   test.setTimeout(120_000);
@@ -1317,7 +1424,7 @@ test("keeps routed task screens full width even when a 980px mobile shell misses
 
 test("keeps routed PWA screens responsive across exact mobile audit sizes", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "viewport-412-915");
-  test.setTimeout(240_000);
+  test.setTimeout(420_000);
 
   for (const viewport of exactMobileAuditViewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });

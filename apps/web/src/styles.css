@@ -15954,3 +15954,166 @@ body.club-mobile-device .task-screen-route-layer :is(
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* Final action-control normalization.
+   Several legacy mobile sections used more specific local rules (2rem/1.48rem controls)
+   than the shared icon-button system, so the clickable area could be 44px while the
+   visible icon still looked tiny and inconsistent. Keep all icon-only actions visually
+   aligned across profile, learning, community, payments, support and task screens. */
+:root {
+  --action-icon-button-size: 44px;
+  --action-icon-glyph-size: 20px;
+  --action-icon-button-radius: 14px;
+}
+
+:is(
+  .icon-button,
+  .notification-center-button,
+  .profile-avatar-icon-button,
+  .support-file-icon-button,
+  .task-screen-back,
+  .bottom-sheet-header button,
+  .module-sort-button,
+  .module-lesson-add
+) {
+  display: inline-flex;
+  width: var(--action-icon-button-size) !important;
+  min-width: var(--action-icon-button-size) !important;
+  max-width: var(--action-icon-button-size);
+  height: var(--action-icon-button-size) !important;
+  min-height: var(--action-icon-button-size) !important;
+  max-height: var(--action-icon-button-size);
+  flex: 0 0 var(--action-icon-button-size);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--action-icon-button-radius);
+  line-height: 1;
+}
+
+:is(
+  .icon-button,
+  .notification-center-button,
+  .profile-avatar-icon-button,
+  .support-file-icon-button,
+  .task-screen-back,
+  .bottom-sheet-header button,
+  .module-sort-button,
+  .module-lesson-add
+) svg {
+  width: var(--action-icon-glyph-size) !important;
+  min-width: var(--action-icon-glyph-size);
+  height: var(--action-icon-glyph-size) !important;
+  min-height: var(--action-icon-glyph-size);
+  flex: 0 0 var(--action-icon-glyph-size);
+  stroke-width: 2.2;
+}
+
+.notification-center-button,
+.profile-avatar-icon-button,
+.support-file-icon-button,
+.task-screen-back {
+  border-radius: 999px;
+}
+
+.compact-controls {
+  gap: 6px;
+  padding: 4px;
+}
+
+.compact-controls > button {
+  min-width: var(--action-icon-button-size) !important;
+  min-height: var(--action-icon-button-size) !important;
+  padding-inline: 12px;
+}
+
+.module-sort-controls {
+  gap: 4px;
+  padding: 4px;
+}
+
+.module-sort-button,
+.module-lesson-add,
+.payment-product-admin-actions .icon-button {
+  border-radius: var(--action-icon-button-radius);
+}
+
+.admin-mockup-card-actions,
+.payment-product-admin-actions,
+.modules-panel-actions,
+.community-topline-actions,
+.profile-avatar-actions,
+.chat-room-admin {
+  min-width: 0;
+  gap: 8px;
+}
+
+.admin-mockup-card-actions {
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.payment-product-admin-actions {
+  display: grid;
+  grid-template-columns: repeat(3, var(--action-icon-button-size));
+  justify-content: end;
+}
+
+@media (max-width: 359px) {
+  .payment-product-admin-actions {
+    grid-template-columns: repeat(2, var(--action-icon-button-size));
+  }
+}
+
+@media (max-width: 480px) {
+  .module-card-head {
+    flex-wrap: wrap;
+  }
+
+  .module-card-head .module-card-toggle,
+  .module-card-head .admin-mockup-card-actions {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .module-card-head .admin-mockup-card-actions {
+    justify-content: flex-start;
+  }
+}
+
+body.club-mobile-device .module-card-head {
+  flex-wrap: wrap;
+}
+
+body.club-mobile-device .module-card-head .module-card-toggle,
+body.club-mobile-device .module-card-head .admin-mockup-card-actions {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+body.club-mobile-device .module-card-head .admin-mockup-card-actions {
+  justify-content: flex-start;
+}
+
+@media (max-width: 359px) {
+  .notification-center-list,
+  .notification-task-screen .notification-center-list {
+    overflow-x: clip;
+  }
+
+  .notification-center-item.soft-card,
+  .notification-task-screen .notification-center-item {
+    width: auto;
+    max-width: calc(100% - 1.5rem);
+    margin-inline: 0.75rem !important;
+    justify-self: center;
+    box-sizing: border-box;
+  }
+
+  .payment-product-list .soft-payment-card {
+    width: calc(100% + 2px);
+    max-width: calc(100% + 2px);
+    justify-self: center;
+  }
+}
