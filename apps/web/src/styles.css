@@ -16192,3 +16192,60 @@ html body .chat-input-row .icon-button {
   max-height: var(--icon-button-size) !important;
   flex-basis: var(--icon-button-size) !important;
 }
+
+.admin-login-ip-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-login-ip-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius-compact);
+  background: var(--panel-soft);
+}
+
+.admin-login-ip-main,
+.admin-login-ip-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-login-ip-main {
+  justify-content: space-between;
+}
+
+.admin-login-ip-address {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-login-ip-new {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-login-ip-meta {
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 359px) {
+  .admin-login-ip-main,
+  .admin-login-ip-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -65,6 +65,18 @@ describe("admin client card helpers", () => {
     expect(styles).toContain("padding-bottom: max(1rem, var(--club-safe-bottom))");
   });
 
+  it("loads and shows login IP history only with the dedicated permission", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(source).toContain('hasCurrentAdminPermission("login_ips")');
+    expect(source).toContain("getAdminUserLoginIps");
+    expect(source).toContain('v-if="canViewLoginIps"');
+    expect(source).toContain("IP входов");
+    expect(source).toContain("История IP появится после следующего входа клиента.");
+    expect(styles).toMatch(/\.admin-login-ip-address\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
+  });
+
   it("shows clear labels for manual access changes", () => {
     const manualGrant = {
       status: "active",

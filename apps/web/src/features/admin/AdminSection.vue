@@ -11,6 +11,7 @@ import {
   type AdminMailing,
   type AdminMailingPreviewResponse,
   type AdminLearningMaterial,
+  type AdminLoginIp,
   type AdminStatsUser,
   type AdminUser,
   type AdminUserDetailResponse,
@@ -68,6 +69,7 @@ import {
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
+  getAdminUserLoginIps,
   getCommunityTopics,
   removeAdminUser,
   pauseAdminMailing,
@@ -236,6 +238,9 @@ const communityTopics = ref<ClubTopic[]>([]);
 const communityMessages = ref<AdminCommunityMessage[]>([]);
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
+const selectedUserLoginIps = ref<AdminLoginIp[]>([]);
+const selectedUserLoginIpsLoading = ref(false);
+const selectedUserLoginIpsError = ref(false);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
 const selectedMailing = ref<AdminMailing | null>(null);
@@ -357,6 +362,7 @@ function selectAdminPanel(panel: AdminPanel) {
 }
 
 const canUseStorage = computed(() => hasCurrentAdminPermission("storage"));
+const canViewLoginIps = computed(() => hasCurrentAdminPermission("login_ips"));
 const canGrantClientAccess = computed(() => hasCurrentAdminPermission("accesses"));
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const canManageSelectedUserAccess = computed(() => canGrantClientAccess.value && canManageSelectedUser.value);
@@ -1484,8 +1490,29 @@ function closeSelectedUser() {
   closeClientMessageModal();
   selectedUser.value = null;
   selectedUserDetail.value = null;
+  selectedUserLoginIps.value = [];
+  selectedUserLoginIpsError.value = false;
   emit("client-card-close");
   closeAdminTask();
+}
+
+function isNewLoginIp(entry: AdminLoginIp) {
+  return Date.now() - Date.parse(entry.firstSeenAt) < 24 * 60 * 60 * 1000;
+}
+
+async function loadSelectedUserLoginIps(telegramId: string) {
+  selectedUserLoginIps.value = [];
+  selectedUserLoginIpsError.value = false;
+  if (!canViewLoginIps.value) return;
+
+  selectedUserLoginIpsLoading.value = true;
+  try {
+    selectedUserLoginIps.value = (await getAdminUserLoginIps(telegramId)).loginIps;
+  } catch {
+    selectedUserLoginIpsError.value = true;
+  } finally {
+    selectedUserLoginIpsLoading.value = false;
+  }
 }
 
 async function selectUser(user: AdminStatsUser) {
@@ -1496,6 +1523,7 @@ async function selectUser(user: AdminStatsUser) {
   try {
     selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
     applySelectedUser(selectedUserDetail.value.user);
+    await loadSelectedUserLoginIps(user.telegramId);
   } catch {
     selectedUserDetail.value = null;
     setError("Не удалось загрузить карточку клиента.");
@@ -3104,6 +3132,29 @@ onUnmounted(() => {
                 <small>{{ selectedUserDetail.device.userAgent }}</small>
               </div>
               <p v-else class="admin-empty">Данные появятся после следующего запуска приложения клиентом.</p>
+            </section>
+
+            <section v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section">
+              <div class="admin-client-section-head">
+                <h4>IP входов</h4>
+                <small>{{ selectedUserLoginIps.length }} адресов</small>
+              </div>
+              <p v-if="selectedUserLoginIpsLoading" class="admin-empty">Загружаю историю IP…</p>
+              <p v-else-if="selectedUserLoginIpsError" class="admin-warning-line">Не удалось загрузить историю IP.</p>
+              <p v-else-if="!selectedUserLoginIps.length" class="admin-empty">История IP появится после следующего входа клиента.</p>
+              <div v-else class="admin-login-ip-list">
+                <article v-for="entry in selectedUserLoginIps" :key="entry.id" class="admin-login-ip-row">
+                  <div class="admin-login-ip-main">
+                    <strong class="admin-login-ip-address">{{ entry.ipAddress }}</strong>
+                    <span v-if="isNewLoginIp(entry)" class="admin-login-ip-new">Новый IP</span>
+                  </div>
+                  <div class="admin-login-ip-meta">
+                    <span>Впервые: {{ formatAdminCompactDateTime(entry.firstSeenAt) }}</span>
+                    <span>Последний вход: {{ formatAdminCompactDateTime(entry.lastSeenAt) }}</span>
+                    <span>Входов: {{ entry.loginCount }}</span>
+                  </div>
+                </article>
+              </div>
             </section>
 
             <section class="admin-client-section">
