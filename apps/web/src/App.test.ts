@@ -314,8 +314,8 @@ describe("App", () => {
     expect(profileSource).toContain("visualScaleDisplayValue");
     expect(profileSource).toContain("handleVisualScaleRange");
     expect(profileSource).toContain('type="range"');
-    expect(profileSource).toContain('min="1"');
-    expect(profileSource).toContain('max="2"');
+    expect(profileSource).toContain('min="0.8"');
+    expect(profileSource).toContain('max="1.4"');
     expect(profileSource).toContain('step="0.1"');
     expect(profileSource).toContain("nudgeVisualScale");
     expect(profileSource).not.toContain("profile-range-row");

@@ -7,13 +7,13 @@ export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azur
 export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
-const visualScaleStorageVersion = "3";
+const visualScaleStorageVersion = "4";
 const appearanceStorageVersion = "6";
 
 function clampVisualScale(value: number | string | null) {
   const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
-  const safeValue = Number.isFinite(parsedValue) ? parsedValue : 1;
-  return Math.min(2, Math.max(1, Math.round(safeValue * 10) / 10));
+  const safeValue = Number.isFinite(parsedValue) ? parsedValue : 0.9;
+  return Math.min(1.4, Math.max(0.8, Math.round(safeValue * 10) / 10));
 }
 
 export const useUiStore = defineStore("ui", () => {

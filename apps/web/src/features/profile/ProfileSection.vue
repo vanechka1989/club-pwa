@@ -259,8 +259,8 @@ const designThemeOptions = computed<
     previewClass: "design-theme-preview-graphite"
   }
 ]);
-const visualScaleMin = 1;
-const visualScaleMax = 2;
+const visualScaleMin = 0.8;
+const visualScaleMax = 1.4;
 const visualScaleStep = 0.1;
 const visualScaleDisplayValue = computed(() => ui.visualScale.toFixed(1));
 const avatarGesturePointers = new Map<number, AvatarGesturePointState>();
@@ -878,8 +878,8 @@ watch(
           <input
             class="visual-scale-range"
             type="range"
-            min="1"
-            max="2"
+            min="0.8"
+            max="1.4"
             step="0.1"
             :value="ui.visualScale"
             :aria-label="t('profileVisualScaleControl')"

@@ -854,8 +854,8 @@ async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
     const shellScale = isScaledShell
       ? Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--club-app-wide-viewport-scale")) || 1
       : 1;
-    const minimumButtonHeight = isScaledShell ? 48 : 44;
-    const maximumButtonHeight = 64;
+    const minimumButtonHeight = 44;
+    const maximumButtonHeight = 52;
     const subpixelTolerance = 0.5;
 
     return elements

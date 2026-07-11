@@ -29,7 +29,9 @@
   --warning: #a16207;
   --shadow: 0 22px 60px rgb(15 23 42 / 12%);
   --shadow-soft: 0 12px 30px rgb(15 23 42 / 8%);
-  --club-user-visual-scale: 1;
+  --club-user-visual-scale: 0.9;
+  --club-user-font-root: 14.4px;
+  --club-user-font-base: 13.5px;
   --font-root: var(--club-user-font-root, clamp(16px, 4vw, 17px));
   --font-base: var(--club-user-font-base, clamp(15px, 3.8vw, 16px));
   --font-title: clamp(1.05rem, 0.92rem + 0.58vw, 1.32rem);

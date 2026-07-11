@@ -19,19 +19,19 @@ describe("PWA UI foundation", () => {
     const css = readUi("foundation.css");
     expect(css).toContain("PWA UI Foundation 2026");
     expect(css).toContain("--page-max-width: 768px;");
-    expect(css).toContain("--page-padding: 16px;");
-    expect(css).toContain("--page-padding-compact: 12px;");
-    expect(css).toContain("--section-gap: 16px;");
-    expect(css).toContain("--card-gap: 12px;");
-    expect(css).toContain("--card-padding: 16px;");
-    expect(css).toContain("--card-radius: 18px;");
+    expect(css).toContain("--page-padding: 12px;");
+    expect(css).toContain("--page-padding-compact: 10px;");
+    expect(css).toContain("--section-gap: 12px;");
+    expect(css).toContain("--card-gap: 8px;");
+    expect(css).toContain("--card-padding: 12px;");
+    expect(css).toContain("--card-radius: 14px;");
     expect(css).toContain("--control-height: 48px;");
-    expect(css).toContain("--button-height: 48px;");
+    expect(css).toContain("--button-height: 44px;");
     expect(css).toContain("--icon-button-size: 44px;");
     expect(css).toContain("--icon-size: 22px;");
-    expect(css).toContain("--header-min-height: 68px;");
-    expect(css).toContain("--bottom-nav-height: 68px;");
-    expect(css).toContain("--bottom-action-height: 64px;");
+    expect(css).toContain("--header-min-height: 56px;");
+    expect(css).toContain("--bottom-nav-height: 60px;");
+    expect(css).toContain("--bottom-action-height: 56px;");
     expect(css).toContain("--safe-bottom: env(safe-area-inset-bottom, 0px);");
   });
 
@@ -39,18 +39,18 @@ describe("PWA UI foundation", () => {
     const css = readUi("foundation.css");
 
     expect(css).toContain("--club-scaled-control-factor: var(--club-scaled-ui-factor, 1);");
-    expect(css).toContain("--section-gap: calc(16px * var(--club-scaled-ui-factor));");
-    expect(css).toContain("--card-gap: calc(12px * var(--club-scaled-ui-factor));");
-    expect(css).toContain("--card-padding: calc(16px * var(--club-scaled-ui-factor));");
-    expect(css).toContain("--card-radius: calc(18px * var(--club-scaled-ui-factor));");
-    expect(css).toContain("--button-height: calc(48px * var(--club-scaled-control-factor));");
-    expect(css).toContain("--button-height-large: calc(52px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--section-gap: calc(12px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--card-gap: calc(8px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--card-padding: calc(12px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--card-radius: calc(14px * var(--club-scaled-ui-factor));");
+    expect(css).toContain("--button-height: calc(44px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--button-height-large: calc(48px * var(--club-scaled-control-factor));");
     expect(css).toContain("--button-height-compact: calc(44px * var(--club-scaled-control-factor));");
     expect(css).toContain("--icon-button-size: calc(44px * var(--club-scaled-control-factor));");
     expect(css).toContain("--icon-size: calc(22px * var(--club-scaled-control-factor));");
-    expect(css).toContain("--header-min-height: calc(68px * var(--club-scaled-control-factor));");
-    expect(css).toContain("--bottom-nav-height: calc(68px * var(--club-scaled-control-factor));");
-    expect(css).toContain("--bottom-action-height: calc(64px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--header-min-height: calc(56px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--bottom-nav-height: calc(60px * var(--club-scaled-control-factor));");
+    expect(css).toContain("--bottom-action-height: calc(56px * var(--club-scaled-control-factor));");
     expect(css).not.toContain("--club-scaled-control-factor: min(");
   });
 
@@ -65,6 +65,15 @@ describe("PWA UI foundation", () => {
     const css = readUi("foundation.css");
 
     expect(css).toMatch(/\.ui-bottom-action-bar\s*>\s*:only-child\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*-1;/);
+  });
+
+  it("keeps the profile visually compact without shrinking its tap targets", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).toContain("width: clamp(3.25rem, 14vw, 4rem);");
+    expect(css).toContain("font-size: clamp(1rem, 4.2vw, 1.3rem);");
+    expect(css).toContain("padding: 10px 12px;");
+    expect(css).toContain("min-height: 44px;");
   });
 
   it("defines the four required theme variants through semantic tokens", () => {
