@@ -1,7 +1,7 @@
 import type { AppNotification as ClubAppNotification } from "@club/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { clearAppNotifications, getAppNotifications, getWebPushPublicKey, markAppNotificationsRead, saveWebPushSubscription } from "@/api/client";
+import { clearAppNotifications, deleteWebPushSubscription, getAppNotifications, getWebPushPublicKey, markAppNotificationsRead, saveWebPushSubscription } from "@/api/client";
 
 export type AppNotificationKind = "error" | "success" | "info";
 
@@ -11,6 +11,8 @@ export type AppNotification = {
   message: string;
 };
 
+export type PushStatus = "idle" | "checking" | "unsupported" | "denied" | "disabled" | "enabling" | "enabled" | "disabling" | "error";
+
 let nextNotificationId = 1;
 
 export const useNotificationsStore = defineStore("notifications", () => {
@@ -18,7 +20,7 @@ export const useNotificationsStore = defineStore("notifications", () => {
   const appNotifications = ref<ClubAppNotification[]>([]);
   const unreadCount = ref(0);
   const appNotificationsLoading = ref(false);
-  const pushStatus = ref<"idle" | "unsupported" | "denied" | "enabled" | "error">("idle");
+  const pushStatus = ref<PushStatus>("idle");
 
   function dismiss(id: number) {
     items.value = items.value.filter((item) => item.id !== id);
@@ -101,14 +103,39 @@ export const useNotificationsStore = defineStore("notifications", () => {
     return outputArray;
   }
 
+  function supportsBrowserPush() {
+    return typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
+  }
+
+  async function refreshBrowserPushStatus() {
+    if (!supportsBrowserPush()) {
+      pushStatus.value = "unsupported";
+      return pushStatus.value;
+    }
+    if (Notification.permission === "denied") {
+      pushStatus.value = "denied";
+      return pushStatus.value;
+    }
+
+    pushStatus.value = "checking";
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      pushStatus.value = (await registration.pushManager.getSubscription()) ? "enabled" : "disabled";
+    } catch {
+      pushStatus.value = "error";
+    }
+    return pushStatus.value;
+  }
+
   async function enableBrowserPush() {
-    if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    if (!supportsBrowserPush()) {
       pushStatus.value = "unsupported";
       showError("Этот браузер не поддерживает PWA push-уведомления.");
       return;
     }
 
-    const permission = await Notification.requestPermission();
+    pushStatus.value = "enabling";
+    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
     if (permission !== "granted") {
       pushStatus.value = "denied";
       showError("Разрешение на push-уведомления не выдано.");
@@ -131,11 +158,34 @@ export const useNotificationsStore = defineStore("notifications", () => {
         }));
 
       await saveWebPushSubscription(subscription.toJSON());
-      pushStatus.value = "enabled";
-      showSuccess("Push-уведомления включены.");
+      await refreshBrowserPushStatus();
+      showSuccess("Push-уведомления включены на этом устройстве.");
     } catch {
       pushStatus.value = "error";
       showError("Не удалось включить push-уведомления.");
+    }
+  }
+
+  async function disableBrowserPush() {
+    if (!supportsBrowserPush()) {
+      pushStatus.value = "unsupported";
+      showError("Этот браузер не поддерживает PWA push-уведомления.");
+      return;
+    }
+
+    pushStatus.value = "disabling";
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await deleteWebPushSubscription(subscription.toJSON());
+        await subscription.unsubscribe();
+      }
+      await refreshBrowserPushStatus();
+      showInfo("Push отключены. Оповещения больше не будут приходить на это устройство.");
+    } catch {
+      await refreshBrowserPushStatus();
+      showError("Не удалось отключить push-уведомления на этом устройстве.");
     }
   }
 
@@ -154,6 +204,8 @@ export const useNotificationsStore = defineStore("notifications", () => {
     loadAppNotifications,
     markAppNotificationsReadInApp,
     clearAppNotificationsInApp,
-    enableBrowserPush
+    refreshBrowserPushStatus,
+    enableBrowserPush,
+    disableBrowserPush
   };
 });
