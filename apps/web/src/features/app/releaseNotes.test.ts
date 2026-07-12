@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes narrow tariff actions as version 3.79", () => {
-    expect(appVersion).toBe("3.79");
-    expect(releaseNotes[0]?.title).toBe("Узкие кнопки оплаты");
+  it("publishes readable tariff titles as version 3.80", () => {
+    expect(appVersion).toBe("3.80");
+    expect(releaseNotes[0]?.title).toBe("Больше места названиям тарифов");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

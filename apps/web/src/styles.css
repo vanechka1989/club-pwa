@@ -12668,9 +12668,17 @@ textarea::placeholder {
 
 .payment-product-heading {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+}
+
+.payment-product-details {
+  display: flex;
   min-width: 0;
   align-items: center;
   gap: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 .payment-product-badge {
@@ -12811,8 +12819,10 @@ textarea::placeholder {
 }
 
 .payment-product-meta {
+  min-width: 0;
   color: var(--badge-accent-text);
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .payment-product-actions {

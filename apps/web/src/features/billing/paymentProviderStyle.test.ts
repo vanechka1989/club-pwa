@@ -39,6 +39,12 @@ describe("payment provider status style", () => {
     expect(styles).not.toContain('content: "Выгодно"');
   });
 
+  it("keeps the full title row free by placing optional badges with tariff details", () => {
+    expect(source).toMatch(/class="payment-product-details"[\s\S]*payment-product-meta[\s\S]*v-if="product\.badgeLabel"/);
+    expect(source).not.toMatch(/class="payment-product-heading">\s*<p[^>]*payment-product-title[^>]*>[^<]*<\/p>\s*<span v-if="product\.badgeLabel"/);
+    expect(styles).toMatch(/\.payment-product-details\s*\{[^}]*display:\s*flex;/s);
+  });
+
   it("keeps member tariff cards compact", () => {
     expect(source).toContain("payment-product-badge");
     expect(styles).toContain(".payment-product-list .payment-product-row");

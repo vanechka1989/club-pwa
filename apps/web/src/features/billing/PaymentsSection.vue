@@ -576,9 +576,11 @@ watch(() => route.path, syncPaymentTaskRoute);
           <div class="payment-product-main">
             <div class="payment-product-heading">
               <p class="payment-product-title">{{ product.title }}</p>
+            </div>
+            <div class="payment-product-details">
+              <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
               <span v-if="product.badgeLabel" class="payment-product-badge">{{ product.badgeLabel }}</span>
             </div>
-            <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
           </div>
           <div class="payment-product-actions ui-button-group">
             <button
