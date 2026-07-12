@@ -13,6 +13,7 @@ import {
   type AdminLearningMaterial,
   type AdminLoginIp,
   type AdminStatsUser,
+  type AdminStatsResponse,
   type AdminUser,
   type AdminUserDetailResponse,
   type ClubTopic,
@@ -44,6 +45,7 @@ import {
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
+import AdminPollStatistics from "./AdminPollStatistics.vue";
 import {
   addAdminUser,
   createAdminDatabaseBackupDownloadLink,
@@ -237,6 +239,7 @@ const showMailingComposer = ref(false);
 const paymentOrders = ref<PaymentOrderLog[]>([]);
 const communityTopics = ref<ClubTopic[]>([]);
 const communityMessages = ref<AdminCommunityMessage[]>([]);
+const pollStats = ref<AdminStatsResponse["pollStats"]>({ totalPolls: 0, activePolls: 0, closedPolls: 0, uniqueParticipants: 0, totalVotes: 0, participationPercent: 0, polls: [] });
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const selectedUserDisplayName = ref("");
@@ -1922,6 +1925,7 @@ async function loadAll() {
     if (statsResponse) {
       users.value = statsResponse.users;
       communityMessages.value = statsResponse.communityMessages ?? [];
+      pollStats.value = statsResponse.pollStats;
     }
     if (paymentsResponse) {
       paymentOrders.value = paymentsResponse.orders;
@@ -2941,6 +2945,7 @@ onUnmounted(() => {
             <p v-if="!adminStatistics.communication.topClients.length" class="admin-empty">Активных клиентов в общении пока нет.</p>
           </div>
         </section>
+        <AdminPollStatistics :stats="pollStats" />
       </div>
     </section>
 

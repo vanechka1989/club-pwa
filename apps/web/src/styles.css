@@ -12364,6 +12364,16 @@ textarea::placeholder {
   color: rgba(143, 160, 183, 0.7);
 }
 
+.admin-poll-statistics { grid-column: 1 / -1; }
+.admin-poll-list { display: grid; gap: 10px; }
+.admin-poll-list > article { display: grid; gap: 10px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel-soft); padding: 12px; }
+.admin-poll-list > article > div:first-child { display: grid; gap: 3px; }
+.admin-poll-list > article > div:first-child strong { color: var(--text); font-size: 14px; }
+.admin-poll-list > article > div:first-child small { color: var(--muted); font-size: 11px; }
+.admin-poll-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; color: var(--muted-strong); font-size: 12px; }
+.admin-poll-option > i { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 99px; background: var(--border); }
+.admin-poll-option > i > b { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+
 .text-input:focus,
 .admin-rich-editor:focus,
 .support-field input:focus,

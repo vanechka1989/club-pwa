@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
-import { ArrowLeft, Ban, MessageCircle, MoreVertical, Pin, PinOff, Plus, RotateCcw, Send, Smile, Trash2, UserX, X } from "lucide-vue-next";
+import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, MessageCircle, Mic, MoreVertical, Pin, PinOff, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
+  createClubVoiceMessage,
+  createClubImageMessage,
+  createClubPoll,
+  voteInClubPoll,
+  closeClubPoll,
   createCommunityTopic,
   createTopicUserMute,
   deleteTopicAuthorMessages,
@@ -20,6 +25,12 @@ import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
+import ChatVoiceMessage from "./ChatVoiceMessage.vue";
+import ChatImageGallery from "./ChatImageGallery.vue";
+import ChatPollComposer from "./ChatPollComposer.vue";
+import ChatPollMessage from "./ChatPollMessage.vue";
+import { useVoiceRecorder } from "./useVoiceRecorder";
+import { useImageDraft } from "./useImageDraft";
 
 const { t } = useI18n();
 const session = useSessionStore();
@@ -52,6 +63,10 @@ const suppressNextMessageClick = ref(false);
 const messageSaving = ref(false);
 const topicSaving = ref(false);
 const communityError = ref<string | null>(null);
+const showAttachmentMenu = ref(false);
+const showPollComposer = ref(false);
+const imageInput = ref<HTMLInputElement | null>(null);
+const cameraInput = ref<HTMLInputElement | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
 const messagesList = ref<HTMLElement | null>(null);
 const muteAlertShown = ref(false);
@@ -62,6 +77,8 @@ let refreshInFlight = false;
 let topicsRefreshInFlight = false;
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
 const topicReadStorageKey = "club-community-topic-read-at";
+const voiceRecorder = useVoiceRecorder();
+const imageDraft = useImageDraft();
 
 const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
 const isOwner = computed(() => session.user?.role === "owner");
@@ -402,6 +419,11 @@ function messageSignature(message: ClubMessage) {
     message.id,
     message.status,
     message.body,
+    message.kind,
+    message.voice?.url ?? "",
+    message.voice?.deletedAt ?? "",
+    message.images.map((image) => `${image.id}:${image.url ?? ""}:${image.deletedAt ?? ""}`).join("|"),
+    message.poll ? `${message.poll.id}:${message.poll.closedAt ?? ""}:${message.poll.options.map((option) => `${option.id}:${option.votesCount}:${option.selected}`).join("|")}` : "",
     message.createdAt,
     message.author.photoUrl ?? "",
     message.author.avatarPositionX ?? "",
@@ -673,6 +695,90 @@ async function handleSendMessage() {
     showCommunityError("Не удалось отправить сообщение.");
   } finally {
     messageSaving.value = false;
+  }
+}
+
+function appendCreatedMessage(message: ClubMessage) {
+  messages.value = [message, ...messages.value];
+  if (selectedTopic.value) {
+    selectedTopic.value = { ...selectedTopic.value, messagesCount: selectedTopic.value.messagesCount + 1 };
+    topics.value = topics.value.map((topic) => (topic.id === selectedTopic.value?.id ? selectedTopic.value : topic));
+  }
+  void scrollToBottom();
+}
+
+function handleImageSelection(event: Event) {
+  const input = event.target as HTMLInputElement;
+  imageDraft.add(Array.from(input.files ?? []));
+  input.value = "";
+  showAttachmentMenu.value = false;
+}
+
+async function handleSendImages() {
+  if (!selectedTopic.value || !imageDraft.files.value.length) return;
+  messageSaving.value = true;
+  try {
+    const response = await createClubImageMessage(selectedTopic.value.id, imageDraft.files.value, replyToMessage.value?.id ?? null);
+    imageDraft.clear();
+    replyToMessage.value = null;
+    appendCreatedMessage(response.message);
+  } catch {
+    showCommunityError("Не удалось отправить изображения. Можно повторить отправку.");
+  } finally {
+    messageSaving.value = false;
+  }
+}
+
+async function handleSendVoice() {
+  if (!selectedTopic.value || !voiceRecorder.blob.value) return;
+  voiceRecorder.setUploading(true);
+  messageSaving.value = true;
+  try {
+    const response = await createClubVoiceMessage(selectedTopic.value.id, voiceRecorder.blob.value, voiceRecorder.durationSeconds.value, replyToMessage.value?.id ?? null);
+    voiceRecorder.complete();
+    replyToMessage.value = null;
+    appendCreatedMessage(response.message);
+  } catch {
+    voiceRecorder.setUploading(false);
+    showCommunityError("Не удалось отправить голосовое. Запись сохранена для повторной отправки.");
+  } finally {
+    messageSaving.value = false;
+  }
+}
+
+async function handleCreatePoll(payload: { question: string; options: string[]; allowsMultiple: boolean; isAnonymous: boolean; closesAt: string | null }) {
+  if (!selectedTopic.value) return;
+  messageSaving.value = true;
+  try {
+    const response = await createClubPoll(selectedTopic.value.id, { ...payload, replyToMessageId: replyToMessage.value?.id ?? null });
+    showPollComposer.value = false;
+    replyToMessage.value = null;
+    appendCreatedMessage(response.message);
+  } catch {
+    showCommunityError("Не удалось создать опрос.");
+  } finally {
+    messageSaving.value = false;
+  }
+}
+
+async function handlePollVote(message: ClubMessage, optionIds: string[]) {
+  if (!message.poll) return;
+  try {
+    const response = await voteInClubPoll(message.poll.id, optionIds);
+    messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
+  } catch {
+    showCommunityError("Не удалось сохранить голос.");
+    await refreshSelectedTopic({ keepScroll: true });
+  }
+}
+
+async function handleClosePoll(message: ClubMessage) {
+  if (!message.poll) return;
+  try {
+    const response = await closeClubPoll(message.poll.id);
+    messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
+  } catch {
+    showCommunityError("Не удалось завершить опрос.");
   }
 }
 
@@ -969,7 +1075,17 @@ onBeforeUnmount(() => {
               <span>{{ resolveDisplayName(message.replyTo.author) }}</span>
               <span>{{ message.replyTo.body }}</span>
             </div>
-            <p class="chat-message-body">{{ message.body }}</p>
+            <p v-if="message.kind === 'text'" class="chat-message-body">{{ message.body }}</p>
+            <ChatVoiceMessage v-else-if="message.kind === 'voice' && message.voice" :voice="message.voice" />
+            <ChatImageGallery v-else-if="message.kind === 'images'" :images="message.images" />
+            <ChatPollMessage
+              v-else-if="message.kind === 'poll' && message.poll"
+              :poll="message.poll"
+              :moderator="isModerator"
+              :disabled="messageSaving"
+              @vote="handlePollVote(message, $event)"
+              @close="handleClosePoll(message)"
+            />
             <span v-if="message.pinnedAt" class="chat-message-pinned"><Pin class="h-3 w-3" aria-hidden="true" /> Закреплено</span>
             <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
               {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
@@ -1027,7 +1143,33 @@ onBeforeUnmount(() => {
             <X class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+        <div v-if="voiceRecorder.status.value === 'recording'" class="chat-voice-draft">
+          <span class="chat-recording-dot"></span><strong>Запись {{ voiceRecorder.durationSeconds.value }} сек.</strong>
+          <button type="button" @click="voiceRecorder.cancel">Отмена</button>
+          <button type="button" aria-label="Остановить запись" @click="voiceRecorder.stop"><Square /></button>
+        </div>
+        <div v-else-if="voiceRecorder.previewUrl.value" class="chat-voice-draft">
+          <audio :src="voiceRecorder.previewUrl.value" controls></audio>
+          <button type="button" @click="voiceRecorder.cancel">Удалить</button>
+          <button class="chat-draft-send" type="button" :disabled="messageSaving" @click="handleSendVoice">Отправить</button>
+        </div>
+        <div v-if="imageDraft.hasImages.value" class="chat-image-draft">
+          <div><button v-for="(url, index) in imageDraft.previews.value" :key="url" type="button" :aria-label="`Удалить изображение ${index + 1}`" @click="imageDraft.remove(index)"><img :src="url" alt="" /><X /></button></div>
+          <button type="button" @click="imageDraft.clear">Отмена</button>
+          <button class="chat-draft-send" type="button" :disabled="messageSaving" @click="handleSendImages">Отправить {{ imageDraft.files.value.length }}</button>
+        </div>
+        <p v-if="voiceRecorder.error.value || imageDraft.error.value" class="chat-media-draft-error">{{ voiceRecorder.error.value || imageDraft.error.value }}</p>
         <div class="chat-input-row">
+          <div class="composer-attachment-wrap">
+            <button class="icon-button ui-icon-button" type="button" aria-label="Вложения" :disabled="!canWrite" @click="showAttachmentMenu = !showAttachmentMenu"><Plus /></button>
+            <div v-if="showAttachmentMenu" class="composer-attachment-menu">
+              <button type="button" @click="imageInput?.click()"><ImageIcon /> Из галереи</button>
+              <button type="button" @click="cameraInput?.click()"><Camera /> Сделать фото</button>
+              <button type="button" @click="showPollComposer = true; showAttachmentMenu = false"><BarChart3 /> Опрос</button>
+            </div>
+            <input ref="imageInput" class="sr-only" type="file" accept="image/*" multiple @change="handleImageSelection" />
+            <input ref="cameraInput" class="sr-only" type="file" accept="image/*" capture="environment" @change="handleImageSelection" />
+          </div>
           <div class="composer-emoji-wrap">
             <button class="icon-button ui-icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">
               <Smile class="h-4 w-4" aria-hidden="true" />
@@ -1046,11 +1188,20 @@ onBeforeUnmount(() => {
             :placeholder="t('messagePlaceholder')"
             :disabled="!canWrite || messageSaving"
           />
+          <button
+            v-if="voiceRecorder.supported.value"
+            class="icon-button ui-icon-button"
+            type="button"
+            aria-label="Записать голосовое"
+            :disabled="!canWrite || messageSaving"
+            @click="voiceRecorder.start"
+          ><Mic /></button>
           <button class="icon-button ui-icon-button" type="submit" aria-label="Отправить" :disabled="!canWrite || messageSaving || isMuted">
             <Send class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </form>
+      <ChatPollComposer v-if="showPollComposer" @close="showPollComposer = false" @submit="handleCreatePoll" />
     </div>
 
     <Teleport to="body">

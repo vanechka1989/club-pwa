@@ -291,7 +291,7 @@ export function createClubMessage(topicId: string, body: string, replyToMessageI
 export function createClubVoiceMessage(topicId: string, file: Blob, durationSeconds: number, replyToMessageId?: string | null) {
   const form = new FormData();
   form.set("voice", file, file instanceof File && file.name ? file.name : "voice.webm");
-  form.set("durationSeconds", String(Math.round(durationSeconds)));
+  form.set("durationSeconds", String(Math.max(1, Math.round(durationSeconds))));
   if (replyToMessageId) form.set("replyToMessageId", replyToMessageId);
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages/voice`, { method: "POST", body: form });
 }
