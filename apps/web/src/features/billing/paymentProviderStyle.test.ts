@@ -44,7 +44,12 @@ describe("payment provider status style", () => {
     expect(styles).toContain(".payment-product-list .payment-product-row");
     expect(styles).toContain("grid-template-columns: minmax(0, 1fr) auto;");
     expect(styles).toMatch(/\.payment-product-title\s*\{[^}]*white-space:\s*nowrap;/s);
-    expect(styles).toMatch(/\.payment-product-list \.payment-product-row \.payment-product-pay\s*\{[^}]*min-width:\s*96px;/s);
+    expect(styles).toMatch(/\.payment-product-list \.payment-product-row \.payment-product-pay\s*\{[^}]*width:\s*80px;/s);
+  });
+
+  it("does not let owner controls widen the payment action column", () => {
+    expect(styles).toMatch(/\.payment-product-row:has\(\.payment-product-admin-actions\) \.payment-product-actions\s*\{[^}]*display:\s*contents;/s);
+    expect(styles).toMatch(/\.payment-product-row:has\(\.payment-product-admin-actions\) \.payment-product-admin-actions\s*\{[^}]*grid-column:\s*1 \/ -1;/s);
   });
 
   it("uses a compact accessible switch for tariff visibility", () => {

@@ -352,7 +352,7 @@ describe("App", () => {
     expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
     expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list \.soft-payment-card\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/s);
     expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-actions\s*\{[^}]*width: auto;[^}]*justify-self: end;/s);
-    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[^}]*min-width: 96px;/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[^}]*width: 80px;/s);
   });
 
   it("visually separates payment tariff cards", () => {
