@@ -267,6 +267,13 @@
       "when": 1783878480000,
       "tag": "0037_payment_product_badge",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783887600000,
+      "tag": "0038_community_media_polls",
+      "breakpoints": true
     }
   ]
 }
