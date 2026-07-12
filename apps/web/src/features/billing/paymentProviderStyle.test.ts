@@ -43,5 +43,14 @@ describe("payment provider status style", () => {
     expect(source).toContain("payment-product-badge");
     expect(styles).toContain(".payment-product-list .payment-product-row");
     expect(styles).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+    expect(styles).toMatch(/\.payment-product-title\s*\{[^}]*white-space:\s*nowrap;/s);
+    expect(styles).toMatch(/\.payment-product-list \.payment-product-row \.payment-product-pay\s*\{[^}]*min-width:\s*96px;/s);
+  });
+
+  it("uses a compact accessible switch for tariff visibility", () => {
+    expect(source).toContain("payment-product-publish-toggle");
+    expect(source).toContain("payment-product-publish-switch");
+    expect(source).toContain('aria-label="Показывать клиентам"');
+    expect(styles).toContain(".payment-product-publish-input:checked + .payment-product-publish-switch");
   });
 });

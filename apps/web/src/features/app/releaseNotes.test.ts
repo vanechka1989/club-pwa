@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact tariffs and optional badges as version 3.77", () => {
-    expect(appVersion).toBe("3.77");
-    expect(releaseNotes[0]?.title).toBe("Компактные тарифы и метки");
+  it("publishes compact tariff controls as version 3.78", () => {
+    expect(appVersion).toBe("3.78");
+    expect(releaseNotes[0]?.title).toBe("Компактное управление тарифами");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

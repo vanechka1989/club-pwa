@@ -801,9 +801,20 @@ watch(() => route.path, syncPaymentTaskRoute);
               <span class="text-sm font-semibold text-[var(--muted)]">ID подписки Prodamus</span>
               <input v-model.trim="productForm.prodamusSubscriptionId" class="text-input mt-2" required />
             </label>
-            <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
-              <input v-model="productForm.isPublished" type="checkbox" />
-              Показывать клиентам
+            <label class="payment-product-publish-toggle">
+              <span class="payment-product-publish-copy">
+                <strong>Показывать клиентам</strong>
+                <small>{{ productForm.isPublished ? "Тариф виден в разделе оплаты" : "Тариф скрыт от клиентов" }}</small>
+              </span>
+              <span class="payment-product-publish-control">
+                <input
+                  v-model="productForm.isPublished"
+                  class="payment-product-publish-input"
+                  type="checkbox"
+                  aria-label="Показывать клиентам"
+                />
+                <span class="payment-product-publish-switch" aria-hidden="true"></span>
+              </span>
             </label>
             <div class="grid grid-cols-2 gap-3">
               <button class="secondary-button ui-button" type="button" @click="closeProductModal">Закрыть</button>
