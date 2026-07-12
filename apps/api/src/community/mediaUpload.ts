@@ -12,7 +12,8 @@ function extension(fileName: string) {
 export function getCommunityVoiceContentType(contentType: string, fileName: string) {
   const normalized = contentType.toLowerCase().split(";")[0]?.trim() ?? "";
   const ext = extension(fileName);
-  if (normalized.startsWith("audio/")) return normalized;
+  const allowedAudioTypes = new Set(["audio/webm", "audio/mp4", "audio/ogg", "audio/mpeg", "audio/aac", "audio/wav", "audio/x-wav"]);
+  if (allowedAudioTypes.has(normalized)) return normalized === "audio/x-wav" ? "audio/wav" : normalized;
   if (normalized === "video/mp4" && (ext === "m4a" || ext === "mp4")) return "audio/mp4";
   return ({ webm: "audio/webm", m4a: "audio/mp4", mp4: "audio/mp4", ogg: "audio/ogg", mp3: "audio/mpeg", aac: "audio/aac", wav: "audio/wav" } as Record<string, string>)[ext] ?? null;
 }
@@ -28,7 +29,8 @@ export function buildCommunityMediaObjectKey(kind: "voice" | "image", messageId:
 export function validateCommunityImageFiles(files: File[]) {
   if (files.length < 1 || files.length > communityImageMaxCount) return "Можно прикрепить от 1 до 10 изображений.";
   if (files.some((file) => file.size > communityImageMaxBytes)) return "Размер каждого изображения не должен превышать 15 МБ.";
-  if (files.some((file) => !file.type.toLowerCase().startsWith("image/"))) return "Поддерживаются только изображения.";
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+  if (files.some((file) => !allowedTypes.has(file.type.toLowerCase()))) return "Неподдерживаемый формат изображения.";
   return null;
 }
 

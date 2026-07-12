@@ -1,4 +1,4 @@
-export type S3ObjectCategory = "learning" | "support" | "mailings" | "notifications" | "other";
+export type S3ObjectCategory = "learning" | "support" | "mailings" | "notifications" | "community" | "other";
 
 export function classifyS3ObjectKey(key: string): {
   category: S3ObjectCategory;
@@ -33,6 +33,14 @@ export function classifyS3ObjectKey(key: string): {
 
   if (normalizedKey.startsWith("notifications/")) {
     return { category: "notifications", categoryLabel: "Уведомления", fileKind: "Вложение уведомления" };
+  }
+
+  if (normalizedKey.startsWith("community/voice/")) {
+    return { category: "community", categoryLabel: "Общение", fileKind: "Голосовое сообщение" };
+  }
+
+  if (normalizedKey.startsWith("community/images/")) {
+    return { category: "community", categoryLabel: "Общение", fileKind: "Изображение чата" };
   }
 
   return { category: "other", categoryLabel: "Прочее", fileKind: "Файл" };

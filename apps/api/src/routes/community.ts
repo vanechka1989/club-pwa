@@ -832,6 +832,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     }
     const contentType = getCommunityVoiceContentType(file.type, file.name);
     if (!contentType) return c.json({ error: "Unsupported voice format" }, 415);
+    if (replyToMessageId) {
+      const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
+      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
+    }
 
     const [message] = await db.insert(clubChatMessages).values({
       topicId: topic.id,
@@ -880,6 +884,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const replyToMessageId = String(form.get("replyToMessageId") ?? "").trim() || null;
     const validationError = validateCommunityImageFiles(files);
     if (validationError) return c.json({ error: validationError }, 400);
+    if (replyToMessageId) {
+      const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
+      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
+    }
     let prepared: Awaited<ReturnType<typeof prepareCommunityImage>>[];
     try {
       prepared = await Promise.all(files.map(prepareCommunityImage));
@@ -942,6 +950,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : "Invalid poll" }, 400);
     }
+    if (parsed.data.replyToMessageId) {
+      const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, parsed.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
+      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
+    }
 
     const messageId = randomUUID();
     await db.transaction(async (tx) => {
@@ -970,10 +982,13 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) return accessError;
+    const mute = await getActiveMute(c.get("userId"));
+    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
     const parsed = pollVotePayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "Invalid vote" }, 400);
-    const poll = await db.query.clubPolls.findFirst({ where: eq(clubPolls.id, c.req.param("id")), with: { options: true } });
+    const poll = await db.query.clubPolls.findFirst({ where: eq(clubPolls.id, c.req.param("id")), with: { options: true, message: { with: { topic: true } } } });
     if (!poll) return c.json({ error: "Poll not found" }, 404);
+    if (role === "member" && (!poll.message.topic.isPublished || poll.message.topic.isLocked)) return c.json({ error: "Topic is unavailable" }, 403);
     if (poll.closedAt || (poll.closesAt && poll.closesAt <= new Date())) return c.json({ error: "Poll is closed" }, 409);
     let optionIds: string[];
     try {

@@ -7,6 +7,7 @@ describe("community media uploads", () => {
     expect(getCommunityVoiceContentType("video/mp4", "voice.m4a")).toBe("audio/mp4");
     expect(getCommunityVoiceContentType("application/octet-stream", "voice.ogg")).toBe("audio/ogg");
     expect(getCommunityVoiceContentType("application/octet-stream", "voice.exe")).toBeNull();
+    expect(getCommunityVoiceContentType("audio/x-msdownload", "voice.exe")).toBeNull();
   });
 
   it("stores voice and image media under separate safe prefixes", () => {
@@ -19,5 +20,6 @@ describe("community media uploads", () => {
     expect(validateCommunityImageFiles([image(1024)])).toBeNull();
     expect(validateCommunityImageFiles(Array.from({ length: 11 }, () => image(1024)))).toContain("10");
     expect(validateCommunityImageFiles([image(15 * 1024 * 1024 + 1)])).toContain("15 МБ");
+    expect(validateCommunityImageFiles([{ size: 1024, type: "image/svg+xml", name: "unsafe.svg" } as File])).toContain("формат");
   });
 });

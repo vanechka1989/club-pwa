@@ -35,6 +35,16 @@ describe("S3 object helpers", () => {
       categoryLabel: "Рассылки",
       fileKind: "Вложение рассылки"
     });
+    expect(classifyS3ObjectKey("community/voice/message/voice.webm")).toEqual({
+      category: "community",
+      categoryLabel: "Общение",
+      fileKind: "Голосовое сообщение"
+    });
+    expect(classifyS3ObjectKey("community/images/message/photo.webp")).toEqual({
+      category: "community",
+      categoryLabel: "Общение",
+      fileKind: "Изображение чата"
+    });
     expect(classifyS3ObjectKey("unknown/file.bin")).toEqual({
       category: "other",
       categoryLabel: "Прочее",

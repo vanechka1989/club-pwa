@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes readable tariff titles as version 3.80", () => {
-    expect(appVersion).toBe("3.80");
-    expect(releaseNotes[0]?.title).toBe("Больше места названиям тарифов");
+  it("publishes rich community chat as version 3.81", () => {
+    expect(appVersion).toBe("3.81");
+    expect(releaseNotes[0]?.title).toBe("Голосовые, изображения и опросы");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
