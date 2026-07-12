@@ -19,5 +19,7 @@ describe("compact profile display name", () => {
     expect(source).toContain("Изменение через администратора");
     expect(styles).toContain(".profile-name-sheet-backdrop");
     expect(styles).not.toContain(".profile-identity-card-v2 .profile-access-current-status { grid-column:2");
+    expect(styles).toMatch(/\.profile-identity-badges-v2 \{[^}]*display:flex;[^}]*flex-direction:column;/);
+    expect(styles).toContain(".profile-identity-badges-v2 > :is(.profile-role-pill, .profile-access-current-status)");
   });
 });
