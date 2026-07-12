@@ -659,6 +659,21 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .community-chat-open .message-reaction-button span { font-size: 0.62rem; }
 .community-chat-open .message-reaction-button small { font-size: 0.5rem; }
 
+/* Mobile control rules elsewhere intentionally enlarge buttons. Reactions are
+   status markers, so lock their visual box after every shared control layer. */
+html body .community-chat-open .chat-bubble .message-reaction-button {
+  box-sizing: border-box !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  overflow: hidden;
+}
+
 .community-chat-open .composer-emoji-popover {
   position: fixed;
   z-index: 1750;

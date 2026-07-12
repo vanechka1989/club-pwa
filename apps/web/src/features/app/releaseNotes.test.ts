@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes minimal reaction circles as version 3.88", () => {
-    expect(appVersion).toBe("3.88");
-    expect(releaseNotes[0]?.title).toBe("Миниатюрные реакции и эмодзи");
+  it("publishes locked reaction geometry as version 3.89", () => {
+    expect(appVersion).toBe("3.89");
+    expect(releaseNotes[0]?.title).toBe("Стабильный размер реакций");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
