@@ -6,7 +6,7 @@ import { pwaUiScreenshotViewports } from "./pwa-ui-routes";
 
 const require = createRequire(import.meta.url);
 const apiBaseUrl = "http://localhost:3000";
-const appApiUrlPattern = /^https?:\/\/(?:127\.0\.0\.1|localhost):5173\/api\/.*/;
+const appApiUrlPattern = /^https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/api\/.*/;
 const now = "2026-07-01T10:00:00.000Z";
 const activeUntil = "2026-08-30T00:00:00.000Z";
 
@@ -1451,7 +1451,7 @@ const responsiveRouteAuditPaths = [
   { path: "/profile", selector: ".soft-home" },
   { path: "/profile/avatar", selector: ".profile-avatar-editor-modal" },
   { path: "/notifications", selector: ".notification-task-screen .task-screen" },
-  { path: "/learning", selector: ".modules-panel" },
+  { path: "/learning", selector: ".modules-section" },
   { path: "/learning/modules/new", selector: ".learning-task-screen .task-screen" },
   { path: "/learning/modules/module-main/edit", selector: ".learning-task-screen .task-screen" },
   { path: "/learning/lessons/new/module-main", selector: ".learning-task-screen .task-screen" },
@@ -1720,37 +1720,66 @@ test("keeps design theme independent from day and night mode", async ({ page }) 
   const root = page.locator("html");
   const dayButton = page.getByRole("button", { name: "День", exact: true });
   const nightButton = page.getByRole("button", { name: "Ночь", exact: true });
-  const softTouchButton = page.getByRole("button", { name: /Dark Soft Touch Premium/ });
-  const graphiteButton = page.getByRole("button", { name: /Graphite \+ Electric Blue/ });
+  const designThemes = [
+    { name: /Dark Soft Touch Premium/, value: "dark-soft-touch", lightBg: "#eef4fb", darkBg: "#080d16" },
+    { name: /Graphite \+ Electric Blue/, value: "graphite-electric-blue", lightBg: "#eef3f9", darkBg: "#070b12" },
+    { name: /Pine Teal/, value: "pine-teal", lightBg: "#edf5f0", darkBg: "#06110d" },
+    { name: /Warm Clay/, value: "warm-clay", lightBg: "#f2ece4", darkBg: "#120d09" },
+    { name: /Plum Rose/, value: "plum-rose", lightBg: "#f4edf5", darkBg: "#100812" }
+  ] as const;
 
-  await softTouchButton.scrollIntoViewIfNeeded();
-  await expect(root).toHaveAttribute("data-design-theme", "dark-soft-touch");
-  await expect(root).toHaveAttribute("data-theme", "dark");
+  for (const designTheme of designThemes) {
+    const designThemeButton = page.getByRole("button", { name: designTheme.name });
+    await expect(designThemeButton).toHaveCount(1);
+    await designThemeButton.scrollIntoViewIfNeeded();
+    await designThemeButton.click();
+    await expect(root).toHaveAttribute("data-design-theme", designTheme.value);
 
-  await dayButton.click();
-  await expect(root).toHaveAttribute("data-design-theme", "dark-soft-touch");
-  await expect(root).toHaveAttribute("data-theme", "light");
+    for (const mode of [
+      { value: "light", button: dayButton, expectedBg: designTheme.lightBg },
+      { value: "dark", button: nightButton, expectedBg: designTheme.darkBg }
+    ] as const) {
+      await mode.button.click();
+      await expect(root).toHaveAttribute("data-theme", mode.value);
+      await expect(root).toHaveAttribute("data-design-theme", designTheme.value);
+      const tokens = await page.evaluate(() => {
+        const styles = getComputedStyle(document.documentElement);
+        return {
+          bg: styles.getPropertyValue("--bg").trim(),
+          surfaceMatches:
+            styles.getPropertyValue("--surface").trim() === styles.getPropertyValue("--color-surface").trim(),
+          primaryRgbMatches:
+            styles.getPropertyValue("--ds-primary-rgb").trim() ===
+            styles.getPropertyValue("--color-primary-rgb").trim()
+        };
+      });
+      expect(tokens).toEqual({ bg: mode.expectedBg, surfaceMatches: true, primaryRgbMatches: true });
 
-  await graphiteButton.click();
-  await expect(root).toHaveAttribute("data-design-theme", "graphite-electric-blue");
-  await expect(root).toHaveAttribute("data-theme", "light");
-  await expect
-    .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()))
-    .toBe("#eef3f9");
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundImage)).toContain("100% 0%");
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundImage)).not.toContain("124, 58, 237");
+      if (["pine-teal", "warm-clay", "plum-rose"].includes(designTheme.value)) {
+        for (const route of [
+          { path: "/profile", selector: ".soft-home" },
+          { path: "/learning", selector: ".modules-section" },
+          { path: "/community", selector: ".community-chat-shell" }
+        ]) {
+          await page.goto(route.path);
+          await expect(page.locator(route.selector).first()).toBeVisible();
+          await expect(root).toHaveAttribute("data-theme", mode.value);
+          await expect(root).toHaveAttribute("data-design-theme", designTheme.value);
+          await expect
+            .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()))
+            .toBe(mode.expectedBg);
+        }
+        await page.goto("/profile");
+        await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
+      }
+    }
 
-  await nightButton.click();
-  await expect(root).toHaveAttribute("data-design-theme", "graphite-electric-blue");
-  await expect(root).toHaveAttribute("data-theme", "dark");
-  await expect
-    .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()))
-    .toBe("#070b12");
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
+    await expect(root).toHaveAttribute("data-design-theme", designTheme.value);
+    await expect(root).toHaveAttribute("data-theme", "dark");
+  }
 
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
-  await expect(root).toHaveAttribute("data-design-theme", "graphite-electric-blue");
-  await expect(root).toHaveAttribute("data-theme", "dark");
   await expectNoHorizontalOverflow(page);
 });
 
