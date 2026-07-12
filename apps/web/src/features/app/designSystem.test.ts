@@ -10,6 +10,32 @@ describe("PWA UI foundation design system", () => {
     return readFileSync(foundationPath, "utf-8");
   }
 
+  function themeBlock(foundation: string, designTheme: string, mode: "dark" | "light") {
+    const match = foundation.match(
+      new RegExp(`:root\\[data-design-theme="${designTheme}"\\]\\[data-theme="${mode}"\\]\\s*\\{([\\s\\S]*?)\\n\\}`)
+    );
+    expect(match).not.toBeNull();
+    return match?.[1] ?? "";
+  }
+
+  function token(block: string, name: string) {
+    const match = block.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6});`, "i"));
+    expect(match).not.toBeNull();
+    return match?.[1] ?? "#000000";
+  }
+
+  function luminance(hex: string) {
+    const channels = [1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
+    const linear = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    const [red = 0, green = 0, blue = 0] = linear;
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+
+  function contrast(first: string, second: string) {
+    const [bright = 0, dark = 0] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+    return (bright + 0.05) / (dark + 0.05);
+  }
+
   it("defines the reference palette and shared component tokens", () => {
     const foundation = foundationCss();
     expect(foundation).toContain("PWA UI Foundation 2026");
@@ -60,6 +86,53 @@ describe("PWA UI foundation design system", () => {
     );
     expect(foundation).toContain(':root[data-design-theme="soft-touch"][data-theme="dark"]');
     expect(foundation).toContain(':root[data-design-theme="soft-touch"][data-theme="light"]');
+  });
+
+  it.each(["pine-teal", "warm-clay", "plum-rose"])(
+    "defines complete accessible %s day and night palettes",
+    (designTheme) => {
+      const foundation = foundationCss();
+      for (const mode of ["dark", "light"] as const) {
+        const block = themeBlock(foundation, designTheme, mode);
+        for (const name of [
+          "--color-bg",
+          "--color-page",
+          "--color-surface",
+          "--color-surface-elevated",
+          "--color-surface-soft",
+          "--color-text",
+          "--color-text-muted",
+          "--color-border",
+          "--color-border-strong",
+          "--color-primary",
+          "--color-primary-strong",
+          "--color-primary-text",
+          "--color-focus"
+        ]) {
+          expect(block).toContain(`${name}:`);
+        }
+        expect(block).toContain("--color-primary-rgb:");
+        expect(block).toContain("--color-support-rgb:");
+        expect(contrast(token(block, "--color-text"), token(block, "--color-surface"))).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(token(block, "--color-primary"), token(block, "--color-primary-text"))).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  );
+
+  it("maps legacy surfaces and RGB channels to semantic theme tokens", () => {
+    const foundation = foundationCss();
+    expect(foundation).toContain("--surface: var(--color-surface);");
+    expect(foundation).toContain("--surface-2: var(--color-surface-elevated);");
+    expect(foundation).toContain("--surface-3: var(--color-surface-soft);");
+    expect(foundation).toContain("--field: var(--color-surface-soft);");
+    expect(foundation).toContain("--ds-primary-rgb: var(--color-primary-rgb);");
+    expect(foundation).toContain("--ds-blue-rgb: var(--color-support-rgb);");
+  });
+
+  it("keeps Graphite dark primary controls readable", () => {
+    const block = themeBlock(foundationCss(), "graphite-electric-blue", "dark");
+    expect(token(block, "--color-primary-text")).toBe("#07111f");
+    expect(contrast(token(block, "--color-primary"), token(block, "--color-primary-text"))).toBeGreaterThanOrEqual(4.5);
   });
 
   it("keeps action control sizing in foundation instead of legacy important overrides", () => {
