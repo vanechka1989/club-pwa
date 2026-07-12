@@ -13,7 +13,7 @@ export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 const visualScaleStorageVersion = "4";
-const appearanceStorageVersion = "6";
+const appearanceStorageVersion = "7";
 const designThemes: readonly DesignTheme[] = [
   "dark-soft-touch",
   "graphite-electric-blue",
@@ -33,10 +33,15 @@ function clampVisualScale(value: number | string | null) {
 }
 
 export const useUiStore = defineStore("ui", () => {
+  const savedAppearanceVersion = localStorage.getItem("club-appearance-version");
   const savedTheme = localStorage.getItem("club-theme");
-  const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
   const savedDesignTheme = localStorage.getItem("club-design-theme");
-  const designTheme = ref<DesignTheme>(isDesignTheme(savedDesignTheme) ? savedDesignTheme : "dark-soft-touch");
+  const restoreSavedAppearance =
+    savedAppearanceVersion === appearanceStorageVersion &&
+    (savedTheme === "dark" || savedTheme === "light") &&
+    isDesignTheme(savedDesignTheme);
+  const theme = ref<Theme>(restoreSavedAppearance ? savedTheme : "light");
+  const designTheme = ref<DesignTheme>(restoreSavedAppearance ? savedDesignTheme : "warm-clay");
   const colorScheme = ref<ColorScheme>("midnight");
   const savedPreviewMode = localStorage.getItem("club-preview-mode");
   const previewMode = ref<PreviewMode>(

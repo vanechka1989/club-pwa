@@ -16,17 +16,44 @@ describe("ui store", () => {
     setActivePinia(createPinia());
   });
 
-  it("defaults new clients to the dark soft-touch appearance with the single midnight palette", () => {
+  it("defaults new clients to Warm Clay in day mode with the single midnight palette", () => {
+    const ui = useUiStore();
+
+    expect(ui.theme).toBe("light");
+    expect(ui.colorScheme).toBe("midnight");
+    expect(ui.designTheme).toBe("warm-clay");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.scheme).toBe("midnight");
+    expect(document.documentElement.dataset.designTheme).toBe("warm-clay");
+    expect(document.documentElement.style.colorScheme).toBe("light");
+    expect(localStorage.getItem("club-appearance-version")).toBe("7");
+  });
+
+  it("migrates an existing version-6 appearance to Warm Clay day exactly once", () => {
+    localStorage.setItem("club-appearance-version", "6");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "graphite-electric-blue");
+
+    const ui = useUiStore();
+
+    expect(ui.theme).toBe("light");
+    expect(ui.designTheme).toBe("warm-clay");
+    expect(localStorage.getItem("club-theme")).toBe("light");
+    expect(localStorage.getItem("club-design-theme")).toBe("warm-clay");
+    expect(localStorage.getItem("club-appearance-version")).toBe("7");
+  });
+
+  it("restores a valid version-7 appearance after the migration", () => {
+    localStorage.setItem("club-appearance-version", "7");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "pine-teal");
+
     const ui = useUiStore();
 
     expect(ui.theme).toBe("dark");
-    expect(ui.colorScheme).toBe("midnight");
-    expect(ui.designTheme).toBe("dark-soft-touch");
+    expect(ui.designTheme).toBe("pine-teal");
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(document.documentElement.dataset.scheme).toBe("midnight");
-    expect(document.documentElement.dataset.designTheme).toBe("dark-soft-touch");
-    expect(document.documentElement.style.colorScheme).toBe("dark");
-    expect(localStorage.getItem("club-appearance-version")).toBe("6");
+    expect(document.documentElement.dataset.designTheme).toBe("pine-teal");
   });
 
   it("switches design themes independently from day and night mode", () => {
@@ -49,6 +76,7 @@ describe("ui store", () => {
   });
 
   it("restores a saved Graphite design theme without changing the saved mode", () => {
+    localStorage.setItem("club-appearance-version", "7");
     localStorage.setItem("club-theme", "light");
     localStorage.setItem("club-design-theme", "graphite-electric-blue");
 
@@ -63,6 +91,7 @@ describe("ui store", () => {
   it.each(["pine-teal", "warm-clay", "plum-rose"] as const)(
     "restores the saved %s design theme independently from the mode",
     (savedDesignTheme) => {
+      localStorage.setItem("club-appearance-version", "7");
       localStorage.setItem("club-theme", "light");
       localStorage.setItem("club-design-theme", savedDesignTheme);
 
@@ -75,13 +104,17 @@ describe("ui store", () => {
     }
   );
 
-  it("falls back to Dark Soft Touch for an unknown saved design theme", () => {
+  it("falls back to Warm Clay day for an unknown version-7 design theme", () => {
+    localStorage.setItem("club-appearance-version", "7");
+    localStorage.setItem("club-theme", "dark");
     localStorage.setItem("club-design-theme", "legacy-blue");
 
     const ui = useUiStore();
 
-    expect(ui.designTheme).toBe("dark-soft-touch");
-    expect(localStorage.getItem("club-design-theme")).toBe("dark-soft-touch");
+    expect(ui.theme).toBe("light");
+    expect(ui.designTheme).toBe("warm-clay");
+    expect(localStorage.getItem("club-theme")).toBe("light");
+    expect(localStorage.getItem("club-design-theme")).toBe("warm-clay");
   });
 
   it("switches the browser controls between day and night themes", () => {
@@ -99,18 +132,20 @@ describe("ui store", () => {
     expect(document.documentElement.style.colorScheme).toBe("dark");
   });
 
-  it("keeps a saved day or night choice but collapses legacy color palettes to midnight", () => {
+  it("resets a legacy appearance while collapsing its color palette to midnight", () => {
     localStorage.setItem("club-appearance-version", "4");
-    localStorage.setItem("club-theme", "light");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "graphite-electric-blue");
     localStorage.setItem("club-color-scheme", "coffee");
 
     const ui = useUiStore();
 
     expect(ui.theme).toBe("light");
+    expect(ui.designTheme).toBe("warm-clay");
     expect(ui.colorScheme).toBe("midnight");
     expect(document.documentElement.dataset.scheme).toBe("midnight");
     expect(localStorage.getItem("club-color-scheme")).toBe("midnight");
-    expect(localStorage.getItem("club-appearance-version")).toBe("6");
+    expect(localStorage.getItem("club-appearance-version")).toBe("7");
   });
 
   it("persists visual scale as a numeric root variable for adaptive UI density", () => {
