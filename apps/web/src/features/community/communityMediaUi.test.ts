@@ -62,14 +62,20 @@ describe("community rich message UI", () => {
   it("keeps message reactions in a compact viewport-safe palette", () => {
     const styles = read("community.css");
     expect(styles).toMatch(/\.community-chat-open \.reaction-popover\s*\{[^}]*position:\s*fixed;[^}]*left:\s*50%;[^}]*max-width:\s*calc\(100vw - 24px\)/s);
-    expect(styles).toMatch(/\.community-chat-open \.reaction-popover-button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.reaction-popover-button\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;/s);
   });
 
-  it("renders applied reactions as a short horizontal chip", () => {
+  it("renders applied reactions as the smallest stable circle", () => {
     const styles = read("community.css");
     expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*width:\s*fit-content;[^}]*flex-direction:\s*row;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*auto;[^}]*min-width:\s*44px;[^}]*height:\s*24px;[^}]*white-space:\s*nowrap;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::before\s*\{[^}]*inset:\s*-10px 0;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*24px;[^}]*min-width:\s*24px;[^}]*height:\s*24px;[^}]*padding:\s*0;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::before\s*\{[^}]*display:\s*none;/s);
+  });
+
+  it("uses one clean emoji tray without framed emoji circles", () => {
+    const styles = read("community.css");
+    expect(styles).toMatch(/\.community-chat-open \.composer-emoji-popover\s*\{[^}]*position:\s*fixed;[^}]*grid-template-columns:\s*repeat\(6, 36px\)/s);
+    expect(styles).toMatch(/\.community-chat-open \.composer-emoji-popover button\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;/s);
   });
 
   it("uses calm semantic chat surfaces in every active theme", () => {

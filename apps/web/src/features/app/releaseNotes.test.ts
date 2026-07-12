@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact reaction chips as version 3.87", () => {
-    expect(appVersion).toBe("3.87");
-    expect(releaseNotes[0]?.title).toBe("Компактные реакции в чате");
+  it("publishes minimal reaction circles as version 3.88", () => {
+    expect(appVersion).toBe("3.88");
+    expect(releaseNotes[0]?.title).toBe("Миниатюрные реакции и эмодзи");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
