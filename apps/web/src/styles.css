@@ -16326,6 +16326,102 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   white-space: nowrap;
 }
 
+/* Compact operational admin layout. */
+.admin-stat-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.admin-stat-summary .admin-stat-kpi {
+  min-height: 0;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  padding: 14px;
+  box-shadow: none;
+}
+
+.admin-stat-summary .admin-stat-kpi:last-child { border-right: 0; }
+.admin-stat-summary .admin-stat-kpi strong { margin-top: 5px; font-size: 1.45rem; }
+
+.admin-stat-disclosure { padding: 0; overflow: hidden; }
+.admin-stat-disclosure-summary {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.admin-stat-disclosure-summary::-webkit-details-marker { display: none; }
+.admin-stat-disclosure-summary::after { content: "›"; color: var(--muted); font-size: 1.4rem; transform: rotate(90deg); transition: transform 150ms ease; }
+.admin-stat-disclosure[open] .admin-stat-disclosure-summary::after { transform: rotate(-90deg); }
+.admin-stat-disclosure[open] .admin-stat-disclosure-summary { border-bottom: 1px solid var(--border); }
+.admin-stat-disclosure > :not(summary) { margin-right: 12px; margin-left: 12px; }
+.admin-stat-disclosure > :last-child { margin-bottom: 12px; }
+
+.admin-client-searchbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.admin-client-searchbar > span { color: var(--muted); font-size: 0.72rem; font-weight: 760; white-space: nowrap; }
+.admin-client-filter-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.admin-client-filter-chips::-webkit-scrollbar { display: none; }
+.admin-client-filter-chips button,
+.admin-client-more-filters > summary {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--muted-strong);
+  padding: 8px 14px;
+  font-size: 0.76rem;
+  font-weight: 780;
+  white-space: nowrap;
+}
+.admin-client-filter-chips button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.admin-client-more-filters > summary { display: flex; width: fit-content; align-items: center; gap: 7px; cursor: pointer; list-style: none; }
+.admin-client-more-filters > summary::-webkit-details-marker { display: none; }
+.admin-client-more-filters[open] > summary { margin-bottom: 8px; }
+.admin-list-item-main { display: grid; min-width: 0; gap: 5px; }
+.admin-list-item-meta { display: flex; min-width: 0; flex-wrap: wrap; gap: 5px 12px; color: var(--muted); font-size: 0.68rem; font-weight: 720; }
+.admin-list-item-progress { color: var(--accent); }
+
+.admin-client-compact-section { padding: 0; overflow: hidden; }
+.admin-client-compact-section > summary {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 850;
+  list-style: none;
+}
+.admin-client-compact-section > summary::-webkit-details-marker { display: none; }
+.admin-client-compact-section > summary::after { content: "›"; color: var(--muted); font-size: 1.25rem; }
+.admin-client-compact-section > summary span { margin-left: auto; color: var(--muted); font-size: 0.66rem; font-weight: 700; }
+.admin-client-compact-section[open] > summary { border-bottom: 1px solid var(--border); }
+.admin-client-compact-section[open] > summary::after { transform: rotate(90deg); }
+.admin-client-compact-section > :not(summary) { margin: 10px 12px; }
+.admin-client-section-head-hidden { display: none; }
+
+@media (max-width: 767px) {
+  .admin-stat-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-stat-summary .admin-stat-kpi { border-bottom: 1px solid var(--border); }
+  .admin-stat-summary .admin-stat-kpi:nth-child(2n) { border-right: 0; }
+  .admin-stat-summary .admin-stat-kpi:nth-last-child(-n + 2) { border-bottom: 0; }
+  .admin-stat-summary .admin-stat-kpi strong { font-size: 1.2rem; }
+  .admin-client-searchbar { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .admin-client-searchbar > span { padding-left: 4px; }
+}
+
 .profile-dashboard .profile-dashboard-logout {
   width: min(100%, 12rem);
   min-height: 44px;

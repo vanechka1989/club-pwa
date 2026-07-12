@@ -2778,23 +2778,23 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="admin-stat-kpis ui-responsive-grid">
-        <article class="admin-stat-kpi ui-card">
+      <div class="admin-stat-summary ui-card">
+        <article class="admin-stat-kpi">
           <span>Клиенты</span>
           <strong>{{ adminStatistics.clients.total }}</strong>
           <small>+{{ adminStatistics.clients.newInPeriod }} за период</small>
         </article>
-        <article class="admin-stat-kpi ui-card">
+        <article class="admin-stat-kpi">
           <span>Доступ открыт</span>
           <strong>{{ adminStatistics.clients.active }}</strong>
           <small>{{ adminStatistics.clients.activePercent }}% от базы</small>
         </article>
-        <article class="admin-stat-kpi ui-card">
+        <article class="admin-stat-kpi">
           <span>Выручка</span>
           <strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong>
           <small>{{ adminStatistics.payments.paidOrders }} оплат</small>
         </article>
-        <article class="admin-stat-kpi ui-card">
+        <article class="admin-stat-kpi">
           <span>Автоподписки</span>
           <strong>{{ adminStatistics.payments.recurrentPaidOrders }}</strong>
           <small>средний чек {{ adminStatistics.payments.averagePaidOrderRub.toLocaleString("ru-RU") }} ₽</small>
@@ -2802,14 +2802,14 @@ onUnmounted(() => {
       </div>
 
       <div class="admin-stat-layout">
-        <section class="admin-stat-block ui-card">
-          <header>
+        <details class="admin-stat-block ui-card admin-stat-disclosure" open>
+          <summary class="admin-stat-disclosure-summary">
             <div>
               <h4>Доступ и подписки</h4>
               <p>Состояние клиентской базы сейчас.</p>
             </div>
             <strong>{{ adminStatistics.clients.activePercent }}%</strong>
-          </header>
+          </summary>
           <div class="admin-stat-meter" aria-hidden="true">
             <span :style="{ width: `${adminStatistics.clients.activePercent}%` }"></span>
           </div>
@@ -2824,7 +2824,6 @@ onUnmounted(() => {
             >
               <span>{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
-              <small v-if="item.value">Подробнее</small>
             </button>
             <button
               v-for="tariff in adminStatistics.tariffs"
@@ -2836,19 +2835,18 @@ onUnmounted(() => {
             >
               <span>{{ tariff.label }}</span>
               <strong>{{ tariff.value }}</strong>
-              <small v-if="tariff.value">Подробнее</small>
             </button>
           </div>
-        </section>
+        </details>
 
-        <section class="admin-stat-block ui-card">
-          <header>
+        <details class="admin-stat-block ui-card admin-stat-disclosure">
+          <summary class="admin-stat-disclosure-summary">
             <div>
               <h4>Оплаты</h4>
               <p>Статусы заказов и качество webhook.</p>
             </div>
             <strong>{{ adminStatistics.payments.paidOrders }}</strong>
-          </header>
+          </summary>
           <div class="admin-stat-mini-grid ui-responsive-grid admin-stat-mini-grid-two">
             <button
               v-for="item in adminStatistics.payments.breakdown"
@@ -2860,19 +2858,18 @@ onUnmounted(() => {
             >
               <span>{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
-              <small v-if="item.value">Подробнее</small>
             </button>
           </div>
-        </section>
+        </details>
 
-        <section class="admin-stat-block ui-card">
-          <header>
+        <details class="admin-stat-block ui-card admin-stat-disclosure">
+          <summary class="admin-stat-disclosure-summary">
             <div>
               <h4>Контент</h4>
               <p>Наполнение и прогресс обучения.</p>
             </div>
             <strong>{{ adminStatistics.learning.averageProgressPercent }}%</strong>
-          </header>
+          </summary>
           <div class="admin-stat-meter" aria-hidden="true">
             <span :style="{ width: `${adminStatistics.learning.averageProgressPercent}%` }"></span>
           </div>
@@ -2896,16 +2893,16 @@ onUnmounted(() => {
           <div class="admin-stat-kind-list">
             <span v-for="kind in adminStatistics.contentKinds" :key="kind.kind">{{ kind.label }} · {{ kind.count }}</span>
           </div>
-        </section>
+        </details>
 
-        <section class="admin-stat-block ui-card">
-          <header>
+        <details class="admin-stat-block ui-card admin-stat-disclosure">
+          <summary class="admin-stat-disclosure-summary">
             <div>
               <h4>Общение</h4>
               <p>Темы клуба и активность в чатах.</p>
             </div>
             <strong>{{ adminStatistics.communication.messagesInPeriod }}</strong>
-          </header>
+          </summary>
           <div class="admin-stat-mini-grid ui-responsive-grid admin-stat-mini-grid-two">
             <article>
               <span>Всего сообщений</span>
@@ -2944,7 +2941,7 @@ onUnmounted(() => {
             </article>
             <p v-if="!adminStatistics.communication.topClients.length" class="admin-empty">Активных клиентов в общении пока нет.</p>
           </div>
-        </section>
+        </details>
         <AdminPollStatistics :stats="pollStats" />
       </div>
     </section>
@@ -2957,8 +2954,19 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="admin-filter-grid ui-responsive-grid">
+      <div class="admin-client-searchbar">
         <input v-model.trim="search" class="text-input" placeholder="Поиск по ID, имени или username" />
+        <span>Найдено: {{ filteredUsers.length }}</span>
+      </div>
+      <div class="admin-client-filter-chips" aria-label="Быстрые фильтры клиентов">
+        <button type="button" :class="{ active: subscriptionFilter === 'all' && restrictionFilter === 'all' }" @click="subscriptionFilter = 'all'; restrictionFilter = 'all'">Все</button>
+        <button type="button" :class="{ active: subscriptionFilter === 'active' }" @click="subscriptionFilter = 'active'; restrictionFilter = 'all'">Активные</button>
+        <button type="button" :class="{ active: subscriptionFilter === 'closed' }" @click="subscriptionFilter = 'closed'; restrictionFilter = 'all'">Закрыты</button>
+        <button type="button" :class="{ active: restrictionFilter === 'restricted' }" @click="restrictionFilter = 'restricted'; subscriptionFilter = 'all'">Ограничены</button>
+      </div>
+      <details class="admin-client-more-filters">
+        <summary><SlidersHorizontal class="h-4 w-4" /> Дополнительные фильтры</summary>
+        <div class="admin-filter-grid ui-responsive-grid">
         <select v-model="subscriptionFilter" class="text-input">
           <option value="all">Любой доступ</option>
           <option value="active">Доступ открыт</option>
@@ -2976,7 +2984,8 @@ onUnmounted(() => {
         <button class="secondary-button ui-button admin-filter-reset" type="button" :disabled="!filtersActive" @click="resetClientFilters">
           Сбросить
         </button>
-      </div>
+        </div>
+      </details>
 
       <div class="admin-user-layout">
         <div class="admin-list">
@@ -2988,12 +2997,15 @@ onUnmounted(() => {
             type="button"
             @click="selectUser(user)"
           >
-            <span class="admin-list-item-copy">
-              <strong>{{ userTitle(user) }}</strong>
-              <small>
-                {{ adminRoleLabel(user.role) }} · ID {{ user.telegramId }} · {{ getAdminTariffLabel(user.tariff) }} ·
-                {{ user.completedItems }}/{{ user.totalItems }}
-              </small>
+            <span class="admin-list-item-main">
+              <span class="admin-list-item-copy">
+                <strong>{{ userTitle(user) }}</strong>
+                <small>{{ adminRoleLabel(user.role) }} · ID {{ user.telegramId }}</small>
+              </span>
+              <span class="admin-list-item-meta">
+                <span>{{ getAdminTariffLabel(user.tariff) }}</span>
+                <span class="admin-list-item-progress">Уроки {{ user.completedItems }}/{{ user.totalItems }}</span>
+              </span>
             </span>
             <span class="admin-list-badges">
               <em class="admin-access-badge">{{ user.hasRestrictions ? "Ограничен" : formatMembershipStatus(user.membershipStatus) }}</em>
@@ -3115,8 +3127,9 @@ onUnmounted(() => {
               </form>
             </section>
 
-            <section class="admin-client-section">
-              <div class="admin-client-section-head">
+            <details class="admin-client-section admin-client-compact-section">
+              <summary>Профиль <span>обзор</span></summary>
+              <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>Профиль</h4>
                 <small>обзор без открытия вкладок</small>
               </div>
@@ -3143,10 +3156,11 @@ onUnmounted(() => {
                   <strong>{{ selectedUser.hasRestrictions ? "Есть активные" : "Нет активных" }}</strong>
                 </article>
               </div>
-            </section>
+            </details>
 
-            <section class="admin-client-section">
-              <div class="admin-client-section-head">
+            <details class="admin-client-section admin-client-compact-section">
+              <summary>Устройство <span>{{ selectedUserDetail?.device ? "данные получены" : "нет данных" }}</span></summary>
+              <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>Устройство</h4>
                 <button
                   class="admin-client-copy-button"
@@ -3164,10 +3178,11 @@ onUnmounted(() => {
                 <small>{{ selectedUserDetail.device.userAgent }}</small>
               </div>
               <p v-else class="admin-empty">Данные появятся после следующего запуска приложения клиентом.</p>
-            </section>
+            </details>
 
-            <section v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section">
-              <div class="admin-client-section-head">
+            <details v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section admin-client-compact-section">
+              <summary>IP входов <span>{{ selectedUserLoginIps.length }} адресов</span></summary>
+              <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>IP входов</h4>
                 <small>{{ selectedUserLoginIps.length }} адресов</small>
               </div>
@@ -3187,10 +3202,11 @@ onUnmounted(() => {
                   </div>
                 </article>
               </div>
-            </section>
+            </details>
 
-            <section class="admin-client-section">
-              <div class="admin-client-section-head">
+            <details class="admin-client-section admin-client-compact-section">
+              <summary>Активность <span>последние события</span></summary>
+              <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>Активность</h4>
                 <small>последние события</small>
               </div>
@@ -3209,7 +3225,7 @@ onUnmounted(() => {
                   Последних событий пока нет.
                 </p>
               </div>
-            </section>
+            </details>
 
             <div class="admin-client-secondary-actions">
               <button class="secondary-button ui-button" type="button" :disabled="saving || !canManageSelectedUser" @click="handleQuickMute(selectedUser)">

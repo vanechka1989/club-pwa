@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the communication polish as version 3.85", () => {
-    expect(appVersion).toBe("3.85");
-    expect(releaseNotes[0]?.title).toBe("Единый интерфейс профиля и общения");
+  it("publishes compact admin screens as version 3.86", () => {
+    expect(appVersion).toBe("3.86");
+    expect(releaseNotes[0]?.title).toBe("Компактная статистика и клиенты");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

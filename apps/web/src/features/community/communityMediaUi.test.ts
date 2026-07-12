@@ -65,6 +65,12 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-chat-open \.reaction-popover-button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;/s);
   });
 
+  it("renders applied reactions as a short horizontal chip", () => {
+    const styles = read("community.css");
+    expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*width:\s*fit-content;[^}]*flex-direction:\s*row;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*auto;[^}]*min-height:\s*28px;[^}]*height:\s*28px;/s);
+  });
+
   it("uses calm semantic chat surfaces in every active theme", () => {
     const styles = read("community.css");
     expect(styles).toContain("--chat-bubble-incoming");
