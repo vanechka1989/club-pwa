@@ -202,6 +202,7 @@ export const paymentProducts = pgTable(
     kind: paymentProductKind("kind").notNull(),
     title: varchar("title", { length: 180 }).notNull(),
     description: text("description"),
+    badgeLabel: varchar("badge_label", { length: 32 }),
     amountRub: integer("amount_rub").notNull(),
     accessDays: integer("access_days").notNull(),
     prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }),

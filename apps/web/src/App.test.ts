@@ -345,14 +345,14 @@ describe("App", () => {
     expect(styles).toContain("var(--club-user-font-root");
   });
 
-  it("keeps mobile payment plans readable in a single column", () => {
+  it("keeps mobile payment plans compact with inline actions", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
     const responsiveLayer = styles.slice(styles.lastIndexOf("Responsive modal and mobile commerce system"));
 
     expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
-    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list \.soft-payment-card\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
-    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-actions\s*\{[^}]*width: 100%;[^}]*justify-self: stretch;/s);
-    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[^}]*width: 100%;/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list \.soft-payment-card\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-actions\s*\{[^}]*width: auto;[^}]*justify-self: end;/s);
+    expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-pay\s*\{[^}]*min-width: 112px;/s);
   });
 
   it("visually separates payment tariff cards", () => {

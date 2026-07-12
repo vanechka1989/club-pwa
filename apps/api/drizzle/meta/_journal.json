@@ -260,6 +260,13 @@
       "when": 1783823520000,
       "tag": "0036_user_display_name",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1783878480000,
+      "tag": "0037_payment_product_badge",
+      "breakpoints": true
     }
   ]
 }

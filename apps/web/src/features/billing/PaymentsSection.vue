@@ -60,6 +60,7 @@ const providerForm = ref({
 const productForm = ref({
   kind: "one_time" as "one_time" | "recurrent",
   title: "",
+  badgeLabel: "",
   amountRub: 990,
   accessDays: 30,
   prodamusSubscriptionId: "",
@@ -236,6 +237,7 @@ function resetProductForm() {
   productForm.value = {
     kind: "one_time",
     title: "",
+    badgeLabel: "",
     amountRub: 990,
     accessDays: 30,
     prodamusSubscriptionId: "",
@@ -249,6 +251,7 @@ function setProductForm(product?: PaymentProduct) {
     productForm.value = {
       kind: product.kind,
       title: product.title,
+      badgeLabel: product.badgeLabel ?? "",
       amountRub: product.amountRub,
       accessDays: product.accessDays,
       prodamusSubscriptionId: product.prodamusSubscriptionId ?? "",
@@ -344,6 +347,7 @@ async function handleSaveProduct() {
     const payload = {
       ...productForm.value,
       description: null,
+      badgeLabel: productForm.value.badgeLabel.trim() || null,
       prodamusSubscriptionId: productForm.value.kind === "recurrent" ? productForm.value.prodamusSubscriptionId.trim() : null
     };
     const response = editingProduct.value
@@ -568,9 +572,12 @@ watch(() => route.path, syncPaymentTaskRoute);
       </p>
 
       <div v-else class="payment-product-list">
-        <article v-for="product in activeProducts" :key="product.id" class="soft-payment-card">
+        <article v-for="product in activeProducts" :key="product.id" class="soft-payment-card payment-product-row">
           <div class="payment-product-main">
-            <p class="payment-product-title">{{ product.title }}</p>
+            <div class="payment-product-heading">
+              <p class="payment-product-title">{{ product.title }}</p>
+              <span v-if="product.badgeLabel" class="payment-product-badge">{{ product.badgeLabel }}</span>
+            </div>
             <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
           </div>
           <div class="payment-product-actions ui-button-group">
@@ -775,6 +782,10 @@ watch(() => route.path, syncPaymentTaskRoute);
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">Название</span>
               <input v-model.trim="productForm.title" class="text-input mt-2" required />
+            </label>
+            <label class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">Метка (необязательно)</span>
+              <input v-model="productForm.badgeLabel" class="text-input mt-2" maxlength="32" placeholder="Например: Выгодно" />
             </label>
             <div class="grid grid-cols-2 gap-3">
               <label class="block">

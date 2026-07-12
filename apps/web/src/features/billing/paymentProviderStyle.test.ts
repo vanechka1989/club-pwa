@@ -30,4 +30,18 @@ describe("payment provider status style", () => {
     expect(source).toContain('openPaymentTask(`/payments/plans/${product.id}/edit`)');
     expect(source).not.toContain('class="admin-modal-backdrop payment-modal-backdrop"');
   });
+
+  it("uses an optional product badge instead of labeling the first tariff automatically", () => {
+    expect(source).toContain('v-if="product.badgeLabel"');
+    expect(source).toContain("productForm.badgeLabel");
+    expect(source).toContain("Метка (необязательно)");
+    expect(styles).not.toContain('.soft-payment-card:first-child::after');
+    expect(styles).not.toContain('content: "Выгодно"');
+  });
+
+  it("keeps member tariff cards compact", () => {
+    expect(source).toContain("payment-product-badge");
+    expect(styles).toContain(".payment-product-list .payment-product-row");
+    expect(styles).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+  });
 });

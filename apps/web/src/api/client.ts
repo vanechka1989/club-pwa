@@ -410,6 +410,7 @@ export function createPaymentProduct(payload: {
   kind: "one_time" | "recurrent";
   title: string;
   description?: string | null;
+  badgeLabel?: string | null;
   amountRub: number;
   accessDays: number;
   prodamusSubscriptionId?: string | null;
@@ -427,6 +428,7 @@ export function updatePaymentProduct(
     kind: "one_time" | "recurrent";
     title: string;
     description?: string | null;
+    badgeLabel?: string | null;
     amountRub: number;
     accessDays: number;
     prodamusSubscriptionId?: string | null;

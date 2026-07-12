@@ -12657,25 +12657,49 @@ textarea::placeholder {
   box-shadow: 0 0 26px rgba(124, 58, 237, 0.5);
 }
 
-.payment-product-list .soft-payment-card:first-child::after {
-  position: absolute;
-  top: 0.85rem;
-  right: 0.85rem;
-  z-index: 1;
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: 999px;
-  background: rgba(245, 158, 11, 0.14);
-  color: var(--premium-text);
-  padding: 0.28rem 0.62rem;
-  font-size: 0.68rem;
-  font-weight: 900;
-  content: "Выгодно";
-}
-
 .payment-product-title {
-  padding-right: 5.3rem;
   font-size: clamp(1rem, 4vw, 1.18rem);
   font-weight: 900;
+}
+
+.payment-product-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.payment-product-badge {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 14%, var(--panel));
+  color: var(--premium-text);
+  padding: 0.22rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.payment-product-list .payment-product-row {
+  display: grid;
+  min-height: 76px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.payment-product-list .payment-product-row .payment-product-actions {
+  width: auto;
+  min-width: 0;
+}
+
+.payment-product-list .payment-product-row .payment-product-pay {
+  width: auto;
+  min-width: 112px;
+  min-height: 44px;
+  padding-inline: 16px;
 }
 
 .payment-product-meta {
@@ -13245,11 +13269,11 @@ body.club-mobile-device .payment-product-list {
 }
 
 body.club-mobile-device .payment-product-list .soft-payment-card {
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 0.75rem;
-  min-height: 0;
-  padding: 1rem;
+  min-height: 76px;
+  padding: 12px 14px;
 }
 
 body.club-mobile-device .payment-plans-card,
@@ -13259,7 +13283,7 @@ body.club-mobile-app-scaled .payment-plans-card {
 
 body.club-mobile-device .payment-product-main {
   min-width: 0;
-  padding-right: 4.75rem;
+  padding-right: 0;
 }
 
 body.club-mobile-device .payment-product-title,
@@ -13270,14 +13294,15 @@ body.club-mobile-device .payment-product-meta {
 
 body.club-mobile-device .payment-product-actions {
   display: grid;
-  width: 100%;
+  width: auto;
   min-width: 0;
-  justify-self: stretch;
+  justify-self: end;
   gap: 0.55rem;
 }
 
 body.club-mobile-device .payment-product-pay {
-  width: 100%;
+  width: auto;
+  min-width: 112px;
   min-height: 44px;
 }
 

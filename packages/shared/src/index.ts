@@ -322,6 +322,7 @@ export const paymentProductSchema = z.object({
   kind: paymentProductKindSchema,
   title: z.string(),
   description: z.string().nullable(),
+  badgeLabel: z.string().nullable(),
   amountRub: z.number().int().positive(),
   accessDays: z.number().int().positive(),
   prodamusSubscriptionId: z.string().nullable(),
