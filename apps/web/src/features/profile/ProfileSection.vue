@@ -153,17 +153,6 @@ const daysLeft = computed(() => {
   const diff = new Date(session.user.membershipExpiresAt).getTime() - Date.now();
   return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
 });
-const roleLabel = computed(() => {
-  if (session.user?.role === "owner") {
-    return t("ownerRole");
-  }
-
-  if (session.user?.role === "admin") {
-    return t("adminRole");
-  }
-
-  return t("memberRole");
-});
 const subscriptionProgress = computed(() => {
   if (!isMember.value) {
     return 10;
@@ -731,7 +720,6 @@ watch(
             <span>Email</span>
             <strong :class="{ 'profile-secret-blurred': !emailVisible }">{{ accountEmail }}</strong>
           </button>
-          <span class="profile-role-pill">{{ roleLabel }}</span>
         </div>
         </div>
       </div>

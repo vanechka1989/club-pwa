@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the simplified profile release as version 3.75", () => {
-    expect(appVersion).toBe("3.75");
-    expect(releaseNotes[0]?.title).toBe("Профиль без лишнего экрана");
+  it("publishes the visible logout action as version 3.76", () => {
+    expect(appVersion).toBe("3.76");
+    expect(releaseNotes[0]?.title).toBe("Заметная кнопка выхода");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

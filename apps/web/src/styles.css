@@ -16171,19 +16171,26 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   white-space: nowrap;
 }
 
-.profile-dashboard-logout {
-  width: fit-content;
+.profile-dashboard .profile-dashboard-logout {
+  width: min(100%, 12rem);
   min-height: 44px;
-  justify-self: start;
+  justify-self: center;
+  justify-content: center;
   gap: 8px;
-  padding-inline: 12px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 760;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--border));
+  border-radius: 14px;
+  background: var(--danger-soft);
+  padding-inline: 16px;
+  color: var(--danger-text);
+  font-size: 14px;
+  font-weight: 820;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
-.profile-dashboard-logout:hover,
-.profile-dashboard-logout:focus-visible {
+.profile-dashboard .profile-dashboard-logout:hover,
+.profile-dashboard .profile-dashboard-logout:focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 68%, var(--border));
+  background: color-mix(in srgb, var(--danger-soft) 78%, var(--danger) 22%);
   color: var(--danger-text);
 }
 

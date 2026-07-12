@@ -43,6 +43,18 @@ describe("compact profile layout", () => {
     expect(source).not.toContain("Аккаунт и безопасность");
   });
 
+  it("centers and visually emphasizes the logout action", () => {
+    expect(styles).toContain(".profile-dashboard .profile-dashboard-logout {");
+    expect(styles).toContain("justify-self: center;");
+    expect(styles).toContain("background: var(--danger-soft);");
+    expect(styles).toContain("color: var(--danger-text);");
+  });
+
+  it("does not spend profile space on the user role badge", () => {
+    expect(source).not.toContain("profile-role-pill");
+    expect(source).not.toContain("roleLabel");
+  });
+
   it("uses one compact avatar action instead of two exposed controls", () => {
     expect(source).toContain('class="profile-avatar-menu-button profile-avatar-icon-button ui-icon-button"');
     expect(source).toContain("avatarPhotoMenuOpen");
