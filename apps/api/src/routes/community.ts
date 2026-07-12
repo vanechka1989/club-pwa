@@ -13,8 +13,9 @@ import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, validateCommunityImageFiles } from "../community/mediaUpload";
+import { normalizePollDraft, validatePollSelection } from "../community/polls";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageReactions, userMutes, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
@@ -37,6 +38,17 @@ const messagePayloadSchema = z.object({
   body: z.string().trim().min(1).max(3000),
   replyToMessageId: z.string().uuid().nullable().optional()
 });
+
+const pollPayloadSchema = z.object({
+  question: z.string().max(500),
+  options: z.array(z.string().max(300)).min(2).max(10),
+  allowsMultiple: z.boolean().default(false),
+  isAnonymous: z.boolean().default(true),
+  closesAt: z.string().datetime().nullable().optional(),
+  replyToMessageId: z.string().uuid().nullable().optional()
+});
+
+const pollVotePayloadSchema = z.object({ optionIds: z.array(z.string().uuid()).min(1).max(10) });
 
 const reactionPayloadSchema = z.object({
   reaction: z.enum(["thumbs_up", "fire", "heart", "laugh", "clap", "poop"]).nullable()
@@ -255,6 +267,13 @@ async function serializeMessage(
   );
   const voiceAttachment = kind === "voice" ? serializedAttachments[0] : undefined;
   const imageAttachments = kind === "images" ? serializedAttachments : [];
+  const pollRecord = kind === "poll"
+    ? await db.query.clubPolls.findFirst({
+        where: eq(clubPolls.messageId, message.id),
+        with: { options: true, votes: true }
+      })
+    : null;
+  const pollVoterIds = new Set(pollRecord?.votes.map((vote) => vote.userId) ?? []);
 
   return {
     id: message.id,
@@ -282,7 +301,28 @@ async function serializeMessage(
       expiresAt: attachment.expiresAt?.toISOString() ?? null,
       deletedAt: attachment.deletedAt?.toISOString() ?? null
     })),
-    poll: null,
+    poll: pollRecord
+      ? {
+          id: pollRecord.id,
+          question: pollRecord.question,
+          allowsMultiple: pollRecord.allowsMultiple,
+          isAnonymous: pollRecord.isAnonymous,
+          closesAt: pollRecord.closesAt?.toISOString() ?? null,
+          closedAt: pollRecord.closedAt?.toISOString() ?? (pollRecord.closesAt && pollRecord.closesAt <= new Date() ? pollRecord.closesAt.toISOString() : null),
+          totalVoters: pollVoterIds.size,
+          options: [...pollRecord.options].sort((a, b) => a.sortOrder - b.sortOrder).map((option) => {
+            const votesCount = pollRecord.votes.filter((vote) => vote.optionId === option.id).length;
+            return {
+              id: option.id,
+              text: option.text,
+              votesCount,
+              percent: pollVoterIds.size ? Math.round((votesCount / pollVoterIds.size) * 100) : 0,
+              selected: pollRecord.votes.some((vote) => vote.optionId === option.id && vote.userId === currentUserId)
+            };
+          }),
+          voterDetails: null
+        }
+      : null,
     isSystem: message.isSystem,
     status: message.status,
     author: buildMessageAuthor(message.user),
@@ -884,6 +924,77 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     }
     const created = await findMessageWithUser(message.id);
     return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
+  })
+  .post("/topics/:id/messages/poll", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const mute = await getActiveMute(c.get("userId"));
+    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
+    const topic = await db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, c.req.param("id")) });
+    if (!topic) return c.json({ error: "Topic not found" }, 404);
+    if (topic.isLocked && role === "member") return c.json({ error: "Topic is locked" }, 403);
+    const parsed = pollPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid poll" }, 400);
+    let draft: ReturnType<typeof normalizePollDraft>;
+    try {
+      draft = normalizePollDraft({ ...parsed.data, closesAt: parsed.data.closesAt ?? null });
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Invalid poll" }, 400);
+    }
+
+    const messageId = randomUUID();
+    await db.transaction(async (tx) => {
+      await tx.insert(clubChatMessages).values({
+        id: messageId,
+        topicId: topic.id,
+        userId: c.get("userId"),
+        replyToMessageId: parsed.data.replyToMessageId ?? null,
+        body: draft.question,
+        kind: "poll"
+      });
+      const [poll] = await tx.insert(clubPolls).values({
+        messageId,
+        question: draft.question,
+        allowsMultiple: draft.allowsMultiple,
+        isAnonymous: draft.isAnonymous,
+        closesAt: draft.closesAt
+      }).returning();
+      if (!poll) throw new Error("Unable to create poll");
+      await tx.insert(clubPollOptions).values(draft.options.map((text, sortOrder) => ({ pollId: poll.id, text, sortOrder })));
+    });
+    const created = await findMessageWithUser(messageId);
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
+  })
+  .post("/polls/:id/votes", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const parsed = pollVotePayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid vote" }, 400);
+    const poll = await db.query.clubPolls.findFirst({ where: eq(clubPolls.id, c.req.param("id")), with: { options: true } });
+    if (!poll) return c.json({ error: "Poll not found" }, 404);
+    if (poll.closedAt || (poll.closesAt && poll.closesAt <= new Date())) return c.json({ error: "Poll is closed" }, 409);
+    let optionIds: string[];
+    try {
+      optionIds = validatePollSelection(parsed.data.optionIds, poll.options.map((option) => option.id), poll.allowsMultiple);
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Invalid vote" }, 400);
+    }
+    await db.transaction(async (tx) => {
+      await tx.delete(clubPollVotes).where(and(eq(clubPollVotes.pollId, poll.id), eq(clubPollVotes.userId, c.get("userId"))));
+      await tx.insert(clubPollVotes).values(optionIds.map((optionId) => ({ pollId: poll.id, optionId, userId: c.get("userId") })));
+    });
+    const message = await findMessageWithUser(poll.messageId);
+    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId")) });
+  })
+  .post("/polls/:id/close", async (c) => {
+    const role = await getCommunityRole(c);
+    if (role === "member") return c.json({ error: "Moderator access required" }, 403);
+    const [poll] = await db.update(clubPolls).set({ closedAt: new Date() }).where(eq(clubPolls.id, c.req.param("id"))).returning();
+    if (!poll) return c.json({ error: "Poll not found" }, 404);
+    const message = await findMessageWithUser(poll.messageId);
+    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId")) });
   })
   .post("/messages/:id/pin", async (c) => {
     const role = await getCommunityRole(c);

@@ -30,6 +30,7 @@ import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId,
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
 import { buildMessageAuthor } from "../community/messageMetadata";
+import { summarizePollStatistics } from "../community/pollStats";
 import { db } from "../db/client";
 import {
   adminActionLogs,
@@ -38,6 +39,7 @@ import {
   appNotifications,
   clubSettings,
   clubChatMessages,
+  clubPolls,
   contentCategories,
   contentItems,
   lessonMaterials,
@@ -1597,6 +1599,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         topic: true
       }
     });
+    const pollRecords = await db.query.clubPolls.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      with: {
+        message: { with: { topic: true } },
+        options: true,
+        votes: true
+      }
+    });
+    const now = new Date();
+    const pollSummaryInput = pollRecords.map((poll) => ({
+      id: poll.id,
+      closed: Boolean(poll.closedAt || (poll.closesAt && poll.closesAt <= now)),
+      voterIds: Array.from(new Set(poll.votes.map((vote) => vote.userId))),
+      votesCount: poll.votes.length
+    }));
+    const pollSummary = summarizePollStatistics(pollSummaryInput, usersCountRow?.value ?? 0);
     const statsUsers = await Promise.all(recentUsers.map((user) => buildStatsUser(user, totalItems)));
 
     return c.json({
@@ -1605,6 +1623,24 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       completedItems: statsUsers.reduce((sum, user) => sum + user.completedItems, 0),
       totalItems,
       users: statsUsers,
+      pollStats: {
+        ...pollSummary,
+        polls: pollRecords.map((poll) => {
+          const voterIds = new Set(poll.votes.map((vote) => vote.userId));
+          return {
+            id: poll.id,
+            question: poll.question,
+            topicTitle: poll.message.topic.title,
+            isAnonymous: poll.isAnonymous,
+            closed: Boolean(poll.closedAt || (poll.closesAt && poll.closesAt <= now)),
+            totalVoters: voterIds.size,
+            options: [...poll.options].sort((a, b) => a.sortOrder - b.sortOrder).map((option) => {
+              const votesCount = poll.votes.filter((vote) => vote.optionId === option.id).length;
+              return { id: option.id, text: option.text, votesCount, percent: voterIds.size ? Math.round((votesCount / voterIds.size) * 100) : 0 };
+            })
+          };
+        })
+      },
       communityMessages: communityMessages.map((message) => ({
         id: message.id,
         topicId: message.topicId,

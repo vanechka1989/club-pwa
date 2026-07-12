@@ -303,6 +303,21 @@ export function createClubImageMessage(topicId: string, files: File[], replyToMe
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages/images`, { method: "POST", body: form });
 }
 
+export function createClubPoll(
+  topicId: string,
+  payload: { question: string; options: string[]; allowsMultiple: boolean; isAnonymous: boolean; closesAt?: string | null; replyToMessageId?: string | null }
+) {
+  return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages/poll`, { method: "POST", body: payload });
+}
+
+export function voteInClubPoll(pollId: string, optionIds: string[]) {
+  return api<ClubMessageMutationResponse>(`/community/polls/${pollId}/votes`, { method: "POST", body: { optionIds } });
+}
+
+export function closeClubPoll(pollId: string) {
+  return api<ClubMessageMutationResponse>(`/community/polls/${pollId}/close`, { method: "POST" });
+}
+
 export function reactToClubMessage(messageId: string, reaction: MessageReaction | null) {
   return api<ClubMessageReactionMutationResponse>(`/community/messages/${messageId}/reaction`, {
     method: "POST",

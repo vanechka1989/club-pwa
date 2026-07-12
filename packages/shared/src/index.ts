@@ -901,7 +901,28 @@ export const adminStatsResponseSchema = z.object({
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),
   users: z.array(adminStatsUserSchema),
-  communityMessages: z.array(adminCommunityMessageSchema).default([])
+  communityMessages: z.array(adminCommunityMessageSchema).default([]),
+  pollStats: z
+    .object({
+      totalPolls: z.number().int().nonnegative(),
+      activePolls: z.number().int().nonnegative(),
+      closedPolls: z.number().int().nonnegative(),
+      uniqueParticipants: z.number().int().nonnegative(),
+      totalVotes: z.number().int().nonnegative(),
+      participationPercent: z.number().min(0),
+      polls: z.array(
+        z.object({
+          id: z.string(),
+          question: z.string(),
+          topicTitle: z.string(),
+          isAnonymous: z.boolean(),
+          closed: z.boolean(),
+          totalVoters: z.number().int().nonnegative(),
+          options: z.array(z.object({ id: z.string(), text: z.string(), votesCount: z.number().int().nonnegative(), percent: z.number().min(0) }))
+        })
+      )
+    })
+    .default({ totalPolls: 0, activePolls: 0, closedPolls: 0, uniqueParticipants: 0, totalVotes: 0, participationPercent: 0, polls: [] })
 });
 export type AdminStatsResponse = z.infer<typeof adminStatsResponseSchema>;
 
