@@ -58,6 +58,7 @@ const activeReactionMessageId = ref<string | null>(null);
 const pointerStartX = ref<number | null>(null);
 const pointerStartY = ref<number | null>(null);
 const activeSwipeMessageId = ref<string | null>(null);
+const highlightedMessageId = ref<string | null>(null);
 const swipeOffset = ref(0);
 const suppressNextMessageClick = ref(false);
 const messageSaving = ref(false);
@@ -73,6 +74,7 @@ const muteAlertShown = ref(false);
 const topicReadAt = ref<Record<string, string>>({});
 let refreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 let topicsRefreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
+let messageHighlightTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let refreshInFlight = false;
 let topicsRefreshInFlight = false;
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
@@ -444,7 +446,13 @@ function messageSignature(message: ClubMessage) {
 
 function scrollToMessage(messageId: string) {
   showPinnedMessages.value = false;
+  highlightedMessageId.value = messageId;
+  if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
   nextTick(() => document.getElementById(`chat-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  messageHighlightTimer = globalThis.setTimeout(() => {
+    if (highlightedMessageId.value === messageId) highlightedMessageId.value = null;
+    messageHighlightTimer = null;
+  }, 1_800);
 }
 
 async function handleTogglePin(message: ClubMessage) {
@@ -880,6 +888,7 @@ onBeforeUnmount(() => {
   stopMessageRefresh();
   stopTopicsRefresh();
   document.removeEventListener("keydown", handleModerationSheetKeydown);
+  if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
   emit("chatOpenChange", false);
 });
 </script>
@@ -1027,7 +1036,8 @@ onBeforeUnmount(() => {
             'chat-message-system': message.isSystem,
             'chat-message-own': !message.isSystem && isOwnMessage(message),
             'chat-message-reply-to-me': !message.isSystem && isReplyToMe(message),
-            'chat-message-swiping': activeSwipeMessageId === message.id
+            'chat-message-swiping': activeSwipeMessageId === message.id,
+            'chat-message-jump-highlight': highlightedMessageId === message.id
           }"
           :style="swipeStyle(message)"
           @pointerdown="handlePointerDown($event, message)"
@@ -1179,7 +1189,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <p v-if="voiceRecorder.error.value || imageDraft.error.value" class="chat-media-draft-error">{{ voiceRecorder.error.value || imageDraft.error.value }}</p>
-        <div class="chat-input-row">
+        <div class="chat-input-row chat-composer-shell">
           <div class="composer-attachment-wrap">
             <button class="icon-button ui-icon-button" type="button" aria-label="Вложения" :disabled="!canWrite" @click="showAttachmentMenu = !showAttachmentMenu"><Paperclip /></button>
             <div v-if="showAttachmentMenu" class="composer-attachment-menu">
@@ -1209,14 +1219,23 @@ onBeforeUnmount(() => {
             :disabled="!canWrite || messageSaving"
           />
           <button
-            v-if="voiceRecorder.supported.value"
+            v-if="newMessage.trim()"
+            class="icon-button ui-icon-button chat-composer-primary-action"
+            type="submit"
+            aria-label="Отправить"
+            :disabled="!canWrite || messageSaving || isMuted"
+          >
+            <Send class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            v-else-if="voiceRecorder.supported.value"
             class="icon-button ui-icon-button"
             type="button"
             aria-label="Записать голосовое"
             :disabled="!canWrite || messageSaving"
             @click="voiceRecorder.start"
           ><Mic /></button>
-          <button class="icon-button ui-icon-button" type="submit" aria-label="Отправить" :disabled="!canWrite || messageSaving || isMuted">
+          <button v-else class="icon-button ui-icon-button" type="submit" aria-label="Отправить" disabled>
             <Send class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>

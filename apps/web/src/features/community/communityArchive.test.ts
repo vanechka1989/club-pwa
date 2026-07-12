@@ -67,6 +67,14 @@ describe("community archive labels", () => {
     expect(communityStyles).toMatch(/\.moderation-action-row\s*\{[^}]*min-height:\s*48px;/s);
   });
 
+  it("highlights the exact message reached from the pinned list", () => {
+    expect(source).toContain("highlightedMessageId");
+    expect(source).toContain("chat-message-jump-highlight");
+    expect(source).toContain("highlightedMessageId.value = messageId");
+    expect(source).toContain("1_800");
+    expect(communityStyles).toContain(".chat-message-jump-highlight .chat-bubble");
+  });
+
   it("removes the generic mobile shell padding while chat is open", () => {
     expect(communityStyles).toMatch(
       /body\.club-mobile-device \.app-root\.community-chat-open:not\(\.app-root-no-user\)\s*\{[^}]*--nav-space:\s*0;[^}]*padding-bottom:\s*0;/s

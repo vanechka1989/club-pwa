@@ -1,5 +1,11 @@
 /* Community chat owns one viewport layout. This file loads after the global foundation. */
 .app-root.community-chat-open {
+  --chat-bubble-incoming: color-mix(in srgb, var(--panel-strong) 96%, var(--bg));
+  --chat-bubble-outgoing: color-mix(in srgb, var(--accent) 14%, var(--panel-strong));
+  --chat-bubble-border: color-mix(in srgb, var(--accent) 30%, var(--border));
+  --chat-bubble-text: var(--text);
+  --chat-bubble-muted: color-mix(in srgb, var(--text) 68%, var(--muted));
+  --chat-bubble-embedded: color-mix(in srgb, var(--panel) 76%, transparent);
   position: fixed;
   inset: 0;
   width: 100%;
@@ -153,6 +159,42 @@ body.club-keyboard-open .community-chat-open .chat-compose {
   gap: 2px;
 }
 
+.community-chat-open .chat-composer-shell {
+  display: grid;
+  grid-template-columns: var(--icon-button-size) var(--icon-button-size) minmax(0, 1fr) var(--icon-button-size);
+  gap: 0;
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--icon-button-size) / 2);
+  background: color-mix(in srgb, var(--field) 94%, var(--panel));
+  padding: 0;
+}
+
+.community-chat-open .chat-composer-shell .text-input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.community-chat-open .chat-composer-shell .icon-button::before {
+  display: none;
+}
+
+.community-chat-open .chat-composer-shell > .icon-button:last-child {
+  color: var(--accent-text);
+}
+
+.community-chat-open .chat-composer-shell > .icon-button:last-child::before {
+  display: block;
+  width: calc(var(--action-icon-visual-size) + 4px);
+  height: calc(var(--action-icon-visual-size) + 4px);
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: none;
+}
+
 .community-chat-open .chat-input-row .text-input {
   margin-inline: 0;
   padding-inline: 10px;
@@ -225,10 +267,47 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   max-width: min(76%, 30rem);
   border-radius: 14px 14px 14px 6px;
   padding: 8px 10px 7px;
+  border-color: var(--border);
+  background: var(--chat-bubble-incoming);
+  color: var(--chat-bubble-text);
+  box-shadow: 0 4px 12px color-mix(in srgb, #000 9%, transparent);
 }
 
 .community-chat-open .chat-message-own .chat-bubble {
   border-radius: 14px 14px 6px 14px;
+  border-color: var(--chat-bubble-border);
+  background: var(--chat-bubble-outgoing);
+  color: var(--chat-bubble-text);
+}
+
+.community-chat-open .chat-message-own :is(.chat-message-author, .chat-message-head, .chat-message-body, .chat-poll-message h4) {
+  color: var(--chat-bubble-text);
+}
+
+.community-chat-open .chat-message-own :is(.chat-poll-message > small, .chat-poll-message footer, .chat-voice-track > span) {
+  color: var(--chat-bubble-muted);
+}
+
+.community-chat-open :is(.reply-preview, .chat-poll-message > button) {
+  background: var(--chat-bubble-embedded);
+}
+
+.chat-message-jump-highlight {
+  scroll-margin-block: 28vh;
+}
+
+.chat-message-jump-highlight .chat-bubble {
+  border-color: var(--accent) !important;
+  animation: chat-pinned-jump-highlight 1.8s ease-out both;
+}
+
+@keyframes chat-pinned-jump-highlight {
+  0%, 32% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 42%, transparent), 0 0 28px color-mix(in srgb, var(--accent) 36%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent, 0 4px 12px color-mix(in srgb, #000 9%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-message-jump-highlight .chat-bubble { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 42%, transparent); }
 }
 
 .community-chat-open .chat-avatar {

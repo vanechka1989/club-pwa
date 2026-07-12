@@ -58,6 +58,25 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-chat-open \.chat-admin-menu \.mini-action\s*\{[^}]*white-space:\s*normal/s);
   });
 
+  it("uses calm semantic chat surfaces in every active theme", () => {
+    const styles = read("community.css");
+    expect(styles).toContain("--chat-bubble-incoming");
+    expect(styles).toContain("--chat-bubble-outgoing");
+    expect(styles).toContain("--chat-bubble-text");
+    expect(styles).toMatch(/--chat-bubble-outgoing:\s*color-mix\(in srgb, var\(--accent\) 14%, var\(--panel-strong\)\)/);
+    expect(styles).toMatch(/\.community-chat-open \.chat-message-own \.chat-bubble\s*\{[^}]*background:\s*var\(--chat-bubble-outgoing\)/s);
+    expect(styles).toMatch(/\.community-chat-open \.chat-message-own :is\([^}]*color:\s*var\(--chat-bubble-text\)/s);
+  });
+
+  it("uses one composer capsule and one contextual right action", () => {
+    const section = read("CommunitySection.vue");
+    const styles = read("community.css");
+    expect(section).toContain("chat-composer-shell");
+    expect(section).toContain('v-if="newMessage.trim()"');
+    expect(section).toContain('v-else-if="voiceRecorder.supported.value"');
+    expect(styles).toMatch(/\.community-chat-open \.chat-composer-shell\s*\{[^}]*grid-template-columns:\s*var\(--icon-button-size\) var\(--icon-button-size\) minmax\(0, 1fr\) var\(--icon-button-size\)/s);
+  });
+
   it("shows a pressed loading state while voice or images are uploading", () => {
     const section = read("CommunitySection.vue");
     expect(section).toContain('messageSaving ? "Отправка…" : "Отправить"');
