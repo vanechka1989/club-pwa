@@ -17,6 +17,7 @@ import { supportRoute } from "./routes/support";
 import { getLocalUploadResponse } from "./storage/localUploads";
 import { recordServerError } from "./serverErrors";
 import { buildClientErrorRecord, createClientErrorRateLimiter, parseClientErrorPayload } from "./clientErrors";
+import { startCommunityMediaCleanupJob } from "./community/mediaCleanup";
 
 const app = new Hono();
 const clientErrorRateLimiter = createClientErrorRateLimiter({ maxEvents: 20, windowMs: 60 * 1000 });
@@ -28,6 +29,7 @@ function getClientErrorRateLimitKey(c: Context) {
 
 startExpiredPendingPaymentOrderCleanup();
 startMailingDispatcher();
+startCommunityMediaCleanupJob();
 
 app.use("*", async (c, next) => {
   const startedAt = performance.now();

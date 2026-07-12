@@ -17,14 +17,16 @@ export async function optimizeImageForUpload({
   bytes,
   contentType,
   fileName,
-  maxDimension = 1600
+  maxDimension = 1600,
+  forceWebp = false
 }: {
   bytes: Uint8Array;
   contentType: string;
   fileName: string;
   maxDimension?: number;
+  forceWebp?: boolean;
 }) {
-  if (!shouldOptimizeImageContentType(contentType)) {
+  if (!forceWebp && !shouldOptimizeImageContentType(contentType)) {
     return {
       body: bytes,
       contentType,
