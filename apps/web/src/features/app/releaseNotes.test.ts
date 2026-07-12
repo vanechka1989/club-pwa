@@ -3,6 +3,11 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
+  it("publishes the profile appearance release as version 3.71", () => {
+    expect(appVersion).toBe("3.71");
+    expect(releaseNotes[0]?.title).toBe("Темы и стабильный профиль");
+  });
+
   it("keeps the current app version at the top of the changelog", () => {
     expect(releaseNotes[0]?.version).toBe(appVersion);
     expect(releaseNotes[0]?.items.length).toBeGreaterThan(0);
