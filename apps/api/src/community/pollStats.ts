@@ -12,3 +12,7 @@ export function summarizePollStatistics(
     participationPercent: eligibleUsers ? Math.round((participants.size / eligibleUsers) * 100) : 0
   };
 }
+
+export function resolvePollEndedAt(poll: { closesAt: Date | null; closedAt: Date | null }) {
+  return (poll.closedAt ?? poll.closesAt)?.toISOString() ?? null;
+}

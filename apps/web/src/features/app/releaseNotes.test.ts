@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes aligned statistics controls as version 3.91", () => {
-    expect(appVersion).toBe("3.91");
-    expect(releaseNotes[0]?.title).toBe("Выровненная статистика");
+  it("publishes compact poll statistics as version 3.92", () => {
+    expect(appVersion).toBe("3.92");
+    expect(releaseNotes[0]?.title).toBe("Компактные опросы в статистике");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

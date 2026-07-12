@@ -78,7 +78,10 @@ defineEmits<{
           <article><span>Скрыто</span><strong>{{ stats.learning.hiddenMaterials }}</strong></article>
           <article><span>Архив</span><strong>{{ stats.learning.archivedMaterials }}</strong></article>
         </div>
-        <p class="admin-stat-note">{{ stats.learning.popularTitle ? `Чаще открывают: ${stats.learning.popularTitle}` : 'Пока нет данных по открытиям.' }}</p>
+        <div class="admin-stat-popular-material">
+          <span>Чаще открывают</span>
+          <strong>{{ stats.learning.popularTitle || "Пока нет данных по открытиям" }}</strong>
+        </div>
         <div class="admin-stat-kind-list"><span v-for="kind in stats.contentKinds" :key="kind.kind">{{ kind.label }} · {{ kind.count }}</span></div>
       </section>
     </template>

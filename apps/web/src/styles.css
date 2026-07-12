@@ -16358,6 +16358,52 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
 .admin-stat-detail-grid > button.admin-stat-drilldown > strong { font-size: 14px; line-height: 1; }
 .admin-stat-metric-chevron.is-hidden { visibility: hidden; }
 
+.admin-stat-popular-material {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
+}
+.admin-stat-popular-material span { color: var(--muted); font-size: 11px; font-weight: 720; }
+.admin-stat-popular-material strong { color: var(--text); font-size: 14px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+
+.admin-poll-list > .admin-poll-disclosure {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel-soft);
+}
+.admin-poll-disclosure > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.admin-poll-disclosure > summary::-webkit-details-marker { display: none; }
+.admin-poll-disclosure > summary > span { display: grid; gap: 4px; min-width: 0; }
+.admin-poll-disclosure > summary strong { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1.25; }
+.admin-poll-disclosure > summary small { color: var(--muted); font-size: 11px; line-height: 1.2; }
+.admin-poll-disclosure > summary svg { width: 18px; height: 18px; justify-self: center; color: var(--accent); transition: transform 160ms ease; }
+.admin-poll-disclosure[open] > summary { border-bottom: 1px solid var(--border); }
+.admin-poll-disclosure[open] > summary svg { transform: rotate(180deg); }
+.admin-poll-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 12px 4px;
+}
+.admin-poll-meta > span { display: grid; gap: 2px; min-width: 0; }
+.admin-poll-meta small { color: var(--muted); font-size: 10px; font-weight: 700; }
+.admin-poll-meta strong { overflow: hidden; color: var(--text); font-size: 12px; font-weight: 760; line-height: 1.25; text-overflow: ellipsis; }
+.admin-poll-options { display: grid; gap: 10px; padding: 12px; }
+
 @media (max-width: 359px) {
   .admin-statistics-panel .admin-stat-nav-row,
   body.club-mobile-device .admin-statistics-panel .admin-stat-nav-row,

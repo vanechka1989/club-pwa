@@ -917,6 +917,9 @@ export const adminStatsResponseSchema = z.object({
           topicTitle: z.string(),
           isAnonymous: z.boolean(),
           closed: z.boolean(),
+          author: commentAuthorSchema,
+          startedAt: z.string().datetime(),
+          endedAt: z.string().datetime().nullable(),
           totalVoters: z.number().int().nonnegative(),
           options: z.array(z.object({ id: z.string(), text: z.string(), votesCount: z.number().int().nonnegative(), percent: z.number().min(0) }))
         })

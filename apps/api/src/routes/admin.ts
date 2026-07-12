@@ -30,7 +30,7 @@ import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId,
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
 import { buildMessageAuthor } from "../community/messageMetadata";
-import { summarizePollStatistics } from "../community/pollStats";
+import { resolvePollEndedAt, summarizePollStatistics } from "../community/pollStats";
 import { db } from "../db/client";
 import {
   adminActionLogs,
@@ -1602,7 +1602,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const pollRecords = await db.query.clubPolls.findMany({
       orderBy: (table, { desc }) => [desc(table.createdAt)],
       with: {
-        message: { with: { topic: true } },
+        message: { with: { topic: true, user: true } },
         options: true,
         votes: true
       }
@@ -1633,6 +1633,9 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
             topicTitle: poll.message.topic.title,
             isAnonymous: poll.isAnonymous,
             closed: Boolean(poll.closedAt || (poll.closesAt && poll.closesAt <= now)),
+            author: buildMessageAuthor(poll.message.user),
+            startedAt: poll.createdAt.toISOString(),
+            endedAt: resolvePollEndedAt(poll),
             totalVoters: voterIds.size,
             options: [...poll.options].sort((a, b) => a.sortOrder - b.sortOrder).map((option) => {
               const votesCount = poll.votes.filter((vote) => vote.optionId === option.id).length;
