@@ -507,6 +507,57 @@ export const clubMessageSchema = z.object({
   id: z.string(),
   topicId: z.string(),
   body: z.string(),
+  kind: z.enum(["text", "voice", "images", "poll"]).default("text"),
+  voice: z
+    .object({
+      id: z.string(),
+      url: z.string().url().nullable(),
+      contentType: z.string(),
+      sizeBytes: z.number().int().nonnegative(),
+      durationSeconds: z.number().int().nonnegative(),
+      expiresAt: z.string().datetime().nullable(),
+      deletedAt: z.string().datetime().nullable()
+    })
+    .nullable()
+    .default(null),
+  images: z
+    .array(
+      z.object({
+        id: z.string(),
+        url: z.string().url().nullable(),
+        contentType: z.string(),
+        sizeBytes: z.number().int().nonnegative(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+        expiresAt: z.string().datetime().nullable(),
+        deletedAt: z.string().datetime().nullable()
+      })
+    )
+    .default([]),
+  poll: z
+    .object({
+      id: z.string(),
+      question: z.string(),
+      allowsMultiple: z.boolean(),
+      isAnonymous: z.boolean(),
+      closesAt: z.string().datetime().nullable(),
+      closedAt: z.string().datetime().nullable(),
+      totalVoters: z.number().int().nonnegative(),
+      options: z.array(
+        z.object({
+          id: z.string(),
+          text: z.string(),
+          votesCount: z.number().int().nonnegative(),
+          percent: z.number().min(0).max(100),
+          selected: z.boolean()
+        })
+      ),
+      voterDetails: z
+        .array(z.object({ optionId: z.string(), users: z.array(commentAuthorSchema) }))
+        .nullable()
+    })
+    .nullable()
+    .default(null),
   isSystem: z.boolean(),
   status: moderationStatusSchema,
   author: commentAuthorSchema,

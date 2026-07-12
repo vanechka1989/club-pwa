@@ -521,6 +521,7 @@ export const clubChatMessages = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     replyToMessageId: uuid("reply_to_message_id").references((): AnyPgColumn => clubChatMessages.id, { onDelete: "set null" }),
     body: text("body").notNull(),
+    kind: varchar("kind", { length: 16 }).notNull().default("text"),
     isSystem: boolean("is_system").notNull().default(false),
     status: moderationStatus("status").notNull().default("visible"),
     moderatedByUserId: uuid("moderated_by_user_id").references(() => users.id, { onDelete: "set null" }),
@@ -540,6 +541,72 @@ export const clubChatMessages = pgTable(
     ),
     userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt),
     topicPinnedIdx: index("club_chat_messages_topic_pinned_idx").on(table.topicId, table.pinnedAt)
+  })
+);
+
+export const clubMessageAttachments = pgTable(
+  "club_message_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    messageId: uuid("message_id").notNull().references(() => clubChatMessages.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 16 }).notNull(),
+    objectKey: text("object_key").notNull(),
+    contentType: varchar("content_type", { length: 160 }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    durationSeconds: integer("duration_seconds"),
+    width: integer("width"),
+    height: integer("height"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    messageSortIdx: index("club_message_attachments_message_sort_idx").on(table.messageId, table.sortOrder),
+    expiryIdx: index("club_message_attachments_expiry_idx").on(table.expiresAt, table.deletedAt)
+  })
+);
+
+export const clubPolls = pgTable(
+  "club_polls",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    messageId: uuid("message_id").notNull().references(() => clubChatMessages.id, { onDelete: "cascade" }),
+    question: varchar("question", { length: 500 }).notNull(),
+    allowsMultiple: boolean("allows_multiple").notNull().default(false),
+    isAnonymous: boolean("is_anonymous").notNull().default(true),
+    closesAt: timestamp("closes_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({ messageIdx: uniqueIndex("club_polls_message_idx").on(table.messageId) })
+);
+
+export const clubPollOptions = pgTable(
+  "club_poll_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pollId: uuid("poll_id").notNull().references(() => clubPolls.id, { onDelete: "cascade" }),
+    text: varchar("text", { length: 300 }).notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({ pollSortIdx: index("club_poll_options_poll_sort_idx").on(table.pollId, table.sortOrder) })
+);
+
+export const clubPollVotes = pgTable(
+  "club_poll_votes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pollId: uuid("poll_id").notNull().references(() => clubPolls.id, { onDelete: "cascade" }),
+    optionId: uuid("option_id").notNull().references(() => clubPollOptions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    pollUserOptionIdx: uniqueIndex("club_poll_votes_poll_user_option_idx").on(table.pollId, table.userId, table.optionId),
+    pollIdx: index("club_poll_votes_poll_idx").on(table.pollId)
   })
 );
 
@@ -950,7 +1017,7 @@ export const clubChatTopicsRelations = relations(clubChatTopics, ({ one, many })
   messages: many(clubChatMessages)
 }));
 
-export const clubChatMessagesRelations = relations(clubChatMessages, ({ one }) => ({
+export const clubChatMessagesRelations = relations(clubChatMessages, ({ one, many }) => ({
   topic: one(clubChatTopics, {
     fields: [clubChatMessages.topicId],
     references: [clubChatTopics.id]
@@ -967,7 +1034,30 @@ export const clubChatMessagesRelations = relations(clubChatMessages, ({ one }) =
     fields: [clubChatMessages.replyToMessageId],
     references: [clubChatMessages.id],
     relationName: "message_replies"
-  })
+  }),
+  attachments: many(clubMessageAttachments),
+  polls: many(clubPolls)
+}));
+
+export const clubMessageAttachmentsRelations = relations(clubMessageAttachments, ({ one }) => ({
+  message: one(clubChatMessages, { fields: [clubMessageAttachments.messageId], references: [clubChatMessages.id] })
+}));
+
+export const clubPollsRelations = relations(clubPolls, ({ one, many }) => ({
+  message: one(clubChatMessages, { fields: [clubPolls.messageId], references: [clubChatMessages.id] }),
+  options: many(clubPollOptions),
+  votes: many(clubPollVotes)
+}));
+
+export const clubPollOptionsRelations = relations(clubPollOptions, ({ one, many }) => ({
+  poll: one(clubPolls, { fields: [clubPollOptions.pollId], references: [clubPolls.id] }),
+  votes: many(clubPollVotes)
+}));
+
+export const clubPollVotesRelations = relations(clubPollVotes, ({ one }) => ({
+  poll: one(clubPolls, { fields: [clubPollVotes.pollId], references: [clubPolls.id] }),
+  option: one(clubPollOptions, { fields: [clubPollVotes.optionId], references: [clubPollOptions.id] }),
+  user: one(users, { fields: [clubPollVotes.userId], references: [users.id] })
 }));
 
 export const clubMessageReactionsRelations = relations(clubMessageReactions, ({ one }) => ({
@@ -1064,6 +1154,10 @@ export type UserMute = typeof userMutes.$inferSelect;
 export type ClubChat = typeof clubChats.$inferSelect;
 export type ClubChatTopic = typeof clubChatTopics.$inferSelect;
 export type ClubChatMessage = typeof clubChatMessages.$inferSelect;
+export type ClubMessageAttachment = typeof clubMessageAttachments.$inferSelect;
+export type ClubPoll = typeof clubPolls.$inferSelect;
+export type ClubPollOption = typeof clubPollOptions.$inferSelect;
+export type ClubPollVote = typeof clubPollVotes.$inferSelect;
 export type ClubMessageReaction = typeof clubMessageReactions.$inferSelect;
 export type SupportTicket = typeof supportTickets.$inferSelect;
 export type SupportTicketMessage = typeof supportTicketMessages.$inferSelect;
