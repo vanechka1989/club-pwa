@@ -694,6 +694,9 @@ watch(
           </div>
         </div>
         <div class="profile-access-main">
+          <p class="profile-access-current-status" :class="profileSubscriptionStatusClass">
+            {{ profileSubscriptionStatusText }}
+          </p>
           <div class="profile-access-head profile-identity-head">
             <div class="min-w-0">
               <div class="profile-display-name-row">

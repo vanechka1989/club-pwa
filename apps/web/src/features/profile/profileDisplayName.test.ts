@@ -10,6 +10,7 @@ describe("compact profile display name", () => {
     expect(source).toContain("session.updateDisplayName");
     expect(source).toContain("displayNameChangedByUserAt");
     expect(source).toContain('class="profile-membership-row"');
+    expect(source).toContain('class="profile-access-current-status"');
     expect(source).toContain("Изменение доступно через администратора");
     expect(styles).toContain(".profile-name-sheet-backdrop");
   });
