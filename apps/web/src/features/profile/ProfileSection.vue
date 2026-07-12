@@ -700,13 +700,15 @@ watch(
               <Pencil class="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-          <span class="profile-role-pill">{{ roleLabel }}</span>
+          <div class="profile-identity-badges-v2">
+            <span class="profile-role-pill">{{ roleLabel }}</span>
+            <p
+              class="profile-access-current-status payment-provider-status"
+              :class="[profileSubscriptionStatusClass, isMember ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled']"
+            >{{ profileSubscriptionStatusText }}</p>
+          </div>
           <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение через администратора</small>
         </div>
-        <p
-          class="profile-access-current-status payment-provider-status"
-          :class="[profileSubscriptionStatusClass, isMember ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled']"
-        >{{ profileSubscriptionStatusText }}</p>
       </section>
 
       <section class="soft-card ui-card profile-details-card-v2">

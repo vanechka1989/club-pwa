@@ -11,10 +11,13 @@ describe("compact profile display name", () => {
     expect(source).toContain("displayNameChangedByUserAt");
     expect(source).toContain("profile-details-card-v2");
     expect(source).toContain("profile-actions-v2");
+    expect(source).toContain("profile-identity-badges-v2");
+    expect(source).toMatch(/profile-identity-badges-v2[\s\S]*profile-access-current-status payment-provider-status/);
     expect(source).toContain("profile-access-current-status payment-provider-status");
     expect(source).toContain("payment-provider-status-enabled");
     expect(source).toContain("payment-provider-status-disabled");
     expect(source).toContain("Изменение через администратора");
     expect(styles).toContain(".profile-name-sheet-backdrop");
+    expect(styles).not.toContain(".profile-identity-card-v2 .profile-access-current-status { grid-column:2");
   });
 });
