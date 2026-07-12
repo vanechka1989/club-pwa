@@ -27,6 +27,13 @@ describe("compact profile layout", () => {
     expect(styles).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
   });
 
+  it("uses scalable rem typography below the header like the modules section", () => {
+    expect(styles).toMatch(/\.profile-summary-card-head\s*\{[^}]*font-size:\s*0\.75rem;/s);
+    expect(styles).toMatch(/\.profile-nav-copy strong\s*\{[^}]*font-size:\s*0\.9375rem;/s);
+    expect(styles).toMatch(/\.profile-nav-copy small\s*\{[^}]*font-size:\s*0\.75rem;/s);
+    expect(styles).toMatch(/\.profile-dashboard-subscription-meta\s*\{[^}]*font-size:\s*0\.75rem;/s);
+  });
+
   it("keeps all secondary profile capabilities reachable", () => {
     for (const panel of ["referrals", "appearance"]) {
       expect(source).toContain(`openProfilePanel("${panel}")`);

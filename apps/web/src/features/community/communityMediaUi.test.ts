@@ -51,11 +51,18 @@ describe("community rich message UI", () => {
     const section = read("CommunitySection.vue");
     const styles = read("community.css");
     expect(section).toContain("Paperclip");
-    expect(section).not.toContain("<Plus />");
+    expect(section).toMatch(/import \{[^}]*\bPlus\b[^}]*\} from "lucide-vue-next"/);
+    expect(section).toContain("<Paperclip />");
     expect(styles).toMatch(/\.community-chat-open \.chat-input-row\s*\{[^}]*gap:\s*2px;/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-compose,[\s\S]*?padding:\s*8px max\(2px, var\(--club-safe-right\)\)/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-admin-menu\s*\{[^}]*max-width:\s*calc\(100vw - 24px\)/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-admin-menu \.mini-action\s*\{[^}]*white-space:\s*normal/s);
+  });
+
+  it("keeps message reactions in a compact viewport-safe palette", () => {
+    const styles = read("community.css");
+    expect(styles).toMatch(/\.community-chat-open \.reaction-popover\s*\{[^}]*position:\s*fixed;[^}]*left:\s*50%;[^}]*max-width:\s*calc\(100vw - 24px\)/s);
+    expect(styles).toMatch(/\.community-chat-open \.reaction-popover-button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;/s);
   });
 
   it("uses calm semantic chat surfaces in every active theme", () => {
