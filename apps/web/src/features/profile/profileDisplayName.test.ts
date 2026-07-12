@@ -9,9 +9,12 @@ describe("compact profile display name", () => {
   it("uses one editable nickname and one membership summary", () => {
     expect(source).toContain("session.updateDisplayName");
     expect(source).toContain("displayNameChangedByUserAt");
-    expect(source).toContain('class="profile-membership-row"');
-    expect(source).toContain('class="profile-access-current-status"');
-    expect(source).toContain("Изменение доступно через администратора");
+    expect(source).toContain("profile-details-card-v2");
+    expect(source).toContain("profile-actions-v2");
+    expect(source).toContain("profile-access-current-status payment-provider-status");
+    expect(source).toContain("payment-provider-status-enabled");
+    expect(source).toContain("payment-provider-status-disabled");
+    expect(source).toContain("Изменение через администратора");
     expect(styles).toContain(".profile-name-sheet-backdrop");
   });
 });

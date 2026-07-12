@@ -658,9 +658,9 @@ watch(
       </div>
     </div>
 
-    <section class="soft-card ui-card profile-access-card">
-      <div class="profile-access-layout">
-        <div class="profile-avatar-stack">
+    <div class="profile-overview-stack">
+      <section class="soft-card ui-card profile-identity-card-v2">
+        <div class="profile-avatar-stack profile-avatar-stack-v2">
           <div class="profile-avatar profile-avatar-large">
             <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
             <span v-else>{{ avatarInitial }}</span>
@@ -693,46 +693,41 @@ watch(
             </button>
           </div>
         </div>
-        <div class="profile-access-main">
-          <p class="profile-access-current-status" :class="profileSubscriptionStatusClass">
-            {{ profileSubscriptionStatusText }}
-          </p>
-          <div class="profile-access-head profile-identity-head">
-            <div class="min-w-0">
-              <div class="profile-display-name-row">
-                <h3>{{ displayName }}</h3>
-                <button v-if="!session.user?.displayNameChangedByUserAt" class="profile-name-edit" type="button" aria-label="Изменить ник" @click="openDisplayNameEditor">
-                  <Pencil class="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-              <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
-            </div>
-            <span class="profile-role-pill">{{ roleLabel }}</span>
+        <div class="profile-identity-copy-v2">
+          <div class="profile-display-name-row">
+            <h3>{{ displayName }}</h3>
+            <button v-if="!session.user?.displayNameChangedByUserAt" class="profile-name-edit" type="button" aria-label="Изменить ник" @click="openDisplayNameEditor">
+              <Pencil class="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
+          <span class="profile-role-pill">{{ roleLabel }}</span>
+          <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение через администратора</small>
+        </div>
+        <p
+          class="profile-access-current-status payment-provider-status"
+          :class="[profileSubscriptionStatusClass, isMember ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled']"
+        >{{ profileSubscriptionStatusText }}</p>
+      </section>
 
-          <button class="profile-account-inline" type="button" :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')" @click="emailVisible = true">
-            <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
-            <span>Email</span>
-            <strong :class="{ 'profile-secret-blurred': !emailVisible }">{{ accountEmail }}</strong>
-          </button>
-        </div>
-      </div>
-      <div class="profile-membership-row">
-        <div class="profile-membership-title">
-          <strong>{{ paymentStatusText }}</strong>
-          <span v-if="isMember">до {{ accessUntil }}</span>
-        </div>
-        <div class="subscription-bar">
-          <span :style="{ width: `${subscriptionProgress}%` }"></span>
-        </div>
-        <div class="profile-subscription-meta flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
-          <span>{{ subscriptionMeta }}</span>
-        </div>
-      </div>
-      <div class="profile-access-actions">
-        <button class="soft-inline-button ui-button" type="button" @click="$emit('openPayments')">
-          {{ paymentActionText }}
+      <section class="soft-card ui-card profile-details-card-v2">
+        <button class="profile-detail-row-v2" type="button" :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')" @click="emailVisible = true">
+          <Fingerprint class="h-5 w-5" aria-hidden="true" />
+          <span>Email</span>
+          <strong :class="{ 'profile-secret-blurred': !emailVisible }">{{ accountEmail }}</strong>
         </button>
+        <div class="profile-detail-row-v2">
+          <div class="profile-detail-icon-v2"><Check class="h-5 w-5" aria-hidden="true" /></div>
+          <span>{{ paymentStatusText }}</span>
+          <strong v-if="isMember">до {{ accessUntil }}</strong>
+        </div>
+        <div class="profile-progress-row-v2">
+          <div class="subscription-bar"><span :style="{ width: `${subscriptionProgress}%` }"></span></div>
+          <strong>{{ subscriptionMeta }}</strong>
+        </div>
+      </section>
+
+      <div class="profile-actions-v2">
+        <button class="soft-inline-button ui-button" type="button" @click="$emit('openPayments')">{{ paymentActionText }}</button>
         <button class="secondary-button ui-button profile-logout-button" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
           <LogOut class="h-4 w-4" aria-hidden="true" />
           <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
@@ -740,7 +735,7 @@ watch(
       </div>
       <p v-if="avatarMessage" class="profile-avatar-help">{{ avatarMessage }}</p>
       <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
-    </section>
+    </div>
 
     <div v-if="displayNameEditorOpen" class="profile-name-sheet-backdrop" @click.self="displayNameEditorOpen = false">
       <form class="profile-name-sheet" @submit.prevent="saveDisplayName">
