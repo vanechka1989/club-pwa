@@ -21,5 +21,6 @@ describe("compact profile display name", () => {
     expect(styles).not.toContain(".profile-identity-card-v2 .profile-access-current-status { grid-column:2");
     expect(styles).toMatch(/\.profile-identity-badges-v2 \{[^}]*display:flex;[^}]*flex-direction:column;/);
     expect(styles).toContain(".profile-identity-badges-v2 > :is(.profile-role-pill, .profile-access-current-status)");
+    expect(styles).toContain(".profile-avatar-stack-v2 .profile-avatar-large { width:84px; height:84px; }");
   });
 });

@@ -15812,7 +15812,7 @@ input[type="submit"],
 .profile-overview-stack { display:grid; gap:12px; }
 .profile-identity-card-v2 { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:14px; padding:16px; }
 .profile-avatar-stack.profile-avatar-stack-v2 { display:flex; flex-direction:column; align-items:center; gap:6px; }
-.profile-avatar-stack-v2 .profile-avatar-large { width:64px; height:64px; }
+.profile-avatar-stack-v2 .profile-avatar-large { width:84px; height:84px; }
 .profile-avatar-stack-v2 .profile-avatar-actions { display:flex; gap:4px; }
 .profile-avatar-stack-v2 .profile-avatar-icon-button { width:44px; min-width:44px; height:44px; min-height:44px; }
 .profile-identity-copy-v2 { display:grid; min-width:0; justify-items:start; gap:6px; }
