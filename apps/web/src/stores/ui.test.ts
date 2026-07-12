@@ -60,6 +60,21 @@ describe("ui store", () => {
     expect(document.documentElement.dataset.designTheme).toBe("graphite-electric-blue");
   });
 
+  it.each(["pine-teal", "warm-clay", "plum-rose"] as const)(
+    "restores the saved %s design theme independently from the mode",
+    (savedDesignTheme) => {
+      localStorage.setItem("club-theme", "light");
+      localStorage.setItem("club-design-theme", savedDesignTheme);
+
+      const ui = useUiStore();
+
+      expect(ui.theme).toBe("light");
+      expect(ui.designTheme).toBe(savedDesignTheme);
+      expect(document.documentElement.dataset.designTheme).toBe(savedDesignTheme);
+      expect(localStorage.getItem("club-design-theme")).toBe(savedDesignTheme);
+    }
+  );
+
   it("falls back to Dark Soft Touch for an unknown saved design theme", () => {
     localStorage.setItem("club-design-theme", "legacy-blue");
 

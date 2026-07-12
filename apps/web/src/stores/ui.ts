@@ -2,13 +2,29 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export type Theme = "dark" | "light";
-export type DesignTheme = "dark-soft-touch" | "graphite-electric-blue";
+export type DesignTheme =
+  | "dark-soft-touch"
+  | "graphite-electric-blue"
+  | "pine-teal"
+  | "warm-clay"
+  | "plum-rose";
 export type ColorScheme = "midnight" | "emerald" | "graphite" | "sakura" | "azure" | "coffee";
 export type VisualScale = number;
 export type PreviewMode = "developer" | "admin" | "member-active" | "member-inactive";
 
 const visualScaleStorageVersion = "4";
 const appearanceStorageVersion = "6";
+const designThemes: readonly DesignTheme[] = [
+  "dark-soft-touch",
+  "graphite-electric-blue",
+  "pine-teal",
+  "warm-clay",
+  "plum-rose"
+];
+
+function isDesignTheme(value: string | null): value is DesignTheme {
+  return designThemes.includes(value as DesignTheme);
+}
 
 function clampVisualScale(value: number | string | null) {
   const parsedValue = typeof value === "number" ? value : Number.parseFloat(value ?? "");
@@ -20,9 +36,7 @@ export const useUiStore = defineStore("ui", () => {
   const savedTheme = localStorage.getItem("club-theme");
   const theme = ref<Theme>(savedTheme === "light" ? "light" : "dark");
   const savedDesignTheme = localStorage.getItem("club-design-theme");
-  const designTheme = ref<DesignTheme>(
-    savedDesignTheme === "graphite-electric-blue" ? "graphite-electric-blue" : "dark-soft-touch"
-  );
+  const designTheme = ref<DesignTheme>(isDesignTheme(savedDesignTheme) ? savedDesignTheme : "dark-soft-touch");
   const colorScheme = ref<ColorScheme>("midnight");
   const savedPreviewMode = localStorage.getItem("club-preview-mode");
   const previewMode = ref<PreviewMode>(
