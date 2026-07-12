@@ -1823,6 +1823,7 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   } else {
     expect(pointerEvents).toBe("auto");
   }
+  await expectNoHorizontalOverflow(page);
 });
 
 test("stacks payment tariff cards into readable mobile rows", async ({ page }, testInfo) => {
