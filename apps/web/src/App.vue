@@ -39,9 +39,10 @@ import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore, type LessonUploadTask } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
-import type { PreviewMode } from "@/stores/ui";
+import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
+useUiStore();
 const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
