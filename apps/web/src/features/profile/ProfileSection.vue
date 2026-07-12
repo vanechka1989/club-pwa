@@ -694,6 +694,18 @@ watch(
 
 <template>
   <section class="soft-home ui-page-section profile-dashboard">
+    <div class="section-head ui-page-header profile-page-header">
+      <div>
+        <h2 class="section-title">Профиль</h2>
+        <p class="section-subtitle">Аккаунт и доступ.</p>
+      </div>
+      <div class="compact-controls profile-page-header-controls">
+        <button class="ui-icon-button" type="button" :aria-label="t('language')" @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')">
+          {{ currentLocale.toUpperCase() }}
+        </button>
+        <NotificationCenter />
+      </div>
+    </div>
     <section class="soft-card ui-card profile-access-card profile-dashboard-hero">
       <div class="profile-dashboard-toolbar">
         <div class="profile-access-layout">
@@ -747,12 +759,6 @@ watch(
           </button>
           <span class="profile-role-pill">{{ roleLabel }}</span>
         </div>
-        </div>
-        <div class="compact-controls profile-dashboard-controls">
-          <button class="ui-icon-button" type="button" :aria-label="t('language')" @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')">
-            {{ currentLocale.toUpperCase() }}
-          </button>
-          <NotificationCenter />
         </div>
       </div>
       <div class="profile-dashboard-subscription">
@@ -1026,13 +1032,15 @@ watch(
           </div>
 
           <div class="profile-avatar-editor-controls">
-            <button class="ui-icon-button" type="button" :aria-label="t('profileAvatarZoomOut')" @click="zoomAvatar(-0.1)">
-              <Minus class="h-4 w-4" aria-hidden="true" />
-            </button>
-            <strong>{{ Math.round(avatarDraftScale * 100) }}%</strong>
-            <button class="ui-icon-button" type="button" :aria-label="t('profileAvatarZoomIn')" @click="zoomAvatar(0.1)">
-              <Plus class="h-4 w-4" aria-hidden="true" />
-            </button>
+            <div class="profile-avatar-editor-zoom">
+              <button class="ui-icon-button" type="button" :aria-label="t('profileAvatarZoomOut')" @click="zoomAvatar(-0.1)">
+                <Minus class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <strong>{{ Math.round(avatarDraftScale * 100) }}%</strong>
+              <button class="ui-icon-button" type="button" :aria-label="t('profileAvatarZoomIn')" @click="zoomAvatar(0.1)">
+                <Plus class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
             <button class="profile-avatar-center-button ui-button" type="button" :aria-label="t('profileAvatarCenter')" @click="resetAvatarDraft">
               <RotateCcw class="h-4 w-4" aria-hidden="true" />
               <span>{{ t("profileAvatarCenterShort") }}</span>
@@ -1040,7 +1048,7 @@ watch(
           </div>
         </div>
 
-        <div class="profile-modal-actions">
+        <div class="profile-modal-actions profile-avatar-editor-footer">
           <button class="secondary-button ui-button" type="button" @click="closeProfileTask">{{ t("cancel") }}</button>
           <button class="soft-inline-button ui-button" type="button" :disabled="avatarDisplaySaving" @click="handleAvatarDisplaySave">
             {{ avatarDisplaySaving ? t("saving") : t("save") }}

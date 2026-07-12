@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the compact profile release as version 3.72", () => {
-    expect(appVersion).toBe("3.72");
-    expect(releaseNotes[0]?.title).toBe("Компактная панель профиля");
+  it("publishes the compact avatar editor release as version 3.73", () => {
+    expect(appVersion).toBe("3.73");
+    expect(releaseNotes[0]?.title).toBe("Шапка профиля и компактный кадр");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
