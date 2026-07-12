@@ -287,6 +287,24 @@ const designThemeOptions = computed<
     label: t("profileDesignThemeGraphite"),
     description: t("profileDesignThemeGraphiteText"),
     previewClass: "design-theme-preview-graphite"
+  },
+  {
+    value: "pine-teal",
+    label: t("profileDesignThemePine"),
+    description: t("profileDesignThemePineText"),
+    previewClass: "design-theme-preview-pine"
+  },
+  {
+    value: "warm-clay",
+    label: t("profileDesignThemeClay"),
+    description: t("profileDesignThemeClayText"),
+    previewClass: "design-theme-preview-clay"
+  },
+  {
+    value: "plum-rose",
+    label: t("profileDesignThemePlum"),
+    description: t("profileDesignThemePlumText"),
+    previewClass: "design-theme-preview-plum"
   }
 ]);
 const visualScaleMin = 0.8;

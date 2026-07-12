@@ -11239,6 +11239,21 @@ body.club-ios .chat-input-row .text-input {
 .design-theme-preview-graphite i:nth-child(2) { background: var(--theme-preview-graphite-accent); }
 .design-theme-preview-graphite i:nth-child(3) { background: #7c3aed; }
 .design-theme-preview-graphite i:nth-child(4) { background: #f8fafc; }
+.design-theme-preview-pine { background: #06110d; }
+.design-theme-preview-pine i { background: #10251c; }
+.design-theme-preview-pine i:nth-child(2) { background: #2dd4bf; }
+.design-theme-preview-pine i:nth-child(3) { background: #38bdf8; }
+.design-theme-preview-pine i:nth-child(4) { background: #f3fbf6; }
+.design-theme-preview-clay { background: #120d09; }
+.design-theme-preview-clay i { background: #251a13; }
+.design-theme-preview-clay i:nth-child(2) { background: #fb923c; }
+.design-theme-preview-clay i:nth-child(3) { background: #f59e0b; }
+.design-theme-preview-clay i:nth-child(4) { background: #fff8f0; }
+.design-theme-preview-plum { background: #100812; }
+.design-theme-preview-plum i { background: #251328; }
+.design-theme-preview-plum i:nth-child(2) { background: #f472b6; }
+.design-theme-preview-plum i:nth-child(3) { background: #a78bfa; }
+.design-theme-preview-plum i:nth-child(4) { background: #fff5fe; }
 
 .design-theme-copy {
   display: grid;

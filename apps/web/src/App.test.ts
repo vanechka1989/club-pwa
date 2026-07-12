@@ -640,8 +640,10 @@ describe("App", () => {
     expect(styles).toContain("body.club-mobile-device .bottom-nav");
   });
 
-  it("keeps day and night separate from the two design themes", () => {
+  it("keeps day and night separate from five design themes", () => {
     const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
+    const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(profileSource).toContain("themeOptions");
     expect(profileSource).toContain("designThemeOptions");
@@ -649,6 +651,26 @@ describe("App", () => {
     expect(profileSource).toContain("ui.setDesignTheme(option.value)");
     expect(profileSource).toContain("design-theme-choice-grid");
     expect(profileSource).toContain("design-theme-choice-active");
+    for (const value of ["pine-teal", "warm-clay", "plum-rose"]) {
+      expect(profileSource).toContain(`value: "${value}"`);
+    }
+    for (const key of [
+      "profileDesignThemePine",
+      "profileDesignThemePineText",
+      "profileDesignThemeClay",
+      "profileDesignThemeClayText",
+      "profileDesignThemePlum",
+      "profileDesignThemePlumText"
+    ]) {
+      expect(i18nSource).toContain(`${key}:`);
+    }
+    for (const previewClass of [
+      "design-theme-preview-pine",
+      "design-theme-preview-clay",
+      "design-theme-preview-plum"
+    ]) {
+      expect(styles).toContain(`.${previewClass}`);
+    }
     expect(profileSource).not.toContain("colorOptions");
     expect(profileSource).not.toContain("scheme-grid");
     expect(profileSource).not.toContain("scheme-choice");
