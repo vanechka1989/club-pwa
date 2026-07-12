@@ -268,3 +268,5 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
     contentKinds: buildContentKindStats(input.learningMaterials)
   };
 }
+
+export type AdminStatistics = ReturnType<typeof buildAdminStatistics>;

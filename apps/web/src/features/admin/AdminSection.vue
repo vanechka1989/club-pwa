@@ -45,7 +45,7 @@ import {
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
-import AdminPollStatistics from "./AdminPollStatistics.vue";
+import AdminStatisticsDetail, { type StatisticsDetail } from "./AdminStatisticsDetail.vue";
 import {
   addAdminUser,
   createAdminDatabaseBackupDownloadLink,
@@ -250,6 +250,7 @@ const selectedUserLoginIpsLoading = ref(false);
 const selectedUserLoginIpsError = ref(false);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
+const activeStatisticsDetail = ref<StatisticsDetail | null>(null);
 const selectedMailing = ref<AdminMailing | null>(null);
 const selectedMailingBodyHtml = computed(() => {
   const html = selectedMailing.value?.bodyHtml?.trim();
@@ -534,6 +535,16 @@ const adminStatistics = computed(() =>
     statisticsOptions.value
   )
 );
+const statisticsDetailMeta = computed(() => {
+  const meta: Record<StatisticsDetail, { title: string; subtitle: string }> = {
+    clients: { title: "Клиенты", subtitle: "Доступ, ограничения и тарифы" },
+    finance: { title: "Финансы", subtitle: "Выручка и статусы платежей" },
+    learning: { title: "Обучение", subtitle: "Материалы и прогресс клиентов" },
+    community: { title: "Общение", subtitle: "Темы и активность в чатах" },
+    polls: { title: "Опросы", subtitle: "Участие и распределение ответов" }
+  };
+  return activeStatisticsDetail.value ? meta[activeStatisticsDetail.value] : meta.clients;
+});
 const filteredStorageObjects = computed(() => {
   const query = storageSearch.value.trim().toLowerCase();
   if (!query) {
@@ -1032,6 +1043,7 @@ async function handlePreviewModeChange(mode: PreviewMode) {
 }
 
 function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
+  activeStatisticsDetail.value = null;
   selectedPaymentBreakdown.value = item;
   openAdminTask(`/admin/statistics/payments/${item.key}`);
 }
@@ -1042,6 +1054,7 @@ function closePaymentDrilldown() {
 }
 
 function openUserAccessDrilldown(item: AdminAccessBreakdownItem) {
+  activeStatisticsDetail.value = null;
   selectedUserDrilldown.value = {
     kind: "access",
     key: item.key,
@@ -1051,6 +1064,7 @@ function openUserAccessDrilldown(item: AdminAccessBreakdownItem) {
 }
 
 function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
+  activeStatisticsDetail.value = null;
   selectedUserDrilldown.value = {
     kind: "tariff",
     tariff: tariff.tariff,
@@ -1450,6 +1464,14 @@ function selectStatisticsPeriod(period: AdminStatisticsPeriod) {
   from.setDate(from.getDate() - 6);
   statisticsCustomFrom.value ||= formatDateInput(from);
   statisticsCustomTo.value ||= formatDateInput(to);
+}
+
+function openStatisticsDetail(detail: StatisticsDetail) {
+  activeStatisticsDetail.value = detail;
+}
+
+function closeStatisticsDetail() {
+  activeStatisticsDetail.value = null;
 }
 
 function applySelectedUser(user: AdminStatsUser) {
@@ -2778,172 +2800,36 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="admin-stat-summary ui-card">
-        <article class="admin-stat-kpi">
-          <span>Клиенты</span>
-          <strong>{{ adminStatistics.clients.total }}</strong>
-          <small>+{{ adminStatistics.clients.newInPeriod }} за период</small>
-        </article>
-        <article class="admin-stat-kpi">
-          <span>Доступ открыт</span>
-          <strong>{{ adminStatistics.clients.active }}</strong>
-          <small>{{ adminStatistics.clients.activePercent }}% от базы</small>
-        </article>
-        <article class="admin-stat-kpi">
-          <span>Выручка</span>
-          <strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong>
-          <small>{{ adminStatistics.payments.paidOrders }} оплат</small>
-        </article>
-        <article class="admin-stat-kpi">
-          <span>Автоподписки</span>
-          <strong>{{ adminStatistics.payments.recurrentPaidOrders }}</strong>
-          <small>средний чек {{ adminStatistics.payments.averagePaidOrderRub.toLocaleString("ru-RU") }} ₽</small>
-        </article>
+      <div class="admin-stat-period-summary ui-card">
+        <article><span>Выручка</span><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат за выбранный период</small></article>
+        <article><span>Новые клиенты</span><strong>+{{ adminStatistics.clients.newInPeriod }}</strong><small>за выбранный период</small></article>
       </div>
 
-      <div class="admin-stat-layout">
-        <details class="admin-stat-block ui-card admin-stat-disclosure" open>
-          <summary class="admin-stat-disclosure-summary">
-            <div>
-              <h4>Доступ и подписки</h4>
-              <p>Состояние клиентской базы сейчас.</p>
-            </div>
-            <strong>{{ adminStatistics.clients.activePercent }}%</strong>
-          </summary>
-          <div class="admin-stat-meter" aria-hidden="true">
-            <span :style="{ width: `${adminStatistics.clients.activePercent}%` }"></span>
-          </div>
-          <div class="admin-stat-mini-grid ui-responsive-grid">
-            <button
-              v-for="item in adminStatistics.clients.accessBreakdown"
-              :key="item.key"
-              class="admin-stat-drilldown ui-button"
-              type="button"
-              :disabled="!item.value"
-              @click="openUserAccessDrilldown(item)"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </button>
-            <button
-              v-for="tariff in adminStatistics.tariffs"
-              :key="tariff.tariff"
-              class="admin-stat-drilldown ui-button"
-              type="button"
-              :disabled="!tariff.value"
-              @click="openUserTariffDrilldown(tariff)"
-            >
-              <span>{{ tariff.label }}</span>
-              <strong>{{ tariff.value }}</strong>
-            </button>
-          </div>
-        </details>
+      <p v-if="adminStatistics.clients.expiringSoon || adminStatistics.payments.failedOrders || adminStatistics.payments.failedWebhookOrders" class="admin-stat-alert-line">
+        Требуют внимания: {{ adminStatistics.clients.expiringSoon }} доступов истекают, {{ adminStatistics.payments.failedOrders + adminStatistics.payments.failedWebhookOrders }} ошибок оплаты
+      </p>
 
-        <details class="admin-stat-block ui-card admin-stat-disclosure">
-          <summary class="admin-stat-disclosure-summary">
-            <div>
-              <h4>Оплаты</h4>
-              <p>Статусы заказов и качество webhook.</p>
-            </div>
-            <strong>{{ adminStatistics.payments.paidOrders }}</strong>
-          </summary>
-          <div class="admin-stat-mini-grid ui-responsive-grid admin-stat-mini-grid-two">
-            <button
-              v-for="item in adminStatistics.payments.breakdown"
-              :key="item.key"
-              class="admin-stat-drilldown ui-button"
-              type="button"
-              :disabled="!item.value"
-              @click="openPaymentDrilldown(item)"
-            >
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </button>
-          </div>
-        </details>
-
-        <details class="admin-stat-block ui-card admin-stat-disclosure">
-          <summary class="admin-stat-disclosure-summary">
-            <div>
-              <h4>Контент</h4>
-              <p>Наполнение и прогресс обучения.</p>
-            </div>
-            <strong>{{ adminStatistics.learning.averageProgressPercent }}%</strong>
-          </summary>
-          <div class="admin-stat-meter" aria-hidden="true">
-            <span :style="{ width: `${adminStatistics.learning.averageProgressPercent}%` }"></span>
-          </div>
-          <div class="admin-stat-mini-grid ui-responsive-grid">
-            <article>
-              <span>Опубликовано</span>
-              <strong>{{ adminStatistics.learning.publishedMaterials }}</strong>
-            </article>
-            <article>
-              <span>Скрыто</span>
-              <strong>{{ adminStatistics.learning.hiddenMaterials }}</strong>
-            </article>
-            <article>
-              <span>Удалено</span>
-              <strong>{{ adminStatistics.learning.archivedMaterials }}</strong>
-            </article>
-          </div>
-          <p class="admin-stat-note">
-            {{ adminStatistics.learning.popularTitle ? `Чаще открывают: ${adminStatistics.learning.popularTitle}` : "Пока нет данных по открытиям." }}
-          </p>
-          <div class="admin-stat-kind-list">
-            <span v-for="kind in adminStatistics.contentKinds" :key="kind.kind">{{ kind.label }} · {{ kind.count }}</span>
-          </div>
-        </details>
-
-        <details class="admin-stat-block ui-card admin-stat-disclosure">
-          <summary class="admin-stat-disclosure-summary">
-            <div>
-              <h4>Общение</h4>
-              <p>Темы клуба и активность в чатах.</p>
-            </div>
-            <strong>{{ adminStatistics.communication.messagesInPeriod }}</strong>
-          </summary>
-          <div class="admin-stat-mini-grid ui-responsive-grid admin-stat-mini-grid-two">
-            <article>
-              <span>Всего сообщений</span>
-              <strong>{{ adminStatistics.communication.messages }}</strong>
-            </article>
-            <article>
-              <span>За период</span>
-              <strong>{{ adminStatistics.communication.messagesInPeriod }}</strong>
-            </article>
-            <article>
-              <span>За 7 дней</span>
-              <strong>{{ adminStatistics.communication.messagesLast7Days }}</strong>
-            </article>
-            <article>
-              <span>Активных клиентов</span>
-              <strong>{{ adminStatistics.communication.activeWriters }}</strong>
-            </article>
-          </div>
-          <p class="admin-stat-note">
-            {{
-              adminStatistics.communication.hotTopic
-                ? `Горячая тема: ${adminStatistics.communication.hotTopic.title} · ${adminStatistics.communication.hotTopic.messages} сообщ.`
-                : "Пока нет сообщений за выбранный период."
-            }}
-          </p>
-          <div class="admin-stat-kind-list">
-            <span>Темы · {{ adminStatistics.communication.topics }}</span>
-            <span>Открыты · {{ adminStatistics.communication.openTopics }}</span>
-            <span>Закрыты · {{ adminStatistics.communication.lockedTopics }}</span>
-            <span>30 дней · {{ adminStatistics.communication.messagesLast30Days }}</span>
-          </div>
-          <div class="admin-stat-top-list">
-            <article v-for="client in adminStatistics.communication.topClients" :key="client.telegramId">
-              <span>{{ client.name }}</span>
-              <strong>{{ client.messages }}</strong>
-            </article>
-            <p v-if="!adminStatistics.communication.topClients.length" class="admin-empty">Активных клиентов в общении пока нет.</p>
-          </div>
-        </details>
-        <AdminPollStatistics :stats="pollStats" />
+      <div class="admin-stat-overview-nav">
+        <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('clients')">
+          <span class="admin-stat-nav-icon"><UsersRound aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Клиенты</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.clients.active }} / {{ adminStatistics.clients.total }}</strong><small>активны</small></span><span aria-hidden="true">›</span>
+        </button>
+        <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('finance')">
+          <span class="admin-stat-nav-icon"><CreditCard aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Финансы</strong><small>за выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат</small></span><span aria-hidden="true">›</span>
+        </button>
+        <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('learning')">
+          <span class="admin-stat-nav-icon"><BarChart3 aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Обучение</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.learning.averageProgressPercent }}%</strong><small>прогресс</small></span><span aria-hidden="true">›</span>
+        </button>
+        <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('community')">
+          <span class="admin-stat-nav-icon"><Megaphone aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Общение</strong><small>за выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.communication.messagesInPeriod }}</strong><small>сообщений</small></span><span aria-hidden="true">›</span>
+        </button>
+        <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('polls')">
+          <span class="admin-stat-nav-icon"><SlidersHorizontal aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Опросы</strong><small>за выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ pollStats.totalPolls }}</strong><small>{{ pollStats.uniqueParticipants }} участников</small></span><span aria-hidden="true">›</span>
+        </button>
       </div>
+
+      <TaskScreen v-if="activeStatisticsDetail" class="admin-statistics-task-screen" :title="statisticsDetailMeta.title" :subtitle="statisticsDetailMeta.subtitle" portal @back="closeStatisticsDetail">
+        <AdminStatisticsDetail :detail="activeStatisticsDetail" :stats="adminStatistics" :poll-stats="pollStats" @access="openUserAccessDrilldown" @tariff="openUserTariffDrilldown" @payment="openPaymentDrilldown" />
+      </TaskScreen>
     </section>
 
     <section v-else-if="activePanel === 'users'" class="admin-panel ui-page-section">

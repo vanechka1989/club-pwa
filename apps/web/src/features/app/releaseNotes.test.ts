@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes locked reaction geometry as version 3.89", () => {
-    expect(appVersion).toBe("3.89");
-    expect(releaseNotes[0]?.title).toBe("Стабильный размер реакций");
+  it("publishes the new statistics architecture as version 3.90", () => {
+    expect(appVersion).toBe("3.90");
+    expect(releaseNotes[0]?.title).toBe("Новая архитектура статистики");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

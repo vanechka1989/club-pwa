@@ -16348,6 +16348,102 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 .admin-stat-summary .admin-stat-kpi:last-child { border-right: 0; }
 .admin-stat-summary .admin-stat-kpi strong { margin-top: 5px; font-size: 1.45rem; }
 
+/* Statistics hub: compact overview plus focused drill-down screens. */
+.admin-stat-period-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+  overflow: hidden;
+}
+
+.admin-stat-period-summary article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.admin-stat-period-summary article + article { border-left: 1px solid var(--border); }
+.admin-stat-period-summary span,
+.admin-stat-period-summary small { color: var(--muted); }
+.admin-stat-period-summary strong { font-size: 1.3rem; line-height: 1.15; }
+.admin-stat-period-summary small { font-size: .76rem; }
+
+.admin-stat-alert-line {
+  margin: 10px 2px 0;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning, #d59b2a) 38%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--warning, #d59b2a) 10%, transparent);
+  color: var(--text);
+  font-size: .8rem;
+}
+
+.admin-stat-overview-nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-stat-nav-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto 12px;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.admin-stat-nav-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+
+.admin-stat-nav-icon svg { width: 20px; height: 20px; }
+.admin-stat-nav-copy,
+.admin-stat-nav-value { display: grid; gap: 3px; min-width: 0; }
+.admin-stat-nav-copy strong { font-size: .95rem; }
+.admin-stat-nav-copy small,
+.admin-stat-nav-value small { color: var(--muted); font-size: .72rem; }
+.admin-stat-nav-value { text-align: right; }
+.admin-stat-nav-value strong { max-width: 125px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .91rem; }
+
+.admin-stat-detail { display: grid; gap: 12px; padding-bottom: 24px; }
+.admin-stat-detail-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; padding: 16px; }
+.admin-stat-detail-hero > div:first-child { display: grid; gap: 5px; }
+.admin-stat-detail-hero span,
+.admin-stat-detail-hero small { color: var(--muted); }
+.admin-stat-detail-hero strong { font-size: 1.55rem; line-height: 1.1; }
+.admin-stat-detail-hero > b { align-self: center; color: var(--accent); font-size: .86rem; }
+.admin-stat-detail-hero .admin-stat-meter,
+.admin-stat-detail-hero > small { grid-column: 1 / -1; }
+.admin-stat-detail-card { padding: 14px; }
+.admin-stat-detail-card header { margin-bottom: 12px; }
+.admin-stat-detail-card h4 { margin: 0; }
+.admin-stat-detail-card header p { margin: 4px 0 0; color: var(--muted); font-size: .78rem; }
+.admin-stat-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.admin-stat-detail-grid > article,
+.admin-stat-detail-grid > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 52px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); color: var(--text); text-align: left; }
+.admin-stat-detail-grid span { color: var(--muted); font-size: .78rem; }
+
+@media (max-width: 380px) {
+  .admin-stat-nav-row { grid-template-columns: 38px minmax(0, 1fr) auto 8px; gap: 8px; padding-right: 10px; }
+  .admin-stat-nav-icon { width: 38px; height: 38px; }
+  .admin-stat-nav-value strong { max-width: 90px; font-size: .82rem; }
+  .admin-stat-period-summary strong { font-size: 1.08rem; }
+}
+
 .admin-stat-disclosure { padding: 0; overflow: hidden; }
 .admin-stat-disclosure-summary {
   display: flex;

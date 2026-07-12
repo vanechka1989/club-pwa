@@ -6,11 +6,11 @@ const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
 describe("compact admin statistics and clients", () => {
-  it("uses one compact KPI summary and collapsible statistic groups", () => {
-    expect(source).toContain('class="admin-stat-summary ui-card"');
-    expect(source.match(/class="admin-stat-disclosure/g)?.length).toBeGreaterThanOrEqual(4);
+  it("uses a compact KPI summary and focused statistic navigation", () => {
+    expect(source).toContain('class="admin-stat-period-summary ui-card"');
+    expect(source.match(/class="admin-stat-nav-row/g)?.length).toBe(5);
     expect(source).not.toContain("<small v-if=\"item.value\">Подробнее</small>");
-    expect(styles).toContain(".admin-stat-summary");
+    expect(styles).toContain(".admin-stat-period-summary");
   });
 
   it("keeps search visible and moves secondary client filters into a disclosure", () => {
