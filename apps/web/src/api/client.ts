@@ -288,6 +288,21 @@ export function createClubMessage(topicId: string, body: string, replyToMessageI
   });
 }
 
+export function createClubVoiceMessage(topicId: string, file: Blob, durationSeconds: number, replyToMessageId?: string | null) {
+  const form = new FormData();
+  form.set("voice", file, file instanceof File && file.name ? file.name : "voice.webm");
+  form.set("durationSeconds", String(Math.round(durationSeconds)));
+  if (replyToMessageId) form.set("replyToMessageId", replyToMessageId);
+  return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages/voice`, { method: "POST", body: form });
+}
+
+export function createClubImageMessage(topicId: string, files: File[], replyToMessageId?: string | null) {
+  const form = new FormData();
+  files.forEach((file) => form.append("images", file, file.name));
+  if (replyToMessageId) form.set("replyToMessageId", replyToMessageId);
+  return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages/images`, { method: "POST", body: form });
+}
+
 export function reactToClubMessage(messageId: string, reaction: MessageReaction | null) {
   return api<ClubMessageReactionMutationResponse>(`/community/messages/${messageId}/reaction`, {
     method: "POST",

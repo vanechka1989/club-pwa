@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
@@ -10,14 +11,17 @@ import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../co
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
+import { getCommunityMediaExpiry } from "../community/mediaPolicy";
+import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, validateCommunityImageFiles } from "../community/mediaUpload";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageReactions, userMutes, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageReactions, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { createAppNotification } from "../notifications/create";
+import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const chatPayloadSchema = z.object({
   title: z.string().trim().min(2).max(160),
@@ -238,14 +242,46 @@ async function serializeMessage(
     : null;
   const reactionSummary = summarizeReactions(reactions, currentUserId);
   const authorMute = await getActiveMute(message.user.id);
+  const attachments = await db.query.clubMessageAttachments.findMany({
+    where: eq(clubMessageAttachments.messageId, message.id),
+    orderBy: (table, { asc }) => [asc(table.sortOrder)]
+  });
+  const kind = (message.kind as ClubMessage["kind"]) ?? "text";
+  const serializedAttachments = await Promise.all(
+    attachments.map(async (attachment) => ({
+      ...attachment,
+      url: attachment.deletedAt ? null : await getObjectReadUrl(attachment.objectKey)
+    }))
+  );
+  const voiceAttachment = kind === "voice" ? serializedAttachments[0] : undefined;
+  const imageAttachments = kind === "images" ? serializedAttachments : [];
 
   return {
     id: message.id,
     topicId: message.topicId,
     body: message.body,
-    kind: (message.kind as ClubMessage["kind"]) ?? "text",
-    voice: null,
-    images: [],
+    kind,
+    voice: voiceAttachment
+      ? {
+          id: voiceAttachment.id,
+          url: voiceAttachment.url,
+          contentType: voiceAttachment.contentType,
+          sizeBytes: voiceAttachment.sizeBytes,
+          durationSeconds: voiceAttachment.durationSeconds ?? 0,
+          expiresAt: voiceAttachment.expiresAt?.toISOString() ?? null,
+          deletedAt: voiceAttachment.deletedAt?.toISOString() ?? null
+        }
+      : null,
+    images: imageAttachments.map((attachment) => ({
+      id: attachment.id,
+      url: attachment.url,
+      contentType: attachment.contentType,
+      sizeBytes: attachment.sizeBytes,
+      width: attachment.width ?? 1,
+      height: attachment.height ?? 1,
+      expiresAt: attachment.expiresAt?.toISOString() ?? null,
+      deletedAt: attachment.deletedAt?.toISOString() ?? null
+    })),
     poll: null,
     isSystem: message.isSystem,
     status: message.status,
@@ -736,6 +772,118 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       ok: true,
       message: await serializeMessage(createdMessage, c.get("userId"))
     });
+  })
+  .post("/topics/:id/messages/voice", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const mute = await getActiveMute(c.get("userId"));
+    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
+    const topic = await db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, c.req.param("id")) });
+    if (!topic) return c.json({ error: "Topic not found" }, 404);
+    if (topic.isLocked && role === "member") return c.json({ error: "Topic is locked" }, 403);
+
+    const form = await c.req.formData();
+    const file = form.get("voice");
+    const durationSeconds = Number(form.get("durationSeconds"));
+    const replyToMessageId = String(form.get("replyToMessageId") ?? "").trim() || null;
+    if (!(file instanceof File) || file.size > communityVoiceMaxBytes || !Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 300) {
+      return c.json({ error: "Invalid voice message" }, 400);
+    }
+    const contentType = getCommunityVoiceContentType(file.type, file.name);
+    if (!contentType) return c.json({ error: "Unsupported voice format" }, 415);
+
+    const [message] = await db.insert(clubChatMessages).values({
+      topicId: topic.id,
+      userId: c.get("userId"),
+      replyToMessageId,
+      body: "Голосовое сообщение",
+      kind: "voice"
+    }).returning();
+    if (!message) return c.json({ error: "Unable to create message" }, 500);
+
+    const attachmentId = randomUUID();
+    const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, file.name || "voice.webm");
+    try {
+      await uploadObject({ key, body: new Uint8Array(await file.arrayBuffer()), contentType });
+      await db.insert(clubMessageAttachments).values({
+        id: attachmentId,
+        messageId: message.id,
+        kind: "voice",
+        objectKey: key,
+        contentType,
+        sizeBytes: file.size,
+        durationSeconds: Math.round(durationSeconds),
+        expiresAt: getCommunityMediaExpiry(role)
+      });
+    } catch (error) {
+      await deleteObject(key).catch(() => undefined);
+      await db.delete(clubChatMessages).where(eq(clubChatMessages.id, message.id));
+      logger.warn({ error, messageId: message.id }, "voice message upload failed");
+      return c.json({ error: "Unable to upload voice message" }, 500);
+    }
+    const created = await findMessageWithUser(message.id);
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
+  })
+  .post("/topics/:id/messages/images", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const mute = await getActiveMute(c.get("userId"));
+    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
+    const topic = await db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, c.req.param("id")) });
+    if (!topic) return c.json({ error: "Topic not found" }, 404);
+    if (topic.isLocked && role === "member") return c.json({ error: "Topic is locked" }, 403);
+
+    const form = await c.req.formData();
+    const files = form.getAll("images").filter((entry): entry is File => entry instanceof File);
+    const replyToMessageId = String(form.get("replyToMessageId") ?? "").trim() || null;
+    const validationError = validateCommunityImageFiles(files);
+    if (validationError) return c.json({ error: validationError }, 400);
+    let prepared: Awaited<ReturnType<typeof prepareCommunityImage>>[];
+    try {
+      prepared = await Promise.all(files.map(prepareCommunityImage));
+    } catch {
+      return c.json({ error: "Не удалось обработать изображение." }, 415);
+    }
+
+    const [message] = await db.insert(clubChatMessages).values({
+      topicId: topic.id,
+      userId: c.get("userId"),
+      replyToMessageId,
+      body: files.length === 1 ? "Изображение" : `${files.length} изображений`,
+      kind: "images"
+    }).returning();
+    if (!message) return c.json({ error: "Unable to create message" }, 500);
+
+    const uploadedKeys: string[] = [];
+    try {
+      for (const [index, image] of prepared.entries()) {
+        const attachmentId = randomUUID();
+        const key = buildCommunityMediaObjectKey("image", message.id, attachmentId, image.fileName);
+        await uploadObject({ key, body: image.body, contentType: image.contentType });
+        uploadedKeys.push(key);
+        await db.insert(clubMessageAttachments).values({
+          id: attachmentId,
+          messageId: message.id,
+          kind: "image",
+          objectKey: key,
+          contentType: image.contentType,
+          sizeBytes: image.sizeBytes,
+          width: image.width,
+          height: image.height,
+          sortOrder: index,
+          expiresAt: getCommunityMediaExpiry(role)
+        });
+      }
+    } catch (error) {
+      for (const key of uploadedKeys) await deleteObject(key).catch(() => undefined);
+      await db.delete(clubChatMessages).where(eq(clubChatMessages.id, message.id));
+      logger.warn({ error, messageId: message.id }, "image message upload failed");
+      return c.json({ error: "Unable to upload images" }, 500);
+    }
+    const created = await findMessageWithUser(message.id);
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
   })
   .post("/messages/:id/pin", async (c) => {
     const role = await getCommunityRole(c);
