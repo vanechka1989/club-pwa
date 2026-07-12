@@ -1783,6 +1783,48 @@ test("keeps design theme independent from day and night mode", async ({ page }) 
   await expectNoHorizontalOverflow(page);
 });
 
+test("uses Warm Clay day and protects mobile scale from accidental swipes", async ({ page }) => {
+  const root = page.locator("html");
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await expect(root).toHaveAttribute("data-design-theme", "warm-clay");
+
+  const themeColumns = await page.locator(".design-theme-choice").evaluateAll((rows) =>
+    rows.map((row) => {
+      const rowBox = row.getBoundingClientRect();
+      const preview = row.querySelector<HTMLElement>(".design-theme-preview")?.getBoundingClientRect();
+      const copy = row.querySelector<HTMLElement>(".design-theme-copy")?.getBoundingClientRect();
+      const check = row.querySelector<HTMLElement>(".design-theme-check")?.getBoundingClientRect();
+      return {
+        previewX: (preview?.x ?? 0) - rowBox.x,
+        copyX: (copy?.x ?? 0) - rowBox.x,
+        checkX: (check?.x ?? 0) - rowBox.x
+      };
+    })
+  );
+  for (const key of ["previewX", "copyX", "checkX"] as const) {
+    const positions = themeColumns.map((column) => column[key]);
+    expect(Math.max(...positions) - Math.min(...positions)).toBeLessThanOrEqual(1);
+  }
+
+  const range = page.locator(".visual-scale-range");
+  const coarsePointer = await page.evaluate(() => matchMedia("(hover: none) and (pointer: coarse)").matches);
+  const pointerEvents = await range.evaluate((element) => getComputedStyle(element).pointerEvents);
+  if (coarsePointer) {
+    expect(pointerEvents).toBe("none");
+    const rangeBox = await range.boundingBox();
+    expect(rangeBox).not.toBeNull();
+    await page.touchscreen.tap(
+      (rangeBox?.x ?? 0) + (rangeBox?.width ?? 0) * 0.8,
+      (rangeBox?.y ?? 0) + (rangeBox?.height ?? 0) / 2
+    );
+    await expect(root).toHaveAttribute("data-visual-scale", "0.9");
+    await page.getByRole("button", { name: "Увеличить масштаб", exact: true }).click();
+    await expect(root).toHaveAttribute("data-visual-scale", "1.0");
+  } else {
+    expect(pointerEvents).toBe("auto");
+  }
+});
+
 test("stacks payment tariff cards into readable mobile rows", async ({ page }, testInfo) => {
   const paymentNavigation = page.locator('.bottom-nav-item[aria-label="Оплата"], .desktop-sidebar-item[aria-label="Оплата"]');
   await expect(paymentNavigation).toHaveCount(1);

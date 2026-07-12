@@ -8940,6 +8940,14 @@ body.club-keyboard-open .module-name-modal {
   cursor: pointer;
 }
 
+@media (hover: none) and (pointer: coarse) {
+  .visual-scale-range {
+    pointer-events: none;
+    touch-action: pan-y;
+    cursor: default;
+  }
+}
+
 .theme-choice {
   display: inline-flex;
   min-height: 2.45rem;
@@ -11177,7 +11185,7 @@ body.club-ios .chat-input-row .text-input {
 
 .design-theme-choice {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 2.55rem minmax(0, 1fr) 1.7rem;
   align-items: center;
   gap: 0.65rem;
   min-width: 0;

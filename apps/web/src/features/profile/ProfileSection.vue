@@ -892,7 +892,7 @@ watch(
           <button
             v-for="option in designThemeOptions"
             :key="option.value"
-            class="design-theme-choice ui-button"
+            class="design-theme-choice"
             :class="{ 'design-theme-choice-active': ui.designTheme === option.value }"
             type="button"
             :aria-pressed="ui.designTheme === option.value"

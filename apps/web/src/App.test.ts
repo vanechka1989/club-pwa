@@ -677,6 +677,20 @@ describe("App", () => {
     expect(profileSource).not.toContain("ui.setColorScheme");
   });
 
+  it("keeps appearance rows aligned and prevents touch slider drags", () => {
+    const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(profileSource).toContain('class="design-theme-choice"');
+    expect(profileSource).not.toContain('class="design-theme-choice ui-button"');
+    expect(styles).toMatch(
+      /\.design-theme-choice\s*\{[\s\S]*grid-template-columns:\s*2\.55rem minmax\(0, 1fr\) 1\.7rem;/
+    );
+    expect(styles).toMatch(
+      /@media \(hover: none\) and \(pointer: coarse\)[\s\S]*\.visual-scale-range\s*\{[\s\S]*pointer-events:\s*none;/
+    );
+  });
+
   it("defines a real light soft-touch token set for day mode", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
