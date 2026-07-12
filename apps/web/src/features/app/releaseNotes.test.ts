@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the profile appearance release as version 3.71", () => {
-    expect(appVersion).toBe("3.71");
-    expect(releaseNotes[0]?.title).toBe("Темы и стабильный профиль");
+  it("publishes the compact profile release as version 3.72", () => {
+    expect(appVersion).toBe("3.72");
+    expect(releaseNotes[0]?.title).toBe("Компактная панель профиля");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

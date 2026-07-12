@@ -16106,6 +16106,280 @@ body.club-mobile-device .task-screen-route-layer :is(
   }
 }
 
+/* Final compact-profile overrides must win over the legacy mobile scale layer. */
+.profile-dashboard .profile-dashboard-toolbar {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.club-mobile-device .profile-dashboard .profile-dashboard-toolbar .profile-access-layout,
+body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profile-access-layout {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding-right: 0;
+}
+
+body.club-mobile-device .profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack,
+body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 0;
+}
+
+.profile-dashboard .profile-dashboard-controls {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+}
+
+.profile-dashboard .profile-access-main {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding-right: 82px;
+}
+
+.profile-dashboard .profile-account-inline {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.profile-dashboard .profile-account-inline > span {
+  display: none;
+}
+
+.profile-dashboard .profile-account-inline strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dashboard .profile-role-pill {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-access-layout {
+  grid-template-columns: 72px minmax(0, 1fr) !important;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack {
+  position: relative;
+  width: 72px;
+  grid-template-columns: 72px !important;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-avatar-actions {
+  position: absolute;
+  right: -4px;
+  bottom: -5px;
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.profile-dashboard .profile-access-main {
+  padding-right: 0;
+}
+
+/* Refined profile composition: no overlays or nested-card geometry. */
+.profile-dashboard .profile-dashboard-hero {
+  gap: 14px;
+  padding: 16px;
+}
+
+.profile-dashboard .profile-dashboard-toolbar {
+  position: static;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.profile-dashboard .profile-dashboard-controls {
+  position: static;
+  align-self: start;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-access-layout,
+body.club-mobile-device .profile-dashboard .profile-dashboard-toolbar .profile-access-layout,
+body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profile-access-layout {
+  grid-template-columns: 60px minmax(0, 1fr) !important;
+  gap: 12px;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack,
+body.club-mobile-device .profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack,
+body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack {
+  width: 60px;
+  grid-template-columns: 60px !important;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-avatar-large {
+  width: 60px;
+  min-width: 60px;
+  height: 60px;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-avatar-actions {
+  right: -2px;
+  bottom: -7px;
+  gap: 3px;
+}
+
+.profile-dashboard .profile-dashboard-toolbar .profile-avatar-icon-button {
+  --icon-button-size: 28px;
+  --icon-size: 13px;
+  box-shadow: none;
+}
+
+.profile-dashboard .profile-access-head h3 {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.profile-dashboard .profile-access-main {
+  gap: 6px;
+}
+
+.profile-dashboard .profile-account-inline {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.profile-dashboard .profile-account-inline svg {
+  display: none;
+}
+
+.profile-dashboard .profile-account-inline strong {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 690;
+}
+
+.profile-dashboard .profile-role-pill {
+  min-height: 22px;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.profile-dashboard .profile-dashboard-subscription {
+  align-items: center;
+  padding-top: 14px;
+}
+
+.profile-dashboard .profile-dashboard-subscription .profile-membership-row {
+  display: grid;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.profile-dashboard .profile-dashboard-subscription .profile-membership-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-dashboard .profile-dashboard-subscription .profile-membership-title strong {
+  font-size: 14px;
+}
+
+.profile-dashboard .profile-dashboard-subscription .profile-membership-title span,
+.profile-dashboard .profile-dashboard-subscription-meta {
+  font-size: 11px;
+}
+
+.profile-dashboard .profile-dashboard-subscription .subscription-bar {
+  height: 6px;
+}
+
+.profile-dashboard .profile-summary-card {
+  min-height: 104px;
+  border-radius: 18px;
+}
+
+.profile-dashboard .profile-nav-row {
+  min-height: 62px;
+  border-radius: 18px;
+}
+
+.profile-dashboard .profile-nav-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.profile-dashboard .profile-avatar-menu-button {
+  --icon-button-size: 30px;
+  --icon-size: 14px;
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  z-index: 2;
+  border: 2px solid var(--panel);
+  background: color-mix(in srgb, var(--accent-soft) 68%, var(--panel));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.profile-photo-menu {
+  position: fixed;
+  right: max(12px, var(--club-safe-right));
+  bottom: max(12px, calc(var(--club-safe-bottom) + 12px));
+  left: max(12px, var(--club-safe-left));
+  z-index: 120;
+  display: grid;
+  gap: 8px;
+  max-width: 480px;
+  margin-inline: auto;
+  padding: 16px;
+}
+
+.profile-photo-menu h3 {
+  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.profile-photo-menu-action {
+  position: relative;
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  padding: 0 14px;
+  font-weight: 780;
+  overflow: hidden;
+}
+
+@media (max-width: 359px) {
+  .profile-dashboard .profile-access-main {
+    padding-right: 0;
+    padding-top: 46px;
+  }
+}
+
 .modules-section .admin-mockup-thumb-horizontal {
   width: min(100%, 360px);
   height: auto;
@@ -16498,6 +16772,233 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
   justify-content: flex-start;
 }
 
+/* Compact profile dashboard: this block is the authoritative profile composition. */
+.profile-dashboard {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.profile-dashboard-hero {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  padding: 16px;
+}
+
+.profile-dashboard-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.profile-dashboard-toolbar .profile-access-layout {
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.profile-dashboard-toolbar .profile-avatar-large {
+  width: 72px;
+  min-width: 72px;
+  height: 72px;
+}
+
+.profile-dashboard-toolbar .profile-avatar-actions {
+  margin-top: -18px;
+  padding-left: 38px;
+}
+
+.profile-dashboard-toolbar .profile-avatar-icon-button {
+  --icon-button-size: 32px;
+  --icon-size: 15px;
+}
+
+.profile-dashboard-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.profile-dashboard-subscription {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+}
+
+.profile-dashboard-subscription .profile-membership-row {
+  min-width: 0;
+}
+
+.profile-dashboard-subscription .soft-inline-button {
+  min-width: 104px;
+  min-height: 44px;
+  padding-inline: 16px;
+}
+
+.profile-dashboard-subscription-meta {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.profile-summary-card {
+  box-sizing: border-box;
+  display: grid;
+  min-width: 0;
+  min-height: 112px;
+  align-content: start;
+  gap: 5px;
+  padding: 14px;
+  text-align: left;
+}
+
+.profile-summary-card-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profile-summary-card-head span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-summary-card > strong {
+  min-width: 0;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: clamp(20px, 6vw, 27px);
+  font-weight: 880;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-summary-card > small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dashboard-nav {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.profile-nav-row {
+  box-sizing: border-box;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 64px;
+  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  text-align: left;
+}
+
+.profile-nav-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.profile-nav-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.profile-nav-copy strong,
+.profile-nav-copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-nav-copy strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 840;
+}
+
+.profile-nav-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 690;
+}
+
+.profile-nav-chevron {
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+}
+
+@media (max-width: 359px) {
+  .profile-dashboard-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-dashboard-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+  }
+
+  .profile-dashboard-hero {
+    position: relative;
+  }
+
+  .profile-dashboard-subscription {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-dashboard-subscription .soft-inline-button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .profile-dashboard {
+    max-width: 47.5rem;
+    margin-inline: auto;
+  }
+}
+
 @media (max-width: 359px) {
   .notification-center-list,
   .notification-task-screen .notification-center-list {
@@ -16735,4 +17236,59 @@ html body .chat-input-row .icon-button {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+body.club-mobile-device .profile-dashboard .profile-dashboard-toolbar .profile-access-layout,
+body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profile-access-layout {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+body.club-mobile-device .profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack,
+body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.profile-dashboard .profile-dashboard-toolbar {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.profile-dashboard .profile-dashboard-controls {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+}
+
+.profile-dashboard .profile-access-main {
+  width: 100%;
+  min-width: 0;
+  padding-right: 82px;
+}
+
+.profile-dashboard .profile-account-inline {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.profile-dashboard .profile-account-inline > span {
+  display: none;
+}
+
+.profile-dashboard .profile-account-inline strong {
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dashboard .profile-role-pill {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

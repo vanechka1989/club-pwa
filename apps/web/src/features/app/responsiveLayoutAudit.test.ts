@@ -102,7 +102,7 @@ describe("responsive layout audit contract", () => {
 
   it("migrates user-facing sections onto foundation classes", () => {
     expect(profileSource).toContain("ui-page-section");
-    expect(profileSource).toContain("ui-page-header");
+    expect(profileSource).toContain("profile-dashboard-hero");
     expect(profileSource).toContain("ui-card");
     expect(profileSource).toContain("ui-icon-button");
 

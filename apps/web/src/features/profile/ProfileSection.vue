@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
 import {
-  BarChart3,
+  BookOpen,
   Camera,
   Check,
+  ChevronRight,
   Copy,
+  CreditCard,
   Crop,
   Fingerprint,
   Gift,
@@ -15,6 +17,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Shield,
   Sun
 } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
@@ -78,6 +81,7 @@ const referralMessage = ref<string | null>(null);
 const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
 const avatarEditorOpen = ref(false);
+const avatarPhotoMenuOpen = ref(false);
 const avatarDisplaySaving = ref(false);
 const avatarDraftX = ref(50);
 const avatarDraftY = ref(50);
@@ -87,6 +91,7 @@ const emailVisible = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
 const showLogoutConfirm = ref(false);
+const activeProfilePanel = ref<"referrals" | "appearance" | "account" | null>(null);
 const displayNameEditorOpen = ref(false);
 const displayNameDraft = ref("");
 const displayNameSaving = ref(false);
@@ -311,6 +316,37 @@ const visualScaleMin = 0.8;
 const visualScaleMax = 1.4;
 const visualScaleStep = 0.1;
 const visualScaleDisplayValue = computed(() => ui.visualScale.toFixed(1));
+const currentDesignThemeLabel = computed(
+  () => designThemeOptions.value.find((option) => option.value === ui.designTheme)?.label ?? ""
+);
+const currentThemeLabel = computed(
+  () => themeOptions.value.find((option) => option.value === ui.theme)?.label ?? ""
+);
+const latestPayment = computed(() => paymentOrders.value[0] ?? null);
+const latestPaymentAmount = computed(() =>
+  latestPayment.value ? `${latestPayment.value.amountRub.toLocaleString("ru-RU")} ₽` : "—"
+);
+const latestPaymentDate = computed(() =>
+  latestPayment.value
+    ? new Date(latestPayment.value.paidAt ?? latestPayment.value.createdAt).toLocaleDateString(
+        currentLocale.value === "ru" ? "ru-RU" : "en-US",
+        { day: "numeric", month: "long" }
+      )
+    : t("profileNoPayments")
+);
+const referralSummaryText = computed(() =>
+  referral.value
+    ? `${referral.value.invitedCount} / ${referral.value.paidCount} / ${referral.value.availableDays}`
+    : "— / — / —"
+);
+
+function openProfilePanel(panel: "referrals" | "appearance" | "account") {
+  activeProfilePanel.value = panel;
+}
+
+function closeProfilePanel() {
+  activeProfilePanel.value = null;
+}
 const avatarGesturePointers = new Map<number, AvatarGesturePointState>();
 let avatarGestureSession: AvatarGestureSession | null = null;
 
@@ -657,35 +693,27 @@ watch(
 </script>
 
 <template>
-  <section class="soft-home ui-page-section space-y-4">
-    <div class="section-head ui-page-header">
-      <div>
-        <h2 class="section-title">Профиль</h2>
-        <p class="section-subtitle">Доступ, статистика и настройки аккаунта.</p>
-      </div>
-      <div class="compact-controls shrink-0">
-        <button
-          class="ui-icon-button"
-          type="button"
-          :aria-label="t('language')"
-          @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')"
-        >
-          {{ currentLocale.toUpperCase() }}
-        </button>
-        <NotificationCenter />
-      </div>
-    </div>
-
-    <section class="soft-card ui-card profile-access-card">
-      <div class="profile-access-layout">
+  <section class="soft-home ui-page-section profile-dashboard">
+    <section class="soft-card ui-card profile-access-card profile-dashboard-hero">
+      <div class="profile-dashboard-toolbar">
+        <div class="profile-access-layout">
         <div class="profile-avatar-stack">
           <div class="profile-avatar profile-avatar-large">
             <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
             <span v-else>{{ avatarInitial }}</span>
           </div>
-          <div class="profile-avatar-actions">
-            <label
-              class="profile-avatar-icon-button ui-icon-button"
+          <button
+            v-if="session.user?.photoUrl"
+            class="profile-avatar-menu-button profile-avatar-icon-button ui-icon-button"
+            type="button"
+            aria-label="Изменить фото профиля"
+            @click="avatarPhotoMenuOpen = true"
+          >
+            <Camera class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <label
+              v-else
+              class="profile-avatar-menu-button profile-avatar-icon-button ui-icon-button"
               :class="{ 'profile-avatar-upload-disabled': avatarSaving }"
               :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
               :title="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
@@ -698,18 +726,7 @@ watch(
                 :disabled="avatarSaving"
                 @change="handleAvatarUpload"
               />
-            </label>
-            <button
-              class="profile-avatar-icon-button ui-icon-button"
-              type="button"
-              :disabled="!session.user?.photoUrl || avatarSaving"
-              :aria-label="t('profileAvatarAdjust')"
-              :title="t('profileAvatarAdjust')"
-              @click="openAvatarEditor()"
-            >
-              <Crop class="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
+          </label>
         </div>
         <div class="profile-access-main">
           <div class="profile-access-head profile-identity-head">
@@ -722,40 +739,85 @@ watch(
               </div>
               <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
             </div>
-            <span class="profile-role-pill">{{ roleLabel }}</span>
           </div>
-
           <button class="profile-account-inline" type="button" :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')" @click="emailVisible = true">
             <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
             <span>Email</span>
             <strong :class="{ 'profile-secret-blurred': !emailVisible }">{{ accountEmail }}</strong>
           </button>
+          <span class="profile-role-pill">{{ roleLabel }}</span>
+        </div>
+        </div>
+        <div class="compact-controls profile-dashboard-controls">
+          <button class="ui-icon-button" type="button" :aria-label="t('language')" @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')">
+            {{ currentLocale.toUpperCase() }}
+          </button>
+          <NotificationCenter />
         </div>
       </div>
-      <div class="profile-membership-row">
-        <div class="profile-membership-title">
-          <strong>{{ paymentStatusText }}</strong>
-          <span v-if="isMember">до {{ accessUntil }}</span>
+      <div class="profile-dashboard-subscription">
+        <div class="profile-membership-row">
+          <div class="profile-membership-title">
+            <strong>{{ profileSubscriptionStatusText }}</strong>
+            <span v-if="isMember">до {{ accessUntil }}</span>
+          </div>
+          <div class="subscription-bar"><span :style="{ width: `${subscriptionProgress}%` }"></span></div>
+          <span class="profile-dashboard-subscription-meta">{{ subscriptionMeta }}</span>
         </div>
-        <div class="subscription-bar">
-          <span :style="{ width: `${subscriptionProgress}%` }"></span>
-        </div>
-        <div class="profile-subscription-meta flex items-center justify-between text-xs font-semibold text-[var(--muted)]">
-          <span>{{ subscriptionMeta }}</span>
-        </div>
-      </div>
-      <div class="profile-access-actions">
         <button class="soft-inline-button ui-button" type="button" @click="$emit('openPayments')">
           {{ paymentActionText }}
-        </button>
-        <button class="secondary-button ui-button profile-logout-button" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
-          <LogOut class="h-4 w-4" aria-hidden="true" />
-          <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
         </button>
       </div>
       <p v-if="avatarMessage" class="profile-avatar-help">{{ avatarMessage }}</p>
       <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
     </section>
+
+    <div v-if="avatarPhotoMenuOpen" class="profile-modal-backdrop" @click.self="avatarPhotoMenuOpen = false">
+      <section class="profile-photo-menu ui-card" role="dialog" aria-modal="true" aria-label="Изменить фото профиля">
+        <h3>Фото профиля</h3>
+        <label class="profile-photo-menu-action ui-button">
+          <Camera class="h-4 w-4" aria-hidden="true" />
+          <span>Загрузить новое фото</span>
+          <input class="profile-upload-input" type="file" accept="image/jpeg,image/png,image/webp" :disabled="avatarSaving" @change="handleAvatarUpload" />
+        </label>
+        <button class="profile-photo-menu-action ui-button" type="button" @click="avatarPhotoMenuOpen = false; openAvatarEditor()">
+          <Crop class="h-4 w-4" aria-hidden="true" />
+          <span>Настроить кадр</span>
+        </button>
+        <button class="secondary-button ui-button" type="button" @click="avatarPhotoMenuOpen = false">Отмена</button>
+      </section>
+    </div>
+
+    <section class="profile-summary-grid" aria-label="Краткая статистика">
+      <article class="soft-card ui-card profile-summary-card">
+        <div class="profile-summary-card-head"><BookOpen class="h-4 w-4" aria-hidden="true" /><span>Обучение</span></div>
+        <strong>{{ completedItems }} из {{ totalItems }}</strong>
+        <small>{{ learningProgress }}% · {{ lastOpenedTitle || t("lastOpenedEmpty") }}</small>
+      </article>
+      <button class="soft-card ui-card profile-summary-card profile-summary-card-button" type="button" @click="$emit('openPayments')">
+        <div class="profile-summary-card-head"><CreditCard class="h-4 w-4" aria-hidden="true" /><span>Последняя оплата</span></div>
+        <strong>{{ latestPaymentAmount }}</strong>
+        <small>{{ latestPaymentDate }}</small>
+      </button>
+    </section>
+
+    <nav class="profile-dashboard-nav" aria-label="Разделы профиля">
+      <button class="profile-nav-row soft-card ui-card" type="button" @click='openProfilePanel("referrals")'>
+        <span class="profile-nav-icon"><Gift class="h-5 w-5" aria-hidden="true" /></span>
+        <span class="profile-nav-copy"><strong>{{ t("referralTitle") }}</strong><small>{{ referralSummaryText }}</small></span>
+        <ChevronRight class="profile-nav-chevron" aria-hidden="true" />
+      </button>
+      <button class="profile-nav-row soft-card ui-card" type="button" @click='openProfilePanel("appearance")'>
+        <span class="profile-nav-icon"><Palette class="h-5 w-5" aria-hidden="true" /></span>
+        <span class="profile-nav-copy"><strong>{{ t("profileAppearance") }}</strong><small>{{ currentDesignThemeLabel }} · {{ currentThemeLabel }} · {{ visualScaleDisplayValue }}</small></span>
+        <ChevronRight class="profile-nav-chevron" aria-hidden="true" />
+      </button>
+      <button class="profile-nav-row soft-card ui-card" type="button" @click='openProfilePanel("account")'>
+        <span class="profile-nav-icon"><Shield class="h-5 w-5" aria-hidden="true" /></span>
+        <span class="profile-nav-copy"><strong>Аккаунт и безопасность</strong><small>{{ accountEmail }}</small></span>
+        <ChevronRight class="profile-nav-chevron" aria-hidden="true" />
+      </button>
+    </nav>
 
     <div v-if="displayNameEditorOpen" class="profile-name-sheet-backdrop" @click.self="displayNameEditorOpen = false">
       <form class="profile-name-sheet" @submit.prevent="saveDisplayName">
@@ -771,33 +833,7 @@ watch(
       </form>
     </div>
 
-    <section class="space-y-3">
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="soft-section-title">{{ t("yourStats") }}</h3>
-        <span class="soft-link">{{ learningProgress }}%</span>
-      </div>
-
-      <div class="grid gap-2">
-        <article v-if="isStatsEmpty" class="soft-list-card">
-          <div class="soft-code">
-            <BarChart3 class="h-4 w-4" aria-hidden="true" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <h4>{{ t("statsEmptyTitle") }}</h4>
-            <p>{{ t("statsEmptyText") }}</p>
-          </div>
-        </article>
-
-        <article v-else class="soft-list-card">
-          <div class="soft-code">{{ completedItems }}</div>
-          <div class="min-w-0 flex-1">
-            <h4>{{ t("learningProgress") }}</h4>
-            <p>{{ completedItems }} / {{ totalItems }} · {{ lastOpenedTitle || t("lastOpenedEmpty") }}</p>
-          </div>
-        </article>
-      </div>
-    </section>
-
+    <TaskScreen v-if='activeProfilePanel === "referrals"' :title="t('referralTitle')" :subtitle="t('referralSubtitle')" portal @back="closeProfilePanel">
     <section class="soft-card ui-card profile-referral-card">
       <div class="flex items-center justify-between gap-3">
         <div>
@@ -845,7 +881,9 @@ watch(
 
       <p v-else class="profile-empty-text mt-3">{{ t("referralLoading") }}</p>
     </section>
+    </TaskScreen>
 
+    <TaskScreen v-if='activeProfilePanel === "account"' title="Аккаунт и безопасность" subtitle="Данные аккаунта, платежи и выход" portal @back="closeProfilePanel">
     <section class="soft-card ui-card">
       <div class="flex items-center justify-between gap-3">
         <h3 class="soft-section-title">{{ t("profilePaymentHistory") }}</h3>
@@ -861,8 +899,14 @@ watch(
         </article>
         <p v-if="!paymentOrders.length" class="profile-empty-text">{{ t("profileNoPayments") }}</p>
       </div>
+      <button class="secondary-button ui-button profile-logout-button mt-3" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
+        <LogOut class="h-4 w-4" aria-hidden="true" />
+        <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
+      </button>
     </section>
+    </TaskScreen>
 
+    <TaskScreen v-if='activeProfilePanel === "appearance"' :title="t('profileAppearance')" :subtitle="`${currentDesignThemeLabel} · ${currentThemeLabel}`" portal @back="closeProfilePanel">
     <section class="soft-card ui-card profile-settings">
       <div class="flex items-center justify-between gap-3">
         <h3 class="soft-section-title">{{ t("profileAppearance") }}</h3>
@@ -950,6 +994,7 @@ watch(
       </div>
 
     </section>
+    </TaskScreen>
 
     <TaskScreen
       v-if="avatarEditorOpen"

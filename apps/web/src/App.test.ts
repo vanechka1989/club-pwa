@@ -208,6 +208,8 @@ describe("App", () => {
       }
     });
 
+    const accountButton = await screen.findByRole("button", { name: /Аккаунт и безопасность/ });
+    await accountButton.click();
     const logoutButton = await screen.findByRole("button", { name: "Выйти" });
     await logoutButton.click();
     const confirmButton = await screen.findByRole("button", { name: "Да, выйти" });

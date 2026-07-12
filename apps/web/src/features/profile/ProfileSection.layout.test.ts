@@ -1,0 +1,39 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const source = readFileSync(resolve(__dirname, "ProfileSection.vue"), "utf8");
+const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+describe("compact profile layout", () => {
+  it("uses one dashboard hero and compact summary navigation", () => {
+    expect(source).toContain("profile-dashboard");
+    expect(source).toContain('class="profile-summary-grid"');
+    expect(source.match(/class="profile-nav-row/g)).toHaveLength(3);
+    expect(source).not.toContain('class="section-head ui-page-header"');
+  });
+
+  it("defines deterministic mobile layout hooks", () => {
+    for (const selector of [".profile-dashboard {", ".profile-dashboard-hero {", ".profile-summary-grid {", ".profile-nav-row {"]) {
+      expect(styles).toContain(selector);
+    }
+    expect(styles).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
+  });
+
+  it("keeps all secondary profile capabilities reachable", () => {
+    for (const panel of ["referrals", "appearance", "account"]) {
+      expect(source).toContain(`openProfilePanel("${panel}")`);
+    }
+    expect(source).toContain("copyReferralLink");
+    expect(source).toContain("ui.setDesignTheme(option.value)");
+    expect(source).toContain("showLogoutConfirm = true");
+  });
+
+  it("uses one compact avatar action instead of two exposed controls", () => {
+    expect(source).toContain('class="profile-avatar-menu-button profile-avatar-icon-button ui-icon-button"');
+    expect(source).toContain("avatarPhotoMenuOpen");
+    expect(source).toContain("Загрузить новое фото");
+    expect(source).toContain("Настроить кадр");
+    expect(source).not.toContain('class="profile-avatar-actions"');
+  });
+});
