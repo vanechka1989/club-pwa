@@ -50,4 +50,12 @@ describe("compact profile layout", () => {
     expect(styles).toContain(".profile-avatar-task-screen .profile-avatar-editor-footer {");
     expect(styles).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
   });
+
+  it("keeps the crop task compact under mobile body overrides", () => {
+    expect(styles).toContain("body.club-mobile-device .profile-avatar-task-screen .profile-avatar-editor-modal");
+    expect(styles).toContain("body.club-mobile-device .profile-avatar-task-screen .profile-avatar-editor-controls");
+    expect(styles).toContain("body.club-mobile-app-scaled .profile-avatar-task-screen .profile-avatar-editor-controls");
+    expect(styles).toContain("height: auto;");
+    expect(styles).toContain("grid-column: auto;");
+  });
 });

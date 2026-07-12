@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the compact avatar editor release as version 3.73", () => {
-    expect(appVersion).toBe("3.73");
-    expect(releaseNotes[0]?.title).toBe("Шапка профиля и компактный кадр");
+  it("publishes the mobile avatar editor fix as version 3.74", () => {
+    expect(appVersion).toBe("3.74");
+    expect(releaseNotes[0]?.title).toBe("Исправлен кадр аватарки");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
