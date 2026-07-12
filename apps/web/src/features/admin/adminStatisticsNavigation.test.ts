@@ -36,4 +36,17 @@ describe("admin statistics navigation", () => {
     expect(styles).toContain(".admin-stat-period-summary");
     expect(styles).toContain(".admin-stat-alert-line");
   });
+
+  it("locks overview and detail arrows into dedicated aligned columns", () => {
+    expect(section.match(/class="admin-stat-nav-chevron"/g)).toHaveLength(5);
+    expect(detail().match(/class="admin-stat-metric-chevron"/g)).toHaveLength(3);
+    expect(styles).toContain("grid-template-columns: 44px minmax(0, 1fr) minmax(72px, auto) 24px");
+    expect(styles).toContain(".admin-stat-drilldown::after { content: none;");
+  });
+
+  it("uses an equal compact four-column period selector", () => {
+    expect(section).toContain('class="admin-stat-periods"');
+    expect(styles).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
+    expect(styles).toContain("body.club-mobile-device .admin-stat-periods");
+  });
 });

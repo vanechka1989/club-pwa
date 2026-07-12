@@ -164,7 +164,7 @@ describe("admin permissions section", () => {
   });
 
   it("allows choosing a custom statistics period", () => {
-    expect(adminSectionSource).toContain("Выбрать период");
+    expect(adminSectionSource).toContain('{ value: "custom", label: "Период" }');
     expect(adminSectionSource).toContain("statisticsCustomFrom");
     expect(adminSectionSource).toContain("statisticsCustomTo");
     expect(adminSectionSource).toContain("statisticsPeriod === 'custom'");

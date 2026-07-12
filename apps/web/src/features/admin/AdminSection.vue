@@ -27,6 +27,7 @@ import {
 } from "@club/shared";
 import {
   BarChart3,
+  ChevronRight,
   ChevronDown,
   Check,
   Cloud,
@@ -686,7 +687,7 @@ const adminOperation = computed(() => {
 const statisticsPeriodOptions: Array<{ value: AdminStatisticsPeriod; label: string }> = [
   { value: "7d", label: "7 дней" },
   { value: "30d", label: "30 дней" },
-  { value: "custom", label: "Выбрать период" },
+  { value: "custom", label: "Период" },
   { value: "all", label: "Всё время" }
 ];
 
@@ -2811,19 +2812,19 @@ onUnmounted(() => {
 
       <div class="admin-stat-overview-nav">
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('clients')">
-          <span class="admin-stat-nav-icon"><UsersRound aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Клиенты</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.clients.active }} / {{ adminStatistics.clients.total }}</strong><small>активны</small></span><span aria-hidden="true">›</span>
+          <span class="admin-stat-nav-icon"><UsersRound aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Клиенты</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.clients.active }} / {{ adminStatistics.clients.total }}</strong><small>активны</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
         </button>
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('finance')">
-          <span class="admin-stat-nav-icon"><CreditCard aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Финансы</strong><small>за выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат</small></span><span aria-hidden="true">›</span>
+          <span class="admin-stat-nav-icon"><CreditCard aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Финансы</strong><small>За выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
         </button>
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('learning')">
-          <span class="admin-stat-nav-icon"><BarChart3 aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Обучение</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.learning.averageProgressPercent }}%</strong><small>прогресс</small></span><span aria-hidden="true">›</span>
+          <span class="admin-stat-nav-icon"><BarChart3 aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Обучение</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.learning.averageProgressPercent }}%</strong><small>прогресс</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
         </button>
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('community')">
-          <span class="admin-stat-nav-icon"><Megaphone aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Общение</strong><small>за выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.communication.messagesInPeriod }}</strong><small>сообщений</small></span><span aria-hidden="true">›</span>
+          <span class="admin-stat-nav-icon"><Megaphone aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Общение</strong><small>За выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.communication.messagesInPeriod }}</strong><small>сообщений</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
         </button>
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('polls')">
-          <span class="admin-stat-nav-icon"><SlidersHorizontal aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Опросы</strong><small>за выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ pollStats.totalPolls }}</strong><small>{{ pollStats.uniqueParticipants }} участников</small></span><span aria-hidden="true">›</span>
+          <span class="admin-stat-nav-icon"><SlidersHorizontal aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Опросы</strong><small>За выбранный период</small></span><span class="admin-stat-nav-value"><strong>{{ pollStats.totalPolls }}</strong><small>{{ pollStats.uniqueParticipants }} участников</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
         </button>
       </div>
 

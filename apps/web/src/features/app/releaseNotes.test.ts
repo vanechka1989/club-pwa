@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the new statistics architecture as version 3.90", () => {
-    expect(appVersion).toBe("3.90");
-    expect(releaseNotes[0]?.title).toBe("Новая архитектура статистики");
+  it("publishes aligned statistics controls as version 3.91", () => {
+    expect(appVersion).toBe("3.91");
+    expect(releaseNotes[0]?.title).toBe("Выровненная статистика");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

@@ -3,6 +3,7 @@ import type { AdminStatsResponse } from "@club/shared";
 import type { AdminStatistics } from "./adminStatistics";
 import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
 import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
+import { ChevronRight } from "lucide-vue-next";
 import AdminPollStatistics from "./AdminPollStatistics.vue";
 
 export type StatisticsDetail = "clients" | "finance" | "learning" | "community" | "polls";
@@ -33,7 +34,7 @@ defineEmits<{
         <header><div><h4>Состояние доступа</h4><p>Нажмите на показатель, чтобы открыть список клиентов.</p></div></header>
         <div class="admin-stat-detail-grid">
           <button v-for="item in stats.clients.accessBreakdown" :key="item.key" class="admin-stat-drilldown ui-button" type="button" :disabled="!item.value" @click="$emit('access', item)">
-            <span>{{ item.label }}</span><strong>{{ item.value }}</strong>
+            <span>{{ item.label }}</span><strong>{{ item.value }}</strong><span class="admin-stat-metric-chevron" :class="{ 'is-hidden': !item.value }"><ChevronRight aria-hidden="true" /></span>
           </button>
         </div>
       </section>
@@ -41,7 +42,7 @@ defineEmits<{
         <header><div><h4>Тарифы</h4><p>Распределение всей клиентской базы.</p></div></header>
         <div class="admin-stat-detail-grid">
           <button v-for="tariff in stats.tariffs" :key="tariff.tariff" class="admin-stat-drilldown ui-button" type="button" :disabled="!tariff.value" @click="$emit('tariff', tariff)">
-            <span>{{ tariff.label }}</span><strong>{{ tariff.value }}</strong>
+            <span>{{ tariff.label }}</span><strong>{{ tariff.value }}</strong><span class="admin-stat-metric-chevron" :class="{ 'is-hidden': !tariff.value }"><ChevronRight aria-hidden="true" /></span>
           </button>
         </div>
       </section>
@@ -57,7 +58,7 @@ defineEmits<{
         <header><div><h4>Операции</h4><p>Нажмите на показатель, чтобы открыть связанные платежи.</p></div></header>
         <div class="admin-stat-detail-grid">
           <button v-for="item in stats.payments.breakdown" :key="item.key" class="admin-stat-drilldown ui-button" type="button" :disabled="!item.value" @click="$emit('payment', item)">
-            <span>{{ item.label }}</span><strong>{{ item.value }}</strong>
+            <span>{{ item.label }}</span><strong>{{ item.value }}</strong><span class="admin-stat-metric-chevron" :class="{ 'is-hidden': !item.value }"><ChevronRight aria-hidden="true" /></span>
           </button>
         </div>
       </section>
