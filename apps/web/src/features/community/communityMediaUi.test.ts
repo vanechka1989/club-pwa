@@ -68,7 +68,8 @@ describe("community rich message UI", () => {
   it("renders applied reactions as a short horizontal chip", () => {
     const styles = read("community.css");
     expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*width:\s*fit-content;[^}]*flex-direction:\s*row;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*auto;[^}]*min-height:\s*28px;[^}]*height:\s*28px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*auto;[^}]*min-width:\s*44px;[^}]*height:\s*24px;[^}]*white-space:\s*nowrap;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::before\s*\{[^}]*inset:\s*-10px 0;/s);
   });
 
   it("uses calm semantic chat surfaces in every active theme", () => {

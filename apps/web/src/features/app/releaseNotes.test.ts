@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact admin screens as version 3.86", () => {
-    expect(appVersion).toBe("3.86");
-    expect(releaseNotes[0]?.title).toBe("Компактная статистика и клиенты");
+  it("publishes compact reaction chips as version 3.87", () => {
+    expect(appVersion).toBe("3.87");
+    expect(releaseNotes[0]?.title).toBe("Компактные реакции в чате");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
