@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
-import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, MessageCircle, Mic, MoreVertical, Pin, PinOff, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
+import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, MessageCircle, Mic, MoreVertical, Paperclip, Pin, PinOff, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -1161,7 +1161,7 @@ onBeforeUnmount(() => {
         <p v-if="voiceRecorder.error.value || imageDraft.error.value" class="chat-media-draft-error">{{ voiceRecorder.error.value || imageDraft.error.value }}</p>
         <div class="chat-input-row">
           <div class="composer-attachment-wrap">
-            <button class="icon-button ui-icon-button" type="button" aria-label="Вложения" :disabled="!canWrite" @click="showAttachmentMenu = !showAttachmentMenu"><Plus /></button>
+            <button class="icon-button ui-icon-button" type="button" aria-label="Вложения" :disabled="!canWrite" @click="showAttachmentMenu = !showAttachmentMenu"><Paperclip /></button>
             <div v-if="showAttachmentMenu" class="composer-attachment-menu">
               <button type="button" @click="imageInput?.click()"><ImageIcon /> Из галереи</button>
               <button type="button" @click="cameraInput?.click()"><Camera /> Сделать фото</button>

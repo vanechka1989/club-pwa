@@ -136,7 +136,7 @@ body.club-keyboard-open .community-chat-open .chat-compose {
   border-top: 1px solid var(--border);
   border-radius: 0;
   background: var(--panel);
-  padding: 8px max(16px, var(--club-safe-right)) max(8px, var(--club-safe-bottom)) max(16px, var(--club-safe-left));
+  padding: 8px max(8px, var(--club-safe-right)) max(8px, var(--club-safe-bottom)) max(8px, var(--club-safe-left));
   box-shadow: none;
 }
 
@@ -150,7 +150,31 @@ body.club-keyboard-open .community-chat-open .chat-compose {
   min-width: 0;
   min-height: 0;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+}
+
+.community-chat-open .chat-input-row .text-input {
+  margin-inline: 2px;
+}
+
+.community-chat-open .chat-admin-menu {
+  right: 0;
+  width: min(220px, calc(100vw - 24px));
+  min-width: 0;
+  max-width: calc(100vw - 24px);
+  overflow: hidden;
+}
+
+.community-chat-open .chat-admin-menu .mini-action {
+  min-width: 0;
+  height: auto;
+  min-height: 44px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: normal;
+  line-height: 1.25;
+  text-align: left;
 }
 
 .community-chat-open .chat-input-row .icon-button {
@@ -390,17 +414,23 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   .community-chat-open .chat-room-header,
   .community-chat-open .chat-room-notices,
   .community-chat-open .chat-messages,
-  .community-chat-open .chat-compose,
   .moderation-action-sheet {
     padding-right: max(12px, var(--club-safe-right));
     padding-left: max(12px, var(--club-safe-left));
   }
 }
 
-.chat-voice-message audio {
-  width: min(100%, 260px);
-  height: 44px;
-}
+.chat-voice-message { width: min(270px, 66vw); }
+.chat-voice-message audio { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.chat-voice-player { display: flex; min-width: 0; align-items: center; gap: 9px; }
+.chat-voice-play { display: grid; width: 44px; min-width: 44px; height: 44px; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--accent) 88%, #fff); color: var(--accent-text); }
+.chat-voice-play svg { width: 20px; height: 20px; fill: currentColor; }
+.chat-voice-track { position: relative; display: grid; min-width: 0; flex: 1 1 auto; grid-template-rows: 24px 14px; align-items: center; }
+.chat-voice-wave { display: flex; height: 22px; align-items: center; gap: 2px; overflow: hidden; color: color-mix(in srgb, var(--text) 64%, transparent); }
+.chat-voice-wave i { width: 3px; min-width: 3px; border-radius: 3px; background: currentColor; }
+.chat-voice-track input { position: absolute; z-index: 1; inset: 0 0 auto; width: 100%; height: 26px; cursor: pointer; opacity: 0; }
+.chat-voice-track > span { overflow: hidden; color: var(--muted-strong); font-size: 11px; font-weight: 700; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.chat-voice-player-error .chat-voice-wave { color: var(--danger); opacity: 0.55; }
 
 .chat-media-expired {
   border: 1px dashed var(--border);
@@ -436,7 +466,8 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   background: rgb(0 0 0 / 94%);
   padding: max(12px, var(--club-safe-top)) max(8px, var(--club-safe-right)) max(12px, var(--club-safe-bottom)) max(8px, var(--club-safe-left));
 }
-.chat-image-viewer > img { width: 100%; max-height: 90dvh; object-fit: contain; touch-action: pinch-zoom; }
+.chat-viewer-stage { display: grid; width: 100%; height: 100%; min-height: 0; place-items: center; overflow: hidden; touch-action: none; }
+.chat-viewer-stage > img { width: 100%; max-height: 90dvh; object-fit: contain; user-select: none; touch-action: none; transform-origin: center; transition: transform 120ms ease-out; will-change: transform; }
 .chat-image-viewer > button { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 14px; background: rgb(255 255 255 / 12%); color: #fff; }
 .chat-image-viewer .chat-viewer-close { position: absolute; z-index: 1; top: max(12px, var(--club-safe-top)); right: max(12px, var(--club-safe-right)); }
 

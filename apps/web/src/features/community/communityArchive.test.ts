@@ -44,7 +44,7 @@ describe("community archive labels", () => {
     expect(communityStyles).toMatch(/\.community-chat-open \.chat-compose,[^}]*width:\s*100%;[^}]*max-width:\s*none;/s);
     expect(communityStyles).toMatch(/\.community-chat-open \.chat-room-header\s*\{[^}]*width:\s*100%;/s);
     expect(communityStyles).toMatch(/\.community-chat-open \.content-panel-community,[\s\S]*?\.community-chat-open \.section-host,[\s\S]*?\.community-chat-open \.community-chat-shell\s*\{[^}]*height:\s*100%;[^}]*margin:\s*0;[^}]*padding:\s*0;/s);
-    expect(communityStyles).toMatch(/padding:\s*8px max\(16px, var\(--club-safe-right\)\) max\(8px, var\(--club-safe-bottom\)\)/s);
+    expect(communityStyles).toMatch(/padding:\s*8px max\(8px, var\(--club-safe-right\)\) max\(8px, var\(--club-safe-bottom\)\)/s);
   });
 
   it("uses a visible light-theme emoji and moderator message pins", () => {
