@@ -16171,6 +16171,22 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   white-space: nowrap;
 }
 
+.profile-dashboard-logout {
+  width: fit-content;
+  min-height: 44px;
+  justify-self: start;
+  gap: 8px;
+  padding-inline: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.profile-dashboard-logout:hover,
+.profile-dashboard-logout:focus-visible {
+  color: var(--danger-text);
+}
+
 /* Compact profile header and avatar crop workspace. */
 .profile-page-header { box-sizing: border-box; min-height: 64px; margin: 0; padding: 12px 14px; border-radius: 18px; }
 .profile-page-header .section-title { font-size: 20px; }

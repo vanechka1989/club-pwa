@@ -17,7 +17,6 @@ import {
   Pencil,
   Plus,
   RotateCcw,
-  Shield,
   Sun
 } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
@@ -91,7 +90,7 @@ const emailVisible = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
 const showLogoutConfirm = ref(false);
-const activeProfilePanel = ref<"referrals" | "appearance" | "account" | null>(null);
+const activeProfilePanel = ref<"referrals" | "appearance" | null>(null);
 const displayNameEditorOpen = ref(false);
 const displayNameDraft = ref("");
 const displayNameSaving = ref(false);
@@ -340,7 +339,7 @@ const referralSummaryText = computed(() =>
     : "— / — / —"
 );
 
-function openProfilePanel(panel: "referrals" | "appearance" | "account") {
+function openProfilePanel(panel: "referrals" | "appearance") {
   activeProfilePanel.value = panel;
 }
 
@@ -374,31 +373,6 @@ function handleVisualScaleRange(event: Event) {
 
 function nudgeVisualScale(delta: number) {
   ui.setVisualScale(ui.visualScale + delta);
-}
-
-function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
-  if (status === "paid") {
-    return t("paymentStatusPaid");
-  }
-
-  if (status === "failed") {
-    return t("paymentStatusFailed");
-  }
-
-  if (status === "cancelled") {
-    return t("paymentStatusCancelled");
-  }
-
-  return t("paymentStatusPending");
-}
-
-function paymentOrderDate(order: PaymentOrderLog) {
-  return new Date(order.paidAt ?? order.createdAt).toLocaleString(currentLocale.value === "ru" ? "ru-RU" : "en-US", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
 }
 
 function isAvatarFileAllowed(file: File) {
@@ -818,12 +792,12 @@ watch(
         <span class="profile-nav-copy"><strong>{{ t("profileAppearance") }}</strong><small>{{ currentDesignThemeLabel }} · {{ currentThemeLabel }} · {{ visualScaleDisplayValue }}</small></span>
         <ChevronRight class="profile-nav-chevron" aria-hidden="true" />
       </button>
-      <button class="profile-nav-row soft-card ui-card" type="button" @click='openProfilePanel("account")'>
-        <span class="profile-nav-icon"><Shield class="h-5 w-5" aria-hidden="true" /></span>
-        <span class="profile-nav-copy"><strong>Аккаунт и безопасность</strong><small>{{ accountEmail }}</small></span>
-        <ChevronRight class="profile-nav-chevron" aria-hidden="true" />
-      </button>
     </nav>
+
+    <button class="profile-dashboard-logout ui-button ui-button--ghost" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
+      <LogOut class="h-4 w-4" aria-hidden="true" />
+      <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
+    </button>
 
     <div v-if="displayNameEditorOpen" class="profile-name-sheet-backdrop" @click.self="displayNameEditorOpen = false">
       <form class="profile-name-sheet" @submit.prevent="saveDisplayName">
@@ -886,29 +860,6 @@ watch(
       </div>
 
       <p v-else class="profile-empty-text mt-3">{{ t("referralLoading") }}</p>
-    </section>
-    </TaskScreen>
-
-    <TaskScreen v-if='activeProfilePanel === "account"' title="Аккаунт и безопасность" subtitle="Данные аккаунта, платежи и выход" portal @back="closeProfilePanel">
-    <section class="soft-card ui-card">
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="soft-section-title">{{ t("profilePaymentHistory") }}</h3>
-        <button class="soft-link ui-button ui-button--ghost" type="button" @click="$emit('openPayments')">{{ t("payment") }}</button>
-      </div>
-      <div class="payment-log-list mt-3">
-        <article v-for="order in paymentOrders.slice(0, 5)" :key="order.id" class="payment-log-card">
-          <div>
-            <strong>{{ order.productTitle }}</strong>
-            <span>{{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽</span>
-          </div>
-          <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
-        </article>
-        <p v-if="!paymentOrders.length" class="profile-empty-text">{{ t("profileNoPayments") }}</p>
-      </div>
-      <button class="secondary-button ui-button profile-logout-button mt-3" type="button" :disabled="logoutSaving" @click="showLogoutConfirm = true">
-        <LogOut class="h-4 w-4" aria-hidden="true" />
-        <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
-      </button>
     </section>
     </TaskScreen>
 

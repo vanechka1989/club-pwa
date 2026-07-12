@@ -9,7 +9,7 @@ describe("compact profile layout", () => {
   it("uses one dashboard hero and compact summary navigation", () => {
     expect(source).toContain("profile-dashboard");
     expect(source).toContain('class="profile-summary-grid"');
-    expect(source.match(/class="profile-nav-row/g)).toHaveLength(3);
+    expect(source.match(/class="profile-nav-row/g)).toHaveLength(2);
     expect(source).not.toContain('class="section-head ui-page-header"');
   });
 
@@ -28,12 +28,19 @@ describe("compact profile layout", () => {
   });
 
   it("keeps all secondary profile capabilities reachable", () => {
-    for (const panel of ["referrals", "appearance", "account"]) {
+    for (const panel of ["referrals", "appearance"]) {
       expect(source).toContain(`openProfilePanel("${panel}")`);
     }
     expect(source).toContain("copyReferralLink");
     expect(source).toContain("ui.setDesignTheme(option.value)");
     expect(source).toContain("showLogoutConfirm = true");
+  });
+
+  it("keeps logout on the profile page without a redundant account screen", () => {
+    expect(source).toContain('class="profile-dashboard-logout ');
+    expect(source).not.toContain('openProfilePanel("account")');
+    expect(source).not.toContain('activeProfilePanel === "account"');
+    expect(source).not.toContain("Аккаунт и безопасность");
   });
 
   it("uses one compact avatar action instead of two exposed controls", () => {
