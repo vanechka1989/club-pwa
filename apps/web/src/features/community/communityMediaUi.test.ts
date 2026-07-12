@@ -25,6 +25,15 @@ describe("community rich message UI", () => {
     expect(gallery).toContain("@dblclick=\"viewer.toggleZoom\"");
     expect(gestures).toContain("Math.min(4");
     expect(gestures).toContain("pointers.size === 2");
+    expect(gestures).toContain("translateX.value += event.clientX");
+  });
+
+  it("uses the whole screen for images without framed navigation columns", () => {
+    const styles = read("community.css");
+    expect(styles).toMatch(/\.chat-image-viewer\s*\{[^}]*grid-template-columns:\s*1fr;/s);
+    expect(styles).toMatch(/\.chat-viewer-stage > img\s*\{[^}]*max-width:\s*100%;[^}]*height:\s*auto;/s);
+    expect(styles).toMatch(/\.chat-viewer-previous,[\s\S]*\.chat-viewer-next\s*\{[^}]*position:\s*absolute;/s);
+    expect(styles).toMatch(/\.chat-image-viewer > button\s*\{[^}]*background:\s*transparent;/s);
   });
 
   it("renders a controlled Telegram-like voice player with duration fallback", () => {
@@ -33,6 +42,8 @@ describe("community rich message UI", () => {
     expect(voice).toContain("@loadedmetadata=\"handleMetadata\"");
     expect(voice).toContain("@error=\"playbackFailed = true\"");
     expect(voice).toContain("voice.durationSeconds");
+    expect(voice).toContain("useStableMediaUrl");
+    expect(voice).toContain(":src=\"mediaUrl.currentUrl.value\"");
     expect(voice).not.toMatch(/<audio[^>]+controls/);
   });
 
@@ -41,9 +52,18 @@ describe("community rich message UI", () => {
     const styles = read("community.css");
     expect(section).toContain("Paperclip");
     expect(section).not.toContain("<Plus />");
-    expect(styles).toMatch(/\.community-chat-open \.chat-input-row\s*\{[^}]*gap:\s*4px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.chat-input-row\s*\{[^}]*gap:\s*2px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.chat-compose,[\s\S]*?padding:\s*8px max\(2px, var\(--club-safe-right\)\)/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-admin-menu\s*\{[^}]*max-width:\s*calc\(100vw - 24px\)/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-admin-menu \.mini-action\s*\{[^}]*white-space:\s*normal/s);
+  });
+
+  it("shows a pressed loading state while voice or images are uploading", () => {
+    const section = read("CommunitySection.vue");
+    expect(section).toContain('messageSaving ? "Отправка…" : "Отправить"');
+    expect(section).toContain(':aria-busy="messageSaving"');
+    expect(section).toContain("LoaderCircle");
+    expect(section).toContain("chat-draft-send-loading");
   });
 
   it("provides poll creation and voting controls", () => {

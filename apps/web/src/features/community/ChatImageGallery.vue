@@ -24,7 +24,7 @@ function move(delta: number) {
   <Teleport to="body">
     <div v-if="activeIndex !== null" class="chat-image-viewer" @click.self="close">
       <button class="chat-viewer-close" type="button" aria-label="Закрыть" @click="close"><X /></button>
-      <button v-if="visible.length > 1" type="button" aria-label="Предыдущее" @click="move(-1)"><ChevronLeft /></button>
+      <button v-if="visible.length > 1" class="chat-viewer-previous" type="button" aria-label="Предыдущее" @click="move(-1)"><ChevronLeft /></button>
       <div class="chat-viewer-stage">
         <img
           :src="visible[activeIndex]?.url ?? ''"
@@ -38,7 +38,7 @@ function move(delta: number) {
           @dblclick="viewer.toggleZoom"
         />
       </div>
-      <button v-if="visible.length > 1" type="button" aria-label="Следующее" @click="move(1)"><ChevronRight /></button>
+      <button v-if="visible.length > 1" class="chat-viewer-next" type="button" aria-label="Следующее" @click="move(1)"><ChevronRight /></button>
     </div>
   </Teleport>
 </template>

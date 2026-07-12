@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ClubMessage } from "@club/shared";
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { Pause, Play, RotateCcw } from "lucide-vue-next";
+import { useStableMediaUrl } from "./useStableMediaUrl";
 
 const props = defineProps<{ voice: NonNullable<ClubMessage["voice"]> }>();
 const audio = ref<HTMLAudioElement | null>(null);
@@ -10,8 +11,11 @@ const currentTime = ref(0);
 const mediaDuration = ref(0);
 const playbackFailed = ref(false);
 const loading = ref(false);
+const mediaUrl = useStableMediaUrl(props.voice.url ?? "");
 const duration = computed(() => mediaDuration.value || props.voice.durationSeconds || 0);
 const waveform = [38, 58, 82, 48, 72, 96, 54, 78, 44, 68, 90, 52, 74, 42, 62, 86, 50, 70];
+
+watch(() => props.voice.url, (url) => mediaUrl.observe(url ?? ""));
 
 function formatTime(value: number) {
   const safe = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
@@ -25,6 +29,10 @@ function handleMetadata() {
 
 async function togglePlayback() {
   if (!audio.value) return;
+  if (playbackFailed.value && mediaUrl.refresh()) {
+    await nextTick();
+    audio.value.load();
+  }
   playbackFailed.value = false;
   if (!audio.value.paused) {
     audio.value.pause();
@@ -53,7 +61,7 @@ function seek(event: Event) {
     <div v-else class="chat-voice-player" :class="{ 'chat-voice-player-error': playbackFailed }">
       <audio
         ref="audio"
-        :src="voice.url"
+        :src="mediaUrl.currentUrl.value"
         preload="metadata"
         :aria-label="`Голосовое сообщение, ${voice.durationSeconds} секунд`"
         @loadedmetadata="handleMetadata"

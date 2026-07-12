@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
-import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, MessageCircle, Mic, MoreVertical, Paperclip, Pin, PinOff, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
+import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, LoaderCircle, MessageCircle, Mic, MoreVertical, Paperclip, Pin, PinOff, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -1151,12 +1151,32 @@ onBeforeUnmount(() => {
         <div v-else-if="voiceRecorder.previewUrl.value" class="chat-voice-draft">
           <audio :src="voiceRecorder.previewUrl.value" controls></audio>
           <button type="button" @click="voiceRecorder.cancel">Удалить</button>
-          <button class="chat-draft-send" type="button" :disabled="messageSaving" @click="handleSendVoice">Отправить</button>
+          <button
+            class="chat-draft-send"
+            :class="{ 'chat-draft-send-loading': messageSaving }"
+            type="button"
+            :disabled="messageSaving"
+            :aria-busy="messageSaving"
+            @click="handleSendVoice"
+          >
+            <LoaderCircle v-if="messageSaving" aria-hidden="true" />
+            <span>{{ messageSaving ? "Отправка…" : "Отправить" }}</span>
+          </button>
         </div>
         <div v-if="imageDraft.hasImages.value" class="chat-image-draft">
           <div><button v-for="(url, index) in imageDraft.previews.value" :key="url" type="button" :aria-label="`Удалить изображение ${index + 1}`" @click="imageDraft.remove(index)"><img :src="url" alt="" /><X /></button></div>
           <button type="button" @click="imageDraft.clear">Отмена</button>
-          <button class="chat-draft-send" type="button" :disabled="messageSaving" @click="handleSendImages">Отправить {{ imageDraft.files.value.length }}</button>
+          <button
+            class="chat-draft-send"
+            :class="{ 'chat-draft-send-loading': messageSaving }"
+            type="button"
+            :disabled="messageSaving"
+            :aria-busy="messageSaving"
+            @click="handleSendImages"
+          >
+            <LoaderCircle v-if="messageSaving" aria-hidden="true" />
+            <span>{{ messageSaving ? "Отправка…" : `Отправить ${imageDraft.files.value.length}` }}</span>
+          </button>
         </div>
         <p v-if="voiceRecorder.error.value || imageDraft.error.value" class="chat-media-draft-error">{{ voiceRecorder.error.value || imageDraft.error.value }}</p>
         <div class="chat-input-row">

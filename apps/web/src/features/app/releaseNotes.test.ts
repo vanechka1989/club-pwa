@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes polished community media as version 3.82", () => {
-    expect(appVersion).toBe("3.82");
-    expect(releaseNotes[0]?.title).toBe("Удобнее медиа и управление чатом");
+  it("publishes reliable chat media as version 3.83", () => {
+    expect(appVersion).toBe("3.83");
+    expect(releaseNotes[0]?.title).toBe("Надёжные медиа в чате");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
