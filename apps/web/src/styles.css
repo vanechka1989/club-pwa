@@ -16751,9 +16751,9 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 
 .admin-list-item.admin-client-list-row {
   grid-template-columns: 44px minmax(0, 1fr) auto 16px;
-  min-height: 76px;
+  min-height: 64px;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .admin-client-list-avatar {
@@ -16781,6 +16781,29 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   line-height: 1.2;
 }
 
+.admin-client-list-name-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.admin-client-list-name-line strong {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-client-list-name-line small {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-client-list-row .admin-list-item-copy small,
 .admin-client-list-row .admin-list-item-meta {
   font-size: 0.68rem;
@@ -16789,6 +16812,24 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 
 .admin-client-list-row .admin-list-badges {
   align-self: center;
+}
+
+.admin-access-badge-open {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+  background: color-mix(in srgb, var(--success-soft) 86%, var(--panel));
+  color: var(--success-text);
+}
+
+.admin-access-badge-closed {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger-soft) 86%, var(--panel));
+  color: var(--danger-text);
+}
+
+.admin-access-badge-restricted {
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--border));
+  background: color-mix(in srgb, var(--gold-soft) 82%, var(--panel));
+  color: var(--warning);
 }
 
 .admin-client-list-chevron {
@@ -16933,6 +16974,44 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
     grid-column: 3;
     grid-row: 1 / span 2;
   }
+}
+
+/* Installed PWA used a more specific legacy one-column rule for every admin row.
+   Keep client rows compact and horizontal at every user scale and in every theme. */
+body.club-mobile-device .admin-list-item.admin-client-list-row,
+body.club-mobile-app-scaled .admin-list-item.admin-client-list-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto 14px;
+  min-height: 64px;
+  height: auto;
+  align-items: center;
+  gap: 8px;
+  border-radius: 15px;
+  padding: 8px 10px;
+}
+
+body.club-mobile-device .admin-client-list-row .admin-list-badges,
+body.club-mobile-app-scaled .admin-client-list-row .admin-list-badges {
+  grid-column: auto;
+  justify-content: flex-end;
+}
+
+body.club-mobile-device .admin-client-list-row .admin-client-list-avatar,
+body.club-mobile-app-scaled .admin-client-list-row .admin-client-list-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+body.club-mobile-device .admin-task-screen .task-screen-body {
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.club-mobile-device .admin-task-screen .admin-client-task-card,
+body.club-mobile-app-scaled .admin-task-screen .admin-client-task-card {
+  touch-action: pan-y;
 }
 
 @media (max-width: 767px) {

@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  getAdminClientAccessState,
+  getAdminClientDisplayName,
   getAccessSaveButtonText,
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
@@ -10,6 +12,16 @@ import {
 } from "./adminClientCard";
 
 describe("admin client card helpers", () => {
+  it("uses the nickname configured in profile before the legacy first name", () => {
+    expect(getAdminClientDisplayName({ displayName: "Иван", firstName: "vanechka1989", username: "vanechka1989" })).toBe("Иван");
+  });
+
+  it("shows explicit open and closed access states", () => {
+    expect(getAdminClientAccessState({ membershipStatus: "active", hasRestrictions: false })).toEqual({ label: "Доступ открыт", tone: "open" });
+    expect(getAdminClientAccessState({ membershipStatus: "inactive", hasRestrictions: false })).toEqual({ label: "Доступ закрыт", tone: "closed" });
+    expect(getAdminClientAccessState({ membershipStatus: "active", hasRestrictions: true })).toEqual({ label: "Доступ ограничен", tone: "restricted" });
+  });
+
   it("shows the last login in the compact client card header", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 
@@ -63,6 +75,7 @@ describe("admin client card helpers", () => {
 
     expect(styles).toContain(".admin-task-screen .admin-client-modal");
     expect(styles).toContain("padding-bottom: max(1rem, var(--club-safe-bottom))");
+    expect(styles).toMatch(/body\.club-mobile-device \.admin-task-screen \.task-screen-body\s*\{[^}]*overflow-y:\s*auto;[^}]*touch-action:\s*pan-y;/s);
   });
 
   it("loads and shows login IP history only with the dedicated permission", () => {

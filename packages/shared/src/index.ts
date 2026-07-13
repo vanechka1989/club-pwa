@@ -688,6 +688,7 @@ export type TelegramBotStatus = z.infer<typeof telegramBotStatusSchema>;
 export const adminStatsUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
+  email: z.string().email().nullable().optional(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
   displayName: z.string().nullable().optional(),

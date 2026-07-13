@@ -36,6 +36,7 @@ import {
   adminActionLogs,
   adminMailings,
   adminUsers,
+  authSessions,
   appNotifications,
   clubSettings,
   clubChatMessages,
@@ -640,15 +641,26 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
       item: true
     }
   });
+  const latestSession = await db.query.authSessions.findFirst({
+    where: eq(authSessions.userId, user.id),
+    orderBy: [desc(authSessions.lastSeenAt)]
+  });
+  const photoUrl = user.avatarObjectKey
+    ? await getObjectReadUrl(user.avatarObjectKey).catch((error) => {
+        logger.warn({ error, userId: user.id, avatarObjectKey: user.avatarObjectKey }, "Failed to build admin avatar read URL");
+        return user.photoUrl;
+      })
+    : user.photoUrl;
 
   return {
     id: user.id,
     telegramId: user.telegramId,
+    email: user.email,
     firstName: user.firstName,
     username: user.username,
     displayName: user.displayName,
     displayNameChangedByUserAt: user.displayNameChangedByUserAt?.toISOString() ?? null,
-    photoUrl: user.photoUrl,
+    photoUrl,
     role,
     membershipStatus: membership.status,
     membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
@@ -658,7 +670,7 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     totalItems,
     lastOpenedItemTitle: lastOpened?.item?.title ?? null,
     lastOpenedAt: lastOpened?.lastOpenedAt.toISOString() ?? null,
-    lastLoginAt: user.updatedAt.toISOString(),
+    lastLoginAt: (latestSession?.lastSeenAt ?? user.createdAt).toISOString(),
     telegramBotStatus: user.telegramBotStatus as AdminStatsUser["telegramBotStatus"],
     telegramBotBlockedAt: user.telegramBotBlockedAt?.toISOString() ?? null,
     telegramBotUnblockedAt: user.telegramBotUnblockedAt?.toISOString() ?? null,

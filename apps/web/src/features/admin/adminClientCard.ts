@@ -7,6 +7,28 @@ type AdminSubscriptionLike = {
 
 type TelegramBotStatus = "unknown" | "active" | "blocked";
 
+type AdminClientName = {
+  displayName?: string | null | undefined;
+  firstName?: string | null | undefined;
+  username?: string | null | undefined;
+  telegramId?: string | null | undefined;
+};
+
+type AdminClientAccess = {
+  membershipStatus: "active" | "inactive" | "expired";
+  hasRestrictions: boolean;
+};
+
+export function getAdminClientDisplayName(user: AdminClientName) {
+  return user.displayName || user.firstName || user.username || (user.telegramId ? `ID ${user.telegramId}` : "Пользователь");
+}
+
+export function getAdminClientAccessState(user: AdminClientAccess) {
+  if (user.hasRestrictions) return { label: "Доступ ограничен", tone: "restricted" } as const;
+  if (user.membershipStatus === "active") return { label: "Доступ открыт", tone: "open" } as const;
+  return { label: "Доступ закрыт", tone: "closed" } as const;
+}
+
 function getManualActorId(providerPaymentId?: string | null) {
   const match = providerPaymentId?.match(/^admin:([^:]+):/);
   return match?.[1] ?? null;

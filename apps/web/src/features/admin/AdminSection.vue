@@ -96,6 +96,8 @@ import {
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
   getAdminSubscriptionTitle,
+  getAdminClientAccessState,
+  getAdminClientDisplayName,
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
@@ -996,7 +998,7 @@ async function handleStopMailing(mailing: AdminMailing) {
 }
 
 function userTitle(user: AdminStatsUser) {
-  return user.firstName || user.username || `ID ${user.telegramId}`;
+  return getAdminClientDisplayName(user);
 }
 
 function referralUserTitle(user: { telegramId: string; firstName: string | null; username: string | null }) {
@@ -1431,7 +1433,7 @@ async function copyTextToClipboard(text: string) {
 }
 
 function selectedUserMeta(user: AdminStatsUser) {
-  return `${adminRoleLabel(user.role)} · ID ${user.telegramId}${user.username ? ` · @${user.username}` : ""}`;
+  return `${adminRoleLabel(user.role)}${user.email ? ` · ${user.email}` : ""}`;
 }
 
 function getAccessActionSummary(user: AdminStatsUser) {
@@ -2896,16 +2898,23 @@ onUnmounted(() => {
             </span>
             <span class="admin-list-item-main">
               <span class="admin-list-item-copy">
-                <strong>{{ userTitle(user) }}</strong>
-                <small>{{ adminRoleLabel(user.role) }} · ID {{ user.telegramId }}</small>
+                <span class="admin-client-list-name-line">
+                  <strong>{{ userTitle(user) }}</strong>
+                  <small v-if="user.email">{{ user.email }}</small>
+                </span>
+                <small>{{ adminRoleLabel(user.role) }}</small>
               </span>
               <span class="admin-list-item-meta">
                 <span>{{ getAdminTariffLabel(user.tariff) }}</span>
                 <span class="admin-list-item-progress">Уроки {{ user.completedItems }}/{{ user.totalItems }}</span>
+                <span>Последний вход: {{ formatAdminCompactDateTime(user.lastLoginAt) }}</span>
               </span>
             </span>
             <span class="admin-list-badges">
-              <em class="admin-access-badge">{{ user.hasRestrictions ? "Ограничен" : formatMembershipStatus(user.membershipStatus) }}</em>
+              <em
+                class="admin-access-badge"
+                :class="`admin-access-badge-${getAdminClientAccessState(user).tone}`"
+              >{{ getAdminClientAccessState(user).label }}</em>
             </span>
             <span class="admin-client-list-chevron"><ChevronRight aria-hidden="true" /></span>
           </button>
@@ -2936,7 +2945,10 @@ onUnmounted(() => {
                 </div>
               </div>
               <div class="admin-client-status-row">
-                <span class="admin-status-pill admin-status-pill-green">{{ formatMembershipStatus(selectedUser.membershipStatus) }}</span>
+                <span
+                  class="admin-status-pill"
+                  :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`"
+                >{{ getAdminClientAccessState(selectedUser).label }}</span>
                 <span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span>
                 <span class="admin-status-pill admin-status-pill-blue">{{ getAdminTariffLabel(selectedUser.tariff) }}</span>
               </div>

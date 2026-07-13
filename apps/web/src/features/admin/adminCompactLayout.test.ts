@@ -28,6 +28,12 @@ describe("compact admin statistics and clients", () => {
     expect(source).toContain('class="admin-list-item-main"');
     expect(source).toContain('class="admin-list-item-meta"');
     expect(source).toContain('class="admin-list-item-progress"');
+    expect(source).toContain('class="admin-client-list-name-line"');
+    expect(source).toContain("user.email");
+    expect(source).toContain("Последний вход:");
+    expect(styles).toMatch(/\.admin-list-item\.admin-client-list-row\s*\{[^}]*min-height:\s*64px;/s);
+    expect(styles).toContain(".admin-access-badge-open");
+    expect(styles).toContain(".admin-access-badge-closed");
   });
 
   it("balances the separate client screen between a summary and access controls", () => {
