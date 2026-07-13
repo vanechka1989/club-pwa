@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes push and email mailings as version 4.08", () => {
-    expect(appVersion).toBe("4.08");
-    expect(releaseNotes[0]?.title).toBe("Push и email рассылки");
+  it("publishes the in-app chat delete confirmation as version 4.09", () => {
+    expect(appVersion).toBe("4.09");
+    expect(releaseNotes[0]?.title).toBe("Подтверждение удаления в чате");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

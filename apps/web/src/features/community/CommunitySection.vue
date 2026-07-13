@@ -22,6 +22,7 @@ import {
   updateModerationStatus
 } from "@/api/client";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
+import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
@@ -66,6 +67,8 @@ const topicSaving = ref(false);
 const communityError = ref<string | null>(null);
 const showAttachmentMenu = ref(false);
 const showPollComposer = ref(false);
+const showDeleteTopicMessagesConfirm = ref(false);
+const deleteTopicMessagesBusy = ref(false);
 const imageInput = ref<HTMLInputElement | null>(null);
 const cameraInput = ref<HTMLInputElement | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
@@ -631,27 +634,42 @@ async function handleToggleTopicLock() {
   showTopicAdminMenu.value = false;
 }
 
-async function handleDeleteTopicMessages() {
+function handleDeleteTopicMessages() {
   if (!selectedTopic.value) {
     return;
   }
 
-  const confirmed = window.confirm(
-    isOwner.value
-      ? "Удалить все сообщения в этом чате сразу и без восстановления?"
-      : "Удалить все сообщения в этом чате? Клиенты больше не будут их видеть, окончательная очистка пройдет через 24 часа."
-  );
-  if (!confirmed) {
-    showTopicAdminMenu.value = false;
+  showTopicAdminMenu.value = false;
+  showDeleteTopicMessagesConfirm.value = true;
+}
+
+function cancelDeleteTopicMessages() {
+  if (deleteTopicMessagesBusy.value) {
     return;
   }
 
-  await deleteTopicMessages(selectedTopic.value.id);
-  showTopicAdminMenu.value = false;
-  activeModerationMessageId.value = null;
-  activeReactionMessageId.value = null;
-  await refreshSelectedTopic({ keepScroll: false });
-  await loadTopics();
+  showDeleteTopicMessagesConfirm.value = false;
+}
+
+async function confirmDeleteTopicMessages() {
+  if (!selectedTopic.value || deleteTopicMessagesBusy.value) {
+    return;
+  }
+
+  deleteTopicMessagesBusy.value = true;
+  clearCommunityError();
+  try {
+    await deleteTopicMessages(selectedTopic.value.id);
+    activeModerationMessageId.value = null;
+    activeReactionMessageId.value = null;
+    await refreshSelectedTopic({ keepScroll: false });
+    await loadTopics();
+  } catch {
+    showCommunityError("Не удалось удалить сообщения чата.");
+  } finally {
+    deleteTopicMessagesBusy.value = false;
+    showDeleteTopicMessagesConfirm.value = false;
+  }
 }
 
 async function handleDeleteAuthorMessages(message: ClubMessage) {
@@ -1314,5 +1332,21 @@ onBeforeUnmount(() => {
         </section>
       </div>
     </Teleport>
+
+    <ConfirmDialog
+      :open="showDeleteTopicMessagesConfirm"
+      title="Удалить все сообщения?"
+      :description="
+        isOwner
+          ? 'Все сообщения в этом чате будут удалены сразу и без восстановления.'
+          : 'Клиенты больше не будут видеть сообщения. Окончательная очистка произойдёт через 24 часа.'
+      "
+      confirm-label="Удалить всё"
+      cancel-label="Отмена"
+      :danger="true"
+      :busy="deleteTopicMessagesBusy"
+      @cancel="cancelDeleteTopicMessages"
+      @confirm="confirmDeleteTopicMessages"
+    />
   </section>
 </template>

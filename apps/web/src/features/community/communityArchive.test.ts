@@ -67,6 +67,20 @@ describe("community archive labels", () => {
     expect(communityStyles).toMatch(/\.moderation-action-row\s*\{[^}]*min-height:\s*48px;/s);
   });
 
+  it("uses the themed in-app confirmation before deleting every topic message", () => {
+    const deleteAllHandler = source.match(/function handleDeleteTopicMessages\(\)[\s\S]*?(?=function cancelDeleteTopicMessages)/)?.[0] ?? "";
+
+    expect(source).toContain('import ConfirmDialog from "@/features/app/ConfirmDialog.vue"');
+    expect(source).toContain("showDeleteTopicMessagesConfirm");
+    expect(source).toContain("deleteTopicMessagesBusy");
+    expect(source).toContain("<ConfirmDialog");
+    expect(source).toContain('confirm-label="Удалить всё"');
+    expect(source).toContain(":danger=\"true\"");
+    expect(source).toContain(":busy=\"deleteTopicMessagesBusy\"");
+    expect(deleteAllHandler).toContain("showDeleteTopicMessagesConfirm.value = true");
+    expect(deleteAllHandler).not.toContain("window.confirm");
+  });
+
   it("highlights the exact message reached from the pinned list", () => {
     expect(source).toContain("highlightedMessageId");
     expect(source).toContain("chat-message-jump-highlight");
