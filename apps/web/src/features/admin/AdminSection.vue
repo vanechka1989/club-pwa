@@ -116,9 +116,9 @@ import {
 } from "@/features/admin/adminUserDrilldown";
 import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
-import { formatMembershipStatus } from "@/features/app/i18n";
+import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
-import { releaseNotes } from "@/features/app/releaseNotes";
+import { getLocalizedReleaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
@@ -127,6 +127,8 @@ import { useUiStore, type PreviewMode } from "@/stores/ui";
 const session = useSessionStore();
 const notifications = useNotificationsStore();
 const ui = useUiStore();
+const { currentLocale } = useI18n();
+const localizedReleaseNotes = computed(() => getLocalizedReleaseNotes(currentLocale.value));
 const route = useRoute();
 const router = useRouter();
 
@@ -2755,7 +2757,7 @@ onUnmounted(() => {
           </header>
 
           <div class="release-notes-list">
-            <article v-for="note in releaseNotes" :key="note.version" class="release-note-card">
+            <article v-for="note in localizedReleaseNotes" :key="note.version" class="release-note-card">
               <button class="release-note-head" type="button" @click="toggleReleaseNote(note.version)">
                 <span>
                   <strong>v{{ note.version }}</strong>

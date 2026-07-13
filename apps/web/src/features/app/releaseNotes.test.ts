@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appVersion } from "./version";
-import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
+import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
   it("publishes the complete English interface as version 4.15", () => {
@@ -35,5 +35,11 @@ describe("release notes", () => {
   it("finds release details by version", () => {
     expect(getReleaseNoteByVersion(appVersion)?.version).toBe(appVersion);
     expect(getReleaseNoteByVersion("0.00")).toBeNull();
+  });
+
+  it("does not expose Russian system copy in the English changelog", () => {
+    const englishNotes = getLocalizedReleaseNotes("en");
+    expect(englishNotes[0]?.title).toBe("Complete English interface");
+    expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

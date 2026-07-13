@@ -2790,3 +2790,25 @@ export const releaseNotes: ReleaseNote[] = [
 export function getReleaseNoteByVersion(version: string) {
   return releaseNotes.find((note) => note.version === version) ?? null;
 }
+
+const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
+  title: "Complete English interface",
+  items: [
+    "Main sections, nested screens, forms, filters, hints and admin pages were audited in English.",
+    "A compatibility localization layer and a browser regression test now prevent Russian system labels from returning to the English interface.",
+    "Unwanted commas were removed from the Russian support introduction and request hint."
+  ]
+};
+
+export function getLocalizedReleaseNotes(locale: "ru" | "en") {
+  if (locale === "ru") return releaseNotes;
+  return releaseNotes.map((note) =>
+    note.version === appVersion
+      ? { ...note, ...currentEnglishRelease }
+      : {
+          ...note,
+          title: `Version ${note.version}`,
+          items: ["Details for this earlier release are available in the Russian changelog."]
+        }
+  );
+}

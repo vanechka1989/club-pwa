@@ -1616,6 +1616,9 @@ test("keeps system controls in English after changing the app language", async (
 
   await page.goto("/admin/mailings/new");
   await auditVisibleControls("New mailing form");
+
+  await page.goto("/admin/releases");
+  await auditVisibleControls("Release notes");
 });
 
 test("keeps mobile icon action controls consistently touch sized", async ({ page }, testInfo) => {
