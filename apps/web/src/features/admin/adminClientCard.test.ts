@@ -13,7 +13,7 @@ describe("admin client card helpers", () => {
   it("shows the last login in the compact client card header", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 
-    expect(source).toContain("Вход:");
+    expect(source).toContain("Последний вход:");
     expect(source).toContain("selectedUser.lastLoginAt");
   });
 

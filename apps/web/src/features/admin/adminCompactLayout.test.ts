@@ -21,9 +21,24 @@ describe("compact admin statistics and clients", () => {
   });
 
   it("structures each client row instead of joining all metadata into one sentence", () => {
+    expect(source).toContain('class="admin-client-overview"');
+    expect(source).toContain("admin-client-list-row");
+    expect(source).toContain('class="admin-client-list-avatar"');
+    expect(source).toContain('class="admin-client-list-chevron"');
     expect(source).toContain('class="admin-list-item-main"');
     expect(source).toContain('class="admin-list-item-meta"');
     expect(source).toContain('class="admin-list-item-progress"');
+  });
+
+  it("balances the separate client screen between a summary and access controls", () => {
+    expect(source).toContain('class="admin-client-identity"');
+    expect(source).toContain('class="admin-client-kpi-grid"');
+    expect(source).toContain('class="admin-client-primary-actions"');
+    expect(source.match(/class="admin-client-kpi"/g)?.length).toBe(4);
+    expect(styles).toContain(".admin-client-list-row");
+    expect(styles).toContain(".admin-client-kpi-grid");
+    expect(styles).toContain(".admin-client-primary-actions");
+    expect(styles).toMatch(/@media \(max-width: 359px\)[\s\S]*\.admin-client-kpi-grid/);
   });
 
   it("collapses secondary client information by default", () => {

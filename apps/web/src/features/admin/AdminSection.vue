@@ -2841,6 +2841,12 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <section class="admin-client-overview" aria-label="Сводка по клиентам">
+        <article><span>Всего</span><strong>{{ totalUsers }}</strong></article>
+        <article><span>С доступом</span><strong>{{ activeUsers }}</strong></article>
+        <article><span>Ограничены</span><strong>{{ restrictedUsers }}</strong></article>
+      </section>
+
       <div class="admin-client-searchbar">
         <input v-model.trim="search" class="text-input" placeholder="Поиск по ID, имени или username" />
         <span>Найдено: {{ filteredUsers.length }}</span>
@@ -2879,11 +2885,15 @@ onUnmounted(() => {
           <button
             v-for="user in filteredUsers"
             :key="user.id"
-            class="admin-list-item ui-card"
+            class="admin-list-item ui-card admin-client-list-row"
             :class="{ 'admin-list-item-active': selectedUser?.id === user.id }"
             type="button"
             @click="selectUser(user)"
           >
+            <span class="admin-client-list-avatar">
+              <img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" />
+              <span v-else>{{ userInitial(user) }}</span>
+            </span>
             <span class="admin-list-item-main">
               <span class="admin-list-item-copy">
                 <strong>{{ userTitle(user) }}</strong>
@@ -2897,6 +2907,7 @@ onUnmounted(() => {
             <span class="admin-list-badges">
               <em class="admin-access-badge">{{ user.hasRestrictions ? "Ограничен" : formatMembershipStatus(user.membershipStatus) }}</em>
             </span>
+            <span class="admin-client-list-chevron"><ChevronRight aria-hidden="true" /></span>
           </button>
         </div>
       </div>
@@ -2910,40 +2921,51 @@ onUnmounted(() => {
         @back="closeSelectedUser"
       >
           <section class="admin-detail ui-card admin-client-modal admin-client-task-card">
-            <header class="admin-client-card-head">
-              <span class="admin-client-avatar">
-                <img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" />
-                <span v-else>{{ userInitial(selectedUser) }}</span>
-              </span>
-              <div class="admin-client-card-title">
-                <div class="admin-client-title-row">
-                  <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
-                </div>
-                <p>{{ selectedUserMeta(selectedUser) }}</p>
-                <div class="admin-client-status-row">
-                  <span class="admin-client-last-login">Вход: {{ formatAdminCompactDateTime(selectedUser.lastLoginAt) }}</span>
-                  <span class="admin-status-pill admin-status-pill-green">{{ formatMembershipStatus(selectedUser.membershipStatus) }}</span>
-                  <span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">
-                    до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}
-                  </span>
-                  <span class="admin-status-pill admin-status-pill-blue">{{ getAdminTariffLabel(selectedUser.tariff) }}</span>
+            <header class="admin-client-identity">
+              <div class="admin-client-card-head">
+                <span class="admin-client-avatar">
+                  <img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" />
+                  <span v-else>{{ userInitial(selectedUser) }}</span>
+                </span>
+                <div class="admin-client-card-title">
+                  <div class="admin-client-title-row">
+                    <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
+                  </div>
+                  <p>{{ selectedUserMeta(selectedUser) }}</p>
+                  <span class="admin-client-last-login">Последний вход: {{ formatAdminCompactDateTime(selectedUser.lastLoginAt) }}</span>
                 </div>
               </div>
-              <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть карточку клиента" @click="closeSelectedUser">
-                <X class="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div class="admin-client-status-row">
+                <span class="admin-status-pill admin-status-pill-green">{{ formatMembershipStatus(selectedUser.membershipStatus) }}</span>
+                <span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span>
+                <span class="admin-status-pill admin-status-pill-blue">{{ getAdminTariffLabel(selectedUser.tariff) }}</span>
+              </div>
             </header>
 
-            <section class="admin-client-summary" aria-label="Краткая сводка клиента">
-              <article>
-                <span>Последний урок</span>
-                <strong>{{ selectedUser.lastOpenedItemTitle ?? "Нет открытых" }}</strong>
+            <section class="admin-client-kpi-grid" aria-label="Краткая сводка клиента">
+              <article class="admin-client-kpi">
+                <span>Доступ</span>
+                <strong>{{ selectedUser.membershipExpiresAt ? `до ${formatAdminShortDate(selectedUser.membershipExpiresAt)}` : formatMembershipStatus(selectedUser.membershipStatus) }}</strong>
               </article>
-              <article>
-                <span>Оплата</span>
-                <strong>{{ getLastPaymentSummary(selectedUserLastPayment) }}</strong>
+              <article class="admin-client-kpi">
+                <span>Обучение</span>
+                <strong>{{ selectedUser.completedItems }} / {{ selectedUser.totalItems }}</strong>
+              </article>
+              <article class="admin-client-kpi">
+                <span>Оплаты</span>
+                <strong>{{ selectedUserPaidTotal.toLocaleString("ru-RU") }} ₽</strong>
+              </article>
+              <article class="admin-client-kpi">
+                <span>Последнее действие</span>
+                <strong>{{ selectedUser.lastOpenedItemTitle ?? "Нет активности" }}</strong>
               </article>
             </section>
+
+            <div class="admin-client-primary-actions">
+              <button class="primary-button ui-button admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">
+                Написать клиенту
+              </button>
+            </div>
 
             <p v-if="!canGrantClientAccess" class="admin-warning-line">
               Для выдачи доступа нужно право Доступы.
@@ -3007,9 +3029,6 @@ onUnmounted(() => {
                   :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
                 >
                   {{ pendingClientAccessAction === "manual" ? "Сохраняю..." : accessSaveButtonText }}
-                </button>
-                <button class="admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">
-                  Написать
                 </button>
               </form>
             </section>
