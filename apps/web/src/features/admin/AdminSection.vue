@@ -2902,12 +2902,11 @@ onUnmounted(() => {
                   <strong>{{ userTitle(user) }}</strong>
                   <small v-if="user.email">{{ user.email }}</small>
                 </span>
-                <small>{{ adminRoleLabel(user.role) }}</small>
               </span>
               <span class="admin-list-item-meta">
                 <span>{{ getAdminTariffLabel(user.tariff) }}</span>
                 <span class="admin-list-item-progress">Уроки {{ user.completedItems }}/{{ user.totalItems }}</span>
-                <span>Последний вход: {{ formatAdminCompactDateTime(user.lastLoginAt) }}</span>
+                <span>Вход {{ formatAdminCompactDateTime(user.lastLoginAt) }}</span>
               </span>
             </span>
             <span class="admin-list-badges">
