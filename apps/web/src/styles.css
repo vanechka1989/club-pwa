@@ -17866,6 +17866,8 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .modules-section .module-card-toggle {
+  grid-column: 1;
+  grid-row: 1;
   width: auto;
   min-width: 0;
   align-self: stretch;
@@ -17899,9 +17901,28 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .modules-section .module-level-sort-controls {
-  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
-  background: color-mix(in srgb, var(--accent) 22%, var(--panel-strong));
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.modules-section .module-level-sort-controls .module-sort-button {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel-strong));
+  color: var(--accent);
+}
+
+.modules-section .module-open-collapse-control {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  justify-self: end;
+}
+
+.modules-section .module-actions-expanded {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .modules-section .module-level-action {

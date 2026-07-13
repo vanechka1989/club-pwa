@@ -2375,11 +2375,21 @@ watch(
               <small v-if="module.description">{{ module.description }}</small>
             </span>
           </button>
+          <button
+            v-if="!isModuleCollapsed(module.id)"
+            class="icon-button ui-icon-button module-open-collapse-control module-level-action"
+            type="button"
+            :aria-label="`Свернуть карточки ${module.title}`"
+            @click="toggleModule(module.id)"
+          >
+            <ChevronDown class="h-4 w-4" aria-hidden="true" />
+          </button>
           <div
             class="admin-mockup-card-actions"
             :class="{
               'module-admin-actions': canManageModules,
-              'module-member-actions': !canManageModules
+              'module-member-actions': !canManageModules,
+              'module-actions-expanded': !isModuleCollapsed(module.id)
             }"
           >
             <span>{{ lessonCountLabel(module.images.length) }}</span>
@@ -2404,7 +2414,7 @@ watch(
               </button>
             </div>
             <button
-              v-if="canManageModules"
+              v-if="canManageModules && isModuleCollapsed(module.id)"
               class="icon-button ui-icon-button module-lesson-add module-level-action"
               type="button"
               :aria-label="`Редактировать ${module.title}`"
@@ -2413,7 +2423,7 @@ watch(
               <Pencil class="h-4 w-4" aria-hidden="true" />
             </button>
             <button
-              v-if="canManageModules && !isModuleCollapsed(module.id)"
+              v-if="canManageModules && isModuleCollapsed(module.id)"
               class="icon-button ui-icon-button module-lesson-add module-level-action"
               type="button"
               :aria-label="`Добавить урок в ${module.title}`"
@@ -2422,6 +2432,7 @@ watch(
               <Plus class="h-4 w-4" aria-hidden="true" />
             </button>
             <button
+              v-if="isModuleCollapsed(module.id)"
               class="icon-button ui-icon-button module-lesson-add module-collapse-control module-level-action"
               type="button"
               :aria-label="`Переключить ${module.title}`"

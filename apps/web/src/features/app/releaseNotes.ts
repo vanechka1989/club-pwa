@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Управление модулями без лишнего",
+    items: [
+      "В раскрытом модуле скрыты кнопки сортировки, редактирования и добавления урока, чтобы они не мешали работе с карточками.",
+      "Кнопка сворачивания раскрытого модуля перенесена вправо в строку заголовка.",
+      "У общей рамки вокруг стрелок сортировки модуля убраны фон, граница и тень."
+    ]
+  },
+  {
+    version: "4.18",
+    updatedAt: "13.07.2026 23:21",
     title: "Чистые карточки модулей",
     items: [
       "У стрелок сортировки карточек убрана лишняя общая рамка — остались только отдельные понятные кнопки.",
@@ -2822,11 +2832,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Cleaner module cards",
+  title: "Focused module controls",
   items: [
-    "The unnecessary outer frame around lesson sorting arrows was removed.",
-    "Module ordering controls now hide automatically while that module's cards are expanded.",
-    "Collapsing the module reveals its ordering controls again."
+    "Module sorting, editing, and add-lesson actions now hide while lesson cards are expanded.",
+    "The collapse control for an expanded module now sits at the right side of its header.",
+    "The unnecessary shared frame around module sorting arrows was removed."
   ]
 };
 

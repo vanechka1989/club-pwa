@@ -1674,9 +1674,29 @@ test("separates profile header controls and module action levels", async ({ page
 
   await page.getByRole("button", { name: "Модули" }).click();
   const moduleOne = page.locator(".admin-mockup-card").first();
-  await expect(moduleOne.locator(".module-level-sort-controls")).toBeVisible();
+  const moduleControls = moduleOne.locator(".module-level-sort-controls");
+  await expect(moduleControls).toBeVisible();
+  const moduleFrame = await moduleControls.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      borderWidth: style.borderTopWidth,
+      background: style.backgroundColor,
+      padding: style.padding,
+      shadow: style.boxShadow
+    };
+  });
+  expect(moduleFrame).toEqual({ borderWidth: "0px", background: "rgba(0, 0, 0, 0)", padding: "0px", shadow: "none" });
+  await expect(moduleOne.getByRole("button", { name: "Редактировать Модуль 1" })).toBeVisible();
+  await expect(moduleOne.getByRole("button", { name: "Добавить урок в Модуль 1" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("learning-collapsed-controls.png"), fullPage: true });
   await moduleOne.getByRole("button", { name: "Переключить Модуль 1" }).click();
   await expect(moduleOne.locator(".module-level-sort-controls")).toHaveCount(0);
+  await expect(moduleOne.getByRole("button", { name: "Редактировать Модуль 1" })).toHaveCount(0);
+  await expect(moduleOne.getByRole("button", { name: "Добавить урок в Модуль 1" })).toHaveCount(0);
+  const openCollapseControl = moduleOne.getByRole("button", { name: "Свернуть карточки Модуль 1" });
+  await expect(openCollapseControl).toBeVisible();
+  const [moduleBox, collapseBox] = await Promise.all([moduleOne.boundingBox(), openCollapseControl.boundingBox()]);
+  expect(collapseBox?.x ?? 0).toBeGreaterThan((moduleBox?.x ?? 0) + (moduleBox?.width ?? 0) / 2);
   const lessonControls = moduleOne.locator(".lesson-level-sort-controls").first();
   await expect(lessonControls).toBeVisible();
   const lessonFrame = await lessonControls.evaluate((element) => {
@@ -1703,9 +1723,11 @@ test("separates profile header controls and module action levels", async ({ page
   await expect(page.locator(".profile-page-header-controls")).toHaveCSS("border-top-width", "0px");
   await page.getByRole("button", { name: "Модули" }).click();
   const darkModuleOne = page.locator(".admin-mockup-card").first();
-  await expect(darkModuleOne.locator(".module-level-sort-controls")).toBeVisible();
+  await expect(darkModuleOne.locator(".module-level-sort-controls")).toHaveCSS("border-top-width", "0px");
+  await expect(darkModuleOne.locator(".module-level-sort-controls")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await darkModuleOne.getByRole("button", { name: "Переключить Модуль 1" }).click();
   await expect(darkModuleOne.locator(".module-level-sort-controls")).toHaveCount(0);
+  await expect(darkModuleOne.getByRole("button", { name: "Свернуть карточки Модуль 1" })).toBeVisible();
   await expect(darkModuleOne.locator(".lesson-level-sort-controls").first()).toHaveCSS("border-top-width", "0px");
   await expect(darkModuleOne.locator(".lesson-level-sort-controls").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await page.screenshot({ path: testInfo.outputPath("learning-separated-controls-dark.png"), fullPage: true });
@@ -2323,7 +2345,6 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
   test.skip(testInfo.project.name === "desktop-chrome");
 
   await page.getByRole("button", { name: "Модули" }).click();
-  await page.getByRole("button", { name: "Переключить Модуль 1" }).click();
   await page.getByRole("button", { name: "Добавить урок в Модуль 1" }).click();
 
   const taskScreen = page.locator(".learning-task-screen .task-screen");

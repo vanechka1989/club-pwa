@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact expanded module controls as version 4.18", () => {
-    expect(appVersion).toBe("4.18");
-    expect(releaseNotes[0]?.title).toBe("Чистые карточки модулей");
+  it("publishes focused module controls as version 4.19", () => {
+    expect(appVersion).toBe("4.19");
+    expect(releaseNotes[0]?.title).toBe("Управление модулями без лишнего");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -39,7 +39,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Cleaner module cards");
+    expect(englishNotes[0]?.title).toBe("Focused module controls");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
