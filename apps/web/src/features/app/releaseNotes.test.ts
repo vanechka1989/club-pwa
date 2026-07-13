@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes card creation inside expanded modules as version 4.24", () => {
-    expect(appVersion).toBe("4.24");
-    expect(releaseNotes[0]?.title).toBe("Карточки добавляются внутри модуля");
+  it("publishes compact lesson creation as version 4.25", () => {
+    expect(appVersion).toBe("4.25");
+    expect(releaseNotes[0]?.title).toBe("Компактное добавление урока");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

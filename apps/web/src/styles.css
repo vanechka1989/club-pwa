@@ -17923,24 +17923,41 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   border-top: 0;
 }
 
-.modules-section .module-add-card-button {
+.modules-section .module-actions-expanded > span {
   display: inline-flex;
-  min-height: 44px;
+  height: 28px;
+  align-items: center;
+  padding: 0 10px;
+  line-height: 1;
+}
+
+.modules-section .module-add-card-button {
+  position: relative;
+  display: inline-flex;
+  width: auto;
+  height: 28px;
+  min-height: 28px;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--accent) 14%, var(--panel-strong));
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent);
-  padding: 0 13px;
+  padding: 0 10px;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 850;
   line-height: 1;
   white-space: nowrap;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 9%, transparent);
+  box-shadow: none;
   cursor: pointer;
+}
+
+.modules-section .module-add-card-button::before {
+  position: absolute;
+  inset: -8px -4px;
+  content: "";
 }
 
 .modules-section .module-add-card-button:hover {

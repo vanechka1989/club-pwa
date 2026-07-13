@@ -190,8 +190,12 @@ describe("Learning section modules", () => {
 
     expect(moduleOneView.queryByRole("button", { name: "Редактировать Модуль 1" })).toBeNull();
     const addCard = moduleOneView.getByRole("button", { name: "Добавить карточку в Модуль 1" });
-    expect(addCard.textContent).toContain("Добавить карточку");
+    expect(addCard.textContent).toContain("Добавить урок");
     expect(addCard.classList.contains("module-add-card-button")).toBe(true);
+
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    expect(styles).toMatch(/\.modules-section \.module-actions-expanded > span\s*\{[^}]*height:\s*28px;/s);
+    expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*height:\s*28px;[^}]*padding:\s*0\s+10px;/s);
     const openCollapse = moduleOneView.getByRole("button", { name: "Свернуть карточки Модуль 1" });
     expect(openCollapse.classList.contains("module-open-collapse-control")).toBe(true);
     expect(openCollapse.querySelector(".module-collapse-icon-up")).toBeTruthy();
