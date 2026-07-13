@@ -161,9 +161,22 @@ const showMobileNavigation = computed(() => Boolean(session.user && (!isDesktopL
 const showBottomNavigation = computed(
   () => showMobileNavigation.value && !isTaskPath(route.path) && (activeSection.value !== "community" || !communityChatOpen.value)
 );
-const userDisplayName = computed(() => session.user?.firstName || session.user?.username || t("profileDefaultName"));
+const userDisplayName = computed(
+  () => session.user?.displayName || session.user?.firstName || session.user?.username || t("profileDefaultName")
+);
 const userContact = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
 const userInitial = computed(() => userDisplayName.value.trim().slice(0, 1).toUpperCase() || "C");
+const userAvatarStyle = computed(() => {
+  const positionX = session.user?.avatarPositionX ?? 50;
+  const positionY = session.user?.avatarPositionY ?? 50;
+  const scale = session.user?.avatarScale ?? 1;
+
+  return {
+    objectPosition: `${positionX}% ${positionY}%`,
+    transform: `scale(${scale})`,
+    transformOrigin: `${positionX}% ${positionY}%`
+  };
+});
 const membershipLabel = computed(() => {
   if (!session.user) {
     return "";
@@ -774,15 +787,23 @@ onBeforeUnmount(() => {
     <div class="app-layout" :class="{ 'app-layout-auth': !session.user }">
       <aside v-if="showDesktopNavigation" class="desktop-sidebar" aria-label="Club sections">
         <div class="desktop-sidebar-brand">
-          <span class="desktop-sidebar-logo">C</span>
-          <div>
-            <strong>{{ t("tagline") }}</strong>
-            <span>{{ t("headline") }}</span>
-          </div>
+          <span class="desktop-sidebar-logo">
+            <img class="desktop-sidebar-logo-image" src="/icons/icon-192.png" alt="" />
+          </span>
+          <strong>{{ t("tagline") }}</strong>
         </div>
 
         <div class="desktop-sidebar-user">
-          <span class="desktop-sidebar-avatar">{{ userInitial }}</span>
+          <span class="desktop-sidebar-avatar">
+            <img
+              v-if="session.user?.photoUrl"
+              class="desktop-sidebar-avatar-image"
+              :src="session.user.photoUrl"
+              :alt="userDisplayName"
+              :style="userAvatarStyle"
+            />
+            <span v-else>{{ userInitial }}</span>
+          </span>
           <div>
             <strong>{{ userDisplayName }}</strong>
             <span>{{ userContact }}</span>

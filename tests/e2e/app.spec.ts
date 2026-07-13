@@ -13,6 +13,7 @@ const activeUntil = "2026-08-30T00:00:00.000Z";
 const currentUser = {
   id: "user-owner",
   telegramId: "593677751",
+  displayName: "Екатерина",
   firstName: "Екатерина",
   username: "katya",
   photoUrl: "https://cdn.example.com/avatar.jpg",
@@ -1783,6 +1784,33 @@ test("keeps routed PWA screens responsive across exact desktop audit sizes", asy
       await expectKeyboardSafeIfFormRoute(page, `${viewport.name} ${auditRoute.path}`);
     }
   }
+});
+
+test("keeps the desktop sidebar identity aligned with the profile", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/profile");
+
+  const sidebar = page.locator(".desktop-sidebar");
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar.locator(".desktop-sidebar-brand strong")).toHaveText("Клуб");
+  await expect(sidebar.locator(".desktop-sidebar-brand").getByText("Клуб", { exact: true })).toHaveCount(1);
+  await expect(sidebar.locator(".desktop-sidebar-user strong")).toHaveText(currentUser.displayName);
+  await expect(sidebar.locator(".desktop-sidebar-avatar-image")).toHaveAttribute("src", currentUser.photoUrl);
+  await expect(page.locator(".profile-identity-head h3")).toHaveText(currentUser.displayName);
+  const layout = await page.evaluate(() => ({
+    viewportWidth: document.documentElement.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    sidebarWidth: Math.round(document.querySelector(".desktop-sidebar")?.getBoundingClientRect().width ?? 0)
+  }));
+  expect(layout.documentWidth).toBe(layout.viewportWidth);
+  expect(layout.sidebarWidth).toBeGreaterThanOrEqual(200);
+
+  await page.screenshot({
+    path: testInfo.outputPath("desktop-sidebar-profile.png"),
+    fullPage: true
+  });
 });
 
 test("captures PWA UI foundation screenshots for audited routes", async ({ page }, testInfo) => {

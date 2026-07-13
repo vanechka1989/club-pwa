@@ -478,6 +478,17 @@ describe("App", () => {
     expect(styles).toMatch(/@media \(max-width: 1023px\)[\s\S]*\.desktop-sidebar\s*{[\s\S]*display: none;/);
   });
 
+  it("keeps the desktop sidebar identity aligned with the profile", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("session.user?.displayName || session.user?.firstName || session.user?.username");
+    expect(appSource).toContain('class="desktop-sidebar-avatar-image"');
+    expect(appSource).toContain(':style="userAvatarStyle"');
+    expect(appSource).not.toContain('<span>{{ t("headline") }}</span>');
+    expect(styles).toContain(".desktop-sidebar-avatar-image");
+    expect(styles).toContain("object-fit: cover;");
+  });
+
   it("keeps admin inside the mobile bottom tab bar for admins", () => {
     const navigationSource = readFileSync(resolve(__dirname, "features/app/navigation.ts"), "utf-8");
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");

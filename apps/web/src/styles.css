@@ -10223,6 +10223,7 @@ body.club-mobile-app-scaled .support-modal-head {
   width: 2.35rem;
   height: 2.35rem;
   flex-shrink: 0;
+  overflow: hidden;
   place-items: center;
   border-radius: 10px;
   background:
@@ -10235,6 +10236,14 @@ body.club-mobile-app-scaled .support-modal-head {
 
 .desktop-sidebar-avatar {
   border-radius: 999px;
+}
+
+.desktop-sidebar-logo-image,
+.desktop-sidebar-avatar-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .desktop-sidebar-nav {

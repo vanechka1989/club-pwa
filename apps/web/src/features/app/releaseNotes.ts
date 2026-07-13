@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Исправленный десктопный сайдбар",
+    items: [
+      "Имя в десктопной панели теперь совпадает с отображаемым именем в профиле, а не подменяется логином.",
+      "В боковой панели показывается реальный аватар с тем же кадрированием, что и в профиле.",
+      "Убрано повторение «Клуб», а буквенная заглушка бренда заменена иконкой приложения."
+    ]
+  },
+  {
+    version: "4.15",
+    updatedAt: "13.07.2026 22:04",
     title: "Полный английский интерфейс",
     items: [
       "Проверены основные разделы, вложенные окна, формы, фильтры, подсказки и административные экраны на английском языке.",
@@ -2792,11 +2802,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Complete English interface",
+  title: "Fixed desktop sidebar",
   items: [
-    "Main sections, nested screens, forms, filters, hints and admin pages were audited in English.",
-    "A compatibility localization layer and a browser regression test now prevent Russian system labels from returning to the English interface.",
-    "Unwanted commas were removed from the Russian support introduction and request hint."
+    "The desktop sidebar now uses the same display name as the profile instead of falling back to the login.",
+    "The real profile photo and its crop settings are reused in the sidebar.",
+    "The duplicate Club label was removed and the letter placeholder was replaced with the app icon."
   ]
 };
 

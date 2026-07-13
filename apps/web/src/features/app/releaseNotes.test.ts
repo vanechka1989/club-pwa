@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the complete English interface as version 4.15", () => {
-    expect(appVersion).toBe("4.15");
-    expect(releaseNotes[0]?.title).toBe("Полный английский интерфейс");
+  it("publishes the fixed desktop sidebar as version 4.16", () => {
+    expect(appVersion).toBe("4.16");
+    expect(releaseNotes[0]?.title).toBe("Исправленный десктопный сайдбар");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -39,7 +39,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Complete English interface");
+    expect(englishNotes[0]?.title).toBe("Fixed desktop sidebar");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
