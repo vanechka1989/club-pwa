@@ -17937,14 +17937,16 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   width: auto;
   height: 28px;
   min-height: 28px;
+  max-height: 28px;
+  box-sizing: border-box;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--accent) 14%, var(--panel-strong));
   color: var(--accent);
-  padding: 0 10px;
+  padding: 0 7px;
   font: inherit;
   font-size: 0.68rem;
   font-weight: 850;
@@ -17952,6 +17954,11 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   white-space: nowrap;
   box-shadow: 0 3px 8px color-mix(in srgb, var(--accent) 7%, transparent);
   cursor: pointer;
+}
+
+.modules-section .module-add-card-button > svg {
+  width: 12px;
+  height: 12px;
 }
 
 .modules-section .module-add-card-button::before {
