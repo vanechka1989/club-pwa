@@ -139,6 +139,22 @@ export const userLoginIps = pgTable(
   })
 );
 
+export const userDevices = pgTable(
+  "user_devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    installationId: varchar("installation_id", { length: 64 }).notNull(),
+    diagnostics: jsonb("diagnostics").$type<Record<string, unknown>>().notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userInstallationIdx: uniqueIndex("user_devices_user_installation_idx").on(table.userId, table.installationId),
+    userLastSeenIdx: index("user_devices_user_last_seen_idx").on(table.userId, table.lastSeenAt)
+  })
+);
+
 export const pushSubscriptions = pgTable(
   "push_subscriptions",
   {
@@ -764,6 +780,7 @@ export const adminMailingRecipients = pgTable(
 export const usersRelations = relations(users, ({ many }) => ({
   authSessions: many(authSessions),
   loginIps: many(userLoginIps),
+  devices: many(userDevices),
   pushSubscriptions: many(pushSubscriptions),
   subscriptions: many(subscriptions),
   paymentOrders: many(paymentOrders),
@@ -797,6 +814,13 @@ export const authSessionsRelations = relations(authSessions, ({ one }) => ({
 export const userLoginIpsRelations = relations(userLoginIps, ({ one }) => ({
   user: one(users, {
     fields: [userLoginIps.userId],
+    references: [users.id]
+  })
+}));
+
+export const userDevicesRelations = relations(userDevices, ({ one }) => ({
+  user: one(users, {
+    fields: [userDevices.userId],
     references: [users.id]
   })
 }));
@@ -1136,6 +1160,7 @@ export type ClubSetting = typeof clubSettings.$inferSelect;
 export type AuthEmailLoginCode = typeof authEmailLoginCodes.$inferSelect;
 export type AuthSession = typeof authSessions.$inferSelect;
 export type UserLoginIp = typeof userLoginIps.$inferSelect;
+export type UserDevice = typeof userDevices.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type PaymentProvider = typeof paymentProviders.$inferSelect;

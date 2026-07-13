@@ -274,6 +274,13 @@
       "when": 1783887600000,
       "tag": "0038_community_media_polls",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1783920140991,
+      "tag": "0039_user_devices",
+      "breakpoints": true
     }
   ]
 }

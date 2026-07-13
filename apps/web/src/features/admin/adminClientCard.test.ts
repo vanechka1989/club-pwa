@@ -74,9 +74,10 @@ describe("admin client card helpers", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
     expect(styles).toContain("padding-bottom: max(1rem, var(--club-safe-bottom))");
-    expect(styles).toMatch(/\.admin-client-task-screen\.task-screen-route-layer\s*\{[^}]*overflow-y:\s*auto;[^}]*touch-action:\s*pan-y;/s);
-    expect(styles).toMatch(/\.admin-client-task-screen\.task-screen-route-layer > \.task-screen\s*\{[^}]*height:\s*auto;[^}]*overflow:\s*visible;/s);
-    expect(styles).toMatch(/\.admin-client-task-screen\.task-screen-route-layer \.task-screen-body,[\s\S]*overflow:\s*visible;/s);
+    expect(styles).toMatch(/body\.club-mobile-device \.admin-client-task-screen\.task-screen-route-layer\s*\{[^}]*overflow:\s*hidden;/s);
+    expect(styles).toMatch(/body\.club-mobile-device \.admin-client-task-screen\.task-screen-route-layer > \.task-screen\s*\{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\);[^}]*overflow:\s*hidden;/s);
+    expect(styles).toMatch(/body\.club-mobile-device \.admin-client-task-screen\.task-screen-route-layer \.task-screen-body\s*\{[^}]*overflow-y:\s*auto;[^}]*touch-action:\s*pan-y;/s);
+    expect(styles).not.toMatch(/\.admin-client-task-screen\.task-screen-route-layer\s*\{[^}]*overflow-y:\s*auto;/s);
   });
 
   it("uses a high-contrast closed access badge", () => {
@@ -95,6 +96,26 @@ describe("admin client card helpers", () => {
     expect(source).toContain("IP входов");
     expect(source).toContain("История IP появится после следующего входа клиента.");
     expect(styles).toMatch(/\.admin-login-ip-address\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
+  });
+
+  it("removes the duplicate profile disclosure and places device history and IPs last", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const activityIndex = source.indexOf("<summary>Активность");
+    const deviceIndex = source.indexOf("<summary>Устройства");
+    const ipIndex = source.indexOf("<summary>IP входов");
+
+    expect(source).not.toContain("<summary>Профиль");
+    expect(source).toContain("selectedUserDevices");
+    expect(deviceIndex).toBeGreaterThan(activityIndex);
+    expect(ipIndex).toBeGreaterThan(deviceIndex);
+  });
+
+  it("centers four compact KPI cards directly below the identity card", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(source.indexOf('class="admin-client-kpi-grid"')).toBeGreaterThan(source.indexOf('class="admin-client-identity'));
+    expect(styles).toMatch(/\.admin-client-kpi\s*\{[^}]*min-height:\s*56px;[^}]*justify-items:\s*center;[^}]*text-align:\s*center;/s);
   });
 
   it("shows clear labels for manual access changes", () => {

@@ -4,6 +4,7 @@ import { adminUserDetailResponseSchema, deviceDiagnosticsSchema } from "./index"
 describe("device diagnostics schema", () => {
   it("accepts client device diagnostics in the admin detail response", () => {
     const device = {
+      installationId: "3b8c9d54-6f52-4d57-9b62-d3bdf2f5fa7a",
       capturedAt: "2026-07-01T10:00:00.000Z",
       platform: "android",
       colorScheme: "dark",
@@ -46,7 +47,15 @@ describe("device diagnostics schema", () => {
         },
         subscriptions: [],
         moderationEvents: [],
-        device
+        device,
+        devices: [
+          {
+            id: "d6a7cb95-7df1-4017-8428-b37f6f33eb90",
+            firstSeenAt: "2026-07-01T10:00:00.000Z",
+            lastSeenAt: "2026-07-02T11:00:00.000Z",
+            diagnostics: device
+          }
+        ]
       }).device
     ).toEqual(device);
   });

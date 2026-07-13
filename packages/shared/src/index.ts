@@ -828,6 +828,7 @@ export const deviceInsetSchema = z.object({
 });
 
 export const deviceDiagnosticsSchema = z.object({
+  installationId: z.string().uuid().nullable().optional(),
   capturedAt: z.string().datetime(),
   platform: z.string().nullable(),
   colorScheme: z.string().nullable(),
@@ -887,11 +888,20 @@ export const adminLoginIpsResponseSchema = z.object({
 });
 export type AdminLoginIpsResponse = z.infer<typeof adminLoginIpsResponseSchema>;
 
+export const adminUserDeviceSchema = z.object({
+  id: z.string().uuid(),
+  firstSeenAt: z.string().datetime(),
+  lastSeenAt: z.string().datetime(),
+  diagnostics: deviceDiagnosticsSchema
+});
+export type AdminUserDevice = z.infer<typeof adminUserDeviceSchema>;
+
 export const adminUserDetailResponseSchema = z.object({
   user: adminStatsUserSchema,
   subscriptions: z.array(adminUserSubscriptionSchema),
   moderationEvents: z.array(adminUserModerationEventSchema),
   device: deviceDiagnosticsSchema.nullable().default(null),
+  devices: z.array(adminUserDeviceSchema).default([]),
   referrals: adminUserReferralsSchema.default({ invitedBy: null, invited: [] })
 });
 export type AdminUserDetailResponse = z.infer<typeof adminUserDetailResponseSchema>;

@@ -58,9 +58,10 @@ describe("compact admin statistics and clients", () => {
   });
 
   it("collapses secondary client information by default", () => {
-    for (const label of ["Профиль", "Устройство", "IP входов", "Активность"]) {
+    for (const label of ["Устройства", "IP входов", "Активность"]) {
       expect(source).toContain(`<summary>${label}`);
     }
+    expect(source).not.toContain("<summary>Профиль");
     expect(styles).toContain(".admin-client-compact-section");
   });
 });

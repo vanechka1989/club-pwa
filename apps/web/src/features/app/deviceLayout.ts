@@ -50,6 +50,7 @@ export type DeviceInsetInput = {
 };
 
 export type DeviceDiagnosticsInput = {
+  installationId?: string | null;
   capturedAt?: string;
   platform?: string | null;
   colorScheme?: string | null;
@@ -424,6 +425,7 @@ function isLikelyAndroidPhysicalShell(input: LayoutCalibrationInput) {
 
 export function collectDeviceDiagnostics(input: DeviceDiagnosticsInput) {
   return {
+    installationId: input.installationId ?? null,
     capturedAt: input.capturedAt ?? new Date().toISOString(),
     platform: input.platform ?? null,
     colorScheme: input.colorScheme ?? null,
@@ -501,6 +503,7 @@ export function collectCurrentDeviceDiagnostics() {
   ];
 
   return collectDeviceDiagnostics({
+    installationId: getOrCreateDeviceInstallationId(),
     platform,
     colorScheme: window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
     userAgent,
@@ -547,4 +550,17 @@ export function collectCurrentDeviceDiagnostics() {
     }),
     classes
   });
+}
+
+const deviceInstallationStorageKey = "club-device-installation-id";
+
+export function getOrCreateDeviceInstallationId() {
+  const stored = window.localStorage.getItem(deviceInstallationStorageKey);
+  if (stored && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stored)) {
+    return stored;
+  }
+
+  const installationId = window.crypto.randomUUID();
+  window.localStorage.setItem(deviceInstallationStorageKey, installationId);
+  return installationId;
 }

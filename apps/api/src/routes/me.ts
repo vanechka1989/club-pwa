@@ -1,11 +1,11 @@
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { deviceDiagnosticsSchema, isValidDisplayName, normalizeDisplayName } from "@club/shared";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { db } from "../db/client";
-import { userRecurrentSubscriptions, users } from "../db/schema";
+import { userDevices, userRecurrentSubscriptions, users } from "../db/schema";
 import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 import { resolveMembershipProfileFields } from "../membership/profileFields";
@@ -149,6 +149,12 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const now = new Date();
+    const installationId =
+      body.data.installationId ??
+      `legacy-${createHash("sha256")
+        .update(JSON.stringify([body.data.userAgent, body.data.screen.width, body.data.screen.height, body.data.screen.pixelRatio]))
+        .digest("hex")
+        .slice(0, 48)}`;
     const [updatedUser] = await db
       .update(users)
       .set({
@@ -162,6 +168,23 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
     if (!updatedUser) {
       return c.json({ error: "Unable to update device diagnostics" }, 500);
     }
+
+    await db
+      .insert(userDevices)
+      .values({
+        userId: c.get("userId"),
+        installationId,
+        diagnostics: body.data,
+        firstSeenAt: now,
+        lastSeenAt: now
+      })
+      .onConflictDoUpdate({
+        target: [userDevices.userId, userDevices.installationId],
+        set: {
+          diagnostics: body.data,
+          lastSeenAt: now
+        }
+      });
 
     return c.json({ ok: true, device: body.data });
   })

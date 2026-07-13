@@ -469,26 +469,42 @@ const selectedUserLastPayment = computed(
     )[0] ?? null
 );
 const selectedUserPaidTotal = computed(() => selectedUserPaidOrders.value.reduce((sum, order) => sum + order.amountRub, 0));
+const selectedUserDevices = computed(() => selectedUserDetail.value?.devices ?? []);
 const selectedUserDeviceText = computed(() => {
-  const device = selectedUserDetail.value?.device;
-  if (!device) {
+  if (!selectedUserDevices.value.length) {
     return "";
   }
 
-  return JSON.stringify(device, null, 2);
+  return JSON.stringify(selectedUserDevices.value, null, 2);
 });
-const selectedUserDeviceSummary = computed(() => {
-  const device = selectedUserDetail.value?.device;
-  if (!device) {
-    return null;
-  }
+type ClientDeviceDiagnostics = AdminUserDetailResponse["devices"][number]["diagnostics"];
+function getClientDeviceTitle(device: ClientDeviceDiagnostics) {
+  const userAgent = device.userAgent.toLowerCase();
+  const platform = userAgent.includes("android")
+    ? "Android"
+    : /iphone|ipad|ios/.test(userAgent)
+      ? "iPhone / iOS"
+      : userAgent.includes("windows")
+        ? "Windows"
+        : userAgent.includes("mac os")
+          ? "macOS"
+          : device.platform || "Неизвестное устройство";
+  const browser = userAgent.includes("edg/")
+    ? "Edge"
+    : userAgent.includes("firefox/")
+      ? "Firefox"
+      : userAgent.includes("chrome/")
+        ? "Chrome"
+        : userAgent.includes("safari/")
+          ? "Safari"
+          : "Браузер";
+  const mode = device.browser.standalone || device.browser.displayMode === "standalone" ? "PWA" : browser;
+  return `${platform} · ${mode}`;
+}
 
-  return [
-    device.browser.displayMode || device.platform || "платформа не определена",
-    `${device.viewport.width ?? "?"}x${device.viewport.height ?? "?"}`,
-    device.classes.join(", ") || "классов нет"
-  ].join(" · ");
-});
+function getClientDeviceScreen(device: ClientDeviceDiagnostics) {
+  return `${device.screen.width ?? "?"}×${device.screen.height ?? "?"} · viewport ${device.viewport.width ?? "?"}×${device.viewport.height ?? "?"}`;
+}
 const statisticsDateRange = computed(() =>
   statisticsPeriod.value === "custom"
     ? {
@@ -3045,83 +3061,6 @@ onUnmounted(() => {
             </section>
 
             <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Профиль <span>обзор</span></summary>
-              <div class="admin-client-section-head admin-client-section-head-hidden">
-                <h4>Профиль</h4>
-                <small>обзор без открытия вкладок</small>
-              </div>
-              <form class="admin-client-display-name" @submit.prevent="saveSelectedUserDisplayName">
-                <label for="admin-client-display-name">Ник</label>
-                <div><input id="admin-client-display-name" v-model.trim="selectedUserDisplayName" class="text-input" maxlength="20" /><button class="admin-date-save" type="submit" :disabled="selectedUserDisplayNameSaving">{{ selectedUserDisplayNameSaving ? "Сохраняю…" : "Сохранить" }}</button></div>
-                <small v-if="selectedUserDisplayNameError">{{ selectedUserDisplayNameError }}</small>
-              </form>
-              <div class="admin-client-profile-grid">
-                <article>
-                  <span>Прогресс</span>
-                  <strong>{{ selectedUser.completedItems }} / {{ selectedUser.totalItems }} уроков</strong>
-                </article>
-                <article>
-                  <span>Всего оплат</span>
-                  <strong>{{ selectedUserPaidTotal.toLocaleString("ru-RU") }} ₽</strong>
-                </article>
-                <article>
-                  <span>Дата регистрации</span>
-                  <strong>{{ formatAdminDate(selectedUser.createdAt) }}</strong>
-                </article>
-                <article>
-                  <span>Ограничения</span>
-                  <strong>{{ selectedUser.hasRestrictions ? "Есть активные" : "Нет активных" }}</strong>
-                </article>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Устройство <span>{{ selectedUserDetail?.device ? "данные получены" : "нет данных" }}</span></summary>
-              <div class="admin-client-section-head admin-client-section-head-hidden">
-                <h4>Устройство</h4>
-                <button
-                  class="admin-client-copy-button"
-                  type="button"
-                  :disabled="!selectedUserDeviceText"
-                  @click="copyTextToClipboard(selectedUserDeviceText)"
-                >
-                  <Copy class="h-4 w-4" aria-hidden="true" />
-                  Скопировать
-                </button>
-              </div>
-              <div v-if="selectedUserDetail?.device" class="admin-client-device-card">
-                <strong>{{ selectedUserDeviceSummary }}</strong>
-                <span>Обновлено: {{ formatAdminCompactDateTime(selectedUserDetail.device.capturedAt) }}</span>
-                <small>{{ selectedUserDetail.device.userAgent }}</small>
-              </div>
-              <p v-else class="admin-empty">Данные появятся после следующего запуска приложения клиентом.</p>
-            </details>
-
-            <details v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section admin-client-compact-section admin-detail ui-card">
-              <summary>IP входов <span>{{ selectedUserLoginIps.length }} адресов</span></summary>
-              <div class="admin-client-section-head admin-client-section-head-hidden">
-                <h4>IP входов</h4>
-                <small>{{ selectedUserLoginIps.length }} адресов</small>
-              </div>
-              <p v-if="selectedUserLoginIpsLoading" class="admin-empty">Загружаю историю IP…</p>
-              <p v-else-if="selectedUserLoginIpsError" class="admin-warning-line">Не удалось загрузить историю IP.</p>
-              <p v-else-if="!selectedUserLoginIps.length" class="admin-empty">История IP появится после следующего входа клиента.</p>
-              <div v-else class="admin-login-ip-list">
-                <article v-for="entry in selectedUserLoginIps" :key="entry.id" class="admin-login-ip-row">
-                  <div class="admin-login-ip-main">
-                    <strong class="admin-login-ip-address">{{ entry.ipAddress }}</strong>
-                    <span v-if="isNewLoginIp(entry)" class="admin-login-ip-new">Новый IP</span>
-                  </div>
-                  <div class="admin-login-ip-meta">
-                    <span>Впервые: {{ formatAdminCompactDateTime(entry.firstSeenAt) }}</span>
-                    <span>Последний вход: {{ formatAdminCompactDateTime(entry.lastSeenAt) }}</span>
-                    <span>Входов: {{ entry.loginCount }}</span>
-                  </div>
-                </article>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
               <summary>Активность <span>последние события</span></summary>
               <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>Активность</h4>
@@ -3304,6 +3243,60 @@ onUnmounted(() => {
                 </article>
               </div>
             </section>
+
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card admin-client-device-history">
+              <summary>Устройства <span>{{ selectedUserDevices.length }} сохранено</span></summary>
+              <div class="admin-client-section-head admin-client-section-head-hidden">
+                <h4>Устройства</h4>
+                <button
+                  class="admin-client-copy-button"
+                  type="button"
+                  :disabled="!selectedUserDeviceText"
+                  @click="copyTextToClipboard(selectedUserDeviceText)"
+                >
+                  <Copy class="h-4 w-4" aria-hidden="true" />
+                  Скопировать
+                </button>
+              </div>
+              <p v-if="!selectedUserDevices.length" class="admin-empty">История появится после следующего входа клиента.</p>
+              <div v-else class="admin-client-device-list">
+                <article v-for="entry in selectedUserDevices" :key="entry.id" class="admin-client-device-card">
+                  <div class="admin-client-device-title">
+                    <strong>{{ getClientDeviceTitle(entry.diagnostics) }}</strong>
+                    <span>{{ getClientDeviceScreen(entry.diagnostics) }}</span>
+                  </div>
+                  <div class="admin-client-device-dates">
+                    <span>Впервые: {{ formatAdminCompactDateTime(entry.firstSeenAt) }}</span>
+                    <span>Последний вход: {{ formatAdminCompactDateTime(entry.lastSeenAt) }}</span>
+                  </div>
+                  <small>{{ entry.diagnostics.userAgent }}</small>
+                </article>
+              </div>
+            </details>
+
+            <details v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section admin-client-compact-section admin-detail ui-card">
+              <summary>IP входов <span>{{ selectedUserLoginIps.length }} адресов</span></summary>
+              <div class="admin-client-section-head admin-client-section-head-hidden">
+                <h4>IP входов</h4>
+                <small>{{ selectedUserLoginIps.length }} адресов</small>
+              </div>
+              <p v-if="selectedUserLoginIpsLoading" class="admin-empty">Загружаю историю IP…</p>
+              <p v-else-if="selectedUserLoginIpsError" class="admin-warning-line">Не удалось загрузить историю IP.</p>
+              <p v-else-if="!selectedUserLoginIps.length" class="admin-empty">История IP появится после следующего входа клиента.</p>
+              <div v-else class="admin-login-ip-list">
+                <article v-for="entry in selectedUserLoginIps" :key="entry.id" class="admin-login-ip-row">
+                  <div class="admin-login-ip-main">
+                    <strong class="admin-login-ip-address">{{ entry.ipAddress }}</strong>
+                    <span v-if="isNewLoginIp(entry)" class="admin-login-ip-new">Новый IP</span>
+                  </div>
+                  <div class="admin-login-ip-meta">
+                    <span>Впервые: {{ formatAdminCompactDateTime(entry.firstSeenAt) }}</span>
+                    <span>Последний вход: {{ formatAdminCompactDateTime(entry.lastSeenAt) }}</span>
+                    <span>Входов: {{ entry.loginCount }}</span>
+                  </div>
+                </article>
+              </div>
+            </details>
           </div>
             <form v-if="clientMessageOpen" class="admin-client-message-modal admin-client-message-inline" @submit.prevent="submitClientMessage">
               <header class="admin-client-message-head">

@@ -48,6 +48,7 @@ import {
   subscriptions,
   supportTicketAttachments,
   userContentProgress,
+  userDevices,
   userMutes,
   users
 } from "../db/schema";
@@ -1007,7 +1008,7 @@ function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect
 
 async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
-  const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals] = await Promise.all([
+  const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory] = await Promise.all([
     buildStatsUser(user, totalItems),
     db.query.subscriptions.findMany({
       where: eq(subscriptions.userId, user.id),
@@ -1035,7 +1036,12 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
         topic: true
       }
     }),
-    getAdminUserReferrals(user.id)
+    getAdminUserReferrals(user.id),
+    db.query.userDevices.findMany({
+      where: eq(userDevices.userId, user.id),
+      orderBy: [desc(userDevices.lastSeenAt)],
+      limit: 30
+    })
   ]);
 
   const adminActorIds = Array.from(
@@ -1105,7 +1111,19 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
     }))
   ].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
-  const device = user.deviceSnapshot ? deviceDiagnosticsSchema.safeParse(user.deviceSnapshot) : null;
+  const devices = userDeviceHistory.flatMap((entry) => {
+    const diagnostics = deviceDiagnosticsSchema.safeParse(entry.diagnostics);
+    return diagnostics.success
+      ? [{
+          id: entry.id,
+          firstSeenAt: entry.firstSeenAt.toISOString(),
+          lastSeenAt: entry.lastSeenAt.toISOString(),
+          diagnostics: diagnostics.data
+        }]
+      : [];
+  });
+  const legacyDevice = user.deviceSnapshot ? deviceDiagnosticsSchema.safeParse(user.deviceSnapshot) : null;
+  const device = devices[0]?.diagnostics ?? (legacyDevice?.success ? legacyDevice.data : null);
 
   return {
     user: statsUser,
@@ -1120,7 +1138,8 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
       createdAt: subscription.createdAt.toISOString()
     })),
     moderationEvents,
-    device: device?.success ? device.data : null,
+    device,
+    devices,
     referrals: userReferrals
   };
 }

@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the high-contrast access status as version 3.98", () => {
-    expect(appVersion).toBe("3.98");
-    expect(releaseNotes[0]?.title).toBe("Контрастный статус доступа");
+  it("publishes the client device history as version 3.99", () => {
+    expect(appVersion).toBe("3.99");
+    expect(releaseNotes[0]?.title).toBe("История устройств клиента");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
