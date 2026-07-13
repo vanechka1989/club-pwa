@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes permission-safe tabs as version 4.13", () => {
-    expect(appVersion).toBe("4.13");
-    expect(releaseNotes[0]?.title).toBe("Вкладки без ошибок доступа");
+  it("publishes the full-width logout action as version 4.14", () => {
+    expect(appVersion).toBe("4.14");
+    expect(releaseNotes[0]?.title).toBe("Ровная кнопка выхода");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

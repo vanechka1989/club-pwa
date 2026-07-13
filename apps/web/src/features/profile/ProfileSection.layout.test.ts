@@ -50,9 +50,10 @@ describe("compact profile layout", () => {
     expect(source).not.toContain("Аккаунт и безопасность");
   });
 
-  it("centers and visually emphasizes the logout action", () => {
+  it("stretches and visually emphasizes the logout action", () => {
     expect(styles).toContain(".profile-dashboard .profile-dashboard-logout {");
-    expect(styles).toContain("justify-self: center;");
+    expect(styles).toMatch(/\.profile-dashboard \.profile-dashboard-logout\s*\{[^}]*width:\s*100%;/s);
+    expect(styles).toMatch(/\.profile-dashboard \.profile-dashboard-logout\s*\{[^}]*justify-self:\s*stretch;/s);
     expect(styles).toContain("background: var(--danger-soft);");
     expect(styles).toContain("color: var(--danger-text);");
   });

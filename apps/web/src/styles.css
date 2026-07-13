@@ -17359,9 +17359,9 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 }
 
 .profile-dashboard .profile-dashboard-logout {
-  width: min(100%, 12rem);
+  width: 100%;
   min-height: 44px;
-  justify-self: center;
+  justify-self: stretch;
   justify-content: center;
   gap: 8px;
   border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--border));
