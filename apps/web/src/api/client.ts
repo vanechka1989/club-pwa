@@ -244,6 +244,24 @@ export function getCommunityTopics() {
   return api<ClubTopicsResponse>("/community/topics");
 }
 
+export function createCommunityEventSource() {
+  const params = new URLSearchParams();
+  params.set("pwa", "1");
+  const previewMode = localStorage.getItem(previewModeStorageKey);
+  if (
+    previewMode === "developer" ||
+    previewMode === "admin" ||
+    previewMode === "member-active" ||
+    previewMode === "member-inactive"
+  ) {
+    params.set("preview", previewMode);
+  }
+
+  return new EventSource(`${apiUrl.replace(/\/$/, "")}/community/events?${params.toString()}`, {
+    withCredentials: true
+  });
+}
+
 export function createClubTopic(chatId: string, payload: { title: string; description?: string | null }) {
   return api<ClubTopicMutationResponse>(`/community/chats/${chatId}/topics`, {
     method: "POST",

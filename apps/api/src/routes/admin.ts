@@ -31,6 +31,7 @@ import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt, summarizePollStatistics } from "../community/pollStats";
+import { publishCommunityChange } from "../community/realtime";
 import { db } from "../db/client";
 import {
   adminActionLogs,
@@ -3052,6 +3053,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
             hardDelete: true
           }
         });
+        publishCommunityChange(message.topicId);
         return c.json({ ok: true });
       }
 
@@ -3083,6 +3085,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           reason: body.data.reason ?? null
         }
       });
+      publishCommunityChange(message.topicId);
       return c.json({ ok: true });
     }
 

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Сообщения в реальном времени",
+    items: [
+      "Новые сообщения, реакции, опросы, закрепления и действия модерации теперь появляются через постоянное SSE-соединение.",
+      "Убран запрос всех сообщений каждые две секунды — сервер отправляет сигнал только при реальном изменении чата.",
+      "После потери сети соединение восстанавливается автоматически, а чат синхронизирует пропущенные изменения."
+    ]
+  },
+  {
+    version: "4.20",
+    updatedAt: "13.07.2026 23:54",
     title: "Понятное сворачивание модулей",
     items: [
       "В раскрытом модуле стрелка теперь направлена вверх и однозначно показывает действие «свернуть»."
@@ -2840,9 +2850,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clear module collapsing",
+  title: "Real-time chat messages",
   items: [
-    "The expanded module now uses an upward chevron that clearly communicates the collapse action."
+    "New messages, reactions, polls, pins, and moderation changes now arrive through a persistent SSE connection.",
+    "The two-second full-message polling loop has been removed, reducing unnecessary server and database work.",
+    "The chat reconnects automatically after a network interruption and synchronizes missed changes."
   ]
 };
 

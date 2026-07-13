@@ -9,6 +9,7 @@ import {
   createClubPoll,
   voteInClubPoll,
   closeClubPoll,
+  createCommunityEventSource,
   createCommunityTopic,
   createTopicUserMute,
   deleteTopicAuthorMessages,
@@ -76,8 +77,10 @@ const messagesEnd = ref<HTMLElement | null>(null);
 const messagesList = ref<HTMLElement | null>(null);
 const muteAlertShown = ref(false);
 const topicReadAt = ref<Record<string, string>>({});
-let refreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 let topicsRefreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
+let realtimeSyncTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+let communityEventSource: EventSource | null = null;
+let realtimeConnected = false;
 let messageHighlightTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let refreshInFlight = false;
 let topicsRefreshInFlight = false;
@@ -519,22 +522,6 @@ async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) 
   }
 }
 
-function stopMessageRefresh() {
-  if (refreshTimer) {
-    globalThis.clearInterval(refreshTimer);
-    refreshTimer = null;
-  }
-}
-
-function startMessageRefresh() {
-  stopMessageRefresh();
-  refreshTimer = globalThis.setInterval(() => {
-    if (document.visibilityState === "visible") {
-      void refreshSelectedTopic({ silent: true });
-    }
-  }, 2000);
-}
-
 async function loadTopics({ showLoading = false } = {}) {
   if (!hasCommunityAccess.value || topicsRefreshInFlight) {
     return;
@@ -578,6 +565,82 @@ function startTopicsRefresh() {
       void loadTopics();
     }
   }, 5000);
+}
+
+function stopCommunityRealtime() {
+  if (communityEventSource) {
+    communityEventSource.close();
+    communityEventSource = null;
+  }
+  realtimeConnected = false;
+  if (realtimeSyncTimer) {
+    globalThis.clearTimeout(realtimeSyncTimer);
+    realtimeSyncTimer = null;
+  }
+}
+
+function scheduleRealtimeSync() {
+  if (!hasCommunityAccess.value || document.visibilityState !== "visible") {
+    return;
+  }
+  if (realtimeSyncTimer) {
+    globalThis.clearTimeout(realtimeSyncTimer);
+  }
+  realtimeSyncTimer = globalThis.setTimeout(() => {
+    realtimeSyncTimer = null;
+    if (selectedTopic.value) {
+      void refreshSelectedTopic({ silent: true });
+      return;
+    }
+    void loadTopics();
+  }, 80);
+}
+
+function startCommunityRealtime() {
+  stopCommunityRealtime();
+  if (!hasCommunityAccess.value || typeof EventSource === "undefined") {
+    if (!selectedTopic.value) {
+      startTopicsRefresh();
+    }
+    return;
+  }
+
+  const eventSource = createCommunityEventSource();
+  communityEventSource = eventSource;
+  eventSource.onopen = () => {
+    realtimeConnected = true;
+    stopTopicsRefresh();
+  };
+  eventSource.addEventListener("ready", () => {
+    realtimeConnected = true;
+    stopTopicsRefresh();
+    scheduleRealtimeSync();
+  });
+  eventSource.addEventListener("community.changed", (rawEvent) => {
+    if (selectedTopic.value && rawEvent instanceof MessageEvent) {
+      try {
+        const event = JSON.parse(rawEvent.data) as { topicId?: string | null };
+        if (event.topicId && event.topicId !== selectedTopic.value.id) {
+          return;
+        }
+      } catch {
+        // A malformed invalidation still triggers a safe full synchronization.
+      }
+    }
+    scheduleRealtimeSync();
+  });
+  eventSource.onerror = () => {
+    realtimeConnected = false;
+    if (!selectedTopic.value) {
+      startTopicsRefresh();
+    }
+  };
+}
+
+function handleCommunityVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    scheduleRealtimeSync();
+  }
 }
 
 async function openTopic(topic: ClubTopic) {
@@ -862,9 +925,11 @@ async function handleReaction(message: ClubMessage, reaction: Exclude<MessageRea
 
 onMounted(() => {
   document.addEventListener("keydown", handleModerationSheetKeydown);
+  document.addEventListener("visibilitychange", handleCommunityVisibilityChange);
   loadTopicReadState();
   if (hasCommunityAccess.value) {
     void loadTopics({ showLoading: true });
+    startCommunityRealtime();
   }
 });
 
@@ -874,12 +939,12 @@ watch(
     emit("chatOpenChange", isOpen);
     if (isOpen) {
       stopTopicsRefresh();
-      startMessageRefresh();
       return;
     }
 
-    stopMessageRefresh();
-    startTopicsRefresh();
+    if (!realtimeConnected) {
+      startTopicsRefresh();
+    }
     showTopicAdminMenu.value = false;
     activeModerationMessageId.value = null;
     activeReactionMessageId.value = null;
@@ -896,19 +961,21 @@ watch(
       topics.value = [];
       messages.value = [];
       clearCommunityError();
-      stopMessageRefresh();
+      stopCommunityRealtime();
       stopTopicsRefresh();
       return;
     }
 
     void loadTopics({ showLoading: true });
+    startCommunityRealtime();
   }
 );
 
 onBeforeUnmount(() => {
-  stopMessageRefresh();
+  stopCommunityRealtime();
   stopTopicsRefresh();
   document.removeEventListener("keydown", handleModerationSheetKeydown);
+  document.removeEventListener("visibilitychange", handleCommunityVisibilityChange);
   if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
   emit("chatOpenChange", false);
 });

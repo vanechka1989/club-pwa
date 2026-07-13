@@ -34,7 +34,8 @@ const previewModeSchema = z.enum(["developer", "admin", "member-active", "member
 type PreviewMode = z.infer<typeof previewModeSchema>;
 
 export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
-  if (!hasPwaStandaloneAuthHeader(c.req.header(pwaStandaloneAuthHeaderName))) {
+  const isCommunityEventStream = c.req.path === "/community/events" && c.req.query("pwa") === "1";
+  if (!hasPwaStandaloneAuthHeader(c.req.header(pwaStandaloneAuthHeaderName)) && !isCommunityEventStream) {
     return c.json({ error: pwaInstallRequiredMessage }, 403);
   }
 
@@ -80,7 +81,9 @@ export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   c.set("previewRole", null);
   c.set("previewMembershipStatus", null);
 
-  const previewMode = previewModeSchema.safeParse(c.req.header("x-club-preview-mode"));
+  const previewMode = previewModeSchema.safeParse(
+    c.req.header("x-club-preview-mode") ?? (isCommunityEventStream ? c.req.query("preview") : undefined)
+  );
   const isOwner = await isOwnerTelegramId(sessionUser.id);
   if (isOwner && previewMode.success) {
     const roleByMode: Record<PreviewMode, UserRole> = {

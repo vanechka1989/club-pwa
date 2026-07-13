@@ -2,6 +2,7 @@ import { and, count, desc, eq, gt, lte, ne, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
+import { streamSSE, type SSEMessage } from "hono/streaming";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
@@ -14,6 +15,7 @@ import { getArchiveExpirationDate } from "../community/topicArchive";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, validateCommunityImageFiles } from "../community/mediaUpload";
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
+import { publishCommunityChange, subscribeToCommunityChanges } from "../community/realtime";
 import { db } from "../db/client";
 import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
@@ -71,6 +73,7 @@ const topicSettingsSchema = z.object({
 });
 
 const systemChatSlug = "club-community";
+const communityMutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const defaultTopics = [
   {
     title: "Новости клуба",
@@ -485,6 +488,73 @@ async function notifyReplyRecipient({
 
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
+  .use("*", async (c, next) => {
+    await next();
+
+    if (communityMutationMethods.has(c.req.method) && c.res.status < 400) {
+      const topicMatch = c.req.path.match(/\/topics\/([^/]+)/);
+      publishCommunityChange(topicMatch?.[1] ? decodeURIComponent(topicMatch[1]) : null);
+    }
+  })
+  .get("/events", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
+    c.header("Cache-Control", "no-cache, no-transform");
+    c.header("X-Accel-Buffering", "no");
+
+    return streamSSE(c, async (stream) => {
+      let active = true;
+      let writeQueue = Promise.resolve();
+
+      const enqueue = (message: SSEMessage) => {
+        writeQueue = writeQueue
+          .then(async () => {
+            if (active && !stream.aborted) {
+              await stream.writeSSE(message);
+            }
+          })
+          .catch(() => {
+            active = false;
+          });
+        return writeQueue;
+      };
+
+      const unsubscribe = subscribeToCommunityChanges((event) => {
+        void enqueue({
+          id: event.id,
+          event: "community.changed",
+          data: JSON.stringify(event)
+        });
+      });
+
+      stream.onAbort(() => {
+        active = false;
+        unsubscribe();
+      });
+
+      try {
+        await enqueue({
+          event: "ready",
+          retry: 2_000,
+          data: JSON.stringify({ connectedAt: new Date().toISOString() })
+        });
+
+        while (active && !stream.aborted) {
+          await stream.sleep(25_000);
+          if (active && !stream.aborted) {
+            await enqueue({ event: "heartbeat", data: "{}" });
+          }
+        }
+      } finally {
+        active = false;
+        unsubscribe();
+      }
+    });
+  })
   .get("/topics", async (c) => {
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
