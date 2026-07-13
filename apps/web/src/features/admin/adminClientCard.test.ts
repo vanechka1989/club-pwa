@@ -139,6 +139,14 @@ describe("admin client card helpers", () => {
     expect(clientScreen).not.toContain("admin-accordion-head");
   });
 
+  it("keeps closed client disclosures as compact tap rows", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\s*\{[^}]*gap:\s*0;[^}]*min-height:\s*0;/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*min-height:\s*44px;[^}]*padding:\s*6px 12px;/s);
+    expect(styles).toMatch(/\.admin-client-workspace\s*\{[^}]*gap:\s*8px;/s);
+  });
+
   it("shows clear labels for manual access changes", () => {
     const manualGrant = {
       status: "active",

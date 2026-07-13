@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the unified client sections as version 4.00", () => {
-    expect(appVersion).toBe("4.00");
-    expect(releaseNotes[0]?.title).toBe("Единые разделы клиента");
+  it("publishes compact client sections as version 4.01", () => {
+    expect(appVersion).toBe("4.01");
+    expect(releaseNotes[0]?.title).toBe("Компактные разделы клиента");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

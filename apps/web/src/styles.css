@@ -16937,9 +16937,20 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   display: grid;
   width: 100%;
   min-width: 0;
-  gap: 12px;
+  gap: 8px;
   align-content: start;
   touch-action: pan-y;
+}
+
+.admin-client-workspace .admin-client-compact-section {
+  gap: 0;
+  min-height: 0;
+  border-radius: 12px;
+}
+
+.admin-client-workspace .admin-client-compact-section > summary {
+  min-height: 44px;
+  padding: 6px 12px;
 }
 
 .admin-client-workspace > .admin-detail,
