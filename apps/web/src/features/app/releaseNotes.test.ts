@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes email unsubscribe confirmation as version 4.11", () => {
-    expect(appVersion).toBe("4.11");
-    expect(releaseNotes[0]?.title).toBe("Управление email-рассылками");
+  it("publishes the owner emergency login code as version 4.12", () => {
+    expect(appVersion).toBe("4.12");
+    expect(releaseNotes[0]?.title).toBe("Аварийный код входа");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

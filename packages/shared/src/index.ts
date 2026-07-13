@@ -682,6 +682,14 @@ export const adminMutationResponseSchema = z.object({
 });
 export type AdminMutationResponse = z.infer<typeof adminMutationResponseSchema>;
 
+export const ownerEmailLoginCodeResponseSchema = z.object({
+  ok: z.literal(true),
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/),
+  expiresAt: z.string().datetime()
+});
+export type OwnerEmailLoginCodeResponse = z.infer<typeof ownerEmailLoginCodeResponseSchema>;
+
 export const telegramBotStatusSchema = z.enum(["unknown", "active", "blocked"]);
 export type TelegramBotStatus = z.infer<typeof telegramBotStatusSchema>;
 

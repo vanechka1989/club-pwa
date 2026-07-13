@@ -139,19 +139,22 @@ export const authRoute = new Hono()
 
     const now = new Date();
     const codeHash = hashAuthToken(`${email}:${body.data.code}`);
-    const loginCode = await db.query.authEmailLoginCodes.findFirst({
-      where: and(eq(authEmailLoginCodes.email, email), eq(authEmailLoginCodes.codeHash, codeHash), isNull(authEmailLoginCodes.consumedAt), gt(authEmailLoginCodes.expiresAt, now)),
-      orderBy: [desc(authEmailLoginCodes.createdAt)]
-    });
+    const [loginCode] = await db
+      .update(authEmailLoginCodes)
+      .set({ consumedAt: now })
+      .where(
+        and(
+          eq(authEmailLoginCodes.email, email),
+          eq(authEmailLoginCodes.codeHash, codeHash),
+          isNull(authEmailLoginCodes.consumedAt),
+          gt(authEmailLoginCodes.expiresAt, now)
+        )
+      )
+      .returning({ id: authEmailLoginCodes.id });
 
     if (!loginCode) {
       return c.json({ error: "Код не найден или уже истёк." }, 401);
     }
-
-    await db
-      .update(authEmailLoginCodes)
-      .set({ consumedAt: now })
-      .where(eq(authEmailLoginCodes.id, loginCode.id));
 
     const user = await findOrCreateEmailUser(email);
     if (!user) {

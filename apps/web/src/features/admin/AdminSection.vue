@@ -22,6 +22,7 @@ import {
   type MailingChannel,
   type MailingFilters,
   type PaymentOrderLog,
+  type OwnerEmailLoginCodeResponse,
   type S3StorageObject,
   type S3StorageSettings
 } from "@club/shared";
@@ -65,6 +66,7 @@ import {
   getAdminMailings,
   getAdminPaymentHistory,
   getAdminProjectSettings,
+  generateOwnerEmailLoginCode,
   getAdminS3Objects,
   getAdminS3ObjectUrl,
   getAdminS3StorageSettings,
@@ -216,6 +218,13 @@ const showServerLogsModal = ref(false);
 const projectSettingsLoaded = ref(false);
 const projectSettingsMessage = ref<string | null>(null);
 const referralRewardDaysDraft = ref(7);
+const ownerLoginCodeEmail = ref("");
+const generatedEmailLoginCode = ref<OwnerEmailLoginCodeResponse | null>(null);
+const ownerLoginCodeLoading = ref(false);
+const ownerLoginCodeError = ref<string | null>(null);
+const ownerLoginCodeCopied = ref(false);
+let ownerLoginCodeExpiryTimer: number | null = null;
+let ownerLoginCodeRequestGeneration = 0;
 const databaseBackupBusy = ref(false);
 const databaseRestoreBusy = ref(false);
 const databaseRestoreFile = ref<File | null>(null);
@@ -1261,6 +1270,63 @@ async function saveProjectSettings() {
   } finally {
     saving.value = false;
   }
+}
+
+async function generateEmergencyEmailLoginCode() {
+  const email = ownerLoginCodeEmail.value.trim().toLowerCase();
+  const requestGeneration = ++ownerLoginCodeRequestGeneration;
+  generatedEmailLoginCode.value = null;
+  ownerLoginCodeError.value = null;
+  ownerLoginCodeCopied.value = false;
+
+  if (!email) {
+    ownerLoginCodeError.value = "Введите email клиента.";
+    return;
+  }
+
+  ownerLoginCodeLoading.value = true;
+  try {
+    const response = await generateOwnerEmailLoginCode({ email });
+    if (requestGeneration !== ownerLoginCodeRequestGeneration || activePanel.value !== "project-settings") return;
+    generatedEmailLoginCode.value = response;
+    ownerLoginCodeEmail.value = email;
+    scheduleOwnerLoginCodeReset(response.expiresAt);
+  } catch (requestError) {
+    if (requestGeneration !== ownerLoginCodeRequestGeneration || activePanel.value !== "project-settings") return;
+    const errorPayload = requestError as { data?: { error?: string } };
+    ownerLoginCodeError.value = errorPayload.data?.error ?? "Не удалось создать код входа.";
+  } finally {
+    if (requestGeneration === ownerLoginCodeRequestGeneration) {
+      ownerLoginCodeLoading.value = false;
+    }
+  }
+}
+
+async function copyOwnerLoginCode() {
+  if (!generatedEmailLoginCode.value) return;
+  await copyTextToClipboard(generatedEmailLoginCode.value.code);
+  ownerLoginCodeCopied.value = true;
+}
+
+function resetOwnerLoginCode() {
+  ownerLoginCodeRequestGeneration += 1;
+  if (ownerLoginCodeExpiryTimer !== null) {
+    window.clearTimeout(ownerLoginCodeExpiryTimer);
+    ownerLoginCodeExpiryTimer = null;
+  }
+  generatedEmailLoginCode.value = null;
+  ownerLoginCodeError.value = null;
+  ownerLoginCodeCopied.value = false;
+  ownerLoginCodeLoading.value = false;
+  ownerLoginCodeEmail.value = "";
+}
+
+function scheduleOwnerLoginCodeReset(expiresAt: string) {
+  if (ownerLoginCodeExpiryTimer !== null) {
+    window.clearTimeout(ownerLoginCodeExpiryTimer);
+  }
+  const delay = Math.max(0, new Date(expiresAt).getTime() - Date.now());
+  ownerLoginCodeExpiryTimer = window.setTimeout(resetOwnerLoginCode, delay);
 }
 
 function openServerLogsModal() {
@@ -2583,6 +2649,13 @@ function startServerLogsAutoRefresh() {
 watch(
   () => activePanel.value,
   (panel) => {
+    if (
+      panel !== "project-settings" &&
+      (generatedEmailLoginCode.value || ownerLoginCodeError.value || ownerLoginCodeLoading.value)
+    ) {
+      resetOwnerLoginCode();
+    }
+
     if (panel === "server-logs") {
       startServerLogsAutoRefresh();
       return;
@@ -2600,6 +2673,7 @@ watch(
 );
 
 onUnmounted(() => {
+  resetOwnerLoginCode();
   resetAccessSaveState();
   if (mailingPreviewTimer) {
     window.clearTimeout(mailingPreviewTimer);
@@ -3992,6 +4066,50 @@ onUnmounted(() => {
         </form>
 
         <p v-if="projectSettingsMessage" class="admin-form-note">{{ projectSettingsMessage }}</p>
+      </section>
+
+      <section v-if="isOwner" class="admin-crm-block ui-card admin-owner-login-code-card">
+        <div>
+          <h4>Аварийный вход по email</h4>
+          <p>Создайте одноразовый код, если клиент не может получить письмо. Срок действия появится вместе с кодом.</p>
+        </div>
+
+        <form v-if="!generatedEmailLoginCode" class="admin-owner-login-code-form" @submit.prevent="generateEmergencyEmailLoginCode">
+          <label class="admin-field">
+            <span>Email клиента</span>
+            <input
+              v-model="ownerLoginCodeEmail"
+              class="text-input"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              placeholder="client@example.com"
+              required
+            />
+          </label>
+          <button class="primary-button ui-button" type="submit" :disabled="ownerLoginCodeLoading">
+            {{ ownerLoginCodeLoading ? "Генерируем…" : "Сгенерировать код" }}
+          </button>
+        </form>
+
+        <div v-else class="admin-owner-login-code-result">
+          <div class="admin-owner-login-code-copy">
+            <span>{{ generatedEmailLoginCode.email }}</span>
+            <strong class="admin-owner-login-code-value">{{ generatedEmailLoginCode.code }}</strong>
+            <small>Действует до {{ formatDateTime(generatedEmailLoginCode.expiresAt) }}</small>
+          </div>
+          <div class="admin-owner-login-code-actions">
+            <button class="secondary-button ui-button" type="button" @click="copyOwnerLoginCode">
+              <Copy :size="17" />
+              {{ ownerLoginCodeCopied ? "Скопировано" : "Скопировать код" }}
+            </button>
+            <button class="secondary-button ui-button" type="button" @click="resetOwnerLoginCode">
+              Создать другой
+            </button>
+          </div>
+        </div>
+
+        <p v-if="ownerLoginCodeError" class="admin-form-note admin-form-note-error">{{ ownerLoginCodeError }}</p>
       </section>
     </section>
 

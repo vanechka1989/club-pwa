@@ -15,6 +15,7 @@ import type {
   AdminPaymentProviderResponse,
   AdminProjectSettingsMutationResponse,
   AdminProjectSettingsResponse,
+  OwnerEmailLoginCodeResponse,
   AdminListResponse,
   AdminModerationResponse,
   AdminUserDetailResponse,
@@ -576,6 +577,13 @@ export function getAdminProjectSettings() {
 
 export function updateAdminProjectSettings(payload: { referralRewardDays: number }) {
   return api<AdminProjectSettingsMutationResponse>("/admin/project-settings", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function generateOwnerEmailLoginCode(payload: { email: string }) {
+  return api<OwnerEmailLoginCodeResponse>("/admin/owner-email-login-code", {
     method: "POST",
     body: payload
   });

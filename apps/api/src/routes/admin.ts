@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { statfs, unlink } from "node:fs/promises";
@@ -36,6 +36,7 @@ import {
   adminActionLogs,
   adminMailings,
   adminUsers,
+  authEmailLoginCodes,
   authSessions,
   appNotifications,
   clubSettings,
@@ -103,6 +104,7 @@ import {
   validateDatabaseRestoreConfirmation
 } from "../db/backup";
 import { getAdminUserReferrals, getReferralRewardDays, updateReferralRewardDays } from "../referrals/referrals";
+import { createLoginCode, hashAuthToken, normalizeEmail } from "../auth/emailAuth";
 
 const userIdentifierSchema = z.string().trim().min(3).max(320);
 
@@ -135,6 +137,12 @@ const accessPayloadSchema = z.object({
 const projectSettingsPayloadSchema = z.object({
   referralRewardDays: z.number().int().positive().max(3650)
 });
+
+const ownerEmailLoginCodePayloadSchema = z.object({
+  email: z.string().trim().min(3).max(320)
+});
+
+const ownerEmailLoginCodeCooldownSeconds = 30;
 
 const moderationStatusPayloadSchema = z.object({
   status: z.enum(["visible", "hidden", "deleted"]),
@@ -1318,6 +1326,88 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       settings: {
         referralRewardDays
       }
+    });
+  })
+  .post("/owner-email-login-code", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) {
+      return ownerError;
+    }
+
+    const body = ownerEmailLoginCodePayloadSchema.safeParse(await c.req.json().catch(() => null));
+    const email = body.success ? normalizeEmail(body.data.email) : null;
+    if (!email) {
+      return c.json({ error: "Введите корректный email клиента." }, 400);
+    }
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email)
+    });
+    if (!user) {
+      return c.json({ error: "Клиент с таким email не найден." }, 404);
+    }
+
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${email}))`);
+
+      const now = new Date();
+      const cooldownStartedAt = new Date(now.getTime() - ownerEmailLoginCodeCooldownSeconds * 1000);
+      const latestOwnerCode = await tx.query.adminActionLogs.findFirst({
+        where: and(
+          eq(adminActionLogs.action, "owner.email_login_code.generated"),
+          eq(adminActionLogs.targetUserId, user.id),
+          gt(adminActionLogs.createdAt, cooldownStartedAt)
+        ),
+        orderBy: [desc(adminActionLogs.createdAt)]
+      });
+      if (latestOwnerCode) {
+        return {
+          ok: false as const,
+          retryAfterSeconds: Math.max(
+            1,
+            Math.ceil((latestOwnerCode.createdAt.getTime() + ownerEmailLoginCodeCooldownSeconds * 1000 - now.getTime()) / 1000)
+          )
+        };
+      }
+
+      const code = createLoginCode();
+      const expiresAt = new Date(now.getTime() + env.AUTH_LOGIN_CODE_TTL_MINUTES * 60 * 1000);
+      await tx
+        .update(authEmailLoginCodes)
+        .set({ consumedAt: now })
+        .where(and(eq(authEmailLoginCodes.email, email), isNull(authEmailLoginCodes.consumedAt)));
+      await tx.insert(authEmailLoginCodes).values({
+        email,
+        codeHash: hashAuthToken(`${email}:${code}`),
+        expiresAt
+      });
+      await tx.insert(adminActionLogs).values({
+        actorUserId: c.get("userId"),
+        actorTelegramId: c.get("telegramUser").id,
+        action: "owner.email_login_code.generated",
+        entityType: "user",
+        entityId: user.id,
+        targetUserId: user.id,
+        targetTelegramId: user.telegramId,
+        summary: `Создал аварийный код входа для ${email}`,
+        metadata: { email, expiresAt: expiresAt.toISOString() }
+      });
+
+      return { ok: true as const, code, expiresAt };
+    });
+
+    if (!result.ok) {
+      return c.json(
+        { error: `Сгенерировать новый код можно через ${result.retryAfterSeconds}с.`, retryAfterSeconds: result.retryAfterSeconds },
+        429
+      );
+    }
+
+    return c.json({
+      ok: true,
+      email,
+      code: result.code,
+      expiresAt: result.expiresAt.toISOString()
     });
   })
   .get("/server-status", async (c) => {

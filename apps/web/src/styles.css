@@ -4784,6 +4784,99 @@ body.club-keyboard-open .admin-client-file-button {
   gap: 0.65rem;
 }
 
+.admin-owner-login-code-card {
+  gap: 0.75rem;
+}
+
+.admin-owner-login-code-card > div:first-child p {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.admin-owner-login-code-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.65rem;
+}
+
+.admin-owner-login-code-form .ui-button,
+.admin-owner-login-code-actions .ui-button {
+  min-height: 44px;
+}
+
+.admin-owner-login-code-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-soft) 34%, var(--panel));
+  padding: 0.75rem;
+}
+
+.admin-owner-login-code-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.admin-owner-login-code-copy span,
+.admin-owner-login-code-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-owner-login-code-value {
+  color: var(--text);
+  font-size: 1.7rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  line-height: 1.05;
+}
+
+.admin-owner-login-code-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.admin-owner-login-code-actions .ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.admin-form-note-error {
+  color: var(--danger);
+}
+
+@media (max-width: 420px) {
+  .admin-owner-login-code-form,
+  .admin-owner-login-code-result {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-owner-login-code-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-owner-login-code-actions .ui-button {
+    white-space: normal;
+  }
+}
+
 .admin-accordion-block {
   gap: 0.5rem;
 }
