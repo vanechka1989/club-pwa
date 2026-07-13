@@ -657,6 +657,7 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     id: user.id,
     telegramId: user.telegramId,
     email: user.email,
+    marketingEmailOptOutAt: user.marketingEmailOptOutAt?.toISOString() ?? null,
     firstName: user.firstName,
     username: user.username,
     displayName: user.displayName,

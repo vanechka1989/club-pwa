@@ -2904,6 +2904,7 @@ onUnmounted(() => {
               </span>
             </span>
             <span class="admin-list-badges">
+              <em v-if="user.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</em>
               <em
                 class="admin-access-badge"
                 :class="`admin-access-badge-${getAdminClientAccessState(user).tone}`"
@@ -2938,6 +2939,7 @@ onUnmounted(() => {
                 </div>
               </div>
               <div class="admin-client-status-row">
+                <span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span>
                 <span
                   class="admin-status-pill"
                   :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`"

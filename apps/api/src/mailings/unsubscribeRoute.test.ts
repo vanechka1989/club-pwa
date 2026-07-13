@@ -12,4 +12,16 @@ describe("public mailing unsubscribe route", () => {
     expect(routeSource).toContain("marketingEmailOptOutAt");
     expect(routeSource).not.toContain("telegramAuth");
   });
+
+  it("shows a safe confirmation on GET and only unsubscribes on POST", () => {
+    const routeSource = readFileSync(resolve(__dirname, "../routes/mailingPreferences.ts"), "utf8");
+    const getHandler = routeSource.match(/async function showUnsubscribeConfirmation[\s\S]*?(?=async function confirmMailingUnsubscribe)/)?.[0] ?? "";
+
+    expect(routeSource).toContain('.get("/unsubscribe", showUnsubscribeConfirmation)');
+    expect(routeSource).toContain('.post("/unsubscribe", confirmMailingUnsubscribe)');
+    expect(routeSource).toContain('method="post"');
+    expect(routeSource).toContain("Отписаться от рассылок");
+    expect(routeSource).toContain("Коды входа продолжат приходить");
+    expect(getHandler).not.toContain(".update(users)");
+  });
 });

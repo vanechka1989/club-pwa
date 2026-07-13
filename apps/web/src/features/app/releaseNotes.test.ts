@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the duplicate mailing protection as version 4.10", () => {
-    expect(appVersion).toBe("4.10");
-    expect(releaseNotes[0]?.title).toBe("Защита рассылок от дублей");
+  it("publishes email unsubscribe confirmation as version 4.11", () => {
+    expect(appVersion).toBe("4.11");
+    expect(releaseNotes[0]?.title).toBe("Управление email-рассылками");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

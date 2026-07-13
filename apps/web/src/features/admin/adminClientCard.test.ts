@@ -22,6 +22,20 @@ describe("admin client card helpers", () => {
     expect(getAdminClientAccessState({ membershipStatus: "active", hasRestrictions: true })).toEqual({ label: "Доступ ограничен", tone: "restricted" });
   });
 
+  it("shows an email opt-out marker in the client list and detail card", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const apiSource = readFileSync(resolve(__dirname, "../../../../api/src/routes/admin.ts"), "utf8");
+    const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/shared/src/index.ts"), "utf8");
+
+    expect(sharedSource).toContain("marketingEmailOptOutAt: z.string().datetime().nullable()");
+    expect(apiSource).toContain("marketingEmailOptOutAt: user.marketingEmailOptOutAt?.toISOString() ?? null");
+    expect(source.match(/Email отключён/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(source).toContain('v-if="user.marketingEmailOptOutAt"');
+    expect(source).toContain('v-if="selectedUser.marketingEmailOptOutAt"');
+    expect(styles).toMatch(/\.admin-email-opt-out-badge\s*\{[^}]*color:\s*var\(--danger\);/s);
+  });
+
   it("shows the last login in the compact client card header", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 

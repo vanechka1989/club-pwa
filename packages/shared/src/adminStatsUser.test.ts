@@ -6,6 +6,7 @@ describe("admin stats user schema", () => {
     const parsed = adminStatsUserSchema.parse({
       id: "user-1",
       telegramId: "593677751",
+      marketingEmailOptOutAt: "2026-07-13T11:00:00.000Z",
       firstName: "Ivan",
       username: "ivan",
       photoUrl: null,
@@ -26,6 +27,7 @@ describe("admin stats user schema", () => {
     });
 
     expect(parsed.telegramBotStatus).toBe("blocked");
+    expect(parsed.marketingEmailOptOutAt).toBe("2026-07-13T11:00:00.000Z");
     expect(parsed.telegramBotBlockedAt).toBe("2026-06-29T12:20:00.000Z");
     expect(parsed.telegramBotUnblockedAt).toBeNull();
   });
