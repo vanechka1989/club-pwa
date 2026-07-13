@@ -143,7 +143,7 @@ describe("admin client card helpers", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\s*\{[^}]*gap:\s*0;[^}]*min-height:\s*0;/s);
-    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*min-height:\s*44px;[^}]*padding:\s*6px 12px;/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*box-sizing:\s*border-box;[^}]*height:\s*44px;[^}]*min-height:\s*44px;[^}]*padding:\s*6px 12px;/s);
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section:not\(\[open\]\)\s*\{[^}]*height:\s*44px;/s);
     expect(styles).toMatch(/\.admin-client-workspace\s*\{[^}]*gap:\s*4px;/s);
   });

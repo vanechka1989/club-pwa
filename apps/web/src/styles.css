@@ -16953,6 +16953,8 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .admin-client-workspace .admin-client-compact-section > summary {
+  box-sizing: border-box;
+  height: 44px;
   min-height: 44px;
   padding: 6px 12px;
 }

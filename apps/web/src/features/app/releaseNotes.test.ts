@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes fixed-height client rows as version 4.02", () => {
-    expect(appVersion).toBe("4.02");
-    expect(releaseNotes[0]?.title).toBe("Минимальные строки клиента");
+  it("publishes centered client rows as version 4.03", () => {
+    expect(appVersion).toBe("4.03");
+    expect(releaseNotes[0]?.title).toBe("Центрирование строк клиента");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
