@@ -27,6 +27,7 @@ import { useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
+import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -67,7 +68,9 @@ const productForm = ref({
   isPublished: true
 });
 
-const isAdmin = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const isAdmin = computed(() =>
+  hasAdminCapability(session.user?.role, session.user?.adminPermissions, "payments")
+);
 const isOwner = computed(() => session.user?.role === "owner");
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
@@ -279,6 +282,17 @@ function closeProductModal() {
 }
 
 function syncPaymentTaskRoute() {
+  const isPaymentPlanTask =
+    route.path === "/payments/plans/new" || /^\/payments\/plans\/[^/]+\/edit$/.test(route.path);
+
+  if ((route.path === "/payments/provider" && !isOwner.value) || (isPaymentPlanTask && !isAdmin.value)) {
+    showProviderForm.value = false;
+    showProductModal.value = false;
+    resetProductForm();
+    void router.replace("/payments");
+    return;
+  }
+
   if (route.path === "/payments/provider") {
     if (isOwner.value) {
       setProviderForm();
@@ -497,7 +511,7 @@ onMounted(async () => {
   syncPaymentTaskRoute();
 });
 
-watch(() => route.path, syncPaymentTaskRoute);
+watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
 </script>
 
 <template>

@@ -89,12 +89,21 @@ describe("support section", () => {
   });
 
   it("uses preview role for support mode instead of the real admin role", () => {
-    expect(source).toContain("isSupportAdminRole");
-    expect(source).toMatch(/const isAdmin = computed\(\(\) => isSupportAdminRole\(session\.user\?\.role\)\);/);
+    expect(source).toContain("hasAdminCapability");
+    expect(source).toContain('hasAdminCapability(session.user?.role, session.user?.adminPermissions, "support")');
     expect(source).not.toContain(
       "isSupportAdminRole(session.user?.realRole) || isSupportAdminRole(session.user?.role)"
     );
     expect(source).toContain('v-else-if="!isAdmin"');
+  });
+
+  it("applies support permission changes immediately without retaining admin tickets", () => {
+    expect(source).toContain("watch(isAdmin");
+    expect(source).toContain("supportModeVersion");
+    expect(source).toContain("tickets.value = []");
+    expect(source).toContain("selectedTicketId.value = null");
+    expect(source).toContain('router.replace("/support")');
+    expect(source).toContain("modeChanged");
   });
 
   it("shows average support response time in admin support stats", () => {

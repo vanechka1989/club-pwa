@@ -114,7 +114,7 @@ import {
   filterUsersByTariff,
   type AdminAccessBreakdownItem
 } from "@/features/admin/adminUserDrilldown";
-import { getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
+import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
@@ -367,6 +367,9 @@ const panels = computed(() =>
     ...panel,
     icon: panelIcons[panel.id]
   }))
+);
+const adminPermissionStateKey = computed(
+  () => `${session.user?.role ?? "none"}:${session.user?.adminPermissions.join("|") ?? ""}`
 );
 function hasCurrentAdminPermission(permission: AdminPermission) {
   return isOwner.value || Boolean(session.user?.adminPermissions.includes(permission));
@@ -2465,21 +2468,42 @@ async function handleTransferOwner() {
   }
 }
 
+function resetAdminTaskState() {
+  showReleaseNotesModal.value = false;
+  selectedPaymentBreakdown.value = null;
+  selectedUserDrilldown.value = null;
+  selectedUser.value = null;
+  selectedUserDetail.value = null;
+  selectedUserLoginIps.value = [];
+  selectedMailing.value = null;
+  showMailingComposer.value = false;
+  showStorageFilesModal.value = false;
+  showStorageFolderModal.value = false;
+  showStorageSettingsModal.value = false;
+  showServerLogsModal.value = false;
+  showTransferOwnerModal.value = false;
+  selectedAdminAccess.value = null;
+  clientMessageOpen.value = false;
+}
+
 async function syncAdminTaskRoute() {
   const path = route.path;
   if (!path.startsWith("/admin/")) {
-    showReleaseNotesModal.value = false;
-    selectedPaymentBreakdown.value = null;
-    selectedUserDrilldown.value = null;
-    selectedUser.value = null;
-    selectedMailing.value = null;
-    showMailingComposer.value = false;
-    showStorageFilesModal.value = false;
-    showStorageFolderModal.value = false;
-    showStorageSettingsModal.value = false;
-    showServerLogsModal.value = false;
-    showTransferOwnerModal.value = false;
-    selectedAdminAccess.value = null;
+    resetAdminTaskState();
+    return;
+  }
+
+  const requestedPanel = getAdminPanelForTaskPath(path);
+  const ownerTaskDenied = requestedPanel === "owner-only" && !isOwner.value;
+  const developerTaskDenied = requestedPanel === "developer-only" && !canViewReleaseNotes.value;
+  const panelTaskDenied =
+    requestedPanel !== null &&
+    requestedPanel !== "owner-only" &&
+    requestedPanel !== "developer-only" &&
+    !panels.value.some((panel) => panel.id === requestedPanel);
+  if (ownerTaskDenied || developerTaskDenied || panelTaskDenied) {
+    resetAdminTaskState();
+    await router.replace("/admin");
     return;
   }
 
@@ -2589,6 +2613,11 @@ watch(
   },
   { immediate: true }
 );
+
+watch(adminPermissionStateKey, () => {
+  resetAdminTaskState();
+  void loadAll().then(syncAdminTaskRoute);
+});
 
 watch(
   () => props.openClientTelegramId,

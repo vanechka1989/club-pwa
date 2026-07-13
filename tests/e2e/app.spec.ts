@@ -326,19 +326,19 @@ function communityMessagesResponse() {
   };
 }
 
-async function mockApi(page: Page) {
+async function mockApi(page: Page, sessionUser = currentUser) {
   const handleApiRoute = async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.startsWith("/api/") ? url.pathname.slice(4) : url.pathname;
 
     if (path === "/me") {
-      await route.fulfill(json({ user: currentUser }));
+      await route.fulfill(json({ user: sessionUser }));
       return;
     }
 
     if (path === "/me/device" && request.method() === "POST") {
-      await route.fulfill(json({ ok: true, user: currentUser }));
+      await route.fulfill(json({ ok: true, user: sessionUser }));
       return;
     }
 
@@ -1518,6 +1518,53 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
+});
+
+test("keeps a permissionless administrator on safe member APIs while switching tabs", async ({ page }, testInfo) => {
+  const permissionlessAdmin = {
+    ...currentUser,
+    id: "user-permissionless-admin",
+    telegramId: "permissionless-admin",
+    role: "admin" as const,
+    realRole: "admin" as const,
+    adminPermissions: []
+  };
+  const forbiddenRequests: string[] = [];
+
+  page.on("request", (request) => {
+    const requestPath = new URL(request.url()).pathname;
+    if (!requestPath.startsWith("/api/")) return;
+    const path = requestPath.replace(/^\/api/, "");
+    if (
+      path.startsWith("/admin/") ||
+      path === "/payments/provider" ||
+      path.startsWith("/support/admin/")
+    ) {
+      forbiddenRequests.push(path);
+    }
+  });
+
+  await mockInstalledPwa(page, testInfo);
+  await mockApi(page, permissionlessAdmin);
+  await page.goto("/");
+
+  await expect(page.getByRole("button", { name: "Админ" })).toHaveCount(0);
+  for (const tab of ["Модули", "Общение", "Оплата", "Поддержка"]) {
+    await page.getByRole("button", { name: tab }).last().click();
+    await page.waitForTimeout(50);
+  }
+
+  for (const path of ["/payments/provider", "/payments/plans/new"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/payments$/);
+  }
+  for (const path of ["/admin/owner/transfer", "/admin/releases", "/admin/clients/user-1"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/profile$/);
+  }
+
+  expect(forbiddenRequests).toEqual([]);
+  await expect(page.getByText(/Не удалось загрузить (?:админку|модули|общение|оплату|поддержку)/)).toHaveCount(0);
 });
 
 test("keeps mobile icon action controls consistently touch sized", async ({ page }, testInfo) => {

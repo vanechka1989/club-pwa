@@ -65,6 +65,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
+import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
 import { moveItemByDirection, type SortDirection } from "./sortOrder";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
@@ -327,7 +328,9 @@ let voiceChunks: Blob[] = [];
 let lessonVideoControlsTimer: number | null = null;
 let lessonMaterialObserver: IntersectionObserver | null = null;
 
-const canManageModules = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const canManageModules = computed(() =>
+  hasAdminCapability(session.user?.role, session.user?.adminPermissions, "materials")
+);
 const editingModule = computed(() => moduleCards.value.find((module) => module.id === editingModuleId.value) ?? null);
 const moduleModalTitle = computed(() => (editingModule.value ? "Редактировать модуль" : "Новый модуль"));
 const moduleModalDescription = computed(() => (editingModule.value ? "Измените название, описание и формат карточек." : "Название, описание и формат карточек модуля."));

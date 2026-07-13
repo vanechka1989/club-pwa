@@ -26,6 +26,7 @@ import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
+import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatVoiceMessage from "./ChatVoiceMessage.vue";
 import ChatImageGallery from "./ChatImageGallery.vue";
 import ChatPollComposer from "./ChatPollComposer.vue";
@@ -85,7 +86,9 @@ const topicReadStorageKey = "club-community-topic-read-at";
 const voiceRecorder = useVoiceRecorder();
 const imageDraft = useImageDraft();
 
-const isModerator = computed(() => session.user?.role === "admin" || session.user?.role === "owner");
+const isModerator = computed(() =>
+  hasAdminCapability(session.user?.role, session.user?.adminPermissions, "community")
+);
 const isOwner = computed(() => session.user?.role === "owner");
 const hasCommunityAccess = computed(() => isModerator.value || session.user?.membershipStatus === "active");
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));

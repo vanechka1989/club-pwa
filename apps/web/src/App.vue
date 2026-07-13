@@ -4,6 +4,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useRoute, useRouter } from "vue-router";
 import { getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
+import { hasAdminCapability } from "@/features/admin/adminCapabilities";
+import { getVisibleAdminPanels } from "@/features/admin/adminPanels";
 import AuthSection from "@/features/auth/AuthSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
@@ -129,8 +131,17 @@ function showPaymentSuccessAlert() {
 }
 
 function isSectionAvailable(item: (typeof navItems)[number]) {
-  if (item.adminOnly && session.user?.realRole !== "admin" && session.user?.realRole !== "owner") {
-    return false;
+  if (item.adminOnly) {
+    if (!session.user || (session.user.realRole !== "admin" && session.user.realRole !== "owner")) {
+      return false;
+    }
+
+    if (
+      session.user.realRole === "admin" &&
+      getVisibleAdminPanels(session.user.realRole, session.user.adminPermissions).length === 0
+    ) {
+      return false;
+    }
   }
 
   if (item.memberOnly && session.user?.role === "member" && session.user.membershipStatus !== "active") {
@@ -462,7 +473,7 @@ async function refreshSupportUnread(shouldNotify: boolean) {
     const response = await getSupportUnreadCount();
     supportUnreadCount.value = response.unreadCount;
 
-    const isAdmin = session.user.realRole === "admin" || session.user.realRole === "owner";
+    const isAdmin = hasAdminCapability(session.user.realRole, session.user.adminPermissions, "support");
     if (shouldNotify && !isAdmin && activeSection.value !== "support" && response.unreadCount > previousCount) {
       showAppAlert("Вам ответили в поддержке.");
     }
@@ -607,7 +618,13 @@ watch(
 );
 
 watch(
-  () => [session.user?.role, session.user?.realRole, session.user?.membershipStatus, route.path] as const,
+  () => [
+    session.user?.role,
+    session.user?.realRole,
+    session.user?.membershipStatus,
+    session.user?.adminPermissions.join("|"),
+    route.path
+  ] as const,
   () => {
     const currentItem = navItems.find((item) => item.id === activeSection.value);
     const adminRouteDenied = Boolean(route.meta.adminOnly && session.user && session.user.realRole !== "admin" && session.user.realRole !== "owner");

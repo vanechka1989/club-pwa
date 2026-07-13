@@ -19,6 +19,7 @@ import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { sortSupportTickets } from "@/features/support/supportTickets";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
+import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 
 const emit = defineEmits<{
   "unread-change": [count: number];
@@ -62,12 +63,11 @@ const closingTicket = ref(false);
 const refreshingSupport = ref(false);
 const supportRefreshIntervalMs = 10_000;
 let supportRefreshTimer: ReturnType<typeof setInterval> | null = null;
+let supportModeVersion = 0;
 
-function isSupportAdminRole(role: string | null | undefined) {
-  return role === "admin" || role === "owner";
-}
-
-const isAdmin = computed(() => isSupportAdminRole(session.user?.role));
+const isAdmin = computed(() =>
+  hasAdminCapability(session.user?.role, session.user?.adminPermissions, "support")
+);
 const defaultTopics = computed(() => [
   { id: "payment", title: t("supportPaymentTopic"), description: t("supportPaymentTopicDescription") },
   { id: "access", title: t("supportAccessTopic"), description: t("supportAccessTopicDescription") },
@@ -322,6 +322,9 @@ async function refreshSupport(options: { silent?: boolean; consumeOpenTicket?: b
   }
 
   const { silent = false, consumeOpenTicket = false } = options;
+  const modeVersion = supportModeVersion;
+  const adminMode = isAdmin.value;
+  let modeChanged = false;
   refreshingSupport.value = true;
   if (!silent) {
     loading.value = true;
@@ -330,23 +333,30 @@ async function refreshSupport(options: { silent?: boolean; consumeOpenTicket?: b
 
   const selectedId = selectedTicketId.value;
   try {
-    if (isAdmin.value) {
+    if (adminMode) {
       const response = await getAdminSupportTickets();
-      replaceTickets(response.tickets);
-      emit("unread-change", response.unreadCount);
+      modeChanged = modeVersion !== supportModeVersion || adminMode !== isAdmin.value;
+      if (!modeChanged) {
+        replaceTickets(response.tickets);
+        emit("unread-change", response.unreadCount);
+      }
     } else {
       const response = await getSupportHome();
-      topics.value = response.topics;
-      replaceTickets(response.tickets);
-      emit("unread-change", response.unreadCount);
+      modeChanged = modeVersion !== supportModeVersion || adminMode !== isAdmin.value;
+      if (!modeChanged) {
+        topics.value = response.topics;
+        replaceTickets(response.tickets);
+        emit("unread-change", response.unreadCount);
+      }
     }
 
-    if (selectedId) {
+    if (!modeChanged && selectedId) {
       const openedTicket = tickets.value.find((ticket) => ticket.id === selectedId) ?? null;
       await refreshSelectedTicketRead(openedTicket);
     }
   } catch {
-    if (!silent) {
+    modeChanged = modeVersion !== supportModeVersion || adminMode !== isAdmin.value;
+    if (!silent && !modeChanged) {
       showSupportError("Не удалось загрузить поддержку.");
     }
   } finally {
@@ -354,6 +364,11 @@ async function refreshSupport(options: { silent?: boolean; consumeOpenTicket?: b
     if (!silent) {
       loading.value = false;
     }
+  }
+
+  if (modeChanged) {
+    void loadSupport();
+    return;
   }
 
   if (consumeOpenTicket && props.openTicketId) {
@@ -590,6 +605,24 @@ watch(
     }
   }
 );
+
+watch(isAdmin, async () => {
+  supportModeVersion += 1;
+  tickets.value = [];
+  selectedTicketId.value = null;
+  closeConfirmOpen.value = false;
+  openedAttachment.value = null;
+  clearSupportNotice();
+  emit("unread-change", 0);
+
+  if (route.path !== "/support") {
+    await router.replace("/support");
+  }
+
+  if (!refreshingSupport.value) {
+    void loadSupport();
+  }
+});
 
 watch(
   () => props.openTicketId,
