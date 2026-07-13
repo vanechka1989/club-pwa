@@ -3002,24 +3002,23 @@ watch(
                 </article>
               </section>
               <p v-if="lessonError" class="admin-error-text">{{ lessonError }}</p>
-            </div>
-          </div>
 
-          <div v-if="canManageModules" class="admin-form-actions lesson-preview-actions lesson-preview-actions-edit">
-            <button
-              v-if="selectedLessonItem"
-              class="secondary-button ui-button lesson-delete-button"
-              type="button"
-              :disabled="isSaving"
-              @click="deleteLesson"
-            >
-              <Trash2 class="h-4 w-4" aria-hidden="true" />
-              Удалить урок
-            </button>
-            <button class="secondary-button ui-button" type="button" :disabled="isSaving" @click="closeLessonModal">Закрыть</button>
-            <button v-if="canManageModules" class="primary-button ui-button" type="button" :disabled="isSaving" @click="saveLesson">
-              {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}
-            </button>
+              <div class="admin-form-actions lesson-preview-actions lesson-preview-actions-edit lesson-editor-inline-actions">
+                <button
+                  v-if="selectedLessonItem"
+                  class="secondary-button ui-button lesson-delete-button"
+                  type="button"
+                  :disabled="isSaving"
+                  @click="deleteLesson"
+                >
+                  <Trash2 class="h-4 w-4" aria-hidden="true" />
+                  Удалить урок
+                </button>
+                <button class="primary-button ui-button" type="button" :disabled="isSaving" @click="saveLesson">
+                  {{ isSaving ? "Сохраняем..." : "Сохранить урок" }}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
     </TaskScreen>

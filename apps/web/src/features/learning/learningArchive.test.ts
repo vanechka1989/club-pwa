@@ -548,7 +548,7 @@ describe("Learning section modules", () => {
     ui.setColorScheme("azure");
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
-    await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
     await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));

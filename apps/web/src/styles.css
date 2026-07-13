@@ -15095,13 +15095,11 @@ textarea.text-input,
 
 .learning-task-screen .admin-form-actions.lesson-preview-actions-edit {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: 0.65rem;
   width: 100%;
-  border-top: 1px solid var(--ds-border);
-  background: color-mix(in srgb, var(--ds-surface) 94%, transparent);
-  padding: 0.85rem;
-  backdrop-filter: blur(16px);
+  margin-top: 0.15rem;
+  padding: 0.4rem 0 0;
 }
 
 .learning-task-screen .admin-form-actions.lesson-preview-actions-edit > button {

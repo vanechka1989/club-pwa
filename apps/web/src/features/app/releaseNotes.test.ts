@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes real-time community updates as version 4.21", () => {
-    expect(appVersion).toBe("4.21");
-    expect(releaseNotes[0]?.title).toBe("Сообщения в реальном времени");
+  it("publishes the inline lesson editor actions as version 4.22", () => {
+    expect(appVersion).toBe("4.22");
+    expect(releaseNotes[0]?.title).toBe("Редактор урока без перекрытий");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -39,7 +39,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Real-time chat messages");
+    expect(englishNotes[0]?.title).toBe("Lesson editor without overlaps");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

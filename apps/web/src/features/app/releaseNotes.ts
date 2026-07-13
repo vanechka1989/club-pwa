@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Редактор урока без перекрытий",
+    items: [
+      "Сохранение и удаление урока перенесены в конец прокручиваемой формы и больше не закрывают поля при открытой клавиатуре.",
+      "Дублирующая кнопка «Закрыть» удалена — для выхода используется стрелка назад в шапке экрана.",
+      "У блока действий убраны отдельный фон, граница и размытие: теперь он является обычной частью формы."
+    ]
+  },
+  {
+    version: "4.21",
+    updatedAt: "14.07.2026 00:43",
     title: "Сообщения в реальном времени",
     items: [
       "Новые сообщения, реакции, опросы, закрепления и действия модерации теперь появляются через постоянное SSE-соединение.",
@@ -2850,11 +2860,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Real-time chat messages",
+  title: "Lesson editor without overlaps",
   items: [
-    "New messages, reactions, polls, pins, and moderation changes now arrive through a persistent SSE connection.",
-    "The two-second full-message polling loop has been removed, reducing unnecessary server and database work.",
-    "The chat reconnects automatically after a network interruption and synchronizes missed changes."
+    "Save and delete actions now sit at the end of the scrolling form and no longer cover fields when the keyboard is open.",
+    "The duplicate Close button has been removed; use the back arrow in the screen header.",
+    "The action area is now part of the form without a separate background, border, or blur."
   ]
 };
 
