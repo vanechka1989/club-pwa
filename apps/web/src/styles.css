@@ -16404,6 +16404,58 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
 .admin-poll-meta strong { overflow: hidden; color: var(--text); font-size: 12px; font-weight: 760; line-height: 1.25; text-overflow: ellipsis; }
 .admin-poll-options { display: grid; gap: 10px; padding: 12px; }
 
+.admin-stat-content-kinds {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.admin-stat-content-kinds > span {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.admin-stat-content-kinds strong { color: var(--muted); font-size: 10px; font-weight: 720; line-height: 1.1; }
+.admin-stat-content-kinds b { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1; }
+
+.admin-stat-hot-topic {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
+}
+.admin-stat-hot-topic > span { color: var(--accent); font-size: 11px; font-weight: 780; line-height: 1.2; }
+.admin-stat-hot-topic > strong { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1.3; overflow-wrap: anywhere; }
+.admin-stat-hot-topic > small { color: var(--muted); font-size: 11px; font-weight: 680; line-height: 1.2; }
+
+.admin-stat-community-ranking { display: grid; gap: 6px; margin-top: 12px; }
+.admin-stat-community-ranking h5 { margin: 0 2px 2px; color: var(--text); font-size: 13px; font-weight: 800; line-height: 1.2; }
+.admin-stat-community-ranking article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.admin-stat-community-ranking article span { min-width: 0; overflow: hidden; color: var(--text); font-size: 13px; font-weight: 740; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.admin-stat-community-ranking article strong { color: var(--accent); font-size: 13px; font-weight: 840; line-height: 1; }
+
+@media (max-width: 359px) {
+  .admin-stat-content-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 359px) {
   .admin-statistics-panel .admin-stat-nav-row,
   body.club-mobile-device .admin-statistics-panel .admin-stat-nav-row,

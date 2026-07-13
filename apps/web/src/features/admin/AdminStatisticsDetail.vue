@@ -82,7 +82,7 @@ defineEmits<{
           <span>Чаще открывают</span>
           <strong>{{ stats.learning.popularTitle || "Пока нет данных по открытиям" }}</strong>
         </div>
-        <div class="admin-stat-kind-list"><span v-for="kind in stats.contentKinds" :key="kind.kind">{{ kind.label }} · {{ kind.count }}</span></div>
+        <div class="admin-stat-content-kinds"><span v-for="kind in stats.contentKinds" :key="kind.kind"><strong>{{ kind.label }}</strong><b>{{ kind.count }}</b></span></div>
       </section>
     </template>
 
@@ -100,8 +100,13 @@ defineEmits<{
           <article><span>Закрыты</span><strong>{{ stats.communication.lockedTopics }}</strong></article>
           <article><span>За 30 дней</span><strong>{{ stats.communication.messagesLast30Days }}</strong></article>
         </div>
-        <p class="admin-stat-note">{{ stats.communication.hotTopic ? `Горячая тема: ${stats.communication.hotTopic.title} · ${stats.communication.hotTopic.messages} сообщ.` : 'Пока нет сообщений за выбранный период.' }}</p>
-        <div class="admin-stat-top-list">
+        <div class="admin-stat-hot-topic">
+          <span>Горячая тема</span>
+          <strong>{{ stats.communication.hotTopic?.title || "Пока нет сообщений" }}</strong>
+          <small v-if="stats.communication.hotTopic">{{ stats.communication.hotTopic.messages }} сообщений за период</small>
+        </div>
+        <div class="admin-stat-community-ranking">
+          <h5>Активные участники</h5>
           <article v-for="client in stats.communication.topClients" :key="client.telegramId"><span>{{ client.name }}</span><strong>{{ client.messages }}</strong></article>
           <p v-if="!stats.communication.topClients.length" class="admin-empty">Активных клиентов в общении пока нет.</p>
         </div>

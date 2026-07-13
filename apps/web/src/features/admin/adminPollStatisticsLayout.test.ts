@@ -21,4 +21,13 @@ describe("admin poll and learning statistics layout", () => {
     expect(styles).toContain(".admin-stat-popular-material");
     expect(styles).toContain("font-size: 14px");
   });
+
+  it("uses one readable typography system for community and learning footers", () => {
+    expect(detail).toContain('class="admin-stat-hot-topic"');
+    expect(detail).toContain('class="admin-stat-community-ranking"');
+    expect(detail).toContain('class="admin-stat-content-kinds"');
+    expect(styles).toContain(".admin-stat-hot-topic");
+    expect(styles).toContain(".admin-stat-community-ranking");
+    expect(styles).toContain(".admin-stat-content-kinds");
+  });
 });

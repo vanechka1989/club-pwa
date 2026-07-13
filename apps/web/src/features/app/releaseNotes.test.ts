@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact poll statistics as version 3.92", () => {
-    expect(appVersion).toBe("3.92");
-    expect(releaseNotes[0]?.title).toBe("Компактные опросы в статистике");
+  it("publishes unified statistics typography as version 3.93", () => {
+    expect(appVersion).toBe("3.93");
+    expect(releaseNotes[0]?.title).toBe("Единые шрифты статистики");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
