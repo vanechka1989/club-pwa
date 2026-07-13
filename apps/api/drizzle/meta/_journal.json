@@ -288,6 +288,13 @@
       "when": 1783934700000,
       "tag": "0040_push_email_mailings",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1783942020000,
+      "tag": "0041_mailing_delivery_idempotency",
+      "breakpoints": true
     }
   ]
 }

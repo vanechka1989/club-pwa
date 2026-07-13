@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -380,6 +380,20 @@ export async function processMailingQueue(limit = 20) {
     let failed = 0;
     let skipped = 0;
     for (const recipient of recipients) {
+      const [claimedRecipient] = await db
+        .update(adminMailingRecipients)
+        .set({ status: "processing", updatedAt: new Date() })
+        .where(
+          and(
+            eq(adminMailingRecipients.id, recipient.id),
+            eq(adminMailingRecipients.status, "pending")
+          )
+        )
+        .returning({ id: adminMailingRecipients.id });
+      if (!claimedRecipient) {
+        continue;
+      }
+
       try {
         const result = await sendMailingToRecipient(mailing, recipient);
         if (result === "sent") {
@@ -401,28 +415,28 @@ export async function processMailingQueue(limit = 20) {
       }
     }
 
-    const [pendingRow] = await db
+    const [outstandingRow] = await db
       .select({ value: count(adminMailingRecipients.id) })
       .from(adminMailingRecipients)
-      .where(and(eq(adminMailingRecipients.mailingId, mailing.id), eq(adminMailingRecipients.status, "pending")));
-    const [current] = await db
-      .select()
-      .from(adminMailings)
-      .where(eq(adminMailings.id, mailing.id));
+      .where(
+        and(
+          eq(adminMailingRecipients.mailingId, mailing.id),
+          inArray(adminMailingRecipients.status, ["pending", "processing"])
+        )
+      );
+    const hasOutstandingDeliveries = Number(outstandingRow?.value ?? 0) > 0;
 
-    if (current) {
-      await db
-        .update(adminMailings)
-        .set({
-          sentCount: current.sentCount + sent,
-          failedCount: current.failedCount + failed,
-          skippedCount: current.skippedCount + skipped,
-          status: pendingRow?.value ? "running" : "completed",
-          completedAt: pendingRow?.value ? current.completedAt : new Date(),
-          updatedAt: new Date()
-        })
-        .where(eq(adminMailings.id, mailing.id));
-    }
+    await db
+      .update(adminMailings)
+      .set({
+        sentCount: sql`${adminMailings.sentCount} + ${sent}`,
+        failedCount: sql`${adminMailings.failedCount} + ${failed}`,
+        skippedCount: sql`${adminMailings.skippedCount} + ${skipped}`,
+        status: hasOutstandingDeliveries ? "running" : "completed",
+        ...(hasOutstandingDeliveries ? {} : { completedAt: new Date() }),
+        updatedAt: new Date()
+      })
+      .where(eq(adminMailings.id, mailing.id));
   }
 }
 

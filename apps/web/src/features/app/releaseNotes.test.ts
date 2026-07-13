@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the in-app chat delete confirmation as version 4.09", () => {
-    expect(appVersion).toBe("4.09");
-    expect(releaseNotes[0]?.title).toBe("Подтверждение удаления в чате");
+  it("publishes the duplicate mailing protection as version 4.10", () => {
+    expect(appVersion).toBe("4.10");
+    expect(releaseNotes[0]?.title).toBe("Защита рассылок от дублей");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
