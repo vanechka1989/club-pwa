@@ -195,7 +195,7 @@ describe("Learning section modules", () => {
 
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
     expect(styles).toMatch(/\.modules-section \.module-actions-expanded > span\s*\{[^}]*height:\s*28px;/s);
-    expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*height:\s*28px;[^}]*max-height:\s*28px;[^}]*box-sizing:\s*border-box;[^}]*padding:\s*0\s+7px;/s);
+    expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*height:\s*28px\s*!important;[^}]*min-height:\s*28px\s*!important;[^}]*max-height:\s*28px\s*!important;[^}]*box-sizing:\s*border-box;[^}]*padding:\s*0\s+7px;/s);
     expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*border-radius:\s*8px;[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 14%, var\(--panel-strong\)\);/s);
     expect(styles).toMatch(/\.modules-section \.module-add-card-button > svg\s*\{[^}]*width:\s*12px;[^}]*height:\s*12px;/s);
     const openCollapse = moduleOneView.getByRole("button", { name: "Свернуть карточки Модуль 1" });

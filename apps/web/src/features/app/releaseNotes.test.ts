@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the precisely sized lesson action as version 4.27", () => {
-    expect(appVersion).toBe("4.27");
-    expect(releaseNotes[0]?.title).toBe("Точная высота кнопки урока");
+  it("publishes the cascade-safe lesson action as version 4.28", () => {
+    expect(appVersion).toBe("4.28");
+    expect(releaseNotes[0]?.title).toBe("Кнопка урока выровнена со счётчиком");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
