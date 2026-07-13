@@ -142,7 +142,7 @@ describe("admin client card helpers", () => {
   it("keeps closed client disclosures as compact tap rows", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\s*\{[^}]*gap:\s*0;[^}]*min-height:\s*0;/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\s*\{[^}]*gap:\s*0;[^}]*min-height:\s*0;[^}]*padding:\s*0;/s);
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto auto;[^}]*box-sizing:\s*border-box;[^}]*height:\s*44px;[^}]*min-height:\s*44px;[^}]*align-content:\s*center;[^}]*align-items:\s*center;[^}]*padding:\s*0 12px;[^}]*line-height:\s*1;/s);
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section:not\(\[open\]\)\s*\{[^}]*height:\s*44px;/s);
     expect(styles).toMatch(/\.admin-client-workspace\s*\{[^}]*gap:\s*4px;/s);
