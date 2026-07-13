@@ -11,6 +11,14 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Понятное сворачивание модулей",
+    items: [
+      "В раскрытом модуле стрелка теперь направлена вверх и однозначно показывает действие «свернуть»."
+    ]
+  },
+  {
+    version: "4.19",
+    updatedAt: "13.07.2026 23:38",
     title: "Управление модулями без лишнего",
     items: [
       "В раскрытом модуле скрыты кнопки сортировки, редактирования и добавления урока, чтобы они не мешали работе с карточками.",
@@ -2832,11 +2840,9 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Focused module controls",
+  title: "Clear module collapsing",
   items: [
-    "Module sorting, editing, and add-lesson actions now hide while lesson cards are expanded.",
-    "The collapse control for an expanded module now sits at the right side of its header.",
-    "The unnecessary shared frame around module sorting arrows was removed."
+    "The expanded module now uses an upward chevron that clearly communicates the collapse action."
   ]
 };
 

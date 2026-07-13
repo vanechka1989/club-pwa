@@ -187,6 +187,7 @@ describe("Learning section modules", () => {
     expect(moduleOneView.queryByRole("button", { name: "Добавить урок в Модуль 1" })).toBeNull();
     const openCollapse = moduleOneView.getByRole("button", { name: "Свернуть карточки Модуль 1" });
     expect(openCollapse.classList.contains("module-open-collapse-control")).toBe(true);
+    expect(openCollapse.querySelector(".module-collapse-icon-up")).toBeTruthy();
   });
 
   it("adds a module by title", async () => {

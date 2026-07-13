@@ -22,6 +22,7 @@ import {
   ArrowRight,
   ArrowUp,
   ChevronDown,
+  ChevronUp,
   ExternalLink,
   FileText,
   Image,
@@ -2382,7 +2383,7 @@ watch(
             :aria-label="`Свернуть карточки ${module.title}`"
             @click="toggleModule(module.id)"
           >
-            <ChevronDown class="h-4 w-4" aria-hidden="true" />
+            <ChevronUp class="h-4 w-4 module-collapse-icon-up" aria-hidden="true" />
           </button>
           <div
             class="admin-mockup-card-actions"
