@@ -478,6 +478,7 @@ const englishPatterns: Array<[RegExp, (...matches: string[]) => string]> = [
   [/^Редактировать (.+)$/, (title) => `Edit ${title}`],
   [/^Переключить (.+)$/, (title) => `Toggle ${title}`],
   [/^Добавить урок в (.+)$/, (title) => `Add lesson to ${title}`],
+  [/^Добавить карточку в (.+)$/, (title) => `Add card to ${title}`],
   [/^Открыть урок (.+)$/, (title) => `Open lesson ${title}`],
   [/^Удалить категорию "(.+)" и весь контент внутри неё\?$/, (title) => `Delete category “${title}” and all of its content?`],
   [/^Удалить контент "(.+)"\?$/, (title) => `Delete content “${title}”?`],

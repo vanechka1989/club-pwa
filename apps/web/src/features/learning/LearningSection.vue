@@ -2394,6 +2394,16 @@ watch(
             }"
           >
             <span>{{ lessonCountLabel(module.images.length) }}</span>
+            <button
+              v-if="canManageModules && !isModuleCollapsed(module.id)"
+              class="module-add-card-button"
+              type="button"
+              :aria-label="`Добавить карточку в ${module.title}`"
+              @click.stop="openLessonCreateModal(module)"
+            >
+              <Plus class="h-4 w-4" aria-hidden="true" />
+              <span>{{ t("addModuleCard") }}</span>
+            </button>
             <div v-if="canManageModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls" aria-label="Сортировка модуля">
               <button
                 class="icon-button ui-icon-button module-sort-button"
@@ -2422,15 +2432,6 @@ watch(
               @click="openModuleEditModal(module)"
             >
               <Pencil class="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              v-if="canManageModules && isModuleCollapsed(module.id)"
-              class="icon-button ui-icon-button module-lesson-add module-level-action"
-              type="button"
-              :aria-label="`Добавить урок в ${module.title}`"
-              @click="openLessonCreateModal(module)"
-            >
-              <Plus class="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               v-if="isModuleCollapsed(module.id)"

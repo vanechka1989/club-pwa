@@ -17923,6 +17923,36 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   border-top: 0;
 }
 
+.modules-section .module-add-card-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-strong));
+  color: var(--accent);
+  padding: 0 13px;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 9%, transparent);
+  cursor: pointer;
+}
+
+.modules-section .module-add-card-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 20%, var(--panel-strong));
+}
+
+.modules-section .module-add-card-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, white);
+  outline-offset: 2px;
+}
+
 .modules-section .module-level-action {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
   background: color-mix(in srgb, var(--accent) 16%, var(--panel-strong));

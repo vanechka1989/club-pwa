@@ -85,6 +85,11 @@ async function expandModuleOne() {
   await expandModule("Модуль 1");
 }
 
+async function openLessonCreator(moduleTitle: string) {
+  await expandModule(moduleTitle);
+  await fireEvent.click(screen.getByRole("button", { name: `Добавить карточку в ${moduleTitle}` }));
+}
+
 async function makeModuleOneHorizontal() {
   await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
   await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
@@ -170,7 +175,7 @@ describe("Learning section modules", () => {
     expect(source).toContain('v-if="canManageModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls"');
   });
 
-  it("shows module editing controls only while collapsed and moves the open collapse control to the header", async () => {
+  it("shows a compact add-card action only inside an expanded module", async () => {
     renderAsOwner();
 
     const moduleOne = document.querySelector<HTMLElement>('[data-module-id="module-1"]');
@@ -178,13 +183,15 @@ describe("Learning section modules", () => {
     const moduleOneView = within(moduleOne!);
 
     expect(moduleOneView.getByRole("button", { name: "Редактировать Модуль 1" })).toBeTruthy();
-    expect(moduleOneView.getByRole("button", { name: "Добавить урок в Модуль 1" })).toBeTruthy();
+    expect(moduleOneView.queryByRole("button", { name: "Добавить карточку в Модуль 1" })).toBeNull();
     expect(moduleOneView.queryByRole("button", { name: "Свернуть карточки Модуль 1" })).toBeNull();
 
     await expandModuleOne();
 
     expect(moduleOneView.queryByRole("button", { name: "Редактировать Модуль 1" })).toBeNull();
-    expect(moduleOneView.queryByRole("button", { name: "Добавить урок в Модуль 1" })).toBeNull();
+    const addCard = moduleOneView.getByRole("button", { name: "Добавить карточку в Модуль 1" });
+    expect(addCard.textContent).toContain("Добавить карточку");
+    expect(addCard.classList.contains("module-add-card-button")).toBe(true);
     const openCollapse = moduleOneView.getByRole("button", { name: "Свернуть карточки Модуль 1" });
     expect(openCollapse.classList.contains("module-open-collapse-control")).toBe(true);
     expect(openCollapse.querySelector(".module-collapse-icon-up")).toBeTruthy();
@@ -373,7 +380,7 @@ describe("Learning section modules", () => {
 
     expect(screen.getByText("Описание для нового модуля")).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Горизонтальный модуль" }));
+    await openLessonCreator("Горизонтальный модуль");
     expect(screen.getByText("Горизонтальная карточка")).toBeTruthy();
     expect(screen.getByText("Формат карточек задан в настройках модуля.")).toBeTruthy();
   });
@@ -386,7 +393,7 @@ describe("Learning section modules", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
 
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Только горизонтальные" }));
+    await openLessonCreator("Только горизонтальные");
 
     expect(screen.getByText("Формат карточек задан в настройках модуля.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Вертикальная карточка" })).toBeNull();
@@ -414,8 +421,7 @@ describe("Learning section modules", () => {
     await expandModuleOne();
     expect(screen.getAllByText("Новое описание модуля")).toHaveLength(1);
 
-    await fireEvent.click(screen.getByRole("button", { name: "Свернуть Модуль 1" }));
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить карточку в Модуль 1" }));
     expect(screen.getByText("Горизонтальная карточка")).toBeTruthy();
     expect(screen.getByText("Формат карточек задан в настройках модуля.")).toBeTruthy();
   });
@@ -475,7 +481,7 @@ describe("Learning section modules", () => {
   it("adds a lesson inside a selected module", async () => {
     renderAsOwner();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await openLessonCreator("Модуль 1");
 
     const lessonDialog = screen.getByRole("dialog", { name: "Новый урок" });
     expect(lessonDialog).toBeTruthy();
@@ -499,7 +505,7 @@ describe("Learning section modules", () => {
   it("switches a pasted YouTube link from photo url to video YouTube source", async () => {
     renderAsOwner();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await openLessonCreator("Модуль 1");
     await fireEvent.update(screen.getByLabelText("Название урока"), "YouTube урок");
     await fireEvent.click(screen.getByRole("button", { name: "Фото" }));
     await fireEvent.click(screen.getByRole("button", { name: "Ссылка" }));
@@ -513,7 +519,7 @@ describe("Learning section modules", () => {
   it("switches a pasted YouTube link in extra material to video YouTube source", async () => {
     renderAsOwner();
 
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await openLessonCreator("Модуль 1");
     await fireEvent.click(screen.getByRole("button", { name: "Добавить ещё материал" }));
 
     const materialCard = document.querySelector(".lesson-extra-card") as HTMLElement;
@@ -531,7 +537,7 @@ describe("Learning section modules", () => {
     renderAsOwner();
 
     await makeModuleOneHorizontal();
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await openLessonCreator("Модуль 1");
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Горизонтальный урок");
     await fireEvent.update(screen.getByLabelText("Описание урока"), "Компактная карточка урока");
@@ -547,12 +553,13 @@ describe("Learning section modules", () => {
     const ui = useUiStore(pinia);
     ui.setColorScheme("azure");
 
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await openLessonCreator("Модуль 1");
     await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Свернуть карточки Модуль 1" }));
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
     await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: "Добавить урок в Модуль 1" }));
+    await openLessonCreator("Модуль 1");
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Урок без обложки");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));

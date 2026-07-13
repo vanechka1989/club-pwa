@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes resilient realtime chat as version 4.23", () => {
-    expect(appVersion).toBe("4.23");
-    expect(releaseNotes[0]?.title).toBe("Стабильное обновление чата");
+  it("publishes card creation inside expanded modules as version 4.24", () => {
+    expect(appVersion).toBe("4.24");
+    expect(releaseNotes[0]?.title).toBe("Карточки добавляются внутри модуля");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
