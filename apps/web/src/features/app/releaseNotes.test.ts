@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the inline lesson editor actions as version 4.22", () => {
-    expect(appVersion).toBe("4.22");
-    expect(releaseNotes[0]?.title).toBe("Редактор урока без перекрытий");
+  it("publishes resilient realtime chat as version 4.23", () => {
+    expect(appVersion).toBe("4.23");
+    expect(releaseNotes[0]?.title).toBe("Стабильное обновление чата");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

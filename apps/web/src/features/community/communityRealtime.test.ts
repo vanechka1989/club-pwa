@@ -26,4 +26,18 @@ describe("community realtime client", () => {
     expect(componentSource).not.toContain("stopMessageRefresh");
     expect(componentSource).not.toMatch(/setInterval\([\s\S]{0,220}refreshSelectedTopic[\s\S]{0,80}2000/);
   });
+
+  it("keeps an open chat synchronized while the event stream is disconnected", () => {
+    expect(componentSource).toContain("function startRealtimeFallback");
+    expect(componentSource).toContain("function stopRealtimeFallback");
+    expect(componentSource).toMatch(/startRealtimeFallback[\s\S]*selectedTopic\.value[\s\S]*refreshSelectedTopic/);
+    expect(componentSource).toMatch(/eventSource\.onerror[\s\S]{0,180}startRealtimeFallback\(\)/);
+    expect(componentSource).toMatch(/eventSource\.onopen[\s\S]{0,180}stopRealtimeFallback\(\)/);
+  });
+
+  it("replays an invalidation received while messages are already refreshing", () => {
+    expect(componentSource).toContain("refreshSelectedTopicQueued");
+    expect(componentSource).toMatch(/if \(refreshInFlight\)[\s\S]{0,100}refreshSelectedTopicQueued = true/);
+    expect(componentSource).toMatch(/finally[\s\S]{0,180}refreshSelectedTopicQueued[\s\S]{0,180}refreshSelectedTopic/);
+  });
 });

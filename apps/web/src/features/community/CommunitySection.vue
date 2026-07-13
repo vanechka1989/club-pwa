@@ -77,12 +77,13 @@ const messagesEnd = ref<HTMLElement | null>(null);
 const messagesList = ref<HTMLElement | null>(null);
 const muteAlertShown = ref(false);
 const topicReadAt = ref<Record<string, string>>({});
-let topicsRefreshTimer: ReturnType<typeof globalThis.setInterval> | null = null;
+let realtimeFallbackTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 let realtimeSyncTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let communityEventSource: EventSource | null = null;
 let realtimeConnected = false;
 let messageHighlightTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let refreshInFlight = false;
+let refreshSelectedTopicQueued = false;
 let topicsRefreshInFlight = false;
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
 const topicReadStorageKey = "club-community-topic-read-at";
@@ -484,7 +485,11 @@ function messagesSignature(nextMessages: ClubMessage[]) {
 }
 
 async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
-  if (!hasCommunityAccess.value || !selectedTopic.value || refreshInFlight) {
+  if (!hasCommunityAccess.value || !selectedTopic.value) {
+    return;
+  }
+  if (refreshInFlight) {
+    refreshSelectedTopicQueued = true;
     return;
   }
 
@@ -519,6 +524,10 @@ async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) 
     }
   } finally {
     refreshInFlight = false;
+    if (refreshSelectedTopicQueued) {
+      refreshSelectedTopicQueued = false;
+      void refreshSelectedTopic({ keepScroll: true, silent: true });
+    }
   }
 }
 
@@ -551,17 +560,22 @@ async function loadTopics({ showLoading = false } = {}) {
   }
 }
 
-function stopTopicsRefresh() {
-  if (topicsRefreshTimer) {
-    globalThis.clearInterval(topicsRefreshTimer);
-    topicsRefreshTimer = null;
+function stopRealtimeFallback() {
+  if (realtimeFallbackTimer) {
+    globalThis.clearInterval(realtimeFallbackTimer);
+    realtimeFallbackTimer = null;
   }
 }
 
-function startTopicsRefresh() {
-  stopTopicsRefresh();
-  topicsRefreshTimer = globalThis.setInterval(() => {
-    if (document.visibilityState === "visible" && !selectedTopic.value) {
+function startRealtimeFallback() {
+  stopRealtimeFallback();
+  realtimeFallbackTimer = globalThis.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
+    if (selectedTopic.value) {
+      void refreshSelectedTopic({ silent: true });
+    } else {
       void loadTopics();
     }
   }, 5000);
@@ -599,9 +613,7 @@ function scheduleRealtimeSync() {
 function startCommunityRealtime() {
   stopCommunityRealtime();
   if (!hasCommunityAccess.value || typeof EventSource === "undefined") {
-    if (!selectedTopic.value) {
-      startTopicsRefresh();
-    }
+    startRealtimeFallback();
     return;
   }
 
@@ -609,11 +621,11 @@ function startCommunityRealtime() {
   communityEventSource = eventSource;
   eventSource.onopen = () => {
     realtimeConnected = true;
-    stopTopicsRefresh();
+    stopRealtimeFallback();
   };
   eventSource.addEventListener("ready", () => {
     realtimeConnected = true;
-    stopTopicsRefresh();
+    stopRealtimeFallback();
     scheduleRealtimeSync();
   });
   eventSource.addEventListener("community.changed", (rawEvent) => {
@@ -631,9 +643,7 @@ function startCommunityRealtime() {
   });
   eventSource.onerror = () => {
     realtimeConnected = false;
-    if (!selectedTopic.value) {
-      startTopicsRefresh();
-    }
+    startRealtimeFallback();
   };
 }
 
@@ -938,12 +948,16 @@ watch(
   (isOpen) => {
     emit("chatOpenChange", isOpen);
     if (isOpen) {
-      stopTopicsRefresh();
+      if (realtimeConnected) {
+        stopRealtimeFallback();
+      } else {
+        startRealtimeFallback();
+      }
       return;
     }
 
     if (!realtimeConnected) {
-      startTopicsRefresh();
+      startRealtimeFallback();
     }
     showTopicAdminMenu.value = false;
     activeModerationMessageId.value = null;
@@ -962,7 +976,7 @@ watch(
       messages.value = [];
       clearCommunityError();
       stopCommunityRealtime();
-      stopTopicsRefresh();
+      stopRealtimeFallback();
       return;
     }
 
@@ -973,7 +987,7 @@ watch(
 
 onBeforeUnmount(() => {
   stopCommunityRealtime();
-  stopTopicsRefresh();
+  stopRealtimeFallback();
   document.removeEventListener("keydown", handleModerationSheetKeydown);
   document.removeEventListener("visibilitychange", handleCommunityVisibilityChange);
   if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
