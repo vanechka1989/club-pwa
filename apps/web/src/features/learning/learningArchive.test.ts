@@ -165,7 +165,8 @@ describe("Learning section modules", () => {
     expect(source).toContain("lesson-level-sort-controls");
     expect(styles).toMatch(/\.modules-section \.module-level-sort-controls\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 22%, var\(--panel-strong\)\);/s);
     expect(styles).toMatch(/\.modules-section \.module-level-action\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 16%, var\(--panel-strong\)\);/s);
-    expect(styles).toMatch(/\.modules-section \.lesson-level-sort-controls\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--panel-strong\) 88%, var\(--bg\)\);/s);
+    expect(styles).toMatch(/\.modules-section \.lesson-level-sort-controls\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*padding:\s*0;[^}]*box-shadow:\s*none;/s);
+    expect(source).toContain('v-if="canManageModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls"');
   });
 
   it("adds a module by title", async () => {
@@ -228,15 +229,20 @@ describe("Learning section modules", () => {
     renderAsOwner();
 
     await expandModuleOne();
+    const moduleOne = document.querySelector<HTMLElement>('[data-module-id="module-1"]');
+    expect(moduleOne).toBeTruthy();
+    const moduleOneView = within(moduleOne!);
 
     expect(screen.queryByRole("button", { name: "Перетащить модуль" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Перетащить урок" })).toBeNull();
-    expect(screen.getAllByRole("button", { name: "Поднять модуль" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Опустить модуль" }).length).toBeGreaterThan(0);
+    expect(moduleOneView.queryByRole("button", { name: "Поднять модуль" })).toBeNull();
+    expect(moduleOneView.queryByRole("button", { name: "Опустить модуль" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "Сдвинуть урок влево" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Сдвинуть урок вправо" }).length).toBeGreaterThan(0);
 
     await fireEvent.click(screen.getByRole("button", { name: "Свернуть Модуль 1" }));
+    expect(moduleOneView.getByRole("button", { name: "Поднять модуль" })).toBeTruthy();
+    expect(moduleOneView.getByRole("button", { name: "Опустить модуль" })).toBeTruthy();
     await makeModuleOneHorizontal();
     await expandModuleOne();
 

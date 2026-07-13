@@ -1673,16 +1673,22 @@ test("separates profile header controls and module action levels", async ({ page
   await page.screenshot({ path: testInfo.outputPath("profile-unframed-controls.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Модули" }).click();
-  await expect(page.locator(".module-level-sort-controls").first()).toBeVisible();
-  if (!(await page.locator(".lesson-level-sort-controls").first().isVisible())) {
-    await page.getByRole("button", { name: "Переключить Модуль 1" }).click();
-  }
-  await expect(page.locator(".lesson-level-sort-controls").first()).toBeVisible();
-  const actionBackgrounds = await page.evaluate(() => ({
-    module: getComputedStyle(document.querySelector(".module-level-sort-controls")!).backgroundColor,
-    lesson: getComputedStyle(document.querySelector(".lesson-level-sort-controls")!).backgroundColor
-  }));
-  expect(actionBackgrounds.module).not.toBe(actionBackgrounds.lesson);
+  const moduleOne = page.locator(".admin-mockup-card").first();
+  await expect(moduleOne.locator(".module-level-sort-controls")).toBeVisible();
+  await moduleOne.getByRole("button", { name: "Переключить Модуль 1" }).click();
+  await expect(moduleOne.locator(".module-level-sort-controls")).toHaveCount(0);
+  const lessonControls = moduleOne.locator(".lesson-level-sort-controls").first();
+  await expect(lessonControls).toBeVisible();
+  const lessonFrame = await lessonControls.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      borderWidth: style.borderTopWidth,
+      background: style.backgroundColor,
+      padding: style.padding,
+      shadow: style.boxShadow
+    };
+  });
+  expect(lessonFrame).toEqual({ borderWidth: "0px", background: "rgba(0, 0, 0, 0)", padding: "0px", shadow: "none" });
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("learning-separated-controls.png"), fullPage: true });
 
@@ -1696,16 +1702,12 @@ test("separates profile header controls and module action levels", async ({ page
   await expect(page.locator("html")).toHaveAttribute("data-design-theme", "pine-teal");
   await expect(page.locator(".profile-page-header-controls")).toHaveCSS("border-top-width", "0px");
   await page.getByRole("button", { name: "Модули" }).click();
-  await expect(page.locator(".module-level-sort-controls").first()).toBeVisible();
-  if (!(await page.locator(".lesson-level-sort-controls").first().isVisible())) {
-    await page.getByRole("button", { name: "Переключить Модуль 1" }).click();
-  }
-  await expect(page.locator(".lesson-level-sort-controls").first()).toBeVisible();
-  const darkActionBackgrounds = await page.evaluate(() => ({
-    module: getComputedStyle(document.querySelector(".module-level-sort-controls")!).backgroundColor,
-    lesson: getComputedStyle(document.querySelector(".lesson-level-sort-controls")!).backgroundColor
-  }));
-  expect(darkActionBackgrounds.module).not.toBe(darkActionBackgrounds.lesson);
+  const darkModuleOne = page.locator(".admin-mockup-card").first();
+  await expect(darkModuleOne.locator(".module-level-sort-controls")).toBeVisible();
+  await darkModuleOne.getByRole("button", { name: "Переключить Модуль 1" }).click();
+  await expect(darkModuleOne.locator(".module-level-sort-controls")).toHaveCount(0);
+  await expect(darkModuleOne.locator(".lesson-level-sort-controls").first()).toHaveCSS("border-top-width", "0px");
+  await expect(darkModuleOne.locator(".lesson-level-sort-controls").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await page.screenshot({ path: testInfo.outputPath("learning-separated-controls-dark.png"), fullPage: true });
 });
 

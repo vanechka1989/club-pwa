@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чистые карточки модулей",
+    items: [
+      "У стрелок сортировки карточек убрана лишняя общая рамка — остались только отдельные понятные кнопки.",
+      "Кнопки перемещения модуля автоматически скрываются, когда раскрыты его карточки.",
+      "В свёрнутом модуле управление порядком снова появляется, поэтому перестановка разделов остаётся доступной."
+    ]
+  },
+  {
+    version: "4.17",
+    updatedAt: "13.07.2026 23:06",
     title: "Чистая шапка и понятные модули",
     items: [
       "У кнопок языка и уведомлений в шапке профиля убрана лишняя общая рамка.",
@@ -2812,11 +2822,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Cleaner header and clearer module controls",
+  title: "Cleaner module cards",
   items: [
-    "The unnecessary outer frame around the language and notification buttons was removed.",
-    "Module-level controls now use an accent surface and are visually distinct from lesson card controls.",
-    "The hierarchy was verified in light and dark mobile themes."
+    "The unnecessary outer frame around lesson sorting arrows was removed.",
+    "Module ordering controls now hide automatically while that module's cards are expanded.",
+    "Collapsing the module reveals its ordering controls again."
   ]
 };
 

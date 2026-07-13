@@ -2383,7 +2383,7 @@ watch(
             }"
           >
             <span>{{ lessonCountLabel(module.images.length) }}</span>
-            <div v-if="canManageModules" class="module-sort-controls module-level-sort-controls" aria-label="Сортировка модуля">
+            <div v-if="canManageModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls" aria-label="Сортировка модуля">
               <button
                 class="icon-button ui-icon-button module-sort-button"
                 type="button"

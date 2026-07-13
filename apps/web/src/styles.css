@@ -17912,8 +17912,9 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .modules-section .lesson-level-sort-controls {
-  border-color: color-mix(in srgb, var(--border) 86%, transparent);
-  background: color-mix(in srgb, var(--panel-strong) 88%, var(--bg));
+  border: 0;
+  background: transparent;
+  padding: 0;
   box-shadow: none;
 }
 
