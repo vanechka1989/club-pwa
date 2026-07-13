@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact client sections as version 4.01", () => {
-    expect(appVersion).toBe("4.01");
-    expect(releaseNotes[0]?.title).toBe("Компактные разделы клиента");
+  it("publishes fixed-height client rows as version 4.02", () => {
+    expect(appVersion).toBe("4.02");
+    expect(releaseNotes[0]?.title).toBe("Минимальные строки клиента");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

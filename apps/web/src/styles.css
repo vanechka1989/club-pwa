@@ -13641,7 +13641,7 @@ body.club-mobile-device .admin-panel-head {
   display: grid;
   width: 100%;
   min-height: 64px;
-  gap: 4px;
+  gap: 8px;
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -15766,7 +15766,7 @@ input[type="submit"],
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 4px;
   padding: 10px 12px;
   border-radius: 999px;
   line-height: 1.2;
@@ -16937,7 +16937,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   display: grid;
   width: 100%;
   min-width: 0;
-  gap: 8px;
+  gap: 4px;
   align-content: start;
   touch-action: pan-y;
 }
@@ -16945,7 +16945,11 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 .admin-client-workspace .admin-client-compact-section {
   gap: 0;
   min-height: 0;
-  border-radius: 12px;
+  border-radius: 10px;
+}
+
+.admin-client-workspace .admin-client-compact-section:not([open]) {
+  height: 44px;
 }
 
 .admin-client-workspace .admin-client-compact-section > summary {

@@ -144,7 +144,8 @@ describe("admin client card helpers", () => {
 
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\s*\{[^}]*gap:\s*0;[^}]*min-height:\s*0;/s);
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*min-height:\s*44px;[^}]*padding:\s*6px 12px;/s);
-    expect(styles).toMatch(/\.admin-client-workspace\s*\{[^}]*gap:\s*8px;/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section:not\(\[open\]\)\s*\{[^}]*height:\s*44px;/s);
+    expect(styles).toMatch(/\.admin-client-workspace\s*\{[^}]*gap:\s*4px;/s);
   });
 
   it("shows clear labels for manual access changes", () => {
