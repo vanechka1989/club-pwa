@@ -18,6 +18,7 @@ export const users = pgTable(
     telegramId: varchar("telegram_id", { length: 320 }).notNull(),
     email: varchar("email", { length: 320 }),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    marketingEmailOptOutAt: timestamp("marketing_email_opt_out_at", { withTimezone: true }),
     firstName: varchar("first_name", { length: 128 }),
     username: varchar("username", { length: 64 }),
     displayName: varchar("display_name", { length: 20 }),
@@ -746,6 +747,7 @@ export const adminMailings = pgTable(
     telegramFileId: text("telegram_file_id"),
     estimatedSeconds: integer("estimated_seconds").notNull().default(0),
     targetCount: integer("target_count").notNull().default(0),
+    deliveryCount: integer("delivery_count").notNull().default(0),
     sentCount: integer("sent_count").notNull().default(0),
     failedCount: integer("failed_count").notNull().default(0),
     skippedCount: integer("skipped_count").notNull().default(0),
@@ -765,6 +767,7 @@ export const adminMailingRecipients = pgTable(
     mailingId: uuid("mailing_id").notNull().references(() => adminMailings.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     telegramId: varchar("telegram_id", { length: 320 }).notNull(),
+    channel: varchar("channel", { length: 16 }).notNull().default("push"),
     status: varchar("status", { length: 32 }).notNull().default("pending"),
     error: text("error"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -773,7 +776,8 @@ export const adminMailingRecipients = pgTable(
   },
   (table) => ({
     mailingStatusIdx: index("admin_mailing_recipients_mailing_status_idx").on(table.mailingId, table.status, table.createdAt),
-    userIdx: index("admin_mailing_recipients_user_idx").on(table.userId)
+    userIdx: index("admin_mailing_recipients_user_idx").on(table.userId),
+    mailingUserChannelIdx: uniqueIndex("admin_mailing_recipients_mailing_user_channel_idx").on(table.mailingId, table.userId, table.channel)
   })
 );
 

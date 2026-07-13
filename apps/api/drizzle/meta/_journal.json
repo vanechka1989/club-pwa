@@ -281,6 +281,13 @@
       "when": 1783920140991,
       "tag": "0039_user_devices",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1783934700000,
+      "tag": "0040_push_email_mailings",
+      "breakpoints": true
     }
   ]
 }

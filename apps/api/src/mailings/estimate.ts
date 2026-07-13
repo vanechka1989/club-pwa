@@ -1,25 +1,19 @@
-export type MailingChannel = "bot" | "app" | "all";
-
-const telegramMessagesPerSecond = 20;
-const appNotificationsPerSecond = 300;
+const pushBatchSize = 20;
+const pushBatchIntervalSeconds = 5;
+const emailsPerSecond = 2;
 
 export function estimateMailingDurationSeconds({
-  recipientCount,
-  channel
+  pushCount,
+  emailCount
 }: {
-  recipientCount: number;
-  channel: MailingChannel;
+  pushCount: number;
+  emailCount: number;
 }) {
-  const normalizedCount = Math.max(0, Math.floor(recipientCount));
-  if (normalizedCount === 0) {
-    return 0;
-  }
-
-  if (channel === "app") {
-    return Math.max(1, Math.ceil(normalizedCount / appNotificationsPerSecond));
-  }
-
-  return Math.max(1, Math.ceil((normalizedCount / telegramMessagesPerSecond) * 1.1));
+  const normalizedPushCount = Math.max(0, Math.floor(pushCount));
+  const normalizedEmailCount = Math.max(0, Math.floor(emailCount));
+  const pushSeconds = Math.ceil(normalizedPushCount / pushBatchSize) * pushBatchIntervalSeconds;
+  const emailSeconds = Math.ceil(normalizedEmailCount / emailsPerSecond);
+  return pushSeconds + emailSeconds;
 }
 
 export function formatMailingDuration(seconds: number) {

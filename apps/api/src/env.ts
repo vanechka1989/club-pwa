@@ -24,6 +24,7 @@ const envSchema = z.object({
   DKIM_DOMAIN: optionalString,
   DKIM_SELECTOR: optionalString,
   DKIM_PRIVATE_KEY: optionalString,
+  MAILING_UNSUBSCRIBE_SECRET: optionalString,
   WEB_PUSH_PUBLIC_KEY: optionalString,
   WEB_PUSH_PRIVATE_KEY: optionalString,
   WEB_PUSH_SUBJECT: optionalString.default("mailto:admin@example.com"),

@@ -1,12 +1,13 @@
-import { and, count, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { mailingChannelSchema, mailingFiltersSchema, type MailingChannel } from "@club/shared";
 import { recordAdminAction } from "../admin/actionLog";
+import { sendEmail } from "../auth/emailDelivery";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
-import { adminMailingRecipients, adminMailings, userContentProgress, userMutes, users } from "../db/schema";
+import { adminMailingRecipients, adminMailings, pushSubscriptions, userContentProgress, userMutes, users } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
@@ -16,6 +17,7 @@ import { createAppNotification } from "../notifications/create";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import { uploadObject } from "../storage/s3";
 import { filterMailingAudience, type MailingAudienceUser } from "../mailings/audience";
+import { getMailingDeliveryChannels, normalizeMailingChannel } from "../mailings/channels";
 import { estimateMailingDurationSeconds, formatMailingDuration } from "../mailings/estimate";
 import {
   buildMailingAttachmentObjectKey,
@@ -23,6 +25,8 @@ import {
   getMailingAttachmentUploadContentType
 } from "../mailings/mediaUpload";
 import { normalizeMailingFilters, serializeAdminMailing } from "../mailings/serialize";
+import { createMailingUnsubscribeToken } from "../mailings/unsubscribe";
+import { getObjectReadUrl } from "../storage/s3";
 
 const mailingPreviewSchema = z.object({
   channel: mailingChannelSchema,
@@ -59,8 +63,57 @@ function htmlToText(html: string) {
     .trim();
 }
 
-function buildTelegramText(mailing: { title: string; body: string }) {
+function buildMailingText(mailing: { title: string; body: string }) {
   return mailing.title ? `${mailing.title}\n\n${mailing.body}` : mailing.body;
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character] ?? character);
+}
+
+let nextEmailDeliveryAt = 0;
+
+async function waitForEmailDeliverySlot() {
+  const delayMs = Math.max(0, nextEmailDeliveryAt - Date.now());
+  if (delayMs > 0) {
+    await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+  }
+  nextEmailDeliveryAt = Date.now() + 500;
+}
+
+async function sendMailingEmail({
+  mailing,
+  target,
+  isTest = false
+}: {
+  mailing: Pick<typeof adminMailings.$inferSelect, "title" | "body" | "bodyHtml" | "attachmentObjectKey" | "attachmentFileName">;
+  target: typeof users.$inferSelect;
+  isTest?: boolean;
+}) {
+  if (!target.email?.trim() || target.marketingEmailOptOutAt) {
+    return false;
+  }
+
+  const unsubscribeUrl = `${env.WEB_ORIGIN}/api/mailings/unsubscribe?token=${encodeURIComponent(createMailingUnsubscribeToken(target.id))}`;
+  const attachmentUrl = mailing.attachmentObjectKey ? await getObjectReadUrl(mailing.attachmentObjectKey) : null;
+  const bodyHtml = mailing.bodyHtml || `<p>${escapeHtml(mailing.body).replace(/\n/g, "<br>")}</p>`;
+  const attachmentHtml = attachmentUrl
+    ? `<p><a href="${escapeHtml(attachmentUrl)}">Открыть вложение${mailing.attachmentFileName ? `: ${escapeHtml(mailing.attachmentFileName)}` : ""}</a></p>`
+    : "";
+  const html = `${bodyHtml}${attachmentHtml}<hr><p style="font-size:12px;color:#667085">Не хотите получать письма клуба? <a href="${escapeHtml(unsubscribeUrl)}">Отписаться</a>.</p>`;
+
+  await waitForEmailDeliverySlot();
+  await sendEmail({
+    to: target.email,
+    subject: `${isTest ? "Тест: " : ""}${mailing.title}`,
+    text: `${buildMailingText(mailing)}${attachmentUrl ? `\n\nВложение: ${attachmentUrl}` : ""}\n\nОтписаться: ${unsubscribeUrl}`,
+    html,
+    headers: {
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+    }
+  });
+  return true;
 }
 
 async function rejectIfNotAdmin(c: Context<{ Variables: AuthVariables }>) {
@@ -149,6 +202,8 @@ async function buildMailingAudienceUsers(): Promise<MailingAudienceUser[]> {
       return {
         id: user.id,
         telegramId: user.telegramId,
+        email: user.email,
+        marketingEmailOptOutAt: user.marketingEmailOptOutAt?.toISOString() ?? null,
         role,
         membershipStatus: membership.status,
         membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
@@ -163,19 +218,37 @@ async function buildMailingAudienceUsers(): Promise<MailingAudienceUser[]> {
   );
 }
 
-async function getAudiencePreview(channel: "bot" | "app" | "all", filters: unknown) {
+async function getAudiencePreview(channel: MailingChannel, filters: unknown) {
   const audienceUsers = await buildMailingAudienceUsers();
   const audience = filterMailingAudience(audienceUsers, normalizeMailingFilters(filters));
+  const deliveryChannels = getMailingDeliveryChannels(channel);
+  const hasPush = deliveryChannels.includes("push");
+  const hasEmail = deliveryChannels.includes("email");
+  const pushCount = hasPush ? audience.recipients.length : 0;
+  const emailCount = hasEmail ? audience.emailRecipients.length : 0;
+  const targetCount = hasPush ? audience.recipients.length : audience.emailRecipients.length;
+  const recipientIds = audience.recipients.map((recipient) => recipient.id);
+  const [subscriptionRow] = recipientIds.length
+    ? await db
+        .select({ value: count(pushSubscriptions.id) })
+        .from(pushSubscriptions)
+        .where(and(inArray(pushSubscriptions.userId, recipientIds), isNull(pushSubscriptions.revokedAt)))
+    : [{ value: 0 }];
   const estimatedSeconds = estimateMailingDurationSeconds({
-    recipientCount: audience.recipients.length,
-    channel
+    pushCount,
+    emailCount
   });
 
   return {
     audience,
     response: {
-      targetCount: audience.recipients.length,
-      excludedBotBlocked: audience.excludedBotBlocked,
+      targetCount,
+      deliveryCount: pushCount + emailCount,
+      pushCount,
+      pushSubscriptionCount: hasPush ? Number(subscriptionRow?.value ?? 0) : 0,
+      emailCount,
+      excludedMissingEmail: hasEmail ? audience.excludedMissingEmail : 0,
+      excludedEmailOptOut: hasEmail ? audience.excludedEmailOptOut : 0,
       excludedByFilters: audience.excludedByFilters,
       estimatedSeconds,
       estimatedLabel: formatMailingDuration(estimatedSeconds)
@@ -185,8 +258,7 @@ async function getAudiencePreview(channel: "bot" | "app" | "all", filters: unkno
 
 async function sendMailingToRecipient(
   mailing: typeof adminMailings.$inferSelect,
-  recipient: typeof adminMailingRecipients.$inferSelect,
-  options: { sendApp?: boolean } = {}
+  recipient: typeof adminMailingRecipients.$inferSelect
 ) {
   const target = await db.query.users.findFirst({
     where: eq(users.id, recipient.userId)
@@ -212,14 +284,21 @@ async function sendMailingToRecipient(
           sizeBytes: mailing.attachmentSizeBytes ?? 0
         }
       : null;
-  const shouldSendApp = options.sendApp ?? true;
-
-  if (shouldSendApp) {
+  if (recipient.channel === "email") {
+    const delivered = await sendMailingEmail({ mailing, target });
+    if (!delivered) {
+      await db
+        .update(adminMailingRecipients)
+        .set({ status: "skipped_email_unavailable", updatedAt: new Date() })
+        .where(eq(adminMailingRecipients.id, recipient.id));
+      return "skipped" as const;
+    }
+  } else {
     await createAppNotification({
       userId: target.id,
       kind: "mailing",
       title: "Сообщение от клуба",
-      body: buildTelegramText(mailing),
+      body: buildMailingText(mailing),
       bodyHtml: mailing.bodyHtml,
       source: "mailing",
       sourceId: mailing.id,
@@ -249,20 +328,26 @@ async function sendDraftMailingTest({
   channel: MailingChannel;
   attachment: UploadedMailingAttachment | null;
 }) {
-  const mailing = { title, body, bodyHtml };
-  const shouldSendApp = true;
+  const mailing = { title, body, bodyHtml, attachmentObjectKey: attachment?.objectKey ?? null, attachmentFileName: attachment?.fileName ?? null };
+  const deliveryChannels = getMailingDeliveryChannels(channel);
 
-  if (shouldSendApp) {
+  if (deliveryChannels.includes("push")) {
     await createAppNotification({
       userId: admin.id,
       kind: "mailing",
       title: "Тест: Сообщение от клуба",
-      body: buildTelegramText(mailing),
+      body: buildMailingText(mailing),
       bodyHtml,
       source: "mailing_test",
       sourceId: null,
       attachment
     });
+  }
+  if (deliveryChannels.includes("email")) {
+    const delivered = await sendMailingEmail({ mailing, target: admin, isTest: true });
+    if (!delivered) {
+      throw new Error("У вашего аккаунта нет доступного email для тестовой рассылки.");
+    }
   }
 }
 
@@ -483,6 +568,7 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
         attachmentSizeBytes: upload?.sizeBytes ?? null,
         estimatedSeconds: preview.response.estimatedSeconds,
         targetCount: preview.response.targetCount,
+        deliveryCount: preview.response.deliveryCount,
         createdAt: now,
         updatedAt: now
       })
@@ -492,15 +578,29 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось создать рассылку." }, 500);
     }
 
-    if (preview.audience.recipients.length) {
-      await db.insert(adminMailingRecipients).values(
-        preview.audience.recipients.map((recipient) => ({
+    const deliveryChannels = getMailingDeliveryChannels(channelResult.data);
+    const deliveryRows = [
+      ...(deliveryChannels.includes("push")
+        ? preview.audience.recipients.map((recipient) => ({
           mailingId: mailing.id,
           userId: recipient.id,
           telegramId: recipient.telegramId,
+          channel: "push",
           status: "pending"
         }))
-      );
+        : []),
+      ...(deliveryChannels.includes("email")
+        ? preview.audience.emailRecipients.map((recipient) => ({
+            mailingId: mailing.id,
+            userId: recipient.id,
+            telegramId: recipient.telegramId,
+            channel: "email",
+            status: "pending"
+          }))
+        : [])
+    ];
+    if (deliveryRows.length) {
+      await db.insert(adminMailingRecipients).values(deliveryRows).onConflictDoNothing();
     }
 
     if (mailing.status === "running") {
@@ -520,6 +620,7 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
         status: mailing.status,
         scheduledAt: mailing.scheduledAt?.toISOString() ?? null,
         targetCount: mailing.targetCount,
+        deliveryCount: mailing.deliveryCount,
         estimatedSeconds: mailing.estimatedSeconds,
         hasAttachment: Boolean(mailing.attachmentObjectKey)
       }
@@ -550,31 +651,14 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Администратор не найден." }, 404);
     }
 
-    const fakeRecipient = {
-      id: randomUUID(),
-      mailingId: mailing.id,
-      userId: admin.id,
-      telegramId: admin.telegramId,
-      status: "pending",
-      error: null,
-      sentAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    } satisfies typeof adminMailingRecipients.$inferSelect;
-
-    await createAppNotification({
-      userId: admin.id,
-      kind: "mailing",
-      title: "Тест: Сообщение от клуба",
-      body: buildTelegramText(mailing),
+    await sendDraftMailingTest({
+      admin,
+      title: mailing.title,
+      body: mailing.body,
       bodyHtml: mailing.bodyHtml,
-      source: "mailing",
-      sourceId: mailing.id,
+      channel: normalizeMailingChannel(mailing.channel),
       attachment:
-        mailing.attachmentKind &&
-        mailing.attachmentFileName &&
-        mailing.attachmentObjectKey &&
-        mailing.attachmentContentType
+        mailing.attachmentKind && mailing.attachmentFileName && mailing.attachmentObjectKey && mailing.attachmentContentType
           ? {
               kind: mailing.attachmentKind as "photo" | "video" | "document",
               fileName: mailing.attachmentFileName,

@@ -6,6 +6,8 @@ function user(overrides: Partial<MailingAudienceUser>): MailingAudienceUser {
   return {
     id: overrides.id ?? crypto.randomUUID(),
     telegramId: overrides.telegramId ?? "1",
+    email: Object.prototype.hasOwnProperty.call(overrides, "email") ? overrides.email ?? null : "member@example.com",
+    marketingEmailOptOutAt: overrides.marketingEmailOptOutAt ?? null,
     role: overrides.role ?? "member",
     membershipStatus: overrides.membershipStatus ?? "active",
     tariff: overrides.tariff ?? "manual",
@@ -18,7 +20,7 @@ function user(overrides: Partial<MailingAudienceUser>): MailingAudienceUser {
 }
 
 describe("mailing audience filtering", () => {
-  it("always excludes users who blocked the bot from the final recipients", () => {
+  it("does not use Telegram bot status for push or email audience", () => {
     const audience = filterMailingAudience(
       [
         user({ id: "active", telegramId: "100", telegramBotStatus: "active" }),
@@ -27,8 +29,7 @@ describe("mailing audience filtering", () => {
       { accessStatus: "active", accessType: "all", excludeAdmins: true, excludeRestricted: true }
     );
 
-    expect(audience.recipients.map((entry) => entry.telegramId)).toEqual(["100"]);
-    expect(audience.excludedBotBlocked).toBe(1);
+    expect(audience.recipients.map((entry) => entry.telegramId)).toEqual(["100", "200"]);
   });
 
   it("separates access status from access type", () => {
@@ -45,16 +46,31 @@ describe("mailing audience filtering", () => {
     expect(audience.excludedByFilters).toBe(2);
   });
 
-  it("deduplicates recipients by Telegram id", () => {
+  it("deduplicates recipients by user id instead of Telegram id", () => {
     const audience = filterMailingAudience(
       [
         user({ id: "first", telegramId: "100" }),
-        user({ id: "duplicate", telegramId: "100" }),
+        user({ id: "first", telegramId: "100" }),
         user({ id: "second", telegramId: "200" })
       ],
       { accessStatus: "active", accessType: "all", excludeAdmins: true, excludeRestricted: true }
     );
 
     expect(audience.recipients.map((entry) => entry.telegramId)).toEqual(["100", "200"]);
+  });
+
+  it("reports email availability and opt-outs separately", () => {
+    const audience = filterMailingAudience(
+      [
+        user({ id: "eligible", email: "ok@example.com" }),
+        user({ id: "missing", email: null }),
+        user({ id: "opted-out", email: "no@example.com", marketingEmailOptOutAt: "2026-07-13T10:00:00.000Z" })
+      ],
+      { accessStatus: "active", accessType: "all", excludeAdmins: true, excludeRestricted: true }
+    );
+
+    expect(audience.emailRecipients.map((entry) => entry.id)).toEqual(["eligible"]);
+    expect(audience.excludedMissingEmail).toBe(1);
+    expect(audience.excludedEmailOptOut).toBe(1);
   });
 });

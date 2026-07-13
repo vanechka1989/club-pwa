@@ -26,4 +26,11 @@ describe("email delivery diagnostics", () => {
     expect(source).toContain('replace(/\\\\n/g, "\\n")');
     expect(source).toContain("dkim: buildDkimConfig()");
   });
+
+  it("reuses one SMTP transport and supports HTML plus delivery headers", () => {
+    const source = readFileSync(resolve(__dirname, "emailDelivery.ts"), "utf8");
+    expect(source).toContain("let smtpTransport");
+    expect(source).toContain("html: input.html");
+    expect(source).toContain("headers: input.headers");
+  });
 });

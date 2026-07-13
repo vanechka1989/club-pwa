@@ -7,6 +7,7 @@ import { communityRoute } from "./routes/community";
 import { learningRoute } from "./routes/learning";
 import { logger } from "./logger";
 import { mailingsRoute, startMailingDispatcher } from "./routes/mailings";
+import { mailingPreferencesRoute } from "./routes/mailingPreferences";
 import { meRoute } from "./routes/me";
 import { notificationsRoute } from "./routes/notifications";
 import { startExpiredPendingPaymentOrderCleanup } from "./payments/orderCleanupJob";
@@ -77,6 +78,7 @@ app.get("/uploads/*", async (c) => {
   return response;
 });
 app.route("/auth", authRoute);
+app.route("/mailings", mailingPreferencesRoute);
 
 app.post("/client-errors", async (c) => {
   if (!clientErrorRateLimiter.consume(getClientErrorRateLimitKey(c))) {

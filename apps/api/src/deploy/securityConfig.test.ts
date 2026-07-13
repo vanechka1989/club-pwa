@@ -26,6 +26,7 @@ describe("production security config", () => {
     for (const source of [serverInstall, sshInstall, publicInstall]) {
       expect(source).toContain("OWNER_EMAIL");
       expect(source).toContain("SMTP_HOST");
+      expect(source).toContain("MAILING_UNSUBSCRIBE_SECRET");
       expect(source).toContain("WEB_PUSH_PUBLIC_KEY");
       expect(source).toContain("chmod 600");
     }

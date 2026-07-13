@@ -15962,6 +15962,68 @@ input[type="submit"],
   width: var(--button-height-large);
 }
 
+/* Mailing composer: compact mobile controls and channel-aware preview. */
+.admin-mailings-panel > .admin-panel-head .admin-add-button {
+  align-self: center;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-mailing-task-screen .task-screen-actions {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  flex: 0 0 44px;
+}
+
+.admin-mailing-reset-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.admin-mailing-task-screen .admin-mailing-channels {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-mailing-task-screen .admin-mailing-channel {
+  min-height: 64px;
+  align-content: center;
+  padding: 8px 6px;
+  text-align: center;
+  overflow-wrap: normal;
+}
+
+.admin-mailing-task-screen .admin-mailing-channel strong {
+  font-size: 0.76rem;
+  line-height: 1.15;
+}
+
+.admin-mailing-task-screen .admin-mailing-channel span {
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.admin-mailing-task-screen .admin-mailing-preview-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-mailing-task-screen .admin-mailing-preview-grid article {
+  padding: 10px 12px;
+}
+
+.admin-mailing-task-screen .admin-mailing-preview-time {
+  grid-column: 1 / -1;
+}
+
 .support-ticket-client-action img,
 .support-ticket-client-action .support-customer-avatar-small {
   width: 36px;

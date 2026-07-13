@@ -644,7 +644,7 @@ export function getAdminMailings() {
   return api<AdminMailingsResponse>("/admin/mailings");
 }
 
-export function previewAdminMailing(payload: { channel: "bot" | "app" | "all"; filters: unknown }) {
+export function previewAdminMailing(payload: { channel: "push" | "email" | "push_email"; filters: unknown }) {
   return api<AdminMailingPreviewResponse>("/admin/mailings/preview", {
     method: "POST",
     body: payload

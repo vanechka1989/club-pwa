@@ -4,6 +4,7 @@ import { db } from "../db/client";
 import { adminMailings, users } from "../db/schema";
 import { getObjectReadUrl } from "../storage/s3";
 import { formatMailingDuration } from "./estimate";
+import { normalizeMailingChannel } from "./channels";
 
 const defaultFilters: MailingFilters = {
   accessStatus: "active",
@@ -64,7 +65,7 @@ export async function serializeAdminMailing(mailing: AdminMailingRow): Promise<A
     title: mailing.title,
     body: mailing.body,
     bodyHtml: mailing.bodyHtml,
-    channel: mailing.channel as AdminMailing["channel"],
+    channel: normalizeMailingChannel(mailing.channel),
     filters: normalizeMailingFilters(mailing.filters),
     status: mailing.status as MailingStatus,
     scheduledAt: mailing.scheduledAt?.toISOString() ?? null,
@@ -84,6 +85,7 @@ export async function serializeAdminMailing(mailing: AdminMailingRow): Promise<A
         }
       : null,
     targetCount: mailing.targetCount,
+    deliveryCount: mailing.deliveryCount,
     sentCount: mailing.sentCount,
     failedCount: mailing.failedCount,
     skippedCount: mailing.skippedCount,

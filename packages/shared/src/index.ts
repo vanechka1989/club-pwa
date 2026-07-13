@@ -1173,7 +1173,7 @@ export const s3StorageObjectUrlResponseSchema = z.object({
 });
 export type S3StorageObjectUrlResponse = z.infer<typeof s3StorageObjectUrlResponseSchema>;
 
-export const mailingChannelSchema = z.enum(["bot", "app", "all"]);
+export const mailingChannelSchema = z.enum(["push", "email", "push_email"]);
 export type MailingChannel = z.infer<typeof mailingChannelSchema>;
 
 export const mailingStatusSchema = z.enum(["draft", "scheduled", "running", "paused", "stopped", "completed"]);
@@ -1215,6 +1215,7 @@ export const adminMailingSchema = z.object({
   completedAt: z.string().datetime().nullable(),
   createdBy: commentAuthorSchema.nullable(),
   targetCount: z.number().int().nonnegative(),
+  deliveryCount: z.number().int().nonnegative(),
   sentCount: z.number().int().nonnegative(),
   failedCount: z.number().int().nonnegative(),
   skippedCount: z.number().int().nonnegative(),
@@ -1233,7 +1234,12 @@ export type AdminMailingsResponse = z.infer<typeof adminMailingsResponseSchema>;
 
 export const adminMailingPreviewResponseSchema = z.object({
   targetCount: z.number().int().nonnegative(),
-  excludedBotBlocked: z.number().int().nonnegative(),
+  deliveryCount: z.number().int().nonnegative(),
+  pushCount: z.number().int().nonnegative(),
+  pushSubscriptionCount: z.number().int().nonnegative(),
+  emailCount: z.number().int().nonnegative(),
+  excludedMissingEmail: z.number().int().nonnegative(),
+  excludedEmailOptOut: z.number().int().nonnegative(),
   excludedByFilters: z.number().int().nonnegative(),
   estimatedSeconds: z.number().int().nonnegative(),
   estimatedLabel: z.string()

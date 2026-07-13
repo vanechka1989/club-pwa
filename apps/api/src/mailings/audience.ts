@@ -13,6 +13,8 @@ export type MailingAudienceFilters = {
 export type MailingAudienceUser = {
   id: string;
   telegramId: string;
+  email: string | null;
+  marketingEmailOptOutAt: string | null;
   role: UserRole;
   membershipStatus: MembershipStatus;
   tariff: string | null;
@@ -57,21 +59,15 @@ export function filterMailingAudience(users: MailingAudienceUser[], filters: Mai
   const excludeAdmins = filters.excludeAdmins ?? true;
   const excludeRestricted = filters.excludeRestricted ?? true;
 
-  let excludedBotBlocked = 0;
   let excludedByFilters = 0;
   const recipients: MailingAudienceUser[] = [];
-  const seenTelegramIds = new Set<string>();
+  const seenUserIds = new Set<string>();
 
   for (const user of users) {
-    if (seenTelegramIds.has(user.telegramId)) {
+    if (seenUserIds.has(user.id)) {
       continue;
     }
-    seenTelegramIds.add(user.telegramId);
-
-    if (user.telegramBotStatus === "blocked") {
-      excludedBotBlocked += 1;
-      continue;
-    }
+    seenUserIds.add(user.id);
 
     const allowed =
       matchesAccessStatus(user, accessStatus) &&
@@ -87,9 +83,15 @@ export function filterMailingAudience(users: MailingAudienceUser[], filters: Mai
     recipients.push(user);
   }
 
+  const excludedMissingEmail = recipients.filter((user) => !user.email?.trim()).length;
+  const excludedEmailOptOut = recipients.filter((user) => user.email?.trim() && user.marketingEmailOptOutAt).length;
+  const emailRecipients = recipients.filter((user) => user.email?.trim() && !user.marketingEmailOptOutAt);
+
   return {
     recipients,
-    excludedBotBlocked,
+    emailRecipients,
+    excludedMissingEmail,
+    excludedEmailOptOut,
     excludedByFilters,
     totalBeforeFilters: users.length
   };

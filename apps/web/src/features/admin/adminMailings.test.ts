@@ -16,8 +16,9 @@ describe("admin mailings panel", () => {
   });
 
   it("offers channel choices, filters, attachments, test send, and ETA", () => {
-    expect(adminSectionSource).toContain("В приложение");
-    expect(adminSectionSource).toContain("Колокольчик и PWA push");
+    expect(adminSectionSource).toContain("Push");
+    expect(adminSectionSource).toContain("Email");
+    expect(adminSectionSource).toContain("Push + Email");
     expect(adminSectionSource).toContain("Статус доступа");
     expect(adminSectionSource).toContain("Тип доступа");
     expect(adminSectionSource).not.toContain("Бот заблокирован");
@@ -25,8 +26,17 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("Тест себе");
     expect(adminSectionSource).toContain("handleTestMailingDraft");
     expect(adminSectionSource).toContain("Примерное время");
+    expect(adminSectionSource).toContain("PWA-подписок");
+    expect(adminSectionSource).toContain("Email без адреса");
     expect(adminSectionSource).toContain("pauseAdminMailing");
     expect(adminSectionSource).toContain("stopAdminMailing");
+  });
+
+  it("uses push by default and an accessible compact reset action", () => {
+    expect(adminSectionSource).toContain('ref<MailingChannel>("push")');
+    expect(adminSectionSource).toContain('mailingChannel.value = "push"');
+    expect(adminSectionSource).toContain('aria-label="Сбросить форму"');
+    expect(adminSectionSource).toContain("<RotateCcw");
   });
 
   it("creates new mailings from a routed task screen with HTML controls", () => {

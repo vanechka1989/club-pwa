@@ -35,6 +35,7 @@ import {
   CreditCard,
   ExternalLink,
   Megaphone,
+  RotateCcw,
   Server,
   SlidersHorizontal,
   Shield,
@@ -176,7 +177,9 @@ const previewModeOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "member-inactive", label: "Без доступа" }
 ];
 const mailingChannelOptions: Array<{ value: MailingChannel; label: string; hint: string }> = [
-  { value: "app", label: "В приложение", hint: "Колокольчик и PWA push" }
+  { value: "push", label: "Push", hint: "Приложение + PWA" },
+  { value: "email", label: "Email", hint: "Письмо на почту" },
+  { value: "push_email", label: "Push + Email", hint: "Оба канала" }
 ];
 const mailingAccessStatusOptions: Array<{ value: MailingFilters["accessStatus"]; label: string }> = [
   { value: "active", label: "Активна подписка" },
@@ -226,7 +229,7 @@ const mailingPreview = ref<AdminMailingPreviewResponse | null>(null);
 const mailingTitle = ref("");
 const mailingBody = ref("");
 const mailingBodyHtml = ref("");
-const mailingChannel = ref<MailingChannel>("all");
+const mailingChannel = ref<MailingChannel>("push");
 const mailingFilters = ref<MailingFilters>({
   accessStatus: "active",
   accessType: "all",
@@ -735,7 +738,7 @@ function resetMailingForm() {
   mailingTitle.value = "";
   mailingBody.value = "";
   mailingBodyHtml.value = "";
-  mailingChannel.value = "all";
+  mailingChannel.value = "push";
   mailingFilters.value = {
     accessStatus: "active",
     accessType: "all",
@@ -3265,7 +3268,7 @@ onUnmounted(() => {
       <div class="admin-panel-head ui-page-header">
         <div>
           <h3>Рассылки</h3>
-          <p>Сообщения в приложение и PWA push для выбранной аудитории.</p>
+          <p>Push и email для выбранной аудитории.</p>
         </div>
         <button class="primary-button ui-button admin-add-button" type="button" @click="openMailingComposer()">Новая рассылка</button>
       </div>
@@ -3313,7 +3316,7 @@ onUnmounted(() => {
                 {{ mailingAttachmentText(mailing) }}
               </a>
               <div class="admin-mailing-progress">
-                <span>{{ mailing.sentCount }} / {{ mailing.targetCount }} отправлено</span>
+                <span>{{ mailing.sentCount }} / {{ mailing.deliveryCount }} доставок</span>
                 <span>{{ mailing.estimatedLabel }}</span>
               </div>
               <div class="admin-mailing-actions">
@@ -3347,7 +3350,9 @@ onUnmounted(() => {
 
       <TaskScreen v-if="showMailingComposer" class="admin-task-screen admin-mailing-task-screen" title="Новая рассылка" subtitle="Текст, вложение, фильтры и планирование." portal @back="closeMailingComposer">
         <template #actions>
-          <button class="secondary-button ui-button" type="button" @click="resetMailingForm">Сбросить</button>
+          <button class="secondary-button ui-icon-button admin-mailing-reset-button" type="button" aria-label="Сбросить форму" title="Сбросить форму" @click="resetMailingForm">
+            <RotateCcw class="h-5 w-5" aria-hidden="true" />
+          </button>
         </template>
           <section class="admin-detail ui-card admin-client-modal admin-mailing-composer-modal">
             <form id="admin-mailing-form" class="admin-crm-block ui-card admin-mailing-builder" @submit.prevent="handleCreateMailing">
@@ -3462,12 +3467,36 @@ onUnmounted(() => {
                     <strong>{{ mailingPreview?.targetCount ?? "—" }}</strong>
                   </article>
                   <article>
-                    <span>Примерное время</span>
-                    <strong>{{ mailingPreviewLoading ? "считаем..." : mailingPreview?.estimatedLabel ?? "—" }}</strong>
+                    <span>Всего доставок</span>
+                    <strong>{{ mailingPreview?.deliveryCount ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>Push</span>
+                    <strong>{{ mailingPreview?.pushCount ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>PWA-подписок</span>
+                    <strong>{{ mailingPreview?.pushSubscriptionCount ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>Email</span>
+                    <strong>{{ mailingPreview?.emailCount ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>Email без адреса</span>
+                    <strong>{{ mailingPreview?.excludedMissingEmail ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>Отписались от email</span>
+                    <strong>{{ mailingPreview?.excludedEmailOptOut ?? "—" }}</strong>
                   </article>
                   <article>
                     <span>Не прошли фильтры</span>
                     <strong>{{ mailingPreview?.excludedByFilters ?? "—" }}</strong>
+                  </article>
+                  <article class="admin-mailing-preview-time">
+                    <span>Примерное время</span>
+                    <strong>{{ mailingPreviewLoading ? "считаем..." : mailingPreview?.estimatedLabel ?? "—" }}</strong>
                   </article>
                 </div>
               </section>
@@ -3511,7 +3540,7 @@ onUnmounted(() => {
               </article>
               <article>
                 <span>Отправлено</span>
-                <strong>{{ selectedMailing.sentCount }} / {{ selectedMailing.targetCount }}</strong>
+                <strong>{{ selectedMailing.sentCount }} / {{ selectedMailing.deliveryCount }}</strong>
               </article>
               <article>
                 <span>Примерное время</span>
