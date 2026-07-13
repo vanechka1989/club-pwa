@@ -17394,7 +17394,14 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 .profile-page-header { box-sizing: border-box; min-height: 64px; margin: 0; padding: 12px 14px; border-radius: 18px; }
 .profile-page-header .section-title { font-size: 20px; }
 .profile-page-header .section-subtitle { margin-top: 2px; font-size: 12px; }
-.profile-page-header-controls { gap: 6px; }
+.profile-page-header-controls {
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
 
 .profile-avatar-task-screen .task-screen-header {
   min-height: 76px;
@@ -17889,6 +17896,29 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   justify-content: flex-start;
   padding-top: 12px;
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.modules-section .module-level-sort-controls {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel-strong));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.modules-section .module-level-action {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel-strong));
+  color: var(--accent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.modules-section .lesson-level-sort-controls {
+  border-color: color-mix(in srgb, var(--border) 86%, transparent);
+  background: color-mix(in srgb, var(--panel-strong) 88%, var(--bg));
+  box-shadow: none;
+}
+
+.modules-section .lesson-level-sort-controls .module-sort-button {
+  color: var(--text);
 }
 
 body.club-mobile-device .modules-section .module-card-head {

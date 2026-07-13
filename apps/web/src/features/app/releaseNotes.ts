@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чистая шапка и понятные модули",
+    items: [
+      "У кнопок языка и уведомлений в шапке профиля убрана лишняя общая рамка.",
+      "Управление модулем выделено акцентным фоном и визуально отделено от управления карточками уроков.",
+      "Разделение проверено в светлом и тёмном режимах на мобильном экране."
+    ]
+  },
+  {
+    version: "4.16",
+    updatedAt: "13.07.2026 22:30",
     title: "Исправленный десктопный сайдбар",
     items: [
       "Имя в десктопной панели теперь совпадает с отображаемым именем в профиле, а не подменяется логином.",
@@ -2802,11 +2812,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Fixed desktop sidebar",
+  title: "Cleaner header and clearer module controls",
   items: [
-    "The desktop sidebar now uses the same display name as the profile instead of falling back to the login.",
-    "The real profile photo and its crop settings are reused in the sidebar.",
-    "The duplicate Club label was removed and the letter placeholder was replaced with the app icon."
+    "The unnecessary outer frame around the language and notification buttons was removed.",
+    "Module-level controls now use an accent surface and are visually distinct from lesson card controls.",
+    "The hierarchy was verified in light and dark mobile themes."
   ]
 };
 

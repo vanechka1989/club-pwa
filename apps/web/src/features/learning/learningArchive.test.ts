@@ -156,6 +156,18 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.modules-section \.module-member-actions\s*\{[^}]*width:\s*auto;/s);
   });
 
+  it("visually separates module controls from lesson card controls", () => {
+    const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(source).toContain("module-level-sort-controls");
+    expect(source).toContain("module-level-action");
+    expect(source).toContain("lesson-level-sort-controls");
+    expect(styles).toMatch(/\.modules-section \.module-level-sort-controls\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 22%, var\(--panel-strong\)\);/s);
+    expect(styles).toMatch(/\.modules-section \.module-level-action\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 16%, var\(--panel-strong\)\);/s);
+    expect(styles).toMatch(/\.modules-section \.lesson-level-sort-controls\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--panel-strong\) 88%, var\(--bg\)\);/s);
+  });
+
   it("adds a module by title", async () => {
     renderAsOwner();
 

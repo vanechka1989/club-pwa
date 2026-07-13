@@ -1660,6 +1660,55 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
   );
 });
 
+test("separates profile header controls and module action levels", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "viewport-390-844");
+
+  const profileControls = page.locator(".profile-page-header-controls");
+  await expect(profileControls).toBeVisible();
+  const profileFrame = await profileControls.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { borderWidth: style.borderTopWidth, background: style.backgroundColor, shadow: style.boxShadow };
+  });
+  expect(profileFrame).toEqual({ borderWidth: "0px", background: "rgba(0, 0, 0, 0)", shadow: "none" });
+  await page.screenshot({ path: testInfo.outputPath("profile-unframed-controls.png"), fullPage: true });
+
+  await page.getByRole("button", { name: "Модули" }).click();
+  await expect(page.locator(".module-level-sort-controls").first()).toBeVisible();
+  if (!(await page.locator(".lesson-level-sort-controls").first().isVisible())) {
+    await page.getByRole("button", { name: "Переключить Модуль 1" }).click();
+  }
+  await expect(page.locator(".lesson-level-sort-controls").first()).toBeVisible();
+  const actionBackgrounds = await page.evaluate(() => ({
+    module: getComputedStyle(document.querySelector(".module-level-sort-controls")!).backgroundColor,
+    lesson: getComputedStyle(document.querySelector(".lesson-level-sort-controls")!).backgroundColor
+  }));
+  expect(actionBackgrounds.module).not.toBe(actionBackgrounds.lesson);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("learning-separated-controls.png"), fullPage: true });
+
+  await page.evaluate(() => {
+    localStorage.setItem("club-appearance-version", "7");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "pine-teal");
+  });
+  await page.goto("/profile");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-design-theme", "pine-teal");
+  await expect(page.locator(".profile-page-header-controls")).toHaveCSS("border-top-width", "0px");
+  await page.getByRole("button", { name: "Модули" }).click();
+  await expect(page.locator(".module-level-sort-controls").first()).toBeVisible();
+  if (!(await page.locator(".lesson-level-sort-controls").first().isVisible())) {
+    await page.getByRole("button", { name: "Переключить Модуль 1" }).click();
+  }
+  await expect(page.locator(".lesson-level-sort-controls").first()).toBeVisible();
+  const darkActionBackgrounds = await page.evaluate(() => ({
+    module: getComputedStyle(document.querySelector(".module-level-sort-controls")!).backgroundColor,
+    lesson: getComputedStyle(document.querySelector(".lesson-level-sort-controls")!).backgroundColor
+  }));
+  expect(darkActionBackgrounds.module).not.toBe(darkActionBackgrounds.lesson);
+  await page.screenshot({ path: testInfo.outputPath("learning-separated-controls-dark.png"), fullPage: true });
+});
+
 test("keeps profile action buttons visually sized in Android PWA scaled shells", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "android-wide-layout-980");
 

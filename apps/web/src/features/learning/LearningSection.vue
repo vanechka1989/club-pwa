@@ -2383,7 +2383,7 @@ watch(
             }"
           >
             <span>{{ lessonCountLabel(module.images.length) }}</span>
-            <div v-if="canManageModules" class="module-sort-controls" aria-label="Сортировка модуля">
+            <div v-if="canManageModules" class="module-sort-controls module-level-sort-controls" aria-label="Сортировка модуля">
               <button
                 class="icon-button ui-icon-button module-sort-button"
                 type="button"
@@ -2405,7 +2405,7 @@ watch(
             </div>
             <button
               v-if="canManageModules"
-              class="icon-button ui-icon-button module-lesson-add"
+              class="icon-button ui-icon-button module-lesson-add module-level-action"
               type="button"
               :aria-label="`Редактировать ${module.title}`"
               @click="openModuleEditModal(module)"
@@ -2414,7 +2414,7 @@ watch(
             </button>
             <button
               v-if="canManageModules && !isModuleCollapsed(module.id)"
-              class="icon-button ui-icon-button module-lesson-add"
+              class="icon-button ui-icon-button module-lesson-add module-level-action"
               type="button"
               :aria-label="`Добавить урок в ${module.title}`"
               @click="openLessonCreateModal(module)"
@@ -2422,7 +2422,7 @@ watch(
               <Plus class="h-4 w-4" aria-hidden="true" />
             </button>
             <button
-              class="icon-button ui-icon-button module-lesson-add module-collapse-control"
+              class="icon-button ui-icon-button module-lesson-add module-collapse-control module-level-action"
               type="button"
               :aria-label="`Переключить ${module.title}`"
               @click="toggleModule(module.id)"
@@ -2442,7 +2442,7 @@ watch(
           >
             <div
               v-if="canManageModules"
-              class="module-sort-controls module-lesson-sort-controls"
+              class="module-sort-controls module-lesson-sort-controls lesson-level-sort-controls"
               :class="module.defaultCardLayout === 'horizontal' ? 'module-lesson-sort-controls-updown' : 'module-lesson-sort-controls-leftright'"
               aria-label="Сортировка урока"
             >

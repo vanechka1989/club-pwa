@@ -20,6 +20,12 @@ describe("compact profile layout", () => {
     expect(source).not.toContain("profile-dashboard-controls");
   });
 
+  it("keeps the language and notification controls separate without an outer capsule", () => {
+    expect(styles).toMatch(
+      /\.profile-page-header-controls\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*padding:\s*0;[^}]*box-shadow:\s*none;/s
+    );
+  });
+
   it("defines deterministic mobile layout hooks", () => {
     for (const selector of [".profile-dashboard {", ".profile-dashboard-hero {", ".profile-summary-grid {", ".profile-nav-row {"]) {
       expect(styles).toContain(selector);
