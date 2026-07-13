@@ -148,6 +148,14 @@ describe("admin client card helpers", () => {
     expect(styles).toMatch(/\.admin-client-workspace\s*\{[^}]*gap:\s*4px;/s);
   });
 
+  it("gives open client disclosures a subtle theme-aware state", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\[open\]\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--accent\) 38%, var\(--border\)\);/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\[open\] > summary\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent-soft\) 42%, var\(--panel\)\);/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\[open\] > summary::after\s*\{[^}]*color:\s*var\(--accent\);/s);
+  });
+
   it("shows clear labels for manual access changes", () => {
     const manualGrant = {
       status: "active",

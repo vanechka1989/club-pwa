@@ -16978,6 +16978,20 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   line-height: 1;
 }
 
+.admin-client-workspace .admin-client-compact-section[open] {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.admin-client-workspace .admin-client-compact-section[open] > summary {
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--panel));
+  border-bottom-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+
+.admin-client-workspace .admin-client-compact-section[open] > summary::after {
+  color: var(--accent);
+}
+
 .admin-client-workspace > .admin-detail,
 .admin-client-workspace > .admin-crm-block {
   position: static;
