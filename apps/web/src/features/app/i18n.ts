@@ -4,6 +4,7 @@ export type Locale = "ru" | "en";
 
 const savedLocale = localStorage.getItem("club-locale");
 const locale = ref<Locale>(savedLocale === "en" ? "en" : "ru");
+if (typeof document !== "undefined") document.documentElement.lang = locale.value;
 
 const messages = {
   ru: {
@@ -302,10 +303,10 @@ const messages = {
     adminMuteUntil: "До даты",
     adminRevokeMute: "Снять мут",
     supportSectionSubtitleAdmin: "Обращения клиентов и ответы поддержки.",
-    supportSectionSubtitleUser: "Опишите проблему, и мы ответим в приложении.",
+    supportSectionSubtitleUser: "Опишите проблему и мы ответим в приложении.",
     supportLoading: "Загрузка поддержки...",
     supportNeedHelpTitle: "Нужна помощь?",
-    supportNeedHelpText: "Создайте обращение, и ответ появится здесь же.",
+    supportNeedHelpText: "Создайте обращение и ответ появится здесь же.",
     supportCreateTicket: "Обратиться в поддержку",
     supportMyTickets: "Мои обращения",
     supportNoTickets: "Обращений пока нет.",
@@ -839,6 +840,7 @@ export function useI18n() {
 
   function setLocale(nextLocale: Locale) {
     locale.value = nextLocale;
+    document.documentElement.lang = nextLocale;
     localStorage.setItem("club-locale", nextLocale);
   }
 

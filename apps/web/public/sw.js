@@ -1,4 +1,4 @@
-const cacheName = "club-pwa-v115";
+const cacheName = "club-pwa-v116";
 const appShell = ["/manifest.webmanifest", "/icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -37,10 +37,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request, { cache: "no-store" }).catch(
         () =>
-          new Response("Приложение временно недоступно без интернета. Обновите страницу, когда сеть вернётся.", {
-            status: 503,
-            headers: { "Content-Type": "text/plain; charset=utf-8" }
-          })
+          new Response(
+            (request.headers.get("Accept-Language") || "").toLowerCase().startsWith("ru")
+              ? "Приложение временно недоступно без интернета. Обновите страницу, когда сеть вернётся."
+              : "The app is temporarily unavailable offline. Refresh the page when your connection returns.",
+            { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } }
+          )
       )
     );
     return;
@@ -61,9 +63,10 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const payload = event.data?.json() || {};
-  const title = payload.title || "Клуб";
+  const isRussian = (self.navigator?.language || "").toLowerCase().startsWith("ru");
+  const title = payload.title || (isRussian ? "Клуб" : "Club");
   const options = {
-    body: payload.body || "Новое уведомление",
+    body: payload.body || (isRussian ? "Новое уведомление" : "New notification"),
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
     data: {

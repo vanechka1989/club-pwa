@@ -1567,6 +1567,57 @@ test("keeps a permissionless administrator on safe member APIs while switching t
   await expect(page.getByText(/Не удалось загрузить (?:админку|модули|общение|оплату|поддержку)/)).toHaveCount(0);
 });
 
+test("keeps system controls in English after changing the app language", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("club-locale", "en"));
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Profile" }).first()).toBeVisible();
+
+  const auditVisibleControls = async (context: string) => {
+    const untranslated = await page.locator("button, label, summary, option, input, textarea, h1, h2, h3, h4, p, span, small, strong, em, [aria-label], [title]").evaluateAll((elements) =>
+      elements.flatMap((element) => {
+        const target = element as HTMLElement;
+        const style = getComputedStyle(target);
+        if (style.display === "none" || style.visibility === "hidden") return [];
+        const hasUserContent = Boolean(target.closest(".module-card-toggle, .lesson-card-button, .continue-lesson-card, .admin-client-list-row, .chat-message-body, .support-ticket-card, .payment-product-title, .payment-product-badge")) || target.matches(".admin-mailing-card > header strong, .admin-mailing-card > p, .admin-payment-card .admin-payment-main strong");
+        const values = [
+          hasUserContent || target.children.length ? null : target.innerText,
+          target.getAttribute("aria-label"),
+          target.getAttribute("title"),
+          target.getAttribute("placeholder")
+        ].filter((value): value is string => Boolean(value));
+        return values.filter((value) => /[А-Яа-яЁё]/.test(value) && !/Иван|Екатерина|Фиксики|Тест|Модуль|Владелец · @/.test(value) && !/^[А-ЯЁ]$/.test(value.trim()));
+      })
+    );
+    expect(untranslated, `${context}: ${JSON.stringify(untranslated)}`).toEqual([]);
+  };
+
+  for (const tab of ["Modules", "Community", "Payment", "Support", "Admin"]) {
+    await page.getByRole("button", { name: tab }).last().click();
+    await page.waitForTimeout(80);
+    await auditVisibleControls(tab);
+  }
+
+  for (const panel of ["Clients", "Mailings", "Payments", "Storage", "Project settings", "Administrators", "Server"]) {
+    await page.getByRole("button", { name: panel, exact: true }).first().click();
+    await page.waitForTimeout(80);
+    await auditVisibleControls(`Admin / ${panel}`);
+  }
+
+  await page.goto("/learning");
+  await page.getByRole("button", { name: "Add module" }).click();
+  await auditVisibleControls("New module form");
+
+  await page.goto("/payments");
+  await page.getByRole("button", { name: "Edit plan" }).first().click();
+  await auditVisibleControls("Edit payment plan form");
+
+  await page.goto("/support/new");
+  await auditVisibleControls("New support request form");
+
+  await page.goto("/admin/mailings/new");
+  await auditVisibleControls("New mailing form");
+});
+
 test("keeps mobile icon action controls consistently touch sized", async ({ page }, testInfo) => {
   test.skip(!["viewport-390-844", "galaxy-s24", "android-wide-layout-980"].includes(testInfo.project.name));
 

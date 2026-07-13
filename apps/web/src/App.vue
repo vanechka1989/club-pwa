@@ -32,6 +32,7 @@ import {
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
+import { useInterfaceLocalization } from "@/features/app/interfaceLocalization";
 import LearningSection from "@/features/learning/LearningSection.vue";
 import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
 import { isTaskPath, sectionFromPath, sectionPath } from "@/features/app/taskNavigation";
@@ -47,7 +48,8 @@ const session = useSessionStore();
 useUiStore();
 const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
-const { t } = useI18n();
+const { currentLocale, t } = useI18n();
+useInterfaceLocalization(currentLocale);
 const route = useRoute();
 const router = useRouter();
 const activeSection = computed<AppSection>(() => sectionFromPath(route.path));
