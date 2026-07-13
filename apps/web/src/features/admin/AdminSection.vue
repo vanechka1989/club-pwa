@@ -4158,19 +4158,9 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <TaskScreen v-if="showTransferOwnerModal" class="admin-task-screen" title="Передать клуб" subtitle="Новый владелец получит полный доступ." portal @back="closeTransferOwnerModal">
-          <section class="admin-detail ui-card admin-client-modal">
-            <header class="admin-client-modal-head">
-              <div>
-                <h3 id="admin-owner-transfer-title">Передать клуб</h3>
-                <p>Новый владелец получит полный доступ. Вы останетесь обычным админом.</p>
-              </div>
-              <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть передачу клуба" @click="closeTransferOwnerModal">
-                <X class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </header>
-
-            <form class="admin-form" @submit.prevent="handleTransferOwner">
+      <TaskScreen v-if="showTransferOwnerModal" class="admin-task-screen admin-transfer-owner-task-screen" title="Передать клуб" subtitle="Новый владелец получит полный доступ." portal @back="closeTransferOwnerModal">
+          <section class="admin-transfer-owner-card ui-card">
+            <form class="admin-form admin-transfer-owner-form" @submit.prevent="handleTransferOwner">
               <select v-model="transferOwnerTelegramId" class="text-input">
                 <option value="" disabled>Выберите администратора</option>
                 <option v-for="admin in admins" :key="admin.id" :value="admin.telegramId">

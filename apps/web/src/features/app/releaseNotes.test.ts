@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes highlighted open client sections as version 4.06", () => {
-    expect(appVersion).toBe("4.06");
-    expect(releaseNotes[0]?.title).toBe("Выделение открытого раздела");
+  it("publishes the compact transfer owner screen as version 4.07", () => {
+    expect(appVersion).toBe("4.07");
+    expect(releaseNotes[0]?.title).toBe("Компактная передача клуба");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
