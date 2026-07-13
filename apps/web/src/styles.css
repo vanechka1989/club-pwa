@@ -4579,11 +4579,6 @@ body.club-keyboard-open .lesson-preview-modal {
   background: var(--danger);
 }
 
-.admin-client-secondary-actions {
-  display: flex;
-  justify-content: flex-start;
-}
-
 .admin-client-message-layer {
   position: fixed;
   inset: 0;
@@ -16966,13 +16961,39 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .admin-client-workspace .admin-access-toggle button,
-.admin-client-workspace .admin-date-save {
+.admin-client-workspace .admin-date-save,
+.admin-client-workspace .admin-client-mute-action {
   min-height: 44px;
 }
 
 .admin-client-workspace .admin-compact-date-row {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.admin-client-workspace .admin-compact-date-row .admin-date-action {
+  grid-column: 1 / -1;
+}
+
+.admin-client-workspace .admin-date-save,
+.admin-client-workspace .admin-client-mute-action {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 0.73rem;
+  font-weight: 860;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.admin-client-workspace .admin-client-mute-action {
+  background: color-mix(in srgb, var(--danger) 10%, var(--panel));
+  color: color-mix(in srgb, var(--danger) 76%, var(--text));
+}
+
+.admin-client-workspace .admin-client-mute-action:disabled {
+  opacity: 0.62;
 }
 
 @media (max-width: 359px) {

@@ -144,7 +144,6 @@ const emit = defineEmits<{
   "preview-mode-change": [mode: PreviewMode];
 }>();
 
-type ClientAccordionSection = "subscriptions" | "payments" | "referrals" | "restrictions";
 type ClientAccessAction = "open" | "close" | "extend7" | "extend30" | "manual";
 type UserDrilldownSelection =
   | {
@@ -332,12 +331,6 @@ const storageForm = ref({
 let accessSaveTimer: number | null = null;
 let mailingPreviewTimer: number | null = null;
 let serverLogsRefreshTimer: number | null = null;
-const clientAccordion = ref<Record<ClientAccordionSection, boolean>>({
-  subscriptions: false,
-  payments: false,
-  referrals: false,
-  restrictions: false
-});
 
 const isOwner = computed(() => session.user?.realRole === "owner");
 const canViewReleaseNotes = computed(() => ui.previewMode === "developer");
@@ -1499,22 +1492,6 @@ function applySelectedUser(user: AdminStatsUser) {
   accessExpiresAt.value = user.membershipExpiresAt?.slice(0, 10) ?? "";
 }
 
-function resetClientAccordion() {
-  clientAccordion.value = {
-    subscriptions: false,
-    payments: false,
-    referrals: false,
-    restrictions: false
-  };
-}
-
-function toggleClientAccordion(section: ClientAccordionSection) {
-  clientAccordion.value = {
-    ...clientAccordion.value,
-    [section]: !clientAccordion.value[section]
-  };
-}
-
 function resetAccessSaveState() {
   accessSaveSucceeded.value = false;
   if (accessSaveTimer) {
@@ -1534,7 +1511,6 @@ function markAccessSaved() {
 
 function closeSelectedUser() {
   resetAccessSaveState();
-  resetClientAccordion();
   closeClientMessageModal();
   selectedUser.value = null;
   selectedUserDetail.value = null;
@@ -1565,7 +1541,6 @@ async function loadSelectedUserLoginIps(telegramId: string) {
 
 async function selectUser(user: AdminStatsUser) {
   resetAccessSaveState();
-  resetClientAccordion();
   applySelectedUser(user);
   selectedUserDisplayName.value = user.displayName || user.firstName || user.username || "";
   selectedUserDisplayNameError.value = null;
@@ -3050,6 +3025,14 @@ onUnmounted(() => {
                   <input v-model="accessExpiresAt" type="date" aria-label="Дата окончания доступа" :disabled="!canManageSelectedUserAccess" />
                 </label>
                 <button
+                  class="admin-client-mute-action"
+                  type="button"
+                  :disabled="saving || !canManageSelectedUser"
+                  @click="handleQuickMute(selectedUser)"
+                >
+                  Мут до снятия
+                </button>
+                <button
                   class="admin-date-save"
                   :class="{ 'admin-save-success': accessSaveSucceeded, 'admin-access-button-pending': pendingClientAccessAction === 'manual' }"
                   type="submit"
@@ -3083,26 +3066,9 @@ onUnmounted(() => {
               </div>
             </details>
 
-            <div class="admin-client-secondary-actions">
-              <button class="secondary-button ui-button" type="button" :disabled="saving || !canManageSelectedUser" @click="handleQuickMute(selectedUser)">
-                Мут пока не снимут
-              </button>
-            </div>
-
-            <section class="admin-crm-block ui-card admin-accordion-block">
-              <button
-                class="admin-accordion-head"
-                type="button"
-                :aria-expanded="clientAccordion.subscriptions"
-                @click="toggleClientAccordion('subscriptions')"
-              >
-                <span>
-                  <strong>Подписки</strong>
-                  <small>{{ selectedUserDetail?.subscriptions.length ?? 0 }} записей</small>
-                </span>
-                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.subscriptions }" aria-hidden="true" />
-              </button>
-              <div v-if="clientAccordion.subscriptions" class="admin-accordion-body">
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
+              <summary>Подписки <span>{{ selectedUserDetail?.subscriptions.length ?? 0 }} записей</span></summary>
+              <div class="admin-accordion-body">
                 <p v-if="!selectedUserDetail?.subscriptions.length" class="admin-empty">Истории подписок пока нет.</p>
                 <article v-for="subscription in selectedUserDetail?.subscriptions ?? []" :key="subscription.id" class="admin-payment-card admin-payment-card-compact">
                   <div class="admin-payment-main">
@@ -3119,22 +3085,11 @@ onUnmounted(() => {
                   </div>
                 </article>
               </div>
-            </section>
+            </details>
 
-            <section class="admin-crm-block ui-card admin-accordion-block">
-              <button
-                class="admin-accordion-head"
-                type="button"
-                :aria-expanded="clientAccordion.payments"
-                @click="toggleClientAccordion('payments')"
-              >
-                <span>
-                  <strong>Оплаты клиента</strong>
-                  <small>{{ selectedUserPaymentOrders.length }} записей</small>
-                </span>
-                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.payments }" aria-hidden="true" />
-              </button>
-              <div v-if="clientAccordion.payments" class="admin-accordion-body">
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
+              <summary>Оплаты клиента <span>{{ selectedUserPaymentOrders.length }} записей</span></summary>
+              <div class="admin-accordion-body">
                 <p v-if="!selectedUserPaymentOrders.length" class="admin-empty">Оплат пока нет.</p>
                 <article v-for="order in selectedUserPaymentOrders" :key="order.id" class="admin-payment-card admin-payment-card-compact">
                   <div class="admin-payment-main">
@@ -3150,22 +3105,11 @@ onUnmounted(() => {
                   </div>
                 </article>
               </div>
-            </section>
+            </details>
 
-            <section class="admin-crm-block ui-card admin-accordion-block">
-              <button
-                class="admin-accordion-head"
-                type="button"
-                :aria-expanded="clientAccordion.referrals"
-                @click="toggleClientAccordion('referrals')"
-              >
-                <span>
-                  <strong>Рефералы</strong>
-                  <small>{{ selectedUserDetail?.referrals.invited.length ?? 0 }} приглашённых</small>
-                </span>
-                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.referrals }" aria-hidden="true" />
-              </button>
-              <div v-if="clientAccordion.referrals" class="admin-accordion-body">
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
+              <summary>Рефералы <span>{{ selectedUserDetail?.referrals.invited.length ?? 0 }} приглашённых</span></summary>
+              <div class="admin-accordion-body">
                 <article v-if="selectedUserDetail?.referrals.invitedBy" class="admin-payment-card admin-payment-card-compact">
                   <div class="admin-payment-main">
                     <div>
@@ -3203,22 +3147,11 @@ onUnmounted(() => {
                   </div>
                 </article>
               </div>
-            </section>
+            </details>
 
-            <section class="admin-crm-block ui-card admin-accordion-block">
-              <button
-                class="admin-accordion-head"
-                type="button"
-                :aria-expanded="clientAccordion.restrictions"
-                @click="toggleClientAccordion('restrictions')"
-              >
-                <span>
-                  <strong>Ограничения и удаления</strong>
-                  <small>{{ selectedUserDetail?.moderationEvents.length ?? 0 }} записей</small>
-                </span>
-                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': clientAccordion.restrictions }" aria-hidden="true" />
-              </button>
-              <div v-if="clientAccordion.restrictions" class="admin-accordion-body">
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
+              <summary>Ограничения и удаления <span>{{ selectedUserDetail?.moderationEvents.length ?? 0 }} записей</span></summary>
+              <div class="admin-accordion-body">
                 <p v-if="!selectedUserDetail?.moderationEvents.length" class="admin-empty">Ограничений и удалений пока нет.</p>
                 <article v-for="event in selectedUserDetail?.moderationEvents ?? []" :key="`${event.kind}-${event.id}`" class="admin-log-item">
                   <time>{{ new Date(event.createdAt).toLocaleString("ru-RU") }}</time>
@@ -3242,7 +3175,7 @@ onUnmounted(() => {
                   </div>
                 </article>
               </div>
-            </section>
+            </details>
 
             <details class="admin-client-section admin-client-compact-section admin-detail ui-card admin-client-device-history">
               <summary>Устройства <span>{{ selectedUserDevices.length }} сохранено</span></summary>

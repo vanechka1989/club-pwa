@@ -118,6 +118,27 @@ describe("admin client card helpers", () => {
     expect(styles).toMatch(/\.admin-client-kpi\s*\{[^}]*min-height:\s*56px;[^}]*justify-items:\s*center;[^}]*text-align:\s*center;/s);
   });
 
+  it("places mute left and save right inside the access action panel", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const clientScreen = source.slice(source.indexOf('v-if="selectedUser && activePanel'), source.indexOf('v-if="clientMessageOpen"'));
+    const actionForm = clientScreen.slice(clientScreen.indexOf('class="admin-compact-date-row"'), clientScreen.indexOf("</form>", clientScreen.indexOf('class="admin-compact-date-row"')));
+
+    expect(clientScreen).not.toContain("admin-client-secondary-actions");
+    expect(actionForm).toContain("handleQuickMute(selectedUser)");
+    expect(actionForm.indexOf("Мут до снятия")).toBeLessThan(actionForm.indexOf("accessSaveButtonText"));
+  });
+
+  it("uses one disclosure style for subscriptions, payments, referrals, restrictions, devices and IPs", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const clientScreen = source.slice(source.indexOf('v-if="selectedUser && activePanel'), source.indexOf('v-if="clientMessageOpen"'));
+
+    for (const label of ["Подписки", "Оплаты клиента", "Рефералы", "Ограничения и удаления", "Устройства", "IP входов"]) {
+      expect(clientScreen).toContain(`<summary>${label}`);
+    }
+    expect(clientScreen).not.toContain("admin-crm-block ui-card admin-accordion-block");
+    expect(clientScreen).not.toContain("admin-accordion-head");
+  });
+
   it("shows clear labels for manual access changes", () => {
     const manualGrant = {
       status: "active",
