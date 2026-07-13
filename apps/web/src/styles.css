@@ -16887,6 +16887,13 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   font-size: 0.8rem;
 }
 
+.admin-task-screen .admin-client-task-card {
+  height: max-content;
+  min-height: max-content;
+  grid-auto-rows: max-content;
+  align-content: start;
+}
+
 .admin-client-task-card .admin-client-action-panel {
   gap: 10px;
   border-radius: 16px;

@@ -38,6 +38,7 @@ describe("compact admin statistics and clients", () => {
     expect(styles).toContain(".admin-client-list-row");
     expect(styles).toContain(".admin-client-kpi-grid");
     expect(styles).toContain(".admin-client-primary-actions");
+    expect(styles).toMatch(/\.admin-task-screen \.admin-client-task-card\s*\{[^}]*grid-auto-rows:\s*max-content;/s);
     expect(styles).toMatch(/@media \(max-width: 359px\)[\s\S]*\.admin-client-kpi-grid/);
   });
 
