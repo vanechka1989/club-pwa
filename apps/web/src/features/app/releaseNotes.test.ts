@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact lesson creation as version 4.25", () => {
-    expect(appVersion).toBe("4.25");
-    expect(releaseNotes[0]?.title).toBe("Компактное добавление урока");
+  it("publishes the compact flat lesson action as version 4.26", () => {
+    expect(appVersion).toBe("4.26");
+    expect(releaseNotes[0]?.title).toBe("Плоская кнопка добавления урока");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

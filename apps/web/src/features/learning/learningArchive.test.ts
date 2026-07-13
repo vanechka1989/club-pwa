@@ -196,6 +196,7 @@ describe("Learning section modules", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
     expect(styles).toMatch(/\.modules-section \.module-actions-expanded > span\s*\{[^}]*height:\s*28px;/s);
     expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*height:\s*28px;[^}]*padding:\s*0\s+10px;/s);
+    expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*border-radius:\s*8px;[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 14%, var\(--panel-strong\)\);/s);
     const openCollapse = moduleOneView.getByRole("button", { name: "Свернуть карточки Модуль 1" });
     expect(openCollapse.classList.contains("module-open-collapse-control")).toBe(true);
     expect(openCollapse.querySelector(".module-collapse-icon-up")).toBeTruthy();
