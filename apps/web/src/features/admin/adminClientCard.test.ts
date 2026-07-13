@@ -73,9 +73,16 @@ describe("admin client card helpers", () => {
   it("keeps the client task screen scrollable above the phone bottom controls", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toContain(".admin-task-screen .admin-client-modal");
     expect(styles).toContain("padding-bottom: max(1rem, var(--club-safe-bottom))");
-    expect(styles).toMatch(/body\.club-mobile-device \.admin-task-screen \.task-screen-body\s*\{[^}]*overflow-y:\s*auto;[^}]*touch-action:\s*pan-y;/s);
+    expect(styles).toMatch(/\.admin-client-task-screen\.task-screen-route-layer\s*\{[^}]*overflow-y:\s*auto;[^}]*touch-action:\s*pan-y;/s);
+    expect(styles).toMatch(/\.admin-client-task-screen\.task-screen-route-layer > \.task-screen\s*\{[^}]*height:\s*auto;[^}]*overflow:\s*visible;/s);
+    expect(styles).toMatch(/\.admin-client-task-screen\.task-screen-route-layer \.task-screen-body,[\s\S]*overflow:\s*visible;/s);
+  });
+
+  it("uses a high-contrast closed access badge", () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(/\.admin-access-badge-closed\s*\{[^}]*border-color:[^;]*76%[^;]*;[^}]*background:[^;]*32%[^;]*;[^}]*box-shadow:/s);
   });
 
   it("loads and shows login IP history only with the dedicated permission", () => {

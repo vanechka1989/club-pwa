@@ -2922,14 +2922,14 @@ onUnmounted(() => {
 
       <TaskScreen
         v-if="selectedUser && activePanel === 'users'"
-        class="admin-task-screen"
+        class="admin-task-screen admin-client-task-screen"
         :title="userTitle(selectedUser)"
         :subtitle="selectedUserMeta(selectedUser)"
         portal
         @back="closeSelectedUser"
       >
-          <section class="admin-detail ui-card admin-client-modal admin-client-task-card">
-            <header class="admin-client-identity">
+          <div class="admin-client-workspace">
+            <header class="admin-client-identity admin-detail ui-card">
               <div class="admin-client-card-head">
                 <span class="admin-client-avatar">
                   <img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" />
@@ -2985,7 +2985,7 @@ onUnmounted(() => {
               Менять доступ и ограничения администраторов может только главный админ.
             </p>
 
-            <section class="admin-client-action-panel" aria-label="Действия с клиентом">
+            <section class="admin-client-action-panel admin-detail ui-card" aria-label="Действия с клиентом">
               <div class="admin-client-action-head">
                 <strong>Действие</strong>
                 <small>{{ getAccessActionSummary(selectedUser) }}</small>
@@ -3044,7 +3044,7 @@ onUnmounted(() => {
               </form>
             </section>
 
-            <details class="admin-client-section admin-client-compact-section">
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
               <summary>Профиль <span>обзор</span></summary>
               <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>Профиль</h4>
@@ -3075,7 +3075,7 @@ onUnmounted(() => {
               </div>
             </details>
 
-            <details class="admin-client-section admin-client-compact-section">
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
               <summary>Устройство <span>{{ selectedUserDetail?.device ? "данные получены" : "нет данных" }}</span></summary>
               <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>Устройство</h4>
@@ -3097,7 +3097,7 @@ onUnmounted(() => {
               <p v-else class="admin-empty">Данные появятся после следующего запуска приложения клиентом.</p>
             </details>
 
-            <details v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section admin-client-compact-section">
+            <details v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section admin-client-compact-section admin-detail ui-card">
               <summary>IP входов <span>{{ selectedUserLoginIps.length }} адресов</span></summary>
               <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>IP входов</h4>
@@ -3121,7 +3121,7 @@ onUnmounted(() => {
               </div>
             </details>
 
-            <details class="admin-client-section admin-client-compact-section">
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
               <summary>Активность <span>последние события</span></summary>
               <div class="admin-client-section-head admin-client-section-head-hidden">
                 <h4>Активность</h4>
@@ -3304,7 +3304,7 @@ onUnmounted(() => {
                 </article>
               </div>
             </section>
-          </section>
+          </div>
             <form v-if="clientMessageOpen" class="admin-client-message-modal admin-client-message-inline" @submit.prevent="submitClientMessage">
               <header class="admin-client-message-head">
                 <div>

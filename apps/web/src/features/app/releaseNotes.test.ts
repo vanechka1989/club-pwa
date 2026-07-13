@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the dense client rows as version 3.96", () => {
-    expect(appVersion).toBe("3.96");
-    expect(releaseNotes[0]?.title).toBe("Плотные строки клиентов");
+  it("publishes the separated client workspace as version 3.97", () => {
+    expect(appVersion).toBe("3.97");
+    expect(releaseNotes[0]?.title).toBe("Раздельная карточка клиента");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

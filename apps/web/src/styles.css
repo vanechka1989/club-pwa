@@ -16821,9 +16821,10 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .admin-access-badge-closed {
-  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
-  background: color-mix(in srgb, var(--danger-soft) 86%, var(--panel));
-  color: var(--danger-text);
+  border-color: color-mix(in srgb, var(--danger) 76%, var(--border));
+  background: color-mix(in srgb, var(--danger) 32%, var(--panel));
+  color: color-mix(in srgb, var(--danger-text) 42%, #fff);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent), 0 4px 12px color-mix(in srgb, var(--danger) 16%, transparent);
 }
 
 .admin-access-badge-restricted {
@@ -16928,30 +16929,39 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   font-size: 0.8rem;
 }
 
-.admin-task-screen .admin-client-task-card {
-  height: max-content;
-  min-height: max-content;
-  grid-auto-rows: max-content;
+.admin-client-workspace {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
   align-content: start;
+  touch-action: pan-y;
 }
 
-.admin-client-task-card .admin-client-action-panel {
+.admin-client-workspace > .admin-detail,
+.admin-client-workspace > .admin-crm-block {
+  position: static;
+  top: auto;
+  margin: 0;
+}
+
+.admin-client-workspace .admin-client-action-panel {
   gap: 10px;
   border-radius: 16px;
   padding: 12px;
 }
 
-.admin-client-task-card .admin-access-toggle {
+.admin-client-workspace .admin-access-toggle {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.admin-client-task-card .admin-access-toggle button,
-.admin-client-task-card .admin-date-save {
+.admin-client-workspace .admin-access-toggle button,
+.admin-client-workspace .admin-date-save {
   min-height: 44px;
 }
 
-.admin-client-task-card .admin-compact-date-row {
+.admin-client-workspace .admin-compact-date-row {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
@@ -17002,15 +17012,33 @@ body.club-mobile-app-scaled .admin-client-list-row .admin-client-list-avatar {
   height: 40px;
 }
 
-body.club-mobile-device .admin-task-screen .task-screen-body {
+.admin-client-task-screen.task-screen-route-layer {
+  overflow-x: hidden;
   overflow-y: auto;
   touch-action: pan-y;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
 
-body.club-mobile-device .admin-task-screen .admin-client-task-card,
-body.club-mobile-app-scaled .admin-task-screen .admin-client-task-card {
+.admin-client-task-screen.task-screen-route-layer > .task-screen {
+  display: block;
+  height: auto;
+  min-height: 100dvh;
+  max-height: none;
+  overflow: visible;
+}
+
+.admin-client-task-screen .task-screen-header {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+}
+
+.admin-client-task-screen.task-screen-route-layer .task-screen-body,
+html.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-screen-body,
+body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-screen-body,
+body.club-mobile-app-scaled .admin-client-task-screen.task-screen-route-layer .task-screen-body {
+  overflow: visible;
   touch-action: pan-y;
 }
 

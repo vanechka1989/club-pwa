@@ -37,15 +37,24 @@ describe("compact admin statistics and clients", () => {
   });
 
   it("balances the separate client screen between a summary and access controls", () => {
-    expect(source).toContain('class="admin-client-identity"');
+    expect(source).toContain('class="admin-task-screen admin-client-task-screen"');
+    expect(source).toContain('class="admin-client-workspace"');
+    expect(source).toContain('class="admin-client-identity admin-detail ui-card"');
     expect(source).toContain('class="admin-client-kpi-grid"');
     expect(source).toContain('class="admin-client-primary-actions"');
     expect(source.match(/class="admin-client-kpi"/g)?.length).toBe(4);
     expect(styles).toContain(".admin-client-list-row");
     expect(styles).toContain(".admin-client-kpi-grid");
     expect(styles).toContain(".admin-client-primary-actions");
-    expect(styles).toMatch(/\.admin-task-screen \.admin-client-task-card\s*\{[^}]*grid-auto-rows:\s*max-content;/s);
+    expect(source).not.toContain('admin-client-modal admin-client-task-card');
+    expect(styles).toContain(".admin-client-workspace");
     expect(styles).toMatch(/@media \(max-width: 359px\)[\s\S]*\.admin-client-kpi-grid/);
+  });
+
+  it("renders client sections as sibling cards instead of nested windows", () => {
+    expect(source).toContain('class="admin-client-identity admin-detail ui-card"');
+    expect(source).toContain('class="admin-client-action-panel admin-detail ui-card"');
+    expect(source).toContain('class="admin-client-section admin-client-compact-section admin-detail ui-card"');
   });
 
   it("collapses secondary client information by default", () => {
