@@ -82,7 +82,7 @@ describe("admin client card helpers", () => {
   it("uses a high-contrast closed access badge", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.admin-access-badge-closed\s*\{[^}]*border-color:[^;]*76%[^;]*;[^}]*background:[^;]*32%[^;]*;[^}]*box-shadow:/s);
+    expect(styles).toMatch(/\.admin-access-badge-closed\s*\{[^}]*border-color:[^;]*92%[^;]*;[^}]*background:[^;]*88%[^;]*;[^}]*color:\s*#fff;[^}]*box-shadow:/s);
   });
 
   it("loads and shows login IP history only with the dedicated permission", () => {
