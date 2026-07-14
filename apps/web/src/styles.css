@@ -6609,7 +6609,7 @@ body.club-keyboard-open .admin-client-file-button {
 
 .admin-mockup-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
   gap: 0.38rem;
 }
 

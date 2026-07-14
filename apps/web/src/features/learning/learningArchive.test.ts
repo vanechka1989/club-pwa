@@ -354,10 +354,10 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*gap:\s*0\.38rem;/s);
   });
 
-  it("keeps vertical lesson cards readable on narrow screens", () => {
+  it("keeps vertical lesson card widths stable when cards are removed", () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
-    expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(8rem,\s*1fr\)\);/s);
+    expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(8rem,\s*1fr\)\);/s);
   });
 
   it("keeps horizontal lesson covers wide instead of square", () => {

@@ -1772,6 +1772,16 @@ test("separates profile header controls and module action levels", async ({ page
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("learning-separated-controls.png"), fullPage: true });
 
+  const lessonGrid = moduleOne.locator(".admin-mockup-grid");
+  const threeCardWidth = (await lessonGrid.locator(".module-lesson-sort-card").first().boundingBox())?.width ?? 0;
+  await lessonGrid.locator(".module-lesson-sort-card").last().evaluate((card) => card.remove());
+  const twoCardWidth = (await lessonGrid.locator(".module-lesson-sort-card").first().boundingBox())?.width ?? 0;
+  await lessonGrid.locator(".module-lesson-sort-card").last().evaluate((card) => card.remove());
+  const oneCardWidth = (await lessonGrid.locator(".module-lesson-sort-card").first().boundingBox())?.width ?? 0;
+  expect(Math.abs(twoCardWidth - threeCardWidth)).toBeLessThanOrEqual(1);
+  expect(Math.abs(oneCardWidth - threeCardWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath("learning-stable-single-card-width.png"), fullPage: true });
+
   await page.evaluate(() => {
     localStorage.setItem("club-appearance-version", "7");
     localStorage.setItem("club-theme", "dark");

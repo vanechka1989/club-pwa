@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact single-card actions as version 4.42", () => {
-    expect(appVersion).toBe("4.42");
-    expect(releaseNotes[0]?.title).toBe("Компактная панель одной карточки");
-    expect(releaseNotes[1]?.version).toBe("4.41");
+  it("publishes stable lesson card sizing as version 4.43", () => {
+    expect(appVersion).toBe("4.43");
+    expect(releaseNotes[0]?.title).toBe("Стабильный размер карточек уроков");
+    expect(releaseNotes[1]?.version).toBe("4.42");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact single-card actions");
+    expect(englishNotes[0]?.title).toBe("Stable lesson card sizing");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

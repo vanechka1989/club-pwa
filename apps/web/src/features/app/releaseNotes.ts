@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Стабильный размер карточек уроков",
+    items: [
+      "Карточки больше не растягиваются после удаления соседних уроков.",
+      "Сетка сохраняет свободные места справа, поэтому содержимое не прыгает при переходе с трёх карточек на две или одну.",
+      "Ширина карточек автоматически проверяется во всех трёх состояниях масштабированного Android-интерфейса."
+    ]
+  },
+  {
+    version: "4.42",
+    updatedAt: "14.07.2026 22:10",
     title: "Компактная панель одной карточки",
     items: [
       "При одной карточке стрелки и удаление больше не растягиваются на всю ширину модуля.",
@@ -3060,11 +3070,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact single-card actions",
+  title: "Stable lesson card sizing",
   items: [
-    "A single lesson no longer stretches its ordering and delete actions across the full module width.",
-    "The action group stays centered above the card while preserving the narrow-card containment fix.",
-    "Scaled Android layouts are covered for one, two, and three lesson cards."
+    "Lesson cards no longer stretch after adjacent lessons are deleted.",
+    "The grid preserves empty columns on the right, preventing layout jumps between three, two, and one card.",
+    "Scaled Android tests now verify identical card widths in every state."
   ]
 };
 
