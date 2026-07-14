@@ -67,7 +67,9 @@ describe("direct learning S3 uploads", () => {
     expect(s3Storage).toContain("getObjectMetadata");
     expect(adminRoutes).toContain('post("/learning/materials/uploads"');
     expect(adminRoutes).toContain('post("/learning/materials/uploads/multipart"');
+    expect(adminRoutes).toContain('put("/learning/materials/uploads/multipart/part"');
     expect(adminRoutes).toContain('post("/learning/materials/uploads/multipart/complete"');
+    expect(adminRoutes).toContain("uploadMultipartPart");
     expect(adminRoutes).toContain('post("/learning/materials/direct"');
     expect(adminRoutes).toContain('post("/learning/materials/:id/direct"');
     expect(adminRoutes).toContain("verifyDirectUploadedObject");

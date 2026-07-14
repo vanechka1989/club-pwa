@@ -72,9 +72,11 @@ import {
   listObjects,
   mirrorObjectToReserve,
   testS3Connection,
+  uploadMultipartPart,
   uploadObject
 } from "../storage/s3";
 import { classifyS3ObjectKey } from "../storage/s3Object";
+import { isValidMultipartPartSize, maxMultipartPartSizeBytes } from "../storage/s3MultipartPart";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import { getInternalLessonMaterialTitle } from "../learning/lessonMaterials";
 import {
@@ -212,6 +214,11 @@ const contentKinds = ["text", "photo", "video", "audio"] as const;
 const contentArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 const directLearningMediaUploadMaxBytes = 2 * 1024 * 1024 * 1024;
 const directLearningThumbnailUploadMaxBytes = 20 * 1024 * 1024;
+const learningMultipartPartQuerySchema = z.object({
+  objectKey: z.string().trim().min(1),
+  uploadId: z.string().trim().min(1),
+  partNumber: z.coerce.number().int().positive().max(1000)
+});
 
 const externalMediaUrlSchema = z
   .string()
@@ -2316,7 +2323,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       purpose === "media"
         ? buildLearningMediaObjectKey({ kind: kind as ContentKind, fileName, id: randomUUID(), now: new Date() })
         : buildLearningThumbnailObjectKey({ fileName, id: randomUUID(), now: new Date() });
-    const partSizeBytes = 8 * 1024 * 1024;
+    const partSizeBytes = maxMultipartPartSizeBytes;
     const partsCount = Math.max(1, Math.ceil(sizeBytes / partSizeBytes));
     const upload = await createMultipartUpload({ key: objectKey, contentType, partsCount });
 
@@ -2326,9 +2333,50 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       contentType,
       sizeBytes,
       partSizeBytes,
-      parts: upload.parts,
+      parts: upload.parts.map((part) => {
+        const uploadUrl = new URL("/api/admin/learning/materials/uploads/multipart/part", env.WEB_ORIGIN);
+        uploadUrl.searchParams.set("objectKey", upload.key);
+        uploadUrl.searchParams.set("uploadId", upload.uploadId);
+        uploadUrl.searchParams.set("partNumber", String(part.partNumber));
+        return { partNumber: part.partNumber, uploadUrl: uploadUrl.toString() };
+      }),
       expiresAt: upload.expiresAt.toISOString()
     });
+  })
+  .put("/learning/materials/uploads/multipart/part", async (c) => {
+    const query = learningMultipartPartQuerySchema.safeParse({
+      objectKey: c.req.query("objectKey"),
+      uploadId: c.req.query("uploadId"),
+      partNumber: c.req.query("partNumber")
+    });
+    if (!query.success || classifyS3ObjectKey(query.data.objectKey).category !== "learning") {
+      return c.json({ error: "Invalid multipart upload part" }, 400);
+    }
+
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    if (!isValidMultipartPartSize(bytes.byteLength)) {
+      return c.json({ error: "Invalid multipart upload part size" }, 400);
+    }
+
+    try {
+      const uploaded = await uploadMultipartPart({
+        key: query.data.objectKey,
+        uploadId: query.data.uploadId,
+        partNumber: query.data.partNumber,
+        body: bytes
+      });
+      c.header("ETag", uploaded.etag);
+      return c.body(null, 204);
+    } catch (error) {
+      recordServerError({
+        error,
+        title: "Не удалось загрузить часть файла урока",
+        method: c.req.method,
+        path: c.req.path,
+        status: 400
+      });
+      return c.json({ error: "Unable to upload multipart part" }, 400);
+    }
   })
   .post("/learning/materials/uploads/multipart/complete", async (c) => {
     const body = adminLearningMultipartCompleteRequestSchema.safeParse(await c.req.json().catch(() => null));

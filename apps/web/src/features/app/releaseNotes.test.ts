@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes browser upload CORS repair as version 4.30", () => {
-    expect(appVersion).toBe("4.30");
-    expect(releaseNotes[0]?.title).toBe("Загрузка файлов в урок исправлена");
+  it("publishes API-proxied lesson uploads as version 4.31", () => {
+    expect(appVersion).toBe("4.31");
+    expect(releaseNotes[0]?.title).toBe("Загрузка файлов через API");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

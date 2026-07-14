@@ -5,7 +5,6 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
-  PutBucketCorsCommand,
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
@@ -21,7 +20,6 @@ import { env } from "../env";
 import { logger } from "../logger";
 import { getS3ConfigFromEnv, getS3ConfigFromSetting, storageSettingKey, type StoredS3Config } from "./s3Config";
 import { normalizeS3ObjectKey, normalizeS3ObjectPrefix } from "./s3Object";
-import { buildBrowserUploadCorsRule } from "./s3Cors";
 
 export type UploadObjectInput = {
   key: string;
@@ -54,39 +52,6 @@ function createS3Client(config: StoredS3Config) {
       secretAccessKey: config.secretAccessKey
     }
   });
-}
-
-let browserUploadCorsKey = "";
-let browserUploadCorsPromise: Promise<void> | null = null;
-
-async function ensureBrowserUploadCors(config: StoredS3Config) {
-  const webOrigin = new URL(env.WEB_ORIGIN).origin;
-  const configKey = `${config.endpoint}|${config.bucket}|${webOrigin}`;
-
-  if (browserUploadCorsKey !== configKey) {
-    browserUploadCorsKey = configKey;
-    browserUploadCorsPromise = null;
-  }
-
-  if (!browserUploadCorsPromise) {
-    const client = createS3Client(config);
-    browserUploadCorsPromise = client
-      .send(
-        new PutBucketCorsCommand({
-          Bucket: config.bucket,
-          CORSConfiguration: {
-            CORSRules: [buildBrowserUploadCorsRule(webOrigin)]
-          }
-        })
-      )
-      .then(() => undefined)
-      .catch((error) => {
-        browserUploadCorsPromise = null;
-        throw error;
-      });
-  }
-
-  await browserUploadCorsPromise;
 }
 
 function resolveS3TargetConfig(config: StoredS3Config, target: S3StorageTarget) {
@@ -207,7 +172,6 @@ export async function createMultipartUpload({
   const normalizedKey = normalizeS3ObjectKey(key);
   const safePartsCount = Math.min(Math.max(partsCount, 1), 1000);
   const client = createS3Client(config);
-  await ensureBrowserUploadCors(config);
   const multipart = await client.send(
     new CreateMultipartUploadCommand({
       Bucket: config.bucket,
@@ -220,23 +184,7 @@ export async function createMultipartUpload({
     throw new Error("S3 multipart upload id is missing");
   }
 
-  const parts = await Promise.all(
-    Array.from({ length: safePartsCount }, async (_, index) => {
-      const partNumber = index + 1;
-      const uploadUrl = await getSignedUrl(
-        client,
-        new UploadPartCommand({
-          Bucket: config.bucket,
-          Key: normalizedKey,
-          UploadId: multipart.UploadId,
-          PartNumber: partNumber
-        }),
-        { expiresIn: expiresInSeconds }
-      );
-
-      return { partNumber, uploadUrl };
-    })
-  );
+  const parts = Array.from({ length: safePartsCount }, (_, index) => ({ partNumber: index + 1 }));
 
   return {
     key: normalizedKey,
@@ -244,6 +192,37 @@ export async function createMultipartUpload({
     parts,
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000)
   };
+}
+
+export async function uploadMultipartPart({
+  key,
+  uploadId,
+  partNumber,
+  body
+}: {
+  key: string;
+  uploadId: string;
+  partNumber: number;
+  body: Uint8Array;
+}) {
+  const config = await requireS3Config();
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const client = createS3Client(config);
+  const response = await client.send(
+    new UploadPartCommand({
+      Bucket: config.bucket,
+      Key: normalizedKey,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+      Body: body
+    })
+  );
+
+  if (!response.ETag) {
+    throw new Error("S3 multipart part ETag is missing");
+  }
+
+  return { etag: response.ETag };
 }
 
 export async function completeMultipartUpload({
