@@ -72,7 +72,7 @@ function isStandalonePwa() {
   return isInstalledPwaDisplay();
 }
 
-function withAuthHeaders(input?: HeadersInit) {
+export function getApiRequestHeaders(input?: HeadersInit) {
   const headers = new Headers(input);
   const previewMode = localStorage.getItem(previewModeStorageKey);
   if (
@@ -94,7 +94,7 @@ export const api = ofetch.create({
   baseURL: apiUrl,
   credentials: "include",
   onRequest({ options }) {
-    options.headers = withAuthHeaders(options.headers);
+    options.headers = getApiRequestHeaders(options.headers);
   }
 });
 
@@ -629,7 +629,7 @@ function buildAbsoluteApiUrl(path: string) {
 
 export async function downloadAdminDatabaseBackup() {
   const response = await fetch(`${apiUrl.replace(/\/$/, "")}/admin/database/backup`, {
-    headers: withAuthHeaders(),
+    headers: getApiRequestHeaders(),
     credentials: "include"
   });
 

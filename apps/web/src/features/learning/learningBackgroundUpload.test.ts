@@ -29,6 +29,12 @@ describe("learning background uploads", () => {
     expect(uploadStoreSource).toContain("speedBytesPerSecond");
   });
 
+  it("authenticates every XMLHttpRequest upload part like the regular API client", () => {
+    expect(apiClientSource).toContain("export function getApiRequestHeaders");
+    expect(learningSectionSource).toContain("getApiRequestHeaders");
+    expect(learningSectionSource).toContain("request.setRequestHeader(name, value)");
+  });
+
   it("shows a compact circular upload indicator that opens details", () => {
     expect(appSource).toContain("uploadDetailsOpen");
     expect(appSource).toContain("global-upload-indicator");

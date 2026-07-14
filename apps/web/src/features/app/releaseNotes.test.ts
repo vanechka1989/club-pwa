@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes API-proxied lesson uploads as version 4.31", () => {
-    expect(appVersion).toBe("4.31");
-    expect(releaseNotes[0]?.title).toBe("Загрузка файлов через API");
+  it("publishes authenticated multipart uploads as version 4.32", () => {
+    expect(appVersion).toBe("4.32");
+    expect(releaseNotes[0]?.title).toBe("Авторизация загрузки исправлена");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

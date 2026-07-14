@@ -48,6 +48,7 @@ import {
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
+  getApiRequestHeaders,
   getLearningContent,
   getLearningHome,
   reorderAdminLearningCategories,
@@ -1445,6 +1446,10 @@ function putDirectLearningUploadPart(uploadUrl: string, blob: Blob, onProgress: 
 
     signal?.addEventListener("abort", abortUpload, { once: true });
     request.open("PUT", uploadUrl);
+    request.withCredentials = true;
+    getApiRequestHeaders().forEach((value, name) => {
+      request.setRequestHeader(name, value);
+    });
     request.upload.onprogress = (event) => {
       if (!event.lengthComputable) {
         return;
