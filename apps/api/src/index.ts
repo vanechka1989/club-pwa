@@ -119,5 +119,6 @@ app.route("/support", supportRoute);
 
 export default {
   port: env.PORT,
+  idleTimeout: 120,
   fetch: app.fetch
 };

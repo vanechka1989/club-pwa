@@ -14,7 +14,8 @@ export type LessonUploadTask = {
   totalBytes: number;
   speedBytesPerSecond: number;
   startedAt: number;
-  failure?: LessonUploadFailure;
+  failure?: LessonUploadFailure | undefined;
+  retry?: (() => void) | undefined;
   abortController?: AbortController;
 };
 
@@ -68,7 +69,7 @@ export const useLessonUploadsStore = defineStore("lessonUploads", () => {
       const failed = items.value
         .filter((item) => item.status === "error")
         .slice(0, 10)
-        .map(({ abortController: _abortController, ...item }) => item);
+        .map(({ abortController: _abortController, retry: _retry, ...item }) => item);
       localStorage.setItem(storageKey, JSON.stringify(failed));
     } catch {
       // Diagnostics must never break the upload flow.
@@ -81,13 +82,40 @@ export const useLessonUploadsStore = defineStore("lessonUploads", () => {
     remove(id);
   }
 
+  function dismiss(id: string) {
+    const task = items.value.find((item) => item.id === id);
+    if (task?.retry) {
+      cancel(id);
+      return;
+    }
+    remove(id);
+  }
+
+  function retry(id: string) {
+    const task = items.value.find((item) => item.id === id);
+    const retryUpload = task?.retry;
+    if (!task || !retryUpload) {
+      return;
+    }
+
+    update(id, {
+      status: "uploading",
+      detail: "Продолжаем загрузку",
+      failure: undefined,
+      retry: undefined
+    });
+    retryUpload();
+  }
+
   return {
     items,
     visibleUploads,
     activeUpload,
     add,
     update,
+    retry,
     cancel,
+    dismiss,
     remove
   };
 });

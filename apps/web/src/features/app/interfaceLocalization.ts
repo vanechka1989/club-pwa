@@ -3,6 +3,8 @@ import type { Locale } from "./i18n";
 
 const englishPhrases: Record<string, string> = {
   "Загрузка урока": "Lesson upload",
+  "Продолжить загрузку": "Continue upload",
+  "Продолжаем загрузку": "Continuing upload",
   "Не закрывайте и не сворачивайте приложение": "Do not close or minimize the app",
   "Соединение прервалось": "Connection interrupted",
   "Хранилище временно недоступно": "Storage is temporarily unavailable",

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   LearningUploadRequestError,
+  createManualUploadRetryGate,
   describeLessonUploadFailure,
   runUploadWithRetry
 } from "./uploadRecovery";
@@ -49,5 +50,19 @@ describe("lesson upload recovery", () => {
     });
     expect(failure.detail).toContain("три попытки");
     expect(failure.failedAt).toBeTypeOf("number");
+  });
+
+  it("resumes every paused part from one manual retry action", async () => {
+    const gate = createManualUploadRetryGate();
+    let resumed = 0;
+    const first = gate.wait().then(() => { resumed += 1; });
+    const second = gate.wait().then(() => { resumed += 1; });
+
+    expect(gate.hasWaiters()).toBe(true);
+    gate.resume();
+    await Promise.all([first, second]);
+
+    expect(resumed).toBe(2);
+    expect(gate.hasWaiters()).toBe(false);
   });
 });

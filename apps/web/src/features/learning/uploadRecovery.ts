@@ -25,7 +25,7 @@ function isCancelled(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-function isRetryable(error: unknown) {
+export function isRetryableUploadError(error: unknown) {
   if (isCancelled(error)) {
     return false;
   }
@@ -50,7 +50,7 @@ export async function runUploadWithRetry<T>(
     try {
       return await operation(attempt);
     } catch (error) {
-      if (!isRetryable(error) || attempt >= maxAttempts) {
+      if (!isRetryableUploadError(error) || attempt >= maxAttempts) {
         if (error instanceof LearningUploadRequestError) {
           error.attempts = attempt;
         }
@@ -63,6 +63,59 @@ export async function runUploadWithRetry<T>(
   }
 
   throw new LearningUploadRequestError("Не удалось загрузить файл.");
+}
+
+export function createManualUploadRetryGate() {
+  const waiters = new Set<{
+    resolve: () => void;
+    reject: (error: unknown) => void;
+    cleanup: () => void;
+  }>();
+
+  const resume = () => {
+    const pending = Array.from(waiters);
+    waiters.clear();
+    pending.forEach((waiter) => {
+      waiter.cleanup();
+      waiter.resolve();
+    });
+  };
+
+  const cancel = (error: unknown = new DOMException("Загрузка отменена.", "AbortError")) => {
+    const pending = Array.from(waiters);
+    waiters.clear();
+    pending.forEach((waiter) => {
+      waiter.cleanup();
+      waiter.reject(error);
+    });
+  };
+
+  const wait = (signal?: AbortSignal) => {
+    if (signal?.aborted) {
+      return Promise.reject(new DOMException("Загрузка отменена.", "AbortError"));
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const abort = () => {
+        waiters.delete(waiter);
+        reject(new DOMException("Загрузка отменена.", "AbortError"));
+      };
+      const waiter = {
+        resolve,
+        reject,
+        cleanup: () => signal?.removeEventListener("abort", abort)
+      };
+      waiters.add(waiter);
+      signal?.addEventListener("abort", abort, { once: true });
+    });
+  };
+
+  return {
+    wait,
+    resume,
+    cancel,
+    hasWaiters: () => waiters.size > 0
+  };
 }
 
 export function describeLessonUploadFailure(error: unknown, stage: string): LessonUploadFailure {

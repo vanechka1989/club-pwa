@@ -964,6 +964,21 @@ body.club-keyboard-open .community-chat-open .app-shell {
   font-weight: 700;
 }
 
+.global-upload-status-retry {
+  min-height: 44px;
+  margin-top: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.global-upload-status-retry:active {
+  transform: translateY(1px);
+}
+
 .global-upload-status-track {
   overflow: hidden;
   height: 0.38rem;

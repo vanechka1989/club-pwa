@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes resilient lesson uploads as version 4.37", () => {
-    expect(appVersion).toBe("4.37");
-    expect(releaseNotes[0]?.title).toBe("Надёжная загрузка уроков");
+  it("publishes resumable lesson uploads as version 4.38", () => {
+    expect(appVersion).toBe("4.38");
+    expect(releaseNotes[0]?.title).toBe("Продолжение загрузки урока");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -39,7 +39,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Reliable lesson uploads");
+    expect(englishNotes[0]?.title).toBe("Resumable lesson uploads");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

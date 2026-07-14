@@ -779,7 +779,7 @@ onBeforeUnmount(() => {
           class="global-upload-status-close"
           type="button"
           aria-label="Закрыть ошибку загрузки"
-          @click="lessonUploads.activeUpload && lessonUploads.remove(lessonUploads.activeUpload.id)"
+          @click="lessonUploads.activeUpload && lessonUploads.dismiss(lessonUploads.activeUpload.id)"
         >
           Закрыть
         </button>
@@ -814,6 +814,14 @@ onBeforeUnmount(() => {
             <dd>{{ formatUploadFailureTime(lessonUploads.activeUpload.failure.failedAt) }}</dd>
           </div>
         </dl>
+        <button
+          v-if="lessonUploads.activeUpload.retry"
+          class="global-upload-status-retry"
+          type="button"
+          @click="lessonUploads.retry(lessonUploads.activeUpload.id)"
+        >
+          Продолжить загрузку
+        </button>
       </div>
       <div class="global-upload-status-track">
         <span :style="{ width: `${lessonUploads.activeUpload?.progress ?? 0}%` }"></span>

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Продолжение загрузки урока",
+    items: [
+      "После автоматических попыток загрузку можно продолжить той же кнопкой без повторной отправки уже принятых частей.",
+      "Медленные мобильные загрузки отправляются последовательно и выдерживают паузы соединения до 120 секунд.",
+      "Кнопка продолжения доступна, пока приложение не закрыто; закрытие ошибки корректно отменяет удерживаемую сессию."
+    ]
+  },
+  {
+    version: "4.37",
+    updatedAt: "14.07.2026 15:35",
     title: "Надёжная загрузка уроков",
     items: [
       "При обрыве мобильного соединения каждая часть файла автоматически отправляется повторно до трёх раз.",
@@ -3010,11 +3020,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable lesson uploads",
+  title: "Resumable lesson uploads",
   items: [
-    "Interrupted mobile uploads now retry each file part automatically up to three times.",
-    "Upload errors now show the exact reason, stage, code, attempt count, and failure time without a false 100%.",
-    "Failed uploads remain visible until dismissed, while detailed diagnostics are recorded in the server log."
+    "After automatic retries, the same upload can continue without resending file parts already accepted by storage.",
+    "Slow mobile uploads now run sequentially and tolerate connection pauses for up to 120 seconds.",
+    "The continue action remains available while the app stays open, and dismissing the error cancels the retained session safely."
   ]
 };
 
