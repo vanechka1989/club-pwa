@@ -122,11 +122,13 @@ import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { getLocalizedReleaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useNotificationsStore } from "@/stores/notifications";
+import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
+const appDialogs = useAppDialogsStore();
 const ui = useUiStore();
 const { currentLocale } = useI18n();
 const localizedReleaseNotes = computed(() => getLocalizedReleaseNotes(currentLocale.value));
@@ -734,8 +736,23 @@ function applyMailingEditorCommand(command: string, value?: string) {
   syncMailingEditorBody();
 }
 
-function applyMailingEditorLink() {
-  const rawUrl = window.prompt("Ссылка");
+async function applyMailingEditorLink() {
+  const rawUrl = await appDialogs.prompt({
+    title: "Добавить ссылку",
+    description: "Укажите адрес, который будет открыт из текста рассылки.",
+    label: "Ссылка",
+    placeholder: "https://example.com",
+    confirmLabel: "Добавить",
+    validate: (value) => {
+      if (!value) return "Введите ссылку";
+      try {
+        new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+        return null;
+      } catch {
+        return "Введите корректную ссылку";
+      }
+    }
+  });
   const trimmedUrl = rawUrl?.trim();
   if (!trimmedUrl) {
     return;
@@ -1703,7 +1720,6 @@ function clearAdminFeedback() {
 
 function showSuccessAlert(text: string) {
   setStatus(text);
-  window.alert(text);
 }
 
 function storageSourceLabel(source: S3StorageSettings["source"]) {
@@ -1782,10 +1798,13 @@ async function openStorageFolder(folder: (typeof storagePrefixOptions)[number]) 
   openAdminTask(`/admin/storage/folders/${encodeURIComponent(folder.value || "all")}`);
 }
 
-function openStorageSettings() {
-  const confirmed = window.confirm(
-    "Изменение настроек S3 может привести к некорректной работе клуба и недоступности файлов. Точно открыть настройки?"
-  );
+async function openStorageSettings() {
+  const confirmed = await appDialogs.confirm({
+    title: "Открыть настройки хранилища?",
+    description: "Неверные параметры S3 могут сделать файлы клуба временно недоступными.",
+    confirmLabel: "Открыть настройки",
+    tone: "danger"
+  });
   if (confirmed) {
     showStorageSettingsModal.value = true;
     openAdminTask("/admin/storage/settings");
@@ -1867,7 +1886,12 @@ async function openStorageObject(item: S3StorageObject) {
 }
 
 async function handleDeleteStorageObject(item: S3StorageObject) {
-  const confirmed = window.confirm(`Удалить файл из S3?\n\n${item.key}`);
+  const confirmed = await appDialogs.confirm({
+    title: "Удалить файл из S3?",
+    description: item.key,
+    confirmLabel: "Удалить файл",
+    tone: "danger"
+  });
   if (!confirmed) {
     return;
   }
@@ -2343,7 +2367,12 @@ async function handleCreateCategory() {
 }
 
 async function handleDeleteCategory(category: LearningCategory) {
-  const confirmed = window.confirm(`Удалить категорию "${category.title}" и весь контент внутри неё?`);
+  const confirmed = await appDialogs.confirm({
+    title: `Удалить категорию «${category.title}»?`,
+    description: "Весь контент внутри категории также будет удалён.",
+    confirmLabel: "Удалить категорию",
+    tone: "danger"
+  });
   if (!confirmed) {
     return;
   }
@@ -2365,7 +2394,12 @@ async function handleDeleteCategory(category: LearningCategory) {
 }
 
 async function handleDeleteMaterial(material: AdminLearningMaterial) {
-  const confirmed = window.confirm(`Удалить контент "${material.title}"?`);
+  const confirmed = await appDialogs.confirm({
+    title: `Удалить контент «${material.title}»?`,
+    description: "Материал станет недоступен клиентам.",
+    confirmLabel: "Удалить контент",
+    tone: "danger"
+  });
   if (!confirmed) {
     return;
   }

@@ -26,6 +26,7 @@ import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
+import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatVoiceMessage from "./ChatVoiceMessage.vue";
@@ -38,6 +39,7 @@ import { useImageDraft } from "./useImageDraft";
 const { t } = useI18n();
 const session = useSessionStore();
 const notifications = useNotificationsStore();
+const appDialogs = useAppDialogsStore();
 
 const emit = defineEmits<{
   chatOpenChange: [isOpen: boolean];
@@ -290,7 +292,6 @@ function showMuteAlert() {
     : `На вас наложен мут до ${mutedUntil.value ? new Date(mutedUntil.value).toLocaleString("ru-RU") : ""}. Вы пока не можете писать в чат.`;
 
   notifications.showError(message);
-  window.alert(message);
 }
 
 function appendEmoji(emoji: string) {
@@ -753,7 +754,12 @@ async function handleDeleteAuthorMessages(message: ClubMessage) {
     return;
   }
 
-  const confirmed = window.confirm(`Удалить все сообщения пользователя ${authorName(message)} в этом чате?`);
+  const confirmed = await appDialogs.confirm({
+    title: `Удалить сообщения ${authorName(message)}?`,
+    description: "Все сообщения этого пользователя в текущем чате будут удалены без восстановления.",
+    confirmLabel: "Удалить сообщения",
+    tone: "danger"
+  });
   if (!confirmed) {
     activeModerationMessageId.value = null;
     return;

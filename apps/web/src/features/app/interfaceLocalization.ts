@@ -345,6 +345,27 @@ const englishPhrases: Record<string, string> = {
   "Скрыто": "Hidden",
   "Убрать ответ": "Cancel reply",
   "Отмена": "Cancel",
+  "Подтвердить": "Confirm",
+  "Добавить ссылку": "Add link",
+  "Укажите адрес, который будет открыт из текста рассылки.": "Enter the address that should open from the mailing message.",
+  "Введите ссылку": "Enter a link",
+  "Введите корректную ссылку": "Enter a valid link",
+  "Открыть настройки хранилища?": "Open storage settings?",
+  "Неверные параметры S3 могут сделать файлы клуба временно недоступными.": "Incorrect S3 settings can temporarily make club files unavailable.",
+  "Открыть настройки": "Open settings",
+  "Удалить файл из S3?": "Delete file from S3?",
+  "Удалить файл": "Delete file",
+  "Тариф снова станет доступен клиентам.": "The plan will become available to clients again.",
+  "Клиенты больше не увидят этот тариф в разделе оплаты.": "Clients will no longer see this plan in Payments.",
+  "Тариф будет скрыт и останется в архиве 7 дней.": "The plan will be hidden and remain archived for 7 days.",
+  "Автоматическое продление будет отключено. Доступ сохранится до конца оплаченного периода.": "Automatic renewal will be disabled. Access remains active until the paid period ends.",
+  "Автоматическое продление снова будет включено.": "Automatic renewal will be enabled again.",
+  "Все сообщения этого пользователя в текущем чате будут удалены без восстановления.": "All messages by this user in this chat will be permanently deleted.",
+  "Удалить сообщения": "Delete messages",
+  "Модуль и все уроки внутри него будут перемещены в удалённые.": "The module and all of its lessons will be moved to Deleted content.",
+  "Урок попадёт в удалённые на 7 дней, после чего будет удалён окончательно.": "The lesson will remain in Deleted content for 7 days and will then be permanently deleted.",
+  "Весь контент внутри категории также будет удалён.": "All content in this category will also be deleted.",
+  "Материал станет недоступен клиентам.": "The material will become unavailable to clients.",
   "Остановить запись": "Stop recording",
   "Удалить": "Delete",
   "Отправка…": "Sending…",
@@ -515,7 +536,16 @@ const englishPatterns: Array<[RegExp, (...matches: string[]) => string]> = [
   [/^Точно открыть тариф "(.+)"\?$/, (title) => `Show plan “${title}”?`],
   [/^Отменить подписку "(.+)"\?$/, (title) => `Cancel subscription “${title}”?`],
   [/^Восстановить подписку "(.+)"\?$/, (title) => `Restore subscription “${title}”?`],
-  [/^Удалить все сообщения пользователя (.+) в этом чате\?$/, (name) => `Delete all messages by ${name} in this chat?`]
+  [/^Удалить все сообщения пользователя (.+) в этом чате\?$/, (name) => `Delete all messages by ${name} in this chat?`],
+  [/^Удалить сообщения (.+)\?$/, (name) => `Delete messages by ${name}?`],
+  [/^(Скрыть|Открыть) тариф «(.+)»\?$/, (action, title) => `${action === "Скрыть" ? "Hide" : "Show"} plan “${title}”?`],
+  [/^Удалить тариф «(.+)»\?$/, (title) => `Delete plan “${title}”?`],
+  [/^Отменить подписку «(.+)»\?$/, (title) => `Cancel subscription “${title}”?`],
+  [/^Восстановить подписку «(.+)»\?$/, (title) => `Restore subscription “${title}”?`],
+  [/^Удалить модуль «(.+)»\?$/, (title) => `Delete module “${title}”?`],
+  [/^Удалить урок «(.+)»\?$/, (title) => `Delete lesson “${title}”?`],
+  [/^Удалить категорию «(.+)»\?$/, (title) => `Delete category “${title}”?`],
+  [/^Удалить контент «(.+)»\?$/, (title) => `Delete content “${title}”?`]
 ];
 
 const partialEnglishPhrases: Array<[string, string]> = [
@@ -554,8 +584,6 @@ const userContentSelector = ".chat-message-body, .chat-message-text, .lesson-ric
 
 export function useInterfaceLocalization(locale: Ref<Locale>) {
   let observer: MutationObserver | null = null;
-  let originalConfirm: typeof window.confirm | null = null;
-  let originalPrompt: typeof window.prompt | null = null;
   const textSources = new WeakMap<Text, string>();
   const attributeSources = new WeakMap<Element, Map<string, string>>();
 
@@ -594,10 +622,6 @@ export function useInterfaceLocalization(locale: Ref<Locale>) {
   };
 
   onMounted(() => {
-    originalConfirm = window.confirm.bind(window);
-    originalPrompt = window.prompt.bind(window);
-    window.confirm = (message?: string) => originalConfirm!(translateInterfaceText(String(message ?? ""), locale.value));
-    window.prompt = (message?: string, defaultValue?: string) => originalPrompt!(translateInterfaceText(String(message ?? ""), locale.value), defaultValue);
     localizeDocument();
     observer = new MutationObserver((mutations) => {
       observer?.disconnect();
@@ -617,7 +641,5 @@ export function useInterfaceLocalization(locale: Ref<Locale>) {
   watch(locale, () => nextTick(localizeDocument));
   onBeforeUnmount(() => {
     observer?.disconnect();
-    if (originalConfirm) window.confirm = originalConfirm;
-    if (originalPrompt) window.prompt = originalPrompt;
   });
 }

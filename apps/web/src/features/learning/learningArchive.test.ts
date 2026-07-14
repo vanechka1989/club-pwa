@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionStore } from "@/stores/session";
+import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useUiStore } from "@/stores/ui";
 import LearningSection from "./LearningSection.vue";
 
@@ -88,6 +89,12 @@ async function expandModuleOne() {
 async function openLessonCreator(moduleTitle: string) {
   await expandModule(moduleTitle);
   await fireEvent.click(screen.getByRole("button", { name: `Добавить карточку в ${moduleTitle}` }));
+}
+
+async function acceptCurrentDialog(pinia: ReturnType<typeof createPinia>) {
+  const dialogs = useAppDialogsStore(pinia);
+  await waitFor(() => expect(dialogs.active).not.toBeNull());
+  dialogs.accept();
 }
 
 async function makeModuleOneHorizontal() {
@@ -433,14 +440,13 @@ describe("Learning section modules", () => {
   });
 
   it("deletes a module after confirmation", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderAsOwner();
+    const pinia = renderAsOwner();
 
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 2" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить модуль" }));
+    await acceptCurrentDialog(pinia);
 
-    expect(window.confirm).toHaveBeenCalledWith('Удалить модуль "Модуль 2" вместе с уроками?');
-    expect(screen.queryByText("Модуль 2")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Модуль 2")).toBeNull());
   });
 
   it("uses a compact lesson modal for member viewing", async () => {
@@ -681,28 +687,27 @@ describe("Learning section modules", () => {
   });
 
   it("deletes a lesson from a module after confirmation", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderAsOwner();
+    const pinia = renderAsOwner();
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
+    await acceptCurrentDialog(pinia);
 
-    expect(window.confirm).toHaveBeenCalledWith('Удалить урок "Вариант 1. Плеер и очередь"? Он попадет в удалённые на 7 дней.');
-    expect(screen.queryByRole("dialog", { name: "Вариант 1. Плеер и очередь" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Вариант 1. Плеер и очередь" })).toBeNull());
     expect(screen.queryByRole("button", { name: "Открыть урок Вариант 1. Плеер и очередь" })).toBeNull();
     expect(screen.getAllByText("3 урока").length).toBeGreaterThanOrEqual(1);
   });
 
   it("moves deleted lessons to a system module and restores them from the card", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderAsOwner();
+    const pinia = renderAsOwner();
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
+    await acceptCurrentDialog(pinia);
 
-    expect(screen.getByText("Удалённый контент")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Удалённый контент")).toBeTruthy());
     expect(screen.getByRole("button", { name: "Развернуть Удалённый контент" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeNull();
 
@@ -720,14 +725,14 @@ describe("Learning section modules", () => {
   });
 
   it("keeps the deleted content system module collapsed by default", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderAsOwner();
+    const pinia = renderAsOwner();
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
+    await acceptCurrentDialog(pinia);
 
-    expect(screen.getByRole("button", { name: "Развернуть Удалённый контент" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Развернуть Удалённый контент" })).toBeTruthy());
     expect(screen.queryByRole("button", { name: "Восстановить Вариант 1. Плеер и очередь" })).toBeNull();
 
     await fireEvent.click(screen.getByRole("button", { name: "Развернуть Удалённый контент" }));

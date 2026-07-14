@@ -67,6 +67,7 @@ import TaskScreen from "@/features/app/TaskScreen.vue";
 import LessonImageViewer from "./LessonImageViewer.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
+import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useLessonUploadsStore } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type ColorScheme } from "@/stores/ui";
@@ -317,6 +318,7 @@ const moduleCards = ref<ModuleCard[]>(initialModuleCards.map((module) => ({ ...m
 const deletedLessons = ref<ModuleLesson[]>([]);
 const learningProgress = ref<LearningProgressSummary | null>(null);
 const session = useSessionStore();
+const appDialogs = useAppDialogsStore();
 const ui = useUiStore();
 const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
@@ -2005,7 +2007,12 @@ async function deleteModule() {
   }
 
   const module = editingModule.value;
-  const confirmed = window.confirm(`Удалить модуль "${module.title}" вместе с уроками?`);
+  const confirmed = await appDialogs.confirm({
+    title: `Удалить модуль «${module.title}»?`,
+    description: "Модуль и все уроки внутри него будут перемещены в удалённые.",
+    confirmLabel: "Удалить модуль",
+    tone: "danger"
+  });
   if (!confirmed) {
     return;
   }
@@ -2211,7 +2218,12 @@ async function deleteLesson() {
 
   const lesson = selectedLessonItem.value;
   const moduleId = selectedLessonModule.value.id;
-  const confirmed = window.confirm(`Удалить урок "${lesson.title}"? Он попадет в удалённые на 7 дней.`);
+  const confirmed = await appDialogs.confirm({
+    title: `Удалить урок «${lesson.title}»?`,
+    description: "Урок попадёт в удалённые на 7 дней, после чего будет удалён окончательно.",
+    confirmLabel: "Удалить урок",
+    tone: "danger"
+  });
   if (!confirmed) {
     return;
   }

@@ -26,11 +26,13 @@ import TaskScreen from "@/features/app/TaskScreen.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
+import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
+const appDialogs = useAppDialogsStore();
 const route = useRoute();
 const router = useRouter();
 const { currentLocale, t } = useI18n();
@@ -383,8 +385,14 @@ async function handleSaveProduct() {
 }
 
 async function handleToggleProduct(product: PaymentProduct) {
-  const action = product.isPublished ? "скрыть" : "открыть";
-  if (!window.confirm(`Точно ${action} тариф "${product.title}"?`)) {
+  const confirmed = await appDialogs.confirm({
+    title: `${product.isPublished ? "Скрыть" : "Открыть"} тариф «${product.title}»?`,
+    description: product.isPublished
+      ? "Клиенты больше не увидят этот тариф в разделе оплаты."
+      : "Тариф снова станет доступен клиентам.",
+    confirmLabel: product.isPublished ? "Скрыть тариф" : "Открыть тариф"
+  });
+  if (!confirmed) {
     return;
   }
 
@@ -404,7 +412,13 @@ async function handleToggleProduct(product: PaymentProduct) {
 }
 
 async function handleDeleteProduct(product: PaymentProduct) {
-  if (!window.confirm(`Удалить тариф "${product.title}"? Он попадет в архив на 7 дней.`)) {
+  const confirmed = await appDialogs.confirm({
+    title: `Удалить тариф «${product.title}»?`,
+    description: "Тариф будет скрыт и останется в архиве 7 дней.",
+    confirmLabel: "Удалить тариф",
+    tone: "danger"
+  });
+  if (!confirmed) {
     return;
   }
 
@@ -457,7 +471,13 @@ async function handleCheckout(product: PaymentProduct) {
 }
 
 async function handleCancelSubscription(subscription: UserRecurrentSubscription) {
-  if (!window.confirm(`Отменить подписку "${subscription.title}"?`)) {
+  const confirmed = await appDialogs.confirm({
+    title: `Отменить подписку «${subscription.title}»?`,
+    description: "Автоматическое продление будет отключено. Доступ сохранится до конца оплаченного периода.",
+    confirmLabel: "Отменить подписку",
+    tone: "danger"
+  });
+  if (!confirmed) {
     return;
   }
 
@@ -477,7 +497,12 @@ async function handleCancelSubscription(subscription: UserRecurrentSubscription)
 }
 
 async function handleRestoreSubscription(subscription: UserRecurrentSubscription) {
-  if (!window.confirm(`Восстановить подписку "${subscription.title}"?`)) {
+  const confirmed = await appDialogs.confirm({
+    title: `Восстановить подписку «${subscription.title}»?`,
+    description: "Автоматическое продление снова будет включено.",
+    confirmLabel: "Восстановить"
+  });
+  if (!confirmed) {
     return;
   }
 

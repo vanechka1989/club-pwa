@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Подтверждения внутри приложения",
+    items: [
+      "Системные окна браузера с адресом сайта полностью заменены едиными окнами в стиле приложения.",
+      "Опасные действия теперь заметно выделены, а безопасная отмена получает фокус первой.",
+      "Подтверждения и ввод ссылок поддерживают Escape, нажатие по фону, клавиатуру и понятные ошибки проверки."
+    ]
+  },
+  {
+    version: "4.38",
+    updatedAt: "14.07.2026 17:01",
     title: "Продолжение загрузки урока",
     items: [
       "После автоматических попыток загрузку можно продолжить той же кнопкой без повторной отправки уже принятых частей.",
@@ -3020,11 +3030,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Resumable lesson uploads",
+  title: "In-app confirmations",
   items: [
-    "After automatic retries, the same upload can continue without resending file parts already accepted by storage.",
-    "Slow mobile uploads now run sequentially and tolerate connection pauses for up to 120 seconds.",
-    "The continue action remains available while the app stays open, and dismissing the error cancels the retained session safely."
+    "Browser system dialogs that displayed the site address have been replaced with consistent in-app dialogs.",
+    "Destructive actions are clearly highlighted, while the safe cancel action receives focus first.",
+    "Confirmations and link prompts support Escape, backdrop dismissal, keyboard navigation, and clear validation feedback."
   ]
 };
 

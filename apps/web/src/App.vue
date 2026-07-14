@@ -10,6 +10,7 @@ import AuthSection from "@/features/auth/AuthSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
+import AppDialogHost from "@/features/app/AppDialogHost.vue";
 import NotificationCenterScreen from "@/features/app/NotificationCenterScreen.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
 import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
@@ -76,6 +77,7 @@ const modalPageGestureSurfaceSelector = [
   ".support-modal-backdrop",
   ".profile-modal-backdrop",
   ".notification-center-backdrop",
+  ".app-dialog-backdrop",
   ".push-permission-layer"
 ].join(", ");
 const modalPageGestureAllowedSelector = ".profile-avatar-gesture-stage";
@@ -133,8 +135,6 @@ function formatUploadFailureTime(timestamp: number) {
 
 function showAppAlert(message: string) {
   notifications.showInfo(message);
-
-  window.alert(message);
 }
 
 function showPaymentSuccessAlert() {
@@ -938,6 +938,7 @@ onBeforeUnmount(() => {
         <span>{{ t(item.labelKey) }}</span>
       </button>
     </nav>
+    <AppDialogHost />
     <AppOperationIndicator />
     <AppNotifications />
     <PushPermissionPrompt v-if="session.user" />
