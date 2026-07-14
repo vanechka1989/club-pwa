@@ -14948,6 +14948,14 @@ textarea.text-input,
   padding: clamp(0.85rem, 3vw, 1.1rem);
 }
 
+.learning-task-screen-view .task-screen-body {
+  padding-inline: max(0.35rem, var(--club-safe-left), var(--club-safe-right));
+}
+
+.learning-task-screen .lesson-preview-modal-view .lesson-preview-scroll {
+  padding-inline: 0;
+}
+
 .learning-task-screen .lesson-editor-form {
   display: grid;
   width: 100%;
@@ -15072,7 +15080,9 @@ textarea.text-input,
 }
 
 .learning-task-screen .lesson-extra-add {
+  width: 100%;
   min-width: 0;
+  justify-content: center;
   white-space: normal;
 }
 

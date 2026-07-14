@@ -2637,6 +2637,7 @@ watch(
     <TaskScreen
       v-if="selectedLesson && selectedLessonModule"
       class="learning-task-screen"
+      :class="{ 'learning-task-screen-view': !canManageModules }"
       :title="lessonModalTitle"
       :subtitle="lessonModalSubtitle"
       portal
@@ -2928,10 +2929,6 @@ watch(
                     <span>Дополнительные материалы</span>
                     <small>Текст, фото, видео или аудио внутри этого урока.</small>
                   </div>
-                  <button class="secondary-button ui-button lesson-extra-add" type="button" @click="addLessonMaterialDraft">
-                    <Plus class="h-4 w-4" aria-hidden="true" />
-                    Добавить ещё материал
-                  </button>
                 </header>
 
                 <article v-for="material in lessonMaterialDrafts" :key="material.id" class="lesson-extra-card">
@@ -2999,6 +2996,11 @@ watch(
                     <textarea v-model="material.body" class="text-input lesson-extra-body" placeholder="Можно добавить текст или комментарий к файлу" aria-label="Необязательный текст дополнительного материала"></textarea>
                   </label>
                 </article>
+
+                <button class="secondary-button ui-button lesson-extra-add" type="button" @click="addLessonMaterialDraft">
+                  <Plus class="h-4 w-4" aria-hidden="true" />
+                  Добавить ещё материал
+                </button>
               </section>
               <p v-if="lessonError" class="admin-error-text">{{ lessonError }}</p>
 

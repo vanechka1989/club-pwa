@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Урок шире, материалы по порядку",
+    items: [
+      "Карточка открытого урока использует почти всю ширину мобильного экрана без лишнего двойного отступа.",
+      "Кнопка добавления материала перенесена под список уже добавленных материалов.",
+      "Новые материалы последовательно появляются сверху вниз и остаются частью одного урока."
+    ]
+  },
+  {
+    version: "4.32",
+    updatedAt: "14.07.2026 12:36",
     title: "Авторизация загрузки исправлена",
     items: [
       "По журналу запросов найден точный ответ 403 при отправке первой части файла через API.",
@@ -2960,11 +2970,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Lesson editor without overlaps",
+  title: "Wider lessons with ordered materials",
   items: [
-    "Save and delete actions now sit at the end of the scrolling form and no longer cover fields when the keyboard is open.",
-    "The duplicate Close button has been removed; use the back arrow in the screen header.",
-    "The action area is now part of the form without a separate background, border, or blur."
+    "The open lesson card now uses almost the full mobile viewport width without duplicated side padding.",
+    "The add-material action now appears below the existing material list.",
+    "New materials are appended from top to bottom and remain part of the same lesson."
   ]
 };
 

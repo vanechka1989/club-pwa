@@ -455,6 +455,14 @@ describe("Learning section modules", () => {
     expect(screen.queryByLabelText("Название урока")).toBeNull();
   });
 
+  it("uses the available mobile width for the lesson viewer", async () => {
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+
+    expect(styles).toMatch(
+      /\.learning-task-screen\s+\.lesson-preview-modal-view\s+\.lesson-preview-scroll\s*\{[^}]*padding-inline:\s*0;/s
+    );
+  });
+
   it("shows lesson content to members inside the lesson modal", async () => {
     renderAsMember();
 
@@ -551,6 +559,23 @@ describe("Learning section modules", () => {
     expect(material.queryByLabelText("Название дополнительного материала")).toBeNull();
     expect(material.queryByLabelText("Описание дополнительного материала")).toBeNull();
     expect(material.getByLabelText("Необязательный текст дополнительного материала")).toBeTruthy();
+  });
+
+  it("keeps the add material action after the last additional material", async () => {
+    renderAsOwner();
+
+    await openLessonCreator("Модуль 1");
+    const materials = document.querySelector(".lesson-extra-materials") as HTMLElement;
+    const addButton = within(materials).getByRole("button", { name: "Добавить ещё материал" });
+
+    await fireEvent.click(addButton);
+    await fireEvent.click(addButton);
+
+    const materialCards = Array.from(materials.querySelectorAll(".lesson-extra-card"));
+    const lastMaterial = materialCards.at(-1);
+
+    expect(materialCards).toHaveLength(2);
+    expect(lastMaterial?.compareDocumentPosition(addButton)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("saves lessons with the module card layout", async () => {
