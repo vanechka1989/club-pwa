@@ -1661,7 +1661,10 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
 });
 
 test("separates profile header controls and module action levels", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "viewport-390-844");
+  test.skip(!["viewport-390-844", "android-wide-layout-980"].includes(testInfo.project.name));
+  if (testInfo.project.name === "viewport-390-844") {
+    await page.setViewportSize({ width: 590, height: 1206 });
+  }
 
   const profileControls = page.locator(".profile-page-header-controls");
   await expect(profileControls).toBeVisible();
@@ -1687,18 +1690,56 @@ test("separates profile header controls and module action levels", async ({ page
   });
   expect(moduleFrame).toEqual({ borderWidth: "0px", background: "rgba(0, 0, 0, 0)", padding: "0px", shadow: "none" });
   await expect(moduleOne.getByRole("button", { name: "Редактировать Модуль 1" })).toBeVisible();
-  await expect(moduleOne.getByRole("button", { name: "Добавить урок в Модуль 1" })).toBeVisible();
+  await expect(moduleOne.getByRole("button", { name: "Добавить карточку в Модуль 1" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("learning-collapsed-controls.png"), fullPage: true });
   await moduleOne.getByRole("button", { name: "Переключить Модуль 1" }).click();
   await expect(moduleOne.locator(".module-level-sort-controls")).toHaveCount(0);
   await expect(moduleOne.getByRole("button", { name: "Редактировать Модуль 1" })).toHaveCount(0);
-  await expect(moduleOne.getByRole("button", { name: "Добавить урок в Модуль 1" })).toHaveCount(0);
+  await expect(moduleOne.getByRole("button", { name: "Добавить карточку в Модуль 1" })).toBeVisible();
   const openCollapseControl = moduleOne.getByRole("button", { name: "Свернуть карточки Модуль 1" });
   await expect(openCollapseControl).toBeVisible();
   const [moduleBox, collapseBox] = await Promise.all([moduleOne.boundingBox(), openCollapseControl.boundingBox()]);
   expect(collapseBox?.x ?? 0).toBeGreaterThan((moduleBox?.x ?? 0) + (moduleBox?.width ?? 0) / 2);
+  await moduleOne.locator(".admin-mockup-grid").evaluate((grid) => {
+    const lesson = grid.querySelector(".module-lesson-sort-card");
+    if (!lesson) return;
+    const clones = [lesson.cloneNode(true), lesson.cloneNode(true)] as HTMLElement[];
+    [lesson, ...clones].forEach((card) => {
+      card.classList.remove("module-lesson-sort-card-horizontal");
+      card.classList.add("module-lesson-sort-card-vertical");
+    });
+    grid.append(...clones);
+  });
   const lessonControls = moduleOne.locator(".lesson-level-sort-controls").first();
   await expect(lessonControls).toBeVisible();
+  const lessonControlMetrics = await moduleOne.locator(".admin-mockup-grid").evaluate((grid) =>
+    Array.from(grid.querySelectorAll(".module-lesson-sort-card"), (card) => {
+      const controls = card.querySelector(".lesson-level-sort-controls");
+      const cardBox = card.getBoundingClientRect();
+      const controlsBox = controls?.getBoundingClientRect();
+      const buttons = Array.from(controls?.querySelectorAll("button") ?? [], (button) => {
+        const buttonBox = button.getBoundingClientRect();
+        const buttonStyle = getComputedStyle(button);
+        return {
+          left: buttonBox.left,
+          right: buttonBox.right,
+          width: buttonStyle.width,
+          minWidth: buttonStyle.minWidth,
+          boxSizing: buttonStyle.boxSizing,
+          padding: buttonStyle.padding
+        };
+      });
+      const overflow = buttons.some((buttonBox) => buttonBox.left < cardBox.left - 1 || buttonBox.right > cardBox.right + 1)
+        || Boolean(controlsBox && (controlsBox.left < cardBox.left - 1 || controlsBox.right > cardBox.right + 1));
+      return {
+        card: { left: cardBox.left, right: cardBox.right },
+        controls: controlsBox ? { left: controlsBox.left, right: controlsBox.right } : null,
+        buttons,
+        overflow
+      };
+    })
+  );
+  expect(lessonControlMetrics.filter((item) => item.overflow), JSON.stringify(lessonControlMetrics)).toEqual([]);
   const lessonFrame = await lessonControls.evaluate((element) => {
     const style = getComputedStyle(element);
     return {

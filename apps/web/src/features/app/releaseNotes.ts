@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Исправлена панель действий карточек",
+    items: [
+      "Стрелки и кнопка удаления теперь всегда остаются внутри своей карточки и не перекрывают соседние уроки.",
+      "Панель действий адаптируется к узким карточкам в масштабированном Android-интерфейсе.",
+      "Добавлена отдельная визуальная проверка трёх карточек в ряд для мобильного PWA-режима."
+    ]
+  },
+  {
+    version: "4.40",
+    updatedAt: "14.07.2026 20:36",
     title: "Удаление карточки из списка уроков",
     items: [
       "Между стрелками каждой карточки добавлена компактная кнопка удаления.",
@@ -3040,11 +3050,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Direct lesson card deletion",
+  title: "Fixed lesson card actions",
   items: [
-    "A compact delete action now appears between the ordering arrows of every lesson card.",
-    "The app asks for confirmation and names the selected lesson before deleting it.",
-    "Deleted cards remain recoverable in Deleted content for 7 days."
+    "Ordering arrows and the delete action now stay inside their own card without covering adjacent lessons.",
+    "The action row adapts to narrow lesson cards in scaled Android layouts.",
+    "A dedicated three-card mobile PWA visual check now protects this layout."
   ]
 };
 

@@ -18317,6 +18317,24 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   box-shadow: none;
 }
 
+.modules-section .module-lesson-sort-card-vertical .lesson-level-sort-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+  gap: 0;
+}
+
+.modules-section .module-lesson-sort-card-vertical .lesson-level-sort-controls .module-sort-button {
+  box-sizing: border-box;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: var(--icon-button-size);
+  flex: none !important;
+  justify-self: center;
+}
+
 .modules-section .lesson-level-sort-controls .module-sort-button {
   color: var(--text);
 }
