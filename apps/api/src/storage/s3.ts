@@ -5,6 +5,7 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
+  PutBucketCorsCommand,
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
@@ -20,6 +21,7 @@ import { env } from "../env";
 import { logger } from "../logger";
 import { getS3ConfigFromEnv, getS3ConfigFromSetting, storageSettingKey, type StoredS3Config } from "./s3Config";
 import { normalizeS3ObjectKey, normalizeS3ObjectPrefix } from "./s3Object";
+import { buildBrowserUploadCorsRule } from "./s3Cors";
 
 export type UploadObjectInput = {
   key: string;
@@ -52,6 +54,39 @@ function createS3Client(config: StoredS3Config) {
       secretAccessKey: config.secretAccessKey
     }
   });
+}
+
+let browserUploadCorsKey = "";
+let browserUploadCorsPromise: Promise<void> | null = null;
+
+async function ensureBrowserUploadCors(config: StoredS3Config) {
+  const webOrigin = new URL(env.WEB_ORIGIN).origin;
+  const configKey = `${config.endpoint}|${config.bucket}|${webOrigin}`;
+
+  if (browserUploadCorsKey !== configKey) {
+    browserUploadCorsKey = configKey;
+    browserUploadCorsPromise = null;
+  }
+
+  if (!browserUploadCorsPromise) {
+    const client = createS3Client(config);
+    browserUploadCorsPromise = client
+      .send(
+        new PutBucketCorsCommand({
+          Bucket: config.bucket,
+          CORSConfiguration: {
+            CORSRules: [buildBrowserUploadCorsRule(webOrigin)]
+          }
+        })
+      )
+      .then(() => undefined)
+      .catch((error) => {
+        browserUploadCorsPromise = null;
+        throw error;
+      });
+  }
+
+  await browserUploadCorsPromise;
 }
 
 function resolveS3TargetConfig(config: StoredS3Config, target: S3StorageTarget) {
@@ -172,6 +207,7 @@ export async function createMultipartUpload({
   const normalizedKey = normalizeS3ObjectKey(key);
   const safePartsCount = Math.min(Math.max(partsCount, 1), 1000);
   const client = createS3Client(config);
+  await ensureBrowserUploadCors(config);
   const multipart = await client.send(
     new CreateMultipartUploadCommand({
       Bucket: config.bucket,

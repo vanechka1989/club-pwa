@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes unified lesson materials as version 4.29", () => {
-    expect(appVersion).toBe("4.29");
-    expect(releaseNotes[0]?.title).toBe("Материалы объединены внутри урока");
+  it("publishes browser upload CORS repair as version 4.30", () => {
+    expect(appVersion).toBe("4.30");
+    expect(releaseNotes[0]?.title).toBe("Загрузка файлов в урок исправлена");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
