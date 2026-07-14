@@ -7180,47 +7180,31 @@ body.club-keyboard-open .module-name-modal {
   border-radius: 999px;
 }
 
-.lesson-material-list {
+.lesson-material-stream {
+  display: grid;
+  gap: 1rem;
+}
+
+.lesson-material-block {
   display: grid;
   gap: 0.65rem;
+  min-width: 0;
 }
 
-.lesson-material-card {
-  display: grid;
-  gap: 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--panel-strong) 70%, transparent);
-  padding: 0.65rem;
-}
-
-.lesson-material-card div {
+.lesson-material-block > div {
   display: grid;
   gap: 0.12rem;
 }
 
-.lesson-material-card span,
-.lesson-material-card small {
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 780;
-}
-
-.lesson-material-card strong {
-  color: var(--text);
-  font-size: 0.86rem;
-  font-weight: 880;
-}
-
-.lesson-material-card img,
-.lesson-material-card video {
+.lesson-material-block img,
+.lesson-material-block video {
   width: 100%;
   max-height: min(54vh, 24rem);
   border-radius: 12px;
   object-fit: contain;
 }
 
-.lesson-material-card audio {
+.lesson-material-block audio {
   width: 100%;
 }
 
@@ -13135,7 +13119,6 @@ textarea::placeholder {
 }
 
 .lesson-viewer-content,
-.lesson-material-card,
 .lesson-extra-card {
   border-color: var(--border);
   border-radius: var(--radius-lg);

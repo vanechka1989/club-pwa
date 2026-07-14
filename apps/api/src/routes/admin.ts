@@ -76,6 +76,7 @@ import {
 } from "../storage/s3";
 import { classifyS3ObjectKey } from "../storage/s3Object";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
+import { getInternalLessonMaterialTitle } from "../learning/lessonMaterials";
 import {
   buildS3SettingsResponse,
   getS3ConfigFromEnv,
@@ -231,7 +232,7 @@ const directLearningMaterialPayloadSchema = z.object({
       z.object({
         id: z.string().trim().optional(),
         kind: z.enum(contentKinds),
-        title: z.string().trim().min(1).max(160),
+        title: z.string().trim().max(160).optional().default(""),
         description: z.string().trim().optional().default(""),
         body: z.string().trim().optional().default(""),
         mediaUrl: externalMediaUrlSchema.nullable().optional(),
@@ -468,14 +469,15 @@ async function replaceDirectLessonMaterials(
     verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null;
   }> = [];
 
-  for (const material of materials) {
+  for (const [materialIndex, material] of materials.entries()) {
     let verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
     const mediaUrl = material.mediaUrl ?? null;
+    const internalTitle = getInternalLessonMaterialTitle(material.kind, material.title, materialIndex);
 
     if (material.kind === "text") {
       verifiedMaterials.push({
         kind: material.kind,
-        title: material.title,
+        title: internalTitle,
         description: normalizeOptionalText(material.description),
         body: normalizeOptionalText(material.body),
         mediaUrl: null,
@@ -490,7 +492,7 @@ async function replaceDirectLessonMaterials(
     if (mediaUrl) {
       verifiedMaterials.push({
         kind: material.kind,
-        title: material.title,
+        title: internalTitle,
         description: normalizeOptionalText(material.description),
         body: normalizeOptionalText(material.body),
         mediaUrl,
@@ -515,7 +517,7 @@ async function replaceDirectLessonMaterials(
 
       verifiedMaterials.push({
         kind: material.kind,
-        title: material.title,
+        title: internalTitle,
         description: normalizeOptionalText(material.description),
         body: normalizeOptionalText(material.body),
         mediaUrl: existing.mediaUrl,
@@ -529,7 +531,7 @@ async function replaceDirectLessonMaterials(
 
     verifiedMaterials.push({
       kind: material.kind,
-      title: material.title,
+      title: internalTitle,
       description: normalizeOptionalText(material.description),
       body: normalizeOptionalText(material.body),
       mediaUrl: null,

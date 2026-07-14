@@ -697,6 +697,17 @@ function createLessonMaterialDraft(material?: LessonMaterial): LessonMaterialDra
   };
 }
 
+function getInternalLessonMaterialTitle(material: LessonMaterialDraft, index: number) {
+  const kindLabel: Record<ContentKind, string> = {
+    text: "Текст",
+    photo: "Фото",
+    video: "Видео",
+    audio: "Аудио"
+  };
+
+  return material.title.trim() || `${kindLabel[material.kind]} ${index + 1}`;
+}
+
 function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStartSeconds = 0, materialId: string | null = null) {
   resetLessonVideoState();
   if (!module.images.some((item) => item.id === lesson.id)) {
@@ -1602,11 +1613,11 @@ function buildLessonDirectPayloadFromDraft(
     title: draft.title,
     summary: draft.summary,
     body: draft.body,
-    materials: (draft.materials ?? []).map((material) => ({
+    materials: (draft.materials ?? []).map((material, index) => ({
       ...(material.existingMediaUrl ? { id: material.id } : {}),
       kind: material.kind,
-      title: material.title.trim(),
-      description: material.description.trim(),
+      title: getInternalLessonMaterialTitle(material, index),
+      description: "",
       body: material.body.trim(),
       mediaUrl: getNormalizedExternalUrl(material.mediaSource, material.externalUrl),
       mediaObject: materialObjects.get(material.id) ?? null
@@ -1886,11 +1897,11 @@ function saveLessonLocally() {
     mediaUrl: getNormalizedExternalUrl(lessonMediaSource.value, lessonExternalUrl.value),
     mediaSource: lessonMediaSource.value === "file" ? null : "external",
     thumbnailUrl: shouldRemoveLessonThumbnail.value ? null : (selectedLessonItem.value?.thumbnailUrl ?? null),
-    materials: lessonMaterialDrafts.value.map((material) => ({
+    materials: lessonMaterialDrafts.value.map((material, index) => ({
       id: material.id,
       kind: material.kind,
-      title: material.title.trim() || "Материал",
-      description: material.description.trim() || null,
+      title: getInternalLessonMaterialTitle(material, index),
+      description: null,
       body: material.body.trim() || null,
       mediaUrl: material.mediaSource === "file" ? material.existingMediaUrl : getNormalizedExternalUrl(material.mediaSource, material.externalUrl),
       mediaSource: material.mediaSource === "file" ? material.existingMediaUrl ? "s3" : null : "external",
@@ -1943,13 +1954,8 @@ async function saveLesson() {
   }
 
   for (const material of lessonMaterialDrafts.value) {
-    if (!material.title.trim()) {
-      showLessonError("Заполните название каждого дополнительного материала.");
-      return;
-    }
-
     const materialError = getMaterialDraftError({
-      title: material.title,
+      title: "Дополнительный материал",
       kind: material.kind,
       isEditing: Boolean(material.existingMediaUrl),
       currentKind: material.existingKind,
@@ -2761,18 +2767,13 @@ watch(
                 Содержимое урока пока не добавлено.
               </p>
 
-              <section v-if="selectedLessonItem.materials.length" class="lesson-material-list">
-                <article
+              <section v-if="selectedLessonItem.materials.length" class="lesson-material-stream">
+                <div
                   v-for="material in selectedLessonItem.materials"
                   :key="material.id"
-                  class="lesson-material-card"
+                  class="lesson-material-block"
                   :data-lesson-material-id="material.id"
                 >
-                  <div>
-                    <span>{{ contentKindOptions.find((option) => option.value === material.kind)?.label }}</span>
-                    <strong>{{ material.title }}</strong>
-                    <small v-if="material.description">{{ material.description }}</small>
-                  </div>
                   <div
                     v-if="material.mediaUrl && getYouTubePlayerUrl(material.mediaUrl)"
                     class="lesson-youtube-player-shell"
@@ -2780,14 +2781,14 @@ watch(
                     <iframe
                       class="lesson-youtube-player lesson-youtube-player-material"
                       :src="getYouTubePlayerUrl(material.mediaUrl) ?? undefined"
-                      :title="material.title"
+                      :title="`${selectedLessonItem.title} — видео`"
                       allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowfullscreen
                       webkitallowfullscreen
                       mozallowfullscreen
                     ></iframe>
                   </div>
-                  <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="material.title" loading="lazy" />
+                  <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="selectedLessonItem.title" loading="lazy" />
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"
                     :src="material.mediaUrl"
@@ -2814,7 +2815,7 @@ watch(
                     @seeked="persistLessonMaterialPlayback(material, $event, true)"
                   />
                   <p v-if="material.body">{{ material.body }}</p>
-                </article>
+                </div>
               </section>
             </article>
 
@@ -2953,14 +2954,6 @@ watch(
                     </button>
                   </div>
 
-                  <label class="admin-field">
-                    <span>Название материала</span>
-                    <input v-model="material.title" class="text-input" type="text" placeholder="Например: Разбор задания" aria-label="Название дополнительного материала" />
-                  </label>
-                  <label class="admin-field">
-                    <span>Описание</span>
-                    <input v-model="material.description" class="text-input" type="text" placeholder="Короткое описание" aria-label="Описание дополнительного материала" />
-                  </label>
                   <div v-if="material.kind !== 'text'" class="admin-field">
                     <span>Источник материала</span>
                     <div class="lesson-source-buttons" role="group" aria-label="Источник дополнительного материала">
@@ -2997,8 +2990,8 @@ watch(
                     <small>{{ material.mediaSource === "file" ? material.fileName || "Файл не выбран" : "Файл в S3 загружаться не будет." }}</small>
                   </label>
                   <label class="admin-field">
-                    <span>Текст / заметка</span>
-                    <textarea v-model="material.body" class="text-input lesson-extra-body" placeholder="Текст материала или комментарий к файлу" aria-label="Текст дополнительного материала"></textarea>
+                    <span>Текст / заметка <small>(не обязательно)</small></span>
+                    <textarea v-model="material.body" class="text-input lesson-extra-body" placeholder="Можно добавить текст или комментарий к файлу" aria-label="Необязательный текст дополнительного материала"></textarea>
                   </label>
                 </article>
               </section>

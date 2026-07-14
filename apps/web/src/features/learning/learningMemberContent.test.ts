@@ -610,13 +610,16 @@ describe("Learning section member content", () => {
     await waitFor(() => expect(screen.getByText("Текст основного урока ниже фото.")).toBeTruthy());
     const lessonMedia = document.querySelector('.lesson-viewer-media[src="https://example.com/photo.jpg"]');
     const lessonText = screen.getByText("Текст основного урока ниже фото.");
-    const materialMedia = document.querySelector('.lesson-material-card img[src="https://example.com/material-photo.jpg"]');
+    const materialMedia = document.querySelector('.lesson-material-block img[src="https://example.com/material-photo.jpg"]');
     const materialText = screen.getByText("Описание дополнительного фото ниже изображения.");
 
     expect(lessonMedia).toBeTruthy();
     expect(materialMedia).toBeTruthy();
     expect(lessonMedia?.compareDocumentPosition(lessonText) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(materialMedia?.compareDocumentPosition(materialText) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByText("Фото внутри урока")).toBeNull();
+    expect(screen.queryByText("Дополнительное фото")).toBeNull();
+    expect(document.querySelector(".lesson-material-card")).toBeNull();
   });
 
   it("opens member lessons directly on material instead of showing the cover inside the dialog", async () => {

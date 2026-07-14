@@ -539,6 +539,20 @@ describe("Learning section modules", () => {
     expect(material.getByRole("button", { name: "YouTube" }).classList.contains("lesson-source-button-active")).toBe(true);
   });
 
+  it("keeps extra materials minimal and does not require separate titles or descriptions", async () => {
+    renderAsOwner();
+
+    await openLessonCreator("Модуль 1");
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить ещё материал" }));
+
+    const materialCard = document.querySelector(".lesson-extra-card") as HTMLElement;
+    const material = within(materialCard);
+
+    expect(material.queryByLabelText("Название дополнительного материала")).toBeNull();
+    expect(material.queryByLabelText("Описание дополнительного материала")).toBeNull();
+    expect(material.getByLabelText("Необязательный текст дополнительного материала")).toBeTruthy();
+  });
+
   it("saves lessons with the module card layout", async () => {
     renderAsOwner();
 

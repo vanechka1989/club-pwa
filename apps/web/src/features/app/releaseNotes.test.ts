@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the cascade-safe lesson action as version 4.28", () => {
-    expect(appVersion).toBe("4.28");
-    expect(releaseNotes[0]?.title).toBe("Кнопка урока выровнена со счётчиком");
+  it("publishes unified lesson materials as version 4.29", () => {
+    expect(appVersion).toBe("4.29");
+    expect(releaseNotes[0]?.title).toBe("Материалы объединены внутри урока");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
