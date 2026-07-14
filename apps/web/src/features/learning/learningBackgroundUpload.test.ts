@@ -27,6 +27,20 @@ describe("learning background uploads", () => {
     expect(uploadStoreSource).toContain("loadedBytes");
     expect(uploadStoreSource).toContain("totalBytes");
     expect(uploadStoreSource).toContain("speedBytesPerSecond");
+    expect(learningSectionSource).toContain("runUploadWithRetry");
+    expect(learningSectionSource).toContain("runWithConcurrency(chunks, 2");
+  });
+
+  it("shows and records the exact final upload failure instead of a false 100 percent", () => {
+    expect(uploadStoreSource).toContain("failure?: LessonUploadFailure");
+    expect(uploadStoreSource).toContain("lesson-upload-errors");
+    expect(appSource).toContain("global-upload-status-error-detail");
+    expect(appSource).toContain("failure.stage");
+    expect(appSource).toContain("failure.code");
+    expect(learningSectionSource).toContain("describeLessonUploadFailure");
+    expect(learningSectionSource).toContain("reportClientError");
+    expect(learningSectionSource).not.toContain('status: "error",\n      detail: error instanceof Error');
+    expect(stylesSource).toContain(".global-upload-status-error-detail");
   });
 
   it("authenticates every XMLHttpRequest upload part like the regular API client", () => {

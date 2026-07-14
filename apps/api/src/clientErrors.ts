@@ -78,7 +78,7 @@ export function buildClientErrorRecord(input: ClientErrorPayload) {
 
   return {
     error: lines.join("\n"),
-    title: "Ошибка запуска приложения",
+    title: input.kind === "lesson-upload" ? "Ошибка загрузки урока" : "Ошибка запуска приложения",
     path: input.url ?? null,
     method: "CLIENT",
     status: null

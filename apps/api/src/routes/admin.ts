@@ -2358,7 +2358,24 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid multipart upload part" }, 400);
     }
 
-    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await c.req.arrayBuffer());
+    } catch (error) {
+      recordServerError({
+        error,
+        title: "Соединение прервано при получении части файла урока",
+        method: c.req.method,
+        path: c.req.path,
+        status: 408
+      });
+      c.header("Retry-After", "1");
+      return c.json({
+        error: "Upload connection closed",
+        code: "UPLOAD_CONNECTION_CLOSED",
+        detail: "Соединение закрылось до завершения передачи части файла."
+      }, 408);
+    }
     if (!isValidMultipartPartSize(bytes.byteLength)) {
       return c.json({ error: "Invalid multipart upload part size" }, 400);
     }
@@ -2378,9 +2395,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         title: "Не удалось загрузить часть файла урока",
         method: c.req.method,
         path: c.req.path,
-        status: 400
+        status: 503
       });
-      return c.json({ error: "Unable to upload multipart part" }, 400);
+      c.header("Retry-After", "1");
+      return c.json({
+        error: "Storage temporarily unavailable",
+        code: "STORAGE_UNAVAILABLE",
+        detail: "Хранилище временно не приняло часть файла."
+      }, 503);
     }
   })
   .post("/learning/materials/uploads/multipart/complete", async (c) => {

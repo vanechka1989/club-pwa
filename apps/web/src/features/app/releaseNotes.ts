@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Надёжная загрузка уроков",
+    items: [
+      "При обрыве мобильного соединения каждая часть файла автоматически отправляется повторно до трёх раз.",
+      "Карточка ошибки теперь показывает причину, этап, код, количество попыток и время сбоя без ложных 100%.",
+      "Неудачные загрузки сохраняются до закрытия пользователем, а подробности записываются в журнал сервера."
+    ]
+  },
+  {
+    version: "4.36",
+    updatedAt: "14.07.2026 14:16",
     title: "Три режима обложки урока",
     items: [
       "В настройках урока можно выбрать стандартную обложку, собственный файл или первое визуальное вложение.",
@@ -3000,11 +3010,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Three lesson cover modes",
+  title: "Reliable lesson uploads",
   items: [
-    "Lesson settings now offer a standard cover, a custom upload, or the first visual attachment.",
-    "First-attachment mode follows lesson order and safely falls back when no photo or YouTube preview is available.",
-    "White corners embedded in standard WebP covers are no longer visible on lesson cards."
+    "Interrupted mobile uploads now retry each file part automatically up to three times.",
+    "Upload errors now show the exact reason, stage, code, attempt count, and failure time without a false 100%.",
+    "Failed uploads remain visible until dismissed, while detailed diagnostics are recorded in the server log."
   ]
 };
 

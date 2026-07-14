@@ -33,4 +33,17 @@ describe("client error diagnostics", () => {
     expect(limiter.consume("ip:1", 1300)).toBe(false);
     expect(limiter.consume("ip:1", 2101)).toBe(true);
   });
+
+  it("labels a lesson upload failure separately in the server log", () => {
+    const record = buildClientErrorRecord({
+      kind: "lesson-upload",
+      message: "Соединение прервалось",
+      url: "https://club.example/modules",
+      detail: { code: "UPLOAD_CONNECTION_CLOSED", stage: "Дополнительный материал 2", attempts: 3 }
+    });
+
+    expect(record.title).toBe("Ошибка загрузки урока");
+    expect(record.error).toContain("UPLOAD_CONNECTION_CLOSED");
+    expect(record.error).toContain("Дополнительный материал 2");
+  });
 });

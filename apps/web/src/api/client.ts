@@ -98,6 +98,18 @@ export const api = ofetch.create({
   }
 });
 
+export function reportClientError(payload: {
+  kind: string;
+  message: string;
+  url?: string;
+  userAgent?: string;
+  platform?: string;
+  viewport?: { width: number; height: number };
+  detail?: unknown;
+}) {
+  return api<{ ok: boolean }>("/client-errors", { method: "POST", body: payload });
+}
+
 export function requestEmailCode(payload: { email: string; referralCode?: string | null }) {
   return api<{ ok: boolean; devCode: string | null; retryAfterSeconds?: number }>("/auth/email/start", {
     method: "POST",

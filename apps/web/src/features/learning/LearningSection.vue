@@ -52,6 +52,7 @@ import {
   getApiRequestHeaders,
   getLearningContent,
   getLearningHome,
+  reportClientError,
   reorderAdminLearningCategories,
   reorderAdminLearningMaterials,
   restoreAdminLearningMaterial,
@@ -74,6 +75,7 @@ import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
 import { moveItemByDirection, type SortDirection } from "./sortOrder";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 import { getFirstVisualLessonCoverUrl, isDefaultLessonCover, resolveLessonCoverUrl } from "./lessonCover";
+import { describeLessonUploadFailure, LearningUploadRequestError, runUploadWithRetry } from "./uploadRecovery";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -1527,11 +1529,20 @@ function putDirectLearningUploadPart(uploadUrl: string, blob: Blob, onProgress: 
         return;
       }
       signal?.removeEventListener("abort", abortUpload);
-      reject(new Error(`S3 upload failed with status ${request.status}`));
+      let payload: { error?: string; code?: string; detail?: string } = {};
+      try {
+        payload = JSON.parse(request.responseText || "{}") as typeof payload;
+      } catch {
+        // The status code still provides enough information for retry policy.
+      }
+      reject(new LearningUploadRequestError(payload.detail || payload.error || `Ошибка загрузки: HTTP ${request.status}`, {
+        code: payload.code ?? (request.status === 408 ? "UPLOAD_CONNECTION_CLOSED" : "UPLOAD_FAILED"),
+        status: request.status
+      }));
     };
     request.onerror = () => {
       signal?.removeEventListener("abort", abortUpload);
-      reject(new Error("S3 upload failed"));
+      reject(new LearningUploadRequestError("Сеть недоступна во время загрузки.", { code: "NETWORK_ERROR", status: 0 }));
     };
     request.onabort = () => {
       signal?.removeEventListener("abort", abortUpload);
@@ -1563,6 +1574,7 @@ async function uploadLessonFileDirect({
   progressBase,
   progressSpan,
   onProgress,
+  onRetry,
   signal
 }: {
   file: File | NamedBlobUpload;
@@ -1571,6 +1583,7 @@ async function uploadLessonFileDirect({
   progressBase: number;
   progressSpan: number;
   onProgress?: (progress: { percent: number; loadedBytes: number; speedBytesPerSecond: number }) => void;
+  onRetry?: (nextAttempt: number) => void;
   signal?: AbortSignal;
 }): Promise<AdminLearningUploadedObject> {
   throwIfUploadCancelled(signal);
@@ -1596,21 +1609,31 @@ async function uploadLessonFileDirect({
     };
   });
 
-  await runWithConcurrency(chunks, 4, async (part) => {
+  const emitProgress = (partNumber: number, loadedBytes: number) => {
+    loadedByPart.set(partNumber, loadedBytes);
+    const loadedTotal = Array.from(loadedByPart.values()).reduce((sum, value) => sum + value, 0);
+    const percent = parts.sizeBytes > 0 ? Math.min(99, Math.max(1, Math.round((loadedTotal / parts.sizeBytes) * 100))) : 1;
+    const combinedPercent = Math.min(99, Math.round(progressBase + (percent / 100) * progressSpan));
+    const elapsedSeconds = Math.max(0.5, (Date.now() - startedAt) / 1000);
+    lessonUploadProgress.value = combinedPercent;
+    onProgress?.({
+      percent: combinedPercent,
+      loadedBytes: loadedTotal,
+      speedBytesPerSecond: loadedTotal / elapsedSeconds
+    });
+  };
+
+  await runWithConcurrency(chunks, 2, async (part) => {
     throwIfUploadCancelled(signal);
-    const etag = await putDirectLearningUploadPart(part.uploadUrl, part.blob, (loadedBytes) => {
-      loadedByPart.set(part.partNumber, loadedBytes);
-      const loadedTotal = Array.from(loadedByPart.values()).reduce((sum, value) => sum + value, 0);
-      const percent = parts.sizeBytes > 0 ? Math.min(99, Math.max(1, Math.round((loadedTotal / parts.sizeBytes) * 100))) : 1;
-      const combinedPercent = Math.min(99, Math.round(progressBase + (percent / 100) * progressSpan));
-      const elapsedSeconds = Math.max(0.5, (Date.now() - startedAt) / 1000);
-      lessonUploadProgress.value = combinedPercent;
-      onProgress?.({
-        percent: combinedPercent,
-        loadedBytes: loadedTotal,
-        speedBytesPerSecond: loadedTotal / elapsedSeconds
-      });
-    }, signal);
+    const etag = await runUploadWithRetry(
+      () => putDirectLearningUploadPart(part.uploadUrl, part.blob, (loadedBytes) => emitProgress(part.partNumber, loadedBytes), signal),
+      {
+        onRetry: ({ nextAttempt }) => {
+          emitProgress(part.partNumber, 0);
+          onRetry?.(nextAttempt);
+        }
+      }
+    );
     throwIfUploadCancelled(signal);
     completedParts.push({ partNumber: part.partNumber, etag });
   });
@@ -1744,6 +1767,7 @@ async function startBackgroundLessonUpload() {
   } as const;
   let completedParts = 0;
   let completedBytes = 0;
+  let currentStage = "Подготовка загрузки";
 
   lessonUploads.add(task);
   closeLessonModal();
@@ -1754,6 +1778,7 @@ async function startBackgroundLessonUpload() {
     const materialObjects = new Map<string, AdminLearningUploadedObject>();
 
     if (draft.mediaFile) {
+      currentStage = "Основной файл";
       mediaObject = await uploadLessonFileDirect({
         file: draft.mediaFile,
         purpose: "media",
@@ -1761,6 +1786,7 @@ async function startBackgroundLessonUpload() {
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
         signal: abortController.signal,
+        onRetry: (nextAttempt) => lessonUploads.update(draft.id, { detail: `Повторная попытка ${nextAttempt} из 3 · ${currentStage}` }),
         onProgress: (progress) =>
           lessonUploads.update(draft.id, {
             progress: progress.percent,
@@ -1773,12 +1799,13 @@ async function startBackgroundLessonUpload() {
       completedBytes += mediaSizeBytes;
     }
 
-    for (const material of materialFiles) {
+    for (const [materialIndex, material] of materialFiles.entries()) {
       if (!material.file) {
         continue;
       }
 
       const materialSize = getUploadParts(material.file).sizeBytes;
+      currentStage = `Дополнительный материал ${materialIndex + 1}`;
       const materialObject = await uploadLessonFileDirect({
         file: material.file,
         purpose: "media",
@@ -1786,6 +1813,7 @@ async function startBackgroundLessonUpload() {
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
         signal: abortController.signal,
+        onRetry: (nextAttempt) => lessonUploads.update(draft.id, { detail: `Повторная попытка ${nextAttempt} из 3 · ${currentStage}` }),
         onProgress: (progress) =>
           lessonUploads.update(draft.id, {
             progress: progress.percent,
@@ -1800,12 +1828,14 @@ async function startBackgroundLessonUpload() {
     }
 
     if (draft.thumbnailFile) {
+      currentStage = "Обложка";
       thumbnailObject = await uploadLessonFileDirect({
         file: draft.thumbnailFile,
         purpose: "thumbnail",
         progressBase: (completedParts / totalParts) * 90,
         progressSpan: 90 / totalParts,
         signal: abortController.signal,
+        onRetry: (nextAttempt) => lessonUploads.update(draft.id, { detail: `Повторная попытка ${nextAttempt} из 3 · ${currentStage}` }),
         onProgress: (progress) =>
           lessonUploads.update(draft.id, {
             progress: progress.percent,
@@ -1817,6 +1847,7 @@ async function startBackgroundLessonUpload() {
     }
 
     throwIfUploadCancelled(abortController.signal);
+    currentStage = "Сохранение карточки";
     lessonUploads.update(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока", loadedBytes: totalSizeBytes });
     const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject, materialObjects);
     throwIfUploadCancelled(abortController.signal);
@@ -1839,11 +1870,28 @@ async function startBackgroundLessonUpload() {
       return;
     }
 
+    const failure = describeLessonUploadFailure(error, currentStage);
+    const taskState = lessonUploads.items.find((item) => item.id === draft.id);
     lessonUploads.update(draft.id, {
       status: "error",
-      detail: error instanceof Error && error.message ? error.message : "Не удалось сохранить урок.",
-      progress: 100
+      detail: failure.title,
+      failure,
+      speedBytesPerSecond: 0
     });
+    void reportClientError({
+      kind: "lesson-upload",
+      message: failure.title,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      detail: {
+        lessonTitle: draft.title,
+        ...failure,
+        loadedBytes: taskState?.loadedBytes ?? 0,
+        totalBytes: totalSizeBytes
+      }
+    }).catch(() => undefined);
   } finally {
     lessonUploadProgress.value = null;
   }

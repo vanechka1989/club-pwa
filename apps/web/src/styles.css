@@ -918,6 +918,52 @@ body.club-keyboard-open .community-chat-open .app-shell {
   font-weight: 760;
 }
 
+.global-upload-status-error-detail {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--danger) 11%, var(--surface));
+  color: var(--text);
+}
+
+.global-upload-status-error-detail > strong {
+  color: var(--danger);
+  font-size: 0.88rem;
+}
+
+.global-upload-status-error-detail p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.global-upload-status-error-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+  margin: 2px 0 0;
+}
+
+.global-upload-status-error-detail dl > div {
+  min-width: 0;
+}
+
+.global-upload-status-error-detail dt {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.global-upload-status-error-detail dd {
+  margin: 1px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .global-upload-status-track {
   overflow: hidden;
   height: 0.38rem;

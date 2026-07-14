@@ -122,6 +122,15 @@ function formatUploadEta(upload: LessonUploadTask) {
   return minutes > 0 ? `~${minutes}м ${restSeconds}с` : `~${restSeconds}с`;
 }
 
+function formatUploadFailureTime(timestamp: number) {
+  return new Date(timestamp).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 function showAppAlert(message: string) {
   notifications.showInfo(message);
 
@@ -779,6 +788,32 @@ onBeforeUnmount(() => {
         <span>{{ formatUploadBytes(lessonUploads.activeUpload.loadedBytes) }} / {{ formatUploadBytes(lessonUploads.activeUpload.totalBytes) }}</span>
         <span>{{ formatUploadSpeed(lessonUploads.activeUpload.speedBytesPerSecond) }}</span>
         <span>{{ formatUploadEta(lessonUploads.activeUpload) }}</span>
+      </div>
+      <div
+        v-if="lessonUploads.activeUpload?.failure"
+        class="global-upload-status-error-detail"
+        role="alert"
+      >
+        <strong>{{ lessonUploads.activeUpload.failure.title }}</strong>
+        <p>{{ lessonUploads.activeUpload.failure.detail }}</p>
+        <dl>
+          <div>
+            <dt>Этап</dt>
+            <dd>{{ lessonUploads.activeUpload.failure.stage }}</dd>
+          </div>
+          <div>
+            <dt>Код</dt>
+            <dd>{{ lessonUploads.activeUpload.failure.code }}</dd>
+          </div>
+          <div>
+            <dt>Попытки</dt>
+            <dd>{{ lessonUploads.activeUpload.failure.attempts }}</dd>
+          </div>
+          <div>
+            <dt>Время</dt>
+            <dd>{{ formatUploadFailureTime(lessonUploads.activeUpload.failure.failedAt) }}</dd>
+          </div>
+        </dl>
       </div>
       <div class="global-upload-status-track">
         <span :style="{ width: `${lessonUploads.activeUpload?.progress ?? 0}%` }"></span>

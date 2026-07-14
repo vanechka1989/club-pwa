@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildLearningMediaObjectKey, getLearningMediaUploadContentType, isLearningMediaContentTypeAllowed } from "./mediaUpload";
 
@@ -21,5 +23,13 @@ describe("learning media upload helpers", () => {
     expect(getLearningMediaUploadContentType("audio", "", "voice-message.m4a")).toBe("audio/mp4");
     expect(getLearningMediaUploadContentType("audio", "video/mp4", "voice-message.m4a")).toBe("audio/mp4");
     expect(getLearningMediaUploadContentType("audio", "application/octet-stream", "voice-message.exe")).toBeNull();
+  });
+
+  it("returns structured transient errors from the multipart proxy", () => {
+    const adminRoutes = readFileSync(resolve(__dirname, "../routes/admin.ts"), "utf-8");
+
+    expect(adminRoutes).toContain('code: "UPLOAD_CONNECTION_CLOSED"');
+    expect(adminRoutes).toContain('code: "STORAGE_UNAVAILABLE"');
+    expect(adminRoutes).toContain('"Retry-After", "1"');
   });
 });

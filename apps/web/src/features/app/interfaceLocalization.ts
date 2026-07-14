@@ -2,6 +2,17 @@ import { nextTick, onBeforeUnmount, onMounted, watch, type Ref } from "vue";
 import type { Locale } from "./i18n";
 
 const englishPhrases: Record<string, string> = {
+  "Загрузка урока": "Lesson upload",
+  "Не закрывайте и не сворачивайте приложение": "Do not close or minimize the app",
+  "Соединение прервалось": "Connection interrupted",
+  "Хранилище временно недоступно": "Storage is temporarily unavailable",
+  "Не удалось сохранить урок": "Could not save the lesson",
+  "Этап": "Stage",
+  "Попытки": "Attempts",
+  "Время": "Time",
+  "Основной файл": "Main file",
+  "Обложка": "Cover",
+  "Сохранение карточки": "Saving the lesson card",
   "Установить приложение": "Install app",
   "Установить": "Install",
   "Открываем...": "Opening...",
