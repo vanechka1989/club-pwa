@@ -294,6 +294,33 @@ describe("Learning section modules", () => {
     expect(source).not.toContain("GripVertical");
   });
 
+  it("deletes a lesson directly between its sort arrows after confirmation", async () => {
+    const pinia = renderAsOwner();
+
+    await expandModuleOne();
+    const lessonCard = document.querySelector<HTMLElement>('[data-lesson-id="module-1-lesson-2"]');
+    expect(lessonCard).toBeTruthy();
+    const lessonView = within(lessonCard!);
+    const controls = lessonCard!.querySelector<HTMLElement>(".lesson-level-sort-controls");
+    expect(controls).toBeTruthy();
+    expect(Array.from(controls!.querySelectorAll("button"), (button) => button.getAttribute("aria-label"))).toEqual([
+      "Сдвинуть урок влево",
+      "Удалить карточку",
+      "Сдвинуть урок вправо"
+    ]);
+
+    const deleteButton = lessonView.getByRole("button", { name: "Удалить карточку" }) as HTMLButtonElement;
+    await waitFor(() => expect(deleteButton.disabled).toBe(false));
+    await fireEvent.click(deleteButton);
+
+    expect(screen.queryByRole("dialog", { name: "Вариант 2. Модули и уроки" })).toBeNull();
+    expect(useAppDialogsStore(pinia).active?.title).toBe("Удалить урок «Вариант 2. Модули и уроки»?");
+    await acceptCurrentDialog(pinia);
+
+    await waitFor(() => expect(screen.getByText("Удалённый контент")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Открыть урок Вариант 2. Модули и уроки" })).toBeNull();
+  });
+
   it("opens a lesson modal from a module lesson card", async () => {
     renderAsOwner();
 

@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes in-app confirmations as version 4.39", () => {
-    expect(appVersion).toBe("4.39");
-    expect(releaseNotes[0]?.title).toBe("Подтверждения внутри приложения");
+  it("publishes direct lesson deletion as version 4.40", () => {
+    expect(appVersion).toBe("4.40");
+    expect(releaseNotes[0]?.title).toBe("Удаление карточки из списка уроков");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -39,7 +39,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("In-app confirmations");
+    expect(englishNotes[0]?.title).toBe("Direct lesson card deletion");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -18321,6 +18321,19 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   color: var(--text);
 }
 
+.modules-section .lesson-level-sort-controls .module-lesson-delete-button {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel-strong));
+  color: var(--danger-text);
+}
+
+.modules-section .lesson-level-sort-controls .module-lesson-delete-button:hover:not(:disabled),
+.modules-section .lesson-level-sort-controls .module-lesson-delete-button:focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 68%, var(--border));
+  background: color-mix(in srgb, var(--danger) 20%, var(--panel-strong));
+  color: var(--danger);
+}
+
 body.club-mobile-device .modules-section .module-card-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -475,6 +475,7 @@ const englishPhrases: Record<string, string> = {
   "Текст / заметка": "Text / note",
   "Текст материала или комментарий к файлу": "Material text or file note",
   "Удалить урок": "Delete lesson",
+  "Удалить карточку": "Delete card",
   "Сохранить урок": "Save lesson",
   "Сохраняем...": "Saving...",
   "Просмотр изображения": "Image viewer",

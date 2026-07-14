@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Удаление карточки из списка уроков",
+    items: [
+      "Между стрелками каждой карточки добавлена компактная кнопка удаления.",
+      "Перед удалением приложение показывает подтверждение с названием выбранного урока.",
+      "Удалённая карточка остаётся в разделе удалённого контента 7 дней и может быть восстановлена."
+    ]
+  },
+  {
+    version: "4.39",
+    updatedAt: "14.07.2026 18:44",
     title: "Подтверждения внутри приложения",
     items: [
       "Системные окна браузера с адресом сайта полностью заменены едиными окнами в стиле приложения.",
@@ -3030,11 +3040,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "In-app confirmations",
+  title: "Direct lesson card deletion",
   items: [
-    "Browser system dialogs that displayed the site address have been replaced with consistent in-app dialogs.",
-    "Destructive actions are clearly highlighted, while the safe cancel action receives focus first.",
-    "Confirmations and link prompts support Escape, backdrop dismissal, keyboard navigation, and clear validation feedback."
+    "A compact delete action now appears between the ordering arrows of every lesson card.",
+    "The app asks for confirmation and names the selected lesson before deleting it.",
+    "Deleted cards remain recoverable in Deleted content for 7 days."
   ]
 };
 

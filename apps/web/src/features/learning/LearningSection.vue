@@ -2211,13 +2211,11 @@ async function saveLesson() {
   }
 }
 
-async function deleteLesson() {
-  if (!selectedLessonModule.value || !selectedLessonItem.value || !canManageModules.value) {
+async function requestDeleteLesson(module: ModuleCard, lesson: ModuleLesson, closeEditorAfterDelete = false) {
+  if (!canManageModules.value || isSaving.value) {
     return;
   }
 
-  const lesson = selectedLessonItem.value;
-  const moduleId = selectedLessonModule.value.id;
   const confirmed = await appDialogs.confirm({
     title: `Удалить урок «${lesson.title}»?`,
     description: "Урок попадёт в удалённые на 7 дней, после чего будет удалён окончательно.",
@@ -2236,22 +2234,32 @@ async function deleteLesson() {
       await deleteAdminLearningMaterial(lesson.id);
     }
 
-    removeLessonFromModule(moduleId, lesson.id);
+    removeLessonFromModule(module.id, lesson.id);
     deletedLessons.value = [
       {
         ...lesson,
-        categoryId: moduleId,
+        categoryId: module.id,
         archivedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       },
       ...deletedLessons.value.filter((item) => item.id !== lesson.id)
     ];
     collapseModule(deletedContentModuleId);
-    closeLessonModal();
+    if (closeEditorAfterDelete) {
+      closeLessonModal();
+    }
   } catch {
     showLessonError("Не удалось удалить урок.");
   } finally {
     isSaving.value = false;
   }
+}
+
+async function deleteLesson() {
+  if (!selectedLessonModule.value || !selectedLessonItem.value) {
+    return;
+  }
+
+  await requestDeleteLesson(selectedLessonModule.value, selectedLessonItem.value, true);
 }
 
 function handleLessonFileChange(event: Event) {
@@ -2644,6 +2652,15 @@ watch(
               >
                 <ArrowUp v-if="module.defaultCardLayout === 'horizontal'" class="h-3.5 w-3.5" aria-hidden="true" />
                 <ArrowLeft v-else class="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                class="icon-button ui-icon-button module-sort-button module-lesson-delete-button"
+                type="button"
+                :disabled="isSaving || isLoadingModules"
+                aria-label="Удалить карточку"
+                @click.stop="requestDeleteLesson(module, image)"
+              >
+                <Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
               </button>
               <button
                 class="icon-button ui-icon-button module-sort-button"
