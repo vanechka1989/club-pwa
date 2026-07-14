@@ -1700,6 +1700,25 @@ test("separates profile header controls and module action levels", async ({ page
   await expect(openCollapseControl).toBeVisible();
   const [moduleBox, collapseBox] = await Promise.all([moduleOne.boundingBox(), openCollapseControl.boundingBox()]);
   expect(collapseBox?.x ?? 0).toBeGreaterThan((moduleBox?.x ?? 0) + (moduleBox?.width ?? 0) / 2);
+  const singleLessonControls = moduleOne.locator(".lesson-level-sort-controls").first();
+  const singleLessonControlMetrics = await singleLessonControls.evaluate((controls) => {
+    const card = controls.closest(".module-lesson-sort-card");
+    const cardBox = card?.getBoundingClientRect();
+    const controlsBox = controls.getBoundingClientRect();
+    const buttonWidth = Array.from(controls.querySelectorAll("button")).reduce(
+      (total, button) => total + button.getBoundingClientRect().width,
+      0
+    );
+    return {
+      cardCenter: cardBox ? cardBox.left + cardBox.width / 2 : 0,
+      controlsCenter: controlsBox.left + controlsBox.width / 2,
+      controlsWidth: controlsBox.width,
+      buttonWidth
+    };
+  });
+  expect(singleLessonControlMetrics.controlsWidth).toBeLessThanOrEqual(singleLessonControlMetrics.buttonWidth + 1);
+  expect(Math.abs(singleLessonControlMetrics.controlsCenter - singleLessonControlMetrics.cardCenter)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath("learning-single-card-controls.png"), fullPage: true });
   await moduleOne.locator(".admin-mockup-grid").evaluate((grid) => {
     const lesson = grid.querySelector(".module-lesson-sort-card");
     if (!lesson) return;

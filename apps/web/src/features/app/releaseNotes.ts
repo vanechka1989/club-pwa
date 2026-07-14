@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Компактная панель одной карточки",
+    items: [
+      "При одной карточке стрелки и удаление больше не растягиваются на всю ширину модуля.",
+      "Панель действий центрируется над карточкой и сохраняет одинаковый аккуратный ритм при удалении уроков.",
+      "Проверены состояния с одной, двумя и тремя карточками в масштабированном Android-интерфейсе."
+    ]
+  },
+  {
+    version: "4.41",
+    updatedAt: "14.07.2026 21:33",
     title: "Исправлена панель действий карточек",
     items: [
       "Стрелки и кнопка удаления теперь всегда остаются внутри своей карточки и не перекрывают соседние уроки.",
@@ -3050,11 +3060,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Fixed lesson card actions",
+  title: "Compact single-card actions",
   items: [
-    "Ordering arrows and the delete action now stay inside their own card without covering adjacent lessons.",
-    "The action row adapts to narrow lesson cards in scaled Android layouts.",
-    "A dedicated three-card mobile PWA visual check now protects this layout."
+    "A single lesson no longer stretches its ordering and delete actions across the full module width.",
+    "The action group stays centered above the card while preserving the narrow-card containment fix.",
+    "Scaled Android layouts are covered for one, two, and three lesson cards."
   ]
 };
 

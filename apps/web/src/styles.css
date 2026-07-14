@@ -18320,9 +18320,9 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 .modules-section .module-lesson-sort-card-vertical .lesson-level-sort-controls {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  width: 100%;
+  width: min(100%, calc(var(--icon-button-size) * 3));
   min-width: 0;
-  justify-self: stretch;
+  justify-self: center;
   gap: 0;
 }
 
