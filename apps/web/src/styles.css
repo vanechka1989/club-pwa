@@ -7001,6 +7001,89 @@ body.club-keyboard-open .module-name-modal {
   object-fit: contain;
 }
 
+.lesson-image-open-button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  cursor: zoom-in;
+}
+
+.lesson-image-open-button > img {
+  display: block;
+}
+
+body.club-lesson-image-viewer-open {
+  overflow: hidden;
+}
+
+.lesson-image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1900;
+  display: grid;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #000;
+  padding: 0;
+}
+
+.lesson-image-viewer-stage {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.lesson-image-viewer-stage > img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  object-fit: contain;
+  transform-origin: center;
+  user-select: none;
+  touch-action: none;
+  will-change: transform;
+}
+
+.lesson-image-viewer-close {
+  position: fixed;
+  top: max(10px, var(--club-safe-top));
+  right: max(10px, var(--club-safe-right));
+  z-index: 1;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: #fff;
+  cursor: pointer;
+}
+
+.lesson-image-viewer-close > svg {
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 1px 4px rgb(0 0 0 / 80%));
+}
+
 .lesson-video-player {
   position: relative;
   overflow: hidden;

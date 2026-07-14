@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Изображения урока во весь экран",
+    items: [
+      "Основное и дополнительные изображения урока открываются нажатием во весь экран без рамок и скруглений.",
+      "Изображение можно увеличивать и уменьшать двумя пальцами, а увеличенное — свободно перемещать.",
+      "Двойное нажатие быстро увеличивает изображение, закрытие доступно кнопкой, клавишей Escape и системной кнопкой «Назад»."
+    ]
+  },
+  {
+    version: "4.33",
+    updatedAt: "14.07.2026 12:50",
     title: "Урок шире, материалы по порядку",
     items: [
       "Карточка открытого урока использует почти всю ширину мобильного экрана без лишнего двойного отступа.",
@@ -2970,11 +2980,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Wider lessons with ordered materials",
+  title: "Fullscreen lesson images",
   items: [
-    "The open lesson card now uses almost the full mobile viewport width without duplicated side padding.",
-    "The add-material action now appears below the existing material list.",
-    "New materials are appended from top to bottom and remain part of the same lesson."
+    "Main and additional lesson images now open fullscreen without borders or rounded corners.",
+    "Images support pinch-to-zoom and panning while zoomed.",
+    "Double-tap zoom and close actions through the button, Escape, or system Back are supported."
   ]
 };
 

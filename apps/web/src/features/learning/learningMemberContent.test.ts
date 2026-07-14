@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getLearningContent, getLearningHome, saveLearningPlayback } from "@/api/client";
@@ -620,6 +620,29 @@ describe("Learning section member content", () => {
     expect(screen.queryByText("Фото внутри урока")).toBeNull();
     expect(screen.queryByText("Дополнительное фото")).toBeNull();
     expect(document.querySelector(".lesson-material-card")).toBeNull();
+
+    const openMainImage = screen.getByRole("button", { name: "Открыть изображение Фотоурок" });
+    await fireEvent.click(openMainImage);
+
+    const viewer = screen.getByRole("dialog", { name: "Просмотр изображения" });
+    const fullscreenImage = within(viewer).getByRole("img", { name: "Фотоурок" });
+    expect(viewer.classList.contains("lesson-image-viewer")).toBe(true);
+    expect(fullscreenImage.getAttribute("draggable")).toBe("false");
+
+    await fireEvent.dblClick(fullscreenImage);
+    expect(fullscreenImage.getAttribute("style")).toContain("scale(2)");
+
+    await fireEvent.click(within(viewer).getByRole("button", { name: "Закрыть изображение" }));
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Просмотр изображения" })).toBeNull());
+
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть изображение материала 1" }));
+    const materialViewer = screen.getByRole("dialog", { name: "Просмотр изображения" });
+    expect(within(materialViewer).getByRole("img", { name: "Фотоурок" }).getAttribute("src")).toBe(
+      "https://example.com/material-photo.jpg"
+    );
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Просмотр изображения" })).toBeNull());
   });
 
   it("opens member lessons directly on material instead of showing the cover inside the dialog", async () => {

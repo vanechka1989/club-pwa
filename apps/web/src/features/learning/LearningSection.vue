@@ -62,6 +62,7 @@ import {
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import LessonImageViewer from "./LessonImageViewer.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore } from "@/stores/lessonUploads";
@@ -71,6 +72,19 @@ import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
 import { moveItemByDirection, type SortDirection } from "./sortOrder";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
+
+const lessonImageViewerUrl = ref<string | null>(null);
+const lessonImageViewerAlt = ref("");
+
+function openLessonImage(url: string, alt: string) {
+  lessonImageViewerUrl.value = url;
+  lessonImageViewerAlt.value = alt;
+}
+
+function closeLessonImage() {
+  lessonImageViewerUrl.value = null;
+  lessonImageViewerAlt.value = "";
+}
 
 const route = useRoute() as ReturnType<typeof useRoute> | undefined;
 const router = useRouter() as ReturnType<typeof useRouter> | undefined;
@@ -784,6 +798,7 @@ function openLessonCreateModal(module: ModuleCard) {
 }
 
 function closeLessonModal() {
+  closeLessonImage();
   resetLessonVideoState();
   selectedLesson.value = null;
   lessonTitle.value = "";
@@ -2678,13 +2693,20 @@ watch(
                   mozallowfullscreen
                 ></iframe>
               </div>
-              <img
+              <button
                 v-else-if="selectedLessonItem.kind === 'photo' && selectedLessonItem.mediaUrl"
-                class="lesson-viewer-media"
-                :src="selectedLessonItem.mediaUrl"
-                :alt="selectedLessonItem.title"
-                loading="lazy"
-              />
+                class="lesson-image-open-button"
+                type="button"
+                :aria-label="`Открыть изображение ${selectedLessonItem.title}`"
+                @click="openLessonImage(selectedLessonItem.mediaUrl, selectedLessonItem.title)"
+              >
+                <img
+                  class="lesson-viewer-media"
+                  :src="selectedLessonItem.mediaUrl"
+                  :alt="selectedLessonItem.title"
+                  loading="lazy"
+                />
+              </button>
               <div
                 v-else-if="selectedLessonItem.kind === 'video' && selectedLessonItem.mediaUrl"
                 class="lesson-video-player"
@@ -2775,7 +2797,7 @@ watch(
 
               <section v-if="selectedLessonItem.materials.length" class="lesson-material-stream">
                 <div
-                  v-for="material in selectedLessonItem.materials"
+                  v-for="(material, materialIndex) in selectedLessonItem.materials"
                   :key="material.id"
                   class="lesson-material-block"
                   :data-lesson-material-id="material.id"
@@ -2794,7 +2816,15 @@ watch(
                       mozallowfullscreen
                     ></iframe>
                   </div>
-                  <img v-else-if="material.kind === 'photo' && material.mediaUrl" :src="material.mediaUrl" :alt="selectedLessonItem.title" loading="lazy" />
+                  <button
+                    v-else-if="material.kind === 'photo' && material.mediaUrl"
+                    class="lesson-image-open-button"
+                    type="button"
+                    :aria-label="`Открыть изображение материала ${materialIndex + 1}`"
+                    @click="openLessonImage(material.mediaUrl, selectedLessonItem.title)"
+                  >
+                    <img :src="material.mediaUrl" :alt="selectedLessonItem.title" loading="lazy" />
+                  </button>
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"
                     :src="material.mediaUrl"
@@ -3023,6 +3053,12 @@ watch(
           </div>
         </section>
     </TaskScreen>
+    <LessonImageViewer
+      v-if="lessonImageViewerUrl"
+      :url="lessonImageViewerUrl"
+      :alt="lessonImageViewerAlt"
+      @close="closeLessonImage"
+    />
     </div>
   </section>
 </template>

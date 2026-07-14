@@ -437,7 +437,9 @@ const englishPhrases: Record<string, string> = {
   "Текст материала или комментарий к файлу": "Material text or file note",
   "Удалить урок": "Delete lesson",
   "Сохранить урок": "Save lesson",
-  "Сохраняем...": "Saving..."
+  "Сохраняем...": "Saving...",
+  "Просмотр изображения": "Image viewer",
+  "Закрыть изображение": "Close image"
 };
 
 const englishPatterns: Array<[RegExp, (...matches: string[]) => string]> = [
@@ -462,6 +464,8 @@ const englishPatterns: Array<[RegExp, (...matches: string[]) => string]> = [
   [/^Отправить код ещё раз через (\d+)с$/, (count) => `Send code again in ${count}s`],
   [/^Получить код через (\d+)с$/, (count) => `Get code in ${count}s`],
   [/^Удалить изображение (\d+)$/, (count) => `Delete image ${count}`],
+  [/^Открыть изображение материала (\d+)$/, (count) => `Open material image ${count}`],
+  [/^Открыть изображение (.+)$/, (title) => `Open image ${title}`],
   [/^Уроки (\d+)\/(\d+)$/, (done, total) => `Lessons ${done}/${total}`],
   [/^Вход (.+)$/, (date) => `Login ${date}`],
   [/^до (.+)$/, (date) => `until ${date}`],

@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the wider lesson stream as version 4.33", () => {
-    expect(appVersion).toBe("4.33");
-    expect(releaseNotes[0]?.title).toBe("Урок шире, материалы по порядку");
+  it("publishes fullscreen lesson images as version 4.34", () => {
+    expect(appVersion).toBe("4.34");
+    expect(releaseNotes[0]?.title).toBe("Изображения урока во весь экран");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -39,7 +39,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Wider lessons with ordered materials");
+    expect(englishNotes[0]?.title).toBe("Fullscreen lesson images");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
