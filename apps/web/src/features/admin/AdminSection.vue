@@ -104,6 +104,7 @@ import {
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
+import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import {
   filterPaymentOrdersByBreakdown,
@@ -308,6 +309,7 @@ const adminSearchQuery = ref("");
 const selectedAdminAccess = ref<AdminUser | null>(null);
 const transferOwnerTelegramId = ref("");
 const showTransferOwnerModal = ref(false);
+const showTransferOwnerConfirm = ref(false);
 const loading = ref(false);
 const saving = ref(false);
 const accessSaveSucceeded = ref(false);
@@ -2248,6 +2250,7 @@ function openTransferOwnerModal() {
 }
 
 function closeTransferOwnerModal() {
+  showTransferOwnerConfirm.value = false;
   showTransferOwnerModal.value = false;
   transferOwnerTelegramId.value = "";
   closeAdminTask();
@@ -2447,27 +2450,32 @@ async function handleRemoveAdmin(telegramId: string) {
   }
 }
 
-async function handleTransferOwner() {
+function requestTransferOwnerConfirmation() {
   if (!transferOwnerTelegramId.value) {
     setError("Выберите администратора для передачи клуба.");
     return;
   }
 
+  showTransferOwnerConfirm.value = true;
+}
+
+async function handleTransferOwner() {
+  if (!transferOwnerTelegramId.value) return;
+
+  showTransferOwnerConfirm.value = false;
   saving.value = true;
   try {
     await transferClubOwner(transferOwnerTelegramId.value);
-    const response = await getAdminUsers();
-    admins.value = response.admins;
-    ownerTelegramId.value = response.ownerTelegramId;
-    await loadAdminActionLogs();
-    closeTransferOwnerModal();
-    await session.load();
-    setStatus("Клуб передан новому владельцу.");
   } catch {
     setError("Не удалось передать клуб. Проверьте, что выбранный пользователь остаётся администратором.");
+    return;
   } finally {
     saving.value = false;
   }
+
+  closeTransferOwnerModal();
+  setStatus("Клуб передан новому владельцу.");
+  void Promise.allSettled([session.load()]);
 }
 
 function resetAdminTaskState() {
@@ -2484,6 +2492,7 @@ function resetAdminTaskState() {
   showStorageSettingsModal.value = false;
   showServerLogsModal.value = false;
   showTransferOwnerModal.value = false;
+  showTransferOwnerConfirm.value = false;
   selectedAdminAccess.value = null;
   clientMessageOpen.value = false;
 }
@@ -4340,7 +4349,7 @@ onUnmounted(() => {
 
       <TaskScreen v-if="showTransferOwnerModal" class="admin-task-screen admin-transfer-owner-task-screen" title="Передать клуб" subtitle="Новый владелец получит полный доступ." portal @back="closeTransferOwnerModal">
           <section class="admin-transfer-owner-card ui-card">
-            <form class="admin-form admin-transfer-owner-form" @submit.prevent="handleTransferOwner">
+            <form class="admin-form admin-transfer-owner-form" @submit.prevent="requestTransferOwnerConfirmation">
               <select v-model="transferOwnerTelegramId" class="text-input">
                 <option value="" disabled>Выберите администратора</option>
                 <option v-for="admin in admins" :key="admin.id" :value="admin.telegramId">
@@ -4356,6 +4365,18 @@ onUnmounted(() => {
             </form>
           </section>
       </TaskScreen>
+
+      <ConfirmDialog
+        :open="showTransferOwnerConfirm"
+        title="Передать клуб выбранному администратору?"
+        description="После подтверждения выбранный администратор сразу станет владельцем и получит полный контроль над клубом."
+        confirm-label="Да, передать клуб"
+        cancel-label="Отмена"
+        :danger="true"
+        :busy="saving"
+        @cancel="showTransferOwnerConfirm = false"
+        @confirm="handleTransferOwner"
+      />
 
       <p v-if="!isOwner" class="admin-empty">Добавлять и удалять админов может только владелец.</p>
 

@@ -24,4 +24,21 @@ describe("compact transfer owner screen", () => {
     expect(styles).toMatch(/\.admin-transfer-owner-form\s*\{[^}]*grid-auto-rows:\s*max-content;[^}]*align-content:\s*start;[^}]*gap:\s*12px;/s);
     expect(styles).toMatch(/\.admin-transfer-owner-form \.text-input,[\s\S]*\.admin-transfer-owner-form \.primary-button\s*\{[^}]*min-height:\s*48px;/s);
   });
+
+  it("asks for an explicit confirmation before transferring ownership", () => {
+    expect(source).toContain('import ConfirmDialog from "@/features/app/ConfirmDialog.vue"');
+    expect(source).toContain('@submit.prevent="requestTransferOwnerConfirmation"');
+    expect(source).toContain(':open="showTransferOwnerConfirm"');
+    expect(source).toContain('confirm-label="Да, передать клуб"');
+    expect(source).toContain('@confirm="handleTransferOwner"');
+  });
+
+  it("does not turn a successful transfer into an error when the old owner can no longer refresh owner data", () => {
+    const handler = source.slice(source.indexOf("async function handleTransferOwner()"), source.indexOf("function resetAdminTaskState()"));
+
+    expect(handler).toContain("await transferClubOwner(transferOwnerTelegramId.value)");
+    expect(handler).toContain("setStatus(\"Клуб передан новому владельцу.\")");
+    expect(handler).toContain("void Promise.allSettled([");
+    expect(handler.indexOf("setStatus(\"Клуб передан новому владельцу.\")")).toBeGreaterThan(handler.lastIndexOf("catch"));
+  });
 });

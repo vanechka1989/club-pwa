@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Передача клуба без ложной ошибки",
+    items: [
+      "Перед сменой владельца теперь обязательно появляется отдельное подтверждение с именем опасного действия.",
+      "Успешная передача больше не показывается как ошибка, если старый владелец сразу теряет доступ к данным владельца.",
+      "Рамка открытого урока получила безопасный мобильный отступ и больше не выглядит обрезанной по краям."
+    ]
+  },
+  {
+    version: "4.34",
+    updatedAt: "14.07.2026 13:10",
     title: "Изображения урока во весь экран",
     items: [
       "Основное и дополнительные изображения урока открываются нажатием во весь экран без рамок и скруглений.",
@@ -2980,11 +2990,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Fullscreen lesson images",
+  title: "Reliable club ownership transfer",
   items: [
-    "Main and additional lesson images now open fullscreen without borders or rounded corners.",
-    "Images support pinch-to-zoom and panning while zoomed.",
-    "Double-tap zoom and close actions through the button, Escape, or system Back are supported."
+    "Changing the club owner now requires an explicit confirmation dialog.",
+    "A successful transfer is no longer reported as failed when the previous owner immediately loses owner-only access.",
+    "The open lesson frame now keeps a safe mobile gutter and no longer appears clipped at the edges."
   ]
 };
 

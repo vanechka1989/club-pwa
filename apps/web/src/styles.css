@@ -15032,11 +15032,20 @@ textarea.text-input,
 }
 
 .learning-task-screen-view .task-screen-body {
-  padding-inline: max(0.35rem, var(--club-safe-left), var(--club-safe-right));
+  padding-inline: max(0.5rem, var(--club-safe-left), var(--club-safe-right));
 }
 
 .learning-task-screen .lesson-preview-modal-view .lesson-preview-scroll {
   padding-inline: 0;
+}
+
+.learning-task-screen-view .lesson-preview-modal-view {
+  overflow: visible;
+}
+
+.learning-task-screen-view .lesson-viewer-content {
+  width: 100%;
+  max-width: 100%;
 }
 
 .learning-task-screen .lesson-editor-form {

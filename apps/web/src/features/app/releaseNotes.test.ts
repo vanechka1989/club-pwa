@@ -3,9 +3,9 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes fullscreen lesson images as version 4.34", () => {
-    expect(appVersion).toBe("4.34");
-    expect(releaseNotes[0]?.title).toBe("Изображения урока во весь экран");
+  it("publishes safer ownership transfer as version 4.35", () => {
+    expect(appVersion).toBe("4.35");
+    expect(releaseNotes[0]?.title).toBe("Передача клуба без ложной ошибки");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -39,7 +39,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Fullscreen lesson images");
+    expect(englishNotes[0]?.title).toBe("Reliable club ownership transfer");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

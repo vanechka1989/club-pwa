@@ -439,7 +439,11 @@ const englishPhrases: Record<string, string> = {
   "Сохранить урок": "Save lesson",
   "Сохраняем...": "Saving...",
   "Просмотр изображения": "Image viewer",
-  "Закрыть изображение": "Close image"
+  "Закрыть изображение": "Close image",
+  "Передать клуб выбранному администратору?": "Transfer the club to the selected administrator?",
+  "После подтверждения выбранный администратор сразу станет владельцем и получит полный контроль над клубом.":
+    "After confirmation, the selected administrator will immediately become the owner and gain full control of the club.",
+  "Да, передать клуб": "Yes, transfer the club"
 };
 
 const englishPatterns: Array<[RegExp, (...matches: string[]) => string]> = [
