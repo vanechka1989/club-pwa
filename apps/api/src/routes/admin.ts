@@ -78,6 +78,7 @@ import {
 import { classifyS3ObjectKey } from "../storage/s3Object";
 import { isValidMultipartPartSize, maxMultipartPartSizeBytes } from "../storage/s3MultipartPart";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
+import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { getInternalLessonMaterialTitle } from "../learning/lessonMaterials";
 import {
   buildS3SettingsResponse,
@@ -250,6 +251,7 @@ const directLearningMaterialPayloadSchema = z.object({
     .optional()
     .default([]),
   cardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
+  coverMode: z.enum(["default", "custom", "first_material"]).default("default"),
   isPublished: z.boolean().default(true),
   mediaUrl: externalMediaUrlSchema.nullable().optional(),
   mediaObject: adminLearningUploadedObjectSchema.nullable().optional(),
@@ -586,6 +588,7 @@ async function replaceDirectLessonMaterials(
 async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): Promise<AdminLearningMaterial> {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
   const thumbnailUrl = item.thumbnailObjectKey ? await getObjectReadUrl(item.thumbnailObjectKey) : item.thumbnailUrl;
+  const materials = await getSerializedLessonMaterials(item.id);
 
   return {
     id: item.id,
@@ -597,10 +600,12 @@ async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): P
     mediaUrl,
     mediaSource: getSerializedMediaSource(item.mediaObjectKey, item.mediaUrl),
     thumbnailUrl,
+    coverMode: item.coverMode === "custom" || item.coverMode === "first_material" ? item.coverMode : "default",
+    coverSourceUrl: getFirstVisualLessonCoverUrl({ kind: item.kind, mediaUrl }, materials),
     cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
-    materials: await getSerializedLessonMaterials(item.id),
+    materials,
     publishedAt: item.publishedAt?.toISOString() ?? null,
     isPublished: item.isPublished,
     archivedUntil: item.archivedUntil?.toISOString() ?? null,
@@ -2414,7 +2419,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid material payload" }, 400);
     }
 
-    const { categoryId, kind, title, cardLayout, isPublished } = body.data;
+    const { categoryId, kind, title, cardLayout, coverMode, isPublished } = body.data;
     const summary = normalizeOptionalText(body.data.summary);
     const materialBody = normalizeOptionalText(body.data.body);
     const category = await db.query.contentCategories.findFirst({
@@ -2473,6 +2478,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         summary,
         body: materialBody,
         cardLayout,
+        coverMode,
         mediaUrl,
         mediaObjectKey,
         thumbnailObjectKey,
@@ -2539,6 +2545,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const summary = normalizeOptionalText(getFormValue(form, "summary"));
     const body = normalizeOptionalText(getFormValue(form, "body"));
     const cardLayout = getFormValue(form, "cardLayout") === "horizontal" ? "horizontal" : "vertical";
+    const rawCoverMode = getFormValue(form, "coverMode");
+    const coverMode = rawCoverMode === "custom" || rawCoverMode === "first_material" ? rawCoverMode : "default";
     const isPublished = getFormValue(form, "isPublished") === "true";
 
     if (!categoryId || !contentKinds.includes(kind) || !title) {
@@ -2598,6 +2606,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         summary,
         body,
         cardLayout,
+        coverMode,
         mediaObjectKey,
         thumbnailObjectKey,
         thumbnailContentType,
@@ -2648,7 +2657,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid material payload" }, 400);
     }
 
-    const { categoryId, kind, title, cardLayout, isPublished, removeThumbnail } = body.data;
+    const { categoryId, kind, title, cardLayout, coverMode, isPublished, removeThumbnail } = body.data;
     const summary = normalizeOptionalText(body.data.summary);
     const materialBody = normalizeOptionalText(body.data.body);
     const category = await db.query.contentCategories.findFirst({
@@ -2733,6 +2742,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         summary,
         body: materialBody,
         cardLayout,
+        coverMode,
         mediaUrl,
         mediaObjectKey,
         mediaContentType,
@@ -2798,6 +2808,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const summary = normalizeOptionalText(getFormValue(form, "summary"));
     const body = normalizeOptionalText(getFormValue(form, "body"));
     const cardLayout = getFormValue(form, "cardLayout") === "horizontal" ? "horizontal" : "vertical";
+    const rawCoverMode = getFormValue(form, "coverMode");
+    const coverMode = rawCoverMode === "custom" || rawCoverMode === "first_material" ? rawCoverMode : "default";
     const isPublished = getFormValue(form, "isPublished") === "true";
     const shouldRemoveThumbnail = getFormValue(form, "removeThumbnail") === "true";
 
@@ -2879,6 +2891,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         summary,
         body,
         cardLayout,
+        coverMode,
         mediaUrl,
         mediaObjectKey,
         mediaContentType,

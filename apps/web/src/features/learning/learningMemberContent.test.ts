@@ -260,7 +260,7 @@ describe("Learning section member content", () => {
     expect(document.querySelector(".lesson-viewer-media")).toBeNull();
   });
 
-  it("uses an uncropped YouTube thumbnail for lesson cards when a cover is not set", async () => {
+  it("uses an uncropped YouTube thumbnail when the first attachment is selected as the cover", async () => {
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       categories: [
         {
@@ -283,6 +283,8 @@ describe("Learning section member content", () => {
           body: null,
           mediaUrl: "https://www.youtube.com/live/EVHs7jmRdXk",
           thumbnailUrl: null,
+          coverMode: "first_material",
+          coverSourceUrl: "https://img.youtube.com/vi/EVHs7jmRdXk/hqdefault.jpg",
           cardLayout: "horizontal",
           mediaContentType: null,
           mediaSizeBytes: null,

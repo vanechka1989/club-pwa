@@ -9,6 +9,7 @@ import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
 import { getObjectReadUrl } from "../storage/s3";
 import { decodeModuleCategoryDefaultCardLayout, decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
+import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -26,12 +27,26 @@ function publishedContentWhere() {
 async function serializeContentItem(item: typeof contentItems.$inferSelect, includeBody = false) {
   const mediaUrl = item.mediaObjectKey ? await getObjectReadUrl(item.mediaObjectKey) : item.mediaUrl;
   const thumbnailUrl = item.thumbnailObjectKey ? await getObjectReadUrl(item.thumbnailObjectKey) : item.thumbnailUrl;
-  const materials = includeBody
+  const shouldLoadCoverMaterials = item.coverMode === "first_material";
+  const rawMaterials = includeBody || shouldLoadCoverMaterials
     ? await db.query.lessonMaterials.findMany({
         where: eq(lessonMaterials.contentItemId, item.id),
         orderBy: [asc(lessonMaterials.sortOrder), asc(lessonMaterials.createdAt)]
       })
     : [];
+  const serializedMaterials = await Promise.all(
+    rawMaterials.map(async (material) => ({
+      id: material.id,
+      kind: material.kind,
+      title: material.title,
+      description: material.description,
+      body: material.body,
+      mediaUrl: material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : material.mediaUrl,
+      mediaSource: material.mediaObjectKey ? "s3" as const : material.mediaUrl ? "external" as const : null,
+      mediaContentType: material.mediaContentType,
+      mediaSizeBytes: material.mediaSizeBytes
+    }))
+  );
 
   return {
     id: item.id,
@@ -43,22 +58,12 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
     mediaUrl,
     mediaSource: item.mediaObjectKey ? "s3" : item.mediaUrl ? "external" : null,
     thumbnailUrl,
+    coverMode: item.coverMode === "custom" || item.coverMode === "first_material" ? item.coverMode : "default",
+    coverSourceUrl: getFirstVisualLessonCoverUrl({ kind: item.kind, mediaUrl }, serializedMaterials),
     cardLayout: item.cardLayout === "horizontal" ? "horizontal" : "vertical",
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
-    materials: await Promise.all(
-      materials.map(async (material) => ({
-        id: material.id,
-        kind: material.kind,
-        title: material.title,
-        description: material.description,
-        body: material.body,
-        mediaUrl: material.mediaObjectKey ? await getObjectReadUrl(material.mediaObjectKey) : material.mediaUrl,
-        mediaSource: material.mediaObjectKey ? "s3" : material.mediaUrl ? "external" : null,
-        mediaContentType: material.mediaContentType,
-        mediaSizeBytes: material.mediaSizeBytes
-      }))
-    ),
+    materials: includeBody ? serializedMaterials : [],
     publishedAt: item.publishedAt?.toISOString() ?? null
   };
 }

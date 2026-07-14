@@ -503,7 +503,8 @@ describe("Learning section modules", () => {
       element.textContent?.trim()
     );
     expect(fieldLabels.slice(0, 2)).toEqual(["Вид карточки", "Название урока"]);
-    expect(screen.getByText("Обложка карточки (не обязательно)")).toBeTruthy();
+    expect(screen.getByText("Источник обложки")).toBeTruthy();
+    expect(screen.queryByLabelText("Обложка карточки")).toBeNull();
     expect(screen.queryByText("Можно не загружать")).toBeNull();
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Новый урок");
@@ -614,6 +615,28 @@ describe("Learning section modules", () => {
     const cover = lessonCard.querySelector("img");
 
     expect(cover?.getAttribute("src")).toBe("/previews/default-lessons/midnight-horizontal.webp");
+    expect(lessonCard.classList.contains("admin-mockup-thumb-default-cover")).toBe(true);
+  });
+
+  it("offers three compact cover sources and only shows upload controls for a custom cover", async () => {
+    renderAsOwner();
+    await openLessonCreator("Модуль 1");
+
+    expect(screen.getByRole("group", { name: "Источник обложки" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Стандартная" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Своя" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Первое вложение" })).toBeTruthy();
+    expect(screen.queryByLabelText("Обложка карточки")).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Своя" }));
+    expect(screen.getByLabelText("Обложка карточки")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Первое вложение" }));
+    expect(screen.queryByLabelText("Обложка карточки")).toBeNull();
+
+    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    expect(styles).toMatch(/\.lesson-cover-mode-buttons\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styles).toMatch(/\.admin-mockup-thumb-default-cover img\s*\{[^}]*transform:\s*scale\(1\.06\);/s);
   });
 
   it("keeps default lesson covers lightweight", () => {

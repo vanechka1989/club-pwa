@@ -96,6 +96,8 @@ export type ContentKind = z.infer<typeof contentKindSchema>;
 
 export const contentCardLayoutSchema = z.enum(["vertical", "horizontal"]);
 export type ContentCardLayout = z.infer<typeof contentCardLayoutSchema>;
+export const lessonCoverModeSchema = z.enum(["default", "custom", "first_material"]);
+export type LessonCoverMode = z.infer<typeof lessonCoverModeSchema>;
 
 export const mediaSourceSchema = z.enum(["s3", "external"]);
 export type MediaSource = z.infer<typeof mediaSourceSchema>;
@@ -194,6 +196,8 @@ export const learningContentSchema = z.object({
   mediaUrl: z.string().url().nullable(),
   mediaSource: mediaSourceSchema.nullable().optional(),
   thumbnailUrl: z.string().url().nullable(),
+  coverMode: lessonCoverModeSchema.optional(),
+  coverSourceUrl: z.string().url().nullable().optional(),
   cardLayout: contentCardLayoutSchema,
   mediaContentType: z.string().nullable(),
   mediaSizeBytes: z.number().int().nonnegative().nullable(),

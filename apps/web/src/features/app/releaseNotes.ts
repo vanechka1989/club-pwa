@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Три режима обложки урока",
+    items: [
+      "В настройках урока можно выбрать стандартную обложку, собственный файл или первое визуальное вложение.",
+      "Режим первого вложения использует фото или превью YouTube по порядку урока и безопасно возвращается к стандартной обложке.",
+      "Белые углы внутри стандартных WebP-обложек больше не видны на карточках уроков."
+    ]
+  },
+  {
+    version: "4.35",
+    updatedAt: "14.07.2026 13:31",
     title: "Передача клуба без ложной ошибки",
     items: [
       "Перед сменой владельца теперь обязательно появляется отдельное подтверждение с именем опасного действия.",
@@ -2990,11 +3000,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable club ownership transfer",
+  title: "Three lesson cover modes",
   items: [
-    "Changing the club owner now requires an explicit confirmation dialog.",
-    "A successful transfer is no longer reported as failed when the previous owner immediately loses owner-only access.",
-    "The open lesson frame now keeps a safe mobile gutter and no longer appears clipped at the edges."
+    "Lesson settings now offer a standard cover, a custom upload, or the first visual attachment.",
+    "First-attachment mode follows lesson order and safely falls back when no photo or YouTube preview is available.",
+    "White corners embedded in standard WebP covers are no longer visible on lesson cards."
   ]
 };
 

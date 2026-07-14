@@ -2,6 +2,28 @@ import { describe, expect, it } from "vitest";
 import { learningContentSchema, learningHomeResponseSchema } from "./index";
 
 describe("learningContentSchema", () => {
+  it("accepts all lesson cover modes while keeping old content compatible", () => {
+    const base = {
+      id: "item-cover",
+      categoryId: "category-1",
+      kind: "text" as const,
+      title: "Урок",
+      summary: null,
+      body: null,
+      mediaUrl: null,
+      thumbnailUrl: null,
+      cardLayout: "vertical" as const,
+      mediaContentType: null,
+      mediaSizeBytes: null,
+      publishedAt: null
+    };
+
+    expect(learningContentSchema.parse(base).coverMode).toBeUndefined();
+    expect(learningContentSchema.parse({ ...base, coverMode: "custom" }).coverMode).toBe("custom");
+    expect(learningContentSchema.parse({ ...base, coverMode: "first_material" }).coverMode).toBe("first_material");
+    expect(() => learningContentSchema.parse({ ...base, coverMode: "unknown" })).toThrow();
+  });
+
   it("accepts a nullable thumbnail URL", () => {
     const parsed = learningContentSchema.parse({
       id: "item-1",

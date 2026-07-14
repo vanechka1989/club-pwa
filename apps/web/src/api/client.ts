@@ -850,6 +850,7 @@ export function createAdminLearningMaterialDirect(payload: {
     mediaObject?: AdminLearningUploadedObject | null;
   }>;
   cardLayout: "vertical" | "horizontal";
+  coverMode: "default" | "custom" | "first_material";
   isPublished: boolean;
   mediaUrl?: string | null;
   mediaObject?: AdminLearningUploadedObject | null;
@@ -887,6 +888,7 @@ export function updateAdminLearningMaterialDirect(
       mediaObject?: AdminLearningUploadedObject | null;
     }>;
     cardLayout: "vertical" | "horizontal";
+    coverMode: "default" | "custom" | "first_material";
     isPublished: boolean;
     mediaUrl?: string | null;
     mediaObject?: AdminLearningUploadedObject | null;

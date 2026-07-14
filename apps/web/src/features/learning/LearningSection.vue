@@ -14,6 +14,7 @@ import {
   type LearningContent,
   type LearningProgressSummary,
   type LessonMaterial,
+  type LessonCoverMode,
   type MediaSource
 } from "@club/shared";
 import {
@@ -72,6 +73,7 @@ import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
 import { moveItemByDirection, type SortDirection } from "./sortOrder";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
+import { getFirstVisualLessonCoverUrl, isDefaultLessonCover, resolveLessonCoverUrl } from "./lessonCover";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -112,6 +114,8 @@ type ModuleLesson = {
   mediaUrl: string | null;
   mediaSource: MediaSource | null;
   thumbnailUrl: string | null;
+  coverMode: LessonCoverMode;
+  coverSourceUrl: string | null;
   materials: LessonMaterial[];
   cardLayout: ContentCardLayout;
   isPersisted: boolean;
@@ -170,6 +174,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-1.svg",
+        coverMode: "custom",
+        coverSourceUrl: null,
         materials: [],
         cardLayout: "vertical",
         isPersisted: false,
@@ -186,6 +192,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-2.svg",
+        coverMode: "custom",
+        coverSourceUrl: null,
         materials: [],
         cardLayout: "horizontal",
         isPersisted: false,
@@ -202,6 +210,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-3.svg",
+        coverMode: "custom",
+        coverSourceUrl: null,
         materials: [],
         cardLayout: "vertical",
         isPersisted: false,
@@ -218,6 +228,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         mediaSource: null,
         thumbnailUrl: "/previews/learning-redesign-4.svg",
+        coverMode: "custom",
+        coverSourceUrl: null,
         materials: [],
         cardLayout: "vertical",
         isPersisted: false,
@@ -244,6 +256,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         mediaSource: null,
         thumbnailUrl: "/previews/admin-stats-preview-1.png",
+        coverMode: "custom",
+        coverSourceUrl: null,
         materials: [],
         cardLayout: "vertical",
         isPersisted: false,
@@ -260,6 +274,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         mediaSource: null,
         thumbnailUrl: "/previews/admin-stats-preview-2.png",
+        coverMode: "custom",
+        coverSourceUrl: null,
         materials: [],
         cardLayout: "vertical",
         isPersisted: false,
@@ -276,6 +292,8 @@ const initialModuleCards: ModuleCard[] = [
         mediaUrl: null,
         mediaSource: null,
         thumbnailUrl: "/previews/admin-stats-preview-3.png",
+        coverMode: "custom",
+        coverSourceUrl: null,
         materials: [],
         cardLayout: "vertical",
         isPersisted: false,
@@ -318,6 +336,7 @@ const lessonFileName = ref("");
 const lessonThumbnailFile = ref<File | null>(null);
 const lessonThumbnailFileName = ref("");
 const shouldRemoveLessonThumbnail = ref(false);
+const lessonCoverMode = ref<LessonCoverMode>("default");
 const lessonCardLayout = ref<ContentCardLayout>("vertical");
 const lessonContent = ref("");
 const lessonMaterialDrafts = ref<LessonMaterialDraft[]>([]);
@@ -397,6 +416,11 @@ const mediaInputSourceOptions: Array<{ value: MediaInputSource; label: string }>
   { value: "url", label: "Ссылка" },
   { value: "youtube", label: "YouTube" }
 ];
+const lessonCoverModeOptions: Array<{ value: LessonCoverMode; label: string }> = [
+  { value: "default", label: "Стандартная" },
+  { value: "custom", label: "Своя" },
+  { value: "first_material", label: "Первое вложение" }
+];
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
@@ -433,8 +457,8 @@ function getYouTubePlayerUrl(value: string | null) {
   return getYouTubeEmbedUrl(value);
 }
 
-function isYouTubeLessonImage(item: Pick<ModuleLesson, "mediaUrl">) {
-  return Boolean(getYouTubeThumbnailUrl(item.mediaUrl));
+function isYouTubeLessonImage(item: Pick<ModuleLesson, "coverMode" | "coverSourceUrl">) {
+  return item.coverMode === "first_material" && Boolean(item.coverSourceUrl?.includes("youtube.com/vi/"));
 }
 
 function syncLessonYouTubeExternalUrl() {
@@ -743,6 +767,7 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStart
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = lesson.thumbnailUrl ? "Текущая обложка сохранена" : "";
   shouldRemoveLessonThumbnail.value = false;
+  lessonCoverMode.value = lesson.coverMode;
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = lesson.content;
   lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
@@ -788,6 +813,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = "";
   shouldRemoveLessonThumbnail.value = false;
+  lessonCoverMode.value = "default";
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = "";
   lessonMaterialDrafts.value = [];
@@ -811,6 +837,7 @@ function closeLessonModal() {
   lessonThumbnailFile.value = null;
   lessonThumbnailFileName.value = "";
   shouldRemoveLessonThumbnail.value = false;
+  lessonCoverMode.value = "default";
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonMaterialDrafts.value = [];
@@ -910,6 +937,8 @@ function updateLearningPlaybackProgress(lesson: ModuleLesson, positionSeconds: n
           mediaUrl: lesson.mediaUrl,
           mediaSource: lesson.mediaSource,
           thumbnailUrl: lesson.thumbnailUrl,
+          coverMode: lesson.coverMode,
+          coverSourceUrl: lesson.coverSourceUrl,
           cardLayout: lesson.cardLayout,
           mediaContentType: null,
           mediaSizeBytes: null,
@@ -1227,7 +1256,15 @@ function cloneInitialModules() {
 }
 
 function materialPreviewUrl(item: AdminLearningMaterial | LearningContent) {
-  return item.thumbnailUrl || getYouTubeThumbnailUrl(item.mediaUrl) || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
+  const fallback = getDefaultLessonCover(ui.colorScheme, item.cardLayout);
+  return resolveLessonCoverUrl(
+    {
+      coverMode: item.coverMode ?? "default",
+      thumbnailUrl: item.thumbnailUrl,
+      coverSourceUrl: item.coverSourceUrl ?? null
+    },
+    fallback
+  );
 }
 
 function getDefaultLessonCover(colorScheme: ColorScheme, cardLayout: ContentCardLayout) {
@@ -1235,11 +1272,15 @@ function getDefaultLessonCover(colorScheme: ColorScheme, cardLayout: ContentCard
 }
 
 function getLessonImage(item: ModuleLesson) {
-  return item.thumbnailUrl || getYouTubeThumbnailUrl(item.mediaUrl) || getDefaultLessonCover(ui.colorScheme, item.cardLayout);
+  return resolveLessonCoverUrl(item, getDefaultLessonCover(ui.colorScheme, item.cardLayout));
 }
 
 function getModuleLessonImage(module: ModuleCard | null, item: ModuleLesson) {
-  return item.thumbnailUrl || getYouTubeThumbnailUrl(item.mediaUrl) || getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout);
+  return resolveLessonCoverUrl(item, getDefaultLessonCover(ui.colorScheme, module?.defaultCardLayout ?? item.cardLayout));
+}
+
+function isModuleLessonDefaultCover(item: ModuleLesson) {
+  return isDefaultLessonCover(item);
 }
 
 function getContinueLessonImage(module: ModuleCard | null, item: ModuleLesson) {
@@ -1268,6 +1309,8 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     mediaUrl: item.mediaUrl,
     mediaSource: item.mediaSource ?? null,
     thumbnailUrl: item.thumbnailUrl,
+    coverMode: item.coverMode ?? "default",
+    coverSourceUrl: item.coverSourceUrl ?? null,
     materials: item.materials ?? [],
     cardLayout: item.cardLayout,
     isPersisted: true,
@@ -1598,6 +1641,7 @@ function buildLessonForm() {
   form.set("summary", lessonDescription.value.trim());
   form.set("body", lessonContent.value.trim());
   form.set("cardLayout", selectedModuleLessonLayout.value);
+  form.set("coverMode", lessonCoverMode.value);
   form.set("isPublished", "true");
   appendFile(form, "file", lessonFile.value);
   if (lessonThumbnailFile.value) {
@@ -1621,6 +1665,7 @@ function buildLessonDirectPayloadFromDraft(
     externalUrl: string;
     materials?: LessonMaterialDraft[];
     cardLayout: ContentCardLayout;
+    coverMode: LessonCoverMode;
     removeThumbnail: boolean;
   },
   mediaObject?: AdminLearningUploadedObject | null,
@@ -1643,6 +1688,7 @@ function buildLessonDirectPayloadFromDraft(
       mediaObject: materialObjects.get(material.id) ?? null
     })),
     cardLayout: draft.cardLayout,
+    coverMode: draft.coverMode,
     isPublished: true,
     mediaUrl: getNormalizedExternalUrl(draft.mediaSource, draft.externalUrl),
     ...(mediaObject !== undefined ? { mediaObject } : {}),
@@ -1669,6 +1715,7 @@ async function startBackgroundLessonUpload() {
     mediaSource: lessonMediaSource.value,
     externalUrl: lessonExternalUrl.value.trim(),
     cardLayout: selectedModuleLessonLayout.value,
+    coverMode: lessonCoverMode.value,
     removeThumbnail: shouldRemoveLessonThumbnail.value,
     mediaFile: lessonFile.value,
     thumbnailFile: lessonThumbnailFile.value,
@@ -1917,6 +1964,17 @@ function saveLessonLocally() {
     mediaUrl: getNormalizedExternalUrl(lessonMediaSource.value, lessonExternalUrl.value),
     mediaSource: lessonMediaSource.value === "file" ? null : "external",
     thumbnailUrl: shouldRemoveLessonThumbnail.value ? null : (selectedLessonItem.value?.thumbnailUrl ?? null),
+    coverMode: lessonCoverMode.value,
+    coverSourceUrl: getFirstVisualLessonCoverUrl(
+      {
+        kind: lessonKind.value,
+        mediaUrl: getNormalizedExternalUrl(lessonMediaSource.value, lessonExternalUrl.value)
+      },
+      lessonMaterialDrafts.value.map((material) => ({
+        kind: material.kind,
+        mediaUrl: material.mediaSource === "file" ? material.existingMediaUrl : getNormalizedExternalUrl(material.mediaSource, material.externalUrl)
+      }))
+    ),
     materials: lessonMaterialDrafts.value.map((material, index) => ({
       id: material.id,
       kind: material.kind,
@@ -2033,6 +2091,7 @@ async function saveLesson() {
         externalUrl: lessonExternalUrl.value.trim(),
         materials: lessonMaterialDrafts.value.map((material) => ({ ...material })),
         cardLayout: selectedModuleLessonLayout.value,
+        coverMode: lessonCoverMode.value,
         removeThumbnail: shouldRemoveLessonThumbnail.value
       });
       const response = selectedLessonItem.value?.isPersisted
@@ -2510,7 +2569,8 @@ watch(
               class="admin-mockup-thumb"
               :class="[
                 module.defaultCardLayout === 'horizontal' ? 'admin-mockup-thumb-horizontal' : 'admin-mockup-thumb-vertical',
-                isYouTubeLessonImage(image) ? 'admin-mockup-thumb-youtube' : ''
+                isYouTubeLessonImage(image) ? 'admin-mockup-thumb-youtube' : '',
+                isModuleLessonDefaultCover(image) ? 'admin-mockup-thumb-default-cover' : ''
               ]"
               type="button"
               :aria-label="`Открыть урок ${image.title}`"
@@ -2935,13 +2995,28 @@ watch(
                   Остановить запись
                 </button>
               </div>
-              <label class="admin-field">
-                <span>Обложка карточки (не обязательно)</span>
+              <div class="admin-field">
+                <span>Источник обложки</span>
+                <div class="lesson-cover-mode-buttons" role="group" aria-label="Источник обложки">
+                  <button
+                    v-for="option in lessonCoverModeOptions"
+                    :key="option.value"
+                    class="lesson-cover-mode-button"
+                    :class="{ 'lesson-cover-mode-button-active': lessonCoverMode === option.value }"
+                    type="button"
+                    @click="lessonCoverMode = option.value"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+              <label v-if="lessonCoverMode === 'custom'" class="admin-field">
+                <span>Своя обложка (не обязательно)</span>
                 <input class="text-input" type="file" accept="image/*" aria-label="Обложка карточки" @change="handleLessonThumbnailChange" />
                 <small v-if="lessonThumbnailFileName">{{ lessonThumbnailFileName }}</small>
               </label>
               <button
-                v-if="selectedLessonItem?.thumbnailUrl || lessonThumbnailFileName"
+                v-if="lessonCoverMode === 'custom' && (selectedLessonItem?.thumbnailUrl || lessonThumbnailFileName)"
                 class="secondary-button ui-button cover-remove-button"
                 type="button"
                 @click="removeLessonThumbnail"
