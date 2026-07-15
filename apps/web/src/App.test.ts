@@ -22,6 +22,7 @@ import App from "./App.vue";
 const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
 const appIndexSource = readFileSync(resolve(__dirname, "../index.html"), "utf-8");
 const deviceLayoutSource = readFileSync(resolve(__dirname, "features/app/deviceLayout.ts"), "utf-8");
+const deviceModeNoticeSource = readFileSync(resolve(__dirname, "features/app/DeviceModeNotice.vue"), "utf-8");
 const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
 const communitySource = readFileSync(resolve(__dirname, "features/community/CommunitySection.vue"), "utf-8");
 const uiStoreSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
@@ -649,6 +650,22 @@ describe("App", () => {
     expect(styles).not.toContain("club-desktop-viewport-mobile");
     expect(styles).not.toContain("zoom: var(--club-mobile-viewport-scale);");
     expect(styles).not.toContain("calc((100vw - 2rem) / var(--club-mobile-viewport-scale))");
+  });
+
+  it("classifies device mode and keeps every confident device inside the mobile presentation", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(appSource).toContain("classifyDeviceMode");
+    expect(appSource).toContain("shouldForceMobilePresentation");
+    expect(appSource).toContain("getDeviceModeNoticeKind");
+    expect(appSource).toContain("getSafeQrTarget");
+    expect(appSource).toContain("DeviceModeNotice");
+    expect(appSource).toContain("desktop-mobile-preview");
+    expect(appSource).toContain("sessionStorage");
+    expect(appSource).toContain("forceMobileShell");
+    expect(deviceModeNoticeSource).toContain('role="dialog"');
+    expect(styles).toMatch(/\.app-root\.desktop-mobile-preview\s*{[\s\S]*max-width:\s*30rem;/);
+    expect(styles).toMatch(/\.desktop-mobile-preview \.bottom-nav\s*{[\s\S]*left:\s*50%;[\s\S]*translateX\(-50%\)/);
   });
 
   it("prevents signed-in mobile PWA content from stretching under page gestures", () => {

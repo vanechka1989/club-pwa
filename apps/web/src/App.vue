@@ -11,6 +11,7 @@ import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppDialogHost from "@/features/app/AppDialogHost.vue";
+import DeviceModeNotice from "@/features/app/DeviceModeNotice.vue";
 import NotificationCenterScreen from "@/features/app/NotificationCenterScreen.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
 import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
@@ -25,6 +26,14 @@ import {
   getMeasuredVisibleViewportHeight,
   syncLayoutClasses
 } from "@/features/app/deviceLayout";
+import {
+  classifyDeviceMode,
+  getDeviceModeNoticeKind,
+  getSafeQrTarget,
+  shouldForceMobilePresentation,
+  type DeviceMode,
+  type DeviceModeNoticeKind
+} from "@/features/app/deviceMode";
 import {
   blurActiveTextField,
   ensureFocusedTextFieldVisible,
@@ -58,6 +67,9 @@ const uploadDetailsOpen = ref(false);
 const communityChatOpen = ref(false);
 const isDesktopLayout = ref(false);
 const isMobileDeviceShell = ref(false);
+const deviceMode = ref<DeviceMode>("unknown");
+const isStandaloneDeviceDisplay = ref(false);
+const continuedDeviceNoticeKind = ref<DeviceModeNoticeKind | null>(null);
 const supportUnreadCount = ref(0);
 const supportClientTelegramId = computed(() =>
   route.path.includes("/clients/") && typeof route.params.customerId === "string" ? route.params.customerId : null
@@ -173,6 +185,45 @@ const showMobileNavigation = computed(() => Boolean(session.user && (!isDesktopL
 const showBottomNavigation = computed(
   () => showMobileNavigation.value && !isTaskPath(route.path) && (activeSection.value !== "community" || !communityChatOpen.value)
 );
+const deviceModeNoticeKind = computed(() =>
+  getDeviceModeNoticeKind(deviceMode.value, isStandaloneDeviceDisplay.value)
+);
+const visibleDeviceModeNoticeKind = computed(() =>
+  deviceModeNoticeKind.value && continuedDeviceNoticeKind.value !== deviceModeNoticeKind.value
+    ? deviceModeNoticeKind.value
+    : null
+);
+const deviceQrTarget = computed(() =>
+  typeof window === "undefined" ? "" : getSafeQrTarget(window.location.href)
+);
+const usesDesktopMobilePreview = computed(() => deviceMode.value === "desktop");
+const deviceNoticeSessionKey = "club-device-mode-notice-continued";
+
+function hasContinuedDeviceNotice(kind: DeviceModeNoticeKind | null) {
+  if (!kind || typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.sessionStorage.getItem(deviceNoticeSessionKey) === kind;
+  } catch {
+    return false;
+  }
+}
+
+function continueDeviceModeNotice() {
+  const kind = deviceModeNoticeKind.value;
+  if (!kind) {
+    return;
+  }
+
+  continuedDeviceNoticeKind.value = kind;
+  try {
+    window.sessionStorage.setItem(deviceNoticeSessionKey, kind);
+  } catch {
+    // The warning can still be dismissed when session storage is unavailable.
+  }
+}
 const userDisplayName = computed(
   () => session.user?.displayName || session.user?.firstName || session.user?.username || t("profileDefaultName")
 );
@@ -311,7 +362,36 @@ function syncMobileDeviceShell(layoutWidth: number, viewportHeight: number) {
     return;
   }
 
-  const hasTouchInput = Boolean(window.matchMedia?.("(pointer: coarse)").matches || window.navigator.maxTouchPoints > 0);
+  const pointerCoarse = Boolean(window.matchMedia?.("(pointer: coarse)").matches);
+  const pointerFine = Boolean(window.matchMedia?.("(pointer: fine)").matches);
+  const hasTouchInput = Boolean(pointerCoarse || window.navigator.maxTouchPoints > 0);
+  const standaloneDisplay = isInstalledPwaDisplay();
+  const navigatorWithHints = window.navigator as Navigator & {
+    userAgentData?: { mobile?: boolean };
+  };
+  const modeResult = classifyDeviceMode({
+    userAgent: window.navigator.userAgent,
+    platform: window.navigator.platform,
+    userAgentDataMobile:
+      typeof navigatorWithHints.userAgentData?.mobile === "boolean"
+        ? navigatorWithHints.userAgentData.mobile
+        : null,
+    maxTouchPoints: window.navigator.maxTouchPoints,
+    pointerCoarse,
+    pointerFine,
+    screenWidth: window.screen?.width ?? null,
+    screenHeight: window.screen?.height ?? null,
+    screenAvailWidth: window.screen?.availWidth ?? null,
+    screenAvailHeight: window.screen?.availHeight ?? null,
+    devicePixelRatio: window.devicePixelRatio ?? null,
+    layoutWidth,
+    layoutHeight: viewportHeight,
+    isStandaloneDisplay: standaloneDisplay
+  });
+  deviceMode.value = modeResult.mode;
+  isStandaloneDeviceDisplay.value = standaloneDisplay;
+  const nextNoticeKind = getDeviceModeNoticeKind(modeResult.mode, standaloneDisplay);
+  continuedDeviceNoticeKind.value = hasContinuedDeviceNotice(nextNoticeKind) ? nextNoticeKind : null;
   const snapshot = createDeviceLayoutSnapshot({
     layoutWidth,
     viewportHeight,
@@ -321,10 +401,11 @@ function syncMobileDeviceShell(layoutWidth: number, viewportHeight: number) {
     screenAvailHeight: window.screen?.availHeight ?? null,
     devicePixelRatio: window.devicePixelRatio ?? null,
     hasTouchInput,
-    isStandaloneDisplay: isInstalledPwaDisplay(),
+    isStandaloneDisplay: standaloneDisplay,
     platform: window.navigator.platform,
     sessionMode: session.user ? "signed-in" : "signed-out",
-    userAgent: window.navigator.userAgent
+    userAgent: window.navigator.userAgent,
+    forceMobileShell: shouldForceMobilePresentation(modeResult.mode)
   });
 
   isMobileDeviceShell.value = snapshot.isMobileDeviceShell;
@@ -721,9 +802,16 @@ onBeforeUnmount(() => {
       'community-active': activeSection === 'community',
       'community-chat-open': activeSection === 'community' && communityChatOpen,
       'app-root-no-user': !session.user,
-      'mobile-device-shell': isMobileDeviceShell
+      'mobile-device-shell': isMobileDeviceShell,
+      'desktop-mobile-preview': usesDesktopMobilePreview
     }"
   >
+    <DeviceModeNotice
+      v-if="visibleDeviceModeNoticeKind"
+      :kind="visibleDeviceModeNoticeKind"
+      :qr-target="deviceQrTarget"
+      @continue="continueDeviceModeNotice"
+    />
     <h1 class="sr-only">{{ t("brand") }}</h1>
     <button
       v-if="lessonUploads.visibleUploads.length"

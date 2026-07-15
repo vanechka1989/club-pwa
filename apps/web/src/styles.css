@@ -11344,6 +11344,41 @@ body.club-ios .chat-input-row .text-input {
 
 }
 
+/* A real desktop may continue in a centered phone-width presentation. */
+.app-root.desktop-mobile-preview {
+  width: 100%;
+  max-width: 30rem;
+  min-height: var(--app-viewport-height, 100dvh);
+  margin-inline: auto;
+  border-inline: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: 0 0 3rem color-mix(in srgb, var(--shadow-color, #000) 18%, transparent);
+}
+
+.desktop-mobile-preview .app-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.desktop-mobile-preview .app-shell {
+  width: 100%;
+  max-width: 30rem;
+  padding-inline: var(--page-padding);
+}
+
+.desktop-mobile-preview .bottom-nav {
+  right: auto;
+  left: 50%;
+  width: min(calc(100vw - 1.5rem), calc(30rem - 1.5rem));
+  max-width: calc(30rem - 1.5rem);
+  transform: translateX(-50%);
+}
+
+.app-root.desktop-mobile-preview.community-chat-open {
+  right: auto;
+  left: 50%;
+  width: min(100%, 30rem);
+  transform: translateX(-50%);
+}
+
 @media (pointer: coarse) {
   .app-toast,
   .pwa-install-card,

@@ -380,6 +380,29 @@ describe("device layout detection", () => {
     ]);
   });
 
+  it("forces a desktop continuation into the mobile shell without scaling the desktop viewport", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 1440,
+      viewportHeight: 900,
+      screenWidth: 1920,
+      screenHeight: 1080,
+      screenAvailWidth: 1920,
+      screenAvailHeight: 1040,
+      devicePixelRatio: 1,
+      hasTouchInput: false,
+      forceMobileShell: true,
+      platform: "Win32",
+      sessionMode: "signed-in",
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(true);
+    expect(snapshot.scale).toBe(1);
+    expect(snapshot.classes).toEqual(["club-mobile-device"]);
+    expect(snapshot.cssVariables).toEqual({});
+  });
+
   it("uses the smallest live viewport height when mobile browsers expose stale visualViewport values", () => {
     const visibleHeight = getMeasuredVisibleViewportHeight({
       appHeight: 820,

@@ -32,6 +32,7 @@ export type DeviceLayoutSnapshotInput = MobileDeviceShellScaleInput & {
   platform?: string | null;
   viewportHeight?: number | null;
   sessionMode: DeviceLayoutSessionMode;
+  forceMobileShell?: boolean | null;
 };
 
 export type DeviceLayoutSnapshot = {
@@ -323,6 +324,7 @@ function formatScaledCssPx(basePx: number, scale: number) {
 export function createDeviceLayoutSnapshot(input: DeviceLayoutSnapshotInput): DeviceLayoutSnapshot {
   const userAgent = input.userAgent ?? "";
   const mobileDeviceShell = getMobileDeviceShellScale({ ...input, layoutHeight: input.viewportHeight ?? null });
+  const isMobileDeviceShell = mobileDeviceShell.isMobileDeviceShell || Boolean(input.forceMobileShell);
   const shouldScaleWideViewport = mobileDeviceShell.isMobileDeviceShell && mobileDeviceShell.scale > 1;
   const shouldScaleAuth = shouldScaleWideViewport && input.sessionMode === "signed-out";
   const shouldScaleApp = shouldScaleWideViewport && input.sessionMode === "signed-in";
@@ -353,7 +355,7 @@ export function createDeviceLayoutSnapshot(input: DeviceLayoutSnapshotInput): De
       width: shouldUsePhysicalScreenForSizeClasses ? deviceScreenWidth : input.layoutWidth,
       height: shouldUsePhysicalScreenForSizeClasses ? deviceScreenHeight : finiteNumber(input.viewportHeight, 0)
     }),
-    mobileDeviceShell.isMobileDeviceShell && "club-mobile-device",
+    isMobileDeviceShell && "club-mobile-device",
     shouldScaleAuth && "club-mobile-auth-scaled",
     shouldScaleApp && "club-mobile-app-scaled"
   ].filter((className): className is string => Boolean(className));
@@ -369,7 +371,7 @@ export function createDeviceLayoutSnapshot(input: DeviceLayoutSnapshotInput): De
   }
 
   return {
-    isMobileDeviceShell: mobileDeviceShell.isMobileDeviceShell,
+    isMobileDeviceShell,
     scale: mobileDeviceShell.scale,
     classes: Array.from(new Set(classes)),
     cssVariables,
