@@ -3,10 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes complete admin privilege revocation as version 4.57", () => {
-    expect(appVersion).toBe("4.57");
-    expect(releaseNotes[0]?.title).toBe("Полное снятие прав администратора");
-    expect(releaseNotes[1]?.version).toBe("4.56");
+  it("publishes forced mobile presentation as version 4.58", () => {
+    expect(appVersion).toBe("4.58");
+    expect(releaseNotes[0]?.title).toBe("Мобильный режим на любом устройстве");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("QR");
+    expect(releaseNotes[1]?.version).toBe("4.57");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

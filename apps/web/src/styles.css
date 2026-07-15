@@ -16161,6 +16161,40 @@ body.club-keyboard-open .task-screen-route-layer > .task-screen {
   min-height: var(--club-visible-viewport-height, 100dvh);
 }
 
+/* Keep every floating surface inside the forced phone-width desktop shell.
+   This block stays last so later theme and keyboard rules cannot pull the
+   navigation back to the full browser width. */
+body.club-mobile-device .app-root.desktop-mobile-preview {
+  width: 100%;
+  max-width: 30rem;
+  margin-inline: auto;
+}
+
+body.club-mobile-device .app-root.desktop-mobile-preview .app-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.club-mobile-device .app-root.desktop-mobile-preview .app-shell {
+  width: 100%;
+  max-width: 30rem;
+  padding-inline: var(--page-padding);
+}
+
+body.club-mobile-device .app-root.desktop-mobile-preview .bottom-nav {
+  right: auto;
+  left: 50%;
+  width: min(calc(100vw - 1.5rem), calc(30rem - 1.5rem));
+  max-width: calc(30rem - 1.5rem);
+  transform: translateX(-50%);
+}
+
+body.club-mobile-device .app-root.desktop-mobile-preview.community-chat-open {
+  right: auto;
+  left: 50%;
+  width: min(100%, 30rem);
+  transform: translateX(-50%);
+}
+
 body.club-keyboard-open .app-shell {
   height: var(--club-visible-viewport-height, 100dvh);
   min-height: 0;
