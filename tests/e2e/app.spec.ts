@@ -2312,6 +2312,25 @@ test("keeps routed support tickets inside the mobile viewport", async ({ page },
   }
 });
 
+test("returns from a support client card to the same ticket", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
+  await page.goto("/support/tickets/ticket-payment");
+  const supportTask = page.locator(".support-ticket-task-screen .task-screen");
+  await expect(supportTask).toBeVisible();
+
+  await page.locator(".support-ticket-summary").click();
+  await expect(page).toHaveURL(/\/support\/tickets\/ticket-payment\/clients\/593677751$/);
+  const clientTask = page.locator(".admin-client-task-screen .task-screen");
+  await expect(clientTask).toBeVisible();
+  await expect(page.locator(".admin-shell-client-card-only .admin-tabs")).toBeHidden();
+
+  await clientTask.getByRole("button", { name: "Назад" }).click();
+  await expect(page).toHaveURL(/\/support\/tickets\/ticket-payment$/);
+  await expect(supportTask).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Оплата" })).toBeVisible();
+});
+
 test("opens support attachments above the routed ticket screen", async ({ page }, testInfo) => {
   await page.goto("/support/tickets/ticket-payment");
   const taskScreen = page.locator(".support-ticket-task-screen.task-screen-route-layer");

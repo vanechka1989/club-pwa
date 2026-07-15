@@ -19158,3 +19158,11 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.admin-shell-client-card-only {
+  min-height: 0;
+  padding: 0;
+}
+
+.admin-shell-client-card-only > :not(.admin-client-task-screen) {
+  display: none !important;
+}

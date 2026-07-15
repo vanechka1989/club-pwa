@@ -396,7 +396,7 @@ function stopSupportPolling() {
 
 async function openTicket(ticketId: string) {
   selectedTicketId.value = ticketId;
-  if (route.path !== `/support/tickets/${ticketId}`) {
+  if (!isCurrentTicketTaskPath(ticketId)) {
     await router.push(`/support/tickets/${ticketId}`);
   }
   clearSupportNotice();
@@ -413,6 +413,11 @@ async function openTicket(ticketId: string) {
     // Если отметка прочтения не прошла, само обращение всё равно можно посмотреть.
   }
   await scrollThreadToLatest();
+}
+
+function isCurrentTicketTaskPath(ticketId: string) {
+  const ticketPath = `/support/tickets/${encodeURIComponent(ticketId)}`;
+  return route.path === ticketPath || route.path.startsWith(`${ticketPath}/clients/`);
 }
 
 function closeModal() {

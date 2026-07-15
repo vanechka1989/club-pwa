@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v145"');
+    expect(worker).toContain('const cacheName = "club-pwa-v146"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).toContain('event.data?.type === "SKIP_WAITING"');

@@ -8,6 +8,7 @@ describe("task navigation", () => {
     expect(sectionFromPath("/profile")).toBe("profile");
     expect(sectionFromPath("/learning/lessons/lesson-1/edit")).toBe("learning");
     expect(sectionFromPath("/support/tickets/ticket-1")).toBe("support");
+    expect(sectionFromPath("/support/tickets/ticket-1/clients/customer-1")).toBe("support");
     expect(sectionFromPath("/admin/mailings/new")).toBe("admin");
     expect(sectionFromPath("/unknown")).toBe("profile");
   });
@@ -33,6 +34,11 @@ describe("task navigation", () => {
         .replace(":lessonId", "lesson-1");
       expect(isTaskPath(concretePath), path).toBe(true);
     }
+  });
+
+  it("keeps the client card opened from support inside the support task route", () => {
+    expect(taskRoutePaths).toContain("/support/tickets/:ticketId/clients/:customerId");
+    expect(isTaskPath("/support/tickets/ticket-1/clients/customer-1")).toBe(true);
   });
 
   it("does not treat section roots as task screens", () => {

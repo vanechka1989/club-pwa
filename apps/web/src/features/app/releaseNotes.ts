@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Карточка клиента внутри тикета",
+    items: [
+      "Карточка клиента из обращения поддержки теперь открывается поверх текущего тикета, не переключая администратора во вкладку «Админ».",
+      "Кнопка «Назад» возвращает точно в тот тикет, из которого была открыта карточка.",
+      "Вложенный маршрут сохраняет контекст обращения и корректно работает с системной кнопкой возврата."
+    ]
+  },
+  {
+    version: "4.46",
+    updatedAt: "15.07.2026 20:49",
     title: "Аварийный код для нового клиента",
     items: [
       "Владелец теперь может создать аварийный код для email, которого ещё нет в списке клиентов.",
@@ -3100,11 +3110,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Emergency codes for new clients",
+  title: "Client card inside the support ticket",
   items: [
-    "The owner can now create an emergency code for an email that is not yet in the client list.",
-    "After the code is verified, a new client is created through the regular secure registration flow.",
-    "One-time use, expiration, security logging, and generation cooldown remain enforced for every email."
+    "Opening a client card from support now keeps the current ticket underneath instead of switching to Admin.",
+    "Back returns to the exact ticket that opened the client card.",
+    "The nested route preserves ticket context and supports browser or system back navigation."
   ]
 };
 

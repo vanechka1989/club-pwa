@@ -17,7 +17,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       section: sectionFromPath(path),
       task: true,
-      adminOnly: path.startsWith("/admin/") || path.startsWith("/payments/provider") || path.includes("/plans/")
+      adminOnly:
+        path.startsWith("/admin/") ||
+        path.startsWith("/payments/provider") ||
+        path.includes("/plans/") ||
+        path === "/support/tickets/:ticketId/clients/:customerId"
     }
   })),
   { path: "/:pathMatch(.*)*", redirect: "/profile" }

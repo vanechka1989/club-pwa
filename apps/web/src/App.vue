@@ -59,9 +59,12 @@ const communityChatOpen = ref(false);
 const isDesktopLayout = ref(false);
 const isMobileDeviceShell = ref(false);
 const supportUnreadCount = ref(0);
-const adminClientTelegramId = ref<string | null>(null);
-const supportReturnTicketId = ref<string | null>(null);
-const adminClientOpenedFromSupport = ref(false);
+const supportClientTelegramId = computed(() =>
+  route.path.includes("/clients/") && typeof route.params.customerId === "string" ? route.params.customerId : null
+);
+const supportClientTicketId = computed(() =>
+  route.path.includes("/clients/") && typeof route.params.ticketId === "string" ? route.params.ticketId : null
+);
 let desktopLayoutQuery: MediaQueryList | null = null;
 let removeDesktopLayoutListener: (() => void) | null = null;
 let paymentWatchTimer: number | null = null;
@@ -269,20 +272,14 @@ function closeUploadDetails() {
 }
 
 async function openAdminClientFromSupport(telegramId: string, ticketId: string) {
-  adminClientTelegramId.value = telegramId;
-  supportReturnTicketId.value = ticketId;
-  adminClientOpenedFromSupport.value = true;
-  await selectSection("admin");
+  await router.push(
+    `/support/tickets/${encodeURIComponent(ticketId)}/clients/${encodeURIComponent(telegramId)}`
+  );
 }
 
 async function handleAdminClientCardClose() {
-  if (!adminClientOpenedFromSupport.value) {
-    return;
-  }
-
-  adminClientOpenedFromSupport.value = false;
-  adminClientTelegramId.value = null;
-  await selectSection("support");
+  const ticketId = supportClientTicketId.value;
+  await router.push(ticketId ? `/support/tickets/${encodeURIComponent(ticketId)}` : "/support");
 }
 
 function handlePreviewModeChange(mode: PreviewMode) {
@@ -894,19 +891,19 @@ onBeforeUnmount(() => {
             <LearningSection v-else-if="activeSection === 'learning'" />
             <CommunitySection v-else-if="activeSection === 'community'" @chat-open-change="communityChatOpen = $event" />
             <PaymentsSection v-else-if="activeSection === 'payments'" />
-            <SupportSection
-              v-else-if="activeSection === 'support'"
-              :open-ticket-id="supportReturnTicketId"
-              @unread-change="supportUnreadCount = $event"
-              @open-client="openAdminClientFromSupport"
-              @return-ticket-consumed="supportReturnTicketId = null"
-            />
-            <AdminSection
-              v-else
-              :open-client-telegram-id="adminClientTelegramId"
-              @client-card-close="handleAdminClientCardClose"
-              @preview-mode-change="handlePreviewModeChange"
-            />
+            <template v-else-if="activeSection === 'support'">
+              <SupportSection
+                @unread-change="supportUnreadCount = $event"
+                @open-client="openAdminClientFromSupport"
+              />
+              <AdminSection
+                v-if="supportClientTelegramId"
+                :open-client-telegram-id="supportClientTelegramId"
+                client-card-only
+                @client-card-close="handleAdminClientCardClose"
+              />
+            </template>
+            <AdminSection v-else @preview-mode-change="handlePreviewModeChange" />
           </div>
         </div>
       </section>

@@ -43,8 +43,18 @@ describe("support section", () => {
     expect(source).toContain("scrollThreadToLatest");
     expect(source).toContain('emit("open-client"');
     expect(source).toContain('emit("return-ticket-consumed")');
-    expect(appSource).toContain("supportReturnTicketId");
+    expect(appSource).toContain("supportClientTicketId");
     expect(appSource).toContain("handleAdminClientCardClose");
+  });
+
+  it("opens an admin client card as a nested support task and returns to the same ticket", () => {
+    expect(appSource).toContain("supportClientTelegramId");
+    expect(appSource).toContain("supportClientTicketId");
+    expect(appSource).toContain("/support/tickets/${encodeURIComponent(ticketId)}/clients/${encodeURIComponent(telegramId)}");
+    expect(appSource).toContain("client-card-only");
+    expect(appSource).toContain("/support/tickets/${encodeURIComponent(ticketId)}");
+    expect(appSource).not.toContain('await selectSection("admin")');
+    expect(source).toContain("isCurrentTicketTaskPath");
   });
 
   it("renders support task screens as full-screen routed surfaces", () => {

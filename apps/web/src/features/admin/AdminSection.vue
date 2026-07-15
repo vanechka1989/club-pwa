@@ -146,6 +146,7 @@ function closeAdminTask() {
 
 const props = defineProps<{
   openClientTelegramId?: string | null;
+  clientCardOnly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -1612,7 +1613,9 @@ function closeSelectedUser() {
   selectedUserLoginIps.value = [];
   selectedUserLoginIpsError.value = false;
   emit("client-card-close");
-  closeAdminTask();
+  if (!props.clientCardOnly) {
+    closeAdminTask();
+  }
 }
 
 function isNewLoginIp(entry: AdminLoginIp) {
@@ -1639,7 +1642,9 @@ async function selectUser(user: AdminStatsUser) {
   applySelectedUser(user);
   selectedUserDisplayName.value = user.displayName || user.firstName || user.username || "";
   selectedUserDisplayNameError.value = null;
-  openAdminTask(`/admin/clients/${user.telegramId}`);
+  if (!props.clientCardOnly) {
+    openAdminTask(`/admin/clients/${user.telegramId}`);
+  }
   try {
     selectedUserDetail.value = await getAdminUserDetail(user.telegramId);
     applySelectedUser(selectedUserDetail.value.user);
@@ -2536,6 +2541,10 @@ function resetAdminTaskState() {
 }
 
 async function syncAdminTaskRoute() {
+  if (props.clientCardOnly) {
+    return;
+  }
+
   const path = route.path;
   if (!path.startsWith("/admin/")) {
     resetAdminTaskState();
@@ -2762,7 +2771,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="admin-shell ui-page-section">
+  <section class="admin-shell ui-page-section" :class="{ 'admin-shell-client-card-only': props.clientCardOnly }">
     <header class="section-head ui-page-header">
       <div>
         <h2 class="section-title">Админка</h2>
