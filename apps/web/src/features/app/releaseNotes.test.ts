@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes consistent access dates as version 4.48", () => {
-    expect(appVersion).toBe("4.48");
-    expect(releaseNotes[0]?.title).toBe("Единый срок доступа");
-    expect(releaseNotes[1]?.version).toBe("4.47");
+  it("publishes live voice messages as version 4.49", () => {
+    expect(appVersion).toBe("4.49");
+    expect(releaseNotes[0]?.title).toBe("Живые голосовые сообщения");
+    expect(releaseNotes[1]?.version).toBe("4.48");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Consistent access expiry");
+    expect(englishNotes[0]?.title).toBe("Live voice messages");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

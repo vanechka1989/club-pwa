@@ -1,4 +1,5 @@
 import { computed, onScopeDispose, ref } from "vue";
+import { appendVoiceLevel } from "./voiceWaveform";
 
 export function useVoiceRecorder() {
   const status = ref<"idle" | "recording" | "preview" | "uploading" | "error">("idle");
@@ -6,15 +7,63 @@ export function useVoiceRecorder() {
   const blob = ref<Blob | null>(null);
   const previewUrl = ref<string | null>(null);
   const error = ref<string | null>(null);
+  const levels = ref<number[]>([]);
   let recorder: MediaRecorder | null = null;
   let stream: MediaStream | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
   let chunks: Blob[] = [];
   let discarding = false;
+  let audioContext: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  let sourceNode: MediaStreamAudioSourceNode | null = null;
+  let analysisFrame: number | null = null;
 
   const supported = computed(() => typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia));
 
+  function stopLevelAnalysis() {
+    if (analysisFrame !== null) cancelAnimationFrame(analysisFrame);
+    analysisFrame = null;
+    sourceNode?.disconnect();
+    analyser?.disconnect();
+    sourceNode = null;
+    analyser = null;
+    if (audioContext) void audioContext.close().catch(() => undefined);
+    audioContext = null;
+  }
+
+  function startLevelAnalysis(activeStream: MediaStream) {
+    try {
+      audioContext = new AudioContext();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.72;
+      sourceNode = audioContext.createMediaStreamSource(activeStream);
+      sourceNode.connect(analyser);
+      const samples = new Uint8Array(analyser.fftSize);
+      let lastSampleAt = 0;
+      const measure = (timestamp = 0) => {
+        if (!analyser) return;
+        if (timestamp - lastSampleAt >= 75 || lastSampleAt === 0) {
+          analyser.getByteTimeDomainData(samples);
+          let energy = 0;
+          for (const sample of samples) {
+            const centered = (sample - 128) / 128;
+            energy += centered * centered;
+          }
+          const rms = Math.sqrt(energy / samples.length);
+          levels.value = appendVoiceLevel(levels.value, Math.min(1, rms * 4.2), 36);
+          lastSampleAt = timestamp;
+        }
+        analysisFrame = requestAnimationFrame(measure);
+      };
+      measure();
+    } catch {
+      stopLevelAnalysis();
+    }
+  }
+
   function releaseStream() {
+    stopLevelAnalysis();
     stream?.getTracks().forEach((track) => track.stop());
     stream = null;
     if (timer) clearInterval(timer);
@@ -32,8 +81,10 @@ export function useVoiceRecorder() {
     clearPreview();
     error.value = null;
     durationSeconds.value = 0;
+    levels.value = [];
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      startLevelAnalysis(stream);
       const mimeType = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg"].find((type) => MediaRecorder.isTypeSupported(type));
       recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunks = [];
@@ -75,11 +126,12 @@ export function useVoiceRecorder() {
     releaseStream();
     clearPreview();
     durationSeconds.value = 0;
+    levels.value = [];
     status.value = "idle";
   }
 
   function setUploading(value: boolean) { status.value = value ? "uploading" : blob.value ? "preview" : "idle"; }
   function complete() { cancel(); }
   onScopeDispose(cancel);
-  return { status, durationSeconds, blob, previewUrl, error, supported, start, stop, cancel, setUploading, complete };
+  return { status, durationSeconds, blob, previewUrl, error, levels, supported, start, stop, cancel, setUploading, complete };
 }

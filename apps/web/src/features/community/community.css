@@ -506,11 +506,13 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .chat-voice-play { display: grid; width: 44px; min-width: 44px; height: 44px; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--accent) 88%, #fff); color: var(--accent-text); }
 .chat-voice-play svg { width: 20px; height: 20px; fill: currentColor; }
 .chat-voice-track { position: relative; display: grid; min-width: 0; flex: 1 1 auto; grid-template-rows: 24px 14px; align-items: center; }
-.chat-voice-wave { display: flex; height: 22px; align-items: center; gap: 2px; overflow: hidden; color: color-mix(in srgb, var(--text) 64%, transparent); }
-.chat-voice-wave i { width: 3px; min-width: 3px; border-radius: 3px; background: currentColor; }
-.chat-voice-track input { position: absolute; z-index: 1; inset: 0 0 auto; width: 100%; height: 26px; cursor: pointer; opacity: 0; }
+.chat-voice-waveform { position: relative; width: 100%; min-width: 0; height: 24px; }
+.chat-voice-wave-bars { display: flex; width: 100%; height: 100%; align-items: center; gap: 2px; overflow: hidden; color: color-mix(in srgb, var(--text) 38%, transparent); }
+.chat-voice-wave-bar { width: 3px; min-width: 2px; max-width: 4px; flex: 1 1 3px; border-radius: 999px; background: currentColor; transition: height 90ms ease, color 120ms ease; }
+.chat-voice-wave-bar-played { color: var(--accent); }
+.chat-voice-wave-seek { position: absolute; z-index: 1; inset: -5px 0; width: 100%; height: calc(100% + 10px); cursor: pointer; opacity: 0; }
 .chat-voice-track > span { overflow: hidden; color: var(--muted-strong); font-size: 11px; font-weight: 700; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.chat-voice-player-error .chat-voice-wave { color: var(--danger); opacity: 0.55; }
+.chat-voice-player-error .chat-voice-wave-bars { color: var(--danger); opacity: 0.55; }
 
 .chat-media-expired {
   border: 1px dashed var(--border);
@@ -560,10 +562,20 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .composer-attachment-menu button { display: flex; min-height: 44px; align-items: center; gap: 10px; border-radius: 12px; padding: 8px 10px; color: var(--text); text-align: left; }
 .composer-attachment-menu svg { width: 18px; height: 18px; color: var(--accent); }
 
-.chat-voice-draft, .chat-image-draft { display: flex; min-width: 0; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel-soft); padding: 8px; }
-.chat-voice-draft audio { min-width: 0; flex: 1 1 auto; height: 40px; }
-.chat-voice-draft button, .chat-image-draft > button { min-height: 40px; border-radius: 12px; padding: 0 10px; color: var(--muted-strong); font-size: 12px; font-weight: 800; }
-.chat-recording-dot { width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: var(--danger); animation: pulse 1s infinite; }
+.chat-voice-draft, .chat-image-draft { display: flex; min-width: 0; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel-soft); padding: 5px; }
+.chat-voice-native-audio { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.chat-voice-draft-action { display: grid; width: 42px; min-width: 42px; height: 42px; min-height: 42px; place-items: center; border-radius: 50%; color: var(--muted-strong); }
+.chat-voice-draft-action svg { width: 19px; height: 19px; }
+.chat-voice-draft-play { background: color-mix(in srgb, var(--accent) 16%, var(--panel-soft)); color: var(--accent); }
+.chat-voice-draft-play svg { fill: currentColor; }
+.chat-voice-draft-delete { color: var(--danger-text); }
+.chat-voice-draft-stop { border: 1px solid color-mix(in srgb, var(--danger) 58%, var(--border)); background: color-mix(in srgb, var(--danger) 12%, var(--panel-soft)); color: var(--danger-text); }
+.chat-voice-recording-time { display: inline-flex; min-width: 52px; align-items: center; gap: 5px; color: var(--text); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 800; }
+.chat-voice-draft-wave { min-width: 44px; flex: 1 1 auto; }
+.chat-voice-draft-preview-track { display: grid; min-width: 42px; flex: 1 1 auto; grid-template-rows: 24px 12px; }
+.chat-voice-draft-preview-track > span { color: var(--muted-strong); font-size: 10px; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.chat-image-draft > button { min-height: 40px; border-radius: 12px; padding: 0 10px; color: var(--muted-strong); font-size: 12px; font-weight: 800; }
+.chat-recording-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--danger); animation: pulse 1s infinite; }
 .chat-draft-send { background: var(--accent) !important; color: var(--accent-text) !important; }
 .chat-draft-send-loading { display: inline-flex; align-items: center; justify-content: center; gap: 6px; transform: scale(0.97); opacity: 0.82; }
 .chat-draft-send-loading svg { position: static; width: 16px; height: 16px; animation: chat-send-spin 0.8s linear infinite; }

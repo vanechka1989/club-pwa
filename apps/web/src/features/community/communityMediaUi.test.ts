@@ -100,10 +100,22 @@ describe("community rich message UI", () => {
 
   it("shows a pressed loading state while voice or images are uploading", () => {
     const section = read("CommunitySection.vue");
-    expect(section).toContain('messageSaving ? "Отправка…" : "Отправить"');
     expect(section).toContain(':aria-busy="messageSaving"');
     expect(section).toContain("LoaderCircle");
     expect(section).toContain("chat-draft-send-loading");
+    expect(section).toContain('aria-label="Отправить голосовое сообщение"');
+  });
+
+  it("uses the same seekable waveform for recording previews and sent voice messages", () => {
+    const section = read("CommunitySection.vue");
+    const player = read("ChatVoiceMessage.vue");
+    const recorder = read("useVoiceRecorder.ts");
+    expect(section).toContain("ChatVoiceWaveform");
+    expect(section).not.toContain(" controls></audio>");
+    expect(player).toContain("ChatVoiceWaveform");
+    expect(player).toContain('@seek="seek"');
+    expect(recorder).toContain("startLevelAnalysis");
+    expect(recorder).toContain("appendVoiceLevel");
   });
 
   it("provides poll creation and voting controls", () => {

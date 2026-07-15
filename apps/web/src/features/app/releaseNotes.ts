@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Живые голосовые сообщения",
+    items: [
+      "Во время записи голосового теперь отображается живая звуковая волна от микрофона и точный таймер.",
+      "Перед отправкой запись можно прослушать, перемотать по волне, удалить или отправить одной компактной кнопкой.",
+      "Отправленные голосовые используют тот же плеер: прогресс движется по волне, а касанием можно перейти в нужное место."
+    ]
+  },
+  {
+    version: "4.48",
+    updatedAt: "15.07.2026 22:34",
     title: "Единый срок доступа",
     items: [
       "Профиль и карточка клиента теперь показывают один фактический срок активного доступа.",
@@ -3120,11 +3130,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Consistent access expiry",
+  title: "Live voice messages",
   items: [
-    "The profile and client card now show the same effective access expiry.",
-    "The active-member preview no longer replaces a real expiry with an artificial date 30 days from today.",
-    "Manual access through the end of December is consistently displayed as access through January 1."
+    "Voice recording now shows a live microphone waveform and an accurate timer.",
+    "Before sending, recordings can be played, scrubbed, deleted, or sent from one compact control bar.",
+    "Sent voice messages use the same player with animated progress and seekable waveforms."
   ]
 };
 

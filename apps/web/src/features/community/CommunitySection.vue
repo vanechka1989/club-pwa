@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
-import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, LoaderCircle, MessageCircle, Mic, MoreVertical, Paperclip, Pin, PinOff, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
+import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, LoaderCircle, MessageCircle, Mic, MoreVertical, Paperclip, Pause, Pin, PinOff, Play, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -30,11 +30,13 @@ import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatVoiceMessage from "./ChatVoiceMessage.vue";
+import ChatVoiceWaveform from "./ChatVoiceWaveform.vue";
 import ChatImageGallery from "./ChatImageGallery.vue";
 import ChatPollComposer from "./ChatPollComposer.vue";
 import ChatPollMessage from "./ChatPollMessage.vue";
 import { useVoiceRecorder } from "./useVoiceRecorder";
 import { useImageDraft } from "./useImageDraft";
+import { formatVoiceTime } from "./voiceWaveform";
 
 const { t } = useI18n();
 const session = useSessionStore();
@@ -91,6 +93,40 @@ let lastCommunityErrorNotification: { text: string; shownAt: number } | null = n
 const topicReadStorageKey = "club-community-topic-read-at";
 const voiceRecorder = useVoiceRecorder();
 const imageDraft = useImageDraft();
+const voicePreviewAudio = ref<HTMLAudioElement | null>(null);
+const voicePreviewPlaying = ref(false);
+const voicePreviewCurrentTime = ref(0);
+const voicePreviewDuration = ref(0);
+
+function resetVoicePreviewPlayback() {
+  voicePreviewAudio.value?.pause();
+  voicePreviewPlaying.value = false;
+  voicePreviewCurrentTime.value = 0;
+  voicePreviewDuration.value = 0;
+}
+
+async function toggleVoicePreviewPlayback() {
+  const audio = voicePreviewAudio.value;
+  if (!audio) return;
+  if (!audio.paused) {
+    audio.pause();
+    return;
+  }
+  await audio.play().catch(() => undefined);
+}
+
+function seekVoicePreview(value: number) {
+  if (!voicePreviewAudio.value) return;
+  voicePreviewAudio.value.currentTime = value;
+  voicePreviewCurrentTime.value = value;
+}
+
+function cancelVoiceDraft() {
+  resetVoicePreviewPlayback();
+  voiceRecorder.cancel();
+}
+
+watch(() => voiceRecorder.previewUrl.value, () => resetVoicePreviewPlayback());
 
 const isModerator = computed(() =>
   hasAdminCapability(session.user?.role, session.user?.adminPermissions, "community")
@@ -843,6 +879,7 @@ async function handleSendVoice() {
   messageSaving.value = true;
   try {
     const response = await createClubVoiceMessage(selectedTopic.value.id, voiceRecorder.blob.value, voiceRecorder.durationSeconds.value, replyToMessage.value?.id ?? null);
+    resetVoicePreviewPlayback();
     voiceRecorder.complete();
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
@@ -1262,23 +1299,55 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div v-if="voiceRecorder.status.value === 'recording'" class="chat-voice-draft">
-          <span class="chat-recording-dot"></span><strong>Запись {{ voiceRecorder.durationSeconds.value }} сек.</strong>
-          <button type="button" @click="voiceRecorder.cancel">Отмена</button>
-          <button type="button" aria-label="Остановить запись" @click="voiceRecorder.stop"><Square /></button>
+          <button class="chat-voice-draft-action chat-voice-draft-delete" type="button" aria-label="Отменить запись" @click="cancelVoiceDraft"><Trash2 /></button>
+          <span class="chat-voice-recording-time"><i class="chat-recording-dot"></i>{{ formatVoiceTime(voiceRecorder.durationSeconds.value) }}</span>
+          <ChatVoiceWaveform
+            class="chat-voice-draft-wave"
+            :levels="voiceRecorder.levels.value"
+            :current-time="0"
+            :duration="0"
+          />
+          <button class="chat-voice-draft-action chat-voice-draft-stop" type="button" aria-label="Остановить запись" @click="voiceRecorder.stop"><Square /></button>
         </div>
         <div v-else-if="voiceRecorder.previewUrl.value" class="chat-voice-draft">
-          <audio :src="voiceRecorder.previewUrl.value" controls></audio>
-          <button type="button" @click="voiceRecorder.cancel">Удалить</button>
+          <audio
+            ref="voicePreviewAudio"
+            class="chat-voice-native-audio"
+            :src="voiceRecorder.previewUrl.value"
+            preload="metadata"
+            @loadedmetadata="voicePreviewDuration = voicePreviewAudio?.duration || voiceRecorder.durationSeconds.value"
+            @play="voicePreviewPlaying = true"
+            @pause="voicePreviewPlaying = false"
+            @timeupdate="voicePreviewCurrentTime = voicePreviewAudio?.currentTime ?? 0"
+            @ended="voicePreviewPlaying = false; voicePreviewCurrentTime = 0"
+          ></audio>
+          <button class="chat-voice-draft-action chat-voice-draft-play" type="button" :aria-label="voicePreviewPlaying ? 'Пауза' : 'Воспроизвести запись'" @click="toggleVoicePreviewPlayback">
+            <Pause v-if="voicePreviewPlaying" />
+            <Play v-else />
+          </button>
+          <div class="chat-voice-draft-preview-track">
+            <ChatVoiceWaveform
+              :levels="voiceRecorder.levels.value"
+              :current-time="voicePreviewCurrentTime"
+              :duration="voicePreviewDuration || voiceRecorder.durationSeconds.value"
+              interactive
+              aria-label="Перемотка записанного голосового сообщения"
+              @seek="seekVoicePreview"
+            />
+            <span>{{ formatVoiceTime(voicePreviewCurrentTime) }} / {{ formatVoiceTime(voicePreviewDuration || voiceRecorder.durationSeconds.value) }}</span>
+          </div>
+          <button class="chat-voice-draft-action chat-voice-draft-delete" type="button" aria-label="Удалить запись" @click="cancelVoiceDraft"><Trash2 /></button>
           <button
-            class="chat-draft-send"
+            class="chat-voice-draft-action chat-draft-send"
             :class="{ 'chat-draft-send-loading': messageSaving }"
             type="button"
             :disabled="messageSaving"
             :aria-busy="messageSaving"
+            aria-label="Отправить голосовое сообщение"
             @click="handleSendVoice"
           >
             <LoaderCircle v-if="messageSaving" aria-hidden="true" />
-            <span>{{ messageSaving ? "Отправка…" : "Отправить" }}</span>
+            <Send v-else aria-hidden="true" />
           </button>
         </div>
         <div v-if="imageDraft.hasImages.value" class="chat-image-draft">
