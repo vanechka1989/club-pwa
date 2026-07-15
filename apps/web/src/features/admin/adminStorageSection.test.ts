@@ -52,7 +52,7 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain('openAdminTask("/admin/storage/files")');
     expect(adminSectionSource).toContain('openAdminTask("/admin/storage/settings")');
     expect(adminSectionSource).toContain("<TaskScreen");
-    expect(adminSectionSource).not.toContain("<Teleport to=\"body\">");
+    expect(adminSectionSource).toContain('title="Обзор файлов" subtitle="Файлы S3 по папкам и связанным данным." portal');
   });
 
   it("opens every storage folder in a dedicated task screen and keeps landing actions side by side", () => {

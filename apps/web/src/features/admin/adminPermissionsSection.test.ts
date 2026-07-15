@@ -67,7 +67,7 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("admin-permission-surface");
     expect(adminSectionSource).toContain("`/admin/admins/${admin.id}/access`");
     expect(adminSectionSource).toContain("<TaskScreen");
-    expect(adminSectionSource).not.toContain('aria-modal="true"');
+    expect(adminSectionSource).toContain('class="admin-task-screen"');
   });
 
   it("uses one clean permission surface and a single-column mobile permission list", () => {

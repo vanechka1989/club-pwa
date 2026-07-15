@@ -70,18 +70,20 @@ describe("admin client card helpers", () => {
     expect(source).not.toContain("+90 дней");
   });
 
-  it("opens a support-style inline message form inside the client task screen", () => {
+  it("opens the client message form in a dedicated overlay above the task screen", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const apiSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
     expect(source).toContain("admin-message-client-button");
-    expect(source).toContain("admin-client-message-inline");
+    expect(source).toContain("admin-client-message-layer");
+    expect(source).toContain('<Teleport to="body">');
+    expect(source).not.toContain("admin-client-message-inline");
     expect(source).toContain("Paperclip");
     expect(source).toContain("admin-client-file-button");
     expect(source).toContain("createAdminClientSupportTicket");
     expect(apiSource).toContain("/support/admin/users/${telegramId}/tickets");
-    expect(styles).toContain(".admin-client-message-inline");
+    expect(styles).toContain(".admin-client-message-layer");
   });
 
   it("keeps the client task screen scrollable above the phone bottom controls", () => {

@@ -146,6 +146,10 @@ describe("support section", () => {
     expect(styles).toContain("backdrop-filter: blur(12px)");
     expect(styles).toContain(".support-attachment-viewer-media");
     expect(styles).toContain("touch-action: pan-x pan-y pinch-zoom");
+    const viewerLayer = Number.parseInt(styles.match(/\.support-attachment-viewer\s*\{[^}]*z-index:\s*(\d+)/s)?.[1] ?? "0", 10);
+    const taskLayers = [...styles.matchAll(/\.task-screen-route-layer\s*\{[^}]*z-index:\s*(\d+)/gs)].map((match) => Number.parseInt(match[1] ?? "0", 10));
+    const taskLayer = Math.max(0, ...taskLayers);
+    expect(viewerLayer).toBeGreaterThan(taskLayer);
   });
 
   it("uses a compact clickable customer row in admin ticket modal", () => {

@@ -2169,7 +2169,7 @@ body.club-screen-short:not(.community-chat-open) {
 
 .support-attachment-viewer {
   position: fixed;
-  z-index: 95;
+  z-index: 185;
   inset: 0;
   display: flex;
   align-items: center;
@@ -4690,7 +4690,7 @@ body.club-keyboard-open .lesson-preview-modal {
 .admin-client-message-layer {
   position: fixed;
   inset: 0;
-  z-index: 170;
+  z-index: 185;
   display: grid;
   align-items: end;
   background: color-mix(in srgb, #000 38%, transparent);
@@ -14287,18 +14287,6 @@ body.app-dialog-open {
   bottom: 0;
   z-index: 2;
   padding-bottom: max(0.75rem, var(--club-safe-bottom));
-}
-
-.admin-client-message-inline {
-  position: static;
-  width: 100%;
-  max-width: none;
-  margin-top: 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  background: var(--surface);
-  padding: 0.85rem;
-  box-shadow: var(--shadow-soft);
 }
 
 /* Design system: Dark Soft Touch Premium 2026 */

@@ -44,7 +44,6 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("openMailingComposer");
     expect(adminSectionSource).toContain("admin-mailing-task-screen");
     expect(adminSectionSource).toContain('openAdminTask("/admin/mailings/new")');
-    expect(adminSectionSource).not.toContain('aria-modal="true"');
     expect(adminSectionSource).toContain("Новая рассылка");
     expect(adminSectionSource).toContain("applyMailingEditorLink");
     expect(adminSectionSource).toContain("Ссылка");

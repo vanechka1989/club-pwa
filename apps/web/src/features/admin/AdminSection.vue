@@ -303,6 +303,7 @@ const showReleaseNotesModal = ref(false);
 const clientMessageOpen = ref(false);
 const clientMessageText = ref("");
 const clientMessageFiles = ref<File[]>([]);
+const clientMessageInputRef = ref<HTMLTextAreaElement | null>(null);
 const sendingClientMessage = ref(false);
 const expandedReleaseVersion = ref(appVersion);
 const editorRef = ref<HTMLElement | null>(null);
@@ -1676,10 +1677,12 @@ function extendAccess(days: number) {
   accessExpiresAt.value = formatDateInput(nextDate);
 }
 
-function openClientMessageModal() {
+async function openClientMessageModal() {
   clientMessageText.value = "";
   clientMessageFiles.value = [];
   clientMessageOpen.value = true;
+  await nextTick();
+  clientMessageInputRef.value?.focus({ preventScroll: true });
 }
 
 function closeClientMessageModal() {
@@ -3384,10 +3387,14 @@ onUnmounted(() => {
               </div>
             </details>
           </div>
-            <form v-if="clientMessageOpen" class="admin-client-message-modal admin-client-message-inline" @submit.prevent="submitClientMessage">
+      </TaskScreen>
+
+      <Teleport to="body">
+        <div v-if="clientMessageOpen && selectedUser" class="admin-client-message-layer" @click.self="closeClientMessageModal">
+            <form class="admin-client-message-modal" role="dialog" aria-modal="true" aria-labelledby="admin-client-message-title" @submit.prevent="submitClientMessage">
               <header class="admin-client-message-head">
                 <div>
-                  <h3>Сообщение клиенту</h3>
+                  <h3 id="admin-client-message-title">Сообщение клиенту</h3>
                   <p>{{ userTitle(selectedUser) }} · ID {{ selectedUser.telegramId }}</p>
                 </div>
                 <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть сообщение клиенту" @click="closeClientMessageModal">
@@ -3401,7 +3408,7 @@ onUnmounted(() => {
                     <span v-if="clientMessageFiles.length" class="support-file-count">{{ clientMessageFiles.length }}</span>
                     <input type="file" accept="image/*,video/*" multiple @change="updateClientMessageFiles" />
                   </label>
-                  <textarea v-model="clientMessageText" rows="3" placeholder="Напишите сообщение клиенту" />
+                  <textarea ref="clientMessageInputRef" v-model="clientMessageText" rows="3" placeholder="Напишите сообщение клиенту" />
                 </div>
                 <div v-if="clientMessageFiles.length" class="admin-client-file-list">
                   <span v-for="file in clientMessageFiles" :key="file.name">{{ file.name }}</span>
@@ -3411,7 +3418,8 @@ onUnmounted(() => {
                 {{ sendingClientMessage ? "Отправляем..." : "Отправить" }}
               </button>
             </form>
-      </TaskScreen>
+        </div>
+      </Teleport>
     </section>
 
     <section v-else-if="activePanel === 'mailings'" class="admin-panel ui-page-section admin-mailings-panel">

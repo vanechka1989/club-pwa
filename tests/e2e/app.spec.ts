@@ -66,7 +66,17 @@ const supportTicket = {
       authorRole: "customer",
       body: "Тест",
       author: ownAuthor,
-      attachments: [],
+      attachments: [
+        {
+          id: "support-photo-1",
+          kind: "photo",
+          fileName: "proof.webp",
+          url: "/icons/icon-512.png",
+          contentType: "image/webp",
+          sizeBytes: 1024,
+          createdAt: now
+        }
+      ],
       createdAt: now
     },
     {
@@ -2300,6 +2310,39 @@ test("keeps routed support tickets inside the mobile viewport", async ({ page },
     await page.setViewportSize({ width: 390, height: 520 });
     await page.screenshot({ path: testInfo.outputPath("support-ticket-keyboard.png"), fullPage: false });
   }
+});
+
+test("opens support attachments above the routed ticket screen", async ({ page }, testInfo) => {
+  await page.goto("/support/tickets/ticket-payment");
+  const taskScreen = page.locator(".support-ticket-task-screen.task-screen-route-layer");
+  await expect(taskScreen).toBeVisible();
+
+  await page.getByRole("button", { name: /Открыть вложение/ }).click();
+  const viewer = page.locator(".support-attachment-viewer");
+  await expect(viewer).toBeVisible();
+  const image = viewer.locator("img");
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+  const layers = await page.evaluate(() => ({
+    task: Number.parseInt(getComputedStyle(document.querySelector<HTMLElement>(".support-ticket-task-screen.task-screen-route-layer")!).zIndex, 10),
+    viewer: Number.parseInt(getComputedStyle(document.querySelector<HTMLElement>(".support-attachment-viewer")!).zIndex, 10)
+  }));
+  expect(layers.viewer).toBeGreaterThan(layers.task);
+  await page.screenshot({ path: testInfo.outputPath("support-attachment-viewer.png"), fullPage: false });
+});
+
+test("opens the client message composer as a visible overlay", async ({ page }, testInfo) => {
+  await page.goto("/admin/clients/593677751");
+  await page.getByRole("button", { name: "Написать клиенту" }).click();
+
+  const layer = page.locator(".admin-client-message-layer");
+  await expect(layer).toBeVisible();
+  const input = layer.getByPlaceholder("Напишите сообщение клиенту");
+  await expect(input).toBeVisible();
+  await expect(input).toBeFocused();
+  await expect(page.locator(".admin-client-task-screen .task-screen-body .admin-client-message-modal")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("admin-client-message-overlay.png"), fullPage: false });
 });
 
 test("keeps support ticket composer anchored above keyboard in plain Samsung shells", async ({ page }, testInfo) => {

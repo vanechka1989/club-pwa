@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Сообщения клиентам и вложения поддержки",
+    items: [
+      "Форма сообщения клиенту теперь открывается отдельным компактным окном поверх карточки, а курсор сразу устанавливается в поле ввода.",
+      "Просмотр фотографий и видео из обращений поддержки открывается выше полноэкранной вкладки и больше не остаётся скрытым за ней.",
+      "Оба сценария проверяются автоматически на мобильных экранах шириной 320 и 390 пикселей."
+    ]
+  },
+  {
+    version: "4.43",
+    updatedAt: "14.07.2026 22:31",
     title: "Стабильный размер карточек уроков",
     items: [
       "Карточки больше не растягиваются после удаления соседних уроков.",
@@ -3070,11 +3080,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Stable lesson card sizing",
+  title: "Client messages and support attachments",
   items: [
-    "Lesson cards no longer stretch after adjacent lessons are deleted.",
-    "The grid preserves empty columns on the right, preventing layout jumps between three, two, and one card.",
-    "Scaled Android tests now verify identical card widths in every state."
+    "The client message composer now opens in a compact overlay and focuses the message field immediately.",
+    "Support photos and videos now open above the routed ticket screen instead of remaining hidden behind it.",
+    "Both flows are covered on 320 px and 390 px mobile layouts."
   ]
 };
 
