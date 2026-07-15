@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Заметная подсказка о письме",
+    items: [
+      "Подсказка о папке «Спам» теперь выделена системно-жёлтым цветом и не сливается с кнопкой входа.",
+      "Тёплый фон, рамка и иконка используют семантический цвет предупреждения каждой темы.",
+      "Контрастный текст и компактная высота сохранены на узких мобильных экранах."
+    ]
+  },
+  {
+    version: "4.50",
+    updatedAt: "15.07.2026 23:53",
     title: "Подсказка о письме",
     items: [
       "На экране ввода кода появилась заметная подсказка проверить папку «Спам», если письмо не пришло.",
@@ -3140,11 +3150,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Spam folder reminder",
+  title: "Highlighted email reminder",
   items: [
-    "The email code screen now includes a clear reminder to check the Spam folder when the message does not arrive.",
-    "The reminder fits narrow mobile screens and is available in both Russian and English.",
-    "Email code delivery and verification behavior remain unchanged."
+    "The Spam folder reminder now uses the system warning-yellow palette and no longer blends into the sign-in button.",
+    "Its warm background, border, and icon follow each theme’s semantic warning color.",
+    "Readable contrast and compact sizing are preserved on narrow mobile screens."
   ]
 };
 

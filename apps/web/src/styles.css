@@ -1340,9 +1340,9 @@ body.club-mobile-device .mobile-bottom-nav {
   align-items: flex-start;
   gap: 0.5rem;
   margin: 0;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--warning) 62%, var(--border));
   border-radius: 0.55rem;
-  background: color-mix(in srgb, var(--accent) 9%, var(--panel-soft));
+  background: color-mix(in srgb, var(--warning) 14%, var(--panel-soft));
   padding: 0.58rem 0.68rem;
   color: var(--text);
   font-size: 0.82rem;
@@ -1355,7 +1355,7 @@ body.club-mobile-device .mobile-bottom-nav {
   min-width: 1rem;
   height: 1rem;
   margin-top: 0.08rem;
-  color: var(--accent);
+  color: var(--warning);
 }
 
 .auth-spam-hint span {
