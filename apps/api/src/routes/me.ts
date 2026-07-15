@@ -8,7 +8,7 @@ import { db } from "../db/client";
 import { userDevices, userRecurrentSubscriptions, users } from "../db/schema";
 import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
-import { resolveMembershipProfileFields } from "../membership/profileFields";
+import { resolveMembershipPreview, resolveMembershipProfileFields } from "../membership/profileFields";
 import { logger } from "../logger";
 import { normalizeAvatarDisplay } from "../profile/avatarDisplay";
 import { buildAvatarObjectKey, getAvatarUploadContentType, getAvatarUploadLimitError } from "../profile/avatarUpload";
@@ -71,17 +71,16 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
   const role = c.get("previewRole") ?? realRole;
   const adminAccess = await getAdminAccessProfile(user.telegramId);
   const previewMembershipStatus = c.get("previewMembershipStatus");
-  const membershipStatus = previewMembershipStatus ?? membership.status;
-  const rawMembershipExpiresAt =
-    previewMembershipStatus === "active"
-      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      : previewMembershipStatus === "inactive"
-        ? null
-        : (membership.subscription?.expiresAt?.toISOString() ?? null);
+  const membershipPreview = resolveMembershipPreview({
+    actualStatus: membership.status,
+    actualExpiresAt: membership.subscription?.expiresAt ?? null,
+    previewStatus: previewMembershipStatus
+  });
+  const membershipStatus = membershipPreview.membershipStatus;
   const membershipProfile = resolveMembershipProfileFields({
     membershipStatus,
     subscriptionProvider: membership.subscription?.provider ?? null,
-    subscriptionExpiresAt: rawMembershipExpiresAt ? new Date(rawMembershipExpiresAt) : null,
+    subscriptionExpiresAt: membershipPreview.membershipExpiresAt,
     recurrentPaymentStatus: recurrentSubscription?.status ?? null
   });
 

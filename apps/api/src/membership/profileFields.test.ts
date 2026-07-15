@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { resolveMembershipProfileFields } from "./profileFields";
+import { resolveMembershipPreview, resolveMembershipProfileFields } from "./profileFields";
 
 describe("membership profile fields", () => {
+  it("keeps the real expiry when active access is previewed as active", () => {
+    expect(
+      resolveMembershipPreview({
+        actualStatus: "active",
+        actualExpiresAt: new Date("2026-12-31T23:59:59.000Z"),
+        previewStatus: "active",
+        now: new Date("2026-07-15T15:30:00.000Z")
+      })
+    ).toEqual({
+      membershipStatus: "active",
+      membershipExpiresAt: new Date("2026-12-31T23:59:59.000Z")
+    });
+  });
+
   it("hides active payment metadata when membership is no longer active", () => {
     expect(
       resolveMembershipProfileFields({

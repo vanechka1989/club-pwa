@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes nested support client cards as version 4.47", () => {
-    expect(appVersion).toBe("4.47");
-    expect(releaseNotes[0]?.title).toBe("Карточка клиента внутри тикета");
-    expect(releaseNotes[1]?.version).toBe("4.46");
+  it("publishes consistent access dates as version 4.48", () => {
+    expect(appVersion).toBe("4.48");
+    expect(releaseNotes[0]?.title).toBe("Единый срок доступа");
+    expect(releaseNotes[1]?.version).toBe("4.47");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Client card inside the support ticket");
+    expect(englishNotes[0]?.title).toBe("Consistent access expiry");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

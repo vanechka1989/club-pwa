@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единый срок доступа",
+    items: [
+      "Профиль и карточка клиента теперь показывают один фактический срок активного доступа.",
+      "Режим «Вид как: с доступом» больше не подменяет реальную дату выдуманным сроком «сегодня + 30 дней».",
+      "Для клиента с ручным доступом до конца 31 декабря оба экрана корректно показывают доступ до 1 января."
+    ]
+  },
+  {
+    version: "4.47",
+    updatedAt: "15.07.2026 22:03",
     title: "Карточка клиента внутри тикета",
     items: [
       "Карточка клиента из обращения поддержки теперь открывается поверх текущего тикета, не переключая администратора во вкладку «Админ».",
@@ -3110,11 +3120,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client card inside the support ticket",
+  title: "Consistent access expiry",
   items: [
-    "Opening a client card from support now keeps the current ticket underneath instead of switching to Admin.",
-    "Back returns to the exact ticket that opened the client card.",
-    "The nested route preserves ticket context and supports browser or system back navigation."
+    "The profile and client card now show the same effective access expiry.",
+    "The active-member preview no longer replaces a real expiry with an artificial date 30 days from today.",
+    "Manual access through the end of December is consistently displayed as access through January 1."
   ]
 };
 
