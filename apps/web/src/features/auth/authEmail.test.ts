@@ -257,6 +257,17 @@ describe("email auth UI", () => {
     expect(screen.getByLabelText("Код")).toBeTruthy();
   });
 
+  it("shows the spam-folder reminder only on the email code step", async () => {
+    renderAuth(createPinia());
+
+    expect(screen.queryByText("Письмо не пришло? Проверьте папку «Спам».")).toBeNull();
+
+    await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
+    await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
+
+    expect(await screen.findByText("Письмо не пришло? Проверьте папку «Спам».")).toBeTruthy();
+  });
+
   it("restores the code entry step after the app reloads while the user checks email", async () => {
     renderAuth(createPinia());
 

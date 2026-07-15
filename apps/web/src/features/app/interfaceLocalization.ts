@@ -28,6 +28,7 @@ const englishPhrases: Record<string, string> = {
   "Код из письма": "Email code",
   "Вход в клуб": "Sign in to the club",
   "Введите 6 цифр из письма.": "Enter the 6-digit code from the email.",
+  "Письмо не пришло? Проверьте папку «Спам».": "Didn’t receive the email? Check your Spam folder.",
   "Введите email, на который открыть доступ.": "Enter the email address for access.",
   "Код": "Code",
   "Войти": "Sign in",

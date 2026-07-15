@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Подсказка о письме",
+    items: [
+      "На экране ввода кода появилась заметная подсказка проверить папку «Спам», если письмо не пришло.",
+      "Подсказка аккуратно адаптируется к узким экранам и поддерживает русский и английский языки.",
+      "Логика отправки и проверки кода не менялась."
+    ]
+  },
+  {
+    version: "4.49",
+    updatedAt: "15.07.2026 23:27",
     title: "Живые голосовые сообщения",
     items: [
       "Во время записи голосового теперь отображается живая звуковая волна от микрофона и точный таймер.",
@@ -3130,11 +3140,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Live voice messages",
+  title: "Spam folder reminder",
   items: [
-    "Voice recording now shows a live microphone waveform and an accurate timer.",
-    "Before sending, recordings can be played, scrubbed, deleted, or sent from one compact control bar.",
-    "Sent voice messages use the same player with animated progress and seekable waveforms."
+    "The email code screen now includes a clear reminder to check the Spam folder when the message does not arrive.",
+    "The reminder fits narrow mobile screens and is available in both Russian and English.",
+    "Email code delivery and verification behavior remain unchanged."
   ]
 };
 

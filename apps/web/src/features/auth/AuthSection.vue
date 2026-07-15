@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { detectInstallPlatform, getInstallGuide } from "@/features/app/installPlatform";
 import { getInstalledPwaDisplayModeQueries, isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
-import { Download, Mail, Share, ShieldCheck } from "lucide-vue-next";
+import { Download, Mail, MailWarning, Share, ShieldCheck } from "lucide-vue-next";
 import { requestPwaInstallPrompt } from "@/features/app/pwaInstall";
 import { useSessionStore } from "@/stores/session";
 
@@ -313,6 +313,10 @@ onBeforeUnmount(() => {
         <span>Код</span>
         <input v-model.trim="code" class="text-input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required />
       </label>
+      <p class="auth-spam-hint">
+        <MailWarning aria-hidden="true" />
+        <span>Письмо не пришло? Проверьте папку «Спам».</span>
+      </p>
       <button class="primary-button" type="submit" :disabled="session.loading || code.length < 6">
         Войти
       </button>

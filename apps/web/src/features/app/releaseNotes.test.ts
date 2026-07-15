@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes live voice messages as version 4.49", () => {
-    expect(appVersion).toBe("4.49");
-    expect(releaseNotes[0]?.title).toBe("Живые голосовые сообщения");
-    expect(releaseNotes[1]?.version).toBe("4.48");
+  it("publishes the spam-folder reminder as version 4.50", () => {
+    expect(appVersion).toBe("4.50");
+    expect(releaseNotes[0]?.title).toBe("Подсказка о письме");
+    expect(releaseNotes[1]?.version).toBe("4.49");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Live voice messages");
+    expect(englishNotes[0]?.title).toBe("Spam folder reminder");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
