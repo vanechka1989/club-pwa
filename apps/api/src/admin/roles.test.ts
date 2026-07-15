@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 async function loadRoles() {
   process.env.DATABASE_URL = "postgres://club:club@localhost:5432/club";
@@ -23,5 +25,12 @@ describe("admin role permissions", () => {
     const { normalizeAdminPermissions } = await loadRoles();
 
     expect(normalizeAdminPermissions(["admins", "unknown", "admins", "support"])).toEqual(["admins", "support"]);
+  });
+
+  it("does not grant hidden administrator access from environment email lists", () => {
+    const source = readFileSync(resolve(__dirname, "roles.ts"), "utf8");
+
+    expect(source).not.toContain("ADMIN_EMAILS");
+    expect(source).not.toContain("parseAdminIds");
   });
 });

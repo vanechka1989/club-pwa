@@ -111,8 +111,8 @@ function getAttachmentLimitMessage(files: File[]) {
   return "Файлы слишком большие. Максимум 100 МБ за одно сообщение.";
 }
 
-async function getUnreadCount({ userId, role }: { userId: string; role: string }) {
-  if (isAdminRole(role)) {
+async function getUnreadCount({ userId, isSupportAdmin }: { userId: string; isSupportAdmin: boolean }) {
+  if (isSupportAdmin) {
     const tickets = await db.query.supportTickets.findMany({
       where: ne(supportTickets.status, "closed")
     });
@@ -313,6 +313,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     await cleanupExpiredSupportAttachments();
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
 
     const tickets = await db.query.supportTickets.findMany({
       where: eq(supportTickets.userId, userId),
@@ -333,20 +334,22 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       managerContact: null,
       topics: supportTopics,
       tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role))),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .get("/unread", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
 
     return c.json({
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
     const form = await c.req.formData();
     const topicResult = ticketTopicSchema.safeParse(getFormString(form, "topic"));
     const message = getFormString(form, "message");
@@ -416,12 +419,13 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(createdTicket, role),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets/:id/messages", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
     const idResult = z.string().uuid().safeParse(c.req.param("id"));
     if (!idResult.success) {
       return c.json({ error: "Invalid ticket id" }, 400);
@@ -489,7 +493,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets/:id/close", async (c) => {
@@ -501,8 +505,8 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const ticket = await getTicketById(idResult.data);
-    const isAdmin = await canUseSupportAdmin(c, role);
-    if (!ticket || (!isAdmin && ticket.userId !== userId)) {
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
+    if (!ticket || (!isSupportAdmin && ticket.userId !== userId)) {
       return c.json({ error: "Обращение не найдено." }, 404);
     }
 
@@ -512,7 +516,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       .set({
         status: "closed",
         customerReadAt: ticket.userId === userId ? now : ticket.customerReadAt,
-        adminReadAt: isAdmin ? now : ticket.adminReadAt,
+        adminReadAt: isSupportAdmin ? now : ticket.adminReadAt,
         updatedAt: now
       })
       .where(eq(supportTickets.id, ticket.id));
@@ -525,7 +529,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets/:id/read", async (c) => {
@@ -537,14 +541,14 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const ticket = await getTicketById(idResult.data);
-    const isAdmin = await canUseSupportAdmin(c, role);
-    if (!ticket || (!isAdmin && ticket.userId !== userId)) {
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
+    if (!ticket || (!isSupportAdmin && ticket.userId !== userId)) {
       return c.json({ error: "Обращение не найдено." }, 404);
     }
 
     await db
       .update(supportTickets)
-      .set(isAdmin ? { adminReadAt: new Date() } : { customerReadAt: new Date() })
+      .set(isSupportAdmin ? { adminReadAt: new Date() } : { customerReadAt: new Date() })
       .where(eq(supportTickets.id, ticket.id));
 
     const updatedTicket = await getTicketById(ticket.id);
@@ -555,14 +559,15 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .get("/admin/tickets", async (c) => {
     await cleanupExpiredSupportAttachments();
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-    if (!(await canUseSupportAdmin(c, role))) {
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
+    if (!isSupportAdmin) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -582,13 +587,14 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role))),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/admin/users/:telegramId/tickets", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-    if (!(await canUseSupportAdmin(c, role))) {
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
+    if (!isSupportAdmin) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -678,13 +684,14 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(createdTicket, role),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/admin/tickets/:id/replies", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
-    if (!(await canUseSupportAdmin(c, role))) {
+    const isSupportAdmin = await canUseSupportAdmin(c, role);
+    if (!isSupportAdmin) {
       return c.json({ error: "Forbidden" }, 403);
     }
 
@@ -766,6 +773,6 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role),
-      unreadCount: await getUnreadCount({ userId, role })
+      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   });

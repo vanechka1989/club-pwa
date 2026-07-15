@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Полное снятие прав администратора",
+    items: [
+      "После удаления или отключения администратора его роль и права сразу перечитываются из базы на каждом запросе; старая сессия не сохраняет доступ.",
+      "Удалён устаревший скрытый список администраторов из переменных сервера, который теоретически мог вернуть полные права независимо от базы.",
+      "Глобальный счётчик поддержки и новые алерты получают только владелец и активные администраторы с правом «Поддержка»."
+    ]
+  },
+  {
+    version: "4.56",
+    updatedAt: "16.07.2026 02:03",
     title: "Уведомления поддержки только действующим администраторам",
     items: [
       "Новые обращения и ответы клиентов получают только владелец и активные администраторы с правом «Поддержка».",
@@ -3200,11 +3210,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Support alerts only for authorized administrators",
+  title: "Complete administrator privilege revocation",
   items: [
-    "New support messages notify only the owner and active administrators with the Support permission.",
-    "Disabled administrators and staff without Support access no longer receive in-app alerts or push notifications.",
-    "Recipients are evaluated for every message, so permission changes take effect immediately."
+    "Removing or disabling an administrator now takes effect on every request, and an existing session cannot retain access.",
+    "The legacy server-side administrator list that could bypass database permissions has been removed.",
+    "Global support counters and new alerts are available only to the owner and active administrators with Support permission."
   ]
 };
 

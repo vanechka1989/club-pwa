@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the support notification recipient fix as version 4.56", () => {
-    expect(appVersion).toBe("4.56");
-    expect(releaseNotes[0]?.title).toBe("Уведомления поддержки только действующим администраторам");
-    expect(releaseNotes[1]?.version).toBe("4.55");
+  it("publishes complete admin privilege revocation as version 4.57", () => {
+    expect(appVersion).toBe("4.57");
+    expect(releaseNotes[0]?.title).toBe("Полное снятие прав администратора");
+    expect(releaseNotes[1]?.version).toBe("4.56");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Support alerts only for authorized administrators");
+    expect(englishNotes[0]?.title).toBe("Complete administrator privilege revocation");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
