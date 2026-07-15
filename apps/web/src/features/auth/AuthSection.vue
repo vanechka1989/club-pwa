@@ -346,6 +346,7 @@ onBeforeUnmount(() => {
         <span>Email</span>
         <input v-model.trim="email" class="text-input" type="email" autocomplete="email" placeholder="you@example.com" required />
       </label>
+      <p v-if="localError || session.error" class="auth-error" role="alert">{{ localError || session.error }}</p>
       <button class="primary-button" type="submit" :disabled="!canRequestCode">
         {{ requestButtonLabel }}
       </button>
@@ -356,6 +357,7 @@ onBeforeUnmount(() => {
         <span>Код</span>
         <input v-model.trim="code" class="text-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="123456" required />
       </label>
+      <p v-if="localError || session.error" class="auth-error" role="alert">{{ localError || session.error }}</p>
       <p class="auth-spam-hint">
         <MailWarning aria-hidden="true" />
         <span>Письмо не пришло? Проверьте папку «Спам».</span>
@@ -372,6 +374,5 @@ onBeforeUnmount(() => {
     </form>
 
     <p v-if="session.authMessage" class="auth-hint">{{ session.authMessage }}</p>
-    <p v-if="localError || session.error" class="auth-error">{{ localError || session.error }}</p>
   </section>
 </template>

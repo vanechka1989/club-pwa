@@ -46,6 +46,8 @@ export async function getEmailLoginAttemptContext(input: {
 
 async function incrementAttemptBucket(scopeKey: string, scope: "email_device" | "ip", limit: number, now: Date) {
   const expiredBefore = new Date(now.getTime() - AUTH_LOGIN_ATTEMPT_WINDOW_MS);
+  const expiredBeforeSql = expiredBefore.toISOString();
+  const nowSql = now.toISOString();
   const [record] = await db
     .insert(authEmailLoginAttemptLimits)
     .values({ scopeKey, scope, attemptCount: 1, windowStartedAt: now, updatedAt: now })
@@ -53,8 +55,8 @@ async function incrementAttemptBucket(scopeKey: string, scope: "email_device" | 
       target: authEmailLoginAttemptLimits.scopeKey,
       set: {
         scope,
-        attemptCount: sql<number>`case when ${authEmailLoginAttemptLimits.windowStartedAt} <= ${expiredBefore} then 1 else ${authEmailLoginAttemptLimits.attemptCount} + 1 end`,
-        windowStartedAt: sql<Date>`case when ${authEmailLoginAttemptLimits.windowStartedAt} <= ${expiredBefore} then ${now} else ${authEmailLoginAttemptLimits.windowStartedAt} end`,
+        attemptCount: sql<number>`case when ${authEmailLoginAttemptLimits.windowStartedAt} <= ${expiredBeforeSql}::timestamptz then 1 else ${authEmailLoginAttemptLimits.attemptCount} + 1 end`,
+        windowStartedAt: sql<Date>`case when ${authEmailLoginAttemptLimits.windowStartedAt} <= ${expiredBeforeSql}::timestamptz then ${nowSql}::timestamptz else ${authEmailLoginAttemptLimits.windowStartedAt} end`,
         updatedAt: now
       }
     })

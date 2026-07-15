@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Понятная ошибка неверного кода",
+    items: [
+      "Исправлена серверная запись неудачных попыток: неверный код больше не приводит к скрытой ошибке API.",
+      "Сообщение о неверном или просроченном коде теперь показывается сразу под полем ввода и остаётся в видимой части экрана.",
+      "Ограничение попыток и обратный отсчёт блокировки продолжают работать без сброса формы."
+    ]
+  },
+  {
+    version: "4.52",
+    updatedAt: "16.07.2026 00:20",
     title: "Защищённый вход по коду",
     items: [
       "При неверном коде форма теперь показывает понятную причину и количество оставшихся попыток.",
@@ -3160,11 +3170,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Protected email code sign-in",
+  title: "Visible invalid-code feedback",
   items: [
-    "An incorrect code now shows a clear explanation and the number of attempts remaining.",
-    "Five failed attempts temporarily block the email-and-device pair, with an additional IP-wide safety ceiling.",
-    "Attempt counters are stored server-side as hashes and survive app or server restarts."
+    "Failed-attempt persistence no longer causes a hidden API error when an incorrect code is submitted.",
+    "Invalid and expired-code feedback now appears directly below the code field and stays visible on mobile screens.",
+    "Attempt limits and the lockout countdown continue working without resetting the form."
   ]
 };
 

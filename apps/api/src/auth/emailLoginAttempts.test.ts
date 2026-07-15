@@ -45,6 +45,7 @@ describe("email login attempt protection", () => {
   it("persists attempt buckets and uses them in the verification route", () => {
     const schema = readFileSync(resolve(process.cwd(), "src/db/schema.ts"), "utf8");
     const route = readFileSync(resolve(process.cwd(), "src/routes/auth.ts"), "utf8");
+    const attemptStore = readFileSync(resolve(process.cwd(), "src/auth/emailLoginAttempts.ts"), "utf8");
     const migrationJournal = readFileSync(resolve(process.cwd(), "drizzle/meta/_journal.json"), "utf8");
 
     expect(schema).toContain('pgTable("auth_email_login_attempt_limits"');
@@ -54,5 +55,7 @@ describe("email login attempt protection", () => {
     expect(route).toContain("clearEmailDeviceLoginAttempts");
     expect(route).toContain('code: "AUTH_INVALID_CODE"');
     expect(route).toContain('code: "AUTH_TOO_MANY_ATTEMPTS"');
+    expect(attemptStore).toContain("expiredBefore.toISOString()");
+    expect(attemptStore).toContain("now.toISOString()");
   });
 });

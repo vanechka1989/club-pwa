@@ -400,6 +400,9 @@ describe("email auth UI", () => {
 
     expect(await screen.findByText("Неверный код. Проверьте цифры и попробуйте ещё раз. Осталось попыток: 4.")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
+    const error = screen.getByText("Неверный код. Проверьте цифры и попробуйте ещё раз. Осталось попыток: 4.");
+    const spamHint = screen.getByText("Письмо не пришло? Проверьте папку «Спам».");
+    expect(error.compareDocumentPosition(spamHint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("temporarily disables verification after the attempt limit is reached", async () => {
