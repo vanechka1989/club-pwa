@@ -4154,12 +4154,12 @@ onUnmounted(() => {
       <section v-if="isOwner" class="admin-crm-block ui-card admin-owner-login-code-card">
         <div>
           <h4>Аварийный вход по email</h4>
-          <p>Создайте одноразовый код, если клиент не может получить письмо. Срок действия появится вместе с кодом.</p>
+          <p>Создайте одноразовый код для существующего или нового email. Клиент будет создан после успешного ввода кода.</p>
         </div>
 
         <form v-if="!generatedEmailLoginCode" class="admin-owner-login-code-form" @submit.prevent="generateEmergencyEmailLoginCode">
           <label class="admin-field">
-            <span>Email клиента</span>
+            <span>Email для входа</span>
             <input
               v-model="ownerLoginCodeEmail"
               class="text-input"

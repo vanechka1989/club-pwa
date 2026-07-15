@@ -35,6 +35,16 @@ describe("owner emergency email login code", () => {
     expect(adminRoute).toContain("retryAfterSeconds");
   });
 
+  it("generates a code for an email that has not completed registration", () => {
+    const adminRoute = readFileSync(resolve(__dirname, "../routes/admin.ts"), "utf8");
+    const routeBlock = adminRoute.match(/\.post\("\/owner-email-login-code"[\s\S]*?\.get\("\/server-status"/)?.[0] ?? "";
+
+    expect(routeBlock).not.toContain("Клиент с таким email не найден.");
+    expect(routeBlock).toContain("sql`${adminActionLogs.metadata} ->> 'email' = ${email}`");
+    expect(routeBlock).toContain("targetUserId: user?.id ?? null");
+    expect(routeBlock).toContain("targetTelegramId: user?.telegramId ?? null");
+  });
+
   it("serializes generation and atomically consumes a code only once", () => {
     const adminRoute = readFileSync(resolve(__dirname, "../routes/admin.ts"), "utf8");
     const authRoute = readFileSync(resolve(__dirname, "../routes/auth.ts"), "utf8");

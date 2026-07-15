@@ -1358,9 +1358,6 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const user = await db.query.users.findFirst({
       where: eq(users.email, email)
     });
-    if (!user) {
-      return c.json({ error: "Клиент с таким email не найден." }, 404);
-    }
 
     const result = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${email}))`);
@@ -1370,7 +1367,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       const latestOwnerCode = await tx.query.adminActionLogs.findFirst({
         where: and(
           eq(adminActionLogs.action, "owner.email_login_code.generated"),
-          eq(adminActionLogs.targetUserId, user.id),
+          sql`${adminActionLogs.metadata} ->> 'email' = ${email}`,
           gt(adminActionLogs.createdAt, cooldownStartedAt)
         ),
         orderBy: [desc(adminActionLogs.createdAt)]
@@ -1401,9 +1398,9 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         actorTelegramId: c.get("telegramUser").id,
         action: "owner.email_login_code.generated",
         entityType: "user",
-        entityId: user.id,
-        targetUserId: user.id,
-        targetTelegramId: user.telegramId,
+        entityId: user?.id ?? email,
+        targetUserId: user?.id ?? null,
+        targetTelegramId: user?.telegramId ?? null,
         summary: `Создал аварийный код входа для ${email}`,
         metadata: { email, expiresAt: expiresAt.toISOString() }
       });

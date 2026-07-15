@@ -13,6 +13,8 @@ describe("owner emergency email login code card", () => {
     expect(source).toContain('v-if="isOwner" class="admin-crm-block ui-card admin-owner-login-code-card"');
     expect(source).toContain('v-model="ownerLoginCodeEmail"');
     expect(source).toContain('type="email"');
+    expect(source).toContain("Email для входа");
+    expect(source).toContain("Клиент будет создан после успешного ввода кода");
   });
 
   it("shows a one-time code with explicit copy and reset actions", () => {

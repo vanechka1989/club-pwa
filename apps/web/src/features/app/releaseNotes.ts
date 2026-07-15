@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Аварийный код для нового клиента",
+    items: [
+      "Владелец теперь может создать аварийный код для email, которого ещё нет в списке клиентов.",
+      "После правильного ввода кода новый клиент создаётся обычным безопасным потоком регистрации.",
+      "Одноразовость, срок действия, журнал безопасности и задержка повторной генерации сохранены для любого email."
+    ]
+  },
+  {
+    version: "4.45",
+    updatedAt: "15.07.2026 18:24",
     title: "Удобные сообщения и полноэкранные вложения",
     items: [
       "Сообщение клиенту открывается аккуратной полноширинной панелью снизу, а кнопка вложения снова показывает заметную скрепку.",
@@ -3090,11 +3100,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Polished messages and fullscreen attachments",
+  title: "Emergency codes for new clients",
   items: [
-    "Client messages now open in a clean full-width bottom sheet, and the attachment control visibly shows its paperclip icon.",
-    "Support photos now open immediately in a frameless fullscreen viewer matching chat images.",
-    "The support viewer supports pinch zoom, panning while zoomed, and double-tap zoom."
+    "The owner can now create an emergency code for an email that is not yet in the client list.",
+    "After the code is verified, a new client is created through the regular secure registration flow.",
+    "One-time use, expiration, security logging, and generation cooldown remain enforced for every email."
   ]
 };
 
