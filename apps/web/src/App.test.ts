@@ -1,5 +1,5 @@
 import type { ClubUser } from "@club/shared";
-import { cleanup, render, screen, waitFor } from "@testing-library/vue";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { router } from "./router";
 import { readFileSync } from "node:fs";
@@ -13,6 +13,8 @@ import {
   getReferralProfile,
   getSupportUnreadCount,
   logoutSession,
+  requestEmailCode,
+  verifyEmailCode,
   updateDeviceDiagnostics
 } from "@/api/client";
 import App from "./App.vue";
@@ -36,6 +38,8 @@ vi.mock("@/api/client", async (importOriginal) => {
     getReferralProfile: vi.fn(),
     getSupportUnreadCount: vi.fn(),
     logoutSession: vi.fn(),
+    requestEmailCode: vi.fn(),
+    verifyEmailCode: vi.fn(),
     updateDeviceDiagnostics: vi.fn()
   };
 });
@@ -121,6 +125,8 @@ describe("App", () => {
     vi.mocked(getReferralProfile).mockRejectedValue(new Error("not loaded"));
     vi.mocked(getSupportUnreadCount).mockResolvedValue({ unreadCount: 0 });
     vi.mocked(logoutSession).mockResolvedValue({ ok: true });
+    vi.mocked(requestEmailCode).mockResolvedValue({ ok: true, devCode: null });
+    vi.mocked(verifyEmailCode).mockResolvedValue({ ok: true });
     vi.mocked(updateDeviceDiagnostics).mockResolvedValue({ ok: true, device: testDeviceDiagnostics() });
   });
 
@@ -181,6 +187,48 @@ describe("App", () => {
     expect(screen.getByText("Введите 6 цифр из письма.")).toBeTruthy();
     expect(screen.queryByText("Код из письма. Введите 6 цифр из письма.")).toBeNull();
     expect(screen.queryByText(/Код отправлен на ivan@example.com/)).toBeNull();
+  });
+
+  it("keeps the code form mounted and shows the server error after an invalid code", async () => {
+    let rejectVerification!: (reason?: unknown) => void;
+    localStorage.setItem(
+      "club-pending-email-auth",
+      JSON.stringify({
+        email: "ivan@example.com",
+        expiresAt: Date.now() + 10 * 60 * 1000
+      })
+    );
+    vi.mocked(verifyEmailCode).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectVerification = reject;
+        })
+    );
+
+    render(App, {
+      global: {
+        plugins: [createPinia(), router]
+      }
+    });
+
+    await fireEvent.update(await screen.findByLabelText("Код"), "111111");
+    await fireEvent.click(screen.getByRole("button", { name: "Войти" }));
+
+    expect((screen.getByLabelText("Код") as HTMLInputElement).value).toBe("111111");
+
+    rejectVerification({
+      data: {
+        code: "AUTH_INVALID_CODE",
+        error: "Неверный код. Проверьте цифры и попробуйте ещё раз. Осталось попыток: 4.",
+        attemptsRemaining: 4
+      },
+      status: 400
+    });
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Неверный код. Проверьте цифры и попробуйте ещё раз. Осталось попыток: 4."
+    );
+    expect((screen.getByLabelText("Код") as HTMLInputElement).value).toBe("111111");
   });
 
   it("resets window scroll when changing sections", async () => {

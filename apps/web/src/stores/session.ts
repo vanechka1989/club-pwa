@@ -122,6 +122,7 @@ export const useSessionStore = defineStore("session", () => {
   const restoredPendingEmailAuth = readPendingEmailAuth();
   const user = ref<ClubUser | null>(null);
   const loading = ref(false);
+  const initialized = ref(false);
   const error = ref<string | null>(null);
   const authMessage = ref<string | null>(null);
   const pendingEmail = ref(restoredPendingEmailAuth.email);
@@ -151,6 +152,7 @@ export const useSessionStore = defineStore("session", () => {
     } finally {
       if (!options.silent) {
         loading.value = false;
+        initialized.value = true;
       }
     }
   }
@@ -264,6 +266,7 @@ export const useSessionStore = defineStore("session", () => {
   return {
     user,
     loading,
+    initialized,
     error,
     authMessage,
     pendingEmail,

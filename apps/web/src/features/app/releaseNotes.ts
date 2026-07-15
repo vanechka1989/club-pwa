@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Форма входа больше не сбрасывается",
+    items: [
+      "Форма ввода кода больше не размонтируется во время проверки и не очищает введённые цифры.",
+      "Ответ сервера о неверном или просроченном коде остаётся прямо под полем ввода вместе с количеством попыток.",
+      "Начальная загрузка профиля отделена от отправки и проверки кода, поэтому авторизация больше не мигает и не сбрасывается."
+    ]
+  },
+  {
+    version: "4.53",
+    updatedAt: "16.07.2026 00:46",
     title: "Понятная ошибка неверного кода",
     items: [
       "Исправлена серверная запись неудачных попыток: неверный код больше не приводит к скрытой ошибке API.",
@@ -3170,11 +3180,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Visible invalid-code feedback",
+  title: "Login form no longer resets",
   items: [
-    "Failed-attempt persistence no longer causes a hidden API error when an incorrect code is submitted.",
-    "Invalid and expired-code feedback now appears directly below the code field and stays visible on mobile screens.",
-    "Attempt limits and the lockout countdown continue working without resetting the form."
+    "The code form stays mounted during verification and keeps the entered digits in place.",
+    "Invalid and expired-code feedback remains directly below the field together with the remaining-attempt count.",
+    "Initial profile loading is now separate from email-code requests, preventing authentication flicker and resets."
   ]
 };
 

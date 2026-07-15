@@ -881,7 +881,7 @@ onBeforeUnmount(() => {
           class="content-panel"
           :class="{ 'content-panel-community': activeSection === 'community', 'content-panel-auth': !session.user }"
         >
-          <div v-if="session.loading" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
+          <div v-if="!session.initialized && !session.pendingEmail" class="text-sm text-[var(--muted)]">{{ t("loading") }}</div>
 
           <AuthSection v-else-if="session.error || !session.user" />
 
