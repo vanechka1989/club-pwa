@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Уведомления поддержки только действующим администраторам",
+    items: [
+      "Новые обращения и ответы клиентов получают только владелец и активные администраторы с правом «Поддержка».",
+      "Отключённые администраторы и сотрудники без права поддержки больше не получают алерты в приложении и push-уведомления.",
+      "Список получателей проверяется заново при каждом сообщении, поэтому изменение прав применяется сразу."
+    ]
+  },
+  {
+    version: "4.55",
+    updatedAt: "16.07.2026 01:34",
     title: "Надёжные и быстрые обновления",
     items: [
       "Обновление продолжает выполняться на сервере даже при разрыве SSH-соединения и сохраняет подробный статус.",
@@ -3190,11 +3200,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable and faster updates",
+  title: "Support alerts only for authorized administrators",
   items: [
-    "Deployments keep running on the server after an SSH disconnect and expose durable progress information.",
-    "Web and API builds are now selected independently, so frontend-only changes no longer restart the server or database.",
-    "A commit is recorded as deployed only after health verification, with retry-safe state and best-effort container rollback on failure."
+    "New support messages notify only the owner and active administrators with the Support permission.",
+    "Disabled administrators and staff without Support access no longer receive in-app alerts or push notifications.",
+    "Recipients are evaluated for every message, so permission changes take effect immediately."
   ]
 };
 

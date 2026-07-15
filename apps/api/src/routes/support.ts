@@ -19,6 +19,7 @@ import {
   getSupportAttachmentLimitError,
   getSupportAttachmentUploadContentType
 } from "../support/mediaUpload";
+import { selectSupportAdminTelegramIds } from "../support/adminNotificationRecipients";
 
 const supportTopics = [
   {
@@ -279,7 +280,7 @@ async function notifyCustomerAboutReply(ticket: NonNullable<Awaited<ReturnType<t
 async function notifyAdminsAboutCustomerMessage(ticket: NonNullable<Awaited<ReturnType<typeof getTicketById>>>) {
   const ownerTelegramId = await getOwnerTelegramId();
   const admins = await db.query.adminUsers.findMany();
-  const telegramIds = Array.from(new Set([ownerTelegramId, ...admins.map((admin) => admin.telegramId)]));
+  const telegramIds = selectSupportAdminTelegramIds({ ownerTelegramId, admins });
   const adminProfiles = telegramIds.length
     ? await db.query.users.findMany({
         where: inArray(users.telegramId, telegramIds)
