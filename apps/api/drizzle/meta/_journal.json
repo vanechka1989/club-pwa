@@ -302,6 +302,13 @@
       "when": 1784020200000,
       "tag": "0042_lesson_cover_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1784132400000,
+      "tag": "0043_email_login_attempt_limits",
+      "breakpoints": true
     }
   ]
 }

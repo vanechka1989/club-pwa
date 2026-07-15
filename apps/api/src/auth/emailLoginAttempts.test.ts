@@ -45,8 +45,10 @@ describe("email login attempt protection", () => {
   it("persists attempt buckets and uses them in the verification route", () => {
     const schema = readFileSync(resolve(process.cwd(), "src/db/schema.ts"), "utf8");
     const route = readFileSync(resolve(process.cwd(), "src/routes/auth.ts"), "utf8");
+    const migrationJournal = readFileSync(resolve(process.cwd(), "drizzle/meta/_journal.json"), "utf8");
 
     expect(schema).toContain('pgTable("auth_email_login_attempt_limits"');
+    expect(migrationJournal).toContain('"tag": "0043_email_login_attempt_limits"');
     expect(route).toContain("getEmailLoginAttemptContext");
     expect(route).toContain("recordFailedEmailLoginAttempt");
     expect(route).toContain("clearEmailDeviceLoginAttempts");
