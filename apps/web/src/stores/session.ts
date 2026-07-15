@@ -12,7 +12,11 @@ import {
   verifyEmailCode as verifyEmailCodeApi
 } from "@/api/client";
 
-type AuthRequestError = Error & { retryAfterSeconds?: number };
+type AuthRequestError = Error & {
+  retryAfterSeconds?: number;
+  attemptsRemaining?: number;
+  code?: string;
+};
 
 const pendingEmailAuthStorageKey = "club-pending-email-auth";
 const pendingEmailAuthTtlMs = 10 * 60 * 1000;
@@ -92,6 +96,26 @@ function getRetryAfterSeconds(reason: unknown) {
   return typeof retryAfterSeconds === "number" && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
     ? Math.ceil(retryAfterSeconds)
     : null;
+}
+
+function getAuthRequestError(reason: unknown, fallback: string): AuthRequestError {
+  const data = typeof reason === "object" && reason && "data" in reason && typeof reason.data === "object" && reason.data
+    ? (reason.data as { error?: unknown; retryAfterSeconds?: unknown; attemptsRemaining?: unknown; code?: unknown })
+    : null;
+  const message = typeof data?.error === "string" && data.error.trim()
+    ? data.error
+    : reason instanceof Error && reason.message
+      ? reason.message
+      : fallback;
+  const authError: AuthRequestError = new Error(message);
+  if (typeof data?.retryAfterSeconds === "number" && Number.isFinite(data.retryAfterSeconds) && data.retryAfterSeconds > 0) {
+    authError.retryAfterSeconds = Math.ceil(data.retryAfterSeconds);
+  }
+  if (typeof data?.attemptsRemaining === "number" && Number.isFinite(data.attemptsRemaining)) {
+    authError.attemptsRemaining = Math.max(0, Math.floor(data.attemptsRemaining));
+  }
+  if (typeof data?.code === "string") authError.code = data.code;
+  return authError;
 }
 
 export const useSessionStore = defineStore("session", () => {
@@ -176,9 +200,8 @@ export const useSessionStore = defineStore("session", () => {
         : null;
       return response;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Не удалось отправить код.";
-      const authError: AuthRequestError = new Error(message);
-      const retryAfterSeconds = getRetryAfterSeconds(error);
+      const authError = getAuthRequestError(error, "Не удалось отправить код.");
+      const retryAfterSeconds = authError.retryAfterSeconds ?? getRetryAfterSeconds(error);
       if (retryAfterSeconds) {
         const resendAvailableAt = Date.now() + retryAfterSeconds * 1000;
         pendingEmail.value = normalizedEmail;
@@ -211,8 +234,7 @@ export const useSessionStore = defineStore("session", () => {
       authMessage.value = null;
       clearPendingEmailAuth();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Не удалось войти.";
-      throw new Error(message);
+      throw getAuthRequestError(error, "Не удалось войти.");
     } finally {
       loading.value = false;
     }

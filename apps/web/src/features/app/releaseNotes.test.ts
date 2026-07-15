@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the highlighted spam-folder reminder as version 4.51", () => {
-    expect(appVersion).toBe("4.51");
-    expect(releaseNotes[0]?.title).toBe("Заметная подсказка о письме");
-    expect(releaseNotes[1]?.version).toBe("4.50");
+  it("publishes protected email-code verification as version 4.52", () => {
+    expect(appVersion).toBe("4.52");
+    expect(releaseNotes[0]?.title).toBe("Защищённый вход по коду");
+    expect(releaseNotes[1]?.version).toBe("4.51");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Highlighted email reminder");
+    expect(englishNotes[0]?.title).toBe("Protected email code sign-in");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

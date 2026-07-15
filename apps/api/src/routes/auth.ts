@@ -13,6 +13,12 @@ import {
   pwaInstallRequiredMessage,
   pwaStandaloneAuthHeaderName
 } from "../auth/emailAuth";
+import {
+  clearEmailDeviceLoginAttempts,
+  getEmailLoginAttemptContext,
+  recordFailedEmailLoginAttempt,
+  type LoginAttemptStatus
+} from "../auth/emailLoginAttempts";
 import { sendEmail } from "../auth/emailDelivery";
 import { db } from "../db/client";
 import { authEmailLoginCodes, authSessions, users } from "../db/schema";
@@ -34,6 +40,8 @@ const verifySchema = z.object({
   referralCode: z.string().trim().max(64).optional().nullable()
 });
 
+const loginAttemptDeviceCookieName = "club_login_device";
+
 function createSessionToken() {
   return randomBytes(32).toString("base64url");
 }
@@ -45,6 +53,35 @@ function sessionCookieOptions(expiresAt: Date) {
     sameSite: "Lax" as const,
     path: "/",
     expires: expiresAt
+  };
+}
+
+function getOrCreateLoginAttemptDevice(c: Parameters<typeof getCookie>[0]) {
+  const existing = getCookie(c, loginAttemptDeviceCookieName);
+  if (existing && /^[A-Za-z0-9_-]{32,128}$/.test(existing)) return existing;
+
+  const token = randomBytes(24).toString("base64url");
+  setCookie(c, loginAttemptDeviceCookieName, token, {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "Lax",
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60
+  });
+  return token;
+}
+
+function formatRetryDelay(seconds: number) {
+  const minutes = Math.max(1, Math.ceil(seconds / 60));
+  return minutes >= 60 ? "1 час" : `${minutes} мин.`;
+}
+
+function tooManyAttemptsPayload(status: LoginAttemptStatus) {
+  return {
+    code: "AUTH_TOO_MANY_ATTEMPTS",
+    error: `Слишком много неверных попыток. Попробуйте снова через ${formatRetryDelay(status.retryAfterSeconds)}.`,
+    attemptsRemaining: 0,
+    retryAfterSeconds: status.retryAfterSeconds
   };
 }
 
@@ -97,6 +134,7 @@ export const authRoute = new Hono()
     if (!email) {
       return c.json({ error: "Введите корректный email." }, 400);
     }
+    getOrCreateLoginAttemptDevice(c);
 
     const latestLoginCode = await db.query.authEmailLoginCodes.findFirst({
       where: eq(authEmailLoginCodes.email, email),
@@ -138,6 +176,36 @@ export const authRoute = new Hono()
     }
 
     const now = new Date();
+    const attemptContext = await getEmailLoginAttemptContext({
+      email,
+      deviceToken: getOrCreateLoginAttemptDevice(c),
+      ipAddress: getTrustedClientIp(c.req.raw.headers),
+      now
+    });
+    const activeBlock = attemptContext.emailDevice.blocked
+      ? attemptContext.emailDevice
+      : attemptContext.ip?.blocked
+        ? attemptContext.ip
+        : null;
+    if (activeBlock) {
+      return c.json(tooManyAttemptsPayload(activeBlock), 429);
+    }
+
+    const activeCode = await db.query.authEmailLoginCodes.findFirst({
+      where: and(
+        eq(authEmailLoginCodes.email, email),
+        isNull(authEmailLoginCodes.consumedAt),
+        gt(authEmailLoginCodes.expiresAt, now)
+      ),
+      orderBy: [desc(authEmailLoginCodes.createdAt)]
+    });
+    if (!activeCode) {
+      return c.json(
+        { code: "AUTH_CODE_EXPIRED", error: "Код уже истёк. Запросите новый код.", attemptsRemaining: attemptContext.emailDevice.attemptsRemaining },
+        400
+      );
+    }
+
     const codeHash = hashAuthToken(`${email}:${body.data.code}`);
     const [loginCode] = await db
       .update(authEmailLoginCodes)
@@ -153,8 +221,27 @@ export const authRoute = new Hono()
       .returning({ id: authEmailLoginCodes.id });
 
     if (!loginCode) {
-      return c.json({ error: "Код не найден или уже истёк." }, 401);
+      const failedAttempt = await recordFailedEmailLoginAttempt(attemptContext, now);
+      const reachedLimit = failedAttempt.emailDevice.blocked
+        ? failedAttempt.emailDevice
+        : failedAttempt.ip?.blocked
+          ? failedAttempt.ip
+          : null;
+      if (reachedLimit) {
+        return c.json(tooManyAttemptsPayload(reachedLimit), 429);
+      }
+
+      return c.json(
+        {
+          code: "AUTH_INVALID_CODE",
+          error: `Неверный код. Проверьте цифры и попробуйте ещё раз. Осталось попыток: ${failedAttempt.emailDevice.attemptsRemaining}.`,
+          attemptsRemaining: failedAttempt.emailDevice.attemptsRemaining
+        },
+        400
+      );
     }
+
+    await clearEmailDeviceLoginAttempts(attemptContext.emailDeviceKey);
 
     const user = await findOrCreateEmailUser(email);
     if (!user) {

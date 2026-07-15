@@ -106,6 +106,14 @@ export const authEmailLoginCodes = pgTable(
   })
 );
 
+export const authEmailLoginAttemptLimits = pgTable("auth_email_login_attempt_limits", {
+  scopeKey: varchar("scope_key", { length: 64 }).primaryKey(),
+  scope: varchar("scope", { length: 24 }).notNull(),
+  attemptCount: integer("attempt_count").notNull().default(1),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const authSessions = pgTable(
   "auth_sessions",
   {

@@ -381,4 +381,46 @@ describe("email auth UI", () => {
     });
     expect(requestEmailCode).toHaveBeenCalledTimes(1);
   });
+
+  it("shows the server explanation and keeps the code form after an incorrect code", async () => {
+    vi.mocked(verifyEmailCode).mockRejectedValueOnce({
+      data: {
+        code: "AUTH_INVALID_CODE",
+        error: "Неверный код. Проверьте цифры и попробуйте ещё раз. Осталось попыток: 4.",
+        attemptsRemaining: 4
+      },
+      status: 400
+    });
+    renderAuth();
+
+    await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
+    await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
+    await fireEvent.update(screen.getByLabelText("Код"), "111111");
+    await fireEvent.click(screen.getByRole("button", { name: "Войти" }));
+
+    expect(await screen.findByText("Неверный код. Проверьте цифры и попробуйте ещё раз. Осталось попыток: 4.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Код из письма" })).toBeTruthy();
+  });
+
+  it("temporarily disables verification after the attempt limit is reached", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(verifyEmailCode).mockRejectedValueOnce({
+      data: {
+        code: "AUTH_TOO_MANY_ATTEMPTS",
+        error: "Слишком много неверных попыток. Попробуйте снова через 30 минут.",
+        retryAfterSeconds: 1800,
+        attemptsRemaining: 0
+      },
+      status: 429
+    });
+    renderAuth();
+
+    await fireEvent.update(screen.getByLabelText("Email"), "ivan@example.com");
+    await fireEvent.click(screen.getByRole("button", { name: "Получить код" }));
+    await fireEvent.update(screen.getByLabelText("Код"), "111111");
+    await fireEvent.click(screen.getByRole("button", { name: "Войти" }));
+
+    expect(await screen.findByText("Слишком много неверных попыток. Попробуйте снова через 30 минут.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: /Повторить вход через 30:00/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });

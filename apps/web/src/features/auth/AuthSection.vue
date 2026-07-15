@@ -6,7 +6,7 @@ import { Download, Mail, MailWarning, Share, ShieldCheck } from "lucide-vue-next
 import { requestPwaInstallPrompt } from "@/features/app/pwaInstall";
 import { useSessionStore } from "@/stores/session";
 
-type AuthRequestError = Error & { retryAfterSeconds?: number };
+type AuthRequestError = Error & { retryAfterSeconds?: number; code?: string };
 
 const session = useSessionStore();
 const email = ref("");
@@ -19,6 +19,8 @@ const installPlatform = ref(detectInstallPlatform());
 const installFallbackVisible = ref(false);
 const resendCooldownMs = 60_000;
 let resendCooldownTimer: number | null = null;
+const verifyBlockedUntil = ref<number | null>(null);
+let verifyBlockTimer: number | null = null;
 let removeInstalledPwaListeners: Array<() => void> = [];
 
 const isCodeStep = computed(() => Boolean(session.pendingEmail));
@@ -37,6 +39,16 @@ const requestButtonLabel = computed(() =>
 );
 const canRequestCode = computed(() => !session.loading && Boolean(email.value) && resendRemainingSeconds.value <= 0);
 const canResendCode = computed(() => !session.loading && resendRemainingSeconds.value <= 0);
+const verifyBlockedRemainingSeconds = computed(() =>
+  verifyBlockedUntil.value ? Math.max(0, Math.ceil((verifyBlockedUntil.value - nowMs.value) / 1000)) : 0
+);
+const verifyButtonLabel = computed(() => {
+  const remaining = verifyBlockedRemainingSeconds.value;
+  if (!remaining) return "Войти";
+  const minutes = Math.floor(remaining / 60).toString().padStart(2, "0");
+  const seconds = (remaining % 60).toString().padStart(2, "0");
+  return `Повторить вход через ${minutes}:${seconds}`;
+});
 const installGuide = computed(() => getInstallGuide(installPlatform.value));
 const isIosInstallFlow = computed(() => installPlatform.value.isIos && !isInstalledPwa.value);
 const installTitle = computed(() => installGuide.value.title);
@@ -96,6 +108,30 @@ function getRetryAfterSeconds(error: unknown) {
     : null;
 }
 
+function getAuthErrorCode(error: unknown) {
+  return typeof error === "object" && error && "code" in error && typeof (error as AuthRequestError).code === "string"
+    ? (error as AuthRequestError).code
+    : null;
+}
+
+function stopVerifyBlockTimer() {
+  if (verifyBlockTimer) window.clearInterval(verifyBlockTimer);
+  verifyBlockTimer = null;
+}
+
+function startVerifyBlock(seconds: number) {
+  stopVerifyBlockTimer();
+  nowMs.value = Date.now();
+  verifyBlockedUntil.value = nowMs.value + Math.max(1, seconds) * 1000;
+  verifyBlockTimer = window.setInterval(() => {
+    nowMs.value = Date.now();
+    if (verifyBlockedRemainingSeconds.value <= 0) {
+      verifyBlockedUntil.value = null;
+      stopVerifyBlockTimer();
+    }
+  }, 1000);
+}
+
 async function submitEmail() {
   if (!canRequestCode.value) {
     return;
@@ -120,6 +156,10 @@ async function submitCode() {
   try {
     await session.verifyEmailCode(session.pendingEmail, code.value, referralCode.value);
   } catch (error) {
+    const retryAfterSeconds = getRetryAfterSeconds(error);
+    if (getAuthErrorCode(error) === "AUTH_TOO_MANY_ATTEMPTS" && retryAfterSeconds) {
+      startVerifyBlock(retryAfterSeconds);
+    }
     localError.value = error instanceof Error ? error.message : "Не удалось войти.";
   }
 }
@@ -149,6 +189,8 @@ function changeEmail() {
   code.value = "";
   resendAvailableAt.value = null;
   stopResendCooldownTimer();
+  stopVerifyBlockTimer();
+  verifyBlockedUntil.value = null;
 }
 
 function installApp() {
@@ -207,6 +249,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopResendCooldownTimer();
+  stopVerifyBlockTimer();
   removeInstalledPwaListeners.forEach((removeListener) => removeListener());
   removeInstalledPwaListeners = [];
 });
@@ -311,14 +354,14 @@ onBeforeUnmount(() => {
     <form v-else class="auth-form" @submit.prevent="submitCode">
       <label>
         <span>Код</span>
-        <input v-model.trim="code" class="text-input" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required />
+        <input v-model.trim="code" class="text-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="123456" required />
       </label>
       <p class="auth-spam-hint">
         <MailWarning aria-hidden="true" />
         <span>Письмо не пришло? Проверьте папку «Спам».</span>
       </p>
-      <button class="primary-button" type="submit" :disabled="session.loading || code.length < 6">
-        Войти
+      <button class="primary-button" type="submit" :disabled="session.loading || code.length < 6 || verifyBlockedRemainingSeconds > 0">
+        {{ verifyButtonLabel }}
       </button>
       <button class="secondary-button" type="button" :disabled="!canResendCode" @click="resendCode">
         {{ resendButtonLabel }}

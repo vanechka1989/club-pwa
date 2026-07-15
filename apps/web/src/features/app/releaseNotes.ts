@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Защищённый вход по коду",
+    items: [
+      "При неверном коде форма теперь показывает понятную причину и количество оставшихся попыток.",
+      "После пяти ошибок вход временно блокируется для сочетания email и устройства; дополнительно действует защитный потолок по IP.",
+      "Счётчики хранятся на сервере в виде хешей и не сбрасываются после перезапуска приложения."
+    ]
+  },
+  {
+    version: "4.51",
+    updatedAt: "16.07.2026 00:01",
     title: "Заметная подсказка о письме",
     items: [
       "Подсказка о папке «Спам» теперь выделена системно-жёлтым цветом и не сливается с кнопкой входа.",
@@ -3150,11 +3160,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Highlighted email reminder",
+  title: "Protected email code sign-in",
   items: [
-    "The Spam folder reminder now uses the system warning-yellow palette and no longer blends into the sign-in button.",
-    "Its warm background, border, and icon follow each theme’s semantic warning color.",
-    "Readable contrast and compact sizing are preserved on narrow mobile screens."
+    "An incorrect code now shows a clear explanation and the number of attempts remaining.",
+    "Five failed attempts temporarily block the email-and-device pair, with an additional IP-wide safety ceiling.",
+    "Attempt counters are stored server-side as hashes and survive app or server restarts."
   ]
 };
 

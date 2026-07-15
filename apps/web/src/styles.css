@@ -1557,8 +1557,10 @@ body.club-mobile-device .mobile-bottom-nav {
 }
 
 .auth-error {
-  background: color-mix(in srgb, #ef4444 11%, transparent);
-  color: #b91c1c;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+  color: var(--danger-text);
+  font-weight: 700;
 }
 
 @media (max-width: 560px) {
