@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the persistent login form fix as version 4.54", () => {
-    expect(appVersion).toBe("4.54");
-    expect(releaseNotes[0]?.title).toBe("Форма входа больше не сбрасывается");
-    expect(releaseNotes[1]?.version).toBe("4.53");
+  it("publishes the resilient deployment pipeline as version 4.55", () => {
+    expect(appVersion).toBe("4.55");
+    expect(releaseNotes[0]?.title).toBe("Надёжные и быстрые обновления");
+    expect(releaseNotes[1]?.version).toBe("4.54");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Login form no longer resets");
+    expect(englishNotes[0]?.title).toBe("Reliable and faster updates");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

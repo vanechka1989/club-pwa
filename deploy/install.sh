@@ -181,6 +181,10 @@ ssh "$SSH_TARGET" "set -e
       chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
     fi
 
+    if ! docker buildx version >/dev/null 2>&1; then
+      apt-get install -y docker-buildx-plugin || apt-get install -y docker-buildx || true
+    fi
+
     systemctl enable --now docker
   elif command -v dnf >/dev/null 2>&1; then
     dnf install -y git ca-certificates curl openssl
@@ -189,6 +193,9 @@ ssh "$SSH_TARGET" "set -e
     fi
     if ! docker compose version >/dev/null 2>&1; then
       dnf install -y docker-compose-plugin
+    fi
+    if ! docker buildx version >/dev/null 2>&1; then
+      dnf install -y docker-buildx-plugin || true
     fi
     systemctl enable --now docker
   else

@@ -58,6 +58,10 @@ install_packages() {
       chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
     fi
 
+    if ! docker buildx version >/dev/null 2>&1; then
+      apt-get install -y docker-buildx-plugin || apt-get install -y docker-buildx || true
+    fi
+
     systemctl enable --now docker
     return
   fi
@@ -69,6 +73,9 @@ install_packages() {
     fi
     if ! docker compose version >/dev/null 2>&1; then
       dnf install -y docker-compose-plugin
+    fi
+    if ! docker buildx version >/dev/null 2>&1; then
+      dnf install -y docker-buildx-plugin || true
     fi
     systemctl enable --now docker
     return

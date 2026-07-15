@@ -15,6 +15,7 @@ services:
       retries: 10
 
   api:
+    image: club-pwa-api:latest
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -58,9 +59,7 @@ services:
       - "3000"
 
   migrate:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
+    image: club-pwa-api:latest
     restart: "no"
     environment:
       NODE_ENV: production
@@ -96,6 +95,7 @@ services:
     command: ["pnpm", "--filter", "@club/api", "db:migrate"]
 
   web:
+    image: club-pwa-web:latest
     build:
       context: .
       dockerfile: apps/web/Dockerfile

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Надёжные и быстрые обновления",
+    items: [
+      "Обновление продолжает выполняться на сервере даже при разрыве SSH-соединения и сохраняет подробный статус.",
+      "Интерфейс и API теперь собираются отдельно: изменение только веб-приложения больше не перезапускает сервер и базу данных.",
+      "Успешно развёрнутый commit фиксируется только после проверки здоровья; при неудаче сохраняется возможность повторить обновление и выполнить откат контейнеров."
+    ]
+  },
+  {
+    version: "4.54",
+    updatedAt: "16.07.2026 01:04",
     title: "Форма входа больше не сбрасывается",
     items: [
       "Форма ввода кода больше не размонтируется во время проверки и не очищает введённые цифры.",
@@ -3180,11 +3190,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Login form no longer resets",
+  title: "Reliable and faster updates",
   items: [
-    "The code form stays mounted during verification and keeps the entered digits in place.",
-    "Invalid and expired-code feedback remains directly below the field together with the remaining-attempt count.",
-    "Initial profile loading is now separate from email-code requests, preventing authentication flicker and resets."
+    "Deployments keep running on the server after an SSH disconnect and expose durable progress information.",
+    "Web and API builds are now selected independently, so frontend-only changes no longer restart the server or database.",
+    "A commit is recorded as deployed only after health verification, with retry-safe state and best-effort container rollback on failure."
   ]
 };
 
