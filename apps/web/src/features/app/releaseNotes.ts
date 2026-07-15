@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Удобные сообщения и полноэкранные вложения",
+    items: [
+      "Сообщение клиенту открывается аккуратной полноширинной панелью снизу, а кнопка вложения снова показывает заметную скрепку.",
+      "Фотографии из поддержки теперь сразу открываются без рамок на весь экран — как изображения в чате.",
+      "В просмотре поддержки работают увеличение двумя пальцами, перемещение увеличенного изображения и масштабирование двойным нажатием."
+    ]
+  },
+  {
+    version: "4.44",
+    updatedAt: "15.07.2026 17:49",
     title: "Сообщения клиентам и вложения поддержки",
     items: [
       "Форма сообщения клиенту теперь открывается отдельным компактным окном поверх карточки, а курсор сразу устанавливается в поле ввода.",
@@ -3080,11 +3090,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client messages and support attachments",
+  title: "Polished messages and fullscreen attachments",
   items: [
-    "The client message composer now opens in a compact overlay and focuses the message field immediately.",
-    "Support photos and videos now open above the routed ticket screen instead of remaining hidden behind it.",
-    "Both flows are covered on 320 px and 390 px mobile layouts."
+    "Client messages now open in a clean full-width bottom sheet, and the attachment control visibly shows its paperclip icon.",
+    "Support photos now open immediately in a frameless fullscreen viewer matching chat images.",
+    "The support viewer supports pinch zoom, panning while zoomed, and double-tap zoom."
   ]
 };
 

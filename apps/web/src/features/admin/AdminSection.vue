@@ -36,6 +36,7 @@ import {
   CreditCard,
   ExternalLink,
   Megaphone,
+  Paperclip,
   RotateCcw,
   Server,
   SlidersHorizontal,
@@ -3403,7 +3404,7 @@ onUnmounted(() => {
               </header>
               <div class="admin-client-message-body">
                 <div class="admin-client-message-row">
-                  <label class="support-file-icon-button admin-client-file-button" title="Добавить файл" aria-label="Добавить файл">
+                  <label class="support-file-icon-button ui-icon-button admin-client-file-button" title="Добавить файл" aria-label="Добавить файл">
                     <Paperclip class="h-4 w-4" aria-hidden="true" />
                     <span v-if="clientMessageFiles.length" class="support-file-count">{{ clientMessageFiles.length }}</span>
                     <input type="file" accept="image/*,video/*" multiple @change="updateClientMessageFiles" />

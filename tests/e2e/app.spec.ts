@@ -2323,6 +2323,13 @@ test("opens support attachments above the routed ticket screen", async ({ page }
   const image = viewer.locator("img");
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(viewer.locator(".support-attachment-viewer-panel")).toHaveCount(0);
+  const viewport = page.viewportSize();
+  const viewerBox = await viewer.boundingBox();
+  expect(viewerBox?.width ?? 0).toBeGreaterThanOrEqual((viewport?.width ?? 0) - 1);
+  expect(viewerBox?.height ?? 0).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 1);
+  await image.dblclick();
+  await expect(image).toHaveCSS("transform", /matrix\(2, 0, 0, 2/);
 
   const layers = await page.evaluate(() => ({
     task: Number.parseInt(getComputedStyle(document.querySelector<HTMLElement>(".support-ticket-task-screen.task-screen-route-layer")!).zIndex, 10),
@@ -2341,6 +2348,13 @@ test("opens the client message composer as a visible overlay", async ({ page }, 
   const input = layer.getByPlaceholder("Напишите сообщение клиенту");
   await expect(input).toBeVisible();
   await expect(input).toBeFocused();
+  const attachmentButton = layer.locator(".admin-client-file-button");
+  await expect(attachmentButton).toBeVisible();
+  await expect(attachmentButton.locator("svg")).toBeVisible();
+  const modalBox = await layer.locator(".admin-client-message-modal").boundingBox();
+  const viewport = page.viewportSize();
+  expect(modalBox?.width ?? 0).toBeGreaterThanOrEqual((viewport?.width ?? 0) - 1);
+  expect((modalBox?.y ?? 0) + (modalBox?.height ?? 0)).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 1);
   await expect(page.locator(".admin-client-task-screen .task-screen-body .admin-client-message-modal")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("admin-client-message-overlay.png"), fullPage: false });
 });

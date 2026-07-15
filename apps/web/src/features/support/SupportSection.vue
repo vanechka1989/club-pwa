@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { CheckCircle2, CircleDot, Image, Maximize2, Minimize2, Paperclip, Send, Video, X } from "lucide-vue-next";
+import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
 import type { SupportAttachment, SupportTicket } from "@club/shared";
 import {
   closeSupportTicket,
@@ -20,6 +20,7 @@ import { sortSupportTickets } from "@/features/support/supportTickets";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
+import { useImageViewerGestures } from "@/features/community/useImageViewerGestures";
 
 const emit = defineEmits<{
   "unread-change": [count: number];
@@ -46,8 +47,7 @@ const createTicketOpen = computed(() => route.path === "/support/new");
 const closeConfirmOpen = ref(false);
 const openedAttachment = ref<SupportAttachment | null>(null);
 const threadRef = ref<HTMLElement | null>(null);
-const attachmentPanelRef = ref<HTMLElement | null>(null);
-const attachmentInlineFullscreen = ref(false);
+const attachmentImageViewer = useImageViewerGestures();
 const topic = ref("payment");
 const customTopic = ref("");
 const message = ref("");
@@ -82,7 +82,6 @@ const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.s
 const closedTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "closed"));
 const adminUnreadTickets = computed(() => tickets.value.filter((ticket) => ticket.unread));
 const supportBusy = computed(() => sendingTicket.value || sendingReply.value || sendingFollowUp.value || closingTicket.value);
-const isVideoAttachment = computed(() => openedAttachment.value?.kind === "video");
 const averageResponseTimeLabel = computed(() => {
   const averageMinutes = calculateAverageResponseMinutes(tickets.value);
   return averageMinutes === null ? t("supportNoAnswers") : formatDurationMinutes(averageMinutes);
@@ -430,17 +429,13 @@ function closeModal() {
 }
 
 function openAttachment(attachment: SupportAttachment) {
+  attachmentImageViewer.reset();
   openedAttachment.value = attachment;
-  attachmentInlineFullscreen.value = false;
 }
 
 function closeAttachment() {
   openedAttachment.value = null;
-  attachmentInlineFullscreen.value = false;
-}
-
-function toggleAttachmentFullscreen() {
-  attachmentInlineFullscreen.value = !attachmentInlineFullscreen.value;
+  attachmentImageViewer.reset();
 }
 
 async function submitTicket() {
@@ -940,47 +935,32 @@ watch(
       <div
         v-if="openedAttachment"
         class="support-attachment-viewer"
-        :class="{ 'support-attachment-viewer-fullscreen': attachmentInlineFullscreen }"
         @click.self="closeAttachment"
       >
-        <article ref="attachmentPanelRef" class="support-attachment-viewer-panel">
-          <header>
-            <strong>{{ openedAttachment.fileName }}</strong>
-            <div class="support-attachment-viewer-head-actions">
-              <button
-                v-if="isVideoAttachment"
-                class="support-modal-close"
-                type="button"
-                :aria-label="attachmentInlineFullscreen ? 'Свернуть видео' : 'Открыть видео во весь экран'"
-                :title="attachmentInlineFullscreen ? 'Свернуть' : 'Во весь экран'"
-                @click="toggleAttachmentFullscreen"
-              >
-                <Minimize2 v-if="attachmentInlineFullscreen" class="h-5 w-5" aria-hidden="true" />
-                <Maximize2 v-else class="h-5 w-5" aria-hidden="true" />
-              </button>
-              <button class="support-modal-close" type="button" :aria-label="t('supportCloseAttachment')" @click="closeAttachment">
-                <X class="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-          </header>
+        <button class="support-attachment-viewer-dismiss" type="button" :aria-label="t('supportCloseAttachment')" @click="closeAttachment">
+          <X class="h-6 w-6" aria-hidden="true" />
+        </button>
+        <div class="support-attachment-viewer-stage">
           <img
             v-if="openedAttachment.kind === 'photo'"
-            class="support-attachment-viewer-media"
             :src="openedAttachment.url"
             :alt="openedAttachment.fileName"
+            :style="attachmentImageViewer.imageStyle.value"
+            draggable="false"
+            @pointerdown="attachmentImageViewer.onPointerDown"
+            @pointermove="attachmentImageViewer.onPointerMove"
+            @pointerup="attachmentImageViewer.onPointerUp"
+            @pointercancel="attachmentImageViewer.onPointerUp"
+            @dblclick="attachmentImageViewer.toggleZoom"
           />
           <video
             v-else
-            class="support-attachment-viewer-media"
             :src="openedAttachment.url"
             controls
             autoplay
             playsinline
           />
-          <button class="support-attachment-viewer-close" type="button" @click="closeAttachment">
-            {{ t("supportCloseAttachment") }}
-          </button>
-        </article>
+        </div>
       </div>
     </Teleport>
   </section>

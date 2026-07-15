@@ -122,30 +122,29 @@ describe("support section", () => {
     expect(styles).toMatch(/@media \(min-width:\s*620px\)\s*\{[^}]*\.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/s);
   });
 
-  it("opens compact attachment pills from the support thread", () => {
+  it("opens support photos in the same frameless gesture viewer as chat images", () => {
     expect(source).toContain("support-attachment-preview");
     expect(source).toContain("support-attachment-open");
     expect(source).toContain("support-attachment-viewer");
     expect(source).toContain("openAttachment(attachment)");
-    expect(source).toContain("toggleAttachmentFullscreen");
+    expect(source).toContain("useImageViewerGestures");
+    expect(source).toContain("attachmentImageViewer.imageStyle.value");
+    expect(source).toContain('@pointermove="attachmentImageViewer.onPointerMove"');
+    expect(source).toContain('@dblclick="attachmentImageViewer.toggleZoom"');
+    expect(source).toContain("support-attachment-viewer-stage");
+    expect(source).not.toContain("toggleAttachmentFullscreen");
+    expect(source).not.toContain("support-attachment-viewer-panel");
+    expect(source).not.toContain("support-attachment-viewer-fullscreen");
     expect(source).not.toContain("webkitEnterFullscreen");
     expect(source).not.toContain("requestFullscreen");
-    expect(source).toContain("support-attachment-viewer-close");
     expect(source).toContain("<video");
     expect(source).toContain("openedAttachment.kind === 'photo'");
     expect(source).toContain("supportOpenAttachment");
     expect(styles).toContain(".support-attachment-open");
     expect(styles).not.toContain(".support-attachment-preview img");
-    expect(styles).toContain(".support-attachment-viewer-fullscreen");
-    expect(styles).toContain("width: 100vw");
-    expect(styles).toContain("height: var(--club-viewport-height, 100dvh)");
-    expect(styles).toContain("border-radius: 0");
-    expect(styles).toContain("top: 50%");
-    expect(styles).toContain("transform: translateY(-50%)");
-    expect(styles).toContain("right: max(4.4rem");
-    expect(styles).toContain("backdrop-filter: blur(12px)");
-    expect(styles).toContain(".support-attachment-viewer-media");
-    expect(styles).toContain("touch-action: pan-x pan-y pinch-zoom");
+    expect(styles).toMatch(/\.support-attachment-viewer\s*\{[^}]*padding:\s*0;[^}]*background:\s*#000;/s);
+    expect(styles).toMatch(/\.support-attachment-viewer-stage\s*\{[^}]*width:\s*100vw;[^}]*height:\s*var\(--club-viewport-height, 100dvh\);[^}]*touch-action:\s*none;/s);
+    expect(styles).toMatch(/\.support-attachment-viewer-stage > :is\(img, video\)\s*\{[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*object-fit:\s*contain;/s);
     const viewerLayer = Number.parseInt(styles.match(/\.support-attachment-viewer\s*\{[^}]*z-index:\s*(\d+)/s)?.[1] ?? "0", 10);
     const taskLayers = [...styles.matchAll(/\.task-screen-route-layer\s*\{[^}]*z-index:\s*(\d+)/gs)].map((match) => Number.parseInt(match[1] ?? "0", 10));
     const taskLayer = Math.max(0, ...taskLayers);
@@ -178,7 +177,6 @@ describe("support section", () => {
     expect(styles).toContain(".support-file-icon-button");
     expect(styles).toContain(".support-reply-actions .support-danger-button");
     expect(styles).toContain("scroll-padding-bottom");
-    expect(styles).toContain(".support-attachment-viewer-close");
     expect(styles).toContain("var(--club-modal-bottom-offset");
   });
 

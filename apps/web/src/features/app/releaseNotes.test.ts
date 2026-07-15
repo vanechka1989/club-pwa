@@ -3,10 +3,10 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes client message and support attachment fixes as version 4.44", () => {
-    expect(appVersion).toBe("4.44");
-    expect(releaseNotes[0]?.title).toBe("Сообщения клиентам и вложения поддержки");
-    expect(releaseNotes[1]?.version).toBe("4.43");
+  it("publishes the polished client composer and fullscreen support viewer as version 4.45", () => {
+    expect(appVersion).toBe("4.45");
+    expect(releaseNotes[0]?.title).toBe("Удобные сообщения и полноэкранные вложения");
+    expect(releaseNotes[1]?.version).toBe("4.44");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -40,7 +40,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Client messages and support attachments");
+    expect(englishNotes[0]?.title).toBe("Polished messages and fullscreen attachments");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
