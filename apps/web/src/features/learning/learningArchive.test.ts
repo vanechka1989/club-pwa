@@ -488,6 +488,49 @@ describe("Learning section modules", () => {
     expect(screen.queryByLabelText("Название урока")).toBeNull();
   });
 
+  it("opens an existing lesson in the client viewer for an owner", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 3\. Библиотека/ }));
+
+    const lessonDialog = screen.getByRole("dialog", { name: "Вариант 3. Библиотека" });
+    expect(lessonDialog.classList.contains("lesson-preview-modal-view")).toBe(true);
+    expect(lessonDialog.querySelector(".lesson-viewer-content")).toBeTruthy();
+    expect(screen.queryByLabelText("Название урока")).toBeNull();
+    expect(screen.getByRole("button", { name: "Редактировать урок" })).toBeTruthy();
+  });
+
+  it("opens the editor from the lesson header and returns to the viewer with back", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 3\. Библиотека/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
+
+    expect(screen.getByLabelText("Название урока")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Редактировать урок" })).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+
+    expect(screen.getByRole("dialog", { name: "Вариант 3. Библиотека" }).querySelector(".lesson-viewer-content")).toBeTruthy();
+    expect(screen.queryByLabelText("Название урока")).toBeNull();
+  });
+
+  it("returns to the viewer after successfully saving an existing lesson", async () => {
+    renderAsOwner();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 3\. Библиотека/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
+    await fireEvent.update(screen.getByLabelText("Описание урока"), "Обновлённое описание");
+    await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
+
+    expect(screen.getByRole("dialog", { name: "Вариант 3. Библиотека" }).querySelector(".lesson-viewer-content")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Редактировать урок" })).toBeTruthy();
+    expect(screen.queryByLabelText("Название урока")).toBeNull();
+  });
+
   it("uses the available mobile width for the lesson viewer", async () => {
     const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
@@ -688,6 +731,7 @@ describe("Learning section modules", () => {
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
 
     expect(screen.getByText("Текущая обложка сохранена")).toBeTruthy();
 
@@ -703,12 +747,14 @@ describe("Learning section modules", () => {
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
 
     await fireEvent.update(screen.getByLabelText("Название урока"), "Первый урок");
     await fireEvent.update(screen.getByLabelText("Описание урока"), "Обновленное описание урока");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить урок" }));
 
-    expect(screen.queryByRole("dialog", { name: "Вариант 1. Плеер и очередь" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Первый урок" }).querySelector(".lesson-viewer-content")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
     expect(screen.getByRole("button", { name: /Первый урок/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeNull();
   });
@@ -718,6 +764,7 @@ describe("Learning section modules", () => {
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
     await acceptCurrentDialog(pinia);
 
@@ -731,6 +778,7 @@ describe("Learning section modules", () => {
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
     await acceptCurrentDialog(pinia);
 
@@ -756,6 +804,7 @@ describe("Learning section modules", () => {
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить урок" }));
     await acceptCurrentDialog(pinia);
 

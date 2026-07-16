@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes admin-only community topics as version 4.62", () => {
-    expect(appVersion).toBe("4.62");
-    expect(releaseNotes[0]?.title).toBe("Скрытые чаты для администраторов");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("администратор");
-    expect(releaseNotes[1]?.version).toBe("4.61");
+  it("publishes the view-first lesson flow as version 4.63", () => {
+    expect(appVersion).toBe("4.63");
+    expect(releaseNotes[0]?.title).toBe("Просмотр урока перед редактированием");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Редактировать");
+    expect(releaseNotes[1]?.version).toBe("4.62");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Admin-only community chats");
+    expect(englishNotes[0]?.title).toBe("Lesson preview before editing");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

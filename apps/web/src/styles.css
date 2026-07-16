@@ -15403,6 +15403,33 @@ textarea.text-input,
   gap: 0.85rem;
 }
 
+.learning-task-screen .task-screen-actions {
+  grid-column: auto;
+  width: auto;
+  justify-content: flex-end;
+}
+
+.learning-task-screen .task-screen-actions > .lesson-header-edit-button {
+  display: inline-flex;
+  width: auto;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 56%, var(--border));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface-2));
+  color: var(--accent);
+  padding: 0.65rem 0.8rem;
+  font-size: var(--font-small);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.learning-task-screen .lesson-header-edit-button:active {
+  transform: translateY(1px);
+}
+
 .learning-task-screen .lesson-editor-form .admin-field {
   display: grid;
   width: 100%;

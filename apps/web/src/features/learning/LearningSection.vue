@@ -353,6 +353,7 @@ const lessonMaterialDrafts = ref<LessonMaterialDraft[]>([]);
 const lessonError = ref("");
 const isLoadingLessonContent = ref(false);
 const lessonViewerError = ref("");
+const lessonEditorMode = ref(false);
 const isVoiceRecording = ref(false);
 const voiceRecorder = ref<MediaRecorder | null>(null);
 const voiceStream = ref<MediaStream | null>(null);
@@ -382,6 +383,9 @@ const moduleModalDescription = computed(() => (editingModule.value ? "Измен
 const trimmedModuleTitle = computed(() => moduleTitle.value.trim());
 const selectedLessonModule = computed(() => moduleCards.value.find((module) => module.id === selectedLesson.value?.moduleId) ?? null);
 const selectedLessonItem = computed(() => selectedLessonModule.value?.images.find((lesson) => lesson.id === selectedLesson.value?.lessonId) ?? null);
+const isLessonEditorMode = computed(() =>
+  Boolean(selectedLesson.value && (!selectedLessonItem.value || (canManageModules.value && lessonEditorMode.value)))
+);
 const lastOpenedLesson = computed(() => {
   const item = learningProgress.value?.lastOpenedItem;
   return item ? materialToLesson(item) : null;
@@ -757,7 +761,13 @@ function getInternalLessonMaterialTitle(material: LessonMaterialDraft, index: nu
   return material.title.trim() || `${kindLabel[material.kind]} ${index + 1}`;
 }
 
-function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStartSeconds = 0, materialId: string | null = null) {
+function openLessonModal(
+  module: ModuleCard,
+  lesson: ModuleLesson,
+  playbackStartSeconds = 0,
+  materialId: string | null = null,
+  editorMode = false
+) {
   resetLessonVideoState();
   if (!module.images.some((item) => item.id === lesson.id)) {
     module.images = [lesson, ...module.images];
@@ -781,15 +791,44 @@ function openLessonModal(module: ModuleCard, lesson: ModuleLesson, playbackStart
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = lesson.content;
   lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
+  lessonEditorMode.value = canManageModules.value && editorMode;
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
   void loadLessonContentForMember(lesson);
-  if (canManageModules.value) {
+  if (lessonEditorMode.value) {
     openLearningTask(`/learning/lessons/${lesson.id}/edit`);
   } else {
     openLearningTask(`/learning/lessons/${lesson.id}`);
   }
+}
+
+function openLessonEditor() {
+  if (!canManageModules.value || !selectedLessonItem.value) {
+    return;
+  }
+
+  lessonEditorMode.value = true;
+  openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/edit`);
+}
+
+function showLessonViewer(lessonId = selectedLessonItem.value?.id ?? null) {
+  if (!lessonId) {
+    closeLessonModal();
+    return;
+  }
+
+  lessonEditorMode.value = false;
+  openLearningTask(`/learning/lessons/${lessonId}`);
+}
+
+function handleLessonBack() {
+  if (isLessonEditorMode.value && selectedLessonItem.value) {
+    showLessonViewer(selectedLessonItem.value.id);
+    return;
+  }
+
+  closeLessonModal();
 }
 
 function openLastLesson() {
@@ -827,6 +866,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = "";
   lessonMaterialDrafts.value = [];
+  lessonEditorMode.value = true;
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -851,6 +891,7 @@ function closeLessonModal() {
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
   lessonMaterialDrafts.value = [];
+  lessonEditorMode.value = false;
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -2096,6 +2137,8 @@ async function saveLesson() {
     return;
   }
 
+  const existingLessonId = selectedLessonItem.value?.id ?? null;
+
   const draftError = getMaterialDraftError({
     title: lessonTitle.value,
     kind: lessonKind.value,
@@ -2139,7 +2182,11 @@ async function saveLesson() {
 
   if (!modulesLoadedFromApi.value) {
     saveLessonLocally();
-    closeLessonModal();
+    if (existingLessonId) {
+      showLessonViewer(existingLessonId);
+    } else {
+      closeLessonModal();
+    }
     return;
   }
 
@@ -2189,14 +2236,18 @@ async function saveLesson() {
       } else {
         addMaterialToModule(response.material);
       }
-      closeLessonModal();
+      if (existingLessonId) {
+        showLessonViewer(existingLessonId);
+      } else {
+        closeLessonModal();
+      }
       return;
     }
 
     if (selectedLessonItem.value?.isPersisted) {
       const response = await updateAdminLearningMaterial(selectedLessonItem.value.id, buildLessonForm());
       replaceMaterialInModule(response.material);
-      closeLessonModal();
+      showLessonViewer(existingLessonId);
       return;
     }
 
@@ -2468,9 +2519,14 @@ async function syncLearningTaskRoute() {
   const lessonMatch = path.match(/^\/learning\/lessons\/([^/]+)(?:\/edit)?$/);
   if (lessonMatch) {
     const lessonId = decodeURIComponent(lessonMatch[1]!);
+    const wantsEditor = path.endsWith("/edit");
     const module = moduleCards.value.find((item) => item.images.some((lesson) => lesson.id === lessonId));
     const lesson = module?.images.find((item) => item.id === lessonId);
-    if (module && lesson && selectedLesson.value?.lessonId !== lesson.id) openLessonModal(module, lesson);
+    if (module && lesson && selectedLesson.value?.lessonId !== lesson.id) {
+      openLessonModal(module, lesson, 0, null, wantsEditor);
+    } else if (module && lesson) {
+      lessonEditorMode.value = canManageModules.value && wantsEditor;
+    }
     return;
   }
 
@@ -2820,15 +2876,26 @@ watch(
     <TaskScreen
       v-if="selectedLesson && selectedLessonModule"
       class="learning-task-screen"
-      :class="{ 'learning-task-screen-view': !canManageModules }"
+      :class="{ 'learning-task-screen-view': !isLessonEditorMode }"
       :title="lessonModalTitle"
       :subtitle="lessonModalSubtitle"
       portal
-      @back="closeLessonModal"
+      @back="handleLessonBack"
     >
+        <template v-if="canManageModules && selectedLessonItem && !isLessonEditorMode" #actions>
+          <button
+            class="lesson-header-edit-button ui-button"
+            type="button"
+            aria-label="Редактировать урок"
+            @click="openLessonEditor"
+          >
+            <Pencil class="h-4 w-4" aria-hidden="true" />
+            <span>Редактировать</span>
+          </button>
+        </template>
         <section
           class="lesson-preview-modal ui-card"
-          :class="canManageModules ? 'lesson-preview-modal-edit' : 'lesson-preview-modal-view'"
+          :class="isLessonEditorMode ? 'lesson-preview-modal-edit' : 'lesson-preview-modal-view'"
           role="dialog"
           aria-modal="true"
           :aria-label="lessonModalTitle"
@@ -2842,7 +2909,7 @@ watch(
           </header>
 
           <div class="lesson-preview-scroll">
-            <article v-if="!canManageModules && selectedLessonItem" class="lesson-viewer-content">
+            <article v-if="!isLessonEditorMode && selectedLessonItem" class="lesson-viewer-content">
               <span class="lesson-preview-kicker">Содержимое урока</span>
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
               <p v-else-if="lessonViewerError" class="lesson-viewer-empty">{{ lessonViewerError }}</p>
@@ -3023,7 +3090,7 @@ watch(
               </section>
             </article>
 
-            <div v-if="canManageModules" class="admin-form lesson-editor-form">
+            <div v-if="isLessonEditorMode" class="admin-form lesson-editor-form">
               <div class="admin-field">
                 <span>Вид карточки</span>
                 <div class="lesson-layout-locked">

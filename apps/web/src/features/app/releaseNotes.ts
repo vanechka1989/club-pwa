@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Просмотр урока перед редактированием",
+    items: [
+      "Владелец, разработчик и администратор теперь открывают существующий урок в том же клиентском виде, который видят участники клуба.",
+      "Компактная кнопка «Редактировать» в правой части шапки переводит в редактор только по явному нажатию.",
+      "Возврат из редактора и успешное сохранение существующего урока снова показывают его обычную карточку."
+    ]
+  },
+  {
+    version: "4.62",
+    updatedAt: "16.07.2026 13:18",
     title: "Скрытые чаты для администраторов",
     items: [
       "При создании темы администратор может сделать её доступной только владельцу и администраторам с правом управления общением.",
@@ -3260,11 +3270,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Admin-only community chats",
+  title: "Lesson preview before editing",
   items: [
-    "When creating a topic, an administrator can restrict it to the owner and administrators with community management permission.",
-    "Private topics have a compact lock badge and remain unavailable to regular members in lists and through direct links.",
-    "Messages, polls, reactions, realtime events, and private topic counts are protected on the server."
+    "Owners, developers, and administrators now open an existing lesson in the same member-facing view used by club participants.",
+    "A compact Edit button in the right side of the header opens the editor only after an explicit action.",
+    "Going back from the editor or successfully saving an existing lesson returns to its regular lesson view."
   ]
 };
 

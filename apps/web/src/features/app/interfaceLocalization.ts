@@ -190,6 +190,8 @@ const englishPhrases: Record<string, string> = {
   "За выбранный период": "For the selected period",
   "оплат": "payments",
   "Обучение": "Learning",
+  "Редактировать": "Edit",
+  "Редактировать урок": "Edit lesson",
   "прогресс": "progress",
   "Общение": "Community",
   "сообщений": "messages",
