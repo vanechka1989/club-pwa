@@ -16698,6 +16698,16 @@ body.club-keyboard-open .support-task-screen .support-reply-input-row textarea {
   max-height: 96px;
 }
 
+.support-create-task-screen .task-screen-footer .support-primary-button {
+  width: 100%;
+  margin: 0;
+}
+
+body.club-keyboard-open .support-task-screen .task-screen-footer {
+  position: static;
+  padding-bottom: 12px;
+}
+
 @media (max-width: 768px) {
   .support-task-screen.task-screen-route-layer > .task-screen {
     max-width: none;

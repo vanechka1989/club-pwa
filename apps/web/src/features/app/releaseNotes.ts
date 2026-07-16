@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Поддержка над клавиатурой",
+    items: [
+      "На iPhone экран поддержки больше не получает пустую область из-за двойного учёта высоты клавиатуры.",
+      "Кнопка создания обращения и панель ответа остаются внутри видимой части экрана над клавиатурой.",
+      "Нижняя панель сохраняет компактный отступ, а содержимое формы прокручивается независимо."
+    ]
+  },
+  {
+    version: "4.59",
+    updatedAt: "16.07.2026 11:37",
     title: "Надёжное обновление PWA",
     items: [
       "Временный сбой загрузки Service Worker больше не отмечается как ошибка запуска исправного приложения.",
@@ -3230,11 +3240,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable PWA updates",
+  title: "Keyboard-safe support",
   items: [
-    "A temporary Service Worker load failure is no longer reported as a startup failure of an otherwise healthy app.",
-    "Update checks retry automatically when connectivity returns or the app becomes visible again.",
-    "Concurrent update requests are combined to avoid unnecessary server load."
+    "On iPhone, support screens no longer gain an empty area from counting the keyboard height twice.",
+    "Create-ticket and reply actions remain inside the visible area above the keyboard.",
+    "The footer keeps a compact inset while form content scrolls independently."
   ]
 };
 

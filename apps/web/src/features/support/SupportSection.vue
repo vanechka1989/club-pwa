@@ -742,7 +742,7 @@ watch(
         portal
         @back="closeCreateTicket"
       >
-          <form class="support-modal-body support-customer-form ui-card" @submit.prevent="submitTicket">
+          <form id="support-create-ticket-form" class="support-modal-body support-customer-form ui-card" @submit.prevent="submitTicket">
             <div class="support-form-grid">
               <div class="support-field support-field-wide">
                 <span>{{ t("supportReason") }}</span>
@@ -788,11 +788,18 @@ watch(
               <span v-for="file in attachments" :key="file.name">{{ file.name }}</span>
             </div>
 
-            <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="sendingTicket">
-              <Send class="h-4 w-4" aria-hidden="true" />
-              {{ sendingTicket ? t("supportSending") : t("supportSendTicket") }}
-            </button>
           </form>
+        <template #footer>
+          <button
+            class="support-compact-button support-primary-button ui-button"
+            type="submit"
+            form="support-create-ticket-form"
+            :disabled="sendingTicket"
+          >
+            <Send class="h-4 w-4" aria-hidden="true" />
+            {{ sendingTicket ? t("supportSending") : t("supportSendTicket") }}
+          </button>
+        </template>
       </TaskScreen>
 
       <TaskScreen

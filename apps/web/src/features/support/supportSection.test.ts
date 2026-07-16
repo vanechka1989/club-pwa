@@ -82,6 +82,22 @@ describe("support section", () => {
     expect(keyboardFooterRule).toContain("position: static");
   });
 
+  it("keeps new-ticket submission in the task footer above the iOS keyboard", () => {
+    const createForm = source.match(/<form id="support-create-ticket-form"[\s\S]*?<\/form>/)?.[0] ?? "";
+
+    expect(source).toContain('id="support-create-ticket-form"');
+    expect(source).toMatch(/<template #footer>[\s\S]*form="support-create-ticket-form"/);
+    expect(createForm).not.toContain("support-primary-button");
+  });
+
+  it("does not add a keyboard-sized safe inset to support footers", () => {
+    const keyboardFooterSpacingRule = latestRule("body.club-keyboard-open .support-task-screen .task-screen-footer");
+
+    expect(keyboardFooterSpacingRule).toContain("padding-bottom: 12px");
+    expect(keyboardFooterSpacingRule).not.toContain("--club-safe-bottom");
+    expect(keyboardFooterSpacingRule).not.toContain("--club-keyboard-bottom");
+  });
+
   it("polls tickets and open support threads without reopening the tab", () => {
     expect(source).toContain("supportRefreshTimer");
     expect(source).toContain("startSupportPolling");

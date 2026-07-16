@@ -6,6 +6,7 @@ import {
   getDeviceLayoutClasses,
   getMobileDeviceShellScale,
   getMeasuredKeyboardBottomGap,
+  getMeasuredSystemBottomGap,
   getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
   getViewportSizeClasses
@@ -417,6 +418,11 @@ describe("device layout detection", () => {
 
     expect(visibleHeight).toBe(455);
     expect(keyboardBottomGap).toBe(365);
+  });
+
+  it("does not count the keyboard gap again as a system bottom inset", () => {
+    expect(getMeasuredSystemBottomGap({ keyboardOpen: true, visualBottomGap: 365 })).toBe(0);
+    expect(getMeasuredSystemBottomGap({ keyboardOpen: false, visualBottomGap: 24 })).toBe(24);
   });
 
   it("collects copyable diagnostics from the current device", () => {

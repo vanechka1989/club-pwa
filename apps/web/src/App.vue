@@ -22,6 +22,7 @@ import {
   createDeviceLayoutSnapshot,
   deviceLayoutCssVariables,
   getMeasuredKeyboardBottomGap,
+  getMeasuredSystemBottomGap,
   getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
   syncLayoutClasses
@@ -486,7 +487,8 @@ function syncViewportHeight() {
     visibleHeight,
     visibleOffsetTop: visualViewport?.offsetTop ?? 0
   });
-  const dynamicBottomInset = visualBottomGap;
+  const isKeyboardOpen = visualBottomGap > 80 && isTextFieldElement(document.activeElement);
+  const systemBottomGap = getMeasuredSystemBottomGap({ keyboardOpen: isKeyboardOpen, visualBottomGap });
   const platform = window.navigator.platform;
   const calibration = calculateLayoutCalibration({
     platform: platform ?? null,
@@ -500,13 +502,12 @@ function syncViewportHeight() {
     devicePixelRatio: window.devicePixelRatio ?? null,
     safeAreaInset: null,
     contentSafeAreaInset: null,
-    visualBottomGap
+    visualBottomGap: systemBottomGap
   });
 
-  document.documentElement.style.setProperty("--club-system-bottom", `${dynamicBottomInset}px`);
+  document.documentElement.style.setProperty("--club-system-bottom", `${systemBottomGap}px`);
   document.documentElement.style.setProperty("--club-keyboard-bottom", `${visualBottomGap}px`);
   setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);
-  const isKeyboardOpen = visualBottomGap > 80 && isTextFieldElement(document.activeElement);
   document.documentElement.classList.toggle("club-keyboard-open", isKeyboardOpen);
   document.body.classList.toggle("club-keyboard-open", isKeyboardOpen);
 }

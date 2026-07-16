@@ -176,6 +176,16 @@ export function getMeasuredKeyboardBottomGap({
   return Math.max(0, Math.round(viewportBaseHeight - visibleHeight - visibleOffsetTop));
 }
 
+export function getMeasuredSystemBottomGap({
+  keyboardOpen,
+  visualBottomGap
+}: {
+  keyboardOpen: boolean;
+  visualBottomGap: number;
+}) {
+  return keyboardOpen ? 0 : Math.max(0, Math.round(visualBottomGap));
+}
+
 export function syncLayoutClasses(targets: Array<HTMLElement | null | undefined>, classes: string[]) {
   const enabledClasses = new Set(classes);
 
