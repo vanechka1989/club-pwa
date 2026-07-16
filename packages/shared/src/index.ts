@@ -450,6 +450,13 @@ export const supportTicketSchema = z.object({
     username: z.string().nullable(),
     photoUrl: z.string().url().nullable()
   }),
+  closedAt: z.string().datetime().nullable(),
+  closedBy: z.object({
+    telegramId: z.string(),
+    firstName: z.string().nullable(),
+    username: z.string().nullable(),
+    photoUrl: z.string().url().nullable()
+  }).nullable(),
   messages: z.array(supportMessageSchema),
   unread: z.boolean(),
   createdAt: z.string().datetime(),

@@ -175,6 +175,14 @@ function userName(user: SupportTicket["customer"]) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
 }
 
+function ticketClosedByLabel(ticket: SupportTicket) {
+  if (!ticket.closedAt || !ticket.closedBy) {
+    return "";
+  }
+
+  return `${t("supportClosedBy")}: ${userName(ticket.closedBy)} · ${formatDate(ticket.closedAt)}`;
+}
+
 function attachmentIcon(kind: string) {
   return kind === "video" ? Video : Image;
 }
@@ -567,9 +575,9 @@ async function confirmCloseTicket() {
   try {
     const response = await closeSupportTicket(selectedTicket.value.id);
     replaceTicket(response.ticket);
-    selectedTicketId.value = response.ticket.id;
     showSupportSuccess("Обращение закрыто.");
     emit("unread-change", response.unreadCount);
+    closeModal();
   } catch (requestError: any) {
     showSupportError(requestError?.data?.error ?? "Не удалось закрыть обращение.");
   } finally {
@@ -687,6 +695,7 @@ watch(
           <div>
             <p class="support-ticket-title">{{ ticketTopicTitle(ticket) }}</p>
             <p class="support-muted">{{ formatDate(ticket.createdAt) }} · {{ ticket.messages.length }} {{ t("supportMessagesShort") }}</p>
+            <p v-if="ticketClosedByLabel(ticket)" class="support-ticket-closed-by">{{ ticketClosedByLabel(ticket) }}</p>
           </div>
           <span class="support-status" :class="statusTone(ticket)">
             {{ ticketStatusLabel(ticket) }}
@@ -722,7 +731,8 @@ watch(
             <div class="support-admin-ticket-main">
               <span>{{ userName(ticket.customer) }}</span>
               <small>ID {{ ticket.customer.telegramId }} · {{ ticketTopicTitle(ticket) }}</small>
-              <em>{{ t("supportWaitingTime") }}: {{ waitingTime(ticket.waitingSince) }}</em>
+              <em v-if="ticketClosedByLabel(ticket)" class="support-ticket-closed-by">{{ ticketClosedByLabel(ticket) }}</em>
+              <em v-else>{{ t("supportWaitingTime") }}: {{ waitingTime(ticket.waitingSince) }}</em>
             </div>
             <span class="support-status" :class="statusTone(ticket)">
               {{ ticketStatusLabel(ticket) }}
@@ -874,7 +884,10 @@ watch(
             <div v-if="selectedTicket.status === 'closed'" class="support-modal-actions">
               <span class="support-closed-note">
                 <CircleDot class="h-4 w-4" aria-hidden="true" />
-                {{ t("supportClosedNote") }}
+                <span>
+                  {{ t("supportClosedNote") }}
+                  <small v-if="ticketClosedByLabel(selectedTicket)">{{ ticketClosedByLabel(selectedTicket) }}</small>
+                </span>
               </span>
             </div>
             </div>

@@ -173,6 +173,15 @@ async function serializeTicket(
       username: ticket.user.username,
       photoUrl: ticket.user.photoUrl
     },
+    closedAt: dateToIso(ticket.closedAt),
+    closedBy: ticket.closedBy
+      ? {
+          telegramId: ticket.closedBy.telegramId,
+          firstName: ticket.closedBy.firstName,
+          username: ticket.closedBy.username,
+          photoUrl: ticket.closedBy.photoUrl
+        }
+      : null,
     messages,
     unread:
       isAdminRole(viewerRole)
@@ -188,6 +197,7 @@ async function getTicketById(id: string) {
     where: eq(supportTickets.id, id),
     with: {
       user: true,
+      closedBy: true,
       messages: {
         orderBy: [asc(supportTicketMessages.createdAt)],
         with: {
@@ -320,6 +330,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       orderBy: [desc(supportTickets.updatedAt)],
       with: {
         user: true,
+        closedBy: true,
         messages: {
           orderBy: [asc(supportTicketMessages.createdAt)],
           with: {
@@ -515,11 +526,13 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       .update(supportTickets)
       .set({
         status: "closed",
+        closedAt: now,
+        closedByUserId: userId,
         customerReadAt: ticket.userId === userId ? now : ticket.customerReadAt,
         adminReadAt: isSupportAdmin ? now : ticket.adminReadAt,
         updatedAt: now
       })
-      .where(eq(supportTickets.id, ticket.id));
+      .where(and(eq(supportTickets.id, ticket.id), ne(supportTickets.status, "closed")));
 
     const updatedTicket = await getTicketById(ticket.id);
     if (!updatedTicket) {
@@ -575,6 +588,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       orderBy: [desc(supportTickets.updatedAt)],
       with: {
         user: true,
+        closedBy: true,
         messages: {
           orderBy: [asc(supportTicketMessages.createdAt)],
           with: {

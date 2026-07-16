@@ -18,6 +18,8 @@ function ticket(input: Partial<SupportTicket> & Pick<SupportTicket, "id" | "stat
       username: input.customer?.username ?? null,
       photoUrl: input.customer?.photoUrl ?? null
     },
+    closedAt: input.closedAt ?? null,
+    closedBy: input.closedBy ?? null,
     messages: [],
     unread: input.unread ?? false,
     createdAt: input.createdAt ?? input.updatedAt,

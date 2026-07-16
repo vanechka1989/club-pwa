@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Полное закрытие обращений",
+    items: [
+      "После подтверждения закрытия экран обращения и его подложка полностью закрываются, возвращая пользователя к списку.",
+      "Для закрытого обращения сохраняются точные дата, время и пользователь, который его закрыл.",
+      "Автор закрытия отображается в списке и внутри обращения, а повторный запрос не перезаписывает исходные данные."
+    ]
+  },
+  {
+    version: "4.60",
+    updatedAt: "16.07.2026 12:13",
     title: "Поддержка над клавиатурой",
     items: [
       "На iPhone экран поддержки больше не получает пустую область из-за двойного учёта высоты клавиатуры.",
@@ -3240,11 +3250,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Keyboard-safe support",
+  title: "Complete support ticket closure",
   items: [
-    "On iPhone, support screens no longer gain an empty area from counting the keyboard height twice.",
-    "Create-ticket and reply actions remain inside the visible area above the keyboard.",
-    "The footer keeps a compact inset while form content scrolls independently."
+    "After confirmation, the ticket screen and its backdrop close completely and return to the request list.",
+    "Closed tickets store the exact date, time, and user who performed the action.",
+    "Closure details appear in the list and ticket, and repeated requests do not overwrite the original closer."
   ]
 };
 

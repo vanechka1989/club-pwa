@@ -114,6 +114,18 @@ describe("support section", () => {
     expect(source).toContain("confirmCloseTicket");
   });
 
+  it("fully exits the ticket task after a successful close and shows who closed it", () => {
+    const closeHandler = source.match(/async function confirmCloseTicket\(\)[\s\S]*?\n}\n/)?.[0] ?? "";
+
+    expect(closeHandler).toContain("replaceTicket(response.ticket)");
+    expect(closeHandler).toContain("closeModal()");
+    expect(closeHandler).not.toContain("selectedTicketId.value = response.ticket.id");
+    expect(source).toContain("ticketClosedByLabel");
+    expect(source).toContain("supportClosedBy");
+    expect(source).toContain("support-ticket-closed-by");
+    expect(styles).toContain(".support-ticket-closed-by");
+  });
+
   it("uses preview role for support mode instead of the real admin role", () => {
     expect(source).toContain("hasAdminCapability");
     expect(source).toContain('hasAdminCapability(session.user?.role, session.user?.adminPermissions, "support")');

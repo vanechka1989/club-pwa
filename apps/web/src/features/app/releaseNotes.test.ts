@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the iOS support keyboard fix as version 4.60", () => {
-    expect(appVersion).toBe("4.60");
-    expect(releaseNotes[0]?.title).toBe("Поддержка над клавиатурой");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("клавиатур");
-    expect(releaseNotes[1]?.version).toBe("4.59");
+  it("publishes complete support ticket closure as version 4.61", () => {
+    expect(appVersion).toBe("4.61");
+    expect(releaseNotes[0]?.title).toBe("Полное закрытие обращений");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("закрыл");
+    expect(releaseNotes[1]?.version).toBe("4.60");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Keyboard-safe support");
+    expect(englishNotes[0]?.title).toBe("Complete support ticket closure");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

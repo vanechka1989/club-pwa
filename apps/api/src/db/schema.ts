@@ -665,6 +665,8 @@ export const supportTickets = pgTable(
     lastAdminMessageAt: timestamp("last_admin_message_at", { withTimezone: true }),
     customerReadAt: timestamp("customer_read_at", { withTimezone: true }).notNull().defaultNow(),
     adminReadAt: timestamp("admin_read_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedByUserId: uuid("closed_by_user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -803,7 +805,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   referralSource: many(referrals, { relationName: "referral_invited" }),
   referralRewards: many(referralRewards, { relationName: "referral_reward_inviter" }),
   referralRewardSources: many(referralRewards, { relationName: "referral_reward_invited" }),
-  supportTickets: many(supportTickets),
+  supportTickets: many(supportTickets, { relationName: "support_ticket_customer" }),
+  closedSupportTickets: many(supportTickets, { relationName: "support_ticket_closer" }),
   supportMessages: many(supportTicketMessages),
   createdAdminUsers: many(adminUsers),
   adminActionLogs: many(adminActionLogs, { relationName: "admin_action_actor" }),
@@ -1111,7 +1114,13 @@ export const clubMessageReactionsRelations = relations(clubMessageReactions, ({ 
 export const supportTicketsRelations = relations(supportTickets, ({ one, many }) => ({
   user: one(users, {
     fields: [supportTickets.userId],
-    references: [users.id]
+    references: [users.id],
+    relationName: "support_ticket_customer"
+  }),
+  closedBy: one(users, {
+    fields: [supportTickets.closedByUserId],
+    references: [users.id],
+    relationName: "support_ticket_closer"
   }),
   messages: many(supportTicketMessages),
   attachments: many(supportTicketAttachments)
