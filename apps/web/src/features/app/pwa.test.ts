@@ -38,7 +38,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v157"');
+    expect(worker).toContain('const cacheName = "club-pwa-v158"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).toContain('event.data?.type === "SKIP_WAITING"');
@@ -48,14 +48,18 @@ describe("PWA shell", () => {
 
   it("registers the service worker and does not load Telegram WebApp script", () => {
     const main = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
+    const lifecycle = readFileSync(resolve(process.cwd(), "src/features/app/serviceWorkerLifecycle.ts"), "utf8");
     const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
 
-    expect(main).toContain("navigator.serviceWorker");
-    expect(main).toContain('.register("/sw.js", { updateViaCache: "none" })');
-    expect(main).toContain("registration.update()");
-    expect(main).toContain('updateViaCache: "none"');
-    expect(main).toContain("visibilitychange");
-    expect(main).toContain("SKIP_WAITING");
+    expect(main).toContain('"serviceWorker" in navigator');
+    expect(main).toContain("startServiceWorkerLifecycle()");
+    expect(lifecycle).toContain('register("/sw.js", { updateViaCache: "none" })');
+    expect(lifecycle).toContain("registration.update()");
+    expect(lifecycle).toContain('updateViaCache: "none"');
+    expect(lifecycle).toContain("visibilitychange");
+    expect(lifecycle).toContain('addEventListener("online"');
+    expect(lifecycle).toContain("SKIP_WAITING");
+    expect(lifecycle).toContain("catch");
     expect(html).toContain("manifest.webmanifest");
     expect(html).not.toContain("telegram.org/js/telegram-web-app.js");
   });

@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes forced mobile presentation as version 4.58", () => {
-    expect(appVersion).toBe("4.58");
-    expect(releaseNotes[0]?.title).toBe("Мобильный режим на любом устройстве");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("QR");
-    expect(releaseNotes[1]?.version).toBe("4.57");
+  it("publishes recoverable PWA updates as version 4.59", () => {
+    expect(appVersion).toBe("4.59");
+    expect(releaseNotes[0]?.title).toBe("Надёжное обновление PWA");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Service Worker");
+    expect(releaseNotes[1]?.version).toBe("4.58");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Complete administrator privilege revocation");
+    expect(englishNotes[0]?.title).toBe("Reliable PWA updates");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
