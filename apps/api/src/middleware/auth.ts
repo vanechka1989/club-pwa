@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, lt } from "drizzle-orm";
 import { getCookie } from "hono/cookie";
 import type { UserRole } from "@club/shared";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import { isOwnerTelegramId } from "../admin/roles";
 import { logger } from "../logger";
 import { getTrustedClientIp } from "../security/clientIp";
 import { recordLoginIpChange } from "../security/loginIpAudit";
+import { sessionActivityRefreshMs, shouldRefreshSessionActivity } from "./sessionActivity";
 
 export const sessionCookieName = "club_session";
 
@@ -72,7 +73,13 @@ export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
     startParam: null
   };
 
-  await db.update(authSessions).set({ lastSeenAt: new Date() }).where(eq(authSessions.id, session.id));
+  if (shouldRefreshSessionActivity(session.lastSeenAt)) {
+    const activityRefreshBefore = new Date(Date.now() - sessionActivityRefreshMs);
+    await db
+      .update(authSessions)
+      .set({ lastSeenAt: new Date() })
+      .where(and(eq(authSessions.id, session.id), lt(authSessions.lastSeenAt, activityRefreshBefore)));
+  }
 
   c.set("telegramUser", sessionUser);
   c.set("currentUser", resolvedUser);
@@ -84,7 +91,9 @@ export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   const previewMode = previewModeSchema.safeParse(
     c.req.header("x-club-preview-mode") ?? (isCommunityEventStream ? c.req.query("preview") : undefined)
   );
-  const isOwner = await isOwnerTelegramId(sessionUser.id);
+  const previewMembershipStatus = c.req.header("x-club-preview-membership");
+  const previewRequested = previewMode.success || previewMembershipStatus !== undefined;
+  const isOwner = previewRequested ? await isOwnerTelegramId(sessionUser.id) : false;
   if (isOwner && previewMode.success) {
     const roleByMode: Record<PreviewMode, UserRole> = {
       developer: "owner",
@@ -97,7 +106,6 @@ export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
     c.set("previewMembershipStatus", previewMode.data === "member-inactive" ? "inactive" : "active");
   }
 
-  const previewMembershipStatus = c.req.header("x-club-preview-membership");
   if (
     !previewMode.success &&
     isOwner &&

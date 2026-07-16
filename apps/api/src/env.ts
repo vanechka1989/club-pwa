@@ -7,6 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
+  REDIS_URL: optionalUrl,
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
   OWNER_EMAIL: z.string().email().default("owner@example.com"),
   ADMIN_EMAILS: z.string().default(""),

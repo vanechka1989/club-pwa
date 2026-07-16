@@ -61,7 +61,7 @@ const sendingReply = ref(false);
 const sendingFollowUp = ref(false);
 const closingTicket = ref(false);
 const refreshingSupport = ref(false);
-const supportRefreshIntervalMs = 10_000;
+const supportRefreshIntervalMs = 15_000;
 let supportRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let supportModeVersion = 0;
 
@@ -387,7 +387,7 @@ async function refreshSupport(options: { silent?: boolean; consumeOpenTicket?: b
 function startSupportPolling() {
   stopSupportPolling();
   supportRefreshTimer = setInterval(() => {
-    if (supportBusy.value) {
+    if (document.visibilityState !== "visible" || supportBusy.value) {
       return;
     }
     void refreshSupport({ silent: true });

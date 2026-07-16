@@ -1,26 +1,32 @@
-export type CommunityRealtimeEvent = {
-  id: string;
-  type: "community.changed";
-  topicId: string | null;
-  createdAt: string;
-};
+import { randomUUID } from "node:crypto";
+import { publishCommunityRealtimeEnvelope, subscribeToCommunityRealtimeEnvelopes } from "./realtimeRedis";
+import type { CommunityRealtimeEvent } from "./realtimeEnvelope";
+
+export type { CommunityRealtimeEvent } from "./realtimeEnvelope";
 
 type CommunityRealtimeListener = (event: CommunityRealtimeEvent) => void;
 
 const listeners = new Set<CommunityRealtimeListener>();
-let nextEventId = 0;
+const originId = randomUUID();
+
+function notifyCommunityRealtimeListeners(event: CommunityRealtimeEvent) {
+  for (const listener of listeners) listener(event);
+}
+
+subscribeToCommunityRealtimeEnvelopes((envelope) => {
+  if (envelope.originId !== originId) notifyCommunityRealtimeListeners(envelope.event);
+});
 
 export function publishCommunityChange(topicId: string | null = null): CommunityRealtimeEvent {
   const event: CommunityRealtimeEvent = {
-    id: String(++nextEventId),
+    id: randomUUID(),
     type: "community.changed",
     topicId,
     createdAt: new Date().toISOString()
   };
 
-  for (const listener of listeners) {
-    listener(event);
-  }
+  notifyCommunityRealtimeListeners(event);
+  publishCommunityRealtimeEnvelope({ originId, event });
 
   return event;
 }

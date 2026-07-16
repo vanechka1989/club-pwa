@@ -87,6 +87,9 @@ let appNotificationTimer: number | null = null;
 let deviceDiagnosticsTimer: number | null = null;
 let keyboardFocusTimer: number | null = null;
 let isAppMounted = false;
+const sessionPollingIntervalMs = 60_000;
+const backgroundPollingIntervalMs = 30_000;
+const pollingJitterMaxMs = 5_000;
 const modalPageGestureSurfaceSelector = [
   ".admin-modal-backdrop",
   ".payment-modal-backdrop",
@@ -591,8 +594,15 @@ function startPaymentWatchPolling() {
   }
 
   paymentWatchTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
     void checkPendingPaymentWatch();
   }, 10_000);
+}
+
+function withPollingJitter(baseIntervalMs: number) {
+  return baseIntervalMs + Math.floor(Math.random() * pollingJitterMaxMs);
 }
 
 function startSessionAccessPolling() {
@@ -601,8 +611,11 @@ function startSessionAccessPolling() {
   }
 
   sessionRefreshTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
     void refreshSessionAccessStatus(true);
-  }, 15_000);
+  }, withPollingJitter(sessionPollingIntervalMs));
 }
 
 function startSupportUnreadPolling() {
@@ -611,8 +624,11 @@ function startSupportUnreadPolling() {
   }
 
   supportUnreadTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
     void refreshSupportUnread(true);
-  }, 15_000);
+  }, withPollingJitter(backgroundPollingIntervalMs));
 }
 
 function startAppNotificationPolling() {
@@ -621,8 +637,11 @@ function startAppNotificationPolling() {
   }
 
   appNotificationTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
     void notifications.loadAppNotifications();
-  }, 10_000);
+  }, withPollingJitter(backgroundPollingIntervalMs));
 }
 
 function handleVisibilityChange() {

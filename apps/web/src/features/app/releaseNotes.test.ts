@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the stable iPhone support keyboard flow as version 4.64", () => {
-    expect(appVersion).toBe("4.64");
-    expect(releaseNotes[0]?.title).toBe("Поддержка без скачков на iPhone");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("клавиатуры");
-    expect(releaseNotes[1]?.version).toBe("4.63");
+  it("publishes the load optimization as version 4.65", () => {
+    expect(appVersion).toBe("4.65");
+    expect(releaseNotes[0]?.title).toBe("Оптимизация нагрузки");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("текущем тарифе");
+    expect(releaseNotes[1]?.version).toBe("4.64");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Stable support forms on iPhone");
+    expect(englishNotes[0]?.title).toBe("Load optimization");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

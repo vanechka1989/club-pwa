@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Оптимизация нагрузки",
+    items: [
+      "Фоновые проверки выполняются реже, распределяются по времени и останавливаются, когда приложение скрыто.",
+      "Активность сессии больше не создаёт запись в базе при каждом запросе, а API получил отдельные проверки готовности и метрики.",
+      "Подготовлен отдельный профиль для будущего масштабирования; на текущем тарифе он не включён и не расходует ресурсы сервера."
+    ]
+  },
+  {
+    version: "4.64",
+    updatedAt: "16.07.2026 14:28",
     title: "Поддержка без скачков на iPhone",
     items: [
       "При открытии клавиатуры форма нового обращения больше не уезжает вверх и не требует ручной прокрутки обратно.",
@@ -3280,11 +3290,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Stable support forms on iPhone",
+  title: "Load optimization",
   items: [
-    "Opening the keyboard no longer pushes the new support request form out of view or requires manual scrolling.",
-    "The reply field stays visible together with the send and close controls in an open support ticket.",
-    "Support fields keep an iOS-safe text size and no longer trigger automatic page zoom."
+    "Background checks now run less often, use jitter, and pause while the app is hidden.",
+    "Session activity no longer writes to the database on every request, and the API now exposes readiness checks and metrics.",
+    "A separate future scaling profile is ready but remains disabled on the current server plan."
   ]
 };
 

@@ -1,0 +1,26 @@
+{$PUBLIC_DOMAIN} {
+  encode gzip
+  header {
+    Content-Security-Policy "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; frame-src https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
+  }
+
+  handle_path /api/* {
+    reverse_proxy api-1:3000 api-2:3000 {
+      lb_policy least_conn
+      health_uri /health
+      health_interval 10s
+      fail_duration 10s
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+    }
+  }
+
+  handle {
+    reverse_proxy web:80
+  }
+}

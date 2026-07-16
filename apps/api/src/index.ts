@@ -6,11 +6,10 @@ import { authRoute } from "./routes/auth";
 import { communityRoute } from "./routes/community";
 import { learningRoute } from "./routes/learning";
 import { logger } from "./logger";
-import { mailingsRoute, startMailingDispatcher } from "./routes/mailings";
+import { mailingsRoute } from "./routes/mailings";
 import { mailingPreferencesRoute } from "./routes/mailingPreferences";
 import { meRoute } from "./routes/me";
 import { notificationsRoute } from "./routes/notifications";
-import { startExpiredPendingPaymentOrderCleanup } from "./payments/orderCleanupJob";
 import { paymentsRoute } from "./routes/payments";
 import { pushRoute } from "./routes/push";
 import { subscriptionsRoute } from "./routes/subscriptions";
@@ -18,7 +17,10 @@ import { supportRoute } from "./routes/support";
 import { getLocalUploadResponse } from "./storage/localUploads";
 import { recordServerError } from "./serverErrors";
 import { buildClientErrorRecord, createClientErrorRateLimiter, parseClientErrorPayload } from "./clientErrors";
-import { startCommunityMediaCleanupJob } from "./community/mediaCleanup";
+import { startBackgroundJobs } from "./backgroundJobs";
+import { checkApplicationReadiness } from "./readiness";
+import { requestMetrics } from "./requestMetrics";
+import { getCommunityRealtimeSubscriberCount } from "./community/realtime";
 
 const app = new Hono();
 const clientErrorRateLimiter = createClientErrorRateLimiter({ maxEvents: 20, windowMs: 60 * 1000 });
@@ -28,14 +30,14 @@ function getClientErrorRateLimitKey(c: Context) {
   return forwardedFor || c.req.header("x-real-ip") || c.req.header("cf-connecting-ip") || c.req.header("user-agent") || "unknown";
 }
 
-startExpiredPendingPaymentOrderCleanup();
-startMailingDispatcher();
-startCommunityMediaCleanupJob();
+void startBackgroundJobs().catch((error) => logger.error({ error }, "Unable to start background jobs"));
 
 app.use("*", async (c, next) => {
   const startedAt = performance.now();
+  let requestStatus = 500;
   try {
     await next();
+    requestStatus = c.res.status;
   } catch (error) {
     recordServerError({
       error,
@@ -46,16 +48,19 @@ app.use("*", async (c, next) => {
     });
     logger.error({ error, method: c.req.method, path: c.req.path }, "request failed");
     throw error;
+  } finally {
+    const durationMs = Math.round(performance.now() - startedAt);
+    requestMetrics.record(requestStatus, durationMs);
+    logger.info(
+      {
+        method: c.req.method,
+        path: c.req.path,
+        status: requestStatus,
+        durationMs
+      },
+      "request"
+    );
   }
-  logger.info(
-    {
-      method: c.req.method,
-      path: c.req.path,
-      status: c.res.status,
-      durationMs: Math.round(performance.now() - startedAt)
-    },
-    "request"
-  );
 });
 app.use(
   "*",
@@ -68,6 +73,16 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ ok: true }));
+app.get("/ready", async (c) => {
+  const readiness = await checkApplicationReadiness();
+  return c.json(readiness, readiness.ok ? 200 : 503);
+});
+app.get("/metrics", (c) => c.json({
+  request: requestMetrics.snapshot(),
+  realtimeSubscribers: getCommunityRealtimeSubscriberCount(),
+  memoryRssBytes: process.memoryUsage().rss,
+  uptimeSeconds: Math.round(process.uptime())
+}));
 app.get("/uploads/*", async (c) => {
   const uploadKey = c.req.path.replace(/^\/uploads\/+/, "");
   const response = await getLocalUploadResponse(uploadKey);
