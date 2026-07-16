@@ -5,13 +5,14 @@ import { Hono } from "hono";
 import { streamSSE, type SSEMessage } from "hono/streaming";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import type { ClubChat, ClubMessage, ClubTopic } from "@club/shared";
+import type { ClubChat, ClubMessage, ClubTopic, UserRole } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
+import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, validateCommunityImageFiles } from "../community/mediaUpload";
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
@@ -33,7 +34,8 @@ const chatPayloadSchema = z.object({
 
 const topicPayloadSchema = z.object({
   title: z.string().trim().min(2).max(180),
-  description: z.string().trim().max(1000).nullable().optional()
+  description: z.string().trim().max(1000).nullable().optional(),
+  isAdminOnly: z.boolean().default(false)
 });
 
 const messagePayloadSchema = z.object({
@@ -97,11 +99,11 @@ function slugify(value: string) {
   return slug || `chat-${Date.now()}`;
 }
 
-async function serializeChat(chat: typeof clubChats.$inferSelect): Promise<ClubChat> {
+async function serializeChat(chat: typeof clubChats.$inferSelect, role: UserRole): Promise<ClubChat> {
   const [topicsRow] = await db
     .select({ value: count(clubChatTopics.id) })
     .from(clubChatTopics)
-    .where(eq(clubChatTopics.chatId, chat.id));
+    .where(role === "member" ? memberVisibleTopicCondition(chat.id) : eq(clubChatTopics.chatId, chat.id));
 
   return {
     id: chat.id,
@@ -176,7 +178,7 @@ async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>
   const topics = await db.query.clubChatTopics.findMany({
     where:
       role === "member"
-        ? and(eq(clubChatTopics.chatId, chat.id), eq(clubChatTopics.isPublished, true))
+        ? memberVisibleTopicCondition(chat.id)
         : and(
             eq(clubChatTopics.chatId, chat.id),
             or(eq(clubChatTopics.isPublished, true), gt(clubChatTopics.archivedUntil, new Date()))
@@ -185,6 +187,14 @@ async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>
   });
 
   return Promise.all(topics.map((topic) => serializeTopic(topic, currentUserId)));
+}
+
+function memberVisibleTopicCondition(chatId: string) {
+  return and(
+    eq(clubChatTopics.chatId, chatId),
+    eq(clubChatTopics.isPublished, true),
+    eq(clubChatTopics.isAdminOnly, false)
+  );
 }
 
 async function getLatestReplyToMeAt(topicId: string, currentUserId: string) {
@@ -222,6 +232,7 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, current
     isPinned: topic.isPinned,
     isLocked: topic.isLocked,
     isPublished: topic.isPublished,
+    isAdminOnly: topic.isAdminOnly,
     archivedUntil: topic.archivedUntil?.toISOString() ?? null,
     messagesCount: messagesRow?.value ?? 0,
     latestReplyToMeAt: latestReplyToMeAt?.toISOString() ?? null,
@@ -423,12 +434,41 @@ async function getCommunityRole(c: Context<{ Variables: AuthVariables }>) {
   }
 
   const telegramId = c.get("telegramUser").id;
+  return getCommunityRoleByTelegramId(telegramId);
+}
+
+async function getCommunityRoleByTelegramId(telegramId: string): Promise<UserRole> {
   const role = await getUserRole(telegramId);
   if (role !== "admin") {
     return role;
   }
 
   return (await isOwnerTelegramId(telegramId)) || (await hasAdminPermission(telegramId, "community")) ? "admin" : "member";
+}
+
+async function getAccessibleTopic(topicId: string, role: UserRole) {
+  const topic = await db.query.clubChatTopics.findFirst({
+    where: eq(clubChatTopics.id, topicId)
+  });
+
+  return topic && isTopicAccessibleForRole(topic, role) ? topic : null;
+}
+
+async function canReceiveCommunityEvent(
+  event: { topicId: string | null },
+  telegramId: string,
+  previewRole?: UserRole | null
+) {
+  const role = previewRole ?? await getCommunityRoleByTelegramId(telegramId);
+  if (role !== "member" || !event.topicId) {
+    return true;
+  }
+
+  const topic = await db.query.clubChatTopics.findFirst({
+    where: eq(clubChatTopics.id, event.topicId)
+  });
+
+  return Boolean(topic && isTopicAccessibleForRole(topic, role));
 }
 
 async function purgeExpiredDeletedMessages(now = new Date()) {
@@ -505,6 +545,8 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     c.header("Cache-Control", "no-cache, no-transform");
     c.header("X-Accel-Buffering", "no");
+    const telegramId = c.get("telegramUser").id;
+    const previewRole = c.get("previewRole");
 
     return streamSSE(c, async (stream) => {
       let active = true;
@@ -524,10 +566,18 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       };
 
       const unsubscribe = subscribeToCommunityChanges((event) => {
-        void enqueue({
-          id: event.id,
-          event: "community.changed",
-          data: JSON.stringify(event)
+        void (async () => {
+          if (!(await canReceiveCommunityEvent(event, telegramId, previewRole))) {
+            return;
+          }
+
+          await enqueue({
+            id: event.id,
+            event: "community.changed",
+            data: JSON.stringify(event)
+          });
+        })().catch((error) => {
+          logger.warn({ error, telegramId }, "community realtime access check failed");
         });
       });
 
@@ -584,6 +634,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         chatId: chat.id,
         title: body.data.title,
         description: body.data.description ?? null,
+        isAdminOnly: body.data.isAdminOnly,
         createdByUserId: c.get("userId")
       })
       .returning();
@@ -610,7 +661,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({
-      chats: await Promise.all(chats.map(serializeChat))
+      chats: await Promise.all(chats.map((chat) => serializeChat(chat, role)))
     });
   })
   .post("/chats", async (c) => {
@@ -640,7 +691,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      chat: await serializeChat(chat)
+      chat: await serializeChat(chat, role)
     });
   })
   .get("/chats/:id/topics", async (c) => {
@@ -661,7 +712,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const topics = await db.query.clubChatTopics.findMany({
       where:
         role === "member"
-          ? and(eq(clubChatTopics.chatId, chat.id), eq(clubChatTopics.isPublished, true))
+          ? memberVisibleTopicCondition(chat.id)
           : and(
               eq(clubChatTopics.chatId, chat.id),
               or(eq(clubChatTopics.isPublished, true), gt(clubChatTopics.archivedUntil, new Date()))
@@ -703,6 +754,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         chatId: chat.id,
         title: body.data.title,
         description: body.data.description ?? null,
+        isAdminOnly: body.data.isAdminOnly,
         createdByUserId: c.get("userId")
       })
       .returning();
@@ -760,9 +812,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     await purgeExpiredDeletedMessages();
 
-    const topic = await db.query.clubChatTopics.findFirst({
-      where: eq(clubChatTopics.id, c.req.param("id"))
-    });
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
 
     if (!topic) {
       return c.json({ error: "Topic not found" }, 404);
@@ -803,9 +853,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid message" }, 400);
     }
 
-    const topic = await db.query.clubChatTopics.findFirst({
-      where: eq(clubChatTopics.id, c.req.param("id"))
-    });
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
 
     if (!topic) {
       return c.json({ error: "Topic not found" }, 404);
@@ -889,7 +937,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (accessError) return accessError;
     const mute = await getActiveMute(c.get("userId"));
     if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
-    const topic = await db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, c.req.param("id")) });
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
     if (!topic) return c.json({ error: "Topic not found" }, 404);
     if (topic.isLocked && role === "member") return c.json({ error: "Topic is locked" }, 403);
 
@@ -945,7 +993,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (accessError) return accessError;
     const mute = await getActiveMute(c.get("userId"));
     if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
-    const topic = await db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, c.req.param("id")) });
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
     if (!topic) return c.json({ error: "Topic not found" }, 404);
     if (topic.isLocked && role === "member") return c.json({ error: "Topic is locked" }, 403);
 
@@ -1009,7 +1057,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (accessError) return accessError;
     const mute = await getActiveMute(c.get("userId"));
     if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
-    const topic = await db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, c.req.param("id")) });
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
     if (!topic) return c.json({ error: "Topic not found" }, 404);
     if (topic.isLocked && role === "member") return c.json({ error: "Topic is locked" }, 403);
     const parsed = pollPayloadSchema.safeParse(await c.req.json().catch(() => null));
@@ -1058,6 +1106,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (!parsed.success) return c.json({ error: "Invalid vote" }, 400);
     const poll = await db.query.clubPolls.findFirst({ where: eq(clubPolls.id, c.req.param("id")), with: { options: true, message: { with: { topic: true } } } });
     if (!poll) return c.json({ error: "Poll not found" }, 404);
+    if (!isTopicAccessibleForRole(poll.message.topic, role)) return c.json({ error: "Poll not found" }, 404);
     if (role === "member" && (!poll.message.topic.isPublished || poll.message.topic.isLocked)) return c.json({ error: "Topic is unavailable" }, 403);
     if (poll.closedAt || (poll.closesAt && poll.closesAt <= new Date())) return c.json({ error: "Poll is closed" }, 409);
     let optionIds: string[];
@@ -1374,6 +1423,13 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     if (!message) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    const messageTopic = await db.query.clubChatTopics.findFirst({
+      where: eq(clubChatTopics.id, message.topicId)
+    });
+    if (!messageTopic || !isTopicAccessibleForRole(messageTopic, role)) {
       return c.json({ error: "Message not found" }, 404);
     }
 

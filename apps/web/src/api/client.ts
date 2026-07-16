@@ -274,14 +274,14 @@ export function createCommunityEventSource() {
   });
 }
 
-export function createClubTopic(chatId: string, payload: { title: string; description?: string | null }) {
+export function createClubTopic(chatId: string, payload: { title: string; description?: string | null; isAdminOnly?: boolean }) {
   return api<ClubTopicMutationResponse>(`/community/chats/${chatId}/topics`, {
     method: "POST",
     body: payload
   });
 }
 
-export function createCommunityTopic(payload: { title: string; description?: string | null }) {
+export function createCommunityTopic(payload: { title: string; description?: string | null; isAdminOnly?: boolean }) {
   return api<ClubTopicMutationResponse>("/community/topics", {
     method: "POST",
     body: payload

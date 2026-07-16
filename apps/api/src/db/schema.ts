@@ -524,6 +524,7 @@ export const clubChatTopics = pgTable(
     isPinned: boolean("is_pinned").notNull().default(false),
     isLocked: boolean("is_locked").notNull().default(false),
     isPublished: boolean("is_published").notNull().default(true),
+    isAdminOnly: boolean("is_admin_only").notNull().default(false),
     archivedUntil: timestamp("archived_until", { withTimezone: true }),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

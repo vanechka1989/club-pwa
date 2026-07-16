@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
-import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, LoaderCircle, MessageCircle, Mic, MoreVertical, Paperclip, Pause, Pin, PinOff, Play, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
+import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, Mic, MoreVertical, Paperclip, Pause, Pin, PinOff, Play, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -55,6 +55,7 @@ const mutedUntil = ref<string | null>(null);
 const mutedPermanently = ref(false);
 const newMessage = ref("");
 const newTopicTitle = ref("");
+const newTopicAdminOnly = ref(false);
 const showCreateTopic = ref(false);
 const showTopicAdminMenu = ref(false);
 const showEmojiPicker = ref(false);
@@ -718,10 +719,12 @@ async function createTopic() {
   try {
     const response = await createCommunityTopic({
       title: newTopicTitle.value,
-      description: null
+      description: null,
+      isAdminOnly: newTopicAdminOnly.value
     });
     topics.value = [response.topic, ...topics.value];
     newTopicTitle.value = "";
+    newTopicAdminOnly.value = false;
     showCreateTopic.value = false;
   } catch {
     showCommunityError("Не удалось создать тему.");
@@ -1066,6 +1069,16 @@ onBeforeUnmount(() => {
 
       <form v-if="hasCommunityAccess && isModerator && showCreateTopic" class="chat-create-form" @submit.prevent="createTopic">
         <input v-model.trim="newTopicTitle" class="text-input" placeholder="Название темы" />
+        <label class="chat-topic-visibility-toggle">
+          <input v-model="newTopicAdminOnly" type="checkbox" />
+          <span class="chat-topic-visibility-icon">
+            <Lock class="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span>
+            <strong>{{ t("communityAdminOnlyToggle") }}</strong>
+            <small>{{ t("communityAdminOnlyHint") }}</small>
+          </span>
+        </label>
         <button class="primary-button ui-button" type="submit" :disabled="topicSaving">
           {{ topicSaving ? t("loading") : t("create") }}
         </button>
@@ -1089,7 +1102,13 @@ onBeforeUnmount(() => {
             <MessageCircle class="h-4 w-4" aria-hidden="true" />
           </span>
           <span class="min-w-0 flex-1">
-            <span class="chat-topic-title">{{ topic.title }}</span>
+            <span class="chat-topic-title-row">
+              <span class="chat-topic-title">{{ topic.title }}</span>
+              <span v-if="topic.isAdminOnly" class="admin-only-topic-badge">
+                <Lock class="h-3 w-3" aria-hidden="true" />
+                {{ t("communityAdminOnlyBadge") }}
+              </span>
+            </span>
             <span class="chat-topic-meta">
               {{ topic.messagesCount }} сообщений
               <span v-if="topic.isLocked"> · закрыта</span>
@@ -1122,7 +1141,7 @@ onBeforeUnmount(() => {
         <div class="min-w-0 flex-1">
           <h2 class="truncate text-sm font-semibold text-[var(--text)]">{{ selectedTopic.title }}</h2>
           <p class="text-xs text-[var(--muted)]">
-            {{ selectedTopic.isLocked ? "Тема закрыта" : "Открытый чат" }}
+            {{ selectedTopic.isAdminOnly ? t("communityAdminOnlyRoom") : selectedTopic.isLocked ? "Тема закрыта" : "Открытый чат" }}
           </p>
         </div>
         <div v-if="isModerator" class="chat-room-admin">

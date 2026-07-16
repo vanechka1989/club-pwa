@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Скрытые чаты для администраторов",
+    items: [
+      "При создании темы администратор может сделать её доступной только владельцу и администраторам с правом управления общением.",
+      "Скрытые темы отмечены компактным значком замка и не отображаются обычным участникам ни в списке, ни по прямой ссылке.",
+      "Сообщения, опросы, реакции, события реального времени и счётчики скрытых тем защищены на сервере."
+    ]
+  },
+  {
+    version: "4.61",
+    updatedAt: "16.07.2026 12:42",
     title: "Полное закрытие обращений",
     items: [
       "После подтверждения закрытия экран обращения и его подложка полностью закрываются, возвращая пользователя к списку.",
@@ -3250,11 +3260,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Complete support ticket closure",
+  title: "Admin-only community chats",
   items: [
-    "After confirmation, the ticket screen and its backdrop close completely and return to the request list.",
-    "Closed tickets store the exact date, time, and user who performed the action.",
-    "Closure details appear in the list and ticket, and repeated requests do not overwrite the original closer."
+    "When creating a topic, an administrator can restrict it to the owner and administrators with community management permission.",
+    "Private topics have a compact lock badge and remain unavailable to regular members in lists and through direct links.",
+    "Messages, polls, reactions, realtime events, and private topic counts are protected on the server."
   ]
 };
 

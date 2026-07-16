@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clubMessageSchema } from "./index";
+import { clubMessageSchema, clubTopicSchema } from "./index";
 
 const base = {
   id: "message-1",
@@ -48,5 +48,26 @@ describe("club message media contracts", () => {
         poll: { id: "p1", question: "Выбор?", allowsMultiple: false, isAnonymous: true, closesAt: null, closedAt: null, totalVoters: 0, options: [{ id: "o1", text: "Да", votesCount: 0, percent: 0, selected: false }], voterDetails: null }
       }).poll?.question
     ).toBe("Выбор?");
+  });
+});
+
+describe("club topic visibility contract", () => {
+  it("preserves the admin-only flag in serialized topics", () => {
+    const topic = clubTopicSchema.parse({
+      id: "topic-1",
+      chatId: "chat-1",
+      title: "Администраторы",
+      description: null,
+      isPinned: false,
+      isLocked: false,
+      isPublished: true,
+      isAdminOnly: true,
+      archivedUntil: null,
+      messagesCount: 0,
+      latestReplyToMeAt: null,
+      createdAt: new Date().toISOString()
+    });
+
+    expect(topic.isAdminOnly).toBe(true);
   });
 });

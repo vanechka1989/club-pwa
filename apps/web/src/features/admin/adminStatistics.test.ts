@@ -102,6 +102,7 @@ function topic(overrides: Partial<ClubTopic>): ClubTopic {
     isPinned: false,
     isLocked: false,
     isPublished: true,
+    isAdminOnly: false,
     archivedUntil: null,
     messagesCount: 0,
     latestReplyToMeAt: null,
