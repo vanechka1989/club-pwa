@@ -16744,6 +16744,10 @@ body.club-keyboard-open .support-task-screen .support-reply-input-row textarea {
   margin: 0;
 }
 
+body.club-ios .support-task-screen :is(.support-field input, .support-field select, .support-field textarea, .support-reply-form textarea) {
+  font-size: 16px;
+}
+
 body.club-keyboard-open .support-task-screen .task-screen-footer {
   position: static;
   padding-bottom: 12px;

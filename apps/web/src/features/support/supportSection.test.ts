@@ -98,6 +98,14 @@ describe("support section", () => {
     expect(keyboardFooterSpacingRule).not.toContain("--club-keyboard-bottom");
   });
 
+  it("prevents iOS focus zoom in both support composers at reduced interface scales", () => {
+    const iosSupportFieldRule = latestRule(
+      "body.club-ios .support-task-screen :is(.support-field input, .support-field select, .support-field textarea, .support-reply-form textarea)"
+    );
+
+    expect(iosSupportFieldRule).toContain("font-size: 16px");
+  });
+
   it("polls tickets and open support threads without reopening the tab", () => {
     expect(source).toContain("supportRefreshTimer");
     expect(source).toContain("startSupportPolling");

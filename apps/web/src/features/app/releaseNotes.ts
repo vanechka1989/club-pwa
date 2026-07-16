@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Поддержка без скачков на iPhone",
+    items: [
+      "При открытии клавиатуры форма нового обращения больше не уезжает вверх и не требует ручной прокрутки обратно.",
+      "Поле ответа в открытом обращении остаётся в видимой области вместе с кнопками отправки и закрытия.",
+      "Поля поддержки на iOS сохраняют безопасный размер текста и не запускают автоматическое увеличение страницы."
+    ]
+  },
+  {
+    version: "4.63",
+    updatedAt: "16.07.2026 14:00",
     title: "Просмотр урока перед редактированием",
     items: [
       "Владелец, разработчик и администратор теперь открывают существующий урок в том же клиентском виде, который видят участники клуба.",
@@ -3270,11 +3280,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Lesson preview before editing",
+  title: "Stable support forms on iPhone",
   items: [
-    "Owners, developers, and administrators now open an existing lesson in the same member-facing view used by club participants.",
-    "A compact Edit button in the right side of the header opens the editor only after an explicit action.",
-    "Going back from the editor or successfully saving an existing lesson returns to its regular lesson view."
+    "Opening the keyboard no longer pushes the new support request form out of view or requires manual scrolling.",
+    "The reply field stays visible together with the send and close controls in an open support ticket.",
+    "Support fields keep an iOS-safe text size and no longer trigger automatic page zoom."
   ]
 };
 

@@ -133,6 +133,29 @@ describe("keyboard focus handling", () => {
     taskScreen.remove();
   });
 
+  it("leaves support task fields to the keyboard-aware task layout instead of double-scrolling iOS", () => {
+    const supportLayer = document.createElement("div");
+    supportLayer.className = "support-task-screen task-screen-route-layer";
+    const taskScreen = document.createElement("section");
+    taskScreen.className = "task-screen";
+    const taskBody = document.createElement("div");
+    taskBody.className = "task-screen-body";
+    const textarea = document.createElement("textarea");
+    const scrollIntoView = vi.fn();
+    const schedule = vi.fn(() => 1);
+    textarea.scrollIntoView = scrollIntoView;
+    taskBody.append(textarea);
+    taskScreen.append(taskBody);
+    supportLayer.append(taskScreen);
+    document.body.append(supportLayer);
+
+    ensureFocusedTextFieldVisible(textarea, schedule);
+
+    expect(schedule).not.toHaveBeenCalled();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    supportLayer.remove();
+  });
+
   it("keeps the module modal footer compact above keyboard-safe areas", () => {
     const moduleActionsRule = styles.match(/\.module-name-modal \.admin-form-actions\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
 

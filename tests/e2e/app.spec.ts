@@ -2331,6 +2331,35 @@ test("returns from a support client card to the same ticket", async ({ page }, t
   await expect(page.getByRole("heading", { name: "Оплата" })).toBeVisible();
 });
 
+test("does not double-scroll iPhone support composers when focus opens the keyboard", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "iphone-15-pro-max");
+
+  for (const fixture of [
+    { path: "/support/new", placeholder: "Напишите, что случилось и где именно." },
+    { path: "/support/tickets/ticket-payment", placeholder: "Ответ клиенту" }
+  ]) {
+    await page.goto(fixture.path);
+    const field = page.getByPlaceholder(fixture.placeholder);
+    await expect(field).toBeVisible({ timeout: 12_000 });
+    await expect(field).toHaveCSS("font-size", "16px");
+
+    await field.evaluate((element) => {
+      (window as Window & { __supportScrollIntoViewCalls?: number }).__supportScrollIntoViewCalls = 0;
+      element.scrollIntoView = () => {
+        (window as Window & { __supportScrollIntoViewCalls?: number }).__supportScrollIntoViewCalls =
+          ((window as Window & { __supportScrollIntoViewCalls?: number }).__supportScrollIntoViewCalls ?? 0) + 1;
+      };
+      element.focus({ preventScroll: true });
+    });
+    await page.waitForTimeout(760);
+
+    const forcedScrollCalls = await page.evaluate(
+      () => (window as Window & { __supportScrollIntoViewCalls?: number }).__supportScrollIntoViewCalls ?? 0
+    );
+    expect(forcedScrollCalls, fixture.path).toBe(0);
+  }
+});
+
 test("opens support attachments above the routed ticket screen", async ({ page }, testInfo) => {
   await page.goto("/support/tickets/ticket-payment");
   const taskScreen = page.locator(".support-ticket-task-screen.task-screen-route-layer");

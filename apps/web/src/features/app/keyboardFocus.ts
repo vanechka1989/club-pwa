@@ -69,6 +69,13 @@ export function ensureFocusedTextFieldVisible(
     return;
   }
 
+  // Support task screens already resize their body/footer against visualViewport.
+  // Let iOS place the caret inside that scroll area instead of adding a second,
+  // delayed scroll sequence that can pan the whole standalone PWA viewport.
+  if (element.closest(".support-task-screen")) {
+    return;
+  }
+
   const isTaskScreenField = Boolean(element.closest(".task-screen"));
 
   schedule(() => {
