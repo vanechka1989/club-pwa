@@ -59,6 +59,16 @@ describe("deploy update script", () => {
     expect(webFunction).not.toContain("--no-deps api");
   });
 
+  it("reconciles only services that exist in the current production compose", () => {
+    const fullDeployFunction = updateWorker.slice(
+      updateWorker.indexOf("deploy_full() {"),
+      updateWorker.indexOf("reload_caddy() {")
+    );
+
+    expect(fullDeployFunction).toContain("compose up -d postgres api web caddy");
+    expect(fullDeployFunction).not.toContain("postgres redis api");
+  });
+
   it("lets the server update script own start notifications in GitHub Actions", () => {
     const notifyStepIndex = deployWorkflow.indexOf("Notify update started");
     const updateStepIndex = deployWorkflow.indexOf("Update application");

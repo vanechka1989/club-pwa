@@ -225,7 +225,7 @@ deploy_full() {
   compose run --rm migrate
   current_phase="reconcile"
   write_status running "$current_phase"
-  compose up -d postgres redis api web caddy
+  compose up -d postgres api web caddy
 }
 
 reload_caddy() {
