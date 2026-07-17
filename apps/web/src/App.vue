@@ -48,6 +48,11 @@ import LearningSection from "@/features/learning/LearningSection.vue";
 import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
 import { isTaskPath, sectionFromPath, sectionPath } from "@/features/app/taskNavigation";
 import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
+import {
+  createViewportSyncScheduler,
+  stabilizeViewportMetric,
+  type ViewportSyncScheduler
+} from "@/features/app/viewportStability";
 import ProfileSection from "@/features/profile/ProfileSection.vue";
 import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -86,6 +91,13 @@ let supportUnreadTimer: number | null = null;
 let appNotificationTimer: number | null = null;
 let deviceDiagnosticsTimer: number | null = null;
 let keyboardFocusTimer: number | null = null;
+let viewportSyncScheduler: ViewportSyncScheduler | null = null;
+let appliedViewportHeight = 0;
+let appliedVisibleViewportHeight = 0;
+let appliedVisibleViewportBottom = 0;
+let appliedSystemBottomGap = 0;
+let appliedKeyboardBottomGap = 0;
+let keyboardWasOpen = false;
 let isAppMounted = false;
 const sessionPollingIntervalMs = 60_000;
 const backgroundPollingIntervalMs = 30_000;
@@ -473,15 +485,18 @@ function syncViewportHeight() {
   syncMobileDeviceShell(width, height);
 
   if (height > 0) {
-    document.documentElement.style.setProperty("--club-viewport-height", `${height}px`);
+    appliedViewportHeight = stabilizeViewportMetric(appliedViewportHeight, height);
+    document.documentElement.style.setProperty("--club-viewport-height", `${appliedViewportHeight}px`);
   }
 
   const visibleHeight =
     getMeasuredVisibleViewportHeight({ visualHeight, browserHeight }) || height;
   if (visibleHeight > 0) {
-    document.documentElement.style.setProperty("--club-visible-viewport-height", `${visibleHeight}px`);
+    appliedVisibleViewportHeight = stabilizeViewportMetric(appliedVisibleViewportHeight, visibleHeight);
+    document.documentElement.style.setProperty("--club-visible-viewport-height", `${appliedVisibleViewportHeight}px`);
     const visibleBottom = visualViewport ? Math.round(visualViewport.offsetTop + visibleHeight) : visibleHeight;
-    document.documentElement.style.setProperty("--club-visible-viewport-bottom", `${visibleBottom}px`);
+    appliedVisibleViewportBottom = stabilizeViewportMetric(appliedVisibleViewportBottom, visibleBottom);
+    document.documentElement.style.setProperty("--club-visible-viewport-bottom", `${appliedVisibleViewportBottom}px`);
   }
 
   const viewportBaseHeight = Math.max(visualHeight, browserHeight);
@@ -490,7 +505,9 @@ function syncViewportHeight() {
     visibleHeight,
     visibleOffsetTop: visualViewport?.offsetTop ?? 0
   });
-  const isKeyboardOpen = visualBottomGap > 80 && isTextFieldElement(document.activeElement);
+  const keyboardThreshold = keyboardWasOpen ? 56 : 96;
+  const isKeyboardOpen = visualBottomGap > keyboardThreshold && isTextFieldElement(document.activeElement);
+  keyboardWasOpen = isKeyboardOpen;
   const systemBottomGap = getMeasuredSystemBottomGap({ keyboardOpen: isKeyboardOpen, visualBottomGap });
   const platform = window.navigator.platform;
   const calibration = calculateLayoutCalibration({
@@ -508,11 +525,17 @@ function syncViewportHeight() {
     visualBottomGap: systemBottomGap
   });
 
-  document.documentElement.style.setProperty("--club-system-bottom", `${systemBottomGap}px`);
-  document.documentElement.style.setProperty("--club-keyboard-bottom", `${visualBottomGap}px`);
+  appliedSystemBottomGap = stabilizeViewportMetric(appliedSystemBottomGap, systemBottomGap);
+  appliedKeyboardBottomGap = stabilizeViewportMetric(appliedKeyboardBottomGap, visualBottomGap);
+  document.documentElement.style.setProperty("--club-system-bottom", `${appliedSystemBottomGap}px`);
+  document.documentElement.style.setProperty("--club-keyboard-bottom", `${appliedKeyboardBottomGap}px`);
   setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);
   document.documentElement.classList.toggle("club-keyboard-open", isKeyboardOpen);
   document.body.classList.toggle("club-keyboard-open", isKeyboardOpen);
+}
+
+function scheduleViewportHeightSync() {
+  viewportSyncScheduler?.schedule();
 }
 
 async function checkPendingPaymentWatch() {
@@ -655,13 +678,13 @@ function handleVisibilityChange() {
 
 function handleTextFieldFocusIn(event: FocusEvent) {
   ensureFocusedTextFieldVisible(event.target instanceof Element ? event.target : null);
-  syncViewportHeight();
+  viewportSyncScheduler?.flush();
   if (keyboardFocusTimer) {
     window.clearTimeout(keyboardFocusTimer);
   }
   keyboardFocusTimer = window.setTimeout(() => {
     keyboardFocusTimer = null;
-    syncViewportHeight();
+    viewportSyncScheduler?.flush();
   }, 360);
 }
 
@@ -679,12 +702,20 @@ async function sendDeviceDiagnostics() {
 
 onMounted(() => {
   isAppMounted = true;
+  viewportSyncScheduler = createViewportSyncScheduler(syncViewportHeight, {
+    requestFrame: (handler) => window.requestAnimationFrame(handler),
+    cancelFrame: (handle) => window.cancelAnimationFrame(handle),
+    setTimer: (handler, delay) => window.setTimeout(handler, delay),
+    clearTimer: (handle) => window.clearTimeout(handle),
+    trailingDelayMs: 120
+  });
   syncBrowserSafeArea();
   syncViewportHeight();
   syncDesktopLayout();
-  window.visualViewport?.addEventListener("resize", syncViewportHeight);
-  window.visualViewport?.addEventListener("scroll", syncViewportHeight);
-  window.addEventListener("resize", syncViewportHeight);
+  window.visualViewport?.addEventListener("resize", scheduleViewportHeightSync);
+  window.visualViewport?.addEventListener("scroll", scheduleViewportHeightSync);
+  window.addEventListener("resize", scheduleViewportHeightSync);
+  window.addEventListener("orientationchange", scheduleViewportHeightSync);
   window.addEventListener("touchmove", preventModalPagePinch, modalPageGestureListenerOptions);
   window.addEventListener("gesturestart", preventModalWebKitGesture, modalPageGestureListenerOptions);
   window.addEventListener("gesturechange", preventModalWebKitGesture, modalPageGestureListenerOptions);
@@ -766,9 +797,12 @@ watch(
 onBeforeUnmount(() => {
   isAppMounted = false;
   syncCommunityLock(false);
-  window.visualViewport?.removeEventListener("resize", syncViewportHeight);
-  window.visualViewport?.removeEventListener("scroll", syncViewportHeight);
-  window.removeEventListener("resize", syncViewportHeight);
+  window.visualViewport?.removeEventListener("resize", scheduleViewportHeightSync);
+  window.visualViewport?.removeEventListener("scroll", scheduleViewportHeightSync);
+  window.removeEventListener("resize", scheduleViewportHeightSync);
+  window.removeEventListener("orientationchange", scheduleViewportHeightSync);
+  viewportSyncScheduler?.cancel();
+  viewportSyncScheduler = null;
   window.removeEventListener("touchmove", preventModalPagePinch, true);
   window.removeEventListener("gesturestart", preventModalWebKitGesture, true);
   window.removeEventListener("gesturechange", preventModalWebKitGesture, true);

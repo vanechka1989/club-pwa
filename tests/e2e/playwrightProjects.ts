@@ -91,6 +91,45 @@ const viewport412x915 = {
   }
 };
 
+const viewport480x900 = {
+  name: "android-wide-480",
+  use: {
+    viewport: { width: 480, height: 900 },
+    deviceScaleFactor: 2.5,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 15; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36"
+  }
+};
+
+const androidLandscape844x390 = {
+  name: "android-landscape-844-390",
+  use: {
+    viewport: { width: 844, height: 390 },
+    deviceScaleFactor: 2.5,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 15; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36"
+  }
+};
+
+const yandexAndroid390x844 = {
+  name: "yandex-android-390-844",
+  use: {
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+    defaultBrowserType: "chromium" as const,
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 YaBrowser/26.6.0.0 Mobile Safari/537.36"
+  }
+};
+
 const tablet768x1024 = {
   name: "tablet-768-1024",
   use: {
@@ -128,6 +167,9 @@ export const smokeProjects = [
   compactAndroid320,
   viewport390x844,
   viewport412x915,
+  viewport480x900,
+  androidLandscape844x390,
+  yandexAndroid390x844,
   tablet768x1024,
   androidWideLayout980,
   androidStandaloneNoTouch980,
@@ -137,6 +179,10 @@ export const smokeProjects = [
 
 export const fullProjects = [
   ...smokeProjects,
+  {
+    name: "ios-safari-webkit",
+    use: { ...devices["iPhone 15"], browserName: "webkit" as const }
+  },
   {
     name: "iphone-12-mini",
     use: { ...devices["iPhone 12 Mini"] }

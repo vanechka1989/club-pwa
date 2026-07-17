@@ -146,7 +146,7 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("canViewReleaseNotes");
     expect(adminSectionSource).toContain('ui.previewMode === "developer"');
     expect(adminSectionSource).toContain('v-if="canViewReleaseNotes"');
-    expect(adminSectionSource).toContain('v-if="showReleaseNotesModal && canViewReleaseNotes"');
+    expect(adminSectionSource).toContain("(showReleaseNotesModal || route.path === '/admin/releases') && canViewReleaseNotes");
     expect(adminSectionSource).toContain('openAdminTask("/admin/releases")');
   });
 

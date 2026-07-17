@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the load optimization as version 4.65", () => {
-    expect(appVersion).toBe("4.65");
-    expect(releaseNotes[0]?.title).toBe("Оптимизация нагрузки");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("текущем тарифе");
-    expect(releaseNotes[1]?.version).toBe("4.64");
+  it("publishes the responsive layout audit as version 4.66", () => {
+    expect(appVersion).toBe("4.66");
+    expect(releaseNotes[0]?.title).toBe("Адаптивность мобильного интерфейса");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("320 пикселей");
+    expect(releaseNotes[1]?.version).toBe("4.65");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Load optimization");
+    expect(englishNotes[0]?.title).toBe("Mobile layout responsiveness");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

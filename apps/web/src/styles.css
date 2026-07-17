@@ -1210,7 +1210,7 @@ body.club-mobile-auth-scaled .app-shell-auth {
 }
 
 body.club-mobile-auth-scaled {
-  --club-auth-wide-viewport-shift: clamp(0.85rem, 4vh, 1.35rem);
+  --club-auth-wide-viewport-shift: clamp(0.85rem, 4svh, 1.35rem);
 }
 
 body.club-mobile-auth-scaled .content-panel-auth .auth-panel,
@@ -1286,7 +1286,7 @@ body.club-mobile-device .mobile-bottom-nav {
   display: grid;
   gap: 1rem;
   max-width: 28rem;
-  margin: clamp(2rem, 10vh, 5rem) auto;
+  margin: clamp(2rem, 10svh, 5rem) auto;
   padding: 1.1rem;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: 0.5rem;
@@ -3601,7 +3601,7 @@ body.club-keyboard-open .support-ticket-modal-compact {
 .learning-photo-preview {
   display: block;
   width: 100%;
-  max-height: 70vh;
+  max-height: 70dvh;
   object-fit: contain;
   border-radius: 0.9rem;
   background: var(--panel-soft);
@@ -4070,7 +4070,7 @@ body.club-keyboard-open .support-ticket-modal-compact {
 
 .image-viewer {
   max-width: min(92vw, 68rem);
-  max-height: 88vh;
+  max-height: 88dvh;
   padding: 0;
   background: transparent;
   border: 0;
@@ -4079,7 +4079,7 @@ body.club-keyboard-open .support-ticket-modal-compact {
 .image-viewer img {
   display: block;
   max-width: 100%;
-  max-height: 88vh;
+  max-height: 88dvh;
   object-fit: contain;
   border-radius: 0.9rem;
 }
@@ -7140,7 +7140,7 @@ body.club-keyboard-open .module-name-modal {
 .lesson-viewer-media {
   display: block;
   width: 100%;
-  max-height: min(58vh, 26rem);
+  max-height: min(58dvh, 26rem);
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 14px;
   background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
@@ -7276,7 +7276,7 @@ body.club-lesson-image-viewer-open {
 .lesson-video-element {
   display: block;
   width: 100%;
-  max-height: min(62vh, 28rem);
+  max-height: min(62dvh, 28rem);
   aspect-ratio: 16 / 9;
   background: #000;
   object-fit: contain;
@@ -7428,7 +7428,7 @@ body.club-lesson-image-viewer-open {
 .lesson-material-block img,
 .lesson-material-block video {
   width: 100%;
-  max-height: min(54vh, 24rem);
+  max-height: min(54dvh, 24rem);
   border-radius: 12px;
   object-fit: contain;
 }
@@ -13538,7 +13538,7 @@ textarea::placeholder {
 /* Final mobile modal guard: keep this after every visual layer so local modal widths cannot win. */
 body.club-mobile-device {
   --club-mobile-modal-inline-gutter: clamp(0.75rem, 3.8vw, 1.1rem);
-  --club-mobile-modal-block-gutter: clamp(0.72rem, 2.6vh, 1rem);
+  --club-mobile-modal-block-gutter: clamp(0.72rem, 2.6svh, 1rem);
   --club-mobile-modal-width: calc(100vw - (var(--club-mobile-modal-inline-gutter) * 2));
   --club-mobile-modal-height: calc(
     var(--club-visible-viewport-height, 100dvh) -
@@ -14884,7 +14884,7 @@ textarea.text-input,
 }
 
 .admin-preview-option {
-  min-height: 36px;
+  min-height: 44px;
   padding-inline: 0.75rem;
   font-size: 0.72rem;
 }
@@ -14965,7 +14965,7 @@ textarea.text-input,
 }
 
 .admin-stat-period {
-  min-height: 42px;
+  min-height: var(--button-height);
   padding-inline: 1rem;
 }
 
@@ -16992,8 +16992,8 @@ body.club-mobile-device .admin-statistics-panel .admin-stat-period,
 body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-period {
   width: 100%;
   min-width: 0;
-  min-height: 40px !important;
-  height: 40px !important;
+  min-height: var(--button-height) !important;
+  height: var(--button-height) !important;
   padding: 4px 3px !important;
   border-radius: 12px;
   font-size: 11px;
@@ -17984,15 +17984,14 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 }
 .profile-avatar-task-screen .profile-avatar-editor-zoom {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  grid-template-columns: var(--icon-button-size) minmax(0, 1fr) var(--icon-button-size);
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.profile-avatar-task-screen .profile-avatar-editor-zoom .ui-icon-button { --icon-button-size: 40px; }
 .profile-avatar-task-screen .profile-avatar-editor-zoom strong {
   display: grid;
-  min-height: 40px;
+  min-height: var(--icon-button-size);
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -18000,7 +17999,7 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 }
 .profile-avatar-task-screen .profile-avatar-center-button {
   width: auto;
-  min-height: 40px;
+  min-height: var(--button-height);
   padding-inline: 14px;
   white-space: nowrap;
 }
@@ -18028,7 +18027,7 @@ body.club-mobile-app-scaled .profile-avatar-task-screen .profile-avatar-editor-c
 body.club-mobile-device .profile-avatar-task-screen .profile-avatar-editor-zoom,
 body.club-mobile-app-scaled .profile-avatar-task-screen .profile-avatar-editor-zoom {
   width: 100%;
-  grid-template-columns: 40px minmax(64px, 1fr) 40px;
+  grid-template-columns: var(--icon-button-size) minmax(64px, 1fr) var(--icon-button-size);
 }
 
 body.club-mobile-device .profile-avatar-task-screen .profile-avatar-center-button,
@@ -18130,8 +18129,6 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .profile-dashboard .profile-dashboard-toolbar .profile-avatar-icon-button {
-  --icon-button-size: 28px;
-  --icon-size: 13px;
   box-shadow: none;
 }
 
@@ -18220,8 +18217,6 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .profile-dashboard .profile-avatar-menu-button {
-  --icon-button-size: 30px;
-  --icon-size: 14px;
   position: absolute;
   right: -3px;
   bottom: -3px;
@@ -18834,8 +18829,8 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 }
 
 .profile-dashboard-toolbar .profile-avatar-icon-button {
-  --icon-button-size: 32px;
-  --icon-size: 15px;
+  --action-icon-visual-size: calc(30px * var(--club-scaled-control-factor, 1));
+  --action-icon-glyph-size: calc(14px * var(--club-scaled-control-factor, 1));
 }
 
 .profile-dashboard-controls {

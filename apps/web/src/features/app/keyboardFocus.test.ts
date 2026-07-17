@@ -26,7 +26,8 @@ describe("keyboard focus handling", () => {
     expect(appSource).toContain("--club-keyboard-bottom");
     expect(appSource).toContain("--club-visible-viewport-bottom");
     expect(appSource).toContain("club-keyboard-open");
-    expect(appSource).toContain("const isKeyboardOpen = visualBottomGap > 80 && isTextFieldElement(document.activeElement)");
+    expect(appSource).toContain("const keyboardThreshold = keyboardWasOpen ? 56 : 96");
+    expect(appSource).toContain("const isKeyboardOpen = visualBottomGap > keyboardThreshold && isTextFieldElement(document.activeElement)");
     expect(appSource).toContain("isTextFieldElement");
     expect(appSource).not.toContain("isIosPlatform && visualBottomGap > 80");
     expect(appSource).toContain("ensureFocusedTextFieldVisible");

@@ -437,6 +437,10 @@ describe("App", () => {
     expect(appSource).toContain("syncLayoutClasses");
     expect(appSource).toContain("--club-visible-viewport-height");
     expect(appSource).toContain("--club-visible-viewport-bottom");
+    expect(appSource).toContain("createViewportSyncScheduler");
+    expect(appSource).toContain("stabilizeViewportMetric");
+    expect(appSource).toContain("keyboardWasOpen ? 56 : 96");
+    expect(appSource).toContain('addEventListener("orientationchange", scheduleViewportHeightSync)');
     expect(styles).not.toContain("var(--tg-viewport-height, 100vh)");
     expect(styles).not.toContain("height: 100vh");
     expect(styles).not.toContain("calc(100vh");

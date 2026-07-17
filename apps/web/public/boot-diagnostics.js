@@ -67,7 +67,7 @@
     root.className = "club-boot-fallback";
     root.setAttribute(
       "style",
-      "min-height:100vh;display:grid;place-items:center;padding:24px;background:#eef6ff;color:#111827;font-family:system-ui,-apple-system,Segoe UI,sans-serif;"
+      "min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px;background:#eef6ff;color:#111827;font-family:system-ui,-apple-system,Segoe UI,sans-serif;"
     );
     card.setAttribute(
       "style",

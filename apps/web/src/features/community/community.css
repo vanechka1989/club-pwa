@@ -293,7 +293,7 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 }
 
 .chat-message-jump-highlight {
-  scroll-margin-block: 28vh;
+  scroll-margin-block: 28svh;
 }
 
 .chat-message-jump-highlight .chat-bubble {
@@ -564,7 +564,7 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 
 .chat-voice-draft, .chat-image-draft { display: flex; min-width: 0; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel-soft); padding: 5px; }
 .chat-voice-native-audio { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.chat-voice-draft-action { display: grid; width: 42px; min-width: 42px; height: 42px; min-height: 42px; place-items: center; border-radius: 50%; color: var(--muted-strong); }
+.chat-voice-draft-action { display: grid; width: 44px; min-width: 44px; height: 44px; min-height: 44px; place-items: center; border-radius: 50%; color: var(--muted-strong); }
 .chat-voice-draft-action svg { width: 19px; height: 19px; }
 .chat-voice-draft-play { background: color-mix(in srgb, var(--accent) 16%, var(--panel-soft)); color: var(--accent); }
 .chat-voice-draft-play svg { fill: currentColor; }
@@ -574,7 +574,7 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .chat-voice-draft-wave { min-width: 44px; flex: 1 1 auto; }
 .chat-voice-draft-preview-track { display: grid; min-width: 42px; flex: 1 1 auto; grid-template-rows: 24px 12px; }
 .chat-voice-draft-preview-track > span { color: var(--muted-strong); font-size: 10px; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-.chat-image-draft > button { min-height: 40px; border-radius: 12px; padding: 0 10px; color: var(--muted-strong); font-size: 12px; font-weight: 800; }
+.chat-image-draft > button { min-height: 44px; border-radius: 12px; padding: 0 10px; color: var(--muted-strong); font-size: 12px; font-weight: 800; }
 .chat-recording-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--danger); animation: pulse 1s infinite; }
 .chat-draft-send { background: var(--accent) !important; color: var(--accent-text) !important; }
 .chat-draft-send-loading { display: inline-flex; align-items: center; justify-content: center; gap: 6px; transform: scale(0.97); opacity: 0.82; }
@@ -707,10 +707,10 @@ html body .community-chat-open .chat-bubble .message-reaction-button {
 
 .community-chat-open .composer-emoji-popover button {
   display: grid;
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   place-items: center;
   border: 0;
   border-radius: 50%;
@@ -744,7 +744,7 @@ html body .community-chat-open .chat-bubble .message-reaction-button {
 .chat-poll-message > button.selected { border-color: var(--accent); }
 .chat-poll-message .chat-poll-submit { display: flex; justify-content: center; background: var(--accent); color: var(--accent-text); text-align: center; }
 .chat-poll-message footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }
-.chat-poll-message footer button { min-height: 36px; color: var(--accent); font-weight: 800; }
+.chat-poll-message footer button { min-height: 44px; color: var(--accent); font-weight: 800; }
 .chat-poll-message footer em { font-style: normal; }
 /* Compact visibility control for administrator-only community topics. */
 .chat-topic-visibility-toggle {

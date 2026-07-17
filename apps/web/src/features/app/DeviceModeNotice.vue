@@ -217,7 +217,7 @@ onBeforeUnmount(() => {
   }
 
   .device-mode-notice-card-desktop .device-mode-notice-qr {
-    width: min(30vh, 10rem);
+    width: min(30svh, 10rem);
   }
 
   .device-mode-notice-card-desktop .device-mode-notice-continue {

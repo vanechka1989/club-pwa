@@ -106,6 +106,12 @@ describe("community rich message UI", () => {
     expect(section).toContain('aria-label="Отправить голосовое сообщение"');
   });
 
+  it("keeps draft media actions at least 44px tall", () => {
+    const styles = read("community.css");
+    expect(styles).toMatch(/\.chat-voice-draft-action\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+    expect(styles).toMatch(/\.chat-image-draft > button\s*\{[^}]*min-height:\s*44px;/s);
+  });
+
   it("uses the same seekable waveform for recording previews and sent voice messages", () => {
     const section = read("CommunitySection.vue");
     const player = read("ChatVoiceMessage.vue");

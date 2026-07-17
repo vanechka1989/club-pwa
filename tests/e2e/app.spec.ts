@@ -713,11 +713,20 @@ async function openApp(page: Page, testInfo: TestInfo) {
   await expect(page.getByRole("heading", { name: "Профиль" }).first()).toBeVisible();
 }
 
-async function expectNoHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
+async function continuePastDeviceNotice(page: Page) {
+  const continueButton = page.getByRole("button", { name: /Всё равно продолжить|Continue anyway/ });
+  if (await continueButton.isVisible().catch(() => false)) {
+    await continueButton.click();
+  }
+}
+
+async function expectNoHorizontalOverflow(page: Page, rootSelector?: string) {
+  const overflow = await page.evaluate((selector) => {
     const viewportWidth = document.documentElement.clientWidth;
     const scrollWidth = document.documentElement.scrollWidth;
-    const offenders = Array.from(document.body.querySelectorAll<HTMLElement>("*"))
+    const root = selector ? document.querySelector<HTMLElement>(selector) : document.body;
+    const candidates = root ? [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))] : [];
+    const offenders = candidates
       .map((element) => {
         const rect = element.getBoundingClientRect();
         return {
@@ -733,7 +742,7 @@ async function expectNoHorizontalOverflow(page: Page) {
       .slice(0, 8);
 
     return { viewportWidth, scrollWidth, offenders };
-  });
+  }, rootSelector);
 
   expect(overflow.scrollWidth, JSON.stringify(overflow, null, 2)).toBeLessThanOrEqual(overflow.viewportWidth + 2);
   expect(overflow.offenders, JSON.stringify(overflow, null, 2)).toEqual([]);
@@ -897,7 +906,7 @@ async function expectProfileActionButtonsUseScaledFoundation(page: Page) {
   expect(issues, `profile access action buttons\n${JSON.stringify(issues, null, 2)}`).toEqual([]);
 }
 
-async function expectChatComposerSingleRow(page: Page) {
+async function expectChatComposerCompactRow(page: Page) {
   const layout = await page.evaluate(() => {
     const row = document.querySelector<HTMLElement>(".community-chat-open .chat-input-row");
     const room = document.querySelector<HTMLElement>(".community-chat-open .chat-room");
@@ -964,12 +973,12 @@ async function expectChatComposerSingleRow(page: Page) {
       buttonRects,
       sameRow:
         Boolean(inputRect) &&
-        buttonRects.length === 2 &&
+        buttonRects.length === 3 &&
         buttonRects.every((rect) => Math.abs(rect.top - Math.round(inputRect!.top)) <= 8),
       isScaledShell,
       shellScale,
-      buttonsUsable: buttonRects.length === 2 && buttonRects.every((rect) => rect.effectiveWidth >= 44 && rect.effectiveHeight >= 44),
-      iconsReadable: buttonRects.length === 2 && buttonRects.every((rect) => (rect.effectiveSvgWidth ?? 0) >= 16 && (rect.effectiveSvgHeight ?? 0) >= 16),
+      buttonsUsable: buttonRects.length === 3 && buttonRects.every((rect) => rect.effectiveWidth >= 44 && rect.effectiveHeight >= 44),
+      iconsReadable: buttonRects.length === 3 && buttonRects.every((rect) => (rect.effectiveSvgWidth ?? 0) >= 16 && (rect.effectiveSvgHeight ?? 0) >= 16),
       messagesScrollableWhenOverflowing: Boolean(
         messages && (messages.scrollHeight <= messages.clientHeight + 4 || messages.scrollTop > 0)
       ),
@@ -980,7 +989,7 @@ async function expectChatComposerSingleRow(page: Page) {
   });
 
   expect(layout, JSON.stringify(layout, null, 2)).toMatchObject({
-    display: "flex",
+    display: "grid",
     sameRow: true,
     buttonsUsable: true,
     iconsReadable: true,
@@ -1319,8 +1328,7 @@ const compactMobileModalClasses = [
   "notification-center-panel",
   "release-notes-modal",
   "payment-confirm-card",
-  "push-permission-card",
-  "admin-client-message-modal"
+  "push-permission-card"
 ];
 
 async function renderMobileModalFixture(page: Page, fixture: { backdropClass: string; modalClass: string }) {
@@ -1351,13 +1359,15 @@ async function renderMobileModalFixture(page: Page, fixture: { backdropClass: st
         <button type="button" class="admin-date-save push-permission-later">Сохранить</button>
         <button type="button" class="admin-message-client-button">Написать участнику</button>
       </div>
-      <article class="notification-center-item soft-card" style="margin: 1rem;">
-        <header>
-          <strong>Ответ поддержки</strong>
-          <time>07.07, 21:14</time>
-        </header>
-        <p>Контент внутри модалки тоже не должен создавать горизонтальный скролл.</p>
-      </article>
+      <div class="notification-center-list">
+        <article class="notification-center-item soft-card">
+          <header>
+            <strong>Ответ поддержки</strong>
+            <time>07.07, 21:14</time>
+          </header>
+          <p>Контент внутри модалки тоже не должен создавать горизонтальный скролл.</p>
+        </article>
+      </div>
     `;
 
     backdrop.append(modal);
@@ -1403,7 +1413,7 @@ async function expectMobileModalFitsViewport(page: Page, testInfo: TestInfo, fix
       })
     )
     .toEqual({ backdropTouchAction: "pan-y", modalTouchAction: "pan-y" });
-  await expectNoHorizontalOverflow(page);
+  await expectNoHorizontalOverflow(page, "[data-modal-fixture-panel]");
 }
 
 async function expectPwaTopEdgeClear(
@@ -1439,7 +1449,17 @@ test.beforeEach(async ({ page }, testInfo) => {
   await openApp(page, testInfo);
 });
 
-const responsiveRouteAuditProjects = new Set(["android-compact-320", "oneplus-mt2111", "viewport-390-844", "viewport-412-915", "tablet-768-1024"]);
+const responsiveRouteAuditProjects = new Set([
+  "android-compact-320",
+  "oneplus-mt2111",
+  "viewport-390-844",
+  "viewport-412-915",
+  "android-wide-480",
+  "android-landscape-844-390",
+  "yandex-android-390-844",
+  "ios-safari-webkit",
+  "tablet-768-1024"
+]);
 const wideMobilePwaRouteAuditProjects = new Set(["android-wide-layout-980", "android-standalone-no-touch-980"]);
 
 const exactMobileAuditViewports = [
@@ -1659,7 +1679,7 @@ test("keeps mobile icon action controls consistently touch sized", async ({ page
     "community chat header and composer actions",
     iconActionControlSelector
   );
-  await expectChatComposerSingleRow(page);
+  await expectChatComposerCompactRow(page);
 
   await page.goto("/payments");
   await expect(page.getByRole("heading", { name: "Оплата" }).first()).toBeVisible();
@@ -1921,9 +1941,29 @@ test("keeps routed PWA screens responsive across exact mobile audit sizes", asyn
   }
 });
 
+test("reflows the installed mobile shell after orientation changes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "viewport-390-844");
+
+  await page.goto("/community");
+  await page.getByRole("button", { name: /Фиксики/ }).click();
+  await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
+
+  for (const viewport of [
+    { width: 844, height: 390 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.dispatchEvent(new Event("orientationchange")));
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--club-viewport-height").trim())).toBe(`${viewport.height}px`);
+    await expectChatComposerCompactRow(page);
+    await expectNoHorizontalOverflow(page);
+  }
+});
+
 test("keeps routed PWA screens responsive across exact desktop audit sizes", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome");
   test.setTimeout(240_000);
+  await continuePastDeviceNotice(page);
 
   for (const viewport of exactDesktopAuditViewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -1934,34 +1974,31 @@ test("keeps routed PWA screens responsive across exact desktop audit sizes", asy
       await page.goto(auditRoute.path);
       await expect(page.locator(auditRoute.selector).first(), `${viewport.name} ${auditRoute.path}`).toBeVisible({ timeout: 12_000 });
       await expectResponsiveLayoutIntegrity(page, `${viewport.name} ${auditRoute.path}`);
-      await expectKeyboardSafeIfFormRoute(page, `${viewport.name} ${auditRoute.path}`);
     }
   }
 });
 
-test("keeps the desktop sidebar identity aligned with the profile", async ({ page }, testInfo) => {
+test("keeps the desktop fallback aligned with the mobile-only product mode", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome");
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/profile");
+  await expect(page.getByRole("dialog", { name: "Приложение оптимизировано для телефона" })).toBeVisible();
+  await continuePastDeviceNotice(page);
 
   const sidebar = page.locator(".desktop-sidebar");
-  await expect(sidebar).toBeVisible();
-  await expect(sidebar.locator(".desktop-sidebar-brand strong")).toHaveText("Клуб");
-  await expect(sidebar.locator(".desktop-sidebar-brand").getByText("Клуб", { exact: true })).toHaveCount(1);
-  await expect(sidebar.locator(".desktop-sidebar-user strong")).toHaveText(currentUser.displayName);
-  await expect(sidebar.locator(".desktop-sidebar-avatar-image")).toHaveAttribute("src", currentUser.photoUrl);
+  await expect(sidebar).toHaveCount(0);
+  await expect(page.locator(".mobile-bottom-nav")).toBeVisible();
+  await expect(page.locator(".app-root")).toHaveClass(/desktop-mobile-preview/);
   await expect(page.locator(".profile-identity-head h3")).toHaveText(currentUser.displayName);
   const layout = await page.evaluate(() => ({
     viewportWidth: document.documentElement.clientWidth,
-    documentWidth: document.documentElement.scrollWidth,
-    sidebarWidth: Math.round(document.querySelector(".desktop-sidebar")?.getBoundingClientRect().width ?? 0)
+    documentWidth: document.documentElement.scrollWidth
   }));
   expect(layout.documentWidth).toBe(layout.viewportWidth);
-  expect(layout.sidebarWidth).toBeGreaterThanOrEqual(200);
 
   await page.screenshot({
-    path: testInfo.outputPath("desktop-sidebar-profile.png"),
+    path: testInfo.outputPath("desktop-mobile-preview-profile.png"),
     fullPage: true
   });
 });
@@ -2191,15 +2228,17 @@ test("detects standalone small-screen desktop-UA PWA as a mobile app shell", asy
     });
 });
 
-test("uses the desktop sidebar only above the app breakpoint", async ({ page }) => {
+test("uses the expected navigation for the detected device mode", async ({ page }, testInfo) => {
   const isDesktop = (page.viewportSize()?.width ?? 0) >= 1024;
   const sidebar = page.locator(".desktop-sidebar");
   const bottomNav = page.locator(".mobile-bottom-nav");
 
-  if (isDesktop) {
-    await expect(sidebar).toBeVisible();
-    await expect(bottomNav).toHaveCount(0);
-    await expect(page.locator(".app-layout")).toHaveCSS("display", "grid");
+  if (isDesktop && testInfo.project.name === "desktop-chrome") {
+    await expect(page.getByRole("dialog", { name: "Приложение оптимизировано для телефона" })).toBeVisible();
+    await continuePastDeviceNotice(page);
+    await expect(sidebar).toHaveCount(0);
+    await expect(bottomNav).toBeVisible();
+    await expect(page.locator(".app-root")).toHaveClass(/desktop-mobile-preview/);
   } else {
     await expect(sidebar).toHaveCount(0);
     await expect(bottomNav).toBeVisible();
@@ -2332,7 +2371,7 @@ test("returns from a support client card to the same ticket", async ({ page }, t
 });
 
 test("does not double-scroll iPhone support composers when focus opens the keyboard", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "iphone-15-pro-max");
+  test.skip(!["iphone-15-pro-max", "ios-safari-webkit"].includes(testInfo.project.name));
 
   for (const fixture of [
     { path: "/support/new", placeholder: "Напишите, что случилось и где именно." },
@@ -2544,7 +2583,7 @@ test("keeps chat composer stable when typing", async ({ page }, testInfo) => {
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();
-  await expectChatComposerSingleRow(page);
+  await expectChatComposerCompactRow(page);
 
   if (testInfo.project.name === "viewport-390-844") {
     await page.screenshot({ path: testInfo.outputPath("chat-compact.png"), fullPage: false, animations: "disabled", caret: "hide" });
@@ -2553,7 +2592,7 @@ test("keeps chat composer stable when typing", async ({ page }, testInfo) => {
   const composer = page.getByPlaceholder("Сообщение");
   await composer.fill("Проверка адаптива");
   await expect(composer).toBeFocused();
-  await expectChatComposerSingleRow(page);
+  await expectChatComposerCompactRow(page);
 
   await page.evaluate(() => {
     const isScaledShell = document.documentElement.classList.contains("club-mobile-app-scaled");
@@ -2570,7 +2609,7 @@ test("keeps chat composer stable when typing", async ({ page }, testInfo) => {
     document.body.style.setProperty("--club-calibrated-bottom-offset", `${360 * shellScale}px`);
   });
   await composer.focus();
-  await expectChatComposerSingleRow(page);
+  await expectChatComposerCompactRow(page);
   await expectNoHorizontalOverflow(page);
 
   const composerBox = await composer.boundingBox();

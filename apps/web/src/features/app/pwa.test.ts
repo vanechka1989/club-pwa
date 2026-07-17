@@ -23,14 +23,22 @@ describe("PWA shell", () => {
       name: string;
       start_url: string;
       display: string;
-      icons: unknown[];
+      theme_color: string;
+      icons: Array<{ src: string; sizes: string; purpose: string }>;
     };
     const worker = readFileSync(workerPath, "utf8");
 
     expect(manifest.name).toContain("PWA");
     expect(manifest.start_url).toBe("/?source=pwa");
     expect(manifest.display).toBe("standalone");
-    expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
+    expect(manifest.theme_color).toBe("#111827");
+    expect(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "192x192")).toBe(true);
+    expect(manifest.icons.some((icon) => icon.purpose === "any" && icon.sizes === "512x512")).toBe(true);
+    expect(manifest.icons.some((icon) => icon.purpose === "maskable" && icon.sizes === "192x192")).toBe(true);
+    expect(manifest.icons.some((icon) => icon.purpose === "maskable" && icon.sizes === "512x512")).toBe(true);
+    for (const icon of manifest.icons.filter((item) => item.src.endsWith(".png"))) {
+      expect(existsSync(resolve(publicDir, icon.src.replace(/^\//, "")))).toBe(true);
+    }
     expect(worker).toContain("push");
     expect(worker).toContain("notificationclick");
   });
@@ -38,7 +46,7 @@ describe("PWA shell", () => {
   it("refreshes the shell without keeping old login HTML in the runtime cache", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
 
-    expect(worker).toContain('const cacheName = "club-pwa-v164"');
+    expect(worker).toContain('const cacheName = "club-pwa-v165"');
     expect(worker).toContain('if (request.mode === "navigate")');
     expect(worker).toContain('url.pathname.startsWith("/api/")');
     expect(worker).toContain('event.data?.type === "SKIP_WAITING"');
@@ -73,6 +81,18 @@ describe("PWA shell", () => {
     expect(html).toContain("user-scalable=no");
     expect(html).toContain("viewport-fit=cover");
     expect(html).toContain("interactive-widget=resizes-content");
+    expect(html).toContain('rel="apple-touch-icon" sizes="180x180"');
+    expect(existsSync(resolve(process.cwd(), "public/icons/apple-touch-icon-180.png"))).toBe(true);
+  });
+
+  it("uses dynamic or stable viewport units instead of legacy vh in active layouts", () => {
+    const sources = [
+      readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8"),
+      readFileSync(resolve(process.cwd(), "src/features/community/community.css"), "utf8"),
+      readFileSync(resolve(process.cwd(), "src/features/app/DeviceModeNotice.vue"), "utf8")
+    ];
+
+    expect(sources.join("\n")).not.toMatch(/(^|[^a-z])\d+(?:\.\d+)?vh\b/i);
   });
 
   it("serves the web manifest with a single installable content type", () => {

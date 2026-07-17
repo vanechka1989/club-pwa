@@ -9,6 +9,28 @@ export type AdminPaymentBreakdownItem = {
   value: number;
 };
 
+const paymentBreakdownLabels: Record<AdminPaymentBreakdownKey, string> = {
+  paid: "Всего оплат",
+  one_time: "Разовые",
+  recurrent: "Рекуррент",
+  pending: "Ожидают",
+  webhook_failed: "Ошибки webhook",
+  failed: "Ошибки оплат"
+};
+
+export function resolvePaymentBreakdownItem(
+  key: string,
+  items: AdminPaymentBreakdownItem[]
+): AdminPaymentBreakdownItem | null {
+  const knownKey = key as AdminPaymentBreakdownKey;
+  const label = paymentBreakdownLabels[knownKey];
+  if (!label) {
+    return null;
+  }
+
+  return items.find((item) => item.key === knownKey) ?? { key: knownKey, label, value: 0 };
+}
+
 type DrilldownOptions = {
   period?: AdminStatisticsPeriod;
   dateRange?: AdminStatisticsDateRange;

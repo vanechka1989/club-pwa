@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Адаптивность мобильного интерфейса",
+    items: [
+      "Стабилизирована высота интерфейса при появлении адресной строки, клавиатуры и смене ориентации на iOS и Android.",
+      "Исправлены размеры тач-зон, модалок, чата и форм на экранах от 320 пикселей, широких телефонах и планшетах.",
+      "Добавлены отдельные Apple Touch и maskable-иконки, а прямые вложенные экраны админки корректно открываются после перезагрузки."
+    ]
+  },
+  {
+    version: "4.65",
+    updatedAt: "16.07.2026 18:17",
     title: "Оптимизация нагрузки",
     items: [
       "Фоновые проверки выполняются реже, распределяются по времени и останавливаются, когда приложение скрыто.",
@@ -3290,11 +3300,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Load optimization",
+  title: "Mobile layout responsiveness",
   items: [
-    "Background checks now run less often, use jitter, and pause while the app is hidden.",
-    "Session activity no longer writes to the database on every request, and the API now exposes readiness checks and metrics.",
-    "A separate future scaling profile is ready but remains disabled on the current server plan."
+    "Viewport height is now stable when browser chrome, the keyboard, or device orientation changes on iOS and Android.",
+    "Touch targets, dialogs, chat, and forms now adapt from 320-pixel phones through wide devices and tablets.",
+    "Dedicated Apple Touch and maskable icons were added, and nested admin screens survive direct navigation and reloads."
   ]
 };
 

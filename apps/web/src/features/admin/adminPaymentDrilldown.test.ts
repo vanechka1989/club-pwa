@@ -1,6 +1,6 @@
 import type { PaymentOrderLog } from "@club/shared";
 import { describe, expect, it } from "vitest";
-import { filterPaymentOrdersByBreakdown } from "./adminPaymentDrilldown";
+import { filterPaymentOrdersByBreakdown, resolvePaymentBreakdownItem } from "./adminPaymentDrilldown";
 
 function payment(overrides: Partial<PaymentOrderLog>): PaymentOrderLog {
   return {
@@ -58,5 +58,10 @@ describe("admin payment drilldown", () => {
         dateRange: { from: "2026-06-09", to: "2026-06-15" }
       }).map((order) => order.id)
     ).toEqual(["inside"]);
+  });
+
+  it("keeps a valid direct drilldown route usable before statistics finish loading", () => {
+    expect(resolvePaymentBreakdownItem("paid", [])).toEqual({ key: "paid", label: "Всего оплат", value: 0 });
+    expect(resolvePaymentBreakdownItem("unknown", [])).toBeNull();
   });
 });

@@ -109,6 +109,7 @@ import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import {
   filterPaymentOrdersByBreakdown,
+  resolvePaymentBreakdownItem,
   type AdminPaymentBreakdownItem
 } from "@/features/admin/adminPaymentDrilldown";
 import {
@@ -535,21 +536,47 @@ const statisticsOptions = computed(() =>
     ? { period: statisticsPeriod.value, dateRange: statisticsDateRange.value }
     : { period: statisticsPeriod.value }
 );
+const routePaymentBreakdown = computed(() => {
+  const match = route.path.match(/^\/admin\/statistics\/payments\/([^/]+)$/);
+  return match ? resolvePaymentBreakdownItem(decodeURIComponent(match[1]!), []) : null;
+});
+const activePaymentBreakdown = computed(() => selectedPaymentBreakdown.value ?? routePaymentBreakdown.value);
 const paymentDrilldownOrders = computed(() =>
-  selectedPaymentBreakdown.value
-    ? filterPaymentOrdersByBreakdown(selectedPaymentBreakdown.value.key, paymentOrders.value, statisticsOptions.value)
+  activePaymentBreakdown.value
+    ? filterPaymentOrdersByBreakdown(activePaymentBreakdown.value.key, paymentOrders.value, statisticsOptions.value)
     : []
 );
+const routeUserDrilldown = computed<UserDrilldownSelection | null>(() => {
+  const match = route.path.match(/^\/admin\/statistics\/users\/(access|tariff)-([^/]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const kind = match[1];
+  const key = decodeURIComponent(match[2]!);
+  if (kind === "tariff") {
+    return { kind: "tariff", tariff: key, title: getAdminTariffLabel(key) };
+  }
+
+  const accessTitles: Record<AdminAccessBreakdownItem["key"], string> = {
+    inactive: "Без доступа",
+    restricted: "Ограничения",
+    expiring_soon: "Истекают скоро"
+  };
+  const accessKey = key as AdminAccessBreakdownItem["key"];
+  return accessTitles[accessKey] ? { kind: "access", key: accessKey, title: accessTitles[accessKey] } : null;
+});
+const activeUserDrilldown = computed(() => selectedUserDrilldown.value ?? routeUserDrilldown.value);
 const userDrilldownUsers = computed(() => {
-  if (!selectedUserDrilldown.value) {
+  if (!activeUserDrilldown.value) {
     return [];
   }
 
-  if (selectedUserDrilldown.value.kind === "tariff") {
-    return filterUsersByTariff(selectedUserDrilldown.value.tariff, users.value);
+  if (activeUserDrilldown.value.kind === "tariff") {
+    return filterUsersByTariff(activeUserDrilldown.value.tariff, users.value);
   }
 
-  return filterUsersByAccessBreakdown(selectedUserDrilldown.value.key, users.value);
+  return filterUsersByAccessBreakdown(activeUserDrilldown.value.key, users.value);
 });
 const accessSaveButtonText = computed(() => getAccessSaveButtonText(accessSaveSucceeded.value));
 const materialsByCategory = computed(() =>
@@ -2631,7 +2658,7 @@ async function syncAdminTaskRoute() {
   if (paymentStatsMatch) {
     activePanel.value = "statistics";
     const key = decodeURIComponent(paymentStatsMatch[1]!);
-    selectedPaymentBreakdown.value = adminStatistics.value.payments.breakdown.find((item) => item.key === key) ?? null;
+    selectedPaymentBreakdown.value = resolvePaymentBreakdownItem(key, adminStatistics.value.payments.breakdown);
     return;
   }
   const userStatsMatch =
@@ -2800,7 +2827,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <TaskScreen v-if="showReleaseNotesModal && canViewReleaseNotes" class="admin-task-screen" title="Обновления" subtitle="История изменений приложения по версиям." portal @back="closeReleaseNotesModal">
+    <TaskScreen v-if="(showReleaseNotesModal || route.path === '/admin/releases') && canViewReleaseNotes" class="admin-task-screen" title="Обновления" subtitle="История изменений приложения по версиям." portal @back="closeReleaseNotesModal">
         <section class="admin-detail ui-card admin-client-modal release-notes-modal">
           <header class="admin-client-modal-head">
             <div>
@@ -2830,11 +2857,11 @@ onUnmounted(() => {
         </section>
     </TaskScreen>
 
-    <TaskScreen v-if="selectedPaymentBreakdown" class="admin-task-screen" :title="selectedPaymentBreakdown.label" :subtitle="`${paymentDrilldownOrders.length} записей`" portal @back="closePaymentDrilldown">
+    <TaskScreen v-if="activePaymentBreakdown" class="admin-task-screen" :title="activePaymentBreakdown.label" :subtitle="`${paymentDrilldownOrders.length} записей`" portal @back="closePaymentDrilldown">
         <section class="admin-detail ui-card admin-client-modal admin-payment-drilldown-modal">
           <header class="admin-client-modal-head">
             <div>
-              <h3 id="payment-drilldown-title">{{ selectedPaymentBreakdown.label }}</h3>
+              <h3 id="payment-drilldown-title">{{ activePaymentBreakdown.label }}</h3>
               <p>{{ paymentDrilldownOrders.length }} записей. Нажмите строку, чтобы открыть клиента.</p>
             </div>
             <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть детализацию оплат" @click="closePaymentDrilldown">
@@ -2869,11 +2896,11 @@ onUnmounted(() => {
         </section>
     </TaskScreen>
 
-    <TaskScreen v-if="selectedUserDrilldown" class="admin-task-screen" :title="selectedUserDrilldown.title" :subtitle="`${userDrilldownUsers.length} клиентов`" portal @back="closeUserDrilldown">
+    <TaskScreen v-if="activeUserDrilldown" class="admin-task-screen" :title="activeUserDrilldown.title" :subtitle="`${userDrilldownUsers.length} клиентов`" portal @back="closeUserDrilldown">
         <section class="admin-detail ui-card admin-client-modal admin-payment-drilldown-modal">
           <header class="admin-client-modal-head">
             <div>
-              <h3 id="user-drilldown-title">{{ selectedUserDrilldown.title }}</h3>
+              <h3 id="user-drilldown-title">{{ activeUserDrilldown.title }}</h3>
               <p>{{ userDrilldownUsers.length }} клиентов. Нажмите строку, чтобы открыть карточку.</p>
             </div>
             <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть детализацию клиентов" @click="closeUserDrilldown">
