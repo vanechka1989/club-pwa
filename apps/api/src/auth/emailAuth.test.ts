@@ -42,10 +42,12 @@ describe("email auth", () => {
     expect(message.subject).toBe("Код входа в клуб");
     expect(message.text).toContain("073567");
     expect(message.text).toContain("10 минут");
-    expect(message.html).toContain("073 567");
+    expect(message.html).toContain(">073567</div>");
+    expect(message.html).not.toContain("073 567");
     expect(message.html).toContain("https://club2.myn8nservertest.ru/icons/icon-192.png");
     expect(message.html).toContain('href="https://club2.myn8nservertest.ru"');
-    expect(message.html).toContain("Нажмите и удерживайте код");
+    expect(message.html).toContain("Скопируйте код для авторизации в клубе");
+    expect(message.html).not.toContain("Нажмите и удерживайте код");
     expect(message.html).not.toContain("073567?");
     expect(message.html).not.toMatch(/<script|onclick=|clipboard/i);
     expect(message.text.toLowerCase()).not.toContain("telegram");

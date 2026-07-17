@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes branded login emails as version 4.67", () => {
-    expect(appVersion).toBe("4.67");
-    expect(releaseNotes[0]?.title).toBe("Красивые письма с кодом входа");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("HTML");
-    expect(releaseNotes[1]?.version).toBe("4.66");
+  it("publishes uninterrupted login codes as version 4.68", () => {
+    expect(appVersion).toBe("4.68");
+    expect(releaseNotes[0]?.title).toBe("Код входа без пробелов");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("последняя цифра");
+    expect(releaseNotes[1]?.version).toBe("4.67");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Branded login code emails");
+    expect(englishNotes[0]?.title).toBe("Login codes without spaces");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

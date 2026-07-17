@@ -60,7 +60,7 @@ export function buildEmailLoginMessage(input: { code: string; expiresInMinutes: 
   const webOrigin = normalizePublicWebOrigin(input.webOrigin);
   const safeWebOrigin = escapeHtml(webOrigin);
   const safeLogoUrl = escapeHtml(`${webOrigin}/icons/icon-192.png`);
-  const displayCode = `${input.code.slice(0, 3)} ${input.code.slice(3)}`;
+  const displayCode = input.code;
   const expirationText = `${input.expiresInMinutes} минут`;
 
   return {
@@ -109,7 +109,7 @@ export function buildEmailLoginMessage(input: { code: string; expiresInMinutes: 
                 <p style="margin:10px 0 0;color:#60716b;font-size:16px;line-height:24px;">Введите эти 6 цифр в приложении Club.</p>
 
                 <div style="margin:24px 0 0;padding:21px 14px;background:#edf9f6;border:2px solid #19bdaa;border-radius:18px;color:#0d3a31;font-family:'Courier New',Courier,monospace;font-size:38px;line-height:44px;font-weight:800;letter-spacing:8px;text-align:center;white-space:nowrap;user-select:all;-webkit-user-select:all;">${displayCode}</div>
-                <p style="margin:10px 0 0;color:#74847f;font-size:13px;line-height:19px;text-align:center;">Нажмите и удерживайте код, чтобы скопировать</p>
+                <p style="margin:10px 0 0;color:#74847f;font-size:13px;line-height:19px;text-align:center;">Скопируйте код для авторизации в клубе</p>
 
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
                   <tr>

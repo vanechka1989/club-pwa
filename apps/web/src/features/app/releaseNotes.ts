@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Код входа без пробелов",
+    items: [
+      "Шесть цифр в письме теперь копируются одной непрерывной строкой без скрытого пробела.",
+      "При вставке в поле авторизации последняя цифра больше не отбрасывается ограничением длины.",
+      "Подсказка под кодом заменена на понятный текст: «Скопируйте код для авторизации в клубе»."
+    ]
+  },
+  {
+    version: "4.67",
+    updatedAt: "17.07.2026 14:02",
     title: "Красивые письма с кодом входа",
     items: [
       "Код авторизации теперь приходит в фирменной HTML-карточке Club с логотипом и крупными цифрами.",
@@ -3310,11 +3320,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Branded login code emails",
+  title: "Login codes without spaces",
   items: [
-    "Login codes now arrive in a branded Club HTML card with the logo and large readable digits.",
-    "The code is easy to select on a phone, while the safe app button never places the login code in the URL.",
-    "A plain-text fallback remains available, and the email contains no scripts, forms, or tracking."
+    "All six digits in the email now copy as one uninterrupted value without a hidden space.",
+    "Pasting into the login field no longer drops the final digit because of the input length limit.",
+    "The hint below the code now clearly asks the member to copy it for Club authorization."
   ]
 };
 
