@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Красивые письма с кодом входа",
+    items: [
+      "Код авторизации теперь приходит в фирменной HTML-карточке Club с логотипом и крупными цифрами.",
+      "Код удобно выделять и копировать на телефоне, а безопасная кнопка открывает приложение без передачи кода в ссылке.",
+      "Для почтовых клиентов без HTML сохранена текстовая версия, а в письмо не добавлены скрипты, формы и отслеживание."
+    ]
+  },
+  {
+    version: "4.66",
+    updatedAt: "17.07.2026 13:26",
     title: "Адаптивность мобильного интерфейса",
     items: [
       "Стабилизирована высота интерфейса при появлении адресной строки, клавиатуры и смене ориентации на iOS и Android.",
@@ -3300,11 +3310,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Mobile layout responsiveness",
+  title: "Branded login code emails",
   items: [
-    "Viewport height is now stable when browser chrome, the keyboard, or device orientation changes on iOS and Android.",
-    "Touch targets, dialogs, chat, and forms now adapt from 320-pixel phones through wide devices and tablets.",
-    "Dedicated Apple Touch and maskable icons were added, and nested admin screens survive direct navigation and reloads."
+    "Login codes now arrive in a branded Club HTML card with the logo and large readable digits.",
+    "The code is easy to select on a phone, while the safe app button never places the login code in the URL.",
+    "A plain-text fallback remains available, and the email contains no scripts, forms, or tracking."
   ]
 };
 

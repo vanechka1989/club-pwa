@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildEmailLoginMessage,
@@ -9,6 +10,8 @@ import {
   pwaInstallRequiredMessage,
   pwaStandaloneAuthHeaderName
 } from "./emailAuth";
+
+const authRouteSource = readFileSync(new URL("../routes/auth.ts", import.meta.url), "utf8");
 
 describe("email auth", () => {
   it("normalizes email addresses before identity lookup", () => {
@@ -29,13 +32,44 @@ describe("email auth", () => {
     expect(hashAuthToken("other-token")).not.toBe(hashAuthToken("secret-token"));
   });
 
-  it("builds a PWA login email without Telegram wording", () => {
-    const message = buildEmailLoginMessage({ code: "123456", expiresInMinutes: 10 });
+  it("builds a branded HTML login email with a safe text fallback", () => {
+    const message = buildEmailLoginMessage({
+      code: "073567",
+      expiresInMinutes: 10,
+      webOrigin: "https://club2.myn8nservertest.ru"
+    });
 
     expect(message.subject).toBe("Код входа в клуб");
-    expect(message.text).toContain("123456");
+    expect(message.text).toContain("073567");
     expect(message.text).toContain("10 минут");
+    expect(message.html).toContain("073 567");
+    expect(message.html).toContain("https://club2.myn8nservertest.ru/icons/icon-192.png");
+    expect(message.html).toContain('href="https://club2.myn8nservertest.ru"');
+    expect(message.html).toContain("Нажмите и удерживайте код");
+    expect(message.html).not.toContain("073567?");
+    expect(message.html).not.toMatch(/<script|onclick=|clipboard/i);
     expect(message.text.toLowerCase()).not.toContain("telegram");
+  });
+
+  it("rejects unsafe login email inputs before building HTML", () => {
+    expect(() =>
+      buildEmailLoginMessage({
+        code: "12345x",
+        expiresInMinutes: 10,
+        webOrigin: "https://club.example"
+      })
+    ).toThrow("six digits");
+    expect(() =>
+      buildEmailLoginMessage({
+        code: "123456",
+        expiresInMinutes: 10,
+        webOrigin: "javascript:alert(1)"
+      })
+    ).toThrow("http or https");
+  });
+
+  it("uses the configured public web origin for login emails", () => {
+    expect(authRouteSource).toContain("webOrigin: env.WEB_ORIGIN");
   });
 
   it("requires a one minute pause before issuing another login code", () => {

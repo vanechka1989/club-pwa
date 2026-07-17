@@ -155,7 +155,8 @@ export const authRoute = new Hono()
 
     const message = buildEmailLoginMessage({
       code,
-      expiresInMinutes: env.AUTH_LOGIN_CODE_TTL_MINUTES
+      expiresInMinutes: env.AUTH_LOGIN_CODE_TTL_MINUTES,
+      webOrigin: env.WEB_ORIGIN
     });
     await sendEmail({ to: email, ...message });
 
