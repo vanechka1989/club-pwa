@@ -507,6 +507,28 @@ describe("App", () => {
     expect(styles).toContain("padding: var(--space-card);");
   });
 
+  it("keeps chat and support typography aligned with the profile standard", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toContain("--content-font-body: 14px;");
+    expect(styles).toContain("--content-font-label: 13px;");
+    expect(styles).toContain("--content-font-meta: 12px;");
+    expect(styles).toContain("--content-font-input: 16px;");
+    expect(styles).toMatch(/input,\s*select,\s*textarea\s*{[^}]*font-family:\s*inherit;/s);
+    expect(styles).toMatch(
+      /\.chat-message-body,\s*\.support-message p\s*{[^}]*font-size:\s*var\(--content-font-body\);[^}]*line-height:\s*1\.45;/s
+    );
+    expect(styles).toMatch(
+      /\.chat-message-author,\s*\.support-message strong,\s*\.support-ticket-title\s*{[^}]*font-size:\s*var\(--content-font-label\);/s
+    );
+    expect(styles).toMatch(
+      /\.chat-message-head,\s*\.support-message small\s*{[^}]*font-size:\s*var\(--content-font-meta\);/s
+    );
+    expect(styles).toMatch(
+      /\.community-chat-open \.chat-input-row \.text-input,\s*\.support-task-screen \.support-field input,\s*\.support-task-screen \.support-field select,\s*\.support-task-screen \.support-field textarea,\s*\.support-task-screen \.support-reply-form textarea\s*{[^}]*font-family:\s*inherit;[^}]*font-size:\s*var\(--content-font-input\);/s
+    );
+  });
+
   it("starts from light theme variables before the UI store hydrates", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
     const rootBlock = styles.match(/:root\s*{([\s\S]*?)}/)?.[1] ?? "";

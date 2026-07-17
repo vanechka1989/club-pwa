@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the iPhone ticket composer correction as version 4.80", () => {
-    expect(appVersion).toBe("4.80");
-    expect(releaseNotes[0]?.title).toBe("Ответы в тикетах на iPhone");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("история");
-    expect(releaseNotes[1]?.version).toBe("4.79");
+  it("publishes unified chat and support typography as version 4.81", () => {
+    expect(appVersion).toBe("4.81");
+    expect(releaseNotes[0]?.title).toBe("Единые шрифты в чатах и поддержке");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("профил");
+    expect(releaseNotes[1]?.version).toBe("4.80");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Ticket replies on iPhone");
+    expect(englishNotes[0]?.title).toBe("Consistent chat and support typography");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

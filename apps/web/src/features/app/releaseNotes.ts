@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единые шрифты в чатах и поддержке",
+    items: [
+      "Основной текст сообщений, имена и поля ввода приведены к типографике раздела профиля.",
+      "Чаты и тикеты используют один системный шрифт и одинаковые размеры на iPhone и Android.",
+      "Служебные даты и время сохранены компактными, чтобы не перегружать переписку."
+    ]
+  },
+  {
+    version: "4.80",
+    updatedAt: "17.07.2026 19:44",
     title: "Ответы в тикетах на iPhone",
     items: [
       "При открытии клавиатуры поле ответа больше не прокручивает целиком экран тикета.",
@@ -3440,11 +3450,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Ticket replies on iPhone",
+  title: "Consistent chat and support typography",
   items: [
-    "Opening the keyboard no longer scrolls the entire support ticket for the reply composer.",
-    "The ticket header and conversation history stay in place while the reply field remains above the keyboard.",
-    "New-ticket forms and regular chat keep their existing behavior on iPhone and Android."
+    "Message text, author names, and input fields now follow the profile section typography.",
+    "Chats and support tickets use the same system typeface and sizes on iPhone and Android.",
+    "Service dates and timestamps stay compact so conversations remain easy to scan."
   ]
 };
 

@@ -32,6 +32,10 @@
   --club-user-visual-scale: 0.9;
   --club-user-font-root: 14.4px;
   --club-user-font-base: 13.5px;
+  --content-font-body: 14px;
+  --content-font-label: 13px;
+  --content-font-meta: 12px;
+  --content-font-input: 16px;
   --font-root: var(--club-user-font-root, clamp(16px, 4vw, 17px));
   --font-base: var(--club-user-font-base, clamp(15px, 3.8vw, 16px));
   --font-title: clamp(1.05rem, 0.92rem + 0.58vw, 1.32rem);
@@ -19542,4 +19546,47 @@ html.club-keyboard-open:has(.support-task-screen.task-screen-route-layer),
 body.club-keyboard-open:has(.support-task-screen.task-screen-route-layer) {
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/* Keep native controls on the same typeface across iOS and Android. */
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Profile-aligned typography for community chats and support tickets. */
+.chat-message-body,
+.support-message p {
+  font-family: inherit;
+  font-size: var(--content-font-body);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.chat-message-author,
+.support-message strong,
+.support-ticket-title {
+  font-family: inherit;
+  font-size: var(--content-font-label);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.chat-message-head,
+.support-message small {
+  font-family: inherit;
+  font-size: var(--content-font-meta);
+  line-height: 1.35;
+}
+
+.community-chat-open .chat-input-row .text-input,
+.support-task-screen .support-field input,
+.support-task-screen .support-field select,
+.support-task-screen .support-field textarea,
+.support-task-screen .support-reply-form textarea {
+  font-family: inherit;
+  font-size: var(--content-font-input);
+  font-weight: 500;
+  line-height: 1.35;
 }

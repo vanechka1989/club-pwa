@@ -2323,6 +2323,10 @@ test("keeps routed support tickets inside the mobile viewport", async ({ page },
   await expect(page.getByRole("heading", { name: "Оплата" })).toBeVisible();
   await expect(page.getByPlaceholder("Ответ клиенту")).toBeVisible();
   await expectNoHorizontalOverflow(page);
+  await expect(page.locator(".support-message p").first()).toHaveCSS("font-size", "14px");
+  await expect(page.locator(".support-message strong").first()).toHaveCSS("font-size", "13px");
+  await expect(page.locator(".support-message small").first()).toHaveCSS("font-size", "12px");
+  await expect(page.getByPlaceholder("Ответ клиенту")).toHaveCSS("font-size", "16px");
 
   const box = await taskScreen.boundingBox();
   const viewport = page.viewportSize();
@@ -2349,6 +2353,34 @@ test("keeps routed support tickets inside the mobile viewport", async ({ page },
     await page.setViewportSize({ width: 390, height: 520 });
     await page.screenshot({ path: testInfo.outputPath("support-ticket-keyboard.png"), fullPage: false });
   }
+});
+
+test("uses the profile typography in chats and support on mobile", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
+  await page.getByRole("button", { name: "Общение" }).click();
+  await page.getByRole("button", { name: /Фиксики/ }).click();
+  await page.locator(".chat-messages").evaluate((element) => {
+    element.insertAdjacentHTML(
+      "beforeend",
+      '<article data-typography-probe><header class="chat-message-head"><strong class="chat-message-author">Иван</strong><span>17.07, 19:55</span></header><p class="chat-message-body">Проверка сообщения</p></article>'
+    );
+  });
+  await expect(page.locator(".chat-message-body").first()).toHaveCSS("font-size", "14px");
+  await expect(page.locator(".chat-message-author").first()).toHaveCSS("font-size", "13px");
+  await expect(page.locator(".chat-message-head").first()).toHaveCSS("font-size", "12px");
+  await expect(page.locator(".chat-input-row .text-input")).toHaveCSS("font-size", "16px");
+
+  await page.goto("/support/tickets/ticket-payment");
+  await expect(page.locator(".support-message p").first()).toHaveCSS("font-size", "14px");
+  await expect(page.locator(".support-message strong").first()).toHaveCSS("font-size", "13px");
+  await expect(page.locator(".support-message small").first()).toHaveCSS("font-size", "12px");
+  await expect(page.getByPlaceholder("Ответ клиенту")).toHaveCSS("font-size", "16px");
+
+  const fontFamilies = await page.locator(".support-message p, .support-reply-form textarea").evaluateAll((elements) =>
+    elements.map((element) => getComputedStyle(element).fontFamily)
+  );
+  expect(new Set(fontFamilies).size).toBe(1);
 });
 
 test("returns from a support client card to the same ticket", async ({ page }, testInfo) => {
