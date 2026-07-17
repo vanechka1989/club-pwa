@@ -1,5 +1,12 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, extname, join } from "node:path";
+import { promisify } from "node:util";
 import sharp from "sharp";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
+
+const execFileAsync = promisify(execFile);
 
 export const communityVoiceMaxBytes = 30 * 1024 * 1024;
 export const communityImageMaxBytes = 15 * 1024 * 1024;
@@ -20,6 +27,56 @@ export function getCommunityVoiceContentType(contentType: string, fileName: stri
 
 function safeName(fileName: string) {
   return fileName.trim().toLowerCase().replace(/[^a-z0-9а-яё._-]+/giu, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "media";
+}
+
+export function getCommunityVoiceStoragePlan(contentType: string, fileName: string) {
+  const normalized = getCommunityVoiceContentType(contentType, fileName);
+  if (!normalized) return null;
+  const sourceName = safeName(fileName || "voice");
+  const stem = sourceName.replace(/\.[a-z0-9]+$/i, "") || "voice";
+  return {
+    contentType: "audio/mp4" as const,
+    fileName: `${stem}.m4a`,
+    transcode: normalized !== "audio/mp4"
+  };
+}
+
+export async function prepareCommunityVoice(file: File) {
+  const plan = getCommunityVoiceStoragePlan(file.type, file.name);
+  if (!plan) throw new Error("Unsupported voice format");
+  const source = new Uint8Array(await file.arrayBuffer());
+  if (!plan.transcode) return { ...plan, body: source };
+
+  const directory = await mkdtemp(join(tmpdir(), "club-voice-"));
+  const sourceExtension = extname(file.name).replace(/[^.a-z0-9]/gi, "") || ".audio";
+  const inputPath = join(directory, `input${sourceExtension}`);
+  const outputPath = join(directory, basename(plan.fileName));
+  try {
+    await writeFile(inputPath, source);
+    await execFileAsync("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-i",
+      inputPath,
+      "-vn",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "64k",
+      "-ac",
+      "1",
+      "-ar",
+      "48000",
+      "-movflags",
+      "+faststart",
+      outputPath
+    ]);
+    return { ...plan, body: new Uint8Array(await readFile(outputPath)) };
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 export function buildCommunityMediaObjectKey(kind: "voice" | "image", messageId: string, assetId: string, fileName: string) {

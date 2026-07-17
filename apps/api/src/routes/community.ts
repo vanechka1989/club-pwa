@@ -14,7 +14,7 @@ import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
-import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, validateCommunityImageFiles } from "../community/mediaUpload";
+import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, prepareCommunityVoice, validateCommunityImageFiles } from "../community/mediaUpload";
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
 import { publishCommunityChange, subscribeToCommunityChanges } from "../community/realtime";
 import { db } from "../db/client";
@@ -955,6 +955,14 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
     }
 
+    let preparedVoice: Awaited<ReturnType<typeof prepareCommunityVoice>>;
+    try {
+      preparedVoice = await prepareCommunityVoice(file);
+    } catch (error) {
+      logger.warn({ error, contentType, sizeBytes: file.size }, "voice message conversion failed");
+      return c.json({ error: "Unable to prepare voice message" }, 422);
+    }
+
     const [message] = await db.insert(clubChatMessages).values({
       topicId: topic.id,
       userId: c.get("userId"),
@@ -965,16 +973,16 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (!message) return c.json({ error: "Unable to create message" }, 500);
 
     const attachmentId = randomUUID();
-    const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, file.name || "voice.webm");
+    const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, preparedVoice.fileName);
     try {
-      await uploadObject({ key, body: new Uint8Array(await file.arrayBuffer()), contentType });
+      await uploadObject({ key, body: preparedVoice.body, contentType: preparedVoice.contentType });
       await db.insert(clubMessageAttachments).values({
         id: attachmentId,
         messageId: message.id,
         kind: "voice",
         objectKey: key,
-        contentType,
-        sizeBytes: file.size,
+        contentType: preparedVoice.contentType,
+        sizeBytes: preparedVoice.body.byteLength,
         durationSeconds: Math.round(durationSeconds),
         expiresAt: getCommunityMediaExpiry(role)
       });

@@ -1,5 +1,6 @@
 import { computed, onScopeDispose, ref } from "vue";
 import { appendVoiceLevel } from "./voiceWaveform";
+import { getPreferredCommunityVoiceMimeType } from "./voiceUpload";
 
 export function useVoiceRecorder() {
   const status = ref<"idle" | "recording" | "preview" | "uploading" | "error">("idle");
@@ -85,7 +86,7 @@ export function useVoiceRecorder() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       startLevelAnalysis(stream);
-      const mimeType = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg"].find((type) => MediaRecorder.isTypeSupported(type));
+      const mimeType = getPreferredCommunityVoiceMimeType((type) => MediaRecorder.isTypeSupported(type));
       recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunks = [];
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };

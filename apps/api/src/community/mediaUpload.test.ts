@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildCommunityMediaObjectKey, getCommunityVoiceContentType, validateCommunityImageFiles } from "./mediaUpload";
+import {
+  buildCommunityMediaObjectKey,
+  getCommunityVoiceContentType,
+  getCommunityVoiceStoragePlan,
+  validateCommunityImageFiles
+} from "./mediaUpload";
 
 describe("community media uploads", () => {
   it("normalizes mobile voice MIME types", () => {
@@ -8,6 +13,19 @@ describe("community media uploads", () => {
     expect(getCommunityVoiceContentType("application/octet-stream", "voice.ogg")).toBe("audio/ogg");
     expect(getCommunityVoiceContentType("application/octet-stream", "voice.exe")).toBeNull();
     expect(getCommunityVoiceContentType("audio/x-msdownload", "voice.exe")).toBeNull();
+  });
+
+  it("stores browser WebM voice recordings as iPhone-compatible M4A", () => {
+    expect(getCommunityVoiceStoragePlan("audio/webm", "voice.webm")).toEqual({
+      contentType: "audio/mp4",
+      fileName: "voice.m4a",
+      transcode: true
+    });
+    expect(getCommunityVoiceStoragePlan("audio/mp4", "voice.webm")).toEqual({
+      contentType: "audio/mp4",
+      fileName: "voice.m4a",
+      transcode: false
+    });
   });
 
   it("stores voice and image media under separate safe prefixes", () => {

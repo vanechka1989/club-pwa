@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Голосовые сообщения на iPhone",
+    items: [
+      "Новые голосовые автоматически сохраняются в совместимом с iPhone формате AAC/M4A.",
+      "На устройствах Apple запись предпочитает MP4, а имя загружаемого файла теперь всегда соответствует его реальному формату.",
+      "Плеер повторяет загрузку при истёкшей ссылке, а ранее отправленные WebM-голосовые переводятся в совместимый формат."
+    ]
+  },
+  {
+    version: "4.77",
+    updatedAt: "17.07.2026 18:16",
     title: "Отправка тикетов на iPhone",
     items: [
       "На iPhone клавиатура теперь закрывается до появления индикатора отправки обращения.",
@@ -3410,11 +3420,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "iPhone support ticket sending",
+  title: "Voice messages on iPhone",
   items: [
-    "On iPhone, the keyboard now closes before ticket submission progress is shown.",
-    "The interface no longer bleeds through or overlaps the keyboard when sending a message in an open ticket.",
-    "The same fix covers new tickets, customer follow-ups, and administrator replies without delaying Android."
+    "New voice messages are automatically stored as iPhone-compatible AAC/M4A audio.",
+    "Apple devices prefer MP4 recording, and uploaded filenames now match the actual media format.",
+    "The player retries expired media links, while existing WebM voice messages are migrated to the compatible format."
   ]
 };
 

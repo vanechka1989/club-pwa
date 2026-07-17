@@ -40,7 +40,8 @@ describe("community rich message UI", () => {
     const voice = read("ChatVoiceMessage.vue");
     expect(voice).toContain("chat-voice-play");
     expect(voice).toContain("@loadedmetadata=\"handleMetadata\"");
-    expect(voice).toContain("@error=\"playbackFailed = true\"");
+    expect(voice).toContain("@error=\"handlePlaybackError\"");
+    expect(voice).toContain("playsinline");
     expect(voice).toContain("voice.durationSeconds");
     expect(voice).toContain("useStableMediaUrl");
     expect(voice).toContain(":src=\"mediaUrl.currentUrl.value\"");

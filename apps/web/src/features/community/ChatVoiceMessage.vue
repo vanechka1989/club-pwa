@@ -13,6 +13,7 @@ const currentTime = ref(0);
 const mediaDuration = ref(0);
 const playbackFailed = ref(false);
 const loading = ref(false);
+const retrying = ref(false);
 const mediaUrl = useStableMediaUrl(props.voice.url ?? "");
 const duration = computed(() => mediaDuration.value || props.voice.durationSeconds || 0);
 const waveform = [0.38, 0.58, 0.82, 0.48, 0.72, 0.96, 0.54, 0.78, 0.44, 0.68, 0.9, 0.52, 0.74, 0.42, 0.62, 0.86, 0.5, 0.7];
@@ -39,9 +40,26 @@ async function togglePlayback() {
   try {
     await audio.value.play();
   } catch {
-    playbackFailed.value = true;
-    loading.value = false;
+    if (!retrying.value && mediaUrl.refresh()) {
+      retrying.value = true;
+      await nextTick();
+      audio.value.load();
+      try {
+        await audio.value.play();
+        retrying.value = false;
+        return;
+      } catch {
+        retrying.value = false;
+      }
+    }
+    handlePlaybackError();
   }
+}
+
+function handlePlaybackError() {
+  playbackFailed.value = true;
+  loading.value = false;
+  playing.value = false;
 }
 
 function seek(next: number) {
@@ -59,6 +77,7 @@ function seek(next: number) {
         ref="audio"
         :src="mediaUrl.currentUrl.value"
         preload="metadata"
+        playsinline
         :aria-label="`Голосовое сообщение, ${voice.durationSeconds} секунд`"
         @loadedmetadata="handleMetadata"
         @canplay="loading = false"
@@ -66,7 +85,7 @@ function seek(next: number) {
         @pause="playing = false"
         @ended="playing = false; currentTime = 0"
         @timeupdate="currentTime = audio?.currentTime ?? 0"
-        @error="playbackFailed = true"
+        @error="handlePlaybackError"
       ></audio>
       <button class="chat-voice-play" type="button" :aria-label="playing ? 'Пауза' : 'Воспроизвести'" @click.stop="togglePlayback">
         <Pause v-if="playing" aria-hidden="true" />
