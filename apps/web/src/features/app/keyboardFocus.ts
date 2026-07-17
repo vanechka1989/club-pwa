@@ -14,6 +14,33 @@ export function blurActiveTextField() {
   }
 }
 
+type WaitForKeyboardDismiss = (timeout: number) => Promise<void>;
+
+function waitForKeyboardDismiss(timeout: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, timeout));
+}
+
+export async function dismissActiveTextFieldBeforeOperation(
+  wait: WaitForKeyboardDismiss = waitForKeyboardDismiss
+) {
+  const active = document.activeElement;
+  if (!isTextFieldElement(active)) {
+    return;
+  }
+
+  const shouldWaitForIosKeyboard =
+    document.body.classList.contains("club-ios") && document.body.classList.contains("club-keyboard-open");
+
+  active.blur();
+
+  // iOS keeps the visual viewport reduced during the keyboard closing animation.
+  // Starting a blocking operation before it ends leaves the progress UI behind
+  // the translucent keyboard. Android restores the viewport synchronously here.
+  if (shouldWaitForIosKeyboard) {
+    await wait(280);
+  }
+}
+
 function numericCssVariable(name: string) {
   const value = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
   return Number.isFinite(value) && value > 0 ? value : null;

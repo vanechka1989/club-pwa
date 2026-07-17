@@ -92,6 +92,19 @@ describe("support section", () => {
     expect(createForm).not.toContain("support-primary-button");
   });
 
+  it("dismisses the iOS keyboard before showing support submission progress", () => {
+    expect(source).toContain('import { dismissActiveTextFieldBeforeOperation } from "@/features/app/keyboardFocus"');
+    expect(source).toMatch(
+      /async function submitTicket\(\)[\s\S]*await dismissActiveTextFieldBeforeOperation\(\);[\s\S]*sendingTicket\.value = true/
+    );
+    expect(source).toMatch(
+      /async function submitReply\(\)[\s\S]*await dismissActiveTextFieldBeforeOperation\(\);[\s\S]*sendingReply\.value = true/
+    );
+    expect(source).toMatch(
+      /async function submitFollowUp\(\)[\s\S]*await dismissActiveTextFieldBeforeOperation\(\);[\s\S]*sendingFollowUp\.value = true/
+    );
+  });
+
   it("uses the full mobile width for a new ticket without clipping field labels", () => {
     const createBodyRule = latestRule(".support-create-task-screen .task-screen-body");
     const createFormRule = latestRule(".support-create-task-screen .support-customer-form");

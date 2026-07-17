@@ -15,6 +15,7 @@ import {
 import { useI18n } from "@/features/app/i18n";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { dismissActiveTextFieldBeforeOperation } from "@/features/app/keyboardFocus";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { sortSupportTickets } from "@/features/support/supportTickets";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -59,6 +60,7 @@ const followUpAttachments = ref<File[]>([]);
 const sendingTicket = ref(false);
 const sendingReply = ref(false);
 const sendingFollowUp = ref(false);
+const preparingSupportSubmission = ref(false);
 const closingTicket = ref(false);
 const refreshingSupport = ref(false);
 const supportRefreshIntervalMs = 15_000;
@@ -81,7 +83,14 @@ const openTickets = computed(() => tickets.value.filter((ticket) => ticket.statu
 const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "answered"));
 const closedTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "closed"));
 const adminUnreadTickets = computed(() => tickets.value.filter((ticket) => ticket.unread));
-const supportBusy = computed(() => sendingTicket.value || sendingReply.value || sendingFollowUp.value || closingTicket.value);
+const supportBusy = computed(
+  () =>
+    preparingSupportSubmission.value ||
+    sendingTicket.value ||
+    sendingReply.value ||
+    sendingFollowUp.value ||
+    closingTicket.value
+);
 const averageResponseTimeLabel = computed(() => {
   const averageMinutes = calculateAverageResponseMinutes(tickets.value);
   return averageMinutes === null ? t("supportNoAnswers") : formatDurationMinutes(averageMinutes);
@@ -472,6 +481,10 @@ function closeAttachment() {
 }
 
 async function submitTicket() {
+  if (supportBusy.value) {
+    return;
+  }
+
   clearSupportNotice();
   const text = message.value.trim();
   if (!text) {
@@ -479,14 +492,16 @@ async function submitTicket() {
     return;
   }
 
-  sendingTicket.value = true;
-  const form = new FormData();
-  form.set("topic", topic.value);
-  form.set("customTopic", customTopic.value);
-  form.set("message", text);
-  attachments.value.forEach((file) => form.append("attachments", file));
-
+  preparingSupportSubmission.value = true;
   try {
+    await dismissActiveTextFieldBeforeOperation();
+    sendingTicket.value = true;
+    const form = new FormData();
+    form.set("topic", topic.value);
+    form.set("customTopic", customTopic.value);
+    form.set("message", text);
+    attachments.value.forEach((file) => form.append("attachments", file));
+
     const response = await createSupportTicket(form);
     replaceTicket(response.ticket);
     emit("unread-change", response.unreadCount);
@@ -497,11 +512,12 @@ async function submitTicket() {
     showSupportError(requestError?.data?.error ?? "Не удалось отправить обращение.");
   } finally {
     sendingTicket.value = false;
+    preparingSupportSubmission.value = false;
   }
 }
 
 async function submitReply() {
-  if (!selectedTicket.value) {
+  if (!selectedTicket.value || supportBusy.value) {
     return;
   }
 
@@ -512,12 +528,14 @@ async function submitReply() {
     return;
   }
 
-  sendingReply.value = true;
-  const form = new FormData();
-  form.set("message", text);
-  replyAttachments.value.forEach((file) => form.append("attachments", file));
-
+  preparingSupportSubmission.value = true;
   try {
+    await dismissActiveTextFieldBeforeOperation();
+    sendingReply.value = true;
+    const form = new FormData();
+    form.set("message", text);
+    replyAttachments.value.forEach((file) => form.append("attachments", file));
+
     const response = await replyAdminSupportTicket(selectedTicket.value.id, form);
     replaceTicket(response.ticket);
     selectedTicketId.value = response.ticket.id;
@@ -530,11 +548,12 @@ async function submitReply() {
     showSupportError(requestError?.data?.error ?? "Не удалось отправить ответ.");
   } finally {
     sendingReply.value = false;
+    preparingSupportSubmission.value = false;
   }
 }
 
 async function submitFollowUp() {
-  if (!selectedTicket.value) {
+  if (!selectedTicket.value || supportBusy.value) {
     return;
   }
 
@@ -545,12 +564,14 @@ async function submitFollowUp() {
     return;
   }
 
-  sendingFollowUp.value = true;
-  const form = new FormData();
-  form.set("message", text);
-  followUpAttachments.value.forEach((file) => form.append("attachments", file));
-
+  preparingSupportSubmission.value = true;
   try {
+    await dismissActiveTextFieldBeforeOperation();
+    sendingFollowUp.value = true;
+    const form = new FormData();
+    form.set("message", text);
+    followUpAttachments.value.forEach((file) => form.append("attachments", file));
+
     const response = await createSupportTicketMessage(selectedTicket.value.id, form);
     replaceTicket(response.ticket);
     selectedTicketId.value = response.ticket.id;
@@ -563,6 +584,7 @@ async function submitFollowUp() {
     showSupportError(requestError?.data?.error ?? "Не удалось отправить сообщение.");
   } finally {
     sendingFollowUp.value = false;
+    preparingSupportSubmission.value = false;
   }
 }
 
@@ -824,7 +846,7 @@ watch(
             class="support-compact-button support-primary-button ui-button"
             type="submit"
             form="support-create-ticket-form"
-            :disabled="sendingTicket"
+            :disabled="supportBusy"
           >
             <Send class="h-4 w-4" aria-hidden="true" />
             {{ sendingTicket ? t("supportSending") : t("supportSendTicket") }}
@@ -949,7 +971,7 @@ watch(
                 <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
                 {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
               </button>
-              <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="sendingReply">
+              <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="supportBusy">
                 {{ sendingReply ? t("supportSending") : t("supportSendReply") }}
               </button>
             </div>
@@ -974,7 +996,7 @@ watch(
                 <CheckCircle2 class="h-4 w-4" aria-hidden="true" />
                 {{ closingTicket ? t("supportClosing") : t("supportCloseTicket") }}
               </button>
-              <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="sendingFollowUp">
+              <button class="support-compact-button support-primary-button ui-button" type="submit" :disabled="supportBusy">
                 {{ sendingFollowUp ? t("supportSending") : t("supportSend") }}
               </button>
             </div>

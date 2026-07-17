@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { ensureFocusedTextFieldVisible, isTextFieldElement } from "./keyboardFocus";
+import { dismissActiveTextFieldBeforeOperation, ensureFocusedTextFieldVisible, isTextFieldElement } from "./keyboardFocus";
 
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const adminSource = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
@@ -173,5 +173,35 @@ describe("keyboard focus handling", () => {
     expect(isTextFieldElement(input)).toBe(true);
     expect(isTextFieldElement(editor)).toBe(true);
     expect(isTextFieldElement(document.createElement("button"))).toBe(false);
+  });
+
+  it("waits for the iOS keyboard dismissal before a blocking operation starts", async () => {
+    document.body.classList.add("club-ios", "club-keyboard-open");
+    const textarea = document.createElement("textarea");
+    document.body.append(textarea);
+    textarea.focus();
+    const wait = vi.fn(async () => undefined);
+
+    await dismissActiveTextFieldBeforeOperation(wait);
+
+    expect(document.activeElement).not.toBe(textarea);
+    expect(wait).toHaveBeenCalledWith(280);
+    textarea.remove();
+    document.body.classList.remove("club-ios", "club-keyboard-open");
+  });
+
+  it("does not delay operations on Android after dismissing the active field", async () => {
+    document.body.classList.add("club-android", "club-keyboard-open");
+    const textarea = document.createElement("textarea");
+    document.body.append(textarea);
+    textarea.focus();
+    const wait = vi.fn(async () => undefined);
+
+    await dismissActiveTextFieldBeforeOperation(wait);
+
+    expect(document.activeElement).not.toBe(textarea);
+    expect(wait).not.toHaveBeenCalled();
+    textarea.remove();
+    document.body.classList.remove("club-android", "club-keyboard-open");
   });
 });

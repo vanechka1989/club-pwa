@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Отправка тикетов на iPhone",
+    items: [
+      "На iPhone клавиатура теперь закрывается до появления индикатора отправки обращения.",
+      "Исправлено просвечивание и наложение интерфейса на клавиатуру при отправке сообщения в открытом тикете.",
+      "Единое исправление применяется к новому обращению, ответу клиента и ответу администратора без задержки на Android."
+    ]
+  },
+  {
+    version: "4.76",
+    updatedAt: "17.07.2026 16:56",
     title: "Авторы ответов поддержки",
     items: [
       "Сообщения клиента и ответы поддержки визуально разделены разными поверхностями во всех темах.",
@@ -3400,11 +3410,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Support reply authors",
+  title: "iPhone support ticket sending",
   items: [
-    "Customer messages and support replies now use clearly distinct theme-aware surfaces.",
-    "Support administrators can see which specific colleague sent each reply.",
-    "Customers still see the generic Support identity and never receive an administrator's personal avatar."
+    "On iPhone, the keyboard now closes before ticket submission progress is shown.",
+    "The interface no longer bleeds through or overlaps the keyboard when sending a message in an open ticket.",
+    "The same fix covers new tickets, customer follow-ups, and administrator replies without delaying Android."
   ]
 };
 
