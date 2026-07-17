@@ -67,4 +67,22 @@ describe("payment provider status style", () => {
     expect(source).toContain('aria-label="Показывать клиентам"');
     expect(styles).toContain(".payment-product-publish-input:checked + .payment-product-publish-switch");
   });
+
+  it("keeps owner payment controls behind an explicit edit mode", () => {
+    expect(source).toContain("const isEditingPayments = ref(false)");
+    expect(source).toContain('aria-label="Редактировать оплату"');
+    expect(source).toContain(':aria-pressed="isEditingPayments"');
+    expect(source).toContain('@click="isEditingPayments = !isEditingPayments"');
+    expect(source).toContain('v-if="isAdmin && isEditingPayments" class="surface-card ui-card space-y-3"');
+    expect(source).toContain('v-if="isOwner && isEditingPayments" class="icon-button ui-icon-button"');
+    expect(source).toContain('v-if="isOwner && isEditingPayments" class="payment-product-admin-actions"');
+    expect(source).toContain('v-if="isOwner && isEditingPayments && hiddenProducts.length"');
+    expect(source).toContain('v-if="isOwner && isEditingPayments && archivedProducts.length"');
+  });
+
+  it("places the payment edit button immediately before the provider add button", () => {
+    expect(source).toMatch(
+      /aria-label="Редактировать оплату"[\s\S]*aria-label="Добавить платежную систему"/
+    );
+  });
 });

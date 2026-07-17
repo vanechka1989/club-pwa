@@ -49,6 +49,7 @@ const showProviderPicker = ref(false);
 const showProviderForm = ref(false);
 const showProductModal = ref(false);
 const editingProduct = ref<PaymentProduct | null>(null);
+const isEditingPayments = ref(false);
 const checkoutProductId = ref<string | null>(null);
 const showCheckoutConfirm = ref(false);
 const checkoutConfirmProduct = ref<PaymentProduct | null>(null);
@@ -297,6 +298,7 @@ function syncPaymentTaskRoute() {
 
   if (route.path === "/payments/provider") {
     if (isOwner.value) {
+      isEditingPayments.value = true;
       setProviderForm();
       showProviderForm.value = true;
     }
@@ -304,6 +306,7 @@ function syncPaymentTaskRoute() {
   }
 
   if (route.path === "/payments/plans/new") {
+    isEditingPayments.value = true;
     resetProductForm();
     showProductModal.value = true;
     return;
@@ -313,6 +316,7 @@ function syncPaymentTaskRoute() {
   if (editMatch) {
     const product = products.value.find((entry) => entry.id === editMatch[1]);
     if (product) {
+      isEditingPayments.value = true;
       setProductForm(product);
       showProductModal.value = true;
     }
@@ -546,15 +550,27 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
         <h2 class="section-title">{{ t("paymentsTitle") }}</h2>
         <p class="section-subtitle">{{ t("paymentsSubtitle") }}</p>
       </div>
-      <button v-if="isOwner" class="icon-button ui-icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
-        <Plus :size="20" />
-      </button>
+      <div v-if="isOwner" class="payment-header-actions">
+        <button
+          class="icon-button ui-icon-button"
+          :class="{ 'payment-edit-toggle-active': isEditingPayments }"
+          type="button"
+          aria-label="Редактировать оплату"
+          :aria-pressed="isEditingPayments"
+          @click="isEditingPayments = !isEditingPayments"
+        >
+          <Pencil :size="19" />
+        </button>
+        <button class="icon-button ui-icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
+          <Plus :size="20" />
+        </button>
+      </div>
     </div>
 
     <p v-if="error" class="text-sm text-[var(--danger-text)]">{{ error }}</p>
     <p v-else-if="notice" class="text-sm text-[var(--muted-strong)]">{{ notice }}</p>
 
-    <div v-if="isAdmin" class="surface-card ui-card space-y-3">
+    <div v-if="isAdmin && isEditingPayments" class="surface-card ui-card space-y-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="font-semibold text-[var(--text)]">{{ t("paymentsProvider") }}</p>
@@ -574,7 +590,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
           <p class="font-semibold text-[var(--text)]">{{ t("paymentsPlans") }}</p>
           <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsPlansText") }}</p>
         </div>
-        <button v-if="isOwner" class="icon-button ui-icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
+        <button v-if="isOwner && isEditingPayments" class="icon-button ui-icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
           <Plus :size="20" />
         </button>
       </div>
@@ -633,7 +649,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
             >
               <span>{{ checkoutProductId === product.id ? t("paymentsOpening") : product.kind === "recurrent" ? t("paymentsSubscribe") : t("paymentsPay") }}</span>
             </button>
-            <div v-if="isOwner" class="payment-product-admin-actions">
+            <div v-if="isOwner && isEditingPayments" class="payment-product-admin-actions">
               <button class="icon-button ui-icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">
                 <Pencil :size="16" />
               </button>
@@ -649,7 +665,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       </div>
     </div>
 
-    <div v-if="activeRecurrentSubscription && isOwner" class="surface-card ui-card space-y-3">
+    <div v-if="activeRecurrentSubscription && isOwner && isEditingPayments" class="surface-card ui-card space-y-3">
       <p class="font-semibold text-[var(--text)]">{{ t("profileRecurrentPayment") }}</p>
       <article class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
@@ -669,7 +685,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       </article>
     </div>
 
-    <div v-if="restorableRecurrentSubscription && isOwner" class="surface-card ui-card space-y-3">
+    <div v-if="restorableRecurrentSubscription && isOwner && isEditingPayments" class="surface-card ui-card space-y-3">
       <p class="font-semibold text-[var(--text)]">{{ t("profileRecurrentCancelled") }}</p>
       <article class="rounded-[18px] bg-[var(--field)] p-4">
         <div class="flex items-center justify-between gap-3">
@@ -712,7 +728,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       </article>
     </div>
 
-    <div v-if="isOwner && hiddenProducts.length" class="surface-card ui-card space-y-3">
+    <div v-if="isOwner && isEditingPayments && hiddenProducts.length" class="surface-card ui-card space-y-3">
       <p class="font-semibold text-[var(--text)]">{{ t("paymentsHiddenPlans") }}</p>
       <article v-for="product in hiddenProducts" :key="product.id" class="flex items-center justify-between gap-3 rounded-[18px] bg-[var(--field)] p-4">
         <div>
@@ -730,7 +746,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       </article>
     </div>
 
-    <div v-if="isOwner && archivedProducts.length" class="surface-card ui-card space-y-3 opacity-75">
+    <div v-if="isOwner && isEditingPayments && archivedProducts.length" class="surface-card ui-card space-y-3 opacity-75">
       <p class="font-semibold text-[var(--text)]">{{ t("paymentsArchivedPlans") }}</p>
       <article v-for="product in archivedProducts" :key="product.id" class="rounded-[18px] bg-[var(--field)] p-4">
         <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>

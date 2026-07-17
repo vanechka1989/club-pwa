@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Спокойный режим оплаты",
+    items: [
+      "Владелец по умолчанию видит тарифы так же, как обычный клиент, без лишних административных кнопок.",
+      "Карандаш слева от плюса в шапке включает настройку платёжной системы и управление тарифами.",
+      "Активный режим редактирования заметно выделен и выключается повторным нажатием."
+    ]
+  },
+  {
+    version: "4.83",
+    updatedAt: "17.07.2026 20:49",
     title: "Чаты и клавиатура на iPhone",
     items: [
       "Открытый чат остаётся в видимой области iPhone при появлении клавиатуры — шапка, сообщения и введённый текст больше не улетают за экран.",
@@ -3470,11 +3480,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Consistent application headers",
+  title: "Calm payment editing mode",
   items: [
-    "Primary sections now use the profile header title size and weight.",
-    "Task screens, chat, and support use the same title and subtitle sizes.",
-    "Long chat names are truncated cleanly without changing the header height."
+    "The owner sees the same clean tariff view as a regular member by default.",
+    "The pencil beside the plus button reveals payment provider and tariff controls.",
+    "The active editing state is clearly highlighted and toggles off with another tap."
   ]
 };
 
