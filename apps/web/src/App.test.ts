@@ -974,6 +974,8 @@ describe("App", () => {
   it("keeps the mobile chat composer visible above the keyboard", () => {
     const communityStyles = readFileSync(resolve(__dirname, "features/community/community.css"), "utf-8");
 
+    expect(appSource).toContain("getKeyboardViewportBaseHeight");
+    expect(appSource).toContain("previousBaseHeight: keyboardViewportBaseHeight");
     expect(appSource).toContain("showBottomNavigation");
     expect(appSource).toContain("!communityChatOpen");
     expect(appSource).toContain('v-if="showBottomNavigation"');

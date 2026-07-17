@@ -21,7 +21,9 @@ import {
   collectCurrentDeviceDiagnostics,
   createDeviceLayoutSnapshot,
   deviceLayoutCssVariables,
+  getKeyboardViewportBaseHeight,
   getMeasuredKeyboardBottomGap,
+  getMeasuredKeyboardOcclusion,
   getMeasuredSystemBottomGap,
   getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
@@ -99,6 +101,7 @@ let appliedVisibleViewportTop = 0;
 let appliedVisibleViewportBottom = 0;
 let appliedSystemBottomGap = 0;
 let appliedKeyboardBottomGap = 0;
+let keyboardViewportBaseHeight = 0;
 let keyboardWasOpen = false;
 let isAppMounted = false;
 const sessionPollingIntervalMs = 60_000;
@@ -504,14 +507,26 @@ function syncViewportHeight() {
     document.documentElement.style.setProperty("--club-visible-viewport-bottom", `${appliedVisibleViewportBottom}px`);
   }
 
-  const viewportBaseHeight = Math.max(visualHeight, browserHeight);
+  const hasFocusedTextField = isTextFieldElement(document.activeElement);
+  const currentViewportHeight = Math.max(visualHeight, browserHeight);
+  keyboardViewportBaseHeight = getKeyboardViewportBaseHeight({
+    previousBaseHeight: keyboardViewportBaseHeight,
+    currentViewportHeight,
+    hasFocusedTextField
+  });
+  const viewportBaseHeight = Math.max(keyboardViewportBaseHeight, currentViewportHeight);
   const visualBottomGap = getMeasuredKeyboardBottomGap({
     viewportBaseHeight,
     visibleHeight,
     visibleOffsetTop: visualViewport?.offsetTop ?? 0
   });
+  const keyboardOcclusion = getMeasuredKeyboardOcclusion({
+    viewportBaseHeight,
+    visibleHeight,
+    visibleOffsetTop: visualViewport?.offsetTop ?? 0
+  });
   const keyboardThreshold = keyboardWasOpen ? 56 : 96;
-  const isKeyboardOpen = visualBottomGap > keyboardThreshold && isTextFieldElement(document.activeElement);
+  const isKeyboardOpen = keyboardOcclusion > keyboardThreshold && hasFocusedTextField;
   keyboardWasOpen = isKeyboardOpen;
   const systemBottomGap = getMeasuredSystemBottomGap({ keyboardOpen: isKeyboardOpen, visualBottomGap });
   const platform = window.navigator.platform;
@@ -531,7 +546,7 @@ function syncViewportHeight() {
   });
 
   appliedSystemBottomGap = stabilizeViewportMetric(appliedSystemBottomGap, systemBottomGap);
-  appliedKeyboardBottomGap = stabilizeViewportMetric(appliedKeyboardBottomGap, visualBottomGap);
+  appliedKeyboardBottomGap = stabilizeViewportMetric(appliedKeyboardBottomGap, keyboardOcclusion);
   document.documentElement.style.setProperty("--club-system-bottom", `${appliedSystemBottomGap}px`);
   document.documentElement.style.setProperty("--club-keyboard-bottom", `${appliedKeyboardBottomGap}px`);
   setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);

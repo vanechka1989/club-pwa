@@ -2502,6 +2502,30 @@ test("does not double-scroll iPhone support composers when focus opens the keybo
   }
 });
 
+test("detects the iPhone keyboard when WebKit shrinks both live viewports", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "iphone-15-pro-max");
+
+  await page.goto("/support/new");
+  const field = page.getByPlaceholder("Напишите, что случилось и где именно.");
+  await expect(field).toBeVisible({ timeout: 12_000 });
+  await field.focus();
+
+  const simulated = await page.evaluate(() => {
+    const visualViewport = window.visualViewport;
+    if (!visualViewport) {
+      return false;
+    }
+
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 492 });
+    Object.defineProperty(visualViewport, "height", { configurable: true, value: 492 });
+    window.dispatchEvent(new Event("resize"));
+    visualViewport.dispatchEvent(new Event("resize"));
+    return true;
+  });
+  expect(simulated).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.body.classList.contains("club-keyboard-open"))).toBe(true);
+});
+
 test("opens support attachments above the routed ticket screen", async ({ page }, testInfo) => {
   await page.goto("/support/tickets/ticket-payment");
   const taskScreen = page.locator(".support-ticket-task-screen.task-screen-route-layer");

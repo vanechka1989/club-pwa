@@ -140,6 +140,9 @@ describe("support section", () => {
     expect(keyboardRouteRule).toContain("top: var(--club-visible-viewport-top, 0px)");
     expect(keyboardRouteRule).toContain("bottom: auto");
     expect(keyboardRouteRule).toContain("overflow: hidden");
+    expect(styles).toMatch(
+      /body\.club-ios:has\(\.support-task-screen :is\(input, textarea, \[contenteditable="true"\]\):focus\) \.support-task-screen\.task-screen-route-layer\s*\{[^}]*top:\s*var\(--club-visible-viewport-top, 0px\);[^}]*height:\s*var\(--club-visible-viewport-height, 100dvh\);/s
+    );
   });
 
   it("prevents iOS focus zoom in both support composers at reduced interface scales", () => {

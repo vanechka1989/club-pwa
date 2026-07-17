@@ -108,6 +108,12 @@ describe("community archive labels", () => {
     expect(communityStyles).toMatch(
       /html\.club-keyboard-open:has\(\.app-root\.community-chat-open\),[\s\S]*body\.club-keyboard-open:has\(\.app-root\.community-chat-open\)\s*\{[^}]*overflow:\s*hidden;/s
     );
+    expect(communityStyles).toMatch(
+      /body\.club-ios:has\(\.community-chat-open \.chat-compose \.text-input:focus\) \.app-root\.community-chat-open\s*\{[^}]*height:\s*var\(--club-visible-viewport-height, 100dvh\);/s
+    );
+    expect(communityStyles).toMatch(
+      /body\.club-ios:has\(\.community-chat-open \.chat-compose \.text-input:focus\) \.community-chat-open \.chat-compose\s*\{[^}]*padding-bottom:\s*8px;/s
+    );
   });
 
   it("paints the iPhone home-indicator canvas with the active app theme", () => {

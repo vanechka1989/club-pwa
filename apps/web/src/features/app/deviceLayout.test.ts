@@ -5,7 +5,9 @@ import {
   createDeviceLayoutSnapshot,
   getDeviceLayoutClasses,
   getMobileDeviceShellScale,
+  getKeyboardViewportBaseHeight,
   getMeasuredKeyboardBottomGap,
+  getMeasuredKeyboardOcclusion,
   getMeasuredSystemBottomGap,
   getMeasuredViewportWidth,
   getMeasuredVisibleViewportHeight,
@@ -418,6 +420,46 @@ describe("device layout detection", () => {
 
     expect(visibleHeight).toBe(455);
     expect(keyboardBottomGap).toBe(365);
+  });
+
+  it("keeps the pre-focus viewport as the keyboard baseline when iOS shrinks every live viewport", () => {
+    const focusedBaseHeight = getKeyboardViewportBaseHeight({
+      previousBaseHeight: 844,
+      currentViewportHeight: 492,
+      hasFocusedTextField: true
+    });
+    const keyboardBottomGap = getMeasuredKeyboardBottomGap({
+      viewportBaseHeight: focusedBaseHeight,
+      visibleHeight: 492,
+      visibleOffsetTop: 0
+    });
+
+    expect(focusedBaseHeight).toBe(844);
+    expect(keyboardBottomGap).toBe(352);
+    expect(
+      getKeyboardViewportBaseHeight({
+        previousBaseHeight: focusedBaseHeight,
+        currentViewportHeight: 812,
+        hasFocusedTextField: false
+      })
+    ).toBe(812);
+  });
+
+  it("keeps detecting the keyboard when iOS pans the focused visual viewport", () => {
+    expect(
+      getMeasuredKeyboardOcclusion({
+        viewportBaseHeight: 844,
+        visibleHeight: 492,
+        visibleOffsetTop: 280
+      })
+    ).toBe(352);
+    expect(
+      getMeasuredKeyboardBottomGap({
+        viewportBaseHeight: 844,
+        visibleHeight: 492,
+        visibleOffsetTop: 280
+      })
+    ).toBe(72);
   });
 
   it("does not count the keyboard gap again as a system bottom inset", () => {

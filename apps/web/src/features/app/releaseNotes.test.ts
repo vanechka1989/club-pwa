@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes correct support statuses as version 4.89", () => {
-    expect(appVersion).toBe("4.89");
-    expect(releaseNotes[0]?.title).toBe("Правильные статусы поддержки");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Нужно ответить");
-    expect(releaseNotes[1]?.version).toBe("4.88");
+  it("publishes the stable iPhone keyboard as version 4.90", () => {
+    expect(appVersion).toBe("4.90");
+    expect(releaseNotes[0]?.title).toBe("Стабильная клавиатура iPhone");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("пустого участка");
+    expect(releaseNotes[1]?.version).toBe("4.89");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Correct support statuses");
+    expect(englishNotes[0]?.title).toBe("Stable iPhone keyboard");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Стабильная клавиатура iPhone",
+    items: [
+      "Клавиатура теперь определяется даже когда iOS одновременно уменьшает и сдвигает всю видимую область приложения.",
+      "Поле нового обращения и кнопка отправки остаются непосредственно над клавиатурой без большого пустого участка экрана.",
+      "В чате убрана светлая полоса между строкой сообщения и клавиатурой; поведение Android осталось без изменений."
+    ]
+  },
+  {
+    version: "4.89",
+    updatedAt: "18.07.2026 00:13",
     title: "Правильные статусы поддержки",
     items: [
       "После сообщения клиента обращение показывает «Новое» до прочтения, а затем «Нужно ответить» — статус больше не превращается в нейтральное «Открыто».",
@@ -3530,11 +3540,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Correct support statuses",
+  title: "Stable iPhone keyboard",
   items: [
-    "A customer message now shows New until it is read and then Needs reply instead of falling back to a generic Open label.",
-    "An administrator reply shows Reply sent, while customers see New reply or Reply received.",
-    "The open counter includes every non-closed ticket, and closed tickets always remain below active requests."
+    "The keyboard is now detected even when iOS shrinks and pans the entire visible application viewport at the same time.",
+    "The new support request field and submit button stay directly above the keyboard without a large blank area.",
+    "The pale strip between the chat composer and keyboard is removed while Android behavior remains unchanged."
   ]
 };
 

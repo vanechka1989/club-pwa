@@ -29,6 +29,15 @@ body.club-keyboard-open .app-root.community-chat-open {
   height: var(--club-visible-viewport-height, 100dvh);
 }
 
+/* Focus is the reliable first keyboard signal on iOS. visualViewport resize can
+   arrive before the JS keyboard class when WebKit resizes innerHeight too. */
+body.club-ios:has(.community-chat-open .chat-compose .text-input:focus) .app-root.community-chat-open {
+  inset: auto 0 auto 0;
+  top: var(--club-visible-viewport-top, 0px);
+  bottom: auto;
+  height: var(--club-visible-viewport-height, 100dvh);
+}
+
 html.club-keyboard-open:has(.app-root.community-chat-open),
 body.club-keyboard-open:has(.app-root.community-chat-open) {
   overflow: hidden;
@@ -184,6 +193,10 @@ body.club-keyboard-open .community-chat-open .chat-compose {
 }
 
 body.club-keyboard-open .community-chat-open .chat-compose {
+  padding-bottom: 8px;
+}
+
+body.club-ios:has(.community-chat-open .chat-compose .text-input:focus) .community-chat-open .chat-compose {
   padding-bottom: 8px;
 }
 

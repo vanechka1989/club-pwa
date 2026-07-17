@@ -176,6 +176,58 @@ export function getMeasuredKeyboardBottomGap({
   return Math.max(0, Math.round(viewportBaseHeight - visibleHeight - visibleOffsetTop));
 }
 
+export function getMeasuredKeyboardOcclusion({
+  viewportBaseHeight,
+  visibleHeight,
+  visibleOffsetTop = 0
+}: {
+  viewportBaseHeight: number;
+  visibleHeight: number;
+  visibleOffsetTop?: number;
+}) {
+  if (!viewportBaseHeight || !visibleHeight) {
+    return 0;
+  }
+
+  const viewportShrink = Math.max(0, Math.round(viewportBaseHeight - visibleHeight));
+  const bottomGap = getMeasuredKeyboardBottomGap({
+    viewportBaseHeight,
+    visibleHeight,
+    visibleOffsetTop
+  });
+
+  // iOS may pan the visual viewport after focusing a field. The pan reduces
+  // the measured bottom gap even though the keyboard still occupies the same
+  // amount of screen, so use the full viewport shrink for keyboard detection.
+  return Math.max(viewportShrink, bottomGap);
+}
+
+export function getKeyboardViewportBaseHeight({
+  previousBaseHeight,
+  currentViewportHeight,
+  hasFocusedTextField
+}: {
+  previousBaseHeight: number;
+  currentViewportHeight: number;
+  hasFocusedTextField: boolean;
+}) {
+  const current = Number.isFinite(currentViewportHeight) && currentViewportHeight > 0
+    ? Math.round(currentViewportHeight)
+    : 0;
+  const previous = Number.isFinite(previousBaseHeight) && previousBaseHeight > 0
+    ? Math.round(previousBaseHeight)
+    : 0;
+
+  if (!current) {
+    return previous;
+  }
+
+  // Some iOS standalone builds resize both innerHeight and visualViewport when
+  // the keyboard opens. Preserve the last unfocused height so the keyboard is
+  // still detectable instead of comparing two already-shrunken viewports.
+  return hasFocusedTextField ? Math.max(previous, current) : current;
+}
+
 export function getMeasuredSystemBottomGap({
   keyboardOpen,
   visualBottomGap
