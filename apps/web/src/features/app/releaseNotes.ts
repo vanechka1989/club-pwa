@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Крупные карточки поддержки",
+    items: [
+      "Карточки тикетов стали заметно крупнее и соответствуют масштабу остальных разделов приложения.",
+      "Увеличены имя клиента, служебные строки, статус и внутренние отступы — список легче читать и нажимать.",
+      "Размер статуса теперь управляется отдельно от имени, поэтому оформление стабильно во всех темах."
+    ]
+  },
+  {
+    version: "4.85",
+    updatedAt: "17.07.2026 22:04",
     title: "Читаемые тикеты поддержки",
     items: [
       "Карточки запросов в мобильной поддержке теперь используют такой же читаемый размер текста, как остальные карточки приложения.",
@@ -3490,11 +3500,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Readable support tickets",
+  title: "Larger support tickets",
   items: [
-    "Mobile support tickets now use the same readable typography as other application cards.",
-    "Ticket spacing and row height are improved without making the inbox unnecessarily large.",
-    "Statuses and metadata remain aligned and easier to scan on narrow screens."
+    "Support ticket cards now match the comfortable scale used across the rest of the application.",
+    "Customer names, metadata, statuses, spacing, and touch areas are larger and easier to scan.",
+    "Status sizing is isolated from customer-name typography for consistent rendering in every theme."
   ]
 };
 
