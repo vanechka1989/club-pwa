@@ -39,10 +39,13 @@ describe("payment provider status style", () => {
     expect(styles).not.toContain('content: "Выгодно"');
   });
 
-  it("keeps the full title row free by placing optional badges with tariff details", () => {
+  it("keeps the full title row free and stacks badges below tariff details", () => {
     expect(source).toMatch(/class="payment-product-details"[\s\S]*payment-product-meta[\s\S]*v-if="product\.badgeLabel"/);
     expect(source).not.toMatch(/class="payment-product-heading">\s*<p[^>]*payment-product-title[^>]*>[^<]*<\/p>\s*<span v-if="product\.badgeLabel"/);
-    expect(styles).toMatch(/\.payment-product-details\s*\{[^}]*display:\s*flex;/s);
+    expect(styles).toMatch(/\.payment-product-details\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s);
+    expect(styles).toMatch(/\.payment-product-details\s*\{[^}]*align-items:\s*start;/s);
+    expect(styles).toMatch(/\.payment-product-details \.payment-product-meta\s*\{[^}]*white-space:\s*normal;[^}]*overflow-wrap:\s*anywhere;/s);
+    expect(styles).toMatch(/\.payment-product-badge\s*\{[^}]*max-width:\s*100%;[^}]*text-overflow:\s*ellipsis;/s);
   });
 
   it("keeps member tariff cards compact", () => {

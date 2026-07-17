@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Адаптивные тарифы",
+    items: [
+      "Метки тарифов «Популярный» и «Выгоднее» больше не перекрывают цену и срок доступа на узких экранах.",
+      "Цена, описание доступа и метка получили устойчивую раскладку, которая учитывает увеличенный системный шрифт.",
+      "Длинные названия меток безопасно сокращаются внутри карточки, не задевая кнопку оплаты."
+    ]
+  },
+  {
+    version: "4.70",
+    updatedAt: "17.07.2026 15:04",
     title: "Оплаты и поддержка",
     items: [
       "В профиле последней оплатой теперь считается только подтверждённый платёж; незавершённый переход к оплате больше не отображается как покупка.",
@@ -3340,11 +3350,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Payments and support",
+  title: "Responsive tariffs",
   items: [
-    "The profile now shows only the latest confirmed payment and ignores unfinished checkout attempts.",
-    "Opening a support ticket now scrolls the conversation directly to its latest message.",
-    "Pending, cancelled, and failed payment attempts remain in history without affecting the profile summary."
+    "Tariff badges no longer overlap the price or access period on narrow screens.",
+    "Price, access details, and badges now use a stable layout that supports larger system text.",
+    "Long badge labels are safely truncated without touching the payment button."
   ]
 };
 

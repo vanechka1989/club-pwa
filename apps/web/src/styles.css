@@ -13162,15 +13162,28 @@ textarea::placeholder {
 }
 
 .payment-product-details {
-  display: flex;
+  display: grid;
   min-width: 0;
-  align-items: center;
-  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.25rem;
   margin-top: 0.2rem;
+}
+
+.payment-product-details .payment-product-meta {
+  max-width: 100%;
+  margin-top: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .payment-product-badge {
   flex: 0 0 auto;
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border));
   border-radius: 999px;
   background: color-mix(in srgb, var(--warning) 14%, var(--panel));

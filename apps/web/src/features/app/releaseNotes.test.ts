@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes payment and support fixes as version 4.70", () => {
-    expect(appVersion).toBe("4.70");
-    expect(releaseNotes[0]?.title).toBe("Оплаты и поддержка");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("подтверждённый платёж");
-    expect(releaseNotes[1]?.version).toBe("4.69");
+  it("publishes responsive tariff fixes as version 4.71", () => {
+    expect(appVersion).toBe("4.71");
+    expect(releaseNotes[0]?.title).toBe("Адаптивные тарифы");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("не перекрывают");
+    expect(releaseNotes[1]?.version).toBe("4.70");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Payments and support");
+    expect(englishNotes[0]?.title).toBe("Responsive tariffs");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
