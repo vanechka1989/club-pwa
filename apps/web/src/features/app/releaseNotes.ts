@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Клавиатура поддержки на iPhone",
+    items: [
+      "Экран создания обращения и открытый тикет теперь учитывают не только высоту, но и вертикальный сдвиг Safari при появлении клавиатуры.",
+      "Поле ввода прокручивается только внутри содержимого обращения, поэтому шапка, действия и фон больше не прыгают.",
+      "Исправление проверено на iPhone и не меняет поведение клавиатуры на Android."
+    ]
+  },
+  {
+    version: "4.78",
+    updatedAt: "17.07.2026 18:33",
     title: "Голосовые сообщения на iPhone",
     items: [
       "Новые голосовые автоматически сохраняются в совместимом с iPhone формате AAC/M4A.",
@@ -3420,11 +3430,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Voice messages on iPhone",
+  title: "Support keyboard on iPhone",
   items: [
-    "New voice messages are automatically stored as iPhone-compatible AAC/M4A audio.",
-    "Apple devices prefer MP4 recording, and uploaded filenames now match the actual media format.",
-    "The player retries expired media links, while existing WebM voice messages are migrated to the compatible format."
+    "New and existing support tickets now follow Safari's vertical viewport offset as the keyboard opens.",
+    "Focused fields scroll only inside the ticket content, so the header, actions, and background stay stable.",
+    "The fix is covered on iPhone and preserves Android keyboard behavior."
   ]
 };
 

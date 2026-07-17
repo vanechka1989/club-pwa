@@ -133,6 +133,15 @@ describe("support section", () => {
     expect(keyboardFooterSpacingRule).not.toContain("--club-keyboard-bottom");
   });
 
+  it("anchors routed support screens to the live iOS visual viewport offset", () => {
+    const keyboardRouteRule = latestRule("body.club-keyboard-open .support-task-screen.task-screen-route-layer");
+
+    expect(appSource).toContain('"--club-visible-viewport-top"');
+    expect(keyboardRouteRule).toContain("top: var(--club-visible-viewport-top, 0px)");
+    expect(keyboardRouteRule).toContain("bottom: auto");
+    expect(keyboardRouteRule).toContain("overflow: hidden");
+  });
+
   it("prevents iOS focus zoom in both support composers at reduced interface scales", () => {
     const iosSupportFieldRule = latestRule(
       "body.club-ios .support-task-screen :is(.support-field input, .support-field select, .support-field textarea, .support-reply-form textarea)"

@@ -47,7 +47,7 @@ function numericCssVariable(name: string) {
 }
 
 function closestScrollContainer(element: HTMLElement) {
-  return element.closest<HTMLElement>(".task-screen-route-layer, .app-shell");
+  return element.closest<HTMLElement>(".task-screen-body, .task-screen-route-layer, .app-shell");
 }
 
 function nudgeFocusedFieldIntoVisibleViewport(element: HTMLElement) {
@@ -56,15 +56,21 @@ function nudgeFocusedFieldIntoVisibleViewport(element: HTMLElement) {
     return;
   }
 
-  const viewportHeight = visibleHeight;
+  const cssViewportTop = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--club-visible-viewport-top")
+  );
+  const viewportTop = Number.isFinite(cssViewportTop)
+    ? Math.max(0, cssViewportTop)
+    : Math.max(0, window.visualViewport?.offsetTop ?? 0);
+  const viewportBottom = viewportTop + visibleHeight;
   const rect = element.getBoundingClientRect();
   const padding = 16;
   let delta = 0;
 
-  if (rect.bottom > viewportHeight - padding) {
-    delta = rect.bottom - viewportHeight + padding;
-  } else if (rect.top < padding) {
-    delta = rect.top - padding;
+  if (rect.bottom > viewportBottom - padding) {
+    delta = rect.bottom - viewportBottom + padding;
+  } else if (rect.top < viewportTop + padding) {
+    delta = rect.top - viewportTop - padding;
   }
 
   if (Math.abs(delta) < 1) {
@@ -96,10 +102,13 @@ export function ensureFocusedTextFieldVisible(
     return;
   }
 
-  // Support task screens already resize their body/footer against visualViewport.
-  // Let iOS place the caret inside that scroll area instead of adding a second,
-  // delayed scroll sequence that can pan the whole standalone PWA viewport.
+  // iOS can pan the visual viewport after focusing a field. Support screens must
+  // correct only their internal scroll body; scrollIntoView here would move the
+  // standalone page as well and cause the double-jump seen in Safari.
   if (element.closest(".support-task-screen")) {
+    for (const timeout of [40, 120, 260, 520]) {
+      schedule(() => nudgeFocusedFieldIntoVisibleViewport(element), timeout);
+    }
     return;
   }
 

@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes iPhone-compatible voice playback as version 4.78", () => {
-    expect(appVersion).toBe("4.78");
-    expect(releaseNotes[0]?.title).toBe("Голосовые сообщения на iPhone");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("AAC/M4A");
-    expect(releaseNotes[1]?.version).toBe("4.77");
+  it("publishes the iPhone support keyboard fix as version 4.79", () => {
+    expect(appVersion).toBe("4.79");
+    expect(releaseNotes[0]?.title).toBe("Клавиатура поддержки на iPhone");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Safari");
+    expect(releaseNotes[1]?.version).toBe("4.78");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Voice messages on iPhone");
+    expect(englishNotes[0]?.title).toBe("Support keyboard on iPhone");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

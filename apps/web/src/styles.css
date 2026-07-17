@@ -19522,3 +19522,24 @@ body.club-mobile-device .support-task-screen .support-reply-actions .support-com
   min-height: 64px;
   max-height: 120px;
 }
+
+body.club-keyboard-open .support-task-screen.task-screen-route-layer {
+  inset: auto 0 auto 0;
+  top: var(--club-visible-viewport-top, 0px);
+  bottom: auto;
+  height: var(--club-visible-viewport-height, 100dvh);
+  max-height: var(--club-visible-viewport-height, 100dvh);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.club-keyboard-open .support-task-screen.task-screen-route-layer > .task-screen {
+  height: 100%;
+  max-height: 100%;
+}
+
+html.club-keyboard-open:has(.support-task-screen.task-screen-route-layer),
+body.club-keyboard-open:has(.support-task-screen.task-screen-route-layer) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}

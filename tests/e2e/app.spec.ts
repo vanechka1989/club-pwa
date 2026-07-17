@@ -2396,6 +2396,22 @@ test("does not double-scroll iPhone support composers when focus opens the keybo
       () => (window as Window & { __supportScrollIntoViewCalls?: number }).__supportScrollIntoViewCalls ?? 0
     );
     expect(forcedScrollCalls, fixture.path).toBe(0);
+
+    const visualViewportMetrics = await page.evaluate(() => {
+      document.documentElement.classList.add("club-keyboard-open");
+      document.body.classList.add("club-keyboard-open");
+      document.documentElement.style.setProperty("--club-visible-viewport-top", "120px");
+      document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+      const layer = document.querySelector<HTMLElement>(".support-task-screen.task-screen-route-layer");
+      const footer = document.querySelector<HTMLElement>(".support-task-screen .task-screen-footer");
+      const rect = (element: HTMLElement | null) => {
+        const box = element?.getBoundingClientRect();
+        return box ? { top: Math.round(box.top), bottom: Math.round(box.bottom) } : null;
+      };
+      return { layer: rect(layer), footer: rect(footer) };
+    });
+    expect(visualViewportMetrics.layer, fixture.path).toEqual({ top: 120, bottom: 540 });
+    expect(visualViewportMetrics.footer?.bottom ?? 9999, fixture.path).toBeLessThanOrEqual(540);
   }
 });
 

@@ -134,7 +134,7 @@ describe("keyboard focus handling", () => {
     taskScreen.remove();
   });
 
-  it("leaves support task fields to the keyboard-aware task layout instead of double-scrolling iOS", () => {
+  it("nudges support task fields inside their own scroll body without page-level center scrolling", () => {
     const supportLayer = document.createElement("div");
     supportLayer.className = "support-task-screen task-screen-route-layer";
     const taskScreen = document.createElement("section");
@@ -143,18 +143,30 @@ describe("keyboard focus handling", () => {
     taskBody.className = "task-screen-body";
     const textarea = document.createElement("textarea");
     const scrollIntoView = vi.fn();
-    const schedule = vi.fn(() => 1);
+    const scrollBy = vi.fn();
+    const schedule = vi.fn((handler: () => void) => {
+      handler();
+      return 1;
+    });
     textarea.scrollIntoView = scrollIntoView;
+    taskBody.scrollBy = scrollBy;
+    textarea.getBoundingClientRect = () =>
+      ({ top: 430, bottom: 510, left: 0, right: 300, width: 300, height: 80, x: 0, y: 430, toJSON: () => ({}) }) as DOMRect;
     taskBody.append(textarea);
     taskScreen.append(taskBody);
     supportLayer.append(taskScreen);
     document.body.append(supportLayer);
+    document.documentElement.style.setProperty("--club-visible-viewport-top", "80px");
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "320px");
 
     ensureFocusedTextFieldVisible(textarea, schedule);
 
-    expect(schedule).not.toHaveBeenCalled();
+    expect(schedule).toHaveBeenCalled();
     expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollBy).toHaveBeenCalledWith({ top: 126, behavior: "auto" });
     supportLayer.remove();
+    document.documentElement.style.removeProperty("--club-visible-viewport-top");
+    document.documentElement.style.removeProperty("--club-visible-viewport-height");
   });
 
   it("keeps the module modal footer compact above keyboard-safe areas", () => {

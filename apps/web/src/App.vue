@@ -94,6 +94,7 @@ let keyboardFocusTimer: number | null = null;
 let viewportSyncScheduler: ViewportSyncScheduler | null = null;
 let appliedViewportHeight = 0;
 let appliedVisibleViewportHeight = 0;
+let appliedVisibleViewportTop = 0;
 let appliedVisibleViewportBottom = 0;
 let appliedSystemBottomGap = 0;
 let appliedKeyboardBottomGap = 0;
@@ -494,6 +495,9 @@ function syncViewportHeight() {
   if (visibleHeight > 0) {
     appliedVisibleViewportHeight = stabilizeViewportMetric(appliedVisibleViewportHeight, visibleHeight);
     document.documentElement.style.setProperty("--club-visible-viewport-height", `${appliedVisibleViewportHeight}px`);
+    const visibleTop = Math.max(0, Math.round(visualViewport?.offsetTop ?? 0));
+    appliedVisibleViewportTop = stabilizeViewportMetric(appliedVisibleViewportTop, visibleTop);
+    document.documentElement.style.setProperty("--club-visible-viewport-top", `${appliedVisibleViewportTop}px`);
     const visibleBottom = visualViewport ? Math.round(visualViewport.offsetTop + visibleHeight) : visibleHeight;
     appliedVisibleViewportBottom = stabilizeViewportMetric(appliedVisibleViewportBottom, visibleBottom);
     document.documentElement.style.setProperty("--club-visible-viewport-bottom", `${appliedVisibleViewportBottom}px`);
