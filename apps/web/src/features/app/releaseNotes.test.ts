@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the iPhone viewport fix as version 4.87", () => {
-    expect(appVersion).toBe("4.87");
-    expect(releaseNotes[0]?.title).toBe("Стабильная клавиатура на iPhone");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("клавиатурой");
-    expect(releaseNotes[1]?.version).toBe("4.86");
+  it("publishes readable support tickets as version 4.88", () => {
+    expect(appVersion).toBe("4.88");
+    expect(releaseNotes[0]?.title).toBe("Тикеты в масштабе приложения");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("масштаб");
+    expect(releaseNotes[1]?.version).toBe("4.87");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Stable iPhone keyboard");
+    expect(englishNotes[0]?.title).toBe("Readable support tickets");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

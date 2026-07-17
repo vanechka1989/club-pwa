@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Тикеты в масштабе приложения",
+    items: [
+      "Карточки обращений теперь используют тот же читаемый масштаб, что основные карточки профиля и других разделов.",
+      "Увеличены имя клиента, служебные данные, статус, высота карточки и тач-зона без изменения логики поддержки.",
+      "На самых узких телефонах статус аккуратно переносится вниз и не перекрывает имя или почту клиента."
+    ]
+  },
+  {
+    version: "4.87",
+    updatedAt: "17.07.2026 23:38",
     title: "Стабильная клавиатура на iPhone",
     items: [
       "Поле нового обращения повторно выравнивается после каждого изменения видимой области iOS и остаётся над клавиатурой.",
@@ -3510,11 +3520,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Stable iPhone keyboard",
+  title: "Readable support tickets",
   items: [
-    "New-ticket fields are realigned after every settled iOS visual viewport change and remain above the keyboard.",
-    "The chat now paints the complete iPhone system-bottom canvas, removing the white strip below the interface.",
-    "The changes are isolated to active support fields and preserve the existing Android behavior."
+    "Support tickets now use the same readable scale as the primary cards across the app.",
+    "Customer names, metadata, statuses, card height, and touch targets are larger without changing support behavior.",
+    "On the narrowest phones, the status moves below the details instead of crowding the customer name or email."
   ]
 };
 

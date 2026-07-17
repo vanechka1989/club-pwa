@@ -1,2 +1,2 @@
-export const appVersion = "4.87";
-export const appVersionUpdatedAt = "17.07.2026 23:38";
+export const appVersion = "4.88";
+export const appVersionUpdatedAt = "18.07.2026 00:00";
