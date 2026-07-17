@@ -14,4 +14,13 @@ describe("support permissions", () => {
     expect(source).toContain("getUnreadCount({ userId, isSupportAdmin })");
     expect(source).not.toContain("getUnreadCount({ userId, role })");
   });
+
+  it("redacts support administrator identities from customer ticket payloads", () => {
+    const source = readFileSync(resolve(__dirname, "../routes/support.ts"), "utf8");
+
+    expect(source).toContain("canSeeAdminAuthors: boolean");
+    expect(source).toContain('message.authorRole === "admin" && !canSeeAdminAuthors');
+    expect(source).toContain('telegramId: "support"');
+    expect(source).toContain("serializeTicket(ticket, role, isSupportAdmin)");
+  });
 });

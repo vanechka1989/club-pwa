@@ -139,7 +139,8 @@ async function serializeAttachment(attachment: typeof supportTicketAttachments.$
 
 async function serializeTicket(
   ticket: NonNullable<Awaited<ReturnType<typeof getTicketById>>>,
-  viewerRole: string
+  viewerRole: string,
+  canSeeAdminAuthors: boolean
 ) {
   const topic = supportTopics.find((item) => item.id === ticket.topic);
   const messages = await Promise.all(
@@ -147,12 +148,20 @@ async function serializeTicket(
       id: message.id,
       authorRole: message.authorRole as "customer" | "admin",
       body: message.body,
-      author: {
-        telegramId: message.author.telegramId,
-        firstName: message.author.firstName,
-        username: message.author.username,
-        photoUrl: message.author.photoUrl
-      },
+      author:
+        message.authorRole === "admin" && !canSeeAdminAuthors
+          ? {
+              telegramId: "support",
+              firstName: null,
+              username: null,
+              photoUrl: null
+            }
+          : {
+              telegramId: message.author.telegramId,
+              firstName: message.author.firstName,
+              username: message.author.username,
+              photoUrl: message.author.photoUrl
+            },
       attachments: await Promise.all(message.attachments.map(serializeAttachment)),
       createdAt: message.createdAt.toISOString()
     }))
@@ -344,7 +353,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       managerContact: null,
       topics: supportTopics,
-      tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role))),
+      tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role, isSupportAdmin))),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
@@ -429,7 +438,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      ticket: await serializeTicket(createdTicket, role),
+      ticket: await serializeTicket(createdTicket, role, isSupportAdmin),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
@@ -503,7 +512,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      ticket: await serializeTicket(updatedTicket, role),
+      ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
@@ -541,7 +550,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      ticket: await serializeTicket(updatedTicket, role),
+      ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
@@ -571,7 +580,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      ticket: await serializeTicket(updatedTicket, role),
+      ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
@@ -600,7 +609,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({
-      tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role))),
+      tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role, isSupportAdmin))),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
@@ -697,7 +706,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      ticket: await serializeTicket(createdTicket, role),
+      ticket: await serializeTicket(createdTicket, role, isSupportAdmin),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   })
@@ -786,7 +795,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      ticket: await serializeTicket(updatedTicket, role),
+      ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
       unreadCount: await getUnreadCount({ userId, isSupportAdmin })
     });
   });
