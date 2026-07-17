@@ -100,4 +100,13 @@ describe("community archive labels", () => {
       /body\.club-mobile-device \.app-root\.community-chat-open:not\(\.app-root-no-user\) \.content-panel\s*\{[^}]*padding:\s*0;/s
     );
   });
+
+  it("anchors the open chat to the iOS visual viewport while the keyboard is visible", () => {
+    expect(communityStyles).toMatch(
+      /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[^}]*top:\s*var\(--club-visible-viewport-top, 0px\);[^}]*height:\s*var\(--club-visible-viewport-height, 100dvh\);/s
+    );
+    expect(communityStyles).toMatch(
+      /html\.club-keyboard-open:has\(\.app-root\.community-chat-open\),[\s\S]*body\.club-keyboard-open:has\(\.app-root\.community-chat-open\)\s*\{[^}]*overflow:\s*hidden;/s
+    );
+  });
 });

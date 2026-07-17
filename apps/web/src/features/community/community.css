@@ -17,7 +17,16 @@
 }
 
 body.club-keyboard-open .app-root.community-chat-open {
+  inset: auto 0 auto 0;
+  top: var(--club-visible-viewport-top, 0px);
+  bottom: auto;
   height: var(--club-visible-viewport-height, 100dvh);
+}
+
+html.club-keyboard-open:has(.app-root.community-chat-open),
+body.club-keyboard-open:has(.app-root.community-chat-open) {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* The generic mobile shell reserves navigation space and page gutters. A chat is
@@ -170,6 +179,24 @@ body.club-keyboard-open .community-chat-open .chat-compose {
 
 body.club-keyboard-open .community-chat-open .chat-compose {
   padding-bottom: 8px;
+}
+
+.community-chat-open .chat-compose-unavailable {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--muted) 24%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--field) 88%, var(--panel));
+  color: var(--muted-strong);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .community-chat-open .chat-input-row {

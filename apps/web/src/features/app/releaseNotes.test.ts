@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes consistent application headers as version 4.82", () => {
-    expect(appVersion).toBe("4.82");
-    expect(releaseNotes[0]?.title).toBe("Единые шапки приложения");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("профил");
-    expect(releaseNotes[1]?.version).toBe("4.81");
+  it("publishes the iPhone chat viewport fixes as version 4.83", () => {
+    expect(appVersion).toBe("4.83");
+    expect(releaseNotes[0]?.title).toBe("Чаты и клавиатура на iPhone");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("клавиатур");
+    expect(releaseNotes[1]?.version).toBe("4.82");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

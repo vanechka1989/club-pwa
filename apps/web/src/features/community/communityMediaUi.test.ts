@@ -99,6 +99,21 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-chat-open \.chat-composer-shell\s*\{[^}]*grid-template-columns:\s*var\(--icon-button-size\) var\(--icon-button-size\) minmax\(0, 1fr\) var\(--icon-button-size\)/s);
   });
 
+  it("replaces a disabled composer with an explicit closed-topic notice", () => {
+    const section = read("CommunitySection.vue");
+    const styles = read("community.css");
+    expect(section).toContain('class="chat-compose-unavailable"');
+    expect(section).toContain("Тема закрыта. Новые сообщения недоступны.");
+    expect(section).toContain('v-if="canWrite"');
+    expect(styles).toMatch(/\.community-chat-open \.chat-compose-unavailable\s*\{[^}]*min-height:\s*44px;/s);
+  });
+
+  it("clears a denied microphone error when the draft or topic is reset", () => {
+    const recorder = read("useVoiceRecorder.ts");
+    const cancelBody = recorder.match(/function cancel\(\)\s*\{(?<body>[\s\S]*?)\n\s*\}/)?.groups?.body ?? "";
+    expect(cancelBody).toContain("error.value = null");
+  });
+
   it("shows a pressed loading state while voice or images are uploading", () => {
     const section = read("CommunitySection.vue");
     expect(section).toContain(':aria-busy="messageSaving"');

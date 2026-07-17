@@ -164,6 +164,13 @@ const muteComposerText = computed(() => {
 
   return "";
 });
+const unavailableComposerText = computed(() => {
+  if (isMuted.value) return muteComposerText.value;
+  if (selectedTopic.value?.isLocked && !isModerator.value) {
+    return "Тема закрыта. Новые сообщения недоступны.";
+  }
+  return "Отправка сообщений сейчас недоступна.";
+});
 const quickEmoji = ["👍", "🔥", "❤️", "😂", "👏", "💩"];
 const reactionOptions: Array<{ value: Exclude<MessageReaction, "like" | "dislike">; label: string }> = [
   { value: "thumbs_up", label: "👍" },
@@ -696,6 +703,7 @@ async function openTopic(topic: ClubTopic) {
     return;
   }
 
+  cancelVoiceDraft();
   selectedTopic.value = topic;
   showTopicAdminMenu.value = false;
   activeModerationMessageId.value = null;
@@ -1008,6 +1016,7 @@ watch(
     showTopicAdminMenu.value = false;
     activeModerationMessageId.value = null;
     activeReactionMessageId.value = null;
+    cancelVoiceDraft();
     void loadTopics();
   },
   { immediate: true }
@@ -1308,6 +1317,7 @@ onBeforeUnmount(() => {
       </div>
 
       <form class="chat-compose" @submit.prevent="handleSendMessage">
+        <template v-if="canWrite">
         <div v-if="replyToMessage" class="compose-reply">
           <div class="min-w-0">
             <p>Ответ {{ authorName(replyToMessage) }}</p>
@@ -1435,6 +1445,8 @@ onBeforeUnmount(() => {
             <Send class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
+        </template>
+        <div v-else class="chat-compose-unavailable" role="status">{{ unavailableComposerText }}</div>
       </form>
       <ChatPollComposer v-if="showPollComposer" @close="showPollComposer = false" @submit="handleCreatePoll" />
     </div>

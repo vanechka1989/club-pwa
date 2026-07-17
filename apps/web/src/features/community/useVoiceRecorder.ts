@@ -109,8 +109,11 @@ export function useVoiceRecorder() {
         durationSeconds.value += 1;
         if (durationSeconds.value >= 300) stop();
       }, 1000);
-    } catch {
-      error.value = "Не удалось получить доступ к микрофону.";
+    } catch (cause) {
+      error.value =
+        cause instanceof DOMException && (cause.name === "NotAllowedError" || cause.name === "SecurityError")
+          ? "Доступ к микрофону не разрешён. Разрешите микрофон в настройках приложения."
+          : "Не удалось запустить микрофон. Попробуйте ещё раз.";
       status.value = "error";
       releaseStream();
     }
@@ -126,6 +129,7 @@ export function useVoiceRecorder() {
     recorder = null;
     releaseStream();
     clearPreview();
+    error.value = null;
     durationSeconds.value = 0;
     levels.value = [];
     status.value = "idle";
