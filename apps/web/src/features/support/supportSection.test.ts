@@ -379,6 +379,13 @@ describe("support section", () => {
     expect(latestRule("body.club-mobile-device .support-section .support-admin-board")).toMatch(/border-radius:\s*0/);
   });
 
+  it("uses the shared readable card typography for the mobile admin ticket list", () => {
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/min-height:\s*4\.75rem/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket span")).toMatch(/font-size:\s*1rem/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket small,\nbody.club-mobile-device .support-section .support-admin-ticket em")).toMatch(/font-size:\s*0\.8rem/);
+    expect(latestRule("body.club-mobile-device .support-section .support-status")).toMatch(/font-size:\s*0\.76rem/);
+  });
+
   it("shows an unread support badge in navigation", () => {
     expect(appSource).toContain("supportUnreadCount");
     expect(appSource).toContain("bottom-nav-badge");

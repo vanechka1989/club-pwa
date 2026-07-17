@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the payment edit mode as version 4.84", () => {
-    expect(appVersion).toBe("4.84");
-    expect(releaseNotes[0]?.title).toBe("Спокойный режим оплаты");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Карандаш");
-    expect(releaseNotes[1]?.version).toBe("4.83");
+  it("publishes readable support tickets as version 4.85", () => {
+    expect(appVersion).toBe("4.85");
+    expect(releaseNotes[0]?.title).toBe("Читаемые тикеты поддержки");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Карточки запросов");
+    expect(releaseNotes[1]?.version).toBe("4.84");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Calm payment editing mode");
+    expect(englishNotes[0]?.title).toBe("Readable support tickets");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

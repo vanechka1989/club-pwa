@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Читаемые тикеты поддержки",
+    items: [
+      "Карточки запросов в мобильной поддержке теперь используют такой же читаемый размер текста, как остальные карточки приложения.",
+      "Увеличены внутренние отступы и высота строки тикета без потери компактности списка.",
+      "Статусы и служебные данные стали заметнее и сохраняют аккуратное выравнивание на узких экранах."
+    ]
+  },
+  {
+    version: "4.84",
+    updatedAt: "17.07.2026 21:46",
     title: "Спокойный режим оплаты",
     items: [
       "Владелец по умолчанию видит тарифы так же, как обычный клиент, без лишних административных кнопок.",
@@ -3480,11 +3490,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Calm payment editing mode",
+  title: "Readable support tickets",
   items: [
-    "The owner sees the same clean tariff view as a regular member by default.",
-    "The pencil beside the plus button reveals payment provider and tariff controls.",
-    "The active editing state is clearly highlighted and toggles off with another tap."
+    "Mobile support tickets now use the same readable typography as other application cards.",
+    "Ticket spacing and row height are improved without making the inbox unnecessarily large.",
+    "Statuses and metadata remain aligned and easier to scan on narrow screens."
   ]
 };
 

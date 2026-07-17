@@ -19490,6 +19490,34 @@ body.club-mobile-device .support-section .support-admin-board {
   background: transparent;
 }
 
+body.club-mobile-device .support-section .support-admin-ticket {
+  min-height: 4.75rem;
+  gap: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 20px;
+}
+
+body.club-mobile-device .support-section .support-admin-ticket-main {
+  gap: 0.2rem;
+}
+
+body.club-mobile-device .support-section .support-admin-ticket span {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+body.club-mobile-device .support-section .support-admin-ticket small,
+body.club-mobile-device .support-section .support-admin-ticket em {
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+body.club-mobile-device .support-section .support-status {
+  padding: 0.34rem 0.58rem;
+  font-size: 0.76rem;
+  line-height: 1.15;
+}
+
 /* Support task polish: keep accents light and mobile actions on one row. */
 .support-create-task-screen .support-topic-option {
   border-radius: 18px;
