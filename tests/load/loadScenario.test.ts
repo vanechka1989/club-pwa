@@ -15,4 +15,11 @@ describe("150 user load scenario", () => {
     expect(source).toContain("http_req_failed: ['rate<0.005']");
     expect(source).toContain("http_req_duration: ['p(95)<500', 'p(99)<1500']");
   });
+
+  it("offers a guarded profile capped at 100 users for the current VPS", () => {
+    const source = readFileSync(resolve(process.cwd(), "tests/load/club-150.js"), "utf8");
+    expect(source).toContain('LOAD_PROFILE === "production-100"');
+    expect(source).toContain("production100Stages");
+    expect(source).toContain("target: 100");
+  });
 });

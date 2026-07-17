@@ -1,0 +1,281 @@
+{
+  "startedAt": "2026-07-17T19:32:55.981Z",
+  "baseUrl": "https://club2.myn8nservertest.ru",
+  "profile": "smoke",
+  "configuredClients": 5,
+  "identityModel": "one temporary owner session, independent SSE connections",
+  "thresholds": {
+    "deliveryRate": 1,
+    "duplicates": 0,
+    "sseP95Ms": 500,
+    "sseP99Ms": 1500,
+    "httpErrorRate": 0.005,
+    "httpP95Ms": 500,
+    "httpP99Ms": 1500
+  },
+  "baseline": {
+    "stage": "baseline",
+    "at": "2026-07-17T19:32:56.913Z",
+    "health": {
+      "ok": true
+    },
+    "ready": {
+      "ok": true,
+      "database": true,
+      "redis": {
+        "configured": false,
+        "ready": true
+      }
+    },
+    "request": {
+      "requests": 145,
+      "failedRequests": 0,
+      "averageDurationMs": 82,
+      "maxDurationMs": 813
+    },
+    "realtimeSubscribers": 0,
+    "memoryRssBytes": 147771392,
+    "uptimeSeconds": 999
+  },
+  "ramp": [
+    {
+      "target": 5,
+      "connected": 5,
+      "serverSubscribers": 5,
+      "durationMs": 899
+    }
+  ],
+  "sequential": {
+    "count": 10,
+    "min": 160,
+    "p50": 195,
+    "p95": 207,
+    "p99": 207,
+    "max": 207,
+    "average": 196
+  },
+  "burst": {
+    "postLatency": {
+      "count": 3,
+      "min": 140,
+      "p50": 140,
+      "p95": 343,
+      "p99": 343,
+      "max": 343,
+      "average": 208
+    },
+    "fanoutCompletion": {
+      "count": 5,
+      "min": 342,
+      "p50": 343,
+      "p95": 343,
+      "p99": 343,
+      "max": 343,
+      "average": 343
+    },
+    "delivery": {
+      "expected": 15,
+      "received": 15,
+      "lost": 0,
+      "duplicates": 0,
+      "deliveryRate": 1,
+      "completeClients": 5
+    }
+  },
+  "reconnect": {
+    "requested": 2,
+    "restored": 2,
+    "durationMs": 246
+  },
+  "http": {
+    "requests": 20,
+    "failedClients": 0,
+    "latency": {
+      "count": 20,
+      "min": 135,
+      "p50": 182,
+      "p95": 344,
+      "p99": 418,
+      "max": 418,
+      "average": 206
+    }
+  },
+  "peak": {
+    "stage": "peak",
+    "at": "2026-07-17T19:33:03.022Z",
+    "health": {
+      "ok": true
+    },
+    "ready": {
+      "ok": true,
+      "database": true,
+      "redis": {
+        "configured": false,
+        "ready": true
+      }
+    },
+    "request": {
+      "requests": 193,
+      "failedRequests": 0,
+      "averageDurationMs": 66,
+      "maxDurationMs": 813
+    },
+    "realtimeSubscribers": 5,
+    "memoryRssBytes": 149348352,
+    "uptimeSeconds": 1005
+  },
+  "clientFailures": [],
+  "foreignEvents": 0,
+  "cleanup": {
+    "attempted": true,
+    "ok": true
+  },
+  "finishedAt": "2026-07-17T19:33:03.121Z",
+  "metricsSamples": [
+    {
+      "stage": "baseline",
+      "at": "2026-07-17T19:32:56.913Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 145,
+        "failedRequests": 0,
+        "averageDurationMs": 82,
+        "maxDurationMs": 813
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 147771392,
+      "uptimeSeconds": 999
+    },
+    {
+      "stage": "ramp-5",
+      "at": "2026-07-17T19:32:57.812Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 153,
+        "failedRequests": 0,
+        "averageDurationMs": 78,
+        "maxDurationMs": 813
+      },
+      "realtimeSubscribers": 5,
+      "memoryRssBytes": 148426752,
+      "uptimeSeconds": 1000
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-17T19:32:59.654Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 161,
+        "failedRequests": 0,
+        "averageDurationMs": 75,
+        "maxDurationMs": 813
+      },
+      "realtimeSubscribers": 4,
+      "memoryRssBytes": 149897216,
+      "uptimeSeconds": 1002
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-17T19:33:01.286Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 186,
+        "failedRequests": 0,
+        "averageDurationMs": 68,
+        "maxDurationMs": 813
+      },
+      "realtimeSubscribers": 5,
+      "memoryRssBytes": 150028288,
+      "uptimeSeconds": 1003
+    },
+    {
+      "stage": "http-round-1",
+      "at": "2026-07-17T19:33:01.721Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 190,
+        "failedRequests": 0,
+        "averageDurationMs": 67,
+        "maxDurationMs": 813
+      },
+      "realtimeSubscribers": 5,
+      "memoryRssBytes": 149749760,
+      "uptimeSeconds": 1004
+    },
+    {
+      "stage": "peak",
+      "at": "2026-07-17T19:33:03.022Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 193,
+        "failedRequests": 0,
+        "averageDurationMs": 66,
+        "maxDurationMs": 813
+      },
+      "realtimeSubscribers": 5,
+      "memoryRssBytes": 149348352,
+      "uptimeSeconds": 1005
+    }
+  ],
+  "errors": []
+}

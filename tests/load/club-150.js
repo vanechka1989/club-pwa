@@ -15,9 +15,22 @@ const smokeStages = [
   { duration: "30s", target: 5 },
   { duration: "10s", target: 0 }
 ];
+const production100Stages = [
+  { duration: "1m", target: 25 },
+  { duration: "1m", target: 50 },
+  { duration: "1m", target: 75 },
+  { duration: "2m", target: 100 },
+  { duration: "5m", target: 100 },
+  { duration: "1m", target: 0 }
+];
+const selectedStages = __ENV.LOAD_PROFILE === "smoke"
+  ? smokeStages
+  : __ENV.LOAD_PROFILE === "production-100"
+    ? production100Stages
+    : fullStages;
 
 export const options = {
-  stages: __ENV.LOAD_PROFILE === "smoke" ? smokeStages : fullStages,
+  stages: selectedStages,
   thresholds: {
     http_req_failed: ['rate<0.005'],
     http_req_duration: ['p(95)<500', 'p(99)<1500']
