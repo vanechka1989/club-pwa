@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
-import type { SupportAttachment, SupportTicket } from "@club/shared";
+import type { SupportAttachment, SupportMessage, SupportTicket } from "@club/shared";
 import {
   closeSupportTicket,
   createSupportTicket,
@@ -173,6 +173,26 @@ function calculateAverageResponseMinutes(items: SupportTicket[]) {
 
 function userName(user: SupportTicket["customer"]) {
   return user.firstName || user.username || `ID ${user.telegramId}`;
+}
+
+function supportMessageAuthorName(item: SupportMessage) {
+  if (item.authorRole !== "admin") {
+    return userName(item.author);
+  }
+
+  return isAdmin.value ? userName(item.author) : t("supportAdminAuthor");
+}
+
+function supportMessagePhotoUrl(item: SupportMessage) {
+  if (item.authorRole === "admin" && !isAdmin.value) {
+    return null;
+  }
+
+  return item.author.photoUrl;
+}
+
+function supportMessageAuthorInitial(item: SupportMessage) {
+  return supportMessageAuthorName(item).trim().slice(0, 1) || "?";
 }
 
 function ticketClosedByLabel(ticket: SupportTicket) {
@@ -867,12 +887,22 @@ watch(
                 v-for="item in selectedTicket.messages"
                 :key="item.id"
                 class="support-message"
-                :class="{ 'support-message-admin': item.authorRole === 'admin' }"
+                :class="{
+                  'support-message-admin': item.authorRole === 'admin',
+                  'support-message-customer': item.authorRole === 'customer'
+                }"
               >
                 <div class="support-message-head">
-                  <img v-if="item.author.photoUrl" :src="item.author.photoUrl" :alt="userName(item.author)" />
-                  <span v-else class="support-message-avatar">{{ userName(item.author).slice(0, 1) }}</span>
-                  <strong>{{ item.authorRole === "admin" ? t("supportAdminAuthor") : userName(item.author) }}</strong>
+                  <img
+                    v-if="supportMessagePhotoUrl(item)"
+                    :src="supportMessagePhotoUrl(item) ?? undefined"
+                    :alt="supportMessageAuthorName(item)"
+                  />
+                  <span v-else class="support-message-avatar">{{ supportMessageAuthorInitial(item) }}</span>
+                  <strong>{{ supportMessageAuthorName(item) }}</strong>
+                  <span v-if="item.authorRole === 'admin' && isAdmin" class="support-message-author-role">
+                    {{ t("supportAdminAuthor") }}
+                  </span>
                 </div>
                 <p>{{ item.body }}</p>
                 <div v-if="item.attachments.length" class="support-attachments">

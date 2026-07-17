@@ -314,6 +314,22 @@ describe("support section", () => {
     expect(styles).toMatch(/\.support-message\s*\{[^}]*align-self:\s*start;/s);
   });
 
+  it("visually separates customer and support messages", () => {
+    expect(source).toContain("support-message-customer");
+    expect(source).toContain("support-message-admin");
+    expect(latestRule(".support-task-screen .support-message-customer")).toMatch(/background:/);
+    expect(latestRule(".support-task-screen .support-message-admin")).toMatch(/background:/);
+    expect(latestRule(".support-task-screen .support-message-admin")).toMatch(/var\(--accent\)/);
+  });
+
+  it("shows the real support author only to support administrators", () => {
+    expect(source).toContain("supportMessageAuthorName");
+    expect(source).toContain("supportMessagePhotoUrl");
+    expect(source).toContain('isAdmin.value ? userName(item.author) : t("supportAdminAuthor")');
+    expect(source).toContain('v-if="item.authorRole === \'admin\' && isAdmin"');
+    expect(source).toContain("support-message-author-role");
+  });
+
   it("supports photo and video attachments without oversized buttons", () => {
     expect(source).toContain('accept="image/*,video/*"');
     expect(source).toContain("support-compact-button");

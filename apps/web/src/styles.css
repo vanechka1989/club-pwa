@@ -16761,6 +16761,34 @@ input[type="submit"],
 
 .support-task-screen .support-message-admin {
   margin-left: 0;
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--ds-border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--ds-surface-2));
+  box-shadow:
+    0 8px 22px color-mix(in srgb, var(--accent) 8%, transparent),
+    var(--ds-shadow-inset);
+}
+
+.support-task-screen .support-message-customer {
+  border-color: var(--ds-border);
+  background: var(--ds-surface-2);
+}
+
+.support-message-admin .support-message-head strong {
+  color: var(--accent);
+}
+
+.support-message-author-role {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.35rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .visual-scale-range {

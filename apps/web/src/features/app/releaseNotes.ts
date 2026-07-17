@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Авторы ответов поддержки",
+    items: [
+      "Сообщения клиента и ответы поддержки визуально разделены разными поверхностями во всех темах.",
+      "Администраторы с доступом к поддержке видят имя конкретного коллеги, который отправил ответ.",
+      "Клиент по-прежнему видит единое имя «Поддержка», а личный аватар администратора ему не раскрывается."
+    ]
+  },
+  {
+    version: "4.75",
+    updatedAt: "17.07.2026 16:41",
     title: "Компактный ответ поддержки",
     items: [
       "Скрепка вложений выровнена по центру относительно поля ответа клиенту.",
@@ -3390,11 +3400,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact support reply",
+  title: "Support reply authors",
   items: [
-    "The attachment control is now vertically centered beside the customer reply field.",
-    "The gap between the attachment control and message field has been reduced to a clean 8 pixels.",
-    "The empty reply field is more compact while remaining resizable when needed."
+    "Customer messages and support replies now use clearly distinct theme-aware surfaces.",
+    "Support administrators can see which specific colleague sent each reply.",
+    "Customers still see the generic Support identity and never receive an administrator's personal avatar."
   ]
 };
 
