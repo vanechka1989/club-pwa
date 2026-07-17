@@ -793,6 +793,25 @@ export const adminMailingRecipients = pgTable(
   })
 );
 
+export const emailDeliveryLog = pgTable(
+  "email_delivery_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    category: varchar("category", { length: 32 }).notNull(),
+    recipientCount: integer("recipient_count").notNull().default(1),
+    status: varchar("status", { length: 16 }).notNull().default("processing"),
+    messageId: text("message_id"),
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    statusCreatedIdx: index("email_delivery_log_status_created_idx").on(table.status, table.createdAt),
+    createdIdx: index("email_delivery_log_created_idx").on(table.createdAt)
+  })
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   authSessions: many(authSessions),
   loginIps: many(userLoginIps),

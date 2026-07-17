@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Контроль email-рассылок",
+    items: [
+      "Во вкладке «Рассылки» появился общий счётчик расхода email за последние 24 часа, включая коды входа и тестовые письма.",
+      "Отправка автоматически соблюдает лимиты почты: до 2000 писем за 24 часа и не более 5 писем в секунду; отложенная очередь продолжится сама.",
+      "В редакторе писем поддержано безопасное HTML-форматирование, а расчёт заранее показывает доступный остаток и время завершения."
+    ]
+  },
+  {
+    version: "4.68",
+    updatedAt: "17.07.2026 14:14",
     title: "Код входа без пробелов",
     items: [
       "Шесть цифр в письме теперь копируются одной непрерывной строкой без скрытого пробела.",
@@ -3320,11 +3330,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Login codes without spaces",
+  title: "Email delivery controls",
   items: [
-    "All six digits in the email now copy as one uninterrupted value without a hidden space.",
-    "Pasting into the login field no longer drops the final digit because of the input length limit.",
-    "The hint below the code now clearly asks the member to copy it for Club authorization."
+    "The Mailings tab now shows one rolling 24-hour email counter that includes login codes and test messages.",
+    "Delivery automatically respects the provider limits of 2,000 emails per 24 hours and five messages per second.",
+    "The editor safely preserves supported HTML formatting and previews the available quota and completion time."
   ]
 };
 

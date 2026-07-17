@@ -18,6 +18,7 @@ import {
   type AdminUserDetailResponse,
   type ClubTopic,
   type ContentKind,
+  type EmailDeliveryQuota,
   type LearningCategory,
   type MailingChannel,
   type MailingFilters,
@@ -243,6 +244,15 @@ const adminActionLogExpanded = ref(false);
 const users = ref<AdminStatsUser[]>([]);
 const mailings = ref<AdminMailing[]>([]);
 const mailingPreview = ref<AdminMailingPreviewResponse | null>(null);
+const mailingEmailQuota = ref<EmailDeliveryQuota>({
+  used: 0,
+  remaining: 2_000,
+  limit: 2_000,
+  windowHours: 24,
+  maxRecipientsPerMessage: 100,
+  messagesPerSecond: 5,
+  resetsAt: null
+});
 const mailingTitle = ref("");
 const mailingBody = ref("");
 const mailingBodyHtml = ref("");
@@ -760,6 +770,15 @@ function syncMailingEditorBody() {
   mailingBody.value = (mailingEditorRef.value?.innerText ?? "").trim();
 }
 
+function handleMailingEditorPaste(event: ClipboardEvent) {
+  event.preventDefault();
+  const clipboardHtml = event.clipboardData?.getData("text/html") ?? "";
+  const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+  const safeHtml = clipboardHtml ? sanitizeHtml(clipboardHtml) : clipboardText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+  document.execCommand("insertHTML", false, safeHtml);
+  syncMailingEditorBody();
+}
+
 function applyMailingEditorCommand(command: string, value?: string) {
   mailingEditorRef.value?.focus();
   document.execCommand(command, false, value);
@@ -939,6 +958,7 @@ async function reuseMailing(mailing: AdminMailing) {
 async function loadMailings() {
   const response = await getAdminMailings();
   mailings.value = response.mailings;
+  mailingEmailQuota.value = response.emailQuota;
 }
 
 async function refreshMailingPreview() {
@@ -2087,6 +2107,7 @@ async function loadAll() {
     }
     if (mailingsResponse) {
       mailings.value = mailingsResponse.mailings;
+      mailingEmailQuota.value = mailingsResponse.emailQuota;
     }
     if (actionLogsResponse) {
       adminActionAdmins.value = actionLogsResponse.admins;
@@ -3468,6 +3489,21 @@ onUnmounted(() => {
         <button class="primary-button ui-button admin-add-button" type="button" @click="openMailingComposer()">Новая рассылка</button>
       </div>
 
+      <section class="admin-crm-block ui-card admin-email-quota" aria-label="Суточный лимит email">
+        <div class="admin-email-quota-head">
+          <div>
+            <span>Email за 24 часа</span>
+            <strong>{{ mailingEmailQuota.used }} / {{ mailingEmailQuota.limit }}</strong>
+          </div>
+          <span>{{ mailingEmailQuota.remaining }} доступно</span>
+        </div>
+        <div class="admin-email-quota-track" aria-hidden="true">
+          <span :style="{ width: `${Math.min(100, (mailingEmailQuota.used / mailingEmailQuota.limit) * 100)}%` }"></span>
+        </div>
+        <p>Коды авторизации, тестовые письма и рассылки учитываются вместе. Скорость — до {{ mailingEmailQuota.messagesPerSecond }} писем/с.</p>
+        <small v-if="mailingEmailQuota.resetsAt">Ближайшее место освободится {{ formatDateTime(mailingEmailQuota.resetsAt) }}</small>
+      </section>
+
       <div class="admin-mailings-layout">
         <aside class="admin-mailing-side">
           <section class="admin-crm-block ui-card admin-mailing-list">
@@ -3587,6 +3623,7 @@ onUnmounted(() => {
                   aria-label="Текст рассылки"
                   data-placeholder="Текст рассылки"
                   @input="syncMailingEditorBody"
+                  @paste="handleMailingEditorPaste"
                 ></div>
               </div>
 
@@ -3678,6 +3715,14 @@ onUnmounted(() => {
                     <strong>{{ mailingPreview?.emailCount ?? "—" }}</strong>
                   </article>
                   <article>
+                    <span>Email за 24 часа</span>
+                    <strong>{{ mailingPreview?.emailQuota.used ?? "—" }} / {{ mailingPreview?.emailQuota.limit ?? "—" }}</strong>
+                  </article>
+                  <article>
+                    <span>Доступно email</span>
+                    <strong>{{ mailingPreview?.emailQuota.remaining ?? "—" }}</strong>
+                  </article>
+                  <article>
                     <span>Email без адреса</span>
                     <strong>{{ mailingPreview?.excludedMissingEmail ?? "—" }}</strong>
                   </article>
@@ -3694,6 +3739,9 @@ onUnmounted(() => {
                     <strong>{{ mailingPreviewLoading ? "считаем..." : mailingPreview?.estimatedLabel ?? "—" }}</strong>
                   </article>
                 </div>
+                <p v-if="mailingPreview?.emailDelayedByDailyLimit" class="admin-warning-line">
+                  Часть email будет автоматически отправлена после освобождения суточного лимита.
+                </p>
               </section>
               </div>
 

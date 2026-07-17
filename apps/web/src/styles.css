@@ -3293,6 +3293,55 @@ body.club-keyboard-open .support-ticket-modal-compact {
   align-items: start;
 }
 
+.admin-email-quota {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.admin-email-quota-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-email-quota-head > div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.admin-email-quota-head span,
+.admin-email-quota p,
+.admin-email-quota small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.admin-email-quota-head strong {
+  color: var(--text);
+  font-size: 1.12rem;
+}
+
+.admin-email-quota-track {
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--panel-soft);
+}
+
+.admin-email-quota-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.admin-email-quota p {
+  margin: 0;
+}
+
 .admin-mailing-builder,
 .admin-mailing-side,
 .admin-mailing-list {

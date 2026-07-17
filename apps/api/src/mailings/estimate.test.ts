@@ -8,10 +8,10 @@ describe("mailing delivery estimate", () => {
   });
 
   it("uses the configured email throughput", () => {
-    expect(estimateMailingDurationSeconds({ pushCount: 0, emailCount: 1248 })).toBe(624);
+    expect(estimateMailingDurationSeconds({ pushCount: 0, emailCount: 1248 })).toBe(250);
   });
 
   it("adds push and email delivery time for combined campaigns", () => {
-    expect(estimateMailingDurationSeconds({ pushCount: 1248, emailCount: 1248 })).toBe(939);
+    expect(estimateMailingDurationSeconds({ pushCount: 1248, emailCount: 1248 })).toBe(565);
   });
 });

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { mailingChannelSchema, mailingFiltersSchema, type MailingChannel } from "@club/shared";
 import { recordAdminAction } from "../admin/actionLog";
-import { sendEmail } from "../auth/emailDelivery";
+import { EmailDailyLimitError, getEmailDeliveryQuota, getRecentEmailDeliveryTimes, sendEmail } from "../auth/emailDelivery";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import { adminMailingRecipients, adminMailings, pushSubscriptions, userContentProgress, userMutes, users } from "../db/schema";
@@ -19,6 +19,8 @@ import { uploadObject } from "../storage/s3";
 import { filterMailingAudience, type MailingAudienceUser } from "../mailings/audience";
 import { getMailingDeliveryChannels, normalizeMailingChannel } from "../mailings/channels";
 import { estimateMailingDurationSeconds, formatMailingDuration } from "../mailings/estimate";
+import { planEmailDeliverySchedule } from "../mailings/emailPolicy";
+import { htmlToMailingText, sanitizeMailingHtml } from "../mailings/html";
 import {
   buildMailingAttachmentObjectKey,
   getMailingAttachmentKind,
@@ -51,34 +53,12 @@ function getFormFile(form: FormData) {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
-function htmlToText(html: string) {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .trim();
-}
-
 function buildMailingText(mailing: { title: string; body: string }) {
   return mailing.title ? `${mailing.title}\n\n${mailing.body}` : mailing.body;
 }
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character] ?? character);
-}
-
-let nextEmailDeliveryAt = 0;
-
-async function waitForEmailDeliverySlot() {
-  const delayMs = Math.max(0, nextEmailDeliveryAt - Date.now());
-  if (delayMs > 0) {
-    await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-  }
-  nextEmailDeliveryAt = Date.now() + 500;
 }
 
 async function sendMailingEmail({
@@ -96,18 +76,18 @@ async function sendMailingEmail({
 
   const unsubscribeUrl = `${env.WEB_ORIGIN}/api/mailings/unsubscribe?token=${encodeURIComponent(createMailingUnsubscribeToken(target.id))}`;
   const attachmentUrl = mailing.attachmentObjectKey ? await getObjectReadUrl(mailing.attachmentObjectKey) : null;
-  const bodyHtml = mailing.bodyHtml || `<p>${escapeHtml(mailing.body).replace(/\n/g, "<br>")}</p>`;
+  const bodyHtml = sanitizeMailingHtml(mailing.bodyHtml || `<p>${escapeHtml(mailing.body).replace(/\n/g, "<br>")}</p>`);
   const attachmentHtml = attachmentUrl
     ? `<p><a href="${escapeHtml(attachmentUrl)}">Открыть вложение${mailing.attachmentFileName ? `: ${escapeHtml(mailing.attachmentFileName)}` : ""}</a></p>`
     : "";
   const html = `${bodyHtml}${attachmentHtml}<hr><p style="font-size:12px;color:#667085">Не хотите получать письма клуба? <a href="${escapeHtml(unsubscribeUrl)}">Отписаться</a>.</p>`;
 
-  await waitForEmailDeliverySlot();
   await sendEmail({
     to: target.email,
     subject: `${isTest ? "Тест: " : ""}${mailing.title}`,
     text: `${buildMailingText(mailing)}${attachmentUrl ? `\n\nВложение: ${attachmentUrl}` : ""}\n\nОтписаться: ${unsubscribeUrl}`,
     html,
+    category: isTest ? "mailing_test" : "mailing",
     headers: {
       "List-Unsubscribe": `<${unsubscribeUrl}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
@@ -234,10 +214,12 @@ async function getAudiencePreview(channel: MailingChannel, filters: unknown) {
         .from(pushSubscriptions)
         .where(and(inArray(pushSubscriptions.userId, recipientIds), isNull(pushSubscriptions.revokedAt)))
     : [{ value: 0 }];
-  const estimatedSeconds = estimateMailingDurationSeconds({
-    pushCount,
-    emailCount
-  });
+  const [recentEmailTimes, emailQuota] = await Promise.all([
+    getRecentEmailDeliveryTimes(),
+    getEmailDeliveryQuota()
+  ]);
+  const emailPlan = planEmailDeliverySchedule({ emailCount, existingDeliveryTimes: recentEmailTimes });
+  const estimatedSeconds = estimateMailingDurationSeconds({ pushCount, emailCount: 0 }) + emailPlan.durationSeconds;
 
   return {
     audience,
@@ -251,7 +233,10 @@ async function getAudiencePreview(channel: MailingChannel, filters: unknown) {
       excludedEmailOptOut: hasEmail ? audience.excludedEmailOptOut : 0,
       excludedByFilters: audience.excludedByFilters,
       estimatedSeconds,
-      estimatedLabel: formatMailingDuration(estimatedSeconds)
+      estimatedLabel: formatMailingDuration(estimatedSeconds),
+      emailQuota,
+      emailCompletesAt: emailCount ? emailPlan.completesAt : null,
+      emailDelayedByDailyLimit: emailPlan.delayedByDailyLimit
     }
   };
 }
@@ -379,6 +364,7 @@ export async function processMailingQueue(limit = 20) {
     let sent = 0;
     let failed = 0;
     let skipped = 0;
+    let deferredUntil: Date | null = null;
     for (const recipient of recipients) {
       const [claimedRecipient] = await db
         .update(adminMailingRecipients)
@@ -402,6 +388,14 @@ export async function processMailingQueue(limit = 20) {
           skipped += 1;
         }
       } catch (error) {
+        if (error instanceof EmailDailyLimitError) {
+          deferredUntil = error.retryAt;
+          await db
+            .update(adminMailingRecipients)
+            .set({ status: "pending", error: null, updatedAt: new Date() })
+            .where(eq(adminMailingRecipients.id, recipient.id));
+          break;
+        }
         failed += 1;
         await db
           .update(adminMailingRecipients)
@@ -432,7 +426,8 @@ export async function processMailingQueue(limit = 20) {
         sentCount: sql`${adminMailings.sentCount} + ${sent}`,
         failedCount: sql`${adminMailings.failedCount} + ${failed}`,
         skippedCount: sql`${adminMailings.skippedCount} + ${skipped}`,
-        status: hasOutstandingDeliveries ? "running" : "completed",
+        status: deferredUntil ? "scheduled" : hasOutstandingDeliveries ? "running" : "completed",
+        ...(deferredUntil ? { scheduledAt: deferredUntil } : {}),
         ...(hasOutstandingDeliveries ? {} : { completedAt: new Date() }),
         updatedAt: new Date()
       })
@@ -474,7 +469,8 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({
-      mailings: await Promise.all(rows.map(serializeAdminMailing))
+      mailings: await Promise.all(rows.map(serializeAdminMailing)),
+      emailQuota: await getEmailDeliveryQuota()
     });
   })
   .post("/preview", async (c) => {
@@ -493,8 +489,8 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const title = getFormString(form, "title");
-    const bodyHtml = getFormString(form, "bodyHtml");
-    const body = getFormString(form, "body") || htmlToText(bodyHtml);
+    const bodyHtml = sanitizeMailingHtml(getFormString(form, "bodyHtml"));
+    const body = getFormString(form, "body") || htmlToMailingText(bodyHtml);
     const channelResult = mailingChannelSchema.safeParse(getFormString(form, "channel"));
 
     if (!title || !body || !channelResult.success) {
@@ -544,8 +540,8 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const title = getFormString(form, "title");
-    const bodyHtml = getFormString(form, "bodyHtml");
-    const body = getFormString(form, "body") || htmlToText(bodyHtml);
+    const bodyHtml = sanitizeMailingHtml(getFormString(form, "bodyHtml"));
+    const body = getFormString(form, "body") || htmlToMailingText(bodyHtml);
     const channelResult = mailingChannelSchema.safeParse(getFormString(form, "channel"));
     const filtersResult = parseMailingFilters(getFormString(form, "filters"));
     const scheduledAtValue = getFormString(form, "scheduledAt");

@@ -19,7 +19,7 @@ import {
   recordFailedEmailLoginAttempt,
   type LoginAttemptStatus
 } from "../auth/emailLoginAttempts";
-import { sendEmail } from "../auth/emailDelivery";
+import { EmailDailyLimitError, sendEmail } from "../auth/emailDelivery";
 import { db } from "../db/client";
 import { authEmailLoginCodes, authSessions, users } from "../db/schema";
 import { env } from "../env";
@@ -158,7 +158,22 @@ export const authRoute = new Hono()
       expiresInMinutes: env.AUTH_LOGIN_CODE_TTL_MINUTES,
       webOrigin: env.WEB_ORIGIN
     });
-    await sendEmail({ to: email, ...message });
+    try {
+      await sendEmail({ to: email, ...message, category: "auth" });
+    } catch (error) {
+      await db.delete(authEmailLoginCodes).where(and(
+        eq(authEmailLoginCodes.email, email),
+        eq(authEmailLoginCodes.codeHash, hashAuthToken(`${email}:${code}`)),
+        isNull(authEmailLoginCodes.consumedAt)
+      ));
+      if (error instanceof EmailDailyLimitError) {
+        return c.json({
+          error: "Суточный лимит отправки писем временно исчерпан. Попробуйте позже.",
+          retryAt: error.retryAt.toISOString()
+        }, 429);
+      }
+      throw error;
+    }
 
     return c.json({
       ok: true,

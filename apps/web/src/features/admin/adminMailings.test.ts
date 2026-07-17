@@ -28,6 +28,9 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("Примерное время");
     expect(adminSectionSource).toContain("PWA-подписок");
     expect(adminSectionSource).toContain("Email без адреса");
+    expect(adminSectionSource).toContain("Email за 24 часа");
+    expect(adminSectionSource).toContain("mailingPreview?.emailQuota.used");
+    expect(adminSectionSource).toContain("mailingPreview?.emailQuota.remaining");
     expect(adminSectionSource).toContain("pauseAdminMailing");
     expect(adminSectionSource).toContain("stopAdminMailing");
   });
@@ -47,6 +50,7 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain("Новая рассылка");
     expect(adminSectionSource).toContain("applyMailingEditorLink");
     expect(adminSectionSource).toContain("Ссылка");
+    expect(adminSectionSource).toContain('@paste="handleMailingEditorPaste"');
     expect(adminSectionSource).toContain('class="admin-mailing-builder-body"');
     expect(adminSectionSource).toContain('class="admin-mailing-submit-row admin-mailing-builder-footer"');
   });

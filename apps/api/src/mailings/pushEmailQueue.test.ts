@@ -15,7 +15,10 @@ describe("push and email mailing queue", () => {
     expect(source).toContain('recipient.channel === "email"');
     expect(source).toContain("await sendEmail({");
     expect(source).toContain('"List-Unsubscribe"');
-    expect(source).toContain("await waitForEmailDeliverySlot()");
+    expect(source).toContain('category: isTest ? "mailing_test" : "mailing"');
+    const deliverySource = readFileSync(resolve(__dirname, "../auth/emailDelivery.ts"), "utf8");
+    expect(deliverySource).toContain("await waitForEmailRateSlot()");
+    expect(deliverySource).toContain("reserveEmailQuota");
   });
 
   it("counts actual push and email recipients in preview", () => {

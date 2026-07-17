@@ -1,6 +1,6 @@
 const pushBatchSize = 20;
 const pushBatchIntervalSeconds = 5;
-const emailsPerSecond = 2;
+const emailsPerSecond = 5;
 
 export function estimateMailingDurationSeconds({
   pushCount,

@@ -1248,8 +1248,20 @@ export const adminMailingSchema = z.object({
 });
 export type AdminMailing = z.infer<typeof adminMailingSchema>;
 
+export const emailDeliveryQuotaSchema = z.object({
+  used: z.number().int().nonnegative(),
+  remaining: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+  windowHours: z.number().int().positive(),
+  maxRecipientsPerMessage: z.number().int().positive(),
+  messagesPerSecond: z.number().int().positive(),
+  resetsAt: z.string().datetime().nullable()
+});
+export type EmailDeliveryQuota = z.infer<typeof emailDeliveryQuotaSchema>;
+
 export const adminMailingsResponseSchema = z.object({
-  mailings: z.array(adminMailingSchema)
+  mailings: z.array(adminMailingSchema),
+  emailQuota: emailDeliveryQuotaSchema
 });
 export type AdminMailingsResponse = z.infer<typeof adminMailingsResponseSchema>;
 
@@ -1263,7 +1275,10 @@ export const adminMailingPreviewResponseSchema = z.object({
   excludedEmailOptOut: z.number().int().nonnegative(),
   excludedByFilters: z.number().int().nonnegative(),
   estimatedSeconds: z.number().int().nonnegative(),
-  estimatedLabel: z.string()
+  estimatedLabel: z.string(),
+  emailQuota: emailDeliveryQuotaSchema,
+  emailCompletesAt: z.string().datetime().nullable(),
+  emailDelayedByDailyLimit: z.boolean()
 });
 export type AdminMailingPreviewResponse = z.infer<typeof adminMailingPreviewResponseSchema>;
 
