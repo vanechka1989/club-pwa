@@ -169,6 +169,44 @@ describe("keyboard focus handling", () => {
     document.documentElement.style.removeProperty("--club-visible-viewport-height");
   });
 
+  it("does not scroll the routed support layer for a footer composer", () => {
+    const supportLayer = document.createElement("div");
+    supportLayer.className = "support-task-screen support-ticket-task-screen task-screen-route-layer";
+    const taskScreen = document.createElement("section");
+    taskScreen.className = "task-screen";
+    const taskBody = document.createElement("div");
+    taskBody.className = "task-screen-body";
+    const footer = document.createElement("footer");
+    footer.className = "task-screen-footer";
+    const textarea = document.createElement("textarea");
+    const routeScrollBy = vi.fn();
+    const bodyScrollBy = vi.fn();
+    const scrollIntoView = vi.fn();
+    textarea.scrollIntoView = scrollIntoView;
+    textarea.getBoundingClientRect = () =>
+      ({ top: 430, bottom: 510, left: 0, right: 300, width: 300, height: 80, x: 0, y: 430, toJSON: () => ({}) }) as DOMRect;
+    supportLayer.scrollBy = routeScrollBy;
+    taskBody.scrollBy = bodyScrollBy;
+    footer.append(textarea);
+    taskScreen.append(taskBody, footer);
+    supportLayer.append(taskScreen);
+    document.body.append(supportLayer);
+    document.documentElement.style.setProperty("--club-visible-viewport-top", "80px");
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "320px");
+
+    ensureFocusedTextFieldVisible(textarea, (handler) => {
+      handler();
+      return 1;
+    });
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(routeScrollBy).not.toHaveBeenCalled();
+    expect(bodyScrollBy).not.toHaveBeenCalled();
+    supportLayer.remove();
+    document.documentElement.style.removeProperty("--club-visible-viewport-top");
+    document.documentElement.style.removeProperty("--club-visible-viewport-height");
+  });
+
   it("keeps the module modal footer compact above keyboard-safe areas", () => {
     const moduleActionsRule = styles.match(/\.module-name-modal \.admin-form-actions\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
 

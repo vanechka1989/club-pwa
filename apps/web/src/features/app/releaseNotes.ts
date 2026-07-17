@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Ответы в тикетах на iPhone",
+    items: [
+      "При открытии клавиатуры поле ответа больше не прокручивает целиком экран тикета.",
+      "Шапка и история переписки остаются на месте, а редактор ответа располагается над клавиатурой.",
+      "Форма нового обращения и обычный чат сохраняют прежнее корректное поведение на iPhone и Android."
+    ]
+  },
+  {
+    version: "4.79",
+    updatedAt: "17.07.2026 19:09",
     title: "Клавиатура поддержки на iPhone",
     items: [
       "Экран создания обращения и открытый тикет теперь учитывают не только высоту, но и вертикальный сдвиг Safari при появлении клавиатуры.",
@@ -3430,11 +3440,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Support keyboard on iPhone",
+  title: "Ticket replies on iPhone",
   items: [
-    "New and existing support tickets now follow Safari's vertical viewport offset as the keyboard opens.",
-    "Focused fields scroll only inside the ticket content, so the header, actions, and background stay stable.",
-    "The fix is covered on iPhone and preserves Android keyboard behavior."
+    "Opening the keyboard no longer scrolls the entire support ticket for the reply composer.",
+    "The ticket header and conversation history stay in place while the reply field remains above the keyboard.",
+    "New-ticket forms and regular chat keep their existing behavior on iPhone and Android."
   ]
 };
 

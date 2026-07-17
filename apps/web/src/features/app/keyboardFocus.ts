@@ -106,6 +106,12 @@ export function ensureFocusedTextFieldVisible(
   // correct only their internal scroll body; scrollIntoView here would move the
   // standalone page as well and cause the double-jump seen in Safari.
   if (element.closest(".support-task-screen")) {
+    // Reply composers live in the fixed task footer, outside the scroll body.
+    // Scrolling their closest route layer moves the entire ticket (header and
+    // message history included) above the iOS visual viewport.
+    if (element.closest(".task-screen-footer, .support-reply-form")) {
+      return;
+    }
     for (const timeout of [40, 120, 260, 520]) {
       schedule(() => nudgeFocusedFieldIntoVisibleViewport(element), timeout);
     }
