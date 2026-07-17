@@ -109,4 +109,11 @@ describe("community archive labels", () => {
       /html\.club-keyboard-open:has\(\.app-root\.community-chat-open\),[\s\S]*body\.club-keyboard-open:has\(\.app-root\.community-chat-open\)\s*\{[^}]*overflow:\s*hidden;/s
     );
   });
+
+  it("paints the iPhone home-indicator canvas with the active app theme", () => {
+    expect(styles).toMatch(/html,\s*body,\s*#app\s*\{[^}]*background:\s*var\(--bg\);/s);
+    expect(communityStyles).toMatch(
+      /html\.club-community-locked,\s*body\.club-community-locked,\s*html\.club-community-locked #app\s*\{[^}]*background:\s*var\(--bg\);/s
+    );
+  });
 });

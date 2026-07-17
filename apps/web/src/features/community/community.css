@@ -1,4 +1,10 @@
 /* Community chat owns one viewport layout. This file loads after the global foundation. */
+html.club-community-locked,
+body.club-community-locked,
+html.club-community-locked #app {
+  background: var(--bg);
+}
+
 .app-root.community-chat-open {
   --chat-bubble-incoming: color-mix(in srgb, var(--panel-strong) 96%, var(--bg));
   --chat-bubble-outgoing: color-mix(in srgb, var(--accent) 14%, var(--panel-strong));

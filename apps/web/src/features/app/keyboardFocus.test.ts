@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { dismissActiveTextFieldBeforeOperation, ensureFocusedTextFieldVisible, isTextFieldElement } from "./keyboardFocus";
+import {
+  dismissActiveTextFieldBeforeOperation,
+  ensureFocusedTextFieldVisible,
+  isTextFieldElement,
+  keepActiveSupportFieldVisible
+} from "./keyboardFocus";
 
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const adminSource = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
@@ -32,6 +37,8 @@ describe("keyboard focus handling", () => {
     expect(appSource).not.toContain("isIosPlatform && visualBottomGap > 80");
     expect(appSource).toContain("ensureFocusedTextFieldVisible");
     expect(appSource).toContain('document.addEventListener("focusin", handleTextFieldFocusIn)');
+    expect(appSource).toContain("keepActiveSupportFieldVisible");
+    expect(appSource).toMatch(/syncViewportHeight\(\)[\s\S]*keepActiveSupportFieldVisible\(\)/);
     expect(styles).toContain("body.club-keyboard-open .app-shell");
     expect(styles).toContain("body.club-keyboard-open .admin-modal-backdrop");
     expect(styles).toContain("body.club-keyboard-open .support-modal-backdrop");
@@ -163,6 +170,31 @@ describe("keyboard focus handling", () => {
 
     expect(schedule).toHaveBeenCalled();
     expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollBy).toHaveBeenCalledWith({ top: 126, behavior: "auto" });
+    supportLayer.remove();
+    document.documentElement.style.removeProperty("--club-visible-viewport-top");
+    document.documentElement.style.removeProperty("--club-visible-viewport-height");
+  });
+
+  it("rechecks the active support field after the iOS visual viewport settles", () => {
+    const supportLayer = document.createElement("div");
+    supportLayer.className = "support-task-screen task-screen-route-layer";
+    const taskBody = document.createElement("div");
+    taskBody.className = "task-screen-body";
+    const textarea = document.createElement("textarea");
+    const scrollBy = vi.fn();
+    taskBody.scrollBy = scrollBy;
+    textarea.getBoundingClientRect = () =>
+      ({ top: 430, bottom: 510, left: 0, right: 300, width: 300, height: 80, x: 0, y: 430, toJSON: () => ({}) }) as DOMRect;
+    taskBody.append(textarea);
+    supportLayer.append(taskBody);
+    document.body.append(supportLayer);
+    document.documentElement.style.setProperty("--club-visible-viewport-top", "80px");
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "320px");
+    textarea.focus();
+
+    keepActiveSupportFieldVisible();
+
     expect(scrollBy).toHaveBeenCalledWith({ top: 126, behavior: "auto" });
     supportLayer.remove();
     document.documentElement.style.removeProperty("--club-visible-viewport-top");

@@ -38,7 +38,8 @@ import {
 import {
   blurActiveTextField,
   ensureFocusedTextFieldVisible,
-  isTextFieldElement
+  isTextFieldElement,
+  keepActiveSupportFieldVisible
 } from "@/features/app/keyboardFocus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
 import CommunitySection from "@/features/community/CommunitySection.vue";
@@ -536,6 +537,9 @@ function syncViewportHeight() {
   setLayoutCssVariable("--club-calibrated-bottom-offset", `${calibration.bottomOffsetPx}px`);
   document.documentElement.classList.toggle("club-keyboard-open", isKeyboardOpen);
   document.body.classList.toggle("club-keyboard-open", isKeyboardOpen);
+  if (isKeyboardOpen) {
+    keepActiveSupportFieldVisible();
+  }
 }
 
 function scheduleViewportHeightSync() {

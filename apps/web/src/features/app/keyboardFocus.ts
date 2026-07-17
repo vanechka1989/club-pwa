@@ -94,6 +94,21 @@ function nudgeFocusedFieldIntoVisibleViewport(element: HTMLElement) {
   }
 }
 
+export function keepActiveSupportFieldVisible() {
+  const active = document.activeElement;
+  if (!isTextFieldElement(active) || !active.closest(".support-task-screen")) {
+    return;
+  }
+
+  // The reply composer is fixed to the task footer and follows the visual
+  // viewport itself. Moving its route layer would shift the whole ticket.
+  if (active.closest(".task-screen-footer, .support-reply-form")) {
+    return;
+  }
+
+  nudgeFocusedFieldIntoVisibleViewport(active);
+}
+
 export function ensureFocusedTextFieldVisible(
   element: Element | null,
   schedule: (handler: () => void, timeout: number) => number = window.setTimeout

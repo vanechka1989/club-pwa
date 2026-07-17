@@ -294,6 +294,7 @@ html,
 body,
 #app {
   min-height: 100%;
+  background: var(--bg);
 }
 
 html.club-community-locked,

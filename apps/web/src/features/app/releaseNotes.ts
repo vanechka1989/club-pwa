@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Стабильная клавиатура на iPhone",
+    items: [
+      "Поле нового обращения повторно выравнивается после каждого изменения видимой области iOS и остаётся над клавиатурой.",
+      "Чат полностью окрашивает системную нижнюю область iPhone — белая полоса под интерфейсом больше не появляется.",
+      "Изменения изолированы для активных полей поддержки и не меняют корректное поведение Android."
+    ]
+  },
+  {
+    version: "4.86",
+    updatedAt: "17.07.2026 22:31",
     title: "Крупные карточки поддержки",
     items: [
       "Карточки тикетов стали заметно крупнее и соответствуют масштабу остальных разделов приложения.",
@@ -3500,11 +3510,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Larger support tickets",
+  title: "Stable iPhone keyboard",
   items: [
-    "Support ticket cards now match the comfortable scale used across the rest of the application.",
-    "Customer names, metadata, statuses, spacing, and touch areas are larger and easier to scan.",
-    "Status sizing is isolated from customer-name typography for consistent rendering in every theme."
+    "New-ticket fields are realigned after every settled iOS visual viewport change and remain above the keyboard.",
+    "The chat now paints the complete iPhone system-bottom canvas, removing the white strip below the interface.",
+    "The changes are isolated to active support fields and preserve the existing Android behavior."
   ]
 };
 
