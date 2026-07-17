@@ -1,6 +1,6 @@
 import type { SupportTicket } from "@club/shared";
 import { describe, expect, it } from "vitest";
-import { sortSupportTickets } from "./supportTickets";
+import { getSupportTicketDisplayState, getSupportTicketStats, sortSupportTickets } from "./supportTickets";
 
 function ticket(input: Partial<SupportTicket> & Pick<SupportTicket, "id" | "status" | "updatedAt">): SupportTicket {
   return {
@@ -37,5 +37,87 @@ describe("support ticket ordering", () => {
     ]);
 
     expect(ordered.map((item) => item.id)).toEqual(["needs-reply", "open-old", "answered", "closed-new"]);
+  });
+
+  it("keeps a closed unread ticket below every active ticket", () => {
+    const ordered = sortSupportTickets([
+      ticket({ id: "closed-unread", status: "closed", unread: true, updatedAt: "2026-07-05T11:00:00.000Z" }),
+      ticket({ id: "answered", status: "answered", updatedAt: "2026-07-05T10:00:00.000Z" })
+    ]);
+
+    expect(ordered.map((item) => item.id)).toEqual(["answered", "closed-unread"]);
+  });
+});
+
+describe("support ticket display state", () => {
+  it("shows that support needs to reply after the latest customer message, even after it was read", () => {
+    expect(getSupportTicketDisplayState(ticket({
+      id: "customer-read",
+      status: "open",
+      unread: false,
+      updatedAt: "2026-07-17T19:22:00.000Z"
+    }), true)).toBe("needs-reply");
+  });
+
+  it("shows a new ticket only while the latest customer message is unread", () => {
+    expect(getSupportTicketDisplayState(ticket({
+      id: "customer-unread",
+      status: "open",
+      unread: true,
+      updatedAt: "2026-07-17T19:22:00.000Z"
+    }), true)).toBe("new");
+  });
+
+  it("shows that the support reply was sent after an administrator message", () => {
+    expect(getSupportTicketDisplayState(ticket({
+      id: "admin-replied",
+      status: "answered",
+      unread: false,
+      updatedAt: "2026-07-17T19:21:00.000Z"
+    }), true)).toBe("reply-sent");
+  });
+
+  it("keeps customer-facing states separate from administrator-facing states", () => {
+    expect(getSupportTicketDisplayState(ticket({
+      id: "customer-waits",
+      status: "open",
+      updatedAt: "2026-07-17T19:21:00.000Z"
+    }), false)).toBe("waiting-reply");
+    expect(getSupportTicketDisplayState(ticket({
+      id: "customer-new-reply",
+      status: "answered",
+      unread: true,
+      updatedAt: "2026-07-17T19:22:00.000Z"
+    }), false)).toBe("new-reply");
+    expect(getSupportTicketDisplayState(ticket({
+      id: "customer-read-reply",
+      status: "answered",
+      unread: false,
+      updatedAt: "2026-07-17T19:22:00.000Z"
+    }), false)).toBe("reply-received");
+  });
+
+  it("always shows closed tickets as closed", () => {
+    const closed = ticket({
+      id: "closed",
+      status: "closed",
+      unread: true,
+      updatedAt: "2026-07-17T19:22:00.000Z"
+    });
+    expect(getSupportTicketDisplayState(closed, true)).toBe("closed");
+    expect(getSupportTicketDisplayState(closed, false)).toBe("closed");
+  });
+});
+
+describe("support ticket statistics", () => {
+  it("counts both waiting and answered tickets as open", () => {
+    const stats = getSupportTicketStats([
+      ticket({ id: "new", status: "open", unread: true, updatedAt: "2026-07-17T19:22:00.000Z" }),
+      ticket({ id: "waiting", status: "open", updatedAt: "2026-07-17T19:21:00.000Z" }),
+      ticket({ id: "answered", status: "answered", updatedAt: "2026-07-17T19:20:00.000Z" }),
+      ticket({ id: "closed", status: "closed", unread: true, updatedAt: "2026-07-17T19:19:00.000Z" })
+    ]);
+
+    expect(stats).toEqual({ newCount: 1, openCount: 3, closedCount: 1 });
   });
 });

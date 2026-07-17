@@ -17,7 +17,11 @@ import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { dismissActiveTextFieldBeforeOperation } from "@/features/app/keyboardFocus";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
-import { sortSupportTickets } from "@/features/support/supportTickets";
+import {
+  getSupportTicketDisplayState,
+  getSupportTicketStats,
+  sortSupportTickets
+} from "@/features/support/supportTickets";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
@@ -79,10 +83,7 @@ const defaultTopics = computed(() => [
 const visibleTopics = computed(() => (topics.value.length ? topics.value : defaultTopics.value).map(localizeTopic));
 const routeTicketId = computed(() => (typeof route.params.ticketId === "string" ? route.params.ticketId : null));
 const selectedTicket = computed(() => tickets.value.find((ticket) => ticket.id === selectedTicketId.value) ?? null);
-const openTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "open"));
-const answeredTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "answered"));
-const closedTickets = computed(() => tickets.value.filter((ticket) => ticket.status === "closed"));
-const adminUnreadTickets = computed(() => tickets.value.filter((ticket) => ticket.unread));
+const ticketStats = computed(() => getSupportTicketStats(tickets.value));
 const supportBusy = computed(
   () =>
     preparingSupportSubmission.value ||
@@ -217,15 +218,10 @@ function attachmentIcon(kind: string) {
 }
 
 function statusTone(ticket: SupportTicket) {
-  if (ticket.status === "closed") {
-    return "support-status-closed";
-  }
-  if (ticket.unread) {
-    return "support-status-hot";
-  }
-  if (ticket.status === "answered") {
-    return "support-status-answered";
-  }
+  const state = getSupportTicketDisplayState(ticket, isAdmin.value);
+  if (state === "closed") return "support-status-closed";
+  if (state === "new" || state === "new-reply") return "support-status-hot";
+  if (state === "reply-sent" || state === "reply-received") return "support-status-answered";
   return "support-status-open";
 }
 
@@ -255,19 +251,17 @@ function ticketTopicTitle(ticket: SupportTicket) {
 }
 
 function ticketStatusLabel(ticket: SupportTicket) {
-  if (ticket.unread) {
-    return isAdmin.value ? t("supportUnreadAdmin") : t("supportNewAnswer");
-  }
-
-  if (ticket.status === "closed") {
-    return t("supportStatusClosed");
-  }
-
-  if (ticket.status === "answered") {
-    return t("supportStatusAnswered");
-  }
-
-  return t("supportStatusOpen");
+  const state = getSupportTicketDisplayState(ticket, isAdmin.value);
+  const labelKey = {
+    new: "supportUnreadAdmin",
+    "needs-reply": "supportStatusNeedsReply",
+    "reply-sent": "supportStatusReplySent",
+    "new-reply": "supportNewAnswer",
+    "reply-received": "supportStatusReplyReceived",
+    "waiting-reply": "supportStatusWaitingReply",
+    closed: "supportStatusClosed"
+  } as const;
+  return t(labelKey[state]);
 }
 
 function updateFiles(event: Event, target: "ticket" | "reply" | "followUp") {
@@ -751,15 +745,15 @@ watch(
         <div class="support-admin-stats">
           <article class="surface-card ui-card">
             <span>{{ t("supportStatsNew") }}</span>
-            <strong>{{ adminUnreadTickets.length }}</strong>
+            <strong>{{ ticketStats.newCount }}</strong>
           </article>
           <article class="surface-card ui-card">
             <span>{{ t("supportStatsOpen") }}</span>
-            <strong>{{ openTickets.length }}</strong>
+            <strong>{{ ticketStats.openCount }}</strong>
           </article>
           <article class="surface-card ui-card">
             <span>{{ t("supportStatsClosed") }}</span>
-            <strong>{{ closedTickets.length }}</strong>
+            <strong>{{ ticketStats.closedCount }}</strong>
           </article>
           <article class="surface-card ui-card">
             <span>{{ t("supportStatsAverage") }}</span>

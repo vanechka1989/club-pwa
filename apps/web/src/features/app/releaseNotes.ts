@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Правильные статусы поддержки",
+    items: [
+      "После сообщения клиента обращение показывает «Новое» до прочтения, а затем «Нужно ответить» — статус больше не превращается в нейтральное «Открыто».",
+      "После ответа администратора отображается «Ответ отправлен», а клиент видит «Новый ответ» или «Ответ получен».",
+      "Счётчик открытых обращений учитывает все незакрытые тикеты, а закрытые обращения всегда остаются внизу списка."
+    ]
+  },
+  {
+    version: "4.88",
+    updatedAt: "18.07.2026 00:00",
     title: "Тикеты в масштабе приложения",
     items: [
       "Карточки обращений теперь используют тот же читаемый масштаб, что основные карточки профиля и других разделов.",
@@ -3520,11 +3530,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Readable support tickets",
+  title: "Correct support statuses",
   items: [
-    "Support tickets now use the same readable scale as the primary cards across the app.",
-    "Customer names, metadata, statuses, card height, and touch targets are larger without changing support behavior.",
-    "On the narrowest phones, the status moves below the details instead of crowding the customer name or email."
+    "A customer message now shows New until it is read and then Needs reply instead of falling back to a generic Open label.",
+    "An administrator reply shows Reply sent, while customers see New reply or Reply received.",
+    "The open counter includes every non-closed ticket, and closed tickets always remain below active requests."
   ]
 };
 

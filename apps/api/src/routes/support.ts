@@ -52,7 +52,7 @@ const customerTicketStatusLabel: Record<string, string> = {
 
 const adminTicketStatusLabel: Record<string, string> = {
   open: "Нужно ответить",
-  answered: "Отвечено",
+  answered: "Ответ отправлен",
   closed: "Закрыто"
 };
 
@@ -726,6 +726,9 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     const ticket = await getTicketById(idResult.data);
     if (!ticket) {
       return c.json({ error: "Обращение не найдено." }, 404);
+    }
+    if (ticket.status === "closed") {
+      return c.json({ error: "Обращение уже закрыто." }, 400);
     }
 
     const form = await c.req.formData();

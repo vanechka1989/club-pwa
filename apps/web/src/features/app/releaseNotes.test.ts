@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes readable support tickets as version 4.88", () => {
-    expect(appVersion).toBe("4.88");
-    expect(releaseNotes[0]?.title).toBe("Тикеты в масштабе приложения");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("масштаб");
-    expect(releaseNotes[1]?.version).toBe("4.87");
+  it("publishes correct support statuses as version 4.89", () => {
+    expect(appVersion).toBe("4.89");
+    expect(releaseNotes[0]?.title).toBe("Правильные статусы поддержки");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Нужно ответить");
+    expect(releaseNotes[1]?.version).toBe("4.88");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Readable support tickets");
+    expect(englishNotes[0]?.title).toBe("Correct support statuses");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
