@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "iPhone: чат, поддержка и голосовые",
+    items: [
+      "Чат теперь занимает всю стабильную высоту установленного PWA и окрашивает нижнюю системную область без белого поля.",
+      "При открытии клавиатуры поле нового обращения автоматически поднимается выше нижней панели отправки и остаётся видимым.",
+      "Прокрутка выполняется только внутри формы поддержки, поэтому шапка и весь экран больше не скачут.",
+      "Голосовые с iPhone записываются цельным файлом, проверяются сервером и автоматически исправляются при нарушенном порядке MP4-фрагментов."
+    ]
+  },
+  {
+    version: "4.91",
+    updatedAt: "18.07.2026 01:30",
     title: "Режим редактирования модулей",
     items: [
       "Административные кнопки модулей скрыты по умолчанию и появляются после нажатия карандаша в шапке.",
@@ -3550,11 +3561,12 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Modules edit mode",
+  title: "iPhone chat, support, and voice messages",
   items: [
-    "Module administration controls are hidden by default and appear after the pencil in the header is pressed.",
-    "Before edit mode is enabled, owners and administrators see the same clean module layout as regular members.",
-    "The plus button still adds a module, while expanding modules and viewing lessons remain available outside edit mode."
+    "Chat now fills the stable installed-PWA viewport and paints the iPhone system area without a white gap.",
+    "When the keyboard opens, the new-ticket message field is moved above the submit footer and remains visible.",
+    "Only the support form body is scrolled, so the page header and the rest of the screen no longer jump.",
+    "iPhone voice messages are recorded as one complete file, validated by the server, and repaired when MP4 fragments arrive before the file header."
   ]
 };
 

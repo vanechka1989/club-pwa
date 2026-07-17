@@ -121,5 +121,11 @@ describe("community archive labels", () => {
     expect(communityStyles).toMatch(
       /html\.club-community-locked,\s*body\.club-community-locked,\s*html\.club-community-locked #app\s*\{[^}]*background:\s*var\(--bg\);/s
     );
+    expect(communityStyles).toMatch(
+      /html\.club-community-locked,\s*body\.club-community-locked,\s*html\.club-community-locked #app\s*\{[^}]*height:\s*var\(--club-viewport-height, 100dvh\);/s
+    );
+    expect(communityStyles).toMatch(
+      /\.app-root\.community-chat-open\s*\{[^}]*height:\s*var\(--club-viewport-height, 100dvh\);/s
+    );
   });
 });

@@ -2,6 +2,8 @@
 html.club-community-locked,
 body.club-community-locked,
 html.club-community-locked #app {
+  height: var(--club-viewport-height, 100dvh);
+  min-height: var(--club-viewport-height, 100dvh);
   background: var(--bg);
 }
 
@@ -16,7 +18,7 @@ html.club-community-locked #app {
   inset: 0;
   width: 100%;
   max-width: none;
-  height: 100dvh;
+  height: var(--club-viewport-height, 100dvh);
   min-height: 0;
   overflow: hidden;
   padding: 0;

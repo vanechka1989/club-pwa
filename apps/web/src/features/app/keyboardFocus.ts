@@ -50,6 +50,21 @@ function closestScrollContainer(element: HTMLElement) {
   return element.closest<HTMLElement>(".task-screen-body, .task-screen-route-layer, .app-shell");
 }
 
+function visibleBottomBeforeTaskFooter(element: HTMLElement, viewportTop: number, viewportBottom: number) {
+  const taskScreen = element.closest<HTMLElement>(".task-screen");
+  const footer = taskScreen?.querySelector<HTMLElement>(":scope > .task-screen-footer");
+  if (!footer || footer.contains(element)) {
+    return viewportBottom;
+  }
+
+  const footerRect = footer.getBoundingClientRect();
+  if (footerRect.height <= 0 || footerRect.top <= viewportTop || footerRect.top >= viewportBottom) {
+    return viewportBottom;
+  }
+
+  return footerRect.top;
+}
+
 function nudgeFocusedFieldIntoVisibleViewport(element: HTMLElement) {
   const visibleHeight = numericCssVariable("--club-visible-viewport-height") ?? window.visualViewport?.height ?? null;
   if (visibleHeight === null || !Number.isFinite(visibleHeight) || visibleHeight <= 0) {
@@ -63,12 +78,13 @@ function nudgeFocusedFieldIntoVisibleViewport(element: HTMLElement) {
     ? Math.max(0, cssViewportTop)
     : Math.max(0, window.visualViewport?.offsetTop ?? 0);
   const viewportBottom = viewportTop + visibleHeight;
+  const visibleBottom = visibleBottomBeforeTaskFooter(element, viewportTop, viewportBottom);
   const rect = element.getBoundingClientRect();
   const padding = 16;
   let delta = 0;
 
-  if (rect.bottom > viewportBottom - padding) {
-    delta = rect.bottom - viewportBottom + padding;
+  if (rect.bottom > visibleBottom - padding) {
+    delta = rect.bottom - visibleBottom + padding;
   } else if (rect.top < viewportTop + padding) {
     delta = rect.top - viewportTop - padding;
   }

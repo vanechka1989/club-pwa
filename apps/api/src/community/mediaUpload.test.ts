@@ -3,6 +3,7 @@ import {
   buildCommunityMediaObjectKey,
   getCommunityVoiceContentType,
   getCommunityVoiceStoragePlan,
+  normalizeCommunityVoiceSource,
   validateCommunityImageFiles
 } from "./mediaUpload";
 
@@ -24,8 +25,17 @@ describe("community media uploads", () => {
     expect(getCommunityVoiceStoragePlan("audio/mp4", "voice.webm")).toEqual({
       contentType: "audio/mp4",
       fileName: "voice.m4a",
-      transcode: false
+      transcode: true
     });
+  });
+
+  it("repairs Safari fragmented MP4 recordings that start before their file header", () => {
+    const fragment = new Uint8Array([0, 0, 0, 12, 109, 111, 111, 102, 1, 2, 3, 4]);
+    const header = new Uint8Array([0, 0, 0, 20, 102, 116, 121, 112, 105, 115, 111, 53, 0, 0, 0, 1, 105, 115, 111, 109]);
+    const repaired = normalizeCommunityVoiceSource(new Uint8Array([...fragment, ...header]), "audio/mp4");
+
+    expect(Array.from(repaired)).toEqual(Array.from(header));
+    expect(normalizeCommunityVoiceSource(header, "audio/mp4")).toBe(header);
   });
 
   it("stores voice and image media under separate safe prefixes", () => {

@@ -177,6 +177,38 @@ describe("keyboard focus handling", () => {
     document.documentElement.style.removeProperty("--club-visible-viewport-height");
   });
 
+  it("keeps the new-ticket textarea above the task footer on iPhone", () => {
+    const supportLayer = document.createElement("div");
+    supportLayer.className = "support-task-screen task-screen-route-layer";
+    const taskScreen = document.createElement("section");
+    taskScreen.className = "task-screen";
+    const taskBody = document.createElement("div");
+    taskBody.className = "task-screen-body";
+    const footer = document.createElement("footer");
+    footer.className = "task-screen-footer";
+    const textarea = document.createElement("textarea");
+    const scrollBy = vi.fn();
+    textarea.getBoundingClientRect = () =>
+      ({ top: 340, bottom: 430, left: 0, right: 300, width: 300, height: 90, x: 0, y: 340, toJSON: () => ({}) }) as DOMRect;
+    footer.getBoundingClientRect = () =>
+      ({ top: 400, bottom: 470, left: 0, right: 320, width: 320, height: 70, x: 0, y: 400, toJSON: () => ({}) }) as DOMRect;
+    taskBody.scrollBy = scrollBy;
+    taskBody.append(textarea);
+    taskScreen.append(taskBody, footer);
+    supportLayer.append(taskScreen);
+    document.body.append(supportLayer);
+    document.documentElement.style.setProperty("--club-visible-viewport-height", "500px");
+
+    ensureFocusedTextFieldVisible(textarea, (handler) => {
+      handler();
+      return 1;
+    });
+
+    expect(scrollBy).toHaveBeenCalledWith({ top: 46, behavior: "auto" });
+    supportLayer.remove();
+    document.documentElement.style.removeProperty("--club-visible-viewport-height");
+  });
+
   it("rechecks the active support field after the iOS visual viewport settles", () => {
     const supportLayer = document.createElement("div");
     supportLayer.className = "support-task-screen task-screen-route-layer";

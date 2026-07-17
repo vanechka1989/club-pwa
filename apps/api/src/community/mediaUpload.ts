@@ -37,15 +37,36 @@ export function getCommunityVoiceStoragePlan(contentType: string, fileName: stri
   return {
     contentType: "audio/mp4" as const,
     fileName: `${stem}.m4a`,
-    transcode: normalized !== "audio/mp4"
+    // Even MP4 reported by MediaRecorder must be validated and normalized.
+    // Safari can emit a media fragment before the MP4 file header when a
+    // recorder is started with a timeslice.
+    transcode: true
   };
+}
+
+export function normalizeCommunityVoiceSource(source: Uint8Array, contentType: string) {
+  const normalized = contentType.toLowerCase().split(";")[0]?.trim();
+  if (normalized !== "audio/mp4" && normalized !== "video/mp4") return source;
+
+  for (let index = 4; index <= source.length - 4; index += 1) {
+    if (
+      source[index] === 0x66 &&
+      source[index + 1] === 0x74 &&
+      source[index + 2] === 0x79 &&
+      source[index + 3] === 0x70
+    ) {
+      const fileStart = index - 4;
+      return fileStart > 0 ? source.slice(fileStart) : source;
+    }
+  }
+
+  return source;
 }
 
 export async function prepareCommunityVoice(file: File) {
   const plan = getCommunityVoiceStoragePlan(file.type, file.name);
   if (!plan) throw new Error("Unsupported voice format");
-  const source = new Uint8Array(await file.arrayBuffer());
-  if (!plan.transcode) return { ...plan, body: source };
+  const source = normalizeCommunityVoiceSource(new Uint8Array(await file.arrayBuffer()), file.type);
 
   const directory = await mkdtemp(join(tmpdir(), "club-voice-"));
   const sourceExtension = extname(file.name).replace(/[^.a-z0-9]/gi, "") || ".audio";

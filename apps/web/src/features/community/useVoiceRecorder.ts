@@ -103,7 +103,9 @@ export function useVoiceRecorder() {
         status.value = "preview";
         releaseStream();
       };
-      recorder.start(250);
+      // Request one complete container at stop. Safari may place the MP4 init
+      // header in a later timeslice, which makes concatenated chunks invalid.
+      recorder.start();
       status.value = "recording";
       timer = setInterval(() => {
         durationSeconds.value += 1;

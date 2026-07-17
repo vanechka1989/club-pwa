@@ -10,7 +10,6 @@ const attachments = await db.query.clubMessageAttachments.findMany({
 
 let migrated = 0;
 for (const attachment of attachments) {
-  if (attachment.contentType === "audio/mp4" && attachment.objectKey.toLowerCase().endsWith(".m4a")) continue;
   const response = await fetch(await getObjectReadUrl(attachment.objectKey));
   if (!response.ok) throw new Error(`Unable to read ${attachment.objectKey}: ${response.status}`);
   const original = new File([await response.arrayBuffer()], attachment.objectKey.split("/").at(-1) || "voice.webm", {
@@ -24,7 +23,7 @@ for (const attachment of attachments) {
     contentType: prepared.contentType,
     sizeBytes: prepared.body.byteLength
   }).where(eq(clubMessageAttachments.id, attachment.id));
-  await deleteObject(attachment.objectKey);
+  if (nextKey !== attachment.objectKey) await deleteObject(attachment.objectKey);
   migrated += 1;
   console.log(`Migrated ${attachment.id} to ${nextKey}`);
 }

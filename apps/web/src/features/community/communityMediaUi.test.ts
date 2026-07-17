@@ -138,6 +138,8 @@ describe("community rich message UI", () => {
     expect(player).toContain('@seek="seek"');
     expect(recorder).toContain("startLevelAnalysis");
     expect(recorder).toContain("appendVoiceLevel");
+    expect(recorder).toContain("recorder.start();");
+    expect(recorder).not.toContain("recorder.start(250)");
   });
 
   it("provides poll creation and voting controls", () => {

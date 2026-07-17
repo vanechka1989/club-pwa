@@ -3,11 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the modules edit mode as version 4.91", () => {
-    expect(appVersion).toBe("4.91");
-    expect(releaseNotes[0]?.title).toBe("Режим редактирования модулей");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("карандаша");
-    expect(releaseNotes[1]?.version).toBe("4.90");
+  it("publishes the iPhone viewport and voice fixes as version 4.92", () => {
+    expect(appVersion).toBe("4.92");
+    expect(releaseNotes[0]?.title).toBe("iPhone: чат, поддержка и голосовые");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("белого поля");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Голосовые");
+    expect(releaseNotes[1]?.version).toBe("4.91");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Modules edit mode");
+    expect(englishNotes[0]?.title).toBe("iPhone chat, support, and voice messages");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
