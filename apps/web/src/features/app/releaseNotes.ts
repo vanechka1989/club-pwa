@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Аккуратная форма поддержки",
+    items: [
+      "Выбранная причина обращения получила тонкую рамку и более спокойное скругление без тяжёлой полосы слева.",
+      "Убраны лишние разделительные линии над полем ответа клиенту.",
+      "Кнопки закрытия обращения и отправки ответа теперь остаются в одной строке на мобильных экранах."
+    ]
+  },
+  {
+    version: "4.73",
+    updatedAt: "17.07.2026 16:07",
     title: "Поддержка по общему краю",
     items: [
       "Сводка поддержки и список обращений теперь используют ту же доступную ширину, что и основная шапка страницы.",
@@ -3370,11 +3380,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Aligned support overview",
+  title: "Polished support form",
   items: [
-    "The support summary and ticket list now use the same available width as the main page header.",
-    "The extra mobile inset that made the ticket area narrower than surrounding sections has been removed.",
-    "Ticket cards keep their compact internal spacing and remain easy to scan."
+    "The selected support reason now uses a light border and calmer corners without a heavy inset edge.",
+    "Redundant separator lines above the customer reply composer have been removed.",
+    "Close-ticket and send-reply actions now stay on one row on mobile screens."
   ]
 };
 

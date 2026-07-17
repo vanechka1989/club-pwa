@@ -70,6 +70,7 @@ describe("support section", () => {
   it("uses a chat-style ticket body and keyboard-safe reply composer", () => {
     const ticketBodyRule = latestRule(".support-task-screen .support-ticket-modal-body");
     const footerRule = latestRule(".task-screen-footer");
+    const ticketFooterRule = latestRule(".support-ticket-task-screen .task-screen-footer");
     const replyFormRule = latestRule(".support-task-screen .support-reply-form");
     const keyboardFooterRule = latestRule("body.club-keyboard-open .support-ticket-task-screen .task-screen-footer,\nbody.club-keyboard-open .support-task-screen .support-reply-form");
 
@@ -78,7 +79,8 @@ describe("support section", () => {
     expect(ticketBodyRule).toContain("box-shadow: none");
     expect(footerRule).toContain("position: sticky");
     expect(footerRule).toContain("bottom: 0");
-    expect(replyFormRule).toContain("border-top: 1px solid var(--border)");
+    expect(ticketFooterRule).toContain("border-top: 0");
+    expect(replyFormRule).toContain("border-top: 0");
     expect(keyboardFooterRule).toContain("position: static");
   });
 
@@ -106,8 +108,8 @@ describe("support section", () => {
   it("makes the selected support topic unmistakable", () => {
     const activeTopicRule = latestRule(".support-create-task-screen .support-topic-option-active");
 
-    expect(activeTopicRule).toContain("border: 2px solid var(--accent)");
-    expect(activeTopicRule).toContain("inset 4px 0 0 var(--accent)");
+    expect(activeTopicRule).toContain("border: 1px solid var(--accent)");
+    expect(activeTopicRule).not.toContain("inset 4px 0 0 var(--accent)");
   });
 
   it("does not add a keyboard-sized safe inset to support footers", () => {
@@ -240,12 +242,21 @@ describe("support section", () => {
 
   it("keeps reply and close actions bright, full-width, and on one row", () => {
     const actionsRule = latestRule(".support-task-screen .support-reply-actions");
+    const mobileActionsRule = latestRule("body.club-mobile-device .support-task-screen .support-reply-actions");
     const closeRule = latestRule(".support-task-screen .support-reply-actions .support-danger-button");
 
     expect(actionsRule).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(mobileActionsRule).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
     expect(actionsRule).toContain("gap: 8px");
     expect(closeRule).toMatch(/background:.*var\(--danger\)/);
     expect(closeRule).toContain("color: var(--danger-text)");
+  });
+
+  it("uses a light selected-reason accent without a thick inset edge", () => {
+    const selectedReasonRule = latestRule(".support-create-task-screen .support-topic-option-active");
+
+    expect(selectedReasonRule).toContain("border: 1px solid var(--accent)");
+    expect(selectedReasonRule).not.toMatch(/inset\s+\d+px\s+0\s+0/);
   });
 
   it("keeps support task actions above the safe bottom area", () => {
