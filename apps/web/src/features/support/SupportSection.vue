@@ -46,7 +46,7 @@ const selectedTicketId = ref<string | null>(null);
 const createTicketOpen = computed(() => route.path === "/support/new");
 const closeConfirmOpen = ref(false);
 const openedAttachment = ref<SupportAttachment | null>(null);
-const threadRef = ref<HTMLElement | null>(null);
+const threadEndRef = ref<HTMLElement | null>(null);
 const attachmentImageViewer = useImageViewerGestures();
 const topic = ref("payment");
 const customTopic = ref("");
@@ -298,11 +298,11 @@ function closeCreateTicket() {
 
 async function scrollThreadToLatest() {
   await nextTick();
-  const element = threadRef.value;
+  const element = threadEndRef.value;
   if (!element) {
     return;
   }
-  element.scrollTo({ top: element.scrollHeight, behavior: "auto" });
+  element.scrollIntoView({ behavior: "auto", block: "end" });
 }
 
 async function loadSupport() {
@@ -855,7 +855,7 @@ watch(
           </header>
 
           <div class="support-modal-body support-ticket-modal-body ui-card">
-            <div ref="threadRef" class="support-thread">
+            <div class="support-thread">
               <article
                 v-for="item in selectedTicket.messages"
                 :key="item.id"
@@ -879,6 +879,7 @@ watch(
                 </div>
                 <small>{{ formatDate(item.createdAt) }}</small>
               </article>
+              <span ref="threadEndRef" class="support-thread-end" aria-hidden="true"></span>
             </div>
 
             <div v-if="selectedTicket.status === 'closed'" class="support-modal-actions">

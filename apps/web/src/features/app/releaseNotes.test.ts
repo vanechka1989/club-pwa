@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes email quota controls as version 4.69", () => {
-    expect(appVersion).toBe("4.69");
-    expect(releaseNotes[0]?.title).toBe("Контроль email-рассылок");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("2000");
-    expect(releaseNotes[1]?.version).toBe("4.68");
+  it("publishes payment and support fixes as version 4.70", () => {
+    expect(appVersion).toBe("4.70");
+    expect(releaseNotes[0]?.title).toBe("Оплаты и поддержка");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("подтверждённый платёж");
+    expect(releaseNotes[1]?.version).toBe("4.69");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Email delivery controls");
+    expect(englishNotes[0]?.title).toBe("Payments and support");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

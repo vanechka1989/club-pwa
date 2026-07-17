@@ -2111,6 +2111,12 @@ body.club-screen-short:not(.community-chat-open) {
   scroll-behavior: auto;
 }
 
+.support-thread-end {
+  display: block;
+  width: 100%;
+  height: 1px;
+}
+
 .support-message {
   display: grid;
   align-self: start;

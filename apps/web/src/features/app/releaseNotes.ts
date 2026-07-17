@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Оплаты и поддержка",
+    items: [
+      "В профиле последней оплатой теперь считается только подтверждённый платёж; незавершённый переход к оплате больше не отображается как покупка.",
+      "При открытии обращения поддержка сразу прокручивает переписку к последнему сообщению.",
+      "Ожидающие, отменённые и неуспешные заявки на оплату сохранены в истории, но не влияют на карточку профиля."
+    ]
+  },
+  {
+    version: "4.69",
+    updatedAt: "17.07.2026 14:40",
     title: "Контроль email-рассылок",
     items: [
       "Во вкладке «Рассылки» появился общий счётчик расхода email за последние 24 часа, включая коды входа и тестовые письма.",
@@ -3330,11 +3340,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Email delivery controls",
+  title: "Payments and support",
   items: [
-    "The Mailings tab now shows one rolling 24-hour email counter that includes login codes and test messages.",
-    "Delivery automatically respects the provider limits of 2,000 emails per 24 hours and five messages per second.",
-    "The editor safely preserves supported HTML formatting and previews the available quota and completion time."
+    "The profile now shows only the latest confirmed payment and ignores unfinished checkout attempts.",
+    "Opening a support ticket now scrolls the conversation directly to its latest message.",
+    "Pending, cancelled, and failed payment attempts remain in history without affecting the profile summary."
   ]
 };
 

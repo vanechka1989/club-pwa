@@ -40,6 +40,7 @@ import {
   getProfilePaymentActionText,
   getReferralRewardText
 } from "@/features/profile/profileSubscriptionCopy";
+import { getLatestPaidOrder } from "@/features/profile/profilePayments";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type DesignTheme, type Theme } from "@/stores/ui";
 
@@ -310,7 +311,7 @@ const currentDesignThemeLabel = computed(
 const currentThemeLabel = computed(
   () => themeOptions.value.find((option) => option.value === ui.theme)?.label ?? ""
 );
-const latestPayment = computed(() => paymentOrders.value[0] ?? null);
+const latestPayment = computed(() => getLatestPaidOrder(paymentOrders.value));
 const latestPaymentAmount = computed(() =>
   latestPayment.value ? `${latestPayment.value.amountRub.toLocaleString("ru-RU")} ₽` : "—"
 );

@@ -114,6 +114,12 @@ describe("support section", () => {
     expect(source).toMatch(/watch\(\s*\(\) => selectedTicket\.value\?\.messages\.length/s);
   });
 
+  it("scrolls the task screen to the final message when a ticket opens", () => {
+    expect(source).toContain("threadEndRef");
+    expect(source).toContain('scrollIntoView({ behavior: "auto", block: "end" })');
+    expect(source).toContain('<span ref="threadEndRef" class="support-thread-end" aria-hidden="true"></span>');
+  });
+
   it("uses an in-app close confirmation instead of the browser confirm", () => {
     expect(source).not.toContain("window.confirm");
     expect(source).toContain("closeConfirmOpen");
