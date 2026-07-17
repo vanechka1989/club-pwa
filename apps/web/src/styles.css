@@ -19476,3 +19476,21 @@ body.club-mobile-device .support-task-screen .support-reply-actions .support-com
   white-space: normal;
   line-height: 1.15;
 }
+
+.support-task-screen .support-reply-input-row {
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.support-task-screen .support-file-icon-button {
+  width: 44px;
+  height: 44px;
+  align-self: center;
+}
+
+.support-task-screen .support-reply-input-row textarea {
+  height: 64px;
+  min-height: 64px;
+  max-height: 120px;
+}

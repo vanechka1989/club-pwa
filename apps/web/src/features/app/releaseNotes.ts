@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Компактный ответ поддержки",
+    items: [
+      "Скрепка вложений выровнена по центру относительно поля ответа клиенту.",
+      "Расстояние между скрепкой и текстом уменьшено до аккуратных 8 пикселей.",
+      "Пустое поле ответа стало компактнее и при необходимости сохраняет возможность увеличения."
+    ]
+  },
+  {
+    version: "4.74",
+    updatedAt: "17.07.2026 16:14",
     title: "Аккуратная форма поддержки",
     items: [
       "Выбранная причина обращения получила тонкую рамку и более спокойное скругление без тяжёлой полосы слева.",
@@ -3380,11 +3390,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Polished support form",
+  title: "Compact support reply",
   items: [
-    "The selected support reason now uses a light border and calmer corners without a heavy inset edge.",
-    "Redundant separator lines above the customer reply composer have been removed.",
-    "Close-ticket and send-reply actions now stay on one row on mobile screens."
+    "The attachment control is now vertically centered beside the customer reply field.",
+    "The gap between the attachment control and message field has been reduced to a clean 8 pixels.",
+    "The empty reply field is more compact while remaining resizable when needed."
   ]
 };
 

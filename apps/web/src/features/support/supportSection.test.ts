@@ -252,6 +252,22 @@ describe("support section", () => {
     expect(closeRule).toContain("color: var(--danger-text)");
   });
 
+  it("keeps the reply attachment control compact and centered beside the message field", () => {
+    const inputRowRule = latestRule(".support-task-screen .support-reply-input-row");
+    const attachmentRule = latestRule(".support-task-screen .support-file-icon-button");
+    const textareaRule = latestRule(".support-task-screen .support-reply-input-row textarea");
+
+    expect(inputRowRule).toContain("grid-template-columns: 44px minmax(0, 1fr)");
+    expect(inputRowRule).toContain("align-items: center");
+    expect(inputRowRule).toContain("gap: 8px");
+    expect(attachmentRule).toContain("width: 44px");
+    expect(attachmentRule).toContain("height: 44px");
+    expect(attachmentRule).toContain("align-self: center");
+    expect(textareaRule).toContain("height: 64px");
+    expect(textareaRule).toContain("min-height: 64px");
+    expect(textareaRule).toContain("max-height: 120px");
+  });
+
   it("uses a light selected-reason accent without a thick inset edge", () => {
     const selectedReasonRule = latestRule(".support-create-task-screen .support-topic-option-active");
 
