@@ -1139,8 +1139,8 @@ onBeforeUnmount(() => {
           <ArrowLeft class="h-4 w-4" aria-hidden="true" />
         </button>
         <div class="min-w-0 flex-1">
-          <h2 class="truncate text-sm font-semibold text-[var(--text)]">{{ selectedTopic.title }}</h2>
-          <p class="text-xs text-[var(--muted)]">
+          <h2 class="chat-room-header-title">{{ selectedTopic.title }}</h2>
+          <p class="chat-room-header-subtitle">
             {{ selectedTopic.isAdminOnly ? t("communityAdminOnlyRoom") : selectedTopic.isLocked ? "Тема закрыта" : "Открытый чат" }}
           </p>
         </div>

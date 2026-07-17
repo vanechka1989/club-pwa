@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единые шапки приложения",
+    items: [
+      "Шапки основных разделов теперь используют размер и насыщенность заголовка из профиля.",
+      "Внутренние экраны, чат и поддержка получили те же размеры заголовка и подзаголовка.",
+      "Длинные названия чатов аккуратно сокращаются и больше не меняют высоту шапки."
+    ]
+  },
+  {
+    version: "4.81",
+    updatedAt: "17.07.2026 19:55",
     title: "Единые шрифты в чатах и поддержке",
     items: [
       "Основной текст сообщений, имена и поля ввода приведены к типографике раздела профиля.",
@@ -3450,11 +3460,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Consistent chat and support typography",
+  title: "Consistent application headers",
   items: [
-    "Message text, author names, and input fields now follow the profile section typography.",
-    "Chats and support tickets use the same system typeface and sizes on iPhone and Android.",
-    "Service dates and timestamps stay compact so conversations remain easy to scan."
+    "Primary sections now use the profile header title size and weight.",
+    "Task screens, chat, and support use the same title and subtitle sizes.",
+    "Long chat names are truncated cleanly without changing the header height."
   ]
 };
 

@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes unified chat and support typography as version 4.81", () => {
-    expect(appVersion).toBe("4.81");
-    expect(releaseNotes[0]?.title).toBe("Единые шрифты в чатах и поддержке");
+  it("publishes consistent application headers as version 4.82", () => {
+    expect(appVersion).toBe("4.82");
+    expect(releaseNotes[0]?.title).toBe("Единые шапки приложения");
     expect(releaseNotes[0]?.items.join(" ")).toContain("профил");
-    expect(releaseNotes[1]?.version).toBe("4.80");
+    expect(releaseNotes[1]?.version).toBe("4.81");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Consistent chat and support typography");
+    expect(englishNotes[0]?.title).toBe("Consistent application headers");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

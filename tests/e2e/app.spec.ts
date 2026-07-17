@@ -2383,6 +2383,61 @@ test("uses the profile typography in chats and support on mobile", async ({ page
   expect(new Set(fontFamilies).size).toBe(1);
 });
 
+test("keeps application page headers aligned with the profile header", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
+  await page.goto("/profile");
+  const profileTitle = page.locator(".profile-page-header .section-title");
+  const profileSubtitle = page.locator(".profile-page-header .section-subtitle");
+  await expect(profileTitle).toBeVisible();
+  await expect(profileSubtitle).toBeVisible();
+
+  const profileTypography = await profileTitle.evaluate((title, subtitleSelector) => {
+    const subtitle = document.querySelector<HTMLElement>(subtitleSelector);
+    const titleStyle = getComputedStyle(title);
+    const subtitleStyle = subtitle ? getComputedStyle(subtitle) : null;
+    return {
+      titleSize: titleStyle.fontSize,
+      titleWeight: titleStyle.fontWeight,
+      titleLineHeight: titleStyle.lineHeight,
+      subtitleSize: subtitleStyle?.fontSize,
+      subtitleWeight: subtitleStyle?.fontWeight,
+      subtitleLineHeight: subtitleStyle?.lineHeight
+    };
+  }, ".profile-page-header .section-subtitle");
+
+  expect(profileTypography).toMatchObject({
+    titleSize: "20px",
+    titleWeight: "880",
+    subtitleSize: "12px",
+    subtitleWeight: "650"
+  });
+  expect(Number.parseFloat(profileTypography.titleLineHeight)).toBeCloseTo(24, 2);
+  expect(Number.parseFloat(profileTypography.subtitleLineHeight || "0")).toBeCloseTo(16.2, 2);
+
+  for (const path of ["/learning", "/community", "/payments", "/support", "/admin"]) {
+    await page.goto(path);
+    const title = page.locator(".section-head.ui-page-header .section-title").first();
+    const subtitle = page.locator(".section-head.ui-page-header .section-subtitle").first();
+    await expect(title, path).toBeVisible();
+    await expect(subtitle, path).toBeVisible();
+    await expect(title, path).toHaveCSS("font-size", profileTypography.titleSize);
+    await expect(title, path).toHaveCSS("font-weight", profileTypography.titleWeight);
+    await expect(subtitle, path).toHaveCSS("font-size", profileTypography.subtitleSize!);
+    await expect(subtitle, path).toHaveCSS("font-weight", profileTypography.subtitleWeight!);
+  }
+
+  await page.goto("/support/new");
+  await expect(page.locator(".task-screen-header .ui-page-header__title")).toHaveCSS("font-size", profileTypography.titleSize);
+  await expect(page.locator(".task-screen-header .ui-page-header__subtitle")).toHaveCSS("font-size", profileTypography.subtitleSize!);
+
+  await page.goto("/community");
+  await page.getByRole("button", { name: /Фиксики/ }).click();
+  await expect(page.locator(".chat-room-header-title")).toHaveCSS("font-size", profileTypography.titleSize);
+  await expect(page.locator(".chat-room-header-subtitle")).toHaveCSS("font-size", profileTypography.subtitleSize!);
+  await expectNoHorizontalOverflow(page);
+});
+
 test("returns from a support client card to the same ticket", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "desktop-chrome");
 

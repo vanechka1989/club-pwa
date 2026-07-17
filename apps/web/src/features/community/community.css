@@ -103,6 +103,28 @@ body.club-mobile-device .app-root.community-chat-open:not(.app-root-no-user) .co
   padding: max(12px, var(--club-safe-top)) max(16px, var(--club-safe-right)) 12px max(16px, var(--club-safe-left));
 }
 
+.community-chat-open .chat-room-header-title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--app-header-title-size);
+  font-weight: var(--app-header-title-weight);
+  line-height: var(--app-header-title-line-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-chat-open .chat-room-header-subtitle {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: var(--app-header-subtitle-size);
+  font-weight: var(--app-header-subtitle-weight);
+  line-height: var(--app-header-subtitle-line-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .community-chat-open .chat-room-notices {
   width: 100%;
   min-width: 0;
