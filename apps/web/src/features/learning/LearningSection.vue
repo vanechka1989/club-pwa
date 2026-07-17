@@ -327,6 +327,7 @@ const modulesLoadedFromApi = ref(false);
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
 const isSorting = ref(false);
+const isEditingModules = ref(false);
 const showModuleModal = ref(false);
 const editingModuleId = ref<string | null>(null);
 const collapsedModuleIds = ref<string[]>(initialModuleCards.map((module) => module.id));
@@ -2551,7 +2552,10 @@ onBeforeUnmount(() => {
 
 watch(
   () => canManageModules.value,
-  () => {
+  (canManage) => {
+    if (!canManage) {
+      isEditingModules.value = false;
+    }
     void loadModules();
     void syncLearningTaskRoute();
   }
@@ -2571,6 +2575,16 @@ watch(
         <p class="section-subtitle">{{ t("modulesSubtitle") }}</p>
       </div>
       <div v-if="canManageModules" class="modules-panel-actions" aria-label="Управление модулями">
+        <button
+          class="icon-button ui-icon-button"
+          :class="{ 'payment-edit-toggle-active': isEditingModules }"
+          type="button"
+          aria-label="Редактировать модули"
+          :aria-pressed="isEditingModules"
+          @click="isEditingModules = !isEditingModules"
+        >
+          <Pencil class="h-5 w-5" aria-hidden="true" />
+        </button>
         <button class="icon-button ui-icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
           <Plus class="h-5 w-5" aria-hidden="true" />
         </button>
@@ -2628,14 +2642,14 @@ watch(
           <div
             class="admin-mockup-card-actions"
             :class="{
-              'module-admin-actions': canManageModules,
-              'module-member-actions': !canManageModules,
+              'module-admin-actions': canManageModules && isEditingModules,
+              'module-member-actions': !canManageModules || !isEditingModules,
               'module-actions-expanded': !isModuleCollapsed(module.id)
             }"
           >
             <span>{{ lessonCountLabel(module.images.length) }}</span>
             <button
-              v-if="canManageModules && !isModuleCollapsed(module.id)"
+              v-if="canManageModules && isEditingModules && !isModuleCollapsed(module.id)"
               class="module-add-card-button"
               type="button"
               :aria-label="`Добавить карточку в ${module.title}`"
@@ -2644,7 +2658,7 @@ watch(
               <Plus class="h-4 w-4" aria-hidden="true" />
               <span>{{ t("addModuleCard") }}</span>
             </button>
-            <div v-if="canManageModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls" aria-label="Сортировка модуля">
+            <div v-if="canManageModules && isEditingModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls" aria-label="Сортировка модуля">
               <button
                 class="icon-button ui-icon-button module-sort-button"
                 type="button"
@@ -2665,7 +2679,7 @@ watch(
               </button>
             </div>
             <button
-              v-if="canManageModules && isModuleCollapsed(module.id)"
+              v-if="canManageModules && isEditingModules && isModuleCollapsed(module.id)"
               class="icon-button ui-icon-button module-lesson-add module-level-action"
               type="button"
               :aria-label="`Редактировать ${module.title}`"
@@ -2694,7 +2708,7 @@ watch(
             :data-lesson-id="image.id"
           >
             <div
-              v-if="canManageModules"
+              v-if="canManageModules && isEditingModules"
               class="module-sort-controls module-lesson-sort-controls lesson-level-sort-controls"
               :class="module.defaultCardLayout === 'horizontal' ? 'module-lesson-sort-controls-updown' : 'module-lesson-sort-controls-leftright'"
               aria-label="Сортировка урока"
@@ -2762,7 +2776,7 @@ watch(
       </article>
 
       <article
-        v-if="canManageModules && deletedLessons.length"
+        v-if="canManageModules && isEditingModules && deletedLessons.length"
         class="admin-mockup-card ui-card admin-mockup-deleted-module"
         :class="{ 'module-card-collapsed': isModuleCollapsed(deletedContentModuleId) }"
       >

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Режим редактирования модулей",
+    items: [
+      "Административные кнопки модулей скрыты по умолчанию и появляются после нажатия карандаша в шапке.",
+      "До включения редактирования владелец и администратор видят модули так же чисто, как обычный клиент.",
+      "Добавление нового модуля осталось доступно по плюсу, а раскрытие и просмотр уроков работают независимо от режима редактирования."
+    ]
+  },
+  {
+    version: "4.90",
+    updatedAt: "18.07.2026 00:57",
     title: "Стабильная клавиатура iPhone",
     items: [
       "Клавиатура теперь определяется даже когда iOS одновременно уменьшает и сдвигает всю видимую область приложения.",
@@ -3540,11 +3550,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Stable iPhone keyboard",
+  title: "Modules edit mode",
   items: [
-    "The keyboard is now detected even when iOS shrinks and pans the entire visible application viewport at the same time.",
-    "The new support request field and submit button stay directly above the keyboard without a large blank area.",
-    "The pale strip between the chat composer and keyboard is removed while Android behavior remains unchanged."
+    "Module administration controls are hidden by default and appear after the pencil in the header is pressed.",
+    "Before edit mode is enabled, owners and administrators see the same clean module layout as regular members.",
+    "The plus button still adds a module, while expanding modules and viewing lessons remain available outside edit mode."
   ]
 };
 

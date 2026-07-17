@@ -86,7 +86,16 @@ async function expandModuleOne() {
   await expandModule("Модуль 1");
 }
 
+async function enableModulesEditMode() {
+  const editToggle = screen.getByRole("button", { name: "Редактировать модули" });
+  if (editToggle.getAttribute("aria-pressed") !== "true") {
+    await fireEvent.click(editToggle);
+  }
+  await waitFor(() => expect(editToggle.getAttribute("aria-pressed")).toBe("true"));
+}
+
 async function openLessonCreator(moduleTitle: string) {
+  await enableModulesEditMode();
   await expandModule(moduleTitle);
   await fireEvent.click(screen.getByRole("button", { name: `Добавить карточку в ${moduleTitle}` }));
 }
@@ -98,6 +107,7 @@ async function acceptCurrentDialog(pinia: ReturnType<typeof createPinia>) {
 }
 
 async function makeModuleOneHorizontal() {
+  await enableModulesEditMode();
   await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
   await fireEvent.click(screen.getByRole("button", { name: "Горизонтальные уроки" }));
   await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
@@ -139,8 +149,8 @@ describe("Learning section modules", () => {
     expect(source).toContain('<h2 class="section-title">{{ t("modulesTitle") }}</h2>');
     expect(source).toContain('<p class="section-subtitle">{{ t("modulesSubtitle") }}</p>');
     expect(source).toContain('class="modules-content"');
-    expect(source).toContain("'module-admin-actions': canManageModules");
-    expect(source).toContain("'module-member-actions': !canManageModules");
+    expect(source).toContain("'module-admin-actions': canManageModules && isEditingModules");
+    expect(source).toContain("'module-member-actions': !canManageModules || !isEditingModules");
     expect(source).not.toContain('class="admin-panel modules-panel ui-page-section"');
   });
 
@@ -179,11 +189,12 @@ describe("Learning section modules", () => {
     expect(styles).toMatch(/\.modules-section \.module-level-sort-controls \.module-sort-button\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 16%, var\(--panel-strong\)\);/s);
     expect(styles).toMatch(/\.modules-section \.module-level-action\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 16%, var\(--panel-strong\)\);/s);
     expect(styles).toMatch(/\.modules-section \.lesson-level-sort-controls\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*padding:\s*0;[^}]*box-shadow:\s*none;/s);
-    expect(source).toContain('v-if="canManageModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls"');
+    expect(source).toContain('v-if="canManageModules && isEditingModules && isModuleCollapsed(module.id)" class="module-sort-controls module-level-sort-controls"');
   });
 
   it("shows a compact add-card action only inside an expanded module", async () => {
     renderAsOwner();
+    await enableModulesEditMode();
 
     const moduleOne = document.querySelector<HTMLElement>('[data-module-id="module-1"]');
     expect(moduleOne).toBeTruthy();
@@ -208,6 +219,26 @@ describe("Learning section modules", () => {
     const openCollapse = moduleOneView.getByRole("button", { name: "Свернуть карточки Модуль 1" });
     expect(openCollapse.classList.contains("module-open-collapse-control")).toBe(true);
     expect(openCollapse.querySelector(".module-collapse-icon-up")).toBeTruthy();
+  });
+
+  it("hides module management controls until edit mode is enabled from the header", async () => {
+    renderAsOwner();
+
+    const editToggle = screen.getByRole("button", { name: "Редактировать модули" });
+    expect(editToggle.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "Добавить модуль" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Редактировать Модуль 1" })).toBeNull();
+
+    await expandModuleOne();
+
+    expect(screen.queryByRole("button", { name: "Добавить карточку в Модуль 1" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Удалить карточку" })).toBeNull();
+
+    await fireEvent.click(editToggle);
+
+    expect(editToggle.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Добавить карточку в Модуль 1" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Удалить карточку" }).length).toBeGreaterThan(0);
   });
 
   it("adds a module by title", async () => {
@@ -238,6 +269,7 @@ describe("Learning section modules", () => {
 
   it("renames a selected module", async () => {
     renderAsOwner();
+    await enableModulesEditMode();
 
     expect(screen.queryByRole("button", { name: "Редактировать модуль" })).toBeNull();
 
@@ -268,6 +300,7 @@ describe("Learning section modules", () => {
 
   it("uses arrow-only sort controls without manual drag handles", async () => {
     renderAsOwner();
+    await enableModulesEditMode();
 
     await expandModuleOne();
     const moduleOne = document.querySelector<HTMLElement>('[data-module-id="module-1"]');
@@ -296,6 +329,7 @@ describe("Learning section modules", () => {
 
   it("deletes a lesson directly between its sort arrows after confirmation", async () => {
     const pinia = renderAsOwner();
+    await enableModulesEditMode();
 
     await expandModuleOne();
     const lessonCard = document.querySelector<HTMLElement>('[data-lesson-id="module-1-lesson-2"]');
@@ -450,6 +484,7 @@ describe("Learning section modules", () => {
 
   it("edits module description and default lesson card layout", async () => {
     renderAsOwner();
+    await enableModulesEditMode();
 
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
     await fireEvent.update(screen.getByLabelText("Описание модуля"), "Новое описание модуля");
@@ -468,6 +503,7 @@ describe("Learning section modules", () => {
 
   it("deletes a module after confirmation", async () => {
     const pinia = renderAsOwner();
+    await enableModulesEditMode();
 
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 2" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить модуль" }));
@@ -775,6 +811,7 @@ describe("Learning section modules", () => {
 
   it("moves deleted lessons to a system module and restores them from the card", async () => {
     const pinia = renderAsOwner();
+    await enableModulesEditMode();
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
@@ -801,6 +838,7 @@ describe("Learning section modules", () => {
 
   it("keeps the deleted content system module collapsed by default", async () => {
     const pinia = renderAsOwner();
+    await enableModulesEditMode();
 
     await expandModuleOne();
     await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
