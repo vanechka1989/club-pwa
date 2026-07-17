@@ -19384,3 +19384,55 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 .admin-shell-client-card-only > :not(.admin-client-task-screen) {
   display: none !important;
 }
+.support-create-task-screen .task-screen-body {
+  padding-block: 12px;
+  padding-inline: max(8px, var(--club-safe-left)) max(8px, var(--club-safe-right));
+}
+
+.support-create-task-screen .support-customer-form {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.support-create-task-screen .support-field > span {
+  display: block;
+  min-height: 1.35em;
+  padding-inline: 4px;
+  line-height: 1.35;
+}
+
+.support-create-task-screen .support-topic-option-active {
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    0 8px 24px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.support-ticket-task-screen .task-screen-footer {
+  padding-inline: max(8px, var(--club-safe-left)) max(8px, var(--club-safe-right));
+}
+
+.support-task-screen .support-reply-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.support-task-screen .support-reply-actions .support-danger-button {
+  border: 1px solid color-mix(in srgb, var(--danger) 72%, var(--border));
+  background: color-mix(in srgb, var(--danger) 22%, var(--panel));
+  color: var(--danger-text);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.support-ticket-client-action {
+  cursor: pointer;
+  touch-action: manipulation;
+}

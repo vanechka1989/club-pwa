@@ -821,7 +821,13 @@ watch(
         @back="closeModal"
       >
         <template v-if="isAdmin" #actions>
-          <button class="support-ticket-client-action" type="button" :title="t('supportOpenClientCard')" @click="openClientCard">
+          <button
+            class="support-ticket-client-action"
+            type="button"
+            :title="t('supportOpenClientCard')"
+            :aria-label="t('supportOpenClientCard')"
+            @click.stop="openClientCard"
+          >
             <img v-if="selectedTicket.customer.photoUrl" :src="selectedTicket.customer.photoUrl" :alt="userName(selectedTicket.customer)" />
             <span v-else class="support-customer-avatar support-customer-avatar-small">{{ userName(selectedTicket.customer).slice(0, 1) }}</span>
           </button>
@@ -833,7 +839,8 @@ watch(
                 class="support-ticket-summary"
                 type="button"
                 :title="t('supportOpenClientCard')"
-                @click="openClientCard"
+                :aria-label="t('supportOpenClientCard')"
+                @click.stop="openClientCard"
               >
                 <img
                   v-if="selectedTicket.customer.photoUrl"

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Компактная поддержка",
+    items: [
+      "Форма нового обращения использует доступную ширину экрана, а подписи полей больше не подрезаются.",
+      "Выбранная причина обращения получила заметную рамку, заливку и цветовой акцент.",
+      "Аватар в обращении открывает карточку клиента, а закрытие и отправка ответа расположены одной компактной строкой."
+    ]
+  },
+  {
+    version: "4.71",
+    updatedAt: "17.07.2026 15:23",
     title: "Адаптивные тарифы",
     items: [
       "Метки тарифов «Популярный» и «Выгоднее» больше не перекрывают цену и срок доступа на узких экранах.",
@@ -3350,11 +3360,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Responsive tariffs",
+  title: "Compact support screens",
   items: [
-    "Tariff badges no longer overlap the price or access period on narrow screens.",
-    "Price, access details, and badges now use a stable layout that supports larger system text.",
-    "Long badge labels are safely truncated without touching the payment button."
+    "The new-ticket form now uses the available screen width and keeps field labels fully visible.",
+    "The selected support reason now has a clear border, fill, and accent marker.",
+    "The ticket avatar opens the customer card, while close and send actions share one compact row."
   ]
 };
 

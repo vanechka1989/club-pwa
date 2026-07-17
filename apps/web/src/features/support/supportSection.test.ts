@@ -90,6 +90,26 @@ describe("support section", () => {
     expect(createForm).not.toContain("support-primary-button");
   });
 
+  it("uses the full mobile width for a new ticket without clipping field labels", () => {
+    const createBodyRule = latestRule(".support-create-task-screen .task-screen-body");
+    const createFormRule = latestRule(".support-create-task-screen .support-customer-form");
+    const fieldLabelRule = latestRule(".support-create-task-screen .support-field > span");
+
+    expect(createBodyRule).toContain("padding-inline: max(8px, var(--club-safe-left))");
+    expect(createFormRule).toContain("border: 0");
+    expect(createFormRule).toContain("background: transparent");
+    expect(createFormRule).toContain("padding: 0");
+    expect(createFormRule).toContain("overflow: visible");
+    expect(fieldLabelRule).toContain("line-height: 1.35");
+  });
+
+  it("makes the selected support topic unmistakable", () => {
+    const activeTopicRule = latestRule(".support-create-task-screen .support-topic-option-active");
+
+    expect(activeTopicRule).toContain("border: 2px solid var(--accent)");
+    expect(activeTopicRule).toContain("inset 4px 0 0 var(--accent)");
+  });
+
   it("does not add a keyboard-sized safe inset to support footers", () => {
     const keyboardFooterSpacingRule = latestRule("body.club-keyboard-open .support-task-screen .task-screen-footer");
 
@@ -212,8 +232,20 @@ describe("support section", () => {
 
   it("keeps the support ticket header action compact instead of reusing the full customer summary", () => {
     expect(source).toContain("support-ticket-client-action");
+    expect(source).toContain(':aria-label="t(\'supportOpenClientCard\')"');
+    expect(source).toContain('@click.stop="openClientCard"');
     expect(styles).toContain(".support-ticket-client-action");
     expect(styles).toContain("width: var(--button-height-large)");
+  });
+
+  it("keeps reply and close actions bright, full-width, and on one row", () => {
+    const actionsRule = latestRule(".support-task-screen .support-reply-actions");
+    const closeRule = latestRule(".support-task-screen .support-reply-actions .support-danger-button");
+
+    expect(actionsRule).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(actionsRule).toContain("gap: 8px");
+    expect(closeRule).toMatch(/background:.*var\(--danger\)/);
+    expect(closeRule).toContain("color: var(--danger-text)");
   });
 
   it("keeps support task actions above the safe bottom area", () => {
