@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact support screens as version 4.72", () => {
-    expect(appVersion).toBe("4.72");
-    expect(releaseNotes[0]?.title).toBe("Компактная поддержка");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("карточку клиента");
-    expect(releaseNotes[1]?.version).toBe("4.71");
+  it("publishes aligned support overview as version 4.73", () => {
+    expect(appVersion).toBe("4.73");
+    expect(releaseNotes[0]?.title).toBe("Поддержка по общему краю");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("лишний мобильный отступ");
+    expect(releaseNotes[1]?.version).toBe("4.72");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -41,7 +41,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact support screens");
+    expect(englishNotes[0]?.title).toBe("Aligned support overview");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

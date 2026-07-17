@@ -310,6 +310,8 @@ describe("support section", () => {
   it("aligns support statistics and tickets to the shared header gutter", () => {
     expect(latestRule(".support-section .support-admin-board")).toMatch(/padding:\s*0/);
     expect(latestRule(".support-section .support-admin-board")).toMatch(/width:\s*100%/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-board")).toMatch(/padding:\s*0/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-board")).toMatch(/border-radius:\s*0/);
   });
 
   it("shows an unread support badge in navigation", () => {

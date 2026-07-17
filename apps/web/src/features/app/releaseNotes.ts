@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Поддержка по общему краю",
+    items: [
+      "Сводка поддержки и список обращений теперь используют ту же доступную ширину, что и основная шапка страницы.",
+      "Убран лишний мобильный отступ, из-за которого блок с тикетами выглядел уже остальных разделов.",
+      "Внутренние отступы карточек обращений сохранены, поэтому список остался компактным и читаемым."
+    ]
+  },
+  {
+    version: "4.72",
+    updatedAt: "17.07.2026 15:49",
     title: "Компактная поддержка",
     items: [
       "Форма нового обращения использует доступную ширину экрана, а подписи полей больше не подрезаются.",
@@ -3360,11 +3370,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact support screens",
+  title: "Aligned support overview",
   items: [
-    "The new-ticket form now uses the available screen width and keeps field labels fully visible.",
-    "The selected support reason now has a clear border, fill, and accent marker.",
-    "The ticket avatar opens the customer card, while close and send actions share one compact row."
+    "The support summary and ticket list now use the same available width as the main page header.",
+    "The extra mobile inset that made the ticket area narrower than surrounding sections has been removed.",
+    "Ticket cards keep their compact internal spacing and remain easy to scan."
   ]
 };
 

@@ -19436,3 +19436,12 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   cursor: pointer;
   touch-action: manipulation;
 }
+
+body.club-mobile-device .support-section .support-admin-board {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0;
+  padding-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+}
