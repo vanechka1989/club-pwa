@@ -975,12 +975,23 @@ describe("App", () => {
     const communityStyles = readFileSync(resolve(__dirname, "features/community/community.css"), "utf-8");
 
     expect(appSource).toContain("getKeyboardViewportBaseHeight");
+    expect(appSource).toContain('classList.add("club-text-field-focused")');
+    expect(appSource).toContain('classList.remove("club-text-field-focused")');
     expect(appSource).toContain("previousBaseHeight: keyboardViewportBaseHeight");
     expect(appSource).toContain("showBottomNavigation");
     expect(appSource).toContain("!communityChatOpen");
     expect(appSource).toContain('v-if="showBottomNavigation"');
     expect(communityStyles).toMatch(
       /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[\s\S]*height: var\(--club-visible-viewport-height, 100dvh\);/
+    );
+    expect(communityStyles).toMatch(
+      /\.app-root\.community-chat-open\s*\{[\s\S]*inset: 0;[\s\S]*height: auto;/
+    );
+    expect(communityStyles).toMatch(
+      /body\.club-text-field-focused \.app-root\.community-chat-open\s*\{[\s\S]*height: var\(--club-visible-viewport-height, 100dvh\);/
+    );
+    expect(communityStyles).toMatch(
+      /html\.club-text-field-focused:has\(\.app-root\.community-chat-open\),[\s\S]*overflow: hidden;/
     );
     expect(communityStyles).toMatch(
       /body\.club-mobile-device \.community-chat-open \.chat-compose,\s*body\.club-keyboard-open \.community-chat-open \.chat-compose\s*\{[\s\S]*position: static;[\s\S]*width: 100%;/

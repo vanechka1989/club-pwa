@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes API request optimization as version 4.93", () => {
-    expect(appVersion).toBe("4.93");
-    expect(releaseNotes[0]?.title).toBe("Оптимизация фоновых запросов API");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("фоновых опроса");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("пакетными запросами");
-    expect(releaseNotes[1]?.version).toBe("4.92");
+  it("publishes the iPhone chat viewport fix as version 4.94", () => {
+    expect(appVersion).toBe("4.94");
+    expect(releaseNotes[0]?.title).toBe("Стабильный чат на iPhone");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("белая область");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("первого символа");
+    expect(releaseNotes[1]?.version).toBe("4.93");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

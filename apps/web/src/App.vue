@@ -93,6 +93,8 @@ let appStateTimer: number | null = null;
 let appStateRefreshPromise: Promise<void> | null = null;
 let deviceDiagnosticsTimer: number | null = null;
 let keyboardFocusTimer: number | null = null;
+let keyboardFocusReleaseTimer: number | null = null;
+let keyboardAnimationTimers: number[] = [];
 let viewportSyncScheduler: ViewportSyncScheduler | null = null;
 let appliedViewportHeight = 0;
 let appliedVisibleViewportHeight = 0;
@@ -677,15 +679,45 @@ function handleVisibilityChange() {
 }
 
 function handleTextFieldFocusIn(event: FocusEvent) {
-  ensureFocusedTextFieldVisible(event.target instanceof Element ? event.target : null);
+  const target = event.target instanceof Element ? event.target : null;
+  ensureFocusedTextFieldVisible(target);
+  if (!isTextFieldElement(target)) {
+    return;
+  }
+
+  if (keyboardFocusReleaseTimer) {
+    window.clearTimeout(keyboardFocusReleaseTimer);
+    keyboardFocusReleaseTimer = null;
+  }
+  document.documentElement.classList.add("club-text-field-focused");
+  document.body.classList.add("club-text-field-focused");
   viewportSyncScheduler?.flush();
   if (keyboardFocusTimer) {
     window.clearTimeout(keyboardFocusTimer);
   }
+  keyboardAnimationTimers.forEach((timer) => window.clearTimeout(timer));
+  keyboardAnimationTimers = [40, 120, 240, 520].map((delay) =>
+    window.setTimeout(() => viewportSyncScheduler?.flush(), delay)
+  );
   keyboardFocusTimer = window.setTimeout(() => {
     keyboardFocusTimer = null;
     viewportSyncScheduler?.flush();
   }, 360);
+}
+
+function handleTextFieldFocusOut() {
+  if (keyboardFocusReleaseTimer) {
+    window.clearTimeout(keyboardFocusReleaseTimer);
+  }
+  keyboardFocusReleaseTimer = window.setTimeout(() => {
+    keyboardFocusReleaseTimer = null;
+    if (isTextFieldElement(document.activeElement)) {
+      return;
+    }
+    document.documentElement.classList.remove("club-text-field-focused");
+    document.body.classList.remove("club-text-field-focused");
+    viewportSyncScheduler?.flush();
+  }, 180);
 }
 
 async function sendDeviceDiagnostics() {
@@ -720,6 +752,7 @@ onMounted(() => {
   window.addEventListener("gesturestart", preventModalWebKitGesture, modalPageGestureListenerOptions);
   window.addEventListener("gesturechange", preventModalWebKitGesture, modalPageGestureListenerOptions);
   document.addEventListener("focusin", handleTextFieldFocusIn);
+  document.addEventListener("focusout", handleTextFieldFocusOut);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   startPaymentWatchPolling();
   void session.load().then(() => {
@@ -804,6 +837,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("gesturestart", preventModalWebKitGesture, true);
   window.removeEventListener("gesturechange", preventModalWebKitGesture, true);
   document.removeEventListener("focusin", handleTextFieldFocusIn);
+  document.removeEventListener("focusout", handleTextFieldFocusOut);
   document.removeEventListener("visibilitychange", handleVisibilityChange);
   if (removeDesktopLayoutListener) {
     removeDesktopLayoutListener();
@@ -814,6 +848,14 @@ onBeforeUnmount(() => {
     window.clearTimeout(keyboardFocusTimer);
     keyboardFocusTimer = null;
   }
+  if (keyboardFocusReleaseTimer) {
+    window.clearTimeout(keyboardFocusReleaseTimer);
+    keyboardFocusReleaseTimer = null;
+  }
+  keyboardAnimationTimers.forEach((timer) => window.clearTimeout(timer));
+  keyboardAnimationTimers = [];
+  document.documentElement.classList.remove("club-text-field-focused");
+  document.body.classList.remove("club-text-field-focused");
   if (paymentWatchTimer) {
     window.clearInterval(paymentWatchTimer);
     paymentWatchTimer = null;

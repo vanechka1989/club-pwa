@@ -106,7 +106,7 @@ describe("community archive labels", () => {
       /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[^}]*top:\s*var\(--club-visible-viewport-top, 0px\);[^}]*height:\s*var\(--club-visible-viewport-height, 100dvh\);/s
     );
     expect(communityStyles).toMatch(
-      /html\.club-keyboard-open:has\(\.app-root\.community-chat-open\),[\s\S]*body\.club-keyboard-open:has\(\.app-root\.community-chat-open\)\s*\{[^}]*overflow:\s*hidden;/s
+      /html\.club-keyboard-open:has\(\.app-root\.community-chat-open\),[\s\S]*body\.club-text-field-focused:has\(\.app-root\.community-chat-open\)\s*\{[^}]*overflow:\s*hidden;/s
     );
     expect(communityStyles).toMatch(
       /body\.club-ios:has\(\.community-chat-open \.chat-compose \.text-input:focus\) \.app-root\.community-chat-open\s*\{[^}]*height:\s*var\(--club-visible-viewport-height, 100dvh\);/s
@@ -122,10 +122,10 @@ describe("community archive labels", () => {
       /html\.club-community-locked,\s*body\.club-community-locked,\s*html\.club-community-locked #app\s*\{[^}]*background:\s*var\(--bg\);/s
     );
     expect(communityStyles).toMatch(
-      /html\.club-community-locked,\s*body\.club-community-locked,\s*html\.club-community-locked #app\s*\{[^}]*height:\s*var\(--club-viewport-height, 100dvh\);/s
+      /html\.club-community-locked,\s*body\.club-community-locked,\s*html\.club-community-locked #app\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/s
     );
     expect(communityStyles).toMatch(
-      /\.app-root\.community-chat-open\s*\{[^}]*height:\s*var\(--club-viewport-height, 100dvh\);/s
+      /\.app-root\.community-chat-open\s*\{[^}]*inset:\s*0;[^}]*height:\s*auto;/s
     );
   });
 });
