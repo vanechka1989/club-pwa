@@ -2106,6 +2106,8 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-theme", "light");
   await expect(root).toHaveAttribute("data-design-theme", "warm-clay");
+  await page.getByRole("button", { name: /Оформление/ }).click();
+  await expect(page.locator(".visual-scale-range")).toBeVisible();
 
   const themeColumns = await page.locator(".design-theme-choice").evaluateAll((rows) =>
     rows.map((row) => {
@@ -2142,6 +2144,16 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   } else {
     expect(pointerEvents).toBe("auto");
   }
+
+  const bottomNavigation = page.locator(".mobile-bottom-nav");
+  const flushNavigationSwitch = page.getByRole("switch", { name: "Прижать нижнее меню" });
+  await expect(flushNavigationSwitch).toHaveAttribute("aria-checked", "false");
+  await flushNavigationSwitch.click();
+  await expect(root).toHaveClass(/club-bottom-nav-flush/);
+  await expect(bottomNavigation).toHaveCSS("bottom", "0px");
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("club-bottom-navigation-flush")))
+    .toBe("1");
   await expectNoHorizontalOverflow(page);
 });
 

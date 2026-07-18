@@ -939,6 +939,23 @@ watch(
         </div>
       </div>
 
+      <div class="profile-bottom-navigation-position mt-3">
+        <span class="profile-bottom-navigation-copy">
+          <strong>{{ t("profileBottomNavigationFlush") }}</strong>
+          <small>{{ t("profileBottomNavigationFlushHint") }}</small>
+        </span>
+        <button
+          class="appearance-switch ui-button"
+          type="button"
+          role="switch"
+          :aria-checked="ui.bottomNavigationFlush"
+          :aria-label="t('profileBottomNavigationFlush')"
+          @click="ui.setBottomNavigationFlush(!ui.bottomNavigationFlush)"
+        >
+          <span aria-hidden="true"></span>
+        </button>
+      </div>
+
     </section>
     </TaskScreen>
 

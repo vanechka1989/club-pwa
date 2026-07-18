@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Положение нижнего меню",
+    items: [
+      "В разделе оформления появился отдельный переключатель для телефонов с управлением жестами.",
+      "При включении главное нижнее меню прижимается к краю экрана, а безопасная область iPhone и Android остаётся внутри панели.",
+      "Настройка сохраняется на устройстве и не затрагивает строку сообщения в чате, поддержку и другие нижние элементы."
+    ]
+  },
+  {
+    version: "5.01",
+    updatedAt: "18.07.2026 17:30",
     title: "Согласованный масштаб текста",
     items: [
       "Заголовки экранов теперь масштабируются вместе с основным текстом, поэтому при значении 0,8 шапка больше не выглядит несоразмерно крупной.",
@@ -3655,11 +3665,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Consistent text scaling",
+  title: "Bottom navigation position",
   items: [
-    "Page titles now scale together with body text, so the 0.8 setting no longer leaves an oversized header above very small content.",
-    "The title, subtitle and content hierarchy keeps the same proportions at every supported interface scale.",
-    "The shared behavior covers Profile, Modules, Community, Payment, Support and Admin screens."
+    "Appearance now includes a separate option for phones that use gesture navigation.",
+    "When enabled, the main bottom navigation sits on the screen edge while the iPhone and Android safe area stays inside the panel.",
+    "The preference is stored on the device and does not move chat, support or other bottom controls."
   ]
 };
 

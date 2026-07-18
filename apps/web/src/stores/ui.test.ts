@@ -9,6 +9,7 @@ describe("ui store", () => {
     document.documentElement.removeAttribute("data-scheme");
     document.documentElement.removeAttribute("data-design-theme");
     document.documentElement.removeAttribute("data-visual-scale");
+    document.documentElement.classList.remove("club-bottom-nav-flush");
     document.documentElement.style.removeProperty("--club-user-visual-scale");
     document.documentElement.style.removeProperty("--club-user-font-root");
     document.documentElement.style.removeProperty("--club-user-font-base");
@@ -209,5 +210,27 @@ describe("ui store", () => {
 
     ui.setVisualScale(1.24);
     expect(ui.visualScale).toBe(1.2);
+  });
+
+  it("keeps the current raised bottom navigation as the default", () => {
+    const ui = useUiStore();
+
+    expect(ui.bottomNavigationFlush).toBe(false);
+    expect(localStorage.getItem("club-bottom-navigation-flush")).toBeNull();
+    expect(document.documentElement.classList.contains("club-bottom-nav-flush")).toBe(false);
+  });
+
+  it("restores and persists the flush bottom navigation preference", () => {
+    localStorage.setItem("club-bottom-navigation-flush", "1");
+
+    const ui = useUiStore();
+
+    expect(ui.bottomNavigationFlush).toBe(true);
+    expect(document.documentElement.classList.contains("club-bottom-nav-flush")).toBe(true);
+
+    ui.setBottomNavigationFlush(false);
+
+    expect(localStorage.getItem("club-bottom-navigation-flush")).toBe("0");
+    expect(document.documentElement.classList.contains("club-bottom-nav-flush")).toBe(false);
   });
 });

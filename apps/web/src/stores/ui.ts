@@ -53,6 +53,7 @@ export const useUiStore = defineStore("ui", () => {
   const savedVisualScale =
     savedVisualScaleVersion === visualScaleStorageVersion ? localStorage.getItem("club-visual-scale") : null;
   const visualScale = ref<VisualScale>(clampVisualScale(savedVisualScale));
+  const bottomNavigationFlush = ref(localStorage.getItem("club-bottom-navigation-flush") === "1");
 
   function persistVisualScale() {
     localStorage.setItem("club-visual-scale", visualScale.value.toFixed(1));
@@ -77,6 +78,7 @@ export const useUiStore = defineStore("ui", () => {
       `${(12 * visualScale.value).toFixed(1)}px`
     );
     document.documentElement.style.colorScheme = theme.value;
+    document.documentElement.classList.toggle("club-bottom-nav-flush", bottomNavigationFlush.value);
   }
 
   function setTheme(nextTheme: Theme) {
@@ -112,6 +114,12 @@ export const useUiStore = defineStore("ui", () => {
     applyTheme();
   }
 
+  function setBottomNavigationFlush(nextValue: boolean) {
+    bottomNavigationFlush.value = nextValue;
+    localStorage.setItem("club-bottom-navigation-flush", nextValue ? "1" : "0");
+    applyTheme();
+  }
+
   if (savedVisualScaleVersion !== visualScaleStorageVersion) {
     persistVisualScale();
   }
@@ -128,11 +136,13 @@ export const useUiStore = defineStore("ui", () => {
     designTheme,
     colorScheme,
     visualScale,
+    bottomNavigationFlush,
     previewMode,
     setTheme,
     setDesignTheme,
     setColorScheme,
     setVisualScale,
+    setBottomNavigationFlush,
     setPreviewMode
   };
 });

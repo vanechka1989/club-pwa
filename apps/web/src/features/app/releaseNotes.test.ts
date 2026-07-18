@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes proportional interface typography as version 5.01", () => {
-    expect(appVersion).toBe("5.01");
-    expect(releaseNotes[0]?.title).toBe("Согласованный масштаб текста");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("0,8");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("всем основным экранам");
-    expect(releaseNotes[1]?.version).toBe("5.00");
+  it("publishes the bottom navigation position setting as version 5.02", () => {
+    expect(appVersion).toBe("5.02");
+    expect(releaseNotes[0]?.title).toBe("Положение нижнего меню");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("управлением жестами");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("безопасная область");
+    expect(releaseNotes[1]?.version).toBe("5.01");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Consistent text scaling");
+    expect(englishNotes[0]?.title).toBe("Bottom navigation position");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
