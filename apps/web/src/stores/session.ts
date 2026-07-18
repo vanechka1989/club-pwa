@@ -1,4 +1,4 @@
-import type { ClubUser } from "@club/shared";
+import type { AppAccessState, ClubUser } from "@club/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import {
@@ -129,6 +129,12 @@ export const useSessionStore = defineStore("session", () => {
   const pendingEmailResendAvailableAt = ref<number | null>(restoredPendingEmailAuth.resendAvailableAt);
 
   const isMember = computed(() => user.value?.membershipStatus === "active");
+
+  function applyAppState(access: AppAccessState) {
+    if (user.value) {
+      user.value = { ...user.value, ...access };
+    }
+  }
 
   async function load(options: { silent?: boolean } = {}) {
     if (!options.silent) {
@@ -272,6 +278,7 @@ export const useSessionStore = defineStore("session", () => {
     pendingEmail,
     pendingEmailResendAvailableAt,
     isMember,
+    applyAppState,
     load,
     subscribe,
     uploadAvatar,

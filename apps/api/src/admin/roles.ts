@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { allAdminPermissions, adminPermissionSchema, type AdminPermission, type UserRole } from "@club/shared";
 import { db } from "../db/client";
 import { adminUsers, clubSettings } from "../db/schema";
@@ -8,14 +8,11 @@ export const ownerTelegramIdSettingKey = "club_owner_telegram_id";
 export const ownerEmailSettingKey = "club_owner_email";
 
 export async function getOwnerTelegramId() {
-  const [emailSetting, legacySetting] = await Promise.all([
-    db.query.clubSettings.findFirst({
-      where: eq(clubSettings.key, ownerEmailSettingKey)
-    }),
-    db.query.clubSettings.findFirst({
-      where: eq(clubSettings.key, ownerTelegramIdSettingKey)
-    })
-  ]);
+  const settings = await db.query.clubSettings.findMany({
+    where: inArray(clubSettings.key, [ownerEmailSettingKey, ownerTelegramIdSettingKey])
+  });
+  const emailSetting = settings.find((setting) => setting.key === ownerEmailSettingKey);
+  const legacySetting = settings.find((setting) => setting.key === ownerTelegramIdSettingKey);
 
   return (emailSetting?.value ?? legacySetting?.value ?? env.OWNER_EMAIL).toLowerCase();
 }
@@ -36,6 +33,7 @@ export function normalizeAdminPermissions(value: unknown): AdminPermission[] {
 export async function getAdminAccessProfile(telegramId: string) {
   if (await isOwnerTelegramId(telegramId)) {
     return {
+      isOwner: true,
       roleLabel: "Владелец",
       isActive: true,
       permissions: [...allAdminPermissions]
@@ -48,6 +46,7 @@ export async function getAdminAccessProfile(telegramId: string) {
 
   if (!admin || !admin.isActive) {
     return {
+      isOwner: false,
       roleLabel: admin?.roleLabel ?? null,
       isActive: false,
       permissions: normalizeAdminPermissions(admin?.permissions)
@@ -55,6 +54,7 @@ export async function getAdminAccessProfile(telegramId: string) {
   }
 
   return {
+    isOwner: false,
     roleLabel: admin.roleLabel,
     isActive: admin.isActive,
     permissions: normalizeAdminPermissions(admin.permissions)

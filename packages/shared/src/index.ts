@@ -85,6 +85,26 @@ export const meResponseSchema = z.object({
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 
+export const appAccessStateSchema = clubUserSchema.pick({
+  role: true,
+  realRole: true,
+  adminRoleLabel: true,
+  adminPermissions: true,
+  membershipStatus: true,
+  membershipExpiresAt: true,
+  paymentType: true,
+  recurrentPaymentStatus: true,
+  nextPaymentAt: true
+});
+export type AppAccessState = z.infer<typeof appAccessStateSchema>;
+
+export const appStateResponseSchema = z.object({
+  access: appAccessStateSchema,
+  notificationUnreadCount: z.number().int().nonnegative(),
+  supportUnreadCount: z.number().int().nonnegative()
+});
+export type AppStateResponse = z.infer<typeof appStateResponseSchema>;
+
 export const subscribeResponseSchema = z.object({
   checkoutUrl: z.string().url().nullable(),
   message: z.string()

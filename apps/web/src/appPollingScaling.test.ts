@@ -6,11 +6,14 @@ const appSource = readFileSync(resolve(process.cwd(), "src/App.vue"), "utf8");
 const supportSource = readFileSync(resolve(process.cwd(), "src/features/support/SupportSection.vue"), "utf8");
 
 describe("background polling load", () => {
-  it("uses slower jittered intervals for session, support and notifications", () => {
-    expect(appSource).toContain("const sessionPollingIntervalMs = 60_000");
+  it("uses one jittered app-state interval instead of three competing timers", () => {
     expect(appSource).toContain("const backgroundPollingIntervalMs = 30_000");
-    expect(appSource).toContain("withPollingJitter(sessionPollingIntervalMs)");
     expect(appSource).toContain("withPollingJitter(backgroundPollingIntervalMs)");
+    expect(appSource).toContain("getAppState");
+    expect(appSource).toContain("appStateRefreshPromise");
+    expect(appSource).not.toContain("sessionRefreshTimer");
+    expect(appSource).not.toContain("supportUnreadTimer");
+    expect(appSource).not.toContain("appNotificationTimer");
   });
 
   it("does not run periodic requests while the page is hidden", () => {

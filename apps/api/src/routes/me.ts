@@ -6,7 +6,7 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { db } from "../db/client";
 import { userDevices, userRecurrentSubscriptions, users } from "../db/schema";
-import { getAdminAccessProfile, getUserRole } from "../admin/roles";
+import { getAdminAccessProfile } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
 import { resolveMembershipPreview, resolveMembershipProfileFields } from "../membership/profileFields";
 import { logger } from "../logger";
@@ -67,9 +67,9 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
           orderBy: [desc(userRecurrentSubscriptions.updatedAt)]
         })
       : null;
-  const realRole = await getUserRole(user.telegramId);
-  const role = c.get("previewRole") ?? realRole;
   const adminAccess = await getAdminAccessProfile(user.telegramId);
+  const realRole = adminAccess.isOwner ? "owner" : adminAccess.isActive ? "admin" : "member";
+  const role = c.get("previewRole") ?? realRole;
   const previewMembershipStatus = c.get("previewMembershipStatus");
   const membershipPreview = resolveMembershipPreview({
     actualStatus: membership.status,
@@ -114,16 +114,7 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
 export const meRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .get("/", async (c) => {
-    const userId = c.get("userId");
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, userId)
-    });
-
-    if (!user) {
-      return c.json({ error: "User not found" }, 404);
-    }
-
-    return c.json(await buildMeResponse(user, c));
+    return c.json(await buildMeResponse(c.get("currentUser"), c));
   })
   .get("/referrals", async (c) => {
     const [referral, referralRewardDays] = await Promise.all([

@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Оптимизация фоновых запросов API",
+    items: [
+      "Три фоновых опроса объединены в один лёгкий запрос состояния приложения без загрузки полного профиля и списка уведомлений.",
+      "Непрочитанные обращения поддержки теперь считаются непосредственно в базе данных без загрузки всех тикетов в память.",
+      "Счётчики и последние ответы тем общения загружаются двумя пакетными запросами вместо отдельных запросов для каждой темы.",
+      "Повторный параллельный фоновый запрос блокируется до завершения текущего, поэтому медленное соединение больше не создаёт очередь запросов."
+    ]
+  },
+  {
+    version: "4.92",
+    updatedAt: "18.07.2026 01:52",
     title: "iPhone: чат, поддержка и голосовые",
     items: [
       "Чат теперь занимает всю стабильную высоту установленного PWA и окрашивает нижнюю системную область без белого поля.",
@@ -3561,12 +3572,12 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "iPhone chat, support, and voice messages",
+  title: "Background API request optimization",
   items: [
-    "Chat now fills the stable installed-PWA viewport and paints the iPhone system area without a white gap.",
-    "When the keyboard opens, the new-ticket message field is moved above the submit footer and remains visible.",
-    "Only the support form body is scrolled, so the page header and the rest of the screen no longer jump.",
-    "iPhone voice messages are recorded as one complete file, validated by the server, and repaired when MP4 fragments arrive before the file header."
+    "Three background polls are combined into one lightweight app-state request without loading the full profile or notification list.",
+    "Unread support tickets are counted directly in the database instead of loading every ticket into application memory.",
+    "Community topic counters and latest replies are loaded in two batched queries instead of separate queries per topic.",
+    "Concurrent background refreshes are deduplicated until the active request finishes, preventing request queues on slow connections."
   ]
 };
 

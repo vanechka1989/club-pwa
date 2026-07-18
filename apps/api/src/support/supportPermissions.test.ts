@@ -5,14 +5,13 @@ import { describe, expect, it } from "vitest";
 describe("support permissions", () => {
   it("uses global support unread counters only for users with support access", () => {
     const source = readFileSync(resolve(__dirname, "../routes/support.ts"), "utf8");
+    const unreadSource = readFileSync(resolve(__dirname, "unreadCount.ts"), "utf8");
 
-    expect(source).toContain(
-      "async function getUnreadCount({ userId, isSupportAdmin }: { userId: string; isSupportAdmin: boolean })"
-    );
-    expect(source).toContain("if (isSupportAdmin)");
+    expect(unreadSource).toContain("export async function getSupportUnreadCount");
+    expect(unreadSource).toContain("const unreadCondition = isSupportAdmin");
     expect(source).toContain("const isSupportAdmin = await canUseSupportAdmin(c, role);");
-    expect(source).toContain("getUnreadCount({ userId, isSupportAdmin })");
-    expect(source).not.toContain("getUnreadCount({ userId, role })");
+    expect(source).toContain("getSupportUnreadCount({ userId, isSupportAdmin })");
+    expect(source).not.toContain("getSupportUnreadCount({ userId, role })");
   });
 
   it("redacts support administrator identities from customer ticket payloads", () => {

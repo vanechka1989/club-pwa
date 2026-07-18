@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, lte, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, lte, max, ne, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -186,7 +186,7 @@ async function listCommunityTopics(role: Awaited<ReturnType<typeof getUserRole>>
     orderBy: [desc(clubChatTopics.isPinned), desc(clubChatTopics.createdAt)]
   });
 
-  return Promise.all(topics.map((topic) => serializeTopic(topic, currentUserId)));
+  return serializeTopics(topics, currentUserId);
 }
 
 function memberVisibleTopicCondition(chatId: string) {
@@ -197,34 +197,37 @@ function memberVisibleTopicCondition(chatId: string) {
   );
 }
 
-async function getLatestReplyToMeAt(topicId: string, currentUserId: string) {
+async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>, currentUserId: string): Promise<ClubTopic[]> {
+  if (!topics.length) {
+    return [];
+  }
+
+  const topicIds = topics.map((topic) => topic.id);
   const originalMessage = alias(clubChatMessages, "original_message");
-  const [reply] = await db
-    .select({ createdAt: clubChatMessages.createdAt })
-    .from(clubChatMessages)
-    .innerJoin(originalMessage, eq(clubChatMessages.replyToMessageId, originalMessage.id))
-    .where(
-      and(
-        eq(clubChatMessages.topicId, topicId),
-        eq(clubChatMessages.status, "visible"),
-        eq(originalMessage.userId, currentUserId),
-        ne(clubChatMessages.userId, currentUserId)
+  const [messageCounts, latestReplies] = await Promise.all([
+    db
+      .select({ topicId: clubChatMessages.topicId, value: count(clubChatMessages.id) })
+      .from(clubChatMessages)
+      .where(and(inArray(clubChatMessages.topicId, topicIds), eq(clubChatMessages.status, "visible")))
+      .groupBy(clubChatMessages.topicId),
+    db
+      .select({ topicId: clubChatMessages.topicId, createdAt: max(clubChatMessages.createdAt) })
+      .from(clubChatMessages)
+      .innerJoin(originalMessage, eq(clubChatMessages.replyToMessageId, originalMessage.id))
+      .where(
+        and(
+          inArray(clubChatMessages.topicId, topicIds),
+          eq(clubChatMessages.status, "visible"),
+          eq(originalMessage.userId, currentUserId),
+          ne(clubChatMessages.userId, currentUserId)
+        )
       )
-    )
-    .orderBy(desc(clubChatMessages.createdAt))
-    .limit(1);
+      .groupBy(clubChatMessages.topicId)
+  ]);
+  const countsByTopic = new Map(messageCounts.map((row) => [row.topicId, row.value]));
+  const repliesByTopic = new Map(latestReplies.map((row) => [row.topicId, row.createdAt]));
 
-  return reply?.createdAt ?? null;
-}
-
-async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, currentUserId: string): Promise<ClubTopic> {
-  const [messagesRow] = await db
-    .select({ value: count(clubChatMessages.id) })
-    .from(clubChatMessages)
-    .where(and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.status, "visible")));
-  const latestReplyToMeAt = await getLatestReplyToMeAt(topic.id, currentUserId);
-
-  return {
+  return topics.map((topic) => ({
     id: topic.id,
     chatId: topic.chatId,
     title: topic.title,
@@ -234,10 +237,15 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, current
     isPublished: topic.isPublished,
     isAdminOnly: topic.isAdminOnly,
     archivedUntil: topic.archivedUntil?.toISOString() ?? null,
-    messagesCount: messagesRow?.value ?? 0,
-    latestReplyToMeAt: latestReplyToMeAt?.toISOString() ?? null,
+    messagesCount: countsByTopic.get(topic.id) ?? 0,
+    latestReplyToMeAt: repliesByTopic.get(topic.id)?.toISOString() ?? null,
     createdAt: topic.createdAt.toISOString()
-  };
+  }));
+}
+
+async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, currentUserId: string): Promise<ClubTopic> {
+  const [serialized] = await serializeTopics([topic], currentUserId);
+  return serialized!;
 }
 
 async function serializeMessage(

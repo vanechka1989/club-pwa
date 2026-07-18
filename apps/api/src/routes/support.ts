@@ -20,6 +20,7 @@ import {
   getSupportAttachmentUploadContentType
 } from "../support/mediaUpload";
 import { selectSupportAdminTelegramIds } from "../support/adminNotificationRecipients";
+import { getSupportUnreadCount } from "../support/unreadCount";
 
 const supportTopics = [
   {
@@ -109,20 +110,6 @@ function getAttachmentLimitMessage(files: File[]) {
   }
 
   return "Файлы слишком большие. Максимум 100 МБ за одно сообщение.";
-}
-
-async function getUnreadCount({ userId, isSupportAdmin }: { userId: string; isSupportAdmin: boolean }) {
-  if (isSupportAdmin) {
-    const tickets = await db.query.supportTickets.findMany({
-      where: ne(supportTickets.status, "closed")
-    });
-    return tickets.filter((ticket) => isAfter(ticket.lastCustomerMessageAt, ticket.adminReadAt)).length;
-  }
-
-  const tickets = await db.query.supportTickets.findMany({
-    where: eq(supportTickets.userId, userId)
-  });
-  return tickets.filter((ticket) => isAfter(ticket.lastAdminMessageAt, ticket.customerReadAt)).length;
 }
 
 async function serializeAttachment(attachment: typeof supportTicketAttachments.$inferSelect) {
@@ -354,7 +341,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       managerContact: null,
       topics: supportTopics,
       tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role, isSupportAdmin))),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .get("/unread", async (c) => {
@@ -363,7 +350,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     const isSupportAdmin = await canUseSupportAdmin(c, role);
 
     return c.json({
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets", async (c) => {
@@ -439,7 +426,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(createdTicket, role, isSupportAdmin),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets/:id/messages", async (c) => {
@@ -513,7 +500,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets/:id/close", async (c) => {
@@ -551,7 +538,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/tickets/:id/read", async (c) => {
@@ -581,7 +568,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .get("/admin/tickets", async (c) => {
@@ -610,7 +597,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       tickets: await Promise.all(tickets.map((ticket) => serializeTicket(ticket, role, isSupportAdmin))),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/admin/users/:telegramId/tickets", async (c) => {
@@ -707,7 +694,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(createdTicket, role, isSupportAdmin),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
   .post("/admin/tickets/:id/replies", async (c) => {
@@ -799,6 +786,6 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       ticket: await serializeTicket(updatedTicket, role, isSupportAdmin),
-      unreadCount: await getUnreadCount({ userId, isSupportAdmin })
+      unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   });

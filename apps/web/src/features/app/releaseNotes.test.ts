@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the iPhone viewport and voice fixes as version 4.92", () => {
-    expect(appVersion).toBe("4.92");
-    expect(releaseNotes[0]?.title).toBe("iPhone: чат, поддержка и голосовые");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("белого поля");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Голосовые");
-    expect(releaseNotes[1]?.version).toBe("4.91");
+  it("publishes API request optimization as version 4.93", () => {
+    expect(appVersion).toBe("4.93");
+    expect(releaseNotes[0]?.title).toBe("Оптимизация фоновых запросов API");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("фоновых опроса");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("пакетными запросами");
+    expect(releaseNotes[1]?.version).toBe("4.92");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("iPhone chat, support, and voice messages");
+    expect(englishNotes[0]?.title).toBe("Background API request optimization");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

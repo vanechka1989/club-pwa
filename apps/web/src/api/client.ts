@@ -58,6 +58,7 @@ import type {
   AdminPermission,
   AppNotificationMutationResponse,
   AppNotificationsResponse,
+  AppStateResponse,
   SupportTicketMutationResponse,
   SupportUnreadResponse
 } from "@club/shared";
@@ -149,6 +150,10 @@ export function deleteWebPushSubscription(subscription: PushSubscriptionJSON) {
 
 export function getMe() {
   return api<MeResponse>("/me");
+}
+
+export function getAppState() {
+  return api<AppStateResponse>("/app-state");
 }
 
 export function updateDeviceDiagnostics(payload: DeviceDiagnostics) {

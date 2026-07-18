@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { env } from "./env";
 import { adminRoute } from "./routes/admin";
+import { appStateRoute } from "./routes/appState";
 import { authRoute } from "./routes/auth";
 import { communityRoute } from "./routes/community";
 import { learningRoute } from "./routes/learning";
@@ -122,6 +123,7 @@ app.post("/client-errors", async (c) => {
 });
 
 app.route("/me", meRoute);
+app.route("/app-state", appStateRoute);
 app.route("/admin/mailings", mailingsRoute);
 app.route("/admin", adminRoute);
 app.route("/community", communityRoute);

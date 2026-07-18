@@ -2,7 +2,7 @@
 import { ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getPaymentHistory, getSupportUnreadCount, updateDeviceDiagnostics } from "@/api/client";
+import { getAppState, getPaymentHistory, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getVisibleAdminPanels } from "@/features/admin/adminPanels";
@@ -89,9 +89,8 @@ const supportClientTicketId = computed(() =>
 let desktopLayoutQuery: MediaQueryList | null = null;
 let removeDesktopLayoutListener: (() => void) | null = null;
 let paymentWatchTimer: number | null = null;
-let sessionRefreshTimer: number | null = null;
-let supportUnreadTimer: number | null = null;
-let appNotificationTimer: number | null = null;
+let appStateTimer: number | null = null;
+let appStateRefreshPromise: Promise<void> | null = null;
 let deviceDiagnosticsTimer: number | null = null;
 let keyboardFocusTimer: number | null = null;
 let viewportSyncScheduler: ViewportSyncScheduler | null = null;
@@ -104,7 +103,6 @@ let appliedKeyboardBottomGap = 0;
 let keyboardViewportBaseHeight = 0;
 let keyboardWasOpen = false;
 let isAppMounted = false;
-const sessionPollingIntervalMs = 60_000;
 const backgroundPollingIntervalMs = 30_000;
 const pollingJitterMaxMs = 5_000;
 const modalPageGestureSurfaceSelector = [
@@ -594,44 +592,51 @@ async function checkPendingPaymentWatch() {
   }
 }
 
-async function refreshSessionAccessStatus(shouldNotify: boolean) {
-  const previousUser = session.user ? { ...session.user } : null;
-  await session.load({ silent: true });
-
-  if (shouldNotify && shouldShowAccessClosedAlert(previousUser, session.user)) {
-    showAppAlert("Доступ к клубу закрыт. Разделы клуба больше недоступны.");
-    return;
-  }
-
-  if (shouldNotify && shouldShowAccessGrantedAlert(previousUser, session.user)) {
-    if (readPaymentWatch()) {
-      clearPaymentWatch();
-      showPaymentSuccessAlert();
-      return;
-    }
-
-    showAppAlert("Доступ к клубу открыт.");
-  }
-}
-
-async function refreshSupportUnread(shouldNotify: boolean) {
+async function performAppStateRefresh(shouldNotify: boolean) {
   if (!session.user) {
     supportUnreadCount.value = 0;
     return;
   }
 
+  const previousUser = { ...session.user };
   const previousCount = supportUnreadCount.value;
   try {
-    const response = await getSupportUnreadCount();
-    supportUnreadCount.value = response.unreadCount;
+    const response = await getAppState();
+    session.applyAppState(response.access);
+    notifications.setUnreadCount(response.notificationUnreadCount);
+    supportUnreadCount.value = response.supportUnreadCount;
+
+    if (shouldNotify && shouldShowAccessClosedAlert(previousUser, session.user)) {
+      showAppAlert("Доступ к клубу закрыт. Разделы клуба больше недоступны.");
+      return;
+    }
+
+    if (shouldNotify && shouldShowAccessGrantedAlert(previousUser, session.user)) {
+      if (readPaymentWatch()) {
+        clearPaymentWatch();
+        showPaymentSuccessAlert();
+        return;
+      }
+      showAppAlert("Доступ к клубу открыт.");
+    }
 
     const isAdmin = hasAdminCapability(session.user.realRole, session.user.adminPermissions, "support");
-    if (shouldNotify && !isAdmin && activeSection.value !== "support" && response.unreadCount > previousCount) {
+    if (shouldNotify && !isAdmin && activeSection.value !== "support" && response.supportUnreadCount > previousCount) {
       showAppAlert("Вам ответили в поддержке.");
     }
   } catch {
     // Следующая проверка повторится по таймеру.
   }
+}
+
+function refreshAppState(shouldNotify: boolean) {
+  if (appStateRefreshPromise) {
+    return appStateRefreshPromise;
+  }
+  appStateRefreshPromise = performAppStateRefresh(shouldNotify).finally(() => {
+    appStateRefreshPromise = null;
+  });
+  return appStateRefreshPromise;
 }
 
 function startPaymentWatchPolling() {
@@ -651,51 +656,23 @@ function withPollingJitter(baseIntervalMs: number) {
   return baseIntervalMs + Math.floor(Math.random() * pollingJitterMaxMs);
 }
 
-function startSessionAccessPolling() {
-  if (!isAppMounted || typeof window === "undefined" || sessionRefreshTimer) {
+function startAppStatePolling() {
+  if (!isAppMounted || typeof window === "undefined" || appStateTimer) {
     return;
   }
 
-  sessionRefreshTimer = window.setInterval(() => {
+  appStateTimer = window.setInterval(() => {
     if (document.visibilityState !== "visible") {
       return;
     }
-    void refreshSessionAccessStatus(true);
-  }, withPollingJitter(sessionPollingIntervalMs));
-}
-
-function startSupportUnreadPolling() {
-  if (!isAppMounted || typeof window === "undefined" || supportUnreadTimer) {
-    return;
-  }
-
-  supportUnreadTimer = window.setInterval(() => {
-    if (document.visibilityState !== "visible") {
-      return;
-    }
-    void refreshSupportUnread(true);
-  }, withPollingJitter(backgroundPollingIntervalMs));
-}
-
-function startAppNotificationPolling() {
-  if (!isAppMounted || typeof window === "undefined" || appNotificationTimer) {
-    return;
-  }
-
-  appNotificationTimer = window.setInterval(() => {
-    if (document.visibilityState !== "visible") {
-      return;
-    }
-    void notifications.loadAppNotifications();
+    void refreshAppState(true);
   }, withPollingJitter(backgroundPollingIntervalMs));
 }
 
 function handleVisibilityChange() {
   if (document.visibilityState === "visible") {
-    void refreshSessionAccessStatus(true);
+    void refreshAppState(true);
     void checkPendingPaymentWatch();
-    void refreshSupportUnread(true);
-    void notifications.loadAppNotifications();
   }
 }
 
@@ -750,11 +727,8 @@ onMounted(() => {
       return;
     }
 
-    startSessionAccessPolling();
-    startSupportUnreadPolling();
-    startAppNotificationPolling();
-    void refreshSupportUnread(false);
-    void notifications.loadAppNotifications();
+    startAppStatePolling();
+    void refreshAppState(false);
     void checkPendingPaymentWatch();
     void sendDeviceDiagnostics();
     deviceDiagnosticsTimer = window.setTimeout(() => {
@@ -844,17 +818,9 @@ onBeforeUnmount(() => {
     window.clearInterval(paymentWatchTimer);
     paymentWatchTimer = null;
   }
-  if (sessionRefreshTimer) {
-    window.clearInterval(sessionRefreshTimer);
-    sessionRefreshTimer = null;
-  }
-  if (supportUnreadTimer) {
-    window.clearInterval(supportUnreadTimer);
-    supportUnreadTimer = null;
-  }
-  if (appNotificationTimer) {
-    window.clearInterval(appNotificationTimer);
-    appNotificationTimer = null;
+  if (appStateTimer) {
+    window.clearInterval(appStateTimer);
+    appStateTimer = null;
   }
   if (deviceDiagnosticsTimer) {
     window.clearTimeout(deviceDiagnosticsTimer);
