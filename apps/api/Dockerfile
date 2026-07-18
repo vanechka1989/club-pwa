@@ -11,8 +11,10 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 
 RUN pnpm install --frozen-lockfile --filter @club/api...
+RUN mkdir -p /app/uploads && chown -R bun:bun /app
 
 ENV NODE_ENV=production
 EXPOSE 3000
+USER bun
 
 CMD ["bun", "apps/api/src/index.ts"]

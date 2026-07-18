@@ -75,7 +75,9 @@ async function sendMailingEmail({
   }
 
   const unsubscribeUrl = `${env.WEB_ORIGIN}/api/mailings/unsubscribe?token=${encodeURIComponent(createMailingUnsubscribeToken(target.id))}`;
-  const attachmentUrl = mailing.attachmentObjectKey ? await getObjectReadUrl(mailing.attachmentObjectKey) : null;
+  const attachmentUrl = mailing.attachmentObjectKey
+    ? await getObjectReadUrl(mailing.attachmentObjectKey, "primary", { allowPublic: true })
+    : null;
   const bodyHtml = sanitizeMailingHtml(mailing.bodyHtml || `<p>${escapeHtml(mailing.body).replace(/\n/g, "<br>")}</p>`);
   const attachmentHtml = attachmentUrl
     ? `<p><a href="${escapeHtml(attachmentUrl)}">Открыть вложение${mailing.attachmentFileName ? `: ${escapeHtml(mailing.attachmentFileName)}` : ""}</a></p>`

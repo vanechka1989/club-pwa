@@ -17,7 +17,7 @@ describe("push and email mailing queue", () => {
     expect(source).toContain('"List-Unsubscribe"');
     expect(source).toContain('category: isTest ? "mailing_test" : "mailing"');
     const deliverySource = readFileSync(resolve(__dirname, "../auth/emailDelivery.ts"), "utf8");
-    expect(deliverySource).toContain("await waitForEmailRateSlot()");
+    expect(deliverySource).toContain("await waitForEmailRateSlot(reservation.scheduledAt)");
     expect(deliverySource).toContain("reserveEmailQuota");
   });
 

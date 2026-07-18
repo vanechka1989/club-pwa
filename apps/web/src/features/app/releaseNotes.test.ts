@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the iPhone chat viewport fix as version 4.94", () => {
-    expect(appVersion).toBe("4.94");
-    expect(releaseNotes[0]?.title).toBe("Стабильный чат на iPhone");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("белая область");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("первого символа");
-    expect(releaseNotes[1]?.version).toBe("4.93");
+  it("publishes the security audit fixes as version 4.95", () => {
+    expect(appVersion).toBe("4.95");
+    expect(releaseNotes[0]?.title).toBe("Защита платежей и сервера");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Prodamus");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("без root");
+    expect(releaseNotes[1]?.version).toBe("4.94");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Background API request optimization");
+    expect(englishNotes[0]?.title).toBe("Payment and server security");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

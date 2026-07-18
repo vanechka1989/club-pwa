@@ -102,9 +102,10 @@ describe("deploy update script", () => {
     expect(ensureSwap).toContain("/etc/fstab");
   });
 
-  it("reuses one API image for the application and migrations", () => {
+  it("reuses one API image for the application, migrations and upload permissions", () => {
     expect(productionCompose.match(/dockerfile: apps\/api\/Dockerfile/g)).toHaveLength(1);
-    expect(productionCompose.match(/image: club-pwa-api:latest/g)).toHaveLength(2);
+    expect(productionCompose.match(/image: club-pwa-api:latest/g)).toHaveLength(3);
+    expect(productionCompose).toContain("uploads-permissions:");
   });
 
   it("keeps GitHub SSH alive and installs Buildx on managed servers", () => {
@@ -155,8 +156,9 @@ describe("direct learning S3 uploads", () => {
   });
 
   it("keeps learning read URLs fast by skipping S3 HEAD checks by default", () => {
-    expect(s3Storage).toContain("options: { verifyReadable?: boolean } = {}");
+    expect(s3Storage).toContain("options: { verifyReadable?: boolean; allowPublic?: boolean } = {}");
     expect(s3Storage).toContain("const verifyReadable = options.verifyReadable ?? false");
+    expect(s3Storage).toContain("const allowPublic = options.allowPublic ?? false");
     expect(s3Storage).toContain("if (verifyReadable) {");
   });
 });

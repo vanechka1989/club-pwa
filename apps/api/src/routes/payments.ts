@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -29,12 +29,18 @@ import {
   buildProdamusPaymentUrl,
   getProdamusNotificationOrderId,
   getProdamusSubscriptionIdentity,
-  normalizeProdamusWebhookPayload,
   normalizeProdamusFormUrl,
   setProdamusSubscriptionActivity,
   verifyProdamusSignature
 } from "../payments/prodamus";
-import { decideProdamusWebhookAction, getProdamusWebhookSuccessResponse } from "../payments/prodamusWebhook";
+import {
+  classifyProdamusWebhookPaymentStatus,
+  decideProdamusWebhookAction,
+  getProdamusWebhookSuccessResponse,
+  parseProdamusWebhookRequest,
+  ProdamusWebhookRequestError,
+  validateProdamusWebhookOrder
+} from "../payments/prodamusWebhook";
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
 
@@ -117,22 +123,6 @@ async function getProdamusProvider() {
   });
 }
 
-async function parseWebhookPayload(request: Request) {
-  const contentType = request.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    return normalizeProdamusWebhookPayload((await request.json().catch(() => ({}))) as Record<string, unknown>);
-  }
-
-  const form = await request.formData().catch(() => null);
-  if (!form) {
-    return {};
-  }
-
-  return normalizeProdamusWebhookPayload(
-    Object.fromEntries(Array.from(form.entries()).map(([key, value]) => [key, typeof value === "string" ? value : String(value)]))
-  );
-}
-
 function getWebhookOrderId(payload: Record<string, unknown>) {
   return getProdamusNotificationOrderId(payload);
 }
@@ -207,14 +197,6 @@ async function getPaymentOrderLogs(userId?: string, limit = 50) {
   return orders.map((order) => mapPaymentOrderLog(order, webhookByOrderId.get(order.providerOrderId) ?? null));
 }
 
-function isSuccessfulWebhook(payload: Record<string, unknown>) {
-  const status = payload.payment_status ?? payload.status;
-  if (typeof status !== "string") {
-    return true;
-  }
-  return ["success", "paid", "completed", "оплачен", "оплачено"].includes(status.toLowerCase());
-}
-
 async function grantPaidAccess(
   order: typeof paymentOrders.$inferSelect,
   product: PaymentProduct,
@@ -223,49 +205,55 @@ async function grantPaidAccess(
 ) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + product.accessDays * 24 * 60 * 60 * 1000);
-
-  await db.insert(subscriptions).values({
-    userId: order.userId,
-    status: "active",
-    provider: product.kind === "recurrent" ? "prodamus_recurrent" : "prodamus",
-    providerPaymentId: order.providerOrderId,
-    expiresAt,
-    createdAt: now,
-    updatedAt: now
-  });
-
-  if (product.kind === "recurrent" && product.prodamusSubscriptionId) {
-    await db
-      .insert(userRecurrentSubscriptions)
-      .values({
-        userId: order.userId,
-        productId: product.id,
-        providerId: order.providerId,
-        status: "active",
-        prodamusSubscriptionId: product.prodamusSubscriptionId,
-        createdAt: now,
+  const applied = await db.transaction(async (tx) => {
+    const [claimedOrder] = await tx
+      .update(paymentOrders)
+      .set({
+        status: "paid",
+        providerPaymentId: getWebhookPaymentId(payload),
+        paidAt: now,
+        rawPayload: payload,
         updatedAt: now
       })
-      .onConflictDoUpdate({
-        target: [userRecurrentSubscriptions.userId, userRecurrentSubscriptions.productId],
-        set: {
-          status: "active",
-          cancelledAt: null,
-          updatedAt: now
-        }
-      });
-  }
+      .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, "paid")))
+      .returning({ id: paymentOrders.id });
+    if (!claimedOrder) return false;
 
-  await db
-    .update(paymentOrders)
-    .set({
-      status: "paid",
-      providerPaymentId: getWebhookPaymentId(payload),
-      paidAt: now,
-      rawPayload: payload,
+    await tx.insert(subscriptions).values({
+      userId: order.userId,
+      status: "active",
+      provider: product.kind === "recurrent" ? "prodamus_recurrent" : "prodamus",
+      providerPaymentId: order.providerOrderId,
+      expiresAt,
+      createdAt: now,
       updatedAt: now
-    })
-    .where(eq(paymentOrders.id, order.id));
+    });
+
+    if (product.kind === "recurrent" && product.prodamusSubscriptionId) {
+      await tx
+        .insert(userRecurrentSubscriptions)
+        .values({
+          userId: order.userId,
+          productId: product.id,
+          providerId: order.providerId,
+          status: "active",
+          prodamusSubscriptionId: product.prodamusSubscriptionId,
+          createdAt: now,
+          updatedAt: now
+        })
+        .onConflictDoUpdate({
+          target: [userRecurrentSubscriptions.userId, userRecurrentSubscriptions.productId],
+          set: {
+            status: "active",
+            cancelledAt: null,
+            updatedAt: now
+          }
+        });
+    }
+
+    return true;
+  });
+  if (!applied) return false;
 
   await awardReferralRewardForFirstPayment(order, user).catch((error) => {
     logger.warn({ error, orderId: order.providerOrderId, userId: user.id }, "referral reward failed");
@@ -279,34 +267,24 @@ async function grantPaidAccess(
   }).catch((error) => {
     logger.warn({ error, orderId: order.providerOrderId, userId: user.id }, "payment notification failed");
   });
+  return true;
 }
 
 export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/prodamus/webhook", async (c) => {
-    const payload = await parseWebhookPayload(c.req.raw);
+    let payload: Record<string, unknown>;
+    try {
+      payload = await parseProdamusWebhookRequest(c.req.raw);
+    } catch (error) {
+      if (error instanceof ProdamusWebhookRequestError) {
+        return c.json({ ok: false, error: error.message }, error.status);
+      }
+      return c.json({ ok: false, error: "Invalid webhook payload" }, 400);
+    }
     const provider = await getProdamusProvider();
     const signature = c.req.header("Sign") ?? c.req.header("sign") ?? c.req.header("Signature") ?? c.req.header("signature");
     const orderId = getWebhookOrderId(payload);
-    const eventKey = getWebhookPaymentId(payload) ?? orderId ?? randomUUID();
     const isValid = provider ? verifyProdamusSignature(payload, provider.secretKey, signature) : false;
-
-    await db
-      .insert(paymentWebhookEvents)
-      .values({
-        providerId: provider?.id ?? null,
-        provider: "prodamus",
-        eventKey,
-        isValid,
-        payload
-      })
-      .onConflictDoUpdate({
-        target: [paymentWebhookEvents.provider, paymentWebhookEvents.eventKey],
-        set: {
-          providerId: provider?.id ?? null,
-          isValid,
-          payload
-        }
-      });
 
     const initialAction = decideProdamusWebhookAction({
       providerConfigured: Boolean(provider),
@@ -352,13 +330,38 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ ok: false }, 404);
     }
 
-    if (isSuccessfulWebhook(payload)) {
+    if (!validateProdamusWebhookOrder(payload, { amountRub: order.amountRub, productTitle: product.title })) {
+      logger.warn({ orderId }, "prodamus webhook order contents mismatch");
+      return c.json({ ok: false, error: "Order contents mismatch" }, 400);
+    }
+
+    const eventKey = getWebhookPaymentId(payload) ?? orderId;
+    await db
+      .insert(paymentWebhookEvents)
+      .values({
+        providerId: provider?.id ?? null,
+        provider: "prodamus",
+        eventKey,
+        isValid: true,
+        payload
+      })
+      .onConflictDoUpdate({
+        target: [paymentWebhookEvents.provider, paymentWebhookEvents.eventKey],
+        set: {
+          providerId: provider?.id ?? null,
+          isValid: true,
+          payload
+        }
+      });
+
+    const paymentStatus = classifyProdamusWebhookPaymentStatus(payload);
+    if (paymentStatus === "paid") {
       await grantPaidAccess(order, product, user, payload);
-    } else {
+    } else if (paymentStatus === "failed") {
       await db
         .update(paymentOrders)
         .set({ status: "failed", rawPayload: payload, updatedAt: new Date() })
-        .where(eq(paymentOrders.id, order.id));
+        .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, "paid")));
     }
 
     await cleanupExpiredPendingPaymentOrders();

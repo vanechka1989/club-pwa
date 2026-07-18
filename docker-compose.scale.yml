@@ -18,6 +18,7 @@ x-api-environment: &api-environment
   DKIM_SELECTOR: ${DKIM_SELECTOR:-}
   DKIM_PRIVATE_KEY: ${DKIM_PRIVATE_KEY:-}
   MAILING_UNSUBSCRIBE_SECRET: ${MAILING_UNSUBSCRIBE_SECRET:-}
+  OBSERVABILITY_TOKEN: ${OBSERVABILITY_TOKEN:-}
   WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
   WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
   WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
@@ -43,8 +44,17 @@ x-api-service: &api-service
       condition: service_healthy
     redis:
       condition: service_healthy
+    uploads-permissions:
+      condition: service_completed_successfully
   volumes:
     - api-uploads:/app/uploads
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  read_only: true
+  tmpfs:
+    - /tmp
   expose:
     - "3000"
   healthcheck:
@@ -70,6 +80,21 @@ services:
       timeout: 5s
       retries: 10
 
+  uploads-permissions:
+    image: club-pwa-api:latest
+    restart: "no"
+    user: "0:0"
+    command: ["chown", "-R", "bun:bun", "/app/uploads"]
+    volumes:
+      - api-uploads:/app/uploads
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    read_only: true
+
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
@@ -81,7 +106,7 @@ services:
       retries: 10
 
   pgbouncer:
-    image: edoburu/pgbouncer:latest
+    image: edoburu/pgbouncer:v1.25.2-p0
     restart: unless-stopped
     environment:
       DB_HOST: postgres
@@ -132,6 +157,13 @@ services:
       postgres:
         condition: service_healthy
     command: ["pnpm", "--filter", "@club/api", "db:migrate"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   web:
     image: club-pwa-web:latest
@@ -145,7 +177,14 @@ services:
       api-2:
         condition: service_healthy
     expose:
-      - "80"
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   caddy:
     image: caddy:2-alpine

@@ -303,6 +303,7 @@ docker compose -f docker-compose.prod.yml build
 
 echo
 echo "Применяем миграции базы данных..."
+docker compose -f docker-compose.prod.yml run --rm uploads-permissions
 docker compose -f docker-compose.prod.yml run --rm migrate
 
 echo

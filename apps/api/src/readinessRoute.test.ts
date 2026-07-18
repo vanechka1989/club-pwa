@@ -6,5 +6,7 @@ describe("readiness route", () => {
     const source = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
     expect(source).toContain('app.get("/ready"');
     expect(source).toContain("readiness.ok ? 200 : 503");
+    expect(source).toContain("{ ok: readiness.ok }");
+    expect(source).not.toContain("return c.json(readiness,");
   });
 });

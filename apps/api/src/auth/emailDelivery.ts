@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { and, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { emailDeliveryLog } from "../db/schema";
 import { env } from "../env";
@@ -15,8 +15,7 @@ import {
 type EmailHeaders = Record<string, string>;
 type SmtpTransport = ReturnType<typeof nodemailer.createTransport>;
 let smtpTransport: SmtpTransport | null = null;
-let nextEmailDeliveryAt = 0;
-let emailQuotaLock = Promise.resolve();
+const EMAIL_DELIVERY_LOCK_ID = 742_026_071;
 
 export type EmailDeliveryCategory = "auth" | "mailing" | "mailing_test" | "transactional";
 
@@ -24,18 +23,6 @@ export class EmailDailyLimitError extends Error {
   constructor(public readonly retryAt: Date) {
     super("Суточный лимит email исчерпан. Отправка продолжится автоматически после освобождения лимита.");
     this.name = "EmailDailyLimitError";
-  }
-}
-
-async function withEmailQuotaLock<T>(operation: () => Promise<T>) {
-  const previous = emailQuotaLock;
-  let release = () => {};
-  emailQuotaLock = new Promise<void>((resolve) => { release = resolve; });
-  await previous;
-  try {
-    return await operation();
-  } finally {
-    release();
   }
 }
 
@@ -66,27 +53,38 @@ export async function getRecentEmailDeliveryTimes(now = new Date()) {
 }
 
 async function reserveEmailQuota(recipientCount: number, category: EmailDeliveryCategory) {
-  return withEmailQuotaLock(async () => {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${EMAIL_DELIVERY_LOCK_ID})`);
     const now = new Date();
-    const rows = await getActiveEmailDeliveryRows(now);
+    const cutoff = new Date(now.getTime() - EMAIL_QUOTA_WINDOW_MS);
+    const staleReservationCutoff = new Date(now.getTime() - 10 * 60 * 1_000);
+    await tx
+      .update(emailDeliveryLog)
+      .set({ status: "failed", error: "Stale email delivery reservation", updatedAt: now })
+      .where(and(eq(emailDeliveryLog.status, "processing"), lt(emailDeliveryLog.createdAt, staleReservationCutoff)));
+    const rows = await tx
+      .select({ recipientCount: emailDeliveryLog.recipientCount, createdAt: emailDeliveryLog.createdAt })
+      .from(emailDeliveryLog)
+      .where(and(inArray(emailDeliveryLog.status, ["processing", "sent"]), gte(emailDeliveryLog.createdAt, cutoff)));
     const used = rows.reduce((total, row) => total + row.recipientCount, 0);
     if (used + recipientCount > EMAIL_DAILY_RECIPIENT_LIMIT) {
       const oldest = rows.reduce<Date | null>((value, row) => (!value || row.createdAt < value ? row.createdAt : value), null);
       throw new EmailDailyLimitError(new Date((oldest?.getTime() ?? now.getTime()) + EMAIL_QUOTA_WINDOW_MS + 1_000));
     }
-    const [reservation] = await db
+    const latestScheduledAt = rows.reduce((value, row) => Math.max(value, row.createdAt.getTime()), 0);
+    const scheduledAt = new Date(Math.max(now.getTime(), latestScheduledAt + EMAIL_RATE_INTERVAL_MS));
+    const [reservation] = await tx
       .insert(emailDeliveryLog)
-      .values({ category, recipientCount, status: "processing", createdAt: now, updatedAt: now })
+      .values({ category, recipientCount, status: "processing", createdAt: scheduledAt, updatedAt: now })
       .returning({ id: emailDeliveryLog.id });
     if (!reservation) throw new Error("Unable to reserve email delivery quota");
-    return reservation.id;
+    return { id: reservation.id, scheduledAt };
   });
 }
 
-async function waitForEmailRateSlot() {
-  const delayMs = Math.max(0, nextEmailDeliveryAt - Date.now());
+async function waitForEmailRateSlot(scheduledAt: Date) {
+  const delayMs = Math.max(0, scheduledAt.getTime() - Date.now());
   if (delayMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-  nextEmailDeliveryAt = Math.max(Date.now(), nextEmailDeliveryAt) + EMAIL_RATE_INTERVAL_MS;
 }
 
 function buildDkimConfig() {
@@ -107,6 +105,7 @@ function getSmtpTransport() {
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
       secure: env.SMTP_PORT === 465,
+      requireTLS: env.SMTP_PORT === 587,
       dkim: buildDkimConfig(),
       auth:
         env.SMTP_USER && env.SMTP_PASSWORD
@@ -135,7 +134,7 @@ export async function sendEmail(input: {
   }
   if (!env.SMTP_HOST || !env.SMTP_PORT) {
     if (env.AUTH_DEV_CODE_ENABLED) {
-      logger.info({ to: input.to, subject: input.subject, text: input.text }, "email delivery skipped in dev code mode");
+      logger.info({ recipientCount: recipients.length, category: input.category ?? "transactional" }, "email delivery skipped in dev code mode");
       return;
     }
 
@@ -143,17 +142,17 @@ export async function sendEmail(input: {
       throw new Error("SMTP is not configured");
     }
 
-    logger.info({ to: input.to, subject: input.subject, text: input.text }, "email delivery skipped without SMTP");
+    logger.info({ recipientCount: recipients.length, category: input.category ?? "transactional" }, "email delivery skipped without SMTP");
     return;
   }
 
   const transporter = getSmtpTransport();
-  const reservationId = await reserveEmailQuota(recipients.length, input.category ?? "transactional");
+  const reservation = await reserveEmailQuota(recipients.length, input.category ?? "transactional");
   try {
-    await waitForEmailRateSlot();
+    await waitForEmailRateSlot(reservation.scheduledAt);
     const result = await transporter.sendMail({
       from: env.SMTP_FROM,
-      to: recipients,
+      to: [...recipients],
       subject: input.subject,
       text: input.text,
       html: input.html,
@@ -163,15 +162,15 @@ export async function sendEmail(input: {
     await db
       .update(emailDeliveryLog)
       .set({ status: "sent", sentAt: now, messageId: result.messageId, updatedAt: now })
-      .where(eq(emailDeliveryLog.id, reservationId));
+      .where(eq(emailDeliveryLog.id, reservation.id));
 
     logger.info(
       {
-        to: recipients,
-        subject: input.subject,
+        recipientCount: recipients.length,
+        category: input.category ?? "transactional",
         messageId: result.messageId,
-        accepted: result.accepted,
-        rejected: result.rejected
+        acceptedCount: result.accepted.length,
+        rejectedCount: result.rejected.length
       },
       "email delivered through SMTP"
     );
@@ -179,7 +178,7 @@ export async function sendEmail(input: {
     await db
       .update(emailDeliveryLog)
       .set({ status: "failed", error: error instanceof Error ? error.message : "SMTP delivery failed", updatedAt: new Date() })
-      .where(eq(emailDeliveryLog.id, reservationId));
+      .where(eq(emailDeliveryLog.id, reservation.id));
     throw error;
   }
 }

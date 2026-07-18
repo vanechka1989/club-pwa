@@ -11,6 +11,18 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Защита платежей и сервера",
+    items: [
+      "Доступ после оплаты выдаётся только по подписанному уведомлению Prodamus с совпадающими заказом, суммой, товаром и успешным статусом.",
+      "Повторные уведомления оплаты обрабатываются атомарно и больше не могут повторно выдать подписку, бонус или уведомление.",
+      "Запросы кодов входа ограничены по email, устройству и IP, а общий дневной лимит почты и скорость отправки согласованы между всеми API-серверами.",
+      "Медиа из S3 по умолчанию открываются временными подписанными ссылками, а внутренние метрики скрыты без служебного токена.",
+      "Контейнеры API и сайта запускаются без root, с закрытой файловой системой и автоматической подготовкой прав каталога загрузок."
+    ]
+  },
+  {
+    version: "4.94",
+    updatedAt: "18.07.2026 13:24",
     title: "Стабильный чат на iPhone",
     items: [
       "Убрана белая область под строкой сообщения при закрытой клавиатуре в установленном PWA на iPhone.",
@@ -3582,12 +3594,13 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Background API request optimization",
+  title: "Payment and server security",
   items: [
-    "Three background polls are combined into one lightweight app-state request without loading the full profile or notification list.",
-    "Unread support tickets are counted directly in the database instead of loading every ticket into application memory.",
-    "Community topic counters and latest replies are loaded in two batched queries instead of separate queries per topic.",
-    "Concurrent background refreshes are deduplicated until the active request finishes, preventing request queues on slow connections."
+    "Paid access is granted only after a signed Prodamus webhook matches the order, amount, product and successful payment status.",
+    "Duplicate payment callbacks are handled atomically and cannot grant a subscription, referral reward or notification twice.",
+    "Login-code requests are limited by email, device and IP, while the daily email quota and send rate are coordinated across API instances.",
+    "S3 media uses temporary signed links by default, and internal metrics stay private without an observability token.",
+    "API and web containers run without root, with a read-only filesystem and safe upload-volume permission initialization."
   ]
 };
 

@@ -33,4 +33,21 @@ describe("email delivery diagnostics", () => {
     expect(source).toContain("html: input.html");
     expect(source).toContain("headers: input.headers");
   });
+
+  it("reserves quota and rate slots under a database advisory lock", () => {
+    const source = readFileSync(resolve(__dirname, "emailDelivery.ts"), "utf8");
+    expect(source).toContain("pg_advisory_xact_lock");
+    expect(source).toContain("EMAIL_RATE_INTERVAL_MS");
+    expect(source).not.toContain("emailQuotaLock");
+    expect(source).not.toContain("nextEmailDeliveryAt");
+  });
+
+  it("requires TLS on SMTP submission and does not log recipient addresses", () => {
+    const source = readFileSync(resolve(__dirname, "emailDelivery.ts"), "utf8");
+    expect(source).toContain("requireTLS: env.SMTP_PORT === 587");
+    expect(source).toContain("recipientCount: recipients.length");
+    expect(source).not.toContain("to: recipients");
+    expect(source).not.toContain("logger.info({ to:");
+    expect(source).not.toContain("logger.info({ subject:");
+  });
 });

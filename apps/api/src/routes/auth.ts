@@ -20,6 +20,7 @@ import {
   type LoginAttemptStatus
 } from "../auth/emailLoginAttempts";
 import { EmailDailyLimitError, sendEmail } from "../auth/emailDelivery";
+import { recordEmailCodeRequest } from "../auth/emailCodeRequests";
 import { db } from "../db/client";
 import { authEmailLoginCodes, authSessions, users } from "../db/schema";
 import { env } from "../env";
@@ -134,7 +135,7 @@ export const authRoute = new Hono()
     if (!email) {
       return c.json({ error: "Введите корректный email." }, 400);
     }
-    getOrCreateLoginAttemptDevice(c);
+    const loginAttemptDevice = getOrCreateLoginAttemptDevice(c);
 
     const latestLoginCode = await db.query.authEmailLoginCodes.findFirst({
       where: eq(authEmailLoginCodes.email, email),
@@ -143,6 +144,25 @@ export const authRoute = new Hono()
     const retryAfterSeconds = getEmailLoginCodeCooldownSeconds(latestLoginCode?.createdAt);
     if (retryAfterSeconds > 0) {
       return c.json({ error: `Повторный код можно получить через ${retryAfterSeconds}с.`, retryAfterSeconds }, 429);
+    }
+
+    const requestLimits = await recordEmailCodeRequest({
+      email,
+      deviceToken: loginAttemptDevice,
+      ipAddress: getTrustedClientIp(c.req.raw.headers)
+    });
+    const blockedRequest = [requestLimits.email, requestLimits.device, requestLimits.ip]
+      .filter((value): value is LoginAttemptStatus => Boolean(value?.blocked))
+      .sort((left, right) => right.retryAfterSeconds - left.retryAfterSeconds)[0];
+    if (blockedRequest) {
+      return c.json(
+        {
+          code: "AUTH_CODE_RATE_LIMIT",
+          error: `Слишком много запросов кода. Попробуйте снова через ${formatRetryDelay(blockedRequest.retryAfterSeconds)}.`,
+          retryAfterSeconds: blockedRequest.retryAfterSeconds
+        },
+        429
+      );
     }
 
     const code = createLoginCode();

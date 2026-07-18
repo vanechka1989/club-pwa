@@ -305,7 +305,7 @@ cat >"$DEPLOY_DIR/deploy/Caddyfile" <<'CADDY'
   }
 
   handle {
-    reverse_proxy web:80
+    reverse_proxy web:8080
   }
 }
 CADDY
@@ -326,6 +326,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  uploads-permissions:
+    image: ${CLUB_API_IMAGE}
+    restart: "no"
+    user: "0:0"
+    command: ["chown", "-R", "bun:bun", "/app/uploads"]
+    volumes:
+      - api-uploads:/app/uploads
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    read_only: true
 
   api:
     image: ${CLUB_API_IMAGE}
@@ -362,8 +377,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      uploads-permissions:
+        condition: service_completed_successfully
     volumes:
       - api-uploads:/app/uploads
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     expose:
       - "3000"
 
@@ -402,6 +426,13 @@ services:
       postgres:
         condition: service_healthy
     command: ["pnpm", "--filter", "@club/api", "db:migrate"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   web:
     image: ${CLUB_WEB_IMAGE}
@@ -409,7 +440,14 @@ services:
     depends_on:
       - api
     expose:
-      - "80"
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   caddy:
     image: caddy:2-alpine
@@ -448,6 +486,8 @@ MESSAGE
   exit 1
 fi
 
+echo "Подготавливаем каталог загрузок..."
+docker compose run --rm uploads-permissions
 echo "Применяем миграции базы..."
 docker compose run --rm migrate
 echo "Перезапускаем клуб..."
@@ -473,6 +513,10 @@ cd "$DEPLOY_DIR"
 echo
 echo "Скачиваем готовые образы клуба..."
 pull_images
+
+echo
+echo "Подготавливаем каталог загрузок..."
+docker compose run --rm uploads-permissions
 
 echo
 echo "Применяем миграции базы..."

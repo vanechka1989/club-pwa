@@ -208,6 +208,9 @@ deploy_api() {
   current_phase="build-api"
   write_status running "$current_phase"
   compose build "${build_args[@]}" api
+  current_phase="uploads-permissions"
+  write_status running "$current_phase"
+  compose run --rm uploads-permissions
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
@@ -220,6 +223,9 @@ deploy_full() {
   current_phase="build-all"
   write_status running "$current_phase"
   compose build "${build_args[@]}" api web
+  current_phase="uploads-permissions"
+  write_status running "$current_phase"
+  compose run --rm uploads-permissions
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate

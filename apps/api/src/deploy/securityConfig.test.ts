@@ -7,6 +7,11 @@ const nginxConf = readFileSync(resolve(__dirname, "../../../../apps/web/nginx.co
 const serverInstall = readFileSync(resolve(__dirname, "../../../../deploy/server-install.sh"), "utf-8");
 const sshInstall = readFileSync(resolve(__dirname, "../../../../deploy/install.sh"), "utf-8");
 const publicInstall = readFileSync(resolve(__dirname, "../../../../apps/web/public/install-club.sh"), "utf-8");
+const apiDockerfile = readFileSync(resolve(__dirname, "../../../../apps/api/Dockerfile"), "utf-8");
+const webDockerfile = readFileSync(resolve(__dirname, "../../../../apps/web/Dockerfile"), "utf-8");
+const productionCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.prod.yml"), "utf-8");
+const scaleCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.scale.yml"), "utf-8");
+const updateWorker = readFileSync(resolve(__dirname, "../../../../deploy/update-worker.sh"), "utf-8");
 
 describe("production security config", () => {
   it("sets browser security headers in both reverse proxy layers", () => {
@@ -75,5 +80,32 @@ describe("production security config", () => {
   it("keeps local upload fallback data in a persistent installer volume", () => {
     expect(publicInstall).toContain("- api-uploads:/app/uploads");
     expect(publicInstall).toContain("api-uploads:");
+  });
+
+  it("runs application containers without root and with restricted runtime privileges", () => {
+    expect(apiDockerfile).toContain("USER bun");
+    expect(webDockerfile).toContain("nginxinc/nginx-unprivileged");
+    for (const source of [productionCompose, scaleCompose]) {
+      expect(source).toContain("no-new-privileges:true");
+      expect(source).toContain("cap_drop:");
+      expect(source).toContain("read_only: true");
+    }
+  });
+
+  it("repairs an existing upload volume before starting the non-root API", () => {
+    for (const source of [productionCompose, scaleCompose, publicInstall]) {
+      expect(source).toContain("uploads-permissions:");
+      expect(source).toContain('command: ["chown", "-R", "bun:bun", "/app/uploads"]');
+      expect(source).toContain("cap_add:");
+      expect(source).toContain("- CHOWN");
+    }
+    expect(updateWorker).toContain("compose run --rm uploads-permissions");
+    expect(serverInstall).toContain("docker compose -f docker-compose.prod.yml run --rm uploads-permissions");
+    expect(sshInstall).toContain("docker compose -f docker-compose.prod.yml run --rm uploads-permissions");
+  });
+
+  it("pins PgBouncer instead of following a mutable latest tag", () => {
+    expect(scaleCompose).toContain("edoburu/pgbouncer:v1.25.2-p0");
+    expect(scaleCompose).not.toContain("edoburu/pgbouncer:latest");
   });
 });

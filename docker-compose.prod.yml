@@ -14,6 +14,21 @@ services:
       timeout: 5s
       retries: 10
 
+  uploads-permissions:
+    image: club-pwa-api:latest
+    restart: "no"
+    user: "0:0"
+    command: ["chown", "-R", "bun:bun", "/app/uploads"]
+    volumes:
+      - api-uploads:/app/uploads
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    read_only: true
+
   api:
     image: club-pwa-api:latest
     build:
@@ -39,6 +54,7 @@ services:
       DKIM_SELECTOR: ${DKIM_SELECTOR:-}
       DKIM_PRIVATE_KEY: ${DKIM_PRIVATE_KEY:-}
       MAILING_UNSUBSCRIBE_SECRET: ${MAILING_UNSUBSCRIBE_SECRET:-}
+      OBSERVABILITY_TOKEN: ${OBSERVABILITY_TOKEN:-}
       WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
       WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
       WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
@@ -55,8 +71,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      uploads-permissions:
+        condition: service_completed_successfully
     volumes:
       - api-uploads:/app/uploads
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     expose:
       - "3000"
     healthcheck:
@@ -86,6 +111,7 @@ services:
       DKIM_SELECTOR: ${DKIM_SELECTOR:-}
       DKIM_PRIVATE_KEY: ${DKIM_PRIVATE_KEY:-}
       MAILING_UNSUBSCRIBE_SECRET: ${MAILING_UNSUBSCRIBE_SECRET:-}
+      OBSERVABILITY_TOKEN: ${OBSERVABILITY_TOKEN:-}
       WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
       WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
       WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
@@ -100,6 +126,13 @@ services:
       postgres:
         condition: service_healthy
     command: ["pnpm", "--filter", "@club/api", "db:migrate"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   web:
     image: club-pwa-web:latest
@@ -111,7 +144,14 @@ services:
       api:
         condition: service_healthy
     expose:
-      - "80"
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   caddy:
     image: caddy:2-alpine

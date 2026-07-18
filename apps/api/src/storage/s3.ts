@@ -98,12 +98,12 @@ async function headObject(config: StoredS3Config, key: string) {
   );
 }
 
-async function buildObjectReadUrl(config: StoredS3Config, key: string, verifyReadable: boolean) {
+async function buildObjectReadUrl(config: StoredS3Config, key: string, verifyReadable: boolean, allowPublic: boolean) {
   if (verifyReadable) {
     await assertObjectReadable(config, key);
   }
 
-  if (config.publicBaseUrl) {
+  if (allowPublic && config.publicBaseUrl) {
     return `${config.publicBaseUrl}/${key}`;
   }
 
@@ -132,7 +132,7 @@ export async function uploadObject({ key, body, contentType }: UploadObjectInput
 
   return {
     key: normalizedKey,
-    url: config.publicBaseUrl ? `${config.publicBaseUrl}/${normalizedKey}` : null
+    url: null
   };
 }
 
@@ -311,24 +311,34 @@ export async function mirrorObjectToReserve(key: string, contentType: string) {
   );
 }
 
-export async function getObjectReadUrl(key: string, target: S3StorageTarget = "primary", options: { verifyReadable?: boolean } = {}) {
+export async function getObjectReadUrl(
+  key: string,
+  target: S3StorageTarget = "primary",
+  options: { verifyReadable?: boolean; allowPublic?: boolean } = {}
+) {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
   const verifyReadable = options.verifyReadable ?? false;
+  const allowPublic = options.allowPublic ?? false;
 
   if (target === "reserve") {
-    return buildObjectReadUrl(resolveS3TargetConfig(config, "reserve"), normalizedKey, verifyReadable);
+    return buildObjectReadUrl(resolveS3TargetConfig(config, "reserve"), normalizedKey, verifyReadable, allowPublic);
   }
 
   try {
-    return await buildObjectReadUrl(config, normalizedKey, verifyReadable);
+    return await buildObjectReadUrl(config, normalizedKey, verifyReadable, allowPublic);
   } catch (error) {
     if (!config.reserve) {
       throw error;
     }
 
     logger.warn({ error, key: normalizedKey }, "Primary S3 read failed, trying reserve S3");
-    return buildObjectReadUrl({ ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null }, normalizedKey, verifyReadable);
+    return buildObjectReadUrl(
+      { ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null },
+      normalizedKey,
+      verifyReadable,
+      allowPublic
+    );
   }
 }
 

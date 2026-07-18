@@ -22,6 +22,7 @@ import { startBackgroundJobs } from "./backgroundJobs";
 import { checkApplicationReadiness } from "./readiness";
 import { requestMetrics } from "./requestMetrics";
 import { getCommunityRealtimeSubscriberCount } from "./community/realtime";
+import { hasObservabilityAccess } from "./observability";
 
 const app = new Hono();
 const clientErrorRateLimiter = createClientErrorRateLimiter({ maxEvents: 20, windowMs: 60 * 1000 });
@@ -76,14 +77,17 @@ app.use(
 app.get("/health", (c) => c.json({ ok: true }));
 app.get("/ready", async (c) => {
   const readiness = await checkApplicationReadiness();
-  return c.json(readiness, readiness.ok ? 200 : 503);
+  return c.json({ ok: readiness.ok }, readiness.ok ? 200 : 503);
 });
-app.get("/metrics", (c) => c.json({
-  request: requestMetrics.snapshot(),
-  realtimeSubscribers: getCommunityRealtimeSubscriberCount(),
-  memoryRssBytes: process.memoryUsage().rss,
-  uptimeSeconds: Math.round(process.uptime())
-}));
+app.get("/metrics", (c) => {
+  if (!hasObservabilityAccess(c.req.raw, env.OBSERVABILITY_TOKEN)) return c.notFound();
+  return c.json({
+    request: requestMetrics.snapshot(),
+    realtimeSubscribers: getCommunityRealtimeSubscriberCount(),
+    memoryRssBytes: process.memoryUsage().rss,
+    uptimeSeconds: Math.round(process.uptime())
+  });
+});
 app.get("/uploads/*", async (c) => {
   const uploadKey = c.req.path.replace(/^\/uploads\/+/, "");
   const response = await getLocalUploadResponse(uploadKey);
