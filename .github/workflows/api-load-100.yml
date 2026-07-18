@@ -60,8 +60,8 @@ jobs:
             }).returning({ id: authSessions.id });
             if (!session) throw new Error("Unable to create load session");
             await postgresClient.end({ timeout: 1 });
-            await Bun.write(Bun.stdout, `${session.id}\n`);
-          ' | tail -n 1)"
+            process.stdout.write(session.id);
+          ')"
           printf '{"token":"%s","sessionId":"%s"}' "$token" "$session_id"
           REMOTE
           )"
