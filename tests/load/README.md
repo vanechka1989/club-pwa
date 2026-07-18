@@ -55,6 +55,7 @@ k6 run -e BASE_URL=https://club2.myn8nservertest.ru -e CONFIRM_PRODUCTION_LOAD=Y
 `api-profile-100.mjs` воспроизводит новый клиентский профиль после объединения фоновых запросов: каждый из 100 потоков последовательно запрашивает `/api/app-state` и `/api/community/topics`, всего три раунда. Ответы проверяются по схеме, а временная owner-сессия не сохраняется в отчёте.
 
 Production-прогон запускается вручную workflow `API load 100`. Workflow создаёт сессию внутри production-сервера, маскирует токен, отзывает сессию в `always()` и сохраняет только JSON-отчёт.
+Перед началом workflow дожидается завершения активного production-деплоя, чтобы штатный перезапуск контейнера не искажал результат ошибками `502`.
 
 ```bash
 BASE_URL=https://club2.myn8nservertest.ru \
@@ -62,3 +63,5 @@ CONFIRM_PRODUCTION_LOAD=YES \
 SESSION_COOKIE=temporary-owner-session \
 node tests/load/api-profile-100.mjs
 ```
+
+Итоговый production-отчёт: `docs/load-reports/2026-07-18-api-request-optimization-production.md`.

@@ -10,3 +10,4 @@ test-results
 web-dev.log
 .superpowers/
 .worktrees/
+.tmp-api-load-*/
