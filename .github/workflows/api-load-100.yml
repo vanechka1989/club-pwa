@@ -41,13 +41,18 @@ jobs:
           cd "$DEPLOY_DIR"
           token="$(openssl rand -hex 32)"
           session_id="$(docker compose -f docker-compose.prod.yml exec -T -w /app/apps/api -e LOAD_SESSION_TOKEN="$token" api bun -e '
-            import { eq } from "drizzle-orm";
+            import { and, eq, gt, lt } from "drizzle-orm";
             import { hashAuthToken } from "./src/auth/emailAuth.ts";
             import { db } from "./src/db/client.ts";
             import { authSessions, users } from "./src/db/schema.ts";
             import { env } from "./src/env.ts";
             const owner = await db.query.users.findFirst({ where: eq(users.email, env.OWNER_EMAIL) });
             if (!owner) throw new Error("Owner user not found");
+            await db.delete(authSessions).where(and(
+              eq(authSessions.userId, owner.id),
+              gt(authSessions.createdAt, new Date(Date.now() - 60 * 60 * 1000)),
+              lt(authSessions.expiresAt, new Date(Date.now() + 3 * 60 * 60 * 1000))
+            ));
             const [session] = await db.insert(authSessions).values({
               userId: owner.id,
               tokenHash: hashAuthToken(process.env.LOAD_SESSION_TOKEN),
@@ -55,6 +60,7 @@ jobs:
             }).returning({ id: authSessions.id });
             if (!session) throw new Error("Unable to create load session");
             console.log(session.id);
+            process.exit(0);
           ' | tail -n 1)"
           printf '{"token":"%s","sessionId":"%s"}' "$token" "$session_id"
           REMOTE
@@ -89,6 +95,7 @@ jobs:
               import { db } from \"./src/db/client.ts\";
               import { authSessions } from \"./src/db/schema.ts\";
               await db.delete(authSessions).where(eq(authSessions.id, process.env.LOAD_SESSION_ID));
+              process.exit(0);
             '"
 
       - name: Upload report
