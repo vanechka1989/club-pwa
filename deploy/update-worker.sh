@@ -88,23 +88,44 @@ resolve_health_url() {
   fi
 }
 
+resolve_web_url() {
+  if [[ -n "${DEPLOY_WEB_URL:-}" ]]; then
+    printf '%s' "$DEPLOY_WEB_URL"
+    return
+  fi
+
+  local web_origin public_domain
+  web_origin="$(read_env_value WEB_ORIGIN)"
+  if [[ -n "$web_origin" ]]; then
+    printf '%s/' "${web_origin%/}"
+    return
+  fi
+
+  public_domain="$(read_env_value PUBLIC_DOMAIN)"
+  if [[ -n "$public_domain" ]]; then
+    printf 'https://%s/' "$public_domain"
+  fi
+}
+
 wait_for_health() {
-  local health_url
+  local health_url web_url
   health_url="$(resolve_health_url)"
-  if [[ -z "$health_url" ]]; then
-    echo "Health URL is not configured" >&2
+  web_url="$(resolve_web_url)"
+  if [[ -z "$health_url" || -z "$web_url" ]]; then
+    echo "API health URL or web URL is not configured" >&2
     return 1
   fi
 
   for _ in {1..30}; do
-    if curl --fail --silent --show-error --max-time 5 "$health_url" | grep -q '"ok":true'; then
-      echo "Health check passed: $health_url"
+    if curl --fail --silent --show-error --max-time 5 "$health_url" | grep -q '"ok":true' \
+      && curl --fail --silent --show-error --max-time 5 "$web_url" | grep -q '<div id="app"'; then
+      echo "Application checks passed: API $health_url; PWA $web_url"
       return 0
     fi
     sleep 2
   done
 
-  echo "Health check failed: $health_url" >&2
+  echo "Application checks failed: API $health_url; PWA $web_url" >&2
   return 1
 }
 
@@ -250,6 +271,7 @@ rollback_services() {
     docker tag "$previous_web_image" club-pwa-web:latest
     compose up -d --no-deps --force-recreate web || true
   fi
+  reload_caddy || true
   wait_for_health || true
 }
 
@@ -296,7 +318,10 @@ if [[ $full_reconcile -eq 1 ]]; then
 else
   [[ $api_changed -eq 1 ]] && deploy_api
   [[ $web_changed -eq 1 ]] && deploy_web
-  [[ $caddy_changed -eq 1 ]] && reload_caddy
+fi
+
+if [[ $web_changed -eq 1 || $api_changed -eq 1 || $caddy_changed -eq 1 ]]; then
+  reload_caddy
 fi
 
 current_phase="health"
