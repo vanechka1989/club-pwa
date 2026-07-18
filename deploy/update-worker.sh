@@ -53,6 +53,7 @@ fail_status() {
     write_status failed "$current_phase" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "Deployment failed in phase '$current_phase' with exit code $exit_code" >&2
   fi
+  cleanup_previous_images
   exit "$exit_code"
 }
 
@@ -211,11 +212,22 @@ if [[ "${DEPLOY_FORCE:-0}" == "1" ]]; then
 fi
 
 remember_previous_images() {
-  if [[ $web_changed -eq 1 ]]; then
-    previous_web_image="$(docker image inspect club-pwa-web:latest --format '{{.Id}}' 2>/dev/null || true)"
+  if [[ $web_changed -eq 1 ]] && docker image inspect club-pwa-web:latest >/dev/null 2>&1; then
+    previous_web_image="club-pwa-web:rollback-$DEPLOY_RUN_ID"
+    docker tag club-pwa-web:latest "$previous_web_image"
   fi
-  if [[ $api_changed -eq 1 ]]; then
-    previous_api_image="$(docker image inspect club-pwa-api:latest --format '{{.Id}}' 2>/dev/null || true)"
+  if [[ $api_changed -eq 1 ]] && docker image inspect club-pwa-api:latest >/dev/null 2>&1; then
+    previous_api_image="club-pwa-api:rollback-$DEPLOY_RUN_ID"
+    docker tag club-pwa-api:latest "$previous_api_image"
+  fi
+}
+
+cleanup_previous_images() {
+  if [[ -n "$previous_web_image" ]]; then
+    docker image rm "$previous_web_image" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$previous_api_image" ]]; then
+    docker image rm "$previous_api_image" >/dev/null 2>&1 || true
   fi
 }
 
@@ -261,7 +273,7 @@ deploy_full() {
 reload_caddy() {
   current_phase="reload-caddy"
   write_status running "$current_phase"
-  compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+  compose exec -T caddy caddy reload --force --config /etc/caddy/Caddyfile
 }
 
 rollback_services() {
@@ -276,6 +288,7 @@ rollback_services() {
   fi
   reload_caddy || true
   wait_for_health || true
+  cleanup_previous_images
 }
 
 if [[ "$DEPLOY_WORKER_LOCK_HELD" != "1" ]]; then
@@ -347,6 +360,7 @@ fi
 
 current_phase="cleanup"
 write_status running "$current_phase"
+cleanup_previous_images
 docker image prune -f --filter "until=72h" >/dev/null || true
 if docker buildx version >/dev/null 2>&1; then
   docker buildx prune -f --filter "until=168h" >/dev/null || true

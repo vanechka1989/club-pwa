@@ -65,6 +65,7 @@ describe("deploy update script", () => {
 
     expect(deploymentBlock).toContain("reload_caddy");
     expect(updateWorker).toContain("reload_caddy || true");
+    expect(updateWorker).toContain("caddy reload --force --config /etc/caddy/Caddyfile");
   });
 
   it("restores previous application images when the new containers fail health verification", () => {
@@ -72,6 +73,9 @@ describe("deploy update script", () => {
     expect(updateWorker).toContain("if ! wait_for_health; then");
     expect(updateWorker).toContain("rollback_services");
     expect(updateWorker).toContain("--force-recreate");
+    expect(updateWorker).toContain('club-pwa-web:rollback-$DEPLOY_RUN_ID');
+    expect(updateWorker).toContain('club-pwa-api:rollback-$DEPLOY_RUN_ID');
+    expect(updateWorker).toContain("cleanup_previous_images");
   });
 
   it("updates web and api independently without restarting dependencies", () => {
