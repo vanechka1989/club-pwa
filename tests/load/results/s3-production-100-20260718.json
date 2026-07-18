@@ -1,0 +1,3298 @@
+{
+  "runId": "s3-production-100-20260718",
+  "startedAt": "2026-07-18T04:29:39.240Z",
+  "baseUrl": "https://club2.myn8nservertest.ru",
+  "profile": "production-100",
+  "identityModel": "one temporary owner session, independent multipart upload flows",
+  "phases": [
+    {
+      "kind": "photo",
+      "clients": 100,
+      "sizeBytes": 2097152,
+      "totalBytes": 209715200,
+      "durationMs": 37198,
+      "transferDurationMs": 23371,
+      "throughputMiBPerSecond": 8.56,
+      "completed": 100,
+      "verified": 100,
+      "failures": [],
+      "peakApiRssBytes": 192106496
+    },
+    {
+      "kind": "video",
+      "clients": 25,
+      "sizeBytes": 25165824,
+      "totalBytes": 629145600,
+      "durationMs": 52522,
+      "transferDurationMs": 51618,
+      "throughputMiBPerSecond": 11.62,
+      "completed": 25,
+      "verified": 25,
+      "failures": [],
+      "peakApiRssBytes": 211374080
+    }
+  ],
+  "baseline": {
+    "stage": "baseline",
+    "at": "2026-07-18T04:29:39.520Z",
+    "health": {
+      "ok": true
+    },
+    "ready": {
+      "ok": true,
+      "database": true,
+      "redis": {
+        "configured": false,
+        "ready": true
+      }
+    },
+    "request": {
+      "requests": 2250,
+      "failedRequests": 0,
+      "averageDurationMs": 15,
+      "maxDurationMs": 5136
+    },
+    "realtimeSubscribers": 0,
+    "memoryRssBytes": 170352640,
+    "uptimeSeconds": 31021
+  },
+  "peak": {
+    "stage": "peak",
+    "at": "2026-07-18T04:31:39.004Z",
+    "health": {
+      "ok": true
+    },
+    "ready": {
+      "ok": true,
+      "database": true,
+      "redis": {
+        "configured": false,
+        "ready": true
+      }
+    },
+    "request": {
+      "requests": 3292,
+      "failedRequests": 0,
+      "averageDurationMs": 802,
+      "maxDurationMs": 27476
+    },
+    "realtimeSubscribers": 0,
+    "memoryRssBytes": 210821120,
+    "uptimeSeconds": 31141
+  },
+  "cleanup": {
+    "attemptedObjects": 125,
+    "completedObjectsRemaining": 0,
+    "unfinishedUploadsRemaining": 0,
+    "unfinished": [],
+    "errors": []
+  },
+  "finishedAt": "2026-07-18T04:31:47.253Z",
+  "metricsSamples": [
+    {
+      "stage": "baseline",
+      "at": "2026-07-18T04:29:39.520Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2250,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 170352640,
+      "uptimeSeconds": 31021
+    },
+    {
+      "stage": "photo-initialized-5",
+      "at": "2026-07-18T04:29:40.022Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2258,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 171511808,
+      "uptimeSeconds": 31022
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:40.628Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2262,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 170819584,
+      "uptimeSeconds": 31022
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:41.627Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2265,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 170819584,
+      "uptimeSeconds": 31023
+    },
+    {
+      "stage": "photo-initialized-10",
+      "at": "2026-07-18T04:29:42.561Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2273,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 172105728,
+      "uptimeSeconds": 31024
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:42.643Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2276,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 172105728,
+      "uptimeSeconds": 31024
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:43.661Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2279,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 171429888,
+      "uptimeSeconds": 31025
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:44.840Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2285,
+        "failedRequests": 0,
+        "averageDurationMs": 15,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 172609536,
+      "uptimeSeconds": 31027
+    },
+    {
+      "stage": "photo-initialized-25",
+      "at": "2026-07-18T04:29:45.303Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2300,
+        "failedRequests": 0,
+        "averageDurationMs": 16,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 174366720,
+      "uptimeSeconds": 31027
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:45.680Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2303,
+        "failedRequests": 0,
+        "averageDurationMs": 16,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 174104576,
+      "uptimeSeconds": 31027
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:46.685Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2305,
+        "failedRequests": 0,
+        "averageDurationMs": 16,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 173658112,
+      "uptimeSeconds": 31029
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:47.855Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2329,
+        "failedRequests": 0,
+        "averageDurationMs": 18,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 185102336,
+      "uptimeSeconds": 31030
+    },
+    {
+      "stage": "photo-initialized-50",
+      "at": "2026-07-18T04:29:47.989Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2337,
+        "failedRequests": 0,
+        "averageDurationMs": 19,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 183676928,
+      "uptimeSeconds": 31030
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:48.706Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2340,
+        "failedRequests": 0,
+        "averageDurationMs": 19,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 178429952,
+      "uptimeSeconds": 31031
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:49.708Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2343,
+        "failedRequests": 0,
+        "averageDurationMs": 19,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 178429952,
+      "uptimeSeconds": 31032
+    },
+    {
+      "stage": "photo-initialized-75",
+      "at": "2026-07-18T04:29:50.693Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2371,
+        "failedRequests": 0,
+        "averageDurationMs": 22,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 164659200,
+      "uptimeSeconds": 31033
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:50.716Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2373,
+        "failedRequests": 0,
+        "averageDurationMs": 22,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 164659200,
+      "uptimeSeconds": 31033
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:51.708Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2378,
+        "failedRequests": 0,
+        "averageDurationMs": 22,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 162271232,
+      "uptimeSeconds": 31034
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:52.722Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2381,
+        "failedRequests": 0,
+        "averageDurationMs": 22,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 162136064,
+      "uptimeSeconds": 31035
+    },
+    {
+      "stage": "photo-initialized-100",
+      "at": "2026-07-18T04:29:53.342Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2409,
+        "failedRequests": 0,
+        "averageDurationMs": 24,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 167018496,
+      "uptimeSeconds": 31035
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:54.617Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2411,
+        "failedRequests": 0,
+        "averageDurationMs": 24,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 184631296,
+      "uptimeSeconds": 31036
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:54.916Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2414,
+        "failedRequests": 0,
+        "averageDurationMs": 24,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 196481024,
+      "uptimeSeconds": 31037
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:55.856Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2417,
+        "failedRequests": 0,
+        "averageDurationMs": 24,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 211095552,
+      "uptimeSeconds": 31038
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:56.763Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2420,
+        "failedRequests": 0,
+        "averageDurationMs": 24,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 235241472,
+      "uptimeSeconds": 31039
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:57.779Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2424,
+        "failedRequests": 0,
+        "averageDurationMs": 26,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 254500864,
+      "uptimeSeconds": 31040
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:58.781Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2427,
+        "failedRequests": 0,
+        "averageDurationMs": 26,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 275943424,
+      "uptimeSeconds": 31041
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:29:59.802Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2430,
+        "failedRequests": 0,
+        "averageDurationMs": 26,
+        "maxDurationMs": 5136
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 307290112,
+      "uptimeSeconds": 31042
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:00.812Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2435,
+        "failedRequests": 0,
+        "averageDurationMs": 29,
+        "maxDurationMs": 6956
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 335654912,
+      "uptimeSeconds": 31043
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:01.835Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2440,
+        "failedRequests": 0,
+        "averageDurationMs": 32,
+        "maxDurationMs": 7634
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 350158848,
+      "uptimeSeconds": 31044
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:02.811Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2450,
+        "failedRequests": 0,
+        "averageDurationMs": 43,
+        "maxDurationMs": 8922
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 366542848,
+      "uptimeSeconds": 31045
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:03.841Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2456,
+        "failedRequests": 0,
+        "averageDurationMs": 47,
+        "maxDurationMs": 9666
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 387751936,
+      "uptimeSeconds": 31046
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:04.833Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2463,
+        "failedRequests": 0,
+        "averageDurationMs": 55,
+        "maxDurationMs": 10206
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 403292160,
+      "uptimeSeconds": 31047
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:05.835Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2473,
+        "failedRequests": 0,
+        "averageDurationMs": 73,
+        "maxDurationMs": 11624
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 427982848,
+      "uptimeSeconds": 31048
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:06.877Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2487,
+        "failedRequests": 0,
+        "averageDurationMs": 103,
+        "maxDurationMs": 13016
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 460783616,
+      "uptimeSeconds": 31049
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:07.875Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2528,
+        "failedRequests": 0,
+        "averageDurationMs": 233,
+        "maxDurationMs": 14143
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 482656256,
+      "uptimeSeconds": 31050
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:08.837Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2565,
+        "failedRequests": 0,
+        "averageDurationMs": 288,
+        "maxDurationMs": 14620
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 485875712,
+      "uptimeSeconds": 31051
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:09.860Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2593,
+        "failedRequests": 0,
+        "averageDurationMs": 361,
+        "maxDurationMs": 16024
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 469213184,
+      "uptimeSeconds": 31052
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:10.870Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2623,
+        "failedRequests": 0,
+        "averageDurationMs": 443,
+        "maxDurationMs": 17218
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 426123264,
+      "uptimeSeconds": 31053
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:11.871Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2651,
+        "failedRequests": 0,
+        "averageDurationMs": 515,
+        "maxDurationMs": 18050
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 427085824,
+      "uptimeSeconds": 31054
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:12.864Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2662,
+        "failedRequests": 0,
+        "averageDurationMs": 540,
+        "maxDurationMs": 18349
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 399142912,
+      "uptimeSeconds": 31055
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:13.903Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2693,
+        "failedRequests": 0,
+        "averageDurationMs": 556,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 393601024,
+      "uptimeSeconds": 31056
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:14.861Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2715,
+        "failedRequests": 0,
+        "averageDurationMs": 554,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 193257472,
+      "uptimeSeconds": 31057
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:15.888Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2753,
+        "failedRequests": 0,
+        "averageDurationMs": 550,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 186122240,
+      "uptimeSeconds": 31058
+    },
+    {
+      "stage": "photo-completed",
+      "at": "2026-07-18T04:30:16.718Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2782,
+        "failedRequests": 0,
+        "averageDurationMs": 547,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 192106496,
+      "uptimeSeconds": 31059
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:16.877Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2783,
+        "failedRequests": 0,
+        "averageDurationMs": 547,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 190398464,
+      "uptimeSeconds": 31059
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:18.027Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2789,
+        "failedRequests": 0,
+        "averageDurationMs": 546,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 187596800,
+      "uptimeSeconds": 31060
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:19.061Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2797,
+        "failedRequests": 0,
+        "averageDurationMs": 544,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 187596800,
+      "uptimeSeconds": 31061
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:20.065Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2804,
+        "failedRequests": 0,
+        "averageDurationMs": 543,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 187990016,
+      "uptimeSeconds": 31062
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:21.051Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2809,
+        "failedRequests": 0,
+        "averageDurationMs": 542,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 187990016,
+      "uptimeSeconds": 31063
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:22.063Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2815,
+        "failedRequests": 0,
+        "averageDurationMs": 541,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 188514304,
+      "uptimeSeconds": 31064
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:23.061Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2822,
+        "failedRequests": 0,
+        "averageDurationMs": 540,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 191729664,
+      "uptimeSeconds": 31065
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:24.098Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2832,
+        "failedRequests": 0,
+        "averageDurationMs": 538,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 189382656,
+      "uptimeSeconds": 31066
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:25.104Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2836,
+        "failedRequests": 0,
+        "averageDurationMs": 538,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 189644800,
+      "uptimeSeconds": 31067
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:26.130Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2842,
+        "failedRequests": 0,
+        "averageDurationMs": 537,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 189775872,
+      "uptimeSeconds": 31068
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:27.129Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2849,
+        "failedRequests": 0,
+        "averageDurationMs": 535,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 190038016,
+      "uptimeSeconds": 31069
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:28.127Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2858,
+        "failedRequests": 0,
+        "averageDurationMs": 534,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 190431232,
+      "uptimeSeconds": 31070
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:29.139Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2862,
+        "failedRequests": 0,
+        "averageDurationMs": 533,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 190562304,
+      "uptimeSeconds": 31071
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:30.140Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2868,
+        "failedRequests": 0,
+        "averageDurationMs": 532,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 190693376,
+      "uptimeSeconds": 31072
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:31.138Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2874,
+        "failedRequests": 0,
+        "averageDurationMs": 531,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 192233472,
+      "uptimeSeconds": 31073
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:32.154Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2880,
+        "failedRequests": 0,
+        "averageDurationMs": 530,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 191479808,
+      "uptimeSeconds": 31074
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:33.164Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2887,
+        "failedRequests": 0,
+        "averageDurationMs": 529,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 174288896,
+      "uptimeSeconds": 31075
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:34.185Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2894,
+        "failedRequests": 0,
+        "averageDurationMs": 528,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 174411776,
+      "uptimeSeconds": 31076
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:35.184Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2901,
+        "failedRequests": 0,
+        "averageDurationMs": 527,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 175198208,
+      "uptimeSeconds": 31077
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:36.176Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2908,
+        "failedRequests": 0,
+        "averageDurationMs": 526,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 174690304,
+      "uptimeSeconds": 31078
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:37.187Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2915,
+        "failedRequests": 0,
+        "averageDurationMs": 525,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 175431680,
+      "uptimeSeconds": 31079
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:38.181Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2921,
+        "failedRequests": 0,
+        "averageDurationMs": 524,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 174858240,
+      "uptimeSeconds": 31080
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:39.215Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2926,
+        "failedRequests": 0,
+        "averageDurationMs": 523,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 174989312,
+      "uptimeSeconds": 31081
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:40.209Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2935,
+        "failedRequests": 0,
+        "averageDurationMs": 522,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 175251456,
+      "uptimeSeconds": 31082
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:41.184Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2939,
+        "failedRequests": 0,
+        "averageDurationMs": 521,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 175513600,
+      "uptimeSeconds": 31083
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:42.204Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2945,
+        "failedRequests": 0,
+        "averageDurationMs": 520,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 175775744,
+      "uptimeSeconds": 31084
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:43.219Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2952,
+        "failedRequests": 0,
+        "averageDurationMs": 519,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 176930816,
+      "uptimeSeconds": 31085
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:44.211Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2958,
+        "failedRequests": 0,
+        "averageDurationMs": 518,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 176058368,
+      "uptimeSeconds": 31086
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:45.220Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2965,
+        "failedRequests": 0,
+        "averageDurationMs": 517,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 176316416,
+      "uptimeSeconds": 31087
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:46.231Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 2970,
+        "failedRequests": 0,
+        "averageDurationMs": 516,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 176447488,
+      "uptimeSeconds": 31088
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:47.070Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3002,
+        "failedRequests": 0,
+        "averageDurationMs": 513,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 181559296,
+      "uptimeSeconds": 31089
+    },
+    {
+      "stage": "video-initialized-25",
+      "at": "2026-07-18T04:30:47.256Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3005,
+        "failedRequests": 0,
+        "averageDurationMs": 512,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 181559296,
+      "uptimeSeconds": 31089
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:48.268Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3007,
+        "failedRequests": 0,
+        "averageDurationMs": 512,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 204148736,
+      "uptimeSeconds": 31090
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:49.103Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3012,
+        "failedRequests": 0,
+        "averageDurationMs": 511,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 239767552,
+      "uptimeSeconds": 31091
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:50.114Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3014,
+        "failedRequests": 0,
+        "averageDurationMs": 511,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 280313856,
+      "uptimeSeconds": 31092
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:51.138Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3016,
+        "failedRequests": 0,
+        "averageDurationMs": 510,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 306307072,
+      "uptimeSeconds": 31093
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:52.139Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3020,
+        "failedRequests": 0,
+        "averageDurationMs": 509,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 346423296,
+      "uptimeSeconds": 31094
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:53.148Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3023,
+        "failedRequests": 0,
+        "averageDurationMs": 509,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 341315584,
+      "uptimeSeconds": 31095
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:54.141Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3025,
+        "failedRequests": 0,
+        "averageDurationMs": 509,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 379338752,
+      "uptimeSeconds": 31096
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:55.149Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3029,
+        "failedRequests": 0,
+        "averageDurationMs": 510,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 384950272,
+      "uptimeSeconds": 31097
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:56.131Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3034,
+        "failedRequests": 0,
+        "averageDurationMs": 515,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 410238976,
+      "uptimeSeconds": 31098
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:57.150Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3040,
+        "failedRequests": 0,
+        "averageDurationMs": 522,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 408313856,
+      "uptimeSeconds": 31099
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:58.147Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3046,
+        "failedRequests": 0,
+        "averageDurationMs": 531,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 370241536,
+      "uptimeSeconds": 31100
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:30:59.160Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3050,
+        "failedRequests": 0,
+        "averageDurationMs": 534,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 347656192,
+      "uptimeSeconds": 31101
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:00.167Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3056,
+        "failedRequests": 0,
+        "averageDurationMs": 545,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 324411392,
+      "uptimeSeconds": 31102
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:01.179Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3059,
+        "failedRequests": 0,
+        "averageDurationMs": 544,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 343015424,
+      "uptimeSeconds": 31103
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:02.225Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3063,
+        "failedRequests": 0,
+        "averageDurationMs": 548,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 344387584,
+      "uptimeSeconds": 31104
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:03.208Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3069,
+        "failedRequests": 0,
+        "averageDurationMs": 557,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 359968768,
+      "uptimeSeconds": 31105
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:04.217Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3074,
+        "failedRequests": 0,
+        "averageDurationMs": 566,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 368304128,
+      "uptimeSeconds": 31106
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:05.223Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3079,
+        "failedRequests": 0,
+        "averageDurationMs": 576,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 346144768,
+      "uptimeSeconds": 31107
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:06.228Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3086,
+        "failedRequests": 0,
+        "averageDurationMs": 590,
+        "maxDurationMs": 18740
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 341929984,
+      "uptimeSeconds": 31108
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:07.236Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3090,
+        "failedRequests": 0,
+        "averageDurationMs": 599,
+        "maxDurationMs": 18980
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 338722816,
+      "uptimeSeconds": 31109
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:08.247Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3094,
+        "failedRequests": 0,
+        "averageDurationMs": 598,
+        "maxDurationMs": 18980
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 344707072,
+      "uptimeSeconds": 31110
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:09.260Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3097,
+        "failedRequests": 0,
+        "averageDurationMs": 604,
+        "maxDurationMs": 20601
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 322801664,
+      "uptimeSeconds": 31111
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:10.260Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3102,
+        "failedRequests": 0,
+        "averageDurationMs": 614,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 328470528,
+      "uptimeSeconds": 31112
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:11.272Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3105,
+        "failedRequests": 0,
+        "averageDurationMs": 614,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 325390336,
+      "uptimeSeconds": 31113
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:12.446Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3112,
+        "failedRequests": 0,
+        "averageDurationMs": 618,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 326705152,
+      "uptimeSeconds": 31114
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:13.295Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3116,
+        "failedRequests": 0,
+        "averageDurationMs": 622,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 328912896,
+      "uptimeSeconds": 31115
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:14.346Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3118,
+        "failedRequests": 0,
+        "averageDurationMs": 622,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 336564224,
+      "uptimeSeconds": 31116
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:15.416Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3121,
+        "failedRequests": 0,
+        "averageDurationMs": 628,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 342667264,
+      "uptimeSeconds": 31117
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:16.318Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3128,
+        "failedRequests": 0,
+        "averageDurationMs": 637,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 356823040,
+      "uptimeSeconds": 31118
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:17.332Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3132,
+        "failedRequests": 0,
+        "averageDurationMs": 640,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 359391232,
+      "uptimeSeconds": 31119
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:18.356Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3136,
+        "failedRequests": 0,
+        "averageDurationMs": 646,
+        "maxDurationMs": 22334
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 341696512,
+      "uptimeSeconds": 31120
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:19.356Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3142,
+        "failedRequests": 0,
+        "averageDurationMs": 657,
+        "maxDurationMs": 24074
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 336596992,
+      "uptimeSeconds": 31121
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:20.364Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3147,
+        "failedRequests": 0,
+        "averageDurationMs": 660,
+        "maxDurationMs": 24074
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 308559872,
+      "uptimeSeconds": 31122
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:21.377Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3150,
+        "failedRequests": 0,
+        "averageDurationMs": 664,
+        "maxDurationMs": 24074
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 316985344,
+      "uptimeSeconds": 31123
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:22.390Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3153,
+        "failedRequests": 0,
+        "averageDurationMs": 664,
+        "maxDurationMs": 24074
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 354996224,
+      "uptimeSeconds": 31124
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:23.389Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3158,
+        "failedRequests": 0,
+        "averageDurationMs": 670,
+        "maxDurationMs": 24296
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 380428288,
+      "uptimeSeconds": 31125
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:24.443Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3165,
+        "failedRequests": 0,
+        "averageDurationMs": 689,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 380964864,
+      "uptimeSeconds": 31126
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:25.413Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3173,
+        "failedRequests": 0,
+        "averageDurationMs": 723,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 379211776,
+      "uptimeSeconds": 31127
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:26.464Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3176,
+        "failedRequests": 0,
+        "averageDurationMs": 722,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 382992384,
+      "uptimeSeconds": 31128
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:27.454Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3185,
+        "failedRequests": 0,
+        "averageDurationMs": 729,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 344911872,
+      "uptimeSeconds": 31129
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:28.450Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3192,
+        "failedRequests": 0,
+        "averageDurationMs": 740,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 348413952,
+      "uptimeSeconds": 31130
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:29.483Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3196,
+        "failedRequests": 0,
+        "averageDurationMs": 752,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 368599040,
+      "uptimeSeconds": 31131
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:30.525Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3202,
+        "failedRequests": 0,
+        "averageDurationMs": 762,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 372031488,
+      "uptimeSeconds": 31132
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:31.488Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3214,
+        "failedRequests": 0,
+        "averageDurationMs": 779,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 328368128,
+      "uptimeSeconds": 31133
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:32.518Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3220,
+        "failedRequests": 0,
+        "averageDurationMs": 781,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 322097152,
+      "uptimeSeconds": 31134
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:33.528Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3224,
+        "failedRequests": 0,
+        "averageDurationMs": 782,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 339374080,
+      "uptimeSeconds": 31135
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:34.537Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3232,
+        "failedRequests": 0,
+        "averageDurationMs": 788,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 356413440,
+      "uptimeSeconds": 31136
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:35.550Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3237,
+        "failedRequests": 0,
+        "averageDurationMs": 790,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 312168448,
+      "uptimeSeconds": 31137
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:36.550Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3246,
+        "failedRequests": 0,
+        "averageDurationMs": 799,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 275726336,
+      "uptimeSeconds": 31138
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:37.554Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3256,
+        "failedRequests": 0,
+        "averageDurationMs": 809,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 274894848,
+      "uptimeSeconds": 31139
+    },
+    {
+      "stage": "periodic",
+      "at": "2026-07-18T04:31:38.554Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3280,
+        "failedRequests": 0,
+        "averageDurationMs": 805,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 213082112,
+      "uptimeSeconds": 31140
+    },
+    {
+      "stage": "video-completed",
+      "at": "2026-07-18T04:31:38.915Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3289,
+        "failedRequests": 0,
+        "averageDurationMs": 802,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 211374080,
+      "uptimeSeconds": 31141
+    },
+    {
+      "stage": "peak",
+      "at": "2026-07-18T04:31:39.004Z",
+      "health": {
+        "ok": true
+      },
+      "ready": {
+        "ok": true,
+        "database": true,
+        "redis": {
+          "configured": false,
+          "ready": true
+        }
+      },
+      "request": {
+        "requests": 3292,
+        "failedRequests": 0,
+        "averageDurationMs": 802,
+        "maxDurationMs": 27476
+      },
+      "realtimeSubscribers": 0,
+      "memoryRssBytes": 210821120,
+      "uptimeSeconds": 31141
+    }
+  ],
+  "operations": {
+    "multipart-init": {
+      "requests": 125,
+      "failures": 0,
+      "bytes": 0,
+      "latency": {
+        "count": 125,
+        "min": 180,
+        "p50": 441,
+        "p95": 554,
+        "p99": 605,
+        "max": 650,
+        "average": 416
+      }
+    },
+    "multipart-part": {
+      "requests": 175,
+      "failures": 0,
+      "bytes": 838860800,
+      "latency": {
+        "count": 175,
+        "min": 4295,
+        "p50": 14717,
+        "p95": 22453,
+        "p99": 27454,
+        "max": 27581,
+        "average": 14841
+      }
+    },
+    "multipart-complete": {
+      "requests": 125,
+      "failures": 0,
+      "bytes": 0,
+      "latency": {
+        "count": 125,
+        "min": 169,
+        "p50": 260,
+        "p95": 627,
+        "p99": 938,
+        "max": 1214,
+        "average": 315
+      }
+    },
+    "s3-verify-url": {
+      "requests": 125,
+      "failures": 0,
+      "bytes": 0,
+      "latency": {
+        "count": 125,
+        "min": 184,
+        "p50": 395,
+        "p95": 593,
+        "p99": 667,
+        "max": 671,
+        "average": 384
+      }
+    },
+    "s3-verify-range": {
+      "requests": 125,
+      "failures": 0,
+      "bytes": 0,
+      "latency": {
+        "count": 125,
+        "min": 79,
+        "p50": 110,
+        "p95": 247,
+        "p99": 266,
+        "max": 274,
+        "average": 137
+      }
+    },
+    "s3-delete": {
+      "requests": 125,
+      "failures": 0,
+      "bytes": 0,
+      "latency": {
+        "count": 125,
+        "min": 161,
+        "p50": 334,
+        "p95": 422,
+        "p99": 500,
+        "max": 514,
+        "average": 303
+      }
+    }
+  },
+  "operationErrors": [],
+  "errors": [],
+  "expectedUploads": 125,
+  "completedUploads": 125,
+  "verifiedUploads": 125,
+  "requestCount": 675,
+  "failedRequestCount": 0,
+  "healthFailures": 0,
+  "containerRestarts": 0,
+  "peakApiRssBytes": 485875712,
+  "thresholdEvaluation": {
+    "passed": true,
+    "checks": {
+      "completion": true,
+      "verification": true,
+      "requestErrors": true,
+      "health": true,
+      "restarts": true,
+      "memory": true,
+      "cleanup": true
+    },
+    "errorRate": 0
+  }
+}
