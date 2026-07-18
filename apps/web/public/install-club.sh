@@ -395,6 +395,7 @@ services:
   migrate:
     image: ${CLUB_API_IMAGE}
     restart: "no"
+    working_dir: /app/apps/api
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-club}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-club}
@@ -426,8 +427,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    entrypoint: ["pnpm"]
-    command: ["--filter", "@club/api", "db:migrate"]
+    entrypoint: ["bun"]
+    command: ["node_modules/drizzle-kit/bin.cjs", "migrate"]
     security_opt:
       - no-new-privileges:true
     cap_drop:

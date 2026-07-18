@@ -107,8 +107,10 @@ describe("production security config", () => {
 
   it("overrides the Bun image entrypoint for maintenance commands", () => {
     for (const source of [productionCompose, scaleCompose, publicInstall]) {
-      expect(source).toContain('entrypoint: ["pnpm"]');
-      expect(source).toContain('command: ["--filter", "@club/api", "db:migrate"]');
+      expect(source).toContain('working_dir: /app/apps/api');
+      expect(source).toContain('entrypoint: ["bun"]');
+      expect(source).toContain('command: ["node_modules/drizzle-kit/bin.cjs", "migrate"]');
+      expect(source).not.toContain('entrypoint: ["pnpm"]');
     }
   });
 
