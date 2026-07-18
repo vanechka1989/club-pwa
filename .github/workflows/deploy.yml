@@ -35,10 +35,23 @@ jobs:
           DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key \
-            -o IdentitiesOnly=yes \
-            -o ServerAliveInterval=20 \
-            -o ServerAliveCountMax=30 \
-            -p "$SERVER_PORT" \
-            "$SERVER_USER@$SERVER_HOST" \
-            "DEPLOY_DIR='$DEPLOY_DIR' bash '$DEPLOY_DIR/deploy/update.sh'"
+          ssh_args=(
+            -i ~/.ssh/deploy_key
+            -o IdentitiesOnly=yes
+            -o ServerAliveInterval=20
+            -o ServerAliveCountMax=30
+            -p "$SERVER_PORT"
+            "$SERVER_USER@$SERVER_HOST"
+          )
+
+          if ! ssh "${ssh_args[@]}" "DEPLOY_DIR='$DEPLOY_DIR' bash '$DEPLOY_DIR/deploy/update.sh'"; then
+            echo "Deployment command failed. Collecting remote diagnostics..." >&2
+            ssh "${ssh_args[@]}" "
+              DEPLOY_DIR='$DEPLOY_DIR' bash '$DEPLOY_DIR/deploy/status.sh' || true
+              journalctl -u club-pwa-deploy.service --no-pager -n 200 || true
+              cd '$DEPLOY_DIR'
+              docker compose -f docker-compose.prod.yml ps || true
+              docker compose -f docker-compose.prod.yml logs --tail=120 api web caddy || true
+            " || true
+            exit 1
+          fi

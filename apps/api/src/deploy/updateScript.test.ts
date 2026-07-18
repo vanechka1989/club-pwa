@@ -115,6 +115,14 @@ describe("deploy update script", () => {
     expect(serverInstall).toContain("docker-buildx-plugin");
   });
 
+  it("collects remote deployment diagnostics when the update command fails", () => {
+    expect(deployWorkflow).toContain("Deployment command failed. Collecting remote diagnostics");
+    expect(deployWorkflow).toContain("deploy/status.sh");
+    expect(deployWorkflow).toContain("journalctl -u club-pwa-deploy.service");
+    expect(deployWorkflow).toContain("docker compose -f docker-compose.prod.yml ps");
+    expect(deployWorkflow).toContain("docker compose -f docker-compose.prod.yml logs --tail=120 api web caddy");
+  });
+
   it("prunes only old dangling images after a verified deployment", () => {
     const healthIndex = updateWorker.lastIndexOf("wait_for_health");
     const pruneIndex = updateWorker.lastIndexOf("docker image prune");
