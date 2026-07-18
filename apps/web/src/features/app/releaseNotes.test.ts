@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the security audit fixes as version 4.95", () => {
-    expect(appVersion).toBe("4.95");
-    expect(releaseNotes[0]?.title).toBe("Защита платежей и сервера");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Prodamus");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("без root");
-    expect(releaseNotes[1]?.version).toBe("4.94");
+  it("publishes the responsive audit fixes as version 4.96", () => {
+    expect(appVersion).toBe("4.96");
+    expect(releaseNotes[0]?.title).toBe("Проверка экранов и установки");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("горизонтальных экранах Android");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Bun");
+    expect(releaseNotes[1]?.version).toBe("4.95");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

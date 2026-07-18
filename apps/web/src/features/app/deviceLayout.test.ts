@@ -156,6 +156,28 @@ describe("device layout detection", () => {
     ).toEqual({ isMobileDeviceShell: true, scale: 2.513 });
   });
 
+  it("keeps a real short Android landscape viewport unscaled", () => {
+    const snapshot = createDeviceLayoutSnapshot({
+      layoutWidth: 844,
+      viewportHeight: 390,
+      screenWidth: 844,
+      screenHeight: 390,
+      screenAvailWidth: 844,
+      screenAvailHeight: 390,
+      devicePixelRatio: 2.5,
+      hasTouchInput: true,
+      platform: "android",
+      sessionMode: "signed-in",
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+    });
+
+    expect(snapshot.isMobileDeviceShell).toBe(true);
+    expect(snapshot.scale).toBe(1);
+    expect(snapshot.classes).toEqual(["club-android", "club-mobile-device"]);
+    expect(snapshot.cssVariables).toEqual({});
+  });
+
   it("treats standalone touch portrait PWA with desktop-like UA as a scaled mobile shell", () => {
     expect(
       getMobileDeviceShellScale({

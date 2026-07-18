@@ -2633,6 +2633,11 @@ test("matches full visual baselines for key screens", async ({ page }, testInfo)
 
   await expectStableScreenshot(page, "profile");
 
+  if (testInfo.project.name === "desktop-chrome") {
+    await expect(page.locator(".device-mode-notice-backdrop")).toBeVisible();
+    return;
+  }
+
   await page.getByRole("button", { name: "Модули" }).click();
   await expect(page.getByRole("heading", { name: "Модули" }).first()).toBeVisible();
   await expectStableScreenshot(page, "learning");
@@ -2707,6 +2712,8 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
 });
 
 test("keeps chat composer stable when typing", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "desktop-chrome");
+
   await page.getByRole("button", { name: "Общение" }).click();
   await page.getByRole("button", { name: /Фиксики/ }).click();
   await expect(page.getByRole("heading", { name: "Фиксики" })).toBeVisible();

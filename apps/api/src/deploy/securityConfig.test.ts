@@ -71,7 +71,7 @@ describe("production security config", () => {
       expect(source).toContain("wait_for_api_container");
 
       const firstWaitIndex = source.indexOf("wait_for_api_container");
-      const seedIndex = source.indexOf("db:seed");
+      const seedIndex = source.indexOf("bun apps/api/src/db/seed.ts");
 
       expect(seedIndex).toBeGreaterThan(firstWaitIndex);
     }
@@ -111,6 +111,13 @@ describe("production security config", () => {
       expect(source).toContain('entrypoint: ["bun"]');
       expect(source).toContain('command: ["node_modules/drizzle-kit/bin.cjs", "migrate"]');
       expect(source).not.toContain('entrypoint: ["pnpm"]');
+    }
+  });
+
+  it("runs seed scripts through Bun available to the non-root runtime user", () => {
+    for (const source of [serverInstall, sshInstall, publicInstall]) {
+      expect(source).toContain("bun apps/api/src/db/seed.ts");
+      expect(source).not.toContain("exec -T api pnpm");
     }
   });
 

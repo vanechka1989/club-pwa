@@ -341,6 +341,8 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
   const isPhysicalPhone = isPhysicalPhoneScreen(input);
   const isAnyMobileUserAgent = hasMobileUserAgent(input.userAgent);
   const isHandheldMobileUserAgent = hasHandheldMobileUserAgent(input.userAgent);
+  const isShortLandscapeViewport =
+    layoutHeight > 0 && layoutHeight <= 600 && input.layoutWidth >= layoutHeight * 1.35;
   const isTallPortraitWideViewport =
     input.layoutWidth >= 700 && input.layoutWidth <= 1100 && layoutHeight >= input.layoutWidth * 1.45;
   const needsStandaloneWideViewportScale =
@@ -355,10 +357,11 @@ export function getMobileDeviceShellScale(input: MobileDeviceShellScaleInput) {
     isAnyMobileUserAgent ||
     needsStandaloneWideViewportScale ||
     (Boolean(input.isStandaloneDisplay) && isTallPortraitWideViewport);
-  const needsViewportCompensation = hasMobileShellSignal && input.layoutWidth >= 700 && viewportScale >= 1.35;
+  const needsViewportCompensation =
+    !isShortLandscapeViewport && hasMobileShellSignal && input.layoutWidth >= 700 && viewportScale >= 1.35;
   const isMobileUserAgent = hasMobileShellSignal && isAnyMobileUserAgent;
   const needsHandheldWideViewportScale =
-    hasMobileShellSignal && input.layoutWidth >= 700 && isHandheldMobileUserAgent;
+    !isShortLandscapeViewport && hasMobileShellSignal && input.layoutWidth >= 700 && isHandheldMobileUserAgent;
   const needsTallPortraitWideViewportScale = hasMobileShellSignal && isTallPortraitWideViewport;
   const isMobileDeviceShell =
     hasMobileShellSignal &&

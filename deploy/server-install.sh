@@ -314,7 +314,7 @@ wait_for_api_container
 if [[ "$RUN_SEED" == "y" || "$RUN_SEED" == "yes" ]]; then
   echo
   echo "Добавляем демо-контент..."
-  docker compose -f docker-compose.prod.yml exec -T api pnpm --filter @club/api db:seed
+  docker compose -f docker-compose.prod.yml exec -T api bun apps/api/src/db/seed.ts
 fi
 
 docker compose -f docker-compose.prod.yml ps

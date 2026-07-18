@@ -9,7 +9,10 @@ describe("template installer", () => {
     expect(installer).toContain("ghcr.io/vanechka1989/club-pwa-api");
     expect(installer).toContain("ghcr.io/vanechka1989/club-pwa-web");
     expect(installer).toContain("docker compose pull");
-    expect(installer).toContain("db:migrate");
+    expect(installer).toContain('entrypoint: ["bun"]');
+    expect(installer).toContain('command: ["node_modules/drizzle-kit/bin.cjs", "migrate"]');
+    expect(installer).toContain("bun apps/api/src/db/seed.ts");
+    expect(installer).not.toContain("exec -T api pnpm");
     expect(installer).toContain("без токена GitHub");
     expect(installer).toContain("Адрес клуба");
     expect(installer).toContain("Не удалось скачать готовые образы клуба");
