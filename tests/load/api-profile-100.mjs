@@ -44,7 +44,7 @@ function validatePayload(path, payload) {
     }
     return;
   }
-  if (path === "/api/community/topics" && !Array.isArray(payload)) {
+  if (path === "/api/community/topics" && !Array.isArray(payload?.topics)) {
     throw new Error("Invalid community topics payload");
   }
 }
