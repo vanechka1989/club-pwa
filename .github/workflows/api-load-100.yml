@@ -1,0 +1,100 @@
+name: API load 100
+
+on:
+  workflow_dispatch:
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure SSH
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || '22' }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/load_key
+          chmod 600 ~/.ssh/load_key
+          ssh-keyscan -p "$SERVER_PORT" -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Create temporary owner session
+        id: session
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || '22' }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          set -euo pipefail
+          session_json="$(ssh -i ~/.ssh/load_key -o IdentitiesOnly=yes -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" \
+            "DEPLOY_DIR='$DEPLOY_DIR' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+          token="$(openssl rand -hex 32)"
+          session_id="$(docker compose -f docker-compose.prod.yml exec -T -e LOAD_SESSION_TOKEN="$token" api bun -e '
+            import { eq } from "drizzle-orm";
+            import { hashAuthToken } from "./apps/api/src/auth/emailAuth.ts";
+            import { db } from "./apps/api/src/db/client.ts";
+            import { authSessions, users } from "./apps/api/src/db/schema.ts";
+            import { env } from "./apps/api/src/env.ts";
+            const owner = await db.query.users.findFirst({ where: eq(users.email, env.OWNER_EMAIL) });
+            if (!owner) throw new Error("Owner user not found");
+            const [session] = await db.insert(authSessions).values({
+              userId: owner.id,
+              tokenHash: hashAuthToken(process.env.LOAD_SESSION_TOKEN),
+              expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
+            }).returning({ id: authSessions.id });
+            if (!session) throw new Error("Unable to create load session");
+            console.log(session.id);
+          ' | tail -n 1)"
+          printf '{"token":"%s","sessionId":"%s"}' "$token" "$session_id"
+          REMOTE
+          )"
+          token="$(node -e 'const fs=require("fs"); process.stdout.write(JSON.parse(fs.readFileSync(0,"utf8")).token)' <<<"$session_json")"
+          session_id="$(node -e 'const fs=require("fs"); process.stdout.write(JSON.parse(fs.readFileSync(0,"utf8")).sessionId)' <<<"$session_json")"
+          echo "::add-mask::$token"
+          echo "SESSION_COOKIE=$token" >> "$GITHUB_ENV"
+          echo "LOAD_SESSION_ID=$session_id" >> "$GITHUB_ENV"
+
+      - name: Run production API profile
+        env:
+          BASE_URL: https://club2.myn8nservertest.ru
+          CONFIRM_PRODUCTION_LOAD: YES
+          LOAD_CLIENTS: 100
+          LOAD_ROUNDS: 3
+          LOAD_REPORT: tests/load/results/api-profile-100-production.json
+        run: node tests/load/api-profile-100.mjs
+
+      - name: Revoke temporary session
+        if: always() && env.LOAD_SESSION_ID != ''
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || '22' }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/load_key -o IdentitiesOnly=yes -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" \
+            "cd '$DEPLOY_DIR' && docker compose -f docker-compose.prod.yml exec -T -e LOAD_SESSION_ID='$LOAD_SESSION_ID' api bun -e '
+              import { eq } from \"drizzle-orm\";
+              import { db } from \"./apps/api/src/db/client.ts\";
+              import { authSessions } from \"./apps/api/src/db/schema.ts\";
+              await db.delete(authSessions).where(eq(authSessions.id, process.env.LOAD_SESSION_ID));
+            '"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-profile-100-production
+          path: tests/load/results/api-profile-100-production.json
+          if-no-files-found: error

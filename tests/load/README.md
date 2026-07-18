@@ -49,3 +49,16 @@ k6 run -e BASE_URL=https://club2.myn8nservertest.ru -e CONFIRM_PRODUCTION_LOAD=Y
 Профиль k6 `production-100` предназначен для контролируемой проверки текущего VPS. Полный профиль 150 по-прежнему нельзя запускать на VPS 2 vCPU / 2 ГБ: он предназначен для проверки конфигурации 8 vCPU / 16 ГБ. Production-защита требует явный `CONFIRM_PRODUCTION_LOAD=YES`.
 
 Критерии прохождения: 100% доставки без дублей, отсутствие обрывов SSE, меньше 0,5% HTTP-ошибок, SSE p95 ниже 500 мс и p99 ниже 1,5 с, HTTP p95 ниже 500 мс и p99 ниже 1,5 с. Во время теста также проверяются health/readiness, память API и число серверных подписчиков. Контейнерные ресурсы и PostgreSQL снимаются отдельным серверным мониторингом.
+
+## Оптимизированный API-профиль: 100 клиентов
+
+`api-profile-100.mjs` воспроизводит новый клиентский профиль после объединения фоновых запросов: каждый из 100 потоков последовательно запрашивает `/api/app-state` и `/api/community/topics`, всего три раунда. Ответы проверяются по схеме, а временная owner-сессия не сохраняется в отчёте.
+
+Production-прогон запускается вручную workflow `API load 100`. Workflow создаёт сессию внутри production-сервера, маскирует токен, отзывает сессию в `always()` и сохраняет только JSON-отчёт.
+
+```bash
+BASE_URL=https://club2.myn8nservertest.ru \
+CONFIRM_PRODUCTION_LOAD=YES \
+SESSION_COOKIE=temporary-owner-session \
+node tests/load/api-profile-100.mjs
+```
