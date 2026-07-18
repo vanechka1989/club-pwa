@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the deployment reliability fix as version 4.97", () => {
-    expect(appVersion).toBe("4.97");
-    expect(releaseNotes[0]?.title).toBe("Надёжная выкладка");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("API и открытие самого PWA");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Caddy");
-    expect(releaseNotes[1]?.version).toBe("4.96");
+  it("publishes the self-refreshing deployment worker as version 4.98", () => {
+    expect(appVersion).toBe("4.98");
+    expect(releaseNotes[0]?.title).toBe("Самообновляемая выкладка");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("git pull");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Service Worker");
+    expect(releaseNotes[1]?.version).toBe("4.97");
   });
 
   it("keeps the current app version at the top of the changelog", () => {

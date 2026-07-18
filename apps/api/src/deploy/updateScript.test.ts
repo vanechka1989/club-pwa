@@ -38,6 +38,18 @@ describe("deploy update script", () => {
     expect(markerIndex).toBeGreaterThan(healthIndex);
   });
 
+  it("restarts from the freshly pulled worker when deployment logic changed", () => {
+    const pullIndex = updateWorker.indexOf("git pull --ff-only");
+    const restartIndex = updateWorker.indexOf("DEPLOY_WORKER_REEXECUTED=1");
+    const classifyIndex = updateWorker.indexOf('classify_changes "$deployed_commit"');
+
+    expect(updateWorker).toContain("worker_checksum_before");
+    expect(updateWorker).toContain("worker_checksum_after");
+    expect(updateWorker).toContain("DEPLOY_WORKER_LOCK_HELD");
+    expect(restartIndex).toBeGreaterThan(pullIndex);
+    expect(classifyIndex).toBeGreaterThan(restartIndex);
+  });
+
   it("verifies both the API and the rendered PWA before accepting a deployment", () => {
     expect(updateWorker).toContain("resolve_web_url");
     expect(updateWorker).toContain('curl --fail --silent --show-error --max-time 5 "$web_url"');

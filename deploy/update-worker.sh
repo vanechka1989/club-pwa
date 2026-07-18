@@ -8,6 +8,9 @@ DEPLOYED_COMMIT_FILE="$DEPLOY_STATE_DIR/deployed-commit"
 STATUS_FILE="$DEPLOY_STATE_DIR/status.env"
 COMPOSE_FILE="$DEPLOY_DIR/docker-compose.prod.yml"
 LOCK_FILE="/tmp/club-pwa-deploy.lock"
+WORKER_FILE="$DEPLOY_DIR/deploy/update-worker.sh"
+DEPLOY_WORKER_REEXECUTED="${DEPLOY_WORKER_REEXECUTED:-0}"
+DEPLOY_WORKER_LOCK_HELD="${DEPLOY_WORKER_LOCK_HELD:-0}"
 
 current_phase="starting"
 current_target=""
@@ -275,11 +278,14 @@ rollback_services() {
   wait_for_health || true
 }
 
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  echo "Another deployment worker is already running." >&2
-  trap - EXIT
-  exit 75
+if [[ "$DEPLOY_WORKER_LOCK_HELD" != "1" ]]; then
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    echo "Another deployment worker is already running." >&2
+    trap - EXIT
+    exit 75
+  fi
+  export DEPLOY_WORKER_LOCK_HELD=1
 fi
 
 mkdir -p "$DEPLOY_STATE_DIR"
@@ -296,7 +302,13 @@ fi
 
 current_phase="pull"
 write_status running "$current_phase"
+worker_checksum_before="$(sha256sum "$WORKER_FILE" | awk '{print $1}')"
 git pull --ff-only
+worker_checksum_after="$(sha256sum "$WORKER_FILE" | awk '{print $1}')"
+if [[ "$worker_checksum_before" != "$worker_checksum_after" && "$DEPLOY_WORKER_REEXECUTED" != "1" ]]; then
+  echo "Deployment worker changed; restarting with the pulled version."
+  exec env DEPLOY_WORKER_REEXECUTED=1 DEPLOY_WORKER_LOCK_HELD=1 bash "$WORKER_FILE"
+fi
 current_target="$(git rev-parse HEAD)"
 
 deployed_commit="$(cat "$DEPLOYED_COMMIT_FILE" 2>/dev/null || true)"
