@@ -40,12 +40,12 @@ jobs:
           set -euo pipefail
           cd "$DEPLOY_DIR"
           token="$(openssl rand -hex 32)"
-          session_id="$(docker compose -f docker-compose.prod.yml exec -T -e LOAD_SESSION_TOKEN="$token" api bun -e '
+          session_id="$(docker compose -f docker-compose.prod.yml exec -T -w /app/apps/api -e LOAD_SESSION_TOKEN="$token" api bun -e '
             import { eq } from "drizzle-orm";
-            import { hashAuthToken } from "./apps/api/src/auth/emailAuth.ts";
-            import { db } from "./apps/api/src/db/client.ts";
-            import { authSessions, users } from "./apps/api/src/db/schema.ts";
-            import { env } from "./apps/api/src/env.ts";
+            import { hashAuthToken } from "./src/auth/emailAuth.ts";
+            import { db } from "./src/db/client.ts";
+            import { authSessions, users } from "./src/db/schema.ts";
+            import { env } from "./src/env.ts";
             const owner = await db.query.users.findFirst({ where: eq(users.email, env.OWNER_EMAIL) });
             if (!owner) throw new Error("Owner user not found");
             const [session] = await db.insert(authSessions).values({
@@ -84,10 +84,10 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/load_key -o IdentitiesOnly=yes -p "$SERVER_PORT" "$SERVER_USER@$SERVER_HOST" \
-            "cd '$DEPLOY_DIR' && docker compose -f docker-compose.prod.yml exec -T -e LOAD_SESSION_ID='$LOAD_SESSION_ID' api bun -e '
+            "cd '$DEPLOY_DIR' && docker compose -f docker-compose.prod.yml exec -T -w /app/apps/api -e LOAD_SESSION_ID='$LOAD_SESSION_ID' api bun -e '
               import { eq } from \"drizzle-orm\";
-              import { db } from \"./apps/api/src/db/client.ts\";
-              import { authSessions } from \"./apps/api/src/db/schema.ts\";
+              import { db } from \"./src/db/client.ts\";
+              import { authSessions } from \"./src/db/schema.ts\";
               await db.delete(authSessions).where(eq(authSessions.id, process.env.LOAD_SESSION_ID));
             '"
 
