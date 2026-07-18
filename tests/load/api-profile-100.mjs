@@ -52,7 +52,11 @@ function validatePayload(path, payload) {
 async function request(path) {
   const startedAt = performance.now();
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: { cookie: `club_session=${sessionCookie}`, accept: "application/json" },
+    headers: {
+      cookie: `club_session=${sessionCookie}`,
+      accept: "application/json",
+      "X-Club-PWA-Standalone": "1"
+    },
     redirect: "error"
   });
   const elapsedMs = performance.now() - startedAt;
