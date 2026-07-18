@@ -331,7 +331,8 @@ services:
     image: ${CLUB_API_IMAGE}
     restart: "no"
     user: "0:0"
-    command: ["chown", "-R", "bun:bun", "/app/uploads"]
+    entrypoint: ["chown"]
+    command: ["-R", "bun:bun", "/app/uploads"]
     volumes:
       - api-uploads:/app/uploads
     security_opt:
@@ -425,7 +426,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["pnpm", "--filter", "@club/api", "db:migrate"]
+    entrypoint: ["pnpm"]
+    command: ["--filter", "@club/api", "db:migrate"]
     security_opt:
       - no-new-privileges:true
     cap_drop:

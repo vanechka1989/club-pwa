@@ -95,13 +95,21 @@ describe("production security config", () => {
   it("repairs an existing upload volume before starting the non-root API", () => {
     for (const source of [productionCompose, scaleCompose, publicInstall]) {
       expect(source).toContain("uploads-permissions:");
-      expect(source).toContain('command: ["chown", "-R", "bun:bun", "/app/uploads"]');
+      expect(source).toContain('entrypoint: ["chown"]');
+      expect(source).toContain('command: ["-R", "bun:bun", "/app/uploads"]');
       expect(source).toContain("cap_add:");
       expect(source).toContain("- CHOWN");
     }
     expect(updateWorker).toContain("compose run --rm uploads-permissions");
     expect(serverInstall).toContain("docker compose -f docker-compose.prod.yml run --rm uploads-permissions");
     expect(sshInstall).toContain("docker compose -f docker-compose.prod.yml run --rm uploads-permissions");
+  });
+
+  it("overrides the Bun image entrypoint for maintenance commands", () => {
+    for (const source of [productionCompose, scaleCompose, publicInstall]) {
+      expect(source).toContain('entrypoint: ["pnpm"]');
+      expect(source).toContain('command: ["--filter", "@club/api", "db:migrate"]');
+    }
   });
 
   it("pins PgBouncer instead of following a mutable latest tag", () => {
