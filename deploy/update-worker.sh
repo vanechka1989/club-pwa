@@ -270,10 +270,14 @@ deploy_full() {
   compose up -d postgres api web caddy
 }
 
-reload_caddy() {
-  current_phase="reload-caddy"
+recreate_caddy() {
+  current_phase="recreate-caddy"
   write_status running "$current_phase"
-  compose exec -T caddy caddy reload --force --config /etc/caddy/Caddyfile
+  # Caddyfile is mounted as a single file. Git replaces that file by inode
+  # during pull, so a reload inside the existing container can keep reading
+  # the stale bind mount. Recreating Caddy remounts the current file and also
+  # resolves the current Docker IPs for the replaced web/API containers.
+  compose up -d --no-deps --force-recreate caddy
 }
 
 rollback_services() {
@@ -286,7 +290,7 @@ rollback_services() {
     docker tag "$previous_web_image" club-pwa-web:latest
     compose up -d --no-deps --force-recreate web || true
   fi
-  reload_caddy || true
+  recreate_caddy || true
   wait_for_health || true
   cleanup_previous_images
 }
@@ -346,7 +350,7 @@ else
 fi
 
 if [[ $web_changed -eq 1 || $api_changed -eq 1 || $caddy_changed -eq 1 ]]; then
-  reload_caddy
+  recreate_caddy
 fi
 
 current_phase="health"

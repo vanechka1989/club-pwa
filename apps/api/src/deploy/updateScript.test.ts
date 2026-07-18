@@ -58,14 +58,15 @@ describe("deploy update script", () => {
     expect(updateWorker).not.toContain("Health check passed: $health_url");
   });
 
-  it("reloads Caddy after replacing application containers so upstream DNS is refreshed", () => {
+  it("recreates Caddy after replacing application containers so bind mounts and upstream DNS are refreshed", () => {
     const deployIndex = updateWorker.indexOf('if [[ $full_reconcile -eq 1 ]]');
     const healthIndex = updateWorker.lastIndexOf('current_phase="health"');
     const deploymentBlock = updateWorker.slice(deployIndex, healthIndex);
 
-    expect(deploymentBlock).toContain("reload_caddy");
-    expect(updateWorker).toContain("reload_caddy || true");
-    expect(updateWorker).toContain("caddy reload --force --config /etc/caddy/Caddyfile");
+    expect(deploymentBlock).toContain("recreate_caddy");
+    expect(updateWorker).toContain("recreate_caddy || true");
+    expect(updateWorker).toContain("compose up -d --no-deps --force-recreate caddy");
+    expect(updateWorker).not.toContain("caddy reload --force --config /etc/caddy/Caddyfile");
   });
 
   it("restores previous application images when the new containers fail health verification", () => {
@@ -95,7 +96,7 @@ describe("deploy update script", () => {
   it("reconciles only services that exist in the current production compose", () => {
     const fullDeployFunction = updateWorker.slice(
       updateWorker.indexOf("deploy_full() {"),
-      updateWorker.indexOf("reload_caddy() {")
+      updateWorker.indexOf("recreate_caddy() {")
     );
 
     expect(fullDeployFunction).toContain("compose up -d postgres api web caddy");
