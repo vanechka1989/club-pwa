@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Согласованный масштаб текста",
+    items: [
+      "Заголовки экранов теперь масштабируются вместе с основным текстом, поэтому при значении 0,8 шапка больше не выглядит несоразмерно крупной.",
+      "Соотношение заголовка, подзаголовка и содержимого остаётся одинаковым на всех уровнях масштаба от компактного до увеличенного.",
+      "Единое поведение применяется ко всем основным экранам приложения, включая профиль, модули, общение, оплату, поддержку и админку."
+    ]
+  },
+  {
+    version: "5.00",
+    updatedAt: "18.07.2026 17:03",
     title: "Стабильная маршрутизация",
     items: [
       "После замены frontend или API полностью пересоздаётся контейнер Caddy: он заново монтирует актуальный Caddyfile и получает текущие внутренние адреса сервисов.",
@@ -3645,13 +3655,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Payment and server security",
+  title: "Consistent text scaling",
   items: [
-    "Paid access is granted only after a signed Prodamus webhook matches the order, amount, product and successful payment status.",
-    "Duplicate payment callbacks are handled atomically and cannot grant a subscription, referral reward or notification twice.",
-    "Login-code requests are limited by email, device and IP, while the daily email quota and send rate are coordinated across API instances.",
-    "S3 media uses temporary signed links by default, and internal metrics stay private without an observability token.",
-    "API and web containers run without root, with a read-only filesystem and safe upload-volume permission initialization."
+    "Page titles now scale together with body text, so the 0.8 setting no longer leaves an oversized header above very small content.",
+    "The title, subtitle and content hierarchy keeps the same proportions at every supported interface scale.",
+    "The shared behavior covers Profile, Modules, Community, Payment, Support and Admin screens."
   ]
 };
 

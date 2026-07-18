@@ -75,6 +75,15 @@ describe("PWA UI foundation", () => {
     expect(rule).toMatch(/min-height:\s*0/);
   });
 
+  it("scales route header typography with the selected interface scale", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).toContain("--app-header-title-size: var(--club-user-header-title-size, 20px);");
+    expect(css).toContain("--app-header-subtitle-size: var(--club-user-header-subtitle-size, 12px);");
+    expect(css).not.toContain("--app-header-title-size: 20px;");
+    expect(css).not.toContain("--app-header-subtitle-size: 12px;");
+  });
+
   it("lets a single custom footer form span the complete bottom action bar", () => {
     const css = readUi("foundation.css");
 

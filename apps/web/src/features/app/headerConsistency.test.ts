@@ -9,8 +9,8 @@ const communitySource = readFileSync(resolve(__dirname, "../community/CommunityS
 
 describe("application page header consistency", () => {
   it("uses the profile header typography as the shared application header contract", () => {
-    expect(foundation).toContain("--app-header-title-size: 20px;");
-    expect(foundation).toContain("--app-header-subtitle-size: 12px;");
+    expect(foundation).toContain("--app-header-title-size: var(--club-user-header-title-size, 20px);");
+    expect(foundation).toContain("--app-header-subtitle-size: var(--club-user-header-subtitle-size, 12px);");
     expect(foundation).toContain("--app-header-title-line-height: 1.2;");
     expect(foundation).toContain("--app-header-subtitle-line-height: 1.35;");
 

@@ -68,6 +68,14 @@ export const useUiStore = defineStore("ui", () => {
     document.documentElement.style.setProperty("--club-user-visual-scale", visualScaleText);
     document.documentElement.style.setProperty("--club-user-font-root", `${(16 * visualScale.value).toFixed(1)}px`);
     document.documentElement.style.setProperty("--club-user-font-base", `${(15 * visualScale.value).toFixed(1)}px`);
+    document.documentElement.style.setProperty(
+      "--club-user-header-title-size",
+      `${(20 * visualScale.value).toFixed(1)}px`
+    );
+    document.documentElement.style.setProperty(
+      "--club-user-header-subtitle-size",
+      `${(12 * visualScale.value).toFixed(1)}px`
+    );
     document.documentElement.style.colorScheme = theme.value;
   }
 

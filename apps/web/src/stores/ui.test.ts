@@ -12,6 +12,8 @@ describe("ui store", () => {
     document.documentElement.style.removeProperty("--club-user-visual-scale");
     document.documentElement.style.removeProperty("--club-user-font-root");
     document.documentElement.style.removeProperty("--club-user-font-base");
+    document.documentElement.style.removeProperty("--club-user-header-title-size");
+    document.documentElement.style.removeProperty("--club-user-header-subtitle-size");
     document.documentElement.style.colorScheme = "";
     setActivePinia(createPinia());
   });
@@ -160,6 +162,8 @@ describe("ui store", () => {
     expect(document.documentElement.style.getPropertyValue("--club-user-visual-scale")).toBe("1.3");
     expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("20.8px");
     expect(document.documentElement.style.getPropertyValue("--club-user-font-base")).toBe("19.5px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-header-title-size")).toBe("26.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-header-subtitle-size")).toBe("15.6px");
   });
 
   it("maps scale 1.0 to the normal mobile baseline", () => {
@@ -169,6 +173,18 @@ describe("ui store", () => {
 
     expect(document.documentElement.style.getPropertyValue("--club-user-font-root")).toBe("16.0px");
     expect(document.documentElement.style.getPropertyValue("--club-user-font-base")).toBe("15.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-header-title-size")).toBe("20.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-header-subtitle-size")).toBe("12.0px");
+  });
+
+  it("keeps page headings proportional to compact interface text", () => {
+    const ui = useUiStore();
+
+    ui.setVisualScale(0.8);
+
+    expect(document.documentElement.style.getPropertyValue("--club-user-font-base")).toBe("12.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-header-title-size")).toBe("16.0px");
+    expect(document.documentElement.style.getPropertyValue("--club-user-header-subtitle-size")).toBe("9.6px");
   });
 
   it("migrates legacy saved visual scale to the compact 0.9 baseline", () => {

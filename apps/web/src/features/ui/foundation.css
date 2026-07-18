@@ -24,8 +24,9 @@
   --action-icon-glyph-size: 16px;
   --action-icon-button-radius: var(--icon-button-radius);
   --header-min-height: 56px;
-  --app-header-title-size: 20px;
-  --app-header-subtitle-size: 12px;
+  /* Keep the semantic header/body ratio stable at every user-selected scale. */
+  --app-header-title-size: var(--club-user-header-title-size, 20px);
+  --app-header-subtitle-size: var(--club-user-header-subtitle-size, 12px);
   --app-header-title-weight: 880;
   --app-header-subtitle-weight: 650;
   --app-header-title-line-height: 1.2;
