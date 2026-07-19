@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Нижнее меню действительно прижимается к экрану",
+    items: [
+      "При включённой настройке панель теперь физически доходит до нижнего края видимой области, а не только сохраняет переключатель.",
+      "Безопасная зона iPhone и Android остаётся внутри фона меню, поэтому под панелью больше не появляется отдельная белая или пустая полоса.",
+      "Положение и сохранение настройки проверены на маленьких и больших iPhone, Pixel и узком Android-экране."
+    ]
+  },
+  {
+    version: "5.05",
+    updatedAt: "19.07.2026 11:23",
     title: "Единый вид настроек оформления",
     items: [
       "Карточка масштаба интерфейса больше не выглядит отдельным тёмным полем ввода и не выбивается из раздела оформления.",
@@ -3695,11 +3705,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Unified appearance settings",
+  title: "Bottom navigation now reaches the screen edge",
   items: [
-    "The interface scale card no longer looks like a separate dark input field inside the appearance section.",
-    "Interface scale and bottom navigation position now share the same surface, border, radius, and inset shadow in every theme.",
-    "Scale buttons, the range control, and accessible control sizes remain unchanged."
+    "When enabled, the navigation panel now physically reaches the bottom of the visible viewport instead of only persisting the switch state.",
+    "The iPhone and Android safe area stays inside the navigation surface, preventing a separate white or empty strip below it.",
+    "The position and persistence were verified on small and large iPhones, Pixel, and a compact Android viewport."
   ]
 };
 

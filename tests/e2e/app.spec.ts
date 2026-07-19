@@ -2154,10 +2154,29 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   expect(Math.round(switchBox?.height ?? 0)).toBe(44);
   await flushNavigationSwitch.click();
   await expect(root).toHaveClass(/club-bottom-nav-flush/);
+  await expect(bottomNavigation).toHaveClass(/mobile-bottom-nav-flush/);
   await expect(bottomNavigation).toHaveCSS("bottom", "0px");
+  await expect(bottomNavigation).toHaveCSS("border-bottom-left-radius", "0px");
+  await expect(bottomNavigation).toHaveCSS("border-bottom-right-radius", "0px");
+  await expect
+    .poll(async () =>
+      bottomNavigation.evaluate((navigation) =>
+        Math.round(window.innerHeight - navigation.getBoundingClientRect().bottom)
+      )
+    )
+    .toBe(0);
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("club-bottom-navigation-flush")))
     .toBe("1");
+  await page.reload();
+  await expect(page.locator(".mobile-bottom-nav")).toHaveClass(/mobile-bottom-nav-flush/);
+  await expect
+    .poll(() =>
+      page.locator(".mobile-bottom-nav").evaluate((navigation) =>
+        Math.round(window.innerHeight - navigation.getBoundingClientRect().bottom)
+      )
+    )
+    .toBe(0);
   await expectNoHorizontalOverflow(page);
 });
 

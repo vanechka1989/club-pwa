@@ -747,11 +747,12 @@ describe("App", () => {
 
     expect(profileSource).toContain("profile-bottom-navigation-position");
     expect(profileSource).toContain("ui.bottomNavigationFlush");
+    expect(appSource).toContain("'mobile-bottom-nav-flush': ui.bottomNavigationFlush");
     expect(profileSource).toContain("ui.setBottomNavigationFlush");
     expect(i18nSource).toContain('profileBottomNavigationFlush: "Прижать нижнее меню"');
     expect(i18nSource).toContain('profileBottomNavigationFlush: "Pin bottom menu to screen edge"');
-    expect(styles).toMatch(/html\.club-bottom-nav-flush[\s\S]*\.mobile-bottom-nav\s*\{[\s\S]*bottom:\s*0;/);
-    expect(styles).toMatch(/html\.club-bottom-nav-flush[\s\S]*\.mobile-bottom-nav\s*\{[\s\S]*padding-bottom:[^;}]*--club-safe-bottom/);
+    expect(styles).toMatch(/\.mobile-bottom-nav\.mobile-bottom-nav-flush[\s\S]*\{[\s\S]*bottom:\s*0;/);
+    expect(styles).toMatch(/\.mobile-bottom-nav\.mobile-bottom-nav-flush[\s\S]*\{[\s\S]*padding-bottom:[^;}]*--club-safe-bottom/);
     expect(styles).not.toMatch(/club-bottom-nav-flush[^{}]*\.(chat-composer|support-ticket-composer|task-screen-footer)/);
   });
 

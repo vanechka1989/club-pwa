@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes unified appearance settings as version 5.05", () => {
-    expect(appVersion).toBe("5.05");
-    expect(releaseNotes[0]?.title).toBe("Единый вид настроек оформления");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("тёмным полем ввода");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("одинаковые фон, рамку, скругление");
-    expect(releaseNotes[1]?.version).toBe("5.04");
+  it("publishes reliable bottom-menu pinning as version 5.06", () => {
+    expect(appVersion).toBe("5.06");
+    expect(releaseNotes[0]?.title).toBe("Нижнее меню действительно прижимается к экрану");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("физически доходит до нижнего края");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("iPhone и Android");
+    expect(releaseNotes[1]?.version).toBe("5.05");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Unified appearance settings");
+    expect(englishNotes[0]?.title).toBe("Bottom navigation now reaches the screen edge");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

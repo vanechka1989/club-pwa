@@ -64,7 +64,7 @@ import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
 
 const session = useSessionStore();
-useUiStore();
+const ui = useUiStore();
 const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
 const { currentLocale, t } = useI18n();
@@ -1085,7 +1085,10 @@ onBeforeUnmount(() => {
     <nav
       v-if="showBottomNavigation"
       class="bottom-nav mobile-bottom-nav"
-      :class="{ 'bottom-nav-admin': visibleMobileNavItems.length > 5 }"
+      :class="{
+        'bottom-nav-admin': visibleMobileNavItems.length > 5,
+        'mobile-bottom-nav-flush': ui.bottomNavigationFlush
+      }"
       aria-label="Club sections"
     >
       <button

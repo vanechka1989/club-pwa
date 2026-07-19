@@ -16358,14 +16358,13 @@ textarea.text-input,
   left: max(8px, calc(var(--club-safe-left) + 8px));
 }
 
-@media (max-width: 1023px) {
-  html.club-bottom-nav-flush .mobile-bottom-nav {
-    bottom: 0;
-    min-height: calc(var(--bottom-nav-height) + var(--club-safe-bottom));
-    border-bottom-right-radius: 0;
-    border-bottom-left-radius: 0;
-    padding-bottom: calc(0.35rem + var(--club-safe-bottom));
-  }
+.mobile-bottom-nav.mobile-bottom-nav-flush,
+html.club-bottom-nav-flush .mobile-bottom-nav {
+  bottom: 0;
+  min-height: calc(var(--bottom-nav-height) + var(--club-safe-bottom));
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+  padding-bottom: calc(0.35rem + var(--club-safe-bottom));
 }
 
 body.club-keyboard-open .mobile-bottom-nav,
