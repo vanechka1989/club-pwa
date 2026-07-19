@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единые цвета переключателя",
+    items: [
+      "Переключатель положения нижнего меню теперь использует такую же нейтральную дорожку и акцент темы, как настройка масштаба интерфейса.",
+      "Во включённом состоянии дорожка получает мягкий оттенок выбранной темы, а круглый индикатор — основной акцентный цвет.",
+      "Цвета автоматически согласуются со всеми дневными и ночными темами, при этом безопасный размер 52 × 44 пикселя сохранён."
+    ]
+  },
+  {
+    version: "5.03",
+    updatedAt: "19.07.2026 10:31",
     title: "Стабильный переключатель нижнего меню",
     items: [
       "Переключатель положения нижнего меню больше не сжимается при масштабе интерфейса 0,8 и сохраняет правильную форму на iPhone и Android.",
@@ -3675,11 +3685,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Stable bottom navigation switch",
+  title: "Unified switch colors",
   items: [
-    "The bottom navigation position switch no longer collapses at 0.8 interface scale and keeps the correct shape on iPhone and Android.",
-    "Its touch target is fixed at an accessible 52 by 44 pixels for both narrow and wide phones.",
-    "The conflicting shared button styling that compressed the switch knob into a thin line has been removed."
+    "The bottom navigation position switch now uses the same neutral track and theme accent as the interface scale control.",
+    "When enabled, the track receives a soft tint from the selected theme and the round knob uses its primary accent color.",
+    "Colors adapt to every light and dark theme while preserving the accessible 52 by 44 pixel control size."
   ]
 };
 

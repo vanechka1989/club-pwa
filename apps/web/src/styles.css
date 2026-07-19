@@ -11729,9 +11729,9 @@ body.club-ios .chat-input-row .text-input {
   content: "";
   position: absolute;
   inset: 8px 2px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
   border-radius: 999px;
-  background: var(--surface-3);
+  background: color-mix(in srgb, var(--field) 86%, var(--panel));
   transition: border-color 160ms ease, background 160ms ease;
 }
 
@@ -11751,7 +11751,7 @@ body.club-ios .chat-input-row .text-input {
 
 .appearance-switch[aria-checked="true"]::before {
   border-color: var(--accent);
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent-soft) 74%, var(--field));
 }
 
 .appearance-switch[aria-checked="true"]::after {

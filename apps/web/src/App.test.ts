@@ -765,6 +765,20 @@ describe("App", () => {
     expect(styles).toContain(".appearance-switch::after");
   });
 
+  it("uses the interface-scale color language for the gesture-navigation switch", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(styles).toMatch(
+      /\.appearance-switch::before\s*\{[\s\S]*?border:\s*1px solid color-mix\(in srgb, var\(--border\) 86%, transparent\);[\s\S]*?background:\s*color-mix\(in srgb, var\(--field\) 86%, var\(--panel\)\);/,
+    );
+    expect(styles).toMatch(
+      /\.appearance-switch\[aria-checked="true"\]::before\s*\{[\s\S]*?border-color:\s*var\(--accent\);[\s\S]*?background:\s*color-mix\(in srgb, var\(--accent-soft\) 74%, var\(--field\)\);/,
+    );
+    expect(styles).toMatch(
+      /\.appearance-switch\[aria-checked="true"\]::after\s*\{[\s\S]*?background:\s*var\(--accent\);/,
+    );
+  });
+
   it("keeps day and night separate from five design themes", () => {
     const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
     const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");

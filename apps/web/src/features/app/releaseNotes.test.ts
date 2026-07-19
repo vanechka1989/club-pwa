@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the stable navigation switch as version 5.03", () => {
-    expect(appVersion).toBe("5.03");
-    expect(releaseNotes[0]?.title).toBe("Стабильный переключатель нижнего меню");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("0,8");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("iPhone и Android");
-    expect(releaseNotes[1]?.version).toBe("5.02");
+  it("publishes the unified switch colors as version 5.04", () => {
+    expect(appVersion).toBe("5.04");
+    expect(releaseNotes[0]?.title).toBe("Единые цвета переключателя");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("масштаба интерфейса");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("52 × 44");
+    expect(releaseNotes[1]?.version).toBe("5.03");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Stable bottom navigation switch");
+    expect(englishNotes[0]?.title).toBe("Unified switch colors");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
