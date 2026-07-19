@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Надёжное сохранение уроков",
+    items: [
+      "Если связь оборвётся после загрузки, приложение проверит сервер: сохранённый урок подтвердится без ложной ошибки, а реальный сбой останется видимым.",
+      "Повторная проверка использует уникальный ключ операции и не создаёт дубликаты карточек."
+    ]
+  },
+  {
+    version: "5.22",
+    updatedAt: "20.07.2026 00:02",
     title: "Ровные отступы меню фото",
     items: [
       "Исправлена ширина меню фото профиля: теперь слева и справа сохраняются одинаковые отступы от края экрана."
@@ -3855,9 +3864,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Balanced photo menu spacing",
+  title: "Reliable lesson saving",
   items: [
-    "The profile photo menu now keeps equal spacing from the left and right edges of the screen."
+    "If the connection drops after upload, the app checks the server: a saved lesson completes without a false error, while a real failure remains visible.",
+    "Each save uses a unique operation key so reconciliation cannot create duplicate cards."
   ]
 };
 
