@@ -30,3 +30,7 @@ export function htmlToMailingText(value: string) {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+export function resolveMailingText(body: string, bodyHtml: string) {
+  return bodyHtml ? htmlToMailingText(bodyHtml) : body.trim();
+}

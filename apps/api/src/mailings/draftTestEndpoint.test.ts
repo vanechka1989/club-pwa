@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const routeSource = readFileSync(resolve(__dirname, "../routes/mailings.ts"), "utf-8");
+const notificationSource = readFileSync(resolve(__dirname, "../notifications/create.ts"), "utf-8");
 const sharedSource = readFileSync(resolve(__dirname, "../../../../packages/shared/src/index.ts"), "utf-8");
 
 describe("mailing draft test endpoint", () => {
@@ -28,5 +29,9 @@ describe("mailing draft test endpoint", () => {
     expect(routeSource).toContain("bodyHtml");
     expect(routeSource).not.toContain("sendTelegram");
     expect(routeSource).not.toContain("parseMode: \"HTML\"");
+    expect(routeSource).toContain("resolveMailingText");
+    expect(notificationSource).toContain("bodyHtml: input.bodyHtml ?? null");
+    expect(notificationSource).toContain("body: input.body");
+    expect(notificationSource).not.toContain("body: input.bodyHtml");
   });
 });

@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "HTML-форматирование рассылок",
+    items: [
+      "В редактор рассылок добавлен отдельный режим «HTML-код» с безопасным предпросмотром форматирования.",
+      "Письма и уведомления внутри приложения сохраняют выделение текста, а системный push автоматически получает читаемый текст без HTML-тегов."
+    ]
+  },
+  {
+    version: "5.23",
+    updatedAt: "20.07.2026 00:35",
     title: "Надёжное сохранение уроков",
     items: [
       "Если связь оборвётся после загрузки, приложение проверит сервер: сохранённый урок подтвердится без ложной ошибки, а реальный сбой останется видимым.",
@@ -3864,10 +3873,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable lesson saving",
+  title: "HTML-formatted mailings",
   items: [
-    "If the connection drops after upload, the app checks the server: a saved lesson completes without a false error, while a real failure remains visible.",
-    "Each save uses a unique operation key so reconciliation cannot create duplicate cards."
+    "The mailing composer now has a dedicated HTML source mode with a safe formatted preview.",
+    "Email and in-app notifications preserve formatting, while native push automatically receives readable text without HTML tags."
   ]
 };
 

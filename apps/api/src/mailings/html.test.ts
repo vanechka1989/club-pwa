@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { htmlToMailingText, sanitizeMailingHtml } from "./html";
+import { htmlToMailingText, resolveMailingText, sanitizeMailingHtml } from "./html";
 
 describe("mailing HTML", () => {
   it("keeps useful pasted formatting and removes unsafe markup", () => {
@@ -30,5 +30,10 @@ describe("mailing HTML", () => {
 
     expect(text).toBe("🚀 ОТЧЕТ ПО ПОДПИСКАМ\n💰 Всего: 54\n✅ Данные обновлены успешно");
     expect(text).not.toMatch(/<[^>]+>/);
+  });
+
+  it("derives native push text from HTML instead of trusting submitted body text", () => {
+    expect(resolveMailingText("<b>сырой тег</b>", "<b>Безопасный текст</b> <code>54</code>")).toBe("Безопасный текст 54");
+    expect(resolveMailingText("  Обычный текст  ", "")).toBe("Обычный текст");
   });
 });

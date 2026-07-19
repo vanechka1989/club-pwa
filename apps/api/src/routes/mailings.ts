@@ -20,7 +20,7 @@ import { filterMailingAudience, type MailingAudienceUser } from "../mailings/aud
 import { getMailingDeliveryChannels, normalizeMailingChannel } from "../mailings/channels";
 import { estimateMailingDurationSeconds, formatMailingDuration } from "../mailings/estimate";
 import { planEmailDeliverySchedule } from "../mailings/emailPolicy";
-import { htmlToMailingText, sanitizeMailingHtml } from "../mailings/html";
+import { resolveMailingText, sanitizeMailingHtml } from "../mailings/html";
 import {
   buildMailingAttachmentObjectKey,
   getMailingAttachmentKind,
@@ -492,7 +492,7 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
 
     const title = getFormString(form, "title");
     const bodyHtml = sanitizeMailingHtml(getFormString(form, "bodyHtml"));
-    const body = getFormString(form, "body") || htmlToMailingText(bodyHtml);
+    const body = resolveMailingText(getFormString(form, "body"), bodyHtml);
     const channelResult = mailingChannelSchema.safeParse(getFormString(form, "channel"));
 
     if (!title || !body || !channelResult.success) {
@@ -543,7 +543,7 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
 
     const title = getFormString(form, "title");
     const bodyHtml = sanitizeMailingHtml(getFormString(form, "bodyHtml"));
-    const body = getFormString(form, "body") || htmlToMailingText(bodyHtml);
+    const body = resolveMailingText(getFormString(form, "body"), bodyHtml);
     const channelResult = mailingChannelSchema.safeParse(getFormString(form, "channel"));
     const filtersResult = parseMailingFilters(getFormString(form, "filters"));
     const scheduledAtValue = getFormString(form, "scheduledAt");
