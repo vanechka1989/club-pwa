@@ -11,6 +11,14 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единые кнопки профиля",
+    items: [
+      "Кнопка с карандашом для редактирования имени теперь выделена таким же квадратным акцентным бейджем, как значок камеры."
+    ]
+  },
+  {
+    version: "5.17",
+    updatedAt: "19.07.2026 22:10",
     title: "Понятные вложения и фото профиля",
     items: [
       "История настроек показывает источник удалённого вложения: урок и карточку, обращение поддержки, рассылку или название темы чата.",
@@ -3814,10 +3822,9 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clear attachment sources and profile photo controls",
+  title: "Consistent profile action buttons",
   items: [
-    "Project history identifies the source of a deleted attachment, including its lesson card, support ticket, mailing, or chat topic.",
-    "The camera now sits beside the name editor, and tapping the avatar opens the same upload and crop menu."
+    "The name-edit pencil now uses the same highlighted square badge as the camera action."
   ]
 };
 

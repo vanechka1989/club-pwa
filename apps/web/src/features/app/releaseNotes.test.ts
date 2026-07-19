@@ -3,17 +3,15 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes attachment sources and avatar actions as version 5.17", () => {
-    expect(appVersion).toBe("5.17");
-    expect(releaseNotes[0]?.title).toBe("Понятные вложения и фото профиля");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("аватар");
+  it("publishes matching profile action badges as version 5.18", () => {
+    expect(appVersion).toBe("5.18");
+    expect(releaseNotes[0]?.title).toBe("Единые кнопки профиля");
     expect(releaseNotes[0]?.items.join(" ")).toContain("карандаш");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("источник");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("темы чата");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("камеры");
 
-    const previousRelease = releaseNotes.find((note) => note.version === "5.16");
-    expect(previousRelease?.title).toBe("Чище письмо, аудит и профиль");
-    expect(previousRelease?.items.join(" ")).toContain("письма");
+    const previousRelease = releaseNotes.find((note) => note.version === "5.17");
+    expect(previousRelease?.title).toBe("Понятные вложения и фото профиля");
+    expect(previousRelease?.items.join(" ")).toContain("источник");
 
     const navigationFix = releaseNotes.find((note) => note.version === "5.13");
     expect(navigationFix?.title).toBe("Убрана полоса под нижним меню");
@@ -51,7 +49,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Clear attachment sources and profile photo controls");
+    expect(englishNotes[0]?.title).toBe("Consistent profile action buttons");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
