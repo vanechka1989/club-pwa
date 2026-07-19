@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Надёжная загрузка уроков",
+    items: [
+      "После сборки большого аудиофайла приложение повторно проверяет его появление в S3 и больше не отклоняет корректно загруженный файл из-за короткой задержки хранилища.",
+      "JPEG и PNG при прямой загрузке урока теперь действительно преобразуются в WebP до отправки, а не сохраняются с исходным форматом.",
+      "Старые изображения уроков можно безопасно перевести в WebP; диагностика загрузки теперь различает недоступный объект, неверный размер и тип файла."
+    ]
+  },
+  {
+    version: "5.14",
+    updatedAt: "19.07.2026 19:10",
     title: "Диагностика и контроль админки",
     items: [
       "Платежи получили понятные состояния и причины: оплачено, ожидается подтверждение, ошибка webhook, отменено или истекло.",
@@ -3785,11 +3795,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Admin diagnostics and control",
+  title: "Reliable lesson uploads",
   items: [
-    "Payments now show clear operational states and explain pending, webhook, cancelled, and expired transactions.",
-    "Project settings include an audit trail, while the server panel reports database, email, S3, payments, and realtime health.",
-    "Request metrics, persistent error logs, and smaller focused admin panels make troubleshooting faster and safer."
+    "Completed large audio uploads are rechecked while S3 finalizes multipart visibility instead of being rejected immediately.",
+    "JPEG and PNG lesson images are now converted to actual WebP files before direct upload.",
+    "Existing lesson images can be migrated safely, and upload diagnostics now distinguish visibility, size, and content-type failures."
   ]
 };
 

@@ -75,6 +75,7 @@ import { useUiStore, type ColorScheme } from "@/stores/ui";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getMaterialDraftError, type MediaInputSource } from "./materialForm";
 import { moveItemByDirection, type SortDirection } from "./sortOrder";
+import { prepareLearningUpload } from "./prepareLearningUpload";
 import { createVoiceUpload, type NamedBlobUpload } from "./voiceUpload";
 import { getFirstVisualLessonCoverUrl, isDefaultLessonCover, resolveLessonCoverUrl } from "./lessonCover";
 import {
@@ -1640,7 +1641,9 @@ async function uploadLessonFileDirect({
   signal?: AbortSignal;
 }): Promise<AdminLearningUploadedObject> {
   throwIfUploadCancelled(signal);
-  const parts = getUploadParts(file);
+  const preparedFile = await prepareLearningUpload(file, { purpose, kind });
+  throwIfUploadCancelled(signal);
+  const parts = getUploadParts(preparedFile);
   const startedAt = Date.now();
   const upload = await createAdminLearningMultipartUpload({
     purpose,

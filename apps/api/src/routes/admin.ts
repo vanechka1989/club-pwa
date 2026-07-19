@@ -33,6 +33,7 @@ import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt, summarizePollStatistics } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
+import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
 import { db } from "../db/client";
 import {
   adminActionLogs,
@@ -390,16 +391,26 @@ async function verifyDirectUploadedObject({
     return null;
   }
 
-  const metadata = await getObjectMetadata(object.objectKey);
-  if (metadata.sizeBytes !== object.sizeBytes) {
-    return null;
-  }
-  if (metadata.contentType && metadata.contentType !== object.contentType) {
+  const verification = await verifyUploadedObjectMetadata({
+    expected: object,
+    loadMetadata: getObjectMetadata
+  });
+  if (!verification.ok) {
+    logger.warn(
+      {
+        objectKey: object.objectKey,
+        purpose,
+        kind,
+        reason: verification.reason,
+        detail: verification.detail
+      },
+      "Direct learning upload verification failed"
+    );
     return null;
   }
 
   return {
-    objectKey: metadata.key,
+    objectKey: verification.metadata.key,
     contentType: object.contentType,
     sizeBytes: object.sizeBytes
   };
