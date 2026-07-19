@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the mobile admin header fix as version 5.09", () => {
-    expect(appVersion).toBe("5.09");
-    expect(releaseNotes[0]?.title).toBe("Исправлена мобильная шапка админки");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("вертикальной колонкой");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("мобильной сетки");
-    expect(releaseNotes[1]?.version).toBe("5.08");
+  it("publishes the non-stretching pinned navigation fix as version 5.10", () => {
+    expect(appVersion).toBe("5.10");
+    expect(releaseNotes[0]?.title).toBe("Нижнее меню прижимается без растягивания");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("не увеличивает её высоту");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("геометрии панели");
+    expect(releaseNotes[1]?.version).toBe("5.09");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Mobile administration header fixed");
+    expect(englishNotes[0]?.title).toBe("Bottom navigation pins without stretching");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

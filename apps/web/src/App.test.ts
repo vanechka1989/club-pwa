@@ -742,7 +742,7 @@ describe("App", () => {
     expect(styles).toContain("body.club-mobile-device .bottom-nav");
   });
 
-  it("offers a persistent gesture-navigation mode without moving chat controls", () => {
+  it("pins the bottom navigation without stretching or reshaping the panel", () => {
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
     expect(profileSource).toContain("profile-bottom-navigation-position");
@@ -751,9 +751,11 @@ describe("App", () => {
     expect(profileSource).toContain("ui.setBottomNavigationFlush");
     expect(i18nSource).toContain('profileBottomNavigationFlush: "Прижать нижнее меню"');
     expect(i18nSource).toContain('profileBottomNavigationFlush: "Pin bottom menu to screen edge"');
-    expect(styles).toMatch(/\.mobile-bottom-nav\.mobile-bottom-nav-flush[\s\S]*\{[\s\S]*bottom:\s*0;/);
-    expect(styles).toContain("--bottom-nav-flush-protection: max(0.35rem, min(var(--club-safe-bottom), 20px));");
-    expect(styles).toMatch(/\.mobile-bottom-nav\.mobile-bottom-nav-flush[\s\S]*\{[\s\S]*padding-bottom:\s*var\(--bottom-nav-flush-protection\)/);
+    const flushRule = styles.match(
+      /\.mobile-bottom-nav\.mobile-bottom-nav-flush,\s*html\.club-bottom-nav-flush \.mobile-bottom-nav\s*\{([^}]*)\}/
+    )?.[1] ?? "";
+    expect(flushRule).toMatch(/bottom:\s*0;/);
+    expect(flushRule).not.toMatch(/min-height|padding-bottom|border-bottom-(?:left|right)-radius/);
     expect(styles).not.toMatch(/club-bottom-nav-flush[^{}]*\.(chat-composer|support-ticket-composer|task-screen-footer)/);
   });
 

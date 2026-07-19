@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Нижнее меню прижимается без растягивания",
+    items: [
+      "Режим «Прижать нижнее меню» теперь изменяет только положение панели и не увеличивает её высоту на iPhone.",
+      "Сохранены обычные скругления, размеры кнопок и защитный системный отступ, поэтому панель выглядит одинаково в обоих режимах.",
+      "Добавлены проверки геометрии панели, которые не позволят режиму снова растянуть меню или изменить его форму."
+    ]
+  },
+  {
+    version: "5.09",
+    updatedAt: "19.07.2026 15:57",
     title: "Исправлена мобильная шапка админки",
     items: [
       "Заголовок и описание админки снова отображаются нормальными строками, а не вертикальной колонкой из отдельных букв.",
@@ -3735,11 +3745,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Mobile administration header fixed",
+  title: "Bottom navigation pins without stretching",
   items: [
-    "The administration title and subtitle render as normal lines again instead of a vertical column of individual letters.",
-    "The mobile header grid now keeps the version and preview controls from squeezing text on narrow screens.",
-    "An automated regression check prevents this layout failure from returning."
+    "Pin bottom menu now changes only the panel position and no longer increases its height on iPhone.",
+    "The normal rounded shape, button dimensions, and system safe-area protection stay consistent in both modes.",
+    "Geometry regression checks prevent the pinned mode from stretching or reshaping the navigation again."
   ]
 };
 

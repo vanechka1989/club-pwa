@@ -16360,12 +16360,7 @@ textarea.text-input,
 
 .mobile-bottom-nav.mobile-bottom-nav-flush,
 html.club-bottom-nav-flush .mobile-bottom-nav {
-  --bottom-nav-flush-protection: max(0.35rem, min(var(--club-safe-bottom), 20px));
   bottom: 0;
-  min-height: calc(var(--bottom-nav-height) + var(--bottom-nav-flush-protection));
-  border-bottom-right-radius: 0;
-  border-bottom-left-radius: 0;
-  padding-bottom: var(--bottom-nav-flush-protection);
 }
 
 body.club-keyboard-open .mobile-bottom-nav,

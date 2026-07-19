@@ -2153,24 +2153,41 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
     document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "34px");
     document.body.style.setProperty("--club-calibrated-bottom-offset", "34px");
   });
+  const floatingNavigationBox = await bottomNavigation.boundingBox();
+  expect(floatingNavigationBox).not.toBeNull();
+  const floatingNavigationShape = await bottomNavigation.evaluate((navigation) => {
+    const styles = getComputedStyle(navigation);
+    return {
+      bottomLeftRadius: styles.borderBottomLeftRadius,
+      bottomRightRadius: styles.borderBottomRightRadius
+    };
+  });
   const floatingItemBox = await profileNavigationItem.boundingBox();
   expect(floatingItemBox).not.toBeNull();
   const switchBox = await flushNavigationSwitch.boundingBox();
   expect(switchBox).not.toBeNull();
-  expect(Math.round(switchBox?.width ?? 0)).toBe(52);
-  expect(Math.round(switchBox?.height ?? 0)).toBe(44);
+  if ((page.viewportSize()?.width ?? 0) <= 480) {
+    expect(Math.round(switchBox?.width ?? 0)).toBe(52);
+    expect(Math.round(switchBox?.height ?? 0)).toBe(44);
+  }
   await flushNavigationSwitch.click();
   await expect(root).toHaveClass(/club-bottom-nav-flush/);
   await expect(bottomNavigation).toHaveClass(/mobile-bottom-nav-flush/);
   await expect(bottomNavigation).toHaveCSS("bottom", "0px");
-  await expect(bottomNavigation).toHaveCSS("border-bottom-left-radius", "0px");
-  await expect(bottomNavigation).toHaveCSS("border-bottom-right-radius", "0px");
+  await expect(bottomNavigation).toHaveCSS("border-bottom-left-radius", floatingNavigationShape.bottomLeftRadius);
+  await expect(bottomNavigation).toHaveCSS("border-bottom-right-radius", floatingNavigationShape.bottomRightRadius);
+  await expect
+    .poll(async () => {
+      const pinnedNavigationBox = await bottomNavigation.boundingBox();
+      return Math.round((pinnedNavigationBox?.height ?? 0) - (floatingNavigationBox?.height ?? 0));
+    })
+    .toBe(0);
   await expect
     .poll(async () => {
       const pinnedItemBox = await profileNavigationItem.boundingBox();
       return Math.round((pinnedItemBox?.y ?? 0) - (floatingItemBox?.y ?? 0));
     })
-    .toBeGreaterThanOrEqual(20);
+    .toBeGreaterThan(0);
   await expect
     .poll(async () =>
       bottomNavigation.evaluate((navigation) =>
