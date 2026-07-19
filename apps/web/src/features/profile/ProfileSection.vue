@@ -703,7 +703,13 @@ watch(
             <div class="min-w-0">
               <div class="profile-display-name-row">
                 <h3>{{ displayName }}</h3>
-                <button v-if="!session.user?.displayNameChangedByUserAt" class="profile-name-edit" type="button" aria-label="Изменить ник" @click="openDisplayNameEditor">
+                <button
+                  v-if="!session.user?.displayNameChangedByUserAt"
+                  class="profile-name-edit profile-avatar-icon-button ui-icon-button"
+                  type="button"
+                  aria-label="Изменить ник"
+                  @click="openDisplayNameEditor"
+                >
                   <Pencil class="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button

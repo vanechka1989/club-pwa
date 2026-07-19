@@ -80,6 +80,10 @@ describe("compact profile layout", () => {
     expect(source).not.toContain('class="profile-avatar-actions"');
   });
 
+  it("highlights the name editor with the same action badge as the camera", () => {
+    expect(source).toContain('class="profile-name-edit profile-avatar-icon-button ui-icon-button"');
+  });
+
   it("keeps the avatar and camera as accessible touch targets without overlay positioning", () => {
     expect(styles).toMatch(/\.profile-dashboard \.profile-avatar-trigger\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;/s);
     expect(styles).toMatch(/\.profile-dashboard \.profile-display-name-row \.profile-avatar-icon-button\s*\{[^}]*width:\s*var\(--icon-button-size\);/s);
