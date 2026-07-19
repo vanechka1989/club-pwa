@@ -49,6 +49,7 @@ import {
   clubPolls,
   contentCategories,
   contentItems,
+  idempotencyOperations,
   lessonMaterials,
   lessonComments,
   paymentProviders,
@@ -87,6 +88,12 @@ import { isValidMultipartPartSize, maxMultipartPartSizeBytes } from "../storage/
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { getInternalLessonMaterialTitle } from "../learning/lessonMaterials";
+import {
+  decideLearningSaveClaim,
+  idempotencyOperationTtlMs,
+  learningMaterialCreateScope
+} from "../learning/learningSaveIdempotency";
+import { createRequestFingerprint } from "../idempotency/operation";
 import {
   buildS3SettingsResponse,
   getS3ConfigFromEnv,
@@ -227,6 +234,7 @@ const learningMultipartPartQuerySchema = z.object({
   uploadId: z.string().trim().min(1),
   partNumber: z.coerce.number().int().positive().max(1000)
 });
+const idempotencyKeySchema = z.string().uuid();
 
 const externalMediaUrlSchema = z
   .string()
@@ -2625,10 +2633,47 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to complete multipart upload" }, 400);
     }
   })
+  .get("/learning/materials/operations/:key", async (c) => {
+    const key = idempotencyKeySchema.safeParse(c.req.param("key"));
+    if (!key.success) {
+      return c.json({ error: "Invalid idempotency key" }, 400);
+    }
+
+    const operation = await db.query.idempotencyOperations.findFirst({
+      where: and(
+        eq(idempotencyOperations.actorTelegramId, c.get("telegramUser").id),
+        eq(idempotencyOperations.scope, learningMaterialCreateScope),
+        eq(idempotencyOperations.idempotencyKey, key.data),
+        gt(idempotencyOperations.expiresAt, new Date())
+      )
+    });
+    if (!operation) {
+      return c.json({ error: "Operation not found" }, 404);
+    }
+    if (operation.status === "processing") {
+      return c.json({ status: "processing" as const }, 202);
+    }
+    if (operation.status === "failed") {
+      return c.json({ status: "failed" as const, errorCode: operation.errorCode }, 200);
+    }
+
+    const material = operation.resourceId
+      ? await db.query.contentItems.findFirst({ where: eq(contentItems.id, operation.resourceId) })
+      : null;
+    return c.json({
+      status: "succeeded" as const,
+      material: material ? await serializeAdminMaterial(material) : null
+    });
+  })
   .post("/learning/materials/direct", async (c) => {
     const body = directLearningMaterialPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: "Invalid material payload" }, 400);
+    }
+    const rawIdempotencyKey = c.req.header("Idempotency-Key");
+    const parsedIdempotencyKey = rawIdempotencyKey ? idempotencyKeySchema.safeParse(rawIdempotencyKey) : null;
+    if (parsedIdempotencyKey && !parsedIdempotencyKey.success) {
+      return c.json({ error: "Invalid idempotency key" }, 400);
     }
 
     const { categoryId, kind, title, cardLayout, coverMode, isPublished } = body.data;
@@ -2679,35 +2724,105 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       thumbnailSizeBytes = verifiedThumbnail.sizeBytes;
     }
 
+    let claimedOperationId: string | null = null;
+    if (parsedIdempotencyKey?.success) {
+      const actorTelegramId = c.get("telegramUser").id;
+      const idempotencyKey = parsedIdempotencyKey.data;
+      const requestFingerprint = createRequestFingerprint(body.data);
+      const operationWhere = and(
+        eq(idempotencyOperations.actorTelegramId, actorTelegramId),
+        eq(idempotencyOperations.scope, learningMaterialCreateScope),
+        eq(idempotencyOperations.idempotencyKey, idempotencyKey)
+      );
+
+      await db.delete(idempotencyOperations).where(and(operationWhere, lt(idempotencyOperations.expiresAt, new Date())));
+      const [claimed] = await db
+        .insert(idempotencyOperations)
+        .values({
+          actorTelegramId,
+          scope: learningMaterialCreateScope,
+          idempotencyKey,
+          requestFingerprint,
+          status: "processing",
+          expiresAt: new Date(Date.now() + idempotencyOperationTtlMs)
+        })
+        .onConflictDoNothing()
+        .returning({ id: idempotencyOperations.id });
+
+      if (claimed) {
+        claimedOperationId = claimed.id;
+      } else {
+        const existing = await db.query.idempotencyOperations.findFirst({ where: operationWhere });
+        const decision = decideLearningSaveClaim(existing ?? null, requestFingerprint);
+        if (decision.kind === "conflict") {
+          return c.json({ error: "Idempotency key was reused", code: "IDEMPOTENCY_KEY_REUSED" }, 409);
+        }
+        if (decision.kind === "processing") {
+          return c.json({ error: "Operation is still processing", code: "IDEMPOTENCY_IN_PROGRESS" }, 409);
+        }
+        if (decision.kind === "failed") {
+          return c.json({ error: "Previous operation failed", code: decision.errorCode ?? "IDEMPOTENCY_PREVIOUSLY_FAILED" }, 409);
+        }
+        if (decision.kind === "succeeded") {
+          const existingMaterial = decision.resourceId
+            ? await db.query.contentItems.findFirst({ where: eq(contentItems.id, decision.resourceId) })
+            : null;
+          if (!existingMaterial) {
+            return c.json({ error: "Saved material is no longer available", code: "IDEMPOTENCY_RESOURCE_GONE" }, 410);
+          }
+          return c.json({ ok: true, material: await serializeAdminMaterial(existingMaterial) });
+        }
+
+        return c.json({ error: "Unable to claim idempotency key" }, 500);
+      }
+    }
+
     const now = new Date();
     const sortOrder = await getNextMaterialSortOrder(categoryId);
-    const [material] = await db
-      .insert(contentItems)
-      .values({
-        categoryId,
-        kind,
-        title,
-        summary,
-        body: materialBody,
-        cardLayout,
-        coverMode,
-        mediaUrl,
-        mediaObjectKey,
-        thumbnailObjectKey,
-        thumbnailContentType,
-        thumbnailSizeBytes,
-        mediaContentType,
-        mediaSizeBytes,
-        sortOrder,
-        isPublished,
-        publishedAt: isPublished ? now : null,
-        archivedUntil: null,
-        createdAt: now,
-        updatedAt: now
-      })
-      .returning();
+    let material: typeof contentItems.$inferSelect | undefined;
+    try {
+      [material] = await db
+        .insert(contentItems)
+        .values({
+          categoryId,
+          kind,
+          title,
+          summary,
+          body: materialBody,
+          cardLayout,
+          coverMode,
+          mediaUrl,
+          mediaObjectKey,
+          thumbnailObjectKey,
+          thumbnailContentType,
+          thumbnailSizeBytes,
+          mediaContentType,
+          mediaSizeBytes,
+          sortOrder,
+          isPublished,
+          publishedAt: isPublished ? now : null,
+          archivedUntil: null,
+          createdAt: now,
+          updatedAt: now
+        })
+        .returning();
+    } catch (error) {
+      if (claimedOperationId) {
+        await db
+          .update(idempotencyOperations)
+          .set({ status: "failed", errorCode: "MATERIAL_CREATE_FAILED", updatedAt: new Date() })
+          .where(eq(idempotencyOperations.id, claimedOperationId));
+      }
+      throw error;
+    }
 
     if (!material) {
+      if (claimedOperationId) {
+        await db
+          .update(idempotencyOperations)
+          .set({ status: "failed", errorCode: "MATERIAL_CREATE_FAILED", updatedAt: new Date() })
+          .where(eq(idempotencyOperations.id, claimedOperationId));
+      }
       return c.json({ error: "Unable to create material" }, 500);
     }
 
@@ -2721,7 +2836,20 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         await deleteObject(thumbnailObjectKey).catch(() => null);
       }
       await db.delete(contentItems).where(eq(contentItems.id, material.id));
+      if (claimedOperationId) {
+        await db
+          .update(idempotencyOperations)
+          .set({ status: "failed", errorCode: "INVALID_LESSON_MATERIALS", updatedAt: new Date() })
+          .where(eq(idempotencyOperations.id, claimedOperationId));
+      }
       return c.json({ error: "Invalid lesson materials" }, 400);
+    }
+
+    if (claimedOperationId) {
+      await db
+        .update(idempotencyOperations)
+        .set({ status: "succeeded", resourceId: material.id, errorCode: null, updatedAt: new Date() })
+        .where(eq(idempotencyOperations.id, claimedOperationId));
     }
 
     mirrorDirectUploadToReserve(verifiedMedia);
