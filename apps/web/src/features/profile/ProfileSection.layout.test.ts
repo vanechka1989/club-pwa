@@ -83,6 +83,7 @@ describe("compact profile layout", () => {
   it("keeps the avatar and camera as accessible touch targets without overlay positioning", () => {
     expect(styles).toMatch(/\.profile-dashboard \.profile-avatar-trigger\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;/s);
     expect(styles).toMatch(/\.profile-dashboard \.profile-display-name-row \.profile-avatar-icon-button\s*\{[^}]*width:\s*var\(--icon-button-size\);/s);
+    expect(styles).toMatch(/\.profile-dashboard-toolbar \.profile-avatar-icon-button\s*\{[^}]*--action-icon-glyph-size:\s*calc\(16px \* var\(--club-scaled-control-factor, 1\)\);/s);
     expect(styles).not.toContain(".profile-dashboard .profile-avatar-menu-button");
   });
 

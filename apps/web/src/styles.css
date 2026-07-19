@@ -19066,7 +19066,7 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 }
 
 .profile-dashboard-toolbar .profile-avatar-icon-button {
-  --action-icon-glyph-size: calc(14px * var(--club-scaled-control-factor, 1));
+  --action-icon-glyph-size: calc(16px * var(--club-scaled-control-factor, 1));
 }
 
 .profile-dashboard-controls {
