@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Ровные отступы нижнего меню",
+    items: [
+      "Боковые отступы нижнего меню теперь совпадают с общими отступами карточек на iPhone и Android.",
+      "В режиме «Прижать нижнее меню» снизу сохранён аккуратный отступ 12 пикселей — такой же, как между соседними карточками.",
+      "Высота, скругления и размеры кнопок не меняются; геометрия проверяется автоматически на маленьких и больших iPhone, Pixel и Yandex Android."
+    ]
+  },
+  {
+    version: "5.10",
+    updatedAt: "19.07.2026 16:21",
     title: "Нижнее меню прижимается без растягивания",
     items: [
       "Режим «Прижать нижнее меню» теперь изменяет только положение панели и не увеличивает её высоту на iPhone.",
@@ -3745,11 +3755,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Bottom navigation pins without stretching",
+  title: "Balanced bottom navigation spacing",
   items: [
-    "Pin bottom menu now changes only the panel position and no longer increases its height on iPhone.",
-    "The normal rounded shape, button dimensions, and system safe-area protection stay consistent in both modes.",
-    "Geometry regression checks prevent the pinned mode from stretching or reshaping the navigation again."
+    "The bottom navigation now uses the same horizontal gutters as page cards on iPhone and Android.",
+    "Pinned mode keeps a clean 12-pixel bottom gap matching the spacing between adjacent cards.",
+    "Panel height, rounded corners, and button sizes stay unchanged and are covered by cross-device geometry checks."
   ]
 };
 

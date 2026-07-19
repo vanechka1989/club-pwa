@@ -2173,7 +2173,7 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   await flushNavigationSwitch.click();
   await expect(root).toHaveClass(/club-bottom-nav-flush/);
   await expect(bottomNavigation).toHaveClass(/mobile-bottom-nav-flush/);
-  await expect(bottomNavigation).toHaveCSS("bottom", "0px");
+  await expect(bottomNavigation).toHaveCSS("bottom", "12px");
   await expect(bottomNavigation).toHaveCSS("border-bottom-left-radius", floatingNavigationShape.bottomLeftRadius);
   await expect(bottomNavigation).toHaveCSS("border-bottom-right-radius", floatingNavigationShape.bottomRightRadius);
   await expect
@@ -2194,7 +2194,21 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
         Math.round(window.innerHeight - navigation.getBoundingClientRect().bottom)
       )
     )
-    .toBe(0);
+    .toBe(12);
+  await expect
+    .poll(async () =>
+      bottomNavigation.evaluate((navigation) => {
+        const navigationStyle = getComputedStyle(navigation);
+        const pagePadding = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--page-padding"));
+        return Math.round(
+          Math.max(
+            Math.abs(Number.parseFloat(navigationStyle.left) - pagePadding),
+            Math.abs(Number.parseFloat(navigationStyle.right) - pagePadding)
+          )
+        );
+      })
+    )
+    .toBeLessThanOrEqual(1);
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("club-bottom-navigation-flush")))
     .toBe("1");
@@ -2206,7 +2220,7 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
         Math.round(window.innerHeight - navigation.getBoundingClientRect().bottom)
       )
     )
-    .toBe(0);
+    .toBe(12);
   await expectNoHorizontalOverflow(page);
 });
 

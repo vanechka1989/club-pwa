@@ -16353,14 +16353,14 @@ textarea.text-input,
 
 .bottom-nav {
   min-height: var(--bottom-nav-height);
-  right: max(8px, calc(var(--club-safe-right) + 8px));
+  right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
   bottom: max(8px, calc(var(--club-safe-bottom) + 8px));
-  left: max(8px, calc(var(--club-safe-left) + 8px));
+  left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
 }
 
 .mobile-bottom-nav.mobile-bottom-nav-flush,
 html.club-bottom-nav-flush .mobile-bottom-nav {
-  bottom: 0;
+  bottom: 12px;
 }
 
 body.club-keyboard-open .mobile-bottom-nav,

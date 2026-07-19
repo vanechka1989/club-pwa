@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the non-stretching pinned navigation fix as version 5.10", () => {
-    expect(appVersion).toBe("5.10");
-    expect(releaseNotes[0]?.title).toBe("Нижнее меню прижимается без растягивания");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("не увеличивает её высоту");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("геометрии панели");
-    expect(releaseNotes[1]?.version).toBe("5.09");
+  it("publishes balanced bottom navigation spacing as version 5.11", () => {
+    expect(appVersion).toBe("5.11");
+    expect(releaseNotes[0]?.title).toBe("Ровные отступы нижнего меню");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Боковые отступы");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("12 пикселей");
+    expect(releaseNotes[1]?.version).toBe("5.10");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Bottom navigation pins without stretching");
+    expect(englishNotes[0]?.title).toBe("Balanced bottom navigation spacing");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

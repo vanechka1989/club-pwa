@@ -754,8 +754,13 @@ describe("App", () => {
     const flushRule = styles.match(
       /\.mobile-bottom-nav\.mobile-bottom-nav-flush,\s*html\.club-bottom-nav-flush \.mobile-bottom-nav\s*\{([^}]*)\}/
     )?.[1] ?? "";
-    expect(flushRule).toMatch(/bottom:\s*0;/);
+    expect(flushRule).toMatch(/bottom:\s*12px;/);
     expect(flushRule).not.toMatch(/min-height|padding-bottom|border-bottom-(?:left|right)-radius/);
+    const navigationRule = styles.match(
+      /\.bottom-nav\s*\{([^}]*)\}\s*\.mobile-bottom-nav\.mobile-bottom-nav-flush/
+    )?.[1] ?? "";
+    expect(navigationRule).toMatch(/right:\s*max\(var\(--page-padding\),\s*calc\(var\(--club-safe-right\) \+ var\(--page-padding\)\)\);/);
+    expect(navigationRule).toMatch(/left:\s*max\(var\(--page-padding\),\s*calc\(var\(--club-safe-left\) \+ var\(--page-padding\)\)\);/);
     expect(styles).not.toMatch(/club-bottom-nav-flush[^{}]*\.(chat-composer|support-ticket-composer|task-screen-footer)/);
   });
 
