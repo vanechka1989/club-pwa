@@ -18,7 +18,7 @@ describe("owner emergency email login code card", () => {
   });
 
   it("shows a one-time code with explicit copy and reset actions", () => {
-    expect(source).toContain("generatedEmailLoginCode.code");
+    expect(source).toContain("generatedEmailLoginCode?.code");
     expect(source).toContain("Скопировать код");
     expect(source).toContain("Создать другой");
     expect(source).toContain("Генерируем…");

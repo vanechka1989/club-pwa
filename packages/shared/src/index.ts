@@ -370,6 +370,23 @@ export type UserRecurrentSubscription = z.infer<typeof userRecurrentSubscription
 export const paymentOrderStatusSchema = z.enum(["pending", "paid", "failed", "cancelled"]);
 export type PaymentOrderStatus = z.infer<typeof paymentOrderStatusSchema>;
 
+export const paymentDiagnosticStateSchema = z.enum([
+  "paid",
+  "awaiting_payment",
+  "expired",
+  "failed",
+  "cancelled",
+  "webhook_error"
+]);
+export type PaymentDiagnosticState = z.infer<typeof paymentDiagnosticStateSchema>;
+
+export const paymentDiagnosticSchema = z.object({
+  state: paymentDiagnosticStateSchema,
+  reason: z.string(),
+  severity: z.enum(["success", "info", "warning", "danger"])
+});
+export type PaymentDiagnostic = z.infer<typeof paymentDiagnosticSchema>;
+
 export const paymentOrderLogSchema = z.object({
   id: z.string(),
   status: paymentOrderStatusSchema,
@@ -387,12 +404,22 @@ export const paymentOrderLogSchema = z.object({
     .nullable(),
   paidAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime()
+  updatedAt: z.string().datetime(),
+  diagnostic: paymentDiagnosticSchema.optional()
 });
 export type PaymentOrderLog = z.infer<typeof paymentOrderLogSchema>;
 
 export const paymentOrderLogsResponseSchema = z.object({
-  orders: z.array(paymentOrderLogSchema)
+  orders: z.array(paymentOrderLogSchema),
+  summary: z.object({
+    total: z.number().int().nonnegative(),
+    paid: z.number().int().nonnegative(),
+    awaitingPayment: z.number().int().nonnegative(),
+    expired: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    cancelled: z.number().int().nonnegative(),
+    webhookErrors: z.number().int().nonnegative()
+  }).optional()
 });
 export type PaymentOrderLogsResponse = z.infer<typeof paymentOrderLogsResponseSchema>;
 
@@ -1088,7 +1115,17 @@ export const adminServerStatusSchema = z.object({
   }),
   systemMemory: adminServerUsageSchema,
   disk: adminServerUsageSchema.nullable(),
-  serverErrorCount: z.number().int().nonnegative()
+  serverErrorCount: z.number().int().nonnegative(),
+  requestMetrics: z.object({
+    requests: z.number().int().nonnegative(),
+    failedRequests: z.number().int().nonnegative(),
+    requestsPerMinute: z.number().nonnegative(),
+    errorRatePercent: z.number().min(0).max(100),
+    averageDurationMs: z.number().nonnegative(),
+    p95DurationMs: z.number().nonnegative(),
+    maxDurationMs: z.number().nonnegative(),
+    windowSeconds: z.number().int().positive()
+  })
 });
 export type AdminServerStatus = z.infer<typeof adminServerStatusSchema>;
 
@@ -1096,6 +1133,18 @@ export const adminServerStatusResponseSchema = z.object({
   status: adminServerStatusSchema
 });
 export type AdminServerStatusResponse = z.infer<typeof adminServerStatusResponseSchema>;
+
+export const adminIntegrationHealthItemSchema = z.object({
+  id: z.enum(["database", "smtp", "s3", "payments", "realtime"]),
+  label: z.string(),
+  status: z.enum(["healthy", "warning", "disabled", "error"]),
+  detail: z.string()
+});
+export const adminIntegrationHealthResponseSchema = z.object({
+  checkedAt: z.string().datetime(),
+  items: z.array(adminIntegrationHealthItemSchema)
+});
+export type AdminIntegrationHealthResponse = z.infer<typeof adminIntegrationHealthResponseSchema>;
 
 export const adminLearningCategoryMutationResponseSchema = z.object({
   ok: z.boolean(),

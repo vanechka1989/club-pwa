@@ -32,6 +32,7 @@ import type {
   AdminMutationResponse,
   AdminServerErrorsResponse,
   AdminServerStatusResponse,
+  AdminIntegrationHealthResponse,
   AdminStatsResponse,
   AdminStatsUser,
   LearningContentResponse,
@@ -605,6 +606,14 @@ export function getAdminServerErrors() {
 
 export function getAdminServerStatus() {
   return api<AdminServerStatusResponse>("/admin/server-status");
+}
+
+export function getAdminIntegrationHealth() {
+  return api<AdminIntegrationHealthResponse>("/admin/integration-health");
+}
+
+export function getAdminSettingsAudit() {
+  return api<AdminActionLogsResponse>("/admin/settings-audit");
 }
 
 export function getAdminProjectSettings() {

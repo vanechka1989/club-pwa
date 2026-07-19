@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Диагностика и контроль админки",
+    items: [
+      "Платежи получили понятные состояния и причины: оплачено, ожидается подтверждение, ошибка webhook, отменено или истекло.",
+      "В настройках проекта появился аудит изменений, а серверная панель показывает состояние базы, почты, S3, платежей и realtime.",
+      "Добавлены метрики запросов, постоянный журнал ошибок и отдельные компактные панели вместо перегруженного монолита админки."
+    ]
+  },
+  {
+    version: "5.13",
+    updatedAt: "19.07.2026 17:48",
     title: "Убрана полоса под нижним меню",
     items: [
       "В режиме прижатого меню удалена нижняя тень, которая выглядела как белая или серая полоса на светлых темах.",
@@ -3775,11 +3785,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "No strip below the bottom navigation",
+  title: "Admin diagnostics and control",
   items: [
-    "Flush navigation no longer casts a downward shadow that looked like a white or grey strip in light themes.",
-    "The safe-area and root canvas now always use the active theme background on iPhone and Android.",
-    "The fix is covered across profile, learning, community, and support on small and large iPhones, Pixel, and Galaxy."
+    "Payments now show clear operational states and explain pending, webhook, cancelled, and expired transactions.",
+    "Project settings include an audit trail, while the server panel reports database, email, S3, payments, and realtime health.",
+    "Request metrics, persistent error logs, and smaller focused admin panels make troubleshooting faster and safer."
   ]
 };
 

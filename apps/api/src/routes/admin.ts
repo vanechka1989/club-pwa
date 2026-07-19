@@ -29,9 +29,10 @@ import {
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
+import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt, summarizePollStatistics } from "../community/pollStats";
-import { publishCommunityChange } from "../community/realtime";
+import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
 import { db } from "../db/client";
 import {
   adminActionLogs,
@@ -47,6 +48,7 @@ import {
   contentItems,
   lessonMaterials,
   lessonComments,
+  paymentProviders,
   subscriptions,
   supportTicketAttachments,
   userContentProgress,
@@ -56,6 +58,7 @@ import {
 } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
+import { requestMetrics } from "../requestMetrics";
 import { countServerErrors, listServerErrors, recordServerError } from "../serverErrors";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
@@ -815,7 +818,8 @@ async function buildAdminServerStatus() {
     },
     systemMemory: buildUsage(memoryTotal - memoryFree, memoryTotal, memoryFree),
     disk: await getDiskUsage(),
-    serverErrorCount: countServerErrors()
+    serverErrorCount: await countServerErrors(),
+    requestMetrics: requestMetrics.snapshot()
   };
 }
 
@@ -1243,6 +1247,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/storage/s3", requireAdminPermission("storage"))
   .use("/storage/s3/*", requireAdminPermission("storage"))
   .use("/project-settings", requireAdminPermission("project_settings"))
+  .use("/settings-audit", requireAdminPermission("project_settings"))
   .get("/login-ips/:telegramId", async (c) => {
     const user = await db.query.users.findFirst({
       where: eq(users.telegramId, c.req.param("telegramId"))
@@ -1317,6 +1322,31 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       settings: {
         referralRewardDays: await getReferralRewardDays()
       }
+    });
+  })
+  .get("/settings-audit", async (c) => {
+    const logs = await db.query.adminActionLogs.findMany({
+      where: or(
+        sql`${adminActionLogs.action} like 'project.settings.%'`,
+        sql`${adminActionLogs.action} like 'storage.s3.%'`,
+        sql`${adminActionLogs.action} like 'payment.provider.%'`
+      ),
+      orderBy: [desc(adminActionLogs.createdAt)],
+      limit: 100,
+      with: { actor: true, targetUser: true }
+    });
+    const actorIds = Array.from(new Set(logs.map((log) => log.actorTelegramId)));
+    const profiles = actorIds.length
+      ? await db.query.users.findMany({ where: inArray(users.telegramId, actorIds) })
+      : [];
+    const profilesByTelegramId = new Map(profiles.map((profile) => [profile.telegramId, profile]));
+
+    return c.json({
+      admins: actorIds.map((telegramId) => serializeAdminActionActor(telegramId, profilesByTelegramId.get(telegramId))),
+      logs: logs.map((log) => serializeAdminActionLog({
+        ...log,
+        actor: profilesByTelegramId.get(log.actorTelegramId) ?? log.actor
+      }))
     });
   })
   .post("/project-settings", async (c) => {
@@ -1436,7 +1466,41 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return ownerError;
     }
 
-    return c.json({ errors: listServerErrors() });
+    return c.json({ errors: await listServerErrors() });
+  })
+  .get("/integration-health", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+
+    const [provider, storedS3] = await Promise.all([
+      db.query.paymentProviders.findFirst({ where: eq(paymentProviders.provider, "prodamus") }),
+      getStoredS3Setting()
+    ]);
+    const s3 = storedS3.config ?? getS3ConfigFromEnv(env);
+    const items = buildConfiguredIntegrationHealth({
+      smtp: { host: env.SMTP_HOST, port: env.SMTP_PORT, user: env.SMTP_USER, password: env.SMTP_PASSWORD },
+      s3: {
+        endpoint: s3?.endpoint,
+        bucket: s3?.bucket,
+        accessKeyId: s3?.accessKeyId,
+        secretAccessKey: s3?.secretAccessKey
+      },
+      payment: { enabled: Boolean(provider?.isEnabled), hasSecret: Boolean(provider?.secretKey) },
+      realtime: { enabled: true, subscriberCount: getCommunityRealtimeSubscriberCount() }
+    });
+
+    try {
+      await db.execute(sql`select 1`);
+    } catch (error) {
+      const database = items.find((item) => item.id === "database");
+      if (database) {
+        database.status = "error";
+        database.detail = "PostgreSQL не отвечает.";
+      }
+      logger.error({ error }, "Admin integration health database check failed");
+    }
+
+    return c.json({ checkedAt: new Date().toISOString(), items });
   })
   .post("/database/backup-link", async (c) => {
     const ownerError = await rejectIfNotOwner(c);

@@ -3,12 +3,15 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the flush navigation surface fix as version 5.13", () => {
-    expect(appVersion).toBe("5.13");
-    expect(releaseNotes[0]?.title).toBe("Убрана полоса под нижним меню");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("нижняя тень");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("iPhone и Android");
-    expect(releaseNotes[1]?.version).toBe("5.12");
+  it("publishes the admin operations upgrade as version 5.14", () => {
+    expect(appVersion).toBe("5.14");
+    expect(releaseNotes[0]?.title).toBe("Диагностика и контроль админки");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Платежи");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("журнал ошибок");
+
+    const navigationFix = releaseNotes.find((note) => note.version === "5.13");
+    expect(navigationFix?.title).toBe("Убрана полоса под нижним меню");
+    expect(navigationFix?.items.join(" ")).toContain("iPhone и Android");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +45,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("No strip below the bottom navigation");
+    expect(englishNotes[0]?.title).toBe("Admin diagnostics and control");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

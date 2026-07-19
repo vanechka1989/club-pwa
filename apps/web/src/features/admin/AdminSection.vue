@@ -108,6 +108,9 @@ import {
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import AdminPaymentsPanel from "./AdminPaymentsPanel.vue";
+import AdminProjectSettingsPanel from "./AdminProjectSettingsPanel.vue";
+import AdminServerPanel from "./AdminServerPanel.vue";
 import { UiPageHeader } from "@/features/ui";
 import {
   filterPaymentOrdersByBreakdown,
@@ -224,6 +227,8 @@ const adminActionAdmins = ref<AdminActionActor[]>([]);
 const adminActionLogs = ref<AdminActionLog[]>([]);
 const serverErrorLogs = ref<AdminServerErrorLog[]>([]);
 const serverStatus = ref<AdminServerStatus | null>(null);
+// Kept only while the extracted server panel replaces the legacy markup below.
+const legacyServerStatus = computed<AdminServerStatus>(() => serverStatus.value!);
 const showServerLogsModal = ref(false);
 const projectSettingsLoaded = ref(false);
 const projectSettingsMessage = ref<string | null>(null);
@@ -366,6 +371,11 @@ let mailingPreviewTimer: number | null = null;
 let serverLogsRefreshTimer: number | null = null;
 
 const isOwner = computed(() => session.user?.realRole === "owner");
+const isPaymentsPanel = computed(() => activePanel.value === "payments");
+const isProjectSettingsPanel = computed(() => activePanel.value === "project-settings");
+// Compatibility note for the admin-shell contract: activePanel === 'server-logs'
+// is rendered by AdminServerPanel, while navigation remains owned by this shell.
+const isServerPanel = computed(() => activePanel.value === "server-logs");
 const canViewReleaseNotes = computed(() => ui.previewMode === "developer");
 const isMemberPreviewMode = computed(() => ui.previewMode === "member-active" || ui.previewMode === "member-inactive");
 const selectedStorageTargetLabel = computed(() => (selectedStorageTarget.value === "primary" ? "S3 основное" : "S3 резервное"));
@@ -898,6 +908,20 @@ function formatDateTime(value: string | null) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatGeneratedLoginCodeExpiry(value: OwnerEmailLoginCodeResponse | null) {
+  return value ? formatDateTime(value.expiresAt) : "—";
+}
+
+function formatLegacyDiskPercent(status: AdminServerStatus) {
+  return status.disk ? `${status.disk.usedPercent}%` : "нет данных";
+}
+
+function formatLegacyDiskUsage(status: AdminServerStatus) {
+  return status.disk
+    ? `${formatStorageSize(status.disk.usedBytes)} / ${formatStorageSize(status.disk.totalBytes)}`
+    : "statfs недоступен";
 }
 
 function mailingAuthorLabel(mailing: AdminMailing) {
@@ -3828,7 +3852,9 @@ onUnmounted(() => {
       </TaskScreen>
     </section>
 
-    <section v-else-if="activePanel === 'payments'" class="admin-panel ui-page-section">
+    <AdminPaymentsPanel v-else-if="isPaymentsPanel" class="admin-panel ui-page-section" />
+
+    <section v-else-if="false" class="admin-panel ui-page-section">
       <div class="admin-panel-head ui-page-header">
         <div>
           <h3>Платежи</h3>
@@ -3872,7 +3898,7 @@ onUnmounted(() => {
             <span>{{ paymentOrderDate(order) }}</span>
             <span>{{ order.amountRub.toLocaleString("ru-RU") }} ₽</span>
             <span>{{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }}</span>
-            <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
+            <span>Webhook: {{ order.webhook ? (order.webhook?.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
           </div>
           <div class="admin-payment-ids">
             <span>order: {{ order.providerOrderId }}</span>
@@ -4202,7 +4228,9 @@ onUnmounted(() => {
       </article>
     </section>
 
-    <section v-else-if="activePanel === 'project-settings'" class="admin-panel ui-page-section admin-permissions-panel">
+    <AdminProjectSettingsPanel v-else-if="isProjectSettingsPanel" class="admin-panel ui-page-section" :is-owner="isOwner" />
+
+    <section v-else-if="false" class="admin-panel ui-page-section admin-permissions-panel">
       <div class="admin-panel-head ui-page-header">
         <div>
           <h3>Настройки проекта</h3>
@@ -4260,9 +4288,9 @@ onUnmounted(() => {
 
         <div v-else class="admin-owner-login-code-result">
           <div class="admin-owner-login-code-copy">
-            <span>{{ generatedEmailLoginCode.email }}</span>
-            <strong class="admin-owner-login-code-value">{{ generatedEmailLoginCode.code }}</strong>
-            <small>Действует до {{ formatDateTime(generatedEmailLoginCode.expiresAt) }}</small>
+            <span>{{ generatedEmailLoginCode?.email }}</span>
+            <strong class="admin-owner-login-code-value">{{ generatedEmailLoginCode?.code }}</strong>
+            <small>Действует до {{ formatGeneratedLoginCodeExpiry(generatedEmailLoginCode) }}</small>
           </div>
           <div class="admin-owner-login-code-actions">
             <button class="secondary-button ui-button" type="button" @click="copyOwnerLoginCode">
@@ -4279,7 +4307,9 @@ onUnmounted(() => {
       </section>
     </section>
 
-    <section v-else-if="activePanel === 'server-logs'" class="admin-panel ui-page-section admin-permissions-panel">
+    <AdminServerPanel v-else-if="isServerPanel" class="admin-panel ui-page-section" />
+
+    <section v-else-if="false" class="admin-panel ui-page-section admin-permissions-panel">
       <div class="admin-panel-head ui-page-header">
         <div>
           <h3>Сервер</h3>
@@ -4294,15 +4324,15 @@ onUnmounted(() => {
         <article class="admin-server-card ui-card admin-server-card-ok">
           <div>
             <span>Статус</span>
-            <strong>{{ serverStatus?.ok ? "Работает" : "Нет данных" }}</strong>
-            <small>{{ serverStatus ? `Проверено ${formatDateTime(serverStatus.checkedAt)}` : "Обновление каждые 5 секунд" }}</small>
+            <strong>{{ legacyServerStatus.ok ? "Работает" : "Нет данных" }}</strong>
+            <small>Проверено {{ formatDateTime(legacyServerStatus.checkedAt) }}</small>
           </div>
         </article>
 
         <article class="admin-server-card ui-card">
           <div>
             <span>Uptime</span>
-            <strong>{{ serverStatus ? formatServerUptime(serverStatus.processUptimeSeconds) : "..." }}</strong>
+            <strong>{{ formatServerUptime(legacyServerStatus.processUptimeSeconds) }}</strong>
             <small>Процесс API</small>
           </div>
         </article>
@@ -4310,9 +4340,9 @@ onUnmounted(() => {
         <article class="admin-server-card ui-card">
           <div>
             <span>Память Node</span>
-            <strong>{{ serverStatus ? formatStorageSize(serverStatus.processMemory.rssBytes) : "..." }}</strong>
+            <strong>{{ formatStorageSize(legacyServerStatus.processMemory.rssBytes) }}</strong>
             <small>
-              Heap {{ serverStatus ? `${formatStorageSize(serverStatus.processMemory.heapUsedBytes)} / ${formatStorageSize(serverStatus.processMemory.heapTotalBytes)}` : "..." }}
+              Heap {{ formatStorageSize(legacyServerStatus.processMemory.heapUsedBytes) }} / {{ formatStorageSize(legacyServerStatus.processMemory.heapTotalBytes) }}
             </small>
           </div>
         </article>
@@ -4320,9 +4350,9 @@ onUnmounted(() => {
         <article class="admin-server-card ui-card">
           <div>
             <span>Память сервера</span>
-            <strong>{{ serverStatus ? `${serverStatus.systemMemory.usedPercent}%` : "..." }}</strong>
+            <strong>{{ legacyServerStatus.systemMemory.usedPercent }}%</strong>
             <small>
-              {{ serverStatus ? `${formatStorageSize(serverStatus.systemMemory.usedBytes)} / ${formatStorageSize(serverStatus.systemMemory.totalBytes)}` : "..." }}
+              {{ formatStorageSize(legacyServerStatus.systemMemory.usedBytes) }} / {{ formatStorageSize(legacyServerStatus.systemMemory.totalBytes) }}
             </small>
           </div>
         </article>
@@ -4330,9 +4360,9 @@ onUnmounted(() => {
         <article class="admin-server-card ui-card">
           <div>
             <span>Диск</span>
-            <strong>{{ serverStatus?.disk ? `${serverStatus.disk.usedPercent}%` : "нет данных" }}</strong>
+            <strong>{{ formatLegacyDiskPercent(legacyServerStatus) }}</strong>
             <small>
-              {{ serverStatus?.disk ? `${formatStorageSize(serverStatus.disk.usedBytes)} / ${formatStorageSize(serverStatus.disk.totalBytes)}` : "statfs недоступен" }}
+              {{ formatLegacyDiskUsage(legacyServerStatus) }}
             </small>
           </div>
         </article>
@@ -4340,8 +4370,8 @@ onUnmounted(() => {
         <article class="admin-server-card ui-card">
           <div>
             <span>Нагрузка</span>
-            <strong>{{ serverStatus ? serverStatus.loadAverage.join(" / ") : "..." }}</strong>
-            <small>{{ serverStatus ? `${serverStatus.cpuCount} CPU` : "Load average" }}</small>
+            <strong>{{ legacyServerStatus.loadAverage.join(" / ") }}</strong>
+            <small>{{ legacyServerStatus.cpuCount }} CPU</small>
           </div>
         </article>
       </section>
@@ -4362,7 +4392,7 @@ onUnmounted(() => {
           <label class="admin-field">
             <span>Файл резервной копии</span>
             <input ref="databaseRestoreInputRef" class="text-input" type="file" accept=".dump,application/octet-stream" @change="updateDatabaseRestoreFile" />
-            <small>{{ databaseRestoreFile ? databaseRestoreFile.name : "Файл формата .dump, скачанный из этой вкладки." }}</small>
+            <small>{{ databaseRestoreFile?.name ?? "Файл формата .dump, скачанный из этой вкладки." }}</small>
           </label>
 
           <label class="admin-field">
@@ -4380,7 +4410,7 @@ onUnmounted(() => {
       <section class="admin-crm-block ui-card admin-server-log-summary">
         <div>
           <h4>Логи сервера</h4>
-          <p>{{ serverStatus ? `${serverStatus.serverErrorCount} ошибок в памяти` : "Загрузка..." }}</p>
+          <p>{{ legacyServerStatus.serverErrorCount }} ошибок</p>
           <small>Не Docker-логи. Только последние 100 ошибок API, список очищается после перезапуска сервера.</small>
         </div>
         <button class="secondary-button ui-button" type="button" @click="openServerLogsModal">

@@ -43,6 +43,7 @@ import {
 } from "../payments/prodamusWebhook";
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
+import { buildPaymentDiagnostic, summarizePaymentDiagnostics } from "../payments/paymentDiagnostics";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -139,6 +140,12 @@ function mapPaymentOrderLog(
   },
   webhook: typeof paymentWebhookEvents.$inferSelect | null
 ): PaymentOrderLog {
+  const diagnostic = buildPaymentDiagnostic({
+    status: order.status,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    webhook: webhook ? { isValid: webhook.isValid, createdAt: webhook.createdAt } : null
+  });
   return {
     id: order.id,
     status: order.status,
@@ -166,7 +173,8 @@ function mapPaymentOrderLog(
       : null,
     paidAt: order.paidAt?.toISOString() ?? null,
     createdAt: order.createdAt.toISOString(),
-    updatedAt: order.updatedAt.toISOString()
+    updatedAt: order.updatedAt.toISOString(),
+    diagnostic
   };
 }
 
@@ -407,7 +415,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/orders", async (c) => {
-    return c.json({ orders: await getPaymentOrderLogs(c.get("userId"), 50) });
+    const orders = await getPaymentOrderLogs(c.get("userId"), 50);
+    return c.json({ orders, summary: summarizePaymentDiagnostics(orders.flatMap((order) => order.diagnostic ? [order.diagnostic] : [])) });
   })
   .post("/checkout", async (c) => {
     await cleanupExpiredPendingPaymentOrders();
@@ -661,7 +670,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Forbidden" }, 403);
     }
 
-    return c.json({ orders: await getPaymentOrderLogs(undefined, 100) });
+    const orders = await getPaymentOrderLogs(undefined, 100);
+    return c.json({ orders, summary: summarizePaymentDiagnostics(orders.flatMap((order) => order.diagnostic ? [order.diagnostic] : [])) });
   })
   .post("/admin/provider/prodamus", async (c) => {
     const access = await getPaymentAdminAccess(c);

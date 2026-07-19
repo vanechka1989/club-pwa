@@ -83,6 +83,23 @@ export const adminActionLogs = pgTable(
   })
 );
 
+export const serverErrorLogs = pgTable(
+  "server_error_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: varchar("title", { length: 180 }).notNull(),
+    detail: text("detail").notNull(),
+    path: text("path"),
+    method: varchar("method", { length: 16 }),
+    status: integer("status"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    createdIdx: index("server_error_logs_created_idx").on(table.createdAt),
+    statusCreatedIdx: index("server_error_logs_status_created_idx").on(table.status, table.createdAt)
+  })
+);
+
 export const clubSettings = pgTable("club_settings", {
   key: varchar("key", { length: 96 }).primaryKey(),
   value: text("value").notNull(),
@@ -1198,6 +1215,7 @@ export const adminMailingRecipientsRelations = relations(adminMailingRecipients,
 export type User = typeof users.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type AdminActionLog = typeof adminActionLogs.$inferSelect;
+export type ServerErrorLog = typeof serverErrorLogs.$inferSelect;
 export type ClubSetting = typeof clubSettings.$inferSelect;
 export type AuthEmailLoginCode = typeof authEmailLoginCodes.$inferSelect;
 export type AuthSession = typeof authSessions.$inferSelect;
