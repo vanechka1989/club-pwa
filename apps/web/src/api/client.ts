@@ -36,6 +36,7 @@ import type {
   AdminStatsResponse,
   AdminStatsUser,
   LearningContentResponse,
+  LearningSaveOperationResponse,
   LessonCommentMutationResponse,
   LessonCommentsResponse,
   LearningHomeResponse,
@@ -897,11 +898,16 @@ export function createAdminLearningMaterialDirect(payload: {
   mediaObject?: AdminLearningUploadedObject | null;
   thumbnailObject?: AdminLearningUploadedObject | null;
   removeThumbnail?: boolean;
-}) {
+}, options: { idempotencyKey?: string } = {}) {
   return api<AdminLearningMaterialMutationResponse>("/admin/learning/materials/direct", {
     method: "POST",
-    body: payload
+    body: payload,
+    ...(options.idempotencyKey ? { headers: { "Idempotency-Key": options.idempotencyKey } } : {})
   });
+}
+
+export function getAdminLearningMaterialOperation(idempotencyKey: string) {
+  return api<LearningSaveOperationResponse>(`/admin/learning/materials/operations/${encodeURIComponent(idempotencyKey)}`);
 }
 
 export function updateAdminLearningMaterial(id: string, payload: FormData) {

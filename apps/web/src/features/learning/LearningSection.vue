@@ -49,6 +49,7 @@ import {
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
+  getAdminLearningMaterialOperation,
   getApiRequestHeaders,
   getLearningContent,
   getLearningHome,
@@ -85,6 +86,7 @@ import {
   LearningUploadRequestError,
   runUploadWithRetry
 } from "./uploadRecovery";
+import { isAmbiguousNetworkError, reconcileLearningSave } from "./lessonSaveReconciliation";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -1814,6 +1816,7 @@ async function startBackgroundLessonUpload() {
     thumbnailFile: lessonThumbnailFile.value,
     materials: lessonMaterialDrafts.value.map((material) => ({ ...material }))
   };
+  const idempotencyKey = draft.lessonId ? null : crypto.randomUUID();
   const hasMedia = Boolean(draft.mediaFile);
   const hasThumbnail = Boolean(draft.thumbnailFile);
   const materialFiles = draft.materials.filter((material) => material.kind !== "text" && material.file);
@@ -1951,9 +1954,24 @@ async function startBackgroundLessonUpload() {
     lessonUploads.update(draft.id, { status: "saving", progress: 95, detail: "Сохраняем карточку урока", loadedBytes: totalSizeBytes });
     const payload = buildLessonDirectPayloadFromDraft(draft, mediaObject, thumbnailObject, materialObjects);
     throwIfUploadCancelled(abortController.signal);
-    const response = draft.lessonId
-      ? await updateAdminLearningMaterialDirect(draft.lessonId, payload)
-      : await createAdminLearningMaterialDirect(payload);
+    let response;
+    try {
+      response = draft.lessonId
+        ? await updateAdminLearningMaterialDirect(draft.lessonId, payload)
+        : await createAdminLearningMaterialDirect(payload, idempotencyKey ? { idempotencyKey } : {});
+    } catch (error) {
+      if (!draft.lessonId && idempotencyKey && isAmbiguousNetworkError(error)) {
+        currentStage = "Проверка результата сохранения";
+        lessonUploads.update(draft.id, { detail: "Проверяем, сохранился ли урок" });
+        const material = await reconcileLearningSave({
+          originalError: error,
+          loadOperation: () => getAdminLearningMaterialOperation(idempotencyKey)
+        });
+        response = { ok: true, material };
+      } else {
+        throw error;
+      }
+    }
     throwIfUploadCancelled(abortController.signal);
 
     if (draft.lessonId) {

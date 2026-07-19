@@ -45,6 +45,11 @@ describe("learning background uploads", () => {
     expect(uploadStoreSource).toContain("retry?: (() => void)");
     expect(learningSectionSource).toContain("createManualUploadRetryGate");
     expect(learningSectionSource).toContain("onManualRetryRequired");
+    expect(apiClientSource).toContain('"Idempotency-Key"');
+    expect(apiClientSource).toContain("getAdminLearningMaterialOperation");
+    expect(learningSectionSource).toContain("crypto.randomUUID()");
+    expect(learningSectionSource).toContain("isAmbiguousNetworkError");
+    expect(learningSectionSource).toContain("reconcileLearningSave");
   });
 
   it("authenticates every XMLHttpRequest upload part like the regular API client", () => {
