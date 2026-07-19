@@ -11,6 +11,14 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Компактный переключатель ролей",
+    items: [
+      "В шапке админки убрана лишняя видимая надпись «Вид как»; сами режимы просмотра и их работа сохранены."
+    ]
+  },
+  {
+    version: "5.18",
+    updatedAt: "19.07.2026 22:22",
     title: "Единые кнопки профиля",
     items: [
       "Кнопка с карандашом для редактирования имени теперь выделена таким же квадратным акцентным бейджем, как значок камеры."
@@ -3822,9 +3830,9 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Consistent profile action buttons",
+  title: "Compact role preview switcher",
   items: [
-    "The name-edit pencil now uses the same highlighted square badge as the camera action."
+    "The redundant visible View as caption was removed from the admin header while preserving every preview mode and its behavior."
   ]
 };
 
