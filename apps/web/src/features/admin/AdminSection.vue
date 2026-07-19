@@ -2853,7 +2853,6 @@ onUnmounted(() => {
           <small>{{ appVersionUpdatedAt }}</small>
         </button>
         <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
-          <span>Вид как</span>
           <div>
             <button
               v-for="option in previewModeOptions"
