@@ -69,18 +69,21 @@ describe("compact profile layout", () => {
     expect(source).not.toContain("roleLabel");
   });
 
-  it("uses one compact avatar action instead of two exposed controls", () => {
-    expect(source).toContain('class="profile-avatar-menu-button profile-avatar-icon-button ui-icon-button"');
+  it("opens the same photo action from the avatar and camera beside the name editor", () => {
+    expect(source).toContain('class="profile-avatar profile-avatar-large profile-avatar-trigger"');
+    expect(source.match(/@click="openAvatarPhotoActions"/g)).toHaveLength(2);
+    expect(source).toMatch(/profile-display-name-row[\s\S]*profile-avatar-icon-button/);
     expect(source).toContain("avatarPhotoMenuOpen");
     expect(source).toContain("Загрузить новое фото");
     expect(source).toContain("Настроить кадр");
+    expect(source).not.toContain("profile-avatar-menu-button");
     expect(source).not.toContain('class="profile-avatar-actions"');
   });
 
-  it("keeps the camera badge compact without shrinking its touch target", () => {
-    expect(styles).toContain("--profile-avatar-camera-visual-size: calc(26px * var(--club-scaled-control-factor, 1));");
-    expect(styles).toMatch(/\.profile-dashboard \.profile-avatar-menu-button::before\s*\{[^}]*width:\s*var\(--profile-avatar-camera-visual-size\);[^}]*height:\s*var\(--profile-avatar-camera-visual-size\);/s);
-    expect(styles).toMatch(/\.profile-dashboard \.profile-avatar-menu-button\s*\{[^}]*width:\s*var\(--icon-button-size\);/s);
+  it("keeps the avatar and camera as accessible touch targets without overlay positioning", () => {
+    expect(styles).toMatch(/\.profile-dashboard \.profile-avatar-trigger\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;/s);
+    expect(styles).toMatch(/\.profile-dashboard \.profile-display-name-row \.profile-avatar-icon-button\s*\{[^}]*width:\s*var\(--icon-button-size\);/s);
+    expect(styles).not.toContain(".profile-dashboard .profile-avatar-menu-button");
   });
 
   it("uses a compact crop workspace and one-row actions", () => {

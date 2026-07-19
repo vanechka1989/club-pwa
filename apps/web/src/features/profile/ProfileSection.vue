@@ -83,6 +83,7 @@ const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
 const avatarEditorOpen = ref(false);
 const avatarPhotoMenuOpen = ref(false);
+const avatarUploadInput = ref<HTMLInputElement | null>(null);
 const avatarDisplaySaving = ref(false);
 const avatarDraftX = ref(50);
 const avatarDraftY = ref(50);
@@ -471,6 +472,19 @@ function handleAvatarWheel(event: WheelEvent) {
   avatarDraftScale.value = clampAvatarScale(avatarDraftScale.value + (event.deltaY < 0 ? 0.08 : -0.08));
 }
 
+function openAvatarPhotoActions() {
+  if (avatarSaving.value) {
+    return;
+  }
+
+  if (session.user?.photoUrl) {
+    avatarPhotoMenuOpen.value = true;
+    return;
+  }
+
+  avatarUploadInput.value?.click();
+}
+
 function openAvatarEditor(options: { useCurrentAvatar?: boolean } = {}) {
   if (!session.user?.photoUrl) {
     avatarMessage.value = t("profileAvatarUploadFirst");
@@ -673,35 +687,16 @@ watch(
       <div class="profile-dashboard-toolbar">
         <div class="profile-access-layout">
         <div class="profile-avatar-stack">
-          <div class="profile-avatar profile-avatar-large">
-            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
-            <span v-else>{{ avatarInitial }}</span>
-          </div>
           <button
-            v-if="session.user?.photoUrl"
-            class="profile-avatar-menu-button profile-avatar-icon-button ui-icon-button"
+            class="profile-avatar profile-avatar-large profile-avatar-trigger"
             type="button"
             aria-label="Изменить фото профиля"
-            @click="avatarPhotoMenuOpen = true"
+            :disabled="avatarSaving"
+            @click="openAvatarPhotoActions"
           >
-            <Camera class="h-4 w-4" aria-hidden="true" />
+            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
+            <span v-else>{{ avatarInitial }}</span>
           </button>
-          <label
-              v-else
-              class="profile-avatar-menu-button profile-avatar-icon-button ui-icon-button"
-              :class="{ 'profile-avatar-upload-disabled': avatarSaving }"
-              :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
-              :title="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
-            >
-              <Camera class="h-4 w-4" aria-hidden="true" />
-              <input
-                class="profile-upload-input"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                :disabled="avatarSaving"
-                @change="handleAvatarUpload"
-              />
-          </label>
         </div>
         <div class="profile-access-main">
           <div class="profile-access-head profile-identity-head">
@@ -711,6 +706,24 @@ watch(
                 <button v-if="!session.user?.displayNameChangedByUserAt" class="profile-name-edit" type="button" aria-label="Изменить ник" @click="openDisplayNameEditor">
                   <Pencil class="h-4 w-4" aria-hidden="true" />
                 </button>
+                <button
+                  class="profile-avatar-icon-button ui-icon-button"
+                  type="button"
+                  :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
+                  :title="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
+                  :disabled="avatarSaving"
+                  @click="openAvatarPhotoActions"
+                >
+                  <Camera class="h-4 w-4" aria-hidden="true" />
+                </button>
+                <input
+                  ref="avatarUploadInput"
+                  class="profile-upload-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  :disabled="avatarSaving"
+                  @change="handleAvatarUpload"
+                />
               </div>
               <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
             </div>

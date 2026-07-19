@@ -18434,26 +18434,25 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   border-radius: 12px;
 }
 
-.profile-dashboard .profile-avatar-menu-button {
-  --profile-avatar-camera-visual-size: calc(26px * var(--club-scaled-control-factor, 1));
-  --action-icon-visual-size: var(--profile-avatar-camera-visual-size);
-  position: absolute;
-  right: calc((var(--profile-avatar-camera-visual-size) - var(--icon-button-size)) / 2);
-  bottom: calc((var(--profile-avatar-camera-visual-size) - var(--icon-button-size)) / 2);
-  z-index: 2;
+.profile-dashboard .profile-avatar-trigger {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.profile-dashboard .profile-avatar-trigger:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.profile-dashboard .profile-display-name-row .profile-avatar-icon-button {
   width: var(--icon-button-size);
   min-width: var(--icon-button-size);
   height: var(--icon-button-size);
   min-height: var(--icon-button-size);
-}
-
-.profile-dashboard .profile-avatar-menu-button::before {
-  width: var(--profile-avatar-camera-visual-size);
-  height: var(--profile-avatar-camera-visual-size);
-  border: 2px solid var(--panel);
-  border-radius: calc(8px * var(--club-scaled-control-factor, 1));
-  background: color-mix(in srgb, var(--accent-soft) 68%, var(--panel));
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--accent);
 }
 
 .profile-photo-menu {
