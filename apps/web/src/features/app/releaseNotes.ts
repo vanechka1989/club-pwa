@@ -11,6 +11,14 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Возвращено меню фото профиля",
+    items: [
+      "Невидимое поле загрузки больше не перекрывает профиль: нажатие на аватар или кнопку камеры снова открывает меню с действиями «Загрузить новое фото» и «Настроить кадр»."
+    ]
+  },
+  {
+    version: "5.19",
+    updatedAt: "19.07.2026 23:11",
     title: "Компактный переключатель ролей",
     items: [
       "В шапке админки убрана лишняя видимая надпись «Вид как»; сами режимы просмотра и их работа сохранены."
@@ -3830,9 +3838,9 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact role preview switcher",
+  title: "Restored profile photo menu",
   items: [
-    "The redundant visible View as caption was removed from the admin header while preserving every preview mode and its behavior."
+    "The hidden upload field no longer covers the profile, so tapping the avatar or camera button again opens the menu for uploading a new photo or adjusting the crop."
   ]
 };
 

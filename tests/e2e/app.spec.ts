@@ -1551,6 +1551,19 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
   }
 });
 
+test("opens the profile photo menu from both avatar controls", async ({ page }) => {
+  const photoMenu = page.getByRole("dialog", { name: "Изменить фото профиля" });
+
+  await page.getByRole("button", { name: "Изменить фото профиля" }).click();
+  await expect(photoMenu).toBeVisible();
+  await expect(photoMenu.getByText("Загрузить новое фото")).toBeVisible();
+  await expect(photoMenu.getByText("Настроить кадр")).toBeVisible();
+  await page.locator(".profile-modal-backdrop").click({ position: { x: 4, y: 4 } });
+
+  await page.getByRole("button", { name: "Загрузить фото" }).click();
+  await expect(photoMenu).toBeVisible();
+});
+
 test("keeps a permissionless administrator on safe member APIs while switching tabs", async ({ page }, testInfo) => {
   const permissionlessAdmin = {
     ...currentUser,

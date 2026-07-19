@@ -80,6 +80,11 @@ describe("compact profile layout", () => {
     expect(source).not.toContain('class="profile-avatar-actions"');
   });
 
+  it("keeps the programmatic avatar file input from intercepting profile clicks", () => {
+    expect(source).toMatch(/ref="avatarUploadInput"[\s\S]*class="profile-upload-input profile-upload-input-detached"/);
+    expect(styles).toMatch(/\.profile-upload-input-detached\s*\{[^}]*display:\s*none;/s);
+  });
+
   it("highlights the name editor with the same action badge as the camera", () => {
     expect(source).toContain('class="profile-name-edit profile-avatar-icon-button ui-icon-button"');
   });

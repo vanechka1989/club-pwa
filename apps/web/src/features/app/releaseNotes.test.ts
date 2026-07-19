@@ -3,14 +3,14 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the compact role preview switcher as version 5.19", () => {
-    expect(appVersion).toBe("5.19");
-    expect(releaseNotes[0]?.title).toBe("Компактный переключатель ролей");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Вид как");
+  it("publishes the restored avatar action menu as version 5.20", () => {
+    expect(appVersion).toBe("5.20");
+    expect(releaseNotes[0]?.title).toBe("Возвращено меню фото профиля");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Настроить кадр");
 
-    const previousRelease = releaseNotes.find((note) => note.version === "5.18");
-    expect(previousRelease?.title).toBe("Единые кнопки профиля");
-    expect(previousRelease?.items.join(" ")).toContain("карандаш");
+    const previousRelease = releaseNotes.find((note) => note.version === "5.19");
+    expect(previousRelease?.title).toBe("Компактный переключатель ролей");
+    expect(previousRelease?.items.join(" ")).toContain("Вид как");
 
     const navigationFix = releaseNotes.find((note) => note.version === "5.13");
     expect(navigationFix?.title).toBe("Убрана полоса под нижним меню");
@@ -48,7 +48,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact role preview switcher");
+    expect(englishNotes[0]?.title).toBe("Restored profile photo menu");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

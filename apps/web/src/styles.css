@@ -8789,6 +8789,10 @@ body.club-lesson-image-viewer-open {
   cursor: default;
 }
 
+.profile-upload-input-detached {
+  display: none;
+}
+
 .profile-access-main {
   display: grid;
   min-width: 0;

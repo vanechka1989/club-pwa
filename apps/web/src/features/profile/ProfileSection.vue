@@ -724,7 +724,7 @@ watch(
                 </button>
                 <input
                   ref="avatarUploadInput"
-                  class="profile-upload-input"
+                  class="profile-upload-input profile-upload-input-detached"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   :disabled="avatarSaving"
