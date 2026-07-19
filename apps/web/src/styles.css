@@ -3394,6 +3394,61 @@ body.club-keyboard-open .support-ticket-modal-compact {
   min-height: 11rem;
 }
 
+.admin-mailing-editor-modes {
+  display: grid;
+  width: min(100%, 20rem);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-mailing-editor-mode {
+  min-height: 44px;
+}
+
+.admin-mailing-editor-mode-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.admin-mailing-html-source {
+  width: 100%;
+  min-height: 11rem;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.admin-mailing-message-preview {
+  display: grid;
+  gap: 0.65rem;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--panel-soft);
+  padding: 0.75rem;
+  line-height: 1.55;
+}
+
+.admin-mailing-message-preview > span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-mailing-message-preview code,
+.notification-center-copy code,
+.admin-mailing-detail-body code {
+  border-radius: 0.3rem;
+  background: var(--panel-strong);
+  padding: 0.08rem 0.3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
 .admin-mailing-channels,
 .admin-mailing-filter-grid,
 .admin-mailing-preview-grid {

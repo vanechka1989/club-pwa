@@ -55,6 +55,25 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain('class="admin-mailing-submit-row admin-mailing-builder-footer"');
   });
 
+  it("offers safe visual and HTML source editing with a real message preview", () => {
+    expect(adminSectionSource).toContain('import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode"');
+    expect(adminSectionSource).toContain('ref<MailingEditorMode>("visual")');
+    expect(adminSectionSource).toContain("setMailingEditorMode");
+    expect(adminSectionSource).toContain(">Визуально</button>");
+    expect(adminSectionSource).toContain(">HTML-код</button>");
+    expect(adminSectionSource).toContain('v-if="mailingEditorMode === \'visual\'"');
+    expect(adminSectionSource).toContain('class="text-input admin-mailing-html-source"');
+    expect(adminSectionSource).toContain("mailingPreparedMessage.safeHtml");
+    expect(adminSectionSource).toContain('v-html="mailingPreparedMessage.safeHtml"');
+    expect(adminSectionSource).toContain("syncActiveMailingEditor");
+  });
+
+  it("submits safe HTML and derived plain text from either editor mode", () => {
+    expect(adminSectionSource).toContain('form.set("body", mailingPreparedMessage.value.plainText)');
+    expect(adminSectionSource).toContain('form.set("bodyHtml", mailingPreparedMessage.value.safeHtml)');
+    expect(adminSectionSource).toContain("mailingPreparedMessage.value.plainText.length > 0");
+  });
+
   it("keeps the audience calculation block only inside the mailing composer", () => {
     const composerPreviewStart = adminSectionSource.indexOf("admin-mailing-composer-preview");
     const composerPreviewEnd = adminSectionSource.indexOf("admin-mailing-submit-row", composerPreviewStart);

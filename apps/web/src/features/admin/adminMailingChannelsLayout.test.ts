@@ -15,4 +15,11 @@ describe("mailing mobile layout", () => {
     expect(styles).toContain(".admin-mailing-channels");
     expect(styles).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
   });
+
+  it("keeps HTML mode controls and source textarea usable on mobile", () => {
+    expect(styles).toContain(".admin-mailing-editor-modes");
+    expect(styles).toContain(".admin-mailing-html-source");
+    expect(styles).toContain(".admin-mailing-message-preview");
+    expect(styles).toMatch(/\.admin-mailing-editor-mode\s*\{[^}]*min-height:\s*44px;/s);
+  });
 });

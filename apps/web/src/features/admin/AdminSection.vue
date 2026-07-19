@@ -51,6 +51,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import AdminStatisticsDetail, { type StatisticsDetail } from "./AdminStatisticsDetail.vue";
+import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode";
 import {
   addAdminUser,
   createAdminDatabaseBackupDownloadLink,
@@ -262,6 +263,7 @@ const mailingEmailQuota = ref<EmailDeliveryQuota>({
 const mailingTitle = ref("");
 const mailingBody = ref("");
 const mailingBodyHtml = ref("");
+const mailingEditorMode = ref<MailingEditorMode>("visual");
 const mailingChannel = ref<MailingChannel>("push");
 const mailingFilters = ref<MailingFilters>({
   accessStatus: "active",
@@ -699,7 +701,10 @@ const storageFolderGroups = computed(() => {
 
   return Array.from(groups.values()).sort((left, right) => left.title.localeCompare(right.title, "ru"));
 });
-const mailingCanSubmit = computed(() => mailingTitle.value.trim().length > 0 && mailingBody.value.trim().length > 0);
+const mailingPreparedMessage = computed(() => prepareMailingHtml(mailingBodyHtml.value));
+const mailingCanSubmit = computed(
+  () => mailingTitle.value.trim().length > 0 && mailingPreparedMessage.value.plainText.length > 0
+);
 const mailingAttachmentLabel = computed(() => mailingAttachment.value?.name ?? "Добавить вложение");
 const adminOperation = computed(() => {
   if (saving.value && activePanel.value === "mailings") {
@@ -778,7 +783,33 @@ useOperationIndicator(adminOperation);
 
 function syncMailingEditorBody() {
   mailingBodyHtml.value = mailingEditorRef.value?.innerHTML ?? "";
-  mailingBody.value = (mailingEditorRef.value?.innerText ?? "").trim();
+  mailingBody.value = mailingPreparedMessage.value.plainText;
+}
+
+function syncActiveMailingEditor() {
+  if (mailingEditorMode.value === "visual") {
+    syncMailingEditorBody();
+    return;
+  }
+
+  mailingBody.value = mailingPreparedMessage.value.plainText;
+}
+
+async function setMailingEditorMode(mode: MailingEditorMode) {
+  if (mode === mailingEditorMode.value) {
+    return;
+  }
+
+  syncActiveMailingEditor();
+  if (mode === "visual") {
+    mailingBodyHtml.value = mailingPreparedMessage.value.safeHtml;
+  }
+
+  mailingEditorMode.value = mode;
+  await nextTick();
+  if (mode === "visual" && mailingEditorRef.value) {
+    mailingEditorRef.value.innerHTML = mailingBodyHtml.value;
+  }
 }
 
 function handleMailingEditorPaste(event: ClipboardEvent) {
@@ -831,6 +862,7 @@ function resetMailingForm() {
   mailingTitle.value = "";
   mailingBody.value = "";
   mailingBodyHtml.value = "";
+  mailingEditorMode.value = "visual";
   mailingChannel.value = "push";
   mailingFilters.value = {
     accessStatus: "active",
@@ -970,6 +1002,7 @@ async function reuseMailing(mailing: AdminMailing) {
   mailingTitle.value = mailing.title;
   mailingBody.value = mailing.body;
   mailingBodyHtml.value = renderMailingEditorHtml(mailing);
+  mailingEditorMode.value = "visual";
   mailingChannel.value = mailing.channel;
   mailingFilters.value = { ...mailing.filters };
   mailingScheduledAt.value = "";
@@ -1013,8 +1046,8 @@ function scheduleMailingPreview() {
 function buildMailingFormData() {
   const form = new FormData();
   form.set("title", mailingTitle.value.trim());
-  form.set("body", mailingBody.value.trim());
-  form.set("bodyHtml", mailingBodyHtml.value.trim());
+  form.set("body", mailingPreparedMessage.value.plainText);
+  form.set("bodyHtml", mailingPreparedMessage.value.safeHtml);
   form.set("channel", mailingChannel.value);
   form.set("filters", JSON.stringify(mailingFilters.value));
   if (mailingScheduledAt.value) {
@@ -1028,7 +1061,7 @@ function buildMailingFormData() {
 }
 
 async function handleCreateMailing() {
-  syncMailingEditorBody();
+  syncActiveMailingEditor();
   if (!mailingCanSubmit.value) {
     setError("Заполните заголовок и сообщение рассылки.");
     return;
@@ -1049,7 +1082,7 @@ async function handleCreateMailing() {
 }
 
 async function handleTestMailingDraft() {
-  syncMailingEditorBody();
+  syncActiveMailingEditor();
   if (!mailingCanSubmit.value) {
     setError("Заполните заголовок и сообщение для теста.");
     return;
@@ -3630,23 +3663,54 @@ onUnmounted(() => {
               </label>
 
               <div class="admin-editor admin-mailing-editor">
-                <div class="admin-editor-toolbar">
-                  <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('bold')">B</button>
-                  <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('italic')">I</button>
-                  <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('underline')">U</button>
-                  <button class="secondary-button ui-button" type="button" @click="applyMailingEditorCommand('insertUnorderedList')">Список</button>
-                  <button class="secondary-button ui-button" type="button" @click="applyMailingEditorLink">Ссылка</button>
+                <div class="admin-mailing-editor-modes" role="group" aria-label="Режим редактора">
+                  <button
+                    class="secondary-button ui-button admin-mailing-editor-mode"
+                    :class="{ 'admin-mailing-editor-mode-active': mailingEditorMode === 'visual' }"
+                    type="button"
+                    :aria-pressed="mailingEditorMode === 'visual'"
+                    @click="setMailingEditorMode('visual')"
+                  >Визуально</button>
+                  <button
+                    class="secondary-button ui-button admin-mailing-editor-mode"
+                    :class="{ 'admin-mailing-editor-mode-active': mailingEditorMode === 'html' }"
+                    type="button"
+                    :aria-pressed="mailingEditorMode === 'html'"
+                    @click="setMailingEditorMode('html')"
+                  >HTML-код</button>
                 </div>
-                <div
-                  ref="mailingEditorRef"
-                  class="admin-rich-editor"
-                  contenteditable="true"
-                  role="textbox"
-                  aria-label="Текст рассылки"
-                  data-placeholder="Текст рассылки"
-                  @input="syncMailingEditorBody"
-                  @paste="handleMailingEditorPaste"
-                ></div>
+                <template v-if="mailingEditorMode === 'visual'">
+                  <div class="admin-editor-toolbar">
+                    <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('bold')">B</button>
+                    <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('italic')">I</button>
+                    <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('underline')">U</button>
+                    <button class="secondary-button ui-button" type="button" @click="applyMailingEditorCommand('insertUnorderedList')">Список</button>
+                    <button class="secondary-button ui-button" type="button" @click="applyMailingEditorLink">Ссылка</button>
+                  </div>
+                  <div
+                    ref="mailingEditorRef"
+                    class="admin-rich-editor"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-label="Текст рассылки"
+                    data-placeholder="Текст рассылки"
+                    @input="syncMailingEditorBody"
+                    @paste="handleMailingEditorPaste"
+                  ></div>
+                </template>
+                <textarea
+                  v-else
+                  v-model="mailingBodyHtml"
+                  class="text-input admin-mailing-html-source"
+                  aria-label="HTML-код рассылки"
+                  placeholder="<b>Важный текст</b>"
+                  spellcheck="false"
+                  @input="syncActiveMailingEditor"
+                ></textarea>
+                <section v-if="mailingPreparedMessage.safeHtml" class="admin-mailing-message-preview" aria-label="Предпросмотр сообщения">
+                  <span>Предпросмотр сообщения</span>
+                  <div v-html="mailingPreparedMessage.safeHtml"></div>
+                </section>
               </div>
 
               <div class="admin-mailing-channels" aria-label="Куда отправляем рассылку">
