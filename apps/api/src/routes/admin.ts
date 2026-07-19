@@ -29,6 +29,7 @@ import {
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
+import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } from "../admin/s3DeletionAudit";
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt, summarizePollStatistics } from "../community/pollStats";
@@ -43,6 +44,7 @@ import {
   authSessions,
   appNotifications,
   clubSettings,
+  clubMessageAttachments,
   clubChatMessages,
   clubPolls,
   contentCategories,
@@ -80,6 +82,7 @@ import {
   uploadObject
 } from "../storage/s3";
 import { classifyS3ObjectKey } from "../storage/s3Object";
+import { createFallbackS3ObjectSource, type S3ObjectSourceSnapshot } from "../storage/s3ObjectSource";
 import { isValidMultipartPartSize, maxMultipartPartSizeBytes } from "../storage/s3MultipartPart";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
@@ -924,16 +927,45 @@ function serializeStorageUploader(profile?: typeof users.$inferSelect | null): A
   return serializeAdminActionActor(profile.telegramId, profile);
 }
 
+type S3ObjectMetadata = {
+  entityTitle: string | null;
+  uploadedBy: AdminActionActor | null;
+  source: S3ObjectSourceSnapshot;
+};
+
 async function buildS3ObjectMetadata(keys: string[]) {
   const uniqueKeys = Array.from(new Set(keys.filter(Boolean)));
-  const metadataByKey = new Map<string, { entityTitle: string | null; uploadedBy: AdminActionActor | null }>();
+  const metadataByKey = new Map<string, S3ObjectMetadata>();
   if (!uniqueKeys.length) {
     return metadataByKey;
   }
 
-  const [materials, supportAttachments, notifications, mailings] = await Promise.all([
+  for (const key of uniqueKeys) {
+    metadataByKey.set(key, {
+      entityTitle: null,
+      uploadedBy: null,
+      source: createFallbackS3ObjectSource(key)
+    });
+  }
+
+  const [items, materials, communityAttachments, supportAttachments, notifications, mailings] = await Promise.all([
     db.query.contentItems.findMany({
       where: or(inArray(contentItems.mediaObjectKey, uniqueKeys), inArray(contentItems.thumbnailObjectKey, uniqueKeys))
+    }),
+    db.query.lessonMaterials.findMany({
+      where: inArray(lessonMaterials.mediaObjectKey, uniqueKeys),
+      with: { item: true }
+    }),
+    db.query.clubMessageAttachments.findMany({
+      where: inArray(clubMessageAttachments.objectKey, uniqueKeys),
+      with: {
+        message: {
+          with: {
+            topic: true,
+            user: true
+          }
+        }
+      }
     }),
     db.query.supportTicketAttachments.findMany({
       where: inArray(supportTicketAttachments.objectKey, uniqueKeys),
@@ -960,25 +992,75 @@ async function buildS3ObjectMetadata(keys: string[]) {
     })
   ]);
 
-  for (const material of materials) {
-    if (material.mediaObjectKey) {
-      metadataByKey.set(material.mediaObjectKey, {
-        entityTitle: material.title,
-        uploadedBy: null
+  for (const item of items) {
+    if (item.mediaObjectKey) {
+      metadataByKey.set(item.mediaObjectKey, {
+        entityTitle: item.title,
+        uploadedBy: null,
+        source: {
+          ...createFallbackS3ObjectSource(item.mediaObjectKey),
+          sourceKind: "learning",
+          sourceTitle: item.title,
+          resolved: true
+        }
       });
     }
-    if (material.thumbnailObjectKey) {
-      metadataByKey.set(material.thumbnailObjectKey, {
-        entityTitle: material.title,
-        uploadedBy: null
+    if (item.thumbnailObjectKey) {
+      metadataByKey.set(item.thumbnailObjectKey, {
+        entityTitle: item.title,
+        uploadedBy: null,
+        source: {
+          ...createFallbackS3ObjectSource(item.thumbnailObjectKey),
+          sourceKind: "learning",
+          sourceTitle: item.title,
+          resolved: true
+        }
       });
     }
   }
 
-  for (const attachment of supportAttachments) {
+  for (const material of materials) {
+    if (!material.mediaObjectKey) {
+      continue;
+    }
+    metadataByKey.set(material.mediaObjectKey, {
+      entityTitle: material.title,
+      uploadedBy: null,
+      source: {
+        ...createFallbackS3ObjectSource(material.mediaObjectKey),
+        sourceKind: "lesson_material",
+        sourceTitle: material.title,
+        parentTitle: material.item?.title ?? null,
+        resolved: true
+      }
+    });
+  }
+
+  for (const attachment of communityAttachments) {
+    const topicTitle = attachment.message?.topic?.title ?? null;
     metadataByKey.set(attachment.objectKey, {
-      entityTitle: attachment.ticket?.customTopic ?? attachment.ticket?.topic ?? attachment.fileName,
-      uploadedBy: serializeStorageUploader(attachment.message?.author)
+      entityTitle: topicTitle,
+      uploadedBy: serializeStorageUploader(attachment.message?.user),
+      source: {
+        ...createFallbackS3ObjectSource(attachment.objectKey),
+        sourceKind: "community",
+        sourceTitle: topicTitle,
+        resolved: Boolean(topicTitle)
+      }
+    });
+  }
+
+  for (const attachment of supportAttachments) {
+    const sourceTitle = attachment.ticket?.customTopic ?? attachment.ticket?.topic ?? attachment.fileName;
+    metadataByKey.set(attachment.objectKey, {
+      entityTitle: sourceTitle,
+      uploadedBy: serializeStorageUploader(attachment.message?.author),
+      source: {
+        ...createFallbackS3ObjectSource(attachment.objectKey),
+        sourceKind: "support",
+        sourceTitle,
+        resolved: true
+      }
     });
   }
 
@@ -988,7 +1070,13 @@ async function buildS3ObjectMetadata(keys: string[]) {
     }
     metadataByKey.set(notification.attachmentObjectKey, {
       entityTitle: notification.title,
-      uploadedBy: serializeStorageUploader(notification.user)
+      uploadedBy: serializeStorageUploader(notification.user),
+      source: {
+        ...createFallbackS3ObjectSource(notification.attachmentObjectKey),
+        sourceKind: "notification",
+        sourceTitle: notification.title,
+        resolved: true
+      }
     });
   }
 
@@ -998,7 +1086,13 @@ async function buildS3ObjectMetadata(keys: string[]) {
     }
     metadataByKey.set(mailing.attachmentObjectKey, {
       entityTitle: mailing.title,
-      uploadedBy: serializeStorageUploader(mailing.createdBy)
+      uploadedBy: serializeStorageUploader(mailing.createdBy),
+      source: {
+        ...createFallbackS3ObjectSource(mailing.attachmentObjectKey),
+        sourceKind: "mailing",
+        sourceTitle: mailing.title,
+        resolved: true
+      }
     });
   }
 
@@ -1351,13 +1445,32 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       ? await db.query.users.findMany({ where: inArray(users.telegramId, actorIds) })
       : [];
     const profilesByTelegramId = new Map(profiles.map((profile) => [profile.telegramId, profile]));
+    const deletionKeys = logs
+      .filter((log) => !hasS3DeletionSource(log.metadata))
+      .map(getS3DeletionAuditKey)
+      .filter((key): key is string => Boolean(key));
+    let deletionMetadata = new Map<string, S3ObjectMetadata>();
+    if (deletionKeys.length) {
+      try {
+        deletionMetadata = await buildS3ObjectMetadata(deletionKeys);
+      } catch (error) {
+        logger.warn({ error }, "Unable to enrich historical S3 deletion audit entries");
+      }
+    }
 
     return c.json({
       admins: actorIds.map((telegramId) => serializeAdminActionActor(telegramId, profilesByTelegramId.get(telegramId))),
-      logs: logs.map((log) => serializeAdminActionLog({
-        ...log,
-        actor: profilesByTelegramId.get(log.actorTelegramId) ?? log.actor
-      }))
+      logs: logs.map((log) => {
+        const key = getS3DeletionAuditKey(log);
+        const metadata = key && !hasS3DeletionSource(log.metadata)
+          ? mergeS3DeletionSource(log.metadata, deletionMetadata.get(key)?.source ?? createFallbackS3ObjectSource(key))
+          : log.metadata;
+        return serializeAdminActionLog({
+          ...log,
+          metadata,
+          actor: profilesByTelegramId.get(log.actorTelegramId) ?? log.actor
+        });
+      })
     });
   })
   .post("/project-settings", async (c) => {
@@ -1775,6 +1888,13 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid S3 object key" }, 400);
     }
 
+    let source = createFallbackS3ObjectSource(body.data.key);
+    try {
+      source = (await buildS3ObjectMetadata([body.data.key])).get(body.data.key)?.source ?? source;
+    } catch (error) {
+      logger.warn({ error, key: body.data.key }, "Unable to resolve S3 object source before deletion");
+    }
+
     try {
       await deleteObject(body.data.key, body.data.target ?? "primary");
     } catch {
@@ -1785,10 +1905,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       action: "storage.s3.object.deleted",
       entityType: "storage",
       entityId: body.data.key,
-      summary: `Удалил файл из S3: ${body.data.key}`,
-      metadata: {
-        key: body.data.key
-      }
+      summary: "Удалил файл из S3",
+      metadata: mergeS3DeletionSource({ key: body.data.key }, source)
     });
 
     return c.json({ ok: true });
