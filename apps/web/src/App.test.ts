@@ -755,6 +755,16 @@ describe("App", () => {
     expect(styles).not.toMatch(/club-bottom-nav-flush[^{}]*\.(chat-composer|support-ticket-composer|task-screen-footer)/);
   });
 
+  it("keeps the gesture-navigation switch independent from shared button padding", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(profileSource).toContain('class="appearance-switch"');
+    expect(profileSource).not.toContain('class="appearance-switch ui-button"');
+    expect(styles).toMatch(/\.appearance-switch\s*\{[\s\S]*?flex:\s*0 0 52px;[\s\S]*?width:\s*52px;[\s\S]*?height:\s*44px;/);
+    expect(styles).toContain(".appearance-switch::before");
+    expect(styles).toContain(".appearance-switch::after");
+  });
+
   it("keeps day and night separate from five design themes", () => {
     const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
     const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");

@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the bottom navigation position setting as version 5.02", () => {
-    expect(appVersion).toBe("5.02");
-    expect(releaseNotes[0]?.title).toBe("Положение нижнего меню");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("управлением жестами");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("безопасная область");
-    expect(releaseNotes[1]?.version).toBe("5.01");
+  it("publishes the stable navigation switch as version 5.03", () => {
+    expect(appVersion).toBe("5.03");
+    expect(releaseNotes[0]?.title).toBe("Стабильный переключатель нижнего меню");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("0,8");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("iPhone и Android");
+    expect(releaseNotes[1]?.version).toBe("5.02");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Bottom navigation position");
+    expect(englishNotes[0]?.title).toBe("Stable bottom navigation switch");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

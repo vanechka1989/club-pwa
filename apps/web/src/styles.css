@@ -11709,35 +11709,54 @@ body.club-ios .chat-input-row .text-input {
 
 .appearance-switch {
   position: relative;
-  width: 3rem;
-  min-width: 3rem;
-  min-height: 2.75rem;
+  flex: 0 0 52px;
+  width: 52px;
+  min-width: 52px;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  overflow: visible;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.appearance-switch::before {
+  content: "";
+  position: absolute;
+  inset: 8px 2px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--surface-3);
-  padding: 0.25rem;
-  box-shadow: none;
   transition: border-color 160ms ease, background 160ms ease;
 }
 
-.appearance-switch span {
-  display: block;
-  width: 1.35rem;
-  height: 1.35rem;
+.appearance-switch::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 5px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--muted);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
   transform: translateX(0);
   transition: transform 160ms ease, background 160ms ease;
 }
 
-.appearance-switch[aria-checked="true"] {
+.appearance-switch[aria-checked="true"]::before {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
-.appearance-switch[aria-checked="true"] span {
+.appearance-switch[aria-checked="true"]::after {
   background: var(--accent);
-  transform: translateX(1rem);
+  transform: translateX(20px);
 }
 
 .appearance-switch:focus-visible {

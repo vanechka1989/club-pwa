@@ -945,15 +945,13 @@ watch(
           <small>{{ t("profileBottomNavigationFlushHint") }}</small>
         </span>
         <button
-          class="appearance-switch ui-button"
+          class="appearance-switch"
           type="button"
           role="switch"
           :aria-checked="ui.bottomNavigationFlush"
           :aria-label="t('profileBottomNavigationFlush')"
           @click="ui.setBottomNavigationFlush(!ui.bottomNavigationFlush)"
-        >
-          <span aria-hidden="true"></span>
-        </button>
+        ></button>
       </div>
 
     </section>

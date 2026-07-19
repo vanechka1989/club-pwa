@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Стабильный переключатель нижнего меню",
+    items: [
+      "Переключатель положения нижнего меню больше не сжимается при масштабе интерфейса 0,8 и сохраняет правильную форму на iPhone и Android.",
+      "Размер тач-зоны зафиксирован на безопасных 52 × 44 пикселя, поэтому настройка остаётся удобной на узких и широких телефонах.",
+      "Убрано конфликтующее оформление общей кнопки, которое превращало круг переключателя в тонкую вертикальную линию."
+    ]
+  },
+  {
+    version: "5.02",
+    updatedAt: "18.07.2026 17:51",
     title: "Положение нижнего меню",
     items: [
       "В разделе оформления появился отдельный переключатель для телефонов с управлением жестами.",
@@ -3665,11 +3675,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Bottom navigation position",
+  title: "Stable bottom navigation switch",
   items: [
-    "Appearance now includes a separate option for phones that use gesture navigation.",
-    "When enabled, the main bottom navigation sits on the screen edge while the iPhone and Android safe area stays inside the panel.",
-    "The preference is stored on the device and does not move chat, support or other bottom controls."
+    "The bottom navigation position switch no longer collapses at 0.8 interface scale and keeps the correct shape on iPhone and Android.",
+    "Its touch target is fixed at an accessible 52 by 44 pixels for both narrow and wide phones.",
+    "The conflicting shared button styling that compressed the switch knob into a thin line has been removed."
   ]
 };
 

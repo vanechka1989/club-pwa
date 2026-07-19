@@ -2148,6 +2148,10 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   const bottomNavigation = page.locator(".mobile-bottom-nav");
   const flushNavigationSwitch = page.getByRole("switch", { name: "Прижать нижнее меню" });
   await expect(flushNavigationSwitch).toHaveAttribute("aria-checked", "false");
+  const switchBox = await flushNavigationSwitch.boundingBox();
+  expect(switchBox).not.toBeNull();
+  expect(Math.round(switchBox?.width ?? 0)).toBe(52);
+  expect(Math.round(switchBox?.height ?? 0)).toBe(44);
   await flushNavigationSwitch.click();
   await expect(root).toHaveClass(/club-bottom-nav-flush/);
   await expect(bottomNavigation).toHaveCSS("bottom", "0px");
