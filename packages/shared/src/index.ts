@@ -1029,6 +1029,14 @@ export const adminLearningMaterialMutationResponseSchema = z.object({
 });
 export type AdminLearningMaterialMutationResponse = z.infer<typeof adminLearningMaterialMutationResponseSchema>;
 
+export const learningSaveOperationStatusSchema = z.enum(["processing", "succeeded", "failed"]);
+export const learningSaveOperationResponseSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("processing") }),
+  z.object({ status: z.literal("succeeded"), material: adminLearningMaterialSchema.nullable() }),
+  z.object({ status: z.literal("failed"), errorCode: z.string().nullable().default(null) })
+]);
+export type LearningSaveOperationResponse = z.infer<typeof learningSaveOperationResponseSchema>;
+
 export const adminLearningDirectUploadPurposeSchema = z.enum(["media", "thumbnail"]);
 export type AdminLearningDirectUploadPurpose = z.infer<typeof adminLearningDirectUploadPurposeSchema>;
 

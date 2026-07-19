@@ -100,6 +100,32 @@ export const serverErrorLogs = pgTable(
   })
 );
 
+export const idempotencyOperations = pgTable(
+  "idempotency_operations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actorTelegramId: varchar("actor_telegram_id", { length: 320 }).notNull(),
+    scope: varchar("scope", { length: 96 }).notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    requestFingerprint: varchar("request_fingerprint", { length: 64 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("processing"),
+    resourceId: uuid("resource_id").references((): AnyPgColumn => contentItems.id, { onDelete: "set null" }),
+    errorCode: varchar("error_code", { length: 96 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull()
+  },
+  (table) => ({
+    actorScopeKeyIdx: uniqueIndex("idempotency_operations_actor_scope_key_idx").on(
+      table.actorTelegramId,
+      table.scope,
+      table.idempotencyKey
+    ),
+    expiresIdx: index("idempotency_operations_expires_idx").on(table.expiresAt),
+    resourceIdx: index("idempotency_operations_resource_idx").on(table.resourceId)
+  })
+);
+
 export const clubSettings = pgTable("club_settings", {
   key: varchar("key", { length: 96 }).primaryKey(),
   value: text("value").notNull(),
