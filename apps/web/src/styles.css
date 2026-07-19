@@ -18435,11 +18435,23 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .profile-dashboard .profile-avatar-menu-button {
+  --profile-avatar-camera-visual-size: calc(26px * var(--club-scaled-control-factor, 1));
+  --action-icon-visual-size: var(--profile-avatar-camera-visual-size);
   position: absolute;
-  right: -3px;
-  bottom: -3px;
+  right: calc((var(--profile-avatar-camera-visual-size) - var(--icon-button-size)) / 2);
+  bottom: calc((var(--profile-avatar-camera-visual-size) - var(--icon-button-size)) / 2);
   z-index: 2;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+}
+
+.profile-dashboard .profile-avatar-menu-button::before {
+  width: var(--profile-avatar-camera-visual-size);
+  height: var(--profile-avatar-camera-visual-size);
   border: 2px solid var(--panel);
+  border-radius: calc(8px * var(--club-scaled-control-factor, 1));
   background: color-mix(in srgb, var(--accent-soft) 68%, var(--panel));
   box-shadow: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
 }
@@ -19055,7 +19067,6 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 }
 
 .profile-dashboard-toolbar .profile-avatar-icon-button {
-  --action-icon-visual-size: calc(30px * var(--club-scaled-control-factor, 1));
   --action-icon-glyph-size: calc(14px * var(--club-scaled-control-factor, 1));
 }
 

@@ -77,6 +77,12 @@ describe("compact profile layout", () => {
     expect(source).not.toContain('class="profile-avatar-actions"');
   });
 
+  it("keeps the camera badge compact without shrinking its touch target", () => {
+    expect(styles).toContain("--profile-avatar-camera-visual-size: calc(26px * var(--club-scaled-control-factor, 1));");
+    expect(styles).toMatch(/\.profile-dashboard \.profile-avatar-menu-button::before\s*\{[^}]*width:\s*var\(--profile-avatar-camera-visual-size\);[^}]*height:\s*var\(--profile-avatar-camera-visual-size\);/s);
+    expect(styles).toMatch(/\.profile-dashboard \.profile-avatar-menu-button\s*\{[^}]*width:\s*var\(--icon-button-size\);/s);
+  });
+
   it("uses a compact crop workspace and one-row actions", () => {
     expect(source).toContain("profile-avatar-editor-zoom");
     expect(source).toContain("profile-avatar-editor-footer");

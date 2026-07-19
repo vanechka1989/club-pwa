@@ -58,7 +58,6 @@ export function buildEmailLoginMessage(input: { code: string; expiresInMinutes: 
   }
 
   const webOrigin = normalizePublicWebOrigin(input.webOrigin);
-  const safeWebOrigin = escapeHtml(webOrigin);
   const safeLogoUrl = escapeHtml(`${webOrigin}/icons/icon-192.png`);
   const displayCode = input.code;
   const expirationText = `${input.expiresInMinutes} минут`;
@@ -69,7 +68,6 @@ export function buildEmailLoginMessage(input: { code: string; expiresInMinutes: 
       `Ваш код входа: ${input.code}`,
       "",
       `Он действует ${expirationText}.`,
-      `Открыть приложение: ${webOrigin}`,
       "",
       "Если вы не запрашивали вход, просто проигнорируйте это письмо."
     ].join("\n"),
@@ -110,14 +108,6 @@ export function buildEmailLoginMessage(input: { code: string; expiresInMinutes: 
 
                 <div style="margin:24px 0 0;padding:21px 14px;background:#edf9f6;border:2px solid #19bdaa;border-radius:18px;color:#0d3a31;font-family:'Courier New',Courier,monospace;font-size:38px;line-height:44px;font-weight:800;letter-spacing:8px;text-align:center;white-space:nowrap;user-select:all;-webkit-user-select:all;">${displayCode}</div>
                 <p style="margin:10px 0 0;color:#74847f;font-size:13px;line-height:19px;text-align:center;">Скопируйте код для авторизации в клубе</p>
-
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;">
-                  <tr>
-                    <td align="center" style="padding:24px 0 0;">
-                      <a href="${safeWebOrigin}" target="_blank" style="display:block;padding:15px 22px;background:#16bfae;border-radius:14px;color:#062b25;font-size:16px;line-height:22px;font-weight:800;text-align:center;text-decoration:none;">Открыть приложение</a>
-                    </td>
-                  </tr>
-                </table>
 
                 <div style="margin:24px 0 0;padding:16px 17px;background:#fff8e7;border:1px solid #ead59a;border-radius:14px;color:#65511c;font-size:14px;line-height:21px;">
                   <strong style="display:block;margin-bottom:4px;color:#4d3c0f;">Код действует ${expirationText}</strong>

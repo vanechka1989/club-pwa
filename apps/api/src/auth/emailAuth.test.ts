@@ -45,7 +45,9 @@ describe("email auth", () => {
     expect(message.html).toContain(">073567</div>");
     expect(message.html).not.toContain("073 567");
     expect(message.html).toContain("https://club2.myn8nservertest.ru/icons/icon-192.png");
-    expect(message.html).toContain('href="https://club2.myn8nservertest.ru"');
+    expect(message.html).not.toContain('href="https://club2.myn8nservertest.ru"');
+    expect(message.html).not.toContain(">Открыть приложение</a>");
+    expect(message.text).not.toContain("Открыть приложение:");
     expect(message.html).toContain("Скопируйте код для авторизации в клубе");
     expect(message.html).not.toContain("Нажмите и удерживайте код");
     expect(message.html).not.toContain("073567?");

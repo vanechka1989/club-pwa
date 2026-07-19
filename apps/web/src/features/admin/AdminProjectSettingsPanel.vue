@@ -2,6 +2,7 @@
 import type { AdminActionLog, OwnerEmailLoginCodeResponse } from "@club/shared";
 import { computed, onMounted, ref } from "vue";
 import { generateOwnerEmailLoginCode, getAdminProjectSettings, getAdminSettingsAudit, updateAdminProjectSettings } from "@/api/client";
+import { distinctAuditDetails } from "./adminAuditPresentation";
 
 const props = defineProps<{ isOwner: boolean }>();
 const rewardDays = ref(10);
@@ -20,6 +21,8 @@ const auditLabels: Record<string, string> = {
 const validReward = computed(() => Number.isInteger(rewardDays.value) && rewardDays.value >= 1 && rewardDays.value <= 3650);
 const actorTitle = (log: AdminActionLog) => log.actor?.firstName || log.actor?.username || log.actor?.telegramId || "Система";
 const formatDate = (value: string) => new Date(value).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const auditTitle = (log: AdminActionLog) => auditLabels[log.action] || log.summary;
+const auditDetails = (log: AdminActionLog) => distinctAuditDetails(auditTitle(log), log.summary);
 
 async function load() {
   loading.value = true;
@@ -85,7 +88,14 @@ onMounted(load);
     <p v-if="message" class="ops-note">{{ message }}</p>
     <article class="ops-card">
       <div><h4>История настроек</h4><p>Кто и когда менял критичные параметры проекта.</p></div>
-      <div class="audit-list"><div v-for="log in audit" :key="log.id"><strong>{{ auditLabels[log.action] || log.summary }}</strong><span>{{ actorTitle(log) }} · {{ formatDate(log.createdAt) }}</span><small>{{ log.summary }}</small></div><p v-if="!audit.length">Изменений пока нет.</p></div>
+      <div class="audit-list">
+        <div v-for="log in audit" :key="log.id">
+          <strong>{{ auditTitle(log) }}</strong>
+          <span>{{ actorTitle(log) }} · {{ formatDate(log.createdAt) }}</span>
+          <small v-if="auditDetails(log)">{{ auditDetails(log) }}</small>
+        </div>
+        <p v-if="!audit.length">Изменений пока нет.</p>
+      </div>
     </article>
   </section>
 </template>

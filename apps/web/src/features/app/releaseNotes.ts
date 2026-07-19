@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Чище письмо, аудит и профиль",
+    items: [
+      "Из письма с кодом входа удалена кнопка перехода: письмо содержит только код и необходимые пояснения.",
+      "История настроек больше не повторяет одинаковый текст внутри одной записи; отдельные события аудита полностью сохранены.",
+      "Кнопка изменения фотографии стала компактным бейджем и больше не перекрывает аватар, сохраняя удобную область нажатия."
+    ]
+  },
+  {
+    version: "5.15",
+    updatedAt: "19.07.2026 20:01",
     title: "Надёжная загрузка уроков",
     items: [
       "После сборки большого аудиофайла приложение повторно проверяет его появление в S3 и больше не отклоняет корректно загруженный файл из-за короткой задержки хранилища.",
@@ -3795,11 +3805,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable lesson uploads",
+  title: "Cleaner email, audit log, and profile",
   items: [
-    "Completed large audio uploads are rechecked while S3 finalizes multipart visibility instead of being rejected immediately.",
-    "JPEG and PNG lesson images are now converted to actual WebP files before direct upload.",
-    "Existing lesson images can be migrated safely, and upload diagnostics now distinguish visibility, size, and content-type failures."
+    "The login email now contains only the access code and essential guidance, without an application link.",
+    "Project history no longer repeats the same text within one audit entry while preserving every separate event.",
+    "The photo action is now a compact camera badge that keeps a comfortable touch target without covering the avatar."
   ]
 };
 

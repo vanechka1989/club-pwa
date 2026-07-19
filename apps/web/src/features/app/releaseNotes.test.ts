@@ -3,11 +3,11 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes reliable lesson uploads as version 5.15", () => {
-    expect(appVersion).toBe("5.15");
-    expect(releaseNotes[0]?.title).toBe("Надёжная загрузка уроков");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("аудиофайла");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("WebP");
+  it("publishes the email, audit, and profile polish as version 5.16", () => {
+    expect(appVersion).toBe("5.16");
+    expect(releaseNotes[0]?.title).toBe("Чище письмо, аудит и профиль");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("письма");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("аватар");
 
     const navigationFix = releaseNotes.find((note) => note.version === "5.13");
     expect(navigationFix?.title).toBe("Убрана полоса под нижним меню");
@@ -45,7 +45,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Reliable lesson uploads");
+    expect(englishNotes[0]?.title).toBe("Cleaner email, audit log, and profile");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
