@@ -23,7 +23,7 @@ describe("idempotency operations", () => {
   });
 
   it("registers migration 0048", () => {
-    expect(migrationJournal.entries.at(-1)).toMatchObject({
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0048_idempotency_operations")).toMatchObject({
       idx: 48,
       tag: "0048_idempotency_operations"
     });

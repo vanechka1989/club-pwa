@@ -14,7 +14,7 @@ describe("persistent server errors", () => {
   });
 
   it("registers the migration in the drizzle journal", () => {
-    expect(migrationJournal.entries.at(-1)).toMatchObject({
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0047_server_error_logs")).toMatchObject({
       idx: 47,
       tag: "0047_server_error_logs",
     });
