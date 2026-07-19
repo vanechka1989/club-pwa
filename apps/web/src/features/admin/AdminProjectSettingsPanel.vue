@@ -2,7 +2,7 @@
 import type { AdminActionLog, OwnerEmailLoginCodeResponse } from "@club/shared";
 import { computed, onMounted, ref } from "vue";
 import { generateOwnerEmailLoginCode, getAdminProjectSettings, getAdminSettingsAudit, updateAdminProjectSettings } from "@/api/client";
-import { distinctAuditDetails } from "./adminAuditPresentation";
+import { distinctAuditDetails, getS3DeletionPresentation } from "./adminAuditPresentation";
 
 const props = defineProps<{ isOwner: boolean }>();
 const rewardDays = ref(10);
@@ -14,6 +14,7 @@ const generated = ref<OwnerEmailLoginCodeResponse | null>(null);
 const auditLabels: Record<string, string> = {
   "project.settings.update": "Настройки проекта",
   "storage.s3.update": "Настройки S3",
+  "storage.s3.object.deleted": "Удалён файл из S3",
   "payment.provider.create": "Платёжная система",
   "payment.provider.update": "Платёжная система"
 };
@@ -22,7 +23,8 @@ const validReward = computed(() => Number.isInteger(rewardDays.value) && rewardD
 const actorTitle = (log: AdminActionLog) => log.actor?.firstName || log.actor?.username || log.actor?.telegramId || "Система";
 const formatDate = (value: string) => new Date(value).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const auditTitle = (log: AdminActionLog) => auditLabels[log.action] || log.summary;
-const auditDetails = (log: AdminActionLog) => distinctAuditDetails(auditTitle(log), log.summary);
+const deletionPresentation = (log: AdminActionLog) => getS3DeletionPresentation(log);
+const auditDetails = (log: AdminActionLog) => deletionPresentation(log)?.source ?? distinctAuditDetails(auditTitle(log), log.summary);
 
 async function load() {
   loading.value = true;
@@ -93,6 +95,7 @@ onMounted(load);
           <strong>{{ auditTitle(log) }}</strong>
           <span>{{ actorTitle(log) }} · {{ formatDate(log.createdAt) }}</span>
           <small v-if="auditDetails(log)">{{ auditDetails(log) }}</small>
+          <small v-if="deletionPresentation(log)" class="audit-object-key">S3: {{ deletionPresentation(log)?.key }}</small>
         </div>
         <p v-if="!audit.length">Изменений пока нет.</p>
       </div>
@@ -101,5 +104,5 @@ onMounted(load);
 </template>
 
 <style scoped>
-.ops-panel{display:grid;gap:16px}.ops-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.ops-head h3,.ops-card h4{margin:0}.ops-head p,.ops-card p{margin:4px 0 0;color:var(--muted)}.ops-button,.primary-action{min-height:44px;padding:0 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit;font-weight:750}.primary-action{border-color:transparent;background:var(--accent);color:var(--accent-contrast,#071615)}.ops-card{display:grid;gap:14px;padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.settings-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}.settings-form label{display:grid;gap:7px;font-weight:700}.settings-form input{min-width:0;min-height:46px;padding:0 13px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit}.code-result{display:grid;gap:8px}.code-result strong{font-size:1.8rem;letter-spacing:.16em}.code-result>div{display:flex;flex-wrap:wrap;gap:8px}.ops-note{margin:0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,transparent)}.audit-list{display:grid;gap:8px}.audit-list>div{display:grid;gap:3px;padding:12px;border:1px solid var(--border);border-radius:14px}.audit-list span,.audit-list small{color:var(--muted)}@media(max-width:420px){.ops-head{align-items:flex-start}.settings-form{grid-template-columns:1fr}.primary-action{width:100%}}
+.ops-panel{display:grid;gap:16px}.ops-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.ops-head h3,.ops-card h4{margin:0}.ops-head p,.ops-card p{margin:4px 0 0;color:var(--muted)}.ops-button,.primary-action{min-height:44px;padding:0 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit;font-weight:750}.primary-action{border-color:transparent;background:var(--accent);color:var(--accent-contrast,#071615)}.ops-card{display:grid;gap:14px;padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.settings-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}.settings-form label{display:grid;gap:7px;font-weight:700}.settings-form input{min-width:0;min-height:46px;padding:0 13px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit}.code-result{display:grid;gap:8px}.code-result strong{font-size:1.8rem;letter-spacing:.16em}.code-result>div{display:flex;flex-wrap:wrap;gap:8px}.ops-note{margin:0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,transparent)}.audit-list{display:grid;gap:8px}.audit-list>div{display:grid;min-width:0;gap:3px;padding:12px;border:1px solid var(--border);border-radius:14px}.audit-list span,.audit-list small{color:var(--muted)}.audit-object-key{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.72rem}@media(max-width:420px){.ops-head{align-items:flex-start}.settings-form{grid-template-columns:1fr}.primary-action{width:100%}}
 </style>
