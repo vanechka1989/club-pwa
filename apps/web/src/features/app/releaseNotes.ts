@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Убрана полоса под нижним меню",
+    items: [
+      "В режиме прижатого меню удалена нижняя тень, которая выглядела как белая или серая полоса на светлых темах.",
+      "Фон безопасной зоны и системного холста теперь всегда совпадает с фоном выбранной темы на iPhone и Android.",
+      "Исправление проверено в профиле, модулях, общении и поддержке на маленьких и больших iPhone, Pixel и Galaxy."
+    ]
+  },
+  {
+    version: "5.12",
+    updatedAt: "19.07.2026 17:20",
     title: "Нижнее меню точно в границах страницы",
     items: [
       "Устранён конфликт ширины и боковых координат: панель больше не выступает справа за линию карточек.",
@@ -3765,11 +3775,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Bottom navigation stays inside page gutters",
+  title: "No strip below the bottom navigation",
   items: [
-    "A conflicting fixed width no longer pushes the bottom navigation beyond the right page gutter.",
-    "Left and right offsets now share the page gutter and account for iPhone and Android safe areas.",
-    "The panel's actual bounds are covered by automated checks from 320-pixel screens through Galaxy S24."
+    "Flush navigation no longer casts a downward shadow that looked like a white or grey strip in light themes.",
+    "The safe-area and root canvas now always use the active theme background on iPhone and Android.",
+    "The fix is covered across profile, learning, community, and support on small and large iPhones, Pixel, and Galaxy."
   ]
 };
 

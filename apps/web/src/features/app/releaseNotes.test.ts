@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes exact bottom navigation gutters as version 5.12", () => {
-    expect(appVersion).toBe("5.12");
-    expect(releaseNotes[0]?.title).toBe("Нижнее меню точно в границах страницы");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("конфликт ширины");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("безопасных зон");
-    expect(releaseNotes[1]?.version).toBe("5.11");
+  it("publishes the flush navigation surface fix as version 5.13", () => {
+    expect(appVersion).toBe("5.13");
+    expect(releaseNotes[0]?.title).toBe("Убрана полоса под нижним меню");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("нижняя тень");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("iPhone и Android");
+    expect(releaseNotes[1]?.version).toBe("5.12");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Bottom navigation stays inside page gutters");
+    expect(englishNotes[0]?.title).toBe("No strip below the bottom navigation");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

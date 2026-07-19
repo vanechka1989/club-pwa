@@ -756,7 +756,13 @@ describe("App", () => {
       /\.mobile-bottom-nav\.mobile-bottom-nav-flush,\s*html\.club-bottom-nav-flush \.mobile-bottom-nav\s*\{([^}]*)\}/
     )?.[1] ?? "";
     expect(flushRule).toMatch(/bottom:\s*12px;/);
+    expect(flushRule).toMatch(/box-shadow:\s*0 0 0 1px/);
+    expect(flushRule).toMatch(/background:\s*var\(--floating-bg\);/);
     expect(flushRule).not.toMatch(/min-height|padding-bottom|border-bottom-(?:left|right)-radius/);
+    expect(flushRule).not.toMatch(/0 20px 46px/);
+    expect(styles).toMatch(
+      /html\.club-bottom-nav-flush[\s\S]*?background-color:\s*var\(--bg\);[\s\S]*?overscroll-behavior-y:\s*none;/
+    );
     const navigationRule = styles.match(
       /\.bottom-nav\s*\{([^}]*)\}\s*\.mobile-bottom-nav\.mobile-bottom-nav-flush/
     )?.[1] ?? "";

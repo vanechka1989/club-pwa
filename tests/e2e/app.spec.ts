@@ -2236,6 +2236,29 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
       )
     )
     .toBe(12);
+  for (const route of ["/profile", "/learning", "/community", "/support"]) {
+    await page.goto(route);
+    await page.locator(".mobile-bottom-nav").waitFor({ state: "attached" });
+    const flushSurface = await page.evaluate(() => {
+      const rootStyle = getComputedStyle(document.documentElement);
+      const bodyStyle = getComputedStyle(document.body);
+      const appStyle = getComputedStyle(document.querySelector<HTMLElement>("#app")!);
+      const navigationStyle = getComputedStyle(document.querySelector<HTMLElement>(".mobile-bottom-nav")!);
+      return {
+        rootBackground: rootStyle.backgroundColor,
+        bodyBackground: bodyStyle.backgroundColor,
+        appBackground: appStyle.backgroundColor,
+        navigationShadow: navigationStyle.boxShadow,
+        navigationBottom: Math.round(
+          window.innerHeight - document.querySelector<HTMLElement>(".mobile-bottom-nav")!.getBoundingClientRect().bottom
+        )
+      };
+    });
+    expect(flushSurface.bodyBackground).toBe(flushSurface.rootBackground);
+    expect(flushSurface.appBackground).toBe(flushSurface.rootBackground);
+    expect(flushSurface.navigationShadow).not.toContain("20px 46px");
+    expect(flushSurface.navigationBottom).toBe(12);
+  }
   await expectNoHorizontalOverflow(page);
 });
 

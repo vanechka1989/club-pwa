@@ -16362,6 +16362,17 @@ textarea.text-input,
 .mobile-bottom-nav.mobile-bottom-nav-flush,
 html.club-bottom-nav-flush .mobile-bottom-nav {
   bottom: 12px;
+  background: var(--floating-bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 72%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+html.club-bottom-nav-flush,
+html.club-bottom-nav-flush body,
+html.club-bottom-nav-flush #app,
+html.club-bottom-nav-flush .app-root {
+  min-height: 100dvh;
+  background-color: var(--bg);
+  overscroll-behavior-y: none;
 }
 
 body.club-keyboard-open .mobile-bottom-nav,
