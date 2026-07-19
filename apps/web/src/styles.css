@@ -16352,6 +16352,7 @@ textarea.text-input,
 }
 
 .bottom-nav {
+  width: auto;
   min-height: var(--bottom-nav-height);
   right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
   bottom: max(8px, calc(var(--club-safe-bottom) + 8px));

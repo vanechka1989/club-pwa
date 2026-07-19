@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Нижнее меню точно в границах страницы",
+    items: [
+      "Устранён конфликт ширины и боковых координат: панель больше не выступает справа за линию карточек.",
+      "Левый и правый отступы теперь вычисляются от единого отступа страницы с учётом безопасных зон iPhone и Android.",
+      "Фактические границы панели проверяются автоматически на экранах от 320 пикселей до Galaxy S24."
+    ]
+  },
+  {
+    version: "5.11",
+    updatedAt: "19.07.2026 17:04",
     title: "Ровные отступы нижнего меню",
     items: [
       "Боковые отступы нижнего меню теперь совпадают с общими отступами карточек на iPhone и Android.",
@@ -3755,11 +3765,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Balanced bottom navigation spacing",
+  title: "Bottom navigation stays inside page gutters",
   items: [
-    "The bottom navigation now uses the same horizontal gutters as page cards on iPhone and Android.",
-    "Pinned mode keeps a clean 12-pixel bottom gap matching the spacing between adjacent cards.",
-    "Panel height, rounded corners, and button sizes stay unchanged and are covered by cross-device geometry checks."
+    "A conflicting fixed width no longer pushes the bottom navigation beyond the right page gutter.",
+    "Left and right offsets now share the page gutter and account for iPhone and Android safe areas.",
+    "The panel's actual bounds are covered by automated checks from 320-pixel screens through Galaxy S24."
   ]
 };
 

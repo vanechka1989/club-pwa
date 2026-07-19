@@ -1241,7 +1241,7 @@ body.club-keyboard-open .ui-bottom-action-bar {
 }
 
 .bottom-nav {
-  width: min(calc(100% - 24px), var(--page-max-width));
+  width: auto;
   min-height: var(--bottom-nav-height);
   padding-bottom: var(--safe-bottom);
 }
@@ -1283,7 +1283,7 @@ body.club-keyboard-open .ui-bottom-action-bar {
 }
 
 .bottom-nav {
-  width: min(calc(100% - 16px), var(--page-max-width));
+  width: auto;
   padding: 4px;
   border-radius: 18px;
 }

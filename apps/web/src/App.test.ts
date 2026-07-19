@@ -27,6 +27,7 @@ const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileS
 const communitySource = readFileSync(resolve(__dirname, "features/community/CommunitySection.vue"), "utf-8");
 const uiStoreSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
 const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");
+const foundationSource = readFileSync(resolve(__dirname, "features/ui/foundation.css"), "utf-8");
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -761,6 +762,8 @@ describe("App", () => {
     )?.[1] ?? "";
     expect(navigationRule).toMatch(/right:\s*max\(var\(--page-padding\),\s*calc\(var\(--club-safe-right\) \+ var\(--page-padding\)\)\);/);
     expect(navigationRule).toMatch(/left:\s*max\(var\(--page-padding\),\s*calc\(var\(--club-safe-left\) \+ var\(--page-padding\)\)\);/);
+    expect(navigationRule).toMatch(/width:\s*auto;/);
+    expect(foundationSource).not.toMatch(/\.bottom-nav\s*\{[^}]*width:\s*min\(calc\(100%\s*-\s*\d+px\)/);
     expect(styles).not.toMatch(/club-bottom-nav-flush[^{}]*\.(chat-composer|support-ticket-composer|task-screen-footer)/);
   });
 

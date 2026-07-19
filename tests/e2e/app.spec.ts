@@ -2210,6 +2210,21 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
     )
     .toBeLessThanOrEqual(1);
   await expect
+    .poll(async () =>
+      bottomNavigation.evaluate((navigation) => {
+        const rect = navigation.getBoundingClientRect();
+        const pagePadding = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--page-padding"));
+        const viewportWidth = document.documentElement.clientWidth;
+        return Math.round(
+          Math.max(
+            Math.abs(rect.left - pagePadding),
+            Math.abs(viewportWidth - rect.right - pagePadding)
+          )
+        );
+      })
+    )
+    .toBeLessThanOrEqual(1);
+  await expect
     .poll(() => page.evaluate(() => localStorage.getItem("club-bottom-navigation-flush")))
     .toBe("1");
   await page.reload();
