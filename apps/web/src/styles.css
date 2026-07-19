@@ -9319,13 +9319,17 @@ body.club-lesson-image-viewer-open {
   gap: 0.45rem;
 }
 
+.appearance-setting-card {
+  border: 1px solid var(--border);
+  border-radius: var(--ui-control-radius);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-inset);
+}
+
 .visual-scale-control {
   display: grid;
   gap: 0.52rem;
-  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--panel-strong) 70%, transparent);
-  padding: 0.62rem;
+  padding: 0.65rem 0.75rem;
 }
 
 .visual-scale-control-head {
@@ -11682,11 +11686,7 @@ body.club-ios .chat-input-row .text-input {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--ui-control-radius);
-  background: var(--surface-2);
   padding: 0.65rem 0.75rem;
-  box-shadow: var(--shadow-inset);
 }
 
 .profile-bottom-navigation-copy {
@@ -12930,7 +12930,6 @@ textarea.text-input,
 .chat-input-row .text-input,
 .profile-account-inline,
 .profile-referral-link,
-.visual-scale-control,
 .support-field input,
 .support-field select,
 .support-field textarea,

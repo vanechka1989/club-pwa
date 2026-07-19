@@ -779,6 +779,16 @@ describe("App", () => {
     );
   });
 
+  it("renders appearance controls as one visual family instead of an input field", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+
+    expect(profileSource.match(/class="[^"]*appearance-setting-card[^"]*"/g)).toHaveLength(2);
+    expect(styles).toMatch(
+      /\.appearance-setting-card\s*\{[\s\S]*?border:\s*1px solid var\(--border\);[\s\S]*?background:\s*var\(--surface-2\);/,
+    );
+    expect(styles).not.toMatch(/\.visual-scale-control,\s*\n\.support-field input/);
+  });
+
   it("keeps day and night separate from five design themes", () => {
     const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
     const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");

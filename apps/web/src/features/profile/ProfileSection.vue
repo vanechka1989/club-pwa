@@ -902,7 +902,7 @@ watch(
         </div>
       </div>
 
-      <div class="visual-scale-control mt-3">
+      <div class="visual-scale-control appearance-setting-card mt-3">
         <div class="visual-scale-control-head">
           <span>{{ t("profileVisualScaleControl") }}</span>
           <strong>{{ visualScaleDisplayValue }}</strong>
@@ -939,7 +939,7 @@ watch(
         </div>
       </div>
 
-      <div class="profile-bottom-navigation-position mt-3">
+      <div class="profile-bottom-navigation-position appearance-setting-card mt-3">
         <span class="profile-bottom-navigation-copy">
           <strong>{{ t("profileBottomNavigationFlush") }}</strong>
           <small>{{ t("profileBottomNavigationFlushHint") }}</small>

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единый вид настроек оформления",
+    items: [
+      "Карточка масштаба интерфейса больше не выглядит отдельным тёмным полем ввода и не выбивается из раздела оформления.",
+      "Масштаб и положение нижнего меню теперь используют одинаковые фон, рамку, скругление и внутреннюю тень во всех темах.",
+      "Кнопки изменения масштаба, ползунок и безопасные размеры элементов управления сохранены."
+    ]
+  },
+  {
+    version: "5.04",
+    updatedAt: "19.07.2026 11:10",
     title: "Единые цвета переключателя",
     items: [
       "Переключатель положения нижнего меню теперь использует такую же нейтральную дорожку и акцент темы, как настройка масштаба интерфейса.",
@@ -3685,11 +3695,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Unified switch colors",
+  title: "Unified appearance settings",
   items: [
-    "The bottom navigation position switch now uses the same neutral track and theme accent as the interface scale control.",
-    "When enabled, the track receives a soft tint from the selected theme and the round knob uses its primary accent color.",
-    "Colors adapt to every light and dark theme while preserving the accessible 52 by 44 pixel control size."
+    "The interface scale card no longer looks like a separate dark input field inside the appearance section.",
+    "Interface scale and bottom navigation position now share the same surface, border, radius, and inset shadow in every theme.",
+    "Scale buttons, the range control, and accessible control sizes remain unchanged."
   ]
 };
 
