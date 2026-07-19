@@ -752,7 +752,8 @@ describe("App", () => {
     expect(i18nSource).toContain('profileBottomNavigationFlush: "Прижать нижнее меню"');
     expect(i18nSource).toContain('profileBottomNavigationFlush: "Pin bottom menu to screen edge"');
     expect(styles).toMatch(/\.mobile-bottom-nav\.mobile-bottom-nav-flush[\s\S]*\{[\s\S]*bottom:\s*0;/);
-    expect(styles).toMatch(/\.mobile-bottom-nav\.mobile-bottom-nav-flush[\s\S]*\{[\s\S]*padding-bottom:[^;}]*--club-safe-bottom/);
+    expect(styles).toContain("--bottom-nav-flush-protection: max(0.35rem, min(var(--club-safe-bottom), 20px));");
+    expect(styles).toMatch(/\.mobile-bottom-nav\.mobile-bottom-nav-flush[\s\S]*\{[\s\S]*padding-bottom:\s*var\(--bottom-nav-flush-protection\)/);
     expect(styles).not.toMatch(/club-bottom-nav-flush[^{}]*\.(chat-composer|support-ticket-composer|task-screen-footer)/);
   });
 

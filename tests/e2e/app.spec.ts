@@ -2146,8 +2146,15 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   }
 
   const bottomNavigation = page.locator(".mobile-bottom-nav");
+  const profileNavigationItem = bottomNavigation.locator(".bottom-nav-item").first();
   const flushNavigationSwitch = page.getByRole("switch", { name: "Прижать нижнее меню" });
   await expect(flushNavigationSwitch).toHaveAttribute("aria-checked", "false");
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--club-calibrated-bottom-offset", "34px");
+    document.body.style.setProperty("--club-calibrated-bottom-offset", "34px");
+  });
+  const floatingItemBox = await profileNavigationItem.boundingBox();
+  expect(floatingItemBox).not.toBeNull();
   const switchBox = await flushNavigationSwitch.boundingBox();
   expect(switchBox).not.toBeNull();
   expect(Math.round(switchBox?.width ?? 0)).toBe(52);
@@ -2158,6 +2165,12 @@ test("uses Warm Clay day and protects mobile scale from accidental swipes", asyn
   await expect(bottomNavigation).toHaveCSS("bottom", "0px");
   await expect(bottomNavigation).toHaveCSS("border-bottom-left-radius", "0px");
   await expect(bottomNavigation).toHaveCSS("border-bottom-right-radius", "0px");
+  await expect
+    .poll(async () => {
+      const pinnedItemBox = await profileNavigationItem.boundingBox();
+      return Math.round((pinnedItemBox?.y ?? 0) - (floatingItemBox?.y ?? 0));
+    })
+    .toBeGreaterThanOrEqual(20);
   await expect
     .poll(async () =>
       bottomNavigation.evaluate((navigation) =>

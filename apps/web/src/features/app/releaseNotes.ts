@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Кнопки нижнего меню тоже перемещаются вниз",
+    items: [
+      "Исправлена причина, из-за которой настройка меняла нижний фон, но почти не сдвигала сами иконки и подписи меню.",
+      "Во включённом режиме пункты меню теперь заметно опускаются к краю экрана, а выключенный режим сохраняет прежнее плавающее положение.",
+      "Для iPhone сохранён защитный отступ над home indicator; поведение проверено на двух iPhone, Pixel и узком Android-экране."
+    ]
+  },
+  {
+    version: "5.06",
+    updatedAt: "19.07.2026 12:55",
     title: "Нижнее меню действительно прижимается к экрану",
     items: [
       "При включённой настройке панель теперь физически доходит до нижнего края видимой области, а не только сохраняет переключатель.",
@@ -3705,11 +3715,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Bottom navigation now reaches the screen edge",
+  title: "Bottom navigation controls now move down too",
   items: [
-    "When enabled, the navigation panel now physically reaches the bottom of the visible viewport instead of only persisting the switch state.",
-    "The iPhone and Android safe area stays inside the navigation surface, preventing a separate white or empty strip below it.",
-    "The position and persistence were verified on small and large iPhones, Pixel, and a compact Android viewport."
+    "Fixed the safe-area calculation that moved the navigation background but barely moved its icons and labels.",
+    "Enabled mode now visibly lowers the navigation controls while disabled mode keeps the original floating layout.",
+    "A protective iPhone home-indicator inset remains; the behavior was verified on two iPhones, Pixel, and a compact Android viewport."
   ]
 };
 
