@@ -19,7 +19,7 @@ defineEmits<{ back: [] }>();
 </script>
 
 <template>
-  <header class="ui-page-header">
+  <header class="section-head ui-page-header">
     <button v-if="back" class="ui-page-header__back" type="button" :aria-label="backLabel" @click="$emit('back')">
       <slot name="back-icon">
         <ArrowLeft aria-hidden="true" />

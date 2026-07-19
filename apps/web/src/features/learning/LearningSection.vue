@@ -64,6 +64,7 @@ import {
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { UiPageHeader } from "@/features/ui";
 import LessonImageViewer from "./LessonImageViewer.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -2569,27 +2570,25 @@ watch(
 
 <template>
   <section class="modules-section ui-page-section">
-    <div class="section-head ui-page-header">
-      <div>
-        <h2 class="section-title">{{ t("modulesTitle") }}</h2>
-        <p class="section-subtitle">{{ t("modulesSubtitle") }}</p>
-      </div>
-      <div v-if="canManageModules" class="modules-panel-actions" aria-label="Управление модулями">
-        <button
-          class="icon-button ui-icon-button"
-          :class="{ 'payment-edit-toggle-active': isEditingModules }"
-          type="button"
-          aria-label="Редактировать модули"
-          :aria-pressed="isEditingModules"
-          @click="isEditingModules = !isEditingModules"
-        >
-          <Pencil class="h-5 w-5" aria-hidden="true" />
-        </button>
-        <button class="icon-button ui-icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
-          <Plus class="h-5 w-5" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
+    <UiPageHeader :title="t('modulesTitle')" :subtitle="t('modulesSubtitle')">
+      <template v-if="canManageModules" #actions>
+        <div class="modules-panel-actions" aria-label="Управление модулями">
+          <button
+            class="icon-button ui-icon-button"
+            :class="{ 'payment-edit-toggle-active': isEditingModules }"
+            type="button"
+            aria-label="Редактировать модули"
+            :aria-pressed="isEditingModules"
+            @click="isEditingModules = !isEditingModules"
+          >
+            <Pencil class="h-5 w-5" aria-hidden="true" />
+          </button>
+          <button class="icon-button ui-icon-button" type="button" aria-label="Добавить модуль" @click="openModuleModal">
+            <Plus class="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+      </template>
+    </UiPageHeader>
 
     <div class="modules-content">
     <p v-if="isLoadingModules" class="modules-edit-hint">{{ t("modulesLoading") }}</p>

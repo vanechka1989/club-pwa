@@ -23,6 +23,7 @@ import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import BottomSheet from "@/features/app/BottomSheet.vue";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { UiPageHeader } from "@/features/ui";
 import { useI18n } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { useNotificationsStore } from "@/stores/notifications";
@@ -545,27 +546,25 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
 
 <template>
   <section class="ui-page-section space-y-5">
-    <div class="section-head ui-page-header">
-      <div>
-        <h2 class="section-title">{{ t("paymentsTitle") }}</h2>
-        <p class="section-subtitle">{{ t("paymentsSubtitle") }}</p>
-      </div>
-      <div v-if="isOwner" class="payment-header-actions">
-        <button
-          class="icon-button ui-icon-button"
-          :class="{ 'payment-edit-toggle-active': isEditingPayments }"
-          type="button"
-          aria-label="Редактировать оплату"
-          :aria-pressed="isEditingPayments"
-          @click="isEditingPayments = !isEditingPayments"
-        >
-          <Pencil :size="19" />
-        </button>
-        <button class="icon-button ui-icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
-          <Plus :size="20" />
-        </button>
-      </div>
-    </div>
+    <UiPageHeader :title="t('paymentsTitle')" :subtitle="t('paymentsSubtitle')">
+      <template v-if="isOwner" #actions>
+        <div class="payment-header-actions">
+          <button
+            class="icon-button ui-icon-button"
+            :class="{ 'payment-edit-toggle-active': isEditingPayments }"
+            type="button"
+            aria-label="Редактировать оплату"
+            :aria-pressed="isEditingPayments"
+            @click="isEditingPayments = !isEditingPayments"
+          >
+            <Pencil :size="19" />
+          </button>
+          <button class="icon-button ui-icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
+            <Plus :size="20" />
+          </button>
+        </div>
+      </template>
+    </UiPageHeader>
 
     <p v-if="error" class="text-sm text-[var(--danger-text)]">{{ error }}</p>
     <p v-else-if="notice" class="text-sm text-[var(--muted-strong)]">{{ notice }}</p>

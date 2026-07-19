@@ -108,6 +108,7 @@ import {
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { UiPageHeader } from "@/features/ui";
 import {
   filterPaymentOrdersByBreakdown,
   resolvePaymentBreakdownItem,
@@ -2820,12 +2821,9 @@ onUnmounted(() => {
 
 <template>
   <section class="admin-shell ui-page-section" :class="{ 'admin-shell-client-card-only': props.clientCardOnly }">
-    <header class="section-head ui-page-header">
-      <div>
-        <h2 class="section-title">Админка</h2>
-        <p class="section-subtitle">Клиенты, доступ и ограничения.</p>
-      </div>
-      <div class="admin-head-actions">
+    <UiPageHeader title="Админка" subtitle="Клиенты, доступ и ограничения.">
+      <template #actions>
+        <div class="admin-head-actions">
         <button v-if="canViewReleaseNotes" class="app-version-badge ui-button" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
           <span>v{{ appVersion }}</span>
           <small>{{ appVersionUpdatedAt }}</small>
@@ -2845,8 +2843,9 @@ onUnmounted(() => {
             </button>
           </div>
         </section>
-      </div>
-    </header>
+        </div>
+      </template>
+    </UiPageHeader>
 
     <TaskScreen v-if="(showReleaseNotesModal || route.path === '/admin/releases') && canViewReleaseNotes" class="admin-task-screen" title="Обновления" subtitle="История изменений приложения по версиям." portal @back="closeReleaseNotesModal">
         <section class="admin-detail ui-card admin-client-modal release-notes-modal">

@@ -15,6 +15,7 @@ import {
 import { useI18n } from "@/features/app/i18n";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { UiPageHeader } from "@/features/ui";
 import { dismissActiveTextFieldBeforeOperation } from "@/features/app/keyboardFocus";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import {
@@ -699,14 +700,10 @@ watch(
 <template>
   <section class="support-section ui-page-section space-y-4">
     <template v-if="!createTicketOpen && !selectedTicket">
-    <div class="section-head ui-page-header">
-      <div>
-        <h2 class="section-title">{{ t("support") }}</h2>
-        <p class="section-subtitle">
-          {{ isAdmin ? t("supportSectionSubtitleAdmin") : t("supportSectionSubtitleUser") }}
-        </p>
-      </div>
-    </div>
+    <UiPageHeader
+      :title="t('support')"
+      :subtitle="isAdmin ? t('supportSectionSubtitleAdmin') : t('supportSectionSubtitleUser')"
+    />
 
     <p v-if="error" class="support-alert support-alert-error">{{ error }}</p>
     <p v-if="success" class="support-alert support-alert-success">{{ success }}</p>

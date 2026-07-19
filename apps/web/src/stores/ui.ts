@@ -70,6 +70,30 @@ export const useUiStore = defineStore("ui", () => {
     document.documentElement.style.setProperty("--club-user-font-root", `${(16 * visualScale.value).toFixed(1)}px`);
     document.documentElement.style.setProperty("--club-user-font-base", `${(15 * visualScale.value).toFixed(1)}px`);
     document.documentElement.style.setProperty(
+      "--club-user-section-title-size",
+      `${Math.max(16, 18 * visualScale.value).toFixed(1)}px`
+    );
+    document.documentElement.style.setProperty(
+      "--club-user-card-title-size",
+      `${Math.max(14, 16 * visualScale.value).toFixed(1)}px`
+    );
+    document.documentElement.style.setProperty(
+      "--club-user-body-size",
+      `${Math.max(13, 15 * visualScale.value).toFixed(1)}px`
+    );
+    document.documentElement.style.setProperty(
+      "--club-user-label-size",
+      `${Math.max(13, 14 * visualScale.value).toFixed(1)}px`
+    );
+    document.documentElement.style.setProperty(
+      "--club-user-meta-size",
+      `${Math.max(12, 13 * visualScale.value).toFixed(1)}px`
+    );
+    document.documentElement.style.setProperty(
+      "--club-user-micro-size",
+      `${Math.max(11, 12 * visualScale.value).toFixed(1)}px`
+    );
+    document.documentElement.style.setProperty(
       "--club-user-header-title-size",
       `${(20 * visualScale.value).toFixed(1)}px`
     );

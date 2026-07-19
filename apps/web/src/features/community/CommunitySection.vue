@@ -24,6 +24,7 @@ import {
 } from "@/api/client";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
+import { UiPageHeader } from "@/features/ui";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
@@ -1053,23 +1054,21 @@ onBeforeUnmount(() => {
 <template>
   <section class="community-chat-shell ui-page-section">
     <div v-if="!selectedTopic" class="community-section-content">
-      <div class="section-head ui-page-header">
-        <div>
-          <h2 class="section-title">{{ t("communitySectionTitle") }}</h2>
-          <p class="section-subtitle">{{ t("communitySectionSubtitle") }}</p>
-        </div>
-        <div class="community-topline-actions">
-          <button
-            v-if="isModerator"
-            class="icon-button ui-icon-button"
-            type="button"
-            aria-label="Добавить тему"
-            @click="showCreateTopic = !showCreateTopic"
-          >
-            <Plus class="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
+      <UiPageHeader :title="t('communitySectionTitle')" :subtitle="t('communitySectionSubtitle')">
+        <template #actions>
+          <div class="community-topline-actions">
+            <button
+              v-if="isModerator"
+              class="icon-button ui-icon-button"
+              type="button"
+              aria-label="Добавить тему"
+              @click="showCreateTopic = !showCreateTopic"
+            >
+              <Plus class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </template>
+      </UiPageHeader>
 
       <div v-if="!hasCommunityAccess" class="access-lock-card">
         <strong>Общение закрыто</strong>

@@ -71,7 +71,12 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*width:\s*fit-content;[^}]*flex-direction:\s*row;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*24px;[^}]*min-width:\s*24px;[^}]*height:\s*24px;[^}]*padding:\s*0;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::before\s*\{[^}]*display:\s*none;/s);
-    expect(styles).toMatch(/html body \.community-chat-open \.chat-bubble \.message-reaction-button\s*\{[^}]*min-width:\s*24px !important;[^}]*max-width:\s*24px !important;[^}]*min-height:\s*24px !important;[^}]*max-height:\s*24px !important;/s);
+    const lockedReactionRule = styles.match(/html body \.community-chat-open \.chat-bubble \.message-reaction-button\s*\{[^}]*\}/s)?.[0] ?? "";
+    expect(lockedReactionRule).toMatch(/min-width:\s*24px;/);
+    expect(lockedReactionRule).toMatch(/max-width:\s*24px;/);
+    expect(lockedReactionRule).toMatch(/min-height:\s*24px;/);
+    expect(lockedReactionRule).toMatch(/max-height:\s*24px;/);
+    expect(lockedReactionRule).not.toContain("!important");
   });
 
   it("uses one clean emoji tray without framed emoji circles", () => {

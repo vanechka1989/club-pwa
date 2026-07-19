@@ -14,8 +14,8 @@ describe("compact profile layout", () => {
   });
 
   it("keeps a compact page header outside the identity card", () => {
-    expect(source).toContain('class="section-head ui-page-header profile-page-header"');
-    expect(source).toContain('<h2 class="section-title">Профиль</h2>');
+    expect(source).toContain('<UiPageHeader class="profile-page-header" title="Профиль" subtitle="Аккаунт и доступ.">');
+    expect(source).toContain('<template #actions>');
     expect(source).toContain('class="compact-controls profile-page-header-controls"');
     expect(source).not.toContain("profile-dashboard-controls");
   });

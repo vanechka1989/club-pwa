@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единая визуальная архитектура",
+    items: [
+      "Профиль, модули, общение, оплата, поддержка и админка теперь используют одну общую шапку без локальных расхождений.",
+      "Типографика получила единые роли и минимальные читаемые размеры, поэтому масштаб 0,8 больше не делает основной текст несоразмерно мелким.",
+      "Удалены дублирующие стили и добавлены автоматические проверки, которые не позволят снова бесконтрольно накапливать микрошрифты и принудительные CSS-переопределения."
+    ]
+  },
+  {
+    version: "5.07",
+    updatedAt: "19.07.2026 13:48",
     title: "Кнопки нижнего меню тоже перемещаются вниз",
     items: [
       "Исправлена причина, из-за которой настройка меняла нижний фон, но почти не сдвигала сами иконки и подписи меню.",
@@ -3715,11 +3725,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Bottom navigation controls now move down too",
+  title: "Unified visual architecture",
   items: [
-    "Fixed the safe-area calculation that moved the navigation background but barely moved its icons and labels.",
-    "Enabled mode now visibly lowers the navigation controls while disabled mode keeps the original floating layout.",
-    "A protective iPhone home-indicator inset remains; the behavior was verified on two iPhones, Pixel, and a compact Android viewport."
+    "Profile, learning, community, payments, support, and administration now share one page-header implementation without local visual drift.",
+    "Typography now uses semantic roles and readable minimum sizes, so the 0.8 interface scale no longer makes body text disproportionately small.",
+    "Duplicate styles were removed and automated visual-architecture guardrails now prevent tiny fonts and uncontrolled CSS overrides from returning."
   ]
 };
 

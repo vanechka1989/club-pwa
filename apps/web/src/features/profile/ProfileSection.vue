@@ -25,6 +25,7 @@ import { activateReferralRewards, getLearningHome, getPaymentHistory, getPayment
 import { useI18n, type Locale } from "@/features/app/i18n";
 import NotificationCenter from "@/features/app/NotificationCenter.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { UiPageHeader } from "@/features/ui";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import {
   applyAvatarGesture,
@@ -658,18 +659,16 @@ watch(
 
 <template>
   <section class="soft-home ui-page-section profile-dashboard">
-    <div class="section-head ui-page-header profile-page-header">
-      <div>
-        <h2 class="section-title">Профиль</h2>
-        <p class="section-subtitle">Аккаунт и доступ.</p>
-      </div>
-      <div class="compact-controls profile-page-header-controls">
-        <button class="ui-icon-button" type="button" :aria-label="t('language')" @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')">
-          {{ currentLocale.toUpperCase() }}
-        </button>
-        <NotificationCenter />
-      </div>
-    </div>
+    <UiPageHeader class="profile-page-header" title="Профиль" subtitle="Аккаунт и доступ.">
+      <template #actions>
+        <div class="compact-controls profile-page-header-controls">
+          <button class="ui-icon-button" type="button" :aria-label="t('language')" @click="changeLocale(currentLocale === 'ru' ? 'en' : 'ru')">
+            {{ currentLocale.toUpperCase() }}
+          </button>
+          <NotificationCenter />
+        </div>
+      </template>
+    </UiPageHeader>
     <section class="soft-card ui-card profile-access-card profile-dashboard-hero">
       <div class="profile-dashboard-toolbar">
         <div class="profile-access-layout">

@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes visible bottom-menu control movement as version 5.07", () => {
-    expect(appVersion).toBe("5.07");
-    expect(releaseNotes[0]?.title).toBe("Кнопки нижнего меню тоже перемещаются вниз");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("иконки и подписи");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("iPhone");
-    expect(releaseNotes[1]?.version).toBe("5.06");
+  it("publishes the unified visual architecture as version 5.08", () => {
+    expect(appVersion).toBe("5.08");
+    expect(releaseNotes[0]?.title).toBe("Единая визуальная архитектура");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("общую шапку");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("масштаб 0,8");
+    expect(releaseNotes[1]?.version).toBe("5.07");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Bottom navigation controls now move down too");
+    expect(englishNotes[0]?.title).toBe("Unified visual architecture");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -35,7 +35,7 @@ describe("admin permissions section", () => {
   });
 
   it("places preview mode switcher in the admin header, not inside the admins section", () => {
-    const adminTitleIndex = adminSectionSource.indexOf('<h2 class="section-title">Админка</h2>');
+    const adminTitleIndex = adminSectionSource.indexOf('<UiPageHeader title="Админка"');
     const tabsIndex = indexOfClass(adminSectionSource, "admin-tabs");
     const adminsTitleIndex = adminSectionSource.indexOf("<h3>Администраторы</h3>");
     const previewSwitcherIndex = indexOfClass(adminSectionSource, "admin-preview-switcher");

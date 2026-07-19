@@ -111,18 +111,18 @@ describe("responsive layout audit contract", () => {
     expect(learningSource).toContain("ui-icon-button");
 
     expect(communitySource).toContain("ui-page-section");
-    expect(communitySource).toContain("ui-page-header");
+    expect(communitySource).toContain("UiPageHeader");
     expect(communitySource).toContain("ui-card");
     expect(communitySource).toContain("ui-icon-button");
 
     expect(paymentsSource).toContain("ui-page-section");
-    expect(paymentsSource).toContain("ui-page-header");
+    expect(paymentsSource).toContain("UiPageHeader");
     expect(paymentsSource).toContain("ui-card");
     expect(paymentsSource).toContain("ui-button");
     expect(paymentsSource).toContain("ui-icon-button");
 
     expect(supportSource).toContain("ui-page-section");
-    expect(supportSource).toContain("ui-page-header");
+    expect(supportSource).toContain("UiPageHeader");
     expect(supportSource).toContain("ui-card");
     expect(supportSource).toContain("ui-button-group");
 
@@ -132,7 +132,7 @@ describe("responsive layout audit contract", () => {
 
   it("migrates admin surfaces onto foundation classes", () => {
     expect(adminSection).toContain("ui-page-section");
-    expect(adminSection).toContain("ui-page-header");
+    expect(adminSection).toContain("UiPageHeader");
     expect(adminSection).toContain("ui-card");
     expect(adminSection).toContain("ui-button");
     expect(adminSection).toContain("ui-icon-button");

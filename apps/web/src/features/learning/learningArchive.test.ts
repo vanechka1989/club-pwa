@@ -145,9 +145,7 @@ describe("Learning section modules", () => {
     const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
 
     expect(source).toContain('class="modules-section ui-page-section"');
-    expect(source).toContain('class="section-head ui-page-header"');
-    expect(source).toContain('<h2 class="section-title">{{ t("modulesTitle") }}</h2>');
-    expect(source).toContain('<p class="section-subtitle">{{ t("modulesSubtitle") }}</p>');
+    expect(source).toContain('<UiPageHeader :title="t(\'modulesTitle\')" :subtitle="t(\'modulesSubtitle\')">');
     expect(source).toContain('class="modules-content"');
     expect(source).toContain("'module-admin-actions': canManageModules && isEditingModules");
     expect(source).toContain("'module-member-actions': !canManageModules || !isEditingModules");

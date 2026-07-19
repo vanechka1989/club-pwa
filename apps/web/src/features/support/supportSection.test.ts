@@ -329,8 +329,8 @@ describe("support section", () => {
     expect(source).toContain("ticketTopicTitle");
     expect(source).toContain("ticketStatusLabel");
     expect(source).toContain("currentLocale.value === \"en\" ? \"en-US\" : \"ru-RU\"");
-    expect(source).toContain('t("support")');
-    expect(source).toContain('t("supportSectionSubtitleAdmin")');
+    expect(source).toMatch(/t\(["']support["']\)/);
+    expect(source).toMatch(/t\(["']supportSectionSubtitleAdmin["']\)/);
     expect(source).not.toContain("<h2 class=\"section-title\">Поддержка</h2>");
   });
 

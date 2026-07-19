@@ -12955,8 +12955,8 @@ textarea::placeholder {
 .admin-poll-list > article { display: grid; gap: 10px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel-soft); padding: 12px; }
 .admin-poll-list > article > div:first-child { display: grid; gap: 3px; }
 .admin-poll-list > article > div:first-child strong { color: var(--text); font-size: 14px; }
-.admin-poll-list > article > div:first-child small { color: var(--muted); font-size: 11px; }
-.admin-poll-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; color: var(--muted-strong); font-size: 12px; }
+.admin-poll-list > article > div:first-child small { color: var(--muted); font-size: var(--app-type-micro-size); }
+.admin-poll-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; color: var(--muted-strong); font-size: var(--app-type-meta-size); }
 .admin-poll-option > i { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 99px; background: var(--border); }
 .admin-poll-option > i > b { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 
@@ -16616,9 +16616,9 @@ input[type="submit"],
 
 .admin-preview-option,
 .admin-stat-period {
-  min-height: 44px !important;
-  height: auto !important;
-  padding: 10px 12px !important;
+  min-height: 44px;
+  height: auto;
+  padding: 10px 12px;
   line-height: 1.2;
 }
 
@@ -16848,7 +16848,7 @@ input[type="submit"],
 .profile-identity-head { align-items: flex-start; }
 .profile-display-name-row { display:flex; min-width:0; align-items:center; gap:8px; }
 .profile-name-edit { display:grid; width:44px; min-width:44px; height:44px; place-items:center; margin:-10px 0; border-radius:12px; color:var(--accent); }
-.profile-name-locked { display:block; margin-top:4px; color:var(--muted); font-size:11px; line-height:1.3; }
+.profile-name-locked { display:block; margin-top:4px; color:var(--muted); font-size: var(--app-type-micro-size); line-height:1.3; }
 .profile-membership-row { display:grid; gap:8px; margin-top:12px; padding:12px 14px; border:1px solid var(--border); border-radius:16px; background:var(--panel-strong); }
 .profile-membership-title { display:flex; min-width:0; align-items:center; justify-content:space-between; gap:12px; }
 .profile-membership-title strong { color:var(--text); font-size:14px; }
@@ -16860,16 +16860,16 @@ input[type="submit"],
 .profile-name-sheet-head button { width:44px; height:44px; border-radius:12px; color:var(--muted); font-size:26px; }
 .profile-name-sheet label { color:var(--muted); font-size:13px; font-weight:750; }
 .profile-name-sheet .text-input { width:100%; min-height:48px; font-size:16px; }
-.profile-name-hint,.profile-name-error { font-size:12px; line-height:1.4; }
+.profile-name-hint,.profile-name-error { font-size: var(--app-type-meta-size); line-height:1.4; }
 .profile-name-hint { color:var(--muted); }
 .profile-name-error { color:var(--danger-text); }
 .profile-name-sheet-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 @media (max-width:359px) { .profile-name-sheet-actions { grid-template-columns:1fr; } }
 .admin-client-display-name { display:grid; gap:8px; margin-bottom:12px; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--panel-strong); }
-.admin-client-display-name > label { color:var(--muted); font-size:12px; font-weight:800; }
+.admin-client-display-name > label { color:var(--muted); font-size: var(--app-type-meta-size); font-weight:800; }
 .admin-client-display-name > div { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; }
 .admin-client-display-name .text-input { width:100%; min-height:44px; font-size:16px; }
-.admin-client-display-name > small { color:var(--danger-text); font-size:12px; }
+.admin-client-display-name > small { color:var(--danger-text); font-size: var(--app-type-meta-size); }
 @media (max-width:359px) { .admin-client-display-name > div { grid-template-columns:1fr; } }
 
 .support-task-screen .support-message {
@@ -17206,11 +17206,11 @@ body.club-mobile-device .admin-statistics-panel .admin-stat-period,
 body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-period {
   width: 100%;
   min-width: 0;
-  min-height: var(--button-height) !important;
-  height: var(--button-height) !important;
-  padding: 4px 3px !important;
+  min-height: var(--button-height);
+  height: var(--button-height);
+  padding: 4px 3px;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: var(--app-type-micro-size);
   font-weight: 780;
   line-height: 1.1;
   overflow-wrap: normal;
@@ -17222,7 +17222,7 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-period {
   padding-top: 2px;
 }
 
-.admin-statistics-panel .admin-stat-custom-period label { gap: 4px; font-size: 11px; }
+.admin-statistics-panel .admin-stat-custom-period label { gap: 4px; font-size: var(--app-type-micro-size); }
 .admin-statistics-panel .admin-stat-custom-period input { min-height: 44px; border-radius: 12px; font-size: 13px; }
 
 .admin-statistics-panel .admin-stat-overview-nav {
@@ -17244,10 +17244,10 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   gap: 10px;
   width: 100%;
   min-width: 0;
-  min-height: 64px !important;
-  height: 64px !important;
+  min-height: 64px;
+  height: 64px;
   margin: 0;
-  padding: 10px 10px 10px 12px !important;
+  padding: 10px 10px 10px 12px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -17260,7 +17260,7 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
 .admin-statistics-panel .admin-stat-nav-copy { align-content: center; gap: 2px; }
 .admin-statistics-panel .admin-stat-nav-copy strong { font-size: 14px; font-weight: 820; line-height: 1.15; }
 .admin-statistics-panel .admin-stat-nav-copy small,
-.admin-statistics-panel .admin-stat-nav-value small { font-size: 10px; font-weight: 680; line-height: 1.15; }
+.admin-statistics-panel .admin-stat-nav-value small { font-size: var(--app-type-micro-size); font-weight: 680; line-height: 1.15; }
 .admin-statistics-panel .admin-stat-nav-value { width: 100%; align-content: center; gap: 2px; }
 .admin-statistics-panel .admin-stat-nav-value strong { max-width: none; font-size: 13px; font-weight: 820; line-height: 1.15; }
 .admin-stat-nav-chevron,
@@ -17269,7 +17269,7 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
 .admin-stat-metric-chevron svg { width: 17px; height: 17px; stroke-width: 2.2; }
 
 .admin-stat-detail-card h4 { font-size: 16px; font-weight: 820; line-height: 1.2; }
-.admin-stat-detail-card header p { font-size: 12px; line-height: 1.35; }
+.admin-stat-detail-card header p { font-size: var(--app-type-meta-size); line-height: 1.35; }
 .admin-stat-detail-grid > button.admin-stat-drilldown {
   box-sizing: border-box;
   display: grid;
@@ -17281,7 +17281,7 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   padding: 8px 8px 8px 12px;
 }
 .admin-stat-drilldown::after { content: none; }
-.admin-stat-detail-grid > button.admin-stat-drilldown > span:first-child { min-width: 0; font-size: 11px; font-weight: 720; line-height: 1.2; }
+.admin-stat-detail-grid > button.admin-stat-drilldown > span:first-child { min-width: 0; font-size: var(--app-type-micro-size); font-weight: 720; line-height: 1.2; }
 .admin-stat-detail-grid > button.admin-stat-drilldown > strong { font-size: 14px; line-height: 1; }
 .admin-stat-metric-chevron.is-hidden { visibility: hidden; }
 
@@ -17294,7 +17294,7 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   border-radius: 14px;
   background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
 }
-.admin-stat-popular-material span { color: var(--muted); font-size: 11px; font-weight: 720; }
+.admin-stat-popular-material span { color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 720; }
 .admin-stat-popular-material strong { color: var(--text); font-size: 14px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
 
 .admin-poll-list > .admin-poll-disclosure {
@@ -17316,7 +17316,7 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
 .admin-poll-disclosure > summary::-webkit-details-marker { display: none; }
 .admin-poll-disclosure > summary > span { display: grid; gap: 4px; min-width: 0; }
 .admin-poll-disclosure > summary strong { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1.25; }
-.admin-poll-disclosure > summary small { color: var(--muted); font-size: 11px; line-height: 1.2; }
+.admin-poll-disclosure > summary small { color: var(--muted); font-size: var(--app-type-micro-size); line-height: 1.2; }
 .admin-poll-disclosure > summary svg { width: 18px; height: 18px; justify-self: center; color: var(--accent); transition: transform 160ms ease; }
 .admin-poll-disclosure[open] > summary { border-bottom: 1px solid var(--border); }
 .admin-poll-disclosure[open] > summary svg { transform: rotate(180deg); }
@@ -17327,8 +17327,8 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   padding: 12px 12px 4px;
 }
 .admin-poll-meta > span { display: grid; gap: 2px; min-width: 0; }
-.admin-poll-meta small { color: var(--muted); font-size: 10px; font-weight: 700; }
-.admin-poll-meta strong { overflow: hidden; color: var(--text); font-size: 12px; font-weight: 760; line-height: 1.25; text-overflow: ellipsis; }
+.admin-poll-meta small { color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 700; }
+.admin-poll-meta strong { overflow: hidden; color: var(--text); font-size: var(--app-type-meta-size); font-weight: 760; line-height: 1.25; text-overflow: ellipsis; }
 .admin-poll-options { display: grid; gap: 10px; padding: 12px; }
 
 .admin-stat-content-kinds {
@@ -17347,7 +17347,7 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   border-radius: 12px;
   background: var(--surface-soft);
 }
-.admin-stat-content-kinds strong { color: var(--muted); font-size: 10px; font-weight: 720; line-height: 1.1; }
+.admin-stat-content-kinds strong { color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 720; line-height: 1.1; }
 .admin-stat-content-kinds b { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1; }
 
 .admin-stat-hot-topic {
@@ -17359,9 +17359,9 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   border-radius: 14px;
   background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
 }
-.admin-stat-hot-topic > span { color: var(--accent); font-size: 11px; font-weight: 780; line-height: 1.2; }
+.admin-stat-hot-topic > span { color: var(--accent); font-size: var(--app-type-micro-size); font-weight: 780; line-height: 1.2; }
 .admin-stat-hot-topic > strong { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1.3; overflow-wrap: anywhere; }
-.admin-stat-hot-topic > small { color: var(--muted); font-size: 11px; font-weight: 680; line-height: 1.2; }
+.admin-stat-hot-topic > small { color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 680; line-height: 1.2; }
 
 .admin-stat-community-ranking { display: grid; gap: 6px; margin-top: 12px; }
 .admin-stat-community-ranking h5 { margin: 0 2px 2px; color: var(--text); font-size: 13px; font-weight: 800; line-height: 1.2; }
@@ -17389,10 +17389,10 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
     grid-template-columns: 40px minmax(0, 1fr) minmax(58px, auto) 20px;
     gap: 7px;
-    padding-inline: 8px !important;
+    padding-inline: 8px;
   }
   .admin-statistics-panel .admin-stat-nav-icon { width: 40px; height: 40px; }
-  .admin-statistics-panel .admin-stat-nav-value strong { font-size: 12px; }
+  .admin-statistics-panel .admin-stat-nav-value strong { font-size: var(--app-type-meta-size); }
 }
 
 /* Final compact-profile overrides must win over the legacy mobile scale layer. */
@@ -18186,7 +18186,7 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 .profile-avatar-task-screen .profile-avatar-editor-workspace { gap: 10px; }
 .profile-avatar-task-screen .profile-avatar-gesture-stage { gap: 10px; padding: 12px; border-radius: 18px; }
 .profile-avatar-task-screen .profile-avatar-crop-preview { width: min(62vw, 15rem); height: min(62vw, 15rem); }
-.profile-avatar-task-screen .profile-avatar-gesture-stage p { max-width: 24rem; font-size: 11px; line-height: 1.3; }
+.profile-avatar-task-screen .profile-avatar-gesture-stage p { max-width: 24rem; font-size: var(--app-type-micro-size); line-height: 1.3; }
 .profile-avatar-task-screen .profile-avatar-editor-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -18273,13 +18273,13 @@ body.club-mobile-app-scaled .profile-avatar-task-screen .profile-avatar-crop-pre
 }
 
 .profile-dashboard .profile-dashboard-toolbar .profile-access-layout {
-  grid-template-columns: 72px minmax(0, 1fr) !important;
+  grid-template-columns: 72px minmax(0, 1fr);
 }
 
 .profile-dashboard .profile-dashboard-toolbar .profile-avatar-stack {
   position: relative;
   width: 72px;
-  grid-template-columns: 72px !important;
+  grid-template-columns: 72px;
 }
 
 .profile-dashboard .profile-dashboard-toolbar .profile-avatar-actions {
@@ -18366,14 +18366,14 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 
 .profile-dashboard .profile-account-inline strong {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--app-type-meta-size);
   font-weight: 690;
 }
 
 .profile-dashboard .profile-role-pill {
   min-height: 22px;
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: var(--app-type-micro-size);
 }
 
 .profile-dashboard .profile-dashboard-subscription {
@@ -18404,7 +18404,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 
 .profile-dashboard .profile-dashboard-subscription .profile-membership-title span,
 .profile-dashboard .profile-dashboard-subscription-meta {
-  font-size: 11px;
+  font-size: var(--app-type-micro-size);
 }
 
 .profile-dashboard .profile-dashboard-subscription .subscription-bar {
@@ -18505,7 +18505,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   align-items: center;
   justify-content: center;
   padding-inline: 8px;
-  font-size: 12px;
+  font-size: var(--app-type-meta-size);
   line-height: 1.25;
   text-align: center;
 }
@@ -19237,7 +19237,7 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
   .notification-task-screen .notification-center-item {
     width: auto;
     max-width: calc(100% - 1.5rem);
-    margin-inline: 0.75rem !important;
+    margin-inline: 0.75rem;
     justify-self: center;
     box-sizing: border-box;
   }
@@ -19247,80 +19247,6 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
     max-width: calc(100% + 2px);
     justify-self: center;
   }
-}
-
-/* Final PWA UI foundation bridge: keep all icon/action controls square, readable and non-wrapping after legacy rules. */
-.ui-icon-button,
-.icon-button.ui-icon-button,
-.profile-avatar-icon-button,
-.notification-center-button,
-.compact-controls > button,
-.support-file-icon-button,
-.visual-scale-step-button,
-.module-sort-button,
-.module-lesson-add,
-.payment-product-admin-actions .icon-button,
-.chat-input-row .icon-button {
-  box-sizing: border-box;
-  display: inline-flex !important;
-  width: var(--icon-button-size) !important;
-  min-width: var(--icon-button-size) !important;
-  max-width: var(--icon-button-size);
-  height: var(--icon-button-size) !important;
-  min-height: var(--icon-button-size) !important;
-  max-height: var(--icon-button-size);
-  flex: 0 0 var(--icon-button-size) !important;
-  align-items: center;
-  justify-content: center;
-  padding: 0 !important;
-  border-radius: var(--icon-button-radius);
-  line-height: 1;
-  overflow-wrap: normal !important;
-  white-space: nowrap !important;
-  word-break: normal !important;
-}
-
-.ui-icon-button > svg,
-.icon-button.ui-icon-button > svg,
-.profile-avatar-icon-button > svg,
-.notification-center-button > svg,
-.compact-controls > button > svg,
-.support-file-icon-button > svg,
-.visual-scale-step-button > svg,
-.module-sort-button > svg,
-.module-lesson-add > svg,
-.payment-product-admin-actions .icon-button > svg,
-.chat-input-row .icon-button > svg {
-  display: block !important;
-  width: var(--icon-size) !important;
-  min-width: var(--icon-size) !important;
-  max-width: calc(var(--icon-button-size) - 14px) !important;
-  height: var(--icon-size) !important;
-  min-height: var(--icon-size) !important;
-  max-height: calc(var(--icon-button-size) - 14px) !important;
-  flex: 0 0 var(--icon-size) !important;
-  stroke-width: 2.25;
-}
-
-html body button.ui-icon-button,
-html body label.ui-icon-button,
-html body button.icon-button.ui-icon-button,
-html body .profile-avatar-icon-button,
-html body .notification-center .notification-center-button,
-html body .compact-controls > button,
-html body .support-file-icon-button,
-html body .visual-scale-step-button,
-html body .module-sort-button,
-html body .module-lesson-add,
-html body .payment-product-admin-actions .icon-button,
-html body .chat-input-row .icon-button {
-  width: var(--icon-button-size) !important;
-  min-width: var(--icon-button-size) !important;
-  max-width: var(--icon-button-size) !important;
-  height: var(--icon-button-size) !important;
-  min-height: var(--icon-button-size) !important;
-  max-height: var(--icon-button-size) !important;
-  flex-basis: var(--icon-button-size) !important;
 }
 
 .chat-pinned-bar {
@@ -19368,7 +19294,7 @@ html body .chat-input-row .icon-button {
   background: var(--accent-soft);
   color: var(--accent);
   padding: 4px 7px;
-  font-size: 12px;
+  font-size: var(--app-type-meta-size);
   font-style: normal;
   font-weight: 850;
 }
@@ -19404,7 +19330,7 @@ html body .chat-input-row .icon-button {
   gap: 4px;
   margin-top: 4px;
   color: currentColor;
-  font-size: 11px;
+  font-size: var(--app-type-micro-size);
   font-weight: 780;
   opacity: 0.78;
 }
@@ -19448,7 +19374,7 @@ html body .chat-input-row .icon-button {
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 12px;
+  font-size: var(--app-type-meta-size);
   font-weight: 800;
 }
 
