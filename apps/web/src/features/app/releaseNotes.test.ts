@@ -8,6 +8,9 @@ describe("release notes", () => {
     expect(releaseNotes[0]?.title).toBe("Чище письмо, аудит и профиль");
     expect(releaseNotes[0]?.items.join(" ")).toContain("письма");
     expect(releaseNotes[0]?.items.join(" ")).toContain("аватар");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("карандаш");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("источник");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("темы чата");
 
     const navigationFix = releaseNotes.find((note) => note.version === "5.13");
     expect(navigationFix?.title).toBe("Убрана полоса под нижним меню");

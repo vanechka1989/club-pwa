@@ -14,8 +14,8 @@ export const releaseNotes: ReleaseNote[] = [
     title: "Чище письмо, аудит и профиль",
     items: [
       "Из письма с кодом входа удалена кнопка перехода: письмо содержит только код и необходимые пояснения.",
-      "История настроек больше не повторяет одинаковый текст внутри одной записи; отдельные события аудита полностью сохранены.",
-      "Кнопка изменения фотографии стала компактным бейджем и больше не перекрывает аватар, сохраняя удобную область нажатия."
+      "История настроек показывает источник удалённого вложения: урок и карточку, обращение поддержки, рассылку или название темы чата.",
+      "Камера перенесена вправо от карандаша возле имени, а нажатие на аватар открывает то же меню загрузки и настройки кадра."
     ]
   },
   {
@@ -3808,8 +3808,8 @@ const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
   title: "Cleaner email, audit log, and profile",
   items: [
     "The login email now contains only the access code and essential guidance, without an application link.",
-    "Project history no longer repeats the same text within one audit entry while preserving every separate event.",
-    "The photo action is now a compact camera badge that keeps a comfortable touch target without covering the avatar."
+    "Project history identifies the source of a deleted attachment, including its lesson card, support ticket, mailing, or chat topic.",
+    "The camera now sits beside the name editor, and tapping the avatar opens the same upload and crop menu."
   ]
 };
 
