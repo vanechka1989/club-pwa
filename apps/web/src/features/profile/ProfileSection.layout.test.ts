@@ -101,6 +101,7 @@ describe("compact profile layout", () => {
     expect(source).toMatch(/profile-photo-menu-preview[\s\S]*session\.user\?\.photoUrl/);
     expect(source).toContain(':src="avatarEditorPreviewUrl"');
     expect(styles).toMatch(/\.profile-photo-menu\s*\{[^}]*bottom:\s*calc\(var\(--bottom-nav-height\)/s);
+    expect(styles).toMatch(/\.profile-photo-menu\.ui-card\s*\{[^}]*width:\s*auto;/s);
     expect(styles).toMatch(/\.profile-photo-menu-preview\s*\{[^}]*border-radius:\s*50%;/s);
   });
 

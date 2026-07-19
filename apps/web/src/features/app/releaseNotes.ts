@@ -11,6 +11,14 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Ровные отступы меню фото",
+    items: [
+      "Исправлена ширина меню фото профиля: теперь слева и справа сохраняются одинаковые отступы от края экрана."
+    ]
+  },
+  {
+    version: "5.21",
+    updatedAt: "19.07.2026 23:48",
     title: "Предпросмотр фото до сохранения",
     items: [
       "Меню фото аккуратно расположено над нижней навигацией и показывает действующую аватарку.",
@@ -3847,10 +3855,9 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Avatar preview before saving",
+  title: "Balanced photo menu spacing",
   items: [
-    "The photo menu now sits above bottom navigation and shows the current avatar.",
-    "A newly selected photo appears in the crop editor immediately but is only applied after Save; cancelling keeps the previous avatar unchanged."
+    "The profile photo menu now keeps equal spacing from the left and right edges of the screen."
   ]
 };
 

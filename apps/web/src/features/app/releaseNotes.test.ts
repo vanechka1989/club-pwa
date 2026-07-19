@@ -3,10 +3,14 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the avatar draft editor as version 5.21", () => {
-    expect(appVersion).toBe("5.21");
-    expect(releaseNotes[0]?.title).toBe("Предпросмотр фото до сохранения");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Сохранить");
+  it("publishes the balanced photo menu as version 5.22", () => {
+    expect(appVersion).toBe("5.22");
+    expect(releaseNotes[0]?.title).toBe("Ровные отступы меню фото");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("справа");
+
+    const avatarDraftRelease = releaseNotes.find((note) => note.version === "5.21");
+    expect(avatarDraftRelease?.title).toBe("Предпросмотр фото до сохранения");
+    expect(avatarDraftRelease?.items.join(" ")).toContain("Сохранить");
 
     const previousRelease = releaseNotes.find((note) => note.version === "5.20");
     expect(previousRelease?.title).toBe("Возвращено меню фото профиля");
@@ -48,7 +52,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Avatar preview before saving");
+    expect(englishNotes[0]?.title).toBe("Balanced photo menu spacing");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

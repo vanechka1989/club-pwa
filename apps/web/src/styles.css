@@ -18469,6 +18469,10 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   padding: 16px;
 }
 
+.profile-photo-menu.ui-card {
+  width: auto;
+}
+
 .profile-photo-menu-backdrop {
   z-index: 130;
 }
