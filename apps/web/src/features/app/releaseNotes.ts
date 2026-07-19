@@ -11,11 +11,20 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Понятные вложения и фото профиля",
+    items: [
+      "История настроек показывает источник удалённого вложения: урок и карточку, обращение поддержки, рассылку или название темы чата.",
+      "Камера перенесена вправо от карандаша возле имени, а нажатие на аватар открывает то же меню загрузки и настройки кадра."
+    ]
+  },
+  {
+    version: "5.16",
+    updatedAt: "19.07.2026 20:41",
     title: "Чище письмо, аудит и профиль",
     items: [
       "Из письма с кодом входа удалена кнопка перехода: письмо содержит только код и необходимые пояснения.",
-      "История настроек показывает источник удалённого вложения: урок и карточку, обращение поддержки, рассылку или название темы чата.",
-      "Камера перенесена вправо от карандаша возле имени, а нажатие на аватар открывает то же меню загрузки и настройки кадра."
+      "История настроек больше не повторяет одинаковый текст внутри одной записи; отдельные события аудита полностью сохранены.",
+      "Кнопка изменения фотографии стала компактным бейджем и больше не перекрывает аватар, сохраняя удобную область нажатия."
     ]
   },
   {
@@ -3805,9 +3814,8 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Cleaner email, audit log, and profile",
+  title: "Clear attachment sources and profile photo controls",
   items: [
-    "The login email now contains only the access code and essential guidance, without an application link.",
     "Project history identifies the source of a deleted attachment, including its lesson card, support ticket, mailing, or chat topic.",
     "The camera now sits beside the name editor, and tapping the avatar opens the same upload and crop menu."
   ]
