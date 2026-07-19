@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Исправлена мобильная шапка админки",
+    items: [
+      "Заголовок и описание админки снова отображаются нормальными строками, а не вертикальной колонкой из отдельных букв.",
+      "Исправлена сама структура мобильной сетки шапки, поэтому версия приложения и переключатель режима больше не сжимают текст на узких экранах.",
+      "Добавлена автоматическая проверка, которая не позволит этой ошибке вернуться при следующих изменениях общей шапки."
+    ]
+  },
+  {
+    version: "5.08",
+    updatedAt: "19.07.2026 15:36",
     title: "Единая визуальная архитектура",
     items: [
       "Профиль, модули, общение, оплата, поддержка и админка теперь используют одну общую шапку без локальных расхождений.",
@@ -3725,11 +3735,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Unified visual architecture",
+  title: "Mobile administration header fixed",
   items: [
-    "Profile, learning, community, payments, support, and administration now share one page-header implementation without local visual drift.",
-    "Typography now uses semantic roles and readable minimum sizes, so the 0.8 interface scale no longer makes body text disproportionately small.",
-    "Duplicate styles were removed and automated visual-architecture guardrails now prevent tiny fonts and uncontrolled CSS overrides from returning."
+    "The administration title and subtitle render as normal lines again instead of a vertical column of individual letters.",
+    "The mobile header grid now keeps the version and preview controls from squeezing text on narrow screens.",
+    "An automated regression check prevents this layout failure from returning."
   ]
 };
 

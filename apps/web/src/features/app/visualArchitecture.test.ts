@@ -26,6 +26,14 @@ describe("visual architecture guardrails", () => {
     expect(component).toContain('<header class="section-head ui-page-header">');
   });
 
+  it("keeps admin header actions in the shared mobile header grid", () => {
+    const styles = source("../../styles.css");
+
+    expect(styles).toMatch(
+      /body\.club-mobile-device \.admin-shell > \.ui-page-header > \.ui-page-header__actions\s*\{[\s\S]*display:\s*contents;/
+    );
+  });
+
   it.each(mainSections)("uses the shared page header in %s", (relativePath) => {
     const component = source(relativePath);
 

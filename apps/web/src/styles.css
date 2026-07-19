@@ -18602,6 +18602,13 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   line-height: var(--app-header-subtitle-line-height);
 }
 
+/* The admin header predates UiPageHeader and positions its version and
+   preview controls as direct grid items. Keep the shared actions wrapper
+   layout-transparent on mobile so those controls cannot squeeze the title. */
+body.club-mobile-device .admin-shell > .ui-page-header > .ui-page-header__actions {
+  display: contents;
+}
+
 .modules-section,
 .community-section-content {
   gap: 8px;

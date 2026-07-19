@@ -3,12 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the unified visual architecture as version 5.08", () => {
-    expect(appVersion).toBe("5.08");
-    expect(releaseNotes[0]?.title).toBe("Единая визуальная архитектура");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("общую шапку");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("масштаб 0,8");
-    expect(releaseNotes[1]?.version).toBe("5.07");
+  it("publishes the mobile admin header fix as version 5.09", () => {
+    expect(appVersion).toBe("5.09");
+    expect(releaseNotes[0]?.title).toBe("Исправлена мобильная шапка админки");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("вертикальной колонкой");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("мобильной сетки");
+    expect(releaseNotes[1]?.version).toBe("5.08");
   });
 
   it("keeps the current app version at the top of the changelog", () => {
@@ -42,7 +42,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Unified visual architecture");
+    expect(englishNotes[0]?.title).toBe("Mobile administration header fixed");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
