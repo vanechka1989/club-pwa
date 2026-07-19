@@ -1,6 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 
-const allowedTags = ["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li", "a", "blockquote", "h2", "h3"];
+const allowedTags = ["p", "br", "strong", "b", "em", "i", "u", "code", "ul", "ol", "li", "a", "blockquote", "h2", "h3"];
 
 export function sanitizeMailingHtml(value: string) {
   return sanitizeHtml(value, {

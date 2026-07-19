@@ -1,4 +1,20 @@
-const allowedHtmlTags = new Set(["A", "B", "BR", "DIV", "EM", "I", "LI", "OL", "P", "SPAN", "STRONG", "U", "UL"]);
+const allowedHtmlTags = new Set([
+  "A",
+  "B",
+  "BLOCKQUOTE",
+  "BR",
+  "CODE",
+  "EM",
+  "H2",
+  "H3",
+  "I",
+  "LI",
+  "OL",
+  "P",
+  "STRONG",
+  "U",
+  "UL"
+]);
 
 export function escapeHtmlText(value: string) {
   return value
@@ -12,7 +28,7 @@ export function escapeHtmlText(value: string) {
 function isSafeHref(value: string) {
   try {
     const url = new URL(value, window.location.origin);
-    return url.protocol === "http:" || url.protocol === "https:";
+    return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "mailto:";
   } catch {
     return false;
   }
@@ -41,7 +57,7 @@ function sanitizeNode(node: Node): Node | null {
     if (safeLinkHref) {
       nextElement.setAttribute("href", safeLinkHref);
       nextElement.setAttribute("target", "_blank");
-      nextElement.setAttribute("rel", "noreferrer");
+      nextElement.setAttribute("rel", "noopener noreferrer");
     }
   }
 
