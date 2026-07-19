@@ -1,3 +1,5 @@
+import { normalizeAvatarDisplay } from "./avatarDisplay";
+
 export const avatarUploadLimits = {
   maxFileBytes: 5 * 1024 * 1024
 } as const;
@@ -42,6 +44,14 @@ export function getAvatarUploadLimitError(file: { size: number }) {
   }
 
   return null;
+}
+
+export function getAvatarUploadDisplay(formData: FormData) {
+  return normalizeAvatarDisplay({
+    avatarPositionX: formData.get("avatarPositionX"),
+    avatarPositionY: formData.get("avatarPositionY"),
+    avatarScale: formData.get("avatarScale")
+  });
 }
 
 function sanitizeKeyPart(value: string) {

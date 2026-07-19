@@ -8789,9 +8789,6 @@ body.club-lesson-image-viewer-open {
   cursor: default;
 }
 
-.profile-upload-input-detached {
-  display: none;
-}
 
 .profile-access-main {
   display: grid;
@@ -18461,21 +18458,53 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 
 .profile-photo-menu {
   position: fixed;
-  right: max(12px, var(--club-safe-right));
-  bottom: max(12px, calc(var(--club-safe-bottom) + 12px));
-  left: max(12px, var(--club-safe-left));
-  z-index: 120;
+  right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
+  bottom: calc(var(--bottom-nav-height) + var(--club-safe-bottom) + 20px);
+  left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
+  z-index: 131;
   display: grid;
   gap: 8px;
-  max-width: 480px;
+  max-width: 420px;
   margin-inline: auto;
   padding: 16px;
 }
 
-.profile-photo-menu h3 {
+.profile-photo-menu-backdrop {
+  z-index: 130;
+}
+
+.profile-photo-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 4px;
+}
+
+.profile-photo-menu h3 {
+  margin: 0;
   font-size: 16px;
   font-weight: 850;
+}
+
+.profile-photo-menu-preview {
+  display: grid;
+  width: 56px;
+  min-width: 56px;
+  height: 56px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 50%;
+  background: var(--panel-soft);
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 850;
+}
+
+.profile-photo-menu-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .profile-photo-menu-action {

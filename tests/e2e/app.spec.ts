@@ -1564,6 +1564,58 @@ test("opens the profile photo menu from both avatar controls", async ({ page }) 
   await expect(photoMenu).toBeVisible();
 });
 
+test("keeps avatar changes as a draft until save", async ({ page }, testInfo) => {
+  const updatedPhotoUrl = "https://cdn.example.com/avatar-saved.jpg";
+  let uploadRequests = 0;
+  await page.route("**/api/me/avatar/upload", async (route) => {
+    uploadRequests += 1;
+    await route.fulfill(json({
+      user: {
+        ...currentUser,
+        photoUrl: updatedPhotoUrl,
+        avatarPositionX: 50,
+        avatarPositionY: 50,
+        avatarScale: 1
+      }
+    }));
+  });
+
+  const openMenu = async () => {
+    await page.getByRole("button", { name: "Изменить фото профиля" }).click();
+    return page.getByRole("dialog", { name: "Изменить фото профиля" });
+  };
+  const chooseDraft = async () => {
+    const menu = await openMenu();
+    await expect(menu.locator(".profile-photo-menu-preview img")).toHaveAttribute("src", currentUser.photoUrl);
+    const menuBox = await menu.boundingBox();
+    const navBox = await page.locator(".mobile-bottom-nav").boundingBox();
+    expect((menuBox?.y ?? 0) + (menuBox?.height ?? 0)).toBeLessThanOrEqual((navBox?.y ?? Number.POSITIVE_INFINITY) - 8);
+    await page.screenshot({ path: testInfo.outputPath("avatar-photo-menu.png"), fullPage: false, animations: "disabled", caret: "hide" });
+    await menu.locator('input[type="file"]').setInputFiles({
+      name: "avatar-draft.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64")
+    });
+    await expect(page).toHaveURL(/\/profile\/avatar$/);
+    const preview = page.locator(".profile-avatar-crop-preview img");
+    await expect(preview).toHaveAttribute("src", /^blob:/);
+    await page.screenshot({ path: testInfo.outputPath("avatar-draft-editor.png"), fullPage: false, animations: "disabled", caret: "hide" });
+  };
+
+  await chooseDraft();
+  expect(uploadRequests).toBe(0);
+  await page.locator(".profile-avatar-editor-footer").getByRole("button", { name: "Отмена" }).click();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.locator(".profile-avatar-trigger img")).toHaveAttribute("src", currentUser.photoUrl);
+  expect(uploadRequests).toBe(0);
+
+  await chooseDraft();
+  await page.locator(".profile-avatar-editor-footer").getByRole("button", { name: "Сохранить" }).click();
+  await expect(page).toHaveURL(/\/profile$/);
+  expect(uploadRequests).toBe(1);
+  await expect(page.locator(".profile-avatar-trigger img")).toHaveAttribute("src", updatedPhotoUrl);
+});
+
 test("keeps a permissionless administrator on safe member APIs while switching tabs", async ({ page }, testInfo) => {
   const permissionlessAdmin = {
     ...currentUser,

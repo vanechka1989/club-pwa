@@ -171,8 +171,8 @@ export const useSessionStore = defineStore("session", () => {
     return response.message;
   }
 
-  async function uploadAvatar(file: File) {
-    const response = await uploadAvatarApi(file);
+  async function uploadAvatar(file: File, display: { avatarPositionX: number; avatarPositionY: number; avatarScale: number }) {
+    const response = await uploadAvatarApi(file, display);
     user.value = response.user;
     return response.user;
   }

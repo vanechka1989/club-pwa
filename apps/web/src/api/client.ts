@@ -168,9 +168,23 @@ export function refreshAvatar() {
   return api<MeResponse>("/me/avatar", { method: "POST" });
 }
 
-export function uploadAvatar(file: File) {
+export type AvatarDisplayDraft = {
+  avatarPositionX: number;
+  avatarPositionY: number;
+  avatarScale: number;
+};
+
+export function createAvatarUploadFormData(file: File, display: AvatarDisplayDraft) {
   const formData = new FormData();
   formData.append("avatar", file);
+  formData.append("avatarPositionX", String(display.avatarPositionX));
+  formData.append("avatarPositionY", String(display.avatarPositionY));
+  formData.append("avatarScale", String(display.avatarScale));
+  return formData;
+}
+
+export function uploadAvatar(file: File, display: AvatarDisplayDraft) {
+  const formData = createAvatarUploadFormData(file, display);
 
   return api<MeResponse>("/me/avatar/upload", {
     method: "POST",
@@ -178,7 +192,7 @@ export function uploadAvatar(file: File) {
   });
 }
 
-export function updateAvatarDisplay(payload: { avatarPositionX: number; avatarPositionY: number; avatarScale: number }) {
+export function updateAvatarDisplay(payload: AvatarDisplayDraft) {
   return api<MeResponse>("/me/avatar/display", {
     method: "PATCH",
     body: payload

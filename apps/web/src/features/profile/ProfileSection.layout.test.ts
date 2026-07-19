@@ -80,9 +80,28 @@ describe("compact profile layout", () => {
     expect(source).not.toContain('class="profile-avatar-actions"');
   });
 
-  it("keeps the programmatic avatar file input from intercepting profile clicks", () => {
-    expect(source).toMatch(/ref="avatarUploadInput"[\s\S]*class="profile-upload-input profile-upload-input-detached"/);
-    expect(styles).toMatch(/\.profile-upload-input-detached\s*\{[^}]*display:\s*none;/s);
+  it("keeps file selection inside the visible photo menu action", () => {
+    expect(source).not.toContain('ref="avatarUploadInput"');
+    expect(source).toMatch(/profile-photo-menu-action[\s\S]*class="profile-upload-input"/);
+    expect(styles).not.toContain(".profile-upload-input-detached");
+  });
+
+  it("keeps a selected avatar as a local draft until save", () => {
+    expect(source).toContain("const avatarDraftFile = ref<File | null>(null)");
+    expect(source).toContain("const avatarDraftUrl = ref<string | null>(null)");
+    expect(source).toContain("const avatarEditorPreviewUrl = computed");
+    expect(source).toContain("URL.createObjectURL(file)");
+    expect(source.match(/session\.uploadAvatar\(/g)).toHaveLength(1);
+    expect(source).toMatch(/async function handleAvatarDisplaySave\(\)[\s\S]*session\.uploadAvatar\(avatarDraftFile\.value/);
+    expect(source).not.toMatch(/async function handleAvatarUpload[\s\S]*session\.uploadAvatar\(file\)/);
+  });
+
+  it("shows the current avatar in the photo menu and the active draft in the crop editor", () => {
+    expect(source).toContain('class="profile-photo-menu-preview"');
+    expect(source).toMatch(/profile-photo-menu-preview[\s\S]*session\.user\?\.photoUrl/);
+    expect(source).toContain(':src="avatarEditorPreviewUrl"');
+    expect(styles).toMatch(/\.profile-photo-menu\s*\{[^}]*bottom:\s*calc\(var\(--bottom-nav-height\)/s);
+    expect(styles).toMatch(/\.profile-photo-menu-preview\s*\{[^}]*border-radius:\s*50%;/s);
   });
 
   it("highlights the name editor with the same action badge as the camera", () => {

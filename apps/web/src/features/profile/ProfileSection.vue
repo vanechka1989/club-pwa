@@ -19,7 +19,7 @@ import {
   RotateCcw,
   Sun
 } from "lucide-vue-next";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { activateReferralRewards, getLearningHome, getPaymentHistory, getPaymentPlans, getReferralProfile } from "@/api/client";
 import { useI18n, type Locale } from "@/features/app/i18n";
@@ -63,6 +63,7 @@ function openProfileTask(path: string) {
 
 function closeProfileTask() {
   avatarEditorOpen.value = false;
+  discardAvatarDraftFile();
   if (route.path !== "/profile") {
     void router.push("/profile");
   }
@@ -83,8 +84,9 @@ const avatarSaving = ref(false);
 const avatarMessage = ref<string | null>(null);
 const avatarEditorOpen = ref(false);
 const avatarPhotoMenuOpen = ref(false);
-const avatarUploadInput = ref<HTMLInputElement | null>(null);
 const avatarDisplaySaving = ref(false);
+const avatarDraftFile = ref<File | null>(null);
+const avatarDraftUrl = ref<string | null>(null);
 const avatarDraftX = ref(50);
 const avatarDraftY = ref(50);
 const avatarDraftScale = ref(1);
@@ -123,6 +125,7 @@ const avatarDraftStyle = computed(() => ({
   transform: `scale(${avatarDraftScale.value})`,
   transformOrigin: `${avatarDraftX.value}% ${avatarDraftY.value}%`
 }));
+const avatarEditorPreviewUrl = computed(() => avatarDraftUrl.value ?? session.user?.photoUrl ?? null);
 
 function openDisplayNameEditor() {
   if (session.user?.displayNameChangedByUserAt) return;
@@ -421,7 +424,7 @@ function applyCurrentAvatarGesture() {
 }
 
 function handleAvatarGestureStart(event: PointerEvent) {
-  if (!session.user?.photoUrl) {
+  if (!avatarEditorPreviewUrl.value) {
     return;
   }
 
@@ -465,7 +468,7 @@ function handleAvatarGestureEnd(event: PointerEvent) {
 }
 
 function handleAvatarWheel(event: WheelEvent) {
-  if (!session.user?.photoUrl) {
+  if (!avatarEditorPreviewUrl.value) {
     return;
   }
 
@@ -477,16 +480,11 @@ function openAvatarPhotoActions() {
     return;
   }
 
-  if (session.user?.photoUrl) {
-    avatarPhotoMenuOpen.value = true;
-    return;
-  }
-
-  avatarUploadInput.value?.click();
+  avatarPhotoMenuOpen.value = true;
 }
 
 function openAvatarEditor(options: { useCurrentAvatar?: boolean } = {}) {
-  if (!session.user?.photoUrl) {
+  if (!avatarEditorPreviewUrl.value) {
     avatarMessage.value = t("profileAvatarUploadFirst");
     return;
   }
@@ -494,12 +492,20 @@ function openAvatarEditor(options: { useCurrentAvatar?: boolean } = {}) {
   avatarGesturePointers.clear();
   avatarGestureSession = null;
   avatarGestureActive.value = false;
-  avatarDraftX.value = options.useCurrentAvatar ? 50 : (session.user.avatarPositionX ?? 50);
-  avatarDraftY.value = options.useCurrentAvatar ? 50 : (session.user.avatarPositionY ?? 50);
-  avatarDraftScale.value = options.useCurrentAvatar ? 1 : (session.user.avatarScale ?? 1);
+  avatarDraftX.value = options.useCurrentAvatar ? 50 : (session.user?.avatarPositionX ?? 50);
+  avatarDraftY.value = options.useCurrentAvatar ? 50 : (session.user?.avatarPositionY ?? 50);
+  avatarDraftScale.value = options.useCurrentAvatar ? 1 : (session.user?.avatarScale ?? 1);
   avatarMessage.value = null;
   avatarEditorOpen.value = true;
   openProfileTask("/profile/avatar");
+}
+
+function discardAvatarDraftFile() {
+  if (avatarDraftUrl.value) {
+    URL.revokeObjectURL(avatarDraftUrl.value);
+  }
+  avatarDraftFile.value = null;
+  avatarDraftUrl.value = null;
 }
 
 function zoomAvatar(amount: number) {
@@ -514,24 +520,30 @@ function resetAvatarDraft() {
 
 async function handleAvatarDisplaySave() {
   avatarDisplaySaving.value = true;
+  avatarSaving.value = Boolean(avatarDraftFile.value);
   avatarMessage.value = null;
+  const display = {
+    avatarPositionX: avatarDraftX.value,
+    avatarPositionY: avatarDraftY.value,
+    avatarScale: avatarDraftScale.value
+  };
   try {
-    await session.updateAvatarDisplay({
-      avatarPositionX: avatarDraftX.value,
-      avatarPositionY: avatarDraftY.value,
-      avatarScale: avatarDraftScale.value
-    });
-    avatarEditorOpen.value = false;
+    if (avatarDraftFile.value) {
+      await session.uploadAvatar(avatarDraftFile.value, display);
+    } else {
+      await session.updateAvatarDisplay(display);
+    }
     closeProfileTask();
     avatarMessage.value = t("profileAvatarDisplaySaved");
   } catch {
-    avatarMessage.value = t("profileAvatarDisplayError");
+    avatarMessage.value = avatarDraftFile.value ? t("profileAvatarError") : t("profileAvatarDisplayError");
   } finally {
     avatarDisplaySaving.value = false;
+    avatarSaving.value = false;
   }
 }
 
-async function handleAvatarUpload(event: Event) {
+function handleAvatarUpload(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) {
@@ -544,17 +556,13 @@ async function handleAvatarUpload(event: Event) {
     return;
   }
 
-  avatarSaving.value = true;
+  discardAvatarDraftFile();
+  avatarDraftFile.value = file;
+  avatarDraftUrl.value = URL.createObjectURL(file);
   avatarMessage.value = null;
-  try {
-    await session.uploadAvatar(file);
-    openAvatarEditor({ useCurrentAvatar: true });
-  } catch {
-    avatarMessage.value = t("profileAvatarError");
-  } finally {
-    avatarSaving.value = false;
-    input.value = "";
-  }
+  avatarPhotoMenuOpen.value = false;
+  input.value = "";
+  openAvatarEditor({ useCurrentAvatar: true });
 }
 
 async function handleLogout() {
@@ -666,9 +674,12 @@ watch(
       openAvatarEditor();
     } else if (path !== "/profile/avatar") {
       avatarEditorOpen.value = false;
+      discardAvatarDraftFile();
     }
   }
 );
+
+onBeforeUnmount(discardAvatarDraftFile);
 </script>
 
 <template>
@@ -722,14 +733,6 @@ watch(
                 >
                   <Camera class="h-4 w-4" aria-hidden="true" />
                 </button>
-                <input
-                  ref="avatarUploadInput"
-                  class="profile-upload-input profile-upload-input-detached"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  :disabled="avatarSaving"
-                  @change="handleAvatarUpload"
-                />
               </div>
               <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
             </div>
@@ -759,9 +762,15 @@ watch(
       <p v-if="logoutMessage" class="profile-empty-text">{{ logoutMessage }}</p>
     </section>
 
-    <div v-if="avatarPhotoMenuOpen" class="profile-modal-backdrop" @click.self="avatarPhotoMenuOpen = false">
+    <div v-if="avatarPhotoMenuOpen" class="profile-modal-backdrop profile-photo-menu-backdrop" @click.self="avatarPhotoMenuOpen = false">
       <section class="profile-photo-menu ui-card" role="dialog" aria-modal="true" aria-label="Изменить фото профиля">
-        <h3>Фото профиля</h3>
+        <div class="profile-photo-menu-header">
+          <div class="profile-photo-menu-preview" aria-hidden="true">
+            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" alt="" :style="avatarDisplayStyle" />
+            <span v-else>{{ avatarInitial }}</span>
+          </div>
+          <h3>Фото профиля</h3>
+        </div>
         <label class="profile-photo-menu-action ui-button">
           <Camera class="h-4 w-4" aria-hidden="true" />
           <span>Загрузить новое фото</span>
@@ -998,7 +1007,7 @@ watch(
             @wheel.prevent="handleAvatarWheel"
           >
             <div class="profile-avatar-crop-preview" aria-live="polite">
-              <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDraftStyle" draggable="false" />
+              <img v-if="avatarEditorPreviewUrl" :src="avatarEditorPreviewUrl" :alt="displayName" :style="avatarDraftStyle" draggable="false" />
               <span v-else>{{ avatarInitial }}</span>
             </div>
             <p>{{ t("profileAvatarGestureHint") }}</p>

@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Предпросмотр фото до сохранения",
+    items: [
+      "Меню фото аккуратно расположено над нижней навигацией и показывает действующую аватарку.",
+      "Новое фото сразу видно в редакторе кадра, но оно применяется только после нажатия «Сохранить»; отмена оставляет прежнюю аватарку без изменений."
+    ]
+  },
+  {
+    version: "5.20",
+    updatedAt: "19.07.2026 23:22",
     title: "Возвращено меню фото профиля",
     items: [
       "Невидимое поле загрузки больше не перекрывает профиль: нажатие на аватар или кнопку камеры снова открывает меню с действиями «Загрузить новое фото» и «Настроить кадр»."
@@ -3838,9 +3847,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Restored profile photo menu",
+  title: "Avatar preview before saving",
   items: [
-    "The hidden upload field no longer covers the profile, so tapping the avatar or camera button again opens the menu for uploading a new photo or adjusting the crop."
+    "The photo menu now sits above bottom navigation and shows the current avatar.",
+    "A newly selected photo appears in the crop editor immediately but is only applied after Save; cancelling keeps the previous avatar unchanged."
   ]
 };
 

@@ -11,7 +11,7 @@ import { getMembership } from "../membership/getMembership";
 import { resolveMembershipPreview, resolveMembershipProfileFields } from "../membership/profileFields";
 import { logger } from "../logger";
 import { normalizeAvatarDisplay } from "../profile/avatarDisplay";
-import { buildAvatarObjectKey, getAvatarUploadContentType, getAvatarUploadLimitError } from "../profile/avatarUpload";
+import { buildAvatarObjectKey, getAvatarUploadContentType, getAvatarUploadDisplay, getAvatarUploadLimitError } from "../profile/avatarUpload";
 import { activateReferralRewards, getReferralRewardDays, getReferralSummary } from "../referrals/referrals";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import { saveLocalUpload } from "../storage/localUploads";
@@ -211,7 +211,10 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const formData = await c.req.formData().catch(() => null);
-    const avatar = formData?.get("avatar");
+    if (!formData) {
+      return c.json({ error: "Avatar file is required" }, 400);
+    }
+    const avatar = formData.get("avatar");
     if (!(avatar instanceof File)) {
       return c.json({ error: "Avatar file is required" }, 400);
     }
@@ -248,15 +251,16 @@ export const meRoute = new Hono<{ Variables: AuthVariables }>()
       body: optimizedAvatar.body,
       contentType: optimizedAvatar.contentType
     });
+    const display = getAvatarUploadDisplay(formData);
 
     const [updatedUser] = await db
       .update(users)
       .set({
         avatarObjectKey: storedAvatar.avatarObjectKey,
         photoUrl: storedAvatar.photoUrl ?? user.photoUrl,
-        avatarPositionX: 50,
-        avatarPositionY: 50,
-        avatarScale: 100,
+        avatarPositionX: Math.round(display.avatarPositionX),
+        avatarPositionY: Math.round(display.avatarPositionY),
+        avatarScale: Math.round(display.avatarScale * 100),
         avatarRefreshedAt: now,
         updatedAt: now
       })
