@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Аналитика рассылок",
+    items: [
+      "В карточке рассылки появились Open rate, CTR и CTOR, разбивка по Push и Email, динамика событий и популярные ссылки.",
+      "Можно отфильтровать получателей по каналу и результату доставки, открытию или переходу; открытия Email помечены как приблизительные."
+    ]
+  },
+  {
+    version: "5.25",
+    updatedAt: "20.07.2026 19:28",
     title: "Надёжная доставка рассылок",
     items: [
       "Временные ошибки доставки автоматически повторяются до трёх раз, а зависшие после перезапуска сервера отправки возвращаются в очередь.",
@@ -3882,10 +3891,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable mailing delivery",
+  title: "Mailing analytics",
   items: [
-    "Temporary delivery failures are retried up to three times, and stale deliveries recover automatically after a server restart.",
-    "Live counters show the actual delivery state, while Retry failures safely queues only final failures again."
+    "Mailing details now include Open rate, CTR, CTOR, channel breakdowns, event trends, and top links.",
+    "Recipients can be filtered by channel and engagement status; email opens are clearly marked as approximate."
   ]
 };
 
