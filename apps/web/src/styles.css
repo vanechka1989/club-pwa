@@ -19592,6 +19592,7 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
    header and content to the same compact gutter as the main profile. */
 .profile-detail-task-screen .task-screen-header {
   box-sizing: border-box;
+  width: auto;
   margin: 12px 14px 0;
   margin-right: max(14px, calc(var(--club-safe-right) + 14px));
   margin-left: max(14px, calc(var(--club-safe-left) + 14px));
