@@ -59,6 +59,17 @@ describe("community archive labels", () => {
     expect(source).not.toContain('window.alert("Можно закрепить не больше 5 сообщений.")');
   });
 
+  it("keeps pinned messages in an accessible collapsible panel", () => {
+    expect(source).toContain(':aria-expanded="showPinnedMessages"');
+    expect(source).toContain('aria-controls="chat-pinned-details"');
+    expect(source).toContain('id="chat-pinned-details"');
+    expect(source).toMatch(/v-if="showPinnedMessages"[^>]*class="chat-pinned-details"/s);
+    expect(source).toContain('class="chat-pinned-toggle"');
+    expect(source).toContain('class="chat-pinned-toggle-icon h-4 w-4"');
+    expect(communityStyles).toMatch(/\.community-chat-open \.chat-pinned-toggle\s*\{[^}]*min-height:\s*44px;/s);
+    expect(communityStyles).toMatch(/\.community-chat-open \.chat-pinned-details\s*\{[^}]*position:\s*absolute;[^}]*max-height:\s*min\(50dvh, 28rem\);/s);
+  });
+
   it("uses one touch-friendly moderation action sheet instead of inline buttons", () => {
     expect(source).toContain('class="moderation-action-sheet-backdrop"');
     expect(source).toContain('class="moderation-action-sheet"');

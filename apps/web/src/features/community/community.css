@@ -349,13 +349,25 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 }
 
 .community-chat-open .chat-bubble {
-  max-width: min(76%, 30rem);
+  width: 100%;
+  max-width: 100%;
   border-radius: 14px 14px 14px 6px;
   padding: 8px 10px 7px;
   border-color: var(--border);
   background: var(--chat-bubble-incoming);
   color: var(--chat-bubble-text);
   box-shadow: 0 4px 12px color-mix(in srgb, #000 9%, transparent);
+}
+
+.community-chat-open .chat-message-content {
+  position: relative;
+  width: fit-content;
+  max-width: min(76%, 30rem);
+  min-width: 0;
+}
+
+.community-chat-open .chat-message:has(.message-reactions) {
+  margin-bottom: 12px;
 }
 
 .community-chat-open .chat-message-own .chat-bubble {
@@ -672,10 +684,11 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .chat-image-draft svg { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: rgb(0 0 0 / 60%); color: #fff; }
 .chat-media-draft-error, .chat-poll-error { color: var(--danger-text); font-size: var(--app-type-meta-size); }
 
-/* Reactions live above the composer so narrow message bubbles never clip the palette. */
-.community-chat-open .reaction-popover {
+/* The picker is teleported to body so transformed/scrolled chat ancestors cannot
+   place it behind the room header. */
+.community-reaction-popover {
   position: fixed;
-  z-index: 1750;
+  z-index: 2100;
   left: 50%;
   right: auto;
   bottom: calc(var(--club-safe-bottom) + 72px);
@@ -693,12 +706,7 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   transform: translateX(-50%);
 }
 
-.community-chat-open .chat-message:not(.chat-message-own) .reaction-popover {
-  left: 50%;
-  right: auto;
-}
-
-.community-chat-open .reaction-popover-button {
+.community-reaction-popover .reaction-popover-button {
   width: 36px;
   height: 36px;
   border: 0;
@@ -707,14 +715,18 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   transition: background 120ms ease, transform 120ms ease;
 }
 
-.community-chat-open .reaction-popover-button::before { display: none; }
+.community-reaction-popover .reaction-popover-button::before { display: none; }
 
-.community-chat-open .reaction-popover-button:active {
+.community-reaction-popover .reaction-popover-button:active {
   background: var(--accent-soft);
   transform: scale(0.9);
 }
 
 .community-chat-open .message-reactions {
+  position: absolute;
+  z-index: 3;
+  right: -8px;
+  bottom: -12px;
   display: flex;
   width: fit-content;
   max-width: 100%;
@@ -722,23 +734,28 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin-top: 5px;
+  margin: 0;
+}
+
+.community-chat-open .chat-message-own .message-reactions {
+  right: auto;
+  left: -8px;
 }
 
 .community-chat-open .message-reaction-button {
   position: relative;
   display: inline-flex;
   width: auto;
-  min-width: 44px;
-  min-height: 44px;
-  height: 44px;
+  min-width: 34px;
+  min-height: 30px;
+  height: 30px;
   flex: 0 0 auto;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 3px;
   border-radius: 999px;
-  padding: 0 8px;
+  padding: 0 6px;
   line-height: 1;
   white-space: nowrap;
 }
@@ -747,28 +764,109 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   display: none;
 }
 
+.community-chat-open .message-reaction-button::after {
+  position: absolute;
+  content: "";
+  inset: -7px -5px;
+}
+
 .community-chat-open .message-reaction-button span,
 .community-chat-open .message-reaction-button small {
   display: inline-block;
   line-height: 1;
 }
 
-.community-chat-open .message-reaction-button span { font-size: 16px; }
-.community-chat-open .message-reaction-button small { font-size: var(--app-type-micro-size); }
+.community-chat-open .message-reaction-button span { font-size: 14px; }
+.community-chat-open .message-reaction-button small { font-size: 10px; }
 
-/* Mobile control rules elsewhere intentionally enlarge buttons. Keep reactions
-   readable without letting shared touch-target rules stretch the compact pill. */
-html body .community-chat-open .chat-bubble .message-reaction-button {
+/* Mobile control rules elsewhere intentionally enlarge buttons. Keep the visual
+   badge compact; ::after supplies the larger touch area without changing layout. */
+html body .community-chat-open .chat-message-content .message-reaction-button {
   box-sizing: border-box;
   width: auto;
-  min-width: 44px;
+  min-width: 34px;
   max-width: none;
-  height: 44px;
-  min-height: 44px;
-  max-height: 44px;
-  padding: 0 8px;
+  height: 30px;
+  min-height: 30px;
+  max-height: 30px;
+  padding: 0 6px;
   border-radius: 999px;
   overflow: visible;
+}
+
+.community-chat-open .chat-pinned-toggle {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  grid-template-columns: 20px minmax(0, 1fr) auto 20px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.community-chat-open .chat-pinned-toggle strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-chat-open .chat-pinned-toggle em {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 3px 7px;
+  font-size: var(--app-type-meta-size);
+  font-style: normal;
+  font-weight: 850;
+}
+
+.community-chat-open .chat-pinned-toggle-icon {
+  color: var(--muted-strong);
+  transition: transform 160ms ease;
+}
+
+.community-chat-open .chat-pinned-toggle-icon-open {
+  transform: rotate(180deg);
+}
+
+.community-chat-open .chat-pinned-details {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% - 2px);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: min(50dvh, 28rem);
+  gap: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 6px;
+  box-shadow: var(--shadow);
+  overscroll-behavior: contain;
+}
+
+.community-chat-open .chat-pinned-details .chat-pinned-current {
+  border: 0;
+  background: var(--panel-soft);
+}
+
+.community-chat-open .chat-pinned-details .chat-pinned-list {
+  position: static;
+  display: grid;
+  gap: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
 }
 
 .community-chat-open .composer-emoji-popover {

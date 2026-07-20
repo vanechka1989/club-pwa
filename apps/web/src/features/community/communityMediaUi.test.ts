@@ -61,24 +61,26 @@ describe("community rich message UI", () => {
   });
 
   it("keeps message reactions in a compact viewport-safe palette", () => {
+    const section = read("CommunitySection.vue");
     const styles = read("community.css");
-    expect(styles).toMatch(/\.community-chat-open \.reaction-popover\s*\{[^}]*position:\s*fixed;[^}]*left:\s*50%;[^}]*max-width:\s*calc\(100vw - 24px\)/s);
-    expect(styles).toMatch(/\.community-chat-open \.reaction-popover-button\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;/s);
+    expect(section).toContain('<Teleport to="body">');
+    expect(section).toContain('v-if="activeReactionMessage"');
+    expect(section).toContain('role="dialog"');
+    expect(styles).toMatch(/\.community-reaction-popover\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*2100;[^}]*left:\s*50%;[^}]*max-width:\s*calc\(100vw - 24px\)/s);
+    expect(styles).toMatch(/\.community-reaction-popover \.reaction-popover-button\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;/s);
   });
 
-  it("renders applied reactions as a readable compact pill on mobile", () => {
+  it("anchors applied reactions outside the bubble without increasing its height", () => {
+    const section = read("CommunitySection.vue");
     const styles = read("community.css");
-    expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*width:\s*fit-content;[^}]*flex-direction:\s*row;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*auto;[^}]*min-width:\s*44px;[^}]*height:\s*44px;[^}]*padding:\s*0 8px;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::before\s*\{[^}]*display:\s*none;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button span\s*\{\s*font-size:\s*16px;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button small\s*\{\s*font-size:\s*var\(--app-type-micro-size\);/s);
-    const lockedReactionRule = styles.match(/html body \.community-chat-open \.chat-bubble \.message-reaction-button\s*\{[^}]*\}/s)?.[0] ?? "";
-    expect(lockedReactionRule).toMatch(/min-width:\s*44px;/);
-    expect(lockedReactionRule).toMatch(/max-width:\s*none;/);
-    expect(lockedReactionRule).toMatch(/min-height:\s*44px;/);
-    expect(lockedReactionRule).toMatch(/max-height:\s*44px;/);
-    expect(lockedReactionRule).not.toContain("!important");
+    expect(section).toContain('class="chat-message-content"');
+    expect(section).toMatch(/class="chat-message-content"[\s\S]*class="chat-bubble"[\s\S]*class="message-reactions"/s);
+    expect(styles).toMatch(/\.community-chat-open \.chat-message-content\s*\{[^}]*position:\s*relative;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*position:\s*absolute;[^}]*right:\s*-8px;[^}]*bottom:\s*-12px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.chat-message-own \.message-reactions\s*\{[^}]*right:\s*auto;[^}]*left:\s*-8px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*min-width:\s*34px;[^}]*height:\s*30px;[^}]*padding:\s*0 6px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::after\s*\{[^}]*inset:\s*-7px -5px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button span\s*\{\s*font-size:\s*14px;/s);
   });
 
   it("uses one clean emoji tray without framed emoji circles", () => {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
-import { ArrowLeft, Ban, BarChart3, Camera, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, Mic, MoreVertical, Paperclip, Pause, Pin, PinOff, Play, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
+import { ArrowLeft, Ban, BarChart3, Camera, ChevronDown, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, Mic, MoreVertical, Paperclip, Pause, Pin, PinOff, Play, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -141,6 +141,9 @@ const pinnedMessages = computed(() =>
   orderedMessages.value.filter((message) => Boolean(message.pinnedAt) && message.status === "visible" && !message.isSystem)
 );
 const latestPinnedMessage = computed(() => pinnedMessages.value.at(-1) ?? null);
+const activeReactionMessage = computed(
+  () => orderedMessages.value.find((message) => message.id === activeReactionMessageId.value) ?? null
+);
 const activeModerationMessage = computed(
   () => orderedMessages.value.find((message) => message.id === activeModerationMessageId.value) ?? null
 );
@@ -1174,23 +1177,37 @@ onBeforeUnmount(() => {
 
       <div class="chat-room-notices">
         <div v-if="pinnedMessages.length" class="chat-pinned-bar">
-          <button v-if="latestPinnedMessage" class="chat-pinned-current" type="button" @click="showPinnedMessages = !showPinnedMessages">
+          <button
+            class="chat-pinned-toggle"
+            type="button"
+            :aria-expanded="showPinnedMessages"
+            aria-controls="chat-pinned-details"
+            aria-label="Показать или скрыть закреплённые сообщения"
+            @click="showPinnedMessages = !showPinnedMessages"
+          >
             <Pin class="h-4 w-4" aria-hidden="true" />
-            <span>
-              <strong>Закреплено</strong>
-              <small>{{ latestPinnedMessage.body }}</small>
-              <time>{{ authorName(latestPinnedMessage) }} · {{ formatMessageTime(latestPinnedMessage.createdAt) }}</time>
-            </span>
+            <strong>Закреплено</strong>
             <em>{{ pinnedMessages.length }}</em>
+            <ChevronDown class="chat-pinned-toggle-icon h-4 w-4" :class="{ 'chat-pinned-toggle-icon-open': showPinnedMessages }" aria-hidden="true" />
           </button>
-          <div v-if="showPinnedMessages" class="chat-pinned-list">
-            <button v-for="message in pinnedMessages" :key="message.id" type="button" @click="scrollToMessage(message.id)">
-              <span class="chat-pinned-list-meta">
-                <strong>{{ authorName(message) }}</strong>
-                <time>{{ formatMessageTime(message.createdAt) }}</time>
+          <div v-if="showPinnedMessages" id="chat-pinned-details" class="chat-pinned-details">
+            <button v-if="latestPinnedMessage" class="chat-pinned-current" type="button" @click="scrollToMessage(latestPinnedMessage.id)">
+              <Pin class="h-4 w-4" aria-hidden="true" />
+              <span>
+                <strong>{{ authorName(latestPinnedMessage) }}</strong>
+                <small>{{ latestPinnedMessage.body }}</small>
+                <time>{{ formatMessageTime(latestPinnedMessage.createdAt) }}</time>
               </span>
-              <span>{{ message.body }}</span>
             </button>
+            <div class="chat-pinned-list">
+              <button v-for="message in pinnedMessages" :key="message.id" type="button" @click="scrollToMessage(message.id)">
+                <span class="chat-pinned-list-meta">
+                  <strong>{{ authorName(message) }}</strong>
+                  <time>{{ formatMessageTime(message.createdAt) }}</time>
+                </span>
+                <span>{{ message.body }}</span>
+              </button>
+            </div>
           </div>
         </div>
         <p v-if="communityError" class="px-1 text-xs text-[var(--danger)]">{{ communityError }}</p>
@@ -1238,8 +1255,9 @@ onBeforeUnmount(() => {
             />
             <span v-else>{{ authorInitial(message) }}</span>
           </div>
-          <div v-if="!message.isSystem" class="chat-bubble">
-            <div class="chat-message-head">
+          <div v-if="!message.isSystem" class="chat-message-content">
+            <div class="chat-bubble">
+              <div class="chat-message-head">
               <span class="chat-message-author">{{ authorName(message) }}</span>
               <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
               <time>{{ formatMessageTime(message.createdAt) }}</time>
@@ -1253,36 +1271,25 @@ onBeforeUnmount(() => {
                 <MoreVertical class="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <div v-if="message.replyTo" class="reply-preview">
-              <span>{{ resolveDisplayName(message.replyTo.author) }}</span>
-              <span>{{ message.replyTo.body }}</span>
-            </div>
-            <p v-if="message.kind === 'text'" class="chat-message-body">{{ message.body }}</p>
-            <ChatVoiceMessage v-else-if="message.kind === 'voice' && message.voice" :voice="message.voice" />
-            <ChatImageGallery v-else-if="message.kind === 'images'" :images="message.images" />
-            <ChatPollMessage
-              v-else-if="message.kind === 'poll' && message.poll"
-              :poll="message.poll"
-              :moderator="isModerator"
-              :disabled="messageSaving"
-              @vote="handlePollVote(message, $event)"
-              @close="handleClosePoll(message)"
-            />
-            <span v-if="message.pinnedAt" class="chat-message-pinned"><Pin class="h-3 w-3" aria-hidden="true" /> Закреплено</span>
-            <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
-              {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
-            </p>
-            <div v-if="activeReactionMessageId === message.id" class="reaction-popover" @click.stop>
-              <button
-                v-for="option in reactionOptions"
-                :key="option.value"
-                class="reaction-popover-button"
-                :class="{ 'message-reaction-active': message.myReaction === option.value }"
-                type="button"
-                @click="handleReaction(message, option.value)"
-              >
-                {{ option.label }}
-              </button>
+              <div v-if="message.replyTo" class="reply-preview">
+                <span>{{ resolveDisplayName(message.replyTo.author) }}</span>
+                <span>{{ message.replyTo.body }}</span>
+              </div>
+              <p v-if="message.kind === 'text'" class="chat-message-body">{{ message.body }}</p>
+              <ChatVoiceMessage v-else-if="message.kind === 'voice' && message.voice" :voice="message.voice" />
+              <ChatImageGallery v-else-if="message.kind === 'images'" :images="message.images" />
+              <ChatPollMessage
+                v-else-if="message.kind === 'poll' && message.poll"
+                :poll="message.poll"
+                :moderator="isModerator"
+                :disabled="messageSaving"
+                @vote="handlePollVote(message, $event)"
+                @close="handleClosePoll(message)"
+              />
+              <span v-if="message.pinnedAt" class="chat-message-pinned"><Pin class="h-3 w-3" aria-hidden="true" /> Закреплено</span>
+              <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
+                {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
+              </p>
             </div>
             <div v-if="visibleReactionCounts(message).length" class="message-reactions">
               <button
@@ -1449,6 +1456,28 @@ onBeforeUnmount(() => {
       </form>
       <ChatPollComposer v-if="showPollComposer" @close="showPollComposer = false" @submit="handleCreatePoll" />
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="activeReactionMessage"
+        class="reaction-popover community-reaction-popover"
+        role="dialog"
+        aria-label="Выберите реакцию"
+        @click.stop
+      >
+        <button
+          v-for="option in reactionOptions"
+          :key="option.value"
+          class="reaction-popover-button"
+          :class="{ 'message-reaction-active': activeReactionMessage.myReaction === option.value }"
+          type="button"
+          :aria-label="`Поставить реакцию ${option.label}`"
+          @click="handleReaction(activeReactionMessage, option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div

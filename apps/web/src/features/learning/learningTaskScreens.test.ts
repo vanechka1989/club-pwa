@@ -26,6 +26,11 @@ describe("learning task screens", () => {
     expect(styles).toMatch(/\.module-editor-save\s*\{[^}]*width:\s*100%;/s);
   });
 
+  it("keeps module editor scrolling without showing a native scrollbar", () => {
+    expect(styles).toMatch(/\.learning-task-screen\.task-screen-route-layer \.task-screen-body\s*\{[^}]*scrollbar-width:\s*none;/s);
+    expect(styles).toMatch(/\.learning-task-screen\.task-screen-route-layer \.task-screen-body::-webkit-scrollbar\s*\{[^}]*width:\s*0;[^}]*height:\s*0;/s);
+  });
+
   it("keeps the lesson frame fully inside the mobile viewport", () => {
     expect(styles).toMatch(/\.learning-task-screen-view \.task-screen-body\s*\{[^}]*padding-inline:\s*max\(0\.5rem,/s);
     expect(styles).toMatch(/\.learning-task-screen-view \.lesson-preview-modal-view\s*\{[^}]*overflow:\s*visible;/s);

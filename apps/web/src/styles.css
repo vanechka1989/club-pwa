@@ -14599,6 +14599,15 @@ body.club-mobile-device .admin-panel-head {
   margin: 0 auto;
 }
 
+.learning-task-screen.task-screen-route-layer .task-screen-body {
+  scrollbar-width: none;
+}
+
+.learning-task-screen.task-screen-route-layer .task-screen-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 .module-editor-footer {
   box-sizing: border-box;
   display: grid;
