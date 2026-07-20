@@ -6,6 +6,7 @@ import { appNotifications } from "../db/schema";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { serializeAppNotification } from "../notifications/serialize";
+import { recordUnreadMailingNotificationsOpened } from "../mailings/notificationTracking";
 
 export const notificationsRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
@@ -28,6 +29,7 @@ export const notificationsRoute = new Hono<{ Variables: AuthVariables }>()
   })
   .post("/read", async (c) => {
     const userId = c.get("userId");
+    await recordUnreadMailingNotificationsOpened(userId);
     await db
       .update(appNotifications)
       .set({ readAt: new Date() })
@@ -48,6 +50,7 @@ export const notificationsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const userId = c.get("userId");
+    await recordUnreadMailingNotificationsOpened(userId, [idResult.data]);
     await db
       .update(appNotifications)
       .set({ readAt: new Date() })

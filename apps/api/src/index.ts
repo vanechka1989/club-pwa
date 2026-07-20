@@ -9,6 +9,7 @@ import { learningRoute } from "./routes/learning";
 import { logger } from "./logger";
 import { mailingsRoute } from "./routes/mailings";
 import { mailingPreferencesRoute } from "./routes/mailingPreferences";
+import { mailingTrackingRoute } from "./routes/mailingTracking";
 import { meRoute } from "./routes/me";
 import { notificationsRoute } from "./routes/notifications";
 import { paymentsRoute } from "./routes/payments";
@@ -98,6 +99,7 @@ app.get("/uploads/*", async (c) => {
   return response;
 });
 app.route("/auth", authRoute);
+app.route("/mailings/track", mailingTrackingRoute);
 app.route("/mailings", mailingPreferencesRoute);
 
 app.post("/client-errors", async (c) => {
