@@ -3562,6 +3562,25 @@ body.club-keyboard-open .support-ticket-modal-compact {
   font-weight: 750;
 }
 
+.admin-mailing-delivery-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.admin-mailing-delivery-stats strong {
+  color: var(--text);
+}
+
+.admin-mailing-delivery-error,
+.admin-mailing-delivery-error strong {
+  color: var(--danger);
+}
+
 .admin-mailing-preview-grid strong {
   display: block;
   margin-top: 0.2rem;

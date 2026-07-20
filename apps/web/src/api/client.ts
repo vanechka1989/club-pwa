@@ -749,6 +749,10 @@ export function stopAdminMailing(id: string) {
   return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/stop`, { method: "POST" });
 }
 
+export function retryFailedAdminMailing(id: string) {
+  return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/retry-failed`, { method: "POST" });
+}
+
 export function addAdminUser(telegramId: string) {
   return api<AdminMutationResponse>("/admin/admins", {
     method: "POST",

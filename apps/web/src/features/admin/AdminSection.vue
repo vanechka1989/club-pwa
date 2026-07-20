@@ -83,6 +83,7 @@ import {
   removeAdminUser,
   pauseAdminMailing,
   previewAdminMailing,
+  retryFailedAdminMailing,
   revokeUserMute,
   resumeAdminMailing,
   stopAdminMailing,
@@ -984,6 +985,10 @@ function mailingFilterSummary(mailing: AdminMailing) {
   return `${accessStatus} · ${accessType} · ${extra.join(" · ")}`;
 }
 
+function canRetryFailedMailing(mailing: AdminMailing) {
+  return mailing.failedCount > 0 && (mailing.status === "completed" || mailing.status === "stopped");
+}
+
 function openMailingDetail(mailing: AdminMailing) {
   selectedMailing.value = mailing;
   openAdminTask(`/admin/mailings/${mailing.id}`);
@@ -1145,6 +1150,22 @@ async function handleStopMailing(mailing: AdminMailing) {
     setStatus("Рассылка остановлена.");
   } catch {
     setError("Не удалось остановить рассылку.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleRetryFailedMailing(mailing: AdminMailing) {
+  saving.value = true;
+  try {
+    const response = await retryFailedAdminMailing(mailing.id);
+    mailings.value = mailings.value.map((entry) => (entry.id === response.mailing.id ? response.mailing : entry));
+    if (selectedMailing.value?.id === response.mailing.id) {
+      selectedMailing.value = response.mailing;
+    }
+    setStatus("Ошибочные доставки возвращены в очередь.");
+  } catch {
+    setError("Не удалось повторить ошибочные доставки.");
   } finally {
     saving.value = false;
   }
@@ -3605,9 +3626,26 @@ onUnmounted(() => {
                 <span>{{ mailing.sentCount }} / {{ mailing.deliveryCount }} доставок</span>
                 <span>{{ mailing.estimatedLabel }}</span>
               </div>
+              <div class="admin-mailing-delivery-stats" aria-label="Состояние доставки">
+                <span>Доставлено <strong>{{ mailing.sentCount }}</strong></span>
+                <span>Ожидает <strong>{{ mailing.pendingCount }}</strong></span>
+                <span>В обработке <strong>{{ mailing.processingCount }}</strong></span>
+                <span>Пропущено <strong>{{ mailing.skippedCount }}</strong></span>
+                <span :class="{ 'admin-mailing-delivery-error': mailing.failedCount > 0 }">Ошибки <strong>{{ mailing.failedCount }}</strong></span>
+              </div>
               <div class="admin-mailing-actions">
                 <button class="secondary-button ui-button" type="button" :disabled="saving" @click.stop="reuseMailing(mailing)">
-                  Повторить
+                  Использовать снова
+                </button>
+                <button
+                  v-if="canRetryFailedMailing(mailing)"
+                  class="secondary-button ui-button"
+                  type="button"
+                  :aria-label="`Повторить ошибки: ${mailing.failedCount}`"
+                  :disabled="saving"
+                  @click.stop="handleRetryFailedMailing(mailing)"
+                >
+                  Повторить ошибки
                 </button>
                 <button class="secondary-button ui-button" type="button" :disabled="saving" @click.stop="handleTestMailing(mailing)">
                   Тест себе
@@ -3877,6 +3915,14 @@ onUnmounted(() => {
               </article>
             </div>
 
+            <div class="admin-mailing-delivery-stats" aria-label="Состояние доставки">
+              <span>Доставлено <strong>{{ selectedMailing.sentCount }}</strong></span>
+              <span>Ожидает <strong>{{ selectedMailing.pendingCount }}</strong></span>
+              <span>В обработке <strong>{{ selectedMailing.processingCount }}</strong></span>
+              <span>Пропущено <strong>{{ selectedMailing.skippedCount }}</strong></span>
+              <span :class="{ 'admin-mailing-delivery-error': selectedMailing.failedCount > 0 }">Ошибки <strong>{{ selectedMailing.failedCount }}</strong></span>
+            </div>
+
             <section class="admin-mailing-detail-section">
               <span>Фильтры</span>
               <p>{{ mailingFilterSummary(selectedMailing) }}</p>
@@ -3905,7 +3951,17 @@ onUnmounted(() => {
 
             <div class="admin-mailing-actions">
               <button class="primary-button ui-button" type="button" :disabled="saving" @click="reuseMailing(selectedMailing)">
-                Повторить
+                Использовать снова
+              </button>
+              <button
+                v-if="canRetryFailedMailing(selectedMailing)"
+                class="secondary-button ui-button"
+                type="button"
+                :aria-label="`Повторить ошибки: ${selectedMailing.failedCount}`"
+                :disabled="saving"
+                @click="handleRetryFailedMailing(selectedMailing)"
+              >
+                Повторить ошибки
               </button>
               <button class="secondary-button ui-button" type="button" :disabled="saving" @click="handleTestMailing(selectedMailing)">
                 Тест себе

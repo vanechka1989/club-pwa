@@ -97,15 +97,31 @@ describe("admin mailings panel", () => {
     expect(clientSource).toContain("testAdminMailing");
     expect(clientSource).toContain("pauseAdminMailing");
     expect(clientSource).toContain("stopAdminMailing");
+    expect(clientSource).toContain("retryFailedAdminMailing");
+    expect(clientSource).toContain("/retry-failed");
   });
 
-  it("keeps a sent mailing reusable and exposes history details", () => {
+  it("keeps template reuse separate from retrying failed deliveries", () => {
     expect(adminSectionSource).not.toContain("resetMailingForm();\n    setStatus");
     expect(adminSectionSource).toContain("openMailingDetail");
     expect(adminSectionSource).toContain("selectedMailing");
     expect(adminSectionSource).toContain("mailingAuthorLabel");
     expect(adminSectionSource).toContain("formatDateTime(mailing.createdAt)");
     expect(adminSectionSource).toContain("mailing.attachment");
-    expect(adminSectionSource).toContain("Повторить");
+    expect(adminSectionSource).toContain("Использовать снова");
+    expect(adminSectionSource).toContain("Повторить ошибки");
+    expect(adminSectionSource).toContain("handleRetryFailedMailing");
+    expect(adminSectionSource).toContain("mailing.failedCount > 0");
+    expect(adminSectionSource).toContain("retryFailedAdminMailing(mailing.id)");
+    expect(adminSectionSource).toContain("Ошибочные доставки возвращены в очередь.");
+  });
+
+  it("shows compact live delivery state counters", () => {
+    expect(adminSectionSource).toContain("mailing.pendingCount");
+    expect(adminSectionSource).toContain("mailing.processingCount");
+    expect(adminSectionSource).toContain("mailing.skippedCount");
+    expect(adminSectionSource).toContain("mailing.failedCount");
+    expect(adminSectionSource).toContain('class="admin-mailing-delivery-stats"');
+    expect(stylesSource).toMatch(/\.admin-mailing-delivery-stats\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s);
   });
 });
