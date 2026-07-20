@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Компактные реакции в чате",
+    items: [
+      "Реакции стали меньше и вынесены за край сообщения: они больше не увеличивают высоту карточки и располагаются с нужной стороны для входящих и исходящих сообщений.",
+      "Панель выбора реакции теперь всегда открывается поверх чата и не скрывается за шапкой, а закреплённые сообщения можно свернуть и развернуть.",
+      "В редакторе модулей скрыта лишняя полоса прокрутки; прокрутка страницы при необходимости сохранена."
+    ]
+  },
+  {
+    version: "5.30",
+    updatedAt: "21.07.2026 01:01",
     title: "Ровный редактор модулей",
     items: [
       "При создании и редактировании модуля форма и кнопки теперь используют полноценный экран без вложенного модального блока и наложенной полосы прокрутки.",
@@ -3926,10 +3936,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clean full-screen module editor",
+  title: "Compact chat reactions",
   items: [
-    "Creating and editing a module now uses a true full-screen form without a nested modal panel or an overlaid scrollbar.",
-    "Delete, close, and save actions now live in the aligned bottom action bar while module behavior remains unchanged."
+    "Reactions are smaller and sit outside the message bubble, so they no longer increase its height.",
+    "The reaction picker stays above the chat header, pinned messages can be collapsed, and the module editor no longer shows an unnecessary scrollbar."
   ]
 };
 

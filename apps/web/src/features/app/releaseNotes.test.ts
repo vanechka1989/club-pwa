@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the corrected module editor as version 5.30", () => {
-    expect(appVersion).toBe("5.30");
-    expect(releaseNotes[0]?.title).toBe("Ровный редактор модулей");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("создании и редактировании");
+  it("publishes compact chat reactions as version 5.31", () => {
+    expect(appVersion).toBe("5.31");
+    expect(releaseNotes[0]?.title).toBe("Компактные реакции в чате");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("закреплённые сообщения");
+
+    const moduleEditorRelease = releaseNotes.find((note) => note.version === "5.30");
+    expect(moduleEditorRelease?.title).toBe("Ровный редактор модулей");
 
     const sharedHeaderRelease = releaseNotes.find((note) => note.version === "5.29");
     expect(sharedHeaderRelease?.title).toBe("Единые шапки внутренних экранов");
