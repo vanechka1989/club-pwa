@@ -344,6 +344,13 @@
       "when": 1784505600000,
       "tag": "0048_idempotency_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1784551528999,
+      "tag": "0049_mailing_delivery_retries",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import migrationJournal from "../../drizzle/meta/_journal.json";
 
 describe("push and email mailing queue", () => {
   const routeSource = readFileSync(resolve(__dirname, "../routes/mailings.ts"), "utf8");
@@ -24,6 +25,10 @@ describe("push and email mailing queue", () => {
     expect(migration).toContain('ADD COLUMN "next_attempt_at" timestamp with time zone');
     expect(migration).toContain('ADD COLUMN "last_attempt_at" timestamp with time zone');
     expect(migration).toContain('CREATE INDEX "admin_mailing_recipients_retry_idx"');
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0049_mailing_delivery_retries")).toMatchObject({
+      idx: 49,
+      version: "7",
+    });
   });
 
   it("builds independent push and email delivery rows", () => {
