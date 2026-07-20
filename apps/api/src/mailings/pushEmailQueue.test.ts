@@ -5,6 +5,26 @@ import { describe, expect, it } from "vitest";
 describe("push and email mailing queue", () => {
   const source = readFileSync(resolve(__dirname, "../routes/mailings.ts"), "utf8");
 
+  it("persists delivery retry state without weakening recipient uniqueness", () => {
+    const schema = readFileSync(resolve(__dirname, "../db/schema.ts"), "utf8");
+    const migrationPath = resolve(__dirname, "../../drizzle/0049_mailing_delivery_retries.sql");
+
+    expect(schema).toContain('attemptCount: integer("attempt_count").notNull().default(0)');
+    expect(schema).toContain('nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true })');
+    expect(schema).toContain('lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true })');
+    expect(schema).toContain('index("admin_mailing_recipients_retry_idx")');
+    expect(schema).toContain('uniqueIndex("admin_mailing_recipients_mailing_user_channel_idx")');
+    expect(existsSync(migrationPath)).toBe(true);
+    if (!existsSync(migrationPath)) {
+      return;
+    }
+    const migration = readFileSync(migrationPath, "utf8");
+    expect(migration).toContain('ADD COLUMN "attempt_count" integer DEFAULT 0 NOT NULL');
+    expect(migration).toContain('ADD COLUMN "next_attempt_at" timestamp with time zone');
+    expect(migration).toContain('ADD COLUMN "last_attempt_at" timestamp with time zone');
+    expect(migration).toContain('CREATE INDEX "admin_mailing_recipients_retry_idx"');
+  });
+
   it("builds independent push and email delivery rows", () => {
     expect(source).toContain('channel: "push"');
     expect(source).toContain('channel: "email"');

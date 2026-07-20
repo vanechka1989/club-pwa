@@ -825,12 +825,16 @@ export const adminMailingRecipients = pgTable(
     channel: varchar("channel", { length: 16 }).notNull().default("push"),
     status: varchar("status", { length: 32 }).notNull().default("pending"),
     error: text("error"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     mailingStatusIdx: index("admin_mailing_recipients_mailing_status_idx").on(table.mailingId, table.status, table.createdAt),
+    retryIdx: index("admin_mailing_recipients_retry_idx").on(table.status, table.nextAttemptAt, table.updatedAt),
     userIdx: index("admin_mailing_recipients_user_idx").on(table.userId),
     mailingUserChannelIdx: uniqueIndex("admin_mailing_recipients_mailing_user_channel_idx").on(table.mailingId, table.userId, table.channel)
   })
