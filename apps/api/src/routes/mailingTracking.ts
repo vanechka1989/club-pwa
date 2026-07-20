@@ -52,6 +52,7 @@ export function createMailingTrackingRoute(options: {
   route.get("/click", async (c) => {
     const payload = readToken(c.req.query("token") ?? "", "click");
     if (!payload) return c.notFound();
+    await safelyRecord({ purpose: "open", recipientId: payload.recipientId });
     await safelyRecord({ purpose: "click", recipientId: payload.recipientId, destination: payload.destination });
     return c.redirect(payload.destination, 302);
   });

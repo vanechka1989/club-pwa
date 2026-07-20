@@ -25,6 +25,7 @@ import { recalculateMailingDeliveryState } from "../mailings/deliveryState";
 import { resolveMailingText, sanitizeMailingHtml } from "../mailings/html";
 import { instrumentMailingEmailHtml } from "../mailings/trackingHtml";
 import { createMailingTrackingToken } from "../mailings/trackingToken";
+import { getMailingAnalytics, getMailingAnalyticsRecipients } from "../mailings/analytics";
 import {
   buildMailingAttachmentObjectKey,
   getMailingAttachmentKind,
@@ -41,6 +42,13 @@ const mailingPreviewSchema = z.object({
 
 const controlPayloadSchema = z.object({
   status: z.enum(["paused", "running", "stopped"])
+});
+
+const mailingAnalyticsRecipientQuerySchema = z.object({
+  status: z.enum(["all", "delivered", "opened", "clicked", "failed", "skipped", "pending"]).default("all"),
+  channel: z.enum(["all", "push", "email"]).default("all"),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().uuid().optional()
 });
 
 function isAdminRole(role: string) {
@@ -596,6 +604,7 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
         estimatedSeconds: preview.response.estimatedSeconds,
         targetCount: preview.response.targetCount,
         deliveryCount: preview.response.deliveryCount,
+        analyticsEnabledAt: now,
         createdAt: now,
         updatedAt: now
       })
@@ -657,6 +666,20 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
       ok: true,
       mailing: await serializeAdminMailing(mailing)
     });
+  })
+  .get("/:id/analytics", async (c) => {
+    const idResult = z.string().uuid().safeParse(c.req.param("id"));
+    if (!idResult.success) return c.json({ error: "Invalid mailing id" }, 400);
+    const analytics = await getMailingAnalytics(idResult.data);
+    return analytics ? c.json(analytics) : c.json({ error: "Рассылка не найдена." }, 404);
+  })
+  .get("/:id/recipients", async (c) => {
+    const idResult = z.string().uuid().safeParse(c.req.param("id"));
+    if (!idResult.success) return c.json({ error: "Invalid mailing id" }, 400);
+    const queryResult = mailingAnalyticsRecipientQuerySchema.safeParse(c.req.query());
+    if (!queryResult.success) return c.json({ error: "Invalid analytics recipient query" }, 400);
+    const response = await getMailingAnalyticsRecipients(idResult.data, queryResult.data);
+    return response ? c.json(response) : c.json({ error: "Рассылка не найдена." }, 404);
   })
   .post("/:id/retry-failed", async (c) => {
     const idResult = z.string().uuid().safeParse(c.req.param("id"));

@@ -2,6 +2,8 @@ import type {
   AdminAccessMutationResponse,
   AdminActionLogsResponse,
   AdminMailingMutationResponse,
+  AdminMailingAnalytics,
+  AdminMailingAnalyticsRecipientsResponse,
   AdminMailingPreviewResponse,
   AdminMailingsResponse,
   AdminLearningCategoryMutationResponse,
@@ -751,6 +753,19 @@ export function stopAdminMailing(id: string) {
 
 export function retryFailedAdminMailing(id: string) {
   return api<AdminMailingMutationResponse>(`/admin/mailings/${id}/retry-failed`, { method: "POST" });
+}
+
+export function getAdminMailingAnalytics(id: string) {
+  return api<AdminMailingAnalytics>(`/admin/mailings/${id}/analytics`);
+}
+
+export function getAdminMailingAnalyticsRecipients(
+  id: string,
+  query: { status: string; channel: string; limit?: number; cursor?: string | null },
+) {
+  const params = new URLSearchParams({ status: query.status, channel: query.channel, limit: String(query.limit ?? 20) });
+  if (query.cursor) params.set("cursor", query.cursor);
+  return api<AdminMailingAnalyticsRecipientsResponse>(`/admin/mailings/${id}/recipients?${params.toString()}`);
 }
 
 export function addAdminUser(telegramId: string) {

@@ -1344,6 +1344,61 @@ export const adminMailingsResponseSchema = z.object({
 });
 export type AdminMailingsResponse = z.infer<typeof adminMailingsResponseSchema>;
 
+const adminMailingAnalyticsSummarySchema = z.object({
+  sent: z.number().int().nonnegative(),
+  opened: z.number().int().nonnegative(),
+  clicked: z.number().int().nonnegative(),
+  openRate: z.number().nonnegative(),
+  clickRate: z.number().nonnegative(),
+  clickToOpenRate: z.number().nonnegative()
+});
+
+export const adminMailingAnalyticsSchema = z.object({
+  trackingEnabledAt: z.string().datetime().nullable(),
+  emailOpenEstimate: z.boolean(),
+  summary: adminMailingAnalyticsSummarySchema,
+  channels: z.array(z.object({
+    channel: z.enum(["push", "email"]),
+    sent: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative(),
+    opened: z.number().int().nonnegative(),
+    clicked: z.number().int().nonnegative(),
+    openRate: z.number().nonnegative(),
+    clickRate: z.number().nonnegative()
+  })),
+  timeline: z.array(z.object({
+    bucket: z.string().datetime(),
+    sent: z.number().int().nonnegative(),
+    opened: z.number().int().nonnegative(),
+    clicked: z.number().int().nonnegative()
+  })),
+  links: z.array(z.object({ destination: z.string().url(), uniqueClicks: z.number().int().nonnegative() }))
+});
+export type AdminMailingAnalytics = z.infer<typeof adminMailingAnalyticsSchema>;
+
+export const adminMailingAnalyticsRecipientSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  telegramId: z.string(),
+  displayName: z.string(),
+  channel: z.enum(["push", "email"]),
+  deliveryStatus: z.string(),
+  analyticsStatus: z.enum(["delivered", "opened", "clicked", "failed", "skipped", "pending"]),
+  attemptCount: z.number().int().nonnegative(),
+  error: z.string().nullable(),
+  sentAt: z.string().datetime().nullable(),
+  openedAt: z.string().datetime().nullable(),
+  clickedAt: z.string().datetime().nullable()
+});
+export type AdminMailingAnalyticsRecipient = z.infer<typeof adminMailingAnalyticsRecipientSchema>;
+
+export const adminMailingAnalyticsRecipientsResponseSchema = z.object({
+  recipients: z.array(adminMailingAnalyticsRecipientSchema),
+  nextCursor: z.string().uuid().nullable()
+});
+export type AdminMailingAnalyticsRecipientsResponse = z.infer<typeof adminMailingAnalyticsRecipientsResponseSchema>;
+
 export const adminMailingPreviewResponseSchema = z.object({
   targetCount: z.number().int().nonnegative(),
   deliveryCount: z.number().int().nonnegative(),

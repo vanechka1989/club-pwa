@@ -37,6 +37,7 @@ describe("public mailing tracking route", () => {
     const response = await app.request(`/mailings/track/click?token=${encodeURIComponent(token)}`);
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(destination);
+    expect(record).toHaveBeenCalledWith({ purpose: "open", recipientId });
     expect(record).toHaveBeenCalledWith({ purpose: "click", recipientId, destination });
   });
 
