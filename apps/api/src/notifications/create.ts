@@ -10,6 +10,7 @@ export type CreateAppNotificationInput = {
   bodyHtml?: string | null;
   source?: string | null;
   sourceId?: string | null;
+  pushUrl?: string;
   attachment?: {
     kind: "photo" | "video" | "document";
     fileName: string;
@@ -42,7 +43,7 @@ export async function createAppNotification(input: CreateAppNotificationInput) {
     void sendWebPushToUser(input.userId, {
       title: input.title,
       body: input.body,
-      url: "/"
+      url: input.pushUrl ?? "/"
     });
   }
 

@@ -45,6 +45,12 @@ describe("push and email mailing queue", () => {
     const deliverySource = readFileSync(resolve(__dirname, "../auth/emailDelivery.ts"), "utf8");
     expect(deliverySource).toContain("await waitForEmailRateSlot(reservation.scheduledAt)");
     expect(deliverySource).toContain("reserveEmailQuota");
+    expect(source).toContain("instrumentMailingEmailHtml");
+    expect(source).toContain('purpose: "push"');
+    expect(source).toContain("analyticsEnabledAt");
+    const notificationSource = readFileSync(resolve(__dirname, "../notifications/create.ts"), "utf8");
+    expect(notificationSource).toContain("pushUrl?: string");
+    expect(notificationSource).toContain('url: input.pushUrl ?? "/"');
   });
 
   it("counts actual push and email recipients in preview", () => {

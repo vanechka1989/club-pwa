@@ -23,6 +23,8 @@ import { planEmailDeliverySchedule } from "../mailings/emailPolicy";
 import { getMailingRetryDecision, getStaleMailingProcessingCutoff } from "../mailings/deliveryReliability";
 import { recalculateMailingDeliveryState } from "../mailings/deliveryState";
 import { resolveMailingText, sanitizeMailingHtml } from "../mailings/html";
+import { instrumentMailingEmailHtml } from "../mailings/trackingHtml";
+import { createMailingTrackingToken } from "../mailings/trackingToken";
 import {
   buildMailingAttachmentObjectKey,
   getMailingAttachmentKind,
@@ -66,10 +68,12 @@ function escapeHtml(value: string) {
 async function sendMailingEmail({
   mailing,
   target,
+  recipientId,
   isTest = false
 }: {
-  mailing: Pick<typeof adminMailings.$inferSelect, "title" | "body" | "bodyHtml" | "attachmentObjectKey" | "attachmentFileName">;
+  mailing: Pick<typeof adminMailings.$inferSelect, "title" | "body" | "bodyHtml" | "attachmentObjectKey" | "attachmentFileName" | "analyticsEnabledAt">;
   target: typeof users.$inferSelect;
+  recipientId?: string;
   isTest?: boolean;
 }) {
   if (!target.email?.trim() || target.marketingEmailOptOutAt) {
@@ -80,11 +84,14 @@ async function sendMailingEmail({
   const attachmentUrl = mailing.attachmentObjectKey
     ? await getObjectReadUrl(mailing.attachmentObjectKey, "primary", { allowPublic: true })
     : null;
-  const bodyHtml = sanitizeMailingHtml(mailing.bodyHtml || `<p>${escapeHtml(mailing.body).replace(/\n/g, "<br>")}</p>`);
-  const attachmentHtml = attachmentUrl
-    ? `<p><a href="${escapeHtml(attachmentUrl)}">Открыть вложение${mailing.attachmentFileName ? `: ${escapeHtml(mailing.attachmentFileName)}` : ""}</a></p>`
+  const safeBodyHtml = sanitizeMailingHtml(mailing.bodyHtml || `<p>${escapeHtml(mailing.body).replace(/\n/g, "<br>")}</p>`);
+  const tracked = mailing.analyticsEnabledAt && recipientId && !isTest
+    ? instrumentMailingEmailHtml({ html: safeBodyHtml, recipientId, origin: env.WEB_ORIGIN, attachmentUrl })
+    : { html: safeBodyHtml, trackedAttachmentUrl: attachmentUrl };
+  const attachmentHtml = tracked.trackedAttachmentUrl
+    ? `<p><a href="${escapeHtml(tracked.trackedAttachmentUrl)}">Открыть вложение${mailing.attachmentFileName ? `: ${escapeHtml(mailing.attachmentFileName)}` : ""}</a></p>`
     : "";
-  const html = `${bodyHtml}${attachmentHtml}<hr><p style="font-size:12px;color:#667085">Не хотите получать письма клуба? <a href="${escapeHtml(unsubscribeUrl)}">Отписаться</a>.</p>`;
+  const html = `${tracked.html}${attachmentHtml}<hr><p style="font-size:12px;color:#667085">Не хотите получать письма клуба? <a href="${escapeHtml(unsubscribeUrl)}">Отписаться</a>.</p>`;
 
   await sendEmail({
     to: target.email,
@@ -274,7 +281,7 @@ async function sendMailingToRecipient(
         }
       : null;
   if (recipient.channel === "email") {
-    const delivered = await sendMailingEmail({ mailing, target });
+    const delivered = await sendMailingEmail({ mailing, target, recipientId: recipient.id });
     if (!delivered) {
       await db
         .update(adminMailingRecipients)
@@ -291,6 +298,9 @@ async function sendMailingToRecipient(
       bodyHtml: mailing.bodyHtml,
       source: "mailing",
       sourceId: mailing.id,
+      ...(mailing.analyticsEnabledAt
+        ? { pushUrl: `${env.WEB_ORIGIN}/api/mailings/track/push?token=${encodeURIComponent(createMailingTrackingToken({ purpose: "push", recipientId: recipient.id }))}` }
+        : {}),
       attachment
     });
   }
@@ -317,7 +327,7 @@ async function sendDraftMailingTest({
   channel: MailingChannel;
   attachment: UploadedMailingAttachment | null;
 }) {
-  const mailing = { title, body, bodyHtml, attachmentObjectKey: attachment?.objectKey ?? null, attachmentFileName: attachment?.fileName ?? null };
+  const mailing = { title, body, bodyHtml, attachmentObjectKey: attachment?.objectKey ?? null, attachmentFileName: attachment?.fileName ?? null, analyticsEnabledAt: null };
   const deliveryChannels = getMailingDeliveryChannels(channel);
 
   if (deliveryChannels.includes("push")) {
