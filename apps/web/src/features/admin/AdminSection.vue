@@ -9,6 +9,8 @@ import {
   type AdminServerErrorLog,
   type AdminServerStatus,
   type AdminMailing,
+  type AdminMailingAnalytics,
+  type AdminMailingAnalyticsRecipient,
   type AdminMailingPreviewResponse,
   type AdminLearningMaterial,
   type AdminLoginIp,
@@ -67,6 +69,8 @@ import {
   getAdminActionLogs,
   getAdminLearning,
   getAdminMailings,
+  getAdminMailingAnalytics,
+  getAdminMailingAnalyticsRecipients,
   getAdminPaymentHistory,
   getAdminProjectSettings,
   generateOwnerEmailLoginCode,
@@ -293,6 +297,18 @@ const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
 const activeStatisticsDetail = ref<StatisticsDetail | null>(null);
 const selectedMailing = ref<AdminMailing | null>(null);
+const mailingAnalytics = ref<AdminMailingAnalytics | null>(null);
+const mailingAnalyticsRecipients = ref<AdminMailingAnalyticsRecipient[]>([]);
+const mailingAnalyticsLoading = ref(false);
+const mailingAnalyticsError = ref(false);
+const mailingAnalyticsRecipientsLoading = ref(false);
+const mailingAnalyticsRecipientStatus = ref<"all" | "delivered" | "opened" | "clicked" | "failed" | "skipped" | "pending">("all");
+const mailingAnalyticsRecipientChannel = ref<"all" | "push" | "email">("all");
+const mailingAnalyticsNextCursor = ref<string | null>(null);
+const mailingAnalyticsTimelineMax = computed(() => Math.max(
+  1,
+  ...(mailingAnalytics.value?.timeline.flatMap((item) => [item.sent, item.opened, item.clicked]) ?? [])
+));
 const selectedMailingBodyHtml = computed(() => {
   const html = selectedMailing.value?.bodyHtml?.trim();
   return html ? sanitizeHtml(html) : "";
@@ -989,6 +1005,83 @@ function canRetryFailedMailing(mailing: AdminMailing) {
   return mailing.failedCount > 0 && (mailing.status === "completed" || mailing.status === "stopped");
 }
 
+function formatMailingAnalyticsRate(value: number) {
+  return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 }).format(value)}%`;
+}
+
+function formatMailingAnalyticsBucket(value: string) {
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function mailingAnalyticsBarWidth(value: number) {
+  if (!value) return "0%";
+  return `${Math.max(5, Math.round((value / mailingAnalyticsTimelineMax.value) * 100))}%`;
+}
+
+function mailingAnalyticsStatusLabel(status: AdminMailingAnalyticsRecipient["analyticsStatus"]) {
+  return {
+    delivered: "Доставлено",
+    opened: "Открыто",
+    clicked: "Переход",
+    failed: "Ошибка",
+    skipped: "Пропущено",
+    pending: "Ожидает"
+  }[status];
+}
+
+async function loadMailingAnalyticsRecipients(reset = true) {
+  const mailingId = selectedMailing.value?.id;
+  if (!mailingId) return;
+
+  mailingAnalyticsRecipientsLoading.value = true;
+  try {
+    const response = await getAdminMailingAnalyticsRecipients(mailingId, {
+      status: mailingAnalyticsRecipientStatus.value,
+      channel: mailingAnalyticsRecipientChannel.value,
+      cursor: reset ? null : mailingAnalyticsNextCursor.value
+    });
+    if (selectedMailing.value?.id !== mailingId) return;
+    mailingAnalyticsRecipients.value = reset
+      ? response.recipients
+      : [...mailingAnalyticsRecipients.value, ...response.recipients];
+    mailingAnalyticsNextCursor.value = response.nextCursor;
+  } finally {
+    if (selectedMailing.value?.id === mailingId) mailingAnalyticsRecipientsLoading.value = false;
+  }
+}
+
+async function loadSelectedMailingAnalytics(mailingId: string) {
+  mailingAnalyticsLoading.value = true;
+  mailingAnalyticsError.value = false;
+  mailingAnalytics.value = null;
+  mailingAnalyticsRecipients.value = [];
+  mailingAnalyticsNextCursor.value = null;
+  try {
+    const analytics = await getAdminMailingAnalytics(mailingId);
+    if (selectedMailing.value?.id !== mailingId) return;
+    mailingAnalytics.value = analytics;
+    if (analytics.trackingEnabledAt) await loadMailingAnalyticsRecipients(true);
+  } catch {
+    if (selectedMailing.value?.id === mailingId) mailingAnalyticsError.value = true;
+  } finally {
+    if (selectedMailing.value?.id === mailingId) mailingAnalyticsLoading.value = false;
+  }
+}
+
+function refreshMailingAnalytics() {
+  if (selectedMailing.value) void loadSelectedMailingAnalytics(selectedMailing.value.id);
+}
+
+function updateMailingAnalyticsRecipients() {
+  mailingAnalyticsNextCursor.value = null;
+  void loadMailingAnalyticsRecipients(true);
+}
+
 function openMailingDetail(mailing: AdminMailing) {
   selectedMailing.value = mailing;
   openAdminTask(`/admin/mailings/${mailing.id}`);
@@ -998,6 +1091,21 @@ function closeMailingDetail() {
   selectedMailing.value = null;
   closeAdminTask();
 }
+
+watch(
+  () => selectedMailing.value?.id,
+  (mailingId) => {
+    if (mailingId) {
+      mailingAnalyticsRecipientStatus.value = "all";
+      mailingAnalyticsRecipientChannel.value = "all";
+      void loadSelectedMailingAnalytics(mailingId);
+      return;
+    }
+    mailingAnalytics.value = null;
+    mailingAnalyticsRecipients.value = [];
+    mailingAnalyticsNextCursor.value = null;
+  }
+);
 
 function renderMailingEditorHtml(mailing: AdminMailing) {
   return mailing.bodyHtml || mailing.body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
@@ -3922,6 +4030,130 @@ onUnmounted(() => {
               <span>Пропущено <strong>{{ selectedMailing.skippedCount }}</strong></span>
               <span :class="{ 'admin-mailing-delivery-error': selectedMailing.failedCount > 0 }">Ошибки <strong>{{ selectedMailing.failedCount }}</strong></span>
             </div>
+
+            <section class="admin-mailing-analytics" aria-labelledby="admin-mailing-analytics-title">
+              <header class="admin-mailing-analytics-head">
+                <div>
+                  <span class="admin-overline">Аналитика</span>
+                  <h4 id="admin-mailing-analytics-title">Вовлечённость получателей</h4>
+                </div>
+                <button class="secondary-button ui-button" type="button" :disabled="mailingAnalyticsLoading" @click="refreshMailingAnalytics">
+                  Обновить
+                </button>
+              </header>
+
+              <p v-if="mailingAnalyticsLoading" class="admin-empty">Загружаю аналитику…</p>
+              <div v-else-if="mailingAnalyticsError" class="admin-mailing-analytics-notice admin-mailing-analytics-notice-error">
+                <p>Не удалось загрузить аналитику.</p>
+                <button class="secondary-button ui-button" type="button" @click="refreshMailingAnalytics">Повторить</button>
+              </div>
+              <p v-else-if="mailingAnalytics && !mailingAnalytics.trackingEnabledAt" class="admin-mailing-analytics-notice">
+                Отслеживание вовлечённости появилось в версии 5.26. Для более ранних рассылок данных нет.
+              </p>
+
+              <template v-else-if="mailingAnalytics">
+                <div class="admin-mailing-analytics-kpis">
+                  <article><span>Доставлено</span><strong>{{ mailingAnalytics.summary.sent }}</strong></article>
+                  <article><span>Открыто</span><strong>{{ mailingAnalytics.summary.opened }}</strong></article>
+                  <article><span>Переходы</span><strong>{{ mailingAnalytics.summary.clicked }}</strong></article>
+                  <article><span>Open rate</span><strong>{{ formatMailingAnalyticsRate(mailingAnalytics.summary.openRate) }}</strong></article>
+                  <article><span>CTR</span><strong>{{ formatMailingAnalyticsRate(mailingAnalytics.summary.clickRate) }}</strong></article>
+                  <article><span>CTOR</span><strong>{{ formatMailingAnalyticsRate(mailingAnalytics.summary.clickToOpenRate) }}</strong></article>
+                </div>
+
+                <p v-if="mailingAnalytics.emailOpenEstimate" class="admin-mailing-analytics-estimate">
+                  Открытия Email приблизительные: почтовые клиенты могут блокировать или автоматически загружать пиксель.
+                </p>
+
+                <div class="admin-mailing-analytics-channels" aria-label="Аналитика по каналам">
+                  <article v-for="channel in mailingAnalytics.channels" :key="channel.channel">
+                    <header>
+                      <strong>{{ channel.channel === "push" ? "Push" : "Email" }}</strong>
+                      <span>{{ channel.sent }} доставлено</span>
+                    </header>
+                    <div><span>Открыто {{ channel.opened }}</span><strong>{{ formatMailingAnalyticsRate(channel.openRate) }}</strong></div>
+                    <div><span>Переходы {{ channel.clicked }}</span><strong>{{ formatMailingAnalyticsRate(channel.clickRate) }}</strong></div>
+                    <small v-if="channel.failed || channel.skipped">Ошибки {{ channel.failed }} · пропущено {{ channel.skipped }}</small>
+                  </article>
+                </div>
+
+                <section class="admin-mailing-analytics-block">
+                  <h5>Динамика</h5>
+                  <p v-if="!mailingAnalytics.timeline.length" class="admin-empty">События пока не зафиксированы.</p>
+                  <div v-else class="admin-mailing-analytics-timeline">
+                    <article v-for="item in mailingAnalytics.timeline" :key="item.bucket">
+                      <time :datetime="item.bucket">{{ formatMailingAnalyticsBucket(item.bucket) }}</time>
+                      <div><span>Доставлено {{ item.sent }}</span><i class="is-sent" :style="{ width: mailingAnalyticsBarWidth(item.sent) }"></i></div>
+                      <div><span>Открыто {{ item.opened }}</span><i class="is-opened" :style="{ width: mailingAnalyticsBarWidth(item.opened) }"></i></div>
+                      <div><span>Переходы {{ item.clicked }}</span><i class="is-clicked" :style="{ width: mailingAnalyticsBarWidth(item.clicked) }"></i></div>
+                    </article>
+                  </div>
+                </section>
+
+                <section class="admin-mailing-analytics-block">
+                  <h5>Популярные ссылки</h5>
+                  <p v-if="!mailingAnalytics.links.length" class="admin-empty">Переходов по ссылкам пока нет.</p>
+                  <ol v-else class="admin-mailing-analytics-links">
+                    <li v-for="link in mailingAnalytics.links" :key="link.destination">
+                      <a :href="link.destination" target="_blank" rel="noreferrer">{{ link.destination }}</a>
+                      <strong>{{ link.uniqueClicks }}</strong>
+                    </li>
+                  </ol>
+                </section>
+
+                <section class="admin-mailing-analytics-block">
+                  <div class="admin-mailing-analytics-recipients-head">
+                    <h5>Получатели</h5>
+                    <span>{{ mailingAnalyticsRecipients.length }} показано</span>
+                  </div>
+                  <div class="admin-mailing-analytics-filters">
+                    <label>
+                      <span>Статус</span>
+                      <select v-model="mailingAnalyticsRecipientStatus" @change="updateMailingAnalyticsRecipients">
+                        <option value="all">Все статусы</option>
+                        <option value="delivered">Доставлено</option>
+                        <option value="opened">Открыто</option>
+                        <option value="clicked">Переход</option>
+                        <option value="failed">Ошибка</option>
+                        <option value="skipped">Пропущено</option>
+                        <option value="pending">Ожидает</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Канал</span>
+                      <select v-model="mailingAnalyticsRecipientChannel" @change="updateMailingAnalyticsRecipients">
+                        <option value="all">Все каналы</option>
+                        <option value="push">Push</option>
+                        <option value="email">Email</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p v-if="mailingAnalyticsRecipientsLoading && !mailingAnalyticsRecipients.length" class="admin-empty">Загружаю получателей…</p>
+                  <p v-else-if="!mailingAnalyticsRecipients.length" class="admin-empty">По выбранным фильтрам получателей нет.</p>
+                  <div v-else class="admin-mailing-analytics-recipients">
+                    <article v-for="recipient in mailingAnalyticsRecipients" :key="recipient.id">
+                      <header>
+                        <div><strong>{{ recipient.displayName }}</strong><small>ID {{ recipient.telegramId }} · {{ recipient.channel === "push" ? "Push" : "Email" }}</small></div>
+                        <span :class="`is-${recipient.analyticsStatus}`">{{ mailingAnalyticsStatusLabel(recipient.analyticsStatus) }}</span>
+                      </header>
+                      <div class="admin-mailing-analytics-recipient-times">
+                        <span>Отправлено: {{ formatDateTime(recipient.sentAt) }}</span>
+                        <span v-if="recipient.openedAt">Открыто: {{ formatDateTime(recipient.openedAt) }}</span>
+                        <span v-if="recipient.clickedAt">Переход: {{ formatDateTime(recipient.clickedAt) }}</span>
+                      </div>
+                      <small v-if="recipient.error" class="admin-mailing-delivery-error">{{ recipient.error }}</small>
+                    </article>
+                  </div>
+                  <button
+                    v-if="mailingAnalyticsNextCursor"
+                    class="secondary-button ui-button admin-mailing-analytics-more"
+                    type="button"
+                    :disabled="mailingAnalyticsRecipientsLoading"
+                    @click="loadMailingAnalyticsRecipients(false)"
+                  >Показать ещё</button>
+                </section>
+              </template>
+            </section>
 
             <section class="admin-mailing-detail-section">
               <span>Фильтры</span>
