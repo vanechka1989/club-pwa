@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Профиль: ровные внутренние экраны",
+    items: [
+      "Экраны реферальной системы и оформления теперь открываются во весь экран с такими же ровными отступами шапки и содержимого, как в основном профиле.",
+      "Длинная реферальная ссылка переносится без обрезки, а счётчики и кнопка копирования остаются читаемыми на узких экранах."
+    ]
+  },
+  {
+    version: "5.27",
+    updatedAt: "20.07.2026 23:01",
     title: "Читаемые реакции в чате",
     items: [
       "Реакции под сообщениями снова отображаются читаемыми компактными плашками: эмодзи и счётчик больше не сжимаются на Android и iPhone."
@@ -3899,9 +3908,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Readable chat reactions",
+  title: "Aligned profile detail screens",
   items: [
-    "Message reactions are readable compact pills again, so the emoji and its count no longer get squeezed on Android or iPhone."
+    "Referral and appearance screens now use the same aligned header and content gutters as the main profile.",
+    "Long referral links wrap safely while counters and the copy action stay readable on narrow screens."
   ]
 };
 
