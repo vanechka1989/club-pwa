@@ -54,14 +54,29 @@ describe("push and email mailing queue", () => {
     expect(claimIndex).toBeGreaterThan(-1);
     expect(sendIndex).toBeGreaterThan(claimIndex);
     expect(source).toContain('eq(adminMailingRecipients.status, "pending")');
-    expect(source).toContain(".returning({ id: adminMailingRecipients.id })");
+    expect(source).toContain("attemptCount: adminMailingRecipients.attemptCount");
   });
 
-  it("keeps aggregate counters and completion safe across parallel workers", () => {
-    expect(source).toContain('inArray(adminMailingRecipients.status, ["pending", "processing"])');
-    expect(source).toMatch(/sentCount:\s*sql`\$\{adminMailings\.sentCount\} \+ \$\{sent\}`/);
-    expect(source).toMatch(/failedCount:\s*sql`\$\{adminMailings\.failedCount\} \+ \$\{failed\}`/);
-    expect(source).toMatch(/skippedCount:\s*sql`\$\{adminMailings\.skippedCount\} \+ \$\{skipped\}`/);
+  it("recovers stale claims and only selects due retry deliveries", () => {
+    expect(source).toContain("getStaleMailingProcessingCutoff(now)");
+    expect(source).toContain('eq(adminMailingRecipients.status, "processing")');
+    expect(source).toContain("lt(adminMailingRecipients.updatedAt, staleProcessingCutoff)");
+    expect(source).toContain("isNull(adminMailingRecipients.nextAttemptAt)");
+    expect(source).toContain("lte(adminMailingRecipients.nextAttemptAt, now)");
+    expect(source).toMatch(/attemptCount:\s*sql`\$\{adminMailingRecipients\.attemptCount\} \+ 1`/);
+    expect(source).toContain("lastAttemptAt: now");
+    expect(source).toContain("getMailingRetryDecision(claimedRecipient.attemptCount, error, new Date())");
+  });
+
+  it("derives exact aggregate counters and completion from recipient rows", () => {
+    expect(source).toContain("recalculateMailingDeliveryState");
+    expect(source).toContain("FILTER (WHERE");
+    expect(source).toContain("pendingCount");
+    expect(source).toContain("processingCount");
+    expect(source).toMatch(/sentCount:\s*counts\.sentCount/);
+    expect(source).toMatch(/failedCount:\s*counts\.failedCount/);
+    expect(source).toMatch(/skippedCount:\s*counts\.skippedCount/);
+    expect(source).not.toMatch(/sentCount:\s*sql`\$\{adminMailings\.sentCount\} \+/);
   });
 
   it("repairs historical counters from unique recipient rows", () => {

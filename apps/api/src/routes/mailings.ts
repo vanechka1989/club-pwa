@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -20,6 +20,7 @@ import { filterMailingAudience, type MailingAudienceUser } from "../mailings/aud
 import { getMailingDeliveryChannels, normalizeMailingChannel } from "../mailings/channels";
 import { estimateMailingDurationSeconds, formatMailingDuration } from "../mailings/estimate";
 import { planEmailDeliverySchedule } from "../mailings/emailPolicy";
+import { getMailingRetryDecision, getStaleMailingProcessingCutoff } from "../mailings/deliveryReliability";
 import { resolveMailingText, sanitizeMailingHtml } from "../mailings/html";
 import {
   buildMailingAttachmentObjectKey,
@@ -253,7 +254,7 @@ async function sendMailingToRecipient(
   if (!target) {
     await db
       .update(adminMailingRecipients)
-      .set({ status: "skipped_missing_user", updatedAt: new Date() })
+      .set({ status: "skipped_missing_user", error: null, nextAttemptAt: null, updatedAt: new Date() })
       .where(eq(adminMailingRecipients.id, recipient.id));
     return "skipped" as const;
   }
@@ -276,7 +277,7 @@ async function sendMailingToRecipient(
     if (!delivered) {
       await db
         .update(adminMailingRecipients)
-        .set({ status: "skipped_email_unavailable", updatedAt: new Date() })
+        .set({ status: "skipped_email_unavailable", error: null, nextAttemptAt: null, updatedAt: new Date() })
         .where(eq(adminMailingRecipients.id, recipient.id));
       return "skipped" as const;
     }
@@ -295,7 +296,7 @@ async function sendMailingToRecipient(
 
   await db
     .update(adminMailingRecipients)
-    .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
+    .set({ status: "sent", error: null, nextAttemptAt: null, sentAt: new Date(), updatedAt: new Date() })
     .where(eq(adminMailingRecipients.id, recipient.id));
   return "sent" as const;
 }
@@ -353,57 +354,82 @@ export async function processMailingQueue(limit = 20) {
     if (mailing.status === "scheduled") {
       await db
         .update(adminMailings)
-        .set({ status: "running", startedAt: now, updatedAt: now })
+        .set({ status: "running", startedAt: mailing.startedAt ?? now, updatedAt: now })
         .where(eq(adminMailings.id, mailing.id));
     }
 
+    const staleProcessingCutoff = getStaleMailingProcessingCutoff(now);
+    await db
+      .update(adminMailingRecipients)
+      .set({ status: "pending", nextAttemptAt: null, updatedAt: now })
+      .where(
+        and(
+          eq(adminMailingRecipients.mailingId, mailing.id),
+          eq(adminMailingRecipients.status, "processing"),
+          lt(adminMailingRecipients.updatedAt, staleProcessingCutoff)
+        )
+      );
+
     const recipients = await db.query.adminMailingRecipients.findMany({
-      where: and(eq(adminMailingRecipients.mailingId, mailing.id), eq(adminMailingRecipients.status, "pending")),
+      where: and(
+        eq(adminMailingRecipients.mailingId, mailing.id),
+        eq(adminMailingRecipients.status, "pending"),
+        or(isNull(adminMailingRecipients.nextAttemptAt), lte(adminMailingRecipients.nextAttemptAt, now))
+      ),
       orderBy: [desc(adminMailingRecipients.createdAt)],
       limit
     });
 
-    let sent = 0;
-    let failed = 0;
-    let skipped = 0;
     let deferredUntil: Date | null = null;
     for (const recipient of recipients) {
       const [claimedRecipient] = await db
         .update(adminMailingRecipients)
-        .set({ status: "processing", updatedAt: new Date() })
+        .set({
+          status: "processing",
+          attemptCount: sql`${adminMailingRecipients.attemptCount} + 1`,
+          lastAttemptAt: now,
+          updatedAt: now
+        })
         .where(
           and(
             eq(adminMailingRecipients.id, recipient.id),
-            eq(adminMailingRecipients.status, "pending")
+            eq(adminMailingRecipients.status, "pending"),
+            or(isNull(adminMailingRecipients.nextAttemptAt), lte(adminMailingRecipients.nextAttemptAt, now))
           )
         )
-        .returning({ id: adminMailingRecipients.id });
+        .returning({
+          id: adminMailingRecipients.id,
+          attemptCount: adminMailingRecipients.attemptCount
+        });
       if (!claimedRecipient) {
         continue;
       }
 
       try {
-        const result = await sendMailingToRecipient(mailing, recipient);
-        if (result === "sent") {
-          sent += 1;
-        } else {
-          skipped += 1;
-        }
+        await sendMailingToRecipient(mailing, recipient);
       } catch (error) {
         if (error instanceof EmailDailyLimitError) {
           deferredUntil = error.retryAt;
           await db
             .update(adminMailingRecipients)
-            .set({ status: "pending", error: null, updatedAt: new Date() })
+            .set({
+              status: "pending",
+              attemptCount: recipient.attemptCount,
+              nextAttemptAt: null,
+              lastAttemptAt: recipient.lastAttemptAt,
+              error: null,
+              updatedAt: new Date()
+            })
             .where(eq(adminMailingRecipients.id, recipient.id));
           break;
         }
-        failed += 1;
+        const retryDecision = getMailingRetryDecision(claimedRecipient.attemptCount, error, new Date());
         await db
           .update(adminMailingRecipients)
           .set({
-            status: "failed",
-            error: error instanceof Error ? error.message : "Unable to send mailing",
+            status: retryDecision.status,
+            nextAttemptAt: retryDecision.nextAttemptAt,
+            error: retryDecision.error,
             updatedAt: new Date()
           })
           .where(eq(adminMailingRecipients.id, recipient.id));
@@ -411,30 +437,52 @@ export async function processMailingQueue(limit = 20) {
       }
     }
 
-    const [outstandingRow] = await db
-      .select({ value: count(adminMailingRecipients.id) })
-      .from(adminMailingRecipients)
-      .where(
-        and(
-          eq(adminMailingRecipients.mailingId, mailing.id),
-          inArray(adminMailingRecipients.status, ["pending", "processing"])
-        )
-      );
-    const hasOutstandingDeliveries = Number(outstandingRow?.value ?? 0) > 0;
-
-    await db
-      .update(adminMailings)
-      .set({
-        sentCount: sql`${adminMailings.sentCount} + ${sent}`,
-        failedCount: sql`${adminMailings.failedCount} + ${failed}`,
-        skippedCount: sql`${adminMailings.skippedCount} + ${skipped}`,
-        status: deferredUntil ? "scheduled" : hasOutstandingDeliveries ? "running" : "completed",
-        ...(deferredUntil ? { scheduledAt: deferredUntil } : {}),
-        ...(hasOutstandingDeliveries ? {} : { completedAt: new Date() }),
-        updatedAt: new Date()
-      })
-      .where(eq(adminMailings.id, mailing.id));
+    await recalculateMailingDeliveryState(mailing.id, new Date(), deferredUntil);
   }
+}
+
+export async function getMailingDeliveryCounts(mailingId: string) {
+  const [row] = await db
+    .select({
+      deliveryCount: sql<number>`count(*)::integer`,
+      sentCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'sent')::integer`,
+      failedCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'failed')::integer`,
+      skippedCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} LIKE 'skipped_%')::integer`,
+      pendingCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'pending')::integer`,
+      processingCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'processing')::integer`
+    })
+    .from(adminMailingRecipients)
+    .where(eq(adminMailingRecipients.mailingId, mailingId));
+
+  return {
+    deliveryCount: Number(row?.deliveryCount ?? 0),
+    sentCount: Number(row?.sentCount ?? 0),
+    failedCount: Number(row?.failedCount ?? 0),
+    skippedCount: Number(row?.skippedCount ?? 0),
+    pendingCount: Number(row?.pendingCount ?? 0),
+    processingCount: Number(row?.processingCount ?? 0)
+  };
+}
+
+export async function recalculateMailingDeliveryState(mailingId: string, now = new Date(), deferredUntil: Date | null = null) {
+  const counts = await getMailingDeliveryCounts(mailingId);
+  const hasOutstandingDeliveries = counts.pendingCount + counts.processingCount > 0;
+
+  await db
+    .update(adminMailings)
+    .set({
+      deliveryCount: counts.deliveryCount,
+      sentCount: counts.sentCount,
+      failedCount: counts.failedCount,
+      skippedCount: counts.skippedCount,
+      status: deferredUntil ? "scheduled" : hasOutstandingDeliveries ? "running" : "completed",
+      ...(deferredUntil ? { scheduledAt: deferredUntil, completedAt: null } : {}),
+      ...(deferredUntil || hasOutstandingDeliveries ? { completedAt: null } : { completedAt: now }),
+      updatedAt: now
+    })
+    .where(eq(adminMailings.id, mailingId));
+
+  return counts;
 }
 
 let mailingQueueTimer: ReturnType<typeof setInterval> | null = null;
