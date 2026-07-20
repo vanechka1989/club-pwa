@@ -3,10 +3,14 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes HTML formatted mailings as version 5.24", () => {
-    expect(appVersion).toBe("5.24");
-    expect(releaseNotes[0]?.title).toBe("HTML-форматирование рассылок");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("HTML-код");
+  it("publishes reliable mailing delivery as version 5.25", () => {
+    expect(appVersion).toBe("5.25");
+    expect(releaseNotes[0]?.title).toBe("Надёжная доставка рассылок");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Повторить ошибки");
+
+    const htmlMailingRelease = releaseNotes.find((note) => note.version === "5.24");
+    expect(htmlMailingRelease?.title).toBe("HTML-форматирование рассылок");
+    expect(htmlMailingRelease?.items.join(" ")).toContain("HTML-код");
 
     const reliableSaveRelease = releaseNotes.find((note) => note.version === "5.23");
     expect(reliableSaveRelease?.title).toBe("Надёжное сохранение уроков");
@@ -60,7 +64,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("HTML-formatted mailings");
+    expect(englishNotes[0]?.title).toBe("Reliable mailing delivery");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

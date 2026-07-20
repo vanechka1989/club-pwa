@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Надёжная доставка рассылок",
+    items: [
+      "Временные ошибки доставки автоматически повторяются до трёх раз, а зависшие после перезапуска сервера отправки возвращаются в очередь.",
+      "Счётчики показывают фактическое состояние каждой доставки; окончательные ошибки можно безопасно вернуть в очередь действием «Повторить ошибки»."
+    ]
+  },
+  {
+    version: "5.24",
+    updatedAt: "20.07.2026 01:04",
     title: "HTML-форматирование рассылок",
     items: [
       "В редактор рассылок добавлен отдельный режим «HTML-код» с безопасным предпросмотром форматирования.",
@@ -3873,10 +3882,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "HTML-formatted mailings",
+  title: "Reliable mailing delivery",
   items: [
-    "The mailing composer now has a dedicated HTML source mode with a safe formatted preview.",
-    "Email and in-app notifications preserve formatting, while native push automatically receives readable text without HTML tags."
+    "Temporary delivery failures are retried up to three times, and stale deliveries recover automatically after a server restart.",
+    "Live counters show the actual delivery state, while Retry failures safely queues only final failures again."
   ]
 };
 
