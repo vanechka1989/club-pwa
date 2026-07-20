@@ -49,6 +49,19 @@ describe("compact profile layout", () => {
     expect(source).toContain("showLogoutConfirm = true");
   });
 
+  it("aligns referral and appearance screens with the main profile gutters", () => {
+    expect(source.match(/class="profile-detail-task-screen"/g)).toHaveLength(2);
+    expect(styles).toMatch(/\.profile-detail-task-screen \.task-screen-header\s*\{[^}]*margin:\s*12px 14px 0;[^}]*border-radius:\s*18px;/s);
+    expect(styles).toMatch(/\.profile-detail-task-screen \.task-screen-body\s*\{[^}]*padding:\s*12px 14px/s);
+    expect(styles).toMatch(/\.profile-detail-task-screen \.task-screen-body > :first-child\s*\{[^}]*width:\s*100%;[^}]*margin-inline:\s*0;/s);
+  });
+
+  it("keeps referral content readable across narrow profile screens", () => {
+    expect(styles).toMatch(/\.profile-detail-task-screen \.profile-referral-link span\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*text-overflow:\s*clip;[^}]*white-space:\s*normal;/s);
+    expect(styles).toMatch(/\.profile-detail-task-screen \.profile-referral-stats span\s*\{[^}]*overflow:\s*visible;[^}]*white-space:\s*normal;/s);
+    expect(styles).toMatch(/\.profile-detail-task-screen \.profile-referral-link button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+  });
+
   it("keeps logout on the profile page without a redundant account screen", () => {
     expect(source).toContain('class="profile-dashboard-logout ');
     expect(source).not.toContain('openProfilePanel("account")');

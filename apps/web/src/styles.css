@@ -19588,6 +19588,61 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
   }
 }
 
+/* Profile detail routes keep the full-screen shell while aligning their
+   header and content to the same compact gutter as the main profile. */
+.profile-detail-task-screen .task-screen-header {
+  box-sizing: border-box;
+  margin: 12px 14px 0;
+  margin-right: max(14px, calc(var(--club-safe-right) + 14px));
+  margin-left: max(14px, calc(var(--club-safe-left) + 14px));
+  border-radius: 18px;
+}
+
+.profile-detail-task-screen .task-screen-body {
+  padding: 12px 14px calc(24px + var(--club-safe-bottom));
+  padding-right: max(14px, calc(var(--club-safe-right) + 14px));
+  padding-left: max(14px, calc(var(--club-safe-left) + 14px));
+}
+
+.profile-detail-task-screen .task-screen-body > :first-child {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  justify-self: stretch;
+}
+
+.profile-detail-task-screen .profile-referral-link {
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.profile-detail-task-screen .profile-referral-link span {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.profile-detail-task-screen .profile-referral-stats span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.profile-detail-task-screen .profile-referral-link button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+}
+
+@media (min-width: 1024px) {
+  .profile-detail-task-screen.task-screen-route-layer > .task-screen {
+    max-width: 47.5rem;
+  }
+}
+
 @media (max-width: 359px) {
   .notification-center-list,
   .notification-task-screen .notification-center-list {

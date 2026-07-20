@@ -829,7 +829,7 @@ onBeforeUnmount(discardAvatarDraftFile);
       </form>
     </div>
 
-    <TaskScreen v-if='activeProfilePanel === "referrals"' :title="t('referralTitle')" :subtitle="t('referralSubtitle')" portal @back="closeProfilePanel">
+    <TaskScreen v-if='activeProfilePanel === "referrals"' class="profile-detail-task-screen" :title="t('referralTitle')" :subtitle="t('referralSubtitle')" portal @back="closeProfilePanel">
     <section class="soft-card ui-card profile-referral-card">
       <div class="flex items-center justify-between gap-3">
         <div>
@@ -879,7 +879,7 @@ onBeforeUnmount(discardAvatarDraftFile);
     </section>
     </TaskScreen>
 
-    <TaskScreen v-if='activeProfilePanel === "appearance"' :title="t('profileAppearance')" :subtitle="`${currentDesignThemeLabel} · ${currentThemeLabel}`" portal @back="closeProfilePanel">
+    <TaskScreen v-if='activeProfilePanel === "appearance"' class="profile-detail-task-screen" :title="t('profileAppearance')" :subtitle="`${currentDesignThemeLabel} · ${currentThemeLabel}`" portal @back="closeProfilePanel">
     <section class="soft-card ui-card profile-settings">
       <div class="flex items-center justify-between gap-3">
         <h3 class="soft-section-title">{{ t("profileAppearance") }}</h3>
