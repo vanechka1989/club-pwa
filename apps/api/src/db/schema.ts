@@ -806,6 +806,7 @@ export const adminMailings = pgTable(
     sentCount: integer("sent_count").notNull().default(0),
     failedCount: integer("failed_count").notNull().default(0),
     skippedCount: integer("skipped_count").notNull().default(0),
+    analyticsEnabledAt: timestamp("analytics_enabled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -837,6 +838,24 @@ export const adminMailingRecipients = pgTable(
     retryIdx: index("admin_mailing_recipients_retry_idx").on(table.status, table.nextAttemptAt, table.updatedAt),
     userIdx: index("admin_mailing_recipients_user_idx").on(table.userId),
     mailingUserChannelIdx: uniqueIndex("admin_mailing_recipients_mailing_user_channel_idx").on(table.mailingId, table.userId, table.channel)
+  })
+);
+
+export const adminMailingEvents = pgTable(
+  "admin_mailing_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mailingId: uuid("mailing_id").notNull().references(() => adminMailings.id, { onDelete: "cascade" }),
+    recipientId: uuid("recipient_id").notNull().references(() => adminMailingRecipients.id, { onDelete: "cascade" }),
+    eventType: varchar("event_type", { length: 16 }).notNull(),
+    eventKey: varchar("event_key", { length: 80 }).notNull(),
+    destination: text("destination"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    recipientKeyIdx: uniqueIndex("admin_mailing_events_recipient_key_idx").on(table.recipientId, table.eventKey),
+    mailingTypeTimeIdx: index("admin_mailing_events_mailing_type_time_idx").on(table.mailingId, table.eventType, table.occurredAt),
+    mailingTimeIdx: index("admin_mailing_events_mailing_time_idx").on(table.mailingId, table.occurredAt)
   })
 );
 
@@ -1228,10 +1247,11 @@ export const adminMailingsRelations = relations(adminMailings, ({ one, many }) =
     fields: [adminMailings.createdByUserId],
     references: [users.id]
   }),
-  recipients: many(adminMailingRecipients)
+  recipients: many(adminMailingRecipients),
+  events: many(adminMailingEvents)
 }));
 
-export const adminMailingRecipientsRelations = relations(adminMailingRecipients, ({ one }) => ({
+export const adminMailingRecipientsRelations = relations(adminMailingRecipients, ({ one, many }) => ({
   mailing: one(adminMailings, {
     fields: [adminMailingRecipients.mailingId],
     references: [adminMailings.id]
@@ -1239,6 +1259,18 @@ export const adminMailingRecipientsRelations = relations(adminMailingRecipients,
   user: one(users, {
     fields: [adminMailingRecipients.userId],
     references: [users.id]
+  }),
+  events: many(adminMailingEvents)
+}));
+
+export const adminMailingEventsRelations = relations(adminMailingEvents, ({ one }) => ({
+  mailing: one(adminMailings, {
+    fields: [adminMailingEvents.mailingId],
+    references: [adminMailings.id]
+  }),
+  recipient: one(adminMailingRecipients, {
+    fields: [adminMailingEvents.recipientId],
+    references: [adminMailingRecipients.id]
   })
 }));
 
