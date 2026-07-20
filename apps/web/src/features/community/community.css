@@ -728,17 +728,17 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .community-chat-open .message-reaction-button {
   position: relative;
   display: inline-flex;
-  width: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  height: 24px;
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  height: 44px;
   flex: 0 0 auto;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 3px;
   border-radius: 999px;
-  padding: 0;
+  padding: 0 8px;
   line-height: 1;
   white-space: nowrap;
 }
@@ -753,22 +753,22 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   line-height: 1;
 }
 
-.community-chat-open .message-reaction-button span { font-size: 0.62rem; }
-.community-chat-open .message-reaction-button small { font-size: 0.5rem; }
+.community-chat-open .message-reaction-button span { font-size: 16px; }
+.community-chat-open .message-reaction-button small { font-size: var(--app-type-micro-size); }
 
-/* Mobile control rules elsewhere intentionally enlarge buttons. Reactions are
-   status markers, so lock their visual box after every shared control layer. */
+/* Mobile control rules elsewhere intentionally enlarge buttons. Keep reactions
+   readable without letting shared touch-target rules stretch the compact pill. */
 html body .community-chat-open .chat-bubble .message-reaction-button {
   box-sizing: border-box;
-  width: 24px;
-  min-width: 24px;
-  max-width: 24px;
-  height: 24px;
-  min-height: 24px;
-  max-height: 24px;
-  padding: 0;
-  border-radius: 50%;
-  overflow: hidden;
+  width: auto;
+  min-width: 44px;
+  max-width: none;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0 8px;
+  border-radius: 999px;
+  overflow: visible;
 }
 
 .community-chat-open .composer-emoji-popover {

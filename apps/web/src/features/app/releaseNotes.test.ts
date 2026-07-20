@@ -3,10 +3,14 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes mailing engagement analytics as version 5.26", () => {
-    expect(appVersion).toBe("5.26");
-    expect(releaseNotes[0]?.title).toBe("Аналитика рассылок");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Open rate");
+  it("publishes readable chat reactions as version 5.27", () => {
+    expect(appVersion).toBe("5.27");
+    expect(releaseNotes[0]?.title).toBe("Читаемые реакции в чате");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("Android и iPhone");
+
+    const analyticsRelease = releaseNotes.find((note) => note.version === "5.26");
+    expect(analyticsRelease?.title).toBe("Аналитика рассылок");
+    expect(analyticsRelease?.items.join(" ")).toContain("Open rate");
 
     const reliableDeliveryRelease = releaseNotes.find((note) => note.version === "5.25");
     expect(reliableDeliveryRelease?.title).toBe("Надёжная доставка рассылок");
@@ -68,7 +72,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Mailing analytics");
+    expect(englishNotes[0]?.title).toBe("Readable chat reactions");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

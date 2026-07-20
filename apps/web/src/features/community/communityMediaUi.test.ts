@@ -66,16 +66,18 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-chat-open \.reaction-popover-button\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;/s);
   });
 
-  it("renders applied reactions as the smallest stable circle", () => {
+  it("renders applied reactions as a readable compact pill on mobile", () => {
     const styles = read("community.css");
     expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*width:\s*fit-content;[^}]*flex-direction:\s*row;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*24px;[^}]*min-width:\s*24px;[^}]*height:\s*24px;[^}]*padding:\s*0;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*width:\s*auto;[^}]*min-width:\s*44px;[^}]*height:\s*44px;[^}]*padding:\s*0 8px;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::before\s*\{[^}]*display:\s*none;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button span\s*\{\s*font-size:\s*16px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button small\s*\{\s*font-size:\s*var\(--app-type-micro-size\);/s);
     const lockedReactionRule = styles.match(/html body \.community-chat-open \.chat-bubble \.message-reaction-button\s*\{[^}]*\}/s)?.[0] ?? "";
-    expect(lockedReactionRule).toMatch(/min-width:\s*24px;/);
-    expect(lockedReactionRule).toMatch(/max-width:\s*24px;/);
-    expect(lockedReactionRule).toMatch(/min-height:\s*24px;/);
-    expect(lockedReactionRule).toMatch(/max-height:\s*24px;/);
+    expect(lockedReactionRule).toMatch(/min-width:\s*44px;/);
+    expect(lockedReactionRule).toMatch(/max-width:\s*none;/);
+    expect(lockedReactionRule).toMatch(/min-height:\s*44px;/);
+    expect(lockedReactionRule).toMatch(/max-height:\s*44px;/);
     expect(lockedReactionRule).not.toContain("!important");
   });
 

@@ -11,6 +11,14 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Читаемые реакции в чате",
+    items: [
+      "Реакции под сообщениями снова отображаются читаемыми компактными плашками: эмодзи и счётчик больше не сжимаются на Android и iPhone."
+    ]
+  },
+  {
+    version: "5.26",
+    updatedAt: "20.07.2026 20:32",
     title: "Аналитика рассылок",
     items: [
       "В карточке рассылки появились Open rate, CTR и CTOR, разбивка по Push и Email, динамика событий и популярные ссылки.",
@@ -3891,10 +3899,9 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Mailing analytics",
+  title: "Readable chat reactions",
   items: [
-    "Mailing details now include Open rate, CTR, CTOR, channel breakdowns, event trends, and top links.",
-    "Recipients can be filtered by channel and engagement status; email opens are clearly marked as approximate."
+    "Message reactions are readable compact pills again, so the emoji and its count no longer get squeezed on Android or iPhone."
   ]
 };
 
