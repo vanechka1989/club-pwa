@@ -244,11 +244,16 @@ describe("Learning section modules", () => {
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
 
-    const moduleTask = screen.getByRole("dialog", { name: "Новый модуль" });
-    expect(moduleTask.classList.contains("module-name-modal")).toBe(true);
-    expect(moduleTask.classList.contains("modal-size-compact")).toBe(true);
-    expect(moduleTask.classList.contains("admin-client-modal")).toBe(false);
-    expect(moduleTask.closest(".task-screen-route-layer")).toBeTruthy();
+    const moduleTask = document.querySelector<HTMLElement>(".module-editor-content");
+    expect(moduleTask).toBeTruthy();
+    expect(moduleTask!.closest(".task-screen-route-layer")).toBeTruthy();
+    expect(moduleTask!.closest(".task-screen-body")?.querySelector(".admin-form-actions")).toBeNull();
+    const moduleFooter = document.querySelector<HTMLElement>(".module-editor-footer");
+    expect(moduleFooter).toBeTruthy();
+    expect(moduleFooter?.closest(".task-screen-footer")).toBeTruthy();
+    expect(within(moduleFooter!).getByRole("button", { name: "Закрыть" })).toBeTruthy();
+    expect(within(moduleFooter!).getByRole("button", { name: "Сохранить модуль" })).toBeTruthy();
+    expect(within(moduleFooter!).queryByRole("button", { name: "Удалить модуль" })).toBeNull();
     expect(screen.getByLabelText("Название модуля").classList.contains("text-input")).toBe(true);
     expect(screen.getByLabelText("Описание модуля")).toBeTruthy();
     expect(screen.getByRole("group", { name: "Тип карточек модуля" })).toBeTruthy();
@@ -262,7 +267,7 @@ describe("Learning section modules", () => {
 
     expect(screen.getByText("Модуль 3")).toBeTruthy();
     expect(screen.getByText("0 уроков")).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "Новый модуль" })).toBeNull();
+    expect(document.querySelector(".module-editor-content")).toBeNull();
   });
 
   it("renames a selected module", async () => {
@@ -272,12 +277,17 @@ describe("Learning section modules", () => {
     expect(screen.queryByRole("button", { name: "Редактировать модуль" })).toBeNull();
 
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
+    const moduleFooter = document.querySelector<HTMLElement>(".module-editor-footer");
+    expect(moduleFooter).toBeTruthy();
+    expect(within(moduleFooter!).getByRole("button", { name: "Удалить модуль" })).toBeTruthy();
+    expect(within(moduleFooter!).getByRole("button", { name: "Закрыть" })).toBeTruthy();
+    expect(within(moduleFooter!).getByRole("button", { name: "Сохранить модуль" })).toBeTruthy();
     await fireEvent.update(screen.getByLabelText("Название модуля"), "Первый модуль");
     await fireEvent.click(screen.getByRole("button", { name: "Сохранить модуль" }));
 
     expect(screen.getByText("Первый модуль")).toBeTruthy();
     expect(screen.queryByText("Модуль 1")).toBeNull();
-    expect(screen.queryByRole("dialog", { name: "Редактировать модуль" })).toBeNull();
+    expect(document.querySelector(".module-editor-content")).toBeNull();
   });
 
   it("collapses and expands a module from its header", async () => {

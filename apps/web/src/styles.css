@@ -14590,6 +14590,43 @@ body.club-mobile-device .admin-panel-head {
   transform: none;
 }
 
+.learning-task-screen .module-editor-content {
+  box-sizing: border-box;
+  display: grid;
+  width: 100%;
+  max-width: 56rem;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.module-editor-footer {
+  box-sizing: border-box;
+  display: grid;
+  width: min(100%, 56rem);
+  min-width: 0;
+  margin: 0 auto;
+  gap: 8px;
+}
+
+.module-editor-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.module-editor-secondary-actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.module-editor-footer .ui-button {
+  min-width: 0;
+  min-height: 44px;
+}
+
+.module-editor-save {
+  width: 100%;
+}
+
 .learning-task-screen .module-name-modal .admin-client-modal-head,
 .learning-task-screen .lesson-preview-modal .admin-client-modal-head {
   display: none;

@@ -2853,14 +2853,7 @@ watch(
       portal
       @back="closeModuleModal"
     >
-        <section class="module-name-modal ui-card modal-size-compact" role="dialog" aria-modal="true" :aria-label="moduleModalTitle">
-          <header class="admin-client-modal-head">
-            <div>
-              <h3 id="module-modal-title">{{ moduleModalTitle }}</h3>
-              <p>{{ moduleModalDescription }}</p>
-            </div>
-          </header>
-
+      <section class="module-editor-content">
           <div class="admin-form module-form">
             <label class="admin-field">
               <span>Название модуля</span>
@@ -2896,15 +2889,19 @@ watch(
 
             <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>
           </div>
+      </section>
 
-          <div class="admin-form-actions">
+      <template #footer>
+        <div class="module-editor-footer">
+          <div class="module-editor-secondary-actions">
             <button v-if="editingModule" class="secondary-button ui-button danger-action" type="button" :disabled="isSaving" @click="deleteModule">Удалить модуль</button>
             <button class="secondary-button ui-button" type="button" :disabled="isSaving" @click="closeModuleModal">Закрыть</button>
-            <button class="primary-button ui-button" type="button" :disabled="isSaving" @click="saveModule">
-              {{ isSaving ? "Сохраняем..." : "Сохранить модуль" }}
-            </button>
           </div>
-        </section>
+          <button class="primary-button ui-button module-editor-save" type="button" :disabled="isSaving" @click="saveModule">
+            {{ isSaving ? "Сохраняем..." : "Сохранить модуль" }}
+          </button>
+        </div>
+      </template>
     </TaskScreen>
 
     <TaskScreen
