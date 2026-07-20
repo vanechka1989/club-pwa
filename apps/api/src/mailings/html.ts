@@ -14,7 +14,7 @@ export function sanitizeMailingHtml(value: string) {
         attribs: { ...attribs, target: "_blank", rel: "noopener noreferrer" }
       })
     }
-  }).trim();
+  }).trim().replace(/\r\n?/g, "\n").replace(/\n/g, "<br>");
 }
 
 export function htmlToMailingText(value: string) {

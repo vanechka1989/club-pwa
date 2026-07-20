@@ -13,6 +13,19 @@ describe("mailing HTML editor mode", () => {
     expect(result.plainText).toBe("🚀 ОТЧЕТ ПО ПОДПИСКАМ\n💰 Всего: 54\n✅ Данные обновлены успешно");
   });
 
+  it("preserves pasted line breaks when HTML only uses inline formatting", () => {
+    const result = prepareMailingHtml(
+      "🚀 <b>ОТЧЕТ ПО ПОДПИСКАМ</b>\n━━━━━━━━━━━━━━━━━━\n💰 <b>Всего:</b> <code>54</code>\n\n✅ <i>Данные обновлены успешно</i>"
+    );
+
+    expect(result.safeHtml).toBe(
+      "🚀 <b>ОТЧЕТ ПО ПОДПИСКАМ</b><br>━━━━━━━━━━━━━━━━━━<br>💰 <b>Всего:</b> <code>54</code><br><br>✅ <i>Данные обновлены успешно</i>"
+    );
+    expect(result.plainText).toBe(
+      "🚀 ОТЧЕТ ПО ПОДПИСКАМ\n━━━━━━━━━━━━━━━━━━\n💰 Всего: 54\n\n✅ Данные обновлены успешно"
+    );
+  });
+
   it("removes unsafe markup before building preview and text", () => {
     const result = prepareMailingHtml('<p onclick="alert(1)">Текст<script>alert(1)</script></p>');
 

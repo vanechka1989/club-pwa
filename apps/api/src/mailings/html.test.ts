@@ -32,6 +32,19 @@ describe("mailing HTML", () => {
     expect(text).not.toMatch(/<[^>]+>/);
   });
 
+  it("preserves pasted line breaks in sanitized HTML and its text fallback", () => {
+    const source =
+      "🚀 <b>ОТЧЕТ ПО ПОДПИСКАМ</b>\n━━━━━━━━━━━━━━━━━━\n💰 <b>Всего:</b> <code>54</code>\n\n✅ <i>Данные обновлены успешно</i>";
+    const html = sanitizeMailingHtml(source);
+
+    expect(html).toBe(
+      "🚀 <b>ОТЧЕТ ПО ПОДПИСКАМ</b><br>━━━━━━━━━━━━━━━━━━<br>💰 <b>Всего:</b> <code>54</code><br><br>✅ <i>Данные обновлены успешно</i>"
+    );
+    expect(htmlToMailingText(html)).toBe(
+      "🚀 ОТЧЕТ ПО ПОДПИСКАМ\n━━━━━━━━━━━━━━━━━━\n💰 Всего: 54\n\n✅ Данные обновлены успешно"
+    );
+  });
+
   it("derives native push text from HTML instead of trusting submitted body text", () => {
     expect(resolveMailingText("<b>сырой тег</b>", "<b>Безопасный текст</b> <code>54</code>")).toBe("Безопасный текст 54");
     expect(resolveMailingText("  Обычный текст  ", "")).toBe("Обычный текст");

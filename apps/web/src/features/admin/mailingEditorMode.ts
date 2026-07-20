@@ -27,7 +27,7 @@ function nodeToPlainText(node: Node): string {
 }
 
 export function prepareMailingHtml(value: string) {
-  const safeHtml = sanitizeHtml(value).trim();
+  const safeHtml = sanitizeHtml(value).trim().replace(/\r\n?/g, "\n").replace(/\n/g, "<br>");
   if (!safeHtml || typeof DOMParser === "undefined") {
     return { safeHtml, plainText: "" };
   }
