@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единые шапки внутренних экранов",
+    items: [
+      "Шапки модулей, уроков, оплаты, поддержки, уведомлений, админки и профиля теперь оформлены так же, как шапки основных разделов.",
+      "Полноэкранный чат и содержимое внутренних страниц получили одинаковые безопасные отступы 14 px на Android и iPhone."
+    ]
+  },
+  {
+    version: "5.28",
+    updatedAt: "20.07.2026 23:33",
     title: "Профиль: ровные внутренние экраны",
     items: [
       "Экраны реферальной системы и оформления теперь открываются во весь экран с такими же ровными отступами шапки и содержимого, как в основном профиле.",
@@ -3908,10 +3917,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Aligned profile detail screens",
+  title: "Consistent full-screen headers",
   items: [
-    "Referral and appearance screens now use the same aligned header and content gutters as the main profile.",
-    "Long referral links wrap safely while counters and the copy action stay readable on narrow screens."
+    "Modules, lessons, payments, support, notifications, admin, and profile workflows now use the same header card as the main sections.",
+    "Full-screen chat and routed page content now keep consistent 14 px safe gutters on Android and iPhone."
   ]
 };
 

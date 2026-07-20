@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes aligned profile detail screens as version 5.28", () => {
-    expect(appVersion).toBe("5.28");
-    expect(releaseNotes[0]?.title).toBe("Профиль: ровные внутренние экраны");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("реферальной системы");
+  it("publishes consistent fullscreen headers as version 5.29", () => {
+    expect(appVersion).toBe("5.29");
+    expect(releaseNotes[0]?.title).toBe("Единые шапки внутренних экранов");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("14 px");
+
+    const profileDetailRelease = releaseNotes.find((note) => note.version === "5.28");
+    expect(profileDetailRelease?.title).toBe("Профиль: ровные внутренние экраны");
 
     const reactionRelease = releaseNotes.find((note) => note.version === "5.27");
     expect(reactionRelease?.title).toBe("Читаемые реакции в чате");
@@ -76,7 +79,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Aligned profile detail screens");
+    expect(englishNotes[0]?.title).toBe("Consistent full-screen headers");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
