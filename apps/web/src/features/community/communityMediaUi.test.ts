@@ -81,6 +81,7 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*min-width:\s*34px;[^}]*height:\s*30px;[^}]*padding:\s*0 6px;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::after\s*\{[^}]*inset:\s*-7px -5px;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button span\s*\{\s*font-size:\s*14px;/s);
+    expect(styles).toMatch(/html body \.community-chat-open \.chat-message-content \.message-reaction-button\s*\{[^}]*height:\s*30px !important;[^}]*min-height:\s*30px !important;[^}]*max-height:\s*30px !important;/s);
   });
 
   it("uses one clean emoji tray without framed emoji circles", () => {
