@@ -110,7 +110,7 @@ describe("support section", () => {
     const createFormRule = latestRule(".support-create-task-screen .support-customer-form");
     const fieldLabelRule = latestRule(".support-create-task-screen .support-field > span");
 
-    expect(createBodyRule).toContain("padding-inline: max(8px, var(--club-safe-left))");
+    expect(createBodyRule).toContain("padding-inline: max(14px, calc(var(--club-safe-left) + 14px))");
     expect(createFormRule).toContain("border: 0");
     expect(createFormRule).toContain("background: transparent");
     expect(createFormRule).toContain("padding: 0");

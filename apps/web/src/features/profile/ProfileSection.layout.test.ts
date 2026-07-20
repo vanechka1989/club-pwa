@@ -51,8 +51,8 @@ describe("compact profile layout", () => {
 
   it("aligns referral and appearance screens with the main profile gutters", () => {
     expect(source.match(/class="profile-detail-task-screen"/g)).toHaveLength(2);
-    expect(styles).toMatch(/\.profile-detail-task-screen \.task-screen-header\s*\{[^}]*width:\s*auto;[^}]*margin:\s*12px 14px 0;[^}]*border-radius:\s*18px;/s);
-    expect(styles).toMatch(/\.profile-detail-task-screen \.task-screen-body\s*\{[^}]*padding:\s*12px 14px/s);
+    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-header\s*\{[^}]*width:\s*auto;[^}]*margin:\s*12px 14px 0;[^}]*border-radius:\s*var\(--card-radius\);/s);
+    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-body\s*\{[^}]*padding:\s*12px 14px/s);
     expect(styles).toMatch(/\.profile-detail-task-screen \.task-screen-body > :first-child\s*\{[^}]*width:\s*100%;[^}]*margin-inline:\s*0;/s);
   });
 

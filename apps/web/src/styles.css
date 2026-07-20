@@ -19588,19 +19588,29 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
   }
 }
 
-/* Profile detail routes keep the full-screen shell while aligning their
-   header and content to the same compact gutter as the main profile. */
-.profile-detail-task-screen .task-screen-header {
+/* Every routed workflow uses the same inset header and content rhythm as the
+   main application sections. Keep this late so legacy modal bridges cannot
+   pull an individual screen back to edge-to-edge geometry. */
+.task-screen-route-layer .task-screen-header {
   box-sizing: border-box;
   width: auto;
   margin: 12px 14px 0;
+  margin-top: max(12px, calc(var(--club-safe-top) + 12px));
   margin-right: max(14px, calc(var(--club-safe-right) + 14px));
   margin-left: max(14px, calc(var(--club-safe-left) + 14px));
-  border-radius: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
-.profile-detail-task-screen .task-screen-body {
+.task-screen-route-layer .task-screen-body {
   padding: 12px 14px calc(24px + var(--club-safe-bottom));
+  padding-right: max(14px, calc(var(--club-safe-right) + 14px));
+  padding-left: max(14px, calc(var(--club-safe-left) + 14px));
+}
+
+.task-screen-route-layer .task-screen-footer {
   padding-right: max(14px, calc(var(--club-safe-right) + 14px));
   padding-left: max(14px, calc(var(--club-safe-left) + 14px));
 }
@@ -19641,6 +19651,12 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 @media (min-width: 1024px) {
   .profile-detail-task-screen.task-screen-route-layer > .task-screen {
     max-width: 47.5rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .task-screen-route-layer .task-screen-header {
+    border-radius: var(--card-radius-compact);
   }
 }
 
@@ -19873,7 +19889,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 .support-create-task-screen .task-screen-body {
   padding-block: 12px;
-  padding-inline: max(8px, var(--club-safe-left)) max(8px, var(--club-safe-right));
+  padding-inline: max(14px, calc(var(--club-safe-left) + 14px)) max(14px, calc(var(--club-safe-right) + 14px));
 }
 
 .support-create-task-screen .support-customer-form {
@@ -19904,7 +19920,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 }
 
 .support-ticket-task-screen .task-screen-footer {
-  padding-inline: max(8px, var(--club-safe-left)) max(8px, var(--club-safe-right));
+  padding-inline: max(14px, calc(var(--club-safe-left) + 14px)) max(14px, calc(var(--club-safe-right) + 14px));
 }
 
 .support-task-screen .support-reply-actions {

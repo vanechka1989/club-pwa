@@ -26,6 +26,23 @@ describe("application page header consistency", () => {
     expect(styles).not.toMatch(/\.profile-avatar-task-screen \.task-screen-heading h2\s*\{[^}]*font-size:/s);
   });
 
+  it("uses one inset card contract for every routed task header and body", () => {
+    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-header\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*auto;[^}]*margin:\s*12px 14px 0;[^}]*border:\s*1px solid var\(--color-border\);[^}]*border-radius:\s*var\(--card-radius\);[^}]*background:\s*var\(--color-surface\);[^}]*box-shadow:\s*var\(--shadow-sm\);/s);
+    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-body\s*\{[^}]*padding:\s*12px 14px calc\(24px \+ var\(--club-safe-bottom\)\);/s);
+    expect(styles).not.toContain(".profile-detail-task-screen .task-screen-header");
+    expect(styles).not.toContain(".profile-detail-task-screen .task-screen-body {");
+    expect(styles).toMatch(/@media \(max-width:\s*360px\)[\s\S]*?\.task-screen-route-layer \.task-screen-header\s*\{[^}]*border-radius:\s*var\(--card-radius-compact\);/s);
+    expect(styles).toMatch(/\.support-create-task-screen \.task-screen-body\s*\{[^}]*padding-inline:\s*max\(14px, calc\(var\(--club-safe-left\) \+ 14px\)\) max\(14px, calc\(var\(--club-safe-right\) \+ 14px\)\);/s);
+  });
+
+  it("aligns the full-screen chat header and message content to the same gutters", () => {
+    expect(community).toMatch(/\.community-chat-open \.chat-room-header\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*auto;[^}]*margin:\s*12px 14px 0;[^}]*border:\s*1px solid var\(--color-border\);[^}]*border-radius:\s*var\(--card-radius\);[^}]*background:\s*var\(--color-surface\);[^}]*box-shadow:\s*var\(--shadow-sm\);/s);
+    expect(community).toMatch(/\.community-chat-open :is\(\.chat-room-notices, \.chat-messages\)\s*\{[^}]*padding-right:\s*max\(14px, calc\(var\(--club-safe-right\) \+ 14px\)\);[^}]*padding-left:\s*max\(14px, calc\(var\(--club-safe-left\) \+ 14px\)\);/s);
+    expect(community).toMatch(/\.community-chat-open \.chat-room-header-title\s*\{[^}]*color:\s*var\(--color-text\);/s);
+    expect(community).toMatch(/\.community-chat-open \.chat-room-header-subtitle\s*\{[^}]*color:\s*var\(--color-text-muted\);/s);
+    expect(community).toMatch(/@media \(max-width:\s*360px\)[\s\S]*?\.community-chat-open \.chat-room-header\s*\{[^}]*border-radius:\s*var\(--card-radius-compact\);/s);
+  });
+
   it("uses the same semantic title and subtitle classes in the full-screen chat header", () => {
     expect(communitySource).toContain('class="chat-room-header-title"');
     expect(communitySource).toContain('class="chat-room-header-subtitle"');
