@@ -1317,6 +1317,8 @@ export const adminMailingSchema = z.object({
   sentCount: z.number().int().nonnegative(),
   failedCount: z.number().int().nonnegative(),
   skippedCount: z.number().int().nonnegative(),
+  pendingCount: z.number().int().nonnegative(),
+  processingCount: z.number().int().nonnegative(),
   estimatedSeconds: z.number().int().nonnegative(),
   estimatedLabel: z.string(),
   attachment: mailingAttachmentSchema.nullable(),

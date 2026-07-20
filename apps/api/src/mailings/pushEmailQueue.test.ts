@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("push and email mailing queue", () => {
-  const source = readFileSync(resolve(__dirname, "../routes/mailings.ts"), "utf8");
+  const routeSource = readFileSync(resolve(__dirname, "../routes/mailings.ts"), "utf8");
+  const source = `${routeSource}\n${readFileSync(resolve(__dirname, "./deliveryState.ts"), "utf8")}`;
 
   it("persists delivery retry state without weakening recipient uniqueness", () => {
     const schema = readFileSync(resolve(__dirname, "../db/schema.ts"), "utf8");

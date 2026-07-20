@@ -21,6 +21,7 @@ import { getMailingDeliveryChannels, normalizeMailingChannel } from "../mailings
 import { estimateMailingDurationSeconds, formatMailingDuration } from "../mailings/estimate";
 import { planEmailDeliverySchedule } from "../mailings/emailPolicy";
 import { getMailingRetryDecision, getStaleMailingProcessingCutoff } from "../mailings/deliveryReliability";
+import { recalculateMailingDeliveryState } from "../mailings/deliveryState";
 import { resolveMailingText, sanitizeMailingHtml } from "../mailings/html";
 import {
   buildMailingAttachmentObjectKey,
@@ -441,50 +442,6 @@ export async function processMailingQueue(limit = 20) {
   }
 }
 
-export async function getMailingDeliveryCounts(mailingId: string) {
-  const [row] = await db
-    .select({
-      deliveryCount: sql<number>`count(*)::integer`,
-      sentCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'sent')::integer`,
-      failedCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'failed')::integer`,
-      skippedCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} LIKE 'skipped_%')::integer`,
-      pendingCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'pending')::integer`,
-      processingCount: sql<number>`count(*) FILTER (WHERE ${adminMailingRecipients.status} = 'processing')::integer`
-    })
-    .from(adminMailingRecipients)
-    .where(eq(adminMailingRecipients.mailingId, mailingId));
-
-  return {
-    deliveryCount: Number(row?.deliveryCount ?? 0),
-    sentCount: Number(row?.sentCount ?? 0),
-    failedCount: Number(row?.failedCount ?? 0),
-    skippedCount: Number(row?.skippedCount ?? 0),
-    pendingCount: Number(row?.pendingCount ?? 0),
-    processingCount: Number(row?.processingCount ?? 0)
-  };
-}
-
-export async function recalculateMailingDeliveryState(mailingId: string, now = new Date(), deferredUntil: Date | null = null) {
-  const counts = await getMailingDeliveryCounts(mailingId);
-  const hasOutstandingDeliveries = counts.pendingCount + counts.processingCount > 0;
-
-  await db
-    .update(adminMailings)
-    .set({
-      deliveryCount: counts.deliveryCount,
-      sentCount: counts.sentCount,
-      failedCount: counts.failedCount,
-      skippedCount: counts.skippedCount,
-      status: deferredUntil ? "scheduled" : hasOutstandingDeliveries ? "running" : "completed",
-      ...(deferredUntil ? { scheduledAt: deferredUntil, completedAt: null } : {}),
-      ...(deferredUntil || hasOutstandingDeliveries ? { completedAt: null } : { completedAt: now }),
-      updatedAt: now
-    })
-    .where(eq(adminMailings.id, mailingId));
-
-  return counts;
-}
-
 let mailingQueueTimer: ReturnType<typeof setInterval> | null = null;
 
 export function startMailingDispatcher() {
@@ -689,6 +646,70 @@ export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()
     return c.json({
       ok: true,
       mailing: await serializeAdminMailing(mailing)
+    });
+  })
+  .post("/:id/retry-failed", async (c) => {
+    const idResult = z.string().uuid().safeParse(c.req.param("id"));
+    if (!idResult.success) {
+      return c.json({ error: "Invalid mailing id" }, 400);
+    }
+
+    const mailing = await db.query.adminMailings.findFirst({
+      where: eq(adminMailings.id, idResult.data)
+    });
+    if (!mailing) {
+      return c.json({ error: "Рассылка не найдена." }, 404);
+    }
+
+    const now = new Date();
+    const retryRows = await db
+      .update(adminMailingRecipients)
+      .set({
+        status: "pending",
+        attemptCount: 0,
+        nextAttemptAt: null,
+        lastAttemptAt: null,
+        error: null,
+        updatedAt: now
+      })
+      .where(
+        and(
+          eq(adminMailingRecipients.mailingId, mailing.id),
+          eq(adminMailingRecipients.status, "failed")
+        )
+      )
+      .returning({ id: adminMailingRecipients.id });
+
+    if (retryRows.length === 0) {
+      return c.json({ error: "В этой рассылке нет ошибочных доставок для повтора." }, 409);
+    }
+
+    await recalculateMailingDeliveryState(mailing.id, now);
+    const refreshedMailing = await db.query.adminMailings.findFirst({
+      where: eq(adminMailings.id, mailing.id)
+    });
+    if (!refreshedMailing) {
+      return c.json({ error: "Не удалось обновить рассылку." }, 500);
+    }
+
+    await recordAdminAction(c, {
+      action: "mailing.failed.retry",
+      entityType: "mailing",
+      entityId: mailing.id,
+      summary: `Вернул ошибочные доставки рассылки "${mailing.title}" в очередь`,
+      metadata: {
+        title: mailing.title,
+        retryCount: retryRows.length
+      }
+    });
+
+    void processMailingQueue().catch((error) => {
+      logger.error({ error, mailingId: mailing.id }, "Unable to retry failed mailing deliveries");
+    });
+
+    return c.json({
+      ok: true,
+      mailing: await serializeAdminMailing(refreshedMailing)
     });
   })
   .post("/:id/test", async (c) => {

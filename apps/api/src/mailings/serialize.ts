@@ -5,6 +5,7 @@ import { adminMailings, users } from "../db/schema";
 import { getObjectReadUrl } from "../storage/s3";
 import { formatMailingDuration } from "./estimate";
 import { normalizeMailingChannel } from "./channels";
+import { getMailingDeliveryCounts } from "./deliveryState";
 
 const defaultFilters: MailingFilters = {
   accessStatus: "active",
@@ -58,7 +59,10 @@ async function getMailingCreator(mailing: AdminMailingRow) {
 }
 
 export async function serializeAdminMailing(mailing: AdminMailingRow): Promise<AdminMailing> {
-  const creator = await getMailingCreator(mailing);
+  const [creator, deliveryCounts] = await Promise.all([
+    getMailingCreator(mailing),
+    getMailingDeliveryCounts(mailing.id)
+  ]);
 
   return {
     id: mailing.id,
@@ -89,6 +93,8 @@ export async function serializeAdminMailing(mailing: AdminMailingRow): Promise<A
     sentCount: mailing.sentCount,
     failedCount: mailing.failedCount,
     skippedCount: mailing.skippedCount,
+    pendingCount: deliveryCounts.pendingCount,
+    processingCount: deliveryCounts.processingCount,
     estimatedSeconds: mailing.estimatedSeconds,
     estimatedLabel: formatMailingDuration(mailing.estimatedSeconds),
     attachment:
