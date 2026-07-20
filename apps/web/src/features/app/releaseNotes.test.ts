@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes consistent fullscreen headers as version 5.29", () => {
-    expect(appVersion).toBe("5.29");
-    expect(releaseNotes[0]?.title).toBe("Единые шапки внутренних экранов");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("14 px");
+  it("publishes the corrected module editor as version 5.30", () => {
+    expect(appVersion).toBe("5.30");
+    expect(releaseNotes[0]?.title).toBe("Ровный редактор модулей");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("создании и редактировании");
+
+    const sharedHeaderRelease = releaseNotes.find((note) => note.version === "5.29");
+    expect(sharedHeaderRelease?.title).toBe("Единые шапки внутренних экранов");
 
     const profileDetailRelease = releaseNotes.find((note) => note.version === "5.28");
     expect(profileDetailRelease?.title).toBe("Профиль: ровные внутренние экраны");
@@ -79,7 +82,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Consistent full-screen headers");
+    expect(englishNotes[0]?.title).toBe("Clean full-screen module editor");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Ровный редактор модулей",
+    items: [
+      "При создании и редактировании модуля форма и кнопки теперь используют полноценный экран без вложенного модального блока и наложенной полосы прокрутки.",
+      "Удаление, закрытие и сохранение перенесены в ровную нижнюю панель; логика сохранения модулей не изменилась."
+    ]
+  },
+  {
+    version: "5.29",
+    updatedAt: "21.07.2026 00:18",
     title: "Единые шапки внутренних экранов",
     items: [
       "Шапки модулей, уроков, оплаты, поддержки, уведомлений, админки и профиля теперь оформлены так же, как шапки основных разделов.",
@@ -3917,10 +3926,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Consistent full-screen headers",
+  title: "Clean full-screen module editor",
   items: [
-    "Modules, lessons, payments, support, notifications, admin, and profile workflows now use the same header card as the main sections.",
-    "Full-screen chat and routed page content now keep consistent 14 px safe gutters on Android and iPhone."
+    "Creating and editing a module now uses a true full-screen form without a nested modal panel or an overlaid scrollbar.",
+    "Delete, close, and save actions now live in the aligned bottom action bar while module behavior remains unchanged."
   ]
 };
 
