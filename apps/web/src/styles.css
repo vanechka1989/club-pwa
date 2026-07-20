@@ -16907,7 +16907,7 @@ body.club-keyboard-open .support-task-screen .task-screen-body {
   bottom: 0;
 }
 
-button,
+button:not(.message-reaction-button),
 a[role="button"],
 input[type="button"],
 input[type="submit"],

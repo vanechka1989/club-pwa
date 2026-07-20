@@ -73,6 +73,7 @@ describe("community rich message UI", () => {
   it("anchors applied reactions outside the bubble without increasing its height", () => {
     const section = read("CommunitySection.vue");
     const styles = read("community.css");
+    const globalStyles = read("../../styles.css");
     expect(section).toContain('class="chat-message-content"');
     expect(section).toMatch(/class="chat-message-content"[\s\S]*class="chat-bubble"[\s\S]*class="message-reactions"/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-message-content\s*\{[^}]*position:\s*relative;/s);
@@ -81,7 +82,8 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*min-width:\s*34px;[^}]*height:\s*30px;[^}]*padding:\s*0 6px;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::after\s*\{[^}]*inset:\s*-7px -5px;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button span\s*\{\s*font-size:\s*14px;/s);
-    expect(styles).toMatch(/html body \.community-chat-open \.chat-message-content \.message-reaction-button\s*\{[^}]*height:\s*30px !important;[^}]*min-height:\s*30px !important;[^}]*max-height:\s*30px !important;/s);
+    expect(styles).toMatch(/html body \.community-chat-open \.chat-message-content \.message-reaction-button\s*\{[^}]*height:\s*30px;[^}]*min-height:\s*30px;[^}]*max-height:\s*30px;/s);
+    expect(globalStyles).toContain("button:not(.message-reaction-button)");
   });
 
   it("uses one clean emoji tray without framed emoji circles", () => {
