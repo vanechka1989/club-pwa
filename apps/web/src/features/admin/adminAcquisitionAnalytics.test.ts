@@ -15,6 +15,8 @@ describe("admin acquisition analytics", () => {
 
   it("keeps zero-value funnel percentages separate from labels", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    expect(source).toContain("Статистика переходов");
+    expect(source).not.toContain("<strong>Воронка</strong>");
     expect(source).toContain('class="acquisition-funnel-track"');
     expect(source).toContain('class="acquisition-funnel-fill"');
   });

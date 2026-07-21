@@ -156,7 +156,7 @@ onMounted(load);
     </div>
 
     <section class="acquisition-card acquisition-funnel">
-      <div class="acquisition-card-title"><div><strong>Воронка</strong><small>Уникальные пользователи</small></div></div>
+      <div class="acquisition-card-title"><div><strong>Статистика переходов</strong><small>Уникальные пользователи</small></div></div>
       <div class="acquisition-funnel-bars">
         <div v-for="(item, index) in funnel" :key="item.label" class="acquisition-funnel-step">
           <div class="acquisition-funnel-track">
