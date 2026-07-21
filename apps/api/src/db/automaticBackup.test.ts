@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildAutomaticBackupKey, selectExpiredBackupKeys } from "./automaticBackupPolicy";
+
+const backupRunner = readFileSync(resolve(__dirname, "./runAutomaticBackup.ts"), "utf-8");
 
 describe("automatic database backups", () => {
   it("stores database dumps under an isolated S3 prefix", () => {
@@ -23,5 +27,9 @@ describe("automatic database backups", () => {
         retentionDays: 30
       })
     ).toEqual(["system/database-backups/old.dump"]);
+  });
+
+  it("exits after a successful one-shot backup", () => {
+    expect(backupRunner).toContain("process.exit(0)");
   });
 });

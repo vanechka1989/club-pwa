@@ -6,6 +6,7 @@ const retentionDays = Number.isFinite(parsedRetentionDays) && parsedRetentionDay
 try {
   const result = await runAutomaticDatabaseBackup({ retentionDays });
   console.log(JSON.stringify({ ok: true, ...result }));
+  process.exit(0);
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
