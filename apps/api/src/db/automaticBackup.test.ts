@@ -1,0 +1,27 @@
+import { describe, expect, it } from "vitest";
+import { buildAutomaticBackupKey, selectExpiredBackupKeys } from "./automaticBackupPolicy";
+
+describe("automatic database backups", () => {
+  it("stores database dumps under an isolated S3 prefix", () => {
+    expect(buildAutomaticBackupKey(new Date("2026-07-22T01:02:03.000Z"))).toBe(
+      "system/database-backups/club-database-2026-07-22-01-02-03.dump"
+    );
+  });
+
+  it("deletes only old completed backup objects", () => {
+    const objects = [
+      { key: "system/database-backups/old.dump", lastModified: "2026-06-01T00:00:00.000Z" },
+      { key: "system/database-backups/current.dump", lastModified: "2026-06-01T00:00:00.000Z" },
+      { key: "system/database-backups/recent.dump", lastModified: "2026-07-20T00:00:00.000Z" },
+      { key: "learning/unrelated.dump", lastModified: "2026-01-01T00:00:00.000Z" }
+    ];
+
+    expect(
+      selectExpiredBackupKeys(objects, {
+        currentKey: "system/database-backups/current.dump",
+        now: new Date("2026-07-22T00:00:00.000Z"),
+        retentionDays: 30
+      })
+    ).toEqual(["system/database-backups/old.dump"]);
+  });
+});

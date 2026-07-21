@@ -20,5 +20,10 @@
     "axe-core": "^4.10.2",
     "typescript": "^5.7.3",
     "vitest": "^3.2.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "shell-quote": "1.9.0"
+    }
   }
 }

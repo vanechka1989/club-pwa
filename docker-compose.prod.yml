@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -13,6 +19,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    logging: *default-logging
 
   uploads-permissions:
     image: club-pwa-api:latest
@@ -29,6 +36,7 @@ services:
     cap_add:
       - CHOWN
     read_only: true
+    logging: *default-logging
 
   api:
     image: club-pwa-api:latest
@@ -90,6 +98,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+    logging: *default-logging
 
   migrate:
     image: club-pwa-api:latest
@@ -136,6 +145,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    logging: *default-logging
 
   web:
     image: club-pwa-web:latest
@@ -155,6 +165,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    logging: *default-logging
 
   caddy:
     image: caddy:2-alpine
@@ -171,6 +182,7 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    logging: *default-logging
 
 volumes:
   postgres-data:
