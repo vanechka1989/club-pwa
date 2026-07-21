@@ -16,15 +16,15 @@ export function destinationFromLink(link: typeof acquisitionLinks.$inferSelect):
 }
 
 export async function createAcquisitionLink(input: AcquisitionLinkInput, actorUserId: string | null) {
-  const source = normalizeAcquisitionLabel(input.source) || "direct";
-  const medium = normalizeAcquisitionLabel(input.medium) || "link";
-  const campaign = normalizeAcquisitionLabel(input.campaign) || "campaign";
+  const source = normalizeAcquisitionLabel(input.source) ?? "";
+  const medium = normalizeAcquisitionLabel(input.medium) ?? "";
+  const campaign = normalizeAcquisitionLabel(input.campaign) ?? "";
   const content = normalizeAcquisitionLabel(input.content);
   const destination = normalizeAcquisitionDestination(input.destination);
   const [created] = await db
     .insert(acquisitionLinks)
     .values({
-      aid: buildAcquisitionAid(`${source}-${campaign}`),
+      aid: buildAcquisitionAid([source, medium, campaign, content].filter(Boolean).join("-") || input.name),
       name: input.name.trim(),
       source,
       medium,

@@ -71,6 +71,8 @@ describe("admin acquisition analytics", () => {
     expect(card).toContain("utm_medium");
     expect(card).toContain("utm_campaign");
     expect(card).toContain("utm_content");
+    expect(card).toContain('class="client-acquisition-source-value"');
+    expect(card).not.toContain('class="client-acquisition-source"');
     expect(card).not.toContain("Первое касание");
     expect(card).not.toContain("Последнее касание");
     expect(card).not.toContain("История переходов");
@@ -78,6 +80,24 @@ describe("admin acquisition analytics", () => {
     expect(card).not.toContain("client-acquisition-milestones");
     expect(section).toContain("<AdminClientAcquisition");
     expect(section).not.toContain('@analytics="openSelectedUserAcquisitionAnalytics"');
+  });
+
+  it("places link management first and accepts any single UTM field", () => {
+    const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    expect(source.indexOf('class="acquisition-links-entry')).toBeLessThan(source.indexOf('class="acquisition-kpis"'));
+    expect(source).toContain("hasAnyUtm");
+    expect(source).toContain("canCreateLink");
+    expect(source).toContain(":disabled=\"saving || !canCreateLink\"");
+    expect(source).not.toContain('v-model.trim="form.source" required');
+    expect(source).not.toContain('v-model.trim="form.medium" required');
+    expect(source).not.toContain('v-model.trim="form.campaign" required');
+  });
+
+  it("shows who created each advertising link", () => {
+    const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    expect(source).toContain("link.createdBy?.label");
+    expect(source).toContain("Создал");
+    expect(source).toContain("formatLinkCreatedAt");
   });
 
   it("names acquisition analytics as advertising links", () => {

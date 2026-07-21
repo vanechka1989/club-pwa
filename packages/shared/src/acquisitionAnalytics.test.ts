@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   acquisitionDestinationSchema,
+  acquisitionLinkInputSchema,
   adminAcquisitionDayDetailSchema,
   adminAcquisitionDashboardSchema,
   adminAcquisitionLinkSchema,
@@ -19,6 +20,25 @@ const touch = {
 };
 
 describe("acquisition analytics contracts", () => {
+  it("requires a name and at least one UTM value without requiring every UTM field", () => {
+    expect(acquisitionLinkInputSchema.parse({
+      name: "VK пост",
+      source: "vk",
+      medium: "",
+      campaign: "",
+      content: "",
+      destination: { kind: "home" }
+    })).toMatchObject({ source: "vk", medium: "", campaign: "" });
+    expect(() => acquisitionLinkInputSchema.parse({
+      name: "Пустая ссылка",
+      source: "",
+      medium: "",
+      campaign: "",
+      content: "",
+      destination: { kind: "home" }
+    })).toThrow();
+  });
+
   it("accepts safe destinations and rejects external redirects", () => {
     expect(acquisitionDestinationSchema.parse({ kind: "module", moduleId: "f08ac73a-4ca1-4ed2-b6c2-47cd32b45290" })).toEqual({
       kind: "module",
@@ -45,10 +65,11 @@ describe("acquisition analytics contracts", () => {
         registrations: 4,
         paidUsers: 2,
         revenueRub: 5000,
+        createdBy: { id: "f08ac73a-4ca1-4ed2-b6c2-47cd32b45291", label: "Иван" },
         createdAt: "2026-07-21T00:00:00.000Z",
         updatedAt: "2026-07-21T00:00:00.000Z"
-      }).aid
-    ).toBe("telegram-july");
+      }).createdBy?.label
+    ).toBe("Иван");
 
     expect(
       adminAcquisitionDashboardSchema.parse({

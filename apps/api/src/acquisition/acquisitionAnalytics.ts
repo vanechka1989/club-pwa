@@ -30,6 +30,7 @@ type AnalyticsLink = {
   content: string | null;
   destination: AcquisitionDestination;
   isActive: boolean;
+  createdBy?: { id: string; label: string } | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -62,9 +63,9 @@ const rate = (value: number, total: number) => (total ? Math.round((value / tota
 function makeTrackedUrl(origin: string, link: AnalyticsLink) {
   const url = new URL("/", origin);
   url.searchParams.set("aid", link.aid);
-  url.searchParams.set("utm_source", link.source);
-  url.searchParams.set("utm_medium", link.medium);
-  url.searchParams.set("utm_campaign", link.campaign);
+  if (link.source) url.searchParams.set("utm_source", link.source);
+  if (link.medium) url.searchParams.set("utm_medium", link.medium);
+  if (link.campaign) url.searchParams.set("utm_campaign", link.campaign);
   if (link.content) url.searchParams.set("utm_content", link.content);
   return url.toString();
 }
@@ -166,6 +167,7 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
       registrations,
       paidUsers: paidUsers.length,
       revenueRub,
+      createdBy: link.createdBy ?? null,
       createdAt: link.createdAt.toISOString(),
       updatedAt: link.updatedAt.toISOString()
     };
@@ -273,14 +275,27 @@ export function buildUserAcquisition(input: {
 
 async function loadAnalyticsData(): Promise<AnalyticsData> {
   const [linkRows, visitRows, attributionRows, orderRows] = await Promise.all([
-    db.select().from(acquisitionLinks).orderBy(asc(acquisitionLinks.createdAt)),
+    db.select({
+      link: acquisitionLinks,
+      creatorDisplayName: users.displayName,
+      creatorFirstName: users.firstName,
+      creatorUsername: users.username,
+      creatorTelegramId: users.telegramId
+    }).from(acquisitionLinks).leftJoin(users, eq(acquisitionLinks.createdByUserId, users.id)).orderBy(asc(acquisitionLinks.createdAt)),
     db.select({ id: acquisitionVisits.id, visitorHash: acquisitionVisitors.visitorHash, linkId: acquisitionVisits.linkId, userId: acquisitionVisits.userId, occurredAt: acquisitionVisits.occurredAt })
       .from(acquisitionVisits).innerJoin(acquisitionVisitors, eq(acquisitionVisits.visitorId, acquisitionVisitors.id)),
     db.select().from(userAcquisitionAttributions),
     db.select({ userId: paymentOrders.userId, status: paymentOrders.status, amountRub: paymentOrders.amountRub, paidAt: paymentOrders.paidAt }).from(paymentOrders)
   ]);
   return {
-    links: linkRows.map((link) => ({ ...link, destination: destinationFromLink(link) })),
+    links: linkRows.map((row) => ({
+      ...row.link,
+      destination: destinationFromLink(row.link),
+      createdBy: row.link.createdByUserId ? {
+        id: row.link.createdByUserId,
+        label: row.creatorDisplayName || row.creatorFirstName || (row.creatorUsername ? `@${row.creatorUsername}` : null) || row.creatorTelegramId || "Пользователь"
+      } : null
+    })),
     visits: visitRows,
     attributions: attributionRows.map((item) => ({ userId: item.userId, firstLinkId: item.firstLinkId, lastLinkId: item.lastLinkId, registeredAt: item.registeredAt })),
     orders: orderRows
@@ -305,7 +320,11 @@ export async function getAcquisitionDayDetail(date: string) {
 }
 
 export async function listAcquisitionLinks(origin: string) {
-  return (await getAcquisitionDashboard({ attribution: "last", from: null, to: null, origin })).topLinks;
+  return sortAcquisitionLinksNewestFirst((await getAcquisitionDashboard({ attribution: "last", from: null, to: null, origin })).topLinks);
+}
+
+export function sortAcquisitionLinksNewestFirst<T extends { createdAt: Date | string }>(links: T[]) {
+  return [...links].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
 export async function getUserAcquisition(userId: string) {

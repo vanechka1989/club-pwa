@@ -20,6 +20,8 @@ const saving = ref(false);
 const copiedId = ref<string | null>(null);
 const error = ref<string | null>(null);
 const form = reactive({ name: "", source: "", medium: "", campaign: "", content: "", destinationKind: "home" as "home" | "billing" | "module", moduleId: "" });
+const hasAnyUtm = computed(() => [form.source, form.medium, form.campaign, form.content].some((value) => value.trim()));
+const canCreateLink = computed(() => Boolean(form.name.trim() && hasAnyUtm.value && (form.destinationKind !== "module" || form.moduleId.trim())));
 
 const dateOptions = computed(() => ({
   ...(props.from ? { from: new Date(`${props.from}T00:00:00`).toISOString() } : {}),
@@ -52,6 +54,10 @@ async function load() {
 }
 
 async function createLink() {
+  if (!canCreateLink.value) {
+    error.value = "Укажите название и хотя бы одну UTM-метку.";
+    return;
+  }
   const destination: AcquisitionDestination = form.destinationKind === "module" ? { kind: "module", moduleId: form.moduleId } : { kind: form.destinationKind };
   saving.value = true;
   error.value = null;
@@ -119,6 +125,8 @@ function clients(value: number) {
 function shortDate(value: string) { return new Date(value).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }); }
 function fullDate(value: string | null) { return value ? new Date(`${value}T00:00:00Z`).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : ""; }
 function eventTime(value: string) { return new Date(value).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }); }
+function formatLinkCreatedAt(value: string) { return new Date(value).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }); }
+function linkUtmSummary(link: AdminAcquisitionLink) { return [link.source, link.medium, link.campaign, link.content].filter(Boolean).join(" / "); }
 function personInitial(person: AdminAcquisitionPerson | null, fallback: string) { return (person?.label || fallback).trim().charAt(0).toUpperCase() || "•"; }
 
 watch([() => props.from, () => props.to], load);
@@ -133,6 +141,12 @@ onMounted(load);
     </header>
 
     <p v-if="error" class="acquisition-error">{{ error }}</p>
+
+    <button class="acquisition-links-entry ui-button" type="button" @click="linkScreenOpen = true">
+      <span class="acquisition-links-icon"><Link2 aria-hidden="true" /></span>
+      <span><strong>Метки и ссылки</strong><small>Создать ссылку и посмотреть результаты</small></span>
+      <em>{{ links.length }}</em><ChevronRight aria-hidden="true" />
+    </button>
 
     <div class="acquisition-kpis">
       <article><MousePointerClick aria-hidden="true" /><span>Визиты</span><strong>{{ dashboard?.summary.uniqueVisitors ?? '—' }}</strong><small>{{ dashboard?.summary.visits ?? 0 }} переходов</small></article>
@@ -191,12 +205,6 @@ onMounted(load);
       <p v-else class="acquisition-empty">Источников пока нет.</p>
     </section>
 
-    <button class="acquisition-links-entry ui-button" type="button" @click="linkScreenOpen = true">
-      <span class="acquisition-links-icon"><Link2 aria-hidden="true" /></span>
-      <span><strong>Метки и ссылки</strong><small>Создать ссылку и посмотреть результаты</small></span>
-      <em>{{ links.length }}</em><ChevronRight aria-hidden="true" />
-    </button>
-
     <TaskScreen v-if="dayScreenOpen" title="Статистика за день" :subtitle="fullDate(selectedDay)" portal @back="closeDay">
       <div class="acquisition-day-screen">
         <p v-if="dayLoading" class="acquisition-day-state">Загружаю посетителей…</p>
@@ -244,16 +252,17 @@ onMounted(load);
         <form class="acquisition-link-form" @submit.prevent="createLink">
           <div class="acquisition-form-head"><span><Plus aria-hidden="true" /></span><div><strong>Новая ссылка</strong><small>UTM-параметры добавятся автоматически</small></div></div>
           <label><span>Название</span><input v-model.trim="form.name" required maxlength="120" placeholder="Например, Пост в Telegram" /></label>
-          <div class="acquisition-form-grid"><label><span>Источник</span><input v-model.trim="form.source" required placeholder="telegram" /></label><label><span>Канал</span><input v-model.trim="form.medium" required placeholder="post" /></label></div>
-          <div class="acquisition-form-grid"><label><span>Кампания</span><input v-model.trim="form.campaign" required placeholder="july_launch" /></label><label><span>Вариант</span><input v-model.trim="form.content" placeholder="button_a" /></label></div>
+          <p class="acquisition-utm-hint">Заполните хотя бы одну UTM-метку.</p>
+          <div class="acquisition-form-grid"><label><span>Источник</span><input v-model.trim="form.source" placeholder="telegram" /></label><label><span>Канал</span><input v-model.trim="form.medium" placeholder="post" /></label></div>
+          <div class="acquisition-form-grid"><label><span>Кампания</span><input v-model.trim="form.campaign" placeholder="july_launch" /></label><label><span>Вариант</span><input v-model.trim="form.content" placeholder="button_a" /></label></div>
           <label><span>После регистрации</span><select v-model="form.destinationKind"><option value="home">Главная</option><option value="billing">Оплата</option><option value="module">Модуль</option></select></label>
           <label v-if="form.destinationKind === 'module'"><span>Модуль</span><select v-if="learningCategories?.length" v-model="form.moduleId" required><option disabled value="">Выберите модуль</option><option v-for="category in learningCategories" :key="category.id" :value="category.id">{{ category.title }}</option></select><input v-else v-model.trim="form.moduleId" required placeholder="ID модуля" /></label>
-          <button class="primary-button ui-button" type="submit" :disabled="saving">{{ saving ? 'Создаю…' : 'Создать и скопировать' }}</button>
+          <button class="primary-button ui-button" type="submit" :disabled="saving || !canCreateLink">{{ saving ? 'Создаю…' : 'Создать и скопировать' }}</button>
         </form>
 
         <div class="acquisition-link-list">
           <article v-for="link in links" :key="link.id" :class="{ inactive: !link.isActive }">
-            <div class="acquisition-link-title"><div><strong>{{ link.name }}</strong><small>{{ link.source }} / {{ link.medium }} / {{ link.campaign }}</small></div><button type="button" :aria-label="link.isActive ? 'Отключить' : 'Включить'" @click="toggleLink(link)"><span :class="{ on: link.isActive }"></span></button></div>
+            <div class="acquisition-link-title"><div><strong>{{ link.name }}</strong><small>{{ linkUtmSummary(link) }}</small><small class="acquisition-link-author">Создал {{ link.createdBy?.label ?? 'Система' }} · {{ formatLinkCreatedAt(link.createdAt) }}</small></div><button type="button" :aria-label="link.isActive ? 'Отключить' : 'Включить'" @click="toggleLink(link)"><span :class="{ on: link.isActive }"></span></button></div>
             <button class="acquisition-link-url" type="button" @click="copyLink(link)"><span>{{ link.url }}</span><Check v-if="copiedId === link.id" aria-hidden="true" /><Copy v-else aria-hidden="true" /></button>
             <div class="acquisition-link-stats"><span><b>{{ link.uniqueVisitors }}</b>визитов</span><span><b>{{ link.registrations }}</b>регистраций</span><span><b>{{ link.paidUsers }}</b>оплатили</span><span><b>{{ money(link.revenueRub) }}</b>выручка</span></div>
           </article>
@@ -270,6 +279,7 @@ onMounted(load);
 .acquisition-chart-scroll{min-height:128px;gap:10px}.acquisition-chart-day{min-width:42px;min-height:112px;padding:0;border:0;background:transparent;color:var(--text);font:inherit;cursor:pointer}.acquisition-chart-day:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:7px}.acquisition-chart-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;font-size:10px;line-height:1}.acquisition-chart-values b{min-width:12px;font-weight:900;text-align:center}.value-visits{color:var(--accent)}.value-regs{color:#78b2ff}.value-paid{color:#c99aff}
 .acquisition-source-list{display:grid;gap:10px;margin-top:12px}.acquisition-source-list article{display:grid;gap:10px;padding:12px 0;border-top:1px solid var(--border)}.acquisition-source-list article>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.acquisition-source-list article>header strong{min-width:0}.acquisition-source-list article>header small{flex:0 0 auto;color:var(--muted);font-size:10px}.acquisition-source-metrics{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;overflow:visible!important}.acquisition-source-metrics>span{display:grid;min-width:0;gap:3px;padding:9px 10px;border-radius:11px;background:var(--surface-soft);text-align:left!important}.acquisition-source-metrics small{color:var(--muted);font-size:9px}.acquisition-source-metrics b{min-width:0;font-size:12px;line-height:1.2;overflow-wrap:anywhere}
 .acquisition-day-screen{display:grid;gap:12px;padding:0 var(--page-pad,16px) calc(24px + env(safe-area-inset-bottom))}.acquisition-day-state{margin:0;padding:20px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--muted);text-align:center}.acquisition-day-group{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.acquisition-day-group>header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px}.acquisition-day-group>header>span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}.acquisition-day-group>header svg{width:19px}.acquisition-day-group>header>div{display:grid;gap:2px;min-width:0}.acquisition-day-group>header small{color:var(--muted);font-size:10px;line-height:1.3}.acquisition-day-group>header>b{min-width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--surface-soft);color:var(--accent)}.acquisition-day-list{display:grid}.acquisition-day-list>button{width:100%;min-height:58px;padding:8px 0;border:0;border-top:1px solid var(--border);background:transparent;color:var(--text);display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:9px;text-align:left}.acquisition-day-list>button:disabled{opacity:1}.acquisition-day-list>button:not(:disabled){cursor:pointer}.acquisition-day-list>button:not(:disabled):active{background:var(--surface-soft)}.acquisition-day-list>button>span:nth-child(2){display:grid;gap:2px;min-width:0}.acquisition-day-list>button small{color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acquisition-day-list>button time{color:var(--muted);font-size:10px}.acquisition-day-list>button svg{width:16px;color:var(--muted)}.acquisition-day-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface-soft));color:var(--accent);font-weight:900}.acquisition-day-list>p{margin:0;padding:12px 0 2px;color:var(--muted);font-size:11px}
+.acquisition-utm-hint{margin:0;color:var(--muted);font-size:11px}.acquisition-link-author{margin-top:3px;font-size:10px}
 @media(max-width:359px){.acquisition-kpis{grid-template-columns:1fr}.acquisition-form-grid{grid-template-columns:1fr}.acquisition-model button{font-size:11px}.acquisition-links-entry{grid-template-columns:auto 1fr auto}.acquisition-links-entry>svg{display:none}.acquisition-source-list article{align-items:flex-start}.acquisition-source-list article>span{flex:0 0 88px}.acquisition-link-stats{grid-template-columns:1fr 1fr}}
 @media(min-width:720px){.acquisition-kpis{grid-template-columns:repeat(4,1fr)}.acquisition-link-screen{max-width:760px;margin:auto}.acquisition-link-stats{grid-template-columns:repeat(4,1fr)}}
 </style>

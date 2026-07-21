@@ -14,4 +14,11 @@ describe("admin acquisition routes", () => {
     expect(route).toContain('action: "acquisition.link.created"');
     expect(route).toContain('action: "acquisition.link.status_changed"');
   });
+
+  it("loads the creator identity for acquisition link cards", () => {
+    const analytics = readFileSync(resolve(process.cwd(), "src/acquisition/acquisitionAnalytics.ts"), "utf8");
+    expect(analytics).toContain("createdByUserId");
+    expect(analytics).toContain("creatorDisplayName");
+    expect(analytics).toContain("createdBy:");
+  });
 });

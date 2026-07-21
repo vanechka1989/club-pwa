@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.hoisted(() => {
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgres://club:club@localhost:5432/club";
 });
-import { buildAcquisitionDashboard, buildAcquisitionDayDetail, buildUserAcquisition } from "./acquisitionAnalytics";
+import { buildAcquisitionDashboard, buildAcquisitionDayDetail, buildUserAcquisition, sortAcquisitionLinksNewestFirst } from "./acquisitionAnalytics";
 
 const linkA = { id: "a", aid: "telegram-july", name: "Telegram", source: "telegram", medium: "post", campaign: "july", content: null, destination: { kind: "home" as const }, isActive: true, createdAt: new Date("2026-07-01"), updatedAt: new Date("2026-07-01") };
 const linkB = { id: "b", aid: "vk-july", name: "VK", source: "vk", medium: "ads", campaign: "july", content: "blue", destination: { kind: "billing" as const }, isActive: true, createdAt: new Date("2026-07-01"), updatedAt: new Date("2026-07-01") };
@@ -38,6 +38,25 @@ describe("acquisition analytics aggregation", () => {
       { attribution: "first", from: null, to: null, origin: "https://club.example" }
     );
     expect(dashboard.sources.find((row) => row.key === "telegram")).toMatchObject({ registrations: 2, paidUsers: 1, revenueRub: 1500 });
+  });
+
+  it("omits empty UTM values from generated URLs", () => {
+    const partialLink = { ...linkA, source: "vk", medium: "", campaign: "", content: null };
+    const dashboard = buildAcquisitionDashboard(
+      { links: [partialLink], visits: [], attributions: [], orders: [] },
+      { attribution: "last", from: null, to: null, origin: "https://club.example" }
+    );
+    expect(dashboard.topLinks[0]?.url).toContain("utm_source=vk");
+    expect(dashboard.topLinks[0]?.url).not.toContain("utm_medium=");
+    expect(dashboard.topLinks[0]?.url).not.toContain("utm_campaign=");
+    expect(dashboard.topLinks[0]?.url).not.toContain("utm_content=");
+  });
+
+  it("sorts the management list with the newest link first", () => {
+    expect(sortAcquisitionLinksNewestFirst([
+      { ...linkA, createdAt: new Date("2026-07-01") },
+      { ...linkB, createdAt: new Date("2026-07-20") }
+    ]).map((link) => link.id)).toEqual(["b", "a"]);
   });
 
   it("shows how many registrations overlap between first and last source", () => {

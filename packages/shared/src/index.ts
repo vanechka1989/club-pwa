@@ -68,11 +68,15 @@ export type AcquisitionDestination = z.infer<typeof acquisitionDestinationSchema
 export const acquisitionAidSchema = z.string().trim().min(3).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const acquisitionLinkInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  source: z.string().trim().min(1).max(80),
-  medium: z.string().trim().min(1).max(80),
-  campaign: z.string().trim().min(1).max(120),
+  source: z.string().trim().max(80),
+  medium: z.string().trim().max(80),
+  campaign: z.string().trim().max(120),
   content: z.string().trim().max(120).nullable().optional(),
   destination: acquisitionDestinationSchema.default({ kind: "home" })
+}).superRefine((value, context) => {
+  if (![value.source, value.medium, value.campaign, value.content].some((item) => item?.trim())) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Заполните хотя бы одну UTM-метку", path: ["source"] });
+  }
 });
 export type AcquisitionLinkInput = z.infer<typeof acquisitionLinkInputSchema>;
 
@@ -122,6 +126,7 @@ export const adminAcquisitionLinkSchema = z.object({
   registrations: z.number().int().nonnegative().default(0),
   paidUsers: z.number().int().nonnegative().default(0),
   revenueRub: z.number().int().nonnegative().default(0),
+  createdBy: z.object({ id: z.string().uuid(), label: z.string() }).nullable().default(null),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
