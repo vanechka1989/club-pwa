@@ -800,6 +800,9 @@ const statisticsPeriodOptions: Array<{ value: AdminStatisticsPeriod; label: stri
   { value: "custom", label: "Период" },
   { value: "all", label: "Всё время" }
 ];
+const statisticsPeriodShortLabel = computed(
+  () => statisticsPeriodOptions.find((period) => period.value === statisticsPeriod.value)?.label ?? "Период"
+);
 
 useOperationIndicator(adminOperation);
 
@@ -3231,6 +3234,9 @@ onUnmounted(() => {
       </div>
 
       <TaskScreen v-if="activeStatisticsDetail" class="admin-statistics-task-screen" :title="statisticsDetailMeta.title" :subtitle="statisticsDetailMeta.subtitle" portal @back="closeStatisticsDetail">
+        <template #actions>
+          <span class="admin-stat-task-period">{{ statisticsPeriodShortLabel }}</span>
+        </template>
         <AdminAcquisitionAnalytics
           v-if="activeStatisticsDetail === 'acquisition'"
           :from="statisticsDateRange?.from"

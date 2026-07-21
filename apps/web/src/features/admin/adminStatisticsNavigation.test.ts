@@ -62,4 +62,11 @@ describe("admin statistics navigation", () => {
     expect(styles).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
     expect(styles).toContain("body.club-mobile-device .admin-stat-periods");
   });
+
+  it("keeps the selected period visible inside every analytics detail", () => {
+    expect(section).toContain('<template #actions>');
+    expect(section).toContain('class="admin-stat-task-period"');
+    expect(section).toContain("statisticsPeriodShortLabel");
+    expect(styles).toContain(".admin-stat-task-period");
+  });
 });
