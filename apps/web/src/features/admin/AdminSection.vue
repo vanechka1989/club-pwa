@@ -38,6 +38,7 @@ import {
   Copy,
   CreditCard,
   ExternalLink,
+  Link2,
   Megaphone,
   Paperclip,
   RotateCcw,
@@ -169,6 +170,7 @@ const emit = defineEmits<{
 }>();
 
 type ClientAccessAction = "open" | "close" | "extend7" | "extend30" | "manual";
+type AnalyticsDetail = "acquisition" | StatisticsDetail;
 type UserDrilldownSelection =
   | {
       kind: "access";
@@ -297,7 +299,7 @@ const selectedUserLoginIpsLoading = ref(false);
 const selectedUserLoginIpsError = ref(false);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
-const activeStatisticsDetail = ref<StatisticsDetail | null>(null);
+const activeStatisticsDetail = ref<AnalyticsDetail | null>(null);
 const selectedMailing = ref<AdminMailing | null>(null);
 const mailingAnalytics = ref<AdminMailingAnalytics | null>(null);
 const mailingAnalyticsRecipients = ref<AdminMailingAnalyticsRecipient[]>([]);
@@ -641,7 +643,8 @@ const adminStatistics = computed(() =>
   )
 );
 const statisticsDetailMeta = computed(() => {
-  const meta: Record<StatisticsDetail, { title: string; subtitle: string }> = {
+  const meta: Record<AnalyticsDetail, { title: string; subtitle: string }> = {
+    acquisition: { title: "Привлечение", subtitle: "Источники, воронка и путь до оплаты" },
     clients: { title: "Клиенты", subtitle: "Доступ, ограничения и тарифы" },
     finance: { title: "Финансы", subtitle: "Выручка и статусы платежей" },
     learning: { title: "Обучение", subtitle: "Материалы и прогресс клиентов" },
@@ -1810,7 +1813,7 @@ function selectStatisticsPeriod(period: AdminStatisticsPeriod) {
   statisticsCustomTo.value ||= formatDateInput(to);
 }
 
-function openStatisticsDetail(detail: StatisticsDetail) {
+function openStatisticsDetail(detail: AnalyticsDetail) {
   activeStatisticsDetail.value = detail;
 }
 
@@ -3197,12 +3200,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <AdminAcquisitionAnalytics
-        :from="statisticsDateRange?.from"
-        :to="statisticsDateRange?.to"
-        :learning-categories="learningCategories"
-      />
-
       <div class="admin-stat-period-summary ui-card">
         <article><span>Выручка</span><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат за выбранный период</small></article>
         <article><span>Новые клиенты</span><strong>+{{ adminStatistics.clients.newInPeriod }}</strong><small>за выбранный период</small></article>
@@ -3213,6 +3210,9 @@ onUnmounted(() => {
       </p>
 
       <div class="admin-stat-overview-nav">
+        <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('acquisition')">
+          <span class="admin-stat-nav-icon"><Link2 aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Привлечение</strong><small>Источники и путь до оплаты</small></span><span class="admin-stat-nav-value"><strong>Воронка</strong><small>метки и кампании</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
+        </button>
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('clients')">
           <span class="admin-stat-nav-icon"><UsersRound aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Клиенты</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.clients.active }} / {{ adminStatistics.clients.total }}</strong><small>активны</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
         </button>
@@ -3231,7 +3231,13 @@ onUnmounted(() => {
       </div>
 
       <TaskScreen v-if="activeStatisticsDetail" class="admin-statistics-task-screen" :title="statisticsDetailMeta.title" :subtitle="statisticsDetailMeta.subtitle" portal @back="closeStatisticsDetail">
-        <AdminStatisticsDetail :detail="activeStatisticsDetail" :stats="adminStatistics" :poll-stats="pollStats" @access="openUserAccessDrilldown" @tariff="openUserTariffDrilldown" @payment="openPaymentDrilldown" />
+        <AdminAcquisitionAnalytics
+          v-if="activeStatisticsDetail === 'acquisition'"
+          :from="statisticsDateRange?.from"
+          :to="statisticsDateRange?.to"
+          :learning-categories="learningCategories"
+        />
+        <AdminStatisticsDetail v-else :detail="activeStatisticsDetail" :stats="adminStatistics" :poll-stats="pollStats" @access="openUserAccessDrilldown" @tariff="openUserTariffDrilldown" @payment="openPaymentDrilldown" />
       </TaskScreen>
     </section>
 

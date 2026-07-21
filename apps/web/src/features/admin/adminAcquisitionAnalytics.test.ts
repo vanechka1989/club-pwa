@@ -13,6 +13,15 @@ describe("admin acquisition analytics", () => {
     expect(source).not.toContain('target="_blank"');
   });
 
+  it("renders the acquisition dashboard only inside the analytics task screen", () => {
+    const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const analyticsStart = section.indexOf(`activePanel === 'statistics'`);
+    const usersStart = section.indexOf(`activePanel === 'users'`);
+    const analytics = section.slice(analyticsStart, usersStart);
+    expect(analytics.indexOf("<AdminAcquisitionAnalytics")).toBeGreaterThan(analytics.indexOf("<TaskScreen"));
+    expect(analytics).toContain(`v-if="activeStatisticsDetail === 'acquisition'"`);
+  });
+
   it("shows first touch, last touch and history in client 360", () => {
     const card = readFileSync(resolve(__dirname, "AdminClientAcquisition.vue"), "utf8");
     const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");

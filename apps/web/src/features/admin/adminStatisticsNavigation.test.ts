@@ -7,12 +7,25 @@ const detail = () => readFileSync(resolve(__dirname, "AdminStatisticsDetail.vue"
 const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
 describe("admin statistics navigation", () => {
-  it("shows a two-metric period summary and five navigation rows", () => {
+  it("shows a two-metric period summary and six navigation rows", () => {
     expect(section).toContain('class="admin-stat-period-summary ui-card"');
-    expect(section.match(/class="admin-stat-nav-row/g)).toHaveLength(5);
-    for (const key of ["clients", "finance", "learning", "community", "polls"]) {
+    expect(section.match(/class="admin-stat-nav-row/g)).toHaveLength(6);
+    for (const key of ["acquisition", "clients", "finance", "learning", "community", "polls"]) {
       expect(section).toMatch(new RegExp(`openStatisticsDetail\\(['\"]${key}['\"]\\)`));
     }
+  });
+
+  it("keeps the overview compact and moves acquisition into its task screen", () => {
+    const overviewStart = section.indexOf(`activePanel === 'statistics'`);
+    const usersStart = section.indexOf(`activePanel === 'users'`);
+    const overview = section.slice(overviewStart, usersStart);
+    const taskScreenPosition = overview.indexOf("<TaskScreen");
+    const acquisitionPosition = overview.indexOf("<AdminAcquisitionAnalytics");
+
+    expect(overview).toContain("Источники и путь до оплаты");
+    expect(taskScreenPosition).toBeGreaterThan(-1);
+    expect(acquisitionPosition).toBeGreaterThan(taskScreenPosition);
+    expect(overview).toContain(`activeStatisticsDetail === 'acquisition'`);
   });
 
   it("opens every statistic area in a task screen", () => {
@@ -38,7 +51,7 @@ describe("admin statistics navigation", () => {
   });
 
   it("locks overview and detail arrows into dedicated aligned columns", () => {
-    expect(section.match(/class="admin-stat-nav-chevron"/g)).toHaveLength(5);
+    expect(section.match(/class="admin-stat-nav-chevron"/g)).toHaveLength(6);
     expect(detail().match(/class="admin-stat-metric-chevron"/g)).toHaveLength(3);
     expect(styles).toContain("grid-template-columns: 44px minmax(0, 1fr) minmax(72px, auto) 24px");
     expect(styles).toContain(".admin-stat-drilldown::after { content: none;");
