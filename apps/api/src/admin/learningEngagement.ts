@@ -23,6 +23,7 @@ async function loadSamples(from: Date, toExclusive: Date, contentItemId?: string
     .select({
       sessionId: learningEngagementSessions.sessionId,
       userId: learningEngagementSessions.userId,
+      telegramId: users.telegramId,
       contentItemId: learningEngagementSessions.contentItemId,
       title: contentItems.title,
       categoryTitle: contentCategories.title,
@@ -58,6 +59,7 @@ async function loadSamples(from: Date, toExclusive: Date, contentItemId?: string
   return rows.map((row): LearningEngagementSample => ({
     sessionId: row.sessionId,
     userId: row.userId,
+    telegramId: row.telegramId,
     contentItemId: row.contentItemId,
     title: row.title,
     categoryTitle: row.categoryTitle,

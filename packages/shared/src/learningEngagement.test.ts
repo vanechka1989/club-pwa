@@ -15,6 +15,6 @@ describe("learning engagement contracts", () => {
 
   it("accepts admin summary and user drilldown responses", () => {
     expect(learningEngagementResponseSchema.parse({ summary: { uniqueViewers: 0, views: 0, medianActiveSeconds: 0, quickExitPercent: 0 }, cards: [] }).cards).toEqual([]);
-    expect(learningEngagementUsersResponseSchema.parse({ item: { id: "item-1", title: "Урок", categoryTitle: "Модуль" }, users: [] }).users).toEqual([]);
+    expect(learningEngagementUsersResponseSchema.parse({ item: { id: "item-1", title: "Урок", categoryTitle: "Модуль" }, users: [{ userId: "u", telegramId: "1", displayName: "Иван", email: null, opens: 1, totalActiveSeconds: 10, videoSeconds: 0, playbackPositionSeconds: 0, lastViewedAt: "2026-07-21T10:00:00.000Z", completed: false }] }).users[0]?.telegramId).toBe("1");
   });
 });

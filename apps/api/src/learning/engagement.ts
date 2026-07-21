@@ -11,6 +11,7 @@ export type EngagementCounters = {
 export type LearningEngagementSample = EngagementCounters & {
   sessionId: string;
   userId: string;
+  telegramId: string;
   contentItemId: string;
   title: string;
   categoryTitle: string;
@@ -106,6 +107,7 @@ export function summarizeLearningEngagementUsers(samples: LearningEngagementSamp
     const first = rows[0]!;
     return {
       userId: first.userId,
+      telegramId: first.telegramId,
       displayName: first.displayName,
       email: first.email,
       opens: rows.length,

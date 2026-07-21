@@ -45,6 +45,8 @@ import type {
   AdminStatsUser,
   LearningContentResponse,
   LearningEngagementSnapshot,
+  LearningEngagementResponse,
+  LearningEngagementUsersResponse,
   LearningSaveOperationResponse,
   LessonCommentMutationResponse,
   LessonCommentsResponse,
@@ -820,6 +822,20 @@ export function transferClubOwner(telegramId: string) {
 
 export function getAdminStats() {
   return api<AdminStatsResponse>("/admin/stats");
+}
+
+export function getAdminLearningEngagement(options: { from?: string; to?: string } = {}) {
+  const query = new URLSearchParams();
+  if (options.from) query.set("from", options.from);
+  if (options.to) query.set("to", options.to);
+  return api<LearningEngagementResponse>(`/admin/analytics/learning-engagement${query.size ? `?${query}` : ""}`);
+}
+
+export function getAdminLearningEngagementUsers(itemId: string, options: { from?: string; to?: string } = {}) {
+  const query = new URLSearchParams();
+  if (options.from) query.set("from", options.from);
+  if (options.to) query.set("to", options.to);
+  return api<LearningEngagementUsersResponse>(`/admin/analytics/learning-engagement/${encodeURIComponent(itemId)}/users${query.size ? `?${query}` : ""}`);
 }
 
 export function getAdminAcquisitionDashboard(options: { from?: string; to?: string; attribution: AcquisitionAttribution }) {

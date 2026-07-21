@@ -57,6 +57,7 @@ import {
   idempotencyOperations,
   lessonMaterials,
   lessonComments,
+  learningEngagementSessions,
   paymentProviders,
   subscriptions,
   supportTicketAttachments,
@@ -1162,7 +1163,7 @@ function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect
 
 async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
-  const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory] = await Promise.all([
+  const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory, learningEngagementRows] = await Promise.all([
     buildStatsUser(user, totalItems),
     db.query.subscriptions.findMany({
       where: eq(subscriptions.userId, user.id),
@@ -1195,7 +1196,22 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
       where: eq(userDevices.userId, user.id),
       orderBy: [desc(userDevices.lastSeenAt)],
       limit: 30
-    })
+    }),
+    db
+      .select({
+        contentItemId: learningEngagementSessions.contentItemId,
+        title: contentItems.title,
+        categoryTitle: contentCategories.title,
+        activeSeconds: learningEngagementSessions.activeSeconds,
+        videoSeconds: learningEngagementSessions.videoSeconds,
+        lastViewedAt: learningEngagementSessions.lastActivityAt
+      })
+      .from(learningEngagementSessions)
+      .innerJoin(contentItems, eq(contentItems.id, learningEngagementSessions.contentItemId))
+      .innerJoin(contentCategories, eq(contentCategories.id, contentItems.categoryId))
+      .where(eq(learningEngagementSessions.userId, user.id))
+      .orderBy(desc(learningEngagementSessions.lastActivityAt))
+      .limit(500)
   ]);
 
   const adminActorIds = Array.from(
@@ -1278,6 +1294,33 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
   });
   const legacyDevice = user.deviceSnapshot ? deviceDiagnosticsSchema.safeParse(user.deviceSnapshot) : null;
   const device = devices[0]?.diagnostics ?? (legacyDevice?.success ? legacyDevice.data : null);
+  const learningEngagementByItem = new Map<string, {
+    contentItemId: string;
+    title: string;
+    categoryTitle: string;
+    opens: number;
+    totalActiveSeconds: number;
+    videoSeconds: number;
+    lastViewedAt: string;
+  }>();
+  for (const row of learningEngagementRows) {
+    const existing = learningEngagementByItem.get(row.contentItemId);
+    if (existing) {
+      existing.opens += 1;
+      existing.totalActiveSeconds += row.activeSeconds;
+      existing.videoSeconds += row.videoSeconds;
+      continue;
+    }
+    learningEngagementByItem.set(row.contentItemId, {
+      contentItemId: row.contentItemId,
+      title: row.title,
+      categoryTitle: row.categoryTitle,
+      opens: 1,
+      totalActiveSeconds: row.activeSeconds,
+      videoSeconds: row.videoSeconds,
+      lastViewedAt: row.lastViewedAt.toISOString()
+    });
+  }
 
   return {
     user: statsUser,
@@ -1294,7 +1337,8 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
     moderationEvents,
     device,
     devices,
-    referrals: userReferrals
+    referrals: userReferrals,
+    learningEngagement: [...learningEngagementByItem.values()]
   };
 }
 

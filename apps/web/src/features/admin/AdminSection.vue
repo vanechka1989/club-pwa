@@ -55,6 +55,7 @@ import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import AdminStatisticsDetail, { type StatisticsDetail } from "./AdminStatisticsDetail.vue";
 import AdminAcquisitionAnalytics from "./AdminAcquisitionAnalytics.vue";
+import AdminLearningEngagement from "./AdminLearningEngagement.vue";
 import AdminClientAcquisition from "./AdminClientAcquisition.vue";
 import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode";
 import {
@@ -575,6 +576,16 @@ const statisticsDateRange = computed(() =>
       }
     : undefined
 );
+const statisticsEngagementRange = computed(() => {
+  if (statisticsDateRange.value) return statisticsDateRange.value;
+  const to = new Date();
+  if (statisticsPeriod.value === "all") {
+    return { from: "2000-01-01", to: formatDateInput(to) };
+  }
+  const from = new Date(to);
+  from.setDate(from.getDate() - (statisticsPeriod.value === "7d" ? 6 : 29));
+  return { from: formatDateInput(from), to: formatDateInput(to) };
+});
 const statisticsOptions = computed(() =>
   statisticsDateRange.value
     ? { period: statisticsPeriod.value, dateRange: statisticsDateRange.value }
@@ -1756,6 +1767,13 @@ function formatAdminCompactDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatLearningEngagementDuration(seconds: number) {
+  if (seconds < 60) return `${seconds} сек.`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return hours ? `${hours} ч ${minutes} мин` : `${minutes} мин ${seconds % 60} сек`;
 }
 
 async function copyTextToClipboard(text: string) {
@@ -3244,6 +3262,12 @@ onUnmounted(() => {
           :learning-categories="learningCategories"
           @client="openAcquisitionClient"
         />
+        <AdminLearningEngagement
+          v-else-if="activeStatisticsDetail === 'learning'"
+          :from="statisticsEngagementRange.from"
+          :to="statisticsEngagementRange.to"
+          @client="openAcquisitionClient"
+        />
         <AdminStatisticsDetail v-else :detail="activeStatisticsDetail" :stats="adminStatistics" :poll-stats="pollStats" @access="openUserAccessDrilldown" @tariff="openUserTariffDrilldown" @payment="openPaymentDrilldown" />
       </TaskScreen>
     </section>
@@ -3489,6 +3513,24 @@ onUnmounted(() => {
                 <p v-if="!selectedUser.lastOpenedItemTitle && !selectedUserLastPayment" class="admin-empty">
                   Последних событий пока нет.
                 </p>
+              </div>
+            </details>
+
+            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
+              <summary>Просмотры обучения <span>{{ selectedUserDetail?.learningEngagement.length ?? 0 }} карточек</span></summary>
+              <div class="admin-accordion-body">
+                <p v-if="!selectedUserDetail?.learningEngagement.length" class="admin-empty">Данных об активном просмотре пока нет.</p>
+                <article v-for="item in selectedUserDetail?.learningEngagement ?? []" :key="item.contentItemId" class="admin-payment-card admin-payment-card-compact">
+                  <div class="admin-payment-main">
+                    <div><strong>{{ item.title }}</strong><small>{{ item.categoryTitle }}</small></div>
+                    <em>{{ formatLearningEngagementDuration(item.totalActiveSeconds) }}</em>
+                  </div>
+                  <div class="admin-payment-meta">
+                    <span>{{ item.opens }} открытий</span>
+                    <span v-if="item.videoSeconds">видео {{ formatLearningEngagementDuration(item.videoSeconds) }}</span>
+                    <span>последний просмотр {{ formatAdminCompactDateTime(item.lastViewedAt) }}</span>
+                  </div>
+                </article>
               </div>
             </details>
 

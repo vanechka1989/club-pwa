@@ -1114,7 +1114,16 @@ export const adminUserDetailResponseSchema = z.object({
   moderationEvents: z.array(adminUserModerationEventSchema),
   device: deviceDiagnosticsSchema.nullable().default(null),
   devices: z.array(adminUserDeviceSchema).default([]),
-  referrals: adminUserReferralsSchema.default({ invitedBy: null, invited: [] })
+  referrals: adminUserReferralsSchema.default({ invitedBy: null, invited: [] }),
+  learningEngagement: z.array(z.object({
+    contentItemId: z.string(),
+    title: z.string(),
+    categoryTitle: z.string(),
+    opens: z.number().int().nonnegative(),
+    totalActiveSeconds: z.number().int().nonnegative(),
+    videoSeconds: z.number().int().nonnegative(),
+    lastViewedAt: z.string().datetime()
+  })).default([])
 });
 export type AdminUserDetailResponse = z.infer<typeof adminUserDetailResponseSchema>;
 
@@ -1192,6 +1201,7 @@ export type LearningEngagementResponse = z.infer<typeof learningEngagementRespon
 
 export const learningEngagementUserSchema = z.object({
   userId: z.string(),
+  telegramId: z.string(),
   displayName: z.string(),
   email: z.string().email().nullable(),
   opens: z.number().int().nonnegative(),

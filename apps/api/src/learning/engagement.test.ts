@@ -4,6 +4,7 @@ import { mergeEngagementCounters, summarizeLearningEngagement, summarizeLearning
 const session = (overrides: Record<string, unknown> = {}) => ({
   sessionId: "00000000-0000-4000-8000-000000000001",
   userId: "user-1",
+  telegramId: "1001",
   contentItemId: "item-1",
   title: "Карточка 1",
   categoryTitle: "Модуль 1",
@@ -60,7 +61,7 @@ describe("learning engagement", () => {
       session({ sessionId: "00000000-0000-4000-8000-000000000003", userId: "user-2", displayName: "Анна", email: null, activeSeconds: 5 })
     ]);
 
-    expect(rows[0]).toMatchObject({ userId: "user-1", displayName: "Иван", opens: 2, totalActiveSeconds: 60, completed: true });
+    expect(rows[0]).toMatchObject({ userId: "user-1", telegramId: "1001", displayName: "Иван", opens: 2, totalActiveSeconds: 60, completed: true });
     expect(rows[0]?.lastViewedAt).toBe("2026-07-21T11:00:00.000Z");
     expect(rows[1]).toMatchObject({ userId: "user-2", opens: 1, totalActiveSeconds: 5 });
   });
