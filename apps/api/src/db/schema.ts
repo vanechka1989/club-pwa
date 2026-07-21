@@ -39,7 +39,9 @@ export const users = pgTable(
   },
   (table) => ({
     telegramIdIdx: uniqueIndex("users_telegram_id_idx").on(table.telegramId),
-    emailIdx: uniqueIndex("users_email_idx").on(table.email)
+    emailIdx: uniqueIndex("users_email_idx").on(table.email),
+    createdAtIdx: index("users_created_at_idx").on(table.createdAt),
+    updatedAtIdx: index("users_updated_at_idx").on(table.updatedAt)
   })
 );
 
@@ -241,7 +243,8 @@ export const authSessions = pgTable(
   },
   (table) => ({
     tokenHashIdx: uniqueIndex("auth_sessions_token_hash_idx").on(table.tokenHash),
-    userIdx: index("auth_sessions_user_idx").on(table.userId, table.expiresAt)
+    userIdx: index("auth_sessions_user_idx").on(table.userId, table.expiresAt),
+    userLastSeenIdx: index("auth_sessions_user_last_seen_idx").on(table.userId, table.lastSeenAt)
   })
 );
 
@@ -374,7 +377,9 @@ export const paymentOrders = pgTable(
   },
   (table) => ({
     providerOrderIdx: uniqueIndex("payment_orders_provider_order_idx").on(table.providerOrderId),
-    userStatusIdx: index("payment_orders_user_status_idx").on(table.userId, table.status)
+    userStatusIdx: index("payment_orders_user_status_idx").on(table.userId, table.status),
+    createdAtIdx: index("payment_orders_created_at_idx").on(table.createdAt),
+    statusCreatedAtIdx: index("payment_orders_status_created_at_idx").on(table.status, table.createdAt)
   })
 );
 
@@ -702,7 +707,8 @@ export const clubChatMessages = pgTable(
       table.createdAt
     ),
     userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt),
-    topicPinnedIdx: index("club_chat_messages_topic_pinned_idx").on(table.topicId, table.pinnedAt)
+    topicPinnedIdx: index("club_chat_messages_topic_pinned_idx").on(table.topicId, table.pinnedAt),
+    createdAtIdx: index("club_chat_messages_created_at_idx").on(table.createdAt)
   })
 );
 
@@ -741,7 +747,10 @@ export const clubPolls = pgTable(
     closedAt: timestamp("closed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
-  (table) => ({ messageIdx: uniqueIndex("club_polls_message_idx").on(table.messageId) })
+  (table) => ({
+    messageIdx: uniqueIndex("club_polls_message_idx").on(table.messageId),
+    createdAtIdx: index("club_polls_created_at_idx").on(table.createdAt)
+  })
 );
 
 export const clubPollOptions = pgTable(
