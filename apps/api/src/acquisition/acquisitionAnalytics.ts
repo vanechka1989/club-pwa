@@ -181,7 +181,7 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
     timeline: [...timeline.values()].sort((a, b) => a.date.localeCompare(b.date)),
     sources: rows("source"),
     campaigns: rows("campaign"),
-    topLinks: data.links.map(serializeLink).sort((a, b) => b.revenueRub - a.revenueRub || b.registrations - a.registrations || b.visits - a.visits).slice(0, 20)
+    topLinks: data.links.map(serializeLink).sort((a, b) => b.revenueRub - a.revenueRub || b.registrations - a.registrations || b.visits - a.visits)
   };
 }
 

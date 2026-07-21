@@ -53,6 +53,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import AdminStatisticsDetail, { type StatisticsDetail } from "./AdminStatisticsDetail.vue";
+import AdminAcquisitionAnalytics from "./AdminAcquisitionAnalytics.vue";
+import AdminClientAcquisition from "./AdminClientAcquisition.vue";
 import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode";
 import {
   addAdminUser,
@@ -1852,6 +1854,11 @@ function closeSelectedUser() {
   }
 }
 
+function openSelectedUserAcquisitionAnalytics() {
+  closeSelectedUser();
+  selectAdminPanel("statistics");
+}
+
 function isNewLoginIp(entry: AdminLoginIp) {
   return Date.now() - Date.parse(entry.firstSeenAt) < 24 * 60 * 60 * 1000;
 }
@@ -3161,7 +3168,7 @@ onUnmounted(() => {
     <section v-if="activePanel === 'statistics'" class="admin-panel ui-page-section admin-statistics-panel">
       <div class="admin-panel-head ui-page-header admin-statistics-head">
         <div>
-          <h3>Статистика клуба</h3>
+          <h3>Аналитика клуба</h3>
           <p>Клиенты, оплаты, контент и общение по выбранному периоду.</p>
         </div>
         <div class="admin-stat-period-control">
@@ -3189,6 +3196,12 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+
+      <AdminAcquisitionAnalytics
+        :from="statisticsDateRange?.from"
+        :to="statisticsDateRange?.to"
+        :learning-categories="learningCategories"
+      />
 
       <div class="admin-stat-period-summary ui-card">
         <article><span>Выручка</span><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат за выбранный период</small></article>
@@ -3360,6 +3373,11 @@ onUnmounted(() => {
                 <strong>{{ selectedUser.lastOpenedItemTitle ?? "Нет активности" }}</strong>
               </article>
             </section>
+
+            <AdminClientAcquisition
+              :telegram-id="selectedUser.telegramId"
+              @analytics="openSelectedUserAcquisitionAnalytics"
+            />
 
             <div class="admin-client-primary-actions">
               <button class="primary-button ui-button admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">

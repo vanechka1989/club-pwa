@@ -20,7 +20,7 @@ export type AdminPanelDefinition = {
 };
 
 export const adminPanelDefinitions: AdminPanelDefinition[] = [
-  { id: "statistics", label: "Статистика", permission: "statistics" },
+  { id: "statistics", label: "Аналитика", permission: "statistics" },
   { id: "users", label: "Клиенты", permission: "users" },
   { id: "mailings", label: "Рассылки", permission: "mailings" },
   { id: "payments", label: "Платежи", permission: "payments" },

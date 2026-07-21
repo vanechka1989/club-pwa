@@ -1,5 +1,10 @@
 import type {
   AdminAccessMutationResponse,
+  AcquisitionAttribution,
+  AcquisitionLinkInput,
+  AdminAcquisitionDashboard,
+  AdminAcquisitionLink,
+  AdminUserAcquisition,
   AdminActionLogsResponse,
   AdminMailingMutationResponse,
   AdminMailingAnalytics,
@@ -805,6 +810,29 @@ export function transferClubOwner(telegramId: string) {
 
 export function getAdminStats() {
   return api<AdminStatsResponse>("/admin/stats");
+}
+
+export function getAdminAcquisitionDashboard(options: { from?: string; to?: string; attribution: AcquisitionAttribution }) {
+  const query = new URLSearchParams({ attribution: options.attribution });
+  if (options.from) query.set("from", options.from);
+  if (options.to) query.set("to", options.to);
+  return api<AdminAcquisitionDashboard>(`/admin/acquisition/dashboard?${query}`);
+}
+
+export function getAdminAcquisitionLinks() {
+  return api<{ links: AdminAcquisitionLink[] }>("/admin/acquisition/links");
+}
+
+export function createAdminAcquisitionLink(payload: AcquisitionLinkInput) {
+  return api<AdminAcquisitionLink>("/admin/acquisition/links", { method: "POST", body: payload });
+}
+
+export function updateAdminAcquisitionLinkStatus(id: string, isActive: boolean) {
+  return api<AdminAcquisitionLink>(`/admin/acquisition/links/${id}`, { method: "PATCH", body: { isActive } });
+}
+
+export function getAdminUserAcquisition(telegramId: string) {
+  return api<AdminUserAcquisition | null>(`/admin/users/${encodeURIComponent(telegramId)}/acquisition`);
 }
 
 export function getAdminUserStats(telegramId: string) {
