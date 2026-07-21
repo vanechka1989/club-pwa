@@ -12,4 +12,22 @@ describe("admin operational panels", () => {
     expect(shell).not.toContain('v-else-if="activePanel === \'payments\'"');
     expect(shell).not.toContain('v-else-if="activePanel === \'project-settings\'"');
   });
+
+  it("keeps the payment refresh action stable on narrow screens", () => {
+    const payments = readFileSync(resolve(process.cwd(), "src/features/admin/AdminPaymentsPanel.vue"), "utf8");
+
+    expect(payments).toContain(".ops-head>div{min-width:0;flex:1}");
+    expect(payments).toContain("white-space:nowrap");
+    expect(payments).toContain("flex:none");
+  });
+
+  it("collapses project setting logs by default with accessible state", () => {
+    const settings = readFileSync(resolve(process.cwd(), "src/features/admin/AdminProjectSettingsPanel.vue"), "utf8");
+
+    expect(settings).toContain("const auditExpanded = ref(false)");
+    expect(settings).toContain(':aria-expanded="auditExpanded"');
+    expect(settings).toContain('aria-controls="project-settings-audit"');
+    expect(settings).toContain('id="project-settings-audit"');
+    expect(settings).toContain("История настроек · {{ audit.length }}");
+  });
 });

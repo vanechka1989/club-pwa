@@ -9,6 +9,7 @@ const rewardDays = ref(10);
 const loading = ref(false);
 const message = ref("");
 const audit = ref<AdminActionLog[]>([]);
+const auditExpanded = ref(false);
 const email = ref("");
 const generated = ref<OwnerEmailLoginCodeResponse | null>(null);
 const auditLabels: Record<string, string> = {
@@ -88,9 +89,18 @@ onMounted(load);
       <div v-else class="code-result"><span>{{ generated.email }}</span><strong>{{ generated.code }}</strong><small>До {{ formatDate(generated.expiresAt) }}</small><div><button class="ops-button" type="button" @click="copyCode">Скопировать</button><button class="ops-button" type="button" @click="generated = null">Другой код</button></div></div>
     </article>
     <p v-if="message" class="ops-note">{{ message }}</p>
-    <article class="ops-card">
-      <div><h4>История настроек</h4><p>Кто и когда менял критичные параметры проекта.</p></div>
-      <div class="audit-list">
+    <article class="ops-card ops-audit-card">
+      <button
+        class="audit-disclosure"
+        type="button"
+        :aria-expanded="auditExpanded"
+        aria-controls="project-settings-audit"
+        @click="auditExpanded = !auditExpanded"
+      >
+        <span><strong>История настроек · {{ audit.length }}</strong><small>Кто и когда менял критичные параметры проекта.</small></span>
+        <span class="audit-disclosure-icon" aria-hidden="true">{{ auditExpanded ? "−" : "+" }}</span>
+      </button>
+      <div v-if="auditExpanded" id="project-settings-audit" class="audit-list">
         <div v-for="log in audit" :key="log.id">
           <strong>{{ auditTitle(log) }}</strong>
           <span>{{ actorTitle(log) }} · {{ formatDate(log.createdAt) }}</span>
@@ -104,5 +114,5 @@ onMounted(load);
 </template>
 
 <style scoped>
-.ops-panel{display:grid;gap:16px}.ops-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.ops-head h3,.ops-card h4{margin:0}.ops-head p,.ops-card p{margin:4px 0 0;color:var(--muted)}.ops-button,.primary-action{min-height:44px;padding:0 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit;font-weight:750}.primary-action{border-color:transparent;background:var(--accent);color:var(--accent-contrast,#071615)}.ops-card{display:grid;gap:14px;padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.settings-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}.settings-form label{display:grid;gap:7px;font-weight:700}.settings-form input{min-width:0;min-height:46px;padding:0 13px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit}.code-result{display:grid;gap:8px}.code-result strong{font-size:1.8rem;letter-spacing:.16em}.code-result>div{display:flex;flex-wrap:wrap;gap:8px}.ops-note{margin:0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,transparent)}.audit-list{display:grid;gap:8px}.audit-list>div{display:grid;min-width:0;gap:3px;padding:12px;border:1px solid var(--border);border-radius:14px}.audit-list span,.audit-list small{color:var(--muted)}.audit-object-key{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.72rem}@media(max-width:420px){.ops-head{align-items:flex-start}.settings-form{grid-template-columns:1fr}.primary-action{width:100%}}
+.ops-panel{display:grid;gap:16px}.ops-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.ops-head>div{min-width:0;flex:1}.ops-head h3,.ops-card h4{margin:0}.ops-head p,.ops-card p{margin:4px 0 0;color:var(--muted)}.ops-button,.primary-action{flex:none;min-height:44px;padding:0 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit;font-weight:750;white-space:nowrap}.primary-action{border-color:transparent;background:var(--accent);color:var(--accent-contrast,#071615)}.ops-card{display:grid;gap:14px;padding:16px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.settings-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}.settings-form label{display:grid;gap:7px;font-weight:700}.settings-form input{min-width:0;min-height:46px;padding:0 13px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2);color:var(--text);font:inherit}.code-result{display:grid;gap:8px}.code-result strong{font-size:1.8rem;letter-spacing:.16em}.code-result>div{display:flex;flex-wrap:wrap;gap:8px}.ops-note{margin:0;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 12%,transparent)}.ops-audit-card{padding:0;overflow:hidden}.audit-disclosure{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:64px;padding:14px 16px;border:0;background:transparent;color:var(--text);font:inherit;text-align:left}.audit-disclosure>span:first-child{display:grid;min-width:0;gap:4px}.audit-disclosure small{color:var(--muted);font-weight:500}.audit-disclosure-icon{display:grid;flex:none;place-items:center;width:32px;height:32px;border:1px solid var(--border);border-radius:50%;color:var(--accent);font-size:1.25rem}.audit-list{display:grid;gap:8px;padding:0 16px 16px}.audit-list>div{display:grid;min-width:0;gap:3px;padding:12px;border:1px solid var(--border);border-radius:14px}.audit-list span,.audit-list small{color:var(--muted)}.audit-object-key{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.72rem}@media(max-width:420px){.settings-form{grid-template-columns:1fr}.primary-action{width:100%}}@media(max-width:340px){.ops-head{display:grid}.ops-head>.ops-button{width:100%}}
 </style>
