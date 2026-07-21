@@ -51,6 +51,7 @@ import { useInterfaceLocalization } from "@/features/app/interfaceLocalization";
 import LearningSection from "@/features/learning/LearningSection.vue";
 import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
 import { isTaskPath, sectionFromPath, sectionPath } from "@/features/app/taskNavigation";
+import { hasPortalTaskLayer } from "@/features/app/taskLayerRegistry";
 import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
 import {
   createViewportSyncScheduler,
@@ -895,6 +896,8 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="app-root ui-app-shell min-h-screen text-[var(--text)]"
+    :inert="hasPortalTaskLayer || undefined"
+    :aria-hidden="hasPortalTaskLayer ? 'true' : undefined"
     :class="{
       'learning-active': activeSection === 'learning',
       'community-active': activeSection === 'community',
