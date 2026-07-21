@@ -644,7 +644,7 @@ const adminStatistics = computed(() =>
 );
 const statisticsDetailMeta = computed(() => {
   const meta: Record<AnalyticsDetail, { title: string; subtitle: string }> = {
-    acquisition: { title: "Привлечение", subtitle: "Источники, воронка и путь до оплаты" },
+    acquisition: { title: "Рекламные ссылки", subtitle: "Переходы, регистрации и оплаты" },
     clients: { title: "Клиенты", subtitle: "Доступ, ограничения и тарифы" },
     finance: { title: "Финансы", subtitle: "Выручка и статусы платежей" },
     learning: { title: "Обучение", subtitle: "Материалы и прогресс клиентов" },
@@ -1863,11 +1863,6 @@ function closeSelectedUser() {
   if (!props.clientCardOnly) {
     closeAdminTask();
   }
-}
-
-function openSelectedUserAcquisitionAnalytics() {
-  closeSelectedUser();
-  selectAdminPanel("statistics");
 }
 
 function isNewLoginIp(entry: AdminLoginIp) {
@@ -3219,7 +3214,7 @@ onUnmounted(() => {
 
       <div class="admin-stat-overview-nav">
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('acquisition')">
-          <span class="admin-stat-nav-icon"><Link2 aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Привлечение</strong><small>Источники и путь до оплаты</small></span><span class="admin-stat-nav-value"><strong>Воронка</strong><small>метки и кампании</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
+          <span class="admin-stat-nav-icon"><Link2 aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Рекламные ссылки</strong><small>UTM-метки и результаты</small></span><span class="admin-stat-nav-value"><strong>Переходы</strong><small>регистрации и оплаты</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
         </button>
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('clients')">
           <span class="admin-stat-nav-icon"><UsersRound aria-hidden="true" /></span><span class="admin-stat-nav-copy"><strong>Клиенты</strong><small>Состояние на сегодня</small></span><span class="admin-stat-nav-value"><strong>{{ adminStatistics.clients.active }} / {{ adminStatistics.clients.total }}</strong><small>активны</small></span><span class="admin-stat-nav-chevron"><ChevronRight aria-hidden="true" /></span>
@@ -3392,10 +3387,7 @@ onUnmounted(() => {
               </article>
             </section>
 
-            <AdminClientAcquisition
-              :telegram-id="selectedUser.telegramId"
-              @analytics="openSelectedUserAcquisitionAnalytics"
-            />
+            <AdminClientAcquisition :telegram-id="selectedUser.telegramId" />
 
             <div class="admin-client-primary-actions">
               <button class="primary-button ui-button admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">

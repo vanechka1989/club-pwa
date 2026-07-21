@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 describe("admin acquisition analytics", () => {
   it("keeps dashboard and link generator inside the PWA", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    expect(source).toContain("Рекламные ссылки");
     expect(source).toContain("От клика до оплаты");
     expect(source).toContain("Откуда пришли клиенты");
     expect(source).toContain("Метки и ссылки");
@@ -62,12 +63,28 @@ describe("admin acquisition analytics", () => {
     expect(analytics).toContain(`v-if="activeStatisticsDetail === 'acquisition'"`);
   });
 
-  it("shows first touch, last touch and history in client 360", () => {
+  it("shows one client source with UTM values and no attribution journey", () => {
     const card = readFileSync(resolve(__dirname, "AdminClientAcquisition.vue"), "utf8");
     const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    expect(card).toContain("Первое касание");
-    expect(card).toContain("Последнее касание");
-    expect(card).toContain("История переходов");
+    expect(card).toContain("Источник клиента");
+    expect(card).toContain("utm_source");
+    expect(card).toContain("utm_medium");
+    expect(card).toContain("utm_campaign");
+    expect(card).toContain("utm_content");
+    expect(card).not.toContain("Первое касание");
+    expect(card).not.toContain("Последнее касание");
+    expect(card).not.toContain("История переходов");
+    expect(card).not.toContain("Открыть аналитику кампании");
+    expect(card).not.toContain("client-acquisition-milestones");
     expect(section).toContain("<AdminClientAcquisition");
+    expect(section).not.toContain('@analytics="openSelectedUserAcquisitionAnalytics"');
+  });
+
+  it("names acquisition analytics as advertising links", () => {
+    const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    expect(section).toContain("Рекламные ссылки");
+    expect(section).toContain("UTM-метки и результаты");
+    expect(section).not.toContain("Источники и путь до оплаты");
+    expect(section).not.toContain("метки и кампании");
   });
 });

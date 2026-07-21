@@ -128,7 +128,7 @@ onMounted(load);
 <template>
   <section class="acquisition" aria-label="Аналитика привлечения">
     <header class="acquisition-head">
-      <div><span>Привлечение</span><strong>От клика до оплаты</strong></div>
+      <div><span>Рекламные ссылки</span><strong>От клика до оплаты</strong></div>
       <button class="acquisition-refresh ui-button" type="button" :disabled="loading" aria-label="Обновить" @click="load"><RefreshCw aria-hidden="true" /></button>
     </header>
 

@@ -22,7 +22,7 @@ describe("admin statistics navigation", () => {
     const taskScreenPosition = overview.indexOf("<TaskScreen");
     const acquisitionPosition = overview.indexOf("<AdminAcquisitionAnalytics");
 
-    expect(overview).toContain("Источники и путь до оплаты");
+    expect(overview).toContain("UTM-метки и результаты");
     expect(taskScreenPosition).toBeGreaterThan(-1);
     expect(acquisitionPosition).toBeGreaterThan(taskScreenPosition);
     expect(overview).toContain(`activeStatisticsDetail === 'acquisition'`);
