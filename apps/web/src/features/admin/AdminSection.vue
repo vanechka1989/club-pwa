@@ -3114,7 +3114,7 @@ onUnmounted(() => {
               @click="openPaymentDrilldownUser(order)"
             >
               <span class="admin-payment-customer-avatar">
-                <img v-if="order.customer.photoUrl" :src="order.customer.photoUrl" :alt="paymentCustomerTitle(order)" />
+                <img v-if="order.customer.photoUrl" :src="order.customer.photoUrl" :alt="paymentCustomerTitle(order)" loading="lazy" decoding="async" />
                 <span v-else>{{ paymentCustomerInitial(order) }}</span>
               </span>
               <span class="admin-payment-drilldown-copy">
@@ -3153,7 +3153,7 @@ onUnmounted(() => {
               @click="openUserDrilldownClient(user)"
             >
               <span class="admin-payment-customer-avatar">
-                <img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" />
+                <img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" loading="lazy" decoding="async" />
                 <span v-else>{{ userInitial(user) }}</span>
               </span>
               <span class="admin-payment-drilldown-copy">
@@ -3330,7 +3330,7 @@ onUnmounted(() => {
             @click="selectUser(user)"
           >
             <span class="admin-client-list-avatar">
-              <img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" />
+              <img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" loading="lazy" decoding="async" />
               <span v-else>{{ userInitial(user) }}</span>
             </span>
             <span class="admin-list-item-main">
@@ -4967,7 +4967,7 @@ onUnmounted(() => {
           @click="openAdminAccessModal(admin)"
         >
           <span class="admin-permission-identity">
-            <img v-if="admin.photoUrl" :src="admin.photoUrl" :alt="adminTitle(admin)" />
+            <img v-if="admin.photoUrl" :src="admin.photoUrl" :alt="adminTitle(admin)" loading="lazy" decoding="async" />
             <span v-else>{{ adminTitle(admin).slice(0, 1).toUpperCase() }}</span>
             <div>
               <strong>{{ adminTitle(admin) }}</strong>

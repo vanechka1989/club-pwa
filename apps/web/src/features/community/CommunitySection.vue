@@ -1252,6 +1252,8 @@ onBeforeUnmount(() => {
               :src="messageAuthorPhotoUrl(message) ?? ''"
               :alt="authorName(message)"
               :style="messageAuthorAvatarStyle(message)"
+              loading="lazy"
+              decoding="async"
             />
             <span v-else>{{ authorInitial(message) }}</span>
           </div>
@@ -1311,6 +1313,8 @@ onBeforeUnmount(() => {
               :src="messageAuthorPhotoUrl(message) ?? ''"
               :alt="authorName(message)"
               :style="messageAuthorAvatarStyle(message)"
+              loading="lazy"
+              decoding="async"
             />
             <span v-else>{{ authorInitial(message) }}</span>
           </div>
