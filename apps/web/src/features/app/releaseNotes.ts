@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Реакции внутри сообщения",
+    items: [
+      "Реакции теперь полностью находятся внутри правого нижнего угла сообщения и не пересекают его границы.",
+      "Круг вокруг эмодзи уменьшен до 26 px с тонкой обводкой; удобная невидимая зона нажатия сохранена."
+    ]
+  },
+  {
+    version: "5.32",
+    updatedAt: "21.07.2026 07:35",
     title: "Круглые реакции в углу сообщения",
     items: [
       "Лайки и другие реакции теперь отображаются круглым значком на правом нижнем углу входящих и исходящих сообщений.",
@@ -3945,10 +3954,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Circular corner reactions",
+  title: "Reactions inside messages",
   items: [
-    "Likes and other reactions now appear as circles on the lower-right corner of incoming and outgoing messages.",
-    "The fixed-size circle does not expand the message bubble; the count stays inside and the comfortable touch target remains available."
+    "Reactions now stay fully inside the lower-right corner of the message without crossing its edges.",
+    "The emoji circle is reduced to 26 px with a thin outline while its comfortable invisible touch target remains available."
   ]
 };
 

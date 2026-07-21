@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes circular corner reactions as version 5.32", () => {
-    expect(appVersion).toBe("5.32");
-    expect(releaseNotes[0]?.title).toBe("Круглые реакции в углу сообщения");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("правом нижнем углу");
+  it("publishes reactions inside messages as version 5.33", () => {
+    expect(appVersion).toBe("5.33");
+    expect(releaseNotes[0]?.title).toBe("Реакции внутри сообщения");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("внутри");
+
+    const circularReactionRelease = releaseNotes.find((note) => note.version === "5.32");
+    expect(circularReactionRelease?.title).toBe("Круглые реакции в углу сообщения");
 
     const compactReactionRelease = releaseNotes.find((note) => note.version === "5.31");
     expect(compactReactionRelease?.title).toBe("Компактные реакции в чате");
@@ -88,7 +91,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Circular corner reactions");
+    expect(englishNotes[0]?.title).toBe("Reactions inside messages");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

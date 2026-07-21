@@ -12,7 +12,7 @@
 
 - Do not change reaction persistence or backend contracts.
 - Use the lower-right corner for both incoming and outgoing messages.
-- Keep every visual reaction circle exactly 32 × 32 px.
+- Keep every visual reaction circle exactly 26 × 26 px and 2 px inside the bubble edge.
 - Preserve a touch target of at least 44 × 44 px.
 - Support 320, 390, 768, 1024, and 1440 px widths.
 

@@ -366,10 +366,6 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   min-width: 0;
 }
 
-.community-chat-open .chat-message:has(.message-reactions) {
-  margin-bottom: 12px;
-}
-
 .community-chat-open .chat-message-own .chat-bubble {
   border-radius: 14px 14px 6px 14px;
   border-color: var(--chat-bubble-border);
@@ -725,8 +721,8 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .community-chat-open .message-reactions {
   position: absolute;
   z-index: 3;
-  right: -8px;
-  bottom: -12px;
+  right: 2px;
+  bottom: 2px;
   display: flex;
   width: fit-content;
   max-width: 100%;
@@ -738,18 +734,18 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 }
 
 .community-chat-open .chat-message-own .message-reactions {
-  right: -8px;
+  right: 2px;
   left: auto;
 }
 
 .community-chat-open .message-reaction-button {
   position: relative;
   display: inline-flex;
-  width: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  height: 26px;
+  flex: 0 0 26px;
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -767,7 +763,7 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .community-chat-open .message-reaction-button::after {
   position: absolute;
   content: "";
-  inset: -6px;
+  inset: -9px;
 }
 
 .community-chat-open .message-reaction-button span,
@@ -779,8 +775,8 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
 .community-chat-open .message-reaction-button span { font-size: 14px; }
 .community-chat-open .message-reaction-button small {
   position: absolute;
-  right: 3px;
-  bottom: 3px;
+  right: 1px;
+  bottom: 1px;
   font-size: 0.5rem;
   font-weight: 900;
 }
@@ -789,13 +785,14 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
    badge compact; ::after supplies the larger touch area without changing layout. */
 html body .community-chat-open .chat-message-content .message-reaction-button {
   box-sizing: border-box;
-  width: 32px;
-  min-width: 32px;
-  max-width: 32px;
-  height: 32px;
-  min-height: 32px;
-  max-height: 32px;
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  max-height: 26px;
   padding: 0;
+  border-width: 1px;
   border-radius: 50%;
   overflow: visible;
 }
