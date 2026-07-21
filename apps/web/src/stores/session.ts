@@ -11,6 +11,7 @@ import {
   uploadAvatar as uploadAvatarApi,
   verifyEmailCode as verifyEmailCodeApi
 } from "@/api/client";
+import { getAcquisitionVisitorId } from "@/features/app/acquisitionTracking";
 
 type AuthRequestError = Error & {
   retryAfterSeconds?: number;
@@ -197,7 +198,8 @@ export const useSessionStore = defineStore("session", () => {
     try {
       const response = await requestEmailCodeApi({
         email: normalizedEmail,
-        ...(referralCode ? { referralCode } : {})
+        ...(referralCode ? { referralCode } : {}),
+        acquisitionVisitorId: getAcquisitionVisitorId()
       });
       const resendAvailableAt = Date.now() + pendingEmailResendCooldownMs;
       pendingEmail.value = normalizedEmail;
@@ -234,7 +236,8 @@ export const useSessionStore = defineStore("session", () => {
       await verifyEmailCodeApi({
         email: normalizedEmail,
         code,
-        ...(referralCode ? { referralCode } : {})
+        ...(referralCode ? { referralCode } : {}),
+        acquisitionVisitorId: getAcquisitionVisitorId()
       });
       await load({ silent: true });
       pendingEmail.value = "";

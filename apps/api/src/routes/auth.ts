@@ -29,16 +29,19 @@ import { sessionCookieName } from "../middleware/auth";
 import { captureReferralFromStartParam } from "../referrals/referrals";
 import { getTrustedClientIp } from "../security/clientIp";
 import { recordLoginIpChange } from "../security/loginIpAudit";
+import { attachAcquisitionToUser } from "../acquisition/acquisitionStore";
 
 const startSchema = z.object({
   email: z.string(),
-  referralCode: z.string().trim().max(64).optional().nullable()
+  referralCode: z.string().trim().max(64).optional().nullable(),
+  acquisitionVisitorId: z.string().uuid().optional().nullable()
 });
 
 const verifySchema = z.object({
   email: z.string(),
   code: z.string().trim().regex(/^\d{6}$/),
-  referralCode: z.string().trim().max(64).optional().nullable()
+  referralCode: z.string().trim().max(64).optional().nullable(),
+  acquisitionVisitorId: z.string().uuid().optional().nullable()
 });
 
 const loginAttemptDeviceCookieName = "club_login_device";
@@ -285,6 +288,9 @@ export const authRoute = new Hono()
     }
     if (body.data.referralCode) {
       await captureReferralFromStartParam(user, `ref_${body.data.referralCode}`).catch(() => null);
+    }
+    if (body.data.acquisitionVisitorId) {
+      await attachAcquisitionToUser({ visitorId: body.data.acquisitionVisitorId, userId: user.id, registeredAt: now }).catch(() => null);
     }
 
     const token = createSessionToken();

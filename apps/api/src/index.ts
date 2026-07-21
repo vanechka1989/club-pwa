@@ -4,6 +4,8 @@ import { env } from "./env";
 import { adminRoute } from "./routes/admin";
 import { appStateRoute } from "./routes/appState";
 import { authRoute } from "./routes/auth";
+import { createAcquisitionRoute } from "./routes/acquisition";
+import { recordAcquisitionVisit } from "./acquisition/acquisitionStore";
 import { communityRoute } from "./routes/community";
 import { learningRoute } from "./routes/learning";
 import { logger } from "./logger";
@@ -99,6 +101,7 @@ app.get("/uploads/*", async (c) => {
   return response;
 });
 app.route("/auth", authRoute);
+app.route("/analytics/acquisition", createAcquisitionRoute(recordAcquisitionVisit));
 app.route("/mailings/track", mailingTrackingRoute);
 app.route("/mailings", mailingPreferencesRoute);
 

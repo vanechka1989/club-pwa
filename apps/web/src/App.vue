@@ -2,13 +2,14 @@
 import { ChevronUp } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getAppState, getPaymentHistory, updateDeviceDiagnostics } from "@/api/client";
+import { getAppState, getPaymentHistory, recordAcquisitionVisit, updateDeviceDiagnostics } from "@/api/client";
 import AdminSection from "@/features/admin/AdminSection.vue";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getVisibleAdminPanels } from "@/features/admin/adminPanels";
 import AuthSection from "@/features/auth/AuthSection.vue";
 import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
+import { captureAcquisitionLanding, consumePostAuthDestination, getPostAuthDestinationPath } from "@/features/app/acquisitionTracking";
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppDialogHost from "@/features/app/AppDialogHost.vue";
 import DeviceModeNotice from "@/features/app/DeviceModeNotice.vue";
@@ -734,6 +735,9 @@ async function sendDeviceDiagnostics() {
 
 onMounted(() => {
   isAppMounted = true;
+  void captureAcquisitionLanding(window.location.search, window.localStorage, recordAcquisitionVisit).then((destination) => {
+    if (destination && session.user) void router.push(getPostAuthDestinationPath(destination));
+  });
   viewportSyncScheduler = createViewportSyncScheduler(syncViewportHeight, {
     requestFrame: (handler) => window.requestAnimationFrame(handler),
     cancelFrame: (handle) => window.cancelAnimationFrame(handle),
@@ -770,6 +774,15 @@ onMounted(() => {
     }, 1000);
   });
 });
+
+watch(
+  () => session.user?.id,
+  (userId) => {
+    if (!userId) return;
+    const destination = consumePostAuthDestination();
+    if (destination) void router.push(getPostAuthDestinationPath(destination));
+  }
+);
 
 watch(
   () => lessonUploads.activeUpload?.status,

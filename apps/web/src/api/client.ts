@@ -64,7 +64,8 @@ import type {
   AppNotificationsResponse,
   AppStateResponse,
   SupportTicketMutationResponse,
-  SupportUnreadResponse
+  SupportUnreadResponse,
+  AcquisitionDestination
 } from "@club/shared";
 import { getCommunityVoiceUploadFileName } from "../features/community/voiceUpload";
 import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
@@ -116,18 +117,22 @@ export function reportClientError(payload: {
   return api<{ ok: boolean }>("/client-errors", { method: "POST", body: payload });
 }
 
-export function requestEmailCode(payload: { email: string; referralCode?: string | null }) {
+export function requestEmailCode(payload: { email: string; referralCode?: string | null; acquisitionVisitorId?: string | null }) {
   return api<{ ok: boolean; devCode: string | null; retryAfterSeconds?: number }>("/auth/email/start", {
     method: "POST",
     body: payload
   });
 }
 
-export function verifyEmailCode(payload: { email: string; code: string; referralCode?: string | null }) {
+export function verifyEmailCode(payload: { email: string; code: string; referralCode?: string | null; acquisitionVisitorId?: string | null }) {
   return api<{ ok: boolean }>("/auth/email/verify", {
     method: "POST",
     body: payload
   });
+}
+
+export function recordAcquisitionVisit(payload: { aid: string; visitorId: string }) {
+  return api<{ accepted: boolean; destination: AcquisitionDestination }>("/analytics/acquisition/visit", { method: "POST", body: payload });
 }
 
 export function logoutSession() {
