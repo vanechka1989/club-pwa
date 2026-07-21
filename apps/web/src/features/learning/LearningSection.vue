@@ -57,7 +57,6 @@ import {
   reorderAdminLearningCategories,
   reorderAdminLearningMaterials,
   restoreAdminLearningMaterial,
-  saveLearningEngagement,
   saveLearningPlayback,
   updateAdminLearningCategory,
   updateAdminLearningMaterial,
@@ -89,6 +88,7 @@ import {
 } from "./uploadRecovery";
 import { isAmbiguousNetworkError, reconcileLearningSave } from "./lessonSaveReconciliation";
 import { createLearningEngagementTracker, type LearningEngagementTracker } from "./learningEngagement";
+import { sendLearningEngagementWithRetry } from "./learningEngagementOutbox";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -774,7 +774,7 @@ function startLearningEngagement(lesson: ModuleLesson) {
     return;
   }
   learningEngagementTracker = createLearningEngagementTracker({
-    send: (snapshot) => saveLearningEngagement(lesson.id, snapshot, { keepalive: snapshot.closed })
+    send: (snapshot) => sendLearningEngagementWithRetry(lesson.id, snapshot)
   });
 }
 

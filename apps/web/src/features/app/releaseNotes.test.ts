@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes unified source comparison as version 5.36", () => {
-    expect(appVersion).toBe("5.36");
-    expect(releaseNotes[0]?.title).toBe("Единое сравнение источников");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("Первое и последнее касание");
+  it("publishes learning engagement analytics as version 5.37", () => {
+    expect(appVersion).toBe("5.37");
+    expect(releaseNotes[0]?.title).toBe("Активность в обучении");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("активное время");
+
+    const sourceComparisonRelease = releaseNotes.find((note) => note.version === "5.36");
+    expect(sourceComparisonRelease?.title).toBe("Единое сравнение источников");
 
     const separatedAnalyticsRelease = releaseNotes.find((note) => note.version === "5.35");
     expect(separatedAnalyticsRelease?.title).toBe("Раздельные экраны аналитики");

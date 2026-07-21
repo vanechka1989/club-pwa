@@ -20194,7 +20194,7 @@ textarea {
 }
 
 /* Learning engagement analytics */
-.admin-learning-engagement { display: grid; gap: 12px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.admin-learning-engagement { display: grid; gap: 12px; padding-bottom: max(24px, var(--club-safe-bottom)); }
 .admin-learning-engagement-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .admin-learning-engagement-kpis article { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 8px; min-width: 0; padding: 13px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
 .admin-learning-engagement-kpis svg { grid-row: 1 / 3; width: 20px; color: var(--accent); }
