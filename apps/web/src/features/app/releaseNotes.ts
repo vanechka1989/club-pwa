@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Круглые реакции в углу сообщения",
+    items: [
+      "Лайки и другие реакции теперь отображаются круглым значком на правом нижнем углу входящих и исходящих сообщений.",
+      "Круг имеет фиксированный размер и не расширяет карточку сообщения; счётчик остаётся внутри, а удобная зона нажатия сохранена."
+    ]
+  },
+  {
+    version: "5.31",
+    updatedAt: "21.07.2026 01:55",
     title: "Компактные реакции в чате",
     items: [
       "Реакции стали меньше и вынесены за край сообщения: они больше не увеличивают высоту карточки и располагаются с нужной стороны для входящих и исходящих сообщений.",
@@ -3936,10 +3945,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact chat reactions",
+  title: "Circular corner reactions",
   items: [
-    "Reactions are smaller and sit outside the message bubble, so they no longer increase its height.",
-    "The reaction picker stays above the chat header, pinned messages can be collapsed, and the module editor no longer shows an unnecessary scrollbar."
+    "Likes and other reactions now appear as circles on the lower-right corner of incoming and outgoing messages.",
+    "The fixed-size circle does not expand the message bubble; the count stays inside and the comfortable touch target remains available."
   ]
 };
 
