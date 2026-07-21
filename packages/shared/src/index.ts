@@ -55,6 +55,110 @@ export const adminPermissionLabels: Record<AdminPermission, string> = {
   project_settings: "Настройки проекта"
 };
 
+export const acquisitionAttributionSchema = z.enum(["first", "last"]);
+export type AcquisitionAttribution = z.infer<typeof acquisitionAttributionSchema>;
+
+export const acquisitionDestinationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("home") }),
+  z.object({ kind: z.literal("billing") }),
+  z.object({ kind: z.literal("module"), moduleId: z.string().uuid() })
+]);
+export type AcquisitionDestination = z.infer<typeof acquisitionDestinationSchema>;
+
+export const acquisitionAidSchema = z.string().trim().min(3).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const acquisitionLinkInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  source: z.string().trim().min(1).max(80),
+  medium: z.string().trim().min(1).max(80),
+  campaign: z.string().trim().min(1).max(120),
+  content: z.string().trim().max(120).nullable().optional(),
+  destination: acquisitionDestinationSchema.default({ kind: "home" })
+});
+export type AcquisitionLinkInput = z.infer<typeof acquisitionLinkInputSchema>;
+
+export const acquisitionTouchSchema = z.object({
+  linkId: z.string().uuid(),
+  aid: acquisitionAidSchema,
+  linkName: z.string(),
+  source: z.string(),
+  medium: z.string(),
+  campaign: z.string(),
+  content: z.string().nullable(),
+  visitedAt: z.string().datetime()
+});
+export type AcquisitionTouch = z.infer<typeof acquisitionTouchSchema>;
+
+export const acquisitionMetricRowSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  visits: z.number().int().nonnegative(),
+  registrations: z.number().int().nonnegative(),
+  paidUsers: z.number().int().nonnegative(),
+  revenueRub: z.number().int().nonnegative()
+});
+
+export const acquisitionTimelinePointSchema = z.object({
+  date: z.string(),
+  visits: z.number().int().nonnegative(),
+  registrations: z.number().int().nonnegative(),
+  paidUsers: z.number().int().nonnegative(),
+  revenueRub: z.number().int().nonnegative()
+});
+
+export const adminAcquisitionLinkSchema = z.object({
+  id: z.string().uuid(),
+  aid: acquisitionAidSchema,
+  name: z.string(),
+  source: z.string(),
+  medium: z.string(),
+  campaign: z.string(),
+  content: z.string().nullable(),
+  destination: acquisitionDestinationSchema,
+  url: z.string().url(),
+  isActive: z.boolean(),
+  visits: z.number().int().nonnegative().default(0),
+  uniqueVisitors: z.number().int().nonnegative().default(0),
+  registrations: z.number().int().nonnegative().default(0),
+  paidUsers: z.number().int().nonnegative().default(0),
+  revenueRub: z.number().int().nonnegative().default(0),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type AdminAcquisitionLink = z.infer<typeof adminAcquisitionLinkSchema>;
+
+export const adminAcquisitionDashboardSchema = z.object({
+  attribution: acquisitionAttributionSchema,
+  period: z.object({ from: z.string().nullable(), to: z.string().nullable() }),
+  summary: z.object({
+    visits: z.number().int().nonnegative(),
+    uniqueVisitors: z.number().int().nonnegative(),
+    registrations: z.number().int().nonnegative(),
+    paidUsers: z.number().int().nonnegative(),
+    revenueRub: z.number().int().nonnegative(),
+    visitToRegistrationRate: z.number().nonnegative(),
+    registrationToPaidRate: z.number().nonnegative(),
+    visitToPaidRate: z.number().nonnegative()
+  }),
+  timeline: z.array(acquisitionTimelinePointSchema),
+  sources: z.array(acquisitionMetricRowSchema),
+  campaigns: z.array(acquisitionMetricRowSchema),
+  topLinks: z.array(adminAcquisitionLinkSchema)
+});
+export type AdminAcquisitionDashboard = z.infer<typeof adminAcquisitionDashboardSchema>;
+
+export const adminUserAcquisitionSchema = z.object({
+  firstTouch: acquisitionTouchSchema.nullable(),
+  lastTouch: acquisitionTouchSchema.nullable(),
+  registeredAt: z.string().datetime(),
+  firstPaidAt: z.string().datetime().nullable(),
+  registrationDelaySeconds: z.number().int().nonnegative().nullable(),
+  firstPaymentDelaySeconds: z.number().int().nonnegative().nullable(),
+  paidOrders: z.number().int().nonnegative(),
+  revenueRub: z.number().int().nonnegative(),
+  visits: z.array(acquisitionTouchSchema)
+});
+export type AdminUserAcquisition = z.infer<typeof adminUserAcquisitionSchema>;
+
 export const clubUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
