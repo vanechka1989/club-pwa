@@ -564,6 +564,28 @@ export const userContentProgress = pgTable(
   })
 );
 
+export const learningEngagementSessions = pgTable(
+  "learning_engagement_sessions",
+  {
+    sessionId: uuid("session_id").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    materialId: uuid("material_id").references(() => lessonMaterials.id, { onDelete: "set null" }),
+    activeSeconds: integer("active_seconds").notNull().default(0),
+    videoSeconds: integer("video_seconds").notNull().default(0),
+    playbackPositionSeconds: integer("playback_position_seconds").notNull().default(0),
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    contentActivityIdx: index("learning_engagement_content_activity_idx").on(table.contentItemId, table.lastActivityAt),
+    userActivityIdx: index("learning_engagement_user_activity_idx").on(table.userId, table.lastActivityAt)
+  })
+);
+
 export const lessonComments = pgTable(
   "lesson_comments",
   {

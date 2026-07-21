@@ -1152,6 +1152,62 @@ export const adminStatsResponseSchema = z.object({
 });
 export type AdminStatsResponse = z.infer<typeof adminStatsResponseSchema>;
 
+export const learningEngagementSnapshotSchema = z.object({
+  sessionId: z.string().uuid(),
+  activeSeconds: z.number().int().min(0).max(86_400),
+  videoSeconds: z.number().int().min(0).max(86_400),
+  playbackPositionSeconds: z.number().int().min(0).max(86_400).default(0),
+  materialId: z.string().uuid().nullable().default(null),
+  closed: z.boolean().default(false)
+});
+export type LearningEngagementSnapshot = z.infer<typeof learningEngagementSnapshotSchema>;
+
+export const learningEngagementCardSchema = z.object({
+  contentItemId: z.string(),
+  title: z.string(),
+  categoryTitle: z.string(),
+  viewers: z.number().int().nonnegative(),
+  views: z.number().int().nonnegative(),
+  engagedViews: z.number().int().nonnegative(),
+  totalActiveSeconds: z.number().int().nonnegative(),
+  averageActiveSeconds: z.number().int().nonnegative(),
+  medianActiveSeconds: z.number().int().nonnegative(),
+  quickExits: z.number().int().nonnegative(),
+  quickExitPercent: z.number().min(0).max(100),
+  videoSeconds: z.number().int().nonnegative(),
+  completedUsers: z.number().int().nonnegative(),
+  lastViewedAt: z.string().datetime()
+});
+
+export const learningEngagementResponseSchema = z.object({
+  summary: z.object({
+    uniqueViewers: z.number().int().nonnegative(),
+    views: z.number().int().nonnegative(),
+    medianActiveSeconds: z.number().int().nonnegative(),
+    quickExitPercent: z.number().min(0).max(100)
+  }),
+  cards: z.array(learningEngagementCardSchema)
+});
+export type LearningEngagementResponse = z.infer<typeof learningEngagementResponseSchema>;
+
+export const learningEngagementUserSchema = z.object({
+  userId: z.string(),
+  displayName: z.string(),
+  email: z.string().email().nullable(),
+  opens: z.number().int().nonnegative(),
+  totalActiveSeconds: z.number().int().nonnegative(),
+  videoSeconds: z.number().int().nonnegative(),
+  playbackPositionSeconds: z.number().int().nonnegative(),
+  lastViewedAt: z.string().datetime(),
+  completed: z.boolean()
+});
+
+export const learningEngagementUsersResponseSchema = z.object({
+  item: z.object({ id: z.string(), title: z.string(), categoryTitle: z.string() }),
+  users: z.array(learningEngagementUserSchema)
+});
+export type LearningEngagementUsersResponse = z.infer<typeof learningEngagementUsersResponseSchema>;
+
 export const adminLearningMaterialSchema = learningContentSchema.extend({
   isPublished: z.boolean(),
   archivedUntil: z.string().datetime().nullable(),

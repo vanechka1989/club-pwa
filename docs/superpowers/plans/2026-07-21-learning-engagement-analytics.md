@@ -21,7 +21,7 @@
 
 **Files:**
 - Modify: `apps/api/src/db/schema.ts`
-- Create: `apps/api/drizzle/0060_learning_engagement_sessions.sql`
+- Create: `apps/api/drizzle/0052_learning_engagement_sessions.sql`
 - Create: `apps/api/src/learning/engagement.ts`
 - Test: `apps/api/src/learning/engagement.test.ts`
 - Modify: `packages/shared/src/index.ts`
