@@ -286,6 +286,7 @@ const mailingAttachment = ref<File | null>(null);
 const mailingEditorRef = ref<HTMLElement | null>(null);
 const mailingPreviewLoading = ref(false);
 const showMailingComposer = ref(false);
+const showMailingHistory = ref(false);
 const paymentOrders = ref<PaymentOrderLog[]>([]);
 const communityTopics = ref<ClubTopic[]>([]);
 const communityMessages = ref<AdminCommunityMessage[]>([]);
@@ -919,6 +920,7 @@ async function openMailingComposer(options: { reset?: boolean } = {}) {
     resetMailingForm();
   }
 
+  showMailingHistory.value = false;
   showMailingComposer.value = true;
   openAdminTask("/admin/mailings/new");
   await nextTick();
@@ -933,6 +935,19 @@ async function openMailingComposer(options: { reset?: boolean } = {}) {
 
 function closeMailingComposer() {
   showMailingComposer.value = false;
+  closeAdminTask();
+}
+
+function openMailingHistory() {
+  selectedMailing.value = null;
+  showMailingComposer.value = false;
+  showMailingHistory.value = true;
+  openAdminTask("/admin/mailings/history");
+  void loadMailings().catch(() => null);
+}
+
+function closeMailingHistory() {
+  showMailingHistory.value = false;
   closeAdminTask();
 }
 
@@ -1102,6 +1117,7 @@ function updateMailingAnalyticsRecipients() {
 }
 
 function openMailingDetail(mailing: AdminMailing) {
+  showMailingHistory.value = false;
   selectedMailing.value = mailing;
   openAdminTask(`/admin/mailings/${mailing.id}`);
 }
@@ -2796,6 +2812,7 @@ function resetAdminTaskState() {
   selectedUserLoginIps.value = [];
   selectedMailing.value = null;
   showMailingComposer.value = false;
+  showMailingHistory.value = false;
   showStorageFilesModal.value = false;
   showStorageFolderModal.value = false;
   showStorageSettingsModal.value = false;
@@ -2837,12 +2854,21 @@ async function syncAdminTaskRoute() {
   }
   if (path === "/admin/mailings/new") {
     activePanel.value = "mailings";
+    showMailingHistory.value = false;
     if (!showMailingComposer.value) await openMailingComposer();
+    return;
+  }
+  if (path === "/admin/mailings/history") {
+    activePanel.value = "mailings";
+    showMailingComposer.value = false;
+    showMailingHistory.value = true;
+    if (!mailings.value.length) void loadMailings().catch(() => null);
     return;
   }
   const mailingMatch = path.match(/^\/admin\/mailings\/([^/]+)$/);
   if (mailingMatch) {
     activePanel.value = "mailings";
+    showMailingHistory.value = false;
     const mailingId = decodeURIComponent(mailingMatch[1]!);
     selectedMailing.value = mailings.value.find((item) => item.id === mailingId) ?? null;
     if (!selectedMailing.value) {
@@ -3768,16 +3794,16 @@ onUnmounted(() => {
         <small v-if="mailingEmailQuota.resetsAt">Ближайшее место освободится {{ formatDateTime(mailingEmailQuota.resetsAt) }}</small>
       </section>
 
-      <div class="admin-mailings-layout">
-        <aside class="admin-mailing-side">
-          <section class="admin-crm-block ui-card admin-mailing-list">
-            <div class="admin-panel-head ui-page-header admin-mailing-list-head">
-              <div>
-                <h4>История</h4>
-                <p>{{ mailings.length }} рассылок</p>
-              </div>
-              <button class="secondary-button ui-button" type="button" @click="loadMailings">Обновить</button>
-            </div>
+      <button class="admin-mailing-history-entry ui-button" type="button" @click="openMailingHistory">
+        <span>
+          <strong>История рассылок</strong>
+          <small>{{ mailings.length ? `${mailings.length} рассылок` : "Рассылок пока нет" }}</small>
+        </span>
+        <ChevronRight class="h-5 w-5" aria-hidden="true" />
+      </button>
+
+      <TaskScreen v-if="showMailingHistory" class="admin-task-screen admin-mailing-history-task-screen" title="История рассылок" :subtitle="mailings.length ? `${mailings.length} рассылок` : 'Рассылок пока нет'" portal @back="closeMailingHistory">
+          <section class="admin-mailing-list admin-mailing-history-screen">
 
             <article
               v-for="mailing in mailings"
@@ -3857,8 +3883,7 @@ onUnmounted(() => {
             </article>
             <p v-if="!mailings.length" class="admin-empty">Рассылок пока нет.</p>
           </section>
-        </aside>
-      </div>
+      </TaskScreen>
 
       <TaskScreen v-if="showMailingComposer" class="admin-task-screen admin-mailing-task-screen" title="Новая рассылка" subtitle="Текст, вложение, фильтры и планирование." portal @back="closeMailingComposer">
         <template #actions>

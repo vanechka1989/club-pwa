@@ -55,6 +55,19 @@ describe("admin mailings panel", () => {
     expect(adminSectionSource).toContain('class="admin-mailing-submit-row admin-mailing-builder-footer"');
   });
 
+  it("opens mailing history as a separate routed screen without a manual refresh action", () => {
+    expect(adminSectionSource).toContain("const showMailingHistory = ref(false)");
+    expect(adminSectionSource).toContain('openAdminTask("/admin/mailings/history")');
+    expect(adminSectionSource).toContain('title="История рассылок"');
+    expect(adminSectionSource).toContain('class="admin-mailing-history-entry ui-button"');
+
+    const historyStart = adminSectionSource.indexOf('title="История рассылок"');
+    const historyEnd = adminSectionSource.indexOf("</TaskScreen>", historyStart);
+    const historyScreen = adminSectionSource.slice(historyStart, historyEnd);
+    expect(historyScreen).toContain('v-for="mailing in mailings"');
+    expect(historyScreen).not.toContain("@click=\"loadMailings\"");
+  });
+
   it("offers safe visual and HTML source editing with a real message preview", () => {
     expect(adminSectionSource).toContain('import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode"');
     expect(adminSectionSource).toContain('ref<MailingEditorMode>("visual")');

@@ -3362,6 +3362,43 @@ body.club-keyboard-open .support-ticket-modal-compact {
   gap: 0.8rem;
 }
 
+.admin-mailing-history-entry {
+  display: flex;
+  width: 100%;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.admin-mailing-history-entry > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.admin-mailing-history-entry small {
+  color: var(--muted);
+}
+
+.admin-mailing-history-entry > svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.admin-mailing-history-screen {
+  width: 100%;
+  max-width: 100%;
+  align-content: start;
+  padding: var(--screen-gutter) var(--screen-gutter) max(1.35rem, calc(var(--club-safe-bottom) + 1rem));
+}
+
 .admin-mailing-builder-head,
 .admin-mailing-list-head {
   align-items: center;

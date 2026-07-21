@@ -44,6 +44,7 @@ describe("admin panels", () => {
 
   it("maps direct admin task links to the permission-protected panel", () => {
     expect(getAdminPanelForTaskPath("/admin/mailings/new")).toBe("mailings");
+    expect(getAdminPanelForTaskPath("/admin/mailings/history")).toBe("mailings");
     expect(getAdminPanelForTaskPath("/admin/clients/user-1")).toBe("users");
     expect(getAdminPanelForTaskPath("/admin/storage/settings")).toBe("storage");
     expect(getAdminPanelForTaskPath("/admin/admins/user-1/access")).toBe("admins");

@@ -1954,6 +1954,11 @@ test("opens admin task screens when their URLs are loaded directly", async ({ pa
   await expect(page).toHaveURL(/\/admin\/mailings\/new$/);
   await expect(page.locator(".admin-mailing-task-screen .task-screen")).toBeVisible();
 
+  await page.goto("/admin/mailings/history");
+  await expect(page).toHaveURL(/\/admin\/mailings\/history$/);
+  await expect(page.locator(".admin-mailing-history-task-screen .task-screen")).toBeVisible();
+  await expect(page.getByText(adminMailing.title, { exact: true })).toBeVisible();
+
   await page.goto("/admin/mailings/mailing-demo");
   await expect(page).toHaveURL(/\/admin\/mailings\/mailing-demo$/);
   await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
