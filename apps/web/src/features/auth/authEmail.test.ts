@@ -325,7 +325,7 @@ describe("email auth UI", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Отправить код ещё раз" }));
 
     expect(requestEmailCode).toHaveBeenCalledTimes(2);
-    expect(requestEmailCode).toHaveBeenLastCalledWith({ email: "ivan@example.com" });
+    expect(requestEmailCode).toHaveBeenLastCalledWith(expect.objectContaining({ email: "ivan@example.com" }));
   });
 
   it("waits one minute before allowing a repeated email code request", async () => {

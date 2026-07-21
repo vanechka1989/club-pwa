@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes reactions inside messages as version 5.33", () => {
-    expect(appVersion).toBe("5.33");
-    expect(releaseNotes[0]?.title).toBe("Реакции внутри сообщения");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("внутри");
+  it("publishes acquisition analytics as version 5.34", () => {
+    expect(appVersion).toBe("5.34");
+    expect(releaseNotes[0]?.title).toBe("Аналитика привлечения клиентов");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("first-touch");
+
+    const insideReactionRelease = releaseNotes.find((note) => note.version === "5.33");
+    expect(insideReactionRelease?.title).toBe("Реакции внутри сообщения");
 
     const circularReactionRelease = releaseNotes.find((note) => note.version === "5.32");
     expect(circularReactionRelease?.title).toBe("Круглые реакции в углу сообщения");
