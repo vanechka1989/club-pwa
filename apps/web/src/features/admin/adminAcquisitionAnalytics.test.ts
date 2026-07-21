@@ -6,8 +6,7 @@ describe("admin acquisition analytics", () => {
   it("keeps dashboard and link generator inside the PWA", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
     expect(source).toContain("От клика до оплаты");
-    expect(source).toContain("Начали с источника");
-    expect(source).toContain("Перед регистрацией");
+    expect(source).toContain("Откуда пришли клиенты");
     expect(source).toContain("Метки и ссылки");
     expect(source).toContain("<TaskScreen");
     expect(source).not.toContain('target="_blank"');
@@ -19,23 +18,24 @@ describe("admin acquisition analytics", () => {
     expect(source).toContain('class="acquisition-funnel-fill"');
   });
 
-  it("compares first and last touch on one screen without attribution tabs", () => {
+  it("shows one clear source attribution without first and last touch comparison", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
     expect(source).not.toContain('class="acquisition-model"');
-    expect(source).toContain("sourceComparison");
-    expect(source).toContain("Начали с источника");
-    expect(source).toContain("Перед регистрацией");
-    expect(source).toContain('attribution: "first"');
+    expect(source).not.toContain("sourceComparison");
+    expect(source).not.toContain("Начали с источника");
+    expect(source).not.toContain("Перед регистрацией");
+    expect(source).not.toContain('attribution: "first"');
     expect(source).toContain('attribution: "last"');
+    expect(source).toContain("dashboard?.sources");
+    expect(source).toContain("Конверсия");
   });
 
-  it("explains overlapping first and last source counts without suggesting a sum", () => {
+  it("renders numeric values above every timeline bar", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
-    expect(source).toContain("Начали с источника");
-    expect(source).toContain("Перед регистрацией");
-    expect(source).toContain("Те же клиенты в обеих цифрах");
-    expect(source).toContain("Значения пересекаются — складывать их не нужно");
-    expect(source).toContain('class="acquisition-source-overlap"');
+    expect(source).toContain('class="acquisition-chart-values"');
+    expect(source).toContain("{{ point.visits }}");
+    expect(source).toContain("{{ point.registrations }}");
+    expect(source).toContain("{{ point.paidUsers }}");
   });
 
   it("renders the acquisition dashboard only inside the analytics task screen", () => {
