@@ -35,6 +35,7 @@ import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
 import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } from "../admin/s3DeletionAudit";
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
+import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt, summarizePollStatistics } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
@@ -1364,6 +1365,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/stats/*", requireAnyAdminPermission(["statistics", "users"]))
   .use("/acquisition", requireAdminPermission("statistics"))
   .use("/acquisition/*", requireAdminPermission("statistics"))
+  .use("/analytics/learning-engagement", requireAdminPermission("statistics"))
+  .use("/analytics/learning-engagement/*", requireAdminPermission("statistics"))
   .use("/users/:telegramId/acquisition", requireAdminPermission("statistics"))
   .use("/access", requireAdminPermission("accesses"))
   .use("/learning", requireAdminPermission("materials"))
@@ -1992,6 +1995,27 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({ ok: true });
+  })
+  .get("/analytics/learning-engagement", async (c) => {
+    try {
+      const range = resolveLearningEngagementRange(c.req.query("from"), c.req.query("to"));
+      return c.json(await getLearningEngagementDashboard(range.from, range.toExclusive));
+    } catch {
+      return c.json({ error: "Invalid learning engagement date range" }, 400);
+    }
+  })
+  .get("/analytics/learning-engagement/:itemId/users", async (c) => {
+    const itemId = z.string().uuid().safeParse(c.req.param("itemId"));
+    if (!itemId.success) {
+      return c.json({ error: "Invalid learning content id" }, 400);
+    }
+    try {
+      const range = resolveLearningEngagementRange(c.req.query("from"), c.req.query("to"));
+      const result = await getLearningEngagementUsers(itemId.data, range.from, range.toExclusive);
+      return result ? c.json(result) : c.json({ error: "Learning content not found" }, 404);
+    } catch {
+      return c.json({ error: "Invalid learning engagement date range" }, 400);
+    }
   })
   .get("/stats", async (c) => {
     const totalItems = await getPublishedItemsCount();
