@@ -20,6 +20,7 @@ import { env } from "../env";
 import { logger } from "../logger";
 import { getS3ConfigFromEnv, getS3ConfigFromSetting, storageSettingKey, type StoredS3Config } from "./s3Config";
 import { normalizeS3ObjectKey, normalizeS3ObjectPrefix } from "./s3Object";
+import { createRuntimeResourceCache } from "./runtimeResourceCache";
 
 export type UploadObjectInput = {
   key: string;
@@ -29,7 +30,7 @@ export type UploadObjectInput = {
 
 export type S3StorageTarget = "primary" | "reserve";
 
-async function requireS3Config() {
+async function loadS3Config() {
   const setting = await db.query.clubSettings.findFirst({
     where: eq(clubSettings.key, storageSettingKey)
   });
@@ -42,8 +43,43 @@ async function requireS3Config() {
   return config;
 }
 
+const s3ConfigCache = createRuntimeResourceCache({
+  load: loadS3Config,
+  ttlMs: 60_000
+});
+
+const s3Clients = new Map<string, S3Client>();
+
+function s3ClientCacheKey(config: StoredS3Config) {
+  return JSON.stringify([
+    config.endpoint,
+    config.region,
+    config.bucket,
+    config.accessKeyId,
+    config.secretAccessKey
+  ]);
+}
+
+async function requireS3Config() {
+  return s3ConfigCache.get();
+}
+
+export function invalidateS3RuntimeCache() {
+  s3ConfigCache.invalidate();
+  for (const client of s3Clients.values()) {
+    client.destroy();
+  }
+  s3Clients.clear();
+}
+
 function createS3Client(config: StoredS3Config) {
-  return new S3Client({
+  const cacheKey = s3ClientCacheKey(config);
+  const cachedClient = s3Clients.get(cacheKey);
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  const client = new S3Client({
     endpoint: config.endpoint,
     region: config.region,
     forcePathStyle: true,
@@ -52,6 +88,8 @@ function createS3Client(config: StoredS3Config) {
       secretAccessKey: config.secretAccessKey
     }
   });
+  s3Clients.set(cacheKey, client);
+  return client;
 }
 
 function resolveS3TargetConfig(config: StoredS3Config, target: S3StorageTarget) {

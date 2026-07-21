@@ -82,6 +82,7 @@ import {
   deleteObject,
   getObjectMetadata,
   getObjectReadUrl,
+  invalidateS3RuntimeCache,
   listObjects,
   mirrorObjectToReserve,
   testS3Connection,
@@ -1938,6 +1939,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         }
       })
       .returning();
+
+    invalidateS3RuntimeCache();
 
     await recordAdminAction(c, {
       action: "storage.s3.updated",
