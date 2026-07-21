@@ -1256,6 +1256,10 @@ async function expectKeyboardSafeIfFormRoute(page: Page, routePath: string) {
     .locator(taskFieldSelector)
     .first();
   const field = fieldState.hasTaskField ? taskField : page.locator(keyboardFieldSelector).first();
+  const originalViewport = page.viewportSize();
+  if (originalViewport && originalViewport.height > 420) {
+    await page.setViewportSize({ width: originalViewport.width, height: 420 });
+  }
 
   const applyKeyboardViewport = () =>
     page.evaluate(() => {
@@ -1329,6 +1333,9 @@ async function expectKeyboardSafeIfFormRoute(page: Page, routePath: string) {
       document.body.style.removeProperty(name);
     }
   });
+  if (originalViewport) {
+    await page.setViewportSize(originalViewport);
+  }
 }
 
 const mobileModalFixtures = [
@@ -1534,6 +1541,7 @@ const responsiveRouteAuditPaths = [
   { path: "/admin/statistics/users/tariff-manual", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/releases", selector: ".release-notes-modal" },
   { path: "/admin/mailings/new", selector: ".admin-mailing-task-screen .task-screen" },
+  { path: "/admin/mailings/history", selector: ".admin-mailing-history-task-screen .task-screen" },
   { path: "/admin/mailings/mailing-demo", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/storage/files", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/storage/folders/all", selector: ".admin-task-screen .task-screen" },

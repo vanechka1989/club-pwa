@@ -234,6 +234,20 @@ describe("keyboard focus handling", () => {
     document.documentElement.style.removeProperty("--club-visible-viewport-height");
   });
 
+  it("rechecks support fields after the final iOS viewport stabilization pass", () => {
+    const supportLayer = document.createElement("div");
+    supportLayer.className = "support-task-screen task-screen-route-layer";
+    const textarea = document.createElement("textarea");
+    supportLayer.append(textarea);
+    document.body.append(supportLayer);
+    const schedule = vi.fn((_handler: () => void, _timeout: number) => 1);
+
+    ensureFocusedTextFieldVisible(textarea, schedule);
+
+    expect(schedule.mock.calls.map((call) => call[1])).toContain(720);
+    supportLayer.remove();
+  });
+
   it("does not scroll the routed support layer for a footer composer", () => {
     const supportLayer = document.createElement("div");
     supportLayer.className = "support-task-screen support-ticket-task-screen task-screen-route-layer";

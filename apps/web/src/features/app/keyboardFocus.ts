@@ -143,7 +143,7 @@ export function ensureFocusedTextFieldVisible(
     if (element.closest(".task-screen-footer, .support-reply-form")) {
       return;
     }
-    for (const timeout of [40, 120, 260, 520]) {
+    for (const timeout of [40, 120, 260, 520, 720]) {
       schedule(() => nudgeFocusedFieldIntoVisibleViewport(element), timeout);
     }
     return;
