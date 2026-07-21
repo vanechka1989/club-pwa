@@ -2,6 +2,10 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+# The production VPS is intentionally small; Node otherwise caps the build
+# heap near 512 MiB and vue-tsc can terminate before Vite starts.
+ENV NODE_OPTIONS=--max-old-space-size=768
+
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./

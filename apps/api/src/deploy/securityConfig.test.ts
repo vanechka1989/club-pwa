@@ -85,6 +85,7 @@ describe("production security config", () => {
   it("runs application containers without root and with restricted runtime privileges", () => {
     expect(apiDockerfile).toContain("USER bun");
     expect(webDockerfile).toContain("nginxinc/nginx-unprivileged");
+    expect(webDockerfile).toContain("ENV NODE_OPTIONS=--max-old-space-size=768");
     for (const source of [productionCompose, scaleCompose]) {
       expect(source).toContain("no-new-privileges:true");
       expect(source).toContain("cap_drop:");
