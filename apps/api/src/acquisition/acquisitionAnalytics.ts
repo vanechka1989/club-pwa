@@ -97,10 +97,10 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
   const attributionByUser = new Map(data.attributions.map((item) => [item.userId, item]));
 
   const rows = (dimension: "source" | "campaign") => {
-    const keys = new Map<string, { label: string; visits: number; registrations: number; paidUsers: Set<string>; revenueRub: number }>();
+    const keys = new Map<string, { label: string; visits: number; registrations: number; overlapRegistrations: number; paidUsers: Set<string>; revenueRub: number }>();
     const rowFor = (link: AnalyticsLink) => {
       const key = link[dimension] || "direct";
-      const current = keys.get(key) ?? { label: key, visits: 0, registrations: 0, paidUsers: new Set<string>(), revenueRub: 0 };
+      const current = keys.get(key) ?? { label: key, visits: 0, registrations: 0, overlapRegistrations: 0, paidUsers: new Set<string>(), revenueRub: 0 };
       keys.set(key, current);
       return current;
     };
@@ -111,6 +111,11 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
     for (const item of periodAttributions) {
       const link = linksById.get(attributedLinkId(item));
       if (link) rowFor(link).registrations += 1;
+      const firstLink = linksById.get(item.firstLinkId);
+      const lastLink = linksById.get(item.lastLinkId);
+      if (firstLink && lastLink && firstLink[dimension] === lastLink[dimension]) {
+        rowFor(firstLink).overlapRegistrations += 1;
+      }
     }
     for (const userId of periodPaidUsers) {
       const item = attributionByUser.get(userId);
@@ -123,7 +128,7 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
       if (link) rowFor(link).revenueRub += order.amountRub;
     }
     return [...keys.entries()]
-      .map(([key, value]) => ({ key, label: value.label, visits: value.visits, registrations: value.registrations, paidUsers: value.paidUsers.size, revenueRub: value.revenueRub }))
+      .map(([key, value]) => ({ key, label: value.label, visits: value.visits, registrations: value.registrations, overlapRegistrations: value.overlapRegistrations, paidUsers: value.paidUsers.size, revenueRub: value.revenueRub }))
       .sort((a, b) => b.revenueRub - a.revenueRub || b.registrations - a.registrations || b.visits - a.visits);
   };
 

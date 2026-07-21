@@ -40,6 +40,15 @@ describe("acquisition analytics aggregation", () => {
     expect(dashboard.sources.find((row) => row.key === "telegram")).toMatchObject({ registrations: 2, paidUsers: 1, revenueRub: 1500 });
   });
 
+  it("shows how many registrations overlap between first and last source", () => {
+    const dashboard = buildAcquisitionDashboard(
+      { links: [linkA, linkB], visits, attributions, orders },
+      { attribution: "first", from: null, to: null, origin: "https://club.example" }
+    );
+    expect(dashboard.sources.find((row) => row.key === "telegram")).toMatchObject({ overlapRegistrations: 1 });
+    expect(dashboard.sources.find((row) => row.key === "vk")).toMatchObject({ overlapRegistrations: 0 });
+  });
+
   it("builds immutable client milestones and visit history", () => {
     const client = buildUserAcquisition({
       user: { id: "u1", createdAt: new Date("2026-07-21T12:00:00Z") },

@@ -93,6 +93,7 @@ export const acquisitionMetricRowSchema = z.object({
   label: z.string(),
   visits: z.number().int().nonnegative(),
   registrations: z.number().int().nonnegative(),
+  overlapRegistrations: z.number().int().nonnegative(),
   paidUsers: z.number().int().nonnegative(),
   revenueRub: z.number().int().nonnegative()
 });

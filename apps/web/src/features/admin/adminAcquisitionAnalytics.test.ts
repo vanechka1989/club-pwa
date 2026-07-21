@@ -6,8 +6,8 @@ describe("admin acquisition analytics", () => {
   it("keeps dashboard and link generator inside the PWA", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
     expect(source).toContain("От клика до оплаты");
-    expect(source).toContain("Первое касание");
-    expect(source).toContain("Последнее касание");
+    expect(source).toContain("Начали с источника");
+    expect(source).toContain("Перед регистрацией");
     expect(source).toContain("Метки и ссылки");
     expect(source).toContain("<TaskScreen");
     expect(source).not.toContain('target="_blank"');
@@ -23,10 +23,19 @@ describe("admin acquisition analytics", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
     expect(source).not.toContain('class="acquisition-model"');
     expect(source).toContain("sourceComparison");
-    expect(source).toContain("Первое касание");
-    expect(source).toContain("Последнее касание");
+    expect(source).toContain("Начали с источника");
+    expect(source).toContain("Перед регистрацией");
     expect(source).toContain('attribution: "first"');
     expect(source).toContain('attribution: "last"');
+  });
+
+  it("explains overlapping first and last source counts without suggesting a sum", () => {
+    const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    expect(source).toContain("Начали с источника");
+    expect(source).toContain("Перед регистрацией");
+    expect(source).toContain("Те же клиенты в обеих цифрах");
+    expect(source).toContain("Значения пересекаются — складывать их не нужно");
+    expect(source).toContain('class="acquisition-source-overlap"');
   });
 
   it("renders the acquisition dashboard only inside the analytics task screen", () => {
