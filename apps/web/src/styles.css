@@ -17757,11 +17757,16 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
   .admin-statistics-panel .admin-stat-nav-row,
   body.club-mobile-device .admin-statistics-panel .admin-stat-nav-row,
   body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
-    grid-template-columns: 40px minmax(0, 1fr) minmax(58px, auto) 20px;
-    gap: 7px;
+    grid-template-columns: 36px minmax(0, 1fr) minmax(58px, 76px) 16px;
+    gap: 6px;
+    min-height: 72px;
+    height: auto;
     padding-inline: 8px;
   }
-  .admin-statistics-panel .admin-stat-nav-icon { width: 40px; height: 40px; }
+  .admin-statistics-panel .admin-stat-nav-icon { width: 36px; height: 36px; }
+  .admin-statistics-panel .admin-stat-nav-copy strong { font-size: 13px; }
+  .admin-statistics-panel .admin-stat-nav-copy small,
+  .admin-statistics-panel .admin-stat-nav-value small { font-size: 9px; }
   .admin-statistics-panel .admin-stat-nav-value strong { font-size: var(--app-type-meta-size); }
 }
 

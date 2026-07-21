@@ -11,6 +11,7 @@ describe("compact admin statistics and clients", () => {
     expect(source.match(/class="admin-stat-nav-row/g)?.length).toBe(6);
     expect(source).not.toContain("<small v-if=\"item.value\">Подробнее</small>");
     expect(styles).toContain(".admin-stat-period-summary");
+    expect(styles).toMatch(/\.admin-statistics-panel \.admin-stat-nav-row,[^{]+\{[^}]*min-height:\s*72px;[^}]*height:\s*auto;/);
   });
 
   it("keeps search visible and moves secondary client filters into a disclosure", () => {
