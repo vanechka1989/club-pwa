@@ -8013,6 +8013,45 @@ body.club-lesson-image-viewer-open {
   justify-content: center;
 }
 
+.lesson-editor-media-preview {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  padding: 0.65rem;
+  overflow: hidden;
+}
+
+.lesson-editor-media-preview strong {
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 860;
+}
+
+.lesson-editor-media-preview img,
+.lesson-editor-media-preview video,
+.lesson-editor-media-preview iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: min(48dvh, 22rem);
+  border: 0;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.lesson-editor-media-preview iframe {
+  aspect-ratio: 16 / 9;
+}
+
+.lesson-editor-media-preview audio {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
 .lesson-preview-actions {
   flex: 0 0 auto;
   margin-top: 0;

@@ -88,6 +88,7 @@ import {
 } from "./uploadRecovery";
 import { isAmbiguousNetworkError, reconcileLearningSave } from "./lessonSaveReconciliation";
 import { createLearningEngagementTracker, type LearningEngagementTracker } from "./learningEngagement";
+import { resolveLessonEditorPreview } from "./lessonEditorPreview";
 import { sendLearningEngagementWithRetry } from "./learningEngagementOutbox";
 
 const lessonImageViewerUrl = ref<string | null>(null);
@@ -350,6 +351,7 @@ const lessonMediaSource = ref<MediaInputSource>("file");
 const lessonExternalUrl = ref("");
 const lessonFile = ref<File | NamedBlobUpload | null>(null);
 const lessonFileName = ref("");
+const lessonFilePreviewUrl = ref<string | null>(null);
 const lessonThumbnailFile = ref<File | null>(null);
 const lessonThumbnailFileName = ref("");
 const shouldRemoveLessonThumbnail = ref(false);
@@ -391,6 +393,13 @@ const moduleModalDescription = computed(() => (editingModule.value ? "Измен
 const trimmedModuleTitle = computed(() => moduleTitle.value.trim());
 const selectedLessonModule = computed(() => moduleCards.value.find((module) => module.id === selectedLesson.value?.moduleId) ?? null);
 const selectedLessonItem = computed(() => selectedLessonModule.value?.images.find((lesson) => lesson.id === selectedLesson.value?.lessonId) ?? null);
+const lessonEditorPreview = computed(() => resolveLessonEditorPreview({
+  kind: lessonKind.value,
+  source: lessonMediaSource.value,
+  existingUrl: selectedLessonItem.value?.mediaUrl ?? null,
+  externalUrl: lessonExternalUrl.value,
+  localUrl: lessonFilePreviewUrl.value
+}));
 const isLessonEditorMode = computed(() =>
   Boolean(selectedLesson.value && (!selectedLessonItem.value || (canManageModules.value && lessonEditorMode.value)))
 );
@@ -492,6 +501,18 @@ function syncLessonYouTubeExternalUrl() {
   lessonMediaSource.value = "youtube";
   lessonFile.value = null;
   lessonFileName.value = "";
+  clearLessonFilePreview();
+}
+
+function clearLessonFilePreview() {
+  if (lessonFilePreviewUrl.value) URL.revokeObjectURL(lessonFilePreviewUrl.value);
+  lessonFilePreviewUrl.value = null;
+}
+
+function setLessonFilePreview(upload: File | NamedBlobUpload | null) {
+  clearLessonFilePreview();
+  if (!upload) return;
+  lessonFilePreviewUrl.value = URL.createObjectURL(upload instanceof File ? upload : upload.blob);
 }
 
 function syncLessonMaterialYouTubeExternalUrl(material: LessonMaterialDraft) {
@@ -791,6 +812,7 @@ function openLessonModal(
   materialId: string | null = null,
   editorMode = false
 ) {
+  clearLessonFilePreview();
   stopLearningEngagement();
   resetLessonVideoState();
   if (!module.images.some((item) => item.id === lesson.id)) {
@@ -882,6 +904,7 @@ function openLessonCreateModal(module: ModuleCard) {
     return;
   }
 
+  clearLessonFilePreview();
   selectedLesson.value = { moduleId: module.id, lessonId: null };
   lessonTitle.value = "";
   lessonDescription.value = "";
@@ -905,6 +928,7 @@ function openLessonCreateModal(module: ModuleCard) {
 }
 
 function closeLessonModal() {
+  clearLessonFilePreview();
   stopLearningEngagement();
   closeLessonImage();
   resetLessonVideoState();
@@ -2393,6 +2417,7 @@ function handleLessonFileChange(event: Event) {
   const file = input.files?.[0] ?? null;
   lessonFile.value = file;
   lessonFileName.value = file?.name ?? "";
+  setLessonFilePreview(file);
   if (file) {
     lessonMediaSource.value = "file";
     lessonExternalUrl.value = "";
@@ -2404,6 +2429,7 @@ function setLessonMediaSource(source: MediaInputSource) {
   if (source !== "file") {
     lessonFile.value = null;
     lessonFileName.value = "";
+    clearLessonFilePreview();
     return;
   }
 
@@ -2415,6 +2441,7 @@ function setLessonKind(kind: ContentKind) {
   if (kind === "text") {
     lessonFile.value = null;
     lessonFileName.value = "";
+    clearLessonFilePreview();
     lessonMediaSource.value = "file";
     lessonExternalUrl.value = "";
   } else if (kind !== "video" && lessonMediaSource.value === "youtube") {
@@ -2532,6 +2559,7 @@ async function startVoiceRecording() {
       lessonKind.value = "audio";
       lessonFile.value = upload;
       lessonFileName.value = upload.name;
+      setLessonFilePreview(upload);
       isVoiceRecording.value = false;
       stream.getTracks().forEach((track) => track.stop());
       voiceStream.value = null;
@@ -2623,6 +2651,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  clearLessonFilePreview();
   handleLearningExit();
   document.removeEventListener("visibilitychange", handleLearningVisibilityChange);
   window.removeEventListener("focus", handleLearningFocusChange);
@@ -3262,6 +3291,19 @@ watch(
                   Остановить запись
                 </button>
               </div>
+              <section v-if="lessonEditorPreview" class="lesson-editor-media-preview" aria-label="Предпросмотр контента урока">
+                <strong>{{ lessonEditorPreview.origin === "saved" ? "Текущий контент" : "Предпросмотр нового контента" }}</strong>
+                <img v-if="lessonKind === 'photo'" :src="lessonEditorPreview.url" alt="Предпросмотр изображения урока" />
+                <iframe
+                  v-else-if="lessonKind === 'video' && getYouTubePlayerUrl(lessonEditorPreview.url)"
+                  :src="getYouTubePlayerUrl(lessonEditorPreview.url) ?? undefined"
+                  title="Предпросмотр видео урока"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen
+                ></iframe>
+                <video v-else-if="lessonKind === 'video'" :src="lessonEditorPreview.url" controls playsinline preload="metadata"></video>
+                <audio v-else-if="lessonKind === 'audio'" :src="lessonEditorPreview.url" controls preload="metadata"></audio>
+              </section>
               <div class="admin-field">
                 <span>Источник обложки</span>
                 <div class="lesson-cover-mode-buttons" role="group" aria-label="Источник обложки">
