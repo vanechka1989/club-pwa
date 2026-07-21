@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Раздельные экраны аналитики",
+    items: [
+      "Главная аналитика стала компактным обзором: ключевые показатели и шесть понятных разделов без мешанины из графиков.",
+      "Воронки, графики и разрезы теперь открываются на отдельных экранах внутри PWA: привлечение, клиенты, финансы, обучение, сообщество и опросы.",
+      "Выбранный период остаётся виден в шапке каждого раздела, а генератор меток и отслеживаемых ссылок сохранён в привлечении."
+    ]
+  },
+  {
+    version: "5.34",
+    updatedAt: "21.07.2026 08:56",
     title: "Аналитика привлечения клиентов",
     items: [
       "В админке появился встроенный дашборд привлечения: переходы, регистрации, оплаты, выручка, воронка, динамика и разрезы по источникам.",
@@ -3964,10 +3974,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reactions inside messages",
+  title: "Separated analytics screens",
   items: [
-    "Reactions now stay fully inside the lower-right corner of the message without crossing its edges.",
-    "The emoji circle is reduced to 26 px with a thin outline while its comfortable invisible touch target remains available."
+    "The analytics home is now a compact overview with key metrics and six clearly separated areas.",
+    "Funnels, charts and breakdowns open on dedicated in-app screens, while the selected period remains visible in each header."
   ]
 };
 

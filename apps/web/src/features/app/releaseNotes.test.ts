@@ -3,10 +3,14 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes acquisition analytics as version 5.34", () => {
-    expect(appVersion).toBe("5.34");
-    expect(releaseNotes[0]?.title).toBe("Аналитика привлечения клиентов");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("first-touch");
+  it("publishes separated analytics screens as version 5.35", () => {
+    expect(appVersion).toBe("5.35");
+    expect(releaseNotes[0]?.title).toBe("Раздельные экраны аналитики");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("отдельных экранах");
+
+    const acquisitionRelease = releaseNotes.find((note) => note.version === "5.34");
+    expect(acquisitionRelease?.title).toBe("Аналитика привлечения клиентов");
+    expect(acquisitionRelease?.items.join(" ")).toContain("first-touch");
 
     const insideReactionRelease = releaseNotes.find((note) => note.version === "5.33");
     expect(insideReactionRelease?.title).toBe("Реакции внутри сообщения");
@@ -94,7 +98,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Reactions inside messages");
+    expect(englishNotes[0]?.title).toBe("Separated analytics screens");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
