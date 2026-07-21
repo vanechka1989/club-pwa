@@ -2843,7 +2843,13 @@ async function syncAdminTaskRoute() {
   const mailingMatch = path.match(/^\/admin\/mailings\/([^/]+)$/);
   if (mailingMatch) {
     activePanel.value = "mailings";
-    selectedMailing.value = mailings.value.find((item) => item.id === decodeURIComponent(mailingMatch[1]!)) ?? null;
+    const mailingId = decodeURIComponent(mailingMatch[1]!);
+    selectedMailing.value = mailings.value.find((item) => item.id === mailingId) ?? null;
+    if (!selectedMailing.value) {
+      await loadMailings().catch(() => null);
+      if (route.path !== path) return;
+      selectedMailing.value = mailings.value.find((item) => item.id === mailingId) ?? null;
+    }
     return;
   }
   const clientMatch = path.match(/^\/admin\/clients\/([^/]+)$/);
@@ -2919,6 +2925,9 @@ async function syncAdminTaskRoute() {
 }
 
 onMounted(() => {
+  // Route-only task screens must not wait for every admin dashboard request.
+  // Data-backed routes are synchronized again after the dashboard finishes loading.
+  void syncAdminTaskRoute();
   void loadAll().then(syncAdminTaskRoute);
 });
 
@@ -2940,6 +2949,7 @@ watch(
 
 watch(adminPermissionStateKey, () => {
   resetAdminTaskState();
+  void syncAdminTaskRoute();
   void loadAll().then(syncAdminTaskRoute);
 });
 
@@ -4730,6 +4740,35 @@ onUnmounted(() => {
 
     <AdminServerPanel v-else-if="isServerPanel" class="admin-panel ui-page-section" />
 
+    <TaskScreen v-if="showServerLogsModal" class="admin-task-screen" title="Логи сервера" :subtitle="serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : 'Ошибок пока нет'" portal @back="closeServerLogsModal">
+      <section class="admin-detail ui-card admin-client-modal admin-server-logs-modal">
+        <header class="admin-client-modal-head">
+          <div>
+            <h3 id="admin-server-logs-title">Логи сервера</h3>
+            <p>{{ serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : "Ошибок пока нет" }}</p>
+          </div>
+          <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть логи сервера" @click="closeServerLogsModal">
+            <X class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+
+        <p class="admin-log-note">
+          Здесь не Docker-логи и не все запросы. Показываются падения API 500 и ошибки сборки загрузок уроков из частей.
+        </p>
+
+        <div class="admin-action-log-list">
+          <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
+            <div>
+              <strong>{{ log.title }}</strong>
+              <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
+              <small>{{ log.detail }}</small>
+            </div>
+          </article>
+          <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
+        </div>
+      </section>
+    </TaskScreen>
+
     <section v-else-if="false" class="admin-panel ui-page-section admin-permissions-panel">
       <div class="admin-panel-head ui-page-header">
         <div>
@@ -4839,34 +4878,6 @@ onUnmounted(() => {
         </button>
       </section>
 
-      <TaskScreen v-if="showServerLogsModal" class="admin-task-screen" title="Логи сервера" :subtitle="serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : 'Ошибок пока нет'" portal @back="closeServerLogsModal">
-          <section class="admin-detail ui-card admin-client-modal admin-server-logs-modal">
-            <header class="admin-client-modal-head">
-              <div>
-                <h3 id="admin-server-logs-title">Логи сервера</h3>
-                <p>{{ serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : "Ошибок пока нет" }}</p>
-              </div>
-              <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть логи сервера" @click="closeServerLogsModal">
-                <X class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </header>
-
-            <p class="admin-log-note">
-              Здесь не Docker-логи и не все запросы. Показываются падения API 500 и ошибки сборки загрузок уроков из частей.
-            </p>
-
-            <div class="admin-action-log-list">
-              <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
-                <div>
-                  <strong>{{ log.title }}</strong>
-                  <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
-                  <small>{{ log.detail }}</small>
-                </div>
-              </article>
-              <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
-            </div>
-          </section>
-      </TaskScreen>
     </section>
 
     <section v-else-if="activePanel === 'admins'" class="admin-panel ui-page-section admin-permissions-panel">

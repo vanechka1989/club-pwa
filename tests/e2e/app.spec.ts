@@ -210,9 +210,12 @@ const adminMailing = {
   completedAt: now,
   createdBy: ownAuthor,
   targetCount: 18,
+  deliveryCount: 18,
   sentCount: 17,
   failedCount: 1,
   skippedCount: 0,
+  pendingCount: 0,
+  processingCount: 0,
   estimatedSeconds: 12,
   estimatedLabel: "около 12 секунд",
   attachment: null,
@@ -586,7 +589,35 @@ async function mockApi(page: Page, sessionUser = currentUser) {
     }
 
     if (path === "/admin/mailings" && request.method() === "GET") {
-      await route.fulfill(json({ mailings: [adminMailing] }));
+      await route.fulfill(json({
+        mailings: [adminMailing],
+        emailQuota: {
+          used: 0,
+          remaining: 2000,
+          limit: 2000,
+          windowHours: 24,
+          maxRecipientsPerMessage: 1000,
+          messagesPerSecond: 5,
+          resetsAt: null
+        }
+      }));
+      return;
+    }
+
+    if (path === "/admin/mailings/mailing-demo/analytics") {
+      await route.fulfill(json({
+        trackingEnabledAt: now,
+        emailOpenEstimate: true,
+        summary: { sent: 17, opened: 0, clicked: 0, openRate: 0, clickRate: 0, clickToOpenRate: 0 },
+        channels: [],
+        timeline: [],
+        links: []
+      }));
+      return;
+    }
+
+    if (path === "/admin/mailings/mailing-demo/analytics/recipients") {
+      await route.fulfill(json({ recipients: [], nextCursor: null }));
       return;
     }
 
@@ -1916,6 +1947,20 @@ test("keeps every routed PWA screen responsive on audited viewports", async ({ p
     await expectResponsiveLayoutIntegrity(page, auditRoute.path);
     await expectKeyboardSafeIfFormRoute(page, auditRoute.path);
   }
+});
+
+test("opens admin task screens when their URLs are loaded directly", async ({ page }) => {
+  await page.goto("/admin/mailings/new");
+  await expect(page).toHaveURL(/\/admin\/mailings\/new$/);
+  await expect(page.locator(".admin-mailing-task-screen .task-screen")).toBeVisible();
+
+  await page.goto("/admin/mailings/mailing-demo");
+  await expect(page).toHaveURL(/\/admin\/mailings\/mailing-demo$/);
+  await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
+
+  await page.goto("/admin/server/logs");
+  await expect(page).toHaveURL(/\/admin\/server\/logs$/);
+  await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
 });
 
 test("keeps routed task screens full width in wide mobile PWA viewports", async ({ page }, testInfo) => {
