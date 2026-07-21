@@ -1,7 +1,8 @@
 import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { contentCategories, contentItems, lessonComments, lessonMaterials, userContentProgress } from "../db/schema";
+import { learningEngagementSnapshotSchema } from "@club/shared";
+import { contentCategories, contentItems, learningEngagementSessions, lessonComments, lessonMaterials, userContentProgress } from "../db/schema";
 import { db } from "../db/client";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import type { AuthVariables } from "../middleware/auth";
@@ -10,6 +11,7 @@ import { requireActiveMember } from "../middleware/requireActiveMember";
 import { getObjectReadUrl } from "../storage/s3";
 import { decodeModuleCategoryDefaultCardLayout, decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
+import { mergeEngagementCounters } from "../learning/engagement";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -266,6 +268,84 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       lastOpenedMaterialId: progress?.lastOpenedMaterialId ?? materialId,
       playbackPositionSeconds: progress?.playbackPositionSeconds ?? body.data.positionSeconds
     });
+  })
+  .post("/items/:id/engagement", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const body = learningEngagementSnapshotSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid learning engagement payload" }, 400);
+    }
+
+    const item = await db.query.contentItems.findFirst({
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
+    });
+    if (!item) {
+      return c.json({ error: "Learning content not found" }, 404);
+    }
+
+    const materialId = body.data.materialId;
+    if (materialId) {
+      const material = await db.query.lessonMaterials.findFirst({
+        where: and(eq(lessonMaterials.id, materialId), eq(lessonMaterials.contentItemId, item.id))
+      });
+      if (!material) {
+        return c.json({ error: "Lesson material not found" }, 404);
+      }
+    }
+
+    let existing = await db.query.learningEngagementSessions.findFirst({
+      where: eq(learningEngagementSessions.sessionId, body.data.sessionId)
+    });
+    if (existing && (existing.userId !== userId || existing.contentItemId !== item.id)) {
+      return c.json({ error: "Learning engagement session belongs to another member" }, 409);
+    }
+
+    const now = new Date();
+    if (!existing) {
+      const [created] = await db
+        .insert(learningEngagementSessions)
+        .values({
+          sessionId: body.data.sessionId,
+          userId,
+          contentItemId: item.id,
+          materialId,
+          activeSeconds: body.data.activeSeconds,
+          videoSeconds: Math.min(body.data.videoSeconds, body.data.activeSeconds),
+          playbackPositionSeconds: body.data.playbackPositionSeconds,
+          openedAt: now,
+          lastActivityAt: now,
+          closedAt: body.data.closed ? now : null,
+          updatedAt: now
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (created) {
+        return c.json({ ok: true });
+      }
+      existing = await db.query.learningEngagementSessions.findFirst({
+        where: eq(learningEngagementSessions.sessionId, body.data.sessionId)
+      });
+      if (!existing || existing.userId !== userId || existing.contentItemId !== item.id) {
+        return c.json({ error: "Learning engagement session belongs to another member" }, 409);
+      }
+    }
+
+    const counters = mergeEngagementCounters(existing, body.data);
+    await db
+      .update(learningEngagementSessions)
+      .set({
+        materialId,
+        ...counters,
+        lastActivityAt: now,
+        closedAt: existing.closedAt ?? (body.data.closed ? now : null),
+        updatedAt: now
+      })
+      .where(and(
+        eq(learningEngagementSessions.sessionId, body.data.sessionId),
+        eq(learningEngagementSessions.userId, userId)
+      ));
+
+    return c.json({ ok: true });
   })
   .post("/items/:id/complete", requireActiveMember, async (c) => {
     const userId = c.get("userId");
