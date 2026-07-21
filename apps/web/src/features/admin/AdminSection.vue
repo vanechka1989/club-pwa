@@ -1824,6 +1824,11 @@ function closeStatisticsDetail() {
   activeStatisticsDetail.value = null;
 }
 
+async function openAcquisitionClient(telegramId: string) {
+  closeStatisticsDetail();
+  await openClientByTelegramId(telegramId);
+}
+
 function applySelectedUser(user: AdminStatsUser) {
   selectedUser.value = user;
   accessStatus.value = user.membershipStatus === "active" ? "active" : "inactive";
@@ -3242,6 +3247,7 @@ onUnmounted(() => {
           :from="statisticsDateRange?.from"
           :to="statisticsDateRange?.to"
           :learning-categories="learningCategories"
+          @client="openAcquisitionClient"
         />
         <AdminStatisticsDetail v-else :detail="activeStatisticsDetail" :stats="adminStatistics" :poll-stats="pollStats" @access="openUserAccessDrilldown" @tariff="openUserTariffDrilldown" @payment="openPaymentDrilldown" />
       </TaskScreen>

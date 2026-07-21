@@ -69,4 +69,13 @@ describe("admin statistics navigation", () => {
     expect(section).toContain("statisticsPeriodShortLabel");
     expect(styles).toContain(".admin-stat-task-period");
   });
+
+  it("shows visual dynamics inside client, finance, and community dashboards", () => {
+    const source = detail();
+    expect(source.match(/admin-stat-timeline ui-card/g)).toHaveLength(3);
+    expect(source).toContain("Новые клиенты по дням");
+    expect(source).toContain("Выручка по дням");
+    expect(source).toContain("Сообщения по дням");
+    expect(styles).toContain(".admin-stat-timeline-bars");
+  });
 });

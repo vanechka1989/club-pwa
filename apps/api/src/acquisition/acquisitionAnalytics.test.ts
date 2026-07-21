@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.hoisted(() => {
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgres://club:club@localhost:5432/club";
 });
-import { buildAcquisitionDashboard, buildUserAcquisition } from "./acquisitionAnalytics";
+import { buildAcquisitionDashboard, buildAcquisitionDayDetail, buildUserAcquisition } from "./acquisitionAnalytics";
 
 const linkA = { id: "a", aid: "telegram-july", name: "Telegram", source: "telegram", medium: "post", campaign: "july", content: null, destination: { kind: "home" as const }, isActive: true, createdAt: new Date("2026-07-01"), updatedAt: new Date("2026-07-01") };
 const linkB = { id: "b", aid: "vk-july", name: "VK", source: "vk", medium: "ads", campaign: "july", content: "blue", destination: { kind: "billing" as const }, isActive: true, createdAt: new Date("2026-07-01"), updatedAt: new Date("2026-07-01") };
@@ -62,5 +62,20 @@ describe("acquisition analytics aggregation", () => {
     expect(client.registrationDelaySeconds).toBe(93600);
     expect(client.firstPaymentDelaySeconds).toBe(79200);
     expect(client).toMatchObject({ paidOrders: 2, revenueRub: 1500 });
+  });
+
+  it("returns the exact people and anonymous visitors behind one timeline day", () => {
+    const detail = buildAcquisitionDayDetail(
+      { links: [linkA, linkB], visits, attributions, orders },
+      [
+        { id: "u1", telegramId: "1001", displayName: "Иван", firstName: "Иван", username: "ivan" },
+        { id: "u2", telegramId: "1002", displayName: null, firstName: "Анна", username: "anna" }
+      ],
+      "2026-07-21"
+    );
+    expect(detail.visits).toHaveLength(2);
+    expect(detail.registrations.map((item) => item.user.telegramId)).toEqual(["1001", "1002"]);
+    expect(detail.payments).toHaveLength(0);
+    expect(detail.visits[0]).toMatchObject({ source: "vk", user: { label: "Иван" } });
   });
 });

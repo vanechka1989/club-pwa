@@ -172,6 +172,27 @@ function buildTopCommunityClients(messages: AdminCommunityMessage[]) {
     .slice(0, 5);
 }
 
+function countTimeline(values: string[]) {
+  const rows = new Map<string, number>();
+  values.forEach((value) => {
+    const date = new Date(value).toISOString().slice(0, 10);
+    rows.set(date, (rows.get(date) ?? 0) + 1);
+  });
+  return [...rows.entries()].map(([date, value]) => ({ date, value })).sort((left, right) => left.date.localeCompare(right.date)).slice(-14);
+}
+
+function paymentTimeline(orders: PaymentOrderLog[]) {
+  const rows = new Map<string, { date: string; orders: number; revenueRub: number }>();
+  orders.forEach((order) => {
+    const date = new Date(orderDate(order)).toISOString().slice(0, 10);
+    const row = rows.get(date) ?? { date, orders: 0, revenueRub: 0 };
+    row.orders += 1;
+    row.revenueRub += order.amountRub;
+    rows.set(date, row);
+  });
+  return [...rows.values()].sort((left, right) => left.date.localeCompare(right.date)).slice(-14);
+}
+
 export function buildAdminStatistics(input: AdminStatisticsInput, options: AdminStatisticsOptions) {
   const now = options.now ?? new Date();
   const activeUsers = input.users.filter((user) => user.membershipStatus === "active");
@@ -215,6 +236,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       restricted: input.users.filter((user) => user.hasRestrictions).length,
       expiringSoon: expiringSoon.length,
       newInPeriod: newUsers.length,
+      timeline: countTimeline(newUsers.map((user) => user.createdAt)),
       activePercent: percent(activeUsers.length, input.users.length),
       accessBreakdown: [
         { key: "inactive", label: "Без доступа", value: inactiveUsers.length },
@@ -231,6 +253,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       averagePaidOrderRub: paidOrders.length > 0 ? Math.round(revenueRub / paidOrders.length) : 0,
       oneTimePaidOrders,
       recurrentPaidOrders,
+      timeline: paymentTimeline(paidOrders),
       breakdown: [
         { key: "paid", label: "Всего оплат", value: paidOrders.length },
         { key: "one_time", label: "Разовые", value: oneTimePaidOrders },
@@ -261,6 +284,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       messagesLast7Days: messagesLast7Days.length,
       messagesLast30Days: messagesLast30Days.length,
       activeWriters,
+      timeline: countTimeline(periodMessages.map((message) => message.createdAt)),
       hotTopic: buildHotTopic(periodMessages),
       topClients: buildTopCommunityClients(periodMessages)
     },

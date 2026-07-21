@@ -30,12 +30,27 @@ describe("admin acquisition analytics", () => {
     expect(source).toContain("Конверсия");
   });
 
-  it("renders numeric values above every timeline bar", () => {
+  it("renders numeric values between every bar group and its date", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
-    expect(source).toContain('class="acquisition-chart-values"');
+    const bars = source.indexOf('class="acquisition-chart-bars"');
+    const values = source.indexOf('class="acquisition-chart-values"');
+    const date = source.indexOf("{{ shortDate(point.date) }}");
+    expect(bars).toBeGreaterThan(0);
+    expect(values).toBeGreaterThan(bars);
+    expect(date).toBeGreaterThan(values);
     expect(source).toContain("{{ point.visits }}");
     expect(source).toContain("{{ point.registrations }}");
     expect(source).toContain("{{ point.paidUsers }}");
+  });
+
+  it("opens a daily people drilldown from a chart day", () => {
+    const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    expect(source).toContain('@click="openDay(point.date)"');
+    expect(source).toContain("getAdminAcquisitionDay");
+    expect(source).toContain('title="Посетители"');
+    expect(source).toContain('title="Регистрации"');
+    expect(source).toContain('title="Оплатили"');
+    expect(source).toContain("emit('client'");
   });
 
   it("renders the acquisition dashboard only inside the analytics task screen", () => {

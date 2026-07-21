@@ -19,6 +19,14 @@ defineEmits<{
   tariff: [item: { tariff: string; label: string; value: number }];
   payment: [item: AdminPaymentBreakdownItem];
 }>();
+
+function shortDate(value: string) {
+  return new Date(`${value}T00:00:00Z`).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
+}
+
+function barHeight(value: number, values: number[]) {
+  return `${Math.max(4, (value / Math.max(1, ...values)) * 72)}px`;
+}
 </script>
 
 <template>
@@ -37,6 +45,13 @@ defineEmits<{
             <span>{{ item.label }}</span><strong>{{ item.value }}</strong><span class="admin-stat-metric-chevron" :class="{ 'is-hidden': !item.value }"><ChevronRight aria-hidden="true" /></span>
           </button>
         </div>
+      </section>
+      <section class="admin-stat-detail-card admin-stat-timeline ui-card">
+        <header><div><h4>Новые клиенты по дням</h4><p>Регистрации в выбранном периоде.</p></div></header>
+        <div v-if="stats.clients.timeline.length" class="admin-stat-timeline-bars">
+          <span v-for="item in stats.clients.timeline" :key="item.date"><i><em :style="{ height: barHeight(item.value, stats.clients.timeline.map((row) => row.value)) }"></em></i><b>{{ item.value }}</b><small>{{ shortDate(item.date) }}</small></span>
+        </div>
+        <p v-else class="admin-empty">Новых клиентов за период не было.</p>
       </section>
       <section class="admin-stat-detail-card ui-card">
         <header><div><h4>Тарифы</h4><p>Распределение всей клиентской базы.</p></div></header>
@@ -61,6 +76,13 @@ defineEmits<{
             <span>{{ item.label }}</span><strong>{{ item.value }}</strong><span class="admin-stat-metric-chevron" :class="{ 'is-hidden': !item.value }"><ChevronRight aria-hidden="true" /></span>
           </button>
         </div>
+      </section>
+      <section class="admin-stat-detail-card admin-stat-timeline ui-card">
+        <header><div><h4>Выручка по дням</h4><p>Успешные оплаты в выбранном периоде.</p></div></header>
+        <div v-if="stats.payments.timeline.length" class="admin-stat-timeline-bars">
+          <span v-for="item in stats.payments.timeline" :key="item.date"><i><em :style="{ height: barHeight(item.revenueRub, stats.payments.timeline.map((row) => row.revenueRub)) }"></em></i><b>{{ item.revenueRub.toLocaleString('ru-RU') }} ₽</b><small>{{ shortDate(item.date) }}</small></span>
+        </div>
+        <p v-else class="admin-empty">Успешных оплат за период не было.</p>
       </section>
     </template>
 
@@ -110,6 +132,13 @@ defineEmits<{
           <article v-for="client in stats.communication.topClients" :key="client.telegramId"><span>{{ client.name }}</span><strong>{{ client.messages }}</strong></article>
           <p v-if="!stats.communication.topClients.length" class="admin-empty">Активных клиентов в общении пока нет.</p>
         </div>
+      </section>
+      <section class="admin-stat-detail-card admin-stat-timeline ui-card">
+        <header><div><h4>Сообщения по дням</h4><p>Активность участников в выбранном периоде.</p></div></header>
+        <div v-if="stats.communication.timeline.length" class="admin-stat-timeline-bars">
+          <span v-for="item in stats.communication.timeline" :key="item.date"><i><em :style="{ height: barHeight(item.value, stats.communication.timeline.map((row) => row.value)) }"></em></i><b>{{ item.value }}</b><small>{{ shortDate(item.date) }}</small></span>
+        </div>
+        <p v-else class="admin-empty">Сообщений за период не было.</p>
       </section>
     </template>
 

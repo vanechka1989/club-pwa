@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   acquisitionDestinationSchema,
+  adminAcquisitionDayDetailSchema,
   adminAcquisitionDashboardSchema,
   adminAcquisitionLinkSchema,
   adminUserAcquisitionSchema
@@ -74,5 +75,17 @@ describe("acquisition analytics contracts", () => {
         visits: [touch]
       }).firstTouch?.source
     ).toBe("telegram");
+  });
+
+  it("parses a day drilldown with visitors, registrations, and payments", () => {
+    const person = { userId: "u1", telegramId: "1001", label: "Иван", username: "ivan" };
+    const parsed = adminAcquisitionDayDetailSchema.parse({
+      date: "2026-07-24",
+      visits: [{ id: "v1", occurredAt: "2026-07-24T09:00:00.000Z", visitorLabel: "Гость #A1B2C3", source: "vk", campaign: "july", linkName: "VK · июль", user: person }],
+      registrations: [{ occurredAt: "2026-07-24T09:05:00.000Z", source: "vk", campaign: "july", linkName: "VK · июль", user: person }],
+      payments: [{ occurredAt: "2026-07-24T10:00:00.000Z", amountRub: 1500, source: "vk", campaign: "july", linkName: "VK · июль", user: person }]
+    });
+    expect(parsed.visits[0]?.user?.label).toBe("Иван");
+    expect(parsed.payments[0]?.amountRub).toBe(1500);
   });
 });

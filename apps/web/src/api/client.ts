@@ -3,6 +3,7 @@ import type {
   AcquisitionAttribution,
   AcquisitionLinkInput,
   AdminAcquisitionDashboard,
+  AdminAcquisitionDayDetail,
   AdminAcquisitionLink,
   AdminUserAcquisition,
   AdminActionLogsResponse,
@@ -817,6 +818,10 @@ export function getAdminAcquisitionDashboard(options: { from?: string; to?: stri
   if (options.from) query.set("from", options.from);
   if (options.to) query.set("to", options.to);
   return api<AdminAcquisitionDashboard>(`/admin/acquisition/dashboard?${query}`);
+}
+
+export function getAdminAcquisitionDay(date: string) {
+  return api<AdminAcquisitionDayDetail>(`/admin/acquisition/day?date=${encodeURIComponent(date)}`);
 }
 
 export function getAdminAcquisitionLinks() {

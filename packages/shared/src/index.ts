@@ -147,6 +147,38 @@ export const adminAcquisitionDashboardSchema = z.object({
 });
 export type AdminAcquisitionDashboard = z.infer<typeof adminAcquisitionDashboardSchema>;
 
+export const adminAcquisitionPersonSchema = z.object({
+  userId: z.string(),
+  telegramId: z.string(),
+  label: z.string(),
+  username: z.string().nullable()
+});
+export type AdminAcquisitionPerson = z.infer<typeof adminAcquisitionPersonSchema>;
+
+const adminAcquisitionDayBaseEventSchema = z.object({
+  occurredAt: z.string().datetime(),
+  source: z.string(),
+  campaign: z.string(),
+  linkName: z.string()
+});
+
+export const adminAcquisitionDayDetailSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  visits: z.array(adminAcquisitionDayBaseEventSchema.extend({
+    id: z.string(),
+    visitorLabel: z.string(),
+    user: adminAcquisitionPersonSchema.nullable()
+  })),
+  registrations: z.array(adminAcquisitionDayBaseEventSchema.extend({
+    user: adminAcquisitionPersonSchema
+  })),
+  payments: z.array(adminAcquisitionDayBaseEventSchema.extend({
+    amountRub: z.number().int().nonnegative(),
+    user: adminAcquisitionPersonSchema
+  }))
+});
+export type AdminAcquisitionDayDetail = z.infer<typeof adminAcquisitionDayDetailSchema>;
+
 export const adminUserAcquisitionSchema = z.object({
   firstTouch: acquisitionTouchSchema.nullable(),
   lastTouch: acquisitionTouchSchema.nullable(),

@@ -271,6 +271,11 @@ describe("admin statistics", () => {
       newInPeriod: 3,
       activePercent: 50
     });
+    expect(stats.clients.timeline).toEqual([
+      { date: "2026-06-23", value: 1 },
+      { date: "2026-06-24", value: 1 },
+      { date: "2026-06-25", value: 1 }
+    ]);
     expect(stats.clients.accessBreakdown.map((item) => [item.key, item.label, item.value])).toEqual([
       ["inactive", "Без доступа", 2],
       ["restricted", "Ограничения", 1],
@@ -285,6 +290,10 @@ describe("admin statistics", () => {
       oneTimePaidOrders: 1,
       recurrentPaidOrders: 1
     });
+    expect(stats.payments.timeline).toEqual([
+      { date: "2026-06-20", orders: 1, revenueRub: 100 },
+      { date: "2026-06-25", orders: 1, revenueRub: 50 }
+    ]);
     expect(stats.payments.breakdown.map((item) => [item.label, item.value])).toEqual([
       ["Всего оплат", 2],
       ["Разовые", 1],
@@ -324,6 +333,11 @@ describe("admin statistics", () => {
         messages: 2
       }
     });
+    expect(stats.communication.timeline).toEqual([
+      { date: "2026-06-10", value: 1 },
+      { date: "2026-06-24", value: 1 },
+      { date: "2026-06-25", value: 1 }
+    ]);
     expect(stats.communication.topClients.map((client) => [client.telegramId, client.name, client.messages])).toEqual([
       ["1", "Иван", 2],
       ["2", "Анна", 1]

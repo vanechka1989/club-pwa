@@ -28,7 +28,7 @@ import {
   type MediaSource,
   type MembershipStatus
 } from "@club/shared";
-import { getAcquisitionDashboard, getUserAcquisition, listAcquisitionLinks } from "../acquisition/acquisitionAnalytics";
+import { getAcquisitionDashboard, getAcquisitionDayDetail, getUserAcquisition, listAcquisitionLinks } from "../acquisition/acquisitionAnalytics";
 import { createAcquisitionLink, setAcquisitionLinkActive } from "../acquisition/acquisitionStore";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
@@ -136,6 +136,7 @@ const acquisitionDashboardQuerySchema = z.object({
   to: z.string().datetime({ offset: true }).optional(),
   attribution: acquisitionAttributionSchema.default("last")
 });
+const acquisitionDayQuerySchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const acquisitionLinkStatusSchema = z.object({ isActive: z.boolean() });
 
 const adminPayloadSchema = z.object({
@@ -1384,6 +1385,11 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       to: query.data.to ? new Date(query.data.to) : null,
       origin: env.WEB_ORIGIN
     }));
+  })
+  .get("/acquisition/day", async (c) => {
+    const query = acquisitionDayQuerySchema.safeParse(c.req.query());
+    if (!query.success) return c.json({ error: query.error.flatten() }, 400);
+    return c.json(await getAcquisitionDayDetail(query.data.date));
   })
   .get("/acquisition/links", async (c) => c.json({ links: await listAcquisitionLinks(env.WEB_ORIGIN) }))
   .post("/acquisition/links", async (c) => {

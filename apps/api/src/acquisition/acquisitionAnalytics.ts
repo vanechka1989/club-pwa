@@ -3,10 +3,12 @@ import type {
   AcquisitionDestination,
   AcquisitionTouch,
   AdminAcquisitionDashboard,
+  AdminAcquisitionDayDetail,
+  AdminAcquisitionPerson,
   AdminAcquisitionLink,
   AdminUserAcquisition
 } from "@club/shared";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/client";
 import {
   acquisitionLinks,
@@ -35,6 +37,7 @@ type AnalyticsLink = {
 type AnalyticsVisit = { id: string; visitorHash: string; linkId: string; userId: string | null; occurredAt: Date };
 type AnalyticsAttribution = { userId: string; firstLinkId: string; lastLinkId: string; registeredAt: Date };
 type AnalyticsOrder = { userId: string; status: string; amountRub: number; paidAt: Date | null };
+type AnalyticsUser = { id: string; telegramId: string; displayName: string | null; firstName: string | null; username: string | null };
 
 type AnalyticsData = {
   links: AnalyticsLink[];
@@ -190,6 +193,57 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
   };
 }
 
+function acquisitionPerson(user: AnalyticsUser): AdminAcquisitionPerson {
+  return {
+    userId: user.id,
+    telegramId: user.telegramId,
+    label: user.displayName || user.firstName || (user.username ? `@${user.username}` : user.telegramId),
+    username: user.username
+  };
+}
+
+export function buildAcquisitionDayDetail(data: AnalyticsData, dayUsers: AnalyticsUser[], date: string): AdminAcquisitionDayDetail {
+  const linksById = new Map(data.links.map((link) => [link.id, link]));
+  const usersById = new Map(dayUsers.map((user) => [user.id, acquisitionPerson(user)]));
+  const attributionByUser = new Map(data.attributions.map((item) => [item.userId, item]));
+  const eventLink = (linkId: string) => {
+    const link = linksById.get(linkId);
+    return { source: link?.source ?? "direct", campaign: link?.campaign ?? "—", linkName: link?.name ?? "Прямой переход" };
+  };
+  const firstPaidByUser = new Map<string, AnalyticsOrder>();
+  for (const order of data.orders.filter((item) => item.status === "paid" && item.paidAt).sort((a, b) => a.paidAt!.getTime() - b.paidAt!.getTime())) {
+    if (!firstPaidByUser.has(order.userId)) firstPaidByUser.set(order.userId, order);
+  }
+
+  const visits = data.visits
+    .filter((visit) => dateKey(visit.occurredAt) === date)
+    .map((visit) => {
+      const user = visit.userId ? usersById.get(visit.userId) ?? null : null;
+      return {
+        id: visit.id,
+        occurredAt: visit.occurredAt.toISOString(),
+        visitorLabel: user?.label ?? `Гость #${visit.visitorHash.slice(-6).toUpperCase()}`,
+        ...eventLink(visit.linkId),
+        user
+      };
+    });
+  const registrations = data.attributions
+    .filter((item) => dateKey(item.registeredAt) === date)
+    .flatMap((item) => {
+      const user = usersById.get(item.userId);
+      return user ? [{ occurredAt: item.registeredAt.toISOString(), ...eventLink(item.lastLinkId), user }] : [];
+    });
+  const payments = [...firstPaidByUser.values()]
+    .filter((order) => order.paidAt && dateKey(order.paidAt) === date)
+    .flatMap((order) => {
+      const user = usersById.get(order.userId);
+      if (!user) return [];
+      const attribution = attributionByUser.get(order.userId);
+      return [{ occurredAt: order.paidAt!.toISOString(), amountRub: order.amountRub, ...eventLink(attribution?.lastLinkId ?? ""), user }];
+    });
+  return { date, visits, registrations, payments };
+}
+
 export function buildUserAcquisition(input: {
   user: { id: string; createdAt: Date };
   links: AnalyticsLink[];
@@ -235,6 +289,19 @@ async function loadAnalyticsData(): Promise<AnalyticsData> {
 
 export async function getAcquisitionDashboard(options: DashboardOptions) {
   return buildAcquisitionDashboard(await loadAnalyticsData(), options);
+}
+
+export async function getAcquisitionDayDetail(date: string) {
+  const data = await loadAnalyticsData();
+  const userIds = new Set<string>();
+  data.visits.filter((visit) => dateKey(visit.occurredAt) === date && visit.userId).forEach((visit) => userIds.add(visit.userId!));
+  data.attributions.filter((item) => dateKey(item.registeredAt) === date).forEach((item) => userIds.add(item.userId));
+  data.orders.filter((order) => order.paidAt && dateKey(order.paidAt) === date).forEach((order) => userIds.add(order.userId));
+  const ids = [...userIds];
+  const dayUsers = ids.length
+    ? await db.select({ id: users.id, telegramId: users.telegramId, displayName: users.displayName, firstName: users.firstName, username: users.username }).from(users).where(inArray(users.id, ids))
+    : [];
+  return buildAcquisitionDayDetail(data, dayUsers, date);
 }
 
 export async function listAcquisitionLinks(origin: string) {
