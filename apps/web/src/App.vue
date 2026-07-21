@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { ChevronUp } from "lucide-vue-next";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getAppState, getPaymentHistory, recordAcquisitionVisit, updateDeviceDiagnostics } from "@/api/client";
-import AdminSection from "@/features/admin/AdminSection.vue";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getVisibleAdminPanels } from "@/features/admin/adminPanels";
 import AuthSection from "@/features/auth/AuthSection.vue";
-import PaymentsSection from "@/features/billing/PaymentsSection.vue";
 import { shouldShowAccessClosedAlert, shouldShowAccessGrantedAlert } from "@/features/app/accessStatus";
 import { captureAcquisitionLanding, consumePostAuthDestination, getPostAuthDestinationPath } from "@/features/app/acquisitionTracking";
 import AppNotifications from "@/features/app/AppNotifications.vue";
@@ -45,10 +43,8 @@ import {
   keepActiveSupportFieldVisible
 } from "@/features/app/keyboardFocus";
 import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "@/features/billing/paymentWatch";
-import CommunitySection from "@/features/community/CommunitySection.vue";
 import { useI18n } from "@/features/app/i18n";
 import { useInterfaceLocalization } from "@/features/app/interfaceLocalization";
-import LearningSection from "@/features/learning/LearningSection.vue";
 import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
 import { isTaskPath, sectionFromPath, sectionPath } from "@/features/app/taskNavigation";
 import { hasPortalTaskLayer } from "@/features/app/taskLayerRegistry";
@@ -58,12 +54,17 @@ import {
   stabilizeViewportMetric,
   type ViewportSyncScheduler
 } from "@/features/app/viewportStability";
-import ProfileSection from "@/features/profile/ProfileSection.vue";
-import SupportSection from "@/features/support/SupportSection.vue";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useLessonUploadsStore, type LessonUploadTask } from "@/stores/lessonUploads";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
+
+const AdminSection = defineAsyncComponent(() => import("@/features/admin/AdminSection.vue"));
+const PaymentsSection = defineAsyncComponent(() => import("@/features/billing/PaymentsSection.vue"));
+const CommunitySection = defineAsyncComponent(() => import("@/features/community/CommunitySection.vue"));
+const LearningSection = defineAsyncComponent(() => import("@/features/learning/LearningSection.vue"));
+const ProfileSection = defineAsyncComponent(() => import("@/features/profile/ProfileSection.vue"));
+const SupportSection = defineAsyncComponent(() => import("@/features/support/SupportSection.vue"));
 
 const session = useSessionStore();
 const ui = useUiStore();
