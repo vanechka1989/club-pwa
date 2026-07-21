@@ -358,6 +358,13 @@
       "when": 1784552400000,
       "tag": "0050_mailing_engagement_analytics",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1784613600000,
+      "tag": "0051_acquisition_analytics",
+      "breakpoints": true
     }
   ]
 }

@@ -43,6 +43,76 @@ export const users = pgTable(
   })
 );
 
+export const acquisitionLinks = pgTable(
+  "acquisition_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    aid: varchar("aid", { length: 80 }).notNull(),
+    name: varchar("name", { length: 120 }).notNull(),
+    source: varchar("source", { length: 80 }).notNull(),
+    medium: varchar("medium", { length: 80 }).notNull(),
+    campaign: varchar("campaign", { length: 120 }).notNull(),
+    content: varchar("content", { length: 120 }),
+    destinationKind: varchar("destination_kind", { length: 16 }).notNull().default("home"),
+    destinationModuleId: uuid("destination_module_id"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    aidIdx: uniqueIndex("acquisition_links_aid_idx").on(table.aid),
+    createdIdx: index("acquisition_links_created_idx").on(table.createdAt)
+  })
+);
+
+export const acquisitionVisitors = pgTable(
+  "acquisition_visitors",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    visitorHash: varchar("visitor_hash", { length: 64 }).notNull(),
+    firstVisitedAt: timestamp("first_visited_at", { withTimezone: true }).notNull(),
+    lastVisitedAt: timestamp("last_visited_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({ visitorHashIdx: uniqueIndex("acquisition_visitors_hash_idx").on(table.visitorHash) })
+);
+
+export const acquisitionVisits = pgTable(
+  "acquisition_visits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    visitorId: uuid("visitor_id").notNull().references(() => acquisitionVisitors.id, { onDelete: "cascade" }),
+    linkId: uuid("link_id").notNull().references(() => acquisitionLinks.id, { onDelete: "restrict" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    linkTimeIdx: index("acquisition_visits_link_time_idx").on(table.linkId, table.occurredAt),
+    visitorTimeIdx: index("acquisition_visits_visitor_time_idx").on(table.visitorId, table.occurredAt),
+    userTimeIdx: index("acquisition_visits_user_time_idx").on(table.userId, table.occurredAt)
+  })
+);
+
+export const userAcquisitionAttributions = pgTable(
+  "user_acquisition_attributions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    firstVisitId: uuid("first_visit_id").notNull().references(() => acquisitionVisits.id, { onDelete: "restrict" }),
+    lastVisitId: uuid("last_visit_id").notNull().references(() => acquisitionVisits.id, { onDelete: "restrict" }),
+    firstLinkId: uuid("first_link_id").notNull().references(() => acquisitionLinks.id, { onDelete: "restrict" }),
+    lastLinkId: uuid("last_link_id").notNull().references(() => acquisitionLinks.id, { onDelete: "restrict" }),
+    registeredAt: timestamp("registered_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userIdx: uniqueIndex("user_acquisition_attributions_user_idx").on(table.userId),
+    firstLinkIdx: index("user_acquisition_attributions_first_link_idx").on(table.firstLinkId, table.registeredAt),
+    lastLinkIdx: index("user_acquisition_attributions_last_link_idx").on(table.lastLinkId, table.registeredAt)
+  })
+);
+
 export const adminUsers = pgTable(
   "admin_users",
   {

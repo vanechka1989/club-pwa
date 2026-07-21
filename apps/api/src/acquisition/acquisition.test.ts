@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hashAcquisitionVisitorId,
   isSameAcquisitionWindow,
+  buildAcquisitionAid,
   normalizeAcquisitionDestination,
   normalizeAcquisitionLabel
 } from "./acquisition";
@@ -25,5 +26,10 @@ describe("acquisition helpers", () => {
     const start = new Date("2026-07-21T00:00:00.000Z");
     expect(isSameAcquisitionWindow(start, new Date("2026-07-21T00:29:59.000Z"))).toBe(true);
     expect(isSameAcquisitionWindow(start, new Date("2026-07-21T00:30:00.000Z"))).toBe(false);
+  });
+
+  it("builds readable collision-resistant public ids", () => {
+    expect(buildAcquisitionAid("Telegram July", "abc123")).toBe("telegram-july-abc123");
+    expect(buildAcquisitionAid("   ", "abc123")).toBe("link-abc123");
   });
 });

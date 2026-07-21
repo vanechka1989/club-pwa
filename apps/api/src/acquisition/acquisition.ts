@@ -1,5 +1,5 @@
 import { acquisitionDestinationSchema, type AcquisitionDestination } from "@club/shared";
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 export const acquisitionVisitWindowMs = 30 * 60 * 1000;
 
@@ -12,6 +12,10 @@ export function normalizeAcquisitionLabel(value: unknown) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 120);
   return normalized || null;
+}
+
+export function buildAcquisitionAid(value: string, suffix = randomUUID().replace(/-/g, "").slice(0, 8)) {
+  return `${normalizeAcquisitionLabel(value) || "link"}-${suffix.toLowerCase()}`;
 }
 
 export function normalizeAcquisitionDestination(input: unknown): AcquisitionDestination {
