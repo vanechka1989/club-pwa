@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Единое сравнение источников",
+    items: [
+      "Первое и последнее касание теперь сравниваются рядом у каждого источника на одном экране без лишнего переключателя.",
+      "Воронка корректно показывает нулевые значения: проценты больше не накладываются на подписи визитов, регистраций и оплат.",
+      "В карточке клиента сохраняется полная цепочка его переходов от первого касания до регистрации и оплаты."
+    ]
+  },
+  {
+    version: "5.35",
+    updatedAt: "21.07.2026 09:46",
     title: "Раздельные экраны аналитики",
     items: [
       "Главная аналитика стала компактным обзором: ключевые показатели и шесть понятных разделов без мешанины из графиков.",
@@ -3974,10 +3984,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Separated analytics screens",
+  title: "Unified source comparison",
   items: [
-    "The analytics home is now a compact overview with key metrics and six clearly separated areas.",
-    "Funnels, charts and breakdowns open on dedicated in-app screens, while the selected period remains visible in each header."
+    "First and last touch are now compared side by side for each source on one screen.",
+    "Zero-value funnel percentages no longer overlap visit, registration or payment labels."
   ]
 };
 
