@@ -6,6 +6,8 @@ import { cpus, freemem, loadavg, tmpdir, totalmem, uptime as systemUptime } from
 import { join } from "node:path";
 import { z } from "zod";
 import {
+  acquisitionAttributionSchema,
+  acquisitionLinkInputSchema,
   adminPermissionSchema,
   allAdminPermissions,
   deviceDiagnosticsSchema,
@@ -26,6 +28,8 @@ import {
   type MediaSource,
   type MembershipStatus
 } from "@club/shared";
+import { getAcquisitionDashboard, getUserAcquisition, listAcquisitionLinks } from "../acquisition/acquisitionAnalytics";
+import { createAcquisitionLink, setAcquisitionLinkActive } from "../acquisition/acquisitionStore";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
@@ -126,6 +130,13 @@ import { getAdminUserReferrals, getReferralRewardDays, updateReferralRewardDays 
 import { createLoginCode, hashAuthToken, normalizeEmail } from "../auth/emailAuth";
 
 const userIdentifierSchema = z.string().trim().min(3).max(320);
+
+const acquisitionDashboardQuerySchema = z.object({
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  attribution: acquisitionAttributionSchema.default("last")
+});
+const acquisitionLinkStatusSchema = z.object({ isActive: z.boolean() });
 
 const adminPayloadSchema = z.object({
   telegramId: userIdentifierSchema
@@ -1350,6 +1361,9 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/login-ips/*", requireAdminPermission("login_ips"))
   .use("/stats", requireAnyAdminPermission(["statistics", "users"]))
   .use("/stats/*", requireAnyAdminPermission(["statistics", "users"]))
+  .use("/acquisition", requireAdminPermission("statistics"))
+  .use("/acquisition/*", requireAdminPermission("statistics"))
+  .use("/users/:telegramId/acquisition", requireAdminPermission("statistics"))
   .use("/access", requireAdminPermission("accesses"))
   .use("/learning", requireAdminPermission("materials"))
   .use("/learning/*", requireAdminPermission("materials"))
@@ -1361,6 +1375,52 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/storage/s3/*", requireAdminPermission("storage"))
   .use("/project-settings", requireAdminPermission("project_settings"))
   .use("/settings-audit", requireAdminPermission("project_settings"))
+  .get("/acquisition/dashboard", async (c) => {
+    const query = acquisitionDashboardQuerySchema.safeParse(c.req.query());
+    if (!query.success) return c.json({ error: query.error.flatten() }, 400);
+    return c.json(await getAcquisitionDashboard({
+      attribution: query.data.attribution,
+      from: query.data.from ? new Date(query.data.from) : null,
+      to: query.data.to ? new Date(query.data.to) : null,
+      origin: env.WEB_ORIGIN
+    }));
+  })
+  .get("/acquisition/links", async (c) => c.json({ links: await listAcquisitionLinks(env.WEB_ORIGIN) }))
+  .post("/acquisition/links", async (c) => {
+    const body = acquisitionLinkInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+    const created = await createAcquisitionLink(body.data, c.get("userId"));
+    await recordAdminAction(c, {
+      action: "acquisition.link.created",
+      entityType: "acquisition_link",
+      entityId: created.id,
+      summary: `Создал метку «${created.name}»`,
+      metadata: { source: created.source, medium: created.medium, campaign: created.campaign }
+    });
+    const link = (await listAcquisitionLinks(env.WEB_ORIGIN)).find((item) => item.id === created.id);
+    return c.json(link ?? created, 201);
+  })
+  .patch("/acquisition/links/:id", async (c) => {
+    const id = z.string().uuid().safeParse(c.req.param("id"));
+    const body = acquisitionLinkStatusSchema.safeParse(await c.req.json().catch(() => null));
+    if (!id.success || !body.success) return c.json({ error: "Invalid acquisition link request" }, 400);
+    const updated = await setAcquisitionLinkActive(id.data, body.data.isActive);
+    if (!updated) return c.json({ error: "Acquisition link not found" }, 404);
+    await recordAdminAction(c, {
+      action: "acquisition.link.status_changed",
+      entityType: "acquisition_link",
+      entityId: updated.id,
+      summary: `${updated.isActive ? "Включил" : "Отключил"} метку «${updated.name}»`,
+      metadata: { isActive: updated.isActive }
+    });
+    const link = (await listAcquisitionLinks(env.WEB_ORIGIN)).find((item) => item.id === updated.id);
+    return c.json(link ?? updated);
+  })
+  .get("/users/:telegramId/acquisition", async (c) => {
+    const user = await db.query.users.findFirst({ where: eq(users.telegramId, c.req.param("telegramId")) });
+    if (!user) return c.json({ error: "User not found" }, 404);
+    return c.json(await getUserAcquisition(user.id));
+  })
   .get("/login-ips/:telegramId", async (c) => {
     const user = await db.query.users.findFirst({
       where: eq(users.telegramId, c.req.param("telegramId"))
