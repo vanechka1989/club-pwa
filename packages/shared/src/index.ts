@@ -68,6 +68,7 @@ export type AcquisitionDestination = z.infer<typeof acquisitionDestinationSchema
 export const acquisitionAidSchema = z.string().trim().min(3).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const acquisitionLinkInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
+  slug: acquisitionAidSchema.optional(),
   source: z.string().trim().max(80),
   medium: z.string().trim().max(80),
   campaign: z.string().trim().max(120),
@@ -120,6 +121,7 @@ export const adminAcquisitionLinkSchema = z.object({
   content: z.string().nullable(),
   destination: acquisitionDestinationSchema,
   url: z.string().url(),
+  shortUrl: z.string().url(),
   isActive: z.boolean(),
   visits: z.number().int().nonnegative().default(0),
   uniqueVisitors: z.number().int().nonnegative().default(0),

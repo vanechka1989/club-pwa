@@ -102,6 +102,18 @@ describe("admin acquisition analytics", () => {
     expect(source).toContain("formatLinkCreatedAt");
   });
 
+  it("offers an optional short address and both link variants", () => {
+    const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    const nginx = readFileSync(resolve(__dirname, "../../../nginx.conf"), "utf8");
+    expect(source).toContain('v-model.trim="form.slug"');
+    expect(source).toContain("Короткая ссылка");
+    expect(source).toContain("Прямая ссылка");
+    expect(source).toContain("link.shortUrl");
+    expect(source).toContain("apiError.data?.error");
+    expect(nginx).toContain("location /go/");
+    expect(nginx).toContain("proxy_pass http://api:3000");
+  });
+
   it("names acquisition analytics as advertising links", () => {
     const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     expect(section).toContain("Рекламные ссылки");

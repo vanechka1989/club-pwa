@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAcquisitionRoute } from "../routes/acquisition";
+import { createAcquisitionRedirectRoute, createAcquisitionRoute } from "../routes/acquisition";
 
 describe("public acquisition visit route", () => {
   it("records a valid landing and returns only an allowlisted destination", async () => {
@@ -33,5 +33,21 @@ describe("public acquisition visit route", () => {
       body: JSON.stringify({ aid: "<script>", visitorId: "bad" })
     });
     expect(response.status).toBe(400);
+  });
+});
+
+describe("public short acquisition link", () => {
+  it("redirects a valid short slug to the direct tracked URL", async () => {
+    const resolve = vi.fn().mockResolvedValue("https://club.example/?aid=salebot&utm_source=salebot");
+    const response = await createAcquisitionRedirectRoute(resolve).request("/salebot");
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("https://club.example/?aid=salebot&utm_source=salebot");
+    expect(resolve).toHaveBeenCalledWith("salebot");
+  });
+
+  it("returns 404 for malformed, missing, or inactive slugs", async () => {
+    const route = createAcquisitionRedirectRoute(vi.fn().mockResolvedValue(null));
+    expect((await route.request("/missing-link")).status).toBe(404);
+    expect((await route.request("/%3Cscript%3E")).status).toBe(404);
   });
 });

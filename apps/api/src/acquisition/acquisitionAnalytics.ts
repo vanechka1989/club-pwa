@@ -19,6 +19,7 @@ import {
   users
 } from "../db/schema";
 import { destinationFromLink } from "./acquisitionStore";
+import { buildAcquisitionShortUrl, buildAcquisitionTrackedUrl } from "./acquisition";
 
 type AnalyticsLink = {
   id: string;
@@ -59,16 +60,6 @@ const inPeriod = (date: Date | null, from: Date | null, to: Date | null) =>
 
 const dateKey = (date: Date) => date.toISOString().slice(0, 10);
 const rate = (value: number, total: number) => (total ? Math.round((value / total) * 10_000) / 100 : 0);
-
-function makeTrackedUrl(origin: string, link: AnalyticsLink) {
-  const url = new URL("/", origin);
-  url.searchParams.set("aid", link.aid);
-  if (link.source) url.searchParams.set("utm_source", link.source);
-  if (link.medium) url.searchParams.set("utm_medium", link.medium);
-  if (link.campaign) url.searchParams.set("utm_campaign", link.campaign);
-  if (link.content) url.searchParams.set("utm_content", link.content);
-  return url.toString();
-}
 
 function touch(link: AnalyticsLink | undefined, visitedAt: Date | undefined): AcquisitionTouch | null {
   if (!link || !visitedAt) return null;
@@ -161,7 +152,8 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
     }, 0);
     return {
       ...link,
-      url: makeTrackedUrl(options.origin, link),
+      url: buildAcquisitionTrackedUrl(options.origin, link),
+      shortUrl: buildAcquisitionShortUrl(options.origin, link.aid),
       visits: linkVisits.length,
       uniqueVisitors: new Set(linkVisits.map((visit) => visit.visitorHash)).size,
       registrations,

@@ -3,7 +3,7 @@ import { and, asc, desc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client";
 import { acquisitionLinks, acquisitionVisitors, acquisitionVisits, userAcquisitionAttributions } from "../db/schema";
 import { env } from "../env";
-import { buildAcquisitionAid, hashAcquisitionVisitorId, isSameAcquisitionWindow, normalizeAcquisitionDestination, normalizeAcquisitionLabel } from "./acquisition";
+import { buildAcquisitionAid, buildAcquisitionTrackedUrl, hashAcquisitionVisitorId, isSameAcquisitionWindow, normalizeAcquisitionDestination, normalizeAcquisitionLabel } from "./acquisition";
 
 function acquisitionSecret(explicitSecret?: string) {
   return explicitSecret || env.MAILING_UNSUBSCRIBE_SECRET || env.WEB_PUSH_PRIVATE_KEY || env.DATABASE_URL;
@@ -21,10 +21,14 @@ export async function createAcquisitionLink(input: AcquisitionLinkInput, actorUs
   const campaign = normalizeAcquisitionLabel(input.campaign) ?? "";
   const content = normalizeAcquisitionLabel(input.content);
   const destination = normalizeAcquisitionDestination(input.destination);
+  const aid = input.slug ?? buildAcquisitionAid([source, medium, campaign, content].filter(Boolean).join("-") || input.name);
+  if (input.slug && await db.query.acquisitionLinks.findFirst({ where: eq(acquisitionLinks.aid, input.slug) })) {
+    throw new Error("ACQUISITION_SLUG_CONFLICT");
+  }
   const [created] = await db
     .insert(acquisitionLinks)
     .values({
-      aid: buildAcquisitionAid([source, medium, campaign, content].filter(Boolean).join("-") || input.name),
+      aid,
       name: input.name.trim(),
       source,
       medium,
@@ -36,6 +40,13 @@ export async function createAcquisitionLink(input: AcquisitionLinkInput, actorUs
     })
     .returning();
   return created!;
+}
+
+export async function resolveAcquisitionRedirectUrl(aid: string) {
+  const link = await db.query.acquisitionLinks.findFirst({
+    where: and(eq(acquisitionLinks.aid, aid), eq(acquisitionLinks.isActive, true))
+  });
+  return link ? buildAcquisitionTrackedUrl(env.WEB_ORIGIN, link) : null;
 }
 
 export async function setAcquisitionLinkActive(id: string, isActive: boolean) {

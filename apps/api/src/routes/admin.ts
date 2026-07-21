@@ -1395,7 +1395,15 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/acquisition/links", async (c) => {
     const body = acquisitionLinkInputSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-    const created = await createAcquisitionLink(body.data, c.get("userId"));
+    let created;
+    try {
+      created = await createAcquisitionLink(body.data, c.get("userId"));
+    } catch (error) {
+      if (error instanceof Error && error.message === "ACQUISITION_SLUG_CONFLICT") {
+        return c.json({ error: "Короткий адрес уже занят" }, 409);
+      }
+      throw error;
+    }
     await recordAdminAction(c, {
       action: "acquisition.link.created",
       entityType: "acquisition_link",

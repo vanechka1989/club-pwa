@@ -3,6 +3,8 @@ import {
   hashAcquisitionVisitorId,
   isSameAcquisitionWindow,
   buildAcquisitionAid,
+  buildAcquisitionShortUrl,
+  buildAcquisitionTrackedUrl,
   normalizeAcquisitionDestination,
   normalizeAcquisitionLabel
 } from "./acquisition";
@@ -31,5 +33,12 @@ describe("acquisition helpers", () => {
   it("builds readable collision-resistant public ids", () => {
     expect(buildAcquisitionAid("Telegram July", "abc123")).toBe("telegram-july-abc123");
     expect(buildAcquisitionAid("   ", "abc123")).toBe("link-abc123");
+    expect(buildAcquisitionAid("Пост у Кати", "abc123")).toBe("link-abc123");
+  });
+
+  it("builds both direct and short public URLs", () => {
+    const link = { aid: "salebot", source: "salebot", medium: "", campaign: "", content: null };
+    expect(buildAcquisitionShortUrl("https://club.example", link.aid)).toBe("https://club.example/go/salebot");
+    expect(buildAcquisitionTrackedUrl("https://club.example", link)).toBe("https://club.example/?aid=salebot&utm_source=salebot");
   });
 });

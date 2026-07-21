@@ -14,6 +14,8 @@ type RecordVisit = (input: { aid: string; visitorId: string }) => Promise<{
   destination: AcquisitionDestination;
 }>;
 
+type ResolveRedirect = (aid: string) => Promise<string | null>;
+
 export function createAcquisitionRoute(recordVisit: RecordVisit) {
   const limiter = createClientErrorRateLimiter({ maxEvents: 60, windowMs: 60_000 });
   return new Hono().post("/visit", async (c) => {
@@ -27,5 +29,14 @@ export function createAcquisitionRoute(recordVisit: RecordVisit) {
     } catch {
       return c.json({ accepted: false, destination: { kind: "home" } });
     }
+  });
+}
+
+export function createAcquisitionRedirectRoute(resolveRedirect: ResolveRedirect) {
+  return new Hono().get("/:aid", async (c) => {
+    const aid = acquisitionAidSchema.safeParse(c.req.param("aid"));
+    if (!aid.success) return c.notFound();
+    const destination = await resolveRedirect(aid.data).catch(() => null);
+    return destination ? c.redirect(destination, 302) : c.notFound();
   });
 }

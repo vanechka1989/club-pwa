@@ -47,6 +47,7 @@ describe("acquisition analytics aggregation", () => {
       { attribution: "last", from: null, to: null, origin: "https://club.example" }
     );
     expect(dashboard.topLinks[0]?.url).toContain("utm_source=vk");
+    expect(dashboard.topLinks[0]?.shortUrl).toBe("https://club.example/go/telegram-july");
     expect(dashboard.topLinks[0]?.url).not.toContain("utm_medium=");
     expect(dashboard.topLinks[0]?.url).not.toContain("utm_campaign=");
     expect(dashboard.topLinks[0]?.url).not.toContain("utm_content=");

@@ -9,6 +9,8 @@ describe("admin acquisition routes", () => {
     expect(route).toContain('.get("/acquisition/dashboard"');
     expect(route).toContain('.get("/acquisition/links"');
     expect(route).toContain('.post("/acquisition/links"');
+    expect(route).toContain("ACQUISITION_SLUG_CONFLICT");
+    expect(route).toContain("Короткий адрес уже занят");
     expect(route).toContain('.patch("/acquisition/links/:id"');
     expect(route).toContain('.get("/users/:telegramId/acquisition"');
     expect(route).toContain('action: "acquisition.link.created"');

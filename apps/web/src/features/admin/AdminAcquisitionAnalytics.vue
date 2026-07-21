@@ -19,7 +19,7 @@ const dayError = ref<string | null>(null);
 const saving = ref(false);
 const copiedId = ref<string | null>(null);
 const error = ref<string | null>(null);
-const form = reactive({ name: "", source: "", medium: "", campaign: "", content: "", destinationKind: "home" as "home" | "billing" | "module", moduleId: "" });
+const form = reactive({ name: "", slug: "", source: "", medium: "", campaign: "", content: "", destinationKind: "home" as "home" | "billing" | "module", moduleId: "" });
 const hasAnyUtm = computed(() => [form.source, form.medium, form.campaign, form.content].some((value) => value.trim()));
 const canCreateLink = computed(() => Boolean(form.name.trim() && hasAnyUtm.value && (form.destinationKind !== "module" || form.moduleId.trim())));
 
@@ -62,22 +62,23 @@ async function createLink() {
   saving.value = true;
   error.value = null;
   try {
-    const created = await createAdminAcquisitionLink({ name: form.name, source: form.source, medium: form.medium, campaign: form.campaign, content: form.content || null, destination });
+    const created = await createAdminAcquisitionLink({ name: form.name, slug: form.slug || undefined, source: form.source, medium: form.medium, campaign: form.campaign, content: form.content || null, destination });
     links.value = [created, ...links.value.filter((item) => item.id !== created.id)];
-    Object.assign(form, { name: "", source: "", medium: "", campaign: "", content: "", destinationKind: "home", moduleId: "" });
-    await copyLink(created);
+    Object.assign(form, { name: "", slug: "", source: "", medium: "", campaign: "", content: "", destinationKind: "home", moduleId: "" });
+    await copyUrl(created.shortUrl, `${created.id}-short`);
     await load();
-  } catch {
-    error.value = "Не удалось создать ссылку. Проверьте обязательные поля.";
+  } catch (cause) {
+    const apiError = cause as { data?: { error?: unknown } };
+    error.value = typeof apiError.data?.error === "string" ? apiError.data.error : "Не удалось создать ссылку. Проверьте обязательные поля.";
   } finally {
     saving.value = false;
   }
 }
 
-async function copyLink(link: AdminAcquisitionLink) {
-  await navigator.clipboard.writeText(link.url);
-  copiedId.value = link.id;
-  window.setTimeout(() => { if (copiedId.value === link.id) copiedId.value = null; }, 1800);
+async function copyUrl(url: string, key: string) {
+  await navigator.clipboard.writeText(url);
+  copiedId.value = key;
+  window.setTimeout(() => { if (copiedId.value === key) copiedId.value = null; }, 1800);
 }
 
 async function toggleLink(link: AdminAcquisitionLink) {
@@ -252,6 +253,7 @@ onMounted(load);
         <form class="acquisition-link-form" @submit.prevent="createLink">
           <div class="acquisition-form-head"><span><Plus aria-hidden="true" /></span><div><strong>Новая ссылка</strong><small>UTM-параметры добавятся автоматически</small></div></div>
           <label><span>Название</span><input v-model.trim="form.name" required maxlength="120" placeholder="Например, Пост в Telegram" /></label>
+          <label><span>Короткий адрес <small>необязательно</small></span><div class="acquisition-slug-input"><b>/go/</b><input v-model.trim="form.slug" minlength="3" maxlength="80" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="salebot" /></div></label>
           <p class="acquisition-utm-hint">Заполните хотя бы одну UTM-метку.</p>
           <div class="acquisition-form-grid"><label><span>Источник</span><input v-model.trim="form.source" placeholder="telegram" /></label><label><span>Канал</span><input v-model.trim="form.medium" placeholder="post" /></label></div>
           <div class="acquisition-form-grid"><label><span>Кампания</span><input v-model.trim="form.campaign" placeholder="july_launch" /></label><label><span>Вариант</span><input v-model.trim="form.content" placeholder="button_a" /></label></div>
@@ -263,7 +265,10 @@ onMounted(load);
         <div class="acquisition-link-list">
           <article v-for="link in links" :key="link.id" :class="{ inactive: !link.isActive }">
             <div class="acquisition-link-title"><div><strong>{{ link.name }}</strong><small>{{ linkUtmSummary(link) }}</small><small class="acquisition-link-author">Создал {{ link.createdBy?.label ?? 'Система' }} · {{ formatLinkCreatedAt(link.createdAt) }}</small></div><button type="button" :aria-label="link.isActive ? 'Отключить' : 'Включить'" @click="toggleLink(link)"><span :class="{ on: link.isActive }"></span></button></div>
-            <button class="acquisition-link-url" type="button" @click="copyLink(link)"><span>{{ link.url }}</span><Check v-if="copiedId === link.id" aria-hidden="true" /><Copy v-else aria-hidden="true" /></button>
+            <div class="acquisition-link-variants">
+              <label><span>Короткая ссылка</span><button class="acquisition-link-url" type="button" @click="copyUrl(link.shortUrl, `${link.id}-short`)"><span>{{ link.shortUrl }}</span><Check v-if="copiedId === `${link.id}-short`" aria-hidden="true" /><Copy v-else aria-hidden="true" /></button></label>
+              <label><span>Прямая ссылка</span><button class="acquisition-link-url" type="button" @click="copyUrl(link.url, `${link.id}-direct`)"><span>{{ link.url }}</span><Check v-if="copiedId === `${link.id}-direct`" aria-hidden="true" /><Copy v-else aria-hidden="true" /></button></label>
+            </div>
             <div class="acquisition-link-stats"><span><b>{{ link.uniqueVisitors }}</b>визитов</span><span><b>{{ link.registrations }}</b>регистраций</span><span><b>{{ link.paidUsers }}</b>оплатили</span><span><b>{{ money(link.revenueRub) }}</b>выручка</span></div>
           </article>
           <p v-if="!links.length" class="acquisition-empty">Создайте первую ссылку для отслеживания.</p>
@@ -280,6 +285,7 @@ onMounted(load);
 .acquisition-source-list{display:grid;gap:10px;margin-top:12px}.acquisition-source-list article{display:grid;gap:10px;padding:12px 0;border-top:1px solid var(--border)}.acquisition-source-list article>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.acquisition-source-list article>header strong{min-width:0}.acquisition-source-list article>header small{flex:0 0 auto;color:var(--muted);font-size:10px}.acquisition-source-metrics{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;overflow:visible!important}.acquisition-source-metrics>span{display:grid;min-width:0;gap:3px;padding:9px 10px;border-radius:11px;background:var(--surface-soft);text-align:left!important}.acquisition-source-metrics small{color:var(--muted);font-size:9px}.acquisition-source-metrics b{min-width:0;font-size:12px;line-height:1.2;overflow-wrap:anywhere}
 .acquisition-day-screen{display:grid;gap:12px;padding:0 var(--page-pad,16px) calc(24px + env(safe-area-inset-bottom))}.acquisition-day-state{margin:0;padding:20px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--muted);text-align:center}.acquisition-day-group{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.acquisition-day-group>header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px}.acquisition-day-group>header>span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}.acquisition-day-group>header svg{width:19px}.acquisition-day-group>header>div{display:grid;gap:2px;min-width:0}.acquisition-day-group>header small{color:var(--muted);font-size:10px;line-height:1.3}.acquisition-day-group>header>b{min-width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--surface-soft);color:var(--accent)}.acquisition-day-list{display:grid}.acquisition-day-list>button{width:100%;min-height:58px;padding:8px 0;border:0;border-top:1px solid var(--border);background:transparent;color:var(--text);display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:9px;text-align:left}.acquisition-day-list>button:disabled{opacity:1}.acquisition-day-list>button:not(:disabled){cursor:pointer}.acquisition-day-list>button:not(:disabled):active{background:var(--surface-soft)}.acquisition-day-list>button>span:nth-child(2){display:grid;gap:2px;min-width:0}.acquisition-day-list>button small{color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acquisition-day-list>button time{color:var(--muted);font-size:10px}.acquisition-day-list>button svg{width:16px;color:var(--muted)}.acquisition-day-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface-soft));color:var(--accent);font-weight:900}.acquisition-day-list>p{margin:0;padding:12px 0 2px;color:var(--muted);font-size:11px}
 .acquisition-utm-hint{margin:0;color:var(--muted);font-size:11px}.acquisition-link-author{margin-top:3px;font-size:10px}
+.acquisition-slug-input{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;border:1px solid var(--border);border-radius:13px;background:var(--surface-soft);overflow:hidden}.acquisition-slug-input>b{padding-left:12px;color:var(--muted);font-size:12px}.acquisition-slug-input>input{border:0!important;background:transparent!important}.acquisition-link-variants{display:grid;gap:8px}.acquisition-link-variants>label{display:grid;gap:4px}.acquisition-link-variants>label>span{color:var(--muted);font-size:10px}
 @media(max-width:359px){.acquisition-kpis{grid-template-columns:1fr}.acquisition-form-grid{grid-template-columns:1fr}.acquisition-model button{font-size:11px}.acquisition-links-entry{grid-template-columns:auto 1fr auto}.acquisition-links-entry>svg{display:none}.acquisition-source-list article{align-items:flex-start}.acquisition-source-list article>span{flex:0 0 88px}.acquisition-link-stats{grid-template-columns:1fr 1fr}}
 @media(min-width:720px){.acquisition-kpis{grid-template-columns:repeat(4,1fr)}.acquisition-link-screen{max-width:760px;margin:auto}.acquisition-link-stats{grid-template-columns:repeat(4,1fr)}}
 </style>

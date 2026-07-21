@@ -27,8 +27,10 @@ describe("acquisition analytics contracts", () => {
       medium: "",
       campaign: "",
       content: "",
+      slug: "sale-vk",
       destination: { kind: "home" }
-    })).toMatchObject({ source: "vk", medium: "", campaign: "" });
+    })).toMatchObject({ source: "vk", medium: "", campaign: "", slug: "sale-vk" });
+    expect(() => acquisitionLinkInputSchema.parse({ name: "VK", source: "vk", medium: "", campaign: "", slug: "Bad slug" })).toThrow();
     expect(() => acquisitionLinkInputSchema.parse({
       name: "Пустая ссылка",
       source: "",
@@ -59,6 +61,7 @@ describe("acquisition analytics contracts", () => {
         content: touch.content,
         destination: { kind: "billing" },
         url: "https://club.example/?aid=telegram-july&utm_source=telegram",
+        shortUrl: "https://club.example/go/telegram-july",
         isActive: true,
         visits: 12,
         uniqueVisitors: 10,
