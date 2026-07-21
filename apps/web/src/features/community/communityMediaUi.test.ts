@@ -70,7 +70,7 @@ describe("community rich message UI", () => {
     expect(styles).toMatch(/\.community-reaction-popover \.reaction-popover-button\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;/s);
   });
 
-  it("anchors applied reactions outside the bubble without increasing its height", () => {
+  it("anchors circular reactions on the lower-right corner without increasing bubble size", () => {
     const section = read("CommunitySection.vue");
     const styles = read("community.css");
     const globalStyles = read("../../styles.css");
@@ -78,11 +78,12 @@ describe("community rich message UI", () => {
     expect(section).toMatch(/class="chat-message-content"[\s\S]*class="chat-bubble"[\s\S]*class="message-reactions"/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-message-content\s*\{[^}]*position:\s*relative;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*position:\s*absolute;[^}]*right:\s*-8px;[^}]*bottom:\s*-12px;/s);
-    expect(styles).toMatch(/\.community-chat-open \.chat-message-own \.message-reactions\s*\{[^}]*right:\s*auto;[^}]*left:\s*-8px;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button\s*\{[^}]*min-width:\s*34px;[^}]*height:\s*30px;[^}]*padding:\s*0 6px;/s);
-    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::after\s*\{[^}]*inset:\s*-7px -5px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.chat-message-own \.message-reactions\s*\{[^}]*right:\s*-8px;[^}]*left:\s*auto;/s);
+    expect(styles).not.toMatch(/\.chat-message-own \.message-reactions\s*\{[^}]*left:\s*-8px;/s);
+    expect(styles).toMatch(/html body \.community-chat-open \.chat-message-content \.message-reaction-button\s*\{[^}]*width:\s*32px;[^}]*min-width:\s*32px;[^}]*max-width:\s*32px;[^}]*height:\s*32px;[^}]*min-height:\s*32px;[^}]*max-height:\s*32px;[^}]*padding:\s*0;[^}]*border-radius:\s*50%;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button::after\s*\{[^}]*inset:\s*-6px;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reaction-button span\s*\{\s*font-size:\s*14px;/s);
-    expect(styles).toMatch(/html body \.community-chat-open \.chat-message-content \.message-reaction-button\s*\{[^}]*height:\s*30px;[^}]*min-height:\s*30px;[^}]*max-height:\s*30px;/s);
+    expect(styles).toMatch(/\.community-chat-open \.message-reaction-button small\s*\{[^}]*position:\s*absolute;[^}]*right:\s*3px;[^}]*bottom:\s*3px;/s);
     expect(globalStyles).toContain("button:not(.message-reaction-button)");
   });
 
