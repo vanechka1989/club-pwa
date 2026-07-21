@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Аккуратнее в админке",
+    items: [
+      "Кнопки обновления в платежах и настройках больше не сжимаются и не съезжают на узких экранах.",
+      "История настроек сворачивается, а история рассылок открывается отдельным полноэкранным разделом без лишней кнопки обновления.",
+      "В редакторе урока теперь виден сохранённый контент и работает предварительный просмотр нового файла или записанного голоса.",
+      "Запросы списков клиентов, платежей и сводной статистики получили дополнительные индексы для стабильной скорости при росте данных."
+    ]
+  },
+  {
+    version: "5.38",
+    updatedAt: "22.07.2026 00:41",
     title: "Быстрее и надёжнее",
     items: [
       "Первый запуск стал быстрее: профиль, обучение, чат, платежи, поддержка и админка теперь загружаются отдельными частями только при открытии.",
@@ -4006,10 +4017,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Unified source comparison",
+  title: "Cleaner admin workflows",
   items: [
-    "First and last touch are now compared side by side for each source on one screen.",
-    "Zero-value funnel percentages no longer overlap visit, registration or payment labels."
+    "Refresh actions now remain aligned on narrow screens, project logs are collapsible, and mailing history has its own full-screen view.",
+    "Lesson editing now previews saved media, newly selected files, and recorded voice before saving.",
+    "Additional database indexes keep client, payment, and dashboard queries responsive as data grows."
   ]
 };
 
