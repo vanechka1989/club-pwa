@@ -44,6 +44,7 @@ import type {
   AdminStatsResponse,
   AdminStatsUser,
   LearningContentResponse,
+  LearningEngagementSnapshot,
   LearningSaveOperationResponse,
   LessonCommentMutationResponse,
   LessonCommentsResponse,
@@ -259,6 +260,14 @@ export function saveLearningPlayback(id: string, positionSeconds: number, option
   };
 
   return api<LearningPlaybackMutationResponse>(`/learning/items/${id}/playback`, fetchOptions);
+}
+
+export function saveLearningEngagement(id: string, snapshot: LearningEngagementSnapshot, options: { keepalive?: boolean } = {}) {
+  return api<{ ok: true }>(`/learning/items/${id}/engagement`, {
+    method: "POST",
+    body: snapshot,
+    ...(options.keepalive ? { keepalive: true } : {})
+  });
 }
 
 export function getLessonComments(id: string) {

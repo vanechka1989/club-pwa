@@ -57,6 +57,7 @@ import {
   reorderAdminLearningCategories,
   reorderAdminLearningMaterials,
   restoreAdminLearningMaterial,
+  saveLearningEngagement,
   saveLearningPlayback,
   updateAdminLearningCategory,
   updateAdminLearningMaterial,
@@ -87,6 +88,7 @@ import {
   runUploadWithRetry
 } from "./uploadRecovery";
 import { isAmbiguousNetworkError, reconcileLearningSave } from "./lessonSaveReconciliation";
+import { createLearningEngagementTracker, type LearningEngagementTracker } from "./learningEngagement";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -378,6 +380,7 @@ const lastTrackedStaticMaterialId = ref<string | null>(null);
 let voiceChunks: Blob[] = [];
 let lessonVideoControlsTimer: number | null = null;
 let lessonMaterialObserver: IntersectionObserver | null = null;
+let learningEngagementTracker: LearningEngagementTracker | null = null;
 
 const canManageModules = computed(() =>
   hasAdminCapability(session.user?.role, session.user?.adminPermissions, "materials")
@@ -766,6 +769,21 @@ function getInternalLessonMaterialTitle(material: LessonMaterialDraft, index: nu
   return material.title.trim() || `${kindLabel[material.kind]} ${index + 1}`;
 }
 
+function startLearningEngagement(lesson: ModuleLesson) {
+  if (canManageModules.value || !lesson.isPersisted || learningEngagementTracker) {
+    return;
+  }
+  learningEngagementTracker = createLearningEngagementTracker({
+    send: (snapshot) => saveLearningEngagement(lesson.id, snapshot, { keepalive: snapshot.closed })
+  });
+}
+
+function stopLearningEngagement() {
+  const tracker = learningEngagementTracker;
+  learningEngagementTracker = null;
+  if (tracker) void tracker.dispose();
+}
+
 function openLessonModal(
   module: ModuleCard,
   lesson: ModuleLesson,
@@ -773,6 +791,7 @@ function openLessonModal(
   materialId: string | null = null,
   editorMode = false
 ) {
+  stopLearningEngagement();
   resetLessonVideoState();
   if (!module.images.some((item) => item.id === lesson.id)) {
     module.images = [lesson, ...module.images];
@@ -797,6 +816,9 @@ function openLessonModal(
   lessonContent.value = lesson.content;
   lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
   lessonEditorMode.value = canManageModules.value && editorMode;
+  if (!lessonEditorMode.value) {
+    startLearningEngagement(lesson);
+  }
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -813,6 +835,7 @@ function openLessonEditor() {
     return;
   }
 
+  stopLearningEngagement();
   lessonEditorMode.value = true;
   openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/edit`);
 }
@@ -824,6 +847,9 @@ function showLessonViewer(lessonId = selectedLessonItem.value?.id ?? null) {
   }
 
   lessonEditorMode.value = false;
+  if (selectedLessonItem.value) {
+    startLearningEngagement(selectedLessonItem.value);
+  }
   openLearningTask(`/learning/lessons/${lessonId}`);
 }
 
@@ -879,6 +905,7 @@ function openLessonCreateModal(module: ModuleCard) {
 }
 
 function closeLessonModal() {
+  stopLearningEngagement();
   closeLessonImage();
   resetLessonVideoState();
   selectedLesson.value = null;
@@ -943,6 +970,9 @@ function syncLessonVideoState() {
   lessonVideoCurrentTime.value = video.currentTime;
   lessonVideoDuration.value = Number.isFinite(video.duration) ? video.duration : 0;
   isLessonVideoPlaying.value = !video.paused && !video.ended;
+  learningEngagementTracker?.setMaterial(null);
+  learningEngagementTracker?.setPlaybackPosition(video.currentTime);
+  learningEngagementTracker?.setVideoPlaying(isLessonVideoPlaying.value);
 }
 
 function applyPendingLessonVideoStart() {
@@ -1061,9 +1091,20 @@ function persistLessonVideoPlaybackBeforeExit() {
 }
 
 function handleLearningVisibilityChange() {
+  learningEngagementTracker?.syncActivityState();
   if (document.visibilityState === "hidden") {
+    void learningEngagementTracker?.flush();
     persistLessonVideoPlaybackBeforeExit();
   }
+}
+
+function handleLearningFocusChange() {
+  learningEngagementTracker?.syncActivityState();
+}
+
+function handleLearningExit() {
+  persistLessonVideoPlaybackBeforeExit();
+  stopLearningEngagement();
 }
 
 function handleLessonVideoTimeUpdate() {
@@ -1117,6 +1158,10 @@ async function persistLessonMaterialPlayback(
     return;
   }
 
+  learningEngagementTracker?.setMaterial(material.id);
+  learningEngagementTracker?.setPlaybackPosition(media.currentTime);
+  learningEngagementTracker?.setVideoPlaying(!media.paused && !media.ended);
+
   if (pendingPlaybackMaterialId.value === material.id && pendingLessonVideoStartSeconds.value > 0 && !lessonVideoStartApplied.value) {
     applyPendingLessonMaterialStart(material, event);
     if (!lessonVideoStartApplied.value) {
@@ -1153,6 +1198,12 @@ async function persistLessonMaterialPlayback(
 }
 
 function handleLessonMaterialTimeUpdate(material: LessonMaterial, event: Event) {
+  const media = getMediaElement(event);
+  if (media) {
+    learningEngagementTracker?.setMaterial(material.id);
+    learningEngagementTracker?.setPlaybackPosition(media.currentTime);
+    learningEngagementTracker?.setVideoPlaying(!media.paused && !media.ended);
+  }
   void persistLessonMaterialPlayback(material, event, false);
 }
 
@@ -1224,6 +1275,7 @@ async function trackStaticLessonMaterial(material: LessonMaterial) {
   }
 
   lastTrackedStaticMaterialId.value = material.id;
+  learningEngagementTracker?.setMaterial(material.id);
   updateLearningPlaybackProgress(lesson, 0, material);
   try {
     await saveLearningPlayback(lesson.id, 0, { materialId: material.id });
@@ -2548,6 +2600,11 @@ async function syncLearningTaskRoute() {
     if (module && lesson && selectedLesson.value?.lessonId !== lesson.id) {
       openLessonModal(module, lesson, 0, null, wantsEditor);
     } else if (module && lesson) {
+      if (wantsEditor) {
+        stopLearningEngagement();
+      } else {
+        startLearningEngagement(lesson);
+      }
       lessonEditorMode.value = canManageModules.value && wantsEditor;
     }
     return;
@@ -2559,15 +2616,19 @@ async function syncLearningTaskRoute() {
 onMounted(() => {
   void loadModules().then(syncLearningTaskRoute);
   document.addEventListener("visibilitychange", handleLearningVisibilityChange);
-  window.addEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
-  window.addEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
+  window.addEventListener("focus", handleLearningFocusChange);
+  window.addEventListener("blur", handleLearningFocusChange);
+  window.addEventListener("pagehide", handleLearningExit);
+  window.addEventListener("beforeunload", handleLearningExit);
 });
 
 onBeforeUnmount(() => {
-  persistLessonVideoPlaybackBeforeExit();
+  handleLearningExit();
   document.removeEventListener("visibilitychange", handleLearningVisibilityChange);
-  window.removeEventListener("pagehide", persistLessonVideoPlaybackBeforeExit);
-  window.removeEventListener("beforeunload", persistLessonVideoPlaybackBeforeExit);
+  window.removeEventListener("focus", handleLearningFocusChange);
+  window.removeEventListener("blur", handleLearningFocusChange);
+  window.removeEventListener("pagehide", handleLearningExit);
+  window.removeEventListener("beforeunload", handleLearningExit);
   clearLessonVideoControlsTimer();
   clearLessonMaterialObserver();
 });
