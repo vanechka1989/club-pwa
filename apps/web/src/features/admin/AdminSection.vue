@@ -128,9 +128,8 @@ import {
 } from "@/features/admin/adminUserDrilldown";
 import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
-import { formatMembershipStatus, useI18n } from "@/features/app/i18n";
+import { formatMembershipStatus } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
-import { getLocalizedReleaseNotes } from "@/features/app/releaseNotes";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
@@ -144,13 +143,12 @@ const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientA
 const AdminPaymentsPanel = defineAsyncComponent(() => import("./AdminPaymentsPanel.vue"));
 const AdminProjectSettingsPanel = defineAsyncComponent(() => import("./AdminProjectSettingsPanel.vue"));
 const AdminServerPanel = defineAsyncComponent(() => import("./AdminServerPanel.vue"));
+const AdminReleaseNotesTask = defineAsyncComponent(() => import("./AdminReleaseNotesTask.vue"));
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
 const appDialogs = useAppDialogsStore();
 const ui = useUiStore();
-const { currentLocale } = useI18n();
-const localizedReleaseNotes = computed(() => getLocalizedReleaseNotes(currentLocale.value));
 const route = useRoute();
 const router = useRouter();
 
@@ -351,7 +349,6 @@ const clientMessageText = ref("");
 const clientMessageFiles = ref<File[]>([]);
 const clientMessageInputRef = ref<HTMLTextAreaElement | null>(null);
 const sendingClientMessage = ref(false);
-const expandedReleaseVersion = ref(appVersion);
 const editorRef = ref<HTMLElement | null>(null);
 const editorColor = ref("#111827");
 const adminSearchQuery = ref("");
@@ -1341,7 +1338,6 @@ function openReleaseNotesModal() {
     return;
   }
 
-  expandedReleaseVersion.value = appVersion;
   showReleaseNotesModal.value = true;
   openAdminTask("/admin/releases");
 }
@@ -1429,10 +1425,6 @@ async function openClientByTelegramId(telegramId: string) {
 
   pendingOpenClientTelegramId.value = null;
   await selectUser(user);
-}
-
-function toggleReleaseNote(version: string) {
-  expandedReleaseVersion.value = expandedReleaseVersion.value === version ? "" : version;
 }
 
 function adminTitle(admin: AdminUser) {
@@ -3101,35 +3093,10 @@ onUnmounted(() => {
       </template>
     </UiPageHeader>
 
-    <TaskScreen v-if="(showReleaseNotesModal || route.path === '/admin/releases') && canViewReleaseNotes" class="admin-task-screen" title="Обновления" subtitle="История изменений приложения по версиям." portal @back="closeReleaseNotesModal">
-        <section class="admin-detail ui-card admin-client-modal release-notes-modal">
-          <header class="admin-client-modal-head">
-            <div>
-              <h3 id="release-notes-title">Обновления</h3>
-              <p>История изменений приложения по версиям.</p>
-            </div>
-            <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть список обновлений" @click="closeReleaseNotesModal">
-              <X class="h-4 w-4" aria-hidden="true" />
-            </button>
-          </header>
-
-          <div class="release-notes-list">
-            <article v-for="note in localizedReleaseNotes" :key="note.version" class="release-note-card">
-              <button class="release-note-head" type="button" @click="toggleReleaseNote(note.version)">
-                <span>
-                  <strong>v{{ note.version }}</strong>
-                  <small>{{ note.updatedAt }}</small>
-                </span>
-                <span class="release-note-title">{{ note.title }}</span>
-                <ChevronDown class="h-4 w-4" :class="{ 'admin-accordion-icon-open': expandedReleaseVersion === note.version }" aria-hidden="true" />
-              </button>
-              <ul v-if="expandedReleaseVersion === note.version" class="release-note-items">
-                <li v-for="item in note.items" :key="item">{{ item }}</li>
-              </ul>
-            </article>
-          </div>
-        </section>
-    </TaskScreen>
+    <AdminReleaseNotesTask
+      v-if="(showReleaseNotesModal || route.path === '/admin/releases') && canViewReleaseNotes"
+      @back="closeReleaseNotesModal"
+    />
 
     <TaskScreen v-if="activePaymentBreakdown" class="admin-task-screen" :title="activePaymentBreakdown.label" :subtitle="`${paymentDrilldownOrders.length} записей`" portal @back="closePaymentDrilldown">
         <section class="admin-detail ui-card admin-client-modal admin-payment-drilldown-modal">

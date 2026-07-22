@@ -41,4 +41,10 @@ describe("authenticated section loading", () => {
       expect(adminSource).not.toContain(`import ${name} from "./${name}.vue";`);
     }
   });
+
+  it("keeps the release history outside the main admin chunk", () => {
+    expect(adminSource).toContain('const AdminReleaseNotesTask = defineAsyncComponent(() => import("./AdminReleaseNotesTask.vue"));');
+    expect(adminSource).not.toContain('getLocalizedReleaseNotes');
+    expect(adminSource).not.toContain('v-for="note in localizedReleaseNotes"');
+  });
 });
