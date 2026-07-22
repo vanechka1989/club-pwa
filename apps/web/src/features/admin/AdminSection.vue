@@ -3456,21 +3456,6 @@ onUnmounted(() => {
               </article>
             </section>
 
-            <AdminClientAcquisition :telegram-id="selectedUser.telegramId" />
-
-            <div class="admin-client-primary-actions">
-              <button class="primary-button ui-button admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">
-                Написать клиенту
-              </button>
-            </div>
-
-            <p v-if="!canGrantClientAccess" class="admin-warning-line">
-              Для выдачи доступа нужно право Доступы.
-            </p>
-            <p v-else-if="!canManageSelectedUser" class="admin-warning-line">
-              Менять доступ и ограничения администраторов может только главный админ.
-            </p>
-
             <section class="admin-client-action-panel admin-detail ui-card" aria-label="Действия с клиентом">
               <div class="admin-client-action-head">
                 <strong>Действие</strong>
@@ -3537,6 +3522,21 @@ onUnmounted(() => {
                 </button>
               </form>
             </section>
+
+            <div class="admin-client-primary-actions">
+              <button class="primary-button ui-button admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">
+                Написать клиенту
+              </button>
+            </div>
+
+            <p v-if="!canGrantClientAccess" class="admin-warning-line">
+              Для выдачи доступа нужно право Доступы.
+            </p>
+            <p v-else-if="!canManageSelectedUser" class="admin-warning-line">
+              Менять доступ и ограничения администраторов может только главный админ.
+            </p>
+
+            <AdminClientAcquisition :telegram-id="selectedUser.telegramId" />
 
             <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
               <summary>Активность <span>последние события</span></summary>

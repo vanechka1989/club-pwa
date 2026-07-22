@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes a compact acquisition dashboard as version 5.45", () => {
-    expect(appVersion).toBe("5.45");
-    expect(releaseNotes[0]?.title).toBe("Компактная аналитика рекламы");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("повторный блок");
+  it("publishes client actions before the source as version 5.46", () => {
+    expect(appVersion).toBe("5.46");
+    expect(releaseNotes[0]?.title).toBe("Действия клиента выше источника");
+
+    const compactAcquisitionRelease = releaseNotes.find((note) => note.version === "5.45");
+    expect(compactAcquisitionRelease?.title).toBe("Компактная аналитика рекламы");
+    expect(compactAcquisitionRelease?.items.join(" ")).toContain("повторный блок");
 
     const clearerUtmRelease = releaseNotes.find((note) => note.version === "5.44");
     expect(clearerUtmRelease?.title).toBe("Понятные названия UTM-меток");

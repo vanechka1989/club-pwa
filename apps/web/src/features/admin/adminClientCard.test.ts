@@ -74,6 +74,18 @@ describe("admin client card helpers", () => {
     expect(source).not.toContain("+90 дней");
   });
 
+  it("places client actions before messaging and the acquisition source after it", () => {
+    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const detail = source.slice(source.indexOf('v-if="selectedUser && activePanel === \'users\'"'));
+    const actions = detail.indexOf('class="admin-client-action-panel admin-detail ui-card"');
+    const message = detail.indexOf('class="admin-client-primary-actions"');
+    const acquisition = detail.indexOf('<AdminClientAcquisition');
+
+    expect(actions).toBeGreaterThan(0);
+    expect(message).toBeGreaterThan(actions);
+    expect(acquisition).toBeGreaterThan(message);
+  });
+
   it("opens the client message form in a dedicated overlay above the task screen", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const apiSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
