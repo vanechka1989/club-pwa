@@ -34,5 +34,4 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now club-pwa-backup.timer
-systemctl start club-pwa-backup.service
-systemctl --no-pager --full status club-pwa-backup.service
+systemctl --no-pager --full status club-pwa-backup.timer

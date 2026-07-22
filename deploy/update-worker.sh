@@ -295,6 +295,12 @@ recreate_caddy() {
   compose up -d --no-deps --force-recreate caddy
 }
 
+install_operational_timers() {
+  current_phase="install-timers"
+  write_status running "$current_phase"
+  /usr/bin/env bash "$DEPLOY_DIR/deploy/install-backup-timer.sh"
+}
+
 rollback_services() {
   echo "Health verification failed; attempting container rollback." >&2
   if [[ $api_changed -eq 1 && -n "$previous_api_image" ]]; then
@@ -367,6 +373,8 @@ fi
 if [[ $web_changed -eq 1 || $api_changed -eq 1 || $caddy_changed -eq 1 ]]; then
   recreate_caddy
 fi
+
+install_operational_timers
 
 current_phase="health"
 write_status running "$current_phase"
