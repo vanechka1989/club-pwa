@@ -50,13 +50,10 @@ import {
   X,
   type LucideIcon
 } from "lucide-vue-next";
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
-import AdminStatisticsDetail, { type StatisticsDetail } from "./AdminStatisticsDetail.vue";
-import AdminAcquisitionAnalytics from "./AdminAcquisitionAnalytics.vue";
-import AdminLearningEngagement from "./AdminLearningEngagement.vue";
-import AdminClientAcquisition from "./AdminClientAcquisition.vue";
+import type { StatisticsDetail } from "./AdminStatisticsDetail.vue";
 import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode";
 import {
   addAdminUser,
@@ -118,9 +115,6 @@ import {
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
-import AdminPaymentsPanel from "./AdminPaymentsPanel.vue";
-import AdminProjectSettingsPanel from "./AdminProjectSettingsPanel.vue";
-import AdminServerPanel from "./AdminServerPanel.vue";
 import { UiPageHeader } from "@/features/ui";
 import {
   filterPaymentOrdersByBreakdown,
@@ -142,6 +136,14 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
+
+const AdminStatisticsDetail = defineAsyncComponent(() => import("./AdminStatisticsDetail.vue"));
+const AdminAcquisitionAnalytics = defineAsyncComponent(() => import("./AdminAcquisitionAnalytics.vue"));
+const AdminLearningEngagement = defineAsyncComponent(() => import("./AdminLearningEngagement.vue"));
+const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));
+const AdminPaymentsPanel = defineAsyncComponent(() => import("./AdminPaymentsPanel.vue"));
+const AdminProjectSettingsPanel = defineAsyncComponent(() => import("./AdminProjectSettingsPanel.vue"));
+const AdminServerPanel = defineAsyncComponent(() => import("./AdminServerPanel.vue"));
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();

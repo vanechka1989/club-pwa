@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
+const adminSource = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
 
 describe("authenticated section loading", () => {
   it("loads large authenticated sections as independent chunks", () => {
@@ -23,5 +24,21 @@ describe("authenticated section loading", () => {
 
   it("keeps authentication eager so signed-out users render without an extra route chunk", () => {
     expect(appSource).toContain('import AuthSection from "@/features/auth/AuthSection.vue";');
+  });
+
+  it("loads isolated admin screens only when their panel opens", () => {
+    expect(adminSource).toContain('import { computed, defineAsyncComponent, nextTick');
+    for (const name of [
+      "AdminStatisticsDetail",
+      "AdminAcquisitionAnalytics",
+      "AdminLearningEngagement",
+      "AdminClientAcquisition",
+      "AdminPaymentsPanel",
+      "AdminProjectSettingsPanel",
+      "AdminServerPanel"
+    ]) {
+      expect(adminSource).toMatch(new RegExp(`const ${name} = defineAsyncComponent\\(\\(\\) => import\\("\\./${name}\\.vue"\\)\\);`));
+      expect(adminSource).not.toContain(`import ${name} from "./${name}.vue";`);
+    }
   });
 });
