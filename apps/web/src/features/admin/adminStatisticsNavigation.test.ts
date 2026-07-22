@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 
 const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 const detail = () => readFileSync(resolve(__dirname, "AdminStatisticsDetail.vue"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = ["../../styles.css", "adminShell.css"]
+  .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
+  .join("\n");
 
 describe("admin statistics navigation", () => {
   it("shows a two-metric period summary and six navigation rows", () => {

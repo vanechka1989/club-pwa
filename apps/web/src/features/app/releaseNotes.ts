@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Админка загружается быстрее",
+    items: [
+      "Тяжёлые экраны админки и их стили теперь загружаются по мере открытия, а не все сразу при входе в приложение.",
+      "История версий вынесена в отдельную часть и больше не замедляет основной экран администратора.",
+      "Общие стили приложения стали легче без изменения оформления на Android и iPhone."
+    ]
+  },
+  {
+    version: "5.41",
+    updatedAt: "22.07.2026 08:08",
     title: "Источник клиента без переноса",
     items: [
       "Источник клиента теперь всегда отображается одной строкой: короткие значения вроде vk и подпись «Без метки» больше не переносятся по буквам.",
@@ -4036,10 +4046,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client sources stay on one line",
+  title: "Admin tools load faster",
   items: [
-    "Short client sources and the no-tag label no longer wrap letter by letter on narrow screens.",
-    "Long source names are safely truncated with an ellipsis without breaking the card header."
+    "Heavy admin screens and their styles now load only when opened instead of during the initial app load.",
+    "Release history is delivered as a separate chunk, keeping the main admin screen lighter.",
+    "The shared application stylesheet is smaller without changing the Android or iPhone layout."
   ]
 };
 

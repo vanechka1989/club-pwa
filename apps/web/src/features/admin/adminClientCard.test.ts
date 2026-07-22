@@ -11,6 +11,10 @@ import {
   getAdminTariffLabel
 } from "./adminClientCard";
 
+const adminStyles = ["../../styles.css", "adminShell.css"]
+  .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
+  .join("\n");
+
 describe("admin client card helpers", () => {
   it("uses the nickname configured in profile before the legacy first name", () => {
     expect(getAdminClientDisplayName({ displayName: "Иван", firstName: "vanechka1989", username: "vanechka1989" })).toBe("Иван");
@@ -24,7 +28,7 @@ describe("admin client card helpers", () => {
 
   it("shows an email opt-out marker in the client list and detail card", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
     const apiSource = readFileSync(resolve(__dirname, "../../../../api/src/routes/admin.ts"), "utf8");
     const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/shared/src/index.ts"), "utf8");
 
@@ -73,7 +77,7 @@ describe("admin client card helpers", () => {
   it("opens the client message form in a dedicated overlay above the task screen", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const apiSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
 
     expect(source).toContain("admin-message-client-button");
     expect(source).toContain("admin-client-message-layer");
@@ -87,7 +91,7 @@ describe("admin client card helpers", () => {
   });
 
   it("keeps the client task screen scrollable above the phone bottom controls", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
 
     expect(styles).toContain("padding-bottom: max(1rem, var(--club-safe-bottom))");
     expect(styles).toMatch(/body\.club-mobile-device \.admin-client-task-screen\.task-screen-route-layer\s*\{[^}]*overflow:\s*hidden;/s);
@@ -97,14 +101,14 @@ describe("admin client card helpers", () => {
   });
 
   it("uses a high-contrast closed access badge", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
 
     expect(styles).toMatch(/\.admin-access-badge-closed\s*\{[^}]*border-color:[^;]*92%[^;]*;[^}]*background:[^;]*88%[^;]*;[^}]*color:\s*#fff;[^}]*box-shadow:/s);
   });
 
   it("loads and shows login IP history only with the dedicated permission", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
 
     expect(source).toContain('hasCurrentAdminPermission("login_ips")');
     expect(source).toContain("getAdminUserLoginIps");
@@ -128,7 +132,7 @@ describe("admin client card helpers", () => {
 
   it("centers four compact KPI cards directly below the identity card", () => {
     const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
 
     expect(source.indexOf('class="admin-client-kpi-grid"')).toBeGreaterThan(source.indexOf('class="admin-client-identity'));
     expect(styles).toMatch(/\.admin-client-kpi\s*\{[^}]*min-height:\s*56px;[^}]*justify-items:\s*center;[^}]*text-align:\s*center;/s);
@@ -156,7 +160,7 @@ describe("admin client card helpers", () => {
   });
 
   it("keeps closed client disclosures as compact tap rows", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
 
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\s*\{[^}]*gap:\s*0;[^}]*min-height:\s*0;[^}]*padding:\s*0;/s);
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto auto;[^}]*box-sizing:\s*border-box;[^}]*height:\s*44px;[^}]*min-height:\s*44px;[^}]*align-content:\s*center;[^}]*align-items:\s*center;[^}]*padding:\s*0 12px;[^}]*line-height:\s*1;/s);
@@ -165,7 +169,7 @@ describe("admin client card helpers", () => {
   });
 
   it("gives open client disclosures a subtle theme-aware state", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = adminStyles;
 
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\[open\]\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--accent\) 38%, var\(--border\)\);/s);
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\[open\] > summary\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent-soft\) 42%, var\(--panel\)\);/s);

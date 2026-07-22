@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 
 const component = readFileSync(resolve(__dirname, "AdminLearningEngagement.vue"), "utf8");
 const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = ["../../styles.css", "adminLearningEngagement.css"]
+  .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
+  .join("\n");
 
 describe("admin learning engagement dashboard", () => {
   it("shows card metrics and a member drilldown inside analytics", () => {

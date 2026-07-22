@@ -71,7 +71,9 @@ describe("admin permissions section", () => {
   });
 
   it("uses one clean permission surface and a single-column mobile permission list", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+    const styles = ["../../styles.css", "adminShell.css"]
+      .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
+      .join("\n");
 
     expect(adminSectionSource).toContain('class="admin-permission-surface ui-card"');
     expect(adminSectionSource).not.toContain('class="admin-permission-card ui-card"');
@@ -81,7 +83,9 @@ describe("admin permissions section", () => {
   });
 
   it("pins permission switches to a compact size despite global input styles", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+    const styles = ["../../styles.css", "adminShell.css"]
+      .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
+      .join("\n");
 
     expect(styles).toMatch(/\.admin-permission-surface :is\(\.admin-switch-row, \.admin-permission-toggle\) input\s*\{[\s\S]*?width:\s*44px !important;[\s\S]*?height:\s*24px !important;[\s\S]*?min-height:\s*24px !important;[\s\S]*?max-height:\s*24px !important;/);
     expect(styles).toMatch(/\.admin-permission-surface :is\(\.admin-switch-row, \.admin-permission-toggle\) input::before\s*\{[\s\S]*?width:\s*18px;[\s\S]*?height:\s*18px;/);

@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = ["../../styles.css", "adminShell.css"]
+  .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
+  .join("\n");
 
 describe("compact admin statistics and clients", () => {
   it("uses a compact KPI summary and focused statistic navigation", () => {
