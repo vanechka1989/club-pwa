@@ -47,6 +47,9 @@ describe("backup infrastructure", () => {
     expect(verifyScript).toContain("pg_restore");
     expect(verifyScript).toContain("pg_isready");
     expect(verifyScript).toContain("public.users");
+    expect(verifyScript).toContain("--user 0:0");
+    expect(verifyScript).toContain('docker cp "$temp_dir/latest.dump"');
+    expect(verifyScript).not.toContain("chmod 0777");
   });
 
   it("installs persistent weekly restore verification", () => {
@@ -62,6 +65,7 @@ describe("backup infrastructure", () => {
     expect(kumaBackupScript).toContain("--entrypoint tar");
     expect(kumaBackupScript).toContain("-czf");
     expect(kumaBackupScript).toContain("uploadOperationalBackup.ts");
+    expect(kumaBackupScript).toContain("--user 0:0");
     expect(kumaBackupScript).toContain('[[ "$temp_dir" == /tmp/club-pwa-kuma-backup.* ]]');
     expect(operationalUploader).toContain('system/uptime-kuma-backups/');
     expect(operationalUploader).toContain("getObjectMetadata");

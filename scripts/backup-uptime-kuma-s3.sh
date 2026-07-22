@@ -49,7 +49,7 @@ docker compose -f docker-compose.prod.yml start uptime-kuma
 kuma_stopped=0
 test -s "$temp_dir/$file_name"
 
-result="$(docker compose -f docker-compose.prod.yml run --rm --no-deps \
+result="$(docker compose -f docker-compose.prod.yml run --rm --no-deps --user 0:0 \
   -v "$temp_dir:/operational-backup:ro" \
   api bun apps/api/src/storage/uploadOperationalBackup.ts "/operational-backup/$file_name" uptime-kuma)"
 write_status success "$(printf '%s\n' "$result" | tail -n 1)"

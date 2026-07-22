@@ -40,17 +40,16 @@ on_error() {
 }
 trap on_error ERR
 
-chmod 0777 "$temp_dir"
 cd "$DEPLOY_DIR"
-docker compose -f docker-compose.prod.yml run --rm --no-deps \
+docker compose -f docker-compose.prod.yml run --rm --no-deps --user 0:0 \
   -v "$temp_dir:/backup-export" \
   api bun apps/api/src/db/exportLatestAutomaticBackup.ts /backup-export/latest.dump >/dev/null
 
 docker run --detach --network none --name "$container_name" \
   --env POSTGRES_USER=verify --env POSTGRES_PASSWORD=verify-only --env POSTGRES_DB=verify \
   --tmpfs /var/lib/postgresql/data:rw,noexec,nosuid,size=512m \
-  --volume "$temp_dir:/backup:ro" \
   postgres:16-alpine >/dev/null
+docker cp "$temp_dir/latest.dump" "$container_name:/tmp/latest.dump"
 
 ready=0
 for _ in {1..30}; do
@@ -63,7 +62,7 @@ done
 [[ $ready -eq 1 ]] || { echo "temporary PostgreSQL did not become ready" >&2; exit 1; }
 
 docker exec "$container_name" pg_restore --exit-on-error --no-owner --no-privileges \
-  --username verify --dbname verify /backup/latest.dump >/dev/null
+  --username verify --dbname verify /tmp/latest.dump >/dev/null
 table_exists="$(docker exec "$container_name" psql --username verify --dbname verify --tuples-only --no-align \
   --command "select to_regclass('public.users') is not null")"
 [[ "$table_exists" == "t" ]] || { echo "restored database is missing public.users" >&2; exit 1; }
