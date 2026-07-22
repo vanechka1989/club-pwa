@@ -112,6 +112,13 @@ import {
   getAdminClientDisplayName,
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
+import {
+  allClientSourcesFilter,
+  filterAdminClients,
+  getAdminClientSourceOptions,
+  untaggedClientSourceFilter,
+  type AdminClientUtmField
+} from "@/features/admin/adminClientAcquisitionFilters";
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
@@ -327,6 +334,9 @@ const search = ref("");
 const subscriptionFilter = ref<"all" | "active" | "closed">("all");
 const tariffFilter = ref("all");
 const restrictionFilter = ref<"all" | "restricted">("all");
+const sourceFilter = ref(allClientSourcesFilter);
+const utmFieldFilter = ref<AdminClientUtmField>("all");
+const utmValueFilter = ref("");
 const statisticsPeriod = ref<AdminStatisticsPeriod>("30d");
 const statisticsCustomFrom = ref("");
 const statisticsCustomTo = ref("");
@@ -474,19 +484,16 @@ const tariffOptions = computed(() => {
       .map((value) => ({ value, label: getAdminTariffLabel(value) }))
   ];
 });
-const filteredUsers = computed(() => {
-  const query = search.value.trim().toLowerCase();
-  return users.value.filter((user) => {
-    const matchesQuery =
-      !query || [user.telegramId, user.firstName ?? "", user.username ?? ""].some((value) => value.toLowerCase().includes(query));
-    const matchesSubscription =
-      subscriptionFilter.value === "all" ||
-      (subscriptionFilter.value === "active" ? user.membershipStatus === "active" : user.membershipStatus !== "active");
-    const matchesTariff = tariffFilter.value === "all" || (user.tariff || "future") === tariffFilter.value;
-    const matchesRestrictions = restrictionFilter.value === "all" || user.hasRestrictions;
-    return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions;
-  });
-});
+const clientSourceOptions = computed(() => getAdminClientSourceOptions(users.value));
+const filteredUsers = computed(() => filterAdminClients(users.value, {
+  query: search.value,
+  subscription: subscriptionFilter.value,
+  tariff: tariffFilter.value,
+  restrictions: restrictionFilter.value,
+  source: sourceFilter.value,
+  utmField: utmFieldFilter.value,
+  utmValue: utmValueFilter.value
+}));
 const adminTelegramIds = computed(() => new Set([ownerTelegramId.value, ...admins.value.map((admin) => admin.telegramId)]));
 const adminSearchCandidates = computed(() => {
   const query = adminSearchQuery.value.trim().toLowerCase();
@@ -520,7 +527,14 @@ const visibleAdminActionActors = computed(() => {
   });
 });
 const filtersActive = computed(
-  () => Boolean(search.value.trim()) || subscriptionFilter.value !== "all" || tariffFilter.value !== "all" || restrictionFilter.value !== "all"
+  () =>
+    Boolean(search.value.trim()) ||
+    subscriptionFilter.value !== "all" ||
+    tariffFilter.value !== "all" ||
+    restrictionFilter.value !== "all" ||
+    sourceFilter.value !== allClientSourcesFilter ||
+    utmFieldFilter.value !== "all" ||
+    Boolean(utmValueFilter.value.trim())
 );
 const selectedUserPaymentOrders = computed(() =>
   selectedUser.value ? paymentOrders.value.filter((order) => order.customer.telegramId === selectedUser.value?.telegramId) : []
@@ -1984,6 +1998,9 @@ function resetClientFilters() {
   subscriptionFilter.value = "all";
   tariffFilter.value = "all";
   restrictionFilter.value = "all";
+  sourceFilter.value = allClientSourcesFilter;
+  utmFieldFilter.value = "all";
+  utmValueFilter.value = "";
 }
 
 function setStatus(text: string) {
@@ -3319,6 +3336,28 @@ onUnmounted(() => {
           <option value="all">Все клиенты</option>
           <option value="restricted">С ограничениями</option>
         </select>
+        <div class="admin-client-acquisition-filters">
+          <select v-model="sourceFilter" class="text-input" aria-label="Источник клиента">
+            <option :value="allClientSourcesFilter">Любой источник</option>
+            <option :value="untaggedClientSourceFilter">Без метки</option>
+            <option v-for="source in clientSourceOptions" :key="source.value" :value="source.value">
+              {{ source.label }}
+            </option>
+          </select>
+          <select v-model="utmFieldFilter" class="text-input" aria-label="Поле UTM">
+            <option value="all">Любая UTM-метка</option>
+            <option value="source">utm_source</option>
+            <option value="medium">utm_medium</option>
+            <option value="campaign">utm_campaign</option>
+            <option value="content">utm_content</option>
+          </select>
+          <input
+            v-model.trim="utmValueFilter"
+            class="text-input"
+            aria-label="Значение UTM"
+            placeholder="Значение UTM"
+          />
+        </div>
         <button class="secondary-button ui-button admin-filter-reset" type="button" :disabled="!filtersActive" @click="resetClientFilters">
           Сбросить
         </button>

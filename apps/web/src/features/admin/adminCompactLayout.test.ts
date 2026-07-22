@@ -23,6 +23,15 @@ describe("compact admin statistics and clients", () => {
     expect(source).toContain("Найдено: {{ filteredUsers.length }}");
   });
 
+  it("offers compact source and UTM filters inside the client disclosure", () => {
+    expect(source).toContain('class="admin-client-acquisition-filters"');
+    expect(source).toContain('aria-label="Источник клиента"');
+    expect(source).toContain("Без метки");
+    expect(source).toContain('aria-label="Поле UTM"');
+    expect(source).toContain('aria-label="Значение UTM"');
+    expect(styles).toContain(".admin-client-acquisition-filters");
+  });
+
   it("structures each client row instead of joining all metadata into one sentence", () => {
     expect(source).toContain('class="admin-client-overview"');
     expect(source).toContain("admin-client-list-row");

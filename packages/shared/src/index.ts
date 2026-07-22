@@ -919,6 +919,15 @@ export const adminStatsUserSchema = z.object({
   telegramBotStatus: telegramBotStatusSchema,
   telegramBotBlockedAt: z.string().datetime().nullable(),
   telegramBotUnblockedAt: z.string().datetime().nullable(),
+  acquisition: z
+    .object({
+      source: z.string(),
+      medium: z.string(),
+      campaign: z.string(),
+      content: z.string().nullable()
+    })
+    .nullable()
+    .optional(),
   createdAt: z.string().datetime()
 });
 export type AdminStatsUser = z.infer<typeof adminStatsUserSchema>;
