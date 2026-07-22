@@ -19,6 +19,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    mem_limit: 512m
+    cpus: "0.75"
+    pids_limit: 256
     logging: *default-logging
 
   uploads-permissions:
@@ -98,6 +101,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+    mem_limit: 512m
+    cpus: "1.00"
+    pids_limit: 256
     logging: *default-logging
 
   migrate:
@@ -145,6 +151,9 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
     logging: *default-logging
 
   web:
@@ -165,6 +174,9 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
     logging: *default-logging
 
   uptime-kuma:
@@ -209,6 +221,9 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
     logging: *default-logging
 
 volumes:

@@ -137,4 +137,17 @@ describe("production security config", () => {
     expect(caddyfile).toContain("https://{$PUBLIC_DOMAIN}:8443");
     expect(caddyfile).toContain("reverse_proxy uptime-kuma:3001");
   });
+
+  it("bounds production service resources so one container cannot exhaust the VPS", () => {
+    for (const service of ["postgres:", "api:", "web:", "uptime-kuma:", "caddy:"]) {
+      const start = productionCompose.indexOf(`  ${service}`);
+      expect(start).toBeGreaterThan(-1);
+      const rest = productionCompose.slice(start + 2);
+      const next = rest.search(/\n  [a-z][a-z-]*:\n/);
+      const block = next === -1 ? rest : rest.slice(0, next);
+      expect(block).toContain("mem_limit:");
+      expect(block).toContain("cpus:");
+      expect(block).toContain("pids_limit:");
+    }
+  });
 });

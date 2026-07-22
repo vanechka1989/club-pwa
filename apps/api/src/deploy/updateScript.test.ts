@@ -151,6 +151,14 @@ describe("deploy update script", () => {
     expect(serverInstall).toContain("docker-buildx-plugin");
   });
 
+  it("requires check, tests and build to pass before production deployment", () => {
+    expect(deployWorkflow).toContain("quality:");
+    expect(deployWorkflow).toContain("pnpm check");
+    expect(deployWorkflow).toContain("pnpm test");
+    expect(deployWorkflow).toContain("pnpm build");
+    expect(deployWorkflow).toContain("needs: quality");
+  });
+
   it("collects remote deployment diagnostics when the update command fails", () => {
     expect(deployWorkflow).toContain("Deployment command failed. Collecting remote diagnostics");
     expect(deployWorkflow).toContain("deploy/status.sh");
