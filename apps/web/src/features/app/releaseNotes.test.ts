@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes stability and recovery as version 5.49", () => {
-    expect(appVersion).toBe("5.49");
-    expect(releaseNotes[0]?.title).toBe("Стабильность и резервное восстановление");
+  it("publishes clear system notifications as version 5.50", () => {
+    expect(appVersion).toBe("5.50");
+    expect(releaseNotes[0]?.title).toBe("Понятные системные уведомления");
+
+    const stabilityRelease = releaseNotes.find((note) => note.version === "5.49");
+    expect(stabilityRelease?.title).toBe("Стабильность и резервное восстановление");
 
     const monitoringRelease = releaseNotes.find((note) => note.version === "5.48");
     expect(monitoringRelease?.title).toBe("Мониторинг работы приложения");

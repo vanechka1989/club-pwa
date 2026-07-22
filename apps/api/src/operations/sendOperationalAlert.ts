@@ -1,8 +1,9 @@
 import nodemailer from "nodemailer";
 import { env } from "../env";
+import { buildOperationalAlertEmail, type OperationalAlertSeverity } from "./operationalAlertEmail";
 
 const allowedSeverities = new Set(["warning", "critical", "emergency", "recovered"]);
-const severity = allowedSeverities.has(process.argv[2] ?? "") ? process.argv[2]! : "warning";
+const severity = (allowedSeverities.has(process.argv[2] ?? "") ? process.argv[2]! : "warning") as OperationalAlertSeverity;
 const detail = (process.argv[3] ?? "Operational monitor changed state").slice(0, 4000);
 
 if (!env.SMTP_HOST) {
@@ -16,11 +17,8 @@ const transporter = nodemailer.createTransport({
   auth: env.SMTP_USER && env.SMTP_PASSWORD ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } : undefined
 });
 
-const subject = severity === "recovered"
-  ? "Club PWA: сервер восстановился"
-  : `Club PWA: ${severity === "emergency" ? "авария" : severity === "critical" ? "критическая проблема" : "требуется внимание"}`;
-
-await transporter.sendMail({ from: env.SMTP_FROM, to: env.OWNER_EMAIL, subject, text: detail });
+const message = buildOperationalAlertEmail({ severity, detail, configuredFrom: env.SMTP_FROM });
+await transporter.sendMail({ ...message, to: env.OWNER_EMAIL });
 transporter.close();
 console.log(JSON.stringify({ ok: true, severity }));
 process.exit(0);
