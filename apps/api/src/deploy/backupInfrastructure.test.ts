@@ -11,6 +11,8 @@ const backupScript = repoFile("scripts/backup-postgres-s3.sh");
 const installer = repoFile("deploy/install-backup-timer.sh");
 const updateWorker = repoFile("deploy/update-worker.sh");
 const verifyScript = repoFile("scripts/verify-postgres-backup.sh");
+const kumaBackupScript = repoFile("scripts/backup-uptime-kuma-s3.sh");
+const operationalUploader = repoFile("apps/api/src/storage/uploadOperationalBackup.ts");
 
 describe("backup infrastructure", () => {
   it("writes an atomic secret-safe status for every database backup run", () => {
@@ -51,5 +53,24 @@ describe("backup infrastructure", () => {
     expect(installer).toContain("club-pwa-backup-verify.timer");
     expect(installer).toContain("OnCalendar=Sun *-*-* 04:30:00");
     expect(installer).toContain("systemctl enable --now club-pwa-backup-verify.timer");
+  });
+
+  it("backs up Kuma SQLite safely and uploads it to private S3", () => {
+    expect(kumaBackupScript).toContain("stop -t 20 uptime-kuma");
+    expect(kumaBackupScript).toContain("start uptime-kuma");
+    expect(kumaBackupScript).toContain("--volumes-from");
+    expect(kumaBackupScript).toContain("--entrypoint tar");
+    expect(kumaBackupScript).toContain("-czf");
+    expect(kumaBackupScript).toContain("uploadOperationalBackup.ts");
+    expect(kumaBackupScript).toContain('[[ "$temp_dir" == /tmp/club-pwa-kuma-backup.* ]]');
+    expect(operationalUploader).toContain('system/uptime-kuma-backups/');
+    expect(operationalUploader).toContain("getObjectMetadata");
+    expect(operationalUploader).toContain("deleteObject");
+  });
+
+  it("installs a persistent nightly Kuma backup timer", () => {
+    expect(installer).toContain("club-pwa-kuma-backup.timer");
+    expect(installer).toContain("OnCalendar=*-*-* 03:10:00");
+    expect(installer).toContain("systemctl enable --now club-pwa-kuma-backup.timer");
   });
 });
