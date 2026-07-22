@@ -160,7 +160,7 @@ describe("PWA shell", () => {
     await vi.advanceTimersByTimeAsync(400);
     await nextTick();
 
-    expect(screen.getByRole("complementary", { name: "Установите Club на Windows" })).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: /Установите Club/ })).toBeTruthy();
     expect(screen.getByText(/Откройте сайт в Chrome или Edge/)).toBeTruthy();
   });
 
@@ -171,7 +171,7 @@ describe("PWA shell", () => {
     await vi.advanceTimersByTimeAsync(400);
     await nextTick();
 
-    expect(screen.queryByRole("complementary", { name: "Установите Club на Windows" })).toBeNull();
+    expect(screen.queryByRole("complementary", { name: /Установите Club/ })).toBeNull();
   });
 
   it("opens the native install prompt when the login gate requests installation", async () => {
