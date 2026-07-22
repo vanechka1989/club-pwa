@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildAutomaticBackupKey, selectExpiredBackupKeys } from "./automaticBackupPolicy";
+import { buildAutomaticBackupKey, selectExpiredBackupKeys, selectLatestBackupObject } from "./automaticBackupPolicy";
 
 const backupRunner = readFileSync(resolve(__dirname, "./runAutomaticBackup.ts"), "utf-8");
 
@@ -31,5 +31,20 @@ describe("automatic database backups", () => {
 
   it("exits after a successful one-shot backup", () => {
     expect(backupRunner).toContain("process.exit(0)");
+  });
+
+  it("selects the newest completed backup for restore verification", () => {
+    expect(
+      selectLatestBackupObject([
+        { key: "system/database-backups/old.dump", lastModified: "2026-07-20T00:00:00.000Z", sizeBytes: 10 },
+        { key: "learning/unrelated.dump", lastModified: "2026-07-23T00:00:00.000Z", sizeBytes: 10 },
+        { key: "system/database-backups/empty.dump", lastModified: "2026-07-24T00:00:00.000Z", sizeBytes: 0 },
+        { key: "system/database-backups/new.dump", lastModified: "2026-07-22T00:00:00.000Z", sizeBytes: 20 }
+      ])
+    ).toEqual({
+      key: "system/database-backups/new.dump",
+      lastModified: "2026-07-22T00:00:00.000Z",
+      sizeBytes: 20
+    });
   });
 });

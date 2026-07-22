@@ -10,6 +10,7 @@ const repoFile = (path: string) => {
 const backupScript = repoFile("scripts/backup-postgres-s3.sh");
 const installer = repoFile("deploy/install-backup-timer.sh");
 const updateWorker = repoFile("deploy/update-worker.sh");
+const verifyScript = repoFile("scripts/verify-postgres-backup.sh");
 
 describe("backup infrastructure", () => {
   it("writes an atomic secret-safe status for every database backup run", () => {
@@ -34,5 +35,21 @@ describe("backup infrastructure", () => {
     const healthIndex = updateWorker.lastIndexOf('current_phase="health"');
     expect(timerIndex).toBeGreaterThan(-1);
     expect(healthIndex).toBeGreaterThan(timerIndex);
+  });
+
+  it("restores the latest dump into a disposable isolated PostgreSQL container", () => {
+    expect(verifyScript).toContain("postgres:16-alpine");
+    expect(verifyScript).toContain("--network none");
+    expect(verifyScript).toContain("trap cleanup EXIT");
+    expect(verifyScript).toContain('[[ "$temp_dir" == /tmp/club-pwa-backup-verify.* ]]');
+    expect(verifyScript).toContain("pg_restore");
+    expect(verifyScript).toContain("pg_isready");
+    expect(verifyScript).toContain("public.users");
+  });
+
+  it("installs persistent weekly restore verification", () => {
+    expect(installer).toContain("club-pwa-backup-verify.timer");
+    expect(installer).toContain("OnCalendar=Sun *-*-* 04:30:00");
+    expect(installer).toContain("systemctl enable --now club-pwa-backup-verify.timer");
   });
 });

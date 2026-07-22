@@ -322,6 +322,19 @@ export async function getObjectMetadata(key: string, target: S3StorageTarget = "
   };
 }
 
+export async function downloadObjectBytes(key: string, target: S3StorageTarget = "primary") {
+  const config = await requireS3Config();
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const response = await createS3Client(targetConfig).send(
+    new GetObjectCommand({ Bucket: targetConfig.bucket, Key: normalizedKey })
+  );
+  if (!response.Body) {
+    throw new Error("S3 object body is empty");
+  }
+  return response.Body.transformToByteArray();
+}
+
 export async function mirrorObjectToReserve(key: string, contentType: string) {
   const config = await requireS3Config();
   if (!config.reserve) {
