@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes client actions before the source as version 5.46", () => {
-    expect(appVersion).toBe("5.46");
-    expect(releaseNotes[0]?.title).toBe("Действия клиента выше источника");
+  it("publishes automatic lesson completion as version 5.47", () => {
+    expect(appVersion).toBe("5.47");
+    expect(releaseNotes[0]?.title).toBe("Автоматическое завершение уроков");
+
+    const clientActionsRelease = releaseNotes.find((note) => note.version === "5.46");
+    expect(clientActionsRelease?.title).toBe("Действия клиента выше источника");
 
     const compactAcquisitionRelease = releaseNotes.find((note) => note.version === "5.45");
     expect(compactAcquisitionRelease?.title).toBe("Компактная аналитика рекламы");
@@ -132,7 +135,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Clear UTM field names");
+    expect(englishNotes[0]?.title).toBe("Automatic lesson completion");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

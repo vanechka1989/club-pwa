@@ -74,6 +74,10 @@ export function createLearningEngagementTracker(options: TrackerOptions) {
     setPlaybackPosition(value: number) {
       playbackPositionSeconds = value;
     },
+    currentSnapshot() {
+      capture();
+      return snapshot(false);
+    },
     flush,
     async dispose() {
       if (disposed) return;

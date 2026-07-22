@@ -247,8 +247,11 @@ export function getLearningContent(id: string) {
   return api<LearningContentResponse>(`/learning/items/${id}`);
 }
 
-export function completeLearningContent(id: string) {
-  return api<LearningProgressMutationResponse>(`/learning/items/${id}/complete`, { method: "POST" });
+export function completeLearningContent(id: string, options: { keepalive?: boolean } = {}) {
+  return api<LearningProgressMutationResponse>(`/learning/items/${id}/complete`, {
+    method: "POST",
+    ...(options.keepalive ? { keepalive: true } : {})
+  });
 }
 
 export function saveLearningPlayback(id: string, positionSeconds: number, options: { keepalive?: boolean; materialId?: string | null } = {}) {

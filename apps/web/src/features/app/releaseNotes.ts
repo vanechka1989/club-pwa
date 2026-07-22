@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Автоматическое завершение уроков",
+    items: [
+      "Текстовые уроки и фотографии завершаются после активного просмотра и достижения конца материала.",
+      "Видео и аудио завершаются после просмотра или прослушивания не менее 80%, без ложного зачёта от одной перемотки.",
+      "Результат надёжно сохраняется после восстановления интернета и не засчитывается повторно."
+    ]
+  },
+  {
+    version: "5.46",
+    updatedAt: "22.07.2026 12:06",
     title: "Действия клиента выше источника",
     items: [
       "Панель управления доступом теперь находится сразу после краткой сводки клиента.",
@@ -4084,11 +4094,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clear UTM field names",
+  title: "Automatic lesson completion",
   items: [
-    "Every advertising-link field now shows its exact UTM parameter name.",
-    "Human-readable labels explain the source, medium, campaign, and content fields.",
-    "The two-level labels remain compact on Android and iPhone screens."
+    "Static lessons complete after active viewing and reaching the end.",
+    "Video and audio complete after at least 80% genuine playback.",
+    "Completion retries after reconnecting and is never counted twice."
   ]
 };
 

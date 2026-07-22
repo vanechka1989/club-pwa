@@ -24,4 +24,14 @@ describe("learning engagement integration", () => {
     expect(client).toContain("export function saveLearningEngagement");
     expect(client).toContain("/engagement`");
   });
+
+  it("automatically completes eligible lessons with offline retry", () => {
+    expect(section).toContain("shouldAutoCompleteLearningContent");
+    expect(section).toContain("queueLearningCompletion");
+    expect(section).toContain("flushLearningCompletionOutbox");
+    expect(section).toContain("learningEngagementTracker?.currentSnapshot()");
+    expect(section).toContain('@scroll.passive="handleLessonViewerScroll"');
+    expect(client).toContain("completeLearningContent(id: string, options:");
+    expect(client).toContain("keepalive: true");
+  });
 });

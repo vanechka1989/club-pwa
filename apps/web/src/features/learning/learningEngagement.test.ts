@@ -71,4 +71,21 @@ describe("learning engagement tracker", () => {
     await tracker.flush();
     expect(send.mock.calls[0]?.[0]).toMatchObject({ materialId: "00000000-0000-4000-8000-000000000002", playbackPositionSeconds: 73 });
   });
+
+  it("provides a current snapshot without sending it", () => {
+    let now = 0;
+    const send = vi.fn().mockResolvedValue(undefined);
+    const tracker = createLearningEngagementTracker({
+      now: () => now,
+      isVisible: () => true,
+      isFocused: () => true,
+      send,
+      startTimer: () => 1,
+      stopTimer: () => {}
+    });
+
+    now = 10_000;
+    expect(tracker.currentSnapshot()).toMatchObject({ activeSeconds: 10, closed: false });
+    expect(send).not.toHaveBeenCalled();
+  });
 });

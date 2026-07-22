@@ -91,6 +91,8 @@ import { isAmbiguousNetworkError, reconcileLearningSave } from "./lessonSaveReco
 import { createLearningEngagementTracker, type LearningEngagementTracker } from "./learningEngagement";
 import { resolveLessonEditorPreview, resolveLessonMaterialPreview } from "./lessonEditorPreview";
 import { sendLearningEngagementWithRetry } from "./learningEngagementOutbox";
+import { shouldAutoCompleteLearningContent } from "./learningCompletion";
+import { flushLearningCompletionOutbox, queueLearningCompletion } from "./learningCompletionOutbox";
 import ChatVoiceWaveform from "@/features/community/ChatVoiceWaveform.vue";
 import { useVoiceRecorder } from "@/features/community/useVoiceRecorder";
 import { formatVoiceTime } from "@/features/community/voiceWaveform";
@@ -390,8 +392,18 @@ const lastSavedLessonVideoSeconds = ref(0);
 const pendingPlaybackSaveKey = ref<string | null>(null);
 const pendingPlaybackMaterialId = ref<string | null>(null);
 const lastTrackedStaticMaterialId = ref<string | null>(null);
+const lessonReachedEnd = ref(false);
+const activeLessonCompleted = ref(false);
+const lessonCompletionQueued = ref(false);
+const primaryCompletionMedia = ref<{
+  key: string;
+  positionSeconds: number;
+  durationSeconds: number;
+  playedSeconds: number;
+} | null>(null);
 let voiceChunks: Blob[] = [];
 let lessonVideoControlsTimer: number | null = null;
+let lessonCompletionTimer: number | null = null;
 let lessonMaterialObserver: IntersectionObserver | null = null;
 let learningEngagementTracker: LearningEngagementTracker | null = null;
 
@@ -809,9 +821,11 @@ function startLearningEngagement(lesson: ModuleLesson) {
   learningEngagementTracker = createLearningEngagementTracker({
     send: (snapshot) => sendLearningEngagementWithRetry(lesson.id, snapshot)
   });
+  startLearningCompletionTimer();
 }
 
 function stopLearningEngagement() {
+  stopLearningCompletionTimer();
   const tracker = learningEngagementTracker;
   learningEngagementTracker = null;
   if (tracker) void tracker.dispose();
@@ -829,6 +843,10 @@ function openLessonModal(
   cancelMaterialVoiceRecording();
   stopLearningEngagement();
   resetLessonVideoState();
+  lessonReachedEnd.value = false;
+  activeLessonCompleted.value = false;
+  lessonCompletionQueued.value = false;
+  primaryCompletionMedia.value = null;
   if (!module.images.some((item) => item.id === lesson.id)) {
     module.images = [lesson, ...module.images];
   }
@@ -947,6 +965,7 @@ function closeLessonModal() {
   clearLessonFilePreview();
   clearAllLessonMaterialPreviews();
   cancelMaterialVoiceRecording();
+  maybeAutoCompleteLesson();
   stopLearningEngagement();
   closeLessonImage();
   resetLessonVideoState();
@@ -985,6 +1004,7 @@ function resetLessonVideoState() {
   pendingPlaybackSaveKey.value = null;
   pendingPlaybackMaterialId.value = null;
   lastTrackedStaticMaterialId.value = null;
+  primaryCompletionMedia.value = null;
   clearLessonMaterialObserver();
 }
 
@@ -1003,6 +1023,89 @@ function isResumableMediaKind(kind: ContentKind) {
   return kind === "video" || kind === "audio";
 }
 
+function getPrimaryCompletionMediaKey(lesson: ModuleLesson) {
+  if (isResumableMediaKind(lesson.kind) && lesson.mediaUrl && !isYouTubeMediaUrl(lesson.mediaUrl)) {
+    return "main";
+  }
+
+  return lesson.materials.find(
+    (material) => isResumableMediaKind(material.kind) && material.mediaUrl && !isYouTubeMediaUrl(material.mediaUrl)
+  )?.id ?? null;
+}
+
+function updatePrimaryCompletionMedia(key: string, media: HTMLMediaElement) {
+  const lesson = selectedLessonItem.value;
+  if (!lesson || getPrimaryCompletionMediaKey(lesson) !== key) return;
+
+  const positionSeconds = Math.max(0, media.currentTime || 0);
+  const durationSeconds = Number.isFinite(media.duration) ? Math.max(0, media.duration) : 0;
+  const previous = primaryCompletionMedia.value?.key === key ? primaryCompletionMedia.value : null;
+  const naturalPlaybackDelta = previous && !media.paused && !media.ended
+    ? positionSeconds - previous.positionSeconds
+    : 0;
+  const playedSeconds = (previous?.playedSeconds ?? 0)
+    + (naturalPlaybackDelta > 0 && naturalPlaybackDelta <= 2 ? naturalPlaybackDelta : 0);
+
+  primaryCompletionMedia.value = { key, positionSeconds, durationSeconds, playedSeconds };
+  maybeAutoCompleteLesson();
+}
+
+function updateLessonReachedEnd(element?: HTMLElement | null) {
+  if (isLoadingLessonContent.value || lessonViewerError.value) return;
+  const scrollElement = element ?? document.querySelector<HTMLElement>(".lesson-preview-scroll");
+  if (!scrollElement) return;
+  lessonReachedEnd.value = scrollElement.scrollTop + scrollElement.clientHeight >= scrollElement.scrollHeight - 24;
+  maybeAutoCompleteLesson();
+}
+
+function handleLessonViewerScroll(event: Event) {
+  updateLessonReachedEnd(event.currentTarget instanceof HTMLElement ? event.currentTarget : null);
+}
+
+function maybeAutoCompleteLesson() {
+  const lesson = selectedLessonItem.value;
+  const snapshot = learningEngagementTracker?.currentSnapshot();
+  if (!lesson?.isPersisted || canManageModules.value || isLoadingLessonContent.value || lessonViewerError.value || !snapshot) return;
+
+  const primaryKey = getPrimaryCompletionMediaKey(lesson);
+  const media = primaryKey && primaryCompletionMedia.value?.key === primaryKey
+    ? {
+        positionSeconds: primaryCompletionMedia.value.positionSeconds,
+        durationSeconds: primaryCompletionMedia.value.durationSeconds,
+        playedSeconds: Math.min(primaryCompletionMedia.value.playedSeconds, snapshot.videoSeconds)
+      }
+    : primaryKey ? { positionSeconds: 0, durationSeconds: 0, playedSeconds: 0 } : null;
+
+  if (!shouldAutoCompleteLearningContent({
+    alreadyCompleted: activeLessonCompleted.value || lessonCompletionQueued.value,
+    activeSeconds: snapshot.activeSeconds,
+    reachedEnd: lessonReachedEnd.value,
+    primaryMedia: media
+  })) return;
+
+  lessonCompletionQueued.value = true;
+  activeLessonCompleted.value = true;
+  if (learningProgress.value) {
+    learningProgress.value = {
+      ...learningProgress.value,
+      completedItems: Math.min(learningProgress.value.totalItems, learningProgress.value.completedItems + 1)
+    };
+  }
+  void queueLearningCompletion(lesson.id).catch(() => undefined);
+}
+
+function startLearningCompletionTimer() {
+  stopLearningCompletionTimer();
+  lessonCompletionTimer = window.setInterval(maybeAutoCompleteLesson, 1_000);
+}
+
+function stopLearningCompletionTimer() {
+  if (lessonCompletionTimer !== null) {
+    window.clearInterval(lessonCompletionTimer);
+    lessonCompletionTimer = null;
+  }
+}
+
 function syncLessonVideoState() {
   const video = lessonVideoElement.value;
   if (!video) {
@@ -1015,6 +1118,7 @@ function syncLessonVideoState() {
   learningEngagementTracker?.setMaterial(null);
   learningEngagementTracker?.setPlaybackPosition(video.currentTime);
   learningEngagementTracker?.setVideoPlaying(isLessonVideoPlaying.value);
+  updatePrimaryCompletionMedia("main", video);
 }
 
 function applyPendingLessonVideoStart() {
@@ -1135,6 +1239,7 @@ function persistLessonVideoPlaybackBeforeExit() {
 function handleLearningVisibilityChange() {
   learningEngagementTracker?.syncActivityState();
   if (document.visibilityState === "hidden") {
+    maybeAutoCompleteLesson();
     void learningEngagementTracker?.flush();
     persistLessonVideoPlaybackBeforeExit();
   }
@@ -1144,7 +1249,12 @@ function handleLearningFocusChange() {
   learningEngagementTracker?.syncActivityState();
 }
 
+function handleLearningOnline() {
+  void flushLearningCompletionOutbox().catch(() => undefined);
+}
+
 function handleLearningExit() {
+  maybeAutoCompleteLesson();
   persistLessonVideoPlaybackBeforeExit();
   stopLearningEngagement();
 }
@@ -1245,6 +1355,7 @@ function handleLessonMaterialTimeUpdate(material: LessonMaterial, event: Event) 
     learningEngagementTracker?.setMaterial(material.id);
     learningEngagementTracker?.setPlaybackPosition(media.currentTime);
     learningEngagementTracker?.setVideoPlaying(!media.paused && !media.ended);
+    updatePrimaryCompletionMedia(material.id, media);
   }
   void persistLessonMaterialPlayback(material, event, false);
 }
@@ -1394,6 +1505,7 @@ async function toggleLessonVideoFullscreen() {
 
 async function handleLessonVideoEnded() {
   syncLessonVideoState();
+  maybeAutoCompleteLesson();
   await persistLessonVideoPlayback(true);
   showLessonVideoControls.value = true;
   clearLessonVideoControlsTimer();
@@ -1495,6 +1607,7 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
     }
 
     replaceModuleLesson(materialToLesson(response.item));
+    activeLessonCompleted.value = Boolean(response.completedAt) || lessonCompletionQueued.value;
     if (!pendingPlaybackMaterialId.value && response.lastOpenedMaterialId) {
       pendingPlaybackMaterialId.value = response.lastOpenedMaterialId;
     }
@@ -1504,6 +1617,7 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
       applyPendingLessonVideoStart();
       scrollToPendingLessonMaterial();
       setupLessonMaterialObserver();
+      updateLessonReachedEnd();
     });
   } catch {
     if (selectedLesson.value?.lessonId === lessonId) {
@@ -1512,6 +1626,7 @@ async function loadLessonContentForMember(lesson: ModuleLesson) {
   } finally {
     if (selectedLesson.value?.lessonId === lessonId) {
       isLoadingLessonContent.value = false;
+      void nextTick().then(() => updateLessonReachedEnd());
     }
   }
 }
@@ -2757,11 +2872,13 @@ async function syncLearningTaskRoute() {
 
 onMounted(() => {
   void loadModules().then(syncLearningTaskRoute);
+  void flushLearningCompletionOutbox().catch(() => undefined);
   document.addEventListener("visibilitychange", handleLearningVisibilityChange);
   window.addEventListener("focus", handleLearningFocusChange);
   window.addEventListener("blur", handleLearningFocusChange);
   window.addEventListener("pagehide", handleLearningExit);
   window.addEventListener("beforeunload", handleLearningExit);
+  window.addEventListener("online", handleLearningOnline);
 });
 
 onBeforeUnmount(() => {
@@ -2774,6 +2891,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("blur", handleLearningFocusChange);
   window.removeEventListener("pagehide", handleLearningExit);
   window.removeEventListener("beforeunload", handleLearningExit);
+  window.removeEventListener("online", handleLearningOnline);
   clearLessonVideoControlsTimer();
   clearLessonMaterialObserver();
 });
@@ -3145,7 +3263,7 @@ watch(
             </div>
           </header>
 
-          <div class="lesson-preview-scroll">
+          <div class="lesson-preview-scroll" @scroll.passive="handleLessonViewerScroll">
             <article v-if="!isLessonEditorMode && selectedLessonItem" class="lesson-viewer-content">
               <span class="lesson-preview-kicker">Содержимое урока</span>
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
