@@ -13,12 +13,13 @@ describe("admin acquisition analytics", () => {
     expect(source).not.toContain('target="_blank"');
   });
 
-  it("keeps zero-value funnel percentages separate from labels", () => {
+  it("shows one acquisition summary without repeating KPI values in a funnel", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
-    expect(source).toContain("Статистика переходов");
-    expect(source).not.toContain("<strong>Воронка</strong>");
-    expect(source).toContain('class="acquisition-funnel-track"');
-    expect(source).toContain('class="acquisition-funnel-fill"');
+    expect(source).toContain('class="acquisition-kpis"');
+    expect(source).not.toContain("Статистика переходов");
+    expect(source).not.toContain('class="acquisition-funnel-track"');
+    expect(source).not.toContain('class="acquisition-funnel-fill"');
+    expect(source.indexOf('class="acquisition-kpis"')).toBeLessThan(source.indexOf('class="acquisition-card acquisition-chart"'));
   });
 
   it("shows one clear source attribution without first and last touch comparison", () => {

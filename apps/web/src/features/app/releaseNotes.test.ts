@@ -3,10 +3,14 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes clearer UTM fields as version 5.44", () => {
-    expect(appVersion).toBe("5.44");
-    expect(releaseNotes[0]?.title).toBe("Понятные названия UTM-меток");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("utm_source");
+  it("publishes a compact acquisition dashboard as version 5.45", () => {
+    expect(appVersion).toBe("5.45");
+    expect(releaseNotes[0]?.title).toBe("Компактная аналитика рекламы");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("повторный блок");
+
+    const clearerUtmRelease = releaseNotes.find((note) => note.version === "5.44");
+    expect(clearerUtmRelease?.title).toBe("Понятные названия UTM-меток");
+    expect(clearerUtmRelease?.items.join(" ")).toContain("utm_source");
 
     const clientFiltersRelease = releaseNotes.find((note) => note.version === "5.43");
     expect(clientFiltersRelease?.title).toBe("Фильтры клиентов по источникам");
