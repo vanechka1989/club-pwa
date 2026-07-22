@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes client acquisition filters as version 5.43", () => {
-    expect(appVersion).toBe("5.43");
-    expect(releaseNotes[0]?.title).toBe("Фильтры клиентов по источникам");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("UTM");
+  it("publishes clearer UTM fields as version 5.44", () => {
+    expect(appVersion).toBe("5.44");
+    expect(releaseNotes[0]?.title).toBe("Понятные названия UTM-меток");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("utm_source");
+
+    const clientFiltersRelease = releaseNotes.find((note) => note.version === "5.43");
+    expect(clientFiltersRelease?.title).toBe("Фильтры клиентов по источникам");
 
     const adminLoadingRelease = releaseNotes.find((note) => note.version === "5.42");
     expect(adminLoadingRelease?.title).toBe("Админка загружается быстрее");
@@ -122,7 +125,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Client source and UTM filters");
+    expect(englishNotes[0]?.title).toBe("Clear UTM field names");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
