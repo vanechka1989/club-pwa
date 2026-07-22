@@ -167,6 +167,31 @@ services:
       - /tmp
     logging: *default-logging
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:2-rootless@sha256:a23b9d0029e6f1bc4a0fea0f3ee306d51f43216cd9f8115f8d84d146e9411e4c
+    restart: unless-stopped
+    volumes:
+      - uptime-kuma-data:/app/data
+    expose:
+      - "3001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    mem_limit: 384m
+    cpus: "0.50"
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging: *default-logging
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -175,9 +200,11 @@ services:
     depends_on:
       - web
       - api
+      - uptime-kuma
     ports:
       - "80:80"
       - "443:443"
+      - "8443:8443"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -189,3 +216,4 @@ volumes:
   api-uploads:
   caddy-data:
   caddy-config:
+  uptime-kuma-data:

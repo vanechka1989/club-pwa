@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Мониторинг работы приложения",
+    items: [
+      "Добавлена защищённая панель Uptime Kuma для контроля доступности Club PWA.",
+      "Отдельно проверяются приложение, API и готовность базы данных, сохраняется история времени ответа и сбоев.",
+      "Сервис изолирован от Docker и данных приложения и работает в контейнере с ограниченными правами."
+    ]
+  },
+  {
+    version: "5.47",
+    updatedAt: "22.07.2026 12:41",
     title: "Автоматическое завершение уроков",
     items: [
       "Текстовые уроки и фотографии завершаются после активного просмотра и достижения конца материала.",
@@ -4094,11 +4104,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Automatic lesson completion",
+  title: "Application uptime monitoring",
   items: [
-    "Static lessons complete after active viewing and reaching the end.",
-    "Video and audio complete after at least 80% genuine playback.",
-    "Completion retries after reconnecting and is never counted twice."
+    "A protected Uptime Kuma dashboard now monitors Club PWA availability.",
+    "The application, API health, and database readiness are checked separately.",
+    "The monitoring service is isolated from Docker and application data."
   ]
 };
 

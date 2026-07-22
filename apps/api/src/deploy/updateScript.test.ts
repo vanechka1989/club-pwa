@@ -52,7 +52,9 @@ describe("deploy update script", () => {
 
   it("verifies both the API and the rendered PWA before accepting a deployment", () => {
     expect(updateWorker).toContain("resolve_web_url");
+    expect(updateWorker).toContain("resolve_uptime_kuma_url");
     expect(updateWorker).toContain('curl --fail --silent --show-error --max-time 5 "$web_url"');
+    expect(updateWorker).toContain('curl --fail --silent --show-error --max-time 5 --output /dev/null "$uptime_kuma_url"');
     expect(updateWorker).toContain("grep -q '<div id=\"app\"'");
     expect(updateWorker).toContain("Application checks passed");
     expect(updateWorker).not.toContain("Health check passed: $health_url");
@@ -99,7 +101,7 @@ describe("deploy update script", () => {
       updateWorker.indexOf("recreate_caddy() {")
     );
 
-    expect(fullDeployFunction).toContain("compose up -d postgres api web caddy");
+    expect(fullDeployFunction).toContain("compose up -d postgres api web uptime-kuma caddy");
     expect(fullDeployFunction).not.toContain("postgres redis api");
   });
 
@@ -154,7 +156,7 @@ describe("deploy update script", () => {
     expect(deployWorkflow).toContain("deploy/status.sh");
     expect(deployWorkflow).toContain("journalctl -u club-pwa-deploy.service");
     expect(deployWorkflow).toContain("docker compose -f docker-compose.prod.yml ps");
-    expect(deployWorkflow).toContain("docker compose -f docker-compose.prod.yml logs --tail=120 api web caddy");
+    expect(deployWorkflow).toContain("docker compose -f docker-compose.prod.yml logs --tail=120 api web uptime-kuma caddy");
   });
 
   it("prunes only old dangling images after a verified deployment", () => {

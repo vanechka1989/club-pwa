@@ -111,25 +111,40 @@ resolve_web_url() {
   fi
 }
 
+resolve_uptime_kuma_url() {
+  if [[ -n "${DEPLOY_UPTIME_KUMA_URL:-}" ]]; then
+    printf '%s' "$DEPLOY_UPTIME_KUMA_URL"
+    return
+  fi
+
+  local public_domain
+  public_domain="$(read_env_value PUBLIC_DOMAIN)"
+  if [[ -n "$public_domain" ]]; then
+    printf 'https://%s:8443/' "$public_domain"
+  fi
+}
+
 wait_for_health() {
-  local health_url web_url
+  local health_url web_url uptime_kuma_url
   health_url="$(resolve_health_url)"
   web_url="$(resolve_web_url)"
-  if [[ -z "$health_url" || -z "$web_url" ]]; then
-    echo "API health URL or web URL is not configured" >&2
+  uptime_kuma_url="$(resolve_uptime_kuma_url)"
+  if [[ -z "$health_url" || -z "$web_url" || -z "$uptime_kuma_url" ]]; then
+    echo "API health URL, web URL, or Uptime Kuma URL is not configured" >&2
     return 1
   fi
 
   for _ in {1..30}; do
     if curl --fail --silent --show-error --max-time 5 "$health_url" | grep -q '"ok":true' \
-      && curl --fail --silent --show-error --max-time 5 "$web_url" | grep -q '<div id="app"'; then
-      echo "Application checks passed: API $health_url; PWA $web_url"
+      && curl --fail --silent --show-error --max-time 5 "$web_url" | grep -q '<div id="app"' \
+      && curl --fail --silent --show-error --max-time 5 --output /dev/null "$uptime_kuma_url"; then
+      echo "Application checks passed: API $health_url; PWA $web_url; Uptime Kuma $uptime_kuma_url"
       return 0
     fi
     sleep 2
   done
 
-  echo "Application checks failed: API $health_url; PWA $web_url" >&2
+  echo "Application checks failed: API $health_url; PWA $web_url; Uptime Kuma $uptime_kuma_url" >&2
   return 1
 }
 
@@ -267,7 +282,7 @@ deploy_full() {
   compose run --rm migrate
   current_phase="reconcile"
   write_status running "$current_phase"
-  compose up -d postgres api web caddy
+  compose up -d postgres api web uptime-kuma caddy
 }
 
 recreate_caddy() {

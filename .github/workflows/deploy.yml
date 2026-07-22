@@ -51,7 +51,7 @@ jobs:
               journalctl -u club-pwa-deploy.service --no-pager -n 200 || true
               cd '$DEPLOY_DIR'
               docker compose -f docker-compose.prod.yml ps || true
-              docker compose -f docker-compose.prod.yml logs --tail=120 api web caddy || true
+              docker compose -f docker-compose.prod.yml logs --tail=120 api web uptime-kuma caddy || true
             " || true
             exit 1
           fi

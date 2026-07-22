@@ -126,4 +126,15 @@ describe("production security config", () => {
     expect(scaleCompose).toContain("edoburu/pgbouncer:v1.25.2-p0");
     expect(scaleCompose).not.toContain("edoburu/pgbouncer:latest");
   });
+
+  it("runs Uptime Kuma as an isolated rootless monitoring service", () => {
+    expect(productionCompose).toContain("louislam/uptime-kuma:2-rootless@sha256:a23b9d0029e6f1bc4a0fea0f3ee306d51f43216cd9f8115f8d84d146e9411e4c");
+    expect(productionCompose).toContain("uptime-kuma-data:/app/data");
+    expect(productionCompose).toContain("mem_limit: 384m");
+    expect(productionCompose).toContain('cpus: "0.50"');
+    expect(productionCompose).toContain("pids_limit: 256");
+    expect(productionCompose).not.toContain("/var/run/docker.sock");
+    expect(caddyfile).toContain("https://{$PUBLIC_DOMAIN}:8443");
+    expect(caddyfile).toContain("reverse_proxy uptime-kuma:3001");
+  });
 });

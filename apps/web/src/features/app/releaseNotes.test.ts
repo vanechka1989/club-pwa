@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes automatic lesson completion as version 5.47", () => {
-    expect(appVersion).toBe("5.47");
-    expect(releaseNotes[0]?.title).toBe("Автоматическое завершение уроков");
+  it("publishes application monitoring as version 5.48", () => {
+    expect(appVersion).toBe("5.48");
+    expect(releaseNotes[0]?.title).toBe("Мониторинг работы приложения");
+
+    const automaticCompletionRelease = releaseNotes.find((note) => note.version === "5.47");
+    expect(automaticCompletionRelease?.title).toBe("Автоматическое завершение уроков");
 
     const clientActionsRelease = releaseNotes.find((note) => note.version === "5.46");
     expect(clientActionsRelease?.title).toBe("Действия клиента выше источника");
@@ -135,7 +138,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Automatic lesson completion");
+    expect(englishNotes[0]?.title).toBe("Application uptime monitoring");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
