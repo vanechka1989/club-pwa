@@ -3295,6 +3295,7 @@ watch(
                   :src="selectedLessonItem.mediaUrl"
                   :alt="selectedLessonItem.title"
                   loading="lazy"
+                  @load="updateLessonReachedEnd()"
                 />
               </button>
               <div
@@ -3413,7 +3414,7 @@ watch(
                     :aria-label="`Открыть изображение материала ${materialIndex + 1}`"
                     @click="openLessonImage(material.mediaUrl, selectedLessonItem.title)"
                   >
-                    <img :src="material.mediaUrl" :alt="selectedLessonItem.title" loading="lazy" />
+                    <img :src="material.mediaUrl" :alt="selectedLessonItem.title" loading="lazy" @load="updateLessonReachedEnd()" />
                   </button>
                   <video
                     v-else-if="material.kind === 'video' && material.mediaUrl"

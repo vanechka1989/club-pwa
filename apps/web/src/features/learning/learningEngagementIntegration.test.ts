@@ -31,6 +31,7 @@ describe("learning engagement integration", () => {
     expect(section).toContain("flushLearningCompletionOutbox");
     expect(section).toContain("learningEngagementTracker?.currentSnapshot()");
     expect(section).toContain('@scroll.passive="handleLessonViewerScroll"');
+    expect(section).toContain('@load="updateLessonReachedEnd()"');
     expect(client).toContain("completeLearningContent(id: string, options:");
     expect(client).toContain("keepalive: true");
   });
