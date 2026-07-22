@@ -40,7 +40,8 @@ describe("backup infrastructure", () => {
   });
 
   it("restores the latest dump into a disposable isolated PostgreSQL container", () => {
-    expect(verifyScript).toContain("postgres:16-alpine");
+    expect(verifyScript).toContain("pg_restore --version");
+    expect(verifyScript).toContain('restore_image="postgres:${pg_restore_major}-alpine"');
     expect(verifyScript).toContain("--network none");
     expect(verifyScript).toContain("trap cleanup EXIT");
     expect(verifyScript).toContain('[[ "$temp_dir" == /tmp/club-pwa-backup-verify.* ]]');

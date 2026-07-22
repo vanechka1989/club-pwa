@@ -45,10 +45,15 @@ docker compose -f docker-compose.prod.yml run --rm --no-deps --user 0:0 \
   -v "$temp_dir:/backup-export" \
   api bun apps/api/src/db/exportLatestAutomaticBackup.ts /backup-export/latest.dump >/dev/null
 
+pg_restore_version="$(docker compose -f docker-compose.prod.yml run --rm --no-deps api pg_restore --version)"
+pg_restore_major="$(printf '%s' "$pg_restore_version" | awk '{print $3}' | cut -d. -f1)"
+[[ "$pg_restore_major" =~ ^[0-9]+$ ]] || { echo "unable to determine pg_restore major version" >&2; exit 1; }
+restore_image="postgres:${pg_restore_major}-alpine"
+
 docker run --detach --network none --name "$container_name" \
   --env POSTGRES_USER=verify --env POSTGRES_PASSWORD=verify-only --env POSTGRES_DB=verify \
   --tmpfs /var/lib/postgresql/data:rw,noexec,nosuid,size=512m \
-  postgres:16-alpine >/dev/null
+  "$restore_image" >/dev/null
 docker cp "$temp_dir/latest.dump" "$container_name:/tmp/latest.dump"
 
 ready=0
