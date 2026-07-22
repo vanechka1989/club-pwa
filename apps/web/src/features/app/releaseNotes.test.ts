@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the admin loading optimization as version 5.42", () => {
-    expect(appVersion).toBe("5.42");
-    expect(releaseNotes[0]?.title).toBe("Админка загружается быстрее");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("по мере открытия");
+  it("publishes client acquisition filters as version 5.43", () => {
+    expect(appVersion).toBe("5.43");
+    expect(releaseNotes[0]?.title).toBe("Фильтры клиентов по источникам");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("UTM");
+
+    const adminLoadingRelease = releaseNotes.find((note) => note.version === "5.42");
+    expect(adminLoadingRelease?.title).toBe("Админка загружается быстрее");
 
     const clientSourceRelease = releaseNotes.find((note) => note.version === "5.41");
     expect(clientSourceRelease?.title).toBe("Источник клиента без переноса");
@@ -119,7 +122,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Admin tools load faster");
+    expect(englishNotes[0]?.title).toBe("Client source and UTM filters");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

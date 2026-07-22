@@ -23,6 +23,12 @@ describe("admin stats user schema", () => {
       telegramBotStatus: "blocked",
       telegramBotBlockedAt: "2026-06-29T12:20:00.000Z",
       telegramBotUnblockedAt: null,
+      acquisition: {
+        source: "vk",
+        medium: "cpc",
+        campaign: "summer-sale",
+        content: "story-a"
+      },
       createdAt: "2026-06-29T11:00:00.000Z"
     });
 
@@ -30,5 +36,11 @@ describe("admin stats user schema", () => {
     expect(parsed.marketingEmailOptOutAt).toBe("2026-07-13T11:00:00.000Z");
     expect(parsed.telegramBotBlockedAt).toBe("2026-06-29T12:20:00.000Z");
     expect(parsed.telegramBotUnblockedAt).toBeNull();
+    expect(parsed.acquisition).toEqual({ source: "vk", medium: "cpc", campaign: "summer-sale", content: "story-a" });
+  });
+
+  it("keeps clients without an acquisition source compatible", () => {
+    const parsed = adminStatsUserSchema.partial().parse({ acquisition: null });
+    expect(parsed.acquisition).toBeNull();
   });
 });

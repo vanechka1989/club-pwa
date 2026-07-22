@@ -42,6 +42,7 @@ import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
 import { db } from "../db/client";
 import {
+  acquisitionLinks,
   adminActionLogs,
   adminMailings,
   adminUsers,
@@ -62,6 +63,7 @@ import {
   subscriptions,
   supportTicketAttachments,
   userContentProgress,
+  userAcquisitionAttributions,
   userDevices,
   userMutes,
   users
@@ -687,7 +689,39 @@ async function getPublishedItemsCount() {
   return row?.value ?? 0;
 }
 
-async function buildStatsUser(user: typeof users.$inferSelect, totalItems: number): Promise<AdminStatsUser> {
+type ClientAcquisitionSummary = NonNullable<AdminStatsUser["acquisition"]>;
+
+async function getClientAcquisitionSummaries(userIds: string[]) {
+  if (!userIds.length) {
+    return new Map<string, ClientAcquisitionSummary>();
+  }
+
+  const rows = await db
+    .select({
+      userId: userAcquisitionAttributions.userId,
+      source: acquisitionLinks.source,
+      medium: acquisitionLinks.medium,
+      campaign: acquisitionLinks.campaign,
+      content: acquisitionLinks.content
+    })
+    .from(userAcquisitionAttributions)
+    .innerJoin(acquisitionLinks, eq(userAcquisitionAttributions.lastLinkId, acquisitionLinks.id))
+    .where(inArray(userAcquisitionAttributions.userId, userIds));
+
+  return new Map(rows.map((row) => [row.userId, {
+    source: row.source,
+    medium: row.medium,
+    campaign: row.campaign,
+    content: row.content
+  }]));
+}
+
+async function buildStatsUser(
+  user: typeof users.$inferSelect,
+  totalItems: number,
+  acquisitionByUserId?: Map<string, ClientAcquisitionSummary>
+): Promise<AdminStatsUser> {
+  const resolvedAcquisitionByUserId = acquisitionByUserId ?? await getClientAcquisitionSummaries([user.id]);
   const membership = await getMembership(user.id);
   const role = await getUserRole(user.telegramId);
   const activeMute = await getActiveMute(user.id);
@@ -739,6 +773,7 @@ async function buildStatsUser(user: typeof users.$inferSelect, totalItems: numbe
     telegramBotStatus: user.telegramBotStatus as AdminStatsUser["telegramBotStatus"],
     telegramBotBlockedAt: user.telegramBotBlockedAt?.toISOString() ?? null,
     telegramBotUnblockedAt: user.telegramBotUnblockedAt?.toISOString() ?? null,
+    acquisition: resolvedAcquisitionByUserId.get(user.id) ?? null,
     createdAt: user.createdAt.toISOString()
   };
 }
@@ -2095,7 +2130,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       votesCount: poll.votes.length
     }));
     const pollSummary = summarizePollStatistics(pollSummaryInput, usersCountRow?.value ?? 0);
-    const statsUsers = await Promise.all(recentUsers.map((user) => buildStatsUser(user, totalItems)));
+    const acquisitionByUserId = await getClientAcquisitionSummaries(recentUsers.map((user) => user.id));
+    const statsUsers = await Promise.all(recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId)));
 
     return c.json({
       totalUsers: usersCountRow?.value ?? statsUsers.length,

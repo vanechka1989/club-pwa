@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Фильтры клиентов по источникам",
+    items: [
+      "В разделе клиентов теперь можно выбрать источник, включая клиентов без метки.",
+      "Добавлен поиск по всем UTM-меткам или отдельно по utm_source, utm_medium, utm_campaign и utm_content.",
+      "Новые фильтры работают вместе с поиском, доступом, тарифом и ограничениями и аккуратно размещаются на Android и iPhone."
+    ]
+  },
+  {
+    version: "5.42",
+    updatedAt: "22.07.2026 09:17",
     title: "Админка загружается быстрее",
     items: [
       "Тяжёлые экраны админки и их стили теперь загружаются по мере открытия, а не все сразу при входе в приложение.",
@@ -4046,11 +4056,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Admin tools load faster",
+  title: "Client source and UTM filters",
   items: [
-    "Heavy admin screens and their styles now load only when opened instead of during the initial app load.",
-    "Release history is delivered as a separate chunk, keeping the main admin screen lighter.",
-    "The shared application stylesheet is smaller without changing the Android or iPhone layout."
+    "Clients can now be filtered by acquisition source, including untagged clients.",
+    "UTM values can be searched across every tag or within one selected field.",
+    "Acquisition filters combine with the existing client filters and remain responsive on mobile screens."
   ]
 };
 
