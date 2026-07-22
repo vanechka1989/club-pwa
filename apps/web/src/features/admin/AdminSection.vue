@@ -135,6 +135,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type PreviewMode } from "@/stores/ui";
+import "./adminShell.css";
 
 const AdminStatisticsDetail = defineAsyncComponent(() => import("./AdminStatisticsDetail.vue"));
 const AdminAcquisitionAnalytics = defineAsyncComponent(() => import("./AdminAcquisitionAnalytics.vue"));

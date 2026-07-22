@@ -104,3 +104,5 @@ watch(() => [props.from, props.to], load);
     </template>
   </div>
 </template>
+
+<style src="./adminLearningEngagement.css"></style>

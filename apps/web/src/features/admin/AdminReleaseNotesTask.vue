@@ -47,3 +47,5 @@ function toggleReleaseNote(version: string) {
     </section>
   </TaskScreen>
 </template>
+
+<style src="./adminReleaseNotes.css"></style>

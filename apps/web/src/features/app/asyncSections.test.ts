@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const adminSource = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
+const globalStyles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
 describe("authenticated section loading", () => {
   it("loads large authenticated sections as independent chunks", () => {
@@ -46,5 +47,16 @@ describe("authenticated section loading", () => {
     expect(adminSource).toContain('const AdminReleaseNotesTask = defineAsyncComponent(() => import("./AdminReleaseNotesTask.vue"));');
     expect(adminSource).not.toContain('getLocalizedReleaseNotes');
     expect(adminSource).not.toContain('v-for="note in localizedReleaseNotes"');
+  });
+
+  it("loads admin-only styles with their async admin screens", () => {
+    const releaseSource = readFileSync(resolve(__dirname, "../admin/AdminReleaseNotesTask.vue"), "utf8");
+    const engagementSource = readFileSync(resolve(__dirname, "../admin/AdminLearningEngagement.vue"), "utf8");
+    expect(adminSource).toContain('import "./adminShell.css";');
+    expect(releaseSource).toContain('<style src="./adminReleaseNotes.css"></style>');
+    expect(engagementSource).toContain('<style src="./adminLearningEngagement.css"></style>');
+    expect(globalStyles).not.toContain("/* Compact operational admin layout. */");
+    expect(globalStyles).not.toContain("/* Admin access task: one predictable surface instead of nested legacy modal cards. */");
+    expect(globalStyles).not.toContain("/* Learning engagement analytics */");
   });
 });
