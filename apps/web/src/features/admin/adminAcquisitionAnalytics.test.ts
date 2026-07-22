@@ -102,6 +102,19 @@ describe("admin acquisition analytics", () => {
     expect(source).not.toContain('v-model.trim="form.campaign" required');
   });
 
+  it("pairs every UTM input with a clear purpose and its technical name", () => {
+    const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
+    expect(source).toContain('class="acquisition-utm-label"');
+    expect(source).toContain("Источник трафика");
+    expect(source).toContain("utm_source");
+    expect(source).toContain("Тип канала");
+    expect(source).toContain("utm_medium");
+    expect(source).toContain("Название кампании");
+    expect(source).toContain("utm_campaign");
+    expect(source).toContain("Объявление / вариант");
+    expect(source).toContain("utm_content");
+  });
+
   it("shows who created each advertising link", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
     expect(source).toContain("link.createdBy?.label");

@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Понятные названия UTM-меток",
+    items: [
+      "В генераторе рекламных ссылок теперь рядом с каждым полем показано его точное имя: utm_source, utm_medium, utm_campaign или utm_content.",
+      "Поля получили понятные названия: источник трафика, тип канала, название кампании и объявление или вариант.",
+      "Двухуровневые подписи аккуратно помещаются в форме на Android и iPhone."
+    ]
+  },
+  {
+    version: "5.43",
+    updatedAt: "22.07.2026 10:11",
     title: "Фильтры клиентов по источникам",
     items: [
       "В разделе клиентов теперь можно выбрать источник, включая клиентов без метки.",
@@ -4056,11 +4066,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client source and UTM filters",
+  title: "Clear UTM field names",
   items: [
-    "Clients can now be filtered by acquisition source, including untagged clients.",
-    "UTM values can be searched across every tag or within one selected field.",
-    "Acquisition filters combine with the existing client filters and remain responsive on mobile screens."
+    "Every advertising-link field now shows its exact UTM parameter name.",
+    "Human-readable labels explain the source, medium, campaign, and content fields.",
+    "The two-level labels remain compact on Android and iPhone screens."
   ]
 };
 
