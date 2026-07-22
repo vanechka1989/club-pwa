@@ -27,6 +27,7 @@ describe("host capacity monitoring", () => {
     expect(probe).not.toContain("docker ps --format");
     expect(sender).toContain("env.OWNER_EMAIL");
     expect(sender).toContain("nodemailer.createTransport");
+    expect(sender).toContain("transporter.close()");
     expect(sender).not.toContain("sendEmail");
     expect(sender).not.toContain("reserveEmailQuota");
   });

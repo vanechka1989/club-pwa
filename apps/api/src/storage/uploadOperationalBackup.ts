@@ -33,3 +33,4 @@ for (const object of objects.objects) {
 }
 
 console.log(JSON.stringify({ ok: true, key, sizeBytes: metadata.sizeBytes }));
+process.exit(0);

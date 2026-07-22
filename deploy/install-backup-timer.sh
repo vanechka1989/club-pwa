@@ -18,6 +18,7 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=2min
 WorkingDirectory=$DEPLOY_DIR
 Environment=DEPLOY_DIR=$DEPLOY_DIR
 ExecStart=/usr/bin/env bash $DEPLOY_DIR/scripts/send-systemd-failure-alert.sh %i

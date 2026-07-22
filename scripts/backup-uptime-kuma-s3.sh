@@ -6,7 +6,7 @@ STATE_DIR="${BACKUP_STATE_DIR:-/var/lib/club-pwa-backup}"
 STATUS_FILE="$STATE_DIR/kuma.env"
 temp_dir="$(mktemp -d /tmp/club-pwa-kuma-backup.XXXXXX)"
 file_name="uptime-kuma-$(date -u +%Y%m%dT%H%M%SZ).db"
-container_snapshot="/tmp/club-pwa-kuma-backup-$$.db"
+container_snapshot="/app/data/.club-pwa-kuma-backup-$$.db"
 container_id=""
 
 write_status() {

@@ -21,4 +21,6 @@ const subject = severity === "recovered"
   : `Club PWA: ${severity === "emergency" ? "авария" : severity === "critical" ? "критическая проблема" : "требуется внимание"}`;
 
 await transporter.sendMail({ from: env.SMTP_FROM, to: env.OWNER_EMAIL, subject, text: detail });
+transporter.close();
 console.log(JSON.stringify({ ok: true, severity }));
+process.exit(0);

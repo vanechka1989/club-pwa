@@ -62,6 +62,7 @@ describe("backup infrastructure", () => {
   it("backs up Kuma SQLite safely and uploads it to private S3", () => {
     expect(kumaBackupScript).toContain("sqlite3 /app/data/kuma.db");
     expect(kumaBackupScript).toContain(".backup");
+    expect(kumaBackupScript).toContain('container_snapshot="/app/data/.club-pwa-kuma-backup-$$.db"');
     expect(kumaBackupScript).toContain("docker cp");
     expect(kumaBackupScript).not.toContain("stop -t 20 uptime-kuma");
     expect(kumaBackupScript).not.toContain("--volumes-from");
@@ -71,6 +72,7 @@ describe("backup infrastructure", () => {
     expect(operationalUploader).toContain('system/uptime-kuma-backups/');
     expect(operationalUploader).toContain("getObjectMetadata");
     expect(operationalUploader).toContain("deleteObject");
+    expect(operationalUploader).toContain("process.exit(0)");
   });
 
   it("installs a persistent nightly Kuma backup timer", () => {
@@ -83,5 +85,6 @@ describe("backup infrastructure", () => {
     expect(installer.match(/OnFailure=club-pwa-operational-alert@%n.service/g)).toHaveLength(3);
     expect(installer).toContain("club-pwa-operational-alert@.service");
     expect(installer).toContain("send-systemd-failure-alert.sh");
+    expect(installer).toContain("TimeoutStartSec=2min");
   });
 });
