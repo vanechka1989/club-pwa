@@ -1,5 +1,5 @@
-const cacheName = "club-pwa-v226";
-const appShell = ["/manifest.webmanifest", "/icons/icon.svg"];
+const cacheName = "club-pwa-v227";
+const appShell = ["/manifest.webmanifest", "/icons/icon.svg", "/offline.html"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(cacheName).then((cache) => cache.addAll(appShell)));
@@ -35,14 +35,8 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request, { cache: "no-store" }).catch(
-        () =>
-          new Response(
-            (request.headers.get("Accept-Language") || "").toLowerCase().startsWith("ru")
-              ? "Приложение временно недоступно без интернета. Обновите страницу, когда сеть вернётся."
-              : "The app is temporarily unavailable offline. Refresh the page when your connection returns.",
-            { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } }
-          )
+      fetch(request, { cache: "no-store" }).catch(() =>
+        caches.match("/offline.html").then((fallback) => fallback || Response.error())
       )
     );
     return;

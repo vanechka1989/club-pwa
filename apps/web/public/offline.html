@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071b17" />
+    <title>Club — нет соединения</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100svh; display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) 22px max(24px, env(safe-area-inset-bottom)); color: #f4fffc; background: radial-gradient(circle at 50% 10%, #123d33 0, #071b17 46%, #03100d 100%); }
+      main { width: min(100%, 440px); padding: 34px 28px; text-align: center; border: 1px solid rgba(74, 222, 196, .28); border-radius: 30px; background: rgba(11, 45, 37, .86); box-shadow: 0 24px 70px rgba(0, 0, 0, .3); }
+      .icon { width: 72px; height: 72px; display: grid; place-items: center; margin: 0 auto 22px; border-radius: 24px; font-size: 34px; background: rgba(45, 212, 191, .14); border: 1px solid rgba(45, 212, 191, .42); }
+      h1 { margin: 0 0 10px; font-size: clamp(24px, 7vw, 32px); line-height: 1.1; }
+      p { margin: 0; color: #b5cfc8; font-size: 16px; line-height: 1.5; }
+      button { width: 100%; min-height: 54px; margin-top: 26px; border: 0; border-radius: 18px; color: #03201a; background: #35d5c2; font: inherit; font-weight: 800; cursor: pointer; }
+      button:active { transform: scale(.985); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="icon" aria-hidden="true">↻</div>
+      <h1>Нет соединения</h1>
+      <p>Приложение сохранило ваши данные. Проверьте интернет и попробуйте ещё раз.</p>
+      <button type="button" onclick="location.reload()">Повторить</button>
+    </main>
+  </body>
+</html>
