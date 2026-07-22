@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Check,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -88,8 +89,11 @@ import {
 } from "./uploadRecovery";
 import { isAmbiguousNetworkError, reconcileLearningSave } from "./lessonSaveReconciliation";
 import { createLearningEngagementTracker, type LearningEngagementTracker } from "./learningEngagement";
-import { resolveLessonEditorPreview } from "./lessonEditorPreview";
+import { resolveLessonEditorPreview, resolveLessonMaterialPreview } from "./lessonEditorPreview";
 import { sendLearningEngagementWithRetry } from "./learningEngagementOutbox";
+import ChatVoiceWaveform from "@/features/community/ChatVoiceWaveform.vue";
+import { useVoiceRecorder } from "@/features/community/useVoiceRecorder";
+import { formatVoiceTime } from "@/features/community/voiceWaveform";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -163,8 +167,9 @@ type LessonMaterialDraft = {
   existingMediaSource: MediaSource | null;
   mediaSource: MediaInputSource;
   externalUrl: string;
-  file: File | null;
+  file: File | NamedBlobUpload | null;
   fileName: string;
+  previewUrl: string | null;
   existingMediaUrl: string | null;
   existingMediaContentType: string | null;
   existingMediaSizeBytes: number | null;
@@ -364,6 +369,12 @@ const isLoadingLessonContent = ref(false);
 const lessonViewerError = ref("");
 const lessonEditorMode = ref(false);
 const isVoiceRecording = ref(false);
+const materialVoiceRecorder = useVoiceRecorder();
+const activeMaterialVoiceId = ref<string | null>(null);
+const materialVoicePreviewAudio = ref<HTMLAudioElement | null>(null);
+const materialVoicePreviewPlaying = ref(false);
+const materialVoicePreviewCurrentTime = ref(0);
+const materialVoicePreviewDuration = ref(0);
 const voiceRecorder = ref<MediaRecorder | null>(null);
 const voiceStream = ref<MediaStream | null>(null);
 const lessonUploadProgress = ref<number | null>(null);
@@ -773,6 +784,7 @@ function createLessonMaterialDraft(material?: LessonMaterial): LessonMaterialDra
     externalUrl: getExternalUrlForForm(material?.mediaUrl ?? null, mediaSource),
     file: null,
     fileName: material?.mediaUrl && mediaSource === "file" ? "Текущий файл сохранён" : "",
+    previewUrl: null,
     existingMediaUrl: material?.mediaUrl ?? null,
     existingMediaContentType: material?.mediaContentType ?? null,
     existingMediaSizeBytes: material?.mediaSizeBytes ?? null
@@ -813,6 +825,8 @@ function openLessonModal(
   editorMode = false
 ) {
   clearLessonFilePreview();
+  clearAllLessonMaterialPreviews();
+  cancelMaterialVoiceRecording();
   stopLearningEngagement();
   resetLessonVideoState();
   if (!module.images.some((item) => item.id === lesson.id)) {
@@ -905,6 +919,8 @@ function openLessonCreateModal(module: ModuleCard) {
   }
 
   clearLessonFilePreview();
+  clearAllLessonMaterialPreviews();
+  cancelMaterialVoiceRecording();
   selectedLesson.value = { moduleId: module.id, lessonId: null };
   lessonTitle.value = "";
   lessonDescription.value = "";
@@ -929,6 +945,8 @@ function openLessonCreateModal(module: ModuleCard) {
 
 function closeLessonModal() {
   clearLessonFilePreview();
+  clearAllLessonMaterialPreviews();
+  cancelMaterialVoiceRecording();
   stopLearningEngagement();
   closeLessonImage();
   resetLessonVideoState();
@@ -2454,12 +2472,41 @@ function addLessonMaterialDraft() {
 }
 
 function removeLessonMaterialDraft(id: string) {
+  const material = lessonMaterialDrafts.value.find((item) => item.id === id);
+  if (material) clearLessonMaterialPreview(material);
+  if (activeMaterialVoiceId.value === id) cancelMaterialVoiceRecording();
   lessonMaterialDrafts.value = lessonMaterialDrafts.value.filter((material) => material.id !== id);
+}
+
+function getLessonMaterialPreview(material: LessonMaterialDraft) {
+  return resolveLessonMaterialPreview({
+    kind: material.kind,
+    source: material.mediaSource,
+    existingUrl: material.existingKind === material.kind ? material.existingMediaUrl : null,
+    externalUrl: material.externalUrl,
+    localUrl: material.previewUrl
+  });
+}
+
+function clearLessonMaterialPreview(material: LessonMaterialDraft) {
+  if (material.previewUrl) URL.revokeObjectURL(material.previewUrl);
+  material.previewUrl = null;
+}
+
+function clearAllLessonMaterialPreviews() {
+  lessonMaterialDrafts.value.forEach(clearLessonMaterialPreview);
+}
+
+function setLessonMaterialPreview(material: LessonMaterialDraft, upload: File | NamedBlobUpload | null) {
+  clearLessonMaterialPreview(material);
+  if (!upload) return;
+  material.previewUrl = URL.createObjectURL(upload instanceof File ? upload : upload.blob);
 }
 
 function setLessonMaterialKind(material: LessonMaterialDraft, kind: ContentKind) {
   material.kind = kind;
   if (kind === "text") {
+    clearLessonMaterialPreview(material);
     material.file = null;
     material.fileName = "";
     material.mediaSource = "file";
@@ -2477,6 +2524,7 @@ function handleLessonMaterialFileChange(material: LessonMaterialDraft, event: Ev
   const file = input.files?.[0] ?? null;
   material.file = file;
   material.fileName = file?.name ?? "";
+  setLessonMaterialPreview(material, file);
   if (file) {
     material.mediaSource = "file";
     material.externalUrl = "";
@@ -2486,12 +2534,77 @@ function handleLessonMaterialFileChange(material: LessonMaterialDraft, event: Ev
 function setLessonMaterialMediaSource(material: LessonMaterialDraft, source: MediaInputSource) {
   material.mediaSource = source;
   if (source !== "file") {
+    clearLessonMaterialPreview(material);
     material.file = null;
     material.fileName = "";
     return;
   }
 
   material.externalUrl = "";
+}
+
+function resetMaterialVoicePlayback() {
+  materialVoicePreviewPlaying.value = false;
+  materialVoicePreviewCurrentTime.value = 0;
+  materialVoicePreviewDuration.value = 0;
+  materialVoicePreviewAudio.value?.pause();
+}
+
+function cancelMaterialVoiceRecording() {
+  materialVoiceRecorder.cancel();
+  activeMaterialVoiceId.value = null;
+  resetMaterialVoicePlayback();
+}
+
+async function startMaterialVoiceRecording(material: LessonMaterialDraft) {
+  if (isVoiceRecording.value) stopVoiceRecording();
+  cancelMaterialVoiceRecording();
+  activeMaterialVoiceId.value = material.id;
+  material.kind = "audio";
+  material.mediaSource = "file";
+  material.externalUrl = "";
+  await materialVoiceRecorder.start();
+}
+
+function applyMaterialVoiceRecording(material: LessonMaterialDraft) {
+  const blob = materialVoiceRecorder.blob.value;
+  if (!blob) return;
+  const upload = createVoiceUpload([blob], blob.type);
+  material.kind = "audio";
+  material.mediaSource = "file";
+  material.externalUrl = "";
+  material.file = upload;
+  material.fileName = upload.name;
+  setLessonMaterialPreview(material, upload);
+  cancelMaterialVoiceRecording();
+}
+
+function syncMaterialVoicePreviewMetadata() {
+  const audio = materialVoicePreviewAudio.value;
+  materialVoicePreviewDuration.value = Number.isFinite(audio?.duration) ? audio?.duration ?? 0 : 0;
+}
+
+function syncMaterialVoicePreviewTime() {
+  materialVoicePreviewCurrentTime.value = materialVoicePreviewAudio.value?.currentTime ?? 0;
+}
+
+async function toggleMaterialVoicePreview() {
+  const audio = materialVoicePreviewAudio.value;
+  if (!audio) return;
+  if (audio.paused) {
+    await audio.play();
+    materialVoicePreviewPlaying.value = true;
+  } else {
+    audio.pause();
+    materialVoicePreviewPlaying.value = false;
+  }
+}
+
+function seekMaterialVoicePreview(value: number) {
+  const audio = materialVoicePreviewAudio.value;
+  if (!audio) return;
+  audio.currentTime = value;
+  materialVoicePreviewCurrentTime.value = value;
 }
 
 function handleLessonThumbnailChange(event: Event) {
@@ -2534,6 +2647,7 @@ async function restoreDeletedLesson(lesson: ModuleLesson) {
 }
 
 async function startVoiceRecording() {
+  cancelMaterialVoiceRecording();
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
     showLessonError("Запись голоса недоступна в этом браузере.");
     return;
@@ -2652,6 +2766,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearLessonFilePreview();
+  clearAllLessonMaterialPreviews();
+  cancelMaterialVoiceRecording();
   handleLearningExit();
   document.removeEventListener("visibilitychange", handleLearningVisibilityChange);
   window.removeEventListener("focus", handleLearningFocusChange);
@@ -3405,6 +3521,94 @@ watch(
                     />
                     <small>{{ material.mediaSource === "file" ? material.fileName || "Файл не выбран" : "Файл в S3 загружаться не будет." }}</small>
                   </label>
+
+                  <div v-if="material.kind === 'audio' && material.mediaSource === 'file'" class="lesson-material-voice-tools">
+                    <div v-if="activeMaterialVoiceId === material.id && materialVoiceRecorder.status.value === 'recording'" class="lesson-material-voice-draft">
+                      <button class="icon-button ui-icon-button" type="button" aria-label="Отменить запись" @click="cancelMaterialVoiceRecording">
+                        <X class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      <span class="lesson-material-voice-time">{{ formatVoiceTime(materialVoiceRecorder.durationSeconds.value) }}</span>
+                      <ChatVoiceWaveform
+                        :levels="materialVoiceRecorder.levels.value"
+                        :current-time="materialVoiceRecorder.durationSeconds.value"
+                        :duration="materialVoiceRecorder.durationSeconds.value"
+                      />
+                      <button class="icon-button ui-icon-button lesson-material-voice-stop" type="button" aria-label="Остановить запись" @click="materialVoiceRecorder.stop">
+                        <Square class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    <div v-else-if="activeMaterialVoiceId === material.id && materialVoiceRecorder.previewUrl.value" class="lesson-material-voice-draft">
+                      <audio
+                        ref="materialVoicePreviewAudio"
+                        :src="materialVoiceRecorder.previewUrl.value"
+                        preload="metadata"
+                        @loadedmetadata="syncMaterialVoicePreviewMetadata"
+                        @timeupdate="syncMaterialVoicePreviewTime"
+                        @ended="materialVoicePreviewPlaying = false"
+                      ></audio>
+                      <button class="icon-button ui-icon-button" type="button" :aria-label="materialVoicePreviewPlaying ? 'Пауза' : 'Прослушать запись'" @click="toggleMaterialVoicePreview">
+                        <Pause v-if="materialVoicePreviewPlaying" class="h-4 w-4" aria-hidden="true" />
+                        <Play v-else class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      <ChatVoiceWaveform
+                        :levels="materialVoiceRecorder.levels.value"
+                        :current-time="materialVoicePreviewCurrentTime"
+                        :duration="materialVoicePreviewDuration || materialVoiceRecorder.durationSeconds.value"
+                        interactive
+                        aria-label="Перемотка записанного голосового"
+                        @seek="seekMaterialVoicePreview"
+                      />
+                      <span class="lesson-material-voice-time">{{ formatVoiceTime(materialVoicePreviewDuration || materialVoiceRecorder.durationSeconds.value) }}</span>
+                      <button class="icon-button ui-icon-button" type="button" aria-label="Удалить запись" @click="cancelMaterialVoiceRecording">
+                        <Trash2 class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                      <button class="icon-button ui-icon-button lesson-material-voice-apply" type="button" aria-label="Использовать запись" @click="applyMaterialVoiceRecording(material)">
+                        <Check class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    <button
+                      v-else-if="materialVoiceRecorder.supported.value"
+                      class="secondary-button ui-button lesson-material-record-button"
+                      type="button"
+                      aria-label="Записать голосовое для материала"
+                      @click="startMaterialVoiceRecording(material)"
+                    >
+                      <Mic class="h-4 w-4" aria-hidden="true" />
+                      Записать голосовое
+                    </button>
+                    <p v-if="activeMaterialVoiceId === material.id && materialVoiceRecorder.error.value" class="admin-error-text">{{ materialVoiceRecorder.error.value }}</p>
+                  </div>
+
+                  <section v-if="getLessonMaterialPreview(material)" class="lesson-material-media-preview" aria-label="Предпросмотр дополнительного материала">
+                    <strong>{{ getLessonMaterialPreview(material)?.origin === 'saved' ? 'Сохранённый контент' : 'Предпросмотр нового контента' }}</strong>
+                    <img
+                      v-if="material.kind === 'photo'"
+                      :src="getLessonMaterialPreview(material)?.url"
+                      alt="Предпросмотр фото"
+                    />
+                    <iframe
+                      v-else-if="material.kind === 'video' && material.mediaSource === 'youtube'"
+                      :src="getYouTubePlayerUrl(getLessonMaterialPreview(material)?.url ?? null) ?? undefined"
+                      title="Предпросмотр видео YouTube"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowfullscreen
+                    ></iframe>
+                    <video
+                      v-else-if="material.kind === 'video'"
+                      :src="getLessonMaterialPreview(material)?.url"
+                      controls
+                      playsinline
+                      preload="metadata"
+                    ></video>
+                    <audio
+                      v-else-if="material.kind === 'audio'"
+                      :src="getLessonMaterialPreview(material)?.url"
+                      controls
+                      preload="metadata"
+                    ></audio>
+                  </section>
                   <label class="admin-field">
                     <span>Текст / заметка <small>(не обязательно)</small></span>
                     <textarea v-model="material.body" class="text-input lesson-extra-body" placeholder="Можно добавить текст или комментарий к файлу" aria-label="Необязательный текст дополнительного материала"></textarea>

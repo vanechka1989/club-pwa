@@ -8052,6 +8052,97 @@ body.club-lesson-image-viewer-open {
   max-width: 100%;
 }
 
+.lesson-material-media-preview {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-soft) 82%, transparent);
+  padding: 0.55rem;
+}
+
+.lesson-material-media-preview strong {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 820;
+}
+
+.lesson-material-media-preview img,
+.lesson-material-media-preview video,
+.lesson-material-media-preview iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: min(42dvh, 20rem);
+  border: 0;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.lesson-material-media-preview iframe {
+  aspect-ratio: 16 / 9;
+}
+
+.lesson-material-media-preview audio {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.lesson-material-voice-tools,
+.lesson-material-voice-draft {
+  min-width: 0;
+  width: 100%;
+}
+
+.lesson-material-voice-draft {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.35rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 14px;
+  padding: 0.38rem;
+}
+
+.lesson-material-voice-draft audio {
+  display: none;
+}
+
+.lesson-material-voice-time {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lesson-material-record-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.lesson-material-voice-stop,
+.lesson-material-voice-apply {
+  color: var(--accent);
+}
+
+@media (max-width: 370px) {
+  .lesson-material-voice-draft {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+
+  .lesson-material-voice-time {
+    display: none;
+  }
+}
+
 .lesson-preview-actions {
   flex: 0 0 auto;
   margin-top: 0;

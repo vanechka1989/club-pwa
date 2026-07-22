@@ -36,4 +36,21 @@ describe("learning task screens", () => {
     expect(styles).toMatch(/\.learning-task-screen-view \.lesson-preview-modal-view\s*\{[^}]*overflow:\s*visible;/s);
     expect(styles).toMatch(/\.learning-task-screen-view \.lesson-viewer-content\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*100%;/s);
   });
+
+  it("shows saved and replacement content inside every additional material editor", () => {
+    expect(source).toContain("resolveLessonMaterialPreview");
+    expect(source).toContain("getLessonMaterialPreview(material)");
+    expect(source).toContain('class="lesson-material-media-preview"');
+    expect(source).toContain("clearLessonMaterialPreview");
+    expect(styles).toMatch(/\.lesson-material-media-preview\s*\{[^}]*width:\s*100%;[^}]*overflow:\s*hidden;/s);
+  });
+
+  it("records additional audio materials with the chat voice workflow", () => {
+    expect(source).toContain('import ChatVoiceWaveform from "@/features/community/ChatVoiceWaveform.vue"');
+    expect(source).toContain('import { useVoiceRecorder } from "@/features/community/useVoiceRecorder"');
+    expect(source).toContain("startMaterialVoiceRecording(material)");
+    expect(source).toContain("applyMaterialVoiceRecording(material)");
+    expect(source).toContain('aria-label="Записать голосовое для материала"');
+    expect(source).toContain("<ChatVoiceWaveform");
+  });
 });
