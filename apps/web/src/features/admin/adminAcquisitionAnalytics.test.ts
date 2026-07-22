@@ -84,6 +84,13 @@ describe("admin acquisition analytics", () => {
     expect(section).not.toContain('@analytics="openSelectedUserAcquisitionAnalytics"');
   });
 
+  it("keeps the client source on one line on narrow phones", () => {
+    const card = readFileSync(resolve(__dirname, "AdminClientAcquisition.vue"), "utf8");
+    expect(card).toMatch(/\.client-acquisition-source-value\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis[^}]*\}/);
+    expect(card).not.toContain("max-width:38%");
+    expect(card).not.toMatch(/\.client-acquisition-source-value\{[^}]*overflow-wrap:anywhere/);
+  });
+
   it("places link management first and accepts any single UTM field", () => {
     const source = readFileSync(resolve(__dirname, "AdminAcquisitionAnalytics.vue"), "utf8");
     expect(source.indexOf('class="acquisition-links-entry')).toBeLessThan(source.indexOf('class="acquisition-kpis"'));

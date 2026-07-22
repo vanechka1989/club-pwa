@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Источник клиента без переноса",
+    items: [
+      "Источник клиента теперь всегда отображается одной строкой: короткие значения вроде vk и подпись «Без метки» больше не переносятся по буквам.",
+      "Длинные названия источников аккуратно сокращаются многоточием и не ломают шапку карточки на узких экранах."
+    ]
+  },
+  {
+    version: "5.40",
+    updatedAt: "22.07.2026 07:19",
     title: "Весь контент виден в редакторе",
     items: [
       "В каждой карточке дополнительного материала теперь отображается сохранённое или выбранное фото, видео и аудио; текст остаётся полностью доступен для редактирования.",
@@ -4027,11 +4036,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "All lesson content is visible while editing",
+  title: "Client sources stay on one line",
   items: [
-    "Every additional material card now previews its saved or newly selected photo, video, and audio while keeping text fully editable.",
-    "External videos and YouTube links can be previewed directly inside the lesson editor before saving.",
-    "Audio materials can be recorded like chat voice messages, played, scrubbed, discarded, or applied before upload."
+    "Short client sources and the no-tag label no longer wrap letter by letter on narrow screens.",
+    "Long source names are safely truncated with an ellipsis without breaking the card header."
   ]
 };
 
