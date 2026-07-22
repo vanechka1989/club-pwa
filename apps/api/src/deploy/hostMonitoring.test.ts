@@ -12,6 +12,8 @@ describe("host capacity monitoring", () => {
   const installer = repoFile("deploy/install-host-monitor.sh");
   const worker = repoFile("deploy/update-worker.sh");
   const sender = repoFile("apps/api/src/operations/sendOperationalAlert.ts");
+  const maintenance = repoFile("scripts/maintain-host-storage.sh");
+  const maintenanceInstaller = repoFile("deploy/install-storage-maintenance.sh");
 
   it("checks bounded host and service signals and only alerts on transitions", () => {
     expect(probe).toContain("DISK_WARN_PERCENT");
@@ -37,5 +39,26 @@ describe("host capacity monitoring", () => {
     expect(installer).toContain("Persistent=true");
     expect(installer).toContain("systemctl enable --now club-pwa-host-monitor.timer");
     expect(worker).toContain("deploy/install-host-monitor.sh");
+  });
+
+  it("keeps host storage bounded without touching application data", () => {
+    expect(maintenance).toContain("flock -n 9");
+    expect(maintenance).toContain("docker builder prune -af --keep-storage 2GB");
+    expect(maintenance).toContain("docker image prune -f --filter until=168h");
+    expect(maintenance).toContain("journalctl --vacuum-size=150M");
+    expect(maintenance).toContain("mv \"$status_tmp\" \"$STATUS_FILE\"");
+    expect(maintenance).not.toContain("docker system prune");
+    expect(maintenance).not.toContain("docker volume prune");
+    expect(maintenance).not.toContain("docker container prune");
+    expect(maintenance).not.toContain("rm -rf");
+  });
+
+  it("installs daily storage maintenance with operational failure alerts", () => {
+    expect(maintenanceInstaller).toContain("OnCalendar=*-*-* 04:20:00");
+    expect(maintenanceInstaller).toContain("Persistent=true");
+    expect(maintenanceInstaller).toContain("OnFailure=club-pwa-operational-alert@%n.service");
+    expect(maintenanceInstaller).toContain("systemctl enable --now club-pwa-storage-maintenance.timer");
+    expect(worker).toContain("deploy/install-storage-maintenance.sh");
+    expect(probe).toContain('DISK_WARN_PERCENT="${DISK_WARN_PERCENT:-70}"');
   });
 });

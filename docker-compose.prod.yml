@@ -88,6 +88,7 @@ services:
         condition: service_completed_successfully
     volumes:
       - api-uploads:/app/uploads
+      - /var/lib/club-pwa-maintenance:/app/host-maintenance:ro
     security_opt:
       - no-new-privileges:true
     cap_drop:

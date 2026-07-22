@@ -70,6 +70,7 @@ import {
 } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
+import { readHostMaintenanceStatus } from "../operations/hostMaintenanceStatus";
 import { requestMetrics } from "../requestMetrics";
 import { countServerErrors, listServerErrors, recordServerError } from "../serverErrors";
 import { getMembership } from "../membership/getMembership";
@@ -890,6 +891,7 @@ async function buildAdminServerStatus() {
     },
     systemMemory: buildUsage(memoryTotal - memoryFree, memoryTotal, memoryFree),
     disk: await getDiskUsage(),
+    storageMaintenance: await readHostMaintenanceStatus(),
     serverErrorCount: await countServerErrors(),
     requestMetrics: requestMetrics.snapshot()
   };

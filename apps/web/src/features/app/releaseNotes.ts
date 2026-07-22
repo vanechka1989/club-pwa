@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Автоматическое обслуживание диска",
+    items: [
+      "Сервер ежедневно освобождает только безопасный к удалению кэш сборки, старые неиспользуемые образы, системные журналы и кэш пакетов.",
+      "В админке теперь видно заполнение диска, свободное место, результат последнего обслуживания и основные категории данных.",
+      "Предупреждение о заполнении приходит заранее при 70%, а базы данных, загруженные материалы и рабочие контейнеры автоматическая очистка не затрагивает."
+    ]
+  },
+  {
+    version: "5.50",
+    updatedAt: "22.07.2026 17:42",
     title: "Понятные системные уведомления",
     items: [
       "Служебные письма теперь явно отмечены как системные и визуально отличаются от сообщений клиентам.",
@@ -4125,12 +4135,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Stability and backup recovery",
+  title: "Automatic storage maintenance",
   items: [
-    "Daily database and monitoring backups now report their verified result to private storage.",
-    "A weekly isolated restore proves that the latest database backup can actually be recovered.",
-    "External uptime checks, host alerts, container budgets, and release quality gates improve production stability.",
-    "The PWA now has automated mobile layout checks and a designed offline screen."
+    "The server safely removes disposable build cache, unused old images, package cache, and excess system logs every day.",
+    "The admin panel now shows disk usage, free space, the latest maintenance result, and the main storage categories.",
+    "Disk warnings start at 70%, while databases, uploaded content, and running containers are never pruned automatically."
   ]
 };
 

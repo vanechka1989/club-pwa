@@ -1328,6 +1328,23 @@ export const adminServerUsageSchema = z.object({
 });
 export type AdminServerUsage = z.infer<typeof adminServerUsageSchema>;
 
+export const adminStorageMaintenanceSchema = z.object({
+  status: z.enum(["success", "failure"]),
+  completedAt: z.string().datetime(),
+  mode: z.enum(["routine", "pressure"]),
+  diskBeforePercent: z.number().int().min(0).max(100),
+  diskAfterPercent: z.number().int().min(0).max(100),
+  diskTotalBytes: z.number().int().nonnegative(),
+  diskFreeBytes: z.number().int().nonnegative(),
+  reclaimedBytes: z.number().int().nonnegative(),
+  dockerImagesSize: z.string().max(24),
+  dockerBuildCacheSize: z.string().max(24),
+  systemLogBytes: z.number().int().nonnegative(),
+  appBytes: z.number().int().nonnegative(),
+  errorCode: z.string().max(64).nullable()
+});
+export type AdminStorageMaintenance = z.infer<typeof adminStorageMaintenanceSchema>;
+
 export const adminServerStatusSchema = z.object({
   ok: z.boolean(),
   checkedAt: z.string().datetime(),
@@ -1342,6 +1359,7 @@ export const adminServerStatusSchema = z.object({
   }),
   systemMemory: adminServerUsageSchema,
   disk: adminServerUsageSchema.nullable(),
+  storageMaintenance: adminStorageMaintenanceSchema.nullable(),
   serverErrorCount: z.number().int().nonnegative(),
   requestMetrics: z.object({
     requests: z.number().int().nonnegative(),
