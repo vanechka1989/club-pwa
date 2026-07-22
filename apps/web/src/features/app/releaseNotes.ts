@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Стабильность и резервное восстановление",
+    items: [
+      "Автоматизированы ежедневные резервные копии базы данных и панели мониторинга с контролем результата в защищённом хранилище.",
+      "Раз в неделю приложение проверяет, что последняя копия действительно восстанавливается в изолированной тестовой базе.",
+      "Добавлены внешняя проверка доступности, оповещения о состоянии сервера, ограничения ресурсов контейнеров и обязательные проверки перед выкладкой.",
+      "Для PWA добавлены автоматические проверки мобильных экранов и аккуратный экран при отсутствии интернета."
+    ]
+  },
+  {
+    version: "5.48",
+    updatedAt: "22.07.2026 14:24",
     title: "Мониторинг работы приложения",
     items: [
       "Добавлена защищённая панель Uptime Kuma для контроля доступности Club PWA.",
@@ -4104,11 +4115,12 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Application uptime monitoring",
+  title: "Stability and backup recovery",
   items: [
-    "A protected Uptime Kuma dashboard now monitors Club PWA availability.",
-    "The application, API health, and database readiness are checked separately.",
-    "The monitoring service is isolated from Docker and application data."
+    "Daily database and monitoring backups now report their verified result to private storage.",
+    "A weekly isolated restore proves that the latest database backup can actually be recovered.",
+    "External uptime checks, host alerts, container budgets, and release quality gates improve production stability.",
+    "The PWA now has automated mobile layout checks and a designed offline screen."
   ]
 };
 

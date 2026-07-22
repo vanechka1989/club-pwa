@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes application monitoring as version 5.48", () => {
-    expect(appVersion).toBe("5.48");
-    expect(releaseNotes[0]?.title).toBe("Мониторинг работы приложения");
+  it("publishes stability and recovery as version 5.49", () => {
+    expect(appVersion).toBe("5.49");
+    expect(releaseNotes[0]?.title).toBe("Стабильность и резервное восстановление");
+
+    const monitoringRelease = releaseNotes.find((note) => note.version === "5.48");
+    expect(monitoringRelease?.title).toBe("Мониторинг работы приложения");
 
     const automaticCompletionRelease = releaseNotes.find((note) => note.version === "5.47");
     expect(automaticCompletionRelease?.title).toBe("Автоматическое завершение уроков");
@@ -138,7 +141,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Application uptime monitoring");
+    expect(englishNotes[0]?.title).toBe("Stability and backup recovery");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
