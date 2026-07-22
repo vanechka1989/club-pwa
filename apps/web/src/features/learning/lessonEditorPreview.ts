@@ -25,3 +25,5 @@ export function resolveLessonEditorPreview(input: LessonEditorPreviewInput): Les
 
   return input.existingUrl ? { url: input.existingUrl, origin: "saved" } : null;
 }
+
+export const resolveLessonMaterialPreview = resolveLessonEditorPreview;
