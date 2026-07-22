@@ -299,6 +299,7 @@ install_operational_timers() {
   current_phase="install-timers"
   write_status running "$current_phase"
   /usr/bin/env bash "$DEPLOY_DIR/deploy/install-backup-timer.sh"
+  /usr/bin/env bash "$DEPLOY_DIR/deploy/install-host-monitor.sh"
 }
 
 rollback_services() {
