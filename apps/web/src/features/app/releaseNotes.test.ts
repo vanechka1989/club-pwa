@@ -3,10 +3,13 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the admin workflow polish as version 5.39", () => {
-    expect(appVersion).toBe("5.39");
-    expect(releaseNotes[0]?.title).toBe("Аккуратнее в админке");
-    expect(releaseNotes[0]?.items.join(" ")).toContain("предварительный просмотр");
+  it("publishes complete lesson material previews as version 5.40", () => {
+    expect(appVersion).toBe("5.40");
+    expect(releaseNotes[0]?.title).toBe("Весь контент виден в редакторе");
+    expect(releaseNotes[0]?.items.join(" ")).toContain("голосовое");
+
+    const adminWorkflowRelease = releaseNotes.find((note) => note.version === "5.39");
+    expect(adminWorkflowRelease?.title).toBe("Аккуратнее в админке");
 
     const optimizationRelease = releaseNotes.find((note) => note.version === "5.38");
     expect(optimizationRelease?.title).toBe("Быстрее и надёжнее");
@@ -110,7 +113,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Cleaner admin workflows");
+    expect(englishNotes[0]?.title).toBe("All lesson content is visible while editing");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

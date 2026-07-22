@@ -11,6 +11,16 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Весь контент виден в редакторе",
+    items: [
+      "В каждой карточке дополнительного материала теперь отображается сохранённое или выбранное фото, видео и аудио; текст остаётся полностью доступен для редактирования.",
+      "Ссылки на видео и YouTube показывают встроенный предпросмотр прямо в редакторе до сохранения урока.",
+      "Для аудиоматериала можно записать голосовое как в чате, прослушать его, перемотать, отменить или применить перед загрузкой."
+    ]
+  },
+  {
+    version: "5.39",
+    updatedAt: "22.07.2026 01:42",
     title: "Аккуратнее в админке",
     items: [
       "Кнопки обновления в платежах и настройках больше не сжимаются и не съезжают на узких экранах.",
@@ -4017,11 +4027,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Cleaner admin workflows",
+  title: "All lesson content is visible while editing",
   items: [
-    "Refresh actions now remain aligned on narrow screens, project logs are collapsible, and mailing history has its own full-screen view.",
-    "Lesson editing now previews saved media, newly selected files, and recorded voice before saving.",
-    "Additional database indexes keep client, payment, and dashboard queries responsive as data grows."
+    "Every additional material card now previews its saved or newly selected photo, video, and audio while keeping text fully editable.",
+    "External videos and YouTube links can be previewed directly inside the lesson editor before saving.",
+    "Audio materials can be recorded like chat voice messages, played, scrubbed, discarded, or applied before upload."
   ]
 };
 
