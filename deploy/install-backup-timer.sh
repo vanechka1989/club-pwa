@@ -8,12 +8,27 @@ VERIFY_SERVICE_FILE="/etc/systemd/system/club-pwa-backup-verify.service"
 VERIFY_TIMER_FILE="/etc/systemd/system/club-pwa-backup-verify.timer"
 KUMA_SERVICE_FILE="/etc/systemd/system/club-pwa-kuma-backup.service"
 KUMA_TIMER_FILE="/etc/systemd/system/club-pwa-kuma-backup.timer"
+ALERT_SERVICE_FILE="/etc/systemd/system/club-pwa-operational-alert@.service"
+
+cat > "$ALERT_SERVICE_FILE" <<EOF
+[Unit]
+Description=Send Club PWA operational alert for %i
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=$DEPLOY_DIR
+Environment=DEPLOY_DIR=$DEPLOY_DIR
+ExecStart=/usr/bin/env bash $DEPLOY_DIR/scripts/send-systemd-failure-alert.sh %i
+EOF
 
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Club PWA PostgreSQL backup to private S3
 After=docker.service
 Requires=docker.service
+OnFailure=club-pwa-operational-alert@%n.service
 
 [Service]
 Type=oneshot
@@ -41,6 +56,7 @@ cat > "$VERIFY_SERVICE_FILE" <<EOF
 Description=Verify latest Club PWA database backup restore
 After=docker.service
 Requires=docker.service
+OnFailure=club-pwa-operational-alert@%n.service
 
 [Service]
 Type=oneshot
@@ -68,6 +84,7 @@ cat > "$KUMA_SERVICE_FILE" <<EOF
 Description=Club PWA Uptime Kuma backup to private S3
 After=docker.service club-pwa-uptime-kuma-1.service
 Requires=docker.service
+OnFailure=club-pwa-operational-alert@%n.service
 
 [Service]
 Type=oneshot

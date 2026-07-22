@@ -59,11 +59,11 @@ describe("backup infrastructure", () => {
   });
 
   it("backs up Kuma SQLite safely and uploads it to private S3", () => {
-    expect(kumaBackupScript).toContain("stop -t 20 uptime-kuma");
-    expect(kumaBackupScript).toContain("start uptime-kuma");
-    expect(kumaBackupScript).toContain("--volumes-from");
-    expect(kumaBackupScript).toContain("--entrypoint tar");
-    expect(kumaBackupScript).toContain("-czf");
+    expect(kumaBackupScript).toContain("sqlite3 /app/data/kuma.db");
+    expect(kumaBackupScript).toContain(".backup");
+    expect(kumaBackupScript).toContain("docker cp");
+    expect(kumaBackupScript).not.toContain("stop -t 20 uptime-kuma");
+    expect(kumaBackupScript).not.toContain("--volumes-from");
     expect(kumaBackupScript).toContain("uploadOperationalBackup.ts");
     expect(kumaBackupScript).toContain("--user 0:0");
     expect(kumaBackupScript).toContain('[[ "$temp_dir" == /tmp/club-pwa-kuma-backup.* ]]');
@@ -76,5 +76,11 @@ describe("backup infrastructure", () => {
     expect(installer).toContain("club-pwa-kuma-backup.timer");
     expect(installer).toContain("OnCalendar=*-*-* 03:10:00");
     expect(installer).toContain("systemctl enable --now club-pwa-kuma-backup.timer");
+  });
+
+  it("alerts when any backup or restore unit fails", () => {
+    expect(installer.match(/OnFailure=club-pwa-operational-alert@%n.service/g)).toHaveLength(3);
+    expect(installer).toContain("club-pwa-operational-alert@.service");
+    expect(installer).toContain("send-systemd-failure-alert.sh");
   });
 });

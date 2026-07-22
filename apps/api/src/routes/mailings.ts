@@ -464,7 +464,7 @@ let mailingQueueTimer: ReturnType<typeof setInterval> | null = null;
 
 export function startMailingDispatcher() {
   if (mailingQueueTimer) {
-    return;
+    return mailingQueueTimer;
   }
 
   mailingQueueTimer = setInterval(() => {
@@ -472,6 +472,13 @@ export function startMailingDispatcher() {
       logger.error({ error }, "mailing queue processing failed");
     });
   }, 5000);
+  return mailingQueueTimer;
+}
+
+export function stopMailingDispatcher() {
+  if (!mailingQueueTimer) return;
+  clearInterval(mailingQueueTimer);
+  mailingQueueTimer = null;
 }
 
 export const mailingsRoute = new Hono<{ Variables: AuthVariables }>()

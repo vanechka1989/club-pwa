@@ -157,6 +157,10 @@ describe("deploy update script", () => {
     expect(deployWorkflow).toContain("pnpm test");
     expect(deployWorkflow).toContain("pnpm build");
     expect(deployWorkflow).toContain("needs: quality");
+    expect(deployWorkflow).toContain("DEPLOY_EXPECTED_COMMIT");
+    expect(deployWorkflow).toContain("${{ github.sha }}");
+    expect(updateScript).toContain('--setenv="DEPLOY_EXPECTED_COMMIT=${DEPLOY_EXPECTED_COMMIT:-}"');
+    expect(updateWorker).toContain('current_target" != "$DEPLOY_EXPECTED_COMMIT');
   });
 
   it("collects remote deployment diagnostics when the update command fails", () => {

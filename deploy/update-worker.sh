@@ -349,6 +349,10 @@ if [[ "$worker_checksum_before" != "$worker_checksum_after" && "$DEPLOY_WORKER_R
   exec env DEPLOY_WORKER_REEXECUTED=1 DEPLOY_WORKER_LOCK_HELD=1 bash "$WORKER_FILE"
 fi
 current_target="$(git rev-parse HEAD)"
+if [[ -n "${DEPLOY_EXPECTED_COMMIT:-}" && "$current_target" != "$DEPLOY_EXPECTED_COMMIT" ]]; then
+  echo "Refusing to deploy $current_target: quality checks passed for $DEPLOY_EXPECTED_COMMIT" >&2
+  exit 1
+fi
 
 deployed_commit="$(cat "$DEPLOYED_COMMIT_FILE" 2>/dev/null || true)"
 if [[ "$deployed_commit" == "$current_target" && "${DEPLOY_FORCE:-0}" != "1" ]]; then

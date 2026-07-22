@@ -47,6 +47,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       NODE_ENV: production
       PORT: 3000

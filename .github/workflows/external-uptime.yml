@@ -65,3 +65,6 @@ jobs:
               await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body: 'Сервис снова отвечает; инцидент закрыт автоматически.' });
               await github.rest.issues.update({ ...context.repo, issue_number: existing.number, state: 'closed' });
             }
+      - name: Mark outage check as failed
+        if: steps.check.outcome == 'failure'
+        run: exit 1

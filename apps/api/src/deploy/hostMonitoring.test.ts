@@ -15,13 +15,20 @@ describe("host capacity monitoring", () => {
 
   it("checks bounded host and service signals and only alerts on transitions", () => {
     expect(probe).toContain("DISK_WARN_PERCENT");
-    expect(probe).toContain("MEMORY_WARN_PERCENT");
+    expect(probe).toContain("DISK_CRITICAL_PERCENT");
+    expect(probe).toContain("DISK_EMERGENCY_PERCENT");
+    expect(probe).toContain("MEMORY_AVAILABLE_WARN_MB");
+    expect(probe).toContain("swap_used_percent");
+    expect(probe).toContain("RestartCount");
+    expect(probe).toContain("OOMKilled");
     expect(probe).toContain("postgres api web caddy uptime-kuma");
     expect(probe).toContain("previous_fingerprint");
     expect(probe).toContain("sendOperationalAlert.ts");
     expect(probe).not.toContain("docker ps --format");
     expect(sender).toContain("env.OWNER_EMAIL");
-    expect(sender).toContain("sendEmail");
+    expect(sender).toContain("nodemailer.createTransport");
+    expect(sender).not.toContain("sendEmail");
+    expect(sender).not.toContain("reserveEmailQuota");
   });
 
   it("installs the probe timer during production reconciliation", () => {

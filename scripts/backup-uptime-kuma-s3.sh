@@ -5,8 +5,9 @@ DEPLOY_DIR="${DEPLOY_DIR:-/opt/club-pwa}"
 STATE_DIR="${BACKUP_STATE_DIR:-/var/lib/club-pwa-backup}"
 STATUS_FILE="$STATE_DIR/kuma.env"
 temp_dir="$(mktemp -d /tmp/club-pwa-kuma-backup.XXXXXX)"
-file_name="uptime-kuma-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
-kuma_stopped=0
+file_name="uptime-kuma-$(date -u +%Y%m%dT%H%M%SZ).db"
+container_snapshot="/tmp/club-pwa-kuma-backup-$$.db"
+container_id=""
 
 write_status() {
   local status="$1"
@@ -20,8 +21,8 @@ write_status() {
 }
 
 cleanup() {
-  if [[ "$kuma_stopped" == "1" ]]; then
-    (cd "$DEPLOY_DIR" && docker compose -f docker-compose.prod.yml start uptime-kuma) >/dev/null 2>&1 || true
+  if [[ -n "$container_id" ]]; then
+    docker exec "$container_id" rm -f "$container_snapshot" >/dev/null 2>&1 || true
   fi
   if [[ "$temp_dir" == /tmp/club-pwa-kuma-backup.* ]]; then
     rm -rf -- "$temp_dir"
@@ -41,12 +42,8 @@ trap on_error ERR
 cd "$DEPLOY_DIR"
 container_id="$(docker compose -f docker-compose.prod.yml ps -q uptime-kuma)"
 test -n "$container_id"
-docker compose -f docker-compose.prod.yml stop -t 20 uptime-kuma
-kuma_stopped=1
-docker run --rm --volumes-from "$container_id" -v "$temp_dir:/backup" \
-  --entrypoint tar caddy:2-alpine -czf "/backup/$file_name" -C /app/data .
-docker compose -f docker-compose.prod.yml start uptime-kuma
-kuma_stopped=0
+docker exec "$container_id" sqlite3 /app/data/kuma.db ".backup '$container_snapshot'"
+docker cp "$container_id:$container_snapshot" "$temp_dir/$file_name"
 test -s "$temp_dir/$file_name"
 
 result="$(docker compose -f docker-compose.prod.yml run --rm --no-deps --user 0:0 \

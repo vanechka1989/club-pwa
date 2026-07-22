@@ -18,7 +18,7 @@ if (!(await file.exists()) || file.size <= 0) {
 
 const prefix = prefixes[backupKind]!;
 const key = `${prefix}${basename(sourcePath)}`;
-await uploadObject({ key, body: new Uint8Array(await file.arrayBuffer()), contentType: "application/gzip" });
+await uploadObject({ key, body: new Uint8Array(await file.arrayBuffer()), contentType: "application/x-sqlite3" });
 const metadata = await getObjectMetadata(key);
 if (!metadata.sizeBytes || metadata.sizeBytes !== file.size) {
   throw new Error("Uploaded operational backup size verification failed");

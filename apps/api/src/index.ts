@@ -35,8 +35,6 @@ function getClientErrorRateLimitKey(c: Context) {
   return forwardedFor || c.req.header("x-real-ip") || c.req.header("cf-connecting-ip") || c.req.header("user-agent") || "unknown";
 }
 
-void startBackgroundJobs().catch((error) => logger.error({ error }, "Unable to start background jobs"));
-
 app.use("*", async (c, next) => {
   const startedAt = performance.now();
   let requestStatus = 500;
@@ -144,8 +142,34 @@ app.route("/push", pushRoute);
 app.route("/subscriptions", subscriptionsRoute);
 app.route("/support", supportRoute);
 
-export default {
+const server = Bun.serve({
   port: env.PORT,
   idleTimeout: 120,
   fetch: app.fetch
-};
+});
+
+let stopBackgroundJobs: (() => void) | null = null;
+let shutdownRequested = false;
+void startBackgroundJobs()
+  .then((stop) => {
+    if (!stop) return;
+    if (shutdownRequested) stop();
+    else stopBackgroundJobs = stop;
+  })
+  .catch((error) => logger.error({ error }, "Unable to start background jobs"));
+
+async function shutdown(signal: string) {
+  if (shutdownRequested) return;
+  shutdownRequested = true;
+  logger.info({ signal }, "graceful shutdown started");
+  stopBackgroundJobs?.();
+  stopBackgroundJobs = null;
+  const forceTimer = setTimeout(() => process.exit(1), 25_000);
+  forceTimer.unref();
+  await server.stop(false);
+  clearTimeout(forceTimer);
+  process.exit(0);
+}
+
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
+process.once("SIGINT", () => void shutdown("SIGINT"));

@@ -150,4 +150,10 @@ describe("production security config", () => {
       expect(block).toContain("pids_limit:");
     }
   });
+
+  it("allows the API time to drain requests during deployment", () => {
+    const apiStart = productionCompose.indexOf("  api:\n");
+    const apiEnd = productionCompose.indexOf("\n  migrate:\n", apiStart);
+    expect(productionCompose.slice(apiStart, apiEnd)).toContain("stop_grace_period: 30s");
+  });
 });
