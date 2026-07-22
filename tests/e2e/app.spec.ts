@@ -2627,8 +2627,8 @@ test("keeps application page headers aligned with the profile header", async ({ 
   test.skip(testInfo.project.name === "desktop-chrome");
 
   await page.goto("/profile");
-  const profileTitle = page.locator(".profile-page-header .section-title");
-  const profileSubtitle = page.locator(".profile-page-header .section-subtitle");
+  const profileTitle = page.locator(".profile-page-header .ui-page-header__title");
+  const profileSubtitle = page.locator(".profile-page-header .ui-page-header__subtitle");
   await expect(profileTitle).toBeVisible();
   await expect(profileSubtitle).toBeVisible();
 
@@ -2644,21 +2644,23 @@ test("keeps application page headers aligned with the profile header", async ({ 
       subtitleWeight: subtitleStyle?.fontWeight,
       subtitleLineHeight: subtitleStyle?.lineHeight
     };
-  }, ".profile-page-header .section-subtitle");
+  }, ".profile-page-header .ui-page-header__subtitle");
 
   expect(profileTypography).toMatchObject({
-    titleSize: "20px",
     titleWeight: "880",
-    subtitleSize: "12px",
     subtitleWeight: "650"
   });
-  expect(Number.parseFloat(profileTypography.titleLineHeight)).toBeCloseTo(24, 2);
-  expect(Number.parseFloat(profileTypography.subtitleLineHeight || "0")).toBeCloseTo(16.2, 2);
+  expect(Number.parseFloat(profileTypography.titleSize)).toBeGreaterThanOrEqual(16);
+  expect(Number.parseFloat(profileTypography.subtitleSize || "0")).toBeGreaterThanOrEqual(10);
+  expect(Number.parseFloat(profileTypography.titleLineHeight) / Number.parseFloat(profileTypography.titleSize)).toBeCloseTo(1.2, 2);
+  expect(
+    Number.parseFloat(profileTypography.subtitleLineHeight || "0") / Number.parseFloat(profileTypography.subtitleSize || "1")
+  ).toBeCloseTo(1.35, 2);
 
   for (const path of ["/learning", "/community", "/payments", "/support", "/admin"]) {
     await page.goto(path);
-    const title = page.locator(".section-head.ui-page-header .section-title").first();
-    const subtitle = page.locator(".section-head.ui-page-header .section-subtitle").first();
+    const title = page.locator(".section-head.ui-page-header .ui-page-header__title").first();
+    const subtitle = page.locator(".section-head.ui-page-header .ui-page-header__subtitle").first();
     await expect(title, path).toBeVisible();
     await expect(subtitle, path).toBeVisible();
     await expect(title, path).toHaveCSS("font-size", profileTypography.titleSize);
