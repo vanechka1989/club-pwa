@@ -43,6 +43,7 @@ describe("deploy update script", () => {
     expect(serverInstall).toContain("openssl rand -base64 32");
     expect(updateWorker).toContain("ensure_payment_encryption_key");
     expect(updateWorker).toContain("PAYMENT_CONFIG_ENCRYPTION_KEY=");
+    expect(productionCompose).toContain("PAYMENT_CONFIG_ENCRYPTION_KEY: ${PAYMENT_CONFIG_ENCRYPTION_KEY}");
     expect(updateWorker).not.toContain("echo $PAYMENT_CONFIG_ENCRYPTION_KEY");
   });
 

@@ -11,6 +11,15 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Исправлено подключение Lava",
+    items: [
+      "Исправлена серверная конфигурация: защищённый ключ платёжных настроек теперь передаётся в API.",
+      "Lava можно сохранить и включить в админке без ошибки сервера."
+    ]
+  },
+  {
+    version: "5.52",
+    updatedAt: "25.07.2026 21:56",
     title: "Оплата через Lava",
     items: [
       "Lava добавлена как второй независимый способ оплаты рядом с Prodamus.",

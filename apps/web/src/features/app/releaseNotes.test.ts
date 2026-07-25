@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes Lava payments as version 5.52", () => {
-    expect(appVersion).toBe("5.52");
-    expect(releaseNotes[0]?.title).toBe("Оплата через Lava");
+  it("publishes the Lava connection fix as version 5.53", () => {
+    expect(appVersion).toBe("5.53");
+    expect(releaseNotes[0]?.title).toBe("Исправлено подключение Lava");
+
+    const lavaRelease = releaseNotes.find((note) => note.version === "5.52");
+    expect(lavaRelease?.title).toBe("Оплата через Lava");
 
     const storageRelease = releaseNotes.find((note) => note.version === "5.51");
     expect(storageRelease?.title).toBe("Автоматическое обслуживание диска");
