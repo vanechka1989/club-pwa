@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  adminPaymentProvidersResponseSchema,
   paymentCheckoutOptionsResponseSchema,
   paymentProductSchema,
   paymentProviderSchema
@@ -58,5 +59,20 @@ describe("provider-neutral payment contracts", () => {
     });
 
     expect(response.options.map((option) => option.provider)).toEqual(["prodamus", "lava"]);
+  });
+
+  it("provides Lava webhook addresses before the provider is connected", () => {
+    const response = adminPaymentProvidersResponseSchema.parse({
+      providers: [],
+      lavaWebhookUrls: {
+        payment: "https://club.example/api/payments/lava/webhook/payment",
+        subscription: "https://club.example/api/payments/lava/webhook/subscription"
+      }
+    });
+
+    expect(response.lavaWebhookUrls).toEqual({
+      payment: "https://club.example/api/payments/lava/webhook/payment",
+      subscription: "https://club.example/api/payments/lava/webhook/subscription"
+    });
   });
 });

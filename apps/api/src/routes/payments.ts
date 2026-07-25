@@ -50,7 +50,7 @@ import { resolveCheckoutProvider } from "../payments/checkoutProvider";
 import { getPaymentProviderAdapter } from "../payments/providerRegistry";
 import { decryptProviderSecret } from "../payments/providerSecrets";
 import { encryptProviderSecret } from "../payments/providerSecrets";
-import { mapPaymentProviderForAdmin } from "../payments/providerAdminService";
+import { lavaWebhookUrls, mapPaymentProviderForAdmin } from "../payments/providerAdminService";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -886,7 +886,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       orderBy: [asc(paymentProviders.createdAt)]
     });
     return c.json({
-      providers: providers.map((provider) => mapPaymentProviderForAdmin(provider, env.WEB_ORIGIN))
+      providers: providers.map((provider) => mapPaymentProviderForAdmin(provider, env.WEB_ORIGIN)),
+      lavaWebhookUrls: lavaWebhookUrls(env.WEB_ORIGIN)
     });
   })
   .get("/admin/orders", async (c) => {

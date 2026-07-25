@@ -627,7 +627,11 @@ export const adminPaymentProviderResponseSchema = z.object({
 export type AdminPaymentProviderResponse = z.infer<typeof adminPaymentProviderResponseSchema>;
 
 export const adminPaymentProvidersResponseSchema = z.object({
-  providers: z.array(paymentProviderSchema)
+  providers: z.array(paymentProviderSchema),
+  lavaWebhookUrls: z.object({
+    payment: z.string().url(),
+    subscription: z.string().url()
+  })
 });
 export type AdminPaymentProvidersResponse = z.infer<typeof adminPaymentProvidersResponseSchema>;
 

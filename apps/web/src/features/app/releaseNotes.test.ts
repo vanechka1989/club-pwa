@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the Lava catalog fix as version 5.54", () => {
-    expect(appVersion).toBe("5.54");
-    expect(releaseNotes[0]?.title).toBe("Исправлена проверка Lava");
+  it("publishes the clearer Lava connection flow as version 5.55", () => {
+    expect(appVersion).toBe("5.55");
+    expect(releaseNotes[0]?.title).toBe("Понятное подключение Lava");
+
+    const lavaCatalogRelease = releaseNotes.find((note) => note.version === "5.54");
+    expect(lavaCatalogRelease?.title).toBe("Исправлена проверка Lava");
 
     const lavaConnectionRelease = releaseNotes.find((note) => note.version === "5.53");
     expect(lavaConnectionRelease?.title).toBe("Исправлено подключение Lava");

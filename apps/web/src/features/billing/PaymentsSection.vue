@@ -46,6 +46,7 @@ import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import PaymentProductBindings from "./PaymentProductBindings.vue";
 import PaymentProviderChooser from "./PaymentProviderChooser.vue";
 import PaymentProviderSettings from "./PaymentProviderSettings.vue";
+import LavaProviderTabs from "./LavaProviderTabs.vue";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -84,6 +85,8 @@ const providerForm = ref({
   isEnabled: true
 });
 const lavaProviderForm = ref({ apiKey: "", webhookSecret: "", isEnabled: true });
+const lavaProviderTab = ref<"connection" | "catalog">("connection");
+const lavaWebhookUrls = ref<{ payment: string; subscription: string } | null>(null);
 
 const productForm = ref({
   kind: "one_time" as "one_time" | "recurrent",
@@ -104,6 +107,9 @@ const isAdmin = computed(() =>
 );
 const isOwner = computed(() => session.user?.role === "owner");
 const lavaProvider = computed(() => providers.value.find((entry) => entry.provider === "lava") ?? null);
+const lavaProviderConnected = computed(() =>
+  Boolean(lavaProvider.value?.secretConfigured && lavaProvider.value?.webhookSecretConfigured)
+);
 const connectedProviders = computed(() => providers.value.filter((entry) => entry.secretConfigured));
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
@@ -228,6 +234,7 @@ async function loadProviderForAdmin() {
     provider.value = legacy.provider;
     webhookUrl.value = legacy.webhookUrl;
     providers.value = allProviders.providers;
+    lavaWebhookUrls.value = allProviders.lavaWebhookUrls;
     lavaCatalog.value = catalog.items;
   } catch {
     showPaymentError("Не удалось загрузить настройки платежной системы.");
@@ -276,6 +283,7 @@ function openProviderForm(kind: PaymentProviderCode = "prodamus") {
     webhookSecret: lavaProvider.value ? "" : generateWebhookSecret(),
     isEnabled: lavaProvider.value?.isEnabled ?? true
   };
+  lavaProviderTab.value = "connection";
   showProviderPicker.value = false;
   showProviderForm.value = true;
   openPaymentTask("/payments/provider");
@@ -435,7 +443,8 @@ async function handleSaveLavaProvider() {
       ...providers.value.filter((entry) => entry.provider !== "lava"),
       response.provider
     ];
-    closeProviderForm();
+    lavaWebhookUrls.value = response.provider.webhookUrls ?? lavaWebhookUrls.value;
+    lavaProviderTab.value = "catalog";
     showAlert("Lava подключена.");
   } catch {
     showPaymentError("Не удалось сохранить Lava.");
@@ -944,7 +953,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       v-if="showProviderForm"
       class="payment-task-screen"
       :title="providerFormKind === 'lava' ? 'Lava' : 'Prodamus'"
-      :subtitle="providerFormKind === 'lava' ? 'API-ключ, уведомления и синхронизация товаров.' : 'Данные платежной формы и URL уведомлений.'"
+      :subtitle="providerFormKind === 'lava' ? 'Подключение, webhook, проверка и товары.' : 'Данные платежной формы и URL уведомлений.'"
       portal
       @back="closeProviderForm"
     >
@@ -988,66 +997,80 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
             </div>
           </form>
           <form v-else class="payment-form-body space-y-3" @submit.prevent="handleSaveLavaProvider">
+            <LavaProviderTabs
+              v-model="lavaProviderTab"
+              :catalog-enabled="lavaProviderConnected"
+            />
             <PaymentProviderSettings
               :provider="lavaProvider"
+              :section="lavaProviderTab"
+              v-bind="lavaWebhookUrls ? { webhookUrls: lavaWebhookUrls } : {}"
               :busy="saving"
               @check="handleCheckLava"
               @sync="handleSyncLava"
               @copy="copyValue"
             />
-            <label class="block">
-              <span class="text-sm font-semibold text-[var(--muted)]">API-ключ Lava</span>
-              <div v-if="lavaProvider?.secretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
-                <span class="select-none text-sm font-semibold tracking-[0.24em] text-[var(--muted)] blur-[2px]">••••••••••••••••</span>
-                <p class="mt-1 text-xs text-[var(--muted)]">Ключ сохранён. Заполните поле только для замены.</p>
-              </div>
-              <input
-                v-model.trim="lavaProviderForm.apiKey"
-                class="text-input mt-2"
-                type="password"
-                autocomplete="new-password"
-                :placeholder="lavaProvider ? 'Новый API-ключ, если меняете' : 'API-ключ Lava'"
-                :required="!lavaProvider"
-              />
-            </label>
-            <label class="block">
-              <span class="text-sm font-semibold text-[var(--muted)]">Ключ для webhook</span>
-              <p class="mt-1 text-xs text-[var(--muted)]">
-                Укажите этот же ключ в Lava при создании обоих webhook, способ авторизации — API Key.
-              </p>
-              <div v-if="lavaProvider?.webhookSecretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
-                <p class="text-xs text-[var(--muted)]">Ключ сохранён. Новый нужен только для замены.</p>
-              </div>
-              <div class="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-2">
+            <template v-if="lavaProviderTab === 'connection'">
+              <label class="block">
+                <span class="text-sm font-semibold text-[var(--muted)]">API-ключ Lava</span>
+                <div v-if="lavaProvider?.secretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
+                  <span class="select-none text-sm font-semibold tracking-[0.24em] text-[var(--muted)] blur-[2px]">••••••••••••••••</span>
+                  <p class="mt-1 text-xs text-[var(--muted)]">Ключ сохранён. Заполните поле только для замены.</p>
+                </div>
                 <input
-                  v-model.trim="lavaProviderForm.webhookSecret"
-                  class="text-input min-w-0"
-                  type="text"
-                  autocomplete="off"
-                  :placeholder="lavaProvider ? 'Новый ключ, если меняете' : 'Ключ для webhook'"
+                  v-model.trim="lavaProviderForm.apiKey"
+                  class="text-input mt-2"
+                  type="password"
+                  autocomplete="new-password"
+                  :placeholder="lavaProvider ? 'Новый API-ключ, если меняете' : 'API-ключ Lava'"
                   :required="!lavaProvider"
                 />
-                <button
-                  class="icon-button ui-icon-button"
-                  type="button"
-                  aria-label="Скопировать ключ webhook"
-                  :disabled="!lavaProviderForm.webhookSecret"
-                  @click="copyValue(lavaProviderForm.webhookSecret)"
-                >
-                  <Copy :size="18" />
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-[var(--muted)]">Ключ для webhook</span>
+                <p class="mt-1 text-xs text-[var(--muted)]">
+                  Укажите этот же ключ в Lava для обоих webhook. Способ авторизации — API Key.
+                </p>
+                <div v-if="lavaProvider?.webhookSecretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
+                  <p class="text-xs text-[var(--muted)]">Ключ сохранён. Новый нужен только для замены.</p>
+                </div>
+                <div class="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-2">
+                  <input
+                    v-model.trim="lavaProviderForm.webhookSecret"
+                    class="text-input min-w-0"
+                    type="text"
+                    autocomplete="off"
+                    :placeholder="lavaProvider ? 'Новый ключ, если меняете' : 'Ключ для webhook'"
+                    :required="!lavaProvider"
+                  />
+                  <button
+                    class="icon-button ui-icon-button"
+                    type="button"
+                    aria-label="Скопировать ключ webhook"
+                    :disabled="!lavaProviderForm.webhookSecret"
+                    @click="copyValue(lavaProviderForm.webhookSecret)"
+                  >
+                    <Copy :size="18" />
+                  </button>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
+                <input v-model="lavaProviderForm.isEnabled" type="checkbox" />
+                Платежная система включена
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <button class="secondary-button ui-button" type="button" @click="closeProviderForm">Закрыть</button>
+                <button class="primary-button ui-button" type="submit" :disabled="saving">
+                  {{ lavaProvider ? "Сохранить" : "Подключить" }}
                 </button>
               </div>
-            </label>
-            <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
-              <input v-model="lavaProviderForm.isEnabled" type="checkbox" />
-              Платежная система включена
-            </label>
-            <div class="grid grid-cols-2 gap-3">
-              <button class="secondary-button ui-button" type="button" @click="closeProviderForm">Закрыть</button>
-              <button class="primary-button ui-button" type="submit" :disabled="saving">
-                {{ lavaProvider ? "Сохранить" : "Подключить" }}
-              </button>
-            </div>
+            </template>
+            <template v-else>
+              <p class="m-0 rounded-[14px] bg-[var(--field)] px-4 py-3 text-sm text-[var(--muted)]">
+                {{ lavaCatalog.length ? `Загружено предложений: ${lavaCatalog.length}` : "Каталог ещё не загружен." }}
+              </p>
+              <button class="secondary-button ui-button w-full" type="button" @click="closeProviderForm">Закрыть</button>
+            </template>
           </form>
     </TaskScreen>
 
