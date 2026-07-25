@@ -312,7 +312,38 @@ export const subscriptions = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    userStatusIdx: index("subscriptions_user_status_idx").on(table.userId, table.status)
+    userStatusIdx: index("subscriptions_user_status_idx").on(table.userId, table.status),
+    statusExpiresAtIdx: index("subscriptions_status_expires_at_idx").on(table.status, table.expiresAt)
+  })
+);
+
+export const membershipExpiryReminderDeliveries = pgTable(
+  "membership_expiry_reminder_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    subscriptionId: uuid("subscription_id").notNull().references(() => subscriptions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    stage: varchar("stage", { length: 24 }).notNull(),
+    channel: varchar("channel", { length: 16 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("processing"),
+    attemptCount: integer("attempt_count").notNull().default(1),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    subscriptionExpiryStageChannelIdx: uniqueIndex("membership_expiry_reminders_subscription_expiry_stage_channel_idx").on(
+      table.subscriptionId,
+      table.expiresAt,
+      table.stage,
+      table.channel
+    ),
+    statusRetryIdx: index("membership_expiry_reminders_status_retry_idx").on(table.status, table.nextAttemptAt, table.updatedAt),
+    userIdx: index("membership_expiry_reminders_user_idx").on(table.userId, table.createdAt)
   })
 );
 

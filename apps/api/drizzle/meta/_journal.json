@@ -393,6 +393,13 @@
       "when": 1785003600000,
       "tag": "0055_lava_catalog_selection",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785081600000,
+      "tag": "0056_membership_expiry_reminders",
+      "breakpoints": true
     }
   ]
 }
