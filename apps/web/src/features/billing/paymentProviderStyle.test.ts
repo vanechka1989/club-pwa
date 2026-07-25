@@ -93,4 +93,11 @@ describe("payment provider status style", () => {
       /v-model="lavaProviderForm\.isEnabled"[\s\S]*class="payment-product-publish-input"[\s\S]*payment-product-publish-switch/
     );
   });
+
+  it("places payment provider selection before tariff fields", () => {
+    const editor = source.slice(source.indexOf('<form class="payment-form-body'));
+    expect(editor.indexOf("<PaymentProductBindings")).toBeGreaterThanOrEqual(0);
+    expect(editor.indexOf("<PaymentProductBindings")).toBeLessThan(editor.indexOf(">Название</span>"));
+    expect(editor.indexOf("<PaymentProductBindings")).toBeLessThan(editor.indexOf(">Цена, ₽</span>"));
+  });
 });

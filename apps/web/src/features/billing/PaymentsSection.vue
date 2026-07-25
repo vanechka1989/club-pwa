@@ -49,6 +49,7 @@ import PaymentProviderChooser from "./PaymentProviderChooser.vue";
 import PaymentProviderSettings from "./PaymentProviderSettings.vue";
 import LavaProviderTabs from "./LavaProviderTabs.vue";
 import LavaCatalogList from "./LavaCatalogList.vue";
+import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -120,6 +121,13 @@ const connectedProviders = computed(() =>
       entry.secretConfigured &&
       (entry.provider !== "lava" || entry.webhookSecretConfigured)
   )
+);
+const selectedLavaCatalogItem = computed(() => {
+  const offerId = productForm.value.bindings.find((binding) => binding.provider === "lava" && binding.enabled)?.externalOfferId;
+  return offerId ? lavaCatalog.value.find((item) => item.externalOfferId === offerId) ?? null : null;
+});
+const selectedLavaAccessDays = computed(() =>
+  selectedLavaCatalogItem.value ? lavaCatalogAccessDays(selectedLavaCatalogItem.value.periodicity ?? null) : null
 );
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
@@ -320,6 +328,10 @@ function resetProductForm() {
     ],
     isPublished: true
   };
+}
+
+function handleLavaItemSelected(item: PaymentProviderCatalogItem) {
+  Object.assign(productForm.value, applyLavaCatalogItem(productForm.value, item));
 }
 
 function setProductForm(product?: PaymentProduct) {
@@ -1139,12 +1151,19 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       @back="closeProductModal"
     >
           <form class="payment-form-body space-y-3" @submit.prevent="handleSaveProduct">
+            <PaymentProductBindings
+              v-model="productForm.bindings"
+              :kind="productForm.kind"
+              :lava-catalog="lavaCatalog"
+              @lava-item-selected="handleLavaItemSelected"
+            />
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">Тип</span>
-              <select v-model="productForm.kind" class="text-input mt-2">
+              <select v-model="productForm.kind" class="text-input mt-2" :disabled="Boolean(selectedLavaCatalogItem)">
                 <option value="one_time">Обычный платеж</option>
                 <option value="recurrent">Рекуррентная подписка</option>
               </select>
+              <small v-if="selectedLavaCatalogItem" class="payment-product-field-hint">Тип получен из Lava.</small>
             </label>
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">Название</span>
@@ -1157,18 +1176,34 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
             <div class="grid grid-cols-2 gap-3">
               <label class="block">
                 <span class="text-sm font-semibold text-[var(--muted)]">Цена, ₽</span>
-                <input v-model.number="productForm.amountRub" class="text-input mt-2" type="number" min="1" required />
+                <input
+                  v-model.number="productForm.amountRub"
+                  class="text-input mt-2"
+                  type="number"
+                  min="1"
+                  required
+                  :readonly="selectedLavaCatalogItem?.amountRub !== null && selectedLavaCatalogItem?.amountRub !== undefined"
+                />
+                <small
+                  v-if="selectedLavaCatalogItem?.amountRub !== null && selectedLavaCatalogItem?.amountRub !== undefined"
+                  class="payment-product-field-hint"
+                >
+                  Цена из Lava.
+                </small>
               </label>
               <label class="block">
                 <span class="text-sm font-semibold text-[var(--muted)]">Дней доступа</span>
-                <input v-model.number="productForm.accessDays" class="text-input mt-2" type="number" min="1" required />
+                <input
+                  v-model.number="productForm.accessDays"
+                  class="text-input mt-2"
+                  type="number"
+                  min="1"
+                  required
+                  :readonly="selectedLavaAccessDays !== null"
+                />
+                <small v-if="selectedLavaAccessDays !== null" class="payment-product-field-hint">Период из Lava.</small>
               </label>
             </div>
-            <PaymentProductBindings
-              v-model="productForm.bindings"
-              :kind="productForm.kind"
-              :lava-catalog="lavaCatalog"
-            />
             <label class="payment-product-publish-toggle">
               <span class="payment-product-publish-copy">
                 <strong>Показывать клиентам</strong>
@@ -1199,5 +1234,6 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
 .payment-provider-mini-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .payment-provider-mini-list button{display:grid;gap:3px;min-width:0;min-height:54px;padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:var(--field);color:var(--text);text-align:left}
 .payment-provider-mini-list span,.payment-provider-mini-list small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.payment-provider-mini-list span{font-weight:750}.payment-provider-mini-list small{color:var(--muted)}
+.payment-product-field-hint{display:block;margin-top:6px;color:var(--accent);font-size:.72rem;line-height:1.35}.payment-form-body .text-input:read-only,.payment-form-body .text-input:disabled{cursor:not-allowed;opacity:.78}
 @media(max-width:340px){.payment-provider-mini-list{grid-template-columns:1fr}}
 </style>

@@ -12,7 +12,10 @@ const props = defineProps<{
   kind: PaymentProductKind;
   lavaCatalog: PaymentProviderCatalogItem[];
 }>();
-const emit = defineEmits<{ "update:modelValue": [bindings: PaymentProductProviderBinding[]] }>();
+const emit = defineEmits<{
+  "update:modelValue": [bindings: PaymentProductProviderBinding[]];
+  "lava-item-selected": [item: PaymentProviderCatalogItem];
+}>();
 const selectedProvider = computed<PaymentProviderCode>(() =>
   props.modelValue.find((entry) => entry.enabled)?.provider ?? "prodamus"
 );
@@ -20,7 +23,6 @@ const availableLavaCatalog = computed(() => {
   const selectedOfferId = binding("lava").externalOfferId;
   return props.lavaCatalog.filter((item) =>
     !item.isStale &&
-    item.kind === props.kind &&
     (item.isSelectable || item.externalOfferId === selectedOfferId)
   );
 });
@@ -68,12 +70,13 @@ function chooseLava(value: string) {
     externalProductId: item?.externalProductId ?? null,
     externalOfferId: item?.externalOfferId ?? null
   });
+  if (item) emit("lava-item-selected", item);
 }
 </script>
 
 <template>
   <fieldset class="product-bindings">
-    <legend>Способы оплаты</legend>
+    <legend>Платёжная система</legend>
     <div class="product-binding">
       <label class="product-binding__toggle">
         <span><strong>Prodamus</strong><small>Прямая оплата и подписки</small></span>
@@ -110,12 +113,14 @@ function chooseLava(value: string) {
         <label v-if="availableLavaCatalog.length">
           <span>Предложение Lava</span>
           <select
+            aria-label="Предложение Lava"
             :value="availableLavaCatalog.find((entry) => entry.externalOfferId === binding('lava').externalOfferId)?.id ?? ''"
             @change="chooseLava(($event.target as HTMLSelectElement).value)"
           >
             <option value="">Выберите товар</option>
             <option v-for="item in availableLavaCatalog" :key="item.id" :value="item.id">
               {{ item.title }}<template v-if="item.amountRub !== null"> · {{ item.amountRub }} ₽</template>
+              · {{ item.kind === "recurrent" ? "Подписка" : "Разовая оплата" }}
             </option>
           </select>
         </label>

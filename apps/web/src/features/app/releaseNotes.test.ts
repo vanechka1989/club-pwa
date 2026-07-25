@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes the improved payment product flow as version 5.56", () => {
-    expect(appVersion).toBe("5.56");
-    expect(releaseNotes[0]?.title).toBe("Удобное управление оплатой");
+  it("publishes Lava tariff autofill as version 5.57", () => {
+    expect(appVersion).toBe("5.57");
+    expect(releaseNotes[0]?.title).toBe("Тарифы Lava без ручного заполнения");
+
+    const improvedPaymentFlow = releaseNotes.find((note) => note.version === "5.56");
+    expect(improvedPaymentFlow?.title).toBe("Удобное управление оплатой");
 
     const lavaFlowRelease = releaseNotes.find((note) => note.version === "5.55");
     expect(lavaFlowRelease?.title).toBe("Понятное подключение Lava");
@@ -162,7 +165,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Clearer payment setup");
+    expect(englishNotes[0]?.title).toBe("Automatic Lava plan setup");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

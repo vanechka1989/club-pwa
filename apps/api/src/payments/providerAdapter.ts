@@ -19,6 +19,7 @@ export type ProviderCheckoutInput = {
   product: {
     title: string;
     amountRub: number;
+    useCustomAmount?: boolean;
     kind: PaymentProductKind;
     accessDays: number;
     externalProductId: string | null;

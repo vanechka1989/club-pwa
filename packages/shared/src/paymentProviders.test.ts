@@ -85,11 +85,13 @@ describe("provider-neutral payment contracts", () => {
       title: "Подписка на месяц",
       kind: "recurrent",
       amountRub: 990,
+      periodicity: "MONTHLY",
       isStale: false,
       isSelectable: false,
       syncedAt: "2026-07-25T10:00:00.000Z"
     });
 
     expect(item.isSelectable).toBe(false);
+    expect(item.periodicity).toBe("MONTHLY");
   });
 });

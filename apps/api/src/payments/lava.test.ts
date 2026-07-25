@@ -17,6 +17,7 @@ describe("Lava API client", () => {
       product: {
         title: "Клуб",
         amountRub: 990,
+        useCustomAmount: false,
         kind: "one_time",
         accessDays: 30,
         externalProductId: "product-1",
@@ -42,9 +43,36 @@ describe("Lava API client", () => {
       email: "buyer@example.com",
       offerId: "836b9fc5-7ae9-4a27-9642-592bc44072b7",
       currency: "RUB",
-      amount: 990,
       buyerLanguage: "RU"
     });
+  });
+
+  it("sends the entered amount only for a dynamic-price offer", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
+      paymentUrl: "https://app.lava.top/invoice-1"
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = createLavaClient({ apiKey: "api-key", fetch: fetchMock });
+
+    await client.createCheckout({
+      credentials: { apiKey: "api-key" },
+      orderId: "club-order-dynamic",
+      user: { id: "user-1", telegramId: "123", email: "buyer@example.com" },
+      product: {
+        title: "Свободная цена",
+        amountRub: 150,
+        useCustomAmount: true,
+        kind: "one_time",
+        accessDays: 30,
+        externalProductId: "product-1",
+        externalOfferId: "836b9fc5-7ae9-4a27-9642-592bc44072b7"
+      },
+      returnUrl: "https://club.example/",
+      notificationUrl: "https://club.example/api/payments/lava/webhook/payment"
+    });
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ amount: 150 }));
   });
 
   it("maps authorization and throttling errors to safe codes", async () => {

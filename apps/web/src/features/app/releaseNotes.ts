@@ -16,6 +16,17 @@ export const releaseNotes: ReleaseNote[] = [
     items: [...currentRelease.items]
   },
   {
+    version: "5.56",
+    updatedAt: "25.07.2026 23:50",
+    title: "Удобное управление оплатой",
+    items: [
+      "Плюс в разделе оплаты теперь сразу создаёт новый тариф.",
+      "Для тарифа выбирается одна платёжная система: Prodamus или Lava.",
+      "После синхронизации можно выбрать, какие товары Lava доступны при создании тарифов.",
+      "После успешной выкладки владелец получает системное уведомление о новой версии."
+    ]
+  },
+  {
     version: "5.55",
     updatedAt: "25.07.2026 23:11",
     title: "Понятное подключение Lava",
@@ -4181,12 +4192,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clearer payment setup",
+  title: "Automatic Lava plan setup",
   items: [
-    "The plus button in Payments now creates a new plan immediately.",
-    "Each plan uses exactly one payment provider: Prodamus or Lava.",
-    "Admins can choose which synchronized Lava products are available when creating plans.",
-    "The owner receives a system notification after a successful production update."
+    "Payment provider selection now appears first in the plan form.",
+    "Selecting a Lava product fills its title, price, payment type, and subscription period.",
+    "Fixed-price Lava checkout now uses the catalog price and is accepted by the current API."
   ]
 };
 

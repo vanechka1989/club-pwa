@@ -615,6 +615,25 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       );
     }
 
+    const lavaCatalogItem = selected.provider === "lava" && selected.binding.externalOfferId
+      ? await db.query.paymentProviderCatalogItems.findFirst({
+          where: and(
+            eq(paymentProviderCatalogItems.providerId, selected.binding.provider.id),
+            eq(paymentProviderCatalogItems.externalOfferId, selected.binding.externalOfferId)
+          )
+        })
+      : null;
+    if (
+      lavaCatalogItem?.amountRub !== null &&
+      lavaCatalogItem?.amountRub !== undefined &&
+      lavaCatalogItem.amountRub !== product.amountRub
+    ) {
+      return c.json({
+        checkoutUrl: null,
+        message: `Цена товара в Lava изменилась: ${lavaCatalogItem.amountRub} ₽. Обновите тариф.`
+      }, 409);
+    }
+
     const now = new Date();
     const orderId = `club-${randomUUID()}`;
     const [order] = await db
@@ -647,6 +666,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         product: {
           title: product.title,
           amountRub: product.amountRub,
+          useCustomAmount: selected.provider === "lava" && lavaCatalogItem?.amountRub === null,
           kind: product.kind,
           accessDays: product.accessDays,
           externalProductId: selected.binding.externalProductId,
@@ -1121,6 +1141,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         title: item.title,
         kind: item.kind,
         amountRub: item.amountRub,
+        periodicity: typeof item.metadata?.periodicity === "string" ? item.metadata.periodicity : null,
         isStale: item.isStale,
         isSelectable: item.isSelectable,
         syncedAt: item.syncedAt.toISOString()

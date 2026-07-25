@@ -180,7 +180,7 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
               email: input.user.email,
               offerId: input.product.externalOfferId,
               currency: "RUB",
-              amount: input.product.amountRub,
+              ...(input.product.useCustomAmount ? { amount: input.product.amountRub } : {}),
               buyerLanguage: "RU",
               ...(lavaPeriodicity(input.product.kind, input.product.accessDays)
                 ? { periodicity: lavaPeriodicity(input.product.kind, input.product.accessDays) }

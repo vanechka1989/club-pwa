@@ -1,0 +1,61 @@
+import { describe, expect, it } from "vitest";
+import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
+
+const form = {
+  kind: "one_time" as const,
+  title: "Черновик",
+  amountRub: 990,
+  accessDays: 14
+};
+
+describe("Lava tariff autofill", () => {
+  it("copies the fixed catalog title, price, type and monthly period", () => {
+    const result = applyLavaCatalogItem(form, {
+      id: "catalog-1",
+      externalProductId: "product-1",
+      externalOfferId: "offer-1",
+      title: "Клуб на месяц",
+      kind: "recurrent",
+      amountRub: 100,
+      periodicity: "MONTHLY",
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-26T00:00:00.000Z"
+    });
+
+    expect(result).toEqual({
+      kind: "recurrent",
+      title: "Клуб на месяц",
+      amountRub: 100,
+      accessDays: 30
+    });
+  });
+
+  it("keeps the entered price and access period when Lava does not provide them", () => {
+    const result = applyLavaCatalogItem(form, {
+      id: "catalog-2",
+      externalProductId: "product-2",
+      externalOfferId: "offer-2",
+      title: "Свободная цена",
+      kind: "one_time",
+      amountRub: null,
+      periodicity: null,
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-26T00:00:00.000Z"
+    });
+
+    expect(result.amountRub).toBe(990);
+    expect(result.accessDays).toBe(14);
+  });
+
+  it.each([
+    ["MONTHLY", 30],
+    ["PERIOD_90_DAYS", 90],
+    ["PERIOD_180_DAYS", 180],
+    ["PERIOD_YEAR", 365],
+    [null, null]
+  ])("maps Lava periodicity %s to %s access days", (periodicity, expected) => {
+    expect(lavaCatalogAccessDays(periodicity)).toBe(expected);
+  });
+});
