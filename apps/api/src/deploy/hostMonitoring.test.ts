@@ -23,7 +23,8 @@ describe("host capacity monitoring", () => {
     expect(probe).toContain("swap_used_percent");
     expect(probe).toContain("RestartCount");
     expect(probe).toContain("OOMKilled");
-    expect(probe).toContain("postgres api web caddy uptime-kuma");
+    expect(probe).toContain("postgres api web caddy");
+    expect(probe).not.toContain("uptime-kuma");
     expect(probe).toContain("previous_fingerprint");
     expect(probe).toContain("sendOperationalAlert.ts");
     expect(probe).not.toContain("docker ps --format");

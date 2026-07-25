@@ -11,8 +11,7 @@ const backupScript = repoFile("scripts/backup-postgres-s3.sh");
 const installer = repoFile("deploy/install-backup-timer.sh");
 const updateWorker = repoFile("deploy/update-worker.sh");
 const verifyScript = repoFile("scripts/verify-postgres-backup.sh");
-const kumaBackupScript = repoFile("scripts/backup-uptime-kuma-s3.sh");
-const operationalUploader = repoFile("apps/api/src/storage/uploadOperationalBackup.ts");
+const obsoleteKumaBackupExists = existsSync(resolve(__dirname, "../../../../scripts/backup-uptime-kuma-s3.sh"));
 
 describe("backup infrastructure", () => {
   it("writes an atomic secret-safe status for every database backup run", () => {
@@ -59,30 +58,16 @@ describe("backup infrastructure", () => {
     expect(installer).toContain("systemctl enable --now club-pwa-backup-verify.timer");
   });
 
-  it("backs up Kuma SQLite safely and uploads it to private S3", () => {
-    expect(kumaBackupScript).toContain("sqlite3 /app/data/kuma.db");
-    expect(kumaBackupScript).toContain(".backup");
-    expect(kumaBackupScript).toContain('container_snapshot="/app/data/.club-pwa-kuma-backup-$$.db"');
-    expect(kumaBackupScript).toContain("docker cp");
-    expect(kumaBackupScript).not.toContain("stop -t 20 uptime-kuma");
-    expect(kumaBackupScript).not.toContain("--volumes-from");
-    expect(kumaBackupScript).toContain("uploadOperationalBackup.ts");
-    expect(kumaBackupScript).toContain("--user 0:0");
-    expect(kumaBackupScript).toContain('[[ "$temp_dir" == /tmp/club-pwa-kuma-backup.* ]]');
-    expect(operationalUploader).toContain('system/uptime-kuma-backups/');
-    expect(operationalUploader).toContain("getObjectMetadata");
-    expect(operationalUploader).toContain("deleteObject");
-    expect(operationalUploader).toContain("process.exit(0)");
-  });
-
-  it("installs a persistent nightly Kuma backup timer", () => {
-    expect(installer).toContain("club-pwa-kuma-backup.timer");
-    expect(installer).toContain("OnCalendar=*-*-* 03:10:00");
-    expect(installer).toContain("systemctl enable --now club-pwa-kuma-backup.timer");
+  it("retires the obsolete application-host Kuma backup timer", () => {
+    expect(installer).toContain("systemctl disable --now club-pwa-kuma-backup.timer");
+    expect(installer).toContain('rm -f "$KUMA_SERVICE_FILE" "$KUMA_TIMER_FILE"');
+    expect(installer).not.toContain("ExecStart=/usr/bin/env bash $DEPLOY_DIR/scripts/backup-uptime-kuma-s3.sh");
+    expect(installer).not.toContain("systemctl enable --now club-pwa-kuma-backup.timer");
+    expect(obsoleteKumaBackupExists).toBe(false);
   });
 
   it("alerts when any backup or restore unit fails", () => {
-    expect(installer.match(/OnFailure=club-pwa-operational-alert@%n.service/g)).toHaveLength(3);
+    expect(installer.match(/OnFailure=club-pwa-operational-alert@%n.service/g)).toHaveLength(2);
     expect(installer).toContain("club-pwa-operational-alert@.service");
     expect(installer).toContain("send-systemd-failure-alert.sh");
     expect(installer).toContain("TimeoutStartSec=2min");
