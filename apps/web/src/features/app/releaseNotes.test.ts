@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes Lava webhook compatibility as version 5.59", () => {
-    expect(appVersion).toBe("5.59");
-    expect(releaseNotes[0]?.title).toBe("Webhook Lava принимает оплату");
+  it("publishes Lava webhook key synchronization as version 5.60", () => {
+    expect(appVersion).toBe("5.60");
+    expect(releaseNotes[0]?.title).toBe("Ключ webhook Lava всегда доступен");
+
+    const webhookCompatibilityRelease = releaseNotes.find((note) => note.version === "5.59");
+    expect(webhookCompatibilityRelease?.title).toBe("Webhook Lava принимает оплату");
 
     const reliableCheckoutRelease = releaseNotes.find((note) => note.version === "5.58");
     expect(reliableCheckoutRelease?.title).toBe("Надёжная оплата и уведомления");
@@ -171,7 +174,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Automatic Lava plan setup");
+    expect(englishNotes[0]?.title).toBe("Saved Lava webhook key access");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

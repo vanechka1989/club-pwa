@@ -1030,6 +1030,29 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     });
     return c.json({ ok: true, provider: mapPaymentProviderForAdmin(provider, env.WEB_ORIGIN) });
   })
+  .post("/admin/providers/lava/webhook-secret", async (c) => {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const provider = await getLavaProvider();
+    if (!provider?.webhookSecret) {
+      return c.json({ error: "Ключ webhook Lava не настроен." }, 404);
+    }
+
+    await recordAdminAction(c, {
+      action: "payment.provider.webhook_secret.revealed",
+      entityType: "payment_provider",
+      entityId: provider.id,
+      summary: "Скопировал сохранённый ключ webhook Lava",
+      metadata: {}
+    });
+
+    return c.json({
+      ok: true,
+      webhookSecret: decryptProviderSecret(provider.webhookSecret)
+    });
+  })
   .post("/admin/providers/lava/check", async (c) => {
     const access = await getPaymentAdminAccess(c);
     if (!canManagePaymentSettings(access.role, access.permissions)) {

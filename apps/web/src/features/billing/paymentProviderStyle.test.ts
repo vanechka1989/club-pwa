@@ -100,4 +100,9 @@ describe("payment provider status style", () => {
     expect(editor.indexOf("<PaymentProductBindings")).toBeLessThan(editor.indexOf(">Название</span>"));
     expect(editor.indexOf("<PaymentProductBindings")).toBeLessThan(editor.indexOf(">Цена, ₽</span>"));
   });
+
+  it("offers an explicit way to copy the saved Lava webhook key", () => {
+    expect(source).toContain("handleRevealLavaWebhookSecret");
+    expect(source).toContain("Показать и скопировать сохранённый ключ");
+  });
 });

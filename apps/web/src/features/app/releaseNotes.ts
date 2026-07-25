@@ -16,6 +16,16 @@ export const releaseNotes: ReleaseNote[] = [
     items: [...currentRelease.items]
   },
   {
+    version: "5.59",
+    updatedAt: "26.07.2026 00:57",
+    title: "Webhook Lava принимает оплату",
+    items: [
+      "Webhook Lava теперь безопасно принимает оба сохранённых варианта API-ключа.",
+      "Успешная оплата больше не будет отмечаться в Lava как ошибка обработки из-за несовпадения выбранного ключа.",
+      "Резервная сверка сохранила уже выполненный платёж и активировала доступ клиенту."
+    ]
+  },
+  {
     version: "5.58",
     updatedAt: "26.07.2026 00:42",
     title: "Надёжная оплата и уведомления",
@@ -4213,11 +4223,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Automatic Lava plan setup",
+  title: "Saved Lava webhook key access",
   items: [
-    "Payment provider selection now appears first in the plan form.",
-    "Selecting a Lava product fills its title, price, payment type, and subscription period.",
-    "Fixed-price Lava checkout now uses the catalog price and is accepted by the current API."
+    "The exact webhook key saved on the server can now be revealed and copied from the Lava settings.",
+    "Reopening an unfinished connection form no longer generates a different webhook key.",
+    "Key access is restricted to payment settings managers and recorded in the action log."
   ]
 };
 

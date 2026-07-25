@@ -21,6 +21,7 @@ import {
   getPaymentPlans,
   getPaymentProvider,
   getPaymentProviders,
+  revealLavaWebhookSecret,
   restoreRecurrentSubscription,
   saveLavaProvider,
   saveProdamusProvider,
@@ -50,6 +51,7 @@ import PaymentProviderSettings from "./PaymentProviderSettings.vue";
 import LavaProviderTabs from "./LavaProviderTabs.vue";
 import LavaCatalogList from "./LavaCatalogList.vue";
 import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
+import { buildLavaProviderForm } from "./lavaProviderForm";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -296,11 +298,11 @@ function openProviderForm(kind: PaymentProviderCode = "prodamus") {
   }
   setProviderForm();
   providerFormKind.value = kind;
-  lavaProviderForm.value = {
-    apiKey: "",
-    webhookSecret: lavaProvider.value ? "" : generateWebhookSecret(),
-    isEnabled: lavaProvider.value?.isEnabled ?? true
-  };
+  lavaProviderForm.value = buildLavaProviderForm(
+    lavaProvider.value,
+    lavaProviderForm.value.webhookSecret,
+    generateWebhookSecret
+  );
   lavaProviderTab.value = "connection";
   showProviderPicker.value = false;
   showProviderForm.value = true;
@@ -471,6 +473,21 @@ async function handleSaveLavaProvider() {
     showAlert("Lava подключена.");
   } catch {
     showPaymentError("Не удалось сохранить Lava.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleRevealLavaWebhookSecret() {
+  saving.value = true;
+  error.value = null;
+  try {
+    const response = await revealLavaWebhookSecret();
+    lavaProviderForm.value.webhookSecret = response.webhookSecret;
+    await navigator.clipboard?.writeText(response.webhookSecret);
+    showAlert("Сохранённый ключ webhook скопирован.");
+  } catch {
+    showPaymentError("Не удалось получить ключ webhook Lava.");
   } finally {
     saving.value = false;
   }
@@ -1088,6 +1105,14 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
                 </p>
                 <div v-if="lavaProvider?.webhookSecretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
                   <p class="text-xs text-[var(--muted)]">Ключ сохранён. Новый нужен только для замены.</p>
+                  <button
+                    class="mt-2 min-h-11 w-full rounded-[14px] border border-[var(--line)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--text)]"
+                    type="button"
+                    :disabled="saving"
+                    @click="handleRevealLavaWebhookSecret"
+                  >
+                    Показать и скопировать сохранённый ключ
+                  </button>
                 </div>
                 <div class="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-2">
                   <input

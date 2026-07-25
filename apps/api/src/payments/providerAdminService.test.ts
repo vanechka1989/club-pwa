@@ -59,4 +59,16 @@ describe("payment provider administration", () => {
     expect(route).toContain("encryptProviderSecret(body.data.webhookSecret)");
     expect(route).toContain('webhookSecret: body.data.webhookSecret ? "[changed]" : "[unchanged]"');
   });
+
+  it("lets only a payment settings manager explicitly reveal the saved Lava webhook key", () => {
+    const route = readFileSync(new URL("../routes/payments.ts", import.meta.url), "utf8");
+    const start = route.indexOf('.post("/admin/providers/lava/webhook-secret"');
+    const end = route.indexOf('.post("/admin/providers/lava/check"', start);
+    const block = route.slice(start, end);
+
+    expect(start).toBeGreaterThan(-1);
+    expect(block).toContain("canManagePaymentSettings");
+    expect(block).toContain("decryptProviderSecret(provider.webhookSecret)");
+    expect(block).toContain('action: "payment.provider.webhook_secret.revealed"');
+  });
 });

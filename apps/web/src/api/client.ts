@@ -531,6 +531,12 @@ export function saveLavaProvider(payload: { apiKey?: string; webhookSecret?: str
   });
 }
 
+export function revealLavaWebhookSecret() {
+  return api<{ ok: true; webhookSecret: string }>("/payments/admin/providers/lava/webhook-secret", {
+    method: "POST"
+  });
+}
+
 export function checkLavaProvider() {
   return api<PaymentProviderMutationResponse>("/payments/admin/providers/lava/check", {
     method: "POST"
