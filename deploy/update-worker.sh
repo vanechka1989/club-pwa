@@ -400,6 +400,12 @@ if docker buildx version >/dev/null 2>&1; then
   docker buildx prune -f --filter "until=168h" >/dev/null || true
 fi
 
+current_phase="release-notification"
+write_status running "$current_phase"
+if ! compose exec -T -w /app/apps/api api bun src/deploy/notifyRelease.ts; then
+  echo "Release notification warning; deployment remains healthy." >&2
+fi
+
 current_phase="record-success"
 write_deployed_commit
 write_status success complete "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

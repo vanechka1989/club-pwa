@@ -189,6 +189,15 @@ describe("deploy update script", () => {
     expect(updateWorker).toContain('until=72h');
     expect(pruneIndex).toBeGreaterThan(healthIndex);
   });
+
+  it("notifies the owner only after production health verification", () => {
+    const healthIndex = updateWorker.lastIndexOf("wait_for_health");
+    const notificationIndex = updateWorker.indexOf("src/deploy/notifyRelease.ts");
+    const successIndex = updateWorker.indexOf("write_status success complete");
+
+    expect(notificationIndex).toBeGreaterThan(healthIndex);
+    expect(successIndex).toBeGreaterThan(notificationIndex);
+  });
 });
 
 describe("admin S3 storage target routing", () => {

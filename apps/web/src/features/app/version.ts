@@ -1,2 +1,4 @@
-export const appVersion = "5.55";
-export const appVersionUpdatedAt = "25.07.2026 23:11";
+import { currentRelease } from "@club/shared";
+
+export const appVersion: string = currentRelease.version;
+export const appVersionUpdatedAt: string = currentRelease.updatedAt;

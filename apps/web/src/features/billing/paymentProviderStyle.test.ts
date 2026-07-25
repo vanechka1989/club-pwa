@@ -80,9 +80,17 @@ describe("payment provider status style", () => {
     expect(source).toContain('v-if="isOwner && isEditingPayments && archivedProducts.length"');
   });
 
-  it("places the payment edit button immediately before the provider add button", () => {
+  it("uses the header plus to create a tariff", () => {
     expect(source).toMatch(
-      /aria-label="Редактировать оплату"[\s\S]*aria-label="Добавить платежную систему"/
+      /class="payment-header-actions"[\s\S]*aria-label="Добавить тариф"[\s\S]*@click="openProductModal\(\)"/
+    );
+    expect(source).not.toContain('aria-label="Добавить платежную систему"');
+  });
+
+  it("uses the compact switch for enabling a payment provider", () => {
+    expect(source).toContain('aria-label="Платёжная система включена"');
+    expect(source).toMatch(
+      /v-model="lavaProviderForm\.isEnabled"[\s\S]*class="payment-product-publish-input"[\s\S]*payment-product-publish-switch/
     );
   });
 });

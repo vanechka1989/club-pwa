@@ -547,6 +547,13 @@ export function getLavaCatalog() {
   return api<PaymentProviderCatalogResponse>("/payments/admin/providers/lava/catalog");
 }
 
+export function updateLavaCatalogItemSelection(id: string, isSelectable: boolean) {
+  return api<AdminMutationResponse>(`/payments/admin/providers/lava/catalog/${encodeURIComponent(id)}/selection`, {
+    method: "POST",
+    body: { isSelectable }
+  });
+}
+
 export function createPaymentProduct(payload: {
   kind: "one_time" | "recurrent";
   title: string;

@@ -1,4 +1,5 @@
 import { appVersion, appVersionUpdatedAt } from "./version";
+import { currentRelease } from "@club/shared";
 
 export type ReleaseNote = {
   version: string;
@@ -11,6 +12,12 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: currentRelease.title,
+    items: [...currentRelease.items]
+  },
+  {
+    version: "5.55",
+    updatedAt: "25.07.2026 23:11",
     title: "Понятное подключение Lava",
     items: [
       "Настройка Lava разделена на вкладки «Подключение» и «Проверка и товары».",
@@ -4174,12 +4181,12 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Lava payments",
+  title: "Clearer payment setup",
   items: [
-    "Lava is available as a second independent payment method alongside Prodamus.",
-    "Each plan can use Prodamus, Lava, or both, with an in-app payment method chooser.",
-    "One-time payments, subscriptions, renewals, cancellation, secure webhooks, and automatic reconciliation are supported.",
-    "Admins can configure Lava, verify the connection, synchronize products, and bind offers to plans."
+    "The plus button in Payments now creates a new plan immediately.",
+    "Each plan uses exactly one payment provider: Prodamus or Lava.",
+    "Admins can choose which synchronized Lava products are available when creating plans.",
+    "The owner receives a system notification after a successful production update."
   ]
 };
 

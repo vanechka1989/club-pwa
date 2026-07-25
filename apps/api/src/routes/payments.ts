@@ -51,6 +51,7 @@ import { getPaymentProviderAdapter } from "../payments/providerRegistry";
 import { decryptProviderSecret } from "../payments/providerSecrets";
 import { encryptProviderSecret } from "../payments/providerSecrets";
 import { lavaWebhookUrls, mapPaymentProviderForAdmin } from "../payments/providerAdminService";
+import { validateSingleEnabledPaymentBinding } from "../payments/paymentProductBindings";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -94,6 +95,10 @@ const productPayloadSchema = z.object({
 
 const productStatusPayloadSchema = z.object({
   isPublished: z.boolean()
+});
+
+const catalogSelectionPayloadSchema = z.object({
+  isSelectable: z.boolean()
 });
 
 const checkoutPayloadSchema = z.object({
@@ -1117,10 +1122,37 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         kind: item.kind,
         amountRub: item.amountRub,
         isStale: item.isStale,
+        isSelectable: item.isSelectable,
         syncedAt: item.syncedAt.toISOString()
       })),
       syncedAt: provider.lastCatalogSyncAt?.toISOString() ?? null
     });
+  })
+  .post("/admin/providers/lava/catalog/:id/selection", async (c) => {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const body = catalogSelectionPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid catalog selection payload" }, 400);
+    }
+    const provider = await getLavaProvider();
+    if (!provider) {
+      return c.json({ error: "Lava не подключена." }, 400);
+    }
+    const [item] = await db
+      .update(paymentProviderCatalogItems)
+      .set({ isSelectable: body.data.isSelectable })
+      .where(and(
+        eq(paymentProviderCatalogItems.id, c.req.param("id")),
+        eq(paymentProviderCatalogItems.providerId, provider.id)
+      ))
+      .returning();
+    if (!item) {
+      return c.json({ error: "Товар Lava не найден." }, 404);
+    }
+    return c.json({ ok: true });
   })
   .get("/admin/products", async (c) => {
     const access = await getPaymentAdminAccess(c);
@@ -1157,10 +1189,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       externalProductId: body.data.prodamusSubscriptionId ?? null,
       externalOfferId: null
     }];
-    const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
-    if (enabledBindings.length === 0) {
-      return c.json({ error: "Выберите хотя бы одну платёжную систему." }, 400);
+    const bindingSelection = validateSingleEnabledPaymentBinding(requestedBindings);
+    if (!bindingSelection.ok) {
+      return c.json({ error: bindingSelection.error }, 400);
     }
+    const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providerByCode = new Map(providers.map((provider) => [provider.provider, provider]));
     const primaryProvider = providerByCode.get(enabledBindings[0]!.provider);
     if (!primaryProvider) {
@@ -1250,10 +1283,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
           externalProductId: body.data.prodamusSubscriptionId ?? existingProduct.prodamusSubscriptionId,
           externalOfferId: null
         }]);
-    const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
-    if (enabledBindings.length === 0) {
-      return c.json({ error: "Выберите хотя бы одну платёжную систему." }, 400);
+    const bindingSelection = validateSingleEnabledPaymentBinding(requestedBindings);
+    if (!bindingSelection.ok) {
+      return c.json({ error: bindingSelection.error }, 400);
     }
+    const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providers = await db.query.paymentProviders.findMany();
     const primaryProvider = providers.find((provider) => provider.provider === enabledBindings[0]!.provider);
     if (!primaryProvider) {

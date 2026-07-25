@@ -3,6 +3,7 @@ import {
   adminPaymentProvidersResponseSchema,
   paymentCheckoutOptionsResponseSchema,
   paymentProductSchema,
+  paymentProviderCatalogItemSchema,
   paymentProviderSchema
 } from "./index";
 
@@ -74,5 +75,21 @@ describe("provider-neutral payment contracts", () => {
       payment: "https://club.example/api/payments/lava/webhook/payment",
       subscription: "https://club.example/api/payments/lava/webhook/subscription"
     });
+  });
+
+  it("preserves whether a Lava catalog item is available for tariffs", () => {
+    const item = paymentProviderCatalogItemSchema.parse({
+      id: "catalog-item",
+      externalProductId: "product-1",
+      externalOfferId: "offer-1",
+      title: "Подписка на месяц",
+      kind: "recurrent",
+      amountRub: 990,
+      isStale: false,
+      isSelectable: false,
+      syncedAt: "2026-07-25T10:00:00.000Z"
+    });
+
+    expect(item.isSelectable).toBe(false);
   });
 });

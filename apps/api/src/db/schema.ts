@@ -394,13 +394,16 @@ export const paymentProviderCatalogItems = pgTable(
     kind: paymentProductKind("kind").notNull(),
     amountRub: integer("amount_rub"),
     isStale: boolean("is_stale").notNull().default(false),
+    isSelectable: boolean("is_selectable").notNull().default(true),
     metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     providerExternalIdx: uniqueIndex("payment_provider_catalog_items_provider_external_idx")
       .on(table.providerId, table.externalProductId, table.externalOfferId),
-    providerStaleIdx: index("payment_provider_catalog_items_provider_stale_idx").on(table.providerId, table.isStale)
+    providerStaleIdx: index("payment_provider_catalog_items_provider_stale_idx").on(table.providerId, table.isStale),
+    providerSelectableIdx: index("payment_provider_catalog_items_provider_selectable_idx")
+      .on(table.providerId, table.isSelectable, table.isStale)
   })
 );
 

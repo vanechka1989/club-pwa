@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const currentRelease = {
+  version: "5.56",
+  updatedAt: "25.07.2026 23:50",
+  title: "Удобное управление оплатой",
+  items: [
+    "Плюс в разделе оплаты теперь сразу создаёт новый тариф.",
+    "Для тарифа выбирается одна платёжная система: Prodamus или Lava.",
+    "После синхронизации можно выбрать, какие товары Lava доступны при создании тарифов.",
+    "После успешной выкладки владелец получает системное уведомление о новой версии."
+  ]
+} as const;
+
 export const displayNamePattern = /^[\p{L}\p{N}_-]{3,20}$/u;
 export function normalizeDisplayName(value: string) {
   return value.trim();
@@ -643,6 +655,7 @@ export const paymentProviderCatalogItemSchema = z.object({
   kind: paymentProductKindSchema,
   amountRub: z.number().int().nonnegative().nullable(),
   isStale: z.boolean(),
+  isSelectable: z.boolean().default(true),
   syncedAt: z.string().datetime()
 });
 export type PaymentProviderCatalogItem = z.infer<typeof paymentProviderCatalogItemSchema>;

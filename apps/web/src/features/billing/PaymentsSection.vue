@@ -25,6 +25,7 @@ import {
   saveLavaProvider,
   saveProdamusProvider,
   syncLavaCatalog,
+  updateLavaCatalogItemSelection,
   updatePaymentProduct,
   updatePaymentProductStatus
 } from "@/api/client";
@@ -47,6 +48,7 @@ import PaymentProductBindings from "./PaymentProductBindings.vue";
 import PaymentProviderChooser from "./PaymentProviderChooser.vue";
 import PaymentProviderSettings from "./PaymentProviderSettings.vue";
 import LavaProviderTabs from "./LavaProviderTabs.vue";
+import LavaCatalogList from "./LavaCatalogList.vue";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -87,6 +89,7 @@ const providerForm = ref({
 const lavaProviderForm = ref({ apiKey: "", webhookSecret: "", isEnabled: true });
 const lavaProviderTab = ref<"connection" | "catalog">("connection");
 const lavaWebhookUrls = ref<{ payment: string; subscription: string } | null>(null);
+const catalogItemSavingId = ref<string | null>(null);
 
 const productForm = ref({
   kind: "one_time" as "one_time" | "recurrent",
@@ -110,7 +113,14 @@ const lavaProvider = computed(() => providers.value.find((entry) => entry.provid
 const lavaProviderConnected = computed(() =>
   Boolean(lavaProvider.value?.secretConfigured && lavaProvider.value?.webhookSecretConfigured)
 );
-const connectedProviders = computed(() => providers.value.filter((entry) => entry.secretConfigured));
+const connectedProviders = computed(() =>
+  providers.value.filter(
+    (entry) =>
+      entry.isEnabled &&
+      entry.secretConfigured &&
+      (entry.provider !== "lava" || entry.webhookSecretConfigured)
+  )
+);
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
 const archivedProducts = computed(() => products.value.filter((product) => product.archivedUntil));
@@ -296,6 +306,7 @@ function closeProviderForm() {
 
 function resetProductForm() {
   editingProduct.value = null;
+  const defaultProvider = connectedProviders.value[0]?.provider ?? "prodamus";
   productForm.value = {
     kind: "one_time",
     title: "",
@@ -304,8 +315,8 @@ function resetProductForm() {
     accessDays: 30,
     prodamusSubscriptionId: "",
     bindings: [
-      { provider: "prodamus", enabled: true, externalProductId: null, externalOfferId: null },
-      { provider: "lava", enabled: false, externalProductId: null, externalOfferId: null }
+      { provider: "prodamus", enabled: defaultProvider === "prodamus", externalProductId: null, externalOfferId: null },
+      { provider: "lava", enabled: defaultProvider === "lava", externalProductId: null, externalOfferId: null }
     ],
     isPublished: true
   };
@@ -476,6 +487,21 @@ async function handleSyncLava() {
     showPaymentError("Не удалось обновить товары Lava.");
   } finally {
     saving.value = false;
+  }
+}
+
+async function handleLavaCatalogSelection(payload: { id: string; isSelectable: boolean }) {
+  catalogItemSavingId.value = payload.id;
+  try {
+    await updateLavaCatalogItemSelection(payload.id, payload.isSelectable);
+    lavaCatalog.value = lavaCatalog.value.map((item) =>
+      item.id === payload.id ? { ...item, isSelectable: payload.isSelectable } : item
+    );
+    showAlert(payload.isSelectable ? "Товар доступен в тарифах." : "Товар скрыт из новых тарифов.");
+  } catch {
+    showPaymentError("Не удалось изменить доступность товара Lava.");
+  } finally {
+    catalogItemSavingId.value = null;
   }
 }
 
@@ -712,7 +738,13 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
           >
             <Pencil :size="19" />
           </button>
-          <button class="icon-button ui-icon-button" type="button" aria-label="Добавить платежную систему" @click="openProviderPicker">
+          <button
+            class="icon-button ui-icon-button"
+            type="button"
+            aria-label="Добавить тариф"
+            :disabled="!connectedProviders.length"
+            @click="openProductModal()"
+          >
             <Plus :size="20" />
           </button>
         </div>
@@ -976,9 +1008,20 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
                 :required="!provider"
               />
             </label>
-            <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
-              <input v-model="providerForm.isEnabled" type="checkbox" />
-              Платежная система включена
+            <label class="payment-product-publish-toggle">
+              <span class="payment-product-publish-copy">
+                <strong>Платёжная система включена</strong>
+                <small>{{ providerForm.isEnabled ? "Prodamus доступен для оплаты" : "Prodamus временно отключён" }}</small>
+              </span>
+              <span class="payment-product-publish-control">
+                <input
+                  v-model="providerForm.isEnabled"
+                  class="payment-product-publish-input"
+                  type="checkbox"
+                  aria-label="Платёжная система включена"
+                />
+                <span class="payment-product-publish-switch" aria-hidden="true"></span>
+              </span>
             </label>
             <div class="rounded-[18px] border border-[var(--line)] bg-[var(--field)] p-3">
               <p class="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">URL уведомлений</p>
@@ -1054,9 +1097,20 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
                   </button>
                 </div>
               </label>
-              <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
-                <input v-model="lavaProviderForm.isEnabled" type="checkbox" />
-                Платежная система включена
+              <label class="payment-product-publish-toggle">
+                <span class="payment-product-publish-copy">
+                  <strong>Платёжная система включена</strong>
+                  <small>{{ lavaProviderForm.isEnabled ? "Lava доступна для оплаты" : "Lava временно отключена" }}</small>
+                </span>
+                <span class="payment-product-publish-control">
+                  <input
+                    v-model="lavaProviderForm.isEnabled"
+                    class="payment-product-publish-input"
+                    type="checkbox"
+                    aria-label="Платёжная система включена"
+                  />
+                  <span class="payment-product-publish-switch" aria-hidden="true"></span>
+                </span>
               </label>
               <div class="grid grid-cols-2 gap-3">
                 <button class="secondary-button ui-button" type="button" @click="closeProviderForm">Закрыть</button>
@@ -1066,9 +1120,11 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               </div>
             </template>
             <template v-else>
-              <p class="m-0 rounded-[14px] bg-[var(--field)] px-4 py-3 text-sm text-[var(--muted)]">
-                {{ lavaCatalog.length ? `Загружено предложений: ${lavaCatalog.length}` : "Каталог ещё не загружен." }}
-              </p>
+              <LavaCatalogList
+                :items="lavaCatalog"
+                :busy-id="catalogItemSavingId"
+                @change="handleLavaCatalogSelection"
+              />
               <button class="secondary-button ui-button w-full" type="button" @click="closeProviderForm">Закрыть</button>
             </template>
           </form>
