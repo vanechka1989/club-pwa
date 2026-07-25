@@ -59,16 +59,22 @@ const offerSchema = z.object({
   recurrent: z.string().nullable().optional()
 }).passthrough();
 
+const catalogProductSchema = z.object({
+  id: z.string(),
+  title: z.string().nullable().optional(),
+  type: z.string().optional(),
+  offers: z.array(offerSchema).nullable().optional()
+}).passthrough();
+
+const legacyCatalogItemSchema = z.object({
+  type: z.string(),
+  data: catalogProductSchema
+}).passthrough();
+
+const catalogItemSchema = z.union([legacyCatalogItemSchema, catalogProductSchema]);
+
 const catalogResponseSchema = z.object({
-  items: z.array(z.object({
-    type: z.string(),
-    data: z.object({
-      id: z.string(),
-      title: z.string().nullable().optional(),
-      type: z.string().optional(),
-      offers: z.array(offerSchema).nullable().optional()
-    }).passthrough()
-  }).passthrough()).default([])
+  items: z.array(catalogItemSchema).default([])
 }).passthrough();
 
 export type LavaApiErrorCode =
@@ -113,6 +119,19 @@ function lavaPeriodicity(kind: ProviderCheckoutInput["product"]["kind"], accessD
   const value = values.get(accessDays);
   if (!value) throw new LavaApiError("LAVA_INVALID_RESPONSE");
   return value;
+}
+
+function parseCatalogResponse(payload: unknown) {
+  const response = catalogResponseSchema.safeParse(payload);
+  if (!response.success) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+  return response.data;
+}
+
+function normalizeCatalogItem(item: z.infer<typeof catalogItemSchema>) {
+  const legacyItem = legacyCatalogItemSchema.safeParse(item);
+  return legacyItem.success
+    ? { ...legacyItem.data.data, feedType: legacyItem.data.type }
+    : { ...catalogProductSchema.parse(item), feedType: "PRODUCT" };
 }
 
 export function createLavaClient(options: LavaClientOptions): PaymentProviderAdapter {
@@ -187,7 +206,7 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         await createLavaClient({ apiKey, fetch: fetchImpl }).checkConnection(credentials);
         return;
       }
-      catalogResponseSchema.parse(await request("/api/v2/products?showAllSubscriptionPeriods=true"));
+      parseCatalogResponse(await request("/api/v2/products?showAllSubscriptionPeriods=true"));
     },
 
     async listCatalog(credentials = {}) {
@@ -195,23 +214,23 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
       if (apiKey !== options.apiKey) {
         return createLavaClient({ apiKey, fetch: fetchImpl }).listCatalog(credentials);
       }
-      const response = catalogResponseSchema.safeParse(await request("/api/v2/products?showAllSubscriptionPeriods=true"));
-      if (!response.success) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+      const response = parseCatalogResponse(await request("/api/v2/products?showAllSubscriptionPeriods=true"));
 
       const result: ProviderCatalogItem[] = [];
-      for (const item of response.data.items) {
-        if (!item.type.toUpperCase().includes("PRODUCT")) continue;
-        for (const offer of item.data.offers ?? []) {
+      for (const rawItem of response.items) {
+        const item = normalizeCatalogItem(rawItem);
+        if (!item.feedType.toUpperCase().includes("PRODUCT")) continue;
+        for (const offer of item.offers ?? []) {
           const rubPrice = offer.prices.find((price) => price.currency === "RUB");
           const periodicity = rubPrice?.periodicity ?? offer.prices[0]?.periodicity ?? offer.recurrent;
           result.push({
-            externalProductId: item.data.id,
+            externalProductId: item.id,
             externalOfferId: offer.id,
-            title: offer.name || item.data.title || "Товар Lava",
+            title: offer.name || item.title || "Товар Lava",
             kind: periodicity && periodicity !== "ONE_TIME" ? "recurrent" : "one_time",
             amountRub: rubPrice?.amount ?? null,
             metadata: {
-              productType: item.data.type ?? null,
+              productType: item.type ?? null,
               periodicity: periodicity ?? null
             }
           });

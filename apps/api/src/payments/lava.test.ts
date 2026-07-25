@@ -61,6 +61,36 @@ describe("Lava API client", () => {
     await expect(throttled.checkConnection({ apiKey: "secret-key" })).rejects.toEqual(new LavaApiError("LAVA_RATE_LIMITED"));
   });
 
+  it("accepts and normalizes the current direct Lava product catalog format", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({
+      items: [{
+        id: "product-1",
+        title: "Клуб",
+        type: "SUBSCRIPTION",
+        offers: [{
+          id: "offer-1",
+          name: "Клуб на месяц",
+          prices: [{ amount: 990, currency: "RUB", periodicity: "MONTHLY" }],
+          recurrent: "ENABLED"
+        }]
+      }]
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = createLavaClient({ apiKey: "api-key", fetch: fetchMock });
+
+    await expect(client.checkConnection({ apiKey: "api-key" })).resolves.toBeUndefined();
+    await expect(client.listCatalog({ apiKey: "api-key" })).resolves.toEqual([{
+      externalProductId: "product-1",
+      externalOfferId: "offer-1",
+      title: "Клуб на месяц",
+      kind: "recurrent",
+      amountRub: 990,
+      metadata: {
+        productType: "SUBSCRIPTION",
+        periodicity: "MONTHLY"
+      }
+    }]);
+  });
+
   it("sends the Lava subscription periodicity derived from access days", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
