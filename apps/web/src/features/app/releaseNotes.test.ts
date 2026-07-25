@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes Lava tariff autofill as version 5.57", () => {
-    expect(appVersion).toBe("5.57");
-    expect(releaseNotes[0]?.title).toBe("Тарифы Lava без ручного заполнения");
+  it("publishes reliable Lava checkout and notifications as version 5.58", () => {
+    expect(appVersion).toBe("5.58");
+    expect(releaseNotes[0]?.title).toBe("Надёжная оплата и уведомления");
+
+    const lavaAutofillRelease = releaseNotes.find((note) => note.version === "5.57");
+    expect(lavaAutofillRelease?.title).toBe("Тарифы Lava без ручного заполнения");
 
     const improvedPaymentFlow = releaseNotes.find((note) => note.version === "5.56");
     expect(improvedPaymentFlow?.title).toBe("Удобное управление оплатой");

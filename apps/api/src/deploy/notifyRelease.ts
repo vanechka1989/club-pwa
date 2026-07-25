@@ -25,7 +25,7 @@ try {
       });
       return Boolean(existing);
     },
-    createNotification: createAppNotification
+    createNotification: (input) => createAppNotification(input, { waitForPush: true })
   });
   console.log(JSON.stringify(result));
 } finally {

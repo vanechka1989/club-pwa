@@ -1,5 +1,6 @@
 import { db } from "../db/client";
 import { appNotifications } from "../db/schema";
+import { logger } from "../logger";
 import { sendWebPushToUser } from "../push/webPush";
 
 export type CreateAppNotificationInput = {
@@ -20,7 +21,14 @@ export type CreateAppNotificationInput = {
   } | null;
 };
 
-export async function createAppNotification(input: CreateAppNotificationInput) {
+type CreateAppNotificationOptions = {
+  waitForPush?: boolean;
+};
+
+export async function createAppNotification(
+  input: CreateAppNotificationInput,
+  options: CreateAppNotificationOptions = {}
+) {
   const [notification] = await db
     .insert(appNotifications)
     .values({
@@ -40,11 +48,18 @@ export async function createAppNotification(input: CreateAppNotificationInput) {
     .returning();
 
   if (notification) {
-    void sendWebPushToUser(input.userId, {
+    const delivery = sendWebPushToUser(input.userId, {
       title: input.title,
       body: input.body,
       url: input.pushUrl ?? "/"
     });
+    if (options.waitForPush) {
+      await delivery;
+    } else {
+      void delivery.catch((error) => {
+        logger.warn({ error, userId: input.userId }, "app notification push failed");
+      });
+    }
   }
 
   return notification ?? null;
