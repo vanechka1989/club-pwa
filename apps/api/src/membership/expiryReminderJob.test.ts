@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   createMembershipExpiryReminderRunner,
+  isAccessExpectedToExpire,
   membershipExpiryReminderIntervalMs,
   type ExpiryReminderJobDependencies
 } from "./expiryReminderJob";
@@ -11,6 +12,7 @@ const candidate = {
   subscriptionId: "subscription-1",
   userId: "user-1",
   email: "client@example.com",
+  provider: "manual",
   expiresAt: new Date("2026-08-01T16:59:59.000Z")
 };
 
@@ -62,5 +64,12 @@ describe("membership expiry reminder job", () => {
     const source = readFileSync(new URL("../backgroundJobs.ts", import.meta.url), "utf8");
     expect(source).toContain("startMembershipExpiryReminderJob");
     expect(source).toContain("clearInterval(membershipExpiryReminderTimer)");
+  });
+
+  it("does not warn an active recurring payer whose access is expected to renew", () => {
+    expect(isAccessExpectedToExpire("lava_recurrent", "active")).toBe(false);
+    expect(isAccessExpectedToExpire("prodamus_recurrent", "active")).toBe(false);
+    expect(isAccessExpectedToExpire("lava_recurrent", "cancelled")).toBe(true);
+    expect(isAccessExpectedToExpire("manual", null)).toBe(true);
   });
 });

@@ -7,8 +7,14 @@ export type ExpiryReminderCandidate = {
   subscriptionId: string;
   userId: string;
   email: string | null;
+  provider: string;
   expiresAt: Date;
 };
+
+export function isAccessExpectedToExpire(provider: string, recurrentStatus: "active" | "cancelled" | null) {
+  if (provider !== "prodamus_recurrent" && provider !== "lava_recurrent") return true;
+  return recurrentStatus !== "active";
+}
 
 type DeliveryInput = ExpiryReminderCandidate & {
   deliveryId: string;
@@ -106,7 +112,7 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
   ]);
   const { and, desc, eq, gte, isNotNull, lte } = drizzle;
   const { db } = client;
-  const { subscriptions, users, appNotifications } = schema;
+  const { subscriptions, users, appNotifications, userRecurrentSubscriptions } = schema;
 
   return {
     renewalUrl: `${envModule.env.WEB_ORIGIN.replace(/\/+$/, "")}/payments`,
@@ -117,6 +123,7 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
           subscriptionId: subscriptions.id,
           userId: subscriptions.userId,
           email: users.email,
+          provider: subscriptions.provider,
           expiresAt: subscriptions.expiresAt
         })
         .from(subscriptions)
@@ -129,8 +136,7 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
             lte(subscriptions.expiresAt, latestExpiry)
           )
         )
-        .orderBy(subscriptions.expiresAt)
-        .limit(250);
+        .orderBy(subscriptions.expiresAt);
       return rows.filter((row): row is ExpiryReminderCandidate => row.expiresAt instanceof Date);
     },
     async isCurrentSubscription(candidate, now) {
@@ -138,7 +144,7 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
         where: eq(subscriptions.userId, candidate.userId),
         orderBy: [desc(subscriptions.createdAt)]
       });
-      return Boolean(
+      const isExactActiveSubscription = Boolean(
         current &&
           current.id === candidate.subscriptionId &&
           current.status === "active" &&
@@ -146,6 +152,13 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
           current.expiresAt.getTime() === candidate.expiresAt.getTime() &&
           current.expiresAt > now
       );
+      if (!isExactActiveSubscription) return false;
+      if (candidate.provider !== "prodamus_recurrent" && candidate.provider !== "lava_recurrent") return true;
+      const recurrent = await db.query.userRecurrentSubscriptions.findFirst({
+        where: eq(userRecurrentSubscriptions.userId, candidate.userId),
+        orderBy: [desc(userRecurrentSubscriptions.updatedAt)]
+      });
+      return isAccessExpectedToExpire(candidate.provider, recurrent?.status ?? null);
     },
     claimDelivery: ledger.claimExpiryReminderDelivery,
     completeDelivery: ledger.completeExpiryReminderDelivery,
