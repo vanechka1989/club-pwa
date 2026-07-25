@@ -18,5 +18,8 @@ describe("background jobs runtime role", () => {
     expect(source).not.toContain("startMailingDispatcher();");
     expect(source).toContain("server.stop(false)");
     expect(source).toContain('process.once("SIGTERM"');
+    const jobs = readFileSync(new URL("./backgroundJobs.ts", import.meta.url), "utf8");
+    expect(jobs).toContain("startPaymentReconciliationJob");
+    expect(jobs).toContain("clearInterval(paymentReconciliationTimer)");
   });
 });

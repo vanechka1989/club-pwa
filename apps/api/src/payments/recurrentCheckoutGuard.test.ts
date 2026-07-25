@@ -25,4 +25,13 @@ describe("recurrent checkout guard", () => {
       })
     ).toBe(false);
   });
+
+  it("allows a cancelled Lava subscription to be purchased again", () => {
+    expect(
+      hasBlockingRecurrentSubscription([{ status: "cancelled", provider: "lava" }], {
+        isActiveMembership: true,
+        subscriptionProvider: "lava_recurrent"
+      })
+    ).toBe(false);
+  });
 });

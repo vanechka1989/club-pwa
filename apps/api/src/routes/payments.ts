@@ -2,12 +2,14 @@ import { and, asc, desc, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { PaymentOrderLog } from "@club/shared";
+import type { PaymentOrderLog, PaymentProviderCode } from "@club/shared";
 import { recordAdminAction } from "../admin/actionLog";
 import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import {
   paymentOrders,
+  paymentProviderCatalogItems,
+  paymentProductProviderBindings,
   paymentProducts,
   paymentProviders,
   paymentWebhookEvents,
@@ -44,6 +46,11 @@ import {
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
 import { buildPaymentDiagnostic, summarizePaymentDiagnostics } from "../payments/paymentDiagnostics";
+import { resolveCheckoutProvider } from "../payments/checkoutProvider";
+import { getPaymentProviderAdapter } from "../payments/providerRegistry";
+import { decryptProviderSecret } from "../payments/providerSecrets";
+import { encryptProviderSecret } from "../payments/providerSecrets";
+import { mapPaymentProviderForAdmin } from "../payments/providerAdminService";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -60,6 +67,19 @@ const providerPayloadSchema = z.object({
   isEnabled: z.boolean().optional()
 });
 
+const lavaProviderPayloadSchema = z.object({
+  apiKey: z.string().trim().min(8).max(512).optional(),
+  webhookSecret: z.string().trim().min(16).max(80).optional(),
+  isEnabled: z.boolean().optional()
+});
+
+const productBindingPayloadSchema = z.object({
+  provider: z.enum(["prodamus", "lava"]),
+  enabled: z.boolean(),
+  externalProductId: z.string().trim().max(160).nullable(),
+  externalOfferId: z.string().trim().max(160).nullable()
+});
+
 const productPayloadSchema = z.object({
   kind: z.enum(["one_time", "recurrent"]),
   title: z.string().trim().min(1).max(180),
@@ -68,6 +88,7 @@ const productPayloadSchema = z.object({
   amountRub: z.number().int().positive().max(10_000_000),
   accessDays: z.number().int().positive().max(3650),
   prodamusSubscriptionId: z.string().trim().max(64).nullable().optional(),
+  bindings: z.array(productBindingPayloadSchema).max(2).optional(),
   isPublished: z.boolean().optional()
 });
 
@@ -76,7 +97,8 @@ const productStatusPayloadSchema = z.object({
 });
 
 const checkoutPayloadSchema = z.object({
-  productId: z.string().uuid()
+  productId: z.string().uuid(),
+  provider: z.enum(["prodamus", "lava"]).optional()
 });
 
 function activeProductWhere() {
@@ -100,7 +122,11 @@ function mapProvider(provider: PaymentProvider) {
   };
 }
 
-function mapProduct(product: PaymentProduct) {
+type ProductBindingWithProvider = typeof paymentProductProviderBindings.$inferSelect & {
+  provider: PaymentProvider;
+};
+
+function mapProduct(product: PaymentProduct & { providerBindings?: ProductBindingWithProvider[] }) {
   return {
     id: product.id,
     providerId: product.providerId,
@@ -111,6 +137,12 @@ function mapProduct(product: PaymentProduct) {
     amountRub: product.amountRub,
     accessDays: product.accessDays,
     prodamusSubscriptionId: product.prodamusSubscriptionId,
+    bindings: (product.providerBindings ?? []).map((binding) => ({
+      provider: binding.provider.provider as PaymentProviderCode,
+      enabled: binding.isEnabled,
+      externalProductId: binding.externalProductId,
+      externalOfferId: binding.externalOfferId
+    })),
     isPublished: product.isPublished,
     archivedUntil: product.archivedUntil?.toISOString() ?? null,
     createdAt: product.createdAt.toISOString(),
@@ -122,6 +154,51 @@ async function getProdamusProvider() {
   return db.query.paymentProviders.findFirst({
     where: eq(paymentProviders.provider, "prodamus")
   });
+}
+
+async function getLavaProvider() {
+  return db.query.paymentProviders.findFirst({
+    where: eq(paymentProviders.provider, "lava")
+  });
+}
+
+async function replaceProductBindings(
+  productId: string,
+  bindings: z.infer<typeof productBindingPayloadSchema>[],
+  now = new Date()
+) {
+  const providers = await db.query.paymentProviders.findMany();
+  const providerByCode = new Map(providers.map((provider) => [provider.provider, provider]));
+  await db.transaction(async (tx) => {
+    await tx.delete(paymentProductProviderBindings).where(eq(paymentProductProviderBindings.productId, productId));
+    for (const binding of bindings) {
+      const provider = providerByCode.get(binding.provider);
+      if (!provider) continue;
+      await tx.insert(paymentProductProviderBindings).values({
+        productId,
+        providerId: provider.id,
+        externalProductId: binding.externalProductId || null,
+        externalOfferId: binding.externalOfferId || null,
+        isEnabled: binding.enabled,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+  });
+}
+
+function providerTitle(provider: PaymentProviderCode) {
+  return provider === "lava" ? "Lava" : "Prodamus";
+}
+
+function providerCredentials(provider: PaymentProvider) {
+  return {
+    formUrl: provider.formUrl,
+    secretKey: provider.secretKey ? decryptProviderSecret(provider.secretKey) : undefined,
+    sys: provider.sys,
+    apiKey: provider.apiKey ? decryptProviderSecret(provider.apiKey) : undefined,
+    webhookSecret: provider.webhookSecret ? decryptProviderSecret(provider.webhookSecret) : undefined
+  };
 }
 
 function getWebhookOrderId(payload: Record<string, unknown>) {
@@ -137,6 +214,7 @@ function mapPaymentOrderLog(
   order: typeof paymentOrders.$inferSelect & {
     user: typeof users.$inferSelect;
     product: PaymentProduct;
+    provider: PaymentProvider;
   },
   webhook: typeof paymentWebhookEvents.$inferSelect | null
 ): PaymentOrderLog {
@@ -148,6 +226,7 @@ function mapPaymentOrderLog(
   });
   return {
     id: order.id,
+    provider: order.provider.provider as PaymentProviderCode,
     status: order.status,
     amountRub: order.amountRub,
     providerOrderId: order.providerOrderId,
@@ -185,7 +264,8 @@ async function getPaymentOrderLogs(userId?: string, limit = 50) {
     where: userId ? eq(paymentOrders.userId, userId) : undefined,
     with: {
       user: true,
-      product: true
+      product: true,
+      provider: true
     },
     orderBy: [desc(paymentOrders.createdAt)],
     limit
@@ -196,13 +276,22 @@ async function getPaymentOrderLogs(userId?: string, limit = 50) {
   });
   const webhookByOrderId = new Map<string, typeof paymentWebhookEvents.$inferSelect>();
   for (const event of webhookEvents) {
-    const orderId = getWebhookOrderId(event.payload);
-    if (orderId && !webhookByOrderId.has(orderId)) {
-      webhookByOrderId.set(orderId, event);
+    const ids = [
+      getWebhookOrderId(event.payload),
+      event.payload.contractId,
+      event.payload.parentContractId
+    ].filter((value): value is string => typeof value === "string" && value.length > 0);
+    for (const orderId of ids) {
+      if (!webhookByOrderId.has(orderId)) webhookByOrderId.set(orderId, event);
     }
   }
 
-  return orders.map((order) => mapPaymentOrderLog(order, webhookByOrderId.get(order.providerOrderId) ?? null));
+  return orders.map((order) => mapPaymentOrderLog(
+    order,
+    webhookByOrderId.get(order.providerOrderId) ??
+      (order.externalOrderId ? webhookByOrderId.get(order.externalOrderId) : undefined) ??
+      null
+  ));
 }
 
 async function grantPaidAccess(
@@ -292,7 +381,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     const provider = await getProdamusProvider();
     const signature = c.req.header("Sign") ?? c.req.header("sign") ?? c.req.header("Signature") ?? c.req.header("signature");
     const orderId = getWebhookOrderId(payload);
-    const isValid = provider ? verifyProdamusSignature(payload, provider.secretKey, signature) : false;
+    const isValid = provider ? verifyProdamusSignature(payload, decryptProviderSecret(provider.secretKey), signature) : false;
 
     const initialAction = decideProdamusWebhookAction({
       providerConfigured: Boolean(provider),
@@ -385,11 +474,16 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       getProdamusProvider(),
       db.query.paymentProducts.findMany({
         where: and(eq(paymentProducts.isPublished, true), activeProductWhere()),
+        with: {
+          providerBindings: {
+            with: { provider: true }
+          }
+        },
         orderBy: [asc(paymentProducts.sortOrder), asc(paymentProducts.createdAt)]
       }),
       db.query.userRecurrentSubscriptions.findMany({
         where: eq(userRecurrentSubscriptions.userId, userId),
-        with: { product: true },
+        with: { product: true, provider: true },
         orderBy: [asc(userRecurrentSubscriptions.createdAt)]
       })
     ]);
@@ -408,6 +502,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         id: subscription.id,
         productId: subscription.productId,
         title: subscription.product?.title ?? "Подписка",
+        provider: subscription.provider?.provider === "lava" ? "lava" : "prodamus",
         status: subscription.status,
         cancelledAt: subscription.cancelledAt?.toISOString() ?? null,
         createdAt: subscription.createdAt.toISOString()
@@ -427,10 +522,15 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const userId = c.get("userId");
-    const [provider, product, user, recurrentSubscriptions, membership] = await Promise.all([
-      getProdamusProvider(),
+    const [product, user, recurrentSubscriptions, membership] = await Promise.all([
       db.query.paymentProducts.findFirst({
-        where: and(eq(paymentProducts.id, body.data.productId), eq(paymentProducts.isPublished, true), activeProductWhere())
+        where: and(eq(paymentProducts.id, body.data.productId), eq(paymentProducts.isPublished, true), activeProductWhere()),
+        with: {
+          provider: true,
+          providerBindings: {
+            with: { provider: true }
+          }
+        }
       }),
       db.query.users.findFirst({
         where: eq(users.id, userId)
@@ -441,17 +541,59 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       getMembership(userId)
     ]);
 
-    if (!provider || !provider.isEnabled) {
-      return c.json({ checkoutUrl: null, message: "Платежная система пока не подключена." }, 400);
-    }
     if (!product) {
       return c.json({ checkoutUrl: null, message: "Тариф недоступен." }, 404);
     }
-    if (product.kind === "recurrent" && !product.prodamusSubscriptionId) {
-      return c.json({ checkoutUrl: null, message: "У рекуррентного тарифа не указан ID подписки Prodamus." }, 400);
-    }
     if (!user) {
       return c.json({ checkoutUrl: null, message: "Пользователь не найден." }, 404);
+    }
+
+    const availableBindings = product.providerBindings.length > 0
+      ? product.providerBindings
+          .filter((binding) => binding.isEnabled && binding.provider.isEnabled)
+          .map((binding) => ({
+            provider: binding.provider.provider as PaymentProviderCode,
+            title: providerTitle(binding.provider.provider as PaymentProviderCode),
+            enabled: true,
+            binding
+          }))
+      : product.provider?.isEnabled
+        ? [{
+            provider: "prodamus" as const,
+            title: "Prodamus",
+            enabled: true,
+            binding: {
+              provider: product.provider,
+              externalProductId: product.prodamusSubscriptionId,
+              externalOfferId: null
+            }
+          }]
+        : [];
+    const providerResolution = resolveCheckoutProvider(availableBindings, body.data.provider);
+    if (providerResolution.kind === "choice") {
+      return c.json({
+        checkoutUrl: null,
+        message: "Выберите способ оплаты.",
+        options: providerResolution.options
+      });
+    }
+    if (providerResolution.kind === "unavailable") {
+      return c.json({ checkoutUrl: null, message: "Выбранный способ оплаты сейчас недоступен." }, 400);
+    }
+    const selected = availableBindings.find((binding) => binding.provider === providerResolution.provider);
+    if (!selected) {
+      return c.json({ checkoutUrl: null, message: "Платежная система пока не подключена." }, 400);
+    }
+    if (selected.provider === "lava" && (!user.email || !selected.binding.externalOfferId)) {
+      return c.json({
+        checkoutUrl: null,
+        message: !user.email
+          ? "Для оплаты через Lava в профиле должен быть указан email."
+          : "Для тарифа не выбрано предложение Lava."
+      }, 400);
+    }
+    if (selected.provider === "prodamus" && product.kind === "recurrent" && !selected.binding.externalProductId) {
+      return c.json({ checkoutUrl: null, message: "У рекуррентного тарифа не указан ID подписки Prodamus." }, 400);
     }
     if (
       hasBlockingRecurrentSubscription(recurrentSubscriptions, {
@@ -475,7 +617,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       .values({
         userId: user.id,
         productId: product.id,
-        providerId: provider.id,
+        providerId: selected.binding.provider.id,
         status: "pending",
         amountRub: product.amountRub,
         providerOrderId: orderId,
@@ -487,24 +629,51 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ checkoutUrl: null, message: "Не удалось создать заказ." }, 500);
     }
 
-    const checkoutUrl = buildProdamusPaymentUrl({
-      formUrl: provider.formUrl,
-      secretKey: provider.secretKey,
-      sys: provider.sys || user.telegramId,
-      orderId: order.providerOrderId,
-      userTelegramId: user.telegramId,
-      product: {
-        title: product.title,
-        amountRub: product.amountRub,
-        kind: product.kind,
-        accessDays: product.accessDays,
-        prodamusSubscriptionId: product.prodamusSubscriptionId
-      },
-      returnUrl: `${env.WEB_ORIGIN.replace(/\/$/, "")}/`,
-      notificationUrl: webhookUrl()
-    });
-
-    return c.json({ checkoutUrl, message: "Откройте платежную страницу Prodamus." });
+    try {
+      const adapter = getPaymentProviderAdapter(selected.provider);
+      const checkout = await adapter.createCheckout({
+        credentials: providerCredentials(selected.binding.provider),
+        orderId: order.providerOrderId,
+        user: {
+          id: user.id,
+          telegramId: user.telegramId,
+          email: user.email
+        },
+        product: {
+          title: product.title,
+          amountRub: product.amountRub,
+          kind: product.kind,
+          accessDays: product.accessDays,
+          externalProductId: selected.binding.externalProductId,
+          externalOfferId: selected.binding.externalOfferId
+        },
+        returnUrl: `${env.WEB_ORIGIN.replace(/\/$/, "")}/`,
+        notificationUrl: selected.provider === "lava"
+          ? `${env.WEB_ORIGIN.replace(/\/$/, "")}/api/payments/lava/webhook/payment`
+          : webhookUrl()
+      });
+      if (checkout.externalOrderId) {
+        await db
+          .update(paymentOrders)
+          .set({ externalOrderId: checkout.externalOrderId, updatedAt: new Date() })
+          .where(eq(paymentOrders.id, order.id));
+      }
+      return c.json({
+        checkoutUrl: checkout.checkoutUrl,
+        message: `Откройте платежную страницу ${providerTitle(selected.provider)}.`
+      });
+    } catch (error) {
+      logger.warn({
+        code: error instanceof Error ? error.message : "PAYMENT_CHECKOUT_FAILED",
+        provider: selected.provider,
+        orderId: order.providerOrderId
+      }, "payment checkout creation failed");
+      await db
+        .update(paymentOrders)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(eq(paymentOrders.id, order.id));
+      return c.json({ checkoutUrl: null, message: "Не удалось открыть оплату. Попробуйте ещё раз." }, 502);
+    }
   })
   .post("/recurrent-subscriptions/:id/cancel", async (c) => {
     const subscription = await db.query.userRecurrentSubscriptions.findFirst({
@@ -521,12 +690,41 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (subscription.status !== "active") {
       return c.json({ ok: true });
     }
-    if (
-      subscription.product.kind !== "recurrent" ||
-      subscription.provider.provider !== "prodamus" ||
-      !subscription.prodamusSubscriptionId
-    ) {
-      return c.json({ error: "Cancel is available only for recurrent Prodamus subscriptions" }, 400);
+    if (subscription.product.kind !== "recurrent") {
+      return c.json({ error: "Отмена доступна только для рекуррентной подписки." }, 400);
+    }
+
+    if (subscription.provider.provider === "lava") {
+      if (!subscription.externalSubscriptionId || !subscription.user.email) {
+        return c.json({ error: "Не удалось определить подписку Lava." }, 400);
+      }
+      try {
+        const adapter = getPaymentProviderAdapter("lava");
+        if (!adapter.cancelSubscription) {
+          return c.json({ error: "Отмена подписки Lava временно недоступна." }, 503);
+        }
+        await adapter.cancelSubscription({
+          credentials: providerCredentials(subscription.provider),
+          externalSubscriptionId: subscription.externalSubscriptionId,
+          customerEmail: subscription.user.email
+        });
+      } catch (error) {
+        logger.warn({
+          code: error instanceof Error ? error.message : "LAVA_SUBSCRIPTION_CANCEL_FAILED",
+          subscriptionId: subscription.id
+        }, "Lava subscription cancellation failed");
+        return c.json({ error: "Не удалось отменить подписку в Lava." }, 502);
+      }
+
+      await db
+        .update(userRecurrentSubscriptions)
+        .set({ status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() })
+        .where(eq(userRecurrentSubscriptions.id, subscription.id));
+      return c.json({ ok: true });
+    }
+
+    if (subscription.provider.provider !== "prodamus" || !subscription.prodamusSubscriptionId) {
+      return c.json({ error: "Не удалось определить подписку Prodamus." }, 400);
     }
 
     const latestPaidOrder = await db.query.paymentOrders.findFirst({
@@ -548,7 +746,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     try {
       await setProdamusSubscriptionActivity({
         formUrl: subscription.provider.formUrl,
-        secretKey: subscription.provider.secretKey,
+        secretKey: decryptProviderSecret(subscription.provider.secretKey),
         subscriptionId: subscription.prodamusSubscriptionId,
         profileId: prodamusIdentity.profileId,
         telegramId: prodamusIdentity.telegramId,
@@ -597,6 +795,13 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (subscription.status === "active") {
       return c.json({ ok: true });
     }
+    if (subscription.provider.provider === "lava") {
+      return c.json({
+        ok: false,
+        action: "resubscribe",
+        error: "Подписку Lava нужно оформить снова."
+      }, 409);
+    }
     if (
       subscription.product.kind !== "recurrent" ||
       subscription.provider.provider !== "prodamus" ||
@@ -629,7 +834,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     try {
       await setProdamusSubscriptionActivity({
         formUrl: subscription.provider.formUrl,
-        secretKey: subscription.provider.secretKey,
+        secretKey: decryptProviderSecret(subscription.provider.secretKey),
         subscriptionId: subscription.prodamusSubscriptionId,
         profileId: prodamusIdentity.profileId,
         telegramId: prodamusIdentity.telegramId,
@@ -672,6 +877,18 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     const provider = await getProdamusProvider();
     return c.json({ provider: provider ? mapProvider(provider) : null, webhookUrl: webhookUrl() });
   })
+  .get("/admin/providers", async (c) => {
+    const access = await getPaymentAdminAccess(c);
+    if (!canReadPaymentSettings(access.role, access.permissions)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const providers = await db.query.paymentProviders.findMany({
+      orderBy: [asc(paymentProviders.createdAt)]
+    });
+    return c.json({
+      providers: providers.map((provider) => mapPaymentProviderForAdmin(provider, env.WEB_ORIGIN))
+    });
+  })
   .get("/admin/orders", async (c) => {
     const access = await getPaymentAdminAccess(c);
     if (!canReadPaymentSettings(access.role, access.permissions)) {
@@ -702,7 +919,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       provider: "prodamus",
       title: "Prodamus",
       formUrl: normalizeProdamusFormUrl(body.data.formUrl),
-      secretKey: body.data.secretKey ?? existing?.secretKey ?? "",
+      secretKey: body.data.secretKey ? encryptProviderSecret(body.data.secretKey) : existing?.secretKey ?? "",
       sys: body.data.sys,
       isEnabled: body.data.isEnabled ?? true,
       createdByUserId: c.get("userId"),
@@ -739,6 +956,171 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({ ok: true, provider: mapProvider(provider) });
   })
+  .post("/admin/providers/lava", async (c) => {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const body = lavaProviderPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid Lava provider payload" }, 400);
+    }
+    const existing = await getLavaProvider();
+    if (!existing && (!body.data.apiKey || !body.data.webhookSecret)) {
+      return c.json({ error: "Для подключения Lava нужны API-ключ и ключ webhook." }, 400);
+    }
+    const now = new Date();
+    const values = {
+      provider: "lava",
+      title: "Lava",
+      formUrl: "",
+      secretKey: "",
+      sys: "",
+      apiKey: body.data.apiKey ? encryptProviderSecret(body.data.apiKey) : existing?.apiKey ?? null,
+      webhookSecret: body.data.webhookSecret
+        ? encryptProviderSecret(body.data.webhookSecret)
+        : existing?.webhookSecret ?? null,
+      isEnabled: body.data.isEnabled ?? true,
+      createdByUserId: c.get("userId"),
+      lastCheckedAt: body.data.apiKey ? null : existing?.lastCheckedAt ?? null,
+      lastCheckError: body.data.apiKey ? null : existing?.lastCheckError ?? null,
+      updatedAt: now
+    };
+    const [provider] = existing
+      ? await db.update(paymentProviders).set(values).where(eq(paymentProviders.id, existing.id)).returning()
+      : await db.insert(paymentProviders).values({ ...values, createdAt: now }).returning();
+    if (!provider) return c.json({ error: "Unable to save Lava provider" }, 500);
+
+    await recordAdminAction(c, {
+      action: existing ? "payment.provider.updated" : "payment.provider.created",
+      entityType: "payment_provider",
+      entityId: provider.id,
+      summary: existing ? "Обновил платёжного провайдера Lava" : "Подключил платёжного провайдера Lava",
+      metadata: {
+        isEnabled: provider.isEnabled,
+        apiKey: body.data.apiKey ? "[changed]" : "[unchanged]",
+        webhookSecret: body.data.webhookSecret ? "[changed]" : "[unchanged]"
+      }
+    });
+    return c.json({ ok: true, provider: mapPaymentProviderForAdmin(provider, env.WEB_ORIGIN) });
+  })
+  .post("/admin/providers/lava/check", async (c) => {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const provider = await getLavaProvider();
+    if (!provider?.apiKey) {
+      return c.json({ error: "Lava не подключена." }, 400);
+    }
+    const now = new Date();
+    try {
+      await getPaymentProviderAdapter("lava").checkConnection(providerCredentials(provider));
+      const [updated] = await db
+        .update(paymentProviders)
+        .set({ lastCheckedAt: now, lastCheckError: null, updatedAt: now })
+        .where(eq(paymentProviders.id, provider.id))
+        .returning();
+      return c.json({ ok: true, provider: mapPaymentProviderForAdmin(updated ?? provider, env.WEB_ORIGIN) });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "LAVA_CHECK_FAILED";
+      const [updated] = await db
+        .update(paymentProviders)
+        .set({ lastCheckedAt: now, lastCheckError: code, updatedAt: now })
+        .where(eq(paymentProviders.id, provider.id))
+        .returning();
+      logger.warn({ code }, "Lava connection check failed");
+      return c.json({
+        ok: false,
+        error: "Не удалось проверить подключение Lava.",
+        provider: mapPaymentProviderForAdmin(updated ?? provider, env.WEB_ORIGIN)
+      }, 502);
+    }
+  })
+  .post("/admin/providers/lava/catalog/sync", async (c) => {
+    const access = await getPaymentAdminAccess(c);
+    if (!canManagePaymentSettings(access.role, access.permissions)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const provider = await getLavaProvider();
+    if (!provider?.apiKey) {
+      return c.json({ error: "Lava не подключена." }, 400);
+    }
+    try {
+      const items = await getPaymentProviderAdapter("lava").listCatalog(providerCredentials(provider));
+      const syncedAt = new Date();
+      await db.transaction(async (tx) => {
+        await tx
+          .update(paymentProviderCatalogItems)
+          .set({ isStale: true })
+          .where(eq(paymentProviderCatalogItems.providerId, provider.id));
+        for (const item of items) {
+          await tx
+            .insert(paymentProviderCatalogItems)
+            .values({
+              providerId: provider.id,
+              externalProductId: item.externalProductId,
+              externalOfferId: item.externalOfferId ?? "",
+              title: item.title,
+              kind: item.kind,
+              amountRub: item.amountRub === null ? null : Math.round(item.amountRub),
+              isStale: false,
+              metadata: item.metadata,
+              syncedAt
+            })
+            .onConflictDoUpdate({
+              target: [
+                paymentProviderCatalogItems.providerId,
+                paymentProviderCatalogItems.externalProductId,
+                paymentProviderCatalogItems.externalOfferId
+              ],
+              set: {
+                title: item.title,
+                kind: item.kind,
+                amountRub: item.amountRub === null ? null : Math.round(item.amountRub),
+                isStale: false,
+                metadata: item.metadata,
+                syncedAt
+              }
+            });
+        }
+        await tx
+          .update(paymentProviders)
+          .set({ lastCatalogSyncAt: syncedAt, updatedAt: syncedAt })
+          .where(eq(paymentProviders.id, provider.id));
+      });
+      return c.json({ ok: true, count: items.length });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "LAVA_CATALOG_SYNC_FAILED";
+      logger.warn({ code }, "Lava catalog sync failed");
+      return c.json({ error: "Не удалось синхронизировать товары Lava." }, 502);
+    }
+  })
+  .get("/admin/providers/lava/catalog", async (c) => {
+    const access = await getPaymentAdminAccess(c);
+    if (!canReadPaymentSettings(access.role, access.permissions)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const provider = await getLavaProvider();
+    if (!provider) return c.json({ items: [], syncedAt: null });
+    const items = await db.query.paymentProviderCatalogItems.findMany({
+      where: eq(paymentProviderCatalogItems.providerId, provider.id),
+      orderBy: [asc(paymentProviderCatalogItems.title)]
+    });
+    return c.json({
+      items: items.map((item) => ({
+        id: item.id,
+        externalProductId: item.externalProductId,
+        externalOfferId: item.externalOfferId || null,
+        title: item.title,
+        kind: item.kind,
+        amountRub: item.amountRub,
+        isStale: item.isStale,
+        syncedAt: item.syncedAt.toISOString()
+      })),
+      syncedAt: provider.lastCatalogSyncAt?.toISOString() ?? null
+    });
+  })
   .get("/admin/products", async (c) => {
     const access = await getPaymentAdminAccess(c);
     if (!canReadPaymentSettings(access.role, access.permissions)) {
@@ -747,6 +1129,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
 
     const products = await db.query.paymentProducts.findMany({
       where: activeProductWhere(),
+      with: {
+        providerBindings: {
+          with: { provider: true }
+        }
+      },
       orderBy: [asc(paymentProducts.sortOrder), asc(paymentProducts.createdAt)]
     });
 
@@ -758,24 +1145,44 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Forbidden" }, 403);
     }
 
-    const provider = await getProdamusProvider();
-    if (!provider) {
-      return c.json({ error: "Сначала подключите Prodamus." }, 400);
-    }
-
     const body = productPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) {
       return c.json({ error: "Invalid product payload" }, 400);
     }
-    if (body.data.kind === "recurrent" && !body.data.prodamusSubscriptionId) {
-      return c.json({ error: "Для рекуррентного тарифа нужен ID подписки Prodamus." }, 400);
+    const providers = await db.query.paymentProviders.findMany();
+    const requestedBindings = body.data.bindings ?? [{
+      provider: "prodamus" as const,
+      enabled: true,
+      externalProductId: body.data.prodamusSubscriptionId ?? null,
+      externalOfferId: null
+    }];
+    const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
+    if (enabledBindings.length === 0) {
+      return c.json({ error: "Выберите хотя бы одну платёжную систему." }, 400);
+    }
+    const providerByCode = new Map(providers.map((provider) => [provider.provider, provider]));
+    const primaryProvider = providerByCode.get(enabledBindings[0]!.provider);
+    if (!primaryProvider) {
+      return c.json({ error: "Сначала подключите выбранную платёжную систему." }, 400);
+    }
+    const invalidBinding = enabledBindings.find((binding) =>
+      binding.provider === "lava"
+        ? !binding.externalOfferId
+        : body.data.kind === "recurrent" && !binding.externalProductId
+    );
+    if (invalidBinding) {
+      return c.json({
+        error: invalidBinding.provider === "lava"
+          ? "Для Lava выберите предложение."
+          : "Для рекуррентного тарифа нужен ID подписки Prodamus."
+      }, 400);
     }
 
     const now = new Date();
     const [product] = await db
       .insert(paymentProducts)
       .values({
-        providerId: provider.id,
+        providerId: primaryProvider.id,
         kind: body.data.kind,
         title: body.data.title,
         description: body.data.description ?? null,
@@ -792,6 +1199,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!product) {
       return c.json({ error: "Unable to create product" }, 500);
     }
+    await replaceProductBindings(product.id, requestedBindings, now);
+    const savedProduct = await db.query.paymentProducts.findFirst({
+      where: eq(paymentProducts.id, product.id),
+      with: { providerBindings: { with: { provider: true } } }
+    });
 
     await recordAdminAction(c, {
       action: "payment.product.created",
@@ -807,7 +1219,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }
     });
 
-    return c.json({ ok: true, product: mapProduct(product) });
+    return c.json({ ok: true, product: mapProduct(savedProduct ?? product) });
   })
   .post("/admin/products/:id", async (c) => {
     const access = await getPaymentAdminAccess(c);
@@ -819,13 +1231,50 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!body.success) {
       return c.json({ error: "Invalid product payload" }, 400);
     }
-    if (body.data.kind === "recurrent" && !body.data.prodamusSubscriptionId) {
-      return c.json({ error: "Для рекуррентного тарифа нужен ID подписки Prodamus." }, 400);
+    const existingProduct = await db.query.paymentProducts.findFirst({
+      where: and(eq(paymentProducts.id, c.req.param("id")), activeProductWhere()),
+      with: { providerBindings: { with: { provider: true } } }
+    });
+    if (!existingProduct) return c.json({ error: "Product not found" }, 404);
+    const requestedBindings = body.data.bindings ?? (existingProduct.providerBindings.length > 0
+      ? existingProduct.providerBindings.map((binding) => ({
+          provider: binding.provider.provider === "lava" ? "lava" as const : "prodamus" as const,
+          enabled: binding.isEnabled,
+          externalProductId: binding.externalProductId,
+          externalOfferId: binding.externalOfferId
+        }))
+      : [{
+          provider: "prodamus" as const,
+          enabled: true,
+          externalProductId: body.data.prodamusSubscriptionId ?? existingProduct.prodamusSubscriptionId,
+          externalOfferId: null
+        }]);
+    const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
+    if (enabledBindings.length === 0) {
+      return c.json({ error: "Выберите хотя бы одну платёжную систему." }, 400);
+    }
+    const providers = await db.query.paymentProviders.findMany();
+    const primaryProvider = providers.find((provider) => provider.provider === enabledBindings[0]!.provider);
+    if (!primaryProvider) {
+      return c.json({ error: "Сначала подключите выбранную платёжную систему." }, 400);
+    }
+    const invalidBinding = enabledBindings.find((binding) =>
+      binding.provider === "lava"
+        ? !binding.externalOfferId
+        : body.data.kind === "recurrent" && !binding.externalProductId
+    );
+    if (invalidBinding) {
+      return c.json({
+        error: invalidBinding.provider === "lava"
+          ? "Для Lava выберите предложение."
+          : "Для рекуррентного тарифа нужен ID подписки Prodamus."
+      }, 400);
     }
 
     const [product] = await db
       .update(paymentProducts)
       .set({
+        providerId: primaryProvider.id,
         kind: body.data.kind,
         title: body.data.title,
         description: body.data.description ?? null,
@@ -842,6 +1291,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!product) {
       return c.json({ error: "Product not found" }, 404);
     }
+    await replaceProductBindings(product.id, requestedBindings);
+    const savedProduct = await db.query.paymentProducts.findFirst({
+      where: eq(paymentProducts.id, product.id),
+      with: { providerBindings: { with: { provider: true } } }
+    });
 
     await recordAdminAction(c, {
       action: "payment.product.updated",
@@ -857,7 +1311,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }
     });
 
-    return c.json({ ok: true, product: mapProduct(product) });
+    return c.json({ ok: true, product: mapProduct(savedProduct ?? product) });
   })
   .post("/admin/products/:id/status", async (c) => {
     const access = await getPaymentAdminAccess(c);
@@ -879,6 +1333,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!product) {
       return c.json({ error: "Product not found" }, 404);
     }
+    const savedProduct = await db.query.paymentProducts.findFirst({
+      where: eq(paymentProducts.id, product.id),
+      with: { providerBindings: { with: { provider: true } } }
+    });
 
     await recordAdminAction(c, {
       action: "payment.product.status_updated",
@@ -890,7 +1348,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }
     });
 
-    return c.json({ ok: true, product: mapProduct(product) });
+    return c.json({ ok: true, product: mapProduct(savedProduct ?? product) });
   })
   .delete("/admin/products/:id", async (c) => {
     const access = await getPaymentAdminAccess(c);

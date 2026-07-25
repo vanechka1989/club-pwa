@@ -30,11 +30,11 @@ function normalizeAccessType(tariff: string | null): MailingAccessType {
     return "manual";
   }
 
-  if (tariff === "prodamus") {
+  if (tariff === "prodamus" || tariff === "lava") {
     return "one_time";
   }
 
-  if (tariff === "prodamus_recurrent") {
+  if (tariff === "prodamus_recurrent" || tariff === "lava_recurrent") {
     return "recurrent";
   }
 

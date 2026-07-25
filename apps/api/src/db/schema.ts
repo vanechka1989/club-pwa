@@ -1116,6 +1116,8 @@ export const paymentProvidersRelations = relations(paymentProviders, ({ one, man
     references: [users.id]
   }),
   products: many(paymentProducts),
+  productBindings: many(paymentProductProviderBindings),
+  catalogItems: many(paymentProviderCatalogItems),
   orders: many(paymentOrders)
 }));
 
@@ -1124,8 +1126,27 @@ export const paymentProductsRelations = relations(paymentProducts, ({ one, many 
     fields: [paymentProducts.providerId],
     references: [paymentProviders.id]
   }),
+  providerBindings: many(paymentProductProviderBindings),
   orders: many(paymentOrders),
   recurrentSubscriptions: many(userRecurrentSubscriptions)
+}));
+
+export const paymentProductProviderBindingsRelations = relations(paymentProductProviderBindings, ({ one }) => ({
+  product: one(paymentProducts, {
+    fields: [paymentProductProviderBindings.productId],
+    references: [paymentProducts.id]
+  }),
+  provider: one(paymentProviders, {
+    fields: [paymentProductProviderBindings.providerId],
+    references: [paymentProviders.id]
+  })
+}));
+
+export const paymentProviderCatalogItemsRelations = relations(paymentProviderCatalogItems, ({ one }) => ({
+  provider: one(paymentProviders, {
+    fields: [paymentProviderCatalogItems.providerId],
+    references: [paymentProviders.id]
+  })
 }));
 
 export const paymentOrdersRelations = relations(paymentOrders, ({ one }) => ({

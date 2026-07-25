@@ -46,6 +46,16 @@ describe("mailing audience filtering", () => {
     expect(audience.excludedByFilters).toBe(2);
   });
 
+  it("includes Lava payments in one-time and recurrent access filters", () => {
+    expect(filterMailingAudience(
+      [
+        user({ id: "lava-one", tariff: "lava" }),
+        user({ id: "lava-recurrent", tariff: "lava_recurrent" })
+      ],
+      { accessStatus: "active", accessType: "recurrent" }
+    ).recipients.map((entry) => entry.id)).toEqual(["lava-recurrent"]);
+  });
+
   it("deduplicates recipients by user id instead of Telegram id", () => {
     const audience = filterMailingAudience(
       [

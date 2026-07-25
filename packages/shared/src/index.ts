@@ -251,7 +251,13 @@ export type AppStateResponse = z.infer<typeof appStateResponseSchema>;
 
 export const subscribeResponseSchema = z.object({
   checkoutUrl: z.string().url().nullable(),
-  message: z.string()
+  message: z.string(),
+  options: z
+    .array(z.object({
+      provider: z.enum(["prodamus", "lava"]),
+      title: z.string()
+    }))
+    .optional()
 });
 export type SubscribeResponse = z.infer<typeof subscribeResponseSchema>;
 
@@ -542,6 +548,7 @@ export const userRecurrentSubscriptionSchema = z.object({
   id: z.string(),
   productId: z.string(),
   title: z.string(),
+  provider: paymentProviderCodeSchema.default("prodamus"),
   status: z.enum(["active", "cancelled"]),
   cancelledAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime()
@@ -570,6 +577,7 @@ export type PaymentDiagnostic = z.infer<typeof paymentDiagnosticSchema>;
 
 export const paymentOrderLogSchema = z.object({
   id: z.string(),
+  provider: paymentProviderCodeSchema.optional(),
   status: paymentOrderStatusSchema,
   amountRub: z.number().int().nonnegative(),
   providerOrderId: z.string(),
@@ -617,6 +625,29 @@ export const adminPaymentProviderResponseSchema = z.object({
   webhookUrl: z.string().url()
 });
 export type AdminPaymentProviderResponse = z.infer<typeof adminPaymentProviderResponseSchema>;
+
+export const adminPaymentProvidersResponseSchema = z.object({
+  providers: z.array(paymentProviderSchema)
+});
+export type AdminPaymentProvidersResponse = z.infer<typeof adminPaymentProvidersResponseSchema>;
+
+export const paymentProviderCatalogItemSchema = z.object({
+  id: z.string(),
+  externalProductId: z.string(),
+  externalOfferId: z.string().nullable(),
+  title: z.string(),
+  kind: paymentProductKindSchema,
+  amountRub: z.number().int().nonnegative().nullable(),
+  isStale: z.boolean(),
+  syncedAt: z.string().datetime()
+});
+export type PaymentProviderCatalogItem = z.infer<typeof paymentProviderCatalogItemSchema>;
+
+export const paymentProviderCatalogResponseSchema = z.object({
+  items: z.array(paymentProviderCatalogItemSchema),
+  syncedAt: z.string().datetime().nullable()
+});
+export type PaymentProviderCatalogResponse = z.infer<typeof paymentProviderCatalogResponseSchema>;
 
 export const paymentProviderMutationResponseSchema = z.object({
   ok: z.boolean(),

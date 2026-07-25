@@ -1,5 +1,6 @@
 type RecurrentSubscriptionStatus = {
   status: string;
+  provider?: string;
 };
 
 type RecurrentMembershipState = {
@@ -22,6 +23,6 @@ export function hasBlockingRecurrentSubscription(
   return (
     membership.isActiveMembership &&
     membership.subscriptionProvider === "prodamus_recurrent" &&
-    subscriptions.some((subscription) => subscription.status === "cancelled")
+    subscriptions.some((subscription) => subscription.status === "cancelled" && subscription.provider !== "lava")
   );
 }

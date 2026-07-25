@@ -61,7 +61,7 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
   const membership = await getMembership(user.id);
   const photoUrl = await resolveUserPhotoUrl(user);
   const recurrentSubscription =
-    membership.subscription?.provider === "prodamus_recurrent"
+    membership.subscription?.provider === "prodamus_recurrent" || membership.subscription?.provider === "lava_recurrent"
       ? await db.query.userRecurrentSubscriptions.findFirst({
           where: eq(userRecurrentSubscriptions.userId, user.id),
           orderBy: [desc(userRecurrentSubscriptions.updatedAt)]

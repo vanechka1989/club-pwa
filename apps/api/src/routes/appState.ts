@@ -28,7 +28,7 @@ export const appStateRoute = new Hono<{ Variables: AuthVariables }>()
     const role = c.get("previewRole") ?? realRole;
     const isSupportAdmin = role === "owner" || (role === "admin" && adminAccess.permissions.includes("support"));
     const [recurrentSubscription, supportUnreadCount] = await Promise.all([
-      membership.subscription?.provider === "prodamus_recurrent"
+      membership.subscription?.provider === "prodamus_recurrent" || membership.subscription?.provider === "lava_recurrent"
         ? db.query.userRecurrentSubscriptions.findFirst({
             where: eq(userRecurrentSubscriptions.userId, user.id),
             orderBy: [desc(userRecurrentSubscriptions.updatedAt)]

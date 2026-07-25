@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type {
+  NormalizedPaymentEvent,
   PaymentProviderAdapter,
   PaymentProviderCredentials,
   ProviderCatalogItem,
@@ -13,6 +14,36 @@ const invoiceResponseSchema = z.object({
   id: z.string().uuid(),
   paymentUrl: z.string()
 });
+
+const invoiceStatusResponseSchema = z.object({
+  id: z.string(),
+  type: z.enum(["INVOICE", "SUBSCRIPTION_FIRST_INVOICE", "SUBSCRIPTION_RENEWAL"]),
+  datetime: z.string(),
+  status: z.enum(["NEW", "IN_PROGRESS", "COMPLETED", "FAILED"]),
+  receipt: z.object({
+    amount: z.number(),
+    currency: z.string()
+  }),
+  buyer: z.object({ email: z.string().email() }),
+  parentInvoice: z.object({ id: z.string() }).nullable().optional(),
+  subscriptionStatus: z.enum(["ACTIVE", "CANCELLED", "FAILED"]).nullable().optional()
+}).passthrough();
+
+const subscriptionStatusResponseSchema = z.object({
+  id: z.string(),
+  datetime: z.string(),
+  receipt: z.object({ amount: z.number(), currency: z.string() }),
+  buyer: z.object({ email: z.string().email() }),
+  subscriptionStatus: z.enum(["ACTIVE", "CANCELLED", "FAILED"]),
+  cancelledAt: z.string().nullable().optional(),
+  recurrentPayments: z.array(z.object({
+    id: z.string(),
+    datetime: z.string(),
+    status: z.enum(["NEW", "IN_PROGRESS", "COMPLETED", "FAILED"]),
+    amount: z.number(),
+    currency: z.string()
+  })).default([])
+}).passthrough();
 
 const priceSchema = z.object({
   amount: z.number().nullable().optional(),
@@ -71,6 +102,19 @@ function errorForStatus(status: number) {
   return new LavaApiError("LAVA_UNAVAILABLE");
 }
 
+function lavaPeriodicity(kind: ProviderCheckoutInput["product"]["kind"], accessDays: number) {
+  if (kind === "one_time") return undefined;
+  const values = new Map<number, string>([
+    [30, "MONTHLY"],
+    [90, "PERIOD_90_DAYS"],
+    [180, "PERIOD_180_DAYS"],
+    [365, "PERIOD_YEAR"]
+  ]);
+  const value = values.get(accessDays);
+  if (!value) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+  return value;
+}
+
 export function createLavaClient(options: LavaClientOptions): PaymentProviderAdapter {
   const fetchImpl = options.fetch ?? fetch;
 
@@ -118,7 +162,10 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
               offerId: input.product.externalOfferId,
               currency: "RUB",
               amount: input.product.amountRub,
-              buyerLanguage: "RU"
+              buyerLanguage: "RU",
+              ...(lavaPeriodicity(input.product.kind, input.product.accessDays)
+                ? { periodicity: lavaPeriodicity(input.product.kind, input.product.accessDays) }
+                : {})
             })
           })
         : createLavaClient({ apiKey, fetch: fetchImpl }).createCheckout(input));
@@ -171,6 +218,93 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         }
       }
       return result;
+    },
+
+    async getOrderStatus(input) {
+      const apiKey = configuredApiKey(input.credentials, options.apiKey);
+      if (apiKey !== options.apiKey) {
+        return createLavaClient({ apiKey, fetch: fetchImpl }).getOrderStatus?.(input) ?? null;
+      }
+      const response = invoiceStatusResponseSchema.safeParse(
+        await request(`/api/v2/invoices/${encodeURIComponent(input.externalOrderId)}`)
+      );
+      if (!response.success) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+      if (response.data.status === "NEW" || response.data.status === "IN_PROGRESS") return null;
+
+      const isRenewal = response.data.type === "SUBSCRIPTION_RENEWAL";
+      const succeeded = response.data.status === "COMPLETED";
+      const externalSubscriptionId = response.data.type === "INVOICE"
+        ? null
+        : isRenewal
+          ? response.data.parentInvoice?.id ?? null
+          : response.data.id;
+      return {
+        eventKey: `reconcile:${response.data.id}:${response.data.status}`,
+        provider: "lava",
+        type: isRenewal
+          ? succeeded ? "renewal_succeeded" : "renewal_failed"
+          : succeeded ? "payment_succeeded" : "payment_failed",
+        externalOrderId: isRenewal
+          ? response.data.parentInvoice?.id ?? response.data.id
+          : response.data.id,
+        externalPaymentId: response.data.id,
+        externalSubscriptionId,
+        productId: input.productId,
+        buyerEmail: response.data.buyer.email || input.buyerEmail,
+        amountRub: response.data.receipt.amount,
+        currency: response.data.receipt.currency,
+        occurredAt: new Date(response.data.datetime),
+        payload: {
+          source: "reconciliation",
+          invoiceId: response.data.id,
+          status: response.data.status,
+          subscriptionStatus: response.data.subscriptionStatus ?? null
+        }
+      };
+    },
+
+    async getSubscriptionEvents(input) {
+      const apiKey = configuredApiKey(input.credentials, options.apiKey);
+      if (apiKey !== options.apiKey) {
+        return await createLavaClient({ apiKey, fetch: fetchImpl }).getSubscriptionEvents?.(input) ?? [];
+      }
+      const response = subscriptionStatusResponseSchema.safeParse(
+        await request(`/api/v1/subscriptions/${encodeURIComponent(input.externalSubscriptionId)}`)
+      );
+      if (!response.success) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+      const events: NormalizedPaymentEvent[] = response.data.recurrentPayments
+        .filter((payment) => payment.status === "COMPLETED" || payment.status === "FAILED")
+        .map((payment) => ({
+          eventKey: `reconcile:subscription:${payment.id}:${payment.status}`,
+          provider: "lava" as const,
+          type: payment.status === "COMPLETED" ? "renewal_succeeded" as const : "renewal_failed" as const,
+          externalOrderId: response.data.id,
+          externalPaymentId: payment.id,
+          externalSubscriptionId: response.data.id,
+          productId: input.productId,
+          buyerEmail: response.data.buyer.email,
+          amountRub: payment.amount,
+          currency: payment.currency,
+          occurredAt: new Date(payment.datetime),
+          payload: { source: "subscription_reconciliation", status: payment.status, paymentId: payment.id }
+        }));
+      if (response.data.subscriptionStatus === "CANCELLED") {
+        events.push({
+          eventKey: `reconcile:subscription:${response.data.id}:CANCELLED`,
+          provider: "lava",
+          type: "subscription_cancelled",
+          externalOrderId: response.data.id,
+          externalPaymentId: response.data.id,
+          externalSubscriptionId: response.data.id,
+          productId: input.productId,
+          buyerEmail: response.data.buyer.email,
+          amountRub: response.data.receipt.amount,
+          currency: response.data.receipt.currency,
+          occurredAt: new Date(response.data.cancelledAt ?? response.data.datetime),
+          payload: { source: "subscription_reconciliation", status: "CANCELLED" }
+        });
+      }
+      return events;
     },
 
     async cancelSubscription(input) {

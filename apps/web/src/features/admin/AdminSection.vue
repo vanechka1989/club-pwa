@@ -203,7 +203,7 @@ const panelIcons: Record<AdminPanel, LucideIcon> = {
   "server-logs": Server
 };
 
-const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "future"] as const;
+const tariffOrder = ["manual", "prodamus", "prodamus_recurrent", "lava", "lava_recurrent", "future"] as const;
 const previewModeOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "developer", label: "Разраб" },
   { value: "admin", label: "Админ" },
@@ -3145,7 +3145,7 @@ onUnmounted(() => {
                 <small>ID {{ order.customer.telegramId }} · {{ order.productTitle }}</small>
                 <em>
                   {{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽ ·
-                  {{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }}
+                  {{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }} · {{ order.provider === "lava" ? "Lava" : "Prodamus" }}
                 </em>
               </span>
               <span :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</span>
@@ -4362,7 +4362,7 @@ onUnmounted(() => {
           <div class="admin-payment-meta">
             <span>{{ paymentOrderDate(order) }}</span>
             <span>{{ order.amountRub.toLocaleString("ru-RU") }} ₽</span>
-            <span>{{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }}</span>
+            <span>{{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }} · {{ order.provider === "lava" ? "Lava" : "Prodamus" }}</span>
             <span>Webhook: {{ order.webhook ? (order.webhook?.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
           </div>
           <div class="admin-payment-ids">

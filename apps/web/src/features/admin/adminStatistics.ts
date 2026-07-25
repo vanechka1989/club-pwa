@@ -33,6 +33,8 @@ const contentKindLabels: Record<ContentKind, string> = {
 const tariffLabels: Record<string, string> = {
   prodamus_recurrent: "Рекуррент Prodamus",
   prodamus: "Разовый Prodamus",
+  lava_recurrent: "Рекуррент Lava",
+  lava: "Разовый Lava",
   manual: "Ручной доступ",
   future: "Без тарифа"
 };

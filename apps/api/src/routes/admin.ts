@@ -1763,8 +1763,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const ownerError = await rejectIfNotOwner(c);
     if (ownerError) return ownerError;
 
-    const [provider, storedS3] = await Promise.all([
-      db.query.paymentProviders.findFirst({ where: eq(paymentProviders.provider, "prodamus") }),
+    const [configuredPaymentProviders, storedS3] = await Promise.all([
+      db.query.paymentProviders.findMany(),
       getStoredS3Setting()
     ]);
     const s3 = storedS3.config ?? getS3ConfigFromEnv(env);
@@ -1776,7 +1776,12 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         accessKeyId: s3?.accessKeyId,
         secretAccessKey: s3?.secretAccessKey
       },
-      payment: { enabled: Boolean(provider?.isEnabled), hasSecret: Boolean(provider?.secretKey) },
+      payment: {
+        enabled: configuredPaymentProviders.some((provider) => provider.isEnabled),
+        hasSecret: configuredPaymentProviders.some((provider) =>
+          provider.provider === "lava" ? Boolean(provider.apiKey && provider.webhookSecret) : Boolean(provider.secretKey)
+        )
+      },
       realtime: { enabled: true, subscriberCount: getCommunityRealtimeSubscriberCount() }
     });
 

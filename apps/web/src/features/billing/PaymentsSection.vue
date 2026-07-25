@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import type { PaymentProduct, PaymentProvider, UserRecurrentSubscription } from "@club/shared";
+import type {
+  PaymentCheckoutOption,
+  PaymentProduct,
+  PaymentProductProviderBinding,
+  PaymentProvider,
+  PaymentProviderCode,
+  PaymentProviderCatalogItem,
+  UserRecurrentSubscription
+} from "@club/shared";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Copy, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-vue-next";
@@ -7,11 +15,16 @@ import {
   cancelRecurrentSubscription,
   createPaymentCheckout,
   createPaymentProduct,
+  checkLavaProvider,
   deletePaymentProduct,
+  getLavaCatalog,
   getPaymentPlans,
   getPaymentProvider,
+  getPaymentProviders,
   restoreRecurrentSubscription,
+  saveLavaProvider,
   saveProdamusProvider,
+  syncLavaCatalog,
   updatePaymentProduct,
   updatePaymentProductStatus
 } from "@/api/client";
@@ -30,6 +43,9 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
+import PaymentProductBindings from "./PaymentProductBindings.vue";
+import PaymentProviderChooser from "./PaymentProviderChooser.vue";
+import PaymentProviderSettings from "./PaymentProviderSettings.vue";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -43,16 +59,22 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 const provider = ref<PaymentProvider | null>(null);
+const providers = ref<PaymentProvider[]>([]);
 const webhookUrl = ref("");
+const lavaCatalog = ref<PaymentProviderCatalogItem[]>([]);
 const products = ref<PaymentProduct[]>([]);
 const recurrentSubscriptions = ref<UserRecurrentSubscription[]>([]);
 const showProviderPicker = ref(false);
 const showProviderForm = ref(false);
+const providerFormKind = ref<PaymentProviderCode>("prodamus");
 const showProductModal = ref(false);
 const editingProduct = ref<PaymentProduct | null>(null);
 const isEditingPayments = ref(false);
 const checkoutProductId = ref<string | null>(null);
 const showCheckoutConfirm = ref(false);
+const showCheckoutProviderPicker = ref(false);
+const checkoutOptions = ref<PaymentCheckoutOption[]>([]);
+const checkoutChoiceProduct = ref<PaymentProduct | null>(null);
 const checkoutConfirmProduct = ref<PaymentProduct | null>(null);
 let checkoutConfirmResolve: ((confirmed: boolean) => void) | null = null;
 
@@ -61,6 +83,7 @@ const providerForm = ref({
   secretKey: "",
   isEnabled: true
 });
+const lavaProviderForm = ref({ apiKey: "", webhookSecret: "", isEnabled: true });
 
 const productForm = ref({
   kind: "one_time" as "one_time" | "recurrent",
@@ -69,6 +92,10 @@ const productForm = ref({
   amountRub: 990,
   accessDays: 30,
   prodamusSubscriptionId: "",
+  bindings: [
+    { provider: "prodamus", enabled: true, externalProductId: null, externalOfferId: null },
+    { provider: "lava", enabled: false, externalProductId: null, externalOfferId: null }
+  ] as PaymentProductProviderBinding[],
   isPublished: true
 });
 
@@ -76,6 +103,8 @@ const isAdmin = computed(() =>
   hasAdminCapability(session.user?.role, session.user?.adminPermissions, "payments")
 );
 const isOwner = computed(() => session.user?.role === "owner");
+const lavaProvider = computed(() => providers.value.find((entry) => entry.provider === "lava") ?? null);
+const connectedProviders = computed(() => providers.value.filter((entry) => entry.secretConfigured));
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
 const archivedProducts = computed(() => products.value.filter((product) => product.archivedUntil));
@@ -87,7 +116,10 @@ const restorableRecurrentSubscription = computed(() =>
     membershipExpiresAt: session.user?.membershipExpiresAt ?? null
   })
 );
-const primaryRecurrentSubscription = computed(() => activeRecurrentSubscription.value ?? restorableRecurrentSubscription.value);
+const primaryRecurrentSubscription = computed(() =>
+  activeRecurrentSubscription.value ??
+  (restorableRecurrentSubscription.value?.provider === "prodamus" ? restorableRecurrentSubscription.value : null)
+);
 const recurrentSubscriptionHistory = computed(() =>
   primaryRecurrentSubscription.value
     ? recurrentSubscriptions.value.filter((subscription) => subscription.id !== primaryRecurrentSubscription.value?.id)
@@ -108,7 +140,7 @@ const paymentOperation = computed(() => {
   if (showProviderForm.value) {
     return {
       title: "Сохраняем платежную систему...",
-      detail: "Обновляем настройки Prodamus"
+      detail: `Обновляем настройки ${providerFormKind.value === "lava" ? "Lava" : "Prodamus"}`
     };
   }
 
@@ -169,6 +201,9 @@ async function loadPayments() {
   try {
     const response = await getPaymentPlans();
     provider.value = response.provider;
+    if (response.provider && !providers.value.some((entry) => entry.id === response.provider?.id)) {
+      providers.value = [response.provider, ...providers.value];
+    }
     products.value = response.products;
     recurrentSubscriptions.value = response.recurrentSubscriptions;
     webhookUrl.value = response.provider?.webhookUrl ?? webhookUrl.value;
@@ -185,9 +220,15 @@ async function loadProviderForAdmin() {
   }
 
   try {
-    const response = await getPaymentProvider();
-    provider.value = response.provider;
-    webhookUrl.value = response.webhookUrl;
+    const [legacy, allProviders, catalog] = await Promise.all([
+      getPaymentProvider(),
+      getPaymentProviders(),
+      getLavaCatalog()
+    ]);
+    provider.value = legacy.provider;
+    webhookUrl.value = legacy.webhookUrl;
+    providers.value = allProviders.providers;
+    lavaCatalog.value = catalog.items;
   } catch {
     showPaymentError("Не удалось загрузить настройки платежной системы.");
   }
@@ -224,11 +265,17 @@ function setProviderForm() {
   };
 }
 
-function openProviderForm() {
+function openProviderForm(kind: PaymentProviderCode = "prodamus") {
   if (!isOwner.value) {
     return;
   }
   setProviderForm();
+  providerFormKind.value = kind;
+  lavaProviderForm.value = {
+    apiKey: "",
+    webhookSecret: lavaProvider.value ? "" : generateWebhookSecret(),
+    isEnabled: lavaProvider.value?.isEnabled ?? true
+  };
   showProviderPicker.value = false;
   showProviderForm.value = true;
   openPaymentTask("/payments/provider");
@@ -248,6 +295,10 @@ function resetProductForm() {
     amountRub: 990,
     accessDays: 30,
     prodamusSubscriptionId: "",
+    bindings: [
+      { provider: "prodamus", enabled: true, externalProductId: null, externalOfferId: null },
+      { provider: "lava", enabled: false, externalProductId: null, externalOfferId: null }
+    ],
     isPublished: true
   };
 }
@@ -262,6 +313,15 @@ function setProductForm(product?: PaymentProduct) {
       amountRub: product.amountRub,
       accessDays: product.accessDays,
       prodamusSubscriptionId: product.prodamusSubscriptionId ?? "",
+      bindings: product.bindings.length ? product.bindings.map((binding) => ({ ...binding })) : [
+        {
+          provider: "prodamus",
+          enabled: true,
+          externalProductId: product.prodamusSubscriptionId,
+          externalOfferId: null
+        },
+        { provider: "lava", enabled: false, externalProductId: null, externalOfferId: null }
+      ],
       isPublished: product.isPublished
     };
   } else {
@@ -361,15 +421,78 @@ async function handleSaveProvider() {
   }
 }
 
+async function handleSaveLavaProvider() {
+  saving.value = true;
+  error.value = null;
+  try {
+    const payload: { apiKey?: string; webhookSecret?: string; isEnabled?: boolean } = {
+      isEnabled: lavaProviderForm.value.isEnabled
+    };
+    if (lavaProviderForm.value.apiKey.trim()) payload.apiKey = lavaProviderForm.value.apiKey.trim();
+    if (lavaProviderForm.value.webhookSecret.trim()) payload.webhookSecret = lavaProviderForm.value.webhookSecret.trim();
+    const response = await saveLavaProvider(payload);
+    providers.value = [
+      ...providers.value.filter((entry) => entry.provider !== "lava"),
+      response.provider
+    ];
+    closeProviderForm();
+    showAlert("Lava подключена.");
+  } catch {
+    showPaymentError("Не удалось сохранить Lava.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleCheckLava() {
+  saving.value = true;
+  try {
+    const response = await checkLavaProvider();
+    providers.value = [...providers.value.filter((entry) => entry.provider !== "lava"), response.provider];
+    showAlert("Соединение с Lava проверено.");
+  } catch {
+    showPaymentError("Не удалось проверить Lava.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function handleSyncLava() {
+  saving.value = true;
+  try {
+    const result = await syncLavaCatalog();
+    lavaCatalog.value = (await getLavaCatalog()).items;
+    showAlert(`Товары Lava обновлены: ${result.count}.`);
+  } catch {
+    showPaymentError("Не удалось обновить товары Lava.");
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function copyValue(value: string) {
+  await navigator.clipboard?.writeText(value);
+  showAlert("Адрес скопирован.");
+}
+
+function generateWebhookSecret() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
 async function handleSaveProduct() {
   saving.value = true;
   error.value = null;
   try {
+    const prodamusBinding = productForm.value.bindings.find((binding) => binding.provider === "prodamus");
     const payload = {
       ...productForm.value,
       description: null,
       badgeLabel: productForm.value.badgeLabel.trim() || null,
-      prodamusSubscriptionId: productForm.value.kind === "recurrent" ? productForm.value.prodamusSubscriptionId.trim() : null
+      prodamusSubscriptionId: productForm.value.kind === "recurrent"
+        ? prodamusBinding?.externalProductId?.trim() || null
+        : null,
+      bindings: productForm.value.bindings
     };
     const response = editingProduct.value
       ? await updatePaymentProduct(editingProduct.value.id, payload)
@@ -442,26 +565,21 @@ async function handleDeleteProduct(product: PaymentProduct) {
   }
 }
 
-async function handleCheckout(product: PaymentProduct) {
-  if (activeRecurrentSubscription.value) {
-    showAlert("У вас уже есть активная автоподписка. Отмените её перед новой оплатой.", "info");
-    return;
-  }
-  if (restorableRecurrentSubscription.value) {
-    showAlert("Восстановите отменённую автоподписку или дождитесь окончания доступа перед новой оплатой.", "info");
-    return;
-  }
-
-  if (!(await confirmPaymentRedirect(product))) {
-    return;
-  }
-
+async function startCheckout(product: PaymentProduct, selectedProvider?: PaymentProviderCode) {
   checkoutProductId.value = product.id;
   saving.value = true;
   error.value = null;
   try {
-    const response = await createPaymentCheckout(product.id);
+    const response = await createPaymentCheckout(product.id, selectedProvider);
+    if (response.options?.length) {
+      checkoutOptions.value = response.options;
+      checkoutChoiceProduct.value = product;
+      showCheckoutProviderPicker.value = true;
+      return;
+    }
     if (response.checkoutUrl) {
+      showCheckoutProviderPicker.value = false;
+      checkoutChoiceProduct.value = null;
       startPaymentWatch();
       openPaymentCheckoutUrl(response.checkoutUrl);
       return;
@@ -473,6 +591,28 @@ async function handleCheckout(product: PaymentProduct) {
     saving.value = false;
     checkoutProductId.value = null;
   }
+}
+
+async function handleCheckout(product: PaymentProduct) {
+  if (activeRecurrentSubscription.value) {
+    showAlert("У вас уже есть активная автоподписка. Отмените её перед новой оплатой.", "info");
+    return;
+  }
+  if (restorableRecurrentSubscription.value?.provider === "prodamus") {
+    showAlert("Восстановите отменённую автоподписку или дождитесь окончания доступа перед новой оплатой.", "info");
+    return;
+  }
+
+  if (!(await confirmPaymentRedirect(product))) {
+    return;
+  }
+
+  await startCheckout(product);
+}
+
+async function chooseCheckoutProvider(selectedProvider: PaymentProviderCode) {
+  if (!checkoutChoiceProduct.value) return;
+  await startCheckout(checkoutChoiceProduct.value, selectedProvider);
 }
 
 async function handleCancelSubscription(subscription: UserRecurrentSubscription) {
@@ -502,6 +642,10 @@ async function handleCancelSubscription(subscription: UserRecurrentSubscription)
 }
 
 async function handleRestoreSubscription(subscription: UserRecurrentSubscription) {
+  if (subscription.provider === "lava") {
+    showAlert("Выберите тариф ниже и оформите подписку Lava снова.", "info");
+    return;
+  }
   const confirmed = await appDialogs.confirm({
     title: `Восстановить подписку «${subscription.title}»?`,
     description: "Автоматическое продление снова будет включено.",
@@ -572,13 +716,27 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
     <div v-if="isAdmin && isEditingPayments" class="surface-card ui-card space-y-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="font-semibold text-[var(--text)]">{{ t("paymentsProvider") }}</p>
-          <div class="payment-provider-status" :class="provider?.isEnabled ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled'">
-            {{ provider?.isEnabled ? t("paymentsProviderEnabled") : t("paymentsProviderDisabled") }}
-          </div>
+          <p class="font-semibold text-[var(--text)]">Платёжные системы</p>
+          <p class="mt-1 text-sm text-[var(--muted)]">
+            Подключено: {{ connectedProviders.length }} из 2
+          </p>
         </div>
-        <button v-if="isOwner" class="secondary-button ui-button w-auto px-4" type="button" @click="openProviderForm">
-          {{ provider ? t("paymentsSetup") : t("paymentsConnect") }}
+        <button v-if="isOwner" class="secondary-button ui-button w-auto px-4" type="button" @click="openProviderPicker">
+          Настроить
+        </button>
+      </div>
+      <div class="payment-provider-mini-list">
+        <button type="button" @click="openProviderForm('prodamus')">
+          <span>Prodamus</span>
+          <small class="payment-provider-status" :class="provider?.isEnabled ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled'">
+            {{ provider?.secretConfigured ? "Подключено" : "Не подключено" }}
+          </small>
+        </button>
+        <button type="button" @click="openProviderForm('lava')">
+          <span>Lava</span>
+          <small class="payment-provider-status" :class="lavaProvider?.isEnabled ? 'payment-provider-status-enabled' : 'payment-provider-status-disabled'">
+            {{ lavaProvider?.secretConfigured ? "Подключено" : "Не подключено" }}
+          </small>
         </button>
       </div>
     </div>
@@ -589,7 +747,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
           <p class="font-semibold text-[var(--text)]">{{ t("paymentsPlans") }}</p>
           <p class="mt-1 text-sm text-[var(--muted)]">{{ t("paymentsPlansText") }}</p>
         </div>
-        <button v-if="isOwner && isEditingPayments" class="icon-button ui-icon-button" type="button" aria-label="Добавить тариф" :disabled="!provider" @click="openProductModal()">
+        <button v-if="isOwner && isEditingPayments" class="icon-button ui-icon-button" type="button" aria-label="Добавить тариф" :disabled="!connectedProviders.length" @click="openProductModal()">
           <Plus :size="20" />
         </button>
       </div>
@@ -617,7 +775,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
           :disabled="saving"
           @click="handleRestoreSubscription(restorableRecurrentSubscription)"
         >
-          {{ t("paymentsRestoreSubscription") }}
+          {{ restorableRecurrentSubscription.provider === "lava" ? "Оформить снова" : t("paymentsRestoreSubscription") }}
         </button>
       </div>
       <p v-else-if="loading" class="text-sm text-[var(--muted)]">{{ t("paymentsLoading") }}</p>
@@ -642,7 +800,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               class="primary-button ui-button payment-product-pay"
               :class="{ 'payment-product-pay-loading': checkoutProductId === product.id }"
               type="button"
-              :disabled="saving || !provider?.isEnabled"
+              :disabled="saving || !product.bindings.some((binding) => binding.enabled)"
               :aria-busy="checkoutProductId === product.id"
               @click="handleCheckout(product)"
             >
@@ -698,7 +856,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
             :disabled="saving"
             @click="handleRestoreSubscription(restorableRecurrentSubscription)"
           >
-            {{ t("paymentsRestoreSubscription") }}
+          {{ restorableRecurrentSubscription.provider === "lava" ? "Оформить снова" : t("paymentsRestoreSubscription") }}
           </button>
         </div>
       </article>
@@ -764,21 +922,33 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
     />
 
     <BottomSheet :open="showProviderPicker" title="Добавить платежную систему" @close="closeProviderPicker">
-      <button class="bottom-sheet-option" type="button" @click="openProviderForm">
+      <button class="bottom-sheet-option" type="button" @click="openProviderForm('prodamus')">
         <span class="bottom-sheet-option-title">Prodamus</span>
         <span class="bottom-sheet-option-text">{{ provider ? "Подключена. Можно изменить настройки." : "Нажмите, чтобы подключить." }}</span>
       </button>
+      <button class="bottom-sheet-option" type="button" @click="openProviderForm('lava')">
+        <span class="bottom-sheet-option-title">Lava</span>
+        <span class="bottom-sheet-option-text">{{ lavaProvider ? "Подключена. Можно изменить настройки." : "Нажмите, чтобы подключить." }}</span>
+      </button>
+    </BottomSheet>
+
+    <BottomSheet :open="showCheckoutProviderPicker" title="Выберите способ оплаты" @close="showCheckoutProviderPicker = false">
+      <PaymentProviderChooser
+        :options="checkoutOptions"
+        @select="chooseCheckoutProvider"
+        @close="showCheckoutProviderPicker = false"
+      />
     </BottomSheet>
 
     <TaskScreen
       v-if="showProviderForm"
       class="payment-task-screen"
-      title="Prodamus"
-      subtitle="Данные платежной формы и URL уведомлений."
+      :title="providerFormKind === 'lava' ? 'Lava' : 'Prodamus'"
+      :subtitle="providerFormKind === 'lava' ? 'API-ключ, уведомления и синхронизация товаров.' : 'Данные платежной формы и URL уведомлений.'"
       portal
       @back="closeProviderForm"
     >
-          <form class="payment-form-body space-y-3" @submit.prevent="handleSaveProvider">
+          <form v-if="providerFormKind === 'prodamus'" class="payment-form-body space-y-3" @submit.prevent="handleSaveProvider">
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">URL платежной формы</span>
               <input v-model.trim="providerForm.formUrl" class="text-input mt-2" placeholder="https://xxx.payform.ru/" required />
@@ -814,6 +984,68 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               <button class="secondary-button ui-button" type="button" @click="closeProviderForm">Закрыть</button>
               <button class="primary-button ui-button" type="submit" :disabled="saving">
                 {{ provider ? "Сохранить" : "Подключить" }}
+              </button>
+            </div>
+          </form>
+          <form v-else class="payment-form-body space-y-3" @submit.prevent="handleSaveLavaProvider">
+            <PaymentProviderSettings
+              :provider="lavaProvider"
+              :busy="saving"
+              @check="handleCheckLava"
+              @sync="handleSyncLava"
+              @copy="copyValue"
+            />
+            <label class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">API-ключ Lava</span>
+              <div v-if="lavaProvider?.secretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
+                <span class="select-none text-sm font-semibold tracking-[0.24em] text-[var(--muted)] blur-[2px]">••••••••••••••••</span>
+                <p class="mt-1 text-xs text-[var(--muted)]">Ключ сохранён. Заполните поле только для замены.</p>
+              </div>
+              <input
+                v-model.trim="lavaProviderForm.apiKey"
+                class="text-input mt-2"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="lavaProvider ? 'Новый API-ключ, если меняете' : 'API-ключ Lava'"
+                :required="!lavaProvider"
+              />
+            </label>
+            <label class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">Ключ для webhook</span>
+              <p class="mt-1 text-xs text-[var(--muted)]">
+                Укажите этот же ключ в Lava при создании обоих webhook, способ авторизации — API Key.
+              </p>
+              <div v-if="lavaProvider?.webhookSecretConfigured" class="mt-2 rounded-[18px] border border-[var(--line)] bg-[var(--field)] px-4 py-3">
+                <p class="text-xs text-[var(--muted)]">Ключ сохранён. Новый нужен только для замены.</p>
+              </div>
+              <div class="mt-2 grid grid-cols-[minmax(0,1fr)_44px] gap-2">
+                <input
+                  v-model.trim="lavaProviderForm.webhookSecret"
+                  class="text-input min-w-0"
+                  type="text"
+                  autocomplete="off"
+                  :placeholder="lavaProvider ? 'Новый ключ, если меняете' : 'Ключ для webhook'"
+                  :required="!lavaProvider"
+                />
+                <button
+                  class="icon-button ui-icon-button"
+                  type="button"
+                  aria-label="Скопировать ключ webhook"
+                  :disabled="!lavaProviderForm.webhookSecret"
+                  @click="copyValue(lavaProviderForm.webhookSecret)"
+                >
+                  <Copy :size="18" />
+                </button>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 rounded-[18px] bg-[var(--field)] p-4 text-sm font-semibold text-[var(--text)]">
+              <input v-model="lavaProviderForm.isEnabled" type="checkbox" />
+              Платежная система включена
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <button class="secondary-button ui-button" type="button" @click="closeProviderForm">Закрыть</button>
+              <button class="primary-button ui-button" type="submit" :disabled="saving">
+                {{ lavaProvider ? "Сохранить" : "Подключить" }}
               </button>
             </div>
           </form>
@@ -853,10 +1085,11 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
                 <input v-model.number="productForm.accessDays" class="text-input mt-2" type="number" min="1" required />
               </label>
             </div>
-            <label v-if="productForm.kind === 'recurrent'" class="block">
-              <span class="text-sm font-semibold text-[var(--muted)]">ID подписки Prodamus</span>
-              <input v-model.trim="productForm.prodamusSubscriptionId" class="text-input mt-2" required />
-            </label>
+            <PaymentProductBindings
+              v-model="productForm.bindings"
+              :kind="productForm.kind"
+              :lava-catalog="lavaCatalog"
+            />
             <label class="payment-product-publish-toggle">
               <span class="payment-product-publish-copy">
                 <strong>Показывать клиентам</strong>
@@ -882,3 +1115,10 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
     </TaskScreen>
   </section>
 </template>
+
+<style scoped>
+.payment-provider-mini-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.payment-provider-mini-list button{display:grid;gap:3px;min-width:0;min-height:54px;padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:var(--field);color:var(--text);text-align:left}
+.payment-provider-mini-list span,.payment-provider-mini-list small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.payment-provider-mini-list span{font-weight:750}.payment-provider-mini-list small{color:var(--muted)}
+@media(max-width:340px){.payment-provider-mini-list{grid-template-columns:1fr}}
+</style>

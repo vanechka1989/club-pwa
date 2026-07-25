@@ -21,6 +21,7 @@ import type {
   AdminLearningUploadedObject,
   AdminLearningResponse,
   AdminPaymentProviderResponse,
+  AdminPaymentProvidersResponse,
   AdminProjectSettingsMutationResponse,
   AdminProjectSettingsResponse,
   OwnerEmailLoginCodeResponse,
@@ -58,6 +59,9 @@ import type {
   PaymentsResponse,
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
+  PaymentProductProviderBinding,
+  PaymentProviderCatalogResponse,
+  PaymentProviderCode,
   PaymentProviderMutationResponse,
   ReferralActivationResponse,
   ReferralProfileResponse,
@@ -232,10 +236,10 @@ export function createCheckout() {
   return api<SubscribeResponse>("/subscriptions/checkout", { method: "POST" });
 }
 
-export function createPaymentCheckout(productId: string) {
+export function createPaymentCheckout(productId: string, provider?: PaymentProviderCode) {
   return api<SubscribeResponse>("/payments/checkout", {
     method: "POST",
-    body: { productId }
+    body: { productId, ...(provider ? { provider } : {}) }
   });
 }
 
@@ -516,6 +520,33 @@ export function saveProdamusProvider(payload: { formUrl: string; secretKey?: str
   });
 }
 
+export function getPaymentProviders() {
+  return api<AdminPaymentProvidersResponse>("/payments/admin/providers");
+}
+
+export function saveLavaProvider(payload: { apiKey?: string; webhookSecret?: string; isEnabled?: boolean }) {
+  return api<PaymentProviderMutationResponse>("/payments/admin/providers/lava", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function checkLavaProvider() {
+  return api<PaymentProviderMutationResponse>("/payments/admin/providers/lava/check", {
+    method: "POST"
+  });
+}
+
+export function syncLavaCatalog() {
+  return api<{ ok: true; count: number }>("/payments/admin/providers/lava/catalog/sync", {
+    method: "POST"
+  });
+}
+
+export function getLavaCatalog() {
+  return api<PaymentProviderCatalogResponse>("/payments/admin/providers/lava/catalog");
+}
+
 export function createPaymentProduct(payload: {
   kind: "one_time" | "recurrent";
   title: string;
@@ -524,6 +555,7 @@ export function createPaymentProduct(payload: {
   amountRub: number;
   accessDays: number;
   prodamusSubscriptionId?: string | null;
+  bindings?: PaymentProductProviderBinding[];
   isPublished?: boolean;
 }) {
   return api<PaymentProductMutationResponse>("/payments/admin/products", {
@@ -542,6 +574,7 @@ export function updatePaymentProduct(
     amountRub: number;
     accessDays: number;
     prodamusSubscriptionId?: string | null;
+    bindings?: PaymentProductProviderBinding[];
     isPublished?: boolean;
   }
 ) {

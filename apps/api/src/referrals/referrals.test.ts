@@ -26,6 +26,13 @@ describe("referrals", () => {
         recurrentPaymentStatus: "active"
       })
     ).toEqual({ allowed: false, reason: "active_recurrent_payment" });
+    expect(
+      canActivateReferralRewards({
+        isActiveMembership: true,
+        subscriptionProvider: "lava_recurrent",
+        recurrentPaymentStatus: "active"
+      })
+    ).toEqual({ allowed: false, reason: "active_recurrent_payment" });
 
     expect(
       canActivateReferralRewards({

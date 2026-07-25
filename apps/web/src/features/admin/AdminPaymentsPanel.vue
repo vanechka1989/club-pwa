@@ -87,7 +87,7 @@ onMounted(load);
         </div>
         <p>{{ diagnosticFor(order).reason }}</p>
         <div class="payment-meta">
-          <span>{{ formatDate(order.createdAt) }}</span><span>{{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }}</span>
+          <span>{{ formatDate(order.createdAt) }}</span><span>{{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }} · {{ order.provider === "lava" ? "Lava" : "Prodamus" }}</span>
           <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
         </div>
         <small class="payment-id">Заказ: {{ order.providerOrderId }}</small>

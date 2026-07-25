@@ -9,6 +9,7 @@ import {
 const activeSubscription = {
   id: "active-subscription",
   productId: "product-1",
+  provider: "prodamus",
   title: "Подписка",
   status: "active",
   cancelledAt: null,

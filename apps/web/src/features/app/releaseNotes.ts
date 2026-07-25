@@ -11,6 +11,17 @@ export const releaseNotes: ReleaseNote[] = [
   {
     version: appVersion,
     updatedAt: appVersionUpdatedAt,
+    title: "Оплата через Lava",
+    items: [
+      "Lava добавлена как второй независимый способ оплаты рядом с Prodamus.",
+      "Для каждого тарифа можно включить Prodamus, Lava или оба варианта; при двух вариантах клиент выбирает способ внутри приложения.",
+      "Поддержаны разовые платежи, подписки, продления, отмена, защищённые webhook и автоматическая сверка зависших операций.",
+      "В админке добавлены безопасная настройка Lava, проверка соединения, синхронизация товаров и привязка предложений к тарифам."
+    ]
+  },
+  {
+    version: "5.51",
+    updatedAt: "22.07.2026 18:18",
     title: "Автоматическое обслуживание диска",
     items: [
       "Сервер ежедневно освобождает только безопасный к удалению кэш сборки, старые неиспользуемые образы, системные журналы и кэш пакетов.",
@@ -4135,11 +4146,12 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Automatic storage maintenance",
+  title: "Lava payments",
   items: [
-    "The server safely removes disposable build cache, unused old images, package cache, and excess system logs every day.",
-    "The admin panel now shows disk usage, free space, the latest maintenance result, and the main storage categories.",
-    "Disk warnings start at 70%, while databases, uploaded content, and running containers are never pruned automatically."
+    "Lava is available as a second independent payment method alongside Prodamus.",
+    "Each plan can use Prodamus, Lava, or both, with an in-app payment method chooser.",
+    "One-time payments, subscriptions, renewals, cancellation, secure webhooks, and automatic reconciliation are supported.",
+    "Admins can configure Lava, verify the connection, synchronize products, and bind offers to plans."
   ]
 };
 

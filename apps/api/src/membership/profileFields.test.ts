@@ -47,4 +47,18 @@ describe("membership profile fields", () => {
       nextPaymentAt: "2026-07-25T14:00:00.000Z"
     });
   });
+
+  it("treats Lava one-time and recurrent access like equivalent Prodamus access", () => {
+    expect(resolveMembershipProfileFields({
+      membershipStatus: "active",
+      subscriptionProvider: "lava",
+      subscriptionExpiresAt: new Date("2026-08-25T10:00:00.000Z")
+    }).paymentType).toBe("one_time");
+    expect(resolveMembershipProfileFields({
+      membershipStatus: "active",
+      subscriptionProvider: "lava_recurrent",
+      subscriptionExpiresAt: new Date("2026-08-25T10:00:00.000Z"),
+      recurrentPaymentStatus: "active"
+    }).paymentType).toBe("recurrent");
+  });
 });

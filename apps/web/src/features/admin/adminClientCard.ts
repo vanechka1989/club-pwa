@@ -47,11 +47,11 @@ export function getAdminSubscriptionTitle(subscription: AdminSubscriptionLike) {
     return "Ручной доступ истёк";
   }
 
-  if (subscription.provider === "prodamus_recurrent") {
+  if (subscription.provider === "prodamus_recurrent" || subscription.provider === "lava_recurrent") {
     return "Оплачена автоподписка";
   }
 
-  if (subscription.provider === "prodamus") {
+  if (subscription.provider === "prodamus" || subscription.provider === "lava") {
     return "Оплачен разовый доступ";
   }
 
@@ -63,12 +63,12 @@ export function getAdminSubscriptionSourceLabel(subscription: AdminSubscriptionL
     return "Ручное управление доступом";
   }
 
-  if (subscription.provider === "prodamus_recurrent") {
-    return "Автоподписка Prodamus";
+  if (subscription.provider === "prodamus_recurrent" || subscription.provider === "lava_recurrent") {
+    return subscription.provider === "lava_recurrent" ? "Автоподписка Lava" : "Автоподписка Prodamus";
   }
 
-  if (subscription.provider === "prodamus") {
-    return "Разовая оплата Prodamus";
+  if (subscription.provider === "prodamus" || subscription.provider === "lava") {
+    return subscription.provider === "lava" ? "Разовая оплата Lava" : "Разовая оплата Prodamus";
   }
 
   return subscription.provider || "Источник не указан";
@@ -100,11 +100,11 @@ export function getAdminTariffLabel(tariff: string | null | undefined) {
     return "Ручной доступ";
   }
 
-  if (tariff === "prodamus") {
+  if (tariff === "prodamus" || tariff === "lava") {
     return "Разовый платёж";
   }
 
-  if (tariff === "prodamus_recurrent") {
+  if (tariff === "prodamus_recurrent" || tariff === "lava_recurrent") {
     return "Автоподписка";
   }
 

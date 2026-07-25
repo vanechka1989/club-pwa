@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes automatic storage maintenance as version 5.51", () => {
-    expect(appVersion).toBe("5.51");
-    expect(releaseNotes[0]?.title).toBe("Автоматическое обслуживание диска");
+  it("publishes Lava payments as version 5.52", () => {
+    expect(appVersion).toBe("5.52");
+    expect(releaseNotes[0]?.title).toBe("Оплата через Lava");
+
+    const storageRelease = releaseNotes.find((note) => note.version === "5.51");
+    expect(storageRelease?.title).toBe("Автоматическое обслуживание диска");
 
     const notificationRelease = releaseNotes.find((note) => note.version === "5.50");
     expect(notificationRelease?.title).toBe("Понятные системные уведомления");
@@ -147,7 +150,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Automatic storage maintenance");
+    expect(englishNotes[0]?.title).toBe("Lava payments");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

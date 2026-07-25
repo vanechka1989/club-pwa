@@ -32,11 +32,11 @@ export function resolveMembershipPreview({
 }
 
 function resolvePaymentType(provider: string | null | undefined): PaymentType {
-  if (provider === "prodamus_recurrent") {
+  if (provider === "prodamus_recurrent" || provider === "lava_recurrent") {
     return "recurrent";
   }
 
-  if (provider === "prodamus") {
+  if (provider === "prodamus" || provider === "lava") {
     return "one_time";
   }
 

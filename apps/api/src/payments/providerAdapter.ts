@@ -1,11 +1,11 @@
 import type { PaymentProductKind, PaymentProviderCode } from "@club/shared";
 
 export type PaymentProviderCredentials = {
-  formUrl?: string;
-  secretKey?: string;
-  sys?: string;
-  apiKey?: string;
-  webhookSecret?: string;
+  formUrl?: string | undefined;
+  secretKey?: string | undefined;
+  sys?: string | undefined;
+  apiKey?: string | undefined;
+  webhookSecret?: string | undefined;
 };
 
 export type ProviderCheckoutInput = {
@@ -43,6 +43,18 @@ export type ProviderSubscriptionInput = {
   customerEmail: string;
 };
 
+export type ProviderOrderStatusInput = {
+  credentials: PaymentProviderCredentials;
+  externalOrderId: string;
+  productId: string;
+  buyerEmail: string;
+  amountRub: number;
+};
+
+export type ProviderSubscriptionStatusInput = Omit<ProviderOrderStatusInput, "externalOrderId"> & {
+  externalSubscriptionId: string;
+};
+
 export type NormalizedPaymentEvent = {
   eventKey: string;
   provider: PaymentProviderCode;
@@ -71,5 +83,7 @@ export interface PaymentProviderAdapter {
   }>;
   checkConnection(credentials: PaymentProviderCredentials): Promise<void>;
   listCatalog(credentials: PaymentProviderCredentials): Promise<ProviderCatalogItem[]>;
+  getOrderStatus?(input: ProviderOrderStatusInput): Promise<NormalizedPaymentEvent | null>;
+  getSubscriptionEvents?(input: ProviderSubscriptionStatusInput): Promise<NormalizedPaymentEvent[]>;
   cancelSubscription?(input: ProviderSubscriptionInput): Promise<void>;
 }

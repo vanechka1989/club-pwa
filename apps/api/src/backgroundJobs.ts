@@ -8,20 +8,24 @@ export async function startBackgroundJobs() {
   const [
     { startExpiredPendingPaymentOrderCleanup },
     { startMailingDispatcher, stopMailingDispatcher },
-    { startCommunityMediaCleanupJob }
+    { startCommunityMediaCleanupJob },
+    { startPaymentReconciliationJob }
   ] =
     await Promise.all([
       import("./payments/orderCleanupJob"),
       import("./routes/mailings"),
-      import("./community/mediaCleanup")
+      import("./community/mediaCleanup"),
+      import("./payments/paymentReconciliation")
     ]);
 
   const orderCleanupTimer = startExpiredPendingPaymentOrderCleanup();
   startMailingDispatcher();
   const mediaCleanupTimer = startCommunityMediaCleanupJob();
+  const paymentReconciliationTimer = startPaymentReconciliationJob();
   return () => {
     clearInterval(orderCleanupTimer);
     stopMailingDispatcher();
     clearInterval(mediaCleanupTimer);
+    clearInterval(paymentReconciliationTimer);
   };
 }

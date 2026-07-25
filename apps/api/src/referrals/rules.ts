@@ -25,7 +25,11 @@ export function canActivateReferralRewards({
   subscriptionProvider: string | null | undefined;
   recurrentPaymentStatus: "active" | "cancelled" | null | undefined;
 }) {
-  if (isActiveMembership && subscriptionProvider === "prodamus_recurrent" && recurrentPaymentStatus === "active") {
+  if (
+    isActiveMembership &&
+    (subscriptionProvider === "prodamus_recurrent" || subscriptionProvider === "lava_recurrent") &&
+    recurrentPaymentStatus === "active"
+  ) {
     return { allowed: false as const, reason: "active_recurrent_payment" as const };
   }
 
