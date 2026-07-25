@@ -38,6 +38,14 @@ describe("deploy update script", () => {
     expect(markerIndex).toBeGreaterThan(healthIndex);
   });
 
+  it("creates and preserves a payment encryption key without printing it", () => {
+    expect(serverInstall).toContain("PAYMENT_CONFIG_ENCRYPTION_KEY");
+    expect(serverInstall).toContain("openssl rand -base64 32");
+    expect(updateWorker).toContain("ensure_payment_encryption_key");
+    expect(updateWorker).toContain("PAYMENT_CONFIG_ENCRYPTION_KEY=");
+    expect(updateWorker).not.toContain("echo $PAYMENT_CONFIG_ENCRYPTION_KEY");
+  });
+
   it("restarts from the freshly pulled worker when deployment logic changed", () => {
     const pullIndex = updateWorker.indexOf("git pull --ff-only");
     const restartIndex = updateWorker.indexOf("DEPLOY_WORKER_REEXECUTED=1");

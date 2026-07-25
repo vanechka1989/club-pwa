@@ -351,7 +351,7 @@ async function handleSaveProvider() {
     }
     const response = await saveProdamusProvider(payload);
     provider.value = response.provider;
-    webhookUrl.value = response.provider.webhookUrl;
+    webhookUrl.value = response.provider.webhookUrl ?? webhookUrl.value;
     closeProviderForm();
     showAlert("Prodamus подключен.");
   } catch {

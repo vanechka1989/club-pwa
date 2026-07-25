@@ -472,34 +472,71 @@ export type PaymentPlan = z.infer<typeof paymentPlanSchema>;
 export const paymentProductKindSchema = z.enum(["one_time", "recurrent"]);
 export type PaymentProductKind = z.infer<typeof paymentProductKindSchema>;
 
+export const paymentProviderCodeSchema = z.enum(["prodamus", "lava"]);
+export type PaymentProviderCode = z.infer<typeof paymentProviderCodeSchema>;
+
+export const paymentProviderConnectionStateSchema = z.enum(["not_configured", "configured", "verified", "error"]);
+export type PaymentProviderConnectionState = z.infer<typeof paymentProviderConnectionStateSchema>;
+
 export const paymentProviderSchema = z.object({
   id: z.string(),
-  provider: z.literal("prodamus"),
+  provider: paymentProviderCodeSchema,
   title: z.string(),
-  formUrl: z.string().url(),
-  sys: z.string(),
+  formUrl: z.string().default(""),
+  sys: z.string().default(""),
   isEnabled: z.boolean(),
   secretConfigured: z.boolean(),
-  webhookUrl: z.string().url()
+  webhookSecretConfigured: z.boolean().default(false),
+  connectionState: paymentProviderConnectionStateSchema.default("configured"),
+  lastCheckedAt: z.string().datetime().nullable().default(null),
+  lastCheckError: z.string().nullable().default(null),
+  webhookUrl: z.string().url().optional(),
+  webhookUrls: z
+    .object({
+      payment: z.string().url(),
+      subscription: z.string().url()
+    })
+    .optional()
 });
 export type PaymentProvider = z.infer<typeof paymentProviderSchema>;
 
+export const paymentProductProviderBindingSchema = z.object({
+  provider: paymentProviderCodeSchema,
+  enabled: z.boolean(),
+  externalProductId: z.string().nullable(),
+  externalOfferId: z.string().nullable()
+});
+export type PaymentProductProviderBinding = z.infer<typeof paymentProductProviderBindingSchema>;
+
 export const paymentProductSchema = z.object({
   id: z.string(),
-  providerId: z.string(),
+  providerId: z.string().default(""),
   kind: paymentProductKindSchema,
   title: z.string(),
   description: z.string().nullable(),
   badgeLabel: z.string().nullable(),
   amountRub: z.number().int().positive(),
   accessDays: z.number().int().positive(),
-  prodamusSubscriptionId: z.string().nullable(),
+  prodamusSubscriptionId: z.string().nullable().default(null),
+  bindings: z.array(paymentProductProviderBindingSchema).default([]),
   isPublished: z.boolean(),
   archivedUntil: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
 export type PaymentProduct = z.infer<typeof paymentProductSchema>;
+
+export const paymentCheckoutOptionSchema = z.object({
+  provider: paymentProviderCodeSchema,
+  title: z.string()
+});
+export type PaymentCheckoutOption = z.infer<typeof paymentCheckoutOptionSchema>;
+
+export const paymentCheckoutOptionsResponseSchema = z.object({
+  productId: z.string(),
+  options: z.array(paymentCheckoutOptionSchema)
+});
+export type PaymentCheckoutOptionsResponse = z.infer<typeof paymentCheckoutOptionsResponseSchema>;
 
 export const userRecurrentSubscriptionSchema = z.object({
   id: z.string(),

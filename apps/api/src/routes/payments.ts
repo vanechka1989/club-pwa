@@ -521,7 +521,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (subscription.status !== "active") {
       return c.json({ ok: true });
     }
-    if (subscription.product.kind !== "recurrent" || subscription.provider.provider !== "prodamus") {
+    if (
+      subscription.product.kind !== "recurrent" ||
+      subscription.provider.provider !== "prodamus" ||
+      !subscription.prodamusSubscriptionId
+    ) {
       return c.json({ error: "Cancel is available only for recurrent Prodamus subscriptions" }, 400);
     }
 
@@ -593,7 +597,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (subscription.status === "active") {
       return c.json({ ok: true });
     }
-    if (subscription.product.kind !== "recurrent" || subscription.provider.provider !== "prodamus") {
+    if (
+      subscription.product.kind !== "recurrent" ||
+      subscription.provider.provider !== "prodamus" ||
+      !subscription.prodamusSubscriptionId
+    ) {
       return c.json({ error: "Restore is available only for recurrent Prodamus subscriptions" }, 400);
     }
 

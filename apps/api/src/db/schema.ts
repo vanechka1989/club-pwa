@@ -325,6 +325,11 @@ export const paymentProviders = pgTable(
     formUrl: text("form_url").notNull(),
     secretKey: text("secret_key").notNull(),
     sys: varchar("sys", { length: 96 }).notNull(),
+    apiKey: text("api_key"),
+    webhookSecret: text("webhook_secret"),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    lastCheckError: text("last_check_error"),
+    lastCatalogSyncAt: timestamp("last_catalog_sync_at", { withTimezone: true }),
     isEnabled: boolean("is_enabled").notNull().default(true),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -359,6 +364,46 @@ export const paymentProducts = pgTable(
   })
 );
 
+export const paymentProductProviderBindings = pgTable(
+  "payment_product_provider_bindings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id").notNull().references(() => paymentProducts.id, { onDelete: "cascade" }),
+    providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "cascade" }),
+    externalProductId: varchar("external_product_id", { length: 160 }),
+    externalOfferId: varchar("external_offer_id", { length: 160 }),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    productProviderIdx: uniqueIndex("payment_product_provider_bindings_product_provider_idx").on(table.productId, table.providerId),
+    providerEnabledIdx: index("payment_product_provider_bindings_provider_enabled_idx").on(table.providerId, table.isEnabled)
+  })
+);
+
+export const paymentProviderCatalogItems = pgTable(
+  "payment_provider_catalog_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "cascade" }),
+    externalProductId: varchar("external_product_id", { length: 160 }).notNull(),
+    externalOfferId: varchar("external_offer_id", { length: 160 }).notNull().default(""),
+    title: varchar("title", { length: 240 }).notNull(),
+    kind: paymentProductKind("kind").notNull(),
+    amountRub: integer("amount_rub"),
+    isStale: boolean("is_stale").notNull().default(false),
+    metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    providerExternalIdx: uniqueIndex("payment_provider_catalog_items_provider_external_idx")
+      .on(table.providerId, table.externalProductId, table.externalOfferId),
+    providerStaleIdx: index("payment_provider_catalog_items_provider_stale_idx").on(table.providerId, table.isStale)
+  })
+);
+
 export const paymentOrders = pgTable(
   "payment_orders",
   {
@@ -370,6 +415,8 @@ export const paymentOrders = pgTable(
     amountRub: integer("amount_rub").notNull(),
     providerOrderId: varchar("provider_order_id", { length: 128 }).notNull(),
     providerPaymentId: varchar("provider_payment_id", { length: 128 }),
+    externalOrderId: varchar("external_order_id", { length: 160 }),
+    externalSubscriptionId: varchar("external_subscription_id", { length: 160 }),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     rawPayload: jsonb("raw_payload").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -391,7 +438,8 @@ export const userRecurrentSubscriptions = pgTable(
     productId: uuid("product_id").notNull().references(() => paymentProducts.id, { onDelete: "restrict" }),
     providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "restrict" }),
     status: recurrentSubscriptionStatus("status").notNull().default("active"),
-    prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }).notNull(),
+    prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }),
+    externalSubscriptionId: varchar("external_subscription_id", { length: 160 }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()

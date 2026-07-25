@@ -73,6 +73,21 @@ read_env_value() {
   printf '%s' "$value"
 }
 
+ensure_payment_encryption_key() {
+  [[ -f "$DEPLOY_DIR/.env" ]] || return 0
+  if grep -q '^PAYMENT_CONFIG_ENCRYPTION_KEY=' "$DEPLOY_DIR/.env"; then
+    return 0
+  fi
+
+  local generated_key temp_file
+  generated_key="$(openssl rand -base64 32 | tr -d '\n')"
+  temp_file="$DEPLOY_DIR/.env.tmp.$$"
+  cp "$DEPLOY_DIR/.env" "$temp_file"
+  printf '%s\n' "PAYMENT_CONFIG_ENCRYPTION_KEY=$generated_key" >> "$temp_file"
+  chmod 600 "$temp_file"
+  mv "$temp_file" "$DEPLOY_DIR/.env"
+}
+
 resolve_health_url() {
   if [[ -n "${DEPLOY_HEALTH_URL:-}" ]]; then
     printf '%s' "$DEPLOY_HEALTH_URL"
@@ -349,6 +364,7 @@ if [[ "$deployed_commit" == "$current_target" && "${DEPLOY_FORCE:-0}" != "1" ]];
 fi
 
 classify_changes "$deployed_commit"
+ensure_payment_encryption_key
 set_service_summary
 write_status running classified
 echo "Target: $current_target; services: $current_services"

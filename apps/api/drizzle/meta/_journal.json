@@ -379,6 +379,13 @@
       "when": 1784721600000,
       "tag": "0053_admin_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1784995200000,
+      "tag": "0054_lava_payment_provider",
+      "breakpoints": true
     }
   ]
 }
