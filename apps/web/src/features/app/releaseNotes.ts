@@ -16,6 +16,16 @@ export const releaseNotes: ReleaseNote[] = [
     items: [...currentRelease.items]
   },
   {
+    version: "5.60",
+    updatedAt: "26.07.2026 01:21",
+    title: "Ключ webhook Lava всегда доступен",
+    items: [
+      "В настройках Lava теперь можно показать и одним нажатием скопировать ключ, который действительно сохранён на сервере.",
+      "Повторное открытие формы больше не меняет ещё не сохранённый ключ webhook.",
+      "Доступ к сохранённому ключу разрешён только владельцу или администратору с правом управления оплатой и фиксируется в журнале действий."
+    ]
+  },
+  {
     version: "5.59",
     updatedAt: "26.07.2026 00:57",
     title: "Webhook Lava принимает оплату",
@@ -4223,11 +4233,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Saved Lava webhook key access",
+  title: "Access expiry reminders",
   items: [
-    "The exact webhook key saved on the server can now be revealed and copied from the Lava settings.",
-    "Reopening an unfinished connection form no longer generates a different webhook key.",
-    "Key access is restricted to payment settings managers and recorded in the action log."
+    "Clients are reminded three days before, one day before, and on the day their access expires.",
+    "Reminders are delivered in the app, by push, and by email with a renewal button.",
+    "The hourly worker handles renewed access and restarts without normal duplicate delivery."
   ]
 };
 
