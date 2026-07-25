@@ -52,12 +52,16 @@ function secureEqual(left: string, right: string) {
   return timingSafeEqual(leftHash, rightHash);
 }
 
-export async function parseLavaWebhook(request: Request, secret: string): Promise<NormalizedPaymentEvent> {
+export async function parseLavaWebhook(
+  request: Request,
+  secrets: string | readonly string[]
+): Promise<NormalizedPaymentEvent> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
     throw new LavaWebhookError(415, "Webhook must use application/json");
   }
   const suppliedKey = request.headers.get("x-api-key") ?? "";
-  if (!suppliedKey || !secureEqual(suppliedKey, secret)) {
+  const acceptedSecrets = typeof secrets === "string" ? [secrets] : secrets;
+  if (!suppliedKey || !acceptedSecrets.some((secret) => secureEqual(suppliedKey, secret))) {
     throw new LavaWebhookError(401, "Invalid webhook authentication");
   }
 

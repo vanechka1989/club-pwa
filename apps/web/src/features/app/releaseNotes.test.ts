@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes reliable Lava checkout and notifications as version 5.58", () => {
-    expect(appVersion).toBe("5.58");
-    expect(releaseNotes[0]?.title).toBe("Надёжная оплата и уведомления");
+  it("publishes Lava webhook compatibility as version 5.59", () => {
+    expect(appVersion).toBe("5.59");
+    expect(releaseNotes[0]?.title).toBe("Webhook Lava принимает оплату");
+
+    const reliableCheckoutRelease = releaseNotes.find((note) => note.version === "5.58");
+    expect(reliableCheckoutRelease?.title).toBe("Надёжная оплата и уведомления");
 
     const lavaAutofillRelease = releaseNotes.find((note) => note.version === "5.57");
     expect(lavaAutofillRelease?.title).toBe("Тарифы Lava без ручного заполнения");

@@ -33,6 +33,15 @@ describe("Lava webhook", () => {
       .rejects.toEqual(new LavaWebhookError(401, "Invalid webhook authentication"));
   });
 
+  it("accepts the Lava API key when it was configured as webhook authentication", async () => {
+    const event = await parseLavaWebhook(
+      lavaRequest("payment.success", "lava-api-key"),
+      ["separate-webhook-key", "lava-api-key"]
+    );
+
+    expect(event.type).toBe("payment_succeeded");
+  });
+
   it.each([
     ["payment.success", "payment_succeeded"],
     ["payment.failed", "payment_failed"],

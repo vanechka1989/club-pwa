@@ -22,7 +22,11 @@ async function handleWebhook(c: Context, family: LavaWebhookFamily) {
   }
 
   try {
-    const event = await parseLavaWebhook(c.req.raw, decryptProviderSecret(provider.webhookSecret));
+    const acceptedSecrets = [
+      decryptProviderSecret(provider.webhookSecret),
+      ...(provider.apiKey ? [decryptProviderSecret(provider.apiKey)] : [])
+    ];
+    const event = await parseLavaWebhook(c.req.raw, acceptedSecrets);
     if (!acceptsFamily(family, event.type)) {
       return c.json({ ok: false, error: "Unexpected Lava webhook event family" }, 400);
     }
