@@ -13,9 +13,12 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes code and loading optimization as version 5.68", () => {
-    expect(appVersion).toBe("5.68");
-    expect(releaseNotes[0]?.title).toBe("Оптимизация кода и загрузки");
+  it("publishes multicurrency payments as version 5.69", () => {
+    expect(appVersion).toBe("5.69");
+    expect(releaseNotes[0]?.title).toBe("Оплата в рублях, евро и долларах");
+
+    const previousOptimizationRelease = releaseNotes.find((note) => note.version === "5.68");
+    expect(previousOptimizationRelease?.title).toBe("Оптимизация кода и загрузки");
 
     const paymentAndSupportRelease = releaseNotes.find((note) => note.version === "5.67");
     expect(paymentAndSupportRelease?.title).toBe("Понятная оплата и современная поддержка");
