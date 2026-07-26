@@ -2982,8 +2982,9 @@ test("separates the complete developer surface from an administrator with all pe
   await page.unroute(`${apiBaseUrl}/**`);
   await page.unroute(appApiUrlPattern);
   await mockApi(page, fullAdmin);
-  await page.evaluate(() => localStorage.setItem("club-preview-mode", "admin"));
+  await page.evaluate(() => localStorage.setItem("club-preview-mode", "developer"));
   await page.goto("/admin");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("club-preview-mode"))).toBe("admin");
 
   for (const panel of ["Аналитика", "Клиенты", "Рассылки", "Платежи", "Хранилище", "Настройки проекта", "Админы"]) {
     await expect(page.getByRole("button", { name: panel, exact: true })).toBeVisible();
