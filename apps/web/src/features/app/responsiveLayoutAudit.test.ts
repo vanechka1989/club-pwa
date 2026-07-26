@@ -31,9 +31,11 @@ describe("responsive layout audit contract", () => {
     expect(existsSync(foundationPath)).toBe(true);
     const foundation = readFileSync(foundationPath, "utf8");
     expect(foundation).toContain("PWA UI Foundation 2026");
-    expect(foundation).toContain("--page-max-width: 768px;");
-    expect(foundation).toContain("--page-padding: 12px;");
-    expect(foundation).toContain("--page-padding-compact: 10px;");
+    expect(foundation).toContain("--page-max-width: 100%;");
+    expect(foundation).toContain("--page-edge-gutter: 8px;");
+    expect(foundation).toContain("--page-edge-gutter-compact: 4px;");
+    expect(foundation).toContain("--page-padding: var(--page-edge-gutter);");
+    expect(foundation).toContain("--page-padding-compact: var(--page-edge-gutter-compact);");
     expect(foundation).toContain("--section-gap: 12px;");
     expect(foundation).toContain("--card-gap: 8px;");
     expect(foundation).toContain("--card-padding: 12px;");

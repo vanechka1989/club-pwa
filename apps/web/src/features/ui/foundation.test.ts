@@ -18,9 +18,11 @@ describe("PWA UI foundation", () => {
 
     const css = readUi("foundation.css");
     expect(css).toContain("PWA UI Foundation 2026");
-    expect(css).toContain("--page-max-width: 768px;");
-    expect(css).toContain("--page-padding: 12px;");
-    expect(css).toContain("--page-padding-compact: 10px;");
+    expect(css).toContain("--page-max-width: 100%;");
+    expect(css).toContain("--page-edge-gutter: 8px;");
+    expect(css).toContain("--page-edge-gutter-compact: 4px;");
+    expect(css).toContain("--page-padding: var(--page-edge-gutter);");
+    expect(css).toContain("--page-padding-compact: var(--page-edge-gutter-compact);");
     expect(css).toContain("--section-gap: 12px;");
     expect(css).toContain("--card-gap: 8px;");
     expect(css).toContain("--card-padding: 12px;");
@@ -41,6 +43,8 @@ describe("PWA UI foundation", () => {
     const css = readUi("foundation.css");
 
     expect(css).toContain("--club-scaled-control-factor: var(--club-scaled-ui-factor, 1);");
+    expect(css).toContain("--page-padding: var(--page-edge-gutter);");
+    expect(css).not.toContain("--page-padding: calc(12px * var(--club-scaled-ui-factor));");
     expect(css).toContain("--section-gap: calc(12px * var(--club-scaled-ui-factor));");
     expect(css).toContain("--card-gap: calc(8px * var(--club-scaled-ui-factor));");
     expect(css).toContain("--card-padding: calc(12px * var(--club-scaled-ui-factor));");
@@ -56,6 +60,12 @@ describe("PWA UI foundation", () => {
     expect(css).toContain("--bottom-nav-height: calc(60px * var(--club-scaled-control-factor));");
     expect(css).toContain("--bottom-action-height: calc(56px * var(--club-scaled-control-factor));");
     expect(css).not.toContain("--club-scaled-control-factor: min(");
+  });
+
+  it("keeps desktop and tablet containers on the same compact full-width gutter", () => {
+    const css = readUi("foundation.css");
+
+    expect(css).not.toMatch(/@media \(min-width: 1024px\)\s*\{[\s\S]*?\.ui-page-container\s*\{[^}]*padding-inline:\s*24px;/);
   });
 
   it("keeps page header actions inline until genuinely narrow phone widths", () => {

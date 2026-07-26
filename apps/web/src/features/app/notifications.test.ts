@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/vue";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { nextTick } from "vue";
 import AppNotifications from "./AppNotifications.vue";
@@ -105,16 +105,24 @@ describe("app notifications", () => {
   });
 
   it("places the notification bell in the profile compact controls instead of the app top center", () => {
+    const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
     const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
     const profileSource = readFileSync(resolve(__dirname, "../profile/ProfileSection.vue"), "utf8");
-    const styles = readAppStyles();
+    const launcherPath = resolve(__dirname, "notificationLauncher.css");
+    const launcherSource = existsSync(launcherPath) ? readFileSync(launcherPath, "utf8") : "";
+    const routeStyles = readFileSync(resolve(__dirname, "notificationRoute.css"), "utf8");
 
     expect(appSource).not.toMatch(/<NotificationCenter(?:\s|\/|>)/);
     expect(profileSource).toContain('import NotificationCenter from "@/features/app/NotificationCenter.vue";');
     expect(profileSource).toContain("<NotificationCenter");
     expect(profileSource).not.toContain("@click=\"changeTheme(ui.theme === 'dark' ? 'light' : 'dark')\"");
-    expect(styles).toMatch(/\.compact-controls\s+\.notification-center\s*\{/s);
-    expect(styles).toMatch(/\.compact-controls\s+\.notification-center-button\s*\{[^}]*width:\s*var\(--icon-button-size\);/s);
-    expect(styles).not.toMatch(/\.notification-center\s*\{[^}]*top:\s*calc\(var\(--tg-safe-top/s);
+    expect(source).toContain('import "./notificationLauncher.css";');
+    expect(existsSync(launcherPath)).toBe(true);
+    expect(launcherSource).toMatch(/\.compact-controls\s+\.notification-center\s*\{/s);
+    expect(launcherSource).toMatch(/\.notification-center-button\s*\{[^}]*position:\s*relative;[^}]*width:\s*var\(--icon-button-size\);/s);
+    expect(launcherSource).toMatch(/\.notification-center-badge\s*\{[^}]*position:\s*absolute;[^}]*background:\s*#e11d48;/s);
+    expect(routeStyles).not.toContain(".notification-center-button");
+    expect(routeStyles).not.toContain(".notification-center-badge");
+    expect(launcherSource).not.toMatch(/\.notification-center\s*\{[^}]*top:\s*calc\(var\(--tg-safe-top/s);
   });
 });

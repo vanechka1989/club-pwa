@@ -28,8 +28,8 @@ describe("application page header consistency", () => {
   });
 
   it("uses one inset card contract for every routed task header and body", () => {
-    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-header\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*auto;[^}]*margin:\s*12px 14px 0;[^}]*border:\s*1px solid var\(--color-border\);[^}]*border-radius:\s*var\(--card-radius\);[^}]*background:\s*var\(--color-surface\);[^}]*box-shadow:\s*var\(--shadow-sm\);/s);
-    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-body\s*\{[^}]*padding:\s*12px 14px calc\(24px \+ var\(--club-safe-bottom\)\);/s);
+    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-header\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*auto;[^}]*margin:\s*var\(--page-padding\) var\(--page-padding\) 0;[^}]*border:\s*1px solid var\(--color-border\);[^}]*border-radius:\s*var\(--card-radius\);[^}]*background:\s*var\(--color-surface\);[^}]*box-shadow:\s*var\(--shadow-sm\);/s);
+    expect(styles).toMatch(/\.task-screen-route-layer \.task-screen-body\s*\{[^}]*padding:\s*var\(--page-padding\) var\(--page-padding\) calc\(24px \+ var\(--club-safe-bottom\)\);/s);
     expect(styles).not.toContain(".profile-detail-task-screen .task-screen-header");
     expect(styles).not.toContain(".profile-detail-task-screen .task-screen-body {");
     expect(styles).toMatch(/@media \(max-width:\s*360px\)[\s\S]*?\.task-screen-route-layer \.task-screen-header\s*\{[^}]*border-radius:\s*var\(--card-radius-compact\);/s);
