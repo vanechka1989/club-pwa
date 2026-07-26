@@ -363,7 +363,8 @@ export const learningCategorySchema = z.object({
   description: z.string().nullable(),
   defaultCardLayout: contentCardLayoutSchema.default("vertical"),
   isPublished: z.boolean(),
-  itemsCount: z.number().int().nonnegative()
+  itemsCount: z.number().int().nonnegative(),
+  archivedUntil: z.string().datetime().nullable().default(null)
 });
 export type LearningCategory = z.infer<typeof learningCategorySchema>;
 
@@ -1323,6 +1324,7 @@ export type AdminLearningMaterial = z.infer<typeof adminLearningMaterialSchema>;
 
 export const adminLearningResponseSchema = z.object({
   categories: z.array(learningCategorySchema),
+  deletedCategories: z.array(learningCategorySchema).default([]),
   materials: z.array(adminLearningMaterialSchema),
   deletedMaterials: z.array(adminLearningMaterialSchema).default([])
 });

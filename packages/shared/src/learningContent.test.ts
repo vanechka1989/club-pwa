@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { learningContentSchema, learningHomeResponseSchema } from "./index";
+import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningHomeResponseSchema } from "./index";
 
 describe("learningContentSchema", () => {
   it("accepts all lesson cover modes while keeping old content compatible", () => {
@@ -72,5 +72,30 @@ describe("learningHomeResponseSchema", () => {
     });
 
     expect(parsed.progress.lastOpenedPlaybackPositionSeconds).toBe(252);
+  });
+});
+
+describe("learning administration archive contracts", () => {
+  const category = {
+    id: "category-1",
+    slug: "module-1",
+    title: "Модуль 1",
+    description: null,
+    isPublished: false,
+    itemsCount: 0
+  };
+
+  it("keeps legacy learning categories compatible by defaulting archive state to null", () => {
+    expect(learningCategorySchema.parse(category).archivedUntil).toBeNull();
+  });
+
+  it("keeps legacy admin learning responses compatible by defaulting deleted categories", () => {
+    const parsed = adminLearningResponseSchema.parse({
+      categories: [category],
+      materials: []
+    });
+
+    expect(parsed.deletedCategories).toEqual([]);
+    expect(parsed.categories[0]?.archivedUntil).toBeNull();
   });
 });
