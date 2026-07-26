@@ -85,8 +85,8 @@ describe("learning administration archive contracts", () => {
     itemsCount: 0
   };
 
-  it("keeps legacy learning categories compatible by defaulting archive state to null", () => {
-    expect(learningCategorySchema.parse(category).archivedUntil).toBeNull();
+  it("keeps legacy learning categories compatible when archive state is absent", () => {
+    expect(learningCategorySchema.parse(category).archivedUntil).toBeUndefined();
   });
 
   it("keeps legacy admin learning responses compatible by defaulting deleted categories", () => {
@@ -96,6 +96,6 @@ describe("learning administration archive contracts", () => {
     });
 
     expect(parsed.deletedCategories).toEqual([]);
-    expect(parsed.categories[0]?.archivedUntil).toBeNull();
+    expect(parsed.categories[0]?.archivedUntil).toBeUndefined();
   });
 });

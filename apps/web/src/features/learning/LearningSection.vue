@@ -58,6 +58,7 @@ import {
   reportClientError,
   reorderAdminLearningCategories,
   reorderAdminLearningMaterials,
+  restoreAdminLearningCategory,
   restoreAdminLearningMaterial,
   saveLearningPlayback,
   updateAdminLearningCategory,
@@ -142,6 +143,7 @@ type ModuleLesson = {
   materials: LessonMaterial[];
   cardLayout: ContentCardLayout;
   isPersisted: boolean;
+  isPublished?: boolean;
   archivedUntil: string | null;
 };
 
@@ -152,6 +154,8 @@ type ModuleCard = {
   defaultCardLayout: ContentCardLayout;
   meta: string;
   isPersisted: boolean;
+  isPublished?: boolean;
+  archivedUntil?: string | null;
   images: ModuleLesson[];
 };
 
@@ -330,6 +334,7 @@ const initialModuleCards: ModuleCard[] = [
 ];
 
 const moduleCards = ref<ModuleCard[]>(initialModuleCards.map((module) => ({ ...module, images: module.images.map((lesson) => ({ ...lesson })) })));
+const deletedModules = ref<ModuleCard[]>([]);
 const deletedLessons = ref<ModuleLesson[]>([]);
 const learningProgress = ref<LearningProgressSummary | null>(null);
 const session = useSessionStore();
@@ -350,6 +355,7 @@ const moduleCollapseTouched = ref(false);
 const moduleTitle = ref("");
 const moduleDescription = ref("");
 const moduleDefaultCardLayout = ref<ContentCardLayout>("vertical");
+const modulePublished = ref(false);
 const moduleError = ref("");
 const selectedLesson = ref<{ moduleId: string; lessonId: string | null } | null>(null);
 const lessonTitle = ref("");
@@ -365,6 +371,7 @@ const lessonThumbnailFileName = ref("");
 const shouldRemoveLessonThumbnail = ref(false);
 const lessonCoverMode = ref<LessonCoverMode>("default");
 const lessonCardLayout = ref<ContentCardLayout>("vertical");
+const lessonPublished = ref(false);
 const lessonContent = ref("");
 const lessonMaterialDrafts = ref<LessonMaterialDraft[]>([]);
 const lessonError = ref("");
@@ -651,6 +658,7 @@ function openModuleModal() {
   moduleTitle.value = "";
   moduleDescription.value = "";
   moduleDefaultCardLayout.value = "vertical";
+  modulePublished.value = false;
   clearModuleError();
   showModuleModal.value = true;
   openLearningTask("/learning/modules/new");
@@ -661,6 +669,7 @@ function openModuleEditModal(module: ModuleCard) {
   moduleTitle.value = module.title;
   moduleDescription.value = module.description;
   moduleDefaultCardLayout.value = module.defaultCardLayout;
+  modulePublished.value = module.isPublished ?? true;
   clearModuleError();
   showModuleModal.value = true;
   openLearningTask(`/learning/modules/${module.id}/edit`);
@@ -672,6 +681,7 @@ function closeModuleModal() {
   moduleTitle.value = "";
   moduleDescription.value = "";
   moduleDefaultCardLayout.value = "vertical";
+  modulePublished.value = false;
   clearModuleError();
   closeLearningTask();
 }
@@ -690,7 +700,7 @@ function toggleModule(moduleId: string) {
 function collapseAllModules() {
   collapsedModuleIds.value = [
     ...moduleCards.value.map((module) => module.id),
-    ...(deletedLessons.value.length ? [deletedContentModuleId] : [])
+    ...(deletedLessons.value.length || deletedModules.value.length ? [deletedContentModuleId] : [])
   ];
 }
 
@@ -869,6 +879,7 @@ function openLessonModal(
   lessonCoverMode.value = lesson.coverMode;
   lessonCardLayout.value = module.defaultCardLayout;
   lessonContent.value = lesson.content;
+  lessonPublished.value = lesson.isPublished ?? true;
   lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
   lessonEditorMode.value = canManageModules.value && editorMode;
   if (!lessonEditorMode.value) {
@@ -953,6 +964,7 @@ function openLessonCreateModal(module: ModuleCard) {
   shouldRemoveLessonThumbnail.value = false;
   lessonCoverMode.value = "default";
   lessonCardLayout.value = module.defaultCardLayout;
+  lessonPublished.value = false;
   lessonContent.value = "";
   lessonMaterialDrafts.value = [];
   lessonEditorMode.value = true;
@@ -984,6 +996,7 @@ function closeLessonModal() {
   lessonCoverMode.value = "default";
   lessonCardLayout.value = "vertical";
   lessonContent.value = "";
+  lessonPublished.value = false;
   lessonMaterialDrafts.value = [];
   lessonEditorMode.value = false;
   clearLessonError();
@@ -1561,6 +1574,7 @@ function getContinueLessonImage(module: ModuleCard | null, item: ModuleLesson) {
 
 function materialToLesson(item: AdminLearningMaterial | LearningContent): ModuleLesson {
   const archivedUntil = "archivedUntil" in item ? item.archivedUntil : null;
+  const isPublished = "isPublished" in item ? item.isPublished : true;
   return {
     id: item.id,
     categoryId: item.categoryId,
@@ -1577,6 +1591,7 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     materials: item.materials ?? [],
     cardLayout: item.cardLayout,
     isPersisted: true,
+    isPublished,
     archivedUntil
   };
 }
@@ -1644,6 +1659,8 @@ function categoriesToModules(
     defaultCardLayout: category.defaultCardLayout,
     meta,
     isPersisted: true,
+    isPublished: category.isPublished,
+    archivedUntil: category.archivedUntil ?? null,
     images: materials.filter((material) => material.categoryId === category.id).map(materialToLesson)
   }));
 }
@@ -1657,12 +1674,14 @@ async function loadModules() {
       const response = await getAdminLearning();
       const modules = categoriesToModules(response.categories, response.materials);
       moduleCards.value = modules.length ? modules : cloneInitialModules();
+      deletedModules.value = categoriesToModules(response.deletedCategories, [], "Удалённый модуль");
       deletedLessons.value = response.deletedMaterials.map(materialToLesson);
     } else {
       const response = await getLearningHome();
       learningProgress.value = response.progress;
       const modules = categoriesToModules(response.categories, response.featured);
       moduleCards.value = modules.length ? modules : cloneInitialModules();
+      deletedModules.value = [];
       deletedLessons.value = [];
     }
     modulesLoadedFromApi.value = true;
@@ -1671,6 +1690,7 @@ async function loadModules() {
     }
   } catch {
     moduleCards.value = moduleCards.value.length ? moduleCards.value : cloneInitialModules();
+    deletedModules.value = [];
     deletedLessons.value = [];
     learningProgress.value = null;
     modulesLoadedFromApi.value = false;
@@ -1689,7 +1709,9 @@ function updateModuleInList(category: LearningCategory) {
           ...module,
           title: category.title,
           description: category.description ?? module.description,
-          defaultCardLayout: category.defaultCardLayout
+          defaultCardLayout: category.defaultCardLayout,
+          isPublished: category.isPublished,
+          archivedUntil: category.archivedUntil ?? null
         }
       : module
   );
@@ -1947,7 +1969,7 @@ function buildLessonForm() {
   form.set("body", lessonContent.value.trim());
   form.set("cardLayout", selectedModuleLessonLayout.value);
   form.set("coverMode", lessonCoverMode.value);
-  form.set("isPublished", "true");
+  form.set("isPublished", String(lessonPublished.value));
   appendFile(form, "file", lessonFile.value);
   if (lessonThumbnailFile.value) {
     form.set("thumbnailFile", lessonThumbnailFile.value);
@@ -1971,6 +1993,7 @@ function buildLessonDirectPayloadFromDraft(
     materials?: LessonMaterialDraft[];
     cardLayout: ContentCardLayout;
     coverMode: LessonCoverMode;
+    isPublished: boolean;
     removeThumbnail: boolean;
   },
   mediaObject?: AdminLearningUploadedObject | null,
@@ -1994,7 +2017,7 @@ function buildLessonDirectPayloadFromDraft(
     })),
     cardLayout: draft.cardLayout,
     coverMode: draft.coverMode,
-    isPublished: true,
+    isPublished: draft.isPublished,
     mediaUrl: getNormalizedExternalUrl(draft.mediaSource, draft.externalUrl),
     ...(mediaObject !== undefined ? { mediaObject } : {}),
     ...(thumbnailObject !== undefined ? { thumbnailObject } : {}),
@@ -2021,6 +2044,7 @@ async function startBackgroundLessonUpload() {
     externalUrl: lessonExternalUrl.value.trim(),
     cardLayout: selectedModuleLessonLayout.value,
     coverMode: lessonCoverMode.value,
+    isPublished: lessonPublished.value,
     removeThumbnail: shouldRemoveLessonThumbnail.value,
     mediaFile: lessonFile.value,
     thumbnailFile: lessonThumbnailFile.value,
@@ -2215,6 +2239,7 @@ async function saveModule() {
       editingModule.value.title = trimmedModuleTitle.value;
       editingModule.value.description = moduleDescription.value.trim();
       editingModule.value.defaultCardLayout = moduleDefaultCardLayout.value;
+      editingModule.value.isPublished = modulePublished.value;
       closeModuleModal();
       return;
     }
@@ -2227,6 +2252,8 @@ async function saveModule() {
       defaultCardLayout: moduleDefaultCardLayout.value,
       meta: "Добавлено сегодня",
       isPersisted: false,
+      isPublished: modulePublished.value,
+      archivedUntil: null,
       images: []
     });
     collapseModule(moduleId);
@@ -2242,7 +2269,8 @@ async function saveModule() {
       const response = await updateAdminLearningCategory(editingModule.value.id, {
         title: trimmedModuleTitle.value,
         description: moduleDescription.value.trim() || null,
-        defaultCardLayout: moduleDefaultCardLayout.value
+        defaultCardLayout: moduleDefaultCardLayout.value,
+        isPublished: modulePublished.value
       });
       updateModuleInList(response.category);
       closeModuleModal();
@@ -2252,7 +2280,8 @@ async function saveModule() {
     const response = await createAdminLearningCategory({
       title: trimmedModuleTitle.value,
       description: moduleDescription.value.trim() || "Новый модуль. Уроки можно будет добавить следующим шагом.",
-      defaultCardLayout: moduleDefaultCardLayout.value
+      defaultCardLayout: moduleDefaultCardLayout.value,
+      isPublished: modulePublished.value
     });
     moduleCards.value = [
       ...moduleCards.value,
@@ -2263,6 +2292,8 @@ async function saveModule() {
         defaultCardLayout: response.category.defaultCardLayout,
         meta: "Добавлено сегодня",
         isPersisted: true,
+        isPublished: response.category.isPublished,
+        archivedUntil: response.category.archivedUntil ?? null,
         images: []
       }
     ];
@@ -2298,8 +2329,18 @@ async function deleteModule() {
     if (module.isPersisted && modulesLoadedFromApi.value) {
       await deleteAdminLearningCategory(module.id);
     }
+    deletedModules.value = [
+      {
+        ...module,
+        isPublished: false,
+        archivedUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        images: module.images.map((lesson) => ({ ...lesson, isPublished: false }))
+      },
+      ...deletedModules.value.filter((item) => item.id !== module.id)
+    ];
     moduleCards.value = moduleCards.value.filter((item) => item.id !== module.id);
     collapsedModuleIds.value = collapsedModuleIds.value.filter((id) => id !== module.id);
+    collapseModule(deletedContentModuleId);
     closeModuleModal();
   } catch {
     showModuleError("Не удалось удалить модуль.");
@@ -2348,6 +2389,7 @@ function saveLessonLocally() {
     })),
     cardLayout: selectedModuleLessonLayout.value,
     isPersisted: false,
+    isPublished: lessonPublished.value,
     archivedUntil: null
   };
 
@@ -2458,6 +2500,7 @@ async function saveLesson() {
         materials: lessonMaterialDrafts.value.map((material) => ({ ...material })),
         cardLayout: selectedModuleLessonLayout.value,
         coverMode: lessonCoverMode.value,
+        isPublished: lessonPublished.value,
         removeThumbnail: shouldRemoveLessonThumbnail.value
       });
       const response = selectedLessonItem.value?.isPersisted
@@ -2762,6 +2805,36 @@ async function restoreDeletedLesson(lesson: ModuleLesson) {
   }
 }
 
+async function restoreDeletedModule(module: ModuleCard) {
+  if (!canManageModules.value || isSaving.value) {
+    return;
+  }
+
+  isSaving.value = true;
+  try {
+    if (module.isPersisted && modulesLoadedFromApi.value) {
+      await restoreAdminLearningCategory(module.id);
+      await loadModules();
+    } else {
+      moduleCards.value = [
+        ...moduleCards.value,
+        {
+          ...module,
+          isPublished: false,
+          archivedUntil: null,
+          images: module.images.map((lesson) => ({ ...lesson, isPublished: false, archivedUntil: null }))
+        }
+      ];
+    }
+    deletedModules.value = deletedModules.value.filter((item) => item.id !== module.id);
+    collapseModule(module.id);
+  } catch {
+    notifications.showError("Не удалось восстановить модуль.");
+  } finally {
+    isSaving.value = false;
+  }
+}
+
 async function startVoiceRecording() {
   cancelMaterialVoiceRecording();
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
@@ -2972,6 +3045,9 @@ watch(
           >
             <span>
               <strong>{{ module.title }}</strong>
+              <em v-if="canManageModules" class="learning-publication-badge" :class="{ 'learning-publication-badge-draft': module.isPublished === false }">
+                {{ module.isPublished === false ? "Черновик" : "Опубликовано" }}
+              </em>
               <small v-if="module.description">{{ module.description }}</small>
             </span>
           </button>
@@ -3105,6 +3181,9 @@ watch(
                     {{ image.title }}
                     <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
                   </strong>
+                  <em v-if="canManageModules" class="learning-publication-badge" :class="{ 'learning-publication-badge-draft': image.isPublished === false }">
+                    {{ image.isPublished === false ? "Черновик" : "Опубликовано" }}
+                  </em>
                 </span>
                 <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
               </template>
@@ -3112,6 +3191,9 @@ watch(
                 <span class="admin-mockup-thumb-label">
                   {{ image.title }}
                   <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                  <em v-if="canManageModules" class="learning-publication-badge" :class="{ 'learning-publication-badge-draft': image.isPublished === false }">
+                    {{ image.isPublished === false ? "Черновик" : "Опубликовано" }}
+                  </em>
                 </span>
                 <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
               </template>
@@ -3121,7 +3203,7 @@ watch(
       </article>
 
       <article
-        v-if="canManageModules && isEditingModules && deletedLessons.length"
+        v-if="canManageModules && isEditingModules && (deletedLessons.length || deletedModules.length)"
         class="admin-mockup-card ui-card admin-mockup-deleted-module"
         :class="{ 'module-card-collapsed': isModuleCollapsed(deletedContentModuleId) }"
       >
@@ -3139,7 +3221,7 @@ watch(
             </span>
           </button>
           <div class="admin-mockup-card-actions">
-            <span>{{ lessonCountLabel(deletedLessons.length) }}</span>
+            <span>{{ deletedModules.length + deletedLessons.length }} шт.</span>
             <button
               class="icon-button ui-icon-button module-lesson-add module-collapse-control"
               type="button"
@@ -3152,6 +3234,19 @@ watch(
         </div>
         <p v-if="!isModuleCollapsed(deletedContentModuleId)">Хранится 7 дней после удаления. Можно восстановить прямо из карточки.</p>
         <div v-if="!isModuleCollapsed(deletedContentModuleId)" class="deleted-lessons-list">
+          <article v-for="module in deletedModules" :key="module.id" class="deleted-lesson-card deleted-module-card">
+            <div class="deleted-lesson-preview">
+              <div>
+                <span>Удалённый модуль</span>
+                <strong>{{ module.title }}</strong>
+                <small>{{ module.description || "Описание модуля не заполнено." }}</small>
+                <small>{{ formatArchiveDeletionLabel(module.archivedUntil ?? null) }}</small>
+              </div>
+            </div>
+            <button class="restore-lesson-button ui-button" type="button" :disabled="isSaving" :aria-label="`Восстановить модуль ${module.title}`" @click="restoreDeletedModule(module)">
+              Восстановить модуль
+            </button>
+          </article>
           <article v-for="lesson in deletedLessons" :key="lesson.id" class="deleted-lesson-card">
             <div class="deleted-lesson-preview">
               <img :src="getLessonImage(lesson)" :alt="lesson.title" loading="lazy" />
@@ -3211,6 +3306,11 @@ watch(
                 </button>
               </div>
             </div>
+
+            <label class="admin-switch-row learning-publish-switch">
+              <input v-model="modulePublished" type="checkbox" aria-label="Опубликовать модуль" />
+              <span>Опубликовать модуль</span>
+            </label>
 
             <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>
           </div>
@@ -3571,6 +3671,11 @@ watch(
               <label class="admin-field">
                 <span>Содержимое урока</span>
                 <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>
+              </label>
+
+              <label class="admin-switch-row learning-publish-switch">
+                <input v-model="lessonPublished" type="checkbox" aria-label="Опубликовать урок" />
+                <span>Опубликовать урок</span>
               </label>
 
               <section class="lesson-extra-materials">

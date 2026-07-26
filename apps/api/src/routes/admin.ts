@@ -294,7 +294,7 @@ const directLearningMaterialPayloadSchema = z.object({
     .default([]),
   cardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
   coverMode: z.enum(["default", "custom", "first_material"]).default("default"),
-  isPublished: z.boolean().default(true),
+  isPublished: z.boolean().default(false),
   mediaUrl: externalMediaUrlSchema.nullable().optional(),
   mediaObject: adminLearningUploadedObjectSchema.nullable().optional(),
   thumbnailObject: adminLearningUploadedObjectSchema.nullable().optional(),

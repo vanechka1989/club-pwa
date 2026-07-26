@@ -845,6 +845,45 @@ describe("Learning section modules", () => {
     expect(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ })).toBeTruthy();
   });
 
+  it("creates modules and lessons as drafts while preserving published state on edit", async () => {
+    renderAsOwner();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
+    expect((screen.getByLabelText("Опубликовать модуль") as HTMLInputElement).checked).toBe(false);
+    await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+
+    await enableModulesEditMode();
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
+    expect((screen.getByLabelText("Опубликовать модуль") as HTMLInputElement).checked).toBe(true);
+    await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+
+    await openLessonCreator("Модуль 1");
+    expect((screen.getByLabelText("Опубликовать урок") as HTMLInputElement).checked).toBe(false);
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать урок" }));
+    expect((screen.getByLabelText("Опубликовать урок") as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("moves a deleted module to the seven-day archive and restores it as a draft", async () => {
+    const pinia = renderAsOwner();
+    await waitFor(() => expect(screen.queryByText("Загружаем модули...")).toBeNull());
+    await enableModulesEditMode();
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Удалить модуль" }));
+    await acceptCurrentDialog(pinia);
+
+    await waitFor(() => expect(screen.getByText("Удалённый контент")).toBeTruthy());
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Удалённый контент" }));
+    expect(screen.getByRole("button", { name: "Восстановить модуль Модуль 1" })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Восстановить модуль Модуль 1" }));
+    await waitFor(() => expect(screen.getByText("Модуль 1")).toBeTruthy());
+    expect(screen.getByText("Черновик")).toBeTruthy();
+  });
+
   it("keeps the deleted content system module collapsed by default", async () => {
     const pinia = renderAsOwner();
     await enableModulesEditMode();

@@ -936,14 +936,14 @@ export function updateAdminLearningMaterialDirect(
   });
 }
 
-export function createAdminLearningCategory(payload: { title: string; description?: string | null; defaultCardLayout?: "vertical" | "horizontal" }) {
+export function createAdminLearningCategory(payload: { title: string; description?: string | null; defaultCardLayout?: "vertical" | "horizontal"; isPublished?: boolean }) {
   return api<AdminLearningCategoryMutationResponse>("/admin/learning/categories", {
     method: "POST",
     body: payload
   });
 }
 
-export function updateAdminLearningCategory(id: string, payload: { title: string; description?: string | null; defaultCardLayout?: "vertical" | "horizontal" }) {
+export function updateAdminLearningCategory(id: string, payload: { title: string; description?: string | null; defaultCardLayout?: "vertical" | "horizontal"; isPublished?: boolean }) {
   return api<AdminLearningCategoryMutationResponse>(`/admin/learning/categories/${id}`, {
     method: "POST",
     body: payload
@@ -953,6 +953,12 @@ export function updateAdminLearningCategory(id: string, payload: { title: string
 export function deleteAdminLearningCategory(id: string) {
   return api<AdminMutationResponse>(`/admin/learning/categories/${id}`, {
     method: "DELETE"
+  });
+}
+
+export function restoreAdminLearningCategory(id: string) {
+  return api<AdminLearningCategoryMutationResponse>(`/admin/learning/categories/${id}/restore`, {
+    method: "POST"
   });
 }
 

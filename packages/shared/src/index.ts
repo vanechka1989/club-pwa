@@ -364,7 +364,7 @@ export const learningCategorySchema = z.object({
   defaultCardLayout: contentCardLayoutSchema.default("vertical"),
   isPublished: z.boolean(),
   itemsCount: z.number().int().nonnegative(),
-  archivedUntil: z.string().datetime().nullable().default(null)
+  archivedUntil: z.string().datetime().nullable().optional()
 });
 export type LearningCategory = z.infer<typeof learningCategorySchema>;
 
