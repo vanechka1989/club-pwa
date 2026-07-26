@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import "./community.css";
 import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
 import { ArrowLeft, Ban, BarChart3, Camera, ChevronDown, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, Mic, MoreVertical, Paperclip, Pause, Pin, PinOff, Play, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";

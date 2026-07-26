@@ -15,6 +15,7 @@ describe("authenticated section loading", () => {
       ["PaymentsSection", "@/features/billing/PaymentsSection.vue"],
       ["CommunitySection", "@/features/community/CommunitySection.vue"],
       ["LearningSection", "@/features/learning/LearningSection.vue"],
+      ["NotificationCenterScreen", "@/features/app/NotificationCenterScreen.vue"],
       ["ProfileSection", "@/features/profile/ProfileSection.vue"],
       ["SupportSection", "@/features/support/SupportSection.vue"]
     ]) {

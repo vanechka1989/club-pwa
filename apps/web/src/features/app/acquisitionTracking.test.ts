@@ -3,7 +3,8 @@ import {
   captureAcquisitionLanding,
   consumePostAuthDestination,
   getAcquisitionVisitorId,
-  getPostAuthDestinationPath
+  getPostAuthDestinationPath,
+  parseAcquisitionDestination
 } from "./acquisitionTracking";
 
 function memoryStorage() {
@@ -16,6 +17,17 @@ function memoryStorage() {
 }
 
 describe("acquisition landing tracking", () => {
+  it("validates internal destinations without accepting malformed module identifiers", () => {
+    expect(parseAcquisitionDestination({ kind: "home" })).toEqual({ kind: "home" });
+    expect(parseAcquisitionDestination({ kind: "billing", ignored: true })).toEqual({ kind: "billing" });
+    expect(parseAcquisitionDestination({ kind: "module", moduleId: "f08ac73a-4ca1-4ed2-b6c2-47cd32b45290" })).toEqual({
+      kind: "module",
+      moduleId: "f08ac73a-4ca1-4ed2-b6c2-47cd32b45290"
+    });
+    expect(parseAcquisitionDestination({ kind: "module", moduleId: "../../admin" })).toBeNull();
+    expect(parseAcquisitionDestination({ kind: "https://evil.example" })).toBeNull();
+  });
+
   it("keeps one first-party visitor id and records a marked landing", async () => {
     const storage = memoryStorage();
     const record = vi.fn().mockResolvedValue({ accepted: true, destination: { kind: "billing" as const } });

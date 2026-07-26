@@ -1,4 +1,4 @@
-const cacheName = "club-pwa-v232";
+const cacheName = "club-pwa-v233";
 const appShell = ["/manifest.webmanifest", "/icons/icon.svg", "/offline.html"];
 
 self.addEventListener("install", (event) => {

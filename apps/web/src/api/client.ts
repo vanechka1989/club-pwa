@@ -81,160 +81,35 @@ import type {
   AcquisitionDestination
 } from "@club/shared";
 import { getCommunityVoiceUploadFileName } from "../features/community/voiceUpload";
-import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
-import { ofetch } from "ofetch";
-
-const apiUrl = import.meta.env.VITE_API_URL ?? "/api";
-const previewModeStorageKey = "club-preview-mode";
-const pwaStandaloneAuthHeaderName = "X-Club-PWA-Standalone";
-
-function isStandalonePwa() {
-  return isInstalledPwaDisplay();
-}
-
-export function getApiRequestHeaders(input?: HeadersInit) {
-  const headers = new Headers(input);
-  const previewMode = localStorage.getItem(previewModeStorageKey);
-  if (
-    previewMode === "developer" ||
-    previewMode === "admin" ||
-    previewMode === "member-active" ||
-    previewMode === "member-inactive"
-  ) {
-    headers.set("X-Club-Preview-Mode", previewMode);
-  }
-  if (isStandalonePwa()) {
-    headers.set(pwaStandaloneAuthHeaderName, "1");
-  }
-
-  return headers;
-}
-
-export const api = ofetch.create({
-  baseURL: apiUrl,
-  credentials: "include",
-  onRequest({ options }) {
-    options.headers = getApiRequestHeaders(options.headers);
-  }
-});
-
-export function reportClientError(payload: {
-  kind: string;
-  message: string;
-  url?: string;
-  userAgent?: string;
-  platform?: string;
-  viewport?: { width: number; height: number };
-  detail?: unknown;
-}) {
-  return api<{ ok: boolean }>("/client-errors", { method: "POST", body: payload });
-}
-
-export function requestEmailCode(payload: { email: string; referralCode?: string | null; acquisitionVisitorId?: string | null }) {
-  return api<{ ok: boolean; devCode: string | null; retryAfterSeconds?: number }>("/auth/email/start", {
-    method: "POST",
-    body: payload
-  });
-}
-
-export function verifyEmailCode(payload: { email: string; code: string; referralCode?: string | null; acquisitionVisitorId?: string | null }) {
-  return api<{ ok: boolean }>("/auth/email/verify", {
-    method: "POST",
-    body: payload
-  });
-}
-
-export function recordAcquisitionVisit(payload: { aid: string; visitorId: string }) {
-  return api<{ accepted: boolean; destination: AcquisitionDestination }>("/analytics/acquisition/visit", { method: "POST", body: payload });
-}
-
-export function logoutSession() {
-  return api<{ ok: boolean }>("/auth/logout", { method: "POST" });
-}
-
-export function getWebPushPublicKey() {
-  return api<{ publicKey: string | null }>("/push/vapid-public-key");
-}
-
-export function saveWebPushSubscription(subscription: PushSubscriptionJSON) {
-  return api<{ ok: boolean }>("/push/subscriptions", {
-    method: "POST",
-    body: subscription
-  });
-}
-
-export function deleteWebPushSubscription(subscription: PushSubscriptionJSON) {
-  return api<{ ok: boolean }>("/push/subscriptions", {
-    method: "DELETE",
-    body: subscription
-  });
-}
-
-export function getMe() {
-  return api<MeResponse>("/me");
-}
-
-export function getAppState() {
-  return api<AppStateResponse>("/app-state");
-}
-
-export function updateDeviceDiagnostics(payload: DeviceDiagnostics) {
-  return api<DeviceDiagnosticsMutationResponse>("/me/device", {
-    method: "POST",
-    body: payload
-  });
-}
-
-export function refreshAvatar() {
-  return api<MeResponse>("/me/avatar", { method: "POST" });
-}
-
-export type AvatarDisplayDraft = {
-  avatarPositionX: number;
-  avatarPositionY: number;
-  avatarScale: number;
-};
-
-export function createAvatarUploadFormData(file: File, display: AvatarDisplayDraft) {
-  const formData = new FormData();
-  formData.append("avatar", file);
-  formData.append("avatarPositionX", String(display.avatarPositionX));
-  formData.append("avatarPositionY", String(display.avatarPositionY));
-  formData.append("avatarScale", String(display.avatarScale));
-  return formData;
-}
-
-export function uploadAvatar(file: File, display: AvatarDisplayDraft) {
-  const formData = createAvatarUploadFormData(file, display);
-
-  return api<MeResponse>("/me/avatar/upload", {
-    method: "POST",
-    body: formData
-  });
-}
-
-export function updateAvatarDisplay(payload: AvatarDisplayDraft) {
-  return api<MeResponse>("/me/avatar/display", {
-    method: "PATCH",
-    body: payload
-  });
-}
-
-export function updateDisplayName(displayName: string) {
-  return api<MeResponse>("/me/display-name", { method: "PATCH", body: { displayName } });
-}
-
-export function getReferralProfile() {
-  return api<ReferralProfileResponse>("/me/referrals");
-}
-
-export function activateReferralRewards() {
-  return api<ReferralActivationResponse>("/me/referrals/activate", { method: "POST" });
-}
-
-export function createCheckout() {
-  return api<SubscribeResponse>("/subscriptions/checkout", { method: "POST" });
-}
+import { api, apiUrl, getApiRequestHeaders, previewModeStorageKey } from "./http";
+export { api, getApiRequestHeaders } from "./http";
+export {
+  activateReferralRewards,
+  clearAppNotifications,
+  createAvatarUploadFormData,
+  createCheckout,
+  deleteWebPushSubscription,
+  getAppNotifications,
+  getAppState,
+  getMe,
+  getPaymentHistory,
+  getReferralProfile,
+  getWebPushPublicKey,
+  logoutSession,
+  markAppNotificationRead,
+  markAppNotificationsRead,
+  recordAcquisitionVisit,
+  refreshAvatar,
+  reportClientError,
+  requestEmailCode,
+  saveWebPushSubscription,
+  updateAvatarDisplay,
+  updateDeviceDiagnostics,
+  updateDisplayName,
+  uploadAvatar,
+  verifyEmailCode,
+  type AvatarDisplayDraft
+} from "./startup";
 
 export function createPaymentCheckout(productId: string, provider?: PaymentProviderCode) {
   return api<SubscribeResponse>("/payments/checkout", {
@@ -435,10 +310,6 @@ export function revokeTopicUserMute(topicId: string, muteId: string) {
 
 export function getPaymentPlans() {
   return api<PaymentsResponse>("/payments/plans");
-}
-
-export function getPaymentHistory() {
-  return api<PaymentOrderLogsResponse>("/payments/orders");
 }
 
 export function cancelRecurrentSubscription(id: string) {
@@ -661,22 +532,6 @@ export function createAdminClientSupportTicket(telegramId: string, payload: Form
     method: "POST",
     body: payload
   });
-}
-
-export function getAppNotifications() {
-  return api<AppNotificationsResponse>("/notifications");
-}
-
-export function markAppNotificationsRead() {
-  return api<AppNotificationMutationResponse>("/notifications/read", { method: "POST" });
-}
-
-export function clearAppNotifications() {
-  return api<AppNotificationMutationResponse>("/notifications", { method: "DELETE" });
-}
-
-export function markAppNotificationRead(id: string) {
-  return api<AppNotificationMutationResponse>(`/notifications/${id}/read`, { method: "POST" });
 }
 
 export function getAdminUsers() {

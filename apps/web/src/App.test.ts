@@ -7,16 +7,18 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getLearningHome,
-  getMe,
-  getPaymentHistory,
   getPaymentPlans,
   getReferralProfile,
-  getSupportUnreadCount,
+  getSupportUnreadCount
+} from "@/api/client";
+import {
+  getMe,
+  getPaymentHistory,
   logoutSession,
   requestEmailCode,
-  verifyEmailCode,
-  updateDeviceDiagnostics
-} from "@/api/client";
+  updateDeviceDiagnostics,
+  verifyEmailCode
+} from "@/api/startup";
 import App from "./App.vue";
 
 const appSource = readFileSync(resolve(__dirname, "App.vue"), "utf-8");
@@ -34,15 +36,22 @@ vi.mock("@/api/client", async (importOriginal) => {
   return {
     ...actual,
     getLearningHome: vi.fn(),
-    getMe: vi.fn(),
-    getPaymentHistory: vi.fn(),
     getPaymentPlans: vi.fn(),
     getReferralProfile: vi.fn(),
-    getSupportUnreadCount: vi.fn(),
+    getSupportUnreadCount: vi.fn()
+  };
+});
+
+vi.mock("@/api/startup", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/startup")>();
+  return {
+    ...actual,
+    getMe: vi.fn(),
+    getPaymentHistory: vi.fn(),
     logoutSession: vi.fn(),
     requestEmailCode: vi.fn(),
-    verifyEmailCode: vi.fn(),
-    updateDeviceDiagnostics: vi.fn()
+    updateDeviceDiagnostics: vi.fn(),
+    verifyEmailCode: vi.fn()
   };
 });
 
@@ -325,6 +334,7 @@ describe("App", () => {
 
   it("combines profile status and account identity into one card with avatar upload", () => {
     const apiSource = readFileSync(resolve(__dirname, "api/client.ts"), "utf-8");
+    const startupApiSource = readFileSync(resolve(__dirname, "api/startup.ts"), "utf-8");
     const sessionSource = readFileSync(resolve(__dirname, "stores/session.ts"), "utf-8");
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
 
@@ -337,7 +347,7 @@ describe("App", () => {
     expect(profileSource).not.toContain("handleAvatarRefresh");
     expect(profileSource).not.toContain("avatarRefreshLocked");
     expect(apiSource).toContain("uploadAvatar");
-    expect(apiSource).toContain("/me/avatar/upload");
+    expect(startupApiSource).toContain("/me/avatar/upload");
     expect(sessionSource).toContain("uploadAvatar");
     expect(styles).toContain(".profile-access-card");
     expect(styles).toContain(".profile-avatar-upload");
@@ -345,6 +355,7 @@ describe("App", () => {
 
   it("keeps profile avatar controls compact and adds crop and logout confirmation flows", () => {
     const apiSource = readFileSync(resolve(__dirname, "api/client.ts"), "utf-8");
+    const startupApiSource = readFileSync(resolve(__dirname, "api/startup.ts"), "utf-8");
     const sessionSource = readFileSync(resolve(__dirname, "stores/session.ts"), "utf-8");
     const uiSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
     const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
@@ -374,7 +385,7 @@ describe("App", () => {
     expect(profileSource).not.toContain("nudgeAvatar");
     expect(profileSource).not.toContain("avatarMessage || t(\"profileAvatarUploadHint\")");
     expect(apiSource).toContain("updateAvatarDisplay");
-    expect(apiSource).toContain("/me/avatar/display");
+    expect(startupApiSource).toContain("/me/avatar/display");
     expect(sessionSource).toContain("updateAvatarDisplay");
     expect(uiSource).toContain("VisualScale");
     expect(uiSource).toContain("clampVisualScale");

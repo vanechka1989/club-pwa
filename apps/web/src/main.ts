@@ -5,7 +5,6 @@ import { startServiceWorkerLifecycle } from "./features/app/serviceWorkerLifecyc
 import { router } from "./router";
 import "./styles.css";
 import "./features/ui/foundation.css";
-import "./features/community/community.css";
 
 createApp(App).use(createPinia()).use(router).mount("#app");
 

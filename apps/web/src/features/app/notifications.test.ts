@@ -57,7 +57,7 @@ describe("app notifications", () => {
     const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
     const screenSource = readFileSync(resolve(__dirname, "NotificationCenterScreen.vue"), "utf8");
     const storeSource = readFileSync(resolve(__dirname, "../../stores/notifications.ts"), "utf8");
-    const clientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
+    const startupApiSource = readFileSync(resolve(__dirname, "../../api/startup.ts"), "utf8");
 
     expect(source).toContain('router.push("/notifications")');
     expect(screenSource).toContain("clearAppNotificationsInApp");
@@ -65,8 +65,8 @@ describe("app notifications", () => {
     expect(screenSource).toContain("<TaskScreen");
     expect(screenSource).not.toContain("notification-center-backdrop");
     expect(storeSource).toContain("clearAppNotifications");
-    expect(clientSource).toContain('"/notifications"');
-    expect(clientSource).toContain('method: "DELETE"');
+    expect(startupApiSource).toContain('"/notifications"');
+    expect(startupApiSource).toContain('method: "DELETE"');
   });
 
   it("keeps the notification header compact across two rows", () => {

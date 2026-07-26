@@ -1,7 +1,7 @@
 import type { AppNotification as ClubAppNotification } from "@club/shared";
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { clearAppNotifications, deleteWebPushSubscription, getAppNotifications, getWebPushPublicKey, markAppNotificationsRead, saveWebPushSubscription } from "@/api/client";
+import { clearAppNotifications, deleteWebPushSubscription, getAppNotifications, getWebPushPublicKey, markAppNotificationsRead, saveWebPushSubscription } from "@/api/startup";
 
 export type AppNotificationKind = "error" | "success" | "info";
 

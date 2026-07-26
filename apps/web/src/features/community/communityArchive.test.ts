@@ -19,10 +19,10 @@ describe("community archive labels", () => {
     expect(source).not.toContain("bindChatViewportHeight");
   });
 
-  it("loads one canonical community stylesheet after foundation", () => {
-    expect(main.indexOf('import "./features/ui/foundation.css"')).toBeLessThan(
-      main.indexOf('import "./features/community/community.css"')
-    );
+  it("loads the canonical community stylesheet only with the lazy community section", () => {
+    expect(main).toContain('import "./features/ui/foundation.css"');
+    expect(main).not.toContain('import "./features/community/community.css"');
+    expect(source).toContain('import "./community.css"');
     expect(foundation).not.toContain(".community-chat-open .chat-room");
   });
 

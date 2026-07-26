@@ -2,7 +2,7 @@
 import { ChevronUp } from "lucide-vue-next";
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getAppState, getPaymentHistory, recordAcquisitionVisit, updateDeviceDiagnostics } from "@/api/client";
+import { getAppState, getPaymentHistory, recordAcquisitionVisit, updateDeviceDiagnostics } from "@/api/startup";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { getVisibleAdminPanels } from "@/features/admin/adminPanels";
 import AuthSection from "@/features/auth/AuthSection.vue";
@@ -11,7 +11,6 @@ import { captureAcquisitionLanding, consumePostAuthDestination, getPostAuthDesti
 import AppNotifications from "@/features/app/AppNotifications.vue";
 import AppDialogHost from "@/features/app/AppDialogHost.vue";
 import DeviceModeNotice from "@/features/app/DeviceModeNotice.vue";
-import NotificationCenterScreen from "@/features/app/NotificationCenterScreen.vue";
 import AppOperationIndicator from "@/features/app/AppOperationIndicator.vue";
 import PwaInstallPrompt from "@/features/app/PwaInstallPrompt.vue";
 import PushPermissionPrompt from "@/features/app/PushPermissionPrompt.vue";
@@ -63,6 +62,7 @@ const AdminSection = defineAsyncComponent(() => import("@/features/admin/AdminSe
 const PaymentsSection = defineAsyncComponent(() => import("@/features/billing/PaymentsSection.vue"));
 const CommunitySection = defineAsyncComponent(() => import("@/features/community/CommunitySection.vue"));
 const LearningSection = defineAsyncComponent(() => import("@/features/learning/LearningSection.vue"));
+const NotificationCenterScreen = defineAsyncComponent(() => import("@/features/app/NotificationCenterScreen.vue"));
 const ProfileSection = defineAsyncComponent(() => import("@/features/profile/ProfileSection.vue"));
 const SupportSection = defineAsyncComponent(() => import("@/features/support/SupportSection.vue"));
 

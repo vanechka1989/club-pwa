@@ -1,14 +1,25 @@
-import { acquisitionDestinationSchema, type AcquisitionDestination } from "@club/shared";
+import type { AcquisitionDestination } from "@club/shared";
 
 const visitorStorageKey = "club-acquisition-visitor-id";
 const destinationStorageKey = "club-acquisition-post-auth";
 const visitorPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const moduleIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type RecordLanding = (payload: { aid: string; visitorId: string }) => Promise<{ accepted: boolean; destination: AcquisitionDestination }>;
 
 function defaultStorage(): StorageLike {
   return window.localStorage;
+}
+
+export function parseAcquisitionDestination(value: unknown): AcquisitionDestination | null {
+  if (!value || typeof value !== "object" || !("kind" in value)) return null;
+  const destination = value as { kind?: unknown; moduleId?: unknown };
+  if (destination.kind === "home" || destination.kind === "billing") return { kind: destination.kind };
+  if (destination.kind === "module" && typeof destination.moduleId === "string" && moduleIdPattern.test(destination.moduleId)) {
+    return { kind: "module", moduleId: destination.moduleId };
+  }
+  return null;
 }
 
 export function getAcquisitionVisitorId(storage: StorageLike = defaultStorage(), createId = () => crypto.randomUUID()) {
@@ -34,10 +45,10 @@ export async function captureAcquisitionLanding(
   try {
     const visitorId = getAcquisitionVisitorId(storage);
     const response = await recordLanding({ aid, visitorId });
-    const destination = acquisitionDestinationSchema.safeParse(response.destination);
-    if (!destination.success) return null;
-    storage.setItem(destinationStorageKey, JSON.stringify(destination.data));
-    return destination.data;
+    const destination = parseAcquisitionDestination(response.destination);
+    if (!destination) return null;
+    storage.setItem(destinationStorageKey, JSON.stringify(destination));
+    return destination;
   } catch {
     return null;
   }
@@ -48,8 +59,7 @@ export function consumePostAuthDestination(storage: StorageLike = defaultStorage
   storage.removeItem(destinationStorageKey);
   if (!raw) return null;
   try {
-    const parsed = acquisitionDestinationSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
+    return parseAcquisitionDestination(JSON.parse(raw));
   } catch {
     return null;
   }

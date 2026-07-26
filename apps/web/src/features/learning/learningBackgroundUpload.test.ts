@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const learningSectionSource = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf-8");
 const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
+const apiHttpSource = readFileSync(resolve(__dirname, "../../api/http.ts"), "utf-8");
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf-8");
 const uploadStoreSource = readFileSync(resolve(__dirname, "../../stores/lessonUploads.ts"), "utf-8");
 const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
@@ -53,7 +54,7 @@ describe("learning background uploads", () => {
   });
 
   it("authenticates every XMLHttpRequest upload part like the regular API client", () => {
-    expect(apiClientSource).toContain("export function getApiRequestHeaders");
+    expect(apiHttpSource).toContain("export function getApiRequestHeaders");
     expect(learningSectionSource).toContain("getApiRequestHeaders");
     expect(learningSectionSource).toContain("request.setRequestHeader(name, value)");
   });

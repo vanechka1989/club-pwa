@@ -3,11 +3,11 @@ import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { requestEmailCode, verifyEmailCode } from "@/api/client";
+import { requestEmailCode, verifyEmailCode } from "@/api/startup";
 import AuthSection from "./AuthSection.vue";
 
-vi.mock("@/api/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/api/client")>();
+vi.mock("@/api/startup", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/startup")>();
   return {
     ...actual,
     requestEmailCode: vi.fn(),
@@ -220,15 +220,16 @@ describe("email auth UI", () => {
   });
 
   it("uses email auth endpoints instead of Telegram initData", () => {
-    const client = readFileSync(resolve(process.cwd(), "src/api/client.ts"), "utf8");
+    const startup = readFileSync(resolve(process.cwd(), "src/api/startup.ts"), "utf8");
+    const http = readFileSync(resolve(process.cwd(), "src/api/http.ts"), "utf8");
     const session = readFileSync(resolve(process.cwd(), "src/stores/session.ts"), "utf8");
     const app = readFileSync(resolve(process.cwd(), "src/App.vue"), "utf8");
 
-    expect(client).toContain('"/auth/email/start"');
-    expect(client).toContain('"/auth/email/verify"');
-    expect(client).toContain('credentials: "include"');
-    expect(client).not.toContain("initData");
-    expect(client).not.toContain("X-Dev-Telegram-User");
+    expect(startup).toContain('"/auth/email/start"');
+    expect(startup).toContain('"/auth/email/verify"');
+    expect(http).toContain('credentials: "include"');
+    expect(startup).not.toContain("initData");
+    expect(http).not.toContain("X-Dev-Telegram-User");
     expect(session).toContain("requestEmailCode");
     expect(session).toContain("verifyEmailCode");
     expect(app).toContain("AuthSection");

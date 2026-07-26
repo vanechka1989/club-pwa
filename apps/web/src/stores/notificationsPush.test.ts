@@ -7,7 +7,7 @@ const { deleteWebPushSubscription, saveWebPushSubscription, getWebPushPublicKey 
   getWebPushPublicKey: vi.fn()
 }));
 
-vi.mock("@/api/client", () => ({
+vi.mock("@/api/startup", () => ({
   clearAppNotifications: vi.fn(),
   deleteWebPushSubscription,
   getAppNotifications: vi.fn(),

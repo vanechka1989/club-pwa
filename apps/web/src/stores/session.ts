@@ -10,7 +10,7 @@ import {
   updateDisplayName as updateDisplayNameApi,
   uploadAvatar as uploadAvatarApi,
   verifyEmailCode as verifyEmailCodeApi
-} from "@/api/client";
+} from "@/api/startup";
 import { getAcquisitionVisitorId } from "@/features/app/acquisitionTracking";
 
 type AuthRequestError = Error & {

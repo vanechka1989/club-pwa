@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vue-tsc --noEmit && vite build && pnpm bundle:check",
+    "bundle:check": "node scripts/bundleBudget.mjs",
     "check": "vue-tsc --noEmit",
     "test": "vitest run"
   },
