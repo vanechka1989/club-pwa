@@ -8,6 +8,7 @@ import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import {
   paymentOrders,
+  paymentProviderCatalogItemPrices,
   paymentProviderCatalogItems,
   paymentProductProviderBindings,
   paymentProducts,
@@ -51,6 +52,8 @@ import { decryptProviderSecret } from "../payments/providerSecrets";
 import { encryptProviderSecret } from "../payments/providerSecrets";
 import { lavaWebhookUrls, mapPaymentProviderForAdmin } from "../payments/providerAdminService";
 import { validateSingleEnabledPaymentBinding } from "../payments/paymentProductBindings";
+import { mapLavaCatalogItem } from "../payments/paymentCatalog";
+import { paymentProductMutationError } from "../payments/paymentProductMutation";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -85,7 +88,7 @@ const productPayloadSchema = z.object({
   title: z.string().trim().min(1).max(180),
   description: z.string().trim().max(1000).nullable().optional(),
   badgeLabel: z.string().trim().max(32).nullable().optional(),
-  amountRub: z.number().int().positive().max(10_000_000),
+  amountRub: z.number().int().positive().max(10_000_000).nullable(),
   accessDays: z.number().int().positive().max(3650),
   prodamusSubscriptionId: z.string().trim().max(64).nullable().optional(),
   bindings: z.array(productBindingPayloadSchema).max(2).optional(),
@@ -1108,7 +1111,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
           .set({ isStale: true })
           .where(eq(paymentProviderCatalogItems.providerId, provider.id));
         for (const item of items) {
-          await tx
+          const [catalogItem] = await tx
             .insert(paymentProviderCatalogItems)
             .values({
               providerId: provider.id,
@@ -1135,7 +1138,20 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
                 metadata: item.metadata,
                 syncedAt
               }
-            });
+            })
+            .returning({ id: paymentProviderCatalogItems.id });
+          if (!catalogItem) throw new Error("LAVA_CATALOG_ITEM_NOT_SAVED");
+          await tx.delete(paymentProviderCatalogItemPrices).where(eq(paymentProviderCatalogItemPrices.catalogItemId, catalogItem.id));
+          if (item.prices.length) {
+            await tx.insert(paymentProviderCatalogItemPrices).values(item.prices.map((price) => ({
+              catalogItemId: catalogItem.id,
+              currency: price.currency,
+              amountMinor: price.amountMinor,
+              periodicity: price.periodicity,
+              createdAt: syncedAt,
+              updatedAt: syncedAt
+            })));
+          }
         }
         await tx
           .update(paymentProviders)
@@ -1158,21 +1174,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!provider) return c.json({ items: [], syncedAt: null });
     const items = await db.query.paymentProviderCatalogItems.findMany({
       where: eq(paymentProviderCatalogItems.providerId, provider.id),
+      with: { prices: true },
       orderBy: [asc(paymentProviderCatalogItems.title)]
     });
     return c.json({
-      items: items.map((item) => ({
-        id: item.id,
-        externalProductId: item.externalProductId,
-        externalOfferId: item.externalOfferId || null,
-        title: item.title,
-        kind: item.kind,
-        amountRub: item.amountRub,
-        periodicity: typeof item.metadata?.periodicity === "string" ? item.metadata.periodicity : null,
-        isStale: item.isStale,
-        isSelectable: item.isSelectable,
-        syncedAt: item.syncedAt.toISOString()
-      })),
+      items: items.map(mapLavaCatalogItem),
       syncedAt: provider.lastCatalogSyncAt?.toISOString() ?? null
     });
   })
@@ -1241,6 +1247,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!bindingSelection.ok) {
       return c.json({ error: bindingSelection.error }, 400);
     }
+    const moneyError = paymentProductMutationError(body.data.amountRub, requestedBindings);
+    if (moneyError) return c.json({ error: moneyError }, 400);
     const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providerByCode = new Map(providers.map((provider) => [provider.provider, provider]));
     const primaryProvider = providerByCode.get(enabledBindings[0]!.provider);
@@ -1335,6 +1343,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!bindingSelection.ok) {
       return c.json({ error: bindingSelection.error }, 400);
     }
+    const moneyError = paymentProductMutationError(body.data.amountRub, requestedBindings);
+    if (moneyError) return c.json({ error: moneyError }, 400);
     const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providers = await db.query.paymentProviders.findMany();
     const primaryProvider = providers.find((provider) => provider.provider === enabledBindings[0]!.provider);
