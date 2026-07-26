@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact full-width UI fixes as version 5.64", () => {
-    expect(appVersion).toBe("5.64");
-    expect(releaseNotes[0]?.title).toBe("Исправлен колокольчик и расширена рабочая область");
+  it("publishes compact detail workflows as version 5.65", () => {
+    expect(appVersion).toBe("5.65");
+    expect(releaseNotes[0]?.title).toBe("Компактные страницы, модули и поддержка");
+
+    const compactWorkspaceRelease = releaseNotes.find((note) => note.version === "5.64");
+    expect(compactWorkspaceRelease?.title).toBe("Исправлен колокольчик и расширена рабочая область");
 
     const moduleDraftRelease = releaseNotes.find((note) => note.version === "5.63");
     expect(moduleDraftRelease?.title).toBe("Безопасные черновики и восстановление модулей");
@@ -183,7 +186,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Polished emails without external links");
+    expect(englishNotes[0]?.title).toBe("Compact profile pages, modules, and support");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

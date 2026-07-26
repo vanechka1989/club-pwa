@@ -1597,13 +1597,105 @@ test("renders the PWA shell without accessibility violations", async ({ page }) 
   expect(results.violations).toEqual([]);
 });
 
-test("keeps core sections inside the mobile viewport", async ({ page }) => {
+test("keeps core sections inside the mobile viewport", async ({ page }, testInfo) => {
   await expectNoHorizontalOverflow(page);
 
   for (const section of ["Модули", "Общение", "Оплата", "Поддержка"]) {
     await page.getByRole("button", { name: section }).click();
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
     await expectNoHorizontalOverflow(page);
+  }
+
+  await page.goto("/profile");
+  await page.getByRole("button", { name: /Реферальная система/ }).click();
+  const profileDetail = page.locator(".profile-detail-task-screen .profile-detail-content");
+  await expect(profileDetail).toBeVisible();
+  const profileDetailGeometry = await page.locator(".profile-detail-task-screen .task-screen-body").evaluate((body) => {
+    const content = body.querySelector<HTMLElement>(".profile-detail-content");
+    const bodyStyle = getComputedStyle(body);
+    const bodyBox = body.getBoundingClientRect();
+    const contentBox = content?.getBoundingClientRect();
+    return {
+      availableWidth: bodyBox.width - Number.parseFloat(bodyStyle.paddingLeft) - Number.parseFloat(bodyStyle.paddingRight),
+      contentWidth: contentBox?.width ?? 0
+    };
+  });
+  expect(Math.abs(profileDetailGeometry.availableWidth - profileDetailGeometry.contentWidth)).toBeLessThanOrEqual(1);
+  await expectNoHorizontalOverflow(page);
+  if (testInfo.project.name === "release-android") {
+    await page.screenshot({ path: testInfo.outputPath("profile-referral-full-width.png"), fullPage: false });
+  }
+
+  await page.goto("/profile");
+  await page.getByRole("button", { name: /Оформление/ }).click();
+  const appearanceDetail = page.locator(".profile-detail-task-screen .profile-appearance-content");
+  await expect(appearanceDetail).toBeVisible();
+  const appearanceGeometry = await appearanceDetail.evaluate((content) => {
+    const body = content.closest<HTMLElement>(".task-screen-body");
+    const bodyStyle = body ? getComputedStyle(body) : null;
+    const bodyBox = body?.getBoundingClientRect();
+    return {
+      availableWidth:
+        (bodyBox?.width ?? 0) -
+        Number.parseFloat(bodyStyle?.paddingLeft ?? "0") -
+        Number.parseFloat(bodyStyle?.paddingRight ?? "0"),
+      contentWidth: content.getBoundingClientRect().width
+    };
+  });
+  expect(Math.abs(appearanceGeometry.availableWidth - appearanceGeometry.contentWidth)).toBeLessThanOrEqual(1);
+  await expectNoHorizontalOverflow(page);
+  if (testInfo.project.name === "release-android") {
+    await page.screenshot({ path: testInfo.outputPath("profile-appearance-full-width.png"), fullPage: false });
+  }
+
+  await page.goto("/learning/modules/module-main/edit");
+  const visibilityAction = page.getByRole("button", { name: "Скрыть модуль" });
+  await expect(visibilityAction).toBeVisible();
+  await expect(visibilityAction).toHaveAttribute("aria-pressed", "true");
+  const moduleHeaderGeometry = await page.locator(".learning-task-screen .task-screen-header").evaluate((header) => {
+    const back = header.querySelector<HTMLElement>(".ui-page-header__back")?.getBoundingClientRect();
+    const heading = header.querySelector<HTMLElement>(".ui-page-header__text")?.getBoundingClientRect();
+    const headerBox = header.getBoundingClientRect();
+    return {
+      headerLeft: headerBox.left,
+      headerRight: headerBox.right,
+      backLeft: back?.left ?? -1,
+      backRight: back?.right ?? -1,
+      headingLeft: heading?.left ?? -1,
+      headingRight: heading?.right ?? -1
+    };
+  });
+  expect(moduleHeaderGeometry.backLeft).toBeGreaterThanOrEqual(moduleHeaderGeometry.headerLeft);
+  expect(moduleHeaderGeometry.headingLeft).toBeGreaterThanOrEqual(moduleHeaderGeometry.backRight);
+  expect(moduleHeaderGeometry.headingRight).toBeLessThanOrEqual(moduleHeaderGeometry.headerRight);
+  const visibilityBox = await visibilityAction.boundingBox();
+  const viewport = page.viewportSize();
+  expect((visibilityBox?.y ?? 0) + (visibilityBox?.height ?? 0)).toBeLessThanOrEqual(viewport?.height ?? 0);
+  await visibilityAction.click();
+  await expect(page.getByRole("button", { name: "Опубликовать модуль" })).toHaveAttribute("aria-pressed", "false");
+  await expectNoHorizontalOverflow(page);
+  if (testInfo.project.name === "release-android") {
+    await page.screenshot({ path: testInfo.outputPath("module-editor-visibility.png"), fullPage: false });
+  }
+
+  await page.goto("/support");
+  await expect(page.getByRole("heading", { name: "Запросы клиентов" })).toBeVisible();
+  const supportRows = page.locator(".support-admin-ticket");
+  await expect(supportRows.first()).toBeVisible();
+  const supportRowStyle = await supportRows.first().evaluate((row) => {
+    const style = getComputedStyle(row);
+    return {
+      height: row.getBoundingClientRect().height,
+      borderRadius: style.borderRadius,
+      borderBottomWidth: style.borderBottomWidth
+    };
+  });
+  expect(supportRowStyle.height).toBeLessThanOrEqual(82);
+  expect(supportRowStyle.borderRadius).toBe("0px");
+  expect(supportRowStyle.borderBottomWidth).toBe("1px");
+  await expectNoHorizontalOverflow(page);
+  if (testInfo.project.name === "release-android") {
+    await page.screenshot({ path: testInfo.outputPath("support-compact-rows.png"), fullPage: false });
   }
 });
 

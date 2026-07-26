@@ -16,6 +16,16 @@ export const releaseNotes: ReleaseNote[] = [
     items: [...currentRelease.items]
   },
   {
+    version: "5.64",
+    updatedAt: "26.07.2026 20:18",
+    title: "Исправлен колокольчик и расширена рабочая область",
+    items: [
+      "Колокольчик уведомлений и красный счётчик теперь корректно отображаются сразу после открытия профиля.",
+      "Внешние отступы экранов, вкладок, task-окон, навигации и модальных слоёв уменьшены до единого компактного значения.",
+      "Широкий Android-layout больше не добавляет второй вложенный отступ и использует всю доступную рабочую ширину."
+    ]
+  },
+  {
     version: "5.63",
     updatedAt: "26.07.2026 18:45",
     title: "Безопасные черновики и восстановление модулей",
@@ -4263,11 +4273,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Polished emails without external links",
+  title: "Compact profile pages, modules, and support",
   items: [
-    "Access expiry emails now use a polished responsive card with the exact expiry date.",
-    "The renewal button and all external links were removed from email; renewal remains inside the installed app.",
-    "Push and in-app notifications still open the payment section in PWA."
+    "Referral and appearance pages now use the full available width without duplicated headings or an outer card.",
+    "Module visibility moved to the sticky action bar and clearly offers Hide or Publish.",
+    "Customer support requests now appear as compact rows under a dedicated heading instead of oversized cards."
   ]
 };
 
