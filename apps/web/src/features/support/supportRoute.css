@@ -1595,7 +1595,8 @@ body.club-keyboard-open .support-task-screen .task-screen-footer {
 
 .support-create-task-screen .task-screen-body {
   padding-block: 12px;
-  padding-inline: max(14px, calc(var(--club-safe-left) + 14px)) max(14px, calc(var(--club-safe-right) + 14px));
+  padding-inline: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)))
+    max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
 }
 
 .support-create-task-screen .support-customer-form {

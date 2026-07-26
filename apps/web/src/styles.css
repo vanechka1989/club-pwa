@@ -384,8 +384,11 @@ button:disabled {
   max-width: none;
   align-items: center;
   justify-content: center;
-  padding: max(1rem, calc(var(--club-safe-top) + 1rem)) max(1rem, var(--screen-gutter))
+  padding:
+    max(1rem, calc(var(--club-safe-top) + 1rem))
+    max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)))
     max(7rem, calc(var(--club-safe-bottom) + 6rem));
+  padding-left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
 }
 
 .app-toast-viewport {
@@ -4078,7 +4081,7 @@ body.club-mobile-device .support-ticket-list h3 {
 
 /* Final mobile modal guard: keep late breakpoint rules from turning dialogs into draggable full-width sheets. */
 body.club-mobile-device {
-  --club-mobile-modal-inline-gutter: clamp(12px, 4vw, 22px);
+  --club-mobile-modal-inline-gutter: var(--page-padding);
   --club-mobile-modal-max-width: 36rem;
 }
 
@@ -4947,8 +4950,8 @@ textarea::placeholder {
 /* Responsive modal and mobile commerce system */
 /* Final mobile modal guard: keep this after every visual layer so local modal widths cannot win. */
 body.club-mobile-device {
-  --club-mobile-modal-inline-gutter: clamp(0.75rem, 3.8vw, 1.1rem);
-  --club-mobile-modal-block-gutter: clamp(0.72rem, 2.6svh, 1rem);
+  --club-mobile-modal-inline-gutter: var(--page-padding);
+  --club-mobile-modal-block-gutter: var(--page-padding);
   --club-mobile-modal-width: calc(100vw - (var(--club-mobile-modal-inline-gutter) * 2));
   --club-mobile-modal-height: calc(
     var(--club-visible-viewport-height, 100dvh) -
@@ -5268,7 +5271,11 @@ body.club-mobile-device .module-name-modal .admin-form-actions .primary-button {
 }
 
 .bottom-sheet-backdrop { align-items: end; }
-.confirm-dialog-backdrop { place-items: center; padding: 1rem; }
+.confirm-dialog-backdrop {
+  place-items: center;
+  padding: max(var(--page-padding), var(--club-safe-top)) max(var(--page-padding), var(--club-safe-right))
+    max(var(--page-padding), var(--club-safe-bottom)) max(var(--page-padding), var(--club-safe-left));
+}
 
 .bottom-sheet {
   width: min(100%, 42rem);
@@ -5376,7 +5383,8 @@ body.club-mobile-device .module-name-modal .admin-form-actions .primary-button {
   display: grid;
   place-items: center;
   overflow-y: auto;
-  padding: max(16px, var(--club-safe-top)) max(16px, var(--club-safe-right)) max(16px, var(--club-safe-bottom)) max(16px, var(--club-safe-left));
+  padding: max(var(--page-padding), var(--club-safe-top)) max(var(--page-padding), var(--club-safe-right))
+    max(var(--page-padding), var(--club-safe-bottom)) max(var(--page-padding), var(--club-safe-left));
   background: rgb(2 8 12 / 72%);
   backdrop-filter: blur(14px);
   overscroll-behavior: contain;
@@ -7197,10 +7205,10 @@ body.club-mobile-device .task-screen-route-layer :is(
 .task-screen-route-layer .task-screen-header {
   box-sizing: border-box;
   width: auto;
-  margin: 12px 14px 0;
-  margin-top: max(12px, calc(var(--club-safe-top) + 12px));
-  margin-right: max(14px, calc(var(--club-safe-right) + 14px));
-  margin-left: max(14px, calc(var(--club-safe-left) + 14px));
+  margin: var(--page-padding) var(--page-padding) 0;
+  margin-top: max(var(--page-padding), calc(var(--club-safe-top) + var(--page-padding)));
+  margin-right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
+  margin-left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
   border: 1px solid var(--color-border);
   border-radius: var(--card-radius);
   background: var(--color-surface);
@@ -7208,14 +7216,14 @@ body.club-mobile-device .task-screen-route-layer :is(
 }
 
 .task-screen-route-layer .task-screen-body {
-  padding: 12px 14px calc(24px + var(--club-safe-bottom));
-  padding-right: max(14px, calc(var(--club-safe-right) + 14px));
-  padding-left: max(14px, calc(var(--club-safe-left) + 14px));
+  padding: var(--page-padding) var(--page-padding) calc(24px + var(--club-safe-bottom));
+  padding-right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
+  padding-left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
 }
 
 .task-screen-route-layer .task-screen-footer {
-  padding-right: max(14px, calc(var(--club-safe-right) + 14px));
-  padding-left: max(14px, calc(var(--club-safe-left) + 14px));
+  padding-right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
+  padding-left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
 }
 
 @media (max-width: 360px) {

@@ -2,9 +2,12 @@
 
 :root {
   color-scheme: light;
-  --page-max-width: 768px;
-  --page-padding: 12px;
-  --page-padding-compact: 10px;
+  --page-max-width: 100%;
+  --page-edge-gutter: 8px;
+  --page-edge-gutter-compact: 4px;
+  --page-padding: var(--page-edge-gutter);
+  --page-padding-compact: var(--page-edge-gutter-compact);
+  --screen-gutter: var(--page-padding);
   --section-gap: 12px;
   --card-gap: 8px;
   --card-padding: 12px;
@@ -118,9 +121,10 @@ html.club-mobile-app-scaled,
 body.club-mobile-app-scaled {
   --club-scaled-ui-factor: var(--club-app-wide-viewport-scale, 1);
   --club-scaled-control-factor: var(--club-scaled-ui-factor, 1);
-  --page-max-width: min(100vw, calc(768px * var(--club-scaled-ui-factor)));
-  --page-padding: calc(12px * var(--club-scaled-ui-factor));
-  --page-padding-compact: calc(10px * var(--club-scaled-ui-factor));
+  --page-max-width: 100%;
+  --page-padding: var(--page-edge-gutter);
+  --page-padding-compact: var(--page-edge-gutter-compact);
+  --screen-gutter: var(--page-padding);
   --section-gap: calc(12px * var(--club-scaled-ui-factor));
   --card-gap: calc(8px * var(--club-scaled-ui-factor));
   --card-padding: calc(12px * var(--club-scaled-ui-factor));
@@ -561,6 +565,8 @@ canvas {
   min-width: 0;
   margin-inline: auto;
   padding-inline: var(--page-padding);
+  padding-right: max(var(--page-padding), calc(var(--safe-right) + var(--page-padding)));
+  padding-left: max(var(--page-padding), calc(var(--safe-left) + var(--page-padding)));
   padding-top: 16px;
   padding-bottom: calc(24px + var(--safe-bottom));
 }
@@ -933,8 +939,17 @@ canvas {
 }
 
 @media (max-width: 360px) {
+  :root,
+  html.club-mobile-app-scaled,
+  body.club-mobile-app-scaled {
+    --page-padding: var(--page-padding-compact);
+    --screen-gutter: var(--page-padding);
+  }
+
   .ui-page-container {
     padding-inline: var(--page-padding-compact);
+    padding-right: max(var(--page-padding-compact), calc(var(--safe-right) + var(--page-padding-compact)));
+    padding-left: max(var(--page-padding-compact), calc(var(--safe-left) + var(--page-padding-compact)));
   }
 
   .ui-page-header,
@@ -950,12 +965,6 @@ canvas {
   .ui-responsive-grid,
   .ui-bottom-action-bar {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 1024px) {
-  .ui-page-container {
-    padding-inline: 24px;
   }
 }
 
@@ -983,6 +992,21 @@ body.club-keyboard-open .ui-bottom-action-bar {
   max-width: var(--page-max-width);
   margin-inline: auto;
   padding-inline: var(--page-padding);
+  padding-right: max(var(--page-padding), calc(var(--safe-right) + var(--page-padding)));
+  padding-left: max(var(--page-padding), calc(var(--safe-left) + var(--page-padding)));
+}
+
+/* Mobile shells used to add a second inner gutter after the app shell.
+   Keep one edge inset regardless of the browser's layout width. */
+body.club-mobile-device .app-root:not(.app-root-no-user) .content-panel,
+body.club-mobile-app-scaled .app-root:not(.app-root-no-user) .content-panel {
+  padding-inline: 0;
+}
+
+body.club-mobile-device .app-shell-auth,
+body.club-mobile-app-scaled .app-shell-auth {
+  padding-right: max(var(--page-padding), calc(var(--safe-right) + var(--page-padding)));
+  padding-left: max(var(--page-padding), calc(var(--safe-left) + var(--page-padding)));
 }
 
 .section-host {
@@ -1244,6 +1268,12 @@ body.club-keyboard-open .ui-bottom-action-bar {
   width: auto;
   min-height: var(--bottom-nav-height);
   padding-bottom: var(--safe-bottom);
+}
+
+body.club-mobile-device .bottom-nav,
+body.club-mobile-app-scaled .bottom-nav {
+  right: max(var(--page-padding), calc(var(--safe-right) + var(--page-padding)));
+  left: max(var(--page-padding), calc(var(--safe-left) + var(--page-padding)));
 }
 
 .bottom-nav-item {

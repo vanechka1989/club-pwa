@@ -1003,10 +1003,10 @@ html body .community-chat-open .chat-message-content .message-reaction-button {
 .community-chat-open .chat-room-header {
   box-sizing: border-box;
   width: auto;
-  margin: 12px 14px 0;
-  margin-top: max(12px, calc(var(--club-safe-top) + 12px));
-  margin-right: max(14px, calc(var(--club-safe-right) + 14px));
-  margin-left: max(14px, calc(var(--club-safe-left) + 14px));
+  margin: var(--page-padding) var(--page-padding) 0;
+  margin-top: max(var(--page-padding), calc(var(--club-safe-top) + var(--page-padding)));
+  margin-right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
+  margin-left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
   border: 1px solid var(--color-border);
   border-radius: var(--card-radius);
   background: var(--color-surface);
@@ -1015,8 +1015,8 @@ html body .community-chat-open .chat-message-content .message-reaction-button {
 }
 
 .community-chat-open :is(.chat-room-notices, .chat-messages) {
-  padding-right: max(14px, calc(var(--club-safe-right) + 14px));
-  padding-left: max(14px, calc(var(--club-safe-left) + 14px));
+  padding-right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
+  padding-left: max(var(--page-padding), calc(var(--club-safe-left) + var(--page-padding)));
 }
 
 .community-chat-open .chat-room-header-title {

@@ -1607,6 +1607,140 @@ test("keeps core sections inside the mobile viewport", async ({ page }) => {
   }
 });
 
+test("uses compact edge gutters and keeps the unread bell intact", async ({ page }, testInfo) => {
+  test.skip(!["viewport-390-844", "android-wide-layout-980"].includes(testInfo.project.name));
+
+  await page.route("**/api/app-state", async (route) => {
+    await route.fulfill(
+      json({
+        access: {
+          role: currentUser.role,
+          realRole: currentUser.realRole,
+          adminRoleLabel: currentUser.adminRoleLabel,
+          adminPermissions: currentUser.adminPermissions,
+          membershipStatus: currentUser.membershipStatus,
+          membershipExpiresAt: currentUser.membershipExpiresAt,
+          paymentType: currentUser.paymentType,
+          recurrentPaymentStatus: currentUser.recurrentPaymentStatus,
+          nextPaymentAt: currentUser.nextPaymentAt
+        },
+        notificationUnreadCount: 1,
+        supportUnreadCount: 0
+      })
+    );
+  });
+
+  await page.route("**/api/notifications", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill(json({ notifications: [], unreadCount: 1 }));
+      return;
+    }
+    await route.fallback();
+  });
+
+  const auditedViewports =
+    testInfo.project.name === "android-wide-layout-980"
+      ? [{ width: 980, height: 1914, gutter: 8 }]
+      : [
+          { width: 390, height: 844, gutter: 8 },
+          { width: 320, height: 640, gutter: 4 }
+        ];
+
+  for (const viewport of auditedViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/profile");
+
+    const bell = page.locator(".notification-center-button");
+    const badge = page.locator(".notification-center-badge");
+    await expect(bell).toBeVisible();
+    await expect(badge).toHaveText("1");
+
+    const bellGeometry = await bell.evaluate((element) => {
+      const button = element.getBoundingClientRect();
+      const icon = element.querySelector("svg")?.getBoundingClientRect();
+      const badgeElement = element.querySelector<HTMLElement>(".notification-center-badge");
+      const badgeStyle = badgeElement ? getComputedStyle(badgeElement) : null;
+      return {
+        buttonWidth: button.width,
+        buttonHeight: button.height,
+        iconWidth: icon?.width ?? 0,
+        iconHeight: icon?.height ?? 0,
+        iconCenterDeltaX: icon ? Math.abs(icon.left + icon.width / 2 - (button.left + button.width / 2)) : 999,
+        iconCenterDeltaY: icon ? Math.abs(icon.top + icon.height / 2 - (button.top + button.height / 2)) : 999,
+        badgePosition: badgeStyle?.position,
+        badgeBackground: badgeStyle?.backgroundColor
+      };
+    });
+
+    expect(bellGeometry.buttonWidth).toBeGreaterThanOrEqual(44);
+    expect(bellGeometry.buttonHeight).toBeGreaterThanOrEqual(44);
+    expect(bellGeometry.iconWidth).toBeGreaterThanOrEqual(16);
+    expect(bellGeometry.iconHeight).toBeGreaterThanOrEqual(16);
+    expect(bellGeometry.iconCenterDeltaX).toBeLessThanOrEqual(1);
+    expect(bellGeometry.iconCenterDeltaY).toBeLessThanOrEqual(1);
+    expect(bellGeometry.badgePosition).toBe("absolute");
+    expect(bellGeometry.badgeBackground).toBe("rgb(225, 29, 72)");
+    if (viewport.width === 390 || viewport.width === 980) {
+      await page.screenshot({
+        path: testInfo.outputPath(`profile-unread-bell-${viewport.width}.png`),
+        fullPage: viewport.width === 980,
+        animations: "disabled",
+        caret: "hide"
+      });
+    }
+
+    for (const path of ["/profile", "/learning", "/community", "/payments", "/support", "/admin"]) {
+      await page.goto(path);
+      await expectResponsiveLayoutIntegrity(page, `${path} compact gutter audit`);
+      const gutters = await page.locator(".app-shell").evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          left: Number.parseFloat(style.paddingLeft),
+          right: Number.parseFloat(style.paddingRight)
+        };
+      });
+      expect(gutters.left, path).toBeLessThanOrEqual(viewport.gutter + 0.5);
+      expect(gutters.right, path).toBeLessThanOrEqual(viewport.gutter + 0.5);
+      const contentBox = await page.locator(".section-host").boundingBox();
+      expect(contentBox?.x ?? 999, `${path} content left edge`).toBeLessThanOrEqual(viewport.gutter + 0.5);
+      expect(
+        viewport.width - ((contentBox?.x ?? 0) + (contentBox?.width ?? 0)),
+        `${path} content right edge`
+      ).toBeLessThanOrEqual(viewport.gutter + 0.5);
+      const navigationBox = await page.locator(".bottom-nav").boundingBox();
+      expect(navigationBox?.x ?? 999, `${path} navigation left edge`).toBeLessThanOrEqual(viewport.gutter + 0.5);
+      expect(
+        viewport.width - ((navigationBox?.x ?? 0) + (navigationBox?.width ?? 0)),
+        `${path} navigation right edge`
+      ).toBeLessThanOrEqual(viewport.gutter + 0.5);
+      if (path === "/profile") {
+        const summaryBoxes = await page.locator(".profile-summary-card").evaluateAll((cards) =>
+          cards.map((card) => {
+            const rect = card.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+          })
+        );
+        expect(summaryBoxes).toHaveLength(2);
+        for (const box of summaryBoxes) {
+          expect(box.left, "profile summary left edge").toBeGreaterThanOrEqual(-0.5);
+          expect(box.right, "profile summary right edge").toBeLessThanOrEqual(viewport.width + 0.5);
+          expect(box.width, "profile summary width").toBeGreaterThan(1);
+          expect(box.height, "profile summary height").toBeGreaterThan(1);
+        }
+        expect(summaryBoxes[1]!.left, "profile summary cards must not overlap").toBeGreaterThanOrEqual(summaryBoxes[0]!.right - 1);
+      }
+      await expectNoHorizontalOverflow(page);
+    }
+
+    await page.goto("/support/new");
+    const taskHeader = page.locator(".task-screen-route-layer .task-screen-header");
+    await expect(taskHeader).toBeVisible();
+    const headerBox = await taskHeader.boundingBox();
+    expect(headerBox?.x ?? 999).toBeLessThanOrEqual(viewport.gutter + 0.5);
+    expect(viewport.width - ((headerBox?.x ?? 0) + (headerBox?.width ?? 0))).toBeLessThanOrEqual(viewport.gutter + 0.5);
+  }
+});
+
 test("opens the profile photo menu from both avatar controls", async ({ page }) => {
   const photoMenu = page.getByRole("dialog", { name: "Изменить фото профиля" });
 

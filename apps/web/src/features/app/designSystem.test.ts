@@ -62,7 +62,8 @@ describe("PWA UI foundation design system", () => {
     expect(foundation).toContain(".ui-responsive-grid");
     expect(foundation).toContain("padding-bottom: calc(24px + var(--safe-bottom));");
     expect(foundation).toContain("@media (max-width: 360px)");
-    expect(foundation).toContain("@media (min-width: 1024px)");
+    expect(foundation).toContain("--page-max-width: 100%;");
+    expect(foundation).not.toMatch(/@media \(min-width: 1024px\)[\s\S]*?\.ui-page-container\s*\{[^}]*padding-inline:\s*24px;/);
   });
 
   it("normalizes routed support and lesson task screens after the redesign", () => {
