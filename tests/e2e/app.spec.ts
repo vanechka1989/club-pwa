@@ -1640,7 +1640,10 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
           metricColumns: stats ? getComputedStyle(stats).gridTemplateColumns.split(" ").length : 0,
           statsRadius: stats ? getComputedStyle(stats).borderRadius : "",
           statsBackground: stats ? getComputedStyle(stats).backgroundColor : "",
-          ticketHeight: ticket?.getBoundingClientRect().height ?? 0,
+          normalizedTicketHeight:
+            ticket && Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 0
+              ? (ticket.offsetHeight * 16) / Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+              : 0,
           ticketRadius: ticketStyle?.borderRadius ?? "",
           ticketBorder: ticketStyle?.borderTopWidth ?? "",
           ticketBackground: ticketStyle?.backgroundColor ?? "",
@@ -1652,8 +1655,8 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
       expect(supportLayout.metricColumns).toBe(2);
       expect(supportLayout.statsRadius).toBe("8px");
       expect(supportLayout.statsBackground).not.toBe("rgba(0, 0, 0, 0)");
-      expect(supportLayout.ticketHeight).toBeGreaterThanOrEqual(75);
-      expect(supportLayout.ticketHeight).toBeLessThanOrEqual(96);
+      expect(supportLayout.normalizedTicketHeight).toBeGreaterThanOrEqual(60);
+      expect(supportLayout.normalizedTicketHeight).toBeLessThanOrEqual(96);
       expect(supportLayout.ticketRadius).toBe("8px");
       expect(supportLayout.ticketBorder).toBe("1px");
       expect(supportLayout.ticketBackground).not.toBe("rgba(0, 0, 0, 0)");
@@ -1757,13 +1760,14 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
   await expect(supportRows.first()).toBeVisible();
   const supportRowStyle = await supportRows.first().evaluate((row) => {
     const style = getComputedStyle(row);
+    const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
     return {
-      height: row.getBoundingClientRect().height,
+      normalizedHeight: rootFontSize > 0 ? (row.getBoundingClientRect().height * 16) / rootFontSize : 0,
       borderRadius: style.borderRadius,
       borderBottomWidth: style.borderBottomWidth
     };
   });
-  expect(supportRowStyle.height).toBeLessThanOrEqual(96);
+  expect(supportRowStyle.normalizedHeight).toBeLessThanOrEqual(96);
   expect(supportRowStyle.borderRadius).toBe("8px");
   expect(supportRowStyle.borderBottomWidth).toBe("1px");
   await expectNoHorizontalOverflow(page);

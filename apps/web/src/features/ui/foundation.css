@@ -928,10 +928,6 @@ canvas {
 }
 
 @media (max-width: 380px) {
-  .ui-page-header {
-    flex-wrap: wrap;
-  }
-
   .ui-page-header__actions {
     width: 100%;
     justify-content: flex-start;
