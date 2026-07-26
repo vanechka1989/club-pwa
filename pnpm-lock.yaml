@@ -153,7 +153,7 @@ importers:
         specifier: ^25.0.1
         version: 25.0.1
       postcss:
-        specifier: ^8.5.18
+        specifier: 8.5.18
         version: 8.5.18
       postcss-selector-parser:
         specifier: ^7.1.0
