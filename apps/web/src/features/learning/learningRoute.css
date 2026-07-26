@@ -2276,3 +2276,30 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 body.club-mobile-device .module-card-head .admin-mockup-card-actions {
   justify-content: flex-start;
 }
+.learning-publication-badge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--success) 42%, var(--border));
+  border-radius: 8px;
+  color: var(--success);
+  font-size: var(--font-micro);
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.learning-publication-badge-draft {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+  color: var(--warning);
+}
+
+.learning-publish-switch {
+  min-height: 44px;
+}
+
+.deleted-module-card .deleted-lesson-preview {
+  grid-template-columns: minmax(0, 1fr);
+}

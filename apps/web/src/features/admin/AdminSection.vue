@@ -136,6 +136,7 @@ import {
 } from "@/features/admin/adminUserDrilldown";
 import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
+import { canUseDeveloperPreview, normalizeAdminPreviewMode } from "@/features/admin/developerPreview";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { appVersion, appVersionUpdatedAt } from "@/features/app/version";
@@ -412,7 +413,7 @@ const isProjectSettingsPanel = computed(() => activePanel.value === "project-set
 // Compatibility note for the admin-shell contract: activePanel === 'server-logs'
 // is rendered by AdminServerPanel, while navigation remains owned by this shell.
 const isServerPanel = computed(() => activePanel.value === "server-logs");
-const canViewReleaseNotes = computed(() => ui.previewMode === "developer");
+const canViewReleaseNotes = computed(() => canUseDeveloperPreview(session.user?.realRole, ui.previewMode));
 const isMemberPreviewMode = computed(() => ui.previewMode === "member-active" || ui.previewMode === "member-inactive");
 const selectedStorageTargetLabel = computed(() => (selectedStorageTarget.value === "primary" ? "S3 основное" : "S3 резервное"));
 const selectedStorageTargetConfigured = computed(() =>
@@ -2991,6 +2992,17 @@ watch(adminPermissionStateKey, () => {
   void syncAdminTaskRoute();
   void loadAll().then(syncAdminTaskRoute);
 });
+
+watch(
+  [() => session.user?.realRole, () => ui.previewMode] as const,
+  ([realRole, previewMode]) => {
+    const normalized = normalizeAdminPreviewMode(realRole, previewMode);
+    if (normalized !== previewMode) {
+      ui.setPreviewMode(normalized);
+    }
+  },
+  { immediate: true }
+);
 
 watch(
   () => props.openClientTelegramId,

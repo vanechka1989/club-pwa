@@ -148,7 +148,8 @@ describe("admin permissions section", () => {
 
   it("shows release notes in the admin section only to the developer mode", () => {
     expect(adminSectionSource).toContain("canViewReleaseNotes");
-    expect(adminSectionSource).toContain('ui.previewMode === "developer"');
+    expect(adminSectionSource).toContain("canUseDeveloperPreview(session.user?.realRole, ui.previewMode)");
+    expect(adminSectionSource).toContain("normalizeAdminPreviewMode(realRole, previewMode)");
     expect(adminSectionSource).toContain('v-if="canViewReleaseNotes"');
     expect(adminSectionSource).toContain("(showReleaseNotesModal || route.path === '/admin/releases') && canViewReleaseNotes");
     expect(adminSectionSource).toContain('openAdminTask("/admin/releases")');

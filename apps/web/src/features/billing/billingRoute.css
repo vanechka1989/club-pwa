@@ -668,3 +668,15 @@ body.club-mobile-device .payment-product-admin-actions {
     justify-self: center;
   }
 }
+
+/* 320px payment readability guard: tariff names must wrap instead of truncating. */
+@media (max-width: 340px) {
+  .payment-product-title {
+    padding-right: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+}

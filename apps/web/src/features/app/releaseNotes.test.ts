@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes link-free access reminder emails as version 5.62", () => {
-    expect(appVersion).toBe("5.62");
-    expect(releaseNotes[0]?.title).toBe("Красивые письма без внешних ссылок");
+  it("publishes safe module drafts and restores as version 5.63", () => {
+    expect(appVersion).toBe("5.63");
+    expect(releaseNotes[0]?.title).toBe("Безопасные черновики и восстановление модулей");
+
+    const linkFreeEmailRelease = releaseNotes.find((note) => note.version === "5.62");
+    expect(linkFreeEmailRelease?.title).toBe("Красивые письма без внешних ссылок");
 
     const expiryReminderRelease = releaseNotes.find((note) => note.version === "5.61");
     expect(expiryReminderRelease?.title).toBe("Напоминания об окончании доступа");

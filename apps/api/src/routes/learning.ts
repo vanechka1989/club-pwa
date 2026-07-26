@@ -105,6 +105,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         title: contentCategories.title,
         description: contentCategories.description,
         isPublished: contentCategories.isPublished,
+        archivedUntil: contentCategories.archivedUntil,
         itemsCount: count(contentItems.id)
       })
       .from(contentCategories)
@@ -112,7 +113,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         contentItems,
         and(eq(contentItems.categoryId, contentCategories.id), publishedContentWhere())
       )
-      .where(eq(contentCategories.isPublished, true))
+      .where(and(eq(contentCategories.isPublished, true), isNull(contentCategories.archivedUntil)))
       .groupBy(contentCategories.id)
       .orderBy(contentCategories.sortOrder);
 
@@ -120,6 +121,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       .filter((category) => isModuleCategoryDescription(category.description))
       .map((category) => ({
         ...category,
+        archivedUntil: null,
         description: decodeModuleCategoryDescription(category.description),
         defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description)
       }));

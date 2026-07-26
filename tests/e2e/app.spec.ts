@@ -2982,8 +2982,9 @@ test("separates the complete developer surface from an administrator with all pe
   await page.unroute(`${apiBaseUrl}/**`);
   await page.unroute(appApiUrlPattern);
   await mockApi(page, fullAdmin);
-  await page.evaluate(() => localStorage.setItem("club-preview-mode", "admin"));
+  await page.evaluate(() => localStorage.setItem("club-preview-mode", "developer"));
   await page.goto("/admin");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("club-preview-mode"))).toBe("admin");
 
   for (const panel of ["Аналитика", "Клиенты", "Рассылки", "Платежи", "Хранилище", "Настройки проекта", "Админы"]) {
     await expect(page.getByRole("button", { name: panel, exact: true })).toBeVisible();
@@ -3000,6 +3001,7 @@ test("creates, edits, deletes, and restores a module lesson with every content e
   test.setTimeout(90_000);
 
   const categories = [{ ...adminLearningCategory }];
+  const deletedCategories: Array<Record<string, unknown>> = [];
   const materials = [{ ...adminLearningMaterial }];
   const deletedMaterials: typeof materials = [];
   const mutationLog: Array<{ method: string; path: string; payload?: unknown }> = [];
@@ -3010,19 +3012,20 @@ test("creates, edits, deletes, and restores a module lesson with every content e
     const method = request.method();
 
     if (path === "/admin/learning" && method === "GET") {
-      await route.fulfill(json({ categories, materials, deletedMaterials }));
+      await route.fulfill(json({ categories, deletedCategories, materials, deletedMaterials }));
       return;
     }
     if (path === "/admin/learning/categories" && method === "POST") {
-      const payload = request.postDataJSON() as { title: string; description?: string | null; defaultCardLayout: "vertical" | "horizontal" };
+      const payload = request.postDataJSON() as { title: string; description?: string | null; defaultCardLayout: "vertical" | "horizontal"; isPublished?: boolean };
       const category = {
         id: "audit-module",
         slug: "audit-module",
         title: payload.title,
         description: payload.description ?? null,
         defaultCardLayout: payload.defaultCardLayout,
-        isPublished: true,
-        itemsCount: 0
+        isPublished: payload.isPublished ?? false,
+        itemsCount: 0,
+        archivedUntil: null
       };
       categories.push(category);
       mutationLog.push({ method, path, payload });
@@ -3030,7 +3033,7 @@ test("creates, edits, deletes, and restores a module lesson with every content e
       return;
     }
     if (path === "/admin/learning/categories/audit-module" && method === "POST") {
-      const payload = request.postDataJSON() as { title: string; description?: string | null; defaultCardLayout: "vertical" | "horizontal" };
+      const payload = request.postDataJSON() as { title: string; description?: string | null; defaultCardLayout: "vertical" | "horizontal"; isPublished?: boolean };
       const category = categories.find((item) => item.id === "audit-module")!;
       Object.assign(category, payload);
       mutationLog.push({ method, path, payload });
@@ -3038,8 +3041,20 @@ test("creates, edits, deletes, and restores a module lesson with every content e
       return;
     }
     if (path === "/admin/learning/categories/audit-module" && method === "DELETE") {
+      const index = categories.findIndex((item) => item.id === "audit-module");
+      const [category] = categories.splice(index, 1);
+      deletedCategories.unshift({ ...category, isPublished: false, archivedUntil: "2026-08-02T10:00:00.000Z" });
       mutationLog.push({ method, path });
       await route.fulfill(json({ ok: true }));
+      return;
+    }
+    if (path === "/admin/learning/categories/audit-module/restore" && method === "POST") {
+      const index = deletedCategories.findIndex((item) => item.id === "audit-module");
+      const [category] = deletedCategories.splice(index, 1);
+      const restored = { ...category, isPublished: false, archivedUntil: null };
+      categories.push(restored as typeof adminLearningCategory);
+      mutationLog.push({ method, path });
+      await route.fulfill(json({ ok: true, category: restored }));
       return;
     }
     if (path === "/admin/learning/materials/direct" && method === "POST") {
@@ -3056,7 +3071,7 @@ test("creates, edits, deletes, and restores a module lesson with every content e
         mediaSource: payload.mediaUrl ? "external" : null,
         materials: payload.materials,
         cardLayout: "horizontal",
-        isPublished: true
+        isPublished: Boolean(payload.isPublished)
       };
       materials.push(material);
       mutationLog.push({ method, path, payload });
@@ -3095,14 +3110,17 @@ test("creates, edits, deletes, and restores a module lesson with every content e
   await page.goto("/learning");
   await page.getByRole("button", { name: "Редактировать модули" }).click();
   await page.getByRole("button", { name: "Добавить модуль" }).click();
+  await expect(page.getByLabel("Опубликовать модуль")).not.toBeChecked();
   await page.getByLabel("Название модуля").fill("Аудит: полный модуль");
   await page.getByLabel("Описание модуля").fill("Проверка всех типов содержимого");
   await page.getByRole("button", { name: "Горизонтальные уроки" }).click();
   await page.getByRole("button", { name: "Сохранить модуль" }).click();
   await expect(page.getByText("Аудит: полный модуль", { exact: true })).toBeVisible();
+  expect((mutationLog.find((entry) => entry.path === "/admin/learning/categories")?.payload as { isPublished: boolean }).isPublished).toBe(false);
 
   await page.getByRole("button", { name: "Переключить Аудит: полный модуль" }).click();
   await page.getByRole("button", { name: "Добавить карточку в Аудит: полный модуль" }).click();
+  await expect(page.getByLabel("Опубликовать урок")).not.toBeChecked();
   await page.getByLabel("Название урока").fill("Урок со всеми материалами");
   await page.getByLabel("Описание урока").fill("Текст, фото, видео и аудио");
   await page.getByLabel("Содержимое урока").fill("Основной текст урока");
@@ -3132,7 +3150,8 @@ test("creates, edits, deletes, and restores a module lesson with every content e
 
   await page.getByRole("button", { name: "Сохранить урок" }).click();
   await expect(page).toHaveURL(/\/learning$/);
-  const createPayload = mutationLog.find((entry) => entry.path === "/admin/learning/materials/direct")?.payload as { materials: Array<{ kind: string; mediaUrl?: string | null }> };
+  const createPayload = mutationLog.find((entry) => entry.path === "/admin/learning/materials/direct")?.payload as { isPublished: boolean; materials: Array<{ kind: string; mediaUrl?: string | null }> };
+  expect(createPayload.isPublished).toBe(false);
   expect(createPayload.materials.map((item) => item.kind)).toEqual(["text", "photo", "video", "audio"]);
   expect(createPayload.materials.map((item) => item.mediaUrl ?? null)).toEqual([
     null,
@@ -3163,6 +3182,10 @@ test("creates, edits, deletes, and restores a module lesson with every content e
   await page.getByRole("button", { name: "Удалить модуль" }).click();
   await page.getByRole("alertdialog", { name: "Удалить модуль «Аудит: модуль обновлён»?" }).getByRole("button", { name: "Удалить модуль", exact: true }).click();
   await expect(mutationLog.some((entry) => entry.path === "/admin/learning/categories/audit-module" && entry.method === "DELETE")).toBe(true);
+  await page.getByRole("button", { name: "Редактировать модули" }).click();
+  await page.getByRole("button", { name: "Развернуть Удалённый контент" }).click();
+  await page.getByRole("button", { name: "Восстановить модуль Аудит: модуль обновлён" }).click();
+  await expect(mutationLog.some((entry) => entry.path === "/admin/learning/categories/audit-module/restore" && entry.method === "POST")).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
     await page.evaluate(() => document.documentElement.clientWidth + 2)
   );

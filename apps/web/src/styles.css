@@ -7233,6 +7233,35 @@ textarea {
   font-family: inherit;
 }
 
+/* 320px navigation readability guard: keep labels visible and targets tappable. */
+@media (max-width: 340px) {
+  .bottom-nav {
+    gap: 0;
+    padding: 3px;
+  }
+
+  .bottom-nav-item {
+    min-width: 44px;
+    min-height: 44px;
+    gap: 2px;
+    padding-inline: 2px;
+    font-size: 0.54rem;
+  }
+
+  .bottom-nav-admin .bottom-nav-item {
+    font-size: 0.52rem;
+  }
+
+  .bottom-nav-item > span:last-child {
+    display: block;
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+  }
+}
+
 /* Profile-aligned typography for community chats and support tickets. */
 .chat-message-body,
 .support-message p {

@@ -991,6 +991,23 @@ describe("App", () => {
     );
   });
 
+  it("keeps payment titles and navigation labels readable at 320px", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf8");
+    const billingStyles = readAppStyles("billing");
+    const compactGuard = styles.slice(styles.lastIndexOf("320px navigation readability guard"));
+    const paymentGuard = billingStyles.slice(billingStyles.lastIndexOf("320px payment readability guard"));
+
+    expect(paymentGuard).toMatch(
+      /@media \(max-width: 340px\)[\s\S]*\.payment-product-title\s*\{[\s\S]*white-space: normal;[\s\S]*overflow-wrap: anywhere;/
+    );
+    expect(compactGuard).toMatch(
+      /\.bottom-nav-item > span:last-child\s*\{[\s\S]*display: block;[\s\S]*text-overflow: clip;/
+    );
+    expect(compactGuard).toMatch(
+      /\.bottom-nav-item\s*\{[\s\S]*min-width: 44px;[\s\S]*min-height: 44px;/
+    );
+  });
+
   it("uses calmer light surfaces and tighter mobile admin spacing", () => {
     const styles = readAppStyles();
     const responsiveLayer = styles.slice(styles.lastIndexOf("Responsive modal and mobile commerce system"));

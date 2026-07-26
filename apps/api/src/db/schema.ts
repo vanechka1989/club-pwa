@@ -564,12 +564,14 @@ export const contentCategories = pgTable(
     description: text("description"),
     sortOrder: integer("sort_order").notNull().default(0),
     isPublished: boolean("is_published").notNull().default(false),
+    archivedUntil: timestamp("archived_until", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     slugIdx: uniqueIndex("content_categories_slug_idx").on(table.slug),
-    publishedSortIdx: index("content_categories_published_sort_idx").on(table.isPublished, table.sortOrder)
+    publishedSortIdx: index("content_categories_published_sort_idx").on(table.isPublished, table.sortOrder),
+    archiveIdx: index("content_categories_archive_idx").on(table.archivedUntil)
   })
 );
 

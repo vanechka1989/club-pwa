@@ -115,6 +115,13 @@ import {
 } from "../storage/s3Config";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
+import {
+  getArchivedCategoryItemValues,
+  getArchivedCategoryValues,
+  getCategoryRestoreState,
+  getRestoredCategoryItemValues,
+  getRestoredCategoryValues
+} from "../learning/categoryArchive";
 import { buildLearningMediaObjectKey, buildLearningThumbnailObjectKey, getLearningMediaUploadContentType } from "../learning/mediaUpload";
 import { createAppNotification } from "../notifications/create";
 import {
@@ -213,7 +220,8 @@ const learningMaterialReorderPayloadSchema = learningReorderPayloadSchema.extend
 const learningCategoryPayloadSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(1000).nullable().optional(),
-  defaultCardLayout: z.enum(["vertical", "horizontal"]).default("vertical")
+  defaultCardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
+  isPublished: z.boolean().default(false)
 });
 
 const s3StoragePayloadSchema = z.object({
@@ -286,7 +294,7 @@ const directLearningMaterialPayloadSchema = z.object({
     .default([]),
   cardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
   coverMode: z.enum(["default", "custom", "first_material"]).default("default"),
-  isPublished: z.boolean().default(true),
+  isPublished: z.boolean().default(false),
   mediaUrl: externalMediaUrlSchema.nullable().optional(),
   mediaObject: adminLearningUploadedObjectSchema.nullable().optional(),
   thumbnailObject: adminLearningUploadedObjectSchema.nullable().optional(),
@@ -659,8 +667,12 @@ async function serializeAdminMaterial(item: typeof contentItems.$inferSelect): P
 }
 
 async function purgeExpiredArchivedContent() {
+  const now = new Date();
+  const expiredCategories = await db.query.contentCategories.findMany({
+    where: and(isNotNull(contentCategories.archivedUntil), lt(contentCategories.archivedUntil, now))
+  });
   const expiredItems = await db.query.contentItems.findMany({
-    where: and(isNotNull(contentItems.archivedUntil), lt(contentItems.archivedUntil, new Date()))
+    where: and(isNotNull(contentItems.archivedUntil), lt(contentItems.archivedUntil, now))
   });
 
   for (const item of expiredItems) {
@@ -677,6 +689,10 @@ async function purgeExpiredArchivedContent() {
     for (const item of expiredItems) {
       await db.delete(contentItems).where(eq(contentItems.id, item.id));
     }
+  }
+
+  if (expiredCategories.length) {
+    await db.delete(contentCategories).where(inArray(contentCategories.id, expiredCategories.map((category) => category.id)));
   }
 }
 
@@ -2367,6 +2383,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         title: contentCategories.title,
         description: contentCategories.description,
         isPublished: contentCategories.isPublished,
+        archivedUntil: contentCategories.archivedUntil,
         itemsCount: count(contentItems.id)
       })
       .from(contentCategories)
@@ -2374,13 +2391,16 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .groupBy(contentCategories.id)
       .orderBy(contentCategories.sortOrder);
 
-    const categories = rawCategories
+    const moduleCategories = rawCategories
       .filter((category) => isModuleCategoryDescription(category.description))
       .map((category) => ({
         ...category,
+        archivedUntil: category.archivedUntil?.toISOString() ?? null,
         description: decodeModuleCategoryDescription(category.description),
         defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description)
       }));
+    const categories = moduleCategories.filter((category) => !category.archivedUntil);
+    const deletedCategories = moduleCategories.filter((category) => Boolean(category.archivedUntil));
     const categoryIds = categories.map((category) => category.id);
     const materials = categoryIds.length
       ? await db.query.contentItems.findMany({
@@ -2397,6 +2417,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       categories,
+      deletedCategories,
       materials: await Promise.all(materials.map(serializeAdminMaterial)),
       deletedMaterials: await Promise.all(deletedMaterials.map(serializeAdminMaterial))
     });
@@ -2420,7 +2441,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         title: body.data.title,
         description: encodeModuleCategoryDescription(body.data.description, body.data.defaultCardLayout),
         sortOrder: sortRow?.value ?? 0,
-        isPublished: true
+        isPublished: body.data.isPublished
       })
       .returning();
 
@@ -2448,7 +2469,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         description: decodeModuleCategoryDescription(category.description),
         defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description),
         isPublished: category.isPublished,
-        itemsCount: 0
+        itemsCount: 0,
+        archivedUntil: null
       }
     });
   })
@@ -2461,7 +2483,9 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const categories = await db.query.contentCategories.findMany({
       orderBy: [asc(contentCategories.sortOrder), asc(contentCategories.createdAt)]
     });
-    const moduleIds = categories.filter((category) => isModuleCategoryDescription(category.description)).map((category) => category.id);
+    const moduleIds = categories
+      .filter((category) => isModuleCategoryDescription(category.description) && !category.archivedUntil)
+      .map((category) => category.id);
     const validation = validateReorderIds(body.data.ids, moduleIds);
     if (!validation.ok) {
       return c.json({ error: "Invalid category order" }, 400);
@@ -2501,9 +2525,10 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .set({
         title: body.data.title,
         description: encodeModuleCategoryDescription(body.data.description, body.data.defaultCardLayout),
+        isPublished: body.data.isPublished,
         updatedAt: new Date()
       })
-      .where(eq(contentCategories.id, c.req.param("id")))
+      .where(and(eq(contentCategories.id, c.req.param("id")), isNull(contentCategories.archivedUntil)))
       .returning();
 
     if (!category || !isModuleCategoryDescription(category.description)) {
@@ -2535,7 +2560,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         description: decodeModuleCategoryDescription(category.description),
         defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description),
         isPublished: category.isPublished,
-        itemsCount: itemsRow?.value ?? 0
+        itemsCount: itemsRow?.value ?? 0,
+        archivedUntil: null
       }
     });
   })
@@ -2551,7 +2577,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         isPublished: body.data.isPublished,
         updatedAt: new Date()
       })
-      .where(eq(contentCategories.id, c.req.param("id")))
+      .where(and(eq(contentCategories.id, c.req.param("id")), isNull(contentCategories.archivedUntil)))
       .returning();
 
     if (!category) {
@@ -2582,7 +2608,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         description: decodeModuleCategoryDescription(category.description),
         defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description),
         isPublished: category.isPublished,
-        itemsCount: itemsRow?.value ?? 0
+        itemsCount: itemsRow?.value ?? 0,
+        archivedUntil: null
       }
     });
   })
@@ -2594,34 +2621,79 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       }
     });
 
-    if (!category) {
+    if (!category || !isModuleCategoryDescription(category.description)) {
       return c.json({ error: "Category not found" }, 404);
     }
 
-    for (const item of category.items) {
-      await deleteLessonMaterialObjects(item.id);
-      if (item.mediaObjectKey) {
-        await deleteObject(item.mediaObjectKey).catch(() => null);
-      }
-      if (item.thumbnailObjectKey) {
-        await deleteObject(item.thumbnailObjectKey).catch(() => null);
-      }
+    if (category.archivedUntil) {
+      return c.json({ error: "Category already archived" }, 409);
     }
 
-    await db.delete(contentCategories).where(eq(contentCategories.id, category.id));
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      await tx.update(contentCategories).set(getArchivedCategoryValues(now)).where(eq(contentCategories.id, category.id));
+      await tx.update(contentItems).set(getArchivedCategoryItemValues(now)).where(eq(contentItems.categoryId, category.id));
+    });
 
     await recordAdminAction(c, {
-      action: "learning.category.deleted",
+      action: "learning.category.archived",
       entityType: "learning_category",
       entityId: category.id,
-      summary: `Удалил модуль "${category.title}"`,
+      summary: `Переместил модуль "${category.title}" в удалённые`,
       metadata: {
         title: category.title,
-        itemsCount: category.items.length
+        itemsCount: category.items.length,
+        archiveTtlDays: 7
       }
     });
 
     return c.json({ ok: true });
+  })
+  .post("/learning/categories/:id/restore", async (c) => {
+    const category = await db.query.contentCategories.findFirst({
+      where: eq(contentCategories.id, c.req.param("id")),
+      with: { items: true }
+    });
+
+    if (!category || !isModuleCategoryDescription(category.description)) {
+      return c.json({ error: "Category not found" }, 404);
+    }
+
+    const now = new Date();
+    const restoreState = getCategoryRestoreState(category.archivedUntil, now);
+    if (restoreState === "active") {
+      return c.json({ error: "Category is not archived" }, 409);
+    }
+    if (restoreState === "expired") {
+      return c.json({ error: "Category archive expired" }, 410);
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.update(contentCategories).set(getRestoredCategoryValues(now)).where(eq(contentCategories.id, category.id));
+      await tx.update(contentItems).set(getRestoredCategoryItemValues(now)).where(eq(contentItems.categoryId, category.id));
+    });
+
+    await recordAdminAction(c, {
+      action: "learning.category.restored",
+      entityType: "learning_category",
+      entityId: category.id,
+      summary: `Восстановил модуль "${category.title}" как черновик`,
+      metadata: { title: category.title, itemsCount: category.items.length }
+    });
+
+    return c.json({
+      ok: true,
+      category: {
+        id: category.id,
+        slug: category.slug,
+        title: category.title,
+        description: decodeModuleCategoryDescription(category.description),
+        defaultCardLayout: decodeModuleCategoryDefaultCardLayout(category.description),
+        isPublished: false,
+        itemsCount: category.items.length,
+        archivedUntil: null
+      }
+    });
   })
   .post("/learning/materials/reorder", async (c) => {
     const body = learningMaterialReorderPayloadSchema.safeParse(await c.req.json().catch(() => null));

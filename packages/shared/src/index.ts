@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 export const currentRelease = {
-  version: "5.62",
-  updatedAt: "26.07.2026 11:13",
-  title: "Красивые письма без внешних ссылок",
+  version: "5.63",
+  updatedAt: "26.07.2026 18:45",
+  title: "Безопасные черновики и восстановление модулей",
   items: [
-    "Email-напоминание об окончании доступа оформлено как аккуратная адаптивная карточка с точной датой.",
-    "Из письма убраны кнопка продления и любые внешние ссылки — продление открывается только внутри установленного приложения.",
-    "Push и системное уведомление в PWA по-прежнему ведут в раздел оплаты приложения."
+    "Удалённые модули и уроки хранятся 7 дней и восстанавливаются как черновики без потери файлов.",
+    "Новые модули и уроки создаются черновиками, а публикация управляется явно и видна по статусу.",
+    "Режим разработчика доступен только владельцу; экран оплаты и навигация исправлены для ширины 320 px."
   ]
 } as const;
 
@@ -363,7 +363,8 @@ export const learningCategorySchema = z.object({
   description: z.string().nullable(),
   defaultCardLayout: contentCardLayoutSchema.default("vertical"),
   isPublished: z.boolean(),
-  itemsCount: z.number().int().nonnegative()
+  itemsCount: z.number().int().nonnegative(),
+  archivedUntil: z.string().datetime().nullable().optional()
 });
 export type LearningCategory = z.infer<typeof learningCategorySchema>;
 
@@ -1323,6 +1324,7 @@ export type AdminLearningMaterial = z.infer<typeof adminLearningMaterialSchema>;
 
 export const adminLearningResponseSchema = z.object({
   categories: z.array(learningCategorySchema),
+  deletedCategories: z.array(learningCategorySchema).default([]),
   materials: z.array(adminLearningMaterialSchema),
   deletedMaterials: z.array(adminLearningMaterialSchema).default([])
 });
