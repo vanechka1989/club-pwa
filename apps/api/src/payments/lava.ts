@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paymentCurrencySchema } from "@club/shared";
 import type {
   NormalizedPaymentEvent,
   PaymentProviderAdapter,
@@ -6,6 +7,7 @@ import type {
   ProviderCatalogItem,
   ProviderCheckoutInput
 } from "./providerAdapter";
+import { majorToMinor, minorToMajor, PaymentMoneyError } from "./money";
 
 const lavaApiOrigin = "https://gate.lava.top";
 const requestTimeoutMs = 10_000;
@@ -134,6 +136,17 @@ function normalizeCatalogItem(item: z.infer<typeof catalogItemSchema>) {
     : { ...catalogProductSchema.parse(item), feedType: "PRODUCT" };
 }
 
+function normalizeMoney(amount: number, currency: string) {
+  const parsedCurrency = paymentCurrencySchema.safeParse(currency.toUpperCase());
+  if (!parsedCurrency.success) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+  try {
+    return { currency: parsedCurrency.data, amountMinor: majorToMinor(amount) };
+  } catch (error) {
+    if (error instanceof PaymentMoneyError) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+    throw error;
+  }
+}
+
 export function createLavaClient(options: LavaClientOptions): PaymentProviderAdapter {
   const fetchImpl = options.fetch ?? fetch;
 
@@ -179,8 +192,10 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
             body: JSON.stringify({
               email: input.user.email,
               offerId: input.product.externalOfferId,
-              currency: "RUB",
-              ...(input.product.useCustomAmount ? { amount: input.product.amountRub } : {}),
+              currency: input.product.currency ?? "RUB",
+              ...(input.product.useCustomAmount
+                ? { amount: minorToMajor(input.product.amountMinor ?? majorToMinor(input.product.amountRub)) }
+                : {}),
               buyerLanguage: "RU",
               ...(lavaPeriodicity(input.product.kind, input.product.accessDays)
                 ? { periodicity: lavaPeriodicity(input.product.kind, input.product.accessDays) }
@@ -221,14 +236,32 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         const item = normalizeCatalogItem(rawItem);
         if (!item.feedType.toUpperCase().includes("PRODUCT")) continue;
         for (const offer of item.offers ?? []) {
-          const rubPrice = offer.prices.find((price) => price.currency === "RUB");
+          const prices: ProviderCatalogItem["prices"] = [];
+          for (const price of offer.prices) {
+            const currency = paymentCurrencySchema.safeParse(price.currency.toUpperCase());
+            if (!currency.success) continue;
+            if (price.amount === null || price.amount === undefined) {
+              prices.push({ currency: currency.data, amountMinor: null, periodicity: price.periodicity ?? null });
+              continue;
+            }
+            try {
+              prices.push({ currency: currency.data, amountMinor: majorToMinor(price.amount), periodicity: price.periodicity ?? null });
+            } catch (error) {
+              if (error instanceof PaymentMoneyError) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+              throw error;
+            }
+          }
+          const rubPrice = prices.find((price) => price.currency === "RUB");
           const periodicity = rubPrice?.periodicity ?? offer.prices[0]?.periodicity ?? offer.recurrent;
           result.push({
             externalProductId: item.id,
             externalOfferId: offer.id,
             title: offer.name || item.title || "Товар Lava",
             kind: periodicity && periodicity !== "ONE_TIME" ? "recurrent" : "one_time",
-            amountRub: rubPrice?.amount ?? null,
+            amountRub: rubPrice?.amountMinor === null || rubPrice?.amountMinor === undefined
+              ? null
+              : minorToMajor(rubPrice.amountMinor),
+            prices,
             metadata: {
               productType: item.type ?? null,
               periodicity: periodicity ?? null
@@ -271,7 +304,7 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         productId: input.productId,
         buyerEmail: response.data.buyer.email || input.buyerEmail,
         amountRub: response.data.receipt.amount,
-        currency: response.data.receipt.currency,
+        ...normalizeMoney(response.data.receipt.amount, response.data.receipt.currency),
         occurredAt: new Date(response.data.datetime),
         payload: {
           source: "reconciliation",
@@ -303,7 +336,7 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
           productId: input.productId,
           buyerEmail: response.data.buyer.email,
           amountRub: payment.amount,
-          currency: payment.currency,
+          ...normalizeMoney(payment.amount, payment.currency),
           occurredAt: new Date(payment.datetime),
           payload: { source: "subscription_reconciliation", status: payment.status, paymentId: payment.id }
         }));
@@ -318,7 +351,7 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
           productId: input.productId,
           buyerEmail: response.data.buyer.email,
           amountRub: response.data.receipt.amount,
-          currency: response.data.receipt.currency,
+          ...normalizeMoney(response.data.receipt.amount, response.data.receipt.currency),
           occurredAt: new Date(response.data.cancelledAt ?? response.data.datetime),
           payload: { source: "subscription_reconciliation", status: "CANCELLED" }
         });

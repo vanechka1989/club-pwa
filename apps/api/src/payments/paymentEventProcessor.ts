@@ -72,7 +72,7 @@ export async function processPaymentEvent(
     if (!parentOrder) {
       throw new Error("PAYMENT_ORDER_NOT_READY");
     }
-    if (!isPaymentAmountValid(parentOrder.amountRub, event.amountRub, event.currency)) {
+    if (!isPaymentAmountValid(parentOrder.amountRub ?? 0, event.amountRub, event.currency)) {
       throw new Error("PAYMENT_ORDER_AMOUNT_MISMATCH");
     }
 
@@ -86,6 +86,8 @@ export async function processPaymentEvent(
           providerId,
           status: "pending",
           amountRub: parentOrder.amountRub,
+          currency: parentOrder.currency,
+          amountMinor: parentOrder.amountMinor,
           providerOrderId: `${event.provider}-${event.externalPaymentId}`,
           externalOrderId: event.externalPaymentId,
           externalSubscriptionId: event.externalSubscriptionId,
@@ -170,7 +172,7 @@ export async function processPaymentEvent(
     notification = {
       userId: order.userId,
       productTitle: parentOrder.product.title,
-      amountRub: order.amountRub,
+      amountRub: order.amountRub ?? 0,
       expiresAt,
       order: claimedOrder,
       user: parentOrder.user

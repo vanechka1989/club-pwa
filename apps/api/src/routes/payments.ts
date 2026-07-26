@@ -232,7 +232,7 @@ function mapPaymentOrderLog(
     id: order.id,
     provider: order.provider.provider as PaymentProviderCode,
     status: order.status,
-    amountRub: order.amountRub,
+    amountRub: order.amountRub ?? 0,
     providerOrderId: order.providerOrderId,
     providerPaymentId: order.providerPaymentId,
     productTitle: order.product.title,
@@ -363,7 +363,7 @@ async function grantPaidAccess(
   await notifyPaymentReceived({
     userId: user.id,
     productTitle: product.title,
-    amountRub: order.amountRub,
+    amountRub: order.amountRub ?? 0,
     expiresAt
   }).catch((error) => {
     logger.warn({ error, orderId: order.providerOrderId, userId: user.id }, "payment notification failed");
@@ -431,7 +431,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ ok: false }, 404);
     }
 
-    if (!validateProdamusWebhookOrder(payload, { amountRub: order.amountRub, productTitle: product.title })) {
+    if (!validateProdamusWebhookOrder(payload, { amountRub: order.amountRub ?? 0, productTitle: product.title })) {
       logger.warn({ orderId }, "prodamus webhook order contents mismatch");
       return c.json({ ok: false, error: "Order contents mismatch" }, 400);
     }
@@ -496,7 +496,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       plans: products.map((product) => ({
         id: product.id,
         title: product.title,
-        priceLabel: `${product.amountRub.toLocaleString("ru-RU")} ₽`,
+        priceLabel: `${(product.amountRub ?? 0).toLocaleString("ru-RU")} ₽`,
         periodLabel: product.kind === "recurrent" ? `каждые ${product.accessDays} дн.` : `${product.accessDays} дн.`,
         description: product.description ?? "Доступ к клубу и материалам."
       })),
@@ -550,6 +550,9 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
     if (!user) {
       return c.json({ checkoutUrl: null, message: "Пользователь не найден." }, 404);
+    }
+    if (product.amountRub === null) {
+      return c.json({ checkoutUrl: null, message: "Для тарифа не задана цена в рублях." }, 400);
     }
 
     const availableBindings = product.providerBindings.length > 0
@@ -643,6 +646,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         providerId: selected.binding.provider.id,
         status: "pending",
         amountRub: product.amountRub,
+        currency: "RUB",
+        amountMinor: product.amountRub * 100,
         providerOrderId: orderId,
         createdAt: now,
         updatedAt: now

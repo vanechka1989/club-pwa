@@ -344,14 +344,14 @@ function setProductForm(product?: PaymentProduct) {
       kind: product.kind,
       title: product.title,
       badgeLabel: product.badgeLabel ?? "",
-      amountRub: product.amountRub,
+      amountRub: product.amountRub ?? 990,
       accessDays: product.accessDays,
       prodamusSubscriptionId: product.prodamusSubscriptionId ?? "",
-      bindings: product.bindings.length ? product.bindings.map((binding) => ({ ...binding })) : [
+      bindings: (product.bindings ?? []).length ? (product.bindings ?? []).map((binding) => ({ ...binding })) : [
         {
           provider: "prodamus",
           enabled: true,
-          externalProductId: product.prodamusSubscriptionId,
+          externalProductId: product.prodamusSubscriptionId ?? null,
           externalOfferId: null
         },
         { provider: "lava", enabled: false, externalProductId: null, externalOfferId: null }
@@ -861,7 +861,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               <p class="payment-product-title">{{ product.title }}</p>
             </div>
             <div class="payment-product-details">
-              <p class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
+              <p class="payment-product-meta">{{ formatMoney(product.amountRub ?? 0) }} · {{ productPeriod(product) }}</p>
               <span v-if="product.badgeLabel" class="payment-product-badge">{{ product.badgeLabel }}</span>
             </div>
           </div>
@@ -871,7 +871,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               class="primary-button ui-button payment-product-pay"
               :class="{ 'payment-product-pay-loading': checkoutProductId === product.id }"
               type="button"
-              :disabled="saving || !product.bindings.some((binding) => binding.enabled)"
+              :disabled="saving || !(product.bindings ?? []).some((binding) => binding.enabled)"
               :aria-busy="checkoutProductId === product.id"
               @click="handleCheckout(product)"
             >
@@ -961,7 +961,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       <article v-for="product in hiddenProducts" :key="product.id" class="flex items-center justify-between gap-3 rounded-[18px] bg-[var(--field)] p-4">
         <div>
           <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
-          <p class="text-sm text-[var(--muted)]">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
+          <p class="text-sm text-[var(--muted)]">{{ formatMoney(product.amountRub ?? 0) }} · {{ productPeriod(product) }}</p>
         </div>
         <div class="flex gap-2">
           <button class="icon-button ui-icon-button" type="button" aria-label="Открыть тариф" @click="handleToggleProduct(product)">

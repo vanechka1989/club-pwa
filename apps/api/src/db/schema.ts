@@ -8,6 +8,7 @@ export const moderationStatus = pgEnum("moderation_status", ["visible", "hidden"
 export const muteKind = pgEnum("mute_kind", ["temporary", "permanent"]);
 export const messageReaction = pgEnum("message_reaction", ["like", "dislike", "thumbs_up", "fire", "heart", "laugh", "clap", "poop"]);
 export const paymentProductKind = pgEnum("payment_product_kind", ["one_time", "recurrent"]);
+export const paymentCurrency = pgEnum("payment_currency", ["RUB", "USD", "EUR"]);
 export const paymentOrderStatus = pgEnum("payment_order_status", ["pending", "paid", "failed", "cancelled"]);
 export const recurrentSubscriptionStatus = pgEnum("recurrent_subscription_status", ["active", "cancelled"]);
 
@@ -380,7 +381,7 @@ export const paymentProducts = pgTable(
     title: varchar("title", { length: 180 }).notNull(),
     description: text("description"),
     badgeLabel: varchar("badge_label", { length: 32 }),
-    amountRub: integer("amount_rub").notNull(),
+    amountRub: integer("amount_rub"),
     accessDays: integer("access_days").notNull(),
     prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }),
     isPublished: boolean("is_published").notNull().default(false),
@@ -414,6 +415,23 @@ export const paymentProductProviderBindings = pgTable(
   })
 );
 
+export const paymentProductProviderPrices = pgTable(
+  "payment_product_provider_prices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bindingId: uuid("binding_id").notNull().references(() => paymentProductProviderBindings.id, { onDelete: "cascade" }),
+    currency: paymentCurrency("currency").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    bindingCurrencyIdx: uniqueIndex("payment_product_provider_prices_binding_currency_idx").on(table.bindingId, table.currency),
+    bindingEnabledIdx: index("payment_product_provider_prices_binding_enabled_idx").on(table.bindingId, table.isEnabled)
+  })
+);
+
 export const paymentProviderCatalogItems = pgTable(
   "payment_provider_catalog_items",
   {
@@ -438,6 +456,23 @@ export const paymentProviderCatalogItems = pgTable(
   })
 );
 
+export const paymentProviderCatalogItemPrices = pgTable(
+  "payment_provider_catalog_item_prices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    catalogItemId: uuid("catalog_item_id").notNull().references(() => paymentProviderCatalogItems.id, { onDelete: "cascade" }),
+    currency: paymentCurrency("currency").notNull(),
+    amountMinor: integer("amount_minor"),
+    periodicity: varchar("periodicity", { length: 64 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    catalogItemCurrencyIdx: uniqueIndex("payment_provider_catalog_item_prices_catalog_item_currency_idx")
+      .on(table.catalogItemId, table.currency)
+  })
+);
+
 export const paymentOrders = pgTable(
   "payment_orders",
   {
@@ -446,7 +481,9 @@ export const paymentOrders = pgTable(
     productId: uuid("product_id").notNull().references(() => paymentProducts.id, { onDelete: "restrict" }),
     providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "restrict" }),
     status: paymentOrderStatus("status").notNull().default("pending"),
-    amountRub: integer("amount_rub").notNull(),
+    amountRub: integer("amount_rub"),
+    currency: paymentCurrency("currency").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
     providerOrderId: varchar("provider_order_id", { length: 128 }).notNull(),
     providerPaymentId: varchar("provider_payment_id", { length: 128 }),
     externalOrderId: varchar("external_order_id", { length: 160 }),
@@ -1153,7 +1190,9 @@ export const paymentProvidersRelations = relations(paymentProviders, ({ one, man
   }),
   products: many(paymentProducts),
   productBindings: many(paymentProductProviderBindings),
+  productProviderPrices: many(paymentProductProviderPrices),
   catalogItems: many(paymentProviderCatalogItems),
+  catalogItemPrices: many(paymentProviderCatalogItemPrices),
   orders: many(paymentOrders)
 }));
 
@@ -1163,11 +1202,12 @@ export const paymentProductsRelations = relations(paymentProducts, ({ one, many 
     references: [paymentProviders.id]
   }),
   providerBindings: many(paymentProductProviderBindings),
+  providerPrices: many(paymentProductProviderPrices),
   orders: many(paymentOrders),
   recurrentSubscriptions: many(userRecurrentSubscriptions)
 }));
 
-export const paymentProductProviderBindingsRelations = relations(paymentProductProviderBindings, ({ one }) => ({
+export const paymentProductProviderBindingsRelations = relations(paymentProductProviderBindings, ({ one, many }) => ({
   product: one(paymentProducts, {
     fields: [paymentProductProviderBindings.productId],
     references: [paymentProducts.id]
@@ -1175,13 +1215,29 @@ export const paymentProductProviderBindingsRelations = relations(paymentProductP
   provider: one(paymentProviders, {
     fields: [paymentProductProviderBindings.providerId],
     references: [paymentProviders.id]
+  }),
+  prices: many(paymentProductProviderPrices)
+}));
+
+export const paymentProductProviderPricesRelations = relations(paymentProductProviderPrices, ({ one }) => ({
+  binding: one(paymentProductProviderBindings, {
+    fields: [paymentProductProviderPrices.bindingId],
+    references: [paymentProductProviderBindings.id]
   })
 }));
 
-export const paymentProviderCatalogItemsRelations = relations(paymentProviderCatalogItems, ({ one }) => ({
+export const paymentProviderCatalogItemsRelations = relations(paymentProviderCatalogItems, ({ one, many }) => ({
   provider: one(paymentProviders, {
     fields: [paymentProviderCatalogItems.providerId],
     references: [paymentProviders.id]
+  }),
+  prices: many(paymentProviderCatalogItemPrices)
+}));
+
+export const paymentProviderCatalogItemPricesRelations = relations(paymentProviderCatalogItemPrices, ({ one }) => ({
+  catalogItem: one(paymentProviderCatalogItems, {
+    fields: [paymentProviderCatalogItemPrices.catalogItemId],
+    references: [paymentProviderCatalogItems.id]
   })
 }));
 
@@ -1493,6 +1549,8 @@ export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type PaymentProvider = typeof paymentProviders.$inferSelect;
 export type PaymentProduct = typeof paymentProducts.$inferSelect;
+export type PaymentProductProviderPrice = typeof paymentProductProviderPrices.$inferSelect;
+export type PaymentProviderCatalogItemPrice = typeof paymentProviderCatalogItemPrices.$inferSelect;
 export type PaymentOrder = typeof paymentOrders.$inferSelect;
 export type UserRecurrentSubscription = typeof userRecurrentSubscriptions.$inferSelect;
 export type ReferralCode = typeof referralCodes.$inferSelect;

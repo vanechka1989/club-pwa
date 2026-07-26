@@ -291,6 +291,8 @@ async function loadAnalyticsData(): Promise<AnalyticsData> {
     visits: visitRows,
     attributions: attributionRows.map((item) => ({ userId: item.userId, firstLinkId: item.firstLinkId, lastLinkId: item.lastLinkId, registeredAt: item.registeredAt })),
     orders: orderRows
+      .filter((order) => order.amountRub !== null)
+      .map((order) => ({ ...order, amountRub: order.amountRub! }))
   };
 }
 

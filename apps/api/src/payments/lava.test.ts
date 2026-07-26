@@ -54,25 +54,29 @@ describe("Lava API client", () => {
     }), { status: 200, headers: { "content-type": "application/json" } }));
     const client = createLavaClient({ apiKey: "api-key", fetch: fetchMock });
 
+    const product = {
+      title: "Свободная цена",
+      amountRub: 0,
+      amountMinor: 1999,
+      currency: "USD" as const,
+      useCustomAmount: true,
+      kind: "one_time" as const,
+      accessDays: 30,
+      externalProductId: "product-1",
+      externalOfferId: "836b9fc5-7ae9-4a27-9642-592bc44072b7"
+    };
+
     await client.createCheckout({
       credentials: { apiKey: "api-key" },
       orderId: "club-order-dynamic",
       user: { id: "user-1", telegramId: "123", email: "buyer@example.com" },
-      product: {
-        title: "Свободная цена",
-        amountRub: 150,
-        useCustomAmount: true,
-        kind: "one_time",
-        accessDays: 30,
-        externalProductId: "product-1",
-        externalOfferId: "836b9fc5-7ae9-4a27-9642-592bc44072b7"
-      },
+      product,
       returnUrl: "https://club.example/",
       notificationUrl: "https://club.example/api/payments/lava/webhook/payment"
     });
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ amount: 150 }));
+    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ currency: "USD", amount: 19.99 }));
   });
 
   it("maps authorization and throttling errors to safe codes", async () => {
@@ -112,6 +116,7 @@ describe("Lava API client", () => {
       title: "Клуб на месяц",
       kind: "recurrent",
       amountRub: 990,
+      prices: [{ currency: "RUB", amountMinor: 99000, periodicity: "MONTHLY" }],
       metadata: {
         productType: "SUBSCRIPTION",
         periodicity: "MONTHLY"

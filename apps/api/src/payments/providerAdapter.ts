@@ -1,4 +1,4 @@
-import type { PaymentProductKind, PaymentProviderCode } from "@club/shared";
+import type { PaymentCurrency, PaymentProductKind, PaymentProviderCode } from "@club/shared";
 
 export type PaymentProviderCredentials = {
   formUrl?: string | undefined;
@@ -19,6 +19,8 @@ export type ProviderCheckoutInput = {
   product: {
     title: string;
     amountRub: number;
+    currency?: PaymentCurrency;
+    amountMinor?: number;
     useCustomAmount?: boolean;
     kind: PaymentProductKind;
     accessDays: number;
@@ -35,6 +37,11 @@ export type ProviderCatalogItem = {
   title: string;
   kind: PaymentProductKind;
   amountRub: number | null;
+  prices: Array<{
+    currency: PaymentCurrency;
+    amountMinor: number | null;
+    periodicity: string | null;
+  }>;
   metadata: Record<string, unknown>;
 };
 
@@ -71,7 +78,8 @@ export type NormalizedPaymentEvent = {
   productId: string;
   buyerEmail: string;
   amountRub: number;
-  currency: string;
+  amountMinor: number;
+  currency: PaymentCurrency;
   occurredAt: Date;
   payload: Record<string, unknown>;
 };

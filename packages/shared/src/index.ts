@@ -490,6 +490,27 @@ export type PaymentPlan = z.infer<typeof paymentPlanSchema>;
 export const paymentProductKindSchema = z.enum(["one_time", "recurrent"]);
 export type PaymentProductKind = z.infer<typeof paymentProductKindSchema>;
 
+export const paymentCurrencySchema = z.enum(["RUB", "USD", "EUR"]);
+export type PaymentCurrency = z.infer<typeof paymentCurrencySchema>;
+
+export const paymentMoneySchema = z.object({
+  currency: paymentCurrencySchema,
+  amountMinor: z.number().int().positive()
+});
+export type PaymentMoney = z.infer<typeof paymentMoneySchema>;
+
+export const paymentProviderCatalogItemPriceSchema = z.object({
+  currency: paymentCurrencySchema,
+  amountMinor: z.number().int().positive().nullable(),
+  periodicity: z.string().nullable()
+});
+export type PaymentProviderCatalogItemPrice = z.infer<typeof paymentProviderCatalogItemPriceSchema>;
+
+export const paymentProductProviderPriceSchema = paymentMoneySchema.extend({
+  enabled: z.boolean().default(true)
+});
+export type PaymentProductProviderPrice = z.infer<typeof paymentProductProviderPriceSchema>;
+
 export const paymentProviderCodeSchema = z.enum(["prodamus", "lava"]);
 export type PaymentProviderCode = z.infer<typeof paymentProviderCodeSchema>;
 
@@ -522,9 +543,10 @@ export const paymentProductProviderBindingSchema = z.object({
   provider: paymentProviderCodeSchema,
   enabled: z.boolean(),
   externalProductId: z.string().nullable(),
-  externalOfferId: z.string().nullable()
+  externalOfferId: z.string().nullable(),
+  prices: z.array(paymentProductProviderPriceSchema).default([])
 });
-export type PaymentProductProviderBinding = z.infer<typeof paymentProductProviderBindingSchema>;
+export type PaymentProductProviderBinding = z.input<typeof paymentProductProviderBindingSchema>;
 
 export const paymentProductSchema = z.object({
   id: z.string(),
@@ -533,7 +555,8 @@ export const paymentProductSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   badgeLabel: z.string().nullable(),
-  amountRub: z.number().int().positive(),
+  amountRub: z.number().int().positive().nullable(),
+  prices: z.array(paymentMoneySchema).default([]),
   accessDays: z.number().int().positive(),
   prodamusSubscriptionId: z.string().nullable().default(null),
   bindings: z.array(paymentProductProviderBindingSchema).default([]),
@@ -542,7 +565,7 @@ export const paymentProductSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
-export type PaymentProduct = z.infer<typeof paymentProductSchema>;
+export type PaymentProduct = z.input<typeof paymentProductSchema>;
 
 export const paymentCheckoutOptionSchema = z.object({
   provider: paymentProviderCodeSchema,
@@ -655,11 +678,12 @@ export const paymentProviderCatalogItemSchema = z.object({
   kind: paymentProductKindSchema,
   amountRub: z.number().int().nonnegative().nullable(),
   periodicity: z.string().nullable().optional(),
+  prices: z.array(paymentProviderCatalogItemPriceSchema).default([]),
   isStale: z.boolean(),
   isSelectable: z.boolean().default(true),
   syncedAt: z.string().datetime()
 });
-export type PaymentProviderCatalogItem = z.infer<typeof paymentProviderCatalogItemSchema>;
+export type PaymentProviderCatalogItem = z.input<typeof paymentProviderCatalogItemSchema>;
 
 export const paymentProviderCatalogResponseSchema = z.object({
   items: z.array(paymentProviderCatalogItemSchema),

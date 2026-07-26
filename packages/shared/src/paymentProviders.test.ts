@@ -94,4 +94,68 @@ describe("provider-neutral payment contracts", () => {
     expect(item.isSelectable).toBe(false);
     expect(item.periodicity).toBe("MONTHLY");
   });
+
+  it("keeps all supported minor-unit catalog prices without requiring legacy RUB fields", () => {
+    const item = paymentProviderCatalogItemSchema.parse({
+      id: "catalog-item",
+      externalProductId: "product-1",
+      externalOfferId: "offer-1",
+      title: "Клуб на месяц",
+      kind: "recurrent",
+      amountRub: null,
+      prices: [
+        { currency: "RUB", amountMinor: 99000, periodicity: "MONTHLY" },
+        { currency: "USD", amountMinor: 1999, periodicity: "MONTHLY" },
+        { currency: "EUR", amountMinor: null, periodicity: "MONTHLY" }
+      ],
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-25T10:00:00.000Z"
+    }) as unknown as { prices?: unknown };
+
+    expect(item.prices).toEqual([
+      { currency: "RUB", amountMinor: 99000, periodicity: "MONTHLY" },
+      { currency: "USD", amountMinor: 1999, periodicity: "MONTHLY" },
+      { currency: "EUR", amountMinor: null, periodicity: "MONTHLY" }
+    ]);
+  });
+
+  it("rejects unsupported or non-positive public money", () => {
+    const base = {
+      id: "product",
+      kind: "one_time",
+      title: "Клуб",
+      description: null,
+      badgeLabel: null,
+      amountRub: 990,
+      accessDays: 30,
+      isPublished: true,
+      archivedUntil: null,
+      createdAt: "2026-07-25T10:00:00.000Z",
+      updatedAt: "2026-07-25T10:00:00.000Z"
+    };
+
+    expect(paymentProductSchema.safeParse({ ...base, prices: [{ currency: "GBP", amountMinor: 1000 }] }).success).toBe(false);
+    expect(paymentProductSchema.safeParse({ ...base, prices: [{ currency: "USD", amountMinor: 0 }] }).success).toBe(false);
+  });
+
+  it("defaults price arrays to preserve legacy product and binding fixtures", () => {
+    const product = paymentProductSchema.parse({
+      id: "product",
+      kind: "one_time",
+      title: "Клуб",
+      description: null,
+      badgeLabel: null,
+      amountRub: 990,
+      accessDays: 30,
+      bindings: [{ provider: "lava", enabled: true, externalProductId: "product-1", externalOfferId: "offer-1" }],
+      isPublished: true,
+      archivedUntil: null,
+      createdAt: "2026-07-25T10:00:00.000Z",
+      updatedAt: "2026-07-25T10:00:00.000Z"
+    }) as unknown as { prices?: unknown; bindings: Array<{ prices?: unknown }> };
+
+    expect(product.prices).toEqual([]);
+    expect(product.bindings[0]?.prices).toEqual([]);
+  });
 });

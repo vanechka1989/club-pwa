@@ -1,0 +1,29 @@
+import { describe, expect, it } from "vitest";
+import * as schema from "../db/schema";
+
+describe("multicurrency payment database model", () => {
+  it("defines an immutable currency and minor-unit snapshot for each order", () => {
+    const orders = schema.paymentOrders as unknown as Record<string, { name?: string }>;
+
+    expect(orders.currency?.name).toBe("currency");
+    expect(orders.amountMinor?.name).toBe("amount_minor");
+  });
+
+  it("models dynamic catalog prices by currency", () => {
+    const catalogPrices = (schema as Record<string, unknown>).paymentProviderCatalogItemPrices as Record<string, { name?: string }> | undefined;
+
+    expect(catalogPrices?.catalogItemId?.name).toBe("catalog_item_id");
+    expect(catalogPrices?.currency?.name).toBe("currency");
+    expect(catalogPrices?.amountMinor?.name).toBe("amount_minor");
+    expect(catalogPrices?.periodicity?.name).toBe("periodicity");
+  });
+
+  it("models enabled binding prices by currency", () => {
+    const bindingPrices = (schema as Record<string, unknown>).paymentProductProviderPrices as Record<string, { name?: string }> | undefined;
+
+    expect(bindingPrices?.bindingId?.name).toBe("binding_id");
+    expect(bindingPrices?.currency?.name).toBe("currency");
+    expect(bindingPrices?.amountMinor?.name).toBe("amount_minor");
+    expect(bindingPrices?.isEnabled?.name).toBe("is_enabled");
+  });
+});

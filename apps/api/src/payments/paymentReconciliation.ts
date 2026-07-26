@@ -54,7 +54,7 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
       externalOrderId: order.externalOrderId!,
       productId: order.productId,
       buyerEmail: order.user.email ?? "",
-      amountRub: order.amountRub
+      amountRub: order.amountRub ?? 0
     });
     if (!event) return "unchanged";
     const result = await processPaymentEvent(event, provider.id);
@@ -80,7 +80,7 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
       externalSubscriptionId: subscription.externalSubscriptionId!,
       productId: subscription.productId,
       buyerEmail: subscription.user.email ?? "",
-      amountRub: subscription.product.amountRub
+      amountRub: subscription.product.amountRub ?? 0
     });
     let corrected = false;
     for (const event of events) {

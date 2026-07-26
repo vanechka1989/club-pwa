@@ -1,6 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { paymentCurrencySchema } from "@club/shared";
 import { z } from "zod";
 import type { NormalizedPaymentEvent } from "./providerAdapter";
+import { majorToMinor, PaymentMoneyError } from "./money";
 
 const maximumWebhookBytes = 64 * 1024;
 
@@ -82,6 +84,15 @@ export async function parseLavaWebhook(
   }
 
   const payload = parsed.data;
+  const currency = paymentCurrencySchema.safeParse(payload.currency.toUpperCase());
+  if (!currency.success) throw new LavaWebhookError(400, "Unsupported webhook currency");
+  let amountMinor: number;
+  try {
+    amountMinor = majorToMinor(payload.amount);
+  } catch (error) {
+    if (error instanceof PaymentMoneyError) throw new LavaWebhookError(400, "Invalid webhook amount");
+    throw error;
+  }
   const recurring = payload.eventType.startsWith("subscription.");
   const subscriptionId = recurring
     ? payload.parentContractId ?? payload.contractId
@@ -99,7 +110,8 @@ export async function parseLavaWebhook(
     productId: payload.product.id,
     buyerEmail: payload.buyer.email,
     amountRub: payload.amount,
-    currency: payload.currency,
+    amountMinor,
+    currency: currency.data,
     occurredAt: new Date(payload.timestamp),
     payload: json as Record<string, unknown>
   };

@@ -42,6 +42,18 @@ describe("Lava webhook", () => {
     expect(event.type).toBe("payment_succeeded");
   });
 
+  it("normalizes decimal major-unit amounts into exact currency minor units", async () => {
+    const event = await parseLavaWebhook(lavaRequest("payment.success", "correct", {
+      amount: 19.99,
+      currency: "usd"
+    }), "correct");
+
+    expect((event as unknown as { currency: unknown; amountMinor: unknown })).toMatchObject({
+      currency: "USD",
+      amountMinor: 1999
+    });
+  });
+
   it.each([
     ["payment.success", "payment_succeeded"],
     ["payment.failed", "payment_failed"],
