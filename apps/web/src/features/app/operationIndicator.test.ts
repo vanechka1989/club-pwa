@@ -6,6 +6,7 @@ import { nextTick } from "vue";
 import { beforeEach, describe, expect, it } from "vitest";
 import AppOperationIndicator from "./AppOperationIndicator.vue";
 import { useOperationsStore } from "@/stores/operations";
+import { readAppStyles } from "@/test/appStyles";
 
 describe("app operation indicator", () => {
   beforeEach(() => {
@@ -34,7 +35,7 @@ describe("app operation indicator", () => {
   });
 
   it("keeps the operation layer above modal backdrops and below alerts", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(/\.app-operation-indicator\s*\{[^}]*z-index:\s*990;/s);
     expect(styles).toMatch(/\.app-toast-viewport\s*\{[^}]*z-index:\s*1000;/s);

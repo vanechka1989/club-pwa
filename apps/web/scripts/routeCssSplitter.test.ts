@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { routeCssCategories } from "./routeCssConfig.mjs";
 import { splitRouteCss } from "./routeCssSplitter.mjs";
 
 const categories = [
@@ -45,5 +46,22 @@ describe("route CSS splitter", () => {
     expect(result.routeCss.support).toContain(".support-grid { display: grid; }");
     expect(result.globalCss).toContain(".shared { display: block; }");
     expect(result.globalCss).not.toContain("support-grid");
+  });
+
+  it("assigns module-scoped mockup selectors to learning", () => {
+    const source = ".modules-section .admin-mockup-thumb-horizontal { grid-column: 1 / -1; }";
+    const result = splitRouteCss(source, routeCssCategories);
+
+    expect(result.counts.learning).toBe(1);
+    expect(result.counts.admin).toBe(0);
+    expect(result.routeCss.learning).toContain(".modules-section .admin-mockup-thumb-horizontal");
+  });
+
+  it("keeps admin mockup primitives shared with learning in the global stylesheet", () => {
+    const source = ".admin-mockup-grid { gap: 0.7rem; }";
+    const result = splitRouteCss(source, routeCssCategories);
+
+    expect(result.counts.admin).toBe(0);
+    expect(result.globalCss).toContain(".admin-mockup-grid");
   });
 });

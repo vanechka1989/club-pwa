@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 describe("mailing mobile layout", () => {
-  const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+  const styles = readAppStyles("admin");
 
   it("centers the primary mailing action and keeps reset square", () => {
     expect(styles).toContain(".admin-mailings-panel > .admin-panel-head .admin-add-button");

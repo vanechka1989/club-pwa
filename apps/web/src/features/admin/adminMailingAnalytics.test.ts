@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 describe("admin mailing engagement analytics", () => {
   const source = readFileSync(resolve(process.cwd(), "src/features/admin/AdminSection.vue"), "utf8");
-  const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+  const styles = readAppStyles("admin");
 
   it("loads and presents the full engagement report", () => {
     expect(source).toContain("getAdminMailingAnalytics");

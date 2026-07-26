@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = readAppStyles("admin");
 
 describe("compact transfer owner screen", () => {
   it("uses a dedicated content-sized form without the duplicate modal header", () => {

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 import {
   getAdminClientAccessState,
   getAdminClientDisplayName,
@@ -11,9 +12,7 @@ import {
   getAdminTariffLabel
 } from "./adminClientCard";
 
-const adminStyles = ["../../styles.css", "adminShell.css"]
-  .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
-  .join("\n");
+const adminStyles = [readAppStyles("admin"), readFileSync(resolve(__dirname, "adminShell.css"), "utf8")].join("\n");
 
 describe("admin client card helpers", () => {
   it("uses the nickname configured in profile before the legacy first name", () => {

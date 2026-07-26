@@ -64,6 +64,19 @@ export function assertEntryJavaScriptExcludes(distDirectory, forbiddenSubstrings
   }
 }
 
+export function assertEntryCssExcludes(distDirectory, forbiddenAssetPrefixes) {
+  const html = readFileSync(resolve(distDirectory, "index.html"), "utf8");
+  const files = entryPaths(
+    html,
+    /<link\b(?=[^>]*\brel=["']stylesheet["'])[^>]*\bhref=["']([^"']+)["'][^>]*>/gi
+  );
+  for (const file of files) {
+    if (forbiddenAssetPrefixes.some((prefix) => file.includes(prefix))) {
+      throw new Error(`entry CSS contains lazy-only stylesheet: "${file}"`);
+    }
+  }
+}
+
 function formatMetrics(metrics) {
   return [
     `Entry JavaScript: ${metrics.javascript.rawBytes} raw / ${metrics.javascript.gzipBytes} gzip bytes`,
@@ -78,8 +91,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   console.log(formatMetrics(metrics));
   assertBundleBudget(metrics, {
     javascriptGzipBytes: 105_000,
-    cssGzipBytes: 78_000,
-    totalGzipBytes: 180_000
+    cssGzipBytes: 55_000,
+    totalGzipBytes: 155_000
   });
   assertEntryJavaScriptExcludes(resolve(scriptDirectory, "../dist"), ["/admin/server-status"]);
+  assertEntryCssExcludes(resolve(scriptDirectory, "../dist"), [
+    "ProfileSection-",
+    "LearningSection-",
+    "SupportSection-",
+    "PaymentsSection-",
+    "AdminSection-",
+    "NotificationCenterScreen-",
+    "CommunitySection-"
+  ]);
 }

@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { nextTick } from "vue";
 import AppNotifications from "./AppNotifications.vue";
 import { useNotificationsStore } from "@/stores/notifications";
+import { readAppStyles } from "@/test/appStyles";
 
 describe("app notifications", () => {
   beforeEach(() => {
@@ -32,7 +33,7 @@ describe("app notifications", () => {
   });
 
   it("keeps the global notification layer above support, admin, and payment modals", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(/\.app-toast-viewport\s*\{[^}]*z-index:\s*1000;/s);
     expect(styles).toMatch(/\.support-modal-backdrop\s*\{[^}]*z-index:\s*80;/s);
@@ -43,7 +44,7 @@ describe("app notifications", () => {
   it("renders mailing HTML and inline media previews in the notification center", () => {
     const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
     const screenSource = readFileSync(resolve(__dirname, "NotificationCenterScreen.vue"), "utf8");
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles();
 
     expect(screenSource).toContain("renderNotificationHtml");
     expect(screenSource).toContain('v-html="renderNotificationHtml(notification)"');
@@ -106,7 +107,7 @@ describe("app notifications", () => {
   it("places the notification bell in the profile compact controls instead of the app top center", () => {
     const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
     const profileSource = readFileSync(resolve(__dirname, "../profile/ProfileSection.vue"), "utf8");
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles();
 
     expect(appSource).not.toMatch(/<NotificationCenter(?:\s|\/|>)/);
     expect(profileSource).toContain('import NotificationCenter from "@/features/app/NotificationCenter.vue";');

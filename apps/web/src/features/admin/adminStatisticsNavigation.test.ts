@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 const detail = () => readFileSync(resolve(__dirname, "AdminStatisticsDetail.vue"), "utf8");
-const styles = ["../../styles.css", "adminShell.css"]
+const styles = ["../../styles.css", "adminRoute.css", "adminShell.css"]
   .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
   .join("\n");
 

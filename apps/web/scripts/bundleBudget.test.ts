@@ -2,7 +2,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { assertBundleBudget, assertEntryJavaScriptExcludes, measureEntryAssets } from "./bundleBudget.mjs";
+import {
+  assertBundleBudget,
+  assertEntryCssExcludes,
+  assertEntryJavaScriptExcludes,
+  measureEntryAssets
+} from "./bundleBudget.mjs";
 
 const temporaryDirectories: string[] = [];
 
@@ -56,6 +61,19 @@ describe("production bundle budget", () => {
 
     expect(() => assertEntryJavaScriptExcludes(directory, ["/admin/server-status"])).toThrow(
       'entry JavaScript contains lazy-only code: "/admin/server-status"'
+    );
+  });
+
+  it("rejects a lazy route stylesheet linked by the production entry", () => {
+    const directory = createFixture();
+    writeFileSync(
+      join(directory, "index.html"),
+      '<link rel="stylesheet" href="/assets/main.css"><link rel="stylesheet" href="/assets/ProfileSection-test.css"><script type="module" src="/assets/main.js"></script>'
+    );
+    writeFileSync(join(directory, "assets", "ProfileSection-test.css"), ".profile-card{display:block}");
+
+    expect(() => assertEntryCssExcludes(directory, ["ProfileSection-"])).toThrow(
+      'entry CSS contains lazy-only stylesheet: "assets/ProfileSection-test.css"'
     );
   });
 });

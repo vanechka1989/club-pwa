@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 import {
   dismissActiveTextFieldBeforeOperation,
   ensureFocusedTextFieldVisible,
@@ -10,7 +11,7 @@ import {
 
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const adminSource = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = readAppStyles();
 
 describe("keyboard focus handling", () => {
   it("blurs active text fields when switching main sections", () => {

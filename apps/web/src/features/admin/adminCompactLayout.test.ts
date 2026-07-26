@@ -1,11 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-const styles = ["../../styles.css", "adminShell.css"]
-  .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
-  .join("\n");
+const styles = [readAppStyles("admin"), readFileSync(resolve(__dirname, "adminShell.css"), "utf8")].join("\n");
 
 describe("compact admin statistics and clients", () => {
   it("uses a compact KPI summary and focused statistic navigation", () => {

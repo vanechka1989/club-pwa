@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = readAppStyles("learning");
 
 describe("learning task screens", () => {
   it("opens module and lesson workflows as routed task screens", () => {

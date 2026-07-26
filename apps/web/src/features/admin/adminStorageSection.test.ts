@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
-const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+const stylesSource = readAppStyles("admin");
 
 describe("admin storage section", () => {
   it("opens file overview and S3 settings as separate task screens from the storage landing", () => {

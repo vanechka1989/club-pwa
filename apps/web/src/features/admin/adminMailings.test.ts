@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { readAppStyles } from "@/test/appStyles";
 
 const adminPanelsSource = readFileSync(resolve(__dirname, "adminPanels.ts"), "utf-8");
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
 const clientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
-const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+const stylesSource = readAppStyles("admin");
 
 describe("admin mailings panel", () => {
   it("adds mailings next to clients in the admin tabs", () => {

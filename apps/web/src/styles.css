@@ -1787,21 +1787,9 @@ body.club-keyboard-open .lesson-preview-modal {
   color: var(--muted-strong);
 }
 
-.modules-panel-actions {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.modules-edit-hint {
-  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
-  color: var(--text);
-  padding: 0.7rem 0.8rem;
-  font-size: 0.78rem;
-  font-weight: 820;
+.admin-mockup-list {
+  display: grid;
+  gap: 0.85rem;
 }
 
 .continue-lesson-card {
@@ -1886,6 +1874,147 @@ body.club-keyboard-open .lesson-preview-modal {
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-mockup-card {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  padding: 0.9rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-mockup-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-mockup-card-head strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.admin-mockup-card-head small,
+.admin-mockup-card p {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 690;
+  line-height: 1.45;
+}
+
+.admin-mockup-card-actions > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.admin-mockup-card-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  max-width: 13rem;
+  flex-wrap: wrap;
+}
+
+.admin-mockup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.38rem;
+}
+
+.admin-mockup-thumb {
+  display: grid;
+  min-width: 0;
+  gap: 0.34rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel) 94%, var(--accent-soft)),
+    color-mix(in srgb, var(--panel) 98%, transparent)
+  );
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.34rem;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 8%, transparent);
+  text-decoration: none;
+}
+
+.admin-mockup-thumb:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 75%, white);
+  outline-offset: 4px;
+}
+
+.admin-mockup-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+  object-fit: cover;
+  object-position: top;
+}
+
+.admin-mockup-thumb span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 780;
+  text-align: center;
+}
+
+.admin-mockup-thumb .admin-mockup-thumb-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 1.55rem;
+  gap: 0.28rem;
+  color: var(--text);
+  font-size: 0.58rem;
+  font-weight: 850;
+  line-height: 1.25;
+  padding: 0.08rem 0.12rem 0.14rem;
+  text-align: center;
+}
+
+.admin-mockup-thumb .admin-mockup-thumb-label strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  color: inherit;
+  font: inherit;
+}
+
+.admin-mockup-thumb-youtube img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.admin-mockup-deleted-module {
+  border-color: color-mix(in srgb, #ff8b8b 32%, var(--border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #ff8b8b 10%, transparent), transparent 64%),
+    color-mix(in srgb, var(--panel) 90%, transparent);
 }
 
 .deleted-lessons-list {
@@ -1990,6 +2119,10 @@ body.club-lesson-image-viewer-open {
   overflow: hidden;
 }
 
+.admin-mockup-thumb-default-cover img {
+  transform: scale(1.06);
+}
+
 .lesson-editor-form .admin-field small {
   color: var(--muted);
   display: block;
@@ -2019,35 +2152,6 @@ body.club-lesson-image-viewer-open {
 .admin-form-actions.lesson-preview-actions-edit {
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 0.7fr) minmax(0, 1fr);
   padding-bottom: calc(1.15rem + var(--club-modal-bottom-offset));
-}
-
-.modules-placeholder-panel {
-  align-content: start;
-}
-
-.modules-dev-placeholder {
-  display: grid;
-  gap: 0.35rem;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%),
-    color-mix(in srgb, var(--panel-strong) 90%, transparent);
-  padding: 1rem;
-  color: var(--text);
-}
-
-.modules-dev-placeholder strong {
-  font-size: 1rem;
-  font-weight: 860;
-  line-height: 1.25;
-}
-
-.modules-dev-placeholder span {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 680;
-  line-height: 1.45;
 }
 
 .message-card {
@@ -7032,6 +7136,12 @@ body.club-mobile-device .task-screen-route-layer :is(
   gap: 8px;
 }
 
+.admin-mockup-card-actions {
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 /* Statistics alignment lock: isolated from legacy generic button rules. */
 
 /* Final compact-profile overrides must win over the legacy mobile scale layer. */
@@ -7043,21 +7153,6 @@ body.club-mobile-device .task-screen-route-layer :is(
 /* Refined profile composition: no overlays or nested-card geometry. */
 
 /* Unified section geometry: module header is a peer of its content, not part of the cards panel. */
-.modules-section,
-.modules-content {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-}
-
-.modules-section,
-.modules-content {
-  gap: var(--section-gap);
-}
-
-.modules-section {
-  gap: 12px;
-}
 
 /* Primary route headers share one final geometry after all legacy theme layers. */
 .section-head.ui-page-header {
@@ -7092,16 +7187,6 @@ body.club-mobile-device .task-screen-route-layer :is(
 .modules-section,
 .community-section-content {
   gap: 8px;
-}
-
-body.club-mobile-device .module-card-head .module-card-toggle,
-body.club-mobile-device .module-card-head .admin-mockup-card-actions {
-  flex: 1 1 100%;
-  width: 100%;
-}
-
-body.club-mobile-device .module-card-head .admin-mockup-card-actions {
-  justify-content: flex-start;
 }
 
 /* Compact profile dashboard: this block is the authoritative profile composition. */

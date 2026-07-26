@@ -71,7 +71,7 @@ describe("admin permissions section", () => {
   });
 
   it("uses one clean permission surface and a single-column mobile permission list", () => {
-    const styles = ["../../styles.css", "adminShell.css"]
+    const styles = ["../../styles.css", "adminRoute.css", "adminShell.css"]
       .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
       .join("\n");
 
@@ -83,7 +83,7 @@ describe("admin permissions section", () => {
   });
 
   it("pins permission switches to a compact size despite global input styles", () => {
-    const styles = ["../../styles.css", "adminShell.css"]
+    const styles = ["../../styles.css", "adminRoute.css", "adminShell.css"]
       .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
       .join("\n");
 

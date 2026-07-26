@@ -7,6 +7,7 @@ import { useSessionStore } from "@/stores/session";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useUiStore } from "@/stores/ui";
 import LearningSection from "./LearningSection.vue";
+import { readAppStyles } from "@/test/appStyles";
 
 function renderAsOwner() {
   const pinia = createPinia();
@@ -153,7 +154,7 @@ describe("Learning section modules", () => {
   });
 
   it("uses the compact shared gap below the modules header", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
     const rule = styles.match(/\.modules-section\s*\{(?<body>[^}]*)\}/g)?.at(-1) ?? "";
 
     expect(rule).toMatch(/gap:\s*12px/);
@@ -168,7 +169,7 @@ describe("Learning section modules", () => {
   });
 
   it("renders collapsed modules as compact summary rows with separate admin actions", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
 
     expect(styles).toMatch(/\.modules-section \.module-card-head\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/s);
     expect(styles).toMatch(/\.modules-section \.module-card-collapsed\s*\{[^}]*min-height:\s*0;[^}]*height:\s*auto;/s);
@@ -178,7 +179,7 @@ describe("Learning section modules", () => {
 
   it("visually separates module controls from lesson card controls", () => {
     const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
 
     expect(source).toContain("module-level-sort-controls");
     expect(source).toContain("module-level-action");
@@ -209,7 +210,7 @@ describe("Learning section modules", () => {
     expect(addCard.textContent).toContain("Добавить урок");
     expect(addCard.classList.contains("module-add-card-button")).toBe(true);
 
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
     expect(styles).toMatch(/\.modules-section \.module-actions-expanded > span\s*\{[^}]*height:\s*28px;/s);
     expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*height:\s*28px\s*!important;[^}]*min-height:\s*28px\s*!important;[^}]*max-height:\s*28px\s*!important;[^}]*box-sizing:\s*border-box;[^}]*padding:\s*0\s+7px;/s);
     expect(styles).toMatch(/\.modules-section \.module-add-card-button\s*\{[^}]*border-radius:\s*8px;[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 14%, var\(--panel-strong\)\);/s);
@@ -258,7 +259,7 @@ describe("Learning section modules", () => {
     expect(screen.getByLabelText("Описание модуля")).toBeTruthy();
     expect(screen.getByRole("group", { name: "Тип карточек модуля" })).toBeTruthy();
 
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
     const formRule = styles.match(/\.module-form\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
     expect(formRule).toMatch(/flex:\s*0\s+1\s+auto;/);
 
@@ -388,7 +389,7 @@ describe("Learning section modules", () => {
   });
 
   it("sizes horizontal lesson cards like a rotated vertical card", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
 
     expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
     expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s*\{[^}]*width:\s*min\(100%,\s*360px\);/s);
@@ -397,13 +398,13 @@ describe("Learning section modules", () => {
   });
 
   it("keeps vertical lesson card widths stable when cards are removed", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
 
     expect(styles).toMatch(/\.admin-mockup-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(8rem,\s*1fr\)\);/s);
   });
 
   it("keeps horizontal lesson covers wide instead of square", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
 
     expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9;/s);
     expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s+img\s*\{[^}]*max-height:\s*203px;/s);
@@ -422,7 +423,7 @@ describe("Learning section modules", () => {
   });
 
   it("centers horizontal lesson titles above their covers", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
 
     expect(styles).toMatch(/\.modules-section\s+\.admin-mockup-thumb-horizontal\s+\.admin-mockup-thumb-label\s*\{[^}]*justify-content:\s*center;/s);
     expect(styles).toMatch(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s*\{[^}]*text-align:\s*center;/s);
@@ -430,7 +431,7 @@ describe("Learning section modules", () => {
   });
 
   it("frames the whole lesson card instead of making title pills", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
     const thumbRule = styles.match(/\.admin-mockup-thumb\s*\{(?<body>[^}]*)\}/s)?.groups?.body ?? "";
     const labelRule =
       styles.match(/\.admin-mockup-thumb\s+\.admin-mockup-thumb-label\s*\{(?<body>[^}]*)\}/s)?.groups?.body ??
@@ -576,7 +577,7 @@ describe("Learning section modules", () => {
   });
 
   it("uses the available mobile width for the lesson viewer", async () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
 
     expect(styles).toMatch(
       /\.learning-task-screen\s+\.lesson-preview-modal-view\s+\.lesson-preview-scroll\s*\{[^}]*padding-inline:\s*0;/s
@@ -597,7 +598,7 @@ describe("Learning section modules", () => {
   });
 
   it("uses a custom lesson video player with fullscreen control", () => {
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
     const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
 
     expect(source).toContain('class="lesson-video-player"');
@@ -754,7 +755,7 @@ describe("Learning section modules", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Первое вложение" }));
     expect(screen.queryByLabelText("Обложка карточки")).toBeNull();
 
-    const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+    const styles = readAppStyles("learning");
     expect(styles).toMatch(/\.lesson-cover-mode-buttons\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/s);
     expect(styles).toMatch(/\.admin-mockup-thumb-default-cover img\s*\{[^}]*transform:\s*scale\(1\.06\);/s);
   });

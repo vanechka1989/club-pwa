@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
 const client = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = readAppStyles("admin");
 
 describe("owner emergency email login code card", () => {
   it("calls the owner-only endpoint and never exposes the card to regular admins", () => {

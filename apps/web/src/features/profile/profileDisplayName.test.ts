@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const source = readFileSync(resolve(process.cwd(), "src/features/profile/ProfileSection.vue"), "utf8");
-const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+const styles = readAppStyles("profile");
 
 describe("compact profile display name", () => {
   it("uses one editable nickname and one membership summary", () => {

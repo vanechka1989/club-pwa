@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const mainSections = [
   "../profile/ProfileSection.vue",
@@ -27,7 +28,7 @@ describe("visual architecture guardrails", () => {
   });
 
   it("keeps admin header actions in the shared mobile header grid", () => {
-    const styles = source("../../styles.css");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(
       /body\.club-mobile-device \.admin-shell > \.ui-page-header > \.ui-page-header__actions\s*\{[\s\S]*display:\s*contents;/
@@ -69,7 +70,7 @@ describe("visual architecture guardrails", () => {
   });
 
   it("keeps high-specificity overrides below the refactored baseline", () => {
-    const legacyStyles = source("../../styles.css");
+    const legacyStyles = readAppStyles();
     const communityStyles = source("../community/community.css");
     const foundation = source("../ui/foundation.css");
 
@@ -81,7 +82,7 @@ describe("visual architecture guardrails", () => {
   it("does not hard-code tiny typography in feature and legacy styles", () => {
     const tinyRawSize = /font-size:\s*(?:10|11|12)px\b/g;
 
-    expect(occurrences(source("../../styles.css"), tinyRawSize)).toBe(0);
+    expect(occurrences(readAppStyles(), tinyRawSize)).toBe(0);
     expect(occurrences(source("../community/community.css"), tinyRawSize)).toBe(0);
   });
 });

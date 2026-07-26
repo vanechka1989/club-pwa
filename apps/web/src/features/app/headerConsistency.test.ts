@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const foundation = readFileSync(resolve(__dirname, "../ui/foundation.css"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = readAppStyles();
 const community = readFileSync(resolve(__dirname, "../community/community.css"), "utf8");
 const communitySource = readFileSync(resolve(__dirname, "../community/CommunitySection.vue"), "utf8");
 

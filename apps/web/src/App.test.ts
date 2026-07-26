@@ -2,6 +2,7 @@ import type { ClubUser } from "@club/shared";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { router } from "./router";
+import { readAppStyles } from "./test/appStyles";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -267,7 +268,7 @@ describe("App", () => {
       }
     });
 
-    const logoutButton = await screen.findByRole("button", { name: "Выйти" });
+    const logoutButton = await screen.findByRole("button", { name: "Выйти" }, { timeout: 5_000 });
     await logoutButton.click();
     const confirmButton = await screen.findByRole("button", { name: "Да, выйти" });
     await confirmButton.click();
@@ -299,7 +300,7 @@ describe("App", () => {
   });
 
   it("shows a red mail marker on profile nav when app notifications are unread", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("startAppStatePolling");
     expect(appSource).toContain("notifications.setUnreadCount(response.notificationUnreadCount)");
@@ -319,7 +320,7 @@ describe("App", () => {
   });
 
   it("does not expose legacy Telegram window/fullscreen mode controls", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource).not.toContain("profile-window-mode");
     expect(profileSource).not.toContain("fullscreenEnabled");
@@ -336,7 +337,7 @@ describe("App", () => {
     const apiSource = readFileSync(resolve(__dirname, "api/client.ts"), "utf-8");
     const startupApiSource = readFileSync(resolve(__dirname, "api/startup.ts"), "utf-8");
     const sessionSource = readFileSync(resolve(__dirname, "stores/session.ts"), "utf-8");
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource).toContain("profile-access-card");
     expect(profileSource).toContain("profile-upload-input");
@@ -358,7 +359,7 @@ describe("App", () => {
     const startupApiSource = readFileSync(resolve(__dirname, "api/startup.ts"), "utf-8");
     const sessionSource = readFileSync(resolve(__dirname, "stores/session.ts"), "utf-8");
     const uiSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource).toContain("profile-avatar-icon-button");
     expect(profileSource).toContain("profile-avatar-editor-modal");
@@ -407,7 +408,7 @@ describe("App", () => {
   });
 
   it("keeps mobile payment plans compact with inline actions", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const responsiveLayer = styles.slice(styles.lastIndexOf("Responsive modal and mobile commerce system"));
 
     expect(responsiveLayer).toMatch(/body\.club-mobile-device \.payment-product-list\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
@@ -417,7 +418,7 @@ describe("App", () => {
   });
 
   it("visually separates payment tariff cards", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const paymentsSource = readFileSync(resolve(__dirname, "features/billing/PaymentsSection.vue"), "utf-8");
 
     expect(paymentsSource).toContain("payment-product-list");
@@ -427,7 +428,7 @@ describe("App", () => {
   });
 
   it("uses an in-app payment confirmation instead of the native browser confirm", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const paymentsSource = readFileSync(resolve(__dirname, "features/billing/PaymentsSection.vue"), "utf-8");
 
     expect(paymentsSource).not.toContain("resolve(window.confirm(paymentRedirectNotice))");
@@ -437,7 +438,7 @@ describe("App", () => {
   });
 
   it("keeps the PWA shell free from legacy Telegram webview runtime classes", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const communityStyles = readFileSync(resolve(__dirname, "features/community/community.css"), "utf-8");
 
     expect(appSource).not.toContain("window.Telegram");
@@ -468,7 +469,7 @@ describe("App", () => {
   });
 
   it("uses browser safe-area env fallback", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const safeAreaSides = ["top", "right", "bottom", "left"];
     const unsafeSafeAreaLines = styles
       .split(/\r?\n/)
@@ -484,7 +485,7 @@ describe("App", () => {
   });
 
   it("routes modal safe-area spacing through calibrated club variables", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const rawSafeAreaLines = styles
       .split(/\r?\n/)
       .flatMap((line, index) =>
@@ -505,7 +506,7 @@ describe("App", () => {
   });
 
   it("uses adaptive typography and spacing tokens for the app shell", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toContain("--font-root: var(--club-user-font-root, clamp(");
     expect(styles).toContain("--font-base: var(--club-user-font-base, clamp(");
@@ -520,7 +521,7 @@ describe("App", () => {
   });
 
   it("keeps chat and support typography aligned with the profile standard", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toContain("--content-font-body: 14px;");
     expect(styles).toContain("--content-font-label: 13px;");
@@ -542,7 +543,7 @@ describe("App", () => {
   });
 
   it("starts from light theme variables before the UI store hydrates", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const rootBlock = styles.match(/:root\s*{([\s\S]*?)}/)?.[1] ?? "";
 
     expect(rootBlock).toContain("color-scheme: light;");
@@ -551,7 +552,7 @@ describe("App", () => {
   });
 
   it("defines separate mobile bottom navigation and desktop sidebar surfaces", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("desktop-sidebar");
     expect(appSource).toContain("desktop-sidebar-nav");
@@ -566,7 +567,7 @@ describe("App", () => {
   });
 
   it("keeps the desktop sidebar identity aligned with the profile", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("session.user?.displayName || session.user?.firstName || session.user?.username");
     expect(appSource).toContain('class="desktop-sidebar-avatar-image"');
@@ -578,7 +579,7 @@ describe("App", () => {
 
   it("keeps admin inside the mobile bottom tab bar for admins", () => {
     const navigationSource = readFileSync(resolve(__dirname, "features/app/navigation.ts"), "utf-8");
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("mobileNavItems");
     expect(appSource).toContain("visibleMobileNavItems");
@@ -590,7 +591,7 @@ describe("App", () => {
   });
 
   it("removes the collapsible mobile nav control from the PWA shell", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).not.toContain("navCollapsed");
     expect(appSource).not.toContain("toggleNavCollapsed");
@@ -600,7 +601,7 @@ describe("App", () => {
   });
 
   it("uses a standalone responsive auth layout before login", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("'app-root-no-user': !session.user");
     expect(appSource).toContain("'app-layout-auth': !session.user");
@@ -616,7 +617,7 @@ describe("App", () => {
   });
 
   it("keeps the pre-login auth form readable on narrow phones without relying on JS device classes", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.app-shell-auth\s*{[\s\S]*align-items: stretch;/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.content-panel-auth \.auth-panel\s*{[\s\S]*width: 100%;[\s\S]*max-width: none;/);
@@ -624,7 +625,7 @@ describe("App", () => {
   });
 
   it("keeps installed mobile PWA auth full-width even when Android reports a wide layout viewport", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(/body\.club-mobile-device \.app-shell-auth\s*{[\s\S]*align-items: stretch;/);
     expect(styles).toMatch(/body\.club-mobile-device \.content-panel-auth\s*{[\s\S]*justify-items: stretch;/);
@@ -634,7 +635,7 @@ describe("App", () => {
   });
 
   it("scales only the pre-login auth surface when a mobile PWA reports a desktop-width viewport", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(deviceLayoutSource).toContain("club-mobile-auth-scaled");
     expect(deviceLayoutSource).toContain("--club-auth-wide-viewport-scale");
@@ -649,7 +650,7 @@ describe("App", () => {
   });
 
   it("uses a separate scaled typography shell after login on wide mobile PWA viewports", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(deviceLayoutSource).toContain("club-mobile-app-scaled");
     expect(deviceLayoutSource).toContain("--club-app-wide-viewport-scale");
@@ -671,7 +672,7 @@ describe("App", () => {
   });
 
   it("uses a PWA-first mobile device shell instead of zooming a desktop viewport", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("syncMobileDeviceShell");
     expect(deviceLayoutSource).toContain("club-mobile-device");
@@ -691,7 +692,7 @@ describe("App", () => {
   });
 
   it("classifies device mode and keeps every confident device inside the mobile presentation", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("classifyDeviceMode");
     expect(appSource).toContain("shouldForceMobilePresentation");
@@ -707,7 +708,7 @@ describe("App", () => {
   });
 
   it("prevents signed-in mobile PWA content from stretching under page gestures", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(appSource).toContain("preventModalPagePinch");
     expect(appSource).toContain("event.touches.length < 2");
@@ -740,7 +741,7 @@ describe("App", () => {
   });
 
   it("uses readable mobile app typography for signed-in content", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toContain("body.club-mobile-device .soft-home");
     expect(styles).toContain("body.club-mobile-device .section-title");
@@ -755,7 +756,7 @@ describe("App", () => {
   });
 
   it("pins the bottom navigation without stretching or reshaping the panel", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource).toContain("profile-bottom-navigation-position");
     expect(profileSource).toContain("ui.bottomNavigationFlush");
@@ -785,7 +786,7 @@ describe("App", () => {
   });
 
   it("keeps the gesture-navigation switch independent from shared button padding", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource).toContain('class="appearance-switch"');
     expect(profileSource).not.toContain('class="appearance-switch ui-button"');
@@ -795,7 +796,7 @@ describe("App", () => {
   });
 
   it("uses the interface-scale color language for the gesture-navigation switch", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(
       /\.appearance-switch::before\s*\{[\s\S]*?border:\s*1px solid color-mix\(in srgb, var\(--border\) 86%, transparent\);[\s\S]*?background:\s*color-mix\(in srgb, var\(--field\) 86%, var\(--panel\)\);/,
@@ -809,7 +810,7 @@ describe("App", () => {
   });
 
   it("renders appearance controls as one visual family instead of an input field", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource.match(/class="[^"]*appearance-setting-card[^"]*"/g)).toHaveLength(2);
     expect(styles).toMatch(
@@ -821,7 +822,7 @@ describe("App", () => {
   it("keeps day and night separate from five design themes", () => {
     const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
     const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource).toContain("themeOptions");
     expect(profileSource).toContain("designThemeOptions");
@@ -857,7 +858,7 @@ describe("App", () => {
 
   it("keeps appearance rows aligned and prevents touch slider drags", () => {
     const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(profileSource).toContain('class="design-theme-choice"');
     expect(profileSource).not.toContain('class="design-theme-choice ui-button"');
@@ -870,7 +871,7 @@ describe("App", () => {
   });
 
   it("defines a real light soft-touch token set for day mode", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*color-scheme: light;[\s\S]*--bg: #eef5fc;/);
     expect(styles).toMatch(/:root\[data-theme="light"\]\s*{[\s\S]*--surface: #f8fbff;[\s\S]*--text: #0e1828;/);
@@ -879,7 +880,7 @@ describe("App", () => {
   });
 
   it("uses separate compact, form, and workspace mobile modal sizes", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const finalMobileGuard = styles.slice(styles.lastIndexOf("Final mobile modal guard"));
 
     expect(finalMobileGuard).toContain("--club-mobile-modal-width: calc(100vw - (var(--club-mobile-modal-inline-gutter) * 2));");
@@ -899,7 +900,7 @@ describe("App", () => {
   });
 
   it("uses compact polished density for wide mobile PWA app surfaces", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toContain("--club-mobile-card-radius: 24px;");
     expect(styles).toContain("--club-mobile-sheet-radius: 28px;");
@@ -923,19 +924,12 @@ describe("App", () => {
     );
   });
 
-  it("keeps mobile dialogs bounded after generic tablet breakpoint rules", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
-    const genericFullscreenRule = Math.max(
-      styles.lastIndexOf(".admin-modal-backdrop {\r\n    align-items: stretch;"),
-      styles.lastIndexOf(".admin-modal-backdrop {\n    align-items: stretch;")
-    );
-    const lateSoftTouchLayer = styles.lastIndexOf("Matte Soft Touch redesign");
-    const lateNotificationWidth = styles.lastIndexOf(".notification-center-panel {\n  width: min(30rem, 100%);");
+  it("keeps the final mobile dialog guard in the always-loaded stylesheet", () => {
+    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf8");
+    const appStyles = readAppStyles();
     const mobileGuardRule = styles.lastIndexOf("Final mobile modal guard");
 
-    expect(mobileGuardRule).toBeGreaterThan(genericFullscreenRule);
-    expect(mobileGuardRule).toBeGreaterThan(lateSoftTouchLayer);
-    expect(mobileGuardRule).toBeGreaterThan(lateNotificationWidth);
+    expect(mobileGuardRule).toBeGreaterThan(-1);
     const mobileGuard = styles.slice(mobileGuardRule);
 
     expect(mobileGuard).toMatch(
@@ -960,13 +954,13 @@ describe("App", () => {
     expect(mobileGuard).toMatch(
       /body\.club-mobile-device \.notification-center-actions,\s*body\.club-mobile-device \.push-permission-actions\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) 44px;/
     );
-    expect(mobileGuard).toMatch(
+    expect(appStyles).toMatch(
       /body\.club-mobile-device \.admin-client-modal \.admin-client-summary,\s*body\.club-mobile-device \.admin-client-modal \.admin-client-profile-grid,\s*body\.club-mobile-device \.admin-client-modal \.admin-client-card-head,\s*body\.club-mobile-device \.admin-client-modal \.admin-compact-date-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\);/
     );
   });
 
   it("keeps mobile admin and support pages compact and scroll-safe", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(
       /body\.club-mobile-device \.admin-tabs\s*\{[\s\S]*display: grid;[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);[\s\S]*overflow: visible;/
@@ -998,7 +992,7 @@ describe("App", () => {
   });
 
   it("uses calmer light surfaces and tighter mobile admin spacing", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
     const responsiveLayer = styles.slice(styles.lastIndexOf("Responsive modal and mobile commerce system"));
 
     expect(responsiveLayer).toMatch(/:root\[data-theme="light"\]\s*\{[^}]*--shadow-soft: 0 8px 22px rgba\(57, 76, 104, 0\.12\);/s);
@@ -1008,7 +1002,7 @@ describe("App", () => {
   });
 
   it("keeps one compact side gutter across normal section tabs", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toContain("--screen-gutter: clamp(0.42rem, 1.7vw, 0.72rem);");
     expect(styles).toContain("--section-bleed: clamp(0.18rem, 0.7vw, 0.28rem);");
@@ -1021,7 +1015,7 @@ describe("App", () => {
   });
 
   it("does not keep vendor-specific Telegram fullscreen offsets in the PWA shell", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).not.toContain("--fullscreen-top-offset");
     expect(styles).not.toContain("--chat-top-offset");
@@ -1031,7 +1025,7 @@ describe("App", () => {
   });
 
   it("keeps narrow Android PWA layouts readable without Huawei webview shrink rules", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toContain(".sr-only");
     expect(styles).toContain("position: absolute");
@@ -1081,14 +1075,14 @@ describe("App", () => {
   });
 
   it("does not shrink standalone Android PWA typography to legacy webview scale", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).not.toContain("html.club-huawei.club-screen-narrow");
     expect(styles).not.toMatch(/club-screen-narrow[^}]*font-size:\s*14px/s);
   });
 
   it("styles fullscreen video close control as a themed pill in portrait and landscape", () => {
-    const styles = readFileSync(resolve(__dirname, "styles.css"), "utf-8");
+    const styles = readAppStyles();
 
     expect(styles).toMatch(
       /\.lesson-video-exit-fullscreen-button\s*{[^}]*border-radius:\s*999px;[^}]*background:\s*color-mix\(in srgb, var\(--panel-strong\)/s

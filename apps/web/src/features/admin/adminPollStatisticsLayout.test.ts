@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const poll = readFileSync(resolve(__dirname, "AdminPollStatistics.vue"), "utf8");
 const detail = readFileSync(resolve(__dirname, "AdminStatisticsDetail.vue"), "utf8");
-const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const styles = readAppStyles("admin");
 
 describe("admin poll and learning statistics layout", () => {
   it("renders every poll collapsed by default with author and timing metadata", () => {

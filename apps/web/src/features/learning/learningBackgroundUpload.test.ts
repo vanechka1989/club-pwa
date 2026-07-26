@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readAppStyles } from "@/test/appStyles";
 
 const learningSectionSource = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf-8");
 const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
 const apiHttpSource = readFileSync(resolve(__dirname, "../../api/http.ts"), "utf-8");
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf-8");
 const uploadStoreSource = readFileSync(resolve(__dirname, "../../stores/lessonUploads.ts"), "utf-8");
-const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf-8");
+const stylesSource = readAppStyles("learning");
 
 describe("learning background uploads", () => {
   it("uses multipart upload and keeps progress in a global status bar", () => {
