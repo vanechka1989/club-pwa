@@ -12,6 +12,10 @@ const webDockerfile = readFileSync(resolve(__dirname, "../../../../apps/web/Dock
 const productionCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.prod.yml"), "utf-8");
 const scaleCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.scale.yml"), "utf-8");
 const updateWorker = readFileSync(resolve(__dirname, "../../../../deploy/update-worker.sh"), "utf-8");
+const apiPackage = JSON.parse(readFileSync(resolve(__dirname, "../../../../apps/api/package.json"), "utf-8")) as {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+};
 
 describe("production security config", () => {
   it("sets browser security headers in both reverse proxy layers", () => {
@@ -98,6 +102,11 @@ describe("production security config", () => {
     expect(apiDockerfile).toContain("COPY --from=dependencies --chown=bun:bun /app/deploy/apps/api ./apps/api");
     expect(apiDockerfile).not.toContain("/app/node_modules ./node_modules");
     expect(apiDockerfile).not.toContain("/app/packages ./packages");
+  });
+
+  it("keeps the production migration runner in the deployed dependency tree", () => {
+    expect(apiPackage.dependencies?.["drizzle-kit"]).toBeTruthy();
+    expect(apiPackage.devDependencies?.["drizzle-kit"]).toBeUndefined();
   });
 
   it("repairs an existing upload volume before starting the non-root API", () => {
