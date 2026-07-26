@@ -1693,6 +1693,276 @@ body.club-mobile-device .support-section .support-status {
   }
 }
 
+/* Cohesive admin support overview and compact navigable request cards. */
+.support-section .support-admin-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 96%, var(--accent-soft));
+  box-shadow: var(--shadow-soft);
+}
+
+.support-section .support-stat {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  min-height: 72px;
+  gap: 10px;
+  padding: 12px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+}
+
+.support-section .support-stat:nth-child(2n) {
+  border-right: 0;
+}
+
+.support-section .support-stat:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.support-section .support-stat-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: var(--muted-strong);
+}
+
+.support-section .support-stat-icon > svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.support-section .support-stat-new .support-stat-icon,
+.support-section .support-stat-open .support-stat-icon {
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--accent);
+}
+
+.support-section .support-stat-closed .support-stat-icon {
+  background: color-mix(in srgb, var(--success) 12%, var(--panel));
+  color: var(--success);
+}
+
+.support-section .support-stat-average .support-stat-icon {
+  background: color-mix(in srgb, var(--warning) 12%, var(--panel));
+  color: var(--warning);
+}
+
+.support-section .support-stat-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.support-section .support-stat-copy > span {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.support-section .support-stat-copy > strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 900;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.support-section .support-ticket-list {
+  gap: 8px;
+}
+
+.support-section .support-ticket-list-heading {
+  padding: 2px 4px 4px;
+}
+
+.support-section .support-admin-ticket,
+.support-section .support-admin-ticket:first-of-type,
+body.club-mobile-device .support-section .support-admin-ticket {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: center;
+  width: 100%;
+  min-height: 86px;
+  gap: 8px;
+  overflow: hidden;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  text-align: left;
+}
+
+.support-section .support-admin-ticket::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--warning);
+  content: "";
+}
+
+.support-section .support-admin-ticket[data-state="new"]::before,
+.support-section .support-admin-ticket[data-state="new-reply"]::before {
+  background: var(--accent);
+}
+
+.support-section .support-admin-ticket[data-state="reply-sent"]::before,
+.support-section .support-admin-ticket[data-state="reply-received"]::before {
+  background: var(--success);
+}
+
+.support-section .support-admin-ticket[data-state="closed"]::before {
+  background: var(--danger);
+}
+
+.support-section .support-admin-ticket:active {
+  transform: translateY(1px);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.support-section .support-admin-ticket-main,
+body.club-mobile-device .support-section .support-admin-ticket-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.support-section .support-admin-ticket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 8px;
+}
+
+.support-section .support-admin-ticket-header > span,
+body.club-mobile-device .support-section .support-admin-ticket-header > span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 850;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-section .support-admin-ticket-header > .support-status,
+body.club-mobile-device .support-section .support-admin-ticket-header > .support-status {
+  flex: 0 0 auto;
+  max-width: 48%;
+  padding: 4px 7px;
+  font-size: 0.6875rem;
+  line-height: 1.1;
+}
+
+.support-section .support-admin-ticket small,
+.support-section .support-admin-ticket em,
+body.club-mobile-device .support-section .support-admin-ticket small,
+body.club-mobile-device .support-section .support-admin-ticket em {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.support-section .support-admin-ticket small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-section .support-admin-ticket em {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.support-section .support-admin-ticket em > svg {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+}
+
+.support-section .support-admin-ticket em > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-section .support-admin-ticket-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  stroke-width: 2;
+}
+
+body.club-mobile-device .support-section .support-admin-ticket {
+  min-height: 86px;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+}
+
+body.club-mobile-device .support-section .support-admin-ticket-header > span {
+  font-size: 0.9375rem;
+}
+
+body.club-mobile-device .support-section .support-admin-ticket small,
+body.club-mobile-device .support-section .support-admin-ticket em {
+  font-size: 0.75rem;
+}
+
+@media (min-width: 620px) {
+  .support-section .support-admin-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .support-section .support-stat,
+  .support-section .support-stat:nth-child(2n),
+  .support-section .support-stat:nth-last-child(-n + 2) {
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+  }
+
+  .support-section .support-stat:last-child {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  body.club-mobile-device .support-section .support-admin-ticket.support-admin-ticket {
+    grid-template-columns: minmax(0, 1fr) 14px;
+    padding: 9px 8px 9px 12px;
+  }
+
+  body.club-mobile-device .support-section .support-admin-ticket-header > .support-status {
+    max-width: 52%;
+  }
+}
+
 @media (max-width: 360px) {
 
   body.club-mobile-device .support-section .support-status {
@@ -1887,4 +2157,138 @@ body.club-mobile-device .support-section .support-status {
   body.club-mobile-device .support-section .support-status {
     align-self: center;
   }
+}
+
+.support-section .support-admin-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 96%, var(--accent-soft));
+  box-shadow: var(--shadow-soft);
+}
+
+.support-section .support-stat {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  min-height: 72px;
+  gap: 10px;
+  padding: 12px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+}
+
+.support-section .support-ticket-list {
+  box-sizing: border-box;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.support-section .support-admin-ticket {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: center;
+  width: 100%;
+  min-height: 86px;
+  gap: 8px;
+  overflow: hidden;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.support-section .support-admin-ticket:first-of-type {
+  border: 1px solid var(--border);
+}
+
+.support-section .support-admin-ticket-header > span {
+  font-size: 0.9375rem;
+}
+
+body.club-mobile-device .support-section .support-admin-ticket {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  min-height: 86px;
+  gap: 8px;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+}
+
+body.club-mobile-device .support-section .support-admin-ticket-header > span {
+  font-size: 0.9375rem;
+}
+
+body.club-mobile-device .support-section .support-admin-ticket small,
+body.club-mobile-device .support-section .support-admin-ticket em {
+  font-size: 0.75rem;
+}
+
+@media (min-width: 620px) {
+  .support-section .support-admin-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .support-section .support-admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .support-section .support-stat,
+  .support-section .support-stat:nth-child(2n),
+  .support-section .support-stat:nth-last-child(-n + 2) {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .support-section .support-stat:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .support-section .support-stat:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+
+.support-section .support-admin-ticket em > span {
+  font-weight: 650;
+}
+
+body.club-mobile-device .support-section .support-admin-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.club-mobile-device .support-section .support-stat,
+body.club-mobile-device .support-section .support-stat:nth-child(2n),
+body.club-mobile-device .support-section .support-stat:nth-last-child(-n + 2) {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+body.club-mobile-device .support-section .support-stat:nth-child(2n) {
+  border-right: 0;
+}
+
+body.club-mobile-device .support-section .support-stat:nth-last-child(-n + 2) {
+  border-bottom: 0;
 }

@@ -1629,6 +1629,40 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
         await page.screenshot({ path: testInfo.outputPath("payment-unified-actions.png"), fullPage: false });
       }
     }
+    if (section === "Поддержка") {
+      const supportLayout = await page.locator(".support-admin-board").evaluate((board) => {
+        const stats = board.querySelector<HTMLElement>(".support-admin-stats");
+        const ticket = board.querySelector<HTMLElement>(".support-admin-ticket");
+        const ticketStyle = ticket ? getComputedStyle(ticket) : null;
+        const markerStyle = ticket ? getComputedStyle(ticket, "::before") : null;
+        return {
+          metricCount: stats?.children.length ?? 0,
+          metricColumns: stats ? getComputedStyle(stats).gridTemplateColumns.split(" ").length : 0,
+          statsRadius: stats ? getComputedStyle(stats).borderRadius : "",
+          statsBackground: stats ? getComputedStyle(stats).backgroundColor : "",
+          ticketHeight: ticket?.getBoundingClientRect().height ?? 0,
+          ticketRadius: ticketStyle?.borderRadius ?? "",
+          ticketBorder: ticketStyle?.borderTopWidth ?? "",
+          ticketBackground: ticketStyle?.backgroundColor ?? "",
+          markerWidth: markerStyle?.width ?? "",
+          hasChevron: Boolean(ticket?.querySelector(".support-admin-ticket-chevron"))
+        };
+      });
+      expect(supportLayout.metricCount).toBe(4);
+      expect(supportLayout.metricColumns).toBe(2);
+      expect(supportLayout.statsRadius).toBe("8px");
+      expect(supportLayout.statsBackground).not.toBe("rgba(0, 0, 0, 0)");
+      expect(supportLayout.ticketHeight).toBeGreaterThanOrEqual(75);
+      expect(supportLayout.ticketHeight).toBeLessThanOrEqual(96);
+      expect(supportLayout.ticketRadius).toBe("8px");
+      expect(supportLayout.ticketBorder).toBe("1px");
+      expect(supportLayout.ticketBackground).not.toBe("rgba(0, 0, 0, 0)");
+      expect(supportLayout.markerWidth).toBe("3px");
+      expect(supportLayout.hasChevron).toBe(true);
+      if (testInfo.project.name === "release-android") {
+        await page.screenshot({ path: testInfo.outputPath("support-polished-overview.png"), fullPage: false });
+      }
+    }
     await expectNoHorizontalOverflow(page);
   }
 
@@ -1729,8 +1763,8 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
       borderBottomWidth: style.borderBottomWidth
     };
   });
-  expect(supportRowStyle.height).toBeLessThanOrEqual(82);
-  expect(supportRowStyle.borderRadius).toBe("0px");
+  expect(supportRowStyle.height).toBeLessThanOrEqual(96);
+  expect(supportRowStyle.borderRadius).toBe("8px");
   expect(supportRowStyle.borderBottomWidth).toBe("1px");
   await expectNoHorizontalOverflow(page);
   if (testInfo.project.name === "release-android") {

@@ -2,7 +2,19 @@
 import "./supportRoute.css";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";
+import {
+  CheckCircle2,
+  ChevronRight,
+  CircleDot,
+  Clock3,
+  Image,
+  Inbox,
+  MessagesSquare,
+  Paperclip,
+  Send,
+  Video,
+  X
+} from "lucide-vue-next";
 import type { SupportAttachment, SupportMessage, SupportTicket } from "@club/shared";
 import {
   closeSupportTicket,
@@ -740,37 +752,65 @@ watch(
 
     <template v-else>
       <div class="support-admin-board">
-        <div class="support-admin-stats">
-          <article class="surface-card ui-card">
-            <span>{{ t("supportStatsNew") }}</span>
-            <strong>{{ ticketStats.newCount }}</strong>
+        <div class="support-admin-stats surface-card ui-card">
+          <article class="support-stat support-stat-new">
+            <span class="support-stat-icon"><Inbox aria-hidden="true" /></span>
+            <span class="support-stat-copy">
+              <span>{{ t("supportStatsNew") }}</span>
+              <strong>{{ ticketStats.newCount }}</strong>
+            </span>
           </article>
-          <article class="surface-card ui-card">
-            <span>{{ t("supportStatsOpen") }}</span>
-            <strong>{{ ticketStats.openCount }}</strong>
+          <article class="support-stat support-stat-open">
+            <span class="support-stat-icon"><MessagesSquare aria-hidden="true" /></span>
+            <span class="support-stat-copy">
+              <span>{{ t("supportStatsOpen") }}</span>
+              <strong>{{ ticketStats.openCount }}</strong>
+            </span>
           </article>
-          <article class="surface-card ui-card">
-            <span>{{ t("supportStatsClosed") }}</span>
-            <strong>{{ ticketStats.closedCount }}</strong>
+          <article class="support-stat support-stat-closed">
+            <span class="support-stat-icon"><CheckCircle2 aria-hidden="true" /></span>
+            <span class="support-stat-copy">
+              <span>{{ t("supportStatsClosed") }}</span>
+              <strong>{{ ticketStats.closedCount }}</strong>
+            </span>
           </article>
-          <article class="surface-card ui-card">
-            <span>{{ t("supportStatsAverage") }}</span>
-            <strong>{{ averageResponseTimeLabel }}</strong>
+          <article class="support-stat support-stat-average">
+            <span class="support-stat-icon"><Clock3 aria-hidden="true" /></span>
+            <span class="support-stat-copy">
+              <span>{{ t("supportStatsAverage") }}</span>
+              <strong>{{ averageResponseTimeLabel }}</strong>
+            </span>
           </article>
         </div>
 
         <div class="support-ticket-list">
           <h3 class="support-ticket-list-heading">{{ t("supportRequests") }}</h3>
-          <button v-for="ticket in tickets" :key="ticket.id" class="support-admin-ticket" type="button" @click="openTicket(ticket.id)">
+          <button
+            v-for="ticket in tickets"
+            :key="ticket.id"
+            class="support-admin-ticket"
+            type="button"
+            :data-state="getSupportTicketDisplayState(ticket, true)"
+            @click="openTicket(ticket.id)"
+          >
             <div class="support-admin-ticket-main">
-              <span>{{ userName(ticket.customer) }}</span>
+              <div class="support-admin-ticket-header">
+                <span>{{ userName(ticket.customer) }}</span>
+                <span class="support-status" :class="statusTone(ticket)">
+                  {{ ticketStatusLabel(ticket) }}
+                </span>
+              </div>
               <small>ID {{ ticket.customer.telegramId }} · {{ ticketTopicTitle(ticket) }}</small>
-              <em v-if="ticketClosedByLabel(ticket)" class="support-ticket-closed-by">{{ ticketClosedByLabel(ticket) }}</em>
-              <em v-else>{{ t("supportWaitingTime") }}: {{ waitingTime(ticket.waitingSince) }}</em>
+              <em v-if="ticketClosedByLabel(ticket)" class="support-ticket-closed-by">
+                <CheckCircle2 aria-hidden="true" />
+                <span>{{ ticketClosedByLabel(ticket) }}</span>
+              </em>
+              <em v-else>
+                <Clock3 aria-hidden="true" />
+                <span>{{ t("supportWaitingTime") }}: {{ waitingTime(ticket.waitingSince) }}</span>
+              </em>
             </div>
-            <span class="support-status" :class="statusTone(ticket)">
-              {{ ticketStatusLabel(ticket) }}
-            </span>
+            <ChevronRight class="support-admin-ticket-chevron" aria-hidden="true" />
           </button>
           <p v-if="!tickets.length" class="support-muted">{{ t("supportNoNewTickets") }}</p>
         </div>

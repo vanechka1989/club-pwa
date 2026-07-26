@@ -212,14 +212,17 @@ describe("support section", () => {
     expect(source).toContain("calculateAverageResponseMinutes");
   });
 
-  it("keeps admin support stats in an even mobile grid", () => {
+  it("groups admin support metrics into one modern overview surface", () => {
     expect(styles).toMatch(/\.support-admin-board\s*\{[^}]*display:\s*grid;[^}]*gap:\s*0\.75rem;/s);
-    expect(styles).toMatch(/\.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/s);
-    expect(styles).toMatch(/\.support-admin-stats article\s*\{[^}]*min-height:\s*4\.15rem;[^}]*padding:\s*0\.58rem 0\.65rem;/s);
-    expect(styles).toMatch(/\.support-admin-stats article\s*\{[^}]*justify-items:\s*center;[^}]*text-align:\s*center;/s);
-    expect(styles).toMatch(/\.support-admin-stats span\s*\{[^}]*font-size:\s*0\.68rem;/s);
-    expect(styles).toMatch(/\.support-admin-stats strong\s*\{[^}]*font-size:\s*1\.18rem;/s);
-    expect(styles).toMatch(/@media \(min-width:\s*620px\)\s*\{[^}]*\.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(source).toContain('class="support-admin-stats surface-card ui-card"');
+    expect(source.match(/class="support-stat support-stat-/g)).toHaveLength(4);
+    expect(source).toContain('class="support-stat-icon"');
+    expect(latestRule(".support-section .support-admin-stats")).toMatch(/grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+    expect(latestRule(".support-section .support-admin-stats")).toMatch(/border-radius:\s*8px/);
+    expect(latestRule(".support-section .support-admin-stats")).toMatch(/overflow:\s*hidden/);
+    expect(latestRule(".support-section .support-stat")).toMatch(/grid-template-columns:\s*32px minmax\(0,\s*1fr\)/);
+    expect(latestRule(".support-section .support-stat")).toMatch(/min-height:\s*72px/);
+    expect(styles).toMatch(/@media \(min-width:\s*620px\)\s*\{[^}]*\.support-section \.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/s);
   });
 
   it("opens support photos in the same frameless gesture viewer as chat images", () => {
@@ -383,17 +386,22 @@ describe("support section", () => {
     expect(latestRule("body.club-mobile-device .support-section .support-admin-board")).toMatch(/border-radius:\s*0/);
   });
 
-  it("renders customer requests as compact divided rows below a standalone heading", () => {
+  it("renders customer requests as compact navigable cards below a standalone heading", () => {
     expect(source).toContain('class="support-ticket-list"');
     expect(source).not.toContain('class="surface-card ui-card support-ticket-list"');
     expect(source).toContain('class="support-ticket-list-heading"');
+    expect(source).toContain('class="support-admin-ticket-header"');
+    expect(source).toContain('class="support-admin-ticket-chevron"');
+    expect(source).toContain(':data-state="getSupportTicketDisplayState(ticket, true)"');
     expect(latestRule(".support-section .support-ticket-list")).toMatch(/border:\s*0/);
     expect(latestRule(".support-section .support-ticket-list")).toMatch(/background:\s*transparent/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/min-height:\s*64px/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/padding:\s*10px 4px/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/border-radius:\s*0/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/border-bottom:\s*1px solid var\(--border\)/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket-main > span")).toMatch(/font-size:\s*0\.9375rem/);
+    expect(latestRule(".support-section .support-ticket-list")).toMatch(/gap:\s*8px/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/min-height:\s*86px/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/padding:\s*10px 10px 10px 14px/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/border-radius:\s*8px/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/border:\s*1px solid var\(--border\)/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/background:\s*color-mix/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket-header > span")).toMatch(/font-size:\s*0\.9375rem/);
     expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket small,\nbody.club-mobile-device .support-section .support-admin-ticket em")).toMatch(/font-size:\s*0\.75rem/);
   });
 
