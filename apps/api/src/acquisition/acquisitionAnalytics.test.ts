@@ -16,9 +16,9 @@ const attributions = [
   { userId: "u2", firstLinkId: "a", lastLinkId: "a", registeredAt: new Date("2026-07-21T13:00:00Z") }
 ];
 const orders = [
-  { userId: "u1", status: "paid", amountRub: 1000, paidAt: new Date("2026-07-22T10:00:00Z") },
-  { userId: "u1", status: "paid", amountRub: 500, paidAt: new Date("2026-07-23T10:00:00Z") },
-  { userId: "u2", status: "pending", amountRub: 900, paidAt: null }
+  { userId: "u1", status: "paid", amountRub: 1000, currency: "RUB" as const, paidAt: new Date("2026-07-22T10:00:00Z") },
+  { userId: "u1", status: "paid", amountRub: 500, currency: "RUB" as const, paidAt: new Date("2026-07-23T10:00:00Z") },
+  { userId: "u2", status: "pending", amountRub: 900, currency: "RUB" as const, paidAt: null }
 ];
 
 describe("acquisition analytics aggregation", () => {
@@ -38,6 +38,21 @@ describe("acquisition analytics aggregation", () => {
       { attribution: "first", from: null, to: null, origin: "https://club.example" }
     );
     expect(dashboard.sources.find((row) => row.key === "telegram")).toMatchObject({ registrations: 2, paidUsers: 1, revenueRub: 1500 });
+  });
+
+  it("does not sum foreign-currency nominal amounts as RUB revenue", () => {
+    const dashboard = buildAcquisitionDashboard(
+      {
+        links: [linkA, linkB], visits, attributions,
+        orders: [
+          { userId: "u1", status: "paid", amountRub: 1500, currency: "RUB", paidAt: new Date("2026-07-22T10:00:00Z") },
+          { userId: "u1", status: "paid", amountRub: 1999, currency: "USD", paidAt: new Date("2026-07-23T10:00:00Z") }
+        ]
+      },
+      { attribution: "last", from: null, to: null, origin: "https://club.example" }
+    );
+    expect(dashboard.summary.revenueRub).toBe(1500);
+    expect(dashboard.sources.find((row) => row.key === "vk")?.revenueRub).toBe(1500);
   });
 
   it("omits empty UTM values from generated URLs", () => {

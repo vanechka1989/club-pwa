@@ -2,12 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   adminPaymentProvidersResponseSchema,
   paymentCheckoutOptionsResponseSchema,
+  paymentOrderLogSchema,
   paymentProductSchema,
   paymentProviderCatalogItemSchema,
   paymentProviderSchema
 } from "./index";
 
 describe("provider-neutral payment contracts", () => {
+  it("exposes the immutable payment-order money snapshot while retaining nullable legacy RUB", () => {
+    expect(paymentOrderLogSchema.safeParse({
+      id: "order-1", status: "paid", amountRub: null, currency: "USD", amountMinor: 1999,
+      providerOrderId: "provider-order-1", providerPaymentId: null, productTitle: "Premium", productKind: "one_time",
+      customer: { id: "user-1", telegramId: "1", firstName: null, username: null, photoUrl: null },
+      webhook: null, paidAt: null, createdAt: "2026-07-27T00:00:00.000Z", updatedAt: "2026-07-27T00:00:00.000Z"
+    }).success).toBe(true);
+  });
+
   it("accepts Lava provider settings", () => {
     const provider = paymentProviderSchema.parse({
       id: "lava-provider",

@@ -8,6 +8,7 @@ import { getAdminAccessProfile, getUserRole } from "../admin/roles";
 import { db } from "../db/client";
 import {
   paymentOrders,
+  paymentProductProviderPrices,
   paymentProviderCatalogItemPrices,
   paymentProviderCatalogItems,
   paymentProductProviderBindings,
@@ -55,6 +56,8 @@ import { validateSingleEnabledPaymentBinding } from "../payments/paymentProductB
 import { mapLavaCatalogItem } from "../payments/paymentCatalog";
 import { paymentProductMutationError } from "../payments/paymentProductMutation";
 import { createCheckoutWithSnapshot, isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "../payments/checkoutMoney";
+import { prepareProductBindingPrices, type ProductBindingInput } from "../payments/productBindingPrices";
+import { mapPaymentProduct } from "../payments/productMapping";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -81,7 +84,12 @@ const productBindingPayloadSchema = z.object({
   provider: z.enum(["prodamus", "lava"]),
   enabled: z.boolean(),
   externalProductId: z.string().trim().max(160).nullable(),
-  externalOfferId: z.string().trim().max(160).nullable()
+  externalOfferId: z.string().trim().max(160).nullable(),
+  prices: z.array(z.object({
+    currency: z.enum(["RUB", "USD", "EUR"]),
+    amountMinor: z.number().int(),
+    isEnabled: z.boolean()
+  })).default([])
 });
 
 const productPayloadSchema = z.object({
@@ -131,33 +139,7 @@ function mapProvider(provider: PaymentProvider) {
   };
 }
 
-type ProductBindingWithProvider = typeof paymentProductProviderBindings.$inferSelect & {
-  provider: PaymentProvider;
-};
-
-function mapProduct(product: PaymentProduct & { providerBindings?: ProductBindingWithProvider[] }) {
-  return {
-    id: product.id,
-    providerId: product.providerId,
-    kind: product.kind,
-    title: product.title,
-    description: product.description,
-    badgeLabel: product.badgeLabel,
-    amountRub: product.amountRub,
-    accessDays: product.accessDays,
-    prodamusSubscriptionId: product.prodamusSubscriptionId,
-    bindings: (product.providerBindings ?? []).map((binding) => ({
-      provider: binding.provider.provider as PaymentProviderCode,
-      enabled: binding.isEnabled,
-      externalProductId: binding.externalProductId,
-      externalOfferId: binding.externalOfferId
-    })),
-    isPublished: product.isPublished,
-    archivedUntil: product.archivedUntil?.toISOString() ?? null,
-    createdAt: product.createdAt.toISOString(),
-    updatedAt: product.updatedAt.toISOString()
-  };
-}
+const mapProduct = mapPaymentProduct;
 
 async function getProdamusProvider() {
   return db.query.paymentProviders.findFirst({
@@ -172,27 +154,68 @@ async function getLavaProvider() {
 }
 
 async function replaceProductBindings(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   productId: string,
-  bindings: z.infer<typeof productBindingPayloadSchema>[],
+  bindings: ProductBindingInput[],
+  providers: PaymentProvider[],
   now = new Date()
 ) {
-  const providers = await db.query.paymentProviders.findMany();
   const providerByCode = new Map(providers.map((provider) => [provider.provider, provider]));
-  await db.transaction(async (tx) => {
-    await tx.delete(paymentProductProviderBindings).where(eq(paymentProductProviderBindings.productId, productId));
-    for (const binding of bindings) {
-      const provider = providerByCode.get(binding.provider);
-      if (!provider) continue;
-      await tx.insert(paymentProductProviderBindings).values({
-        productId,
-        providerId: provider.id,
-        externalProductId: binding.externalProductId || null,
-        externalOfferId: binding.externalOfferId || null,
-        isEnabled: binding.enabled,
+  await tx.delete(paymentProductProviderBindings).where(eq(paymentProductProviderBindings.productId, productId));
+  for (const binding of bindings) {
+    const provider = providerByCode.get(binding.provider);
+    if (!provider) throw new Error("PAYMENT_PROVIDER_NOT_FOUND");
+    const [savedBinding] = await tx.insert(paymentProductProviderBindings).values({
+      productId,
+      providerId: provider.id,
+      externalProductId: binding.externalProductId || null,
+      externalOfferId: binding.externalOfferId || null,
+      isEnabled: binding.enabled,
+      createdAt: now,
+      updatedAt: now
+    }).returning({ id: paymentProductProviderBindings.id });
+    if (!savedBinding) throw new Error("PAYMENT_BINDING_NOT_SAVED");
+    if (binding.prices.length) {
+      await tx.insert(paymentProductProviderPrices).values(binding.prices.map((price) => ({
+        bindingId: savedBinding.id,
+        currency: price.currency,
+        amountMinor: price.amountMinor,
+        isEnabled: price.isEnabled,
         createdAt: now,
         updatedAt: now
-      });
+      })));
     }
+  }
+}
+
+async function prepareBindingsForSave(input: {
+  bindings: ProductBindingInput[];
+  providers: PaymentProvider[];
+  amountRub: number | null;
+  existingBindings?: Array<{ provider: PaymentProviderCode; externalOfferId: string | null }>;
+}) {
+  const lavaProvider = input.providers.find((provider) => provider.provider === "lava");
+  const catalogItems = lavaProvider
+    ? await db.query.paymentProviderCatalogItems.findMany({
+        where: eq(paymentProviderCatalogItems.providerId, lavaProvider.id),
+        with: { prices: true }
+      })
+    : [];
+  return prepareProductBindingPrices({
+    bindings: input.bindings,
+    providers: input.providers.map((provider) => ({
+      id: provider.id,
+      provider: provider.provider as PaymentProviderCode
+    })),
+    amountRub: input.amountRub,
+    ...(input.existingBindings ? { existingBindings: input.existingBindings } : {}),
+    catalogItems: catalogItems.map((item) => ({
+      providerId: item.providerId,
+      externalOfferId: item.externalOfferId,
+      isStale: item.isStale,
+      isSelectable: item.isSelectable,
+      prices: item.prices.map((price) => ({ currency: price.currency, amountMinor: price.amountMinor }))
+    }))
   });
 }
 
@@ -237,7 +260,9 @@ function mapPaymentOrderLog(
     id: order.id,
     provider: order.provider.provider as PaymentProviderCode,
     status: order.status,
-    amountRub: order.amountRub ?? 0,
+    amountRub: order.amountRub,
+    currency: order.currency,
+    amountMinor: order.amountMinor,
     providerOrderId: order.providerOrderId,
     providerPaymentId: order.providerPaymentId,
     productTitle: order.product.title,
@@ -490,7 +515,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         where: and(eq(paymentProducts.isPublished, true), activeProductWhere()),
         with: {
           providerBindings: {
-            with: { provider: true }
+            with: { provider: true, prices: true }
           }
         },
         orderBy: [asc(paymentProducts.sortOrder), asc(paymentProducts.createdAt)]
@@ -1242,7 +1267,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       where: activeProductWhere(),
       with: {
         providerBindings: {
-          with: { provider: true }
+          with: { provider: true, prices: true }
         }
       },
       orderBy: [asc(paymentProducts.sortOrder), asc(paymentProducts.createdAt)]
@@ -1265,7 +1290,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       provider: "prodamus" as const,
       enabled: true,
       externalProductId: body.data.prodamusSubscriptionId ?? null,
-      externalOfferId: null
+      externalOfferId: null,
+      prices: []
     }];
     const bindingSelection = validateSingleEnabledPaymentBinding(requestedBindings);
     if (!bindingSelection.ok) {
@@ -1273,6 +1299,12 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
     const moneyError = paymentProductMutationError(body.data.amountRub, requestedBindings);
     if (moneyError) return c.json({ error: moneyError }, 400);
+    const preparedBindings = await prepareBindingsForSave({
+      bindings: requestedBindings,
+      providers,
+      amountRub: body.data.amountRub
+    });
+    if (!preparedBindings.ok) return c.json({ error: preparedBindings.error }, 400);
     const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providerByCode = new Map(providers.map((provider) => [provider.provider, provider]));
     const primaryProvider = providerByCode.get(enabledBindings[0]!.provider);
@@ -1293,30 +1325,34 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const now = new Date();
-    const [product] = await db
-      .insert(paymentProducts)
-      .values({
-        providerId: primaryProvider.id,
-        kind: body.data.kind,
-        title: body.data.title,
-        description: body.data.description ?? null,
-        badgeLabel: body.data.badgeLabel || null,
-        amountRub: body.data.amountRub,
-        accessDays: body.data.accessDays,
-        prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
-        isPublished: body.data.isPublished ?? false,
-        createdAt: now,
-        updatedAt: now
-      })
-      .returning();
+    const product = await db.transaction(async (tx) => {
+      const [savedProduct] = await tx
+        .insert(paymentProducts)
+        .values({
+          providerId: primaryProvider.id,
+          kind: body.data.kind,
+          title: body.data.title,
+          description: body.data.description ?? null,
+          badgeLabel: body.data.badgeLabel || null,
+          amountRub: body.data.amountRub,
+          accessDays: body.data.accessDays,
+          prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
+          isPublished: body.data.isPublished ?? false,
+          createdAt: now,
+          updatedAt: now
+        })
+        .returning();
+      if (!savedProduct) return null;
+      await replaceProductBindings(tx, savedProduct.id, preparedBindings.bindings, providers, now);
+      return savedProduct;
+    });
 
     if (!product) {
       return c.json({ error: "Unable to create product" }, 500);
     }
-    await replaceProductBindings(product.id, requestedBindings, now);
     const savedProduct = await db.query.paymentProducts.findFirst({
       where: eq(paymentProducts.id, product.id),
-      with: { providerBindings: { with: { provider: true } } }
+      with: { providerBindings: { with: { provider: true, prices: true } } }
     });
 
     await recordAdminAction(c, {
@@ -1347,7 +1383,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
     const existingProduct = await db.query.paymentProducts.findFirst({
       where: and(eq(paymentProducts.id, c.req.param("id")), activeProductWhere()),
-      with: { providerBindings: { with: { provider: true } } }
+      with: { providerBindings: { with: { provider: true, prices: true } } }
     });
     if (!existingProduct) return c.json({ error: "Product not found" }, 404);
     const requestedBindings = body.data.bindings ?? (existingProduct.providerBindings.length > 0
@@ -1355,13 +1391,19 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
           provider: binding.provider.provider === "lava" ? "lava" as const : "prodamus" as const,
           enabled: binding.isEnabled,
           externalProductId: binding.externalProductId,
-          externalOfferId: binding.externalOfferId
+          externalOfferId: binding.externalOfferId,
+          prices: binding.prices.map((price) => ({
+            currency: price.currency,
+            amountMinor: price.amountMinor,
+            isEnabled: price.isEnabled
+          }))
         }))
       : [{
           provider: "prodamus" as const,
           enabled: true,
           externalProductId: body.data.prodamusSubscriptionId ?? existingProduct.prodamusSubscriptionId,
-          externalOfferId: null
+          externalOfferId: null,
+          prices: []
         }]);
     const bindingSelection = validateSingleEnabledPaymentBinding(requestedBindings);
     if (!bindingSelection.ok) {
@@ -1371,6 +1413,16 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (moneyError) return c.json({ error: moneyError }, 400);
     const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providers = await db.query.paymentProviders.findMany();
+    const preparedBindings = await prepareBindingsForSave({
+      bindings: requestedBindings,
+      providers,
+      amountRub: body.data.amountRub,
+      existingBindings: existingProduct.providerBindings.map((binding) => ({
+        provider: binding.provider.provider as PaymentProviderCode,
+        externalOfferId: binding.externalOfferId
+      }))
+    });
+    if (!preparedBindings.ok) return c.json({ error: preparedBindings.error }, 400);
     const primaryProvider = providers.find((provider) => provider.provider === enabledBindings[0]!.provider);
     if (!primaryProvider) {
       return c.json({ error: "Сначала подключите выбранную платёжную систему." }, 400);
@@ -1388,30 +1440,35 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }, 400);
     }
 
-    const [product] = await db
-      .update(paymentProducts)
-      .set({
-        providerId: primaryProvider.id,
-        kind: body.data.kind,
-        title: body.data.title,
-        description: body.data.description ?? null,
-        badgeLabel: body.data.badgeLabel || null,
-        amountRub: body.data.amountRub,
-        accessDays: body.data.accessDays,
-        prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
-        isPublished: body.data.isPublished ?? false,
-        updatedAt: new Date()
-      })
-      .where(and(eq(paymentProducts.id, c.req.param("id")), activeProductWhere()))
-      .returning();
+    const now = new Date();
+    const product = await db.transaction(async (tx) => {
+      const [savedProduct] = await tx
+        .update(paymentProducts)
+        .set({
+          providerId: primaryProvider.id,
+          kind: body.data.kind,
+          title: body.data.title,
+          description: body.data.description ?? null,
+          badgeLabel: body.data.badgeLabel || null,
+          amountRub: body.data.amountRub,
+          accessDays: body.data.accessDays,
+          prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
+          isPublished: body.data.isPublished ?? false,
+          updatedAt: now
+        })
+        .where(and(eq(paymentProducts.id, c.req.param("id")), activeProductWhere()))
+        .returning();
+      if (!savedProduct) return null;
+      await replaceProductBindings(tx, savedProduct.id, preparedBindings.bindings, providers, now);
+      return savedProduct;
+    });
 
     if (!product) {
       return c.json({ error: "Product not found" }, 404);
     }
-    await replaceProductBindings(product.id, requestedBindings);
     const savedProduct = await db.query.paymentProducts.findFirst({
       where: eq(paymentProducts.id, product.id),
-      with: { providerBindings: { with: { provider: true } } }
+      with: { providerBindings: { with: { provider: true, prices: true } } }
     });
 
     await recordAdminAction(c, {
@@ -1452,7 +1509,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
     const savedProduct = await db.query.paymentProducts.findFirst({
       where: eq(paymentProducts.id, product.id),
-      with: { providerBindings: { with: { provider: true } } }
+      with: { providerBindings: { with: { provider: true, prices: true } } }
     });
 
     await recordAdminAction(c, {

@@ -38,7 +38,7 @@ type AnalyticsLink = {
 
 type AnalyticsVisit = { id: string; visitorHash: string; linkId: string; userId: string | null; occurredAt: Date };
 type AnalyticsAttribution = { userId: string; firstLinkId: string; lastLinkId: string; registeredAt: Date };
-type AnalyticsOrder = { userId: string; status: string; amountRub: number; paidAt: Date | null };
+type AnalyticsOrder = { userId: string; status: string; amountRub: number | null; currency: "RUB" | "USD" | "EUR"; paidAt: Date | null };
 type AnalyticsUser = { id: string; telegramId: string; displayName: string | null; firstName: string | null; username: string | null };
 
 type AnalyticsData = {
@@ -89,6 +89,9 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
     [...firstPaidByUser.values()].filter((order) => inPeriod(order.paidAt, options.from, options.to)).map((order) => order.userId)
   );
   const periodOrders = data.orders.filter((order) => order.status === "paid" && inPeriod(order.paidAt, options.from, options.to));
+  const periodRubOrders = periodOrders.filter((order): order is AnalyticsOrder & { amountRub: number; currency: "RUB" } =>
+    order.currency === "RUB" && order.amountRub !== null
+  );
   const attributionByUser = new Map(data.attributions.map((item) => [item.userId, item]));
 
   const rows = (dimension: "source" | "campaign") => {
@@ -117,7 +120,7 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
       const link = item ? linksById.get(attributedLinkId(item)) : undefined;
       if (link) rowFor(link).paidUsers.add(userId);
     }
-    for (const order of periodOrders) {
+    for (const order of periodRubOrders) {
       const item = attributionByUser.get(order.userId);
       const link = item ? linksById.get(attributedLinkId(item)) : undefined;
       if (link) rowFor(link).revenueRub += order.amountRub;
@@ -137,7 +140,7 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
   periodVisits.forEach((visit) => (timelineRow(visit.occurredAt).visits += 1));
   periodAttributions.forEach((item) => (timelineRow(item.registeredAt).registrations += 1));
   [...firstPaidByUser.values()].filter((order) => inPeriod(order.paidAt, options.from, options.to)).forEach((order) => (timelineRow(order.paidAt!).paidUsers += 1));
-  periodOrders.forEach((order) => (timelineRow(order.paidAt!).revenueRub += order.amountRub));
+  periodRubOrders.forEach((order) => (timelineRow(order.paidAt!).revenueRub += order.amountRub));
 
   const serializeLink = (link: AnalyticsLink): AdminAcquisitionLink => {
     const linkVisits = periodVisits.filter((visit) => visit.linkId === link.id);
@@ -146,7 +149,7 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
       const item = attributionByUser.get(userId);
       return item && attributedLinkId(item) === link.id;
     });
-    const revenueRub = periodOrders.reduce((sum, order) => {
+    const revenueRub = periodRubOrders.reduce((sum, order) => {
       const item = attributionByUser.get(order.userId);
       return sum + (item && attributedLinkId(item) === link.id ? order.amountRub : 0);
     }, 0);
@@ -175,7 +178,7 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
       uniqueVisitors,
       registrations,
       paidUsers: periodPaidUsers.size,
-      revenueRub: periodOrders.reduce((sum, order) => sum + order.amountRub, 0),
+      revenueRub: periodRubOrders.reduce((sum, order) => sum + order.amountRub, 0),
       visitToRegistrationRate: rate(registrations, uniqueVisitors),
       registrationToPaidRate: rate(periodPaidUsers.size, registrations),
       visitToPaidRate: rate(periodPaidUsers.size, uniqueVisitors)
@@ -228,12 +231,14 @@ export function buildAcquisitionDayDetail(data: AnalyticsData, dayUsers: Analyti
       return user ? [{ occurredAt: item.registeredAt.toISOString(), ...eventLink(item.lastLinkId), user }] : [];
     });
   const payments = [...firstPaidByUser.values()]
-    .filter((order) => order.paidAt && dateKey(order.paidAt) === date)
+    .filter((order): order is AnalyticsOrder & { paidAt: Date; amountRub: number; currency: "RUB" } =>
+      Boolean(order.paidAt) && dateKey(order.paidAt!) === date && order.currency === "RUB" && order.amountRub !== null
+    )
     .flatMap((order) => {
       const user = usersById.get(order.userId);
       if (!user) return [];
       const attribution = attributionByUser.get(order.userId);
-      return [{ occurredAt: order.paidAt!.toISOString(), amountRub: order.amountRub, ...eventLink(attribution?.lastLinkId ?? ""), user }];
+      return [{ occurredAt: order.paidAt.toISOString(), amountRub: order.amountRub, ...eventLink(attribution?.lastLinkId ?? ""), user }];
     });
   return { date, visits, registrations, payments };
 }
@@ -260,7 +265,7 @@ export function buildUserAcquisition(input: {
     registrationDelaySeconds: firstVisit ? Math.max(0, Math.round((registeredAt.getTime() - firstVisit.occurredAt.getTime()) / 1000)) : null,
     firstPaymentDelaySeconds: firstPaidAt ? Math.max(0, Math.round((firstPaidAt.getTime() - registeredAt.getTime()) / 1000)) : null,
     paidOrders: paidOrders.length,
-    revenueRub: paidOrders.reduce((sum, order) => sum + order.amountRub, 0),
+    revenueRub: paidOrders.reduce((sum, order) => sum + (order.currency === "RUB" ? order.amountRub ?? 0 : 0), 0),
     visits: sortedVisits.map((visit) => touch(links.get(visit.linkId), visit.occurredAt)).filter((item): item is AcquisitionTouch => Boolean(item)).reverse()
   };
 }
@@ -277,7 +282,7 @@ async function loadAnalyticsData(): Promise<AnalyticsData> {
     db.select({ id: acquisitionVisits.id, visitorHash: acquisitionVisitors.visitorHash, linkId: acquisitionVisits.linkId, userId: acquisitionVisits.userId, occurredAt: acquisitionVisits.occurredAt })
       .from(acquisitionVisits).innerJoin(acquisitionVisitors, eq(acquisitionVisits.visitorId, acquisitionVisitors.id)),
     db.select().from(userAcquisitionAttributions),
-    db.select({ userId: paymentOrders.userId, status: paymentOrders.status, amountRub: paymentOrders.amountRub, paidAt: paymentOrders.paidAt }).from(paymentOrders)
+    db.select({ userId: paymentOrders.userId, status: paymentOrders.status, amountRub: paymentOrders.amountRub, currency: paymentOrders.currency, paidAt: paymentOrders.paidAt }).from(paymentOrders)
   ]);
   return {
     links: linkRows.map((row) => ({
@@ -290,9 +295,10 @@ async function loadAnalyticsData(): Promise<AnalyticsData> {
     })),
     visits: visitRows,
     attributions: attributionRows.map((item) => ({ userId: item.userId, firstLinkId: item.firstLinkId, lastLinkId: item.lastLinkId, registeredAt: item.registeredAt })),
-    orders: orderRows
-      .filter((order) => order.amountRub !== null)
-      .map((order) => ({ ...order, amountRub: order.amountRub! }))
+    orders: orderRows.map((order) => ({
+      ...order,
+      currency: order.currency as AnalyticsOrder["currency"]
+    }))
   };
 }
 
