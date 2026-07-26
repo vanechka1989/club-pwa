@@ -76,19 +76,19 @@ git commit -m "test: add safe route CSS splitter"
 - Modify: `apps/web/src/features/admin/AdminSection.vue`
 - Modify: `apps/web/src/features/app/NotificationCenterScreen.vue`
 - Modify: `apps/web/src/features/community/CommunitySection.vue`
-- Create: `apps/web/src/features/app/routeCssOwnership.test.ts`
+- Create: `apps/web/scripts/routeCssOwnership.test.ts`
 
 **Interfaces:**
-- Each lazy section imports exactly its route CSS file.
+- The global stylesheet produces zero route-owned rules when passed through `splitRouteCss` after migration.
 - `styles.css` retains imports, global rules, mixed selectors and shared at-rules.
 
 - [ ] **Step 1: Write the failing ownership/build behavior test**
 
-The test runs the splitter against `styles.css`, asserts that each target route has extractable rules before migration, and asserts each lazy component imports its owned CSS file. It must fail before the imports and files exist.
+The test runs the splitter against the real `styles.css` and expects every route count to be zero. It fails before migration because route-owned rules are still present.
 
 - [ ] **Step 2: Verify RED**
 
-Run: `pnpm --filter @club/web exec vitest run src/features/app/routeCssOwnership.test.ts`
+Run: `pnpm --filter @club/web exec vitest run scripts/routeCssOwnership.test.ts`
 
 Expected: FAIL on missing route CSS ownership.
 
@@ -98,7 +98,7 @@ Invoke the splitter from a small CLI entry using the declared category map. Writ
 
 - [ ] **Step 4: Verify GREEN and production chunk ownership**
 
-Run: `pnpm --filter @club/web exec vitest run scripts/routeCssSplitter.test.ts src/features/app/routeCssOwnership.test.ts && pnpm --filter @club/web build`
+Run: `pnpm --filter @club/web exec vitest run scripts/routeCssSplitter.test.ts scripts/routeCssOwnership.test.ts && pnpm --filter @club/web build`
 
 Expected: tests and build pass; route CSS files are emitted as lazy chunks and absent from `dist/index.html`.
 
