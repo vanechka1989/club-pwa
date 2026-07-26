@@ -1760,6 +1760,26 @@ body.club-mobile-device .module-name-modal {
   grid-column: 1 / -1;
 }
 
+.module-editor-visibility {
+  display: inline-flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.module-editor-visibility-published {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  color: color-mix(in srgb, var(--warning) 82%, var(--text));
+}
+
 .module-editor-footer .ui-button {
   min-width: 0;
   min-height: 44px;

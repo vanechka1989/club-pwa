@@ -27,6 +27,8 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileText,
   Image,
   Maximize2,
@@ -3307,17 +3309,24 @@ watch(
               </div>
             </div>
 
-            <label class="admin-switch-row learning-publish-switch">
-              <input v-model="modulePublished" type="checkbox" aria-label="Опубликовать модуль" />
-              <span>Опубликовать модуль</span>
-            </label>
-
             <p v-if="moduleError" class="admin-error-text">{{ moduleError }}</p>
           </div>
       </section>
 
       <template #footer>
         <div class="module-editor-footer">
+          <button
+            class="module-editor-visibility ui-button"
+            :class="{ 'module-editor-visibility-published': modulePublished }"
+            type="button"
+            :aria-pressed="modulePublished"
+            :disabled="isSaving"
+            @click="modulePublished = !modulePublished"
+          >
+            <EyeOff v-if="modulePublished" class="h-4 w-4" aria-hidden="true" />
+            <Eye v-else class="h-4 w-4" aria-hidden="true" />
+            <span>{{ modulePublished ? "Скрыть модуль" : "Опубликовать модуль" }}</span>
+          </button>
           <div class="module-editor-secondary-actions">
             <button v-if="editingModule" class="secondary-button ui-button danger-action" type="button" :disabled="isSaving" @click="deleteModule">Удалить модуль</button>
             <button class="secondary-button ui-button" type="button" :disabled="isSaving" @click="closeModuleModal">Закрыть</button>

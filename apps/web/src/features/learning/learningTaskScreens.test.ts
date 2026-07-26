@@ -20,10 +20,14 @@ describe("learning task screens", () => {
   it("renders module create and edit actions in the routed screen footer", () => {
     expect(source).toContain('class="module-editor-content"');
     expect(source).toContain('class="module-editor-footer"');
+    expect(source).toContain('class="module-editor-visibility ui-button"');
+    expect(source).toContain('modulePublished ? "Скрыть модуль" : "Опубликовать модуль"');
+    expect(source).not.toContain('input v-model="modulePublished"');
     expect(source).toContain('class="module-editor-secondary-actions"');
     expect(source).toContain('class="primary-button ui-button module-editor-save"');
     expect(source).not.toContain('class="module-name-modal ui-card modal-size-compact"');
     expect(styles).toMatch(/\.module-editor-footer\s*\{[^}]*display:\s*grid;[^}]*gap:\s*8px;/s);
+    expect(styles).toMatch(/\.module-editor-visibility\s*\{[^}]*width:\s*100%;[^}]*min-height:\s*44px;/s);
     expect(styles).toMatch(/\.module-editor-save\s*\{[^}]*width:\s*100%;/s);
   });
 

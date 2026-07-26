@@ -849,12 +849,18 @@ describe("Learning section modules", () => {
     renderAsOwner();
 
     await fireEvent.click(screen.getByRole("button", { name: "Добавить модуль" }));
-    expect((screen.getByLabelText("Опубликовать модуль") as HTMLInputElement).checked).toBe(false);
+    const publishDraft = screen.getByRole("button", { name: "Опубликовать модуль" });
+    expect(publishDraft.getAttribute("aria-pressed")).toBe("false");
+    expect(publishDraft.closest(".task-screen-footer")).toBeTruthy();
     await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
 
     await enableModulesEditMode();
     await fireEvent.click(screen.getByRole("button", { name: "Редактировать Модуль 1" }));
-    expect((screen.getByLabelText("Опубликовать модуль") as HTMLInputElement).checked).toBe(true);
+    const hidePublished = screen.getByRole("button", { name: "Скрыть модуль" });
+    expect(hidePublished.getAttribute("aria-pressed")).toBe("true");
+    expect(hidePublished.closest(".task-screen-footer")).toBeTruthy();
+    await fireEvent.click(hidePublished);
+    expect(screen.getByRole("button", { name: "Опубликовать модуль" }).getAttribute("aria-pressed")).toBe("false");
     await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
 
     await openLessonCreator("Модуль 1");

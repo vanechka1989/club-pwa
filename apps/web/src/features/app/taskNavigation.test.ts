@@ -54,4 +54,10 @@ describe("task navigation", () => {
     expect(source).not.toContain('role="dialog"');
     expect(source).not.toContain('aria-modal="true"');
   });
+
+  it("starts every newly mounted routed task at the top", () => {
+    const source = readFileSync(resolve(__dirname, "TaskScreen.vue"), "utf8");
+    expect(source).toContain("layer.scrollTop = 0");
+    expect(source).toContain("taskBody.scrollTop = 0");
+  });
 });

@@ -24,6 +24,13 @@ onMounted(async () => {
 
   await nextTick();
   const layer = routeLayer.value?.$el instanceof HTMLElement ? routeLayer.value.$el : null;
+  if (layer) {
+    layer.scrollTop = 0;
+    const taskBody = layer.querySelector<HTMLElement>(".task-screen-body");
+    if (taskBody) {
+      taskBody.scrollTop = 0;
+    }
+  }
   releasePortalTaskLayer = activatePortalTaskLayer(layer);
 });
 
