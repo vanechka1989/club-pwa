@@ -93,6 +93,13 @@ describe("production security config", () => {
     }
   });
 
+  it("copies only the API production dependency tree into the runtime image", () => {
+    expect(apiDockerfile).toContain("pnpm --filter @club/api deploy --prod /app/deploy/apps/api");
+    expect(apiDockerfile).toContain("COPY --from=dependencies --chown=bun:bun /app/deploy/apps/api ./apps/api");
+    expect(apiDockerfile).not.toContain("/app/node_modules ./node_modules");
+    expect(apiDockerfile).not.toContain("/app/packages ./packages");
+  });
+
   it("repairs an existing upload volume before starting the non-root API", () => {
     for (const source of [productionCompose, scaleCompose, publicInstall]) {
       expect(source).toContain("uploads-permissions:");
