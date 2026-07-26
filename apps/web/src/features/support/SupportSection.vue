@@ -759,8 +759,8 @@ watch(
           </article>
         </div>
 
-        <div class="surface-card ui-card support-ticket-list">
-          <h3>{{ t("supportRequests") }}</h3>
+        <div class="support-ticket-list">
+          <h3 class="support-ticket-list-heading">{{ t("supportRequests") }}</h3>
           <button v-for="ticket in tickets" :key="ticket.id" class="support-admin-ticket" type="button" @click="openTicket(ticket.id)">
             <div class="support-admin-ticket-main">
               <span>{{ userName(ticket.customer) }}</span>

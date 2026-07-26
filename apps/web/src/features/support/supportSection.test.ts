@@ -383,12 +383,18 @@ describe("support section", () => {
     expect(latestRule("body.club-mobile-device .support-section .support-admin-board")).toMatch(/border-radius:\s*0/);
   });
 
-  it("uses the same readable card scale as the main mobile sections", () => {
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/min-height:\s*6\.25rem/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/padding:\s*1rem 1\.1rem/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket-main > span")).toMatch(/font-size:\s*1\.25rem/);
-    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket small,\nbody.club-mobile-device .support-section .support-admin-ticket em")).toMatch(/font-size:\s*1rem/);
-    expect(latestRule("body.club-mobile-device .support-section .support-status")).toMatch(/font-size:\s*0\.9375rem/);
+  it("renders customer requests as compact divided rows below a standalone heading", () => {
+    expect(source).toContain('class="support-ticket-list"');
+    expect(source).not.toContain('class="surface-card ui-card support-ticket-list"');
+    expect(source).toContain('class="support-ticket-list-heading"');
+    expect(latestRule(".support-section .support-ticket-list")).toMatch(/border:\s*0/);
+    expect(latestRule(".support-section .support-ticket-list")).toMatch(/background:\s*transparent/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/min-height:\s*64px/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/padding:\s*10px 4px/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/border-radius:\s*0/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/border-bottom:\s*1px solid var\(--border\)/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket-main > span")).toMatch(/font-size:\s*0\.9375rem/);
+    expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket small,\nbody.club-mobile-device .support-section .support-admin-ticket em")).toMatch(/font-size:\s*0\.75rem/);
   });
 
   it("shows an unread support badge in navigation", () => {

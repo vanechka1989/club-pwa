@@ -987,7 +987,7 @@ describe("App", () => {
       /body\.club-mobile-device \.support-admin-stats\s*\{[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-device \.support-admin-ticket\s*\{[\s\S]*padding: 0\.58rem;[\s\S]*border-radius: 18px;/
+      /body\.club-mobile-device \.support-section \.support-admin-ticket\s*\{[\s\S]*min-height: 64px;[\s\S]*padding: 10px 4px;[\s\S]*border-radius: 0;/
     );
   });
 
