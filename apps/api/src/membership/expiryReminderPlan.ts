@@ -68,11 +68,7 @@ function escapeHtml(value: string) {
   });
 }
 
-export function buildExpiryReminderMessage(
-  stage: ExpiryReminderStage,
-  expiresAt: Date,
-  renewalUrl = "/payments"
-) {
+export function buildExpiryReminderMessage(stage: ExpiryReminderStage, expiresAt: Date) {
   const date = expiryDateFormatter.format(expiresAt);
   const title =
     stage === "three-days"
@@ -80,13 +76,46 @@ export function buildExpiryReminderMessage(
       : stage === "one-day"
         ? "Доступ закончится завтра"
         : "Доступ заканчивается сегодня";
-  const body = `${title}. Доступ действует до ${date}. Продлите его, чтобы продолжить пользоваться клубом.`;
-  const safeUrl = escapeHtml(renewalUrl);
+  const body = `${title}. Доступ действует до ${date} Откройте приложение, чтобы выбрать вариант продления.`;
+  const emailText = `${title}\n\nДоступ действует до ${date}\n\nОткройте установленное приложение Club PWA, чтобы посмотреть доступные варианты продления.\n\nЭто системное уведомление.`;
+  const safeTitle = escapeHtml(title);
+  const safeDate = escapeHtml(date);
 
   return {
     title,
     body,
-    emailHtml: `<p>${escapeHtml(body)}</p><p><a href="${safeUrl}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#16cdb7;color:#06231f;text-decoration:none;font-weight:700">Продлить доступ</a></p>`
+    pwaHtml: `<p>${escapeHtml(body)}</p><p><a href="/payments">Открыть оплату в приложении</a></p>`,
+    emailText,
+    emailHtml: `<!doctype html>
+<html lang="ru">
+  <body style="margin:0;padding:0;background:#eef7f3;color:#16322c;font-family:Arial,Helvetica,sans-serif">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;background:#eef7f3;border-collapse:collapse">
+      <tr>
+        <td align="center" style="padding:24px 12px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #cfe4dc;border-radius:22px;border-collapse:separate;overflow:hidden">
+            <tr>
+              <td style="padding:24px 28px;background:#0d3b32;color:#ffffff">
+                <div style="font-size:12px;line-height:18px;letter-spacing:1.2px;text-transform:uppercase;color:#8ce9d8;font-weight:700">Club PWA · системное уведомление</div>
+                <div style="margin-top:8px;font-size:26px;line-height:32px;font-weight:800">${safeTitle}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px">
+                <div style="font-size:14px;line-height:20px;color:#678078">Дата окончания доступа</div>
+                <div style="margin-top:6px;padding:14px 16px;border-radius:14px;background:#e5faf5;color:#075e50;font-size:20px;line-height:26px;font-weight:800">${safeDate}</div>
+                <p style="margin:24px 0 0;font-size:16px;line-height:24px;color:#29443d">Чтобы продолжить пользоваться материалами клуба, откройте установленное приложение и выберите подходящий вариант продления.</p>
+                <div style="margin-top:22px;padding:14px 16px;border-left:4px solid #20cdb5;border-radius:10px;background:#f4faf8;color:#47645c;font-size:14px;line-height:21px">Откройте установленное приложение Club PWA. В этом письме специально нет кнопок и внешних ссылок.</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px;border-top:1px solid #e1eee9;color:#789087;font-size:12px;line-height:18px">Письмо отправлено автоматически. Отвечать на него не нужно.</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`
   };
 }
 

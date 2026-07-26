@@ -16,6 +16,16 @@ export const releaseNotes: ReleaseNote[] = [
     items: [...currentRelease.items]
   },
   {
+    version: "5.61",
+    updatedAt: "26.07.2026 01:56",
+    title: "Напоминания об окончании доступа",
+    items: [
+      "Клиенты автоматически получают напоминания за 3 дня, за 1 день и в день окончания доступа.",
+      "Напоминания приходят внутри приложения, через push и по email с кнопкой продления.",
+      "Часовая проверка учитывает продление доступа, восстанавливается после перезапуска и не создаёт повторных отправок."
+    ]
+  },
+  {
     version: "5.60",
     updatedAt: "26.07.2026 01:21",
     title: "Ключ webhook Lava всегда доступен",
@@ -4233,11 +4243,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Access expiry reminders",
+  title: "Polished emails without external links",
   items: [
-    "Clients are reminded three days before, one day before, and on the day their access expires.",
-    "Reminders are delivered in the app, by push, and by email with a renewal button.",
-    "The hourly worker handles renewed access and restarts without normal duplicate delivery."
+    "Access expiry emails now use a polished responsive card with the exact expiry date.",
+    "The renewal button and all external links were removed from email; renewal remains inside the installed app.",
+    "Push and in-app notifications still open the payment section in PWA."
   ]
 };
 

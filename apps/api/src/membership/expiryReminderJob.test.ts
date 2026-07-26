@@ -25,7 +25,6 @@ function dependencies(overrides: Partial<ExpiryReminderJobDependencies> = {}): E
     deliverPwa: vi.fn(async () => undefined),
     deliverPush: vi.fn(async () => undefined),
     deliverEmail: vi.fn(async () => undefined),
-    renewalUrl: "https://club.test/payments",
     ...overrides
   };
 }
@@ -39,6 +38,12 @@ describe("membership expiry reminder job", () => {
     expect(deps.deliverPwa).toHaveBeenCalledWith(expect.objectContaining({ deliveryId: "delivery-pwa", stage: "three-days" }));
     expect(deps.deliverPush).toHaveBeenCalledWith(expect.objectContaining({ deliveryId: "delivery-push", stage: "three-days" }));
     expect(deps.deliverEmail).toHaveBeenCalledWith(expect.objectContaining({ deliveryId: "delivery-email", email: "client@example.com" }));
+    expect(deps.deliverEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailText: expect.not.stringMatching(/https?:\/\//),
+        emailHtml: expect.not.stringContaining("href=")
+      })
+    );
   });
 
   it("re-checks the exact subscription before claiming any channel", async () => {

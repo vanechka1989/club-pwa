@@ -21,6 +21,8 @@ type DeliveryInput = ExpiryReminderCandidate & {
   stage: ExpiryReminderStage;
   title: string;
   body: string;
+  pwaHtml: string;
+  emailText: string;
   emailHtml: string;
 };
 
@@ -39,7 +41,6 @@ export type ExpiryReminderJobDependencies = {
   deliverPwa(input: DeliveryInput): Promise<void>;
   deliverPush(input: DeliveryInput): Promise<void>;
   deliverEmail(input: DeliveryInput & { email: string }): Promise<void>;
-  renewalUrl: string;
 };
 
 export type ExpiryReminderRunResult = {
@@ -65,7 +66,7 @@ export function createMembershipExpiryReminderRunner(deps: ExpiryReminderJobDepe
         continue;
       }
 
-      const message = buildExpiryReminderMessage(stage, candidate.expiresAt, deps.renewalUrl);
+      const message = buildExpiryReminderMessage(stage, candidate.expiresAt);
       const channels: ExpiryReminderChannel[] = candidate.email ? ["pwa", "push", "email"] : ["pwa", "push"];
 
       for (const channel of channels) {
@@ -101,11 +102,10 @@ export function createMembershipExpiryReminderRunner(deps: ExpiryReminderJobDepe
 }
 
 async function productionDependencies(): Promise<ExpiryReminderJobDependencies> {
-  const [drizzle, client, schema, envModule, ledger, push, email] = await Promise.all([
+  const [drizzle, client, schema, ledger, push, email] = await Promise.all([
     import("drizzle-orm"),
     import("../db/client"),
     import("../db/schema"),
-    import("../env"),
     import("./expiryReminderLedger"),
     import("../push/webPush"),
     import("../auth/emailDelivery")
@@ -115,7 +115,6 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
   const { subscriptions, users, appNotifications, userRecurrentSubscriptions } = schema;
 
   return {
-    renewalUrl: `${envModule.env.WEB_ORIGIN.replace(/\/+$/, "")}/payments`,
     async listCandidates(now) {
       const latestExpiry = new Date(now.getTime() + 4 * 24 * 60 * 60_000);
       const rows = await db
@@ -172,7 +171,7 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
         kind: "system",
         title: input.title,
         body: input.body,
-        bodyHtml: input.emailHtml,
+        bodyHtml: input.pwaHtml,
         source: "membership_expiry",
         sourceId: input.deliveryId
       });
@@ -184,7 +183,7 @@ async function productionDependencies(): Promise<ExpiryReminderJobDependencies> 
       await email.sendEmail({
         to: input.email,
         subject: input.title,
-        text: `${input.body}\n\nПродлить доступ: ${envModule.env.WEB_ORIGIN.replace(/\/+$/, "")}/payments`,
+        text: input.emailText,
         html: input.emailHtml,
         headers: { "X-Club-Delivery-ID": input.deliveryId },
         category: "transactional"

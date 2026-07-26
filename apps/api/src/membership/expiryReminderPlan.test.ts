@@ -21,12 +21,18 @@ describe("membership expiry reminder plan", () => {
     expect(getDueExpiryReminderStages(expiresAt, new Date("2026-08-01T17:00:00.000Z"))).toEqual([]);
   });
 
-  it("uses the exact expiry date and a renewal link in every channel", () => {
-    const message = buildExpiryReminderMessage("one-day", expiresAt, "https://club.test/payments");
+  it("keeps the renewal action inside PWA and renders email without links", () => {
+    const message = buildExpiryReminderMessage("one-day", expiresAt);
 
     expect(message.title).toBe("Доступ закончится завтра");
     expect(message.body).toContain("1 августа 2026 г.");
-    expect(message.emailHtml).toContain("https://club.test/payments");
-    expect(message.emailHtml).toContain("Продлить доступ");
+    expect(message.pwaHtml).toContain('href="/payments"');
+    expect(message.emailText).toContain("Откройте установленное приложение");
+    expect(message.emailHtml).toContain('role="presentation"');
+    expect(message.emailHtml).toContain("1 августа 2026 г.");
+    expect(message.emailHtml).toContain("Откройте установленное приложение");
+    expect(message.emailHtml).not.toContain("<a");
+    expect(message.emailHtml).not.toContain("href=");
+    expect(message.emailHtml).not.toMatch(/https?:\/\//);
   });
 });
