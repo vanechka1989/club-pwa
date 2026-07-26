@@ -33,10 +33,38 @@ describe("product binding mutation orchestration", () => {
     const result = await runProductBindingMutation({
       ...base,
       amountRub: 990,
+      catalogItems: [{ ...base.catalogItems[0]!, prices: [{ currency: "RUB" as const, amountMinor: 99000 }] }],
       bindings: [legacy],
       existingBindings: [legacy],
+      existingAmountRub: 990,
       transaction
     });
     expect(result).toEqual({ ok: true, value: [{ ...legacy, prices: [{ currency: "RUB", amountMinor: 99000, isEnabled: true }] }] });
+  });
+
+  it("rejects a changed editable legacy amount before entering the transaction", async () => {
+    const transaction = vi.fn();
+    const legacy = { ...lava, prices: [] };
+    const result = await runProductBindingMutation({
+      ...base, amountRub: 1200, bindings: [legacy], existingBindings: [legacy], existingAmountRub: 990, transaction
+    });
+    expect(result.ok).toBe(false);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a restored legacy RUB price when the current fixed catalog amount drifted", async () => {
+    const transaction = vi.fn();
+    const legacy = { ...lava, prices: [] };
+    const result = await runProductBindingMutation({
+      ...base,
+      amountRub: 990,
+      existingAmountRub: 990,
+      bindings: [legacy],
+      existingBindings: [legacy],
+      catalogItems: [{ ...base.catalogItems[0]!, prices: [{ currency: "RUB" as const, amountMinor: 100000 }] }],
+      transaction
+    });
+    expect(result.ok).toBe(false);
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

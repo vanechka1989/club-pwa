@@ -1442,6 +1442,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       providers: providers.map((provider) => ({ id: provider.id, provider: provider.provider as PaymentProviderCode })),
       catalogItems,
       amountRub: body.data.amountRub,
+      existingAmountRub: existingProduct.amountRub,
       existingBindings: existingProduct.providerBindings.map((binding) => ({
         provider: binding.provider.provider as PaymentProviderCode,
         enabled: binding.isEnabled,
