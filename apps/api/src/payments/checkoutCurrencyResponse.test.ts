@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { subscribeResponseSchema } from "@club/shared";
-import { checkoutCurrencyChoiceResponse, checkoutPreflightChoiceResponse } from "./checkoutCurrencyResponse";
+import { checkoutCurrencyChoiceResponse, checkoutPreflightChoiceResult } from "./checkoutCurrencyResponse";
 import { runCheckoutPreflight } from "./checkoutOrchestration";
 
 describe("checkout currency choice response", () => {
@@ -25,9 +25,11 @@ describe("checkout currency choice response", () => {
     });
     if (preflight.kind !== "choice") throw new Error("Expected a currency choice");
 
-    const response = checkoutPreflightChoiceResponse(preflight);
-    expect(response).not.toHaveProperty("options");
-    expect(response.currencyOptions).toEqual([
+    const result = checkoutPreflightChoiceResult(preflight);
+    expect(result.status).toBeGreaterThanOrEqual(200);
+    expect(result.status).toBeLessThan(300);
+    expect(result.body).not.toHaveProperty("options");
+    expect(result.body.currencyOptions).toEqual([
       { currency: "USD", amountMinor: 1999 },
       { currency: "EUR", amountMinor: 1750 }
     ]);

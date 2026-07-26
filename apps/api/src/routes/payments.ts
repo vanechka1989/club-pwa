@@ -61,7 +61,7 @@ import { productBindingPayloadSchema } from "../payments/productBindingPayload";
 import { mapPaymentProduct } from "../payments/productMapping";
 import { runProductBindingMutation } from "../payments/productMutationOrchestration";
 import { runCheckoutPreflight } from "../payments/checkoutOrchestration";
-import { checkoutCurrencyChoiceResponse, checkoutPreflightChoiceResponse } from "../payments/checkoutCurrencyResponse";
+import { checkoutCurrencyChoiceResponse, checkoutPreflightChoiceResult } from "../payments/checkoutCurrencyResponse";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -721,7 +721,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         return c.json({ checkoutUrl: null, message: "Цена товара в Lava изменилась. Обновите тариф." }, 409);
       }
       if (preflight.kind === "choice") {
-        return c.json(checkoutPreflightChoiceResponse(preflight), 400);
+        const response = checkoutPreflightChoiceResult(preflight);
+        return c.json(response.body, response.status);
       }
       if (preflight.kind === "unavailable") {
         return c.json({ checkoutUrl: null, message: "Выбранная валюта оплаты сейчас недоступна." }, 400);

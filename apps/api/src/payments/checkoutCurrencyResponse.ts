@@ -8,6 +8,9 @@ export function checkoutCurrencyChoiceResponse(currencyOptions: PaymentMoney[]):
   };
 }
 
-export function checkoutPreflightChoiceResponse(preflight: { kind: "choice"; options: PaymentMoney[] }): SubscribeResponse {
-  return checkoutCurrencyChoiceResponse(preflight.options);
+export function checkoutPreflightChoiceResult(preflight: { kind: "choice"; options: PaymentMoney[] }) {
+  return {
+    status: 200 as const,
+    body: checkoutCurrencyChoiceResponse(preflight.options)
+  };
 }
