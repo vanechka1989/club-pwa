@@ -1191,7 +1191,6 @@ export const paymentProvidersRelations = relations(paymentProviders, ({ one, man
   products: many(paymentProducts),
   productBindings: many(paymentProductProviderBindings),
   catalogItems: many(paymentProviderCatalogItems),
-  catalogItemPrices: many(paymentProviderCatalogItemPrices),
   orders: many(paymentOrders)
 }));
 

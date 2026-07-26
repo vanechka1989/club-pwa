@@ -66,6 +66,24 @@ describe("Lava tariff autofill", () => {
     expect(result.amountRub).toBeNull();
   });
 
+  it("clears the initial RUB price when the selected Lava offer is USD-only", () => {
+    const result = applyLavaCatalogItem(form, {
+      id: "catalog-usd",
+      externalProductId: "product-usd",
+      externalOfferId: "offer-usd",
+      title: "USD-only product",
+      kind: "one_time",
+      amountRub: null,
+      prices: [{ currency: "USD", amountMinor: 1999, periodicity: null }],
+      periodicity: null,
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-27T00:00:00.000Z"
+    });
+
+    expect(result.amountRub).toBeNull();
+  });
+
   it.each([
     ["MONTHLY", 30],
     ["PERIOD_90_DAYS", 90],

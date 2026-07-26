@@ -22,11 +22,12 @@ export function applyLavaCatalogItem(
   form: PaymentProductFormBasics,
   item: PaymentProviderCatalogItem
 ): PaymentProductFormBasics {
+  const hasForeignOnlyPrices = Boolean(item.prices?.length) && !item.prices?.some((price) => price.currency === "RUB");
   return {
     ...form,
     kind: item.kind,
     title: item.title,
-    amountRub: item.amountRub ?? form.amountRub,
+    amountRub: hasForeignOnlyPrices ? null : item.amountRub ?? form.amountRub,
     accessDays: lavaCatalogAccessDays(item.periodicity ?? null) ?? form.accessDays
   };
 }

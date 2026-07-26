@@ -550,7 +550,8 @@ async function handleSaveProduct() {
   error.value = null;
   try {
     const amountRub = productForm.value.amountRub;
-    if (amountRub === null) {
+    const hasEnabledProdamus = productForm.value.bindings.some((binding) => binding.provider === "prodamus" && binding.enabled);
+    if (amountRub === null && hasEnabledProdamus) {
       error.value = "Для сохранения тарифа укажите цену в рублях.";
       return;
     }

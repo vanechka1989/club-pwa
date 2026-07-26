@@ -41,6 +41,7 @@ describe("multicurrency payment database model", () => {
     const productRelations = schema.paymentProductsRelations as unknown as { config: (helpers: RelationHelpers) => Record<string, unknown> };
 
     expect(providerRelations.config(helpers)).not.toHaveProperty("productProviderPrices");
+    expect(providerRelations.config(helpers)).not.toHaveProperty("catalogItemPrices");
     expect(productRelations.config(helpers)).not.toHaveProperty("providerPrices");
   });
 });

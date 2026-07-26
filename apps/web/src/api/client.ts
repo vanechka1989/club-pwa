@@ -428,7 +428,7 @@ export function createPaymentProduct(payload: {
   title: string;
   description?: string | null;
   badgeLabel?: string | null;
-  amountRub: number;
+  amountRub: number | null;
   accessDays: number;
   prodamusSubscriptionId?: string | null;
   bindings?: PaymentProductProviderBinding[];
@@ -447,7 +447,7 @@ export function updatePaymentProduct(
     title: string;
     description?: string | null;
     badgeLabel?: string | null;
-    amountRub: number;
+    amountRub: number | null;
     accessDays: number;
     prodamusSubscriptionId?: string | null;
     bindings?: PaymentProductProviderBinding[];
