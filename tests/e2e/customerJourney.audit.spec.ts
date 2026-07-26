@@ -232,8 +232,39 @@ test("new customer installs, signs in, buys access, and returns active", async (
   await expect(page.getByRole("button", { name: "Модули" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Оплата" }).click();
-  await expect(page.getByText("Доступ на 30 дней", { exact: true })).toBeVisible();
+  const paymentTitle = page.getByText("Доступ на 30 дней", { exact: true });
+  await expect(paymentTitle).toBeVisible();
   await expect(page.getByText("500 ₽ · Доступ на 30 дн.", { exact: true })).toBeVisible();
+
+  if (testInfo.project.use.viewport?.width === 320) {
+    const titleLayout = await paymentTitle.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        whiteSpace: style.whiteSpace,
+        overflow: style.overflow,
+        textOverflow: style.textOverflow,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth
+      };
+    });
+    expect(titleLayout.whiteSpace).not.toBe("nowrap");
+    expect(titleLayout.overflow).not.toBe("hidden");
+    expect(titleLayout.textOverflow).not.toBe("ellipsis");
+    expect(titleLayout.scrollWidth).toBeLessThanOrEqual(titleLayout.clientWidth + 1);
+
+    const navLabels = page.locator(".bottom-nav-item > span:last-child");
+    expect(await navLabels.count()).toBeGreaterThan(0);
+    for (const label of await navLabels.all()) {
+      await expect(label).toBeVisible();
+      expect(await label.evaluate((element) => getComputedStyle(element).display)).not.toBe("none");
+    }
+    const navTargets = page.locator(".bottom-nav-item");
+    for (const target of await navTargets.all()) {
+      const box = await target.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+  }
   await page.screenshot({ path: testInfo.outputPath("03-tariff.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Оплатить" }).click();

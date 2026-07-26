@@ -1,7 +1,8 @@
 export function getRestoredContentArchiveValues({ publishedAt, now }: { publishedAt: Date | null; now: Date }) {
+  void publishedAt;
   return {
-    isPublished: true,
-    publishedAt: publishedAt ?? now,
+    isPublished: false,
+    publishedAt: null,
     archivedUntil: null,
     updatedAt: now
   };
