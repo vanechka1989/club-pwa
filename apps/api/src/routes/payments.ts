@@ -54,7 +54,7 @@ import { lavaWebhookUrls, mapPaymentProviderForAdmin } from "../payments/provide
 import { validateSingleEnabledPaymentBinding } from "../payments/paymentProductBindings";
 import { mapLavaCatalogItem } from "../payments/paymentCatalog";
 import { paymentProductMutationError } from "../payments/paymentProductMutation";
-import { isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "../payments/checkoutMoney";
+import { createCheckoutWithSnapshot, isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "../payments/checkoutMoney";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -658,57 +658,60 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
 
     const now = new Date();
     const orderId = `club-${randomUUID()}`;
-    const [order] = await db
-      .insert(paymentOrders)
-      .values({
-        userId: user.id,
-        productId: product.id,
-        providerId: selected.binding.provider.id,
-        status: "pending",
-        amountRub: money.currency === "RUB" && money.amountMinor % 100 === 0 ? money.amountMinor / 100 : null,
-        currency: money.currency,
-        amountMinor: money.amountMinor,
-        providerOrderId: orderId,
-        createdAt: now,
-        updatedAt: now
-      })
-      .returning();
-    if (!order) {
-      return c.json({ checkoutUrl: null, message: "Не удалось создать заказ." }, 500);
-    }
+    const created = { order: null as typeof paymentOrders.$inferSelect | null };
 
     try {
       const adapter = getPaymentProviderAdapter(selected.provider);
-      const checkout = await adapter.createCheckout({
-        credentials: providerCredentials(selected.binding.provider),
-        orderId: order.providerOrderId,
-        user: {
-          id: user.id,
-          telegramId: user.telegramId,
-          email: user.email
+      const checkout = await createCheckoutWithSnapshot({
+        snapshot: money,
+        createOrder: async (snapshot) => {
+          const [order] = await db
+            .insert(paymentOrders)
+            .values({
+              userId: user.id,
+              productId: product.id,
+              providerId: selected.binding.provider.id,
+              status: "pending",
+              ...snapshot,
+              providerOrderId: orderId,
+              createdAt: now,
+              updatedAt: now
+            })
+            .returning();
+          created.order = order ?? null;
+          return order ?? null;
         },
-        product: {
-          title: product.title,
-          amountRub: money.currency === "RUB" && money.amountMinor % 100 === 0 ? money.amountMinor / 100 : null,
-          currency: money.currency,
-          amountMinor: money.amountMinor,
-          useCustomAmount: selected.provider === "lava" && catalogPrice?.amountMinor === null,
-          kind: product.kind,
-          accessDays: product.accessDays,
-          externalProductId: selected.binding.externalProductId,
-          externalOfferId: selected.binding.externalOfferId
-        },
-        returnUrl: `${env.WEB_ORIGIN.replace(/\/$/, "")}/`,
-        notificationUrl: selected.provider === "lava"
-          ? `${env.WEB_ORIGIN.replace(/\/$/, "")}/api/payments/lava/webhook/payment`
-          : webhookUrl()
+        createAdapterCheckout: (order, snapshot) => adapter.createCheckout({
+          credentials: providerCredentials(selected.binding.provider),
+          orderId: order.providerOrderId,
+          user: {
+            id: user.id,
+            telegramId: user.telegramId,
+            email: user.email
+          },
+          product: {
+            title: product.title,
+            ...snapshot,
+            useCustomAmount: selected.provider === "lava" && catalogPrice?.amountMinor === null,
+            kind: product.kind,
+            accessDays: product.accessDays,
+            externalProductId: selected.binding.externalProductId,
+            externalOfferId: selected.binding.externalOfferId
+          },
+          returnUrl: `${env.WEB_ORIGIN.replace(/\/$/, "")}/`,
+          notificationUrl: selected.provider === "lava"
+            ? `${env.WEB_ORIGIN.replace(/\/$/, "")}/api/payments/lava/webhook/payment`
+            : webhookUrl()
+        }),
+        persistExternalOrderId: async (_order, externalOrderId) => {
+          if (!created.order) return;
+          await db
+            .update(paymentOrders)
+            .set({ externalOrderId, updatedAt: new Date() })
+            .where(eq(paymentOrders.id, created.order.id));
+        }
       });
-      if (checkout.externalOrderId) {
-        await db
-          .update(paymentOrders)
-          .set({ externalOrderId: checkout.externalOrderId, updatedAt: new Date() })
-          .where(eq(paymentOrders.id, order.id));
-      }
+      if (!checkout) return c.json({ checkoutUrl: null, message: "Не удалось создать заказ." }, 500);
       return c.json({
         checkoutUrl: checkout.checkoutUrl,
         message: `Откройте платежную страницу ${providerTitle(selected.provider)}.`
@@ -717,12 +720,14 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       logger.warn({
         code: error instanceof Error ? error.message : "PAYMENT_CHECKOUT_FAILED",
         provider: selected.provider,
-        orderId: order.providerOrderId
+        orderId: created.order?.providerOrderId ?? orderId
       }, "payment checkout creation failed");
-      await db
-        .update(paymentOrders)
-        .set({ status: "failed", updatedAt: new Date() })
-        .where(eq(paymentOrders.id, order.id));
+      if (created.order) {
+        await db
+          .update(paymentOrders)
+          .set({ status: "failed", updatedAt: new Date() })
+          .where(eq(paymentOrders.id, created.order.id));
+      }
       return c.json({ checkoutUrl: null, message: "Не удалось открыть оплату. Попробуйте ещё раз." }, 502);
     }
   })

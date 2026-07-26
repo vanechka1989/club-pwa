@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "./checkoutMoney";
+import { createCheckoutWithSnapshot, isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "./checkoutMoney";
 
 describe("checkout money resolution", () => {
   it("selects the requested enabled currency with its exact snapshot", () => {
@@ -47,5 +47,30 @@ describe("checkout money resolution", () => {
       { isStale: false, prices: [{ currency: "USD", amountMinor: null }] },
       { currency: "USD", amountMinor: 1999 }
     )).toBe(true);
+  });
+
+  it("persists the selected snapshot and passes that exact pair to the adapter", async () => {
+    const inserted: Array<{ currency: string; amountMinor: number; amountRub: number | null }> = [];
+    const adapterProducts: Array<{ currency: string; amountMinor: number; amountRub: number | null }> = [];
+    const result = await createCheckoutWithSnapshot({
+      snapshot: { currency: "USD", amountMinor: 1999 },
+      createOrder: async (snapshot) => {
+        inserted.push(snapshot);
+        return { providerOrderId: "club-order-1" };
+      },
+      createAdapterCheckout: async (order, snapshot) => {
+        expect(order.providerOrderId).toBe("club-order-1");
+        adapterProducts.push(snapshot);
+        return { checkoutUrl: "https://pay.example/checkout", externalOrderId: "lava-order-1" };
+      },
+      persistExternalOrderId: async (order, externalOrderId) => {
+        expect(order.providerOrderId).toBe("club-order-1");
+        expect(externalOrderId).toBe("lava-order-1");
+      }
+    });
+
+    expect(inserted).toEqual([{ currency: "USD", amountMinor: 1999, amountRub: null }]);
+    expect(adapterProducts).toEqual([{ currency: "USD", amountMinor: 1999, amountRub: null }]);
+    expect(result).toEqual({ checkoutUrl: "https://pay.example/checkout", externalOrderId: "lava-order-1" });
   });
 });

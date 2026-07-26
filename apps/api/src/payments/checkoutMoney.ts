@@ -41,3 +41,29 @@ export function isLavaCatalogPriceCurrent(
   const catalogPrice = catalogItem.prices.find((price) => price.currency === expected.currency);
   return catalogPrice !== undefined && (catalogPrice.amountMinor === null || catalogPrice.amountMinor === expected.amountMinor);
 }
+
+type CheckoutSnapshot = { currency: PaymentCurrency; amountMinor: number; amountRub: number | null };
+type CheckoutOrder = { providerOrderId: string };
+type AdapterCheckout = { checkoutUrl: string; externalOrderId: string | null };
+
+function snapshotWithLegacyRub(money: { currency: PaymentCurrency; amountMinor: number }): CheckoutSnapshot {
+  return {
+    currency: money.currency,
+    amountMinor: money.amountMinor,
+    amountRub: money.currency === "RUB" && money.amountMinor % 100 === 0 ? money.amountMinor / 100 : null
+  };
+}
+
+export async function createCheckoutWithSnapshot(input: {
+  snapshot: { currency: PaymentCurrency; amountMinor: number };
+  createOrder: (snapshot: CheckoutSnapshot) => Promise<CheckoutOrder | null>;
+  createAdapterCheckout: (order: CheckoutOrder, snapshot: CheckoutSnapshot) => Promise<AdapterCheckout>;
+  persistExternalOrderId: (order: CheckoutOrder, externalOrderId: string) => Promise<void>;
+}) {
+  const snapshot = snapshotWithLegacyRub(input.snapshot);
+  const order = await input.createOrder(snapshot);
+  if (!order) return null;
+  const checkout = await input.createAdapterCheckout(order, snapshot);
+  if (checkout.externalOrderId) await input.persistExternalOrderId(order, checkout.externalOrderId);
+  return checkout;
+}

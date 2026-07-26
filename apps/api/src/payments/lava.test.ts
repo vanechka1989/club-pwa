@@ -262,13 +262,38 @@ describe("Lava API client", () => {
     expect(event).toEqual(expect.objectContaining({
       provider: "lava",
       type: "payment_succeeded",
-      externalOrderId: "7ea82675-4ded-4133-95a7-a6efbaf165cc"
+      externalOrderId: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
+      currency: "RUB",
+      amountMinor: 99000
     }));
     expect(event).not.toHaveProperty("amountRub");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://gate.lava.top/api/v2/invoices/7ea82675-4ded-4133-95a7-a6efbaf165cc",
       expect.any(Object)
     );
+  });
+
+  it("normalizes a foreign-currency reconciliation amount without losing cents", async () => {
+    const client = createLavaClient({
+      apiKey: "api-key",
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
+        type: "INVOICE",
+        datetime: "2026-07-25T12:00:00.000Z",
+        status: "COMPLETED",
+        receipt: { amount: 19.99, currency: "usd" },
+        buyer: { email: "buyer@example.com" }
+      }), { status: 200, headers: { "content-type": "application/json" } }))
+    });
+
+    await expect(client.getOrderStatus?.({
+      credentials: { apiKey: "api-key" },
+      externalOrderId: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
+      productId: "product-1",
+      buyerEmail: "buyer@example.com",
+      currency: "USD",
+      amountMinor: 1999
+    })).resolves.toMatchObject({ currency: "USD", amountMinor: 1999 });
   });
 
   it("normalizes a cancelled subscription during reconciliation", async () => {

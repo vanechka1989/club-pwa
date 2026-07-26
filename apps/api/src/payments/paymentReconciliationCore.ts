@@ -1,8 +1,40 @@
+import type { PaymentCurrency } from "@club/shared";
+import type { NormalizedPaymentEvent, ProviderOrderStatusInput } from "./providerAdapter";
+
 export type ReconciliationSummary = {
   checked: number;
   corrected: number;
   failed: number;
 };
+
+type PendingLavaOrder = {
+  externalOrderId: string;
+  productId: string;
+  buyerEmail: string;
+  currency: PaymentCurrency;
+  amountMinor: number;
+};
+
+export async function reconcilePendingLavaOrders(input: {
+  providerId: string;
+  apiKey: string;
+  orders: PendingLavaOrder[];
+  getOrderStatus: (input: ProviderOrderStatusInput) => Promise<NormalizedPaymentEvent | null>;
+  processEvent: (event: NormalizedPaymentEvent, providerId: string) => Promise<"processed" | "duplicate" | "ignored">;
+}) {
+  return runBoundedReconciliation(input.orders, async (order) => {
+    const event = await input.getOrderStatus({
+      credentials: { apiKey: input.apiKey },
+      externalOrderId: order.externalOrderId,
+      productId: order.productId,
+      buyerEmail: order.buyerEmail,
+      currency: order.currency,
+      amountMinor: order.amountMinor
+    });
+    if (!event) return "unchanged";
+    return (await input.processEvent(event, input.providerId)) === "processed" ? "corrected" : "unchanged";
+  }, 4);
+}
 
 export async function runBoundedReconciliation<T>(
   items: T[],

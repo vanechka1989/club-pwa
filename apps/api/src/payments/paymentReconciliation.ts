@@ -5,8 +5,8 @@ import { logger } from "../logger";
 import { processPaymentEvent } from "./paymentEventProcessor";
 import { getPaymentProviderAdapter } from "./providerRegistry";
 import { decryptProviderSecret, encryptProviderSecret } from "./providerSecrets";
-import { runBoundedReconciliation, type ReconciliationSummary } from "./paymentReconciliationCore";
-export { runBoundedReconciliation, type ReconciliationSummary } from "./paymentReconciliationCore";
+import { reconcilePendingLavaOrders, runBoundedReconciliation, type ReconciliationSummary } from "./paymentReconciliationCore";
+export { reconcilePendingLavaOrders, runBoundedReconciliation, type ReconciliationSummary } from "./paymentReconciliationCore";
 
 async function encryptLegacyProviderSecrets() {
   const providers = await db.query.paymentProviders.findMany();
@@ -48,19 +48,19 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
   const adapter = getPaymentProviderAdapter("lava");
   if (!adapter.getOrderStatus) return { checked: 0, corrected: 0, failed: 0 };
 
-  const orderSummary = await runBoundedReconciliation(orders, async (order) => {
-    const event = await adapter.getOrderStatus!({
-      credentials: { apiKey: decryptProviderSecret(provider.apiKey!) },
+  const orderSummary = await reconcilePendingLavaOrders({
+    providerId: provider.id,
+    apiKey: decryptProviderSecret(provider.apiKey!),
+    orders: orders.map((order) => ({
       externalOrderId: order.externalOrderId!,
       productId: order.productId,
       buyerEmail: order.user.email ?? "",
       currency: order.currency,
       amountMinor: order.amountMinor
-    });
-    if (!event) return "unchanged";
-    const result = await processPaymentEvent(event, provider.id);
-    return result === "processed" ? "corrected" : "unchanged";
-  }, 4);
+    })),
+    getOrderStatus: (input) => adapter.getOrderStatus!(input),
+    processEvent: processPaymentEvent
+  });
   const recurrentSubscriptions = adapter.getSubscriptionEvents
     ? await db.query.userRecurrentSubscriptions.findMany({
         where: and(
