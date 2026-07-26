@@ -5,6 +5,9 @@ export function getExtendedAccessExpiry(now: Date, currentExpiry: Date | null, a
   return new Date(base.getTime() + accessDays * dayMs);
 }
 
-export function isPaymentAmountValid(expectedRub: number, actual: number, currency: string) {
-  return currency === "RUB" && Math.abs(expectedRub - actual) < 0.01;
+export function isPaymentAmountValid(
+  expected: { currency: string; amountMinor: number },
+  actual: { currency: string; amountMinor: number }
+) {
+  return expected.currency === actual.currency && expected.amountMinor === actual.amountMinor;
 }

@@ -56,7 +56,6 @@ export type ProviderOrderStatusInput = {
   externalOrderId: string;
   productId: string;
   buyerEmail: string;
-  amountRub: number;
 };
 
 export type ProviderSubscriptionStatusInput = Omit<ProviderOrderStatusInput, "externalOrderId"> & {
@@ -77,7 +76,6 @@ export type NormalizedPaymentEvent = {
   externalSubscriptionId: string | null;
   productId: string;
   buyerEmail: string;
-  amountRub: number;
   amountMinor: number;
   currency: PaymentCurrency;
   occurredAt: Date;

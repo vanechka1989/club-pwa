@@ -49,6 +49,23 @@ describe("Lava tariff autofill", () => {
     expect(result.accessDays).toBe(14);
   });
 
+  it("preserves a missing legacy RUB price instead of fabricating one", () => {
+    const result = applyLavaCatalogItem({ ...form, amountRub: null }, {
+      id: "catalog-3",
+      externalProductId: "product-3",
+      externalOfferId: "offer-3",
+      title: "USD-only product",
+      kind: "one_time",
+      amountRub: null,
+      periodicity: null,
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-27T00:00:00.000Z"
+    });
+
+    expect(result.amountRub).toBeNull();
+  });
+
   it.each([
     ["MONTHLY", 30],
     ["PERIOD_90_DAYS", 90],

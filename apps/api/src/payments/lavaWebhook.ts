@@ -109,7 +109,6 @@ export async function parseLavaWebhook(
     externalSubscriptionId: subscriptionId,
     productId: payload.product.id,
     buyerEmail: payload.buyer.email,
-    amountRub: payload.amount,
     amountMinor,
     currency: currency.data,
     occurredAt: new Date(payload.timestamp),

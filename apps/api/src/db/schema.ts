@@ -1190,7 +1190,6 @@ export const paymentProvidersRelations = relations(paymentProviders, ({ one, man
   }),
   products: many(paymentProducts),
   productBindings: many(paymentProductProviderBindings),
-  productProviderPrices: many(paymentProductProviderPrices),
   catalogItems: many(paymentProviderCatalogItems),
   catalogItemPrices: many(paymentProviderCatalogItemPrices),
   orders: many(paymentOrders)
@@ -1202,7 +1201,6 @@ export const paymentProductsRelations = relations(paymentProducts, ({ one, many 
     references: [paymentProviders.id]
   }),
   providerBindings: many(paymentProductProviderBindings),
-  providerPrices: many(paymentProductProviderPrices),
   orders: many(paymentOrders),
   recurrentSubscriptions: many(userRecurrentSubscriptions)
 }));

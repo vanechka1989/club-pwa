@@ -19,8 +19,13 @@ describe("normalized payment event decisions", () => {
   });
 
   it("requires the Lava webhook amount and currency to match the order", () => {
-    expect(isPaymentAmountValid(990, 990, "RUB")).toBe(true);
-    expect(isPaymentAmountValid(990, 991, "RUB")).toBe(false);
-    expect(isPaymentAmountValid(990, 990, "EUR")).toBe(false);
+    const matches = isPaymentAmountValid as unknown as (
+      expected: { currency: "RUB" | "USD" | "EUR"; amountMinor: number },
+      actual: { currency: "RUB" | "USD" | "EUR"; amountMinor: number }
+    ) => boolean;
+
+    expect(matches({ currency: "USD", amountMinor: 1999 }, { currency: "USD", amountMinor: 1999 })).toBe(true);
+    expect(matches({ currency: "USD", amountMinor: 1999 }, { currency: "USD", amountMinor: 2000 })).toBe(false);
+    expect(matches({ currency: "USD", amountMinor: 1999 }, { currency: "EUR", amountMinor: 1999 })).toBe(false);
   });
 });

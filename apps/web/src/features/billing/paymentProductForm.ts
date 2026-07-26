@@ -3,7 +3,7 @@ import type { PaymentProductKind, PaymentProviderCatalogItem } from "@club/share
 type PaymentProductFormBasics = {
   kind: PaymentProductKind;
   title: string;
-  amountRub: number;
+  amountRub: number | null;
   accessDays: number;
 };
 

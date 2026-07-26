@@ -72,7 +72,10 @@ export async function processPaymentEvent(
     if (!parentOrder) {
       throw new Error("PAYMENT_ORDER_NOT_READY");
     }
-    if (!isPaymentAmountValid(parentOrder.amountRub ?? 0, event.amountRub, event.currency)) {
+    if (!isPaymentAmountValid(
+      { currency: parentOrder.currency, amountMinor: parentOrder.amountMinor },
+      { currency: event.currency, amountMinor: event.amountMinor }
+    )) {
       throw new Error("PAYMENT_ORDER_AMOUNT_MISMATCH");
     }
 

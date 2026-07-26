@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import * as schema from "../db/schema";
 
+type RelationHelpers = {
+  one: () => { withFieldName: (name: string) => string };
+  many: () => { withFieldName: (name: string) => string };
+};
+
 describe("multicurrency payment database model", () => {
   it("defines an immutable currency and minor-unit snapshot for each order", () => {
     const orders = schema.paymentOrders as unknown as Record<string, { name?: string }>;
@@ -25,5 +30,17 @@ describe("multicurrency payment database model", () => {
     expect(bindingPrices?.currency?.name).toBe("currency");
     expect(bindingPrices?.amountMinor?.name).toBe("amount_minor");
     expect(bindingPrices?.isEnabled?.name).toBe("is_enabled");
+  });
+
+  it("relates prices through their binding rather than unrelated provider or product tables", () => {
+    const helpers: RelationHelpers = {
+      one: () => ({ withFieldName: (name: string) => name }),
+      many: () => ({ withFieldName: (name: string) => name })
+    };
+    const providerRelations = schema.paymentProvidersRelations as unknown as { config: (helpers: RelationHelpers) => Record<string, unknown> };
+    const productRelations = schema.paymentProductsRelations as unknown as { config: (helpers: RelationHelpers) => Record<string, unknown> };
+
+    expect(providerRelations.config(helpers)).not.toHaveProperty("productProviderPrices");
+    expect(productRelations.config(helpers)).not.toHaveProperty("providerPrices");
   });
 });

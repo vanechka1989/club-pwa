@@ -303,7 +303,6 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         externalSubscriptionId,
         productId: input.productId,
         buyerEmail: response.data.buyer.email || input.buyerEmail,
-        amountRub: response.data.receipt.amount,
         ...normalizeMoney(response.data.receipt.amount, response.data.receipt.currency),
         occurredAt: new Date(response.data.datetime),
         payload: {
@@ -335,7 +334,6 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
           externalSubscriptionId: response.data.id,
           productId: input.productId,
           buyerEmail: response.data.buyer.email,
-          amountRub: payment.amount,
           ...normalizeMoney(payment.amount, payment.currency),
           occurredAt: new Date(payment.datetime),
           payload: { source: "subscription_reconciliation", status: payment.status, paymentId: payment.id }
@@ -350,7 +348,6 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
           externalSubscriptionId: response.data.id,
           productId: input.productId,
           buyerEmail: response.data.buyer.email,
-          amountRub: response.data.receipt.amount,
           ...normalizeMoney(response.data.receipt.amount, response.data.receipt.currency),
           occurredAt: new Date(response.data.cancelledAt ?? response.data.datetime),
           payload: { source: "subscription_reconciliation", status: "CANCELLED" }

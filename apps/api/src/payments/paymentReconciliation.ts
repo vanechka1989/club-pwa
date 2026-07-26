@@ -53,8 +53,7 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
       credentials: { apiKey: decryptProviderSecret(provider.apiKey!) },
       externalOrderId: order.externalOrderId!,
       productId: order.productId,
-      buyerEmail: order.user.email ?? "",
-      amountRub: order.amountRub ?? 0
+      buyerEmail: order.user.email ?? ""
     });
     if (!event) return "unchanged";
     const result = await processPaymentEvent(event, provider.id);
@@ -79,8 +78,7 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
       credentials: { apiKey: decryptProviderSecret(provider.apiKey!) },
       externalSubscriptionId: subscription.externalSubscriptionId!,
       productId: subscription.productId,
-      buyerEmail: subscription.user.email ?? "",
-      amountRub: subscription.product.amountRub ?? 0
+      buyerEmail: subscription.user.email ?? ""
     });
     let corrected = false;
     for (const event of events) {

@@ -52,6 +52,7 @@ describe("Lava webhook", () => {
       currency: "USD",
       amountMinor: 1999
     });
+    expect(event).not.toHaveProperty("amountRub");
   });
 
   it.each([

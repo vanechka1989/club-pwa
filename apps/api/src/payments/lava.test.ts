@@ -193,8 +193,7 @@ describe("Lava API client", () => {
       credentials: { apiKey: "api-key" },
       externalOrderId: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
       productId: "product-1",
-      buyerEmail: "buyer@example.com",
-      amountRub: 990
+      buyerEmail: "buyer@example.com"
     });
 
     expect(event).toEqual(expect.objectContaining({
@@ -202,6 +201,7 @@ describe("Lava API client", () => {
       type: "payment_succeeded",
       externalOrderId: "7ea82675-4ded-4133-95a7-a6efbaf165cc"
     }));
+    expect(event).not.toHaveProperty("amountRub");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://gate.lava.top/api/v2/invoices/7ea82675-4ded-4133-95a7-a6efbaf165cc",
       expect.any(Object)
@@ -225,8 +225,7 @@ describe("Lava API client", () => {
       credentials: { apiKey: "api-key" },
       externalSubscriptionId: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
       productId: "product-1",
-      buyerEmail: "buyer@example.com",
-      amountRub: 990
+      buyerEmail: "buyer@example.com"
     });
 
     expect(events).toEqual([

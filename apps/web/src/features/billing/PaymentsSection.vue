@@ -99,7 +99,7 @@ const productForm = ref({
   kind: "one_time" as "one_time" | "recurrent",
   title: "",
   badgeLabel: "",
-  amountRub: 990,
+  amountRub: 990 as number | null,
   accessDays: 30,
   prodamusSubscriptionId: "",
   bindings: [
@@ -344,7 +344,7 @@ function setProductForm(product?: PaymentProduct) {
       kind: product.kind,
       title: product.title,
       badgeLabel: product.badgeLabel ?? "",
-      amountRub: product.amountRub ?? 990,
+      amountRub: product.amountRub,
       accessDays: product.accessDays,
       prodamusSubscriptionId: product.prodamusSubscriptionId ?? "",
       bindings: (product.bindings ?? []).length ? (product.bindings ?? []).map((binding) => ({ ...binding })) : [
@@ -549,9 +549,15 @@ async function handleSaveProduct() {
   saving.value = true;
   error.value = null;
   try {
+    const amountRub = productForm.value.amountRub;
+    if (amountRub === null) {
+      error.value = "Для сохранения тарифа укажите цену в рублях.";
+      return;
+    }
     const prodamusBinding = productForm.value.bindings.find((binding) => binding.provider === "prodamus");
     const payload = {
       ...productForm.value,
+      amountRub,
       description: null,
       badgeLabel: productForm.value.badgeLabel.trim() || null,
       prodamusSubscriptionId: productForm.value.kind === "recurrent"
@@ -861,7 +867,8 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               <p class="payment-product-title">{{ product.title }}</p>
             </div>
             <div class="payment-product-details">
-              <p class="payment-product-meta">{{ formatMoney(product.amountRub ?? 0) }} · {{ productPeriod(product) }}</p>
+              <p v-if="product.amountRub !== null" class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
+              <p v-else class="payment-product-meta">Цена уточняется · {{ productPeriod(product) }}</p>
               <span v-if="product.badgeLabel" class="payment-product-badge">{{ product.badgeLabel }}</span>
             </div>
           </div>
@@ -961,7 +968,8 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       <article v-for="product in hiddenProducts" :key="product.id" class="flex items-center justify-between gap-3 rounded-[18px] bg-[var(--field)] p-4">
         <div>
           <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
-          <p class="text-sm text-[var(--muted)]">{{ formatMoney(product.amountRub ?? 0) }} · {{ productPeriod(product) }}</p>
+          <p v-if="product.amountRub !== null" class="text-sm text-[var(--muted)]">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
+          <p v-else class="text-sm text-[var(--muted)]">Цена уточняется · {{ productPeriod(product) }}</p>
         </div>
         <div class="flex gap-2">
           <button class="icon-button ui-icon-button" type="button" aria-label="Открыть тариф" @click="handleToggleProduct(product)">
