@@ -16,9 +16,9 @@ const attributions = [
   { userId: "u2", firstLinkId: "a", lastLinkId: "a", registeredAt: new Date("2026-07-21T13:00:00Z") }
 ];
 const orders = [
-  { userId: "u1", status: "paid", amountRub: 1000, currency: "RUB" as const, paidAt: new Date("2026-07-22T10:00:00Z") },
-  { userId: "u1", status: "paid", amountRub: 500, currency: "RUB" as const, paidAt: new Date("2026-07-23T10:00:00Z") },
-  { userId: "u2", status: "pending", amountRub: 900, currency: "RUB" as const, paidAt: null }
+  { userId: "u1", status: "paid", amountRub: 1000, amountMinor: 100000, currency: "RUB" as const, paidAt: new Date("2026-07-22T10:00:00Z") },
+  { userId: "u1", status: "paid", amountRub: 500, amountMinor: 50000, currency: "RUB" as const, paidAt: new Date("2026-07-23T10:00:00Z") },
+  { userId: "u2", status: "pending", amountRub: 900, amountMinor: 90000, currency: "RUB" as const, paidAt: null }
 ];
 
 describe("acquisition analytics aggregation", () => {
@@ -45,14 +45,47 @@ describe("acquisition analytics aggregation", () => {
       {
         links: [linkA, linkB], visits, attributions,
         orders: [
-          { userId: "u1", status: "paid", amountRub: 1500, currency: "RUB", paidAt: new Date("2026-07-22T10:00:00Z") },
-          { userId: "u1", status: "paid", amountRub: 1999, currency: "USD", paidAt: new Date("2026-07-23T10:00:00Z") }
+          { userId: "u1", status: "paid", amountRub: 1500, amountMinor: 150000, currency: "RUB", paidAt: new Date("2026-07-22T10:00:00Z") },
+          { userId: "u1", status: "paid", amountRub: null, amountMinor: 1999, currency: "USD", paidAt: new Date("2026-07-23T10:00:00Z") }
         ]
       },
       { attribution: "last", from: null, to: null, origin: "https://club.example" }
     );
     expect(dashboard.summary.revenueRub).toBe(1500);
     expect(dashboard.sources.find((row) => row.key === "vk")?.revenueRub).toBe(1500);
+  });
+
+  it("counts paid RUB kopeks from the exact order snapshot", () => {
+    const fractionalOrder = {
+      userId: "u1",
+      status: "paid",
+      amountRub: null,
+      amountMinor: 9999,
+      currency: "RUB" as const,
+      paidAt: new Date("2026-07-22T10:00:00Z")
+    };
+    const data = { links: [linkA, linkB], visits, attributions, orders: [fractionalOrder] };
+    const dashboard = buildAcquisitionDashboard(
+      data,
+      { attribution: "last", from: null, to: null, origin: "https://club.example" }
+    );
+    const client = buildUserAcquisition({
+      user: { id: "u1", createdAt: new Date("2026-07-21T12:00:00Z") },
+      links: [linkA, linkB],
+      visits: visits.filter((visit) => visit.userId === "u1"),
+      attribution: attributions[0]!,
+      orders: [fractionalOrder]
+    });
+    const detail = buildAcquisitionDayDetail(
+      data,
+      [{ id: "u1", telegramId: "1001", displayName: "Иван", firstName: "Иван", username: "ivan" }],
+      "2026-07-22"
+    );
+
+    expect(dashboard.summary.revenueRub).toBe(99.99);
+    expect(dashboard.sources.find((row) => row.key === "vk")?.revenueRub).toBe(99.99);
+    expect(client.revenueRub).toBe(99.99);
+    expect(detail.payments[0]?.amountRub).toBe(99.99);
   });
 
   it("omits empty UTM values from generated URLs", () => {
