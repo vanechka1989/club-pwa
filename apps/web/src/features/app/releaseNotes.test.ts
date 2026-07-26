@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes safe module drafts and restores as version 5.63", () => {
-    expect(appVersion).toBe("5.63");
-    expect(releaseNotes[0]?.title).toBe("Безопасные черновики и восстановление модулей");
+  it("publishes compact full-width UI fixes as version 5.64", () => {
+    expect(appVersion).toBe("5.64");
+    expect(releaseNotes[0]?.title).toBe("Исправлен колокольчик и расширена рабочая область");
+
+    const moduleDraftRelease = releaseNotes.find((note) => note.version === "5.63");
+    expect(moduleDraftRelease?.title).toBe("Безопасные черновики и восстановление модулей");
 
     const linkFreeEmailRelease = releaseNotes.find((note) => note.version === "5.62");
     expect(linkFreeEmailRelease?.title).toBe("Красивые письма без внешних ссылок");
