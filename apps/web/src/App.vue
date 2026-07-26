@@ -45,6 +45,7 @@ import { clearPaymentWatch, isOrderWithinPaymentWatch, readPaymentWatch } from "
 import { useI18n } from "@/features/app/i18n";
 import { useInterfaceLocalization } from "@/features/app/interfaceLocalization";
 import { mobilePrimaryNavIds, navItems, type AppSection } from "@/features/app/navigation";
+import { installNativeContextMenuGuard } from "@/features/app/nativeContextMenu";
 import { isTaskPath, sectionFromPath, sectionPath } from "@/features/app/taskNavigation";
 import { hasPortalTaskLayer } from "@/features/app/taskLayerRegistry";
 import { isInstalledPwaDisplay } from "@/features/app/pwaDisplay";
@@ -91,6 +92,7 @@ const supportClientTicketId = computed(() =>
 );
 let desktopLayoutQuery: MediaQueryList | null = null;
 let removeDesktopLayoutListener: (() => void) | null = null;
+let removeNativeContextMenuGuard: (() => void) | null = null;
 let paymentWatchTimer: number | null = null;
 let appStateTimer: number | null = null;
 let appStateRefreshPromise: Promise<void> | null = null;
@@ -736,6 +738,7 @@ async function sendDeviceDiagnostics() {
 }
 
 onMounted(() => {
+  removeNativeContextMenuGuard = installNativeContextMenuGuard(document);
   isAppMounted = true;
   void captureAcquisitionLanding(window.location.search, window.localStorage, recordAcquisitionVisit).then((destination) => {
     if (destination && session.user) void router.push(getPostAuthDestinationPath(destination));
@@ -840,6 +843,8 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  removeNativeContextMenuGuard?.();
+  removeNativeContextMenuGuard = null;
   isAppMounted = false;
   syncCommunityLock(false);
   window.visualViewport?.removeEventListener("resize", scheduleViewportHeightSync);

@@ -153,6 +153,33 @@ describe("App", () => {
     expect(await screen.findByRole("button", { name: "Получить код" })).toBeTruthy();
   });
 
+  it("suppresses native context menus outside editable controls for the app lifetime", async () => {
+    const { unmount } = render(App, {
+      global: {
+        plugins: [createPinia(), router]
+      }
+    });
+    const button = await screen.findByRole("button", { name: "Получить код" });
+    const emailField = screen.getByRole("textbox", { name: "Email" });
+    const buttonMenu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    const fieldMenu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+
+    button.dispatchEvent(buttonMenu);
+    emailField.dispatchEvent(fieldMenu);
+
+    expect(buttonMenu.defaultPrevented).toBe(true);
+    expect(fieldMenu.defaultPrevented).toBe(false);
+
+    unmount();
+    const detachedButton = document.createElement("button");
+    document.body.append(detachedButton);
+    const menuAfterUnmount = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    detachedButton.dispatchEvent(menuAfterUnmount);
+
+    expect(menuAfterUnmount.defaultPrevented).toBe(false);
+    detachedButton.remove();
+  });
+
   it("uses one install surface before login", async () => {
     stubStandaloneDisplay(false);
     render(App, {
