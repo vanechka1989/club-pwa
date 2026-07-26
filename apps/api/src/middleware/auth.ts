@@ -11,6 +11,7 @@ import { logger } from "../logger";
 import { getTrustedClientIp } from "../security/clientIp";
 import { recordLoginIpChange } from "../security/loginIpAudit";
 import { sessionActivityRefreshMs, shouldRefreshSessionActivity } from "./sessionActivity";
+import { canAuthenticateWithoutPwaHeader } from "./authPolicy";
 
 export const sessionCookieName = "club_session";
 
@@ -35,8 +36,9 @@ const previewModeSchema = z.enum(["developer", "admin", "member-active", "member
 type PreviewMode = z.infer<typeof previewModeSchema>;
 
 export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
+  const canUseCookieOnly = canAuthenticateWithoutPwaHeader(c.req.path, c.req.query("pwa"));
   const isCommunityEventStream = c.req.path === "/community/events" && c.req.query("pwa") === "1";
-  if (!hasPwaStandaloneAuthHeader(c.req.header(pwaStandaloneAuthHeaderName)) && !isCommunityEventStream) {
+  if (!hasPwaStandaloneAuthHeader(c.req.header(pwaStandaloneAuthHeaderName)) && !canUseCookieOnly) {
     return c.json({ error: pwaInstallRequiredMessage }, 403);
   }
 

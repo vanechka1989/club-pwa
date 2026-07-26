@@ -3,9 +3,10 @@ import baseConfig from "./playwright.config";
 
 export default defineConfig({
   ...baseConfig,
-  grep: /keeps core sections inside the mobile viewport|keeps application page headers aligned|does not double-scroll iPhone support composers/,
+  grep: /keeps core sections inside the mobile viewport|keeps application page headers aligned|does not double-scroll iPhone support composers|opens payment admin task screens when their URLs are loaded directly|keeps design theme independent from day and night mode/,
   projects: [
+    { name: "release-desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "release-android", use: { ...devices["Pixel 7"] } },
-    { name: "ios-safari-webkit", use: { ...devices["iPhone 15"] } }
+    { name: "ios-safari-webkit", use: { ...devices["iPhone 15"], browserName: "webkit" as const } }
   ]
 });

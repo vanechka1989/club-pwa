@@ -1,4 +1,4 @@
-const cacheName = "club-pwa-v231";
+const cacheName = "club-pwa-v232";
 const appShell = ["/manifest.webmanifest", "/icons/icon.svg", "/offline.html"];
 
 self.addEventListener("install", (event) => {
@@ -45,7 +45,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (request.url.includes("/assets/")) {
+        if (response.ok && url.origin === self.location.origin && url.pathname.startsWith("/assets/")) {
           const copy = response.clone();
           caches.open(cacheName).then((cache) => cache.put(request, copy));
         }

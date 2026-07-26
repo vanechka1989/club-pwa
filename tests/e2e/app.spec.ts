@@ -426,6 +426,7 @@ async function mockApi(page: Page, sessionUser = currentUser) {
               prodamusSubscriptionId: null,
               isPublished: true,
               archivedUntil: null,
+              bindings: [],
               createdAt: now,
               updatedAt: now
             },
@@ -440,6 +441,7 @@ async function mockApi(page: Page, sessionUser = currentUser) {
               prodamusSubscriptionId: null,
               isPublished: true,
               archivedUntil: null,
+              bindings: [],
               createdAt: now,
               updatedAt: now
             }
@@ -447,6 +449,21 @@ async function mockApi(page: Page, sessionUser = currentUser) {
           recurrentSubscriptions: []
         })
       );
+      return;
+    }
+
+    if (path === "/payments/admin/provider") {
+      await route.fulfill(json({ provider: null, webhookUrl: "https://club.example/api/payments/prodamus/webhook" }));
+      return;
+    }
+
+    if (path === "/payments/admin/providers") {
+      await route.fulfill(json({ providers: [], lavaWebhookUrls: null }));
+      return;
+    }
+
+    if (path === "/payments/admin/providers/lava/catalog") {
+      await route.fulfill(json({ items: [] }));
       return;
     }
 
@@ -1976,6 +1993,16 @@ test("opens admin task screens when their URLs are loaded directly", async ({ pa
   await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
 });
 
+test("opens payment admin task screens when their URLs are loaded directly", async ({ page }) => {
+  await page.goto("/payments/provider");
+  await expect(page).toHaveURL(/\/payments\/provider$/);
+  await expect(page.locator(".payment-task-screen .task-screen")).toBeVisible();
+
+  await page.goto("/payments/plans/new");
+  await expect(page).toHaveURL(/\/payments\/plans\/new$/);
+  await expect(page.locator(".payment-task-screen .task-screen")).toBeVisible();
+});
+
 test("keeps routed task screens full width in wide mobile PWA viewports", async ({ page }, testInfo) => {
   test.skip(!wideMobilePwaRouteAuditProjects.has(testInfo.project.name));
   test.setTimeout(120_000);
@@ -2106,8 +2133,7 @@ test("keeps the desktop fallback aligned with the mobile-only product mode", asy
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/profile");
-  await expect(page.getByRole("dialog", { name: "Приложение оптимизировано для телефона" })).toBeVisible();
-  await continuePastDeviceNotice(page);
+  await expect(page.getByRole("dialog", { name: "Приложение оптимизировано для телефона" })).toHaveCount(0);
 
   const sidebar = page.locator(".desktop-sidebar");
   await expect(sidebar).toHaveCount(0);
@@ -2159,9 +2185,8 @@ test("captures PWA UI foundation screenshots for audited routes", async ({ page 
 });
 
 test("keeps design theme independent from day and night mode", async ({ page }) => {
+  test.setTimeout(60_000);
   const root = page.locator("html");
-  const dayButton = page.getByRole("button", { name: "День", exact: true });
-  const nightButton = page.getByRole("button", { name: "Ночь", exact: true });
   const designThemes = [
     { name: /Dark Soft Touch Premium/, value: "dark-soft-touch", lightBg: "#eef4fb", darkBg: "#080d16" },
     { name: /Graphite \+ Electric Blue/, value: "graphite-electric-blue", lightBg: "#eef3f9", darkBg: "#070b12" },
@@ -2171,17 +2196,19 @@ test("keeps design theme independent from day and night mode", async ({ page }) 
   ] as const;
 
   for (const designTheme of designThemes) {
-    const designThemeButton = page.getByRole("button", { name: designTheme.name });
-    await expect(designThemeButton).toHaveCount(1);
-    await designThemeButton.scrollIntoViewIfNeeded();
-    await designThemeButton.click();
-    await expect(root).toHaveAttribute("data-design-theme", designTheme.value);
-
     for (const mode of [
-      { value: "light", button: dayButton, expectedBg: designTheme.lightBg },
-      { value: "dark", button: nightButton, expectedBg: designTheme.darkBg }
+      { value: "light", buttonName: "День", expectedBg: designTheme.lightBg },
+      { value: "dark", buttonName: "Ночь", expectedBg: designTheme.darkBg }
     ] as const) {
-      await mode.button.click();
+      await page.goto("/profile");
+      await page.getByRole("button", { name: /Оформление/ }).click();
+      await expect(page.locator(".profile-detail-task-screen .task-screen")).toBeVisible();
+      const designThemeButton = page.getByRole("button", { name: designTheme.name });
+      await expect(designThemeButton).toHaveCount(1);
+      await designThemeButton.scrollIntoViewIfNeeded();
+      await designThemeButton.click();
+      await expect(root).toHaveAttribute("data-design-theme", designTheme.value);
+      await page.getByRole("button", { name: mode.buttonName, exact: true }).click();
       await expect(root).toHaveAttribute("data-theme", mode.value);
       await expect(root).toHaveAttribute("data-design-theme", designTheme.value);
       const tokens = await page.evaluate(() => {
@@ -2876,7 +2903,7 @@ test("matches full visual baselines for key screens", async ({ page }, testInfo)
   await expectStableScreenshot(page, "profile");
 
   if (testInfo.project.name === "desktop-chrome") {
-    await expect(page.locator(".device-mode-notice-backdrop")).toBeVisible();
+    await expect(page.locator(".device-mode-notice-backdrop")).toHaveCount(0);
     return;
   }
 

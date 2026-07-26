@@ -10,6 +10,7 @@ import { env } from "../env";
 import { logger } from "../logger";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
+import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
 import { createAppNotification } from "../notifications/create";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
@@ -315,6 +316,7 @@ async function notifyAdminsAboutCustomerMessage(ticket: NonNullable<Awaited<Retu
 
 export const supportRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
+  .use("*", persistentWriteRateLimit)
   .get("/", async (c) => {
     await cleanupExpiredSupportAttachments();
     const userId = c.get("userId");
@@ -324,11 +326,13 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     const tickets = await db.query.supportTickets.findMany({
       where: eq(supportTickets.userId, userId),
       orderBy: [desc(supportTickets.updatedAt)],
+      limit: 100,
       with: {
         user: true,
         closedBy: true,
         messages: {
           orderBy: [asc(supportTicketMessages.createdAt)],
+          limit: 200,
           with: {
             author: true,
             attachments: true
@@ -582,11 +586,13 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
 
     const tickets = await db.query.supportTickets.findMany({
       orderBy: [desc(supportTickets.updatedAt)],
+      limit: 100,
       with: {
         user: true,
         closedBy: true,
         messages: {
           orderBy: [asc(supportTicketMessages.createdAt)],
+          limit: 200,
           with: {
             author: true,
             attachments: true

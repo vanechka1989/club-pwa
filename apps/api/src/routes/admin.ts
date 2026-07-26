@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gt, inArray, isNotNull, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { randomUUID } from "node:crypto";
 import { statfs, unlink } from "node:fs/promises";
@@ -37,7 +37,7 @@ import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } fro
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildMessageAuthor } from "../community/messageMetadata";
-import { resolvePollEndedAt, summarizePollStatistics } from "../community/pollStats";
+import { resolvePollEndedAt } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
 import { db } from "../db/client";
@@ -53,6 +53,7 @@ import {
   clubMessageAttachments,
   clubChatMessages,
   clubPolls,
+  clubPollVotes,
   contentCategories,
   contentItems,
   idempotencyOperations,
@@ -2108,42 +2109,57 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   })
   .get("/stats", async (c) => {
     const totalItems = await getPublishedItemsCount();
-    const [usersCountRow] = await db.select({ value: count(users.id) }).from(users);
-    const recentUsers = await db.query.users.findMany({
-      orderBy: (table, { desc }) => [desc(table.updatedAt)],
-      limit: 200
-    });
-    const communityMessages = await db.query.clubChatMessages.findMany({
-      orderBy: (table, { desc }) => [desc(table.createdAt)],
-      limit: 10000,
-      with: {
-        user: true,
-        topic: true
-      }
-    });
-    const pollRecords = await db.query.clubPolls.findMany({
-      orderBy: (table, { desc }) => [desc(table.createdAt)],
-      with: {
-        message: { with: { topic: true, user: true } },
-        options: true,
-        votes: true
-      }
-    });
     const now = new Date();
-    const pollSummaryInput = pollRecords.map((poll) => ({
-      id: poll.id,
-      closed: Boolean(poll.closedAt || (poll.closesAt && poll.closesAt <= now)),
-      voterIds: Array.from(new Set(poll.votes.map((vote) => vote.userId))),
-      votesCount: poll.votes.length
-    }));
-    const pollSummary = summarizePollStatistics(pollSummaryInput, usersCountRow?.value ?? 0);
+    const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], [pollCountRow], [activePollCountRow], [pollVoteStatsRow], recentUsers, communityMessages, pollRecords] = await Promise.all([
+      db.select({ value: count(users.id) }).from(users),
+      db
+        .select({ value: countDistinct(subscriptions.userId) })
+        .from(subscriptions)
+        .where(and(eq(subscriptions.status, "active"), or(isNull(subscriptions.expiresAt), gt(subscriptions.expiresAt, now)))),
+      db
+        .select({ value: count(userContentProgress.id) })
+        .from(userContentProgress)
+        .where(isNotNull(userContentProgress.completedAt)),
+      db.select({ value: count(clubPolls.id) }).from(clubPolls),
+      db
+        .select({ value: count(clubPolls.id) })
+        .from(clubPolls)
+        .where(and(isNull(clubPolls.closedAt), or(isNull(clubPolls.closesAt), gt(clubPolls.closesAt, now)))),
+      db.select({ totalVotes: count(clubPollVotes.id), uniqueParticipants: countDistinct(clubPollVotes.userId) }).from(clubPollVotes),
+      db.query.users.findMany({
+        orderBy: (table, { desc }) => [desc(table.updatedAt)],
+        limit: 200
+      }),
+      db.query.clubChatMessages.findMany({
+        orderBy: (table, { desc }) => [desc(table.createdAt)],
+        limit: 2000,
+        with: { user: true, topic: true }
+      }),
+      db.query.clubPolls.findMany({
+        orderBy: (table, { desc }) => [desc(table.createdAt)],
+        limit: 500,
+        with: { message: { with: { topic: true, user: true } }, options: true, votes: true }
+      })
+    ]);
+    const totalPolls = pollCountRow?.value ?? 0;
+    const activePolls = activePollCountRow?.value ?? 0;
+    const uniqueParticipants = pollVoteStatsRow?.uniqueParticipants ?? 0;
+    const eligibleUsers = usersCountRow?.value ?? 0;
+    const pollSummary = {
+      totalPolls,
+      activePolls,
+      closedPolls: Math.max(0, totalPolls - activePolls),
+      uniqueParticipants,
+      totalVotes: pollVoteStatsRow?.totalVotes ?? 0,
+      participationPercent: eligibleUsers ? Math.round((uniqueParticipants / eligibleUsers) * 100) : 0
+    };
     const acquisitionByUserId = await getClientAcquisitionSummaries(recentUsers.map((user) => user.id));
     const statsUsers = await Promise.all(recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId)));
 
     return c.json({
       totalUsers: usersCountRow?.value ?? statsUsers.length,
-      activeUsers: statsUsers.filter((user) => user.membershipStatus === "active").length,
-      completedItems: statsUsers.reduce((sum, user) => sum + user.completedItems, 0),
+      activeUsers: activeUsersCountRow?.value ?? 0,
+      completedItems: completedItemsCountRow?.value ?? 0,
       totalItems,
       users: statsUsers,
       pollStats: {

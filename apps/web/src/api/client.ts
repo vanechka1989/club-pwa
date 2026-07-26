@@ -348,8 +348,9 @@ export function updateClubTopicSettings(topicId: string, payload: { isLocked?: b
   });
 }
 
-export function getClubMessages(topicId: string) {
-  return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages`);
+export function getClubMessages(topicId: string, before?: string | null) {
+  const query = before ? `?before=${encodeURIComponent(before)}` : "";
+  return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages${query}`);
 }
 
 export function deleteTopicMessages(topicId: string) {

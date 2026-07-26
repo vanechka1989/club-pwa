@@ -50,6 +50,10 @@ const emit = defineEmits<{
 
 const topics = ref<ClubTopic[]>([]);
 const messages = ref<ClubMessage[]>([]);
+const messagesNextCursor = ref<string | null>(null);
+const loadingOlderMessages = ref(false);
+const messagePageInitialized = ref(false);
+const hasLoadedOlderMessages = ref(false);
 const selectedTopic = ref<ClubTopic | null>(null);
 const loading = ref(false);
 const mutedUntil = ref<string | null>(null);
@@ -549,9 +553,17 @@ async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) 
   const shouldScroll = !keepScroll || isNearBottom();
   try {
     const response = await getClubMessages(selectedTopic.value.id);
-    const messagesChanged = messagesSignature(messages.value) !== messagesSignature(response.messages);
+    const retainedOlderMessages = hasLoadedOlderMessages.value
+      ? messages.value.filter((message) => !response.messages.some((recent) => recent.id === message.id))
+      : [];
+    const nextMessages = [...response.messages, ...retainedOlderMessages];
+    const messagesChanged = messagesSignature(messages.value) !== messagesSignature(nextMessages);
     if (messagesChanged) {
-      messages.value = response.messages;
+      messages.value = nextMessages;
+    }
+    if (!messagePageInitialized.value) {
+      messagesNextCursor.value = response.nextCursor ?? null;
+      messagePageInitialized.value = true;
     }
     mutedUntil.value = response.mutedUntil;
     mutedPermanently.value = response.mutedPermanently;
@@ -577,6 +589,22 @@ async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) 
       refreshSelectedTopicQueued = false;
       void refreshSelectedTopic({ keepScroll: true, silent: true });
     }
+  }
+}
+
+async function loadOlderMessages() {
+  if (!selectedTopic.value || !messagesNextCursor.value || loadingOlderMessages.value) return;
+  loadingOlderMessages.value = true;
+  try {
+    const response = await getClubMessages(selectedTopic.value.id, messagesNextCursor.value);
+    hasLoadedOlderMessages.value = true;
+    const existingIds = new Set(messages.value.map((message) => message.id));
+    messages.value = [...messages.value, ...response.messages.filter((message) => !existingIds.has(message.id))];
+    messagesNextCursor.value = response.nextCursor ?? null;
+  } catch {
+    showCommunityError("Не удалось загрузить предыдущие сообщения.");
+  } finally {
+    loadingOlderMessages.value = false;
   }
 }
 
@@ -709,6 +737,10 @@ async function openTopic(topic: ClubTopic) {
 
   cancelVoiceDraft();
   selectedTopic.value = topic;
+  messages.value = [];
+  messagesNextCursor.value = null;
+  messagePageInitialized.value = false;
+  hasLoadedOlderMessages.value = false;
   showTopicAdminMenu.value = false;
   activeModerationMessageId.value = null;
   activeReactionMessageId.value = null;
@@ -1033,6 +1065,9 @@ watch(
       selectedTopic.value = null;
       topics.value = [];
       messages.value = [];
+      messagesNextCursor.value = null;
+      messagePageInitialized.value = false;
+      hasLoadedOlderMessages.value = false;
       clearCommunityError();
       stopCommunityRealtime();
       stopRealtimeFallback();
@@ -1214,6 +1249,15 @@ onBeforeUnmount(() => {
       </div>
 
       <div ref="messagesList" class="chat-messages">
+        <button
+          v-if="messagesNextCursor"
+          class="mx-auto mb-3 min-h-10 rounded-full border border-[var(--line)] px-4 text-xs font-semibold text-[var(--muted)]"
+          type="button"
+          :disabled="loadingOlderMessages"
+          @click="loadOlderMessages"
+        >
+          {{ loadingOlderMessages ? "Загрузка…" : "Показать предыдущие сообщения" }}
+        </button>
         <p v-if="!messages.length" class="py-6 text-center text-xs text-[var(--muted)]">{{ t("messagesEmpty") }}</p>
         <article
           v-for="message in orderedMessages"

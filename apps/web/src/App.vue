@@ -213,7 +213,7 @@ const deviceModeNoticeKind = computed(() =>
   getDeviceModeNoticeKind(deviceMode.value, isStandaloneDeviceDisplay.value)
 );
 const visibleDeviceModeNoticeKind = computed(() =>
-  deviceModeNoticeKind.value && continuedDeviceNoticeKind.value !== deviceModeNoticeKind.value
+  !session.user && deviceModeNoticeKind.value && continuedDeviceNoticeKind.value !== deviceModeNoticeKind.value
     ? deviceModeNoticeKind.value
     : null
 );

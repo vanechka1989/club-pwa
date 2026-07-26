@@ -27,6 +27,7 @@ import { checkApplicationReadiness } from "./readiness";
 import { requestMetrics } from "./requestMetrics";
 import { getCommunityRealtimeSubscriberCount } from "./community/realtime";
 import { hasObservabilityAccess } from "./observability";
+import { sessionAuth } from "./middleware/auth";
 
 const app = new Hono();
 const clientErrorRateLimiter = createClientErrorRateLimiter({ maxEvents: 20, windowMs: 60 * 1000 });
@@ -90,7 +91,7 @@ app.get("/metrics", (c) => {
     uptimeSeconds: Math.round(process.uptime())
   });
 });
-app.get("/uploads/*", async (c) => {
+app.get("/uploads/*", sessionAuth, async (c) => {
   const uploadKey = c.req.path.replace(/^\/uploads\/+/, "");
   const response = await getLocalUploadResponse(uploadKey);
   if (!response) {

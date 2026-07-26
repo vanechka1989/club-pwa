@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { env } from "../env";
+import { localUploadResponseHeaders } from "./localUploadHeaders";
 
 const uploadRoot = resolve(env.UPLOADS_DIR);
 
@@ -34,9 +35,6 @@ export async function getLocalUploadResponse(key: string) {
   }
 
   return new Response(file, {
-    headers: {
-      "Cache-Control": "public, max-age=31536000, immutable",
-      "Content-Type": file.type || "application/octet-stream"
-    }
+    headers: localUploadResponseHeaders(file.type || "application/octet-stream")
   });
 }

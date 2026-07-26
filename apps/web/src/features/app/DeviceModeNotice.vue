@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { MonitorSmartphone, Smartphone } from "lucide-vue-next";
-import QRCode from "qrcode";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { DeviceModeNoticeKind } from "./deviceMode";
 import { useI18n } from "./i18n";
@@ -32,6 +31,7 @@ async function renderQrCode() {
   }
 
   try {
+    const { default: QRCode } = await import("qrcode");
     qrDataUrl.value = await QRCode.toDataURL(props.qrTarget, {
       margin: 1,
       width: 256,

@@ -889,6 +889,7 @@ export type ClubTopicsResponse = z.infer<typeof clubTopicsResponseSchema>;
 
 export const clubMessagesResponseSchema = z.object({
   messages: z.array(clubMessageSchema),
+  nextCursor: z.string().datetime().nullable(),
   mutedUntil: z.string().datetime().nullable(),
   mutedPermanently: z.boolean()
 });

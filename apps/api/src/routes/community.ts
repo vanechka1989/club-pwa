@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray, lte, max, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, lt, lte, max, ne, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -24,12 +24,17 @@ import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
+import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
 import { createAppNotification } from "../notifications/create";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const chatPayloadSchema = z.object({
   title: z.string().trim().min(2).max(160),
   description: z.string().trim().max(1000).nullable().optional()
+});
+const messagePageQuerySchema = z.object({
+  before: z.string().datetime({ offset: true }).optional(),
+  limit: z.coerce.number().int().min(20).max(100).default(50)
 });
 
 const topicPayloadSchema = z.object({
@@ -536,6 +541,7 @@ async function notifyReplyRecipient({
 
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
+  .use("*", persistentWriteRateLimit)
   .use("*", async (c, next) => {
     await next();
 
@@ -826,21 +832,28 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Topic not found" }, 404);
     }
 
+    const query = messagePageQuerySchema.safeParse(c.req.query());
+    if (!query.success) return c.json({ error: "Invalid message page" }, 400);
+    const visibilityWhere = role === "member" ? eq(clubChatMessages.status, "visible") : undefined;
     const messages = await db.query.clubChatMessages.findMany({
-      where:
-        role === "member"
-          ? and(eq(clubChatMessages.topicId, topic.id), eq(clubChatMessages.status, "visible"))
-          : eq(clubChatMessages.topicId, topic.id),
+      where: and(
+        eq(clubChatMessages.topicId, topic.id),
+        visibilityWhere,
+        query.data.before ? lt(clubChatMessages.createdAt, new Date(query.data.before)) : undefined
+      ),
       orderBy: (table, { desc }) => [desc(table.createdAt)],
-      limit: 500,
+      limit: query.data.limit + 1,
       with: {
         user: true
       }
     });
+    const hasMore = messages.length > query.data.limit;
+    const pageMessages = messages.slice(0, query.data.limit);
     const mute = await getActiveMute(c.get("userId"));
 
     return c.json({
-      messages: await Promise.all(messages.map((message) => serializeMessage(message, c.get("userId")))),
+      messages: await Promise.all(pageMessages.map((message) => serializeMessage(message, c.get("userId")))),
+      nextCursor: hasMore ? pageMessages.at(-1)?.createdAt.toISOString() ?? null : null,
       ...serializeMute(mute)
     });
   })
