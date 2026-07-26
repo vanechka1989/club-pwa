@@ -2956,6 +2956,218 @@ test("keeps module creation modal usable with a compact keyboard viewport", asyn
   await expectNoHorizontalOverflow(page);
 });
 
+test("separates the complete developer surface from an administrator with all permissions", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "pixel-7");
+
+  await page.goto("/admin");
+  for (const panel of ["Аналитика", "Клиенты", "Рассылки", "Платежи", "Хранилище", "Настройки проекта", "Админы", "Сервер"]) {
+    await expect(page.getByRole("button", { name: panel, exact: true })).toBeVisible();
+  }
+  await page.goto("/admin/releases");
+  await expect(page.locator(".release-notes-modal")).toBeVisible();
+  await page.goto("/admin/owner/transfer");
+  await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
+
+  const fullAdmin = {
+    ...currentUser,
+    id: "admin-full-audit",
+    telegramId: "admin-full-audit",
+    role: "admin" as const,
+    realRole: "admin" as const,
+    adminRoleLabel: "Контент-администратор",
+    adminPermissions: [
+      "statistics", "users", "accesses", "mailings", "payments", "materials", "support", "community", "storage", "admins", "login_ips", "project_settings"
+    ]
+  };
+  await page.unroute(`${apiBaseUrl}/**`);
+  await page.unroute(appApiUrlPattern);
+  await mockApi(page, fullAdmin);
+  await page.evaluate(() => localStorage.setItem("club-preview-mode", "admin"));
+  await page.goto("/admin");
+
+  for (const panel of ["Аналитика", "Клиенты", "Рассылки", "Платежи", "Хранилище", "Настройки проекта", "Админы"]) {
+    await expect(page.getByRole("button", { name: panel, exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: "Сервер", exact: true })).toHaveCount(0);
+  await page.goto("/admin/releases");
+  await expect(page).toHaveURL(/\/admin$/);
+  await page.goto("/admin/owner/transfer");
+  await expect(page).toHaveURL(/\/admin$/);
+});
+
+test("creates, edits, deletes, and restores a module lesson with every content element", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "pixel-7");
+  test.setTimeout(90_000);
+
+  const categories = [{ ...adminLearningCategory }];
+  const materials = [{ ...adminLearningMaterial }];
+  const deletedMaterials: typeof materials = [];
+  const mutationLog: Array<{ method: string; path: string; payload?: unknown }> = [];
+
+  await page.route(/\/api\/admin\/learning(?:\/.*)?$|\/admin\/learning(?:\/.*)?$/, async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/^\/api/, "");
+    const method = request.method();
+
+    if (path === "/admin/learning" && method === "GET") {
+      await route.fulfill(json({ categories, materials, deletedMaterials }));
+      return;
+    }
+    if (path === "/admin/learning/categories" && method === "POST") {
+      const payload = request.postDataJSON() as { title: string; description?: string | null; defaultCardLayout: "vertical" | "horizontal" };
+      const category = {
+        id: "audit-module",
+        slug: "audit-module",
+        title: payload.title,
+        description: payload.description ?? null,
+        defaultCardLayout: payload.defaultCardLayout,
+        isPublished: true,
+        itemsCount: 0
+      };
+      categories.push(category);
+      mutationLog.push({ method, path, payload });
+      await route.fulfill(json({ ok: true, category }));
+      return;
+    }
+    if (path === "/admin/learning/categories/audit-module" && method === "POST") {
+      const payload = request.postDataJSON() as { title: string; description?: string | null; defaultCardLayout: "vertical" | "horizontal" };
+      const category = categories.find((item) => item.id === "audit-module")!;
+      Object.assign(category, payload);
+      mutationLog.push({ method, path, payload });
+      await route.fulfill(json({ ok: true, category }));
+      return;
+    }
+    if (path === "/admin/learning/categories/audit-module" && method === "DELETE") {
+      mutationLog.push({ method, path });
+      await route.fulfill(json({ ok: true }));
+      return;
+    }
+    if (path === "/admin/learning/materials/direct" && method === "POST") {
+      const payload = request.postDataJSON() as Record<string, unknown> & { title: string; kind: "text" | "photo" | "video" | "audio"; materials: typeof adminLearningMaterial.materials };
+      const material = {
+        ...adminLearningMaterial,
+        id: "audit-lesson",
+        categoryId: "audit-module",
+        title: payload.title,
+        kind: payload.kind,
+        summary: String(payload.summary ?? ""),
+        body: String(payload.body ?? ""),
+        mediaUrl: (payload.mediaUrl as string | null | undefined) ?? null,
+        mediaSource: payload.mediaUrl ? "external" : null,
+        materials: payload.materials,
+        cardLayout: "horizontal",
+        isPublished: true
+      };
+      materials.push(material);
+      mutationLog.push({ method, path, payload });
+      await route.fulfill(json({ ok: true, material }));
+      return;
+    }
+    if (path === "/admin/learning/materials/audit-lesson/direct" && method === "POST") {
+      const payload = request.postDataJSON() as Record<string, unknown> & { title: string; materials: typeof adminLearningMaterial.materials };
+      const material = materials.find((item) => item.id === "audit-lesson")!;
+      Object.assign(material, { title: payload.title, summary: payload.summary, body: payload.body, materials: payload.materials });
+      mutationLog.push({ method, path, payload });
+      await route.fulfill(json({ ok: true, material }));
+      return;
+    }
+    if (path === "/admin/learning/materials/audit-lesson" && method === "DELETE") {
+      const index = materials.findIndex((item) => item.id === "audit-lesson");
+      const [material] = materials.splice(index, 1);
+      deletedMaterials.unshift({ ...material, archivedUntil: "2026-08-02T10:00:00.000Z" });
+      mutationLog.push({ method, path });
+      await route.fulfill(json({ ok: true }));
+      return;
+    }
+    if (path === "/admin/learning/materials/audit-lesson/restore" && method === "POST") {
+      const index = deletedMaterials.findIndex((item) => item.id === "audit-lesson");
+      const [material] = deletedMaterials.splice(index, 1);
+      const restored = { ...material, archivedUntil: null };
+      materials.push(restored);
+      mutationLog.push({ method, path });
+      await route.fulfill(json({ ok: true, material: restored }));
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/learning");
+  await page.getByRole("button", { name: "Редактировать модули" }).click();
+  await page.getByRole("button", { name: "Добавить модуль" }).click();
+  await page.getByLabel("Название модуля").fill("Аудит: полный модуль");
+  await page.getByLabel("Описание модуля").fill("Проверка всех типов содержимого");
+  await page.getByRole("button", { name: "Горизонтальные уроки" }).click();
+  await page.getByRole("button", { name: "Сохранить модуль" }).click();
+  await expect(page.getByText("Аудит: полный модуль", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Переключить Аудит: полный модуль" }).click();
+  await page.getByRole("button", { name: "Добавить карточку в Аудит: полный модуль" }).click();
+  await page.getByLabel("Название урока").fill("Урок со всеми материалами");
+  await page.getByLabel("Описание урока").fill("Текст, фото, видео и аудио");
+  await page.getByLabel("Содержимое урока").fill("Основной текст урока");
+  await page.getByRole("button", { name: "Первое вложение" }).click();
+
+  for (let index = 0; index < 4; index += 1) {
+    await page.getByRole("button", { name: "Добавить ещё материал" }).click();
+  }
+  const extraCards = page.locator(".lesson-extra-card");
+  await expect(extraCards).toHaveCount(4);
+  await extraCards.nth(0).getByLabel("Необязательный текст дополнительного материала").fill("Текстовая заметка");
+
+  await extraCards.nth(1).getByRole("button", { name: "Фото" }).click();
+  await extraCards.nth(1).getByRole("button", { name: "Ссылка" }).click();
+  await extraCards.nth(1).getByLabel("Ссылка на файл материала").fill("https://cdn.example.com/audit-photo.jpg");
+  await extraCards.nth(1).getByLabel("Необязательный текст дополнительного материала").fill("Подпись к фото");
+
+  await extraCards.nth(2).getByRole("button", { name: "Видео" }).click();
+  await extraCards.nth(2).getByRole("button", { name: "YouTube" }).click();
+  await extraCards.nth(2).getByLabel("Ссылка YouTube").fill("https://youtu.be/dQw4w9WgXcQ");
+  await extraCards.nth(2).getByLabel("Необязательный текст дополнительного материала").fill("Подпись к видео");
+
+  await extraCards.nth(3).getByRole("button", { name: "Аудио" }).click();
+  await extraCards.nth(3).getByRole("button", { name: "Ссылка" }).click();
+  await extraCards.nth(3).getByLabel("Ссылка на файл материала").fill("https://cdn.example.com/audit-audio.mp3");
+  await extraCards.nth(3).getByLabel("Необязательный текст дополнительного материала").fill("Подпись к аудио");
+
+  await page.getByRole("button", { name: "Сохранить урок" }).click();
+  await expect(page).toHaveURL(/\/learning$/);
+  const createPayload = mutationLog.find((entry) => entry.path === "/admin/learning/materials/direct")?.payload as { materials: Array<{ kind: string; mediaUrl?: string | null }> };
+  expect(createPayload.materials.map((item) => item.kind)).toEqual(["text", "photo", "video", "audio"]);
+  expect(createPayload.materials.map((item) => item.mediaUrl ?? null)).toEqual([
+    null,
+    "https://cdn.example.com/audit-photo.jpg",
+    "https://youtu.be/dQw4w9WgXcQ",
+    "https://cdn.example.com/audit-audio.mp3"
+  ]);
+
+  await page.goto("/learning/lessons/audit-lesson/edit");
+  await page.getByLabel("Название урока").fill("Урок обновлён");
+  await page.getByRole("button", { name: "Сохранить урок" }).click();
+  await expect(mutationLog.some((entry) => entry.path === "/admin/learning/materials/audit-lesson/direct")).toBe(true);
+
+  await page.goto("/learning/lessons/audit-lesson/edit");
+  await page.getByRole("button", { name: "Удалить урок" }).click();
+  await page.getByRole("alertdialog", { name: "Удалить урок «Урок обновлён»?" }).getByRole("button", { name: "Удалить урок", exact: true }).click();
+  await expect(mutationLog.some((entry) => entry.method === "DELETE" && entry.path === "/admin/learning/materials/audit-lesson")).toBe(true);
+  await page.getByRole("button", { name: "Редактировать модули" }).click();
+  await page.getByRole("button", { name: "Переключить Удалённый контент" }).click();
+  await page.getByRole("button", { name: "Восстановить Урок обновлён" }).click();
+  await expect(mutationLog.some((entry) => entry.path === "/admin/learning/materials/audit-lesson/restore")).toBe(true);
+
+  await page.goto("/learning/modules/audit-module/edit");
+  await page.getByLabel("Название модуля").fill("Аудит: модуль обновлён");
+  await page.getByRole("button", { name: "Сохранить модуль" }).click();
+  await expect(mutationLog.some((entry) => entry.path === "/admin/learning/categories/audit-module" && entry.method === "POST")).toBe(true);
+  await page.goto("/learning/modules/audit-module/edit");
+  await page.getByRole("button", { name: "Удалить модуль" }).click();
+  await page.getByRole("alertdialog", { name: "Удалить модуль «Аудит: модуль обновлён»?" }).getByRole("button", { name: "Удалить модуль", exact: true }).click();
+  await expect(mutationLog.some((entry) => entry.path === "/admin/learning/categories/audit-module" && entry.method === "DELETE")).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+    await page.evaluate(() => document.documentElement.clientWidth + 2)
+  );
+});
+
 test("keeps lesson editor task screen inside the mobile viewport", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "desktop-chrome");
 
