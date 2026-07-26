@@ -1652,6 +1652,19 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
   const visibilityAction = page.getByRole("button", { name: "Скрыть модуль" });
   await expect(visibilityAction).toBeVisible();
   await expect(visibilityAction).toHaveAttribute("aria-pressed", "true");
+  const nativeContextMenuPolicy = await page.locator(".learning-task-screen").evaluate((screen) => {
+    const action = screen.querySelector<HTMLElement>(".module-editor-visibility");
+    const input = screen.querySelector<HTMLInputElement>("input");
+    const actionMenu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    const inputMenu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    action?.dispatchEvent(actionMenu);
+    input?.dispatchEvent(inputMenu);
+    return {
+      actionPrevented: actionMenu.defaultPrevented,
+      inputPrevented: inputMenu.defaultPrevented
+    };
+  });
+  expect(nativeContextMenuPolicy).toEqual({ actionPrevented: true, inputPrevented: false });
   const moduleHeaderGeometry = await page.locator(".learning-task-screen .task-screen-header").evaluate((header) => {
     const back = header.querySelector<HTMLElement>(".ui-page-header__back")?.getBoundingClientRect();
     const heading = header.querySelector<HTMLElement>(".ui-page-header__text")?.getBoundingClientRect();

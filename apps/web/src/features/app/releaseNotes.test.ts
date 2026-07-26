@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes compact detail workflows as version 5.65", () => {
-    expect(appVersion).toBe("5.65");
-    expect(releaseNotes[0]?.title).toBe("Компактные страницы, модули и поддержка");
+  it("publishes app-like long press behavior as version 5.66", () => {
+    expect(appVersion).toBe("5.66");
+    expect(releaseNotes[0]?.title).toBe("Приложение без браузерных меню");
+
+    const compactDetailRelease = releaseNotes.find((note) => note.version === "5.65");
+    expect(compactDetailRelease?.title).toBe("Компактные страницы, модули и поддержка");
 
     const compactWorkspaceRelease = releaseNotes.find((note) => note.version === "5.64");
     expect(compactWorkspaceRelease?.title).toBe("Исправлен колокольчик и расширена рабочая область");
@@ -186,7 +189,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact profile pages, modules, and support");
+    expect(englishNotes[0]?.title).toBe("App-like long press behavior");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

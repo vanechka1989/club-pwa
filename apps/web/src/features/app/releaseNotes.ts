@@ -16,6 +16,16 @@ export const releaseNotes: ReleaseNote[] = [
     items: [...currentRelease.items]
   },
   {
+    version: "5.65",
+    updatedAt: "26.07.2026 21:50",
+    title: "Компактные страницы, модули и поддержка",
+    items: [
+      "Реферальная система и оформление используют всю доступную ширину без повторных заголовков и внешней карточки.",
+      "Управление видимостью модуля перенесено в закреплённую панель и всегда показывает понятное действие «Скрыть» или «Опубликовать».",
+      "Запросы клиентов в поддержке собраны под отдельным заголовком и отображаются компактными строками вместо крупных карточек."
+    ]
+  },
+  {
     version: "5.64",
     updatedAt: "26.07.2026 20:18",
     title: "Исправлен колокольчик и расширена рабочая область",
@@ -4273,11 +4283,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact profile pages, modules, and support",
+  title: "App-like long press behavior",
   items: [
-    "Referral and appearance pages now use the full available width without duplicated headings or an outer card.",
-    "Module visibility moved to the sticky action bar and clearly offers Hide or Publish.",
-    "Customer support requests now appear as compact rows under a dedicated heading instead of oversized cards."
+    "Long presses on cards, images, links, and buttons no longer open the browser menu.",
+    "Right-click no longer shows a context menu on ordinary application UI.",
+    "Text fields and editors retain selection, paste, and other native editing actions."
   ]
 };
 
