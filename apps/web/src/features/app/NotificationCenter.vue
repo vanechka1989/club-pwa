@@ -4,6 +4,7 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
+import "./notificationLauncher.css";
 
 const router = useRouter();
 const notificationState = useNotificationsStore();
