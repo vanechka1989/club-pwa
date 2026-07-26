@@ -56,7 +56,8 @@ import LavaProviderTabs from "./LavaProviderTabs.vue";
 import LavaCatalogList from "./LavaCatalogList.vue";
 import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
 import { buildLavaProviderForm } from "./lavaProviderForm";
-import { productCheckoutAction, productCurrencyOptions, retryCheckoutForCurrency, serverCurrencyPickerAction } from "./paymentCheckout";
+import { productCheckoutAction, productCurrencyOptions, serverCurrencyPickerAction } from "./paymentCheckout";
+import { startConfirmedCheckout, startCurrencyChoiceCheckout } from "./checkoutFlow";
 import { formatPaymentMoneyWithLegacyFallback } from "./paymentMoney";
 
 const session = useSessionStore();
@@ -724,12 +725,19 @@ async function chooseCheckoutProvider(selectedProvider: PaymentProviderCode) {
 
 async function chooseCheckoutCurrency(currency: PaymentCurrency) {
   const product = checkoutCurrencyProduct.value;
-  const retry = retryCheckoutForCurrency(checkoutCurrencyProvider.value, currency);
+  const selectedProvider = checkoutCurrencyProvider.value;
   showCheckoutCurrencyPicker.value = false;
   checkoutCurrencyProduct.value = null;
   checkoutCurrencyOptions.value = [];
   checkoutCurrencyProvider.value = undefined;
-  if (product && retry) await confirmAndStartCheckout(product, retry.currency, retry.provider);
+  if (product) {
+    await startCurrencyChoiceCheckout({
+      provider: selectedProvider,
+      currency,
+      confirmRedirect: () => confirmPaymentRedirect(product),
+      createCheckout: (provider, selectedCurrency) => startCheckout(product, provider, selectedCurrency)
+    });
+  }
 }
 
 function closeCheckoutCurrencyPicker() {
@@ -740,7 +748,12 @@ function closeCheckoutCurrencyPicker() {
 }
 
 async function confirmAndStartCheckout(product: PaymentProduct, currency?: PaymentCurrency, selectedProvider?: PaymentProviderCode) {
-  if (await confirmPaymentRedirect(product)) await startCheckout(product, selectedProvider, currency);
+  await startConfirmedCheckout({
+    provider: selectedProvider,
+    currency,
+    confirmRedirect: () => confirmPaymentRedirect(product),
+    createCheckout: (provider, selectedCurrency) => startCheckout(product, provider, selectedCurrency)
+  });
 }
 
 async function handleCancelSubscription(subscription: UserRecurrentSubscription) {

@@ -7,3 +7,7 @@ export function checkoutCurrencyChoiceResponse(currencyOptions: PaymentMoney[]):
     currencyOptions
   };
 }
+
+export function checkoutPreflightChoiceResponse(preflight: { kind: "choice"; options: PaymentMoney[] }): SubscribeResponse {
+  return checkoutCurrencyChoiceResponse(preflight.options);
+}
