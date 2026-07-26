@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
+  it("keeps historical data outside the current release module", () => {
+    const currentModule = readFileSync(resolve(__dirname, "releaseNotes.ts"), "utf8");
+    const historyModule = readFileSync(resolve(__dirname, "releaseHistory.ts"), "utf8");
+
+    expect(currentModule.split(/\r?\n/).length).toBeLessThan(100);
+    expect(historyModule).toContain('version: "5.66"');
+    expect(historyModule).toContain('version: "1.38"');
+  });
   it("publishes clear payments and modern support as version 5.67", () => {
     expect(appVersion).toBe("5.67");
     expect(releaseNotes[0]?.title).toBe("Понятная оплата и современная поддержка");
