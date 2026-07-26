@@ -57,9 +57,11 @@ import { mapLavaCatalogItem } from "../payments/paymentCatalog";
 import { paymentProductMutationError } from "../payments/paymentProductMutation";
 import { createCheckoutWithSnapshot, resolveCheckoutMoney } from "../payments/checkoutMoney";
 import { type ProductBindingInput } from "../payments/productBindingPrices";
+import { productBindingPayloadSchema } from "../payments/productBindingPayload";
 import { mapPaymentProduct } from "../payments/productMapping";
 import { runProductBindingMutation } from "../payments/productMutationOrchestration";
 import { runCheckoutPreflight } from "../payments/checkoutOrchestration";
+import { checkoutCurrencyChoiceResponse } from "../payments/checkoutCurrencyResponse";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -80,18 +82,6 @@ const lavaProviderPayloadSchema = z.object({
   apiKey: z.string().trim().min(8).max(512).optional(),
   webhookSecret: z.string().trim().min(16).max(80).optional(),
   isEnabled: z.boolean().optional()
-});
-
-const productBindingPayloadSchema = z.object({
-  provider: z.enum(["prodamus", "lava"]),
-  enabled: z.boolean(),
-  externalProductId: z.string().trim().max(160).nullable(),
-  externalOfferId: z.string().trim().max(160).nullable(),
-  prices: z.array(z.object({
-    currency: z.enum(["RUB", "USD", "EUR"]),
-    amountMinor: z.number().int(),
-    isEnabled: z.boolean()
-  })).default([])
 });
 
 const productPayloadSchema = z.object({
@@ -623,7 +613,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       selected.provider
     );
     if (moneyResolution.kind === "choice") {
-      return c.json({ checkoutUrl: null, message: "Выберите валюту оплаты.", currencyOptions: moneyResolution.options });
+      return c.json(checkoutCurrencyChoiceResponse(moneyResolution.options));
     }
     if (moneyResolution.kind === "unavailable") {
       return c.json({ checkoutUrl: null, message: "Выбранная валюта оплаты сейчас недоступна." }, 400);

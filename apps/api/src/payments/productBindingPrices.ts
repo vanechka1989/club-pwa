@@ -50,7 +50,7 @@ function validateLavaPrices(
   catalogItem: CatalogItem | undefined,
   existingBindings: ExistingBinding[]
 ): string | null {
-  if (!binding.externalOfferId) return "Для Lava выберите предложение.";
+  if (!binding.externalProductId || !binding.externalOfferId) return "Для Lava укажите ID товара и предложения.";
   if (!binding.prices.some((price) => price.isEnabled)) return "Для Lava выберите хотя бы одну валюту.";
   const currencies = new Set<PaymentCurrency>();
   for (const price of binding.prices) {
@@ -62,9 +62,7 @@ function validateLavaPrices(
   }
 
   const alreadyBound = isAlreadyBound(binding, existingBindings);
-  if (!catalogItem) {
-    return alreadyBound ? null : "Выбранное предложение Lava не найдено.";
-  }
+  if (!catalogItem) return null;
   if ((catalogItem.isStale || !catalogItem.isSelectable) && !alreadyBound) {
     return "Выбранное предложение Lava сейчас недоступно.";
   }

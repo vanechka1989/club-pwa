@@ -35,11 +35,11 @@ export function mapPaymentProduct(product: Product) {
       return binding.prices.map((price) => ({
         currency: price.currency,
         amountMinor: price.amountMinor,
-        enabled: price.isEnabled
+        isEnabled: price.isEnabled
       }));
     }
     if (legacyAmountRub !== null && (binding.provider.provider === "prodamus" || binding.provider.provider === "lava")) {
-      return [{ currency: "RUB" as const, amountMinor: legacyAmountRub * 100, enabled: true }];
+      return [{ currency: "RUB" as const, amountMinor: legacyAmountRub * 100, isEnabled: true }];
     }
     return [];
   };
@@ -59,7 +59,7 @@ export function mapPaymentProduct(product: Product) {
     description: product.description,
     badgeLabel: product.badgeLabel,
     amountRub: product.amountRub,
-    prices: (activeBinding?.prices ?? []).filter((price) => price.enabled).map(({ currency, amountMinor }) => ({ currency, amountMinor })),
+    prices: (activeBinding?.prices ?? []).filter((price) => price.isEnabled).map(({ currency, amountMinor }) => ({ currency, amountMinor })),
     accessDays: product.accessDays,
     prodamusSubscriptionId: product.prodamusSubscriptionId,
     bindings,

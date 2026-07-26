@@ -168,4 +168,29 @@ describe("provider-neutral payment contracts", () => {
     expect(product.prices).toEqual([]);
     expect(product.bindings[0]?.prices).toEqual([]);
   });
+
+  it("keeps isEnabled on submitted binding price rows", () => {
+    const result = paymentProductSchema.parse({
+      id: "product",
+      kind: "one_time",
+      title: "Клуб",
+      description: null,
+      badgeLabel: null,
+      amountRub: 990,
+      accessDays: 30,
+      isPublished: true,
+      archivedUntil: null,
+      createdAt: "2026-07-25T10:00:00.000Z",
+      updatedAt: "2026-07-25T10:00:00.000Z",
+      bindings: [{
+        provider: "lava",
+        enabled: true,
+        externalProductId: "product-1",
+        externalOfferId: "offer-1",
+        prices: [{ currency: "USD", amountMinor: 1999, isEnabled: false }]
+      }]
+    });
+
+    expect(result.bindings[0]?.prices).toEqual([{ currency: "USD", amountMinor: 1999, isEnabled: false }]);
+  });
 });

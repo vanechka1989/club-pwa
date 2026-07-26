@@ -513,7 +513,7 @@ export const paymentProviderCatalogItemPriceSchema = z.object({
 export type PaymentProviderCatalogItemPrice = z.infer<typeof paymentProviderCatalogItemPriceSchema>;
 
 export const paymentProductProviderPriceSchema = paymentMoneySchema.extend({
-  enabled: z.boolean().default(true)
+  isEnabled: z.boolean()
 });
 export type PaymentProductProviderPrice = z.infer<typeof paymentProductProviderPriceSchema>;
 

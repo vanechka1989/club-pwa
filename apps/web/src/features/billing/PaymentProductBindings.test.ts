@@ -28,8 +28,8 @@ describe("PaymentProductBindings", () => {
     await fireEvent.update(screen.getByRole("combobox", { name: "Предложение Lava" }), "catalog-1");
     const binding = (view.emitted("update:modelValue") as unknown[][]).at(-1)?.[0] as Array<{ provider: string; prices: unknown[] }>;
     expect(binding.find((entry) => entry.provider === "lava")?.prices).toEqual([
-      { currency: "RUB", amountMinor: 99050, enabled: true },
-      { currency: "USD", amountMinor: 1999, enabled: true }
+      { currency: "RUB", amountMinor: 99050, isEnabled: true },
+      { currency: "USD", amountMinor: 1999, isEnabled: true }
     ]);
   });
 
@@ -39,7 +39,7 @@ describe("PaymentProductBindings", () => {
         kind: "one_time",
         modelValue: [
           { provider: "prodamus", enabled: false, externalProductId: null, externalOfferId: null, prices: [] },
-          { provider: "lava", enabled: true, externalProductId: "product", externalOfferId: "offer", prices: [{ currency: "RUB", amountMinor: 99050, enabled: true }] }
+          { provider: "lava", enabled: true, externalProductId: "product", externalOfferId: "offer", prices: [{ currency: "RUB", amountMinor: 99050, isEnabled: true }] }
         ],
         lavaCatalog: [{
           id: "catalog-1", externalProductId: "product", externalOfferId: "offer", title: "Доступ", kind: "one_time", amountRub: 990,

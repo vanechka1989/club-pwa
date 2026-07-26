@@ -26,7 +26,7 @@ export function applyLavaCatalogItem(
   const hasForeignOnlyPrices = Boolean(item.prices?.length) && !item.prices?.some((price) => price.currency === "RUB");
   const fixedPrices = (item.prices ?? [])
     .filter((price): price is typeof price & { amountMinor: number } => price.amountMinor !== null)
-    .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, enabled: true }));
+    .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, isEnabled: true }));
   const bindings = form.bindings?.map((binding) =>
     binding.provider === "lava"
       ? { ...binding, externalProductId: item.externalProductId, externalOfferId: item.externalOfferId, prices: fixedPrices }

@@ -68,6 +68,35 @@ describe("product binding price preparation", () => {
     }).ok).toBe(true);
   });
 
+  it("accepts an unresolved manual Lava offer with explicit enabled prices and IDs", () => {
+    expect(prepareProductBindingPrices({
+      bindings: [{
+        provider: "lava",
+        enabled: true,
+        externalProductId: "manual-product",
+        externalOfferId: "manual-offer",
+        prices: [{ currency: "EUR", amountMinor: 1750, isEnabled: true }]
+      }],
+      providers: [{ id: "lava-provider", provider: "lava" as const }],
+      catalogItems: [],
+      amountRub: null
+    }).ok).toBe(true);
+  });
+
+  it("rejects unresolved manual Lava offers without both IDs or an enabled price", () => {
+    const base = {
+      provider: "lava" as const,
+      enabled: true,
+      externalProductId: "manual-product",
+      externalOfferId: "manual-offer",
+      prices: [{ currency: "USD" as const, amountMinor: 1999, isEnabled: true }]
+    };
+    const input = { providers: [{ id: "lava-provider", provider: "lava" as const }], catalogItems: [], amountRub: null };
+
+    expect(prepareProductBindingPrices({ ...input, bindings: [{ ...base, externalProductId: null }] }).ok).toBe(false);
+    expect(prepareProductBindingPrices({ ...input, bindings: [{ ...base, prices: [{ ...base.prices[0]!, isEnabled: false }] }] }).ok).toBe(false);
+  });
+
   it("keeps Prodamus on its positive legacy RUB amount and rejects a foreign binding price", () => {
     const prodamus = { provider: "prodamus" as const, enabled: true, externalProductId: null, externalOfferId: null, prices: [] };
     expect(prepareProductBindingPrices({

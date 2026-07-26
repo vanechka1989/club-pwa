@@ -20,8 +20,8 @@ describe("payment product mapping", () => {
       }]
     });
     expect(product.bindings[0]?.prices).toEqual([
-      { currency: "USD", amountMinor: 1999, enabled: true },
-      { currency: "EUR", amountMinor: 1750, enabled: false }
+      { currency: "USD", amountMinor: 1999, isEnabled: true },
+      { currency: "EUR", amountMinor: 1750, isEnabled: false }
     ]);
     expect(product.prices).toEqual([{ currency: "USD", amountMinor: 1999 }]);
   });

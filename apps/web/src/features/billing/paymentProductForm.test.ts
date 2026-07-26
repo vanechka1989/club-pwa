@@ -95,8 +95,8 @@ describe("Lava tariff autofill", () => {
     });
 
     expect(result.bindings?.[0]?.prices).toEqual([
-      { currency: "RUB", amountMinor: 99000, enabled: true },
-      { currency: "USD", amountMinor: 1999, enabled: true }
+      { currency: "RUB", amountMinor: 99000, isEnabled: true },
+      { currency: "USD", amountMinor: 1999, isEnabled: true }
     ]);
   });
 

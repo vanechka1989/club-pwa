@@ -71,7 +71,7 @@ function chooseLava(value: string) {
   const item = props.lavaCatalog.find((entry) => entry.id === value);
   const fixedPrices = (item?.prices ?? [])
     .filter((price): price is typeof price & { amountMinor: number } => price.amountMinor !== null)
-    .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, enabled: true }));
+    .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, isEnabled: true }));
   update("lava", {
     externalProductId: item?.externalProductId ?? null,
     externalOfferId: item?.externalOfferId ?? null,
@@ -92,18 +92,18 @@ function lavaPrice(currency: PaymentCurrency) {
 }
 
 function lavaPrices() {
-  return (binding("lava").prices ?? []).map((price) => ({ ...price, enabled: price.enabled ?? true }));
+  return (binding("lava").prices ?? []).map((price) => ({ ...price, isEnabled: price.isEnabled ?? true }));
 }
 
 function isLavaPriceSelected(currency: PaymentCurrency) {
-  return Boolean(lavaPrice(currency)?.enabled);
+  return Boolean(lavaPrice(currency)?.isEnabled);
 }
 
 function amountMinorFor(currency: PaymentCurrency, fixedAmountMinor: number | null) {
   return fixedAmountMinor ?? lavaPrice(currency)?.amountMinor ?? null;
 }
 
-function updateLavaPrices(nextPrices: Array<{ currency: PaymentCurrency; amountMinor: number; enabled: boolean }>) {
+function updateLavaPrices(nextPrices: Array<{ currency: PaymentCurrency; amountMinor: number; isEnabled: boolean }>) {
   update("lava", { prices: nextPrices });
 }
 
@@ -111,15 +111,15 @@ function toggleLavaPrice(currency: PaymentCurrency, fixedAmountMinor: number | n
   const current = lavaPrices();
   const existing = lavaPrice(currency);
   if (!checked) {
-    if (current.filter((price) => price.enabled).length <= 1 && existing?.enabled) return;
-    updateLavaPrices(current.map((price) => price.currency === currency ? { ...price, enabled: false } : price));
+    if (current.filter((price) => price.isEnabled).length <= 1 && existing?.isEnabled) return;
+    updateLavaPrices(current.map((price) => price.currency === currency ? { ...price, isEnabled: false } : price));
     return;
   }
   const amountMinor = amountMinorFor(currency, fixedAmountMinor);
   if (!amountMinor || amountMinor <= 0) return;
   updateLavaPrices(existing
-    ? current.map((price) => price.currency === currency ? { ...price, amountMinor, enabled: true } : price)
-    : [...current, { currency, amountMinor, enabled: true }]
+    ? current.map((price) => price.currency === currency ? { ...price, amountMinor, isEnabled: true } : price)
+    : [...current, { currency, amountMinor, isEnabled: true }]
   );
 }
 
@@ -140,7 +140,7 @@ function updateDynamicAmount(currency: PaymentCurrency, value: string) {
   }
   updateLavaPrices(existing
     ? current.map((price) => price.currency === currency ? { ...price, amountMinor } : price)
-    : [...current, { currency, amountMinor, enabled: false }]
+    : [...current, { currency, amountMinor, isEnabled: false }]
   );
 }
 

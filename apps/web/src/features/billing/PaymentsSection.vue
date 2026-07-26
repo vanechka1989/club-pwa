@@ -56,7 +56,7 @@ import LavaProviderTabs from "./LavaProviderTabs.vue";
 import LavaCatalogList from "./LavaCatalogList.vue";
 import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
 import { buildLavaProviderForm } from "./lavaProviderForm";
-import { productCurrencyOptions } from "./paymentCheckout";
+import { productCheckoutAction, productCurrencyOptions, retryCheckoutForCurrency, serverCurrencyPickerAction } from "./paymentCheckout";
 import { formatPaymentMoneyWithLegacyFallback } from "./paymentMoney";
 
 const session = useSessionStore();
@@ -90,6 +90,7 @@ const checkoutOptions = ref<PaymentCheckoutOption[]>([]);
 const checkoutCurrencyOptions = ref<PaymentMoney[]>([]);
 const checkoutChoiceProduct = ref<PaymentProduct | null>(null);
 const checkoutCurrencyProduct = ref<PaymentProduct | null>(null);
+const checkoutCurrencyProvider = ref<PaymentProviderCode | undefined>();
 const checkoutChoiceCurrency = ref<PaymentCurrency | undefined>();
 const checkoutConfirmProduct = ref<PaymentProduct | null>(null);
 let checkoutConfirmResolve: ((confirmed: boolean) => void) | null = null;
@@ -569,7 +570,7 @@ async function handleSaveProduct() {
       return;
     }
     if (hasEnabledLava && !productForm.value.bindings.some((binding) =>
-      binding.provider === "lava" && binding.prices?.some((price) => price.enabled && price.amountMinor > 0)
+      binding.provider === "lava" && binding.prices?.some((price) => price.isEnabled && price.amountMinor > 0)
     )) {
       error.value = "Выберите валюту Lava и укажите цену.";
       return;
@@ -662,9 +663,11 @@ async function startCheckout(product: PaymentProduct, selectedProvider?: Payment
   error.value = null;
   try {
     const response = await createPaymentCheckout(product.id, selectedProvider, currency);
-    if (response.currencyOptions?.length) {
-      checkoutCurrencyOptions.value = response.currencyOptions;
+    const currencyPicker = serverCurrencyPickerAction(product, selectedProvider, response);
+    if (currencyPicker) {
+      checkoutCurrencyOptions.value = currencyPicker.currencyOptions;
       checkoutCurrencyProduct.value = product;
+      checkoutCurrencyProvider.value = currencyPicker.provider;
       checkoutChoiceCurrency.value = undefined;
       showCheckoutCurrencyPicker.value = true;
       return;
@@ -703,14 +706,15 @@ async function handleCheckout(product: PaymentProduct) {
     return;
   }
 
-  const options = productCurrencyOptions(product);
-  if (options.length > 1) {
-    checkoutCurrencyOptions.value = options;
+  const action = productCheckoutAction(product);
+  if (action.kind === "choose_currency") {
+    checkoutCurrencyOptions.value = action.currencyOptions;
     checkoutCurrencyProduct.value = product;
+    checkoutCurrencyProvider.value = undefined;
     showCheckoutCurrencyPicker.value = true;
     return;
   }
-  await confirmAndStartCheckout(product, options[0]?.currency);
+  await confirmAndStartCheckout(product, action.currency);
 }
 
 async function chooseCheckoutProvider(selectedProvider: PaymentProviderCode) {
@@ -720,20 +724,23 @@ async function chooseCheckoutProvider(selectedProvider: PaymentProviderCode) {
 
 async function chooseCheckoutCurrency(currency: PaymentCurrency) {
   const product = checkoutCurrencyProduct.value;
+  const retry = retryCheckoutForCurrency(checkoutCurrencyProvider.value, currency);
   showCheckoutCurrencyPicker.value = false;
   checkoutCurrencyProduct.value = null;
   checkoutCurrencyOptions.value = [];
-  if (product) await confirmAndStartCheckout(product, currency);
+  checkoutCurrencyProvider.value = undefined;
+  if (product && retry) await confirmAndStartCheckout(product, retry.currency, retry.provider);
 }
 
 function closeCheckoutCurrencyPicker() {
   showCheckoutCurrencyPicker.value = false;
   checkoutCurrencyProduct.value = null;
   checkoutCurrencyOptions.value = [];
+  checkoutCurrencyProvider.value = undefined;
 }
 
-async function confirmAndStartCheckout(product: PaymentProduct, currency?: PaymentCurrency) {
-  if (await confirmPaymentRedirect(product)) await startCheckout(product, undefined, currency);
+async function confirmAndStartCheckout(product: PaymentProduct, currency?: PaymentCurrency, selectedProvider?: PaymentProviderCode) {
+  if (await confirmPaymentRedirect(product)) await startCheckout(product, selectedProvider, currency);
 }
 
 async function handleCancelSubscription(subscription: UserRecurrentSubscription) {
