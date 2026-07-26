@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import "./supportRoute.css";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { CheckCircle2, CircleDot, Image, Paperclip, Send, Video, X } from "lucide-vue-next";

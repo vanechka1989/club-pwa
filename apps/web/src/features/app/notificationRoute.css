@@ -1,0 +1,273 @@
+.notification-center {
+  position: relative;
+}
+
+.compact-controls .notification-center {
+  position: static;
+  transform: none;
+  z-index: auto;
+}
+
+.notification-center-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  border: 1px solid var(--border);
+  border-radius: var(--icon-button-radius);
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  box-shadow: var(--shadow-soft);
+  opacity: 0.86;
+  backdrop-filter: blur(14px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    background 150ms ease;
+}
+
+.compact-controls .notification-center-button {
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  height: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  box-shadow: none;
+  opacity: 1;
+  backdrop-filter: none;
+}
+
+.notification-center-button:hover,
+.notification-center-button:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+}
+
+.notification-center-badge {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.15rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--panel);
+  border-radius: 999px;
+  padding: 0 0.2rem;
+  color: white;
+  background: #e11d48;
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.notification-center-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  justify-content: flex-end;
+  padding: calc(var(--club-modal-top-offset) + 0.75rem) 0.8rem calc(var(--club-modal-bottom-offset) + 5.5rem);
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.notification-center-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(26rem, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--panel);
+  box-shadow: var(--shadow-strong);
+}
+
+.notification-center-head,
+.notification-center-item header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.notification-center-head {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-center-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.notification-center-clear {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-muted) 78%, transparent);
+  color: var(--muted);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.notification-center-clear:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.notification-center-head h3 {
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.notification-center-head p,
+.notification-center-item time,
+.notification-center-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.notification-center-list {
+  display: grid;
+  gap: 0.6rem;
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+.notification-center-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  padding: 0.8rem;
+  background: var(--panel-soft);
+}
+
+.notification-center-item-unread {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 58%, white);
+}
+
+.notification-center-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.notification-center-item strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.notification-center-copy {
+  margin-top: 0.35rem;
+  color: var(--muted-strong);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.notification-center-copy :where(p, ul, ol) {
+  margin-top: 0.35rem;
+}
+
+.notification-center-copy :where(ul, ol) {
+  padding-left: 1.1rem;
+}
+
+.notification-center-copy a {
+  color: var(--accent);
+  font-weight: 850;
+}
+
+.notification-center-media {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--accent-soft) 34%, var(--panel));
+}
+
+.notification-center-media img,
+.notification-center-media video {
+  display: block;
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+}
+
+.notification-center-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+body.club-mobile-device .notification-center-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.notification-center-panel {
+  width: min(30rem, 100%);
+}
+
+.notification-center-item {
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.notification-center-item-unread {
+  border-color: rgba(124, 58, 237, 0.3);
+  background: linear-gradient(145deg, rgba(124, 58, 237, 0.14), rgba(255, 255, 255, 0.012)), var(--surface-2);
+}
+
+.notification-task-screen .notification-center-list {
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+@media (max-width: 359px) {
+  .notification-center-list,
+  .notification-task-screen .notification-center-list {
+    overflow-x: clip;
+  }
+}
+
+@media (max-width: 359px) {
+
+  .notification-center-item.soft-card,
+  .notification-task-screen .notification-center-item {
+    width: auto;
+    max-width: calc(100% - 1.5rem);
+    margin-inline: 0.75rem;
+    justify-self: center;
+    box-sizing: border-box;
+  }
+}

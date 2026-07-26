@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import "./notificationRoute.css";
 import type { AppNotification } from "@club/shared";
 import { Bell, BellOff, BellPlus, CheckCheck, Paperclip, Trash2 } from "lucide-vue-next";
 import { computed, onMounted } from "vue";

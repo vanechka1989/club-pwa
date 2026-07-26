@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import "./adminRoute.css";
 import {
   adminPermissionLabels,
   allAdminPermissions,

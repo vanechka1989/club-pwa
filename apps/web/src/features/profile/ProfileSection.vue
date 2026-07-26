@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import "./profileRoute.css";
 import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
 import {
   BookOpen,
