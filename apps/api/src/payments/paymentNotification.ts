@@ -1,18 +1,22 @@
 import { createAppNotification } from "../notifications/create";
+import type { PaymentCurrency } from "@club/shared";
+import { minorToMajor } from "./money";
 
 export function formatPaymentReceivedMessage({
   productTitle,
-  amountRub,
+  currency,
+  amountMinor,
   expiresAt
 }: {
   productTitle: string;
-  amountRub: number;
+  currency: PaymentCurrency;
+  amountMinor: number;
   expiresAt: Date;
 }) {
   return [
     "Оплата получена.",
     `Тариф: ${productTitle}`,
-    `Сумма: ${amountRub.toLocaleString("ru-RU")} ₽`,
+    `Сумма: ${new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(minorToMajor(amountMinor))}`,
     `Доступ активен до ${expiresAt.toLocaleDateString("ru-RU")}.`
   ].join("\n");
 }
@@ -20,19 +24,21 @@ export function formatPaymentReceivedMessage({
 export async function notifyPaymentReceived({
   userId,
   productTitle,
-  amountRub,
+  currency,
+  amountMinor,
   expiresAt
 }: {
   userId: string;
   productTitle: string;
-  amountRub: number;
+  currency: PaymentCurrency;
+  amountMinor: number;
   expiresAt: Date;
 }) {
   await createAppNotification({
     userId,
     kind: "payment",
     title: "Оплата получена",
-    body: formatPaymentReceivedMessage({ productTitle, amountRub, expiresAt }),
+    body: formatPaymentReceivedMessage({ productTitle, currency, amountMinor, expiresAt }),
     source: "payment",
     sourceId: null
   });

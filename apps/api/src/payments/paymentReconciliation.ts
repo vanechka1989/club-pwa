@@ -53,7 +53,9 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
       credentials: { apiKey: decryptProviderSecret(provider.apiKey!) },
       externalOrderId: order.externalOrderId!,
       productId: order.productId,
-      buyerEmail: order.user.email ?? ""
+      buyerEmail: order.user.email ?? "",
+      currency: order.currency,
+      amountMinor: order.amountMinor
     });
     if (!event) return "unchanged";
     const result = await processPaymentEvent(event, provider.id);

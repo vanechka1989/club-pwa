@@ -54,6 +54,7 @@ import { lavaWebhookUrls, mapPaymentProviderForAdmin } from "../payments/provide
 import { validateSingleEnabledPaymentBinding } from "../payments/paymentProductBindings";
 import { mapLavaCatalogItem } from "../payments/paymentCatalog";
 import { paymentProductMutationError } from "../payments/paymentProductMutation";
+import { isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "../payments/checkoutMoney";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -105,7 +106,8 @@ const catalogSelectionPayloadSchema = z.object({
 
 const checkoutPayloadSchema = z.object({
   productId: z.string().uuid(),
-  provider: z.enum(["prodamus", "lava"]).optional()
+  provider: z.enum(["prodamus", "lava"]).optional(),
+  currency: z.enum(["RUB", "USD", "EUR"]).optional()
 });
 
 function activeProductWhere() {
@@ -366,7 +368,8 @@ async function grantPaidAccess(
   await notifyPaymentReceived({
     userId: user.id,
     productTitle: product.title,
-    amountRub: order.amountRub ?? 0,
+    currency: order.currency,
+    amountMinor: order.amountMinor,
     expiresAt
   }).catch((error) => {
     logger.warn({ error, orderId: order.providerOrderId, userId: user.id }, "payment notification failed");
@@ -434,7 +437,11 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ ok: false }, 404);
     }
 
-    if (!validateProdamusWebhookOrder(payload, { amountRub: order.amountRub ?? 0, productTitle: product.title })) {
+    if (order.currency !== "RUB" || !validateProdamusWebhookOrder(payload, {
+      currency: order.currency,
+      amountMinor: order.amountMinor,
+      productTitle: product.title
+    })) {
       logger.warn({ orderId }, "prodamus webhook order contents mismatch");
       return c.json({ ok: false, error: "Order contents mismatch" }, 400);
     }
@@ -535,7 +542,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         with: {
           provider: true,
           providerBindings: {
-            with: { provider: true }
+            with: { provider: true, prices: true }
           }
         }
       }),
@@ -554,10 +561,6 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!user) {
       return c.json({ checkoutUrl: null, message: "Пользователь не найден." }, 404);
     }
-    if (product.amountRub === null) {
-      return c.json({ checkoutUrl: null, message: "Для тарифа не задана цена в рублях." }, 400);
-    }
-
     const availableBindings = product.providerBindings.length > 0
       ? product.providerBindings
           .filter((binding) => binding.isEnabled && binding.provider.isEnabled)
@@ -565,7 +568,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
             provider: binding.provider.provider as PaymentProviderCode,
             title: providerTitle(binding.provider.provider as PaymentProviderCode),
             enabled: true,
-            binding
+            binding: { ...binding, prices: binding.prices }
           }))
       : product.provider?.isEnabled
         ? [{
@@ -575,7 +578,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
             binding: {
               provider: product.provider,
               externalProductId: product.prodamusSubscriptionId,
-              externalOfferId: null
+              externalOfferId: null,
+              prices: []
             }
           }]
         : [];
@@ -594,6 +598,21 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!selected) {
       return c.json({ checkoutUrl: null, message: "Платежная система пока не подключена." }, 400);
     }
+    const fallbackPrices = product.amountRub === null
+      ? []
+      : [{ currency: "RUB" as const, amountMinor: product.amountRub * 100, isEnabled: true }];
+    const moneyResolution = resolveCheckoutMoney(
+      selected.binding.prices.length ? selected.binding.prices : fallbackPrices,
+      body.data.currency,
+      selected.provider
+    );
+    if (moneyResolution.kind === "choice") {
+      return c.json({ checkoutUrl: null, message: "Выберите валюту оплаты.", options: moneyResolution.options }, 400);
+    }
+    if (moneyResolution.kind === "unavailable") {
+      return c.json({ checkoutUrl: null, message: "Выбранная валюта оплаты сейчас недоступна." }, 400);
+    }
+    const money = moneyResolution;
     if (selected.provider === "lava" && (!user.email || !selected.binding.externalOfferId)) {
       return c.json({
         checkoutUrl: null,
@@ -625,17 +644,15 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
           where: and(
             eq(paymentProviderCatalogItems.providerId, selected.binding.provider.id),
             eq(paymentProviderCatalogItems.externalOfferId, selected.binding.externalOfferId)
-          )
+          ),
+          with: { prices: true }
         })
       : null;
-    if (
-      lavaCatalogItem?.amountRub !== null &&
-      lavaCatalogItem?.amountRub !== undefined &&
-      lavaCatalogItem.amountRub !== product.amountRub
-    ) {
+    const catalogPrice = lavaCatalogItem?.prices.find((price) => price.currency === money.currency);
+    if (lavaCatalogItem && !isLavaCatalogPriceCurrent(lavaCatalogItem, money)) {
       return c.json({
         checkoutUrl: null,
-        message: `Цена товара в Lava изменилась: ${lavaCatalogItem.amountRub} ₽. Обновите тариф.`
+        message: "Цена товара в Lava изменилась. Обновите тариф."
       }, 409);
     }
 
@@ -648,9 +665,9 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         productId: product.id,
         providerId: selected.binding.provider.id,
         status: "pending",
-        amountRub: product.amountRub,
-        currency: "RUB",
-        amountMinor: product.amountRub * 100,
+        amountRub: money.currency === "RUB" && money.amountMinor % 100 === 0 ? money.amountMinor / 100 : null,
+        currency: money.currency,
+        amountMinor: money.amountMinor,
         providerOrderId: orderId,
         createdAt: now,
         updatedAt: now
@@ -672,8 +689,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         },
         product: {
           title: product.title,
-          amountRub: product.amountRub,
-          useCustomAmount: selected.provider === "lava" && lavaCatalogItem?.amountRub === null,
+          amountRub: money.currency === "RUB" && money.amountMinor % 100 === 0 ? money.amountMinor / 100 : null,
+          currency: money.currency,
+          amountMinor: money.amountMinor,
+          useCustomAmount: selected.provider === "lava" && catalogPrice?.amountMinor === null,
           kind: product.kind,
           accessDays: product.accessDays,
           externalProductId: selected.binding.externalProductId,

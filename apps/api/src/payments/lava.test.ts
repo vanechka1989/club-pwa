@@ -43,6 +43,7 @@ describe("Lava API client", () => {
       email: "buyer@example.com",
       offerId: "836b9fc5-7ae9-4a27-9642-592bc44072b7",
       currency: "RUB",
+      amount: 990,
       buyerLanguage: "RU"
     });
   });
@@ -71,6 +72,36 @@ describe("Lava API client", () => {
       orderId: "club-order-dynamic",
       user: { id: "user-1", telegramId: "123", email: "buyer@example.com" },
       product,
+      returnUrl: "https://club.example/",
+      notificationUrl: "https://club.example/api/payments/lava/webhook/payment"
+    });
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ currency: "USD", amount: 19.99 }));
+  });
+
+  it("sends the immutable selected fixed-currency snapshot without rounding cents", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
+      paymentUrl: "https://app.lava.top/invoice-1"
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = createLavaClient({ apiKey: "api-key", fetch: fetchMock });
+
+    await client.createCheckout({
+      credentials: { apiKey: "api-key" },
+      orderId: "club-order-fixed-usd",
+      user: { id: "user-1", telegramId: "123", email: "buyer@example.com" },
+      product: {
+        title: "Клуб",
+        amountRub: null,
+        amountMinor: 1999,
+        currency: "USD",
+        useCustomAmount: false,
+        kind: "one_time",
+        accessDays: 30,
+        externalProductId: "product-1",
+        externalOfferId: "836b9fc5-7ae9-4a27-9642-592bc44072b7"
+      },
       returnUrl: "https://club.example/",
       notificationUrl: "https://club.example/api/payments/lava/webhook/payment"
     });
@@ -122,6 +153,36 @@ describe("Lava API client", () => {
         periodicity: "MONTHLY"
       }
     }]);
+  });
+
+  it("preserves RUB, USD, and EUR catalog prices as exact minor units", async () => {
+    const client = createLavaClient({
+      apiKey: "api-key",
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        items: [{
+          id: "product-1",
+          title: "Клуб",
+          offers: [{
+            id: "offer-1",
+            prices: [
+              { amount: 990, currency: "RUB" },
+              { amount: 19.99, currency: "USD" },
+              { amount: 17.5, currency: "EUR" }
+            ]
+          }]
+        }]
+      }), { status: 200, headers: { "content-type": "application/json" } }))
+    });
+
+    await expect(client.listCatalog({ apiKey: "api-key" })).resolves.toEqual([
+      expect.objectContaining({
+        prices: [
+          { currency: "RUB", amountMinor: 99000, periodicity: null },
+          { currency: "USD", amountMinor: 1999, periodicity: null },
+          { currency: "EUR", amountMinor: 1750, periodicity: null }
+        ]
+      })
+    ]);
   });
 
   it("sends the Lava subscription periodicity derived from access days", async () => {
@@ -193,7 +254,9 @@ describe("Lava API client", () => {
       credentials: { apiKey: "api-key" },
       externalOrderId: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
       productId: "product-1",
-      buyerEmail: "buyer@example.com"
+      buyerEmail: "buyer@example.com",
+      currency: "RUB",
+      amountMinor: 99000
     });
 
     expect(event).toEqual(expect.objectContaining({

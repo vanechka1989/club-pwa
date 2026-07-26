@@ -11,14 +11,15 @@ import { logger } from "../logger";
 import { notifyPaymentReceived } from "./paymentNotification";
 import type { NormalizedPaymentEvent } from "./providerAdapter";
 import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
-import { getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
+import { getCompatibleLegacyRubAmount, getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
 
 export type PaymentEventProcessResult = "processed" | "duplicate" | "ignored";
 
 type PaymentSuccessNotification = {
   userId: string;
   productTitle: string;
-  amountRub: number;
+  currency: "RUB" | "USD" | "EUR";
+  amountMinor: number;
   expiresAt: Date;
   order: typeof paymentOrders.$inferSelect;
   user: typeof users.$inferSelect;
@@ -88,7 +89,7 @@ export async function processPaymentEvent(
           productId: parentOrder.productId,
           providerId,
           status: "pending",
-          amountRub: parentOrder.amountRub,
+          amountRub: getCompatibleLegacyRubAmount(parentOrder),
           currency: parentOrder.currency,
           amountMinor: parentOrder.amountMinor,
           providerOrderId: `${event.provider}-${event.externalPaymentId}`,
@@ -175,7 +176,8 @@ export async function processPaymentEvent(
     notification = {
       userId: order.userId,
       productTitle: parentOrder.product.title,
-      amountRub: order.amountRub ?? 0,
+      currency: order.currency,
+      amountMinor: order.amountMinor,
       expiresAt,
       order: claimedOrder,
       user: parentOrder.user
@@ -191,7 +193,8 @@ export async function processPaymentEvent(
     await notifyPaymentReceived({
       userId: notificationValue.userId,
       productTitle: notificationValue.productTitle,
-      amountRub: notificationValue.amountRub,
+      currency: notificationValue.currency,
+      amountMinor: notificationValue.amountMinor,
       expiresAt: notificationValue.expiresAt
     }).catch((error) => {
       logger.warn({ error, orderId: notificationValue.order.providerOrderId, userId: notificationValue.userId }, "payment notification failed");

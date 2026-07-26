@@ -53,7 +53,7 @@ describe("prodamus webhook action", () => {
   });
 
   it("requires signed order contents to match the stored amount and product", () => {
-    const expected = { amountRub: 990, productTitle: "Premium" };
+    const expected = { currency: "RUB" as const, amountMinor: 99000, productTitle: "Premium" };
     expect(
       validateProdamusWebhookOrder(
         { products: [{ name: "Premium", price: "990.00", quantity: "1" }] },
@@ -63,6 +63,13 @@ describe("prodamus webhook action", () => {
     expect(validateProdamusWebhookOrder({ products: [{ name: "Premium", price: "9.90", quantity: "1" }] }, expected)).toBe(false);
     expect(validateProdamusWebhookOrder({ products: [{ name: "Other", price: "990", quantity: "1" }] }, expected)).toBe(false);
     expect(validateProdamusWebhookOrder({}, expected)).toBe(false);
+  });
+
+  it("rejects a one-kopek mismatch against the RUB order snapshot", () => {
+    expect(validateProdamusWebhookOrder(
+      { products: [{ name: "Premium", price: "990.01", quantity: "1" }] },
+      { currency: "RUB", amountMinor: 99000, productTitle: "Premium" }
+    )).toBe(false);
   });
 
   it("rejects oversized and unsupported webhook bodies before parsing", async () => {

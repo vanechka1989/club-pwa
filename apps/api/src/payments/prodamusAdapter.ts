@@ -1,5 +1,6 @@
 import { buildProdamusPaymentUrl } from "./prodamus";
 import type { PaymentProviderAdapter } from "./providerAdapter";
+import { majorToMinor, minorToMajor, PaymentMoneyError } from "./money";
 
 function requireCredential(value: string | undefined, name: string) {
   if (!value) {
@@ -12,6 +13,21 @@ export const prodamusAdapter: PaymentProviderAdapter = {
   code: "prodamus",
 
   async createCheckout(input) {
+    if (input.product.amountMinor !== undefined && input.product.currency !== "RUB") {
+      throw new Error("Prodamus requires an explicit RUB snapshot");
+    }
+    if (input.product.currency && input.product.currency !== "RUB") {
+      throw new Error("Prodamus supports RUB only");
+    }
+    let amountRub: number;
+    try {
+      amountRub = input.product.amountMinor === undefined
+        ? minorToMajor(majorToMinor(input.product.amountRub ?? ""))
+        : minorToMajor(input.product.amountMinor);
+    } catch (error) {
+      if (error instanceof PaymentMoneyError) throw new Error("Prodamus requires a valid RUB amount");
+      throw error;
+    }
     const checkoutUrl = buildProdamusPaymentUrl({
       formUrl: requireCredential(input.credentials.formUrl, "form URL"),
       secretKey: requireCredential(input.credentials.secretKey, "secret key"),
@@ -20,7 +36,7 @@ export const prodamusAdapter: PaymentProviderAdapter = {
       userTelegramId: input.user.telegramId,
       product: {
         title: input.product.title,
-        amountRub: input.product.amountRub,
+        amountRub,
         kind: input.product.kind,
         accessDays: input.product.accessDays,
         prodamusSubscriptionId: input.product.externalProductId

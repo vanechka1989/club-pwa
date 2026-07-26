@@ -11,3 +11,13 @@ export function isPaymentAmountValid(
 ) {
   return expected.currency === actual.currency && expected.amountMinor === actual.amountMinor;
 }
+
+export function getCompatibleLegacyRubAmount(input: {
+  currency: string;
+  amountMinor: number;
+  amountRub: number | null;
+}) {
+  if (input.currency !== "RUB" || input.amountMinor % 100 !== 0) return null;
+  const majorAmount = input.amountMinor / 100;
+  return input.amountRub === majorAmount ? input.amountRub : null;
+}

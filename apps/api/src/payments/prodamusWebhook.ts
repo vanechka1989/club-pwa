@@ -1,4 +1,5 @@
 import { normalizeProdamusWebhookPayload } from "./prodamus";
+import { majorToMinor, PaymentMoneyError } from "./money";
 
 export type ProdamusWebhookAction = "reject" | "ignore" | "process";
 export type ProdamusWebhookPaymentStatus = "paid" | "failed" | "ignore";
@@ -25,15 +26,21 @@ export function classifyProdamusWebhookPaymentStatus(payload: Record<string, unk
 
 export function validateProdamusWebhookOrder(
   payload: Record<string, unknown>,
-  expected: { amountRub: number; productTitle: string }
+  expected: { currency: "RUB"; amountMinor: number; productTitle: string }
 ) {
   const firstProduct = Array.isArray(payload.products) ? payload.products[0] : null;
   if (!firstProduct || typeof firstProduct !== "object" || Array.isArray(firstProduct)) return false;
   const product = firstProduct as Record<string, unknown>;
-  const price = Number(stringValue(product.price).replace(",", "."));
+  let amountMinor: number;
+  try {
+    amountMinor = majorToMinor(stringValue(product.price).replace(",", "."));
+  } catch (error) {
+    if (error instanceof PaymentMoneyError) return false;
+    throw error;
+  }
   const quantity = Number(stringValue(product.quantity));
   const title = stringValue(product.name);
-  return Number.isFinite(price) && price === expected.amountRub && quantity === 1 && title === expected.productTitle;
+  return expected.currency === "RUB" && amountMinor === expected.amountMinor && quantity === 1 && title === expected.productTitle;
 }
 
 export async function parseProdamusWebhookRequest(request: Request) {

@@ -18,7 +18,7 @@ export type ProviderCheckoutInput = {
   };
   product: {
     title: string;
-    amountRub: number;
+    amountRub: number | null;
     currency?: PaymentCurrency;
     amountMinor?: number;
     useCustomAmount?: boolean;
@@ -56,9 +56,11 @@ export type ProviderOrderStatusInput = {
   externalOrderId: string;
   productId: string;
   buyerEmail: string;
+  currency: PaymentCurrency;
+  amountMinor: number;
 };
 
-export type ProviderSubscriptionStatusInput = Omit<ProviderOrderStatusInput, "externalOrderId"> & {
+export type ProviderSubscriptionStatusInput = Omit<ProviderOrderStatusInput, "externalOrderId" | "currency" | "amountMinor"> & {
   externalSubscriptionId: string;
 };
 

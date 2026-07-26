@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
+import { getCompatibleLegacyRubAmount, getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
 
 describe("normalized payment event decisions", () => {
   it("extends a renewal from the current paid expiry", () => {
@@ -27,5 +27,12 @@ describe("normalized payment event decisions", () => {
     expect(matches({ currency: "USD", amountMinor: 1999 }, { currency: "USD", amountMinor: 1999 })).toBe(true);
     expect(matches({ currency: "USD", amountMinor: 1999 }, { currency: "USD", amountMinor: 2000 })).toBe(false);
     expect(matches({ currency: "USD", amountMinor: 1999 }, { currency: "EUR", amountMinor: 1999 })).toBe(false);
+  });
+
+  it("copies a legacy amount into a renewal only when it matches the RUB snapshot", () => {
+    expect(getCompatibleLegacyRubAmount({ currency: "RUB", amountMinor: 99000, amountRub: 990 })).toBe(990);
+    expect(getCompatibleLegacyRubAmount({ currency: "USD", amountMinor: 1999, amountRub: 20 })).toBeNull();
+    expect(getCompatibleLegacyRubAmount({ currency: "RUB", amountMinor: 99050, amountRub: 991 })).toBeNull();
+    expect(getCompatibleLegacyRubAmount({ currency: "RUB", amountMinor: 99000, amountRub: 900 })).toBeNull();
   });
 });
