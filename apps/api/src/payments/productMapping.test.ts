@@ -38,5 +38,12 @@ describe("payment product mapping", () => {
       providerBindings: [{ provider: { provider: "lava" }, isEnabled: true, externalProductId: "lava-product", externalOfferId: "legacy-offer", prices: [] }]
     });
     expect(foreignOnly.prices).toEqual([]);
+
+    for (const amountRub of [0, -1]) {
+      expect(mapPaymentProduct({
+        ...base, amountRub,
+        providerBindings: [{ provider: { provider: "lava" }, isEnabled: true, externalProductId: "lava-product", externalOfferId: "legacy-offer", prices: [] }]
+      }).prices).toEqual([]);
+    }
   });
 });

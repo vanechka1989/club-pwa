@@ -55,9 +55,11 @@ import { lavaWebhookUrls, mapPaymentProviderForAdmin } from "../payments/provide
 import { validateSingleEnabledPaymentBinding } from "../payments/paymentProductBindings";
 import { mapLavaCatalogItem } from "../payments/paymentCatalog";
 import { paymentProductMutationError } from "../payments/paymentProductMutation";
-import { createCheckoutWithSnapshot, isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "../payments/checkoutMoney";
-import { prepareProductBindingPrices, type ProductBindingInput } from "../payments/productBindingPrices";
+import { createCheckoutWithSnapshot, resolveCheckoutMoney } from "../payments/checkoutMoney";
+import { type ProductBindingInput } from "../payments/productBindingPrices";
 import { mapPaymentProduct } from "../payments/productMapping";
+import { runProductBindingMutation } from "../payments/productMutationOrchestration";
+import { runCheckoutPreflight } from "../payments/checkoutOrchestration";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -188,35 +190,21 @@ async function replaceProductBindings(
   }
 }
 
-async function prepareBindingsForSave(input: {
-  bindings: ProductBindingInput[];
-  providers: PaymentProvider[];
-  amountRub: number | null;
-  existingBindings?: Array<{ provider: PaymentProviderCode; externalOfferId: string | null }>;
-}) {
-  const lavaProvider = input.providers.find((provider) => provider.provider === "lava");
+async function loadLavaCatalogItems(providers: PaymentProvider[]) {
+  const lavaProvider = providers.find((provider) => provider.provider === "lava");
   const catalogItems = lavaProvider
     ? await db.query.paymentProviderCatalogItems.findMany({
         where: eq(paymentProviderCatalogItems.providerId, lavaProvider.id),
         with: { prices: true }
       })
     : [];
-  return prepareProductBindingPrices({
-    bindings: input.bindings,
-    providers: input.providers.map((provider) => ({
-      id: provider.id,
-      provider: provider.provider as PaymentProviderCode
-    })),
-    amountRub: input.amountRub,
-    ...(input.existingBindings ? { existingBindings: input.existingBindings } : {}),
-    catalogItems: catalogItems.map((item) => ({
-      providerId: item.providerId,
-      externalOfferId: item.externalOfferId,
-      isStale: item.isStale,
-      isSelectable: item.isSelectable,
-      prices: item.prices.map((price) => ({ currency: price.currency, amountMinor: price.amountMinor }))
-    }))
-  });
+  return catalogItems.map((item) => ({
+    providerId: item.providerId,
+    externalOfferId: item.externalOfferId,
+    isStale: item.isStale,
+    isSelectable: item.isSelectable,
+    prices: item.prices.map((price) => ({ currency: price.currency, amountMinor: price.amountMinor }))
+  }));
 }
 
 function providerTitle(provider: PaymentProviderCode) {
@@ -623,9 +611,12 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!selected) {
       return c.json({ checkoutUrl: null, message: "Платежная система пока не подключена." }, 400);
     }
-    const fallbackPrices = product.amountRub === null
+    const legacyAmountRub = typeof product.amountRub === "number" && Number.isInteger(product.amountRub) && product.amountRub > 0
+      ? product.amountRub
+      : null;
+    const fallbackPrices = legacyAmountRub === null
       ? []
-      : [{ currency: "RUB" as const, amountMinor: product.amountRub * 100, isEnabled: true }];
+      : [{ currency: "RUB" as const, amountMinor: legacyAmountRub * 100, isEnabled: true }];
     const moneyResolution = resolveCheckoutMoney(
       selected.binding.prices.length ? selected.binding.prices : fallbackPrices,
       body.data.currency,
@@ -674,21 +665,20 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         })
       : null;
     const catalogPrice = lavaCatalogItem?.prices.find((price) => price.currency === money.currency);
-    if (lavaCatalogItem && !isLavaCatalogPriceCurrent(lavaCatalogItem, money)) {
-      return c.json({
-        checkoutUrl: null,
-        message: "Цена товара в Lava изменилась. Обновите тариф."
-      }, 409);
-    }
-
     const now = new Date();
     const orderId = `club-${randomUUID()}`;
     const created = { order: null as typeof paymentOrders.$inferSelect | null };
 
     try {
       const adapter = getPaymentProviderAdapter(selected.provider);
-      const checkout = await createCheckoutWithSnapshot({
-        snapshot: money,
+      const preflight = await runCheckoutPreflight({
+        provider: selected.provider,
+        requestedCurrency: body.data.currency,
+        prices: selected.binding.prices,
+        amountRub: product.amountRub,
+        catalogItem: lavaCatalogItem ?? null,
+        createOrder: async (selectedMoney) => createCheckoutWithSnapshot({
+        snapshot: selectedMoney,
         createOrder: async (snapshot) => {
           const [order] = await db
             .insert(paymentOrders)
@@ -735,7 +725,18 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
             .set({ externalOrderId, updatedAt: new Date() })
             .where(eq(paymentOrders.id, created.order.id));
         }
+        })
       });
+      if (preflight.kind === "drift") {
+        return c.json({ checkoutUrl: null, message: "Цена товара в Lava изменилась. Обновите тариф." }, 409);
+      }
+      if (preflight.kind === "choice") {
+        return c.json({ checkoutUrl: null, message: "Выберите валюту оплаты.", options: preflight.options }, 400);
+      }
+      if (preflight.kind === "unavailable") {
+        return c.json({ checkoutUrl: null, message: "Выбранная валюта оплаты сейчас недоступна." }, 400);
+      }
+      const checkout = preflight.value as { checkoutUrl: string; externalOrderId: string | null } | null;
       if (!checkout) return c.json({ checkoutUrl: null, message: "Не удалось создать заказ." }, 500);
       return c.json({
         checkoutUrl: checkout.checkoutUrl,
@@ -1299,12 +1300,6 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
     const moneyError = paymentProductMutationError(body.data.amountRub, requestedBindings);
     if (moneyError) return c.json({ error: moneyError }, 400);
-    const preparedBindings = await prepareBindingsForSave({
-      bindings: requestedBindings,
-      providers,
-      amountRub: body.data.amountRub
-    });
-    if (!preparedBindings.ok) return c.json({ error: preparedBindings.error }, 400);
     const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providerByCode = new Map(providers.map((provider) => [provider.provider, provider]));
     const primaryProvider = providerByCode.get(enabledBindings[0]!.provider);
@@ -1324,28 +1319,39 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }, 400);
     }
 
-    const now = new Date();
-    const product = await db.transaction(async (tx) => {
-      const [savedProduct] = await tx
-        .insert(paymentProducts)
-        .values({
-          providerId: primaryProvider.id,
-          kind: body.data.kind,
-          title: body.data.title,
-          description: body.data.description ?? null,
-          badgeLabel: body.data.badgeLabel || null,
-          amountRub: body.data.amountRub,
-          accessDays: body.data.accessDays,
-          prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
-          isPublished: body.data.isPublished ?? false,
-          createdAt: now,
-          updatedAt: now
-        })
-        .returning();
-      if (!savedProduct) return null;
-      await replaceProductBindings(tx, savedProduct.id, preparedBindings.bindings, providers, now);
-      return savedProduct;
+    const catalogItems = await loadLavaCatalogItems(providers);
+    const mutation = await runProductBindingMutation({
+      bindings: requestedBindings,
+      providers: providers.map((provider) => ({ id: provider.id, provider: provider.provider as PaymentProviderCode })),
+      catalogItems,
+      amountRub: body.data.amountRub,
+      transaction: async (preparedBindings) => {
+        const now = new Date();
+        return db.transaction(async (tx) => {
+          const [savedProduct] = await tx
+            .insert(paymentProducts)
+            .values({
+              providerId: primaryProvider.id,
+              kind: body.data.kind,
+              title: body.data.title,
+              description: body.data.description ?? null,
+              badgeLabel: body.data.badgeLabel || null,
+              amountRub: body.data.amountRub,
+              accessDays: body.data.accessDays,
+              prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
+              isPublished: body.data.isPublished ?? false,
+              createdAt: now,
+              updatedAt: now
+            })
+            .returning();
+          if (!savedProduct) return null;
+          await replaceProductBindings(tx, savedProduct.id, preparedBindings, providers, now);
+          return savedProduct;
+        });
+      }
     });
+    if (!mutation.ok) return c.json({ error: mutation.error }, 400);
+    const product = mutation.value;
 
     if (!product) {
       return c.json({ error: "Unable to create product" }, 500);
@@ -1413,16 +1419,6 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (moneyError) return c.json({ error: moneyError }, 400);
     const enabledBindings = requestedBindings.filter((binding) => binding.enabled);
     const providers = await db.query.paymentProviders.findMany();
-    const preparedBindings = await prepareBindingsForSave({
-      bindings: requestedBindings,
-      providers,
-      amountRub: body.data.amountRub,
-      existingBindings: existingProduct.providerBindings.map((binding) => ({
-        provider: binding.provider.provider as PaymentProviderCode,
-        externalOfferId: binding.externalOfferId
-      }))
-    });
-    if (!preparedBindings.ok) return c.json({ error: preparedBindings.error }, 400);
     const primaryProvider = providers.find((provider) => provider.provider === enabledBindings[0]!.provider);
     if (!primaryProvider) {
       return c.json({ error: "Сначала подключите выбранную платёжную систему." }, 400);
@@ -1440,28 +1436,46 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }, 400);
     }
 
-    const now = new Date();
-    const product = await db.transaction(async (tx) => {
-      const [savedProduct] = await tx
-        .update(paymentProducts)
-        .set({
-          providerId: primaryProvider.id,
-          kind: body.data.kind,
-          title: body.data.title,
-          description: body.data.description ?? null,
-          badgeLabel: body.data.badgeLabel || null,
-          amountRub: body.data.amountRub,
-          accessDays: body.data.accessDays,
-          prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
-          isPublished: body.data.isPublished ?? false,
-          updatedAt: now
-        })
-        .where(and(eq(paymentProducts.id, c.req.param("id")), activeProductWhere()))
-        .returning();
-      if (!savedProduct) return null;
-      await replaceProductBindings(tx, savedProduct.id, preparedBindings.bindings, providers, now);
-      return savedProduct;
+    const catalogItems = await loadLavaCatalogItems(providers);
+    const mutation = await runProductBindingMutation({
+      bindings: requestedBindings,
+      providers: providers.map((provider) => ({ id: provider.id, provider: provider.provider as PaymentProviderCode })),
+      catalogItems,
+      amountRub: body.data.amountRub,
+      existingBindings: existingProduct.providerBindings.map((binding) => ({
+        provider: binding.provider.provider as PaymentProviderCode,
+        enabled: binding.isEnabled,
+        externalProductId: binding.externalProductId,
+        externalOfferId: binding.externalOfferId,
+        prices: binding.prices.map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, isEnabled: price.isEnabled }))
+      })),
+      transaction: async (preparedBindings) => {
+        const now = new Date();
+        return db.transaction(async (tx) => {
+          const [savedProduct] = await tx
+            .update(paymentProducts)
+            .set({
+              providerId: primaryProvider.id,
+              kind: body.data.kind,
+              title: body.data.title,
+              description: body.data.description ?? null,
+              badgeLabel: body.data.badgeLabel || null,
+              amountRub: body.data.amountRub,
+              accessDays: body.data.accessDays,
+              prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
+              isPublished: body.data.isPublished ?? false,
+              updatedAt: now
+            })
+            .where(and(eq(paymentProducts.id, c.req.param("id")), activeProductWhere()))
+            .returning();
+          if (!savedProduct) return null;
+          await replaceProductBindings(tx, savedProduct.id, preparedBindings, providers, now);
+          return savedProduct;
+        });
+      }
     });
+    if (!mutation.ok) return c.json({ error: mutation.error }, 400);
+    const product = mutation.value;
 
     if (!product) {
       return c.json({ error: "Product not found" }, 404);

@@ -30,6 +30,7 @@ type PreparationInput = {
   providers: Provider[];
   catalogItems: CatalogItem[];
   existingBindings?: ExistingBinding[];
+  legacyFallbackOffers?: string[];
   amountRub: number | null;
 };
 
@@ -48,7 +49,8 @@ function isAlreadyBound(binding: ProductBindingInput, existingBindings: Existing
 function validateLavaPrices(
   binding: ProductBindingInput,
   catalogItem: CatalogItem | undefined,
-  existingBindings: ExistingBinding[]
+  existingBindings: ExistingBinding[],
+  allowLegacyFallback: boolean
 ): string | null {
   if (!binding.externalOfferId) return "Для Lava выберите предложение.";
   if (!binding.prices.some((price) => price.isEnabled)) return "Для Lava выберите хотя бы одну валюту.";
@@ -62,6 +64,7 @@ function validateLavaPrices(
   }
 
   const alreadyBound = isAlreadyBound(binding, existingBindings);
+  if (allowLegacyFallback) return null;
   if (!catalogItem) {
     return alreadyBound ? null : "Выбранное предложение Lava не найдено.";
   }
@@ -105,7 +108,7 @@ export function prepareProductBindingPrices(input: PreparationInput): Preparatio
     const catalogItem = binding.externalOfferId
       ? input.catalogItems.find((item) => item.providerId === provider.id && item.externalOfferId === binding.externalOfferId)
       : undefined;
-    const error = validateLavaPrices(binding, catalogItem, existingBindings);
+    const error = validateLavaPrices(binding, catalogItem, existingBindings, input.legacyFallbackOffers?.includes(binding.externalOfferId ?? "") ?? false);
     if (error) return { ok: false, error };
     bindings.push({ ...binding, prices: binding.prices.map((price) => ({ ...price })) });
   }

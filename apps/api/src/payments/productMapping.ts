@@ -27,6 +27,9 @@ type Product = {
 };
 
 export function mapPaymentProduct(product: Product) {
+  const legacyAmountRub = typeof product.amountRub === "number" && Number.isInteger(product.amountRub) && product.amountRub > 0
+    ? product.amountRub
+    : null;
   const bindingPrices = (binding: Binding) => {
     if (binding.prices.length) {
       return binding.prices.map((price) => ({
@@ -35,8 +38,8 @@ export function mapPaymentProduct(product: Product) {
         enabled: price.isEnabled
       }));
     }
-    if (product.amountRub !== null && (binding.provider.provider === "prodamus" || binding.provider.provider === "lava")) {
-      return [{ currency: "RUB" as const, amountMinor: product.amountRub * 100, enabled: true }];
+    if (legacyAmountRub !== null && (binding.provider.provider === "prodamus" || binding.provider.provider === "lava")) {
+      return [{ currency: "RUB" as const, amountMinor: legacyAmountRub * 100, enabled: true }];
     }
     return [];
   };
