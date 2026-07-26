@@ -29,7 +29,6 @@ import {
 import {
   BarChart3,
   ChevronRight,
-  Check,
   Cloud,
   Copy,
   CreditCard,
@@ -39,7 +38,6 @@ import {
   Server,
   SlidersHorizontal,
   Shield,
-  Trash2,
   UsersRound,
   X,
   type LucideIcon
@@ -133,6 +131,7 @@ const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientA
 const AdminPaymentsPanel = defineAsyncComponent(() => import("./AdminPaymentsPanel.vue"));
 const AdminMailingsPanel = defineAsyncComponent(() => import("./AdminMailingsPanel.vue"));
 const AdminStoragePanel = defineAsyncComponent(() => import("./AdminStoragePanel.vue"));
+const AdminPermissionsPanel = defineAsyncComponent(() => import("./AdminPermissionsPanel.vue"));
 const AdminProjectSettingsPanel = defineAsyncComponent(() => import("./AdminProjectSettingsPanel.vue"));
 const AdminServerPanel = defineAsyncComponent(() => import("./AdminServerPanel.vue"));
 const AdminReleaseNotesTask = defineAsyncComponent(() => import("./AdminReleaseNotesTask.vue"));
@@ -1363,71 +1362,6 @@ async function openClientByTelegramId(telegramId: string) {
   await selectUser(user);
 }
 
-function adminTitle(admin: AdminUser) {
-  return admin.firstName || (admin.username ? `@${admin.username}` : `ID ${admin.telegramId}`);
-}
-
-function adminActionActorTitle(actor: AdminActionActor | null) {
-  if (!actor) {
-    return "Администратор не найден";
-  }
-
-  return actor.firstName || (actor.username ? `@${actor.username}` : `ID ${actor.telegramId}`);
-}
-
-function adminActionTargetTitle(log: AdminActionLog) {
-  if (log.target) {
-    return adminActionActorTitle(log.target);
-  }
-
-  return log.targetTelegramId ? `ID ${log.targetTelegramId}` : "";
-}
-
-function adminActionAccessDetails(log: AdminActionLog) {
-  if (log.action !== "client.access.updated") {
-    return "";
-  }
-
-  const status = typeof log.metadata.status === "string" ? log.metadata.status : "";
-  const expiresAt = typeof log.metadata.expiresAt === "string" ? log.metadata.expiresAt : "";
-  const durationDays = typeof log.metadata.durationDays === "number" ? log.metadata.durationDays : null;
-  if (status === "active" && expiresAt) {
-    return `Доступ к клубу до ${formatDateTime(expiresAt)}${durationDays ? ` · ${durationDays} дн.` : ""}`;
-  }
-
-  if (status === "inactive" || status === "expired") {
-    return "Доступ к клубу закрыт";
-  }
-
-  return "";
-}
-
-function adminActionMetaText(log: AdminActionLog) {
-  const target = adminActionTargetTitle(log);
-  const accessDetails = adminActionAccessDetails(log);
-  if (accessDetails) {
-    return [target ? `Клиент: ${target}` : "", accessDetails].filter(Boolean).join(" · ");
-  }
-
-  return target ? `Клиент: ${target}` : "";
-}
-
-function adminRoleTitle(admin: AdminUser) {
-  return admin.roleLabel || "Админ";
-}
-
-function adminPermissionCount(admin: AdminUser) {
-  return admin.permissions.length;
-}
-
-function hasAdminPermissionEntry(admin: AdminUser, permission: AdminPermission) {
-  return admin.permissions.includes(permission);
-}
-
-function getAdminCandidateTitle(user: AdminStatsUser) {
-  return `${user.firstName || user.username || `ID ${user.telegramId}`}${user.username ? ` · @${user.username}` : ""}`;
-}
-
 function resolveAdminSearchTelegramId() {
   const query = adminSearchQuery.value.trim();
   if (/^\d{3,32}$/.test(query)) {
@@ -2320,19 +2254,6 @@ async function handleUpdateAdminAccess(admin: AdminUser, patch: { roleLabel?: st
   } finally {
     saving.value = false;
   }
-}
-
-async function handleAdminRoleLabelChange(admin: AdminUser, event: Event) {
-  const roleLabel = event.target instanceof HTMLInputElement ? event.target.value : "";
-  await handleUpdateAdminAccess(admin, { roleLabel });
-}
-
-async function toggleAdminPermission(admin: AdminUser, permission: AdminPermission) {
-  const nextPermissions = hasAdminPermissionEntry(admin, permission)
-    ? admin.permissions.filter((entry) => entry !== permission)
-    : [...admin.permissions, permission];
-
-  await handleUpdateAdminAccess(admin, { permissions: nextPermissions });
 }
 
 async function handleRemoveAdmin(telegramId: string) {
@@ -3410,81 +3331,39 @@ onUnmounted(() => {
 
     <AdminServerPanel v-else-if="isServerPanel" class="admin-panel ui-page-section" />
 
-    <section v-else-if="activePanel === 'admins'" class="admin-panel ui-page-section admin-permissions-panel">
-      <div class="admin-panel-head ui-page-header">
-        <div>
-          <h3>Администраторы</h3>
-          <p>Доступ, роль вручную и права по всем разделам.</p>
-        </div>
-      </div>
+    <AdminPermissionsPanel
+      v-else-if="activePanel === 'admins'"
+      :owner-telegram-id="ownerTelegramId"
+      :current-user-telegram-id="session.user?.telegramId"
+      :is-owner="isOwner"
+      :admins="admins"
+      :admin-search-query="adminSearchQuery"
+      :resolved-admin-search-telegram-id="resolveAdminSearchTelegramId()"
+      :admin-search-candidates="adminSearchCandidates"
+      :show-transfer-owner-modal="showTransferOwnerModal"
+      :transfer-owner-telegram-id="transferOwnerTelegramId"
+      :selected-admin-access="selectedAdminAccessCurrent"
+      :admin-permission-options="adminPermissionOptions"
+      :saving="saving"
+      :admin-action-logs="adminActionLogs"
+      :visible-admin-action-actors="visibleAdminActionActors"
+      :admin-action-actor-filter="adminActionActorFilter"
+      :admin-action-log-expanded="adminActionLogExpanded"
+      :format-date-time="formatDateTime"
+      @update:admin-search-query="adminSearchQuery = $event"
+      @add="handleAddAdmin"
+      @open-transfer="openTransferOwnerModal"
+      @request-transfer-confirmation="requestTransferOwnerConfirmation"
+      @update:transfer-owner-telegram-id="transferOwnerTelegramId = $event"
+      @open-access="openAdminAccessModal"
+      @update-access="handleUpdateAdminAccess"
+      @remove="handleRemoveAdmin"
+      @back="(task) => task === 'transfer' ? closeTransferOwnerModal() : closeAdminAccessModal()"
+      @update:admin-action-log-expanded="adminActionLogExpanded = $event"
+      @update:admin-action-actor-filter="adminActionActorFilter = $event"
+    />
 
-      <section class="admin-permissions-owner">
-        <article class="admin-permissions-owner-card ui-card">
-          <div>
-            <span>Владелец клуба</span>
-            <strong>{{ ownerTelegramId || session.user?.telegramId }}</strong>
-            <small>Полный доступ без ограничений.</small>
-          </div>
-          <Check class="h-5 w-5" aria-hidden="true" />
-        </article>
-
-        <button
-          v-if="isOwner"
-          class="secondary-button ui-button"
-          type="button"
-          :disabled="saving || !admins.length"
-          @click="openTransferOwnerModal"
-        >
-          Передать владение
-        </button>
-      </section>
-
-      <section v-if="isOwner" class="admin-crm-block ui-card admin-add-admin-block">
-        <div>
-          <h4>Добавить администратора</h4>
-          <p>Введите email или найдите клиента по имени, username либо ID.</p>
-        </div>
-
-        <form class="admin-search-row" @submit.prevent="handleAddAdmin()">
-          <input v-model.trim="adminSearchQuery" class="text-input" placeholder="email, имя или username" />
-          <button class="primary-button ui-button admin-add-button" type="submit" :disabled="saving || !resolveAdminSearchTelegramId()">Добавить</button>
-        </form>
-
-        <div v-if="adminSearchCandidates.length" class="admin-candidate-list">
-          <button
-            v-for="user in adminSearchCandidates"
-            :key="user.id"
-            class="admin-candidate-button ui-button"
-            type="button"
-            :disabled="saving"
-            @click="handleAddAdmin(user.telegramId)"
-          >
-            <span>{{ getAdminCandidateTitle(user) }}</span>
-            <small>ID {{ user.telegramId }}</small>
-          </button>
-        </div>
-      </section>
-
-      <TaskScreen v-if="showTransferOwnerModal" class="admin-task-screen admin-transfer-owner-task-screen" title="Передать клуб" subtitle="Новый владелец получит полный доступ." portal @back="closeTransferOwnerModal">
-          <section class="admin-transfer-owner-card ui-card">
-            <form class="admin-form admin-transfer-owner-form" @submit.prevent="requestTransferOwnerConfirmation">
-              <select v-model="transferOwnerTelegramId" class="text-input">
-                <option value="" disabled>Выберите администратора</option>
-                <option v-for="admin in admins" :key="admin.id" :value="admin.telegramId">
-                  {{ adminTitle(admin) }} · ID {{ admin.telegramId }}
-                </option>
-              </select>
-              <p class="admin-warning-line">
-                Подтвердите действие только если точно хотите сменить владельца клуба.
-              </p>
-              <button class="primary-button ui-button" type="submit" :disabled="saving || !transferOwnerTelegramId">
-                Подтвердить передачу
-              </button>
-            </form>
-          </section>
-      </TaskScreen>
-
-      <ConfirmDialog
+    <ConfirmDialog
         :open="showTransferOwnerConfirm"
         title="Передать клуб выбранному администратору?"
         description="После подтверждения выбранный администратор сразу станет владельцем и получит полный контроль над клубом."
@@ -3496,131 +3375,5 @@ onUnmounted(() => {
         @confirm="handleTransferOwner"
       />
 
-      <p v-if="!isOwner" class="admin-empty">Добавлять и удалять админов может только владелец.</p>
-
-      <div class="admin-permission-list">
-        <button
-          v-for="admin in admins"
-          :key="admin.id"
-          class="admin-permission-row-button ui-button"
-          :class="{ 'admin-permission-row-disabled': !admin.isActive }"
-          type="button"
-          @click="openAdminAccessModal(admin)"
-        >
-          <span class="admin-permission-identity">
-            <img v-if="admin.photoUrl" :src="admin.photoUrl" :alt="adminTitle(admin)" loading="lazy" decoding="async" />
-            <span v-else>{{ adminTitle(admin).slice(0, 1).toUpperCase() }}</span>
-            <div>
-              <strong>{{ adminTitle(admin) }}</strong>
-              <small>
-                {{ adminRoleTitle(admin) }}
-                <template v-if="admin.username"> · @{{ admin.username }}</template>
-              </small>
-            </div>
-          </span>
-          <span class="admin-permission-row-status" :class="admin.isActive ? 'admin-permission-row-status-active' : 'admin-permission-row-status-disabled'">
-            {{ admin.isActive ? "Активен" : "Выключен" }}
-          </span>
-        </button>
-        <p v-if="!admins.length" class="admin-empty">Администраторов пока нет.</p>
-      </div>
-
-      <section class="admin-crm-block ui-card admin-action-log-panel">
-        <header class="admin-action-log-head">
-          <div>
-            <h4>Журнал действий</h4>
-            <p>{{ adminActionLogs.length ? `${adminActionLogs.length} последних действий` : "Действий пока нет" }}</p>
-          </div>
-          <button class="secondary-button ui-button admin-action-log-toggle" type="button" @click="adminActionLogExpanded = !adminActionLogExpanded">
-            {{ adminActionLogExpanded ? "Свернуть журнал" : "Показать журнал" }}
-          </button>
-        </header>
-
-        <div v-if="adminActionLogExpanded" class="admin-action-log-body">
-          <select v-model="adminActionActorFilter" class="text-input admin-action-log-filter">
-            <option value="">Все администраторы</option>
-            <option v-for="admin in visibleAdminActionActors" :key="admin.telegramId" :value="admin.telegramId">
-              {{ adminActionActorTitle(admin) }}
-            </option>
-          </select>
-
-          <div class="admin-action-log-list">
-            <article v-for="log in adminActionLogs" :key="log.id" class="admin-action-log-item">
-              <div>
-                <strong>{{ log.summary }}</strong>
-                <span>{{ adminActionActorTitle(log.actor) }} · {{ formatDateTime(log.createdAt) }}</span>
-                <small v-if="adminActionMetaText(log)">{{ adminActionMetaText(log) }}</small>
-              </div>
-            </article>
-            <p v-if="!adminActionLogs.length" class="admin-empty">Действий пока нет.</p>
-          </div>
-        </div>
-      </section>
-
-      <TaskScreen v-if="selectedAdminAccessCurrent" class="admin-task-screen" :title="adminTitle(selectedAdminAccessCurrent)" subtitle="Права и доступ администратора" portal @back="closeAdminAccessModal">
-          <section class="admin-permission-surface ui-card" :class="{ 'admin-permission-card-disabled': !selectedAdminAccessCurrent.isActive }">
-            <div class="admin-permission-content">
-              <div class="admin-permission-head">
-                <div>
-                  <strong>{{ adminRoleTitle(selectedAdminAccessCurrent) }}</strong>
-                  <small>
-                    ID {{ selectedAdminAccessCurrent.telegramId }}
-                    <template v-if="selectedAdminAccessCurrent.username"> · @{{ selectedAdminAccessCurrent.username }}</template>
-                  </small>
-                </div>
-
-                <label class="admin-switch-row">
-                  <input
-                    :checked="selectedAdminAccessCurrent.isActive"
-                    type="checkbox"
-                    :disabled="saving || !isOwner"
-                    @change="handleUpdateAdminAccess(selectedAdminAccessCurrent, { isActive: !selectedAdminAccessCurrent.isActive })"
-                  />
-                  <span>Доступ администратора</span>
-                </label>
-              </div>
-
-              <div class="admin-permission-meta">
-                <label class="admin-field">
-                  <span>Роль вручную</span>
-                  <input
-                    class="text-input"
-                    :value="selectedAdminAccessCurrent.roleLabel ?? ''"
-                    placeholder="Например: Старший модератор"
-                    :disabled="saving || !isOwner"
-                    @change="handleAdminRoleLabelChange(selectedAdminAccessCurrent, $event)"
-                  />
-                </label>
-
-                <div class="admin-permission-summary">
-                  <span>{{ adminPermissionCount(selectedAdminAccessCurrent) }} / {{ adminPermissionOptions.length }}</span>
-                  <small>включено прав</small>
-                </div>
-              </div>
-
-              <div class="admin-permission-grid ui-responsive-grid">
-                <label v-for="permission in adminPermissionOptions" :key="permission.value" class="admin-permission-toggle">
-                  <span>{{ permission.label }}</span>
-                  <input
-                    :checked="hasAdminPermissionEntry(selectedAdminAccessCurrent, permission.value)"
-                    type="checkbox"
-                    :disabled="saving || !isOwner"
-                    @change="toggleAdminPermission(selectedAdminAccessCurrent, permission.value)"
-                  />
-                </label>
-              </div>
-
-              <footer class="admin-permission-actions">
-                <small>
-                  Добавлен {{ new Date(selectedAdminAccessCurrent.createdAt).toLocaleDateString("ru-RU") }}
-                </small>
-                <button v-if="isOwner" class="icon-button ui-icon-button" type="button" :disabled="saving" @click="handleRemoveAdmin(selectedAdminAccessCurrent.telegramId)">
-                  <Trash2 class="h-4 w-4" aria-hidden="true" />
-                </button>
-              </footer>
-            </div>
-          </section>
-      </TaskScreen>
-    </section>
   </section>
 </template>

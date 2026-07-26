@@ -4,13 +4,14 @@ import { describe, expect, it } from "vitest";
 import { readAppStyles } from "@/test/appStyles";
 
 const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+const permissionsPanelSource = readFileSync(resolve(__dirname, "AdminPermissionsPanel.vue"), "utf8");
 const styles = readAppStyles("admin");
 
 describe("compact transfer owner screen", () => {
   it("uses a dedicated content-sized form without the duplicate modal header", () => {
-    const screen = source.slice(
-      source.indexOf('<TaskScreen v-if="showTransferOwnerModal"'),
-      source.indexOf("</TaskScreen>", source.indexOf('<TaskScreen v-if="showTransferOwnerModal"'))
+    const screen = permissionsPanelSource.slice(
+      permissionsPanelSource.indexOf('<TaskScreen v-if="showTransferOwnerModal"'),
+      permissionsPanelSource.indexOf("</TaskScreen>", permissionsPanelSource.indexOf('<TaskScreen v-if="showTransferOwnerModal"'))
     );
 
     expect(screen).toContain('class="admin-task-screen admin-transfer-owner-task-screen"');
@@ -28,7 +29,7 @@ describe("compact transfer owner screen", () => {
 
   it("asks for an explicit confirmation before transferring ownership", () => {
     expect(source).toContain('import ConfirmDialog from "@/features/app/ConfirmDialog.vue"');
-    expect(source).toContain('@submit.prevent="requestTransferOwnerConfirmation"');
+    expect(permissionsPanelSource).toContain('@submit.prevent="emit(\'request-transfer-confirmation\', transferOwnerTelegramId)"');
     expect(source).toContain(':open="showTransferOwnerConfirm"');
     expect(source).toContain('confirm-label="Да, передать клуб"');
     expect(source).toContain('@confirm="handleTransferOwner"');

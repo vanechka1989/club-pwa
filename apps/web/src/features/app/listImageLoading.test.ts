@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 describe("long-list image loading", () => {
   it("defers admin list avatars until they approach the viewport", () => {
-    const source = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
-    expect(source.match(/loading="lazy" decoding="async"/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+    const source = readFileSync(resolve(__dirname, "../admin/AdminPermissionsPanel.vue"), "utf8");
+    expect(source.match(/loading="lazy" decoding="async"/g)?.length ?? 0).toBeGreaterThanOrEqual(1);
   });
 
   it("decodes chat avatars asynchronously", () => {

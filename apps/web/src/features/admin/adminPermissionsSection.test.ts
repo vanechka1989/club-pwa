@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
+const permissionsPanelSource = readFileSync(resolve(__dirname, "AdminPermissionsPanel.vue"), "utf-8");
 const adminServerPanelSource = readFileSync(resolve(__dirname, "AdminServerPanel.vue"), "utf-8");
 const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
 const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/shared/src/index.ts"), "utf-8");
@@ -14,16 +15,16 @@ function indexOfClass(source: string, className: string) {
 
 describe("admin permissions section", () => {
   it("supports searching admins by email, name, or username before adding access", () => {
-    expect(adminSectionSource).toContain("adminSearchQuery");
-    expect(adminSectionSource).toContain("adminSearchCandidates");
-    expect(adminSectionSource).toContain("email, имя или username");
+    expect(permissionsPanelSource).toContain("adminSearchQuery");
+    expect(permissionsPanelSource).toContain("adminSearchCandidates");
+    expect(permissionsPanelSource).toContain("email, имя или username");
   });
 
   it("renders manual role label, access toggle, and permission switches", () => {
-    expect(adminSectionSource).toContain("Роль вручную");
-    expect(adminSectionSource).toContain("Доступ администратора");
-    expect(adminSectionSource).toContain("adminPermissionOptions");
-    expect(adminSectionSource).toContain("toggleAdminPermission");
+    expect(permissionsPanelSource).toContain("Роль вручную");
+    expect(permissionsPanelSource).toContain("Доступ администратора");
+    expect(permissionsPanelSource).toContain("adminPermissionOptions");
+    expect(permissionsPanelSource).toContain("emit(\"update-access\"");
     expect(adminSectionSource).toContain("handleUpdateAdminAccess");
   });
 
@@ -38,19 +39,17 @@ describe("admin permissions section", () => {
   it("places preview mode switcher in the admin header, not inside the admins section", () => {
     const adminTitleIndex = adminSectionSource.indexOf('<UiPageHeader title="Админка"');
     const tabsIndex = indexOfClass(adminSectionSource, "admin-tabs");
-    const adminsTitleIndex = adminSectionSource.indexOf("<h3>Администраторы</h3>");
     const previewSwitcherIndex = indexOfClass(adminSectionSource, "admin-preview-switcher");
     const versionBadgeIndex = indexOfClass(adminSectionSource, "app-version-badge");
-    const ownerCardIndex = indexOfClass(adminSectionSource, "admin-permissions-owner");
 
     expect(adminTitleIndex).toBeGreaterThan(-1);
-    expect(adminsTitleIndex).toBeGreaterThan(-1);
     expect(versionBadgeIndex).toBeGreaterThan(adminTitleIndex);
     expect(versionBadgeIndex).toBeLessThan(previewSwitcherIndex);
     expect(previewSwitcherIndex).toBeGreaterThan(adminTitleIndex);
     expect(previewSwitcherIndex).toBeLessThan(tabsIndex);
-    expect(previewSwitcherIndex).toBeLessThan(adminsTitleIndex);
-    expect(ownerCardIndex).toBeGreaterThan(adminsTitleIndex);
+    expect(adminSectionSource).not.toContain("<h3>Администраторы</h3>");
+    expect(permissionsPanelSource).toContain("<h3>Администраторы</h3>");
+    expect(indexOfClass(permissionsPanelSource, "admin-permissions-owner")).toBeGreaterThan(-1);
   });
 
   it("keeps member preview mode visual without surfacing admin API loading errors", () => {
@@ -64,11 +63,22 @@ describe("admin permissions section", () => {
   it("keeps the admin list compact and opens permissions in a routed task screen", () => {
     expect(adminSectionSource).toContain("selectedAdminAccess");
     expect(adminSectionSource).toContain("openAdminAccessModal");
-    expect(adminSectionSource).toContain("admin-permission-row-button");
-    expect(adminSectionSource).toContain("admin-permission-surface");
+    expect(permissionsPanelSource).toContain("admin-permission-row-button");
+    expect(permissionsPanelSource).toContain("admin-permission-surface");
     expect(adminSectionSource).toContain("`/admin/admins/${admin.id}/access`");
-    expect(adminSectionSource).toContain("<TaskScreen");
-    expect(adminSectionSource).toContain('class="admin-task-screen"');
+    expect(permissionsPanelSource).toContain("<TaskScreen");
+    expect(permissionsPanelSource).toContain('class="admin-task-screen"');
+  });
+
+  it("lazy-loads the permissions presentation while the shell keeps owner transfer and permission-loss safety", () => {
+    expect(adminSectionSource).toContain('defineAsyncComponent(() => import("./AdminPermissionsPanel.vue"))');
+    expect(adminSectionSource).toContain('<AdminPermissionsPanel\n      v-else-if="activePanel === \'admins\'"');
+    expect(adminSectionSource).toContain('@request-transfer-confirmation="requestTransferOwnerConfirmation"');
+    expect(adminSectionSource).toContain('if (ownerTaskDenied || developerTaskDenied || panelTaskDenied)');
+    expect(adminSectionSource).toContain('await router.replace("/admin")');
+    expect(adminSectionSource).toContain("transferClubOwner(transferOwnerTelegramId.value)");
+    expect(permissionsPanelSource).toContain('title="Передать клуб"');
+    expect(permissionsPanelSource).toContain('subtitle="Права и доступ администратора"');
   });
 
   it("uses one clean permission surface and a single-column mobile permission list", () => {
@@ -76,8 +86,8 @@ describe("admin permissions section", () => {
       .map((path) => readFileSync(resolve(__dirname, path), "utf8"))
       .join("\n");
 
-    expect(adminSectionSource).toContain('class="admin-permission-surface ui-card"');
-    expect(adminSectionSource).not.toContain('class="admin-permission-card ui-card"');
+    expect(permissionsPanelSource).toContain('class="admin-permission-surface ui-card"');
+    expect(permissionsPanelSource).not.toContain('class="admin-permission-card ui-card"');
     expect(styles).toMatch(/\.admin-permission-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/);
     expect(styles).toMatch(/\.admin-permission-toggle\s*\{[\s\S]*?min-height:\s*44px;/);
     expect(styles).toMatch(/@media \(min-width:\s*600px\)[\s\S]*?\.admin-permission-grid\s*\{[\s\S]*?repeat\(2, minmax\(0, 1fr\)\)/);
@@ -111,8 +121,8 @@ describe("admin permissions section", () => {
     expect(apiClientSource).toContain("getAdminActionLogs");
     expect(apiClientSource).toContain("actorTelegramId");
     expect(adminSectionSource).toContain("adminActionActorFilter");
-    expect(adminSectionSource).toContain("Журнал действий");
-    expect(adminSectionSource).toContain("Все администраторы");
+    expect(permissionsPanelSource).toContain("Журнал действий");
+    expect(permissionsPanelSource).toContain("Все администраторы");
   });
 
   it("shows understandable persistent server errors with explicit refresh", () => {
@@ -153,8 +163,8 @@ describe("admin permissions section", () => {
 
   it("keeps action journal collapsed by default and can expand it", () => {
     expect(adminSectionSource).toContain("adminActionLogExpanded");
-    expect(adminSectionSource).toContain("Показать журнал");
-    expect(adminSectionSource).toContain("Свернуть журнал");
+    expect(permissionsPanelSource).toContain("Показать журнал");
+    expect(permissionsPanelSource).toContain("Свернуть журнал");
   });
 
   it("shows pending feedback on client access action buttons", () => {
