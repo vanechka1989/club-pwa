@@ -7,7 +7,7 @@ import { recordAdminAction } from "../admin/actionLog";
 import { EmailDailyLimitError, getEmailDeliveryQuota, getRecentEmailDeliveryTimes, sendEmail } from "../auth/emailDelivery";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
-import { adminMailingRecipients, adminMailings, pushSubscriptions, userContentProgress, userMutes, users } from "../db/schema";
+import { adminMailingRecipients, adminMailings, pushSubscriptions, userContentProgress, users } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";

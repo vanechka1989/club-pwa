@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const styles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 const taskNavigation = readFileSync(resolve(__dirname, "taskNavigation.ts"), "utf8");
 const adminSection = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
+const adminServerPanel = readFileSync(resolve(__dirname, "../admin/AdminServerPanel.vue"), "utf8");
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const taskScreenSource = readFileSync(resolve(__dirname, "TaskScreen.vue"), "utf8");
 const foundationPath = resolve(__dirname, "../ui/foundation.css");
@@ -149,7 +150,8 @@ describe("responsive layout audit contract", () => {
     expect(taskNavigation).toContain('"/admin/statistics/payments/:segment"');
     expect(taskNavigation).toContain('"/admin/statistics/users/:segment"');
     expect(adminSection).toContain('openAdminTask("/admin/storage/files")');
-    expect(adminSection).toContain('openAdminTask("/admin/server/logs")');
+    expect(adminSection).toContain("AdminServerPanel");
+    expect(adminServerPanel).toContain("Ошибки API");
     expect(adminSection).toContain("`/admin/admins/${admin.id}/access`");
     expect(adminSection).toContain("`/admin/storage/folders/${encodeURIComponent(folder.value || \"all\")}`");
     expect(adminSection).toContain("`/admin/statistics/payments/${item.key}`");

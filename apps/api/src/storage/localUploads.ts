@@ -1,5 +1,5 @@
 import { mkdir } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import { env } from "../env";
 import { localUploadResponseHeaders } from "./localUploadHeaders";
 

@@ -91,7 +91,6 @@ describe("profile subscription copy", () => {
     const source = readFileSync(resolve(__dirname, "ProfileSection.vue"), "utf8");
 
     expect(source).toContain("profileSubscriptionStatusText");
-    expect(source).toContain("profileSubscriptionStatusClass");
     expect(source).toContain("referralRewardText");
     expect(source).toContain(':disabled="!canActivateReferral"');
   });

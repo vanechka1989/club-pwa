@@ -28,7 +28,6 @@ import { cleanupExpiredPendingPaymentOrders } from "../payments/orderCleanupJob"
 import { notifyPaymentReceived } from "../payments/paymentNotification";
 import { getMembership } from "../membership/getMembership";
 import {
-  buildProdamusPaymentUrl,
   getProdamusNotificationOrderId,
   getProdamusSubscriptionIdentity,
   normalizeProdamusFormUrl,

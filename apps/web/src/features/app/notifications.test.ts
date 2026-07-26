@@ -42,7 +42,6 @@ describe("app notifications", () => {
   });
 
   it("renders mailing HTML and inline media previews in the notification center", () => {
-    const source = readFileSync(resolve(__dirname, "NotificationCenter.vue"), "utf8");
     const screenSource = readFileSync(resolve(__dirname, "NotificationCenterScreen.vue"), "utf8");
     const styles = readAppStyles();
 

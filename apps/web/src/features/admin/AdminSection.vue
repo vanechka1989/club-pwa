@@ -7,8 +7,6 @@ import {
   type AdminActionLog,
   type AdminCommunityMessage,
   type AdminPermission,
-  type AdminServerErrorLog,
-  type AdminServerStatus,
   type AdminMailing,
   type AdminMailingAnalytics,
   type AdminMailingAnalyticsRecipient,
@@ -20,13 +18,11 @@ import {
   type AdminUser,
   type AdminUserDetailResponse,
   type ClubTopic,
-  type ContentKind,
   type EmailDeliveryQuota,
   type LearningCategory,
   type MailingChannel,
   type MailingFilters,
   type PaymentOrderLog,
-  type OwnerEmailLoginCodeResponse,
   type S3StorageObject,
   type S3StorageSettings
 } from "@club/shared";
@@ -58,29 +54,19 @@ import type { StatisticsDetail } from "./AdminStatisticsDetail.vue";
 import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode";
 import {
   addAdminUser,
-  createAdminDatabaseBackupDownloadLink,
   createAdminMailing,
-  createAdminLearningCategory,
-  createAdminLearningMaterial,
   createAdminClientSupportTicket,
   createUserMute,
   deleteAdminS3Object,
-  deleteAdminLearningCategory,
-  deleteAdminLearningMaterial,
-  downloadAdminDatabaseBackup,
   getAdminActionLogs,
   getAdminLearning,
   getAdminMailings,
   getAdminMailingAnalytics,
   getAdminMailingAnalyticsRecipients,
   getAdminPaymentHistory,
-  getAdminProjectSettings,
-  generateOwnerEmailLoginCode,
   getAdminS3Objects,
   getAdminS3ObjectUrl,
   getAdminS3StorageSettings,
-  getAdminServerErrors,
-  getAdminServerStatus,
   getAdminStats,
   getAdminUsers,
   getAdminUserDetail,
@@ -96,13 +82,9 @@ import {
   testAdminMailing,
   testAdminMailingDraft,
   transferClubOwner,
-  restoreAdminDatabaseBackup,
   updateAdminUserPermissions,
-  updateAdminProjectSettings,
   updateAdminS3StorageSettings,
-  updateAdminLearningMaterialStatus,
   updateAdminUserAccess,
-  updateAdminUserDisplayName,
 } from "@/api/client";
 import {
   getAccessSaveButtonText,
@@ -246,26 +228,6 @@ const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const adminActionAdmins = ref<AdminActionActor[]>([]);
 const adminActionLogs = ref<AdminActionLog[]>([]);
-const serverErrorLogs = ref<AdminServerErrorLog[]>([]);
-const serverStatus = ref<AdminServerStatus | null>(null);
-// Kept only while the extracted server panel replaces the legacy markup below.
-const legacyServerStatus = computed<AdminServerStatus>(() => serverStatus.value!);
-const showServerLogsModal = ref(false);
-const projectSettingsLoaded = ref(false);
-const projectSettingsMessage = ref<string | null>(null);
-const referralRewardDaysDraft = ref(7);
-const ownerLoginCodeEmail = ref("");
-const generatedEmailLoginCode = ref<OwnerEmailLoginCodeResponse | null>(null);
-const ownerLoginCodeLoading = ref(false);
-const ownerLoginCodeError = ref<string | null>(null);
-const ownerLoginCodeCopied = ref(false);
-let ownerLoginCodeExpiryTimer: number | null = null;
-let ownerLoginCodeRequestGeneration = 0;
-const databaseBackupBusy = ref(false);
-const databaseRestoreBusy = ref(false);
-const databaseRestoreFile = ref<File | null>(null);
-const databaseRestoreConfirmation = ref("");
-const databaseRestoreInputRef = ref<HTMLInputElement | null>(null);
 const adminActionActorFilter = ref("");
 const adminActionLogExpanded = ref(false);
 const users = ref<AdminStatsUser[]>([]);
@@ -304,7 +266,6 @@ const pollStats = ref<AdminStatsResponse["pollStats"]>({ totalPolls: 0, activePo
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
 const selectedUserDisplayName = ref("");
-const selectedUserDisplayNameSaving = ref(false);
 const selectedUserDisplayNameError = ref<string | null>(null);
 const selectedUserLoginIps = ref<AdminLoginIp[]>([]);
 const selectedUserLoginIpsLoading = ref(false);
@@ -346,14 +307,7 @@ const accessStatus = ref<"active" | "inactive">("active");
 const accessExpiresAt = ref("");
 const pendingClientAccessAction = ref<ClientAccessAction | null>(null);
 const materialCategoryId = ref("");
-const materialKind = ref<ContentKind>("text");
-const materialTitle = ref("");
-const materialSummary = ref("");
-const materialBody = ref("");
-const materialPublished = ref(true);
 const materialFile = ref<File | null>(null);
-const categoryTitle = ref("");
-const categoryDescription = ref("");
 const showMaterialModal = ref(false);
 const showCategoryModal = ref(false);
 const showReleaseNotesModal = ref(false);
@@ -362,8 +316,6 @@ const clientMessageText = ref("");
 const clientMessageFiles = ref<File[]>([]);
 const clientMessageInputRef = ref<HTMLTextAreaElement | null>(null);
 const sendingClientMessage = ref(false);
-const editorRef = ref<HTMLElement | null>(null);
-const editorColor = ref("#111827");
 const adminSearchQuery = ref("");
 const selectedAdminAccess = ref<AdminUser | null>(null);
 const transferOwnerTelegramId = ref("");
@@ -405,7 +357,6 @@ const storageForm = ref({
 });
 let accessSaveTimer: number | null = null;
 let mailingPreviewTimer: number | null = null;
-let serverLogsRefreshTimer: number | null = null;
 
 const isOwner = computed(() => session.user?.realRole === "owner");
 const isPaymentsPanel = computed(() => activePanel.value === "payments");
@@ -454,18 +405,9 @@ const canGrantClientAccess = computed(() => hasCurrentAdminPermission("accesses"
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const canManageSelectedUserAccess = computed(() => canGrantClientAccess.value && canManageSelectedUser.value);
 const clientAccessBusy = computed(() => Boolean(pendingClientAccessAction.value));
-const databaseRestoreCanSubmit = computed(
-  () => Boolean(databaseRestoreFile.value) && databaseRestoreConfirmation.value.trim() === "ВОССТАНОВИТЬ" && !databaseRestoreBusy.value
-);
 const totalUsers = computed(() => users.value.length);
 const activeUsers = computed(() => users.value.filter((user) => user.membershipStatus === "active").length);
 const restrictedUsers = computed(() => users.value.filter((user) => user.hasRestrictions).length);
-const paidOrders = computed(() => paymentOrders.value.filter((order) => order.status === "paid").length);
-const oneTimePaidOrders = computed(() => paymentOrders.value.filter((order) => order.status === "paid" && order.productKind === "one_time").length);
-const recurrentPaidOrders = computed(() => paymentOrders.value.filter((order) => order.status === "paid" && order.productKind === "recurrent").length);
-const paidRevenue = computed(() =>
-  paymentOrders.value.filter((order) => order.status === "paid").reduce((sum, order) => sum + order.amountRub, 0)
-);
 const tariffOptions = computed(() => {
   const values = new Set(users.value.map((user) => user.tariff || "future"));
   return [
@@ -651,12 +593,6 @@ const userDrilldownUsers = computed(() => {
   return filterUsersByAccessBreakdown(activeUserDrilldown.value.key, users.value);
 });
 const accessSaveButtonText = computed(() => getAccessSaveButtonText(accessSaveSucceeded.value));
-const materialsByCategory = computed(() =>
-  learningCategories.value.map((category) => ({
-    category,
-    materials: learningMaterials.value.filter((material) => material.categoryId === category.id)
-  }))
-);
 const adminStatistics = computed(() =>
   buildAdminStatistics(
     {
@@ -680,18 +616,6 @@ const statisticsDetailMeta = computed(() => {
     polls: { title: "Опросы", subtitle: "Участие и распределение ответов" }
   };
   return activeStatisticsDetail.value ? meta[activeStatisticsDetail.value] : meta.clients;
-});
-const filteredStorageObjects = computed(() => {
-  const query = storageSearch.value.trim().toLowerCase();
-  if (!query) {
-    return storageObjects.value;
-  }
-
-  return storageObjects.value.filter((item) =>
-    [item.key, item.entityTitle ?? "", item.uploadedBy?.firstName ?? "", item.uploadedBy?.username ?? ""].some((value) =>
-      value.toLowerCase().includes(query)
-    )
-  );
 });
 const storageOverview = computed(() =>
   storagePrefixOptions.map((option) => {
@@ -1009,19 +933,8 @@ function formatDateTime(value: string | null) {
   });
 }
 
-function formatGeneratedLoginCodeExpiry(value: OwnerEmailLoginCodeResponse | null) {
-  return value ? formatDateTime(value.expiresAt) : "—";
-}
 
-function formatLegacyDiskPercent(status: AdminServerStatus) {
-  return status.disk ? `${status.disk.usedPercent}%` : "нет данных";
-}
 
-function formatLegacyDiskUsage(status: AdminServerStatus) {
-  return status.disk
-    ? `${formatStorageSize(status.disk.usedBytes)} / ${formatStorageSize(status.disk.totalBytes)}`
-    : "statfs недоступен";
-}
 
 function mailingAuthorLabel(mailing: AdminMailing) {
   const author = mailing.createdBy;
@@ -1540,179 +1453,19 @@ async function loadAdminActionLogs() {
   adminActionLogs.value = response.logs;
 }
 
-async function loadServerErrorLogs() {
-  const response = await getAdminServerErrors();
-  serverErrorLogs.value = response.errors;
-}
 
-async function loadServerStatus() {
-  const response = await getAdminServerStatus();
-  serverStatus.value = response.status;
-}
 
-async function loadServerDashboard() {
-  await Promise.all([loadServerStatus(), loadServerErrorLogs()]);
-}
 
-async function loadProjectSettings() {
-  const response = await getAdminProjectSettings();
-  referralRewardDaysDraft.value = response.settings.referralRewardDays;
-  projectSettingsLoaded.value = true;
-}
 
-async function saveProjectSettings() {
-  saving.value = true;
-  projectSettingsMessage.value = null;
-  try {
-    const response = await updateAdminProjectSettings({
-      referralRewardDays: Number(referralRewardDaysDraft.value)
-    });
-    referralRewardDaysDraft.value = response.settings.referralRewardDays;
-    projectSettingsLoaded.value = true;
-    projectSettingsMessage.value = "Настройки проекта сохранены.";
-    showSuccessAlert("Настройки проекта сохранены.");
-  } catch {
-    projectSettingsMessage.value = "Не удалось сохранить настройки проекта.";
-    setError("Не удалось сохранить настройки проекта.");
-  } finally {
-    saving.value = false;
-  }
-}
 
-async function generateEmergencyEmailLoginCode() {
-  const email = ownerLoginCodeEmail.value.trim().toLowerCase();
-  const requestGeneration = ++ownerLoginCodeRequestGeneration;
-  generatedEmailLoginCode.value = null;
-  ownerLoginCodeError.value = null;
-  ownerLoginCodeCopied.value = false;
 
-  if (!email) {
-    ownerLoginCodeError.value = "Введите email клиента.";
-    return;
-  }
 
-  ownerLoginCodeLoading.value = true;
-  try {
-    const response = await generateOwnerEmailLoginCode({ email });
-    if (requestGeneration !== ownerLoginCodeRequestGeneration || activePanel.value !== "project-settings") return;
-    generatedEmailLoginCode.value = response;
-    ownerLoginCodeEmail.value = email;
-    scheduleOwnerLoginCodeReset(response.expiresAt);
-  } catch (requestError) {
-    if (requestGeneration !== ownerLoginCodeRequestGeneration || activePanel.value !== "project-settings") return;
-    const errorPayload = requestError as { data?: { error?: string } };
-    ownerLoginCodeError.value = errorPayload.data?.error ?? "Не удалось создать код входа.";
-  } finally {
-    if (requestGeneration === ownerLoginCodeRequestGeneration) {
-      ownerLoginCodeLoading.value = false;
-    }
-  }
-}
 
-async function copyOwnerLoginCode() {
-  if (!generatedEmailLoginCode.value) return;
-  await copyTextToClipboard(generatedEmailLoginCode.value.code);
-  ownerLoginCodeCopied.value = true;
-}
 
-function resetOwnerLoginCode() {
-  ownerLoginCodeRequestGeneration += 1;
-  if (ownerLoginCodeExpiryTimer !== null) {
-    window.clearTimeout(ownerLoginCodeExpiryTimer);
-    ownerLoginCodeExpiryTimer = null;
-  }
-  generatedEmailLoginCode.value = null;
-  ownerLoginCodeError.value = null;
-  ownerLoginCodeCopied.value = false;
-  ownerLoginCodeLoading.value = false;
-  ownerLoginCodeEmail.value = "";
-}
 
-function scheduleOwnerLoginCodeReset(expiresAt: string) {
-  if (ownerLoginCodeExpiryTimer !== null) {
-    window.clearTimeout(ownerLoginCodeExpiryTimer);
-  }
-  const delay = Math.max(0, new Date(expiresAt).getTime() - Date.now());
-  ownerLoginCodeExpiryTimer = window.setTimeout(resetOwnerLoginCode, delay);
-}
 
-function openServerLogsModal() {
-  showServerLogsModal.value = true;
-  openAdminTask("/admin/server/logs");
-  void loadServerErrorLogs().catch(() => null);
-}
 
-function closeServerLogsModal() {
-  showServerLogsModal.value = false;
-  closeAdminTask();
-}
 
-function openDatabaseBackupDownloadUrl(url: string) {
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    window.location.assign(url);
-  }
-}
-
-async function handleDownloadDatabaseBackup() {
-  if (databaseBackupBusy.value) {
-    return;
-  }
-
-  databaseBackupBusy.value = true;
-  try {
-    const { blob, fileName } = await downloadAdminDatabaseBackup();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setStatus("Скачивание базы запущено.");
-  } catch {
-    try {
-      const response = await createAdminDatabaseBackupDownloadLink();
-      openDatabaseBackupDownloadUrl(response.url);
-      setStatus("Скачивание базы открыто в новой вкладке.");
-    } catch {
-      setError("Не удалось скачать базу.");
-    }
-  } finally {
-    databaseBackupBusy.value = false;
-  }
-}
-
-function updateDatabaseRestoreFile(event: Event) {
-  const input = event.target as HTMLInputElement;
-  databaseRestoreFile.value = input.files?.[0] ?? null;
-}
-
-async function handleRestoreDatabaseBackup() {
-  if (!databaseRestoreFile.value || !databaseRestoreCanSubmit.value) {
-    return;
-  }
-
-  databaseRestoreBusy.value = true;
-  try {
-    await restoreAdminDatabaseBackup({
-      file: databaseRestoreFile.value,
-      confirmation: databaseRestoreConfirmation.value
-    });
-    databaseRestoreFile.value = null;
-    databaseRestoreConfirmation.value = "";
-    if (databaseRestoreInputRef.value) {
-      databaseRestoreInputRef.value.value = "";
-    }
-    setStatus("База восстановлена. Перезагрузите приложение и проверьте данные.");
-    await loadServerDashboard();
-  } catch {
-    setError("Не удалось восстановить базу. Проверьте файл резервной копии.");
-  } finally {
-    databaseRestoreBusy.value = false;
-  }
-}
 
 function adminRoleLabel(role: AdminStatsUser["role"]) {
   if (role === "owner") {
@@ -1833,13 +1586,6 @@ function getAccessActionSummary(user: AdminStatsUser) {
   return user.membershipExpiresAt ? `${tariff} до ${formatAdminDate(user.membershipExpiresAt)}` : tariff;
 }
 
-function getLastPaymentSummary(order: PaymentOrderLog | null) {
-  if (!order) {
-    return "Нет оплат";
-  }
-
-  return `${order.amountRub.toLocaleString("ru-RU")} ₽ · ${paymentOrderStatusLabel(order.status).toLowerCase()}`;
-}
 
 function formatDateInput(date: Date) {
   const year = date.getFullYear();
@@ -1947,22 +1693,6 @@ async function selectUser(user: AdminStatsUser) {
   }
 }
 
-async function saveSelectedUserDisplayName() {
-  if (!selectedUser.value) return;
-  selectedUserDisplayNameSaving.value = true;
-  selectedUserDisplayNameError.value = null;
-  try {
-    const updated = await updateAdminUserDisplayName(selectedUser.value.telegramId, selectedUserDisplayName.value);
-    applySelectedUser(updated);
-    selectedUserDisplayName.value = updated.displayName || "";
-    selectedUserDetail.value = await getAdminUserDetail(updated.telegramId);
-  } catch (error) {
-    const status = (error as { status?: number; statusCode?: number })?.status ?? (error as { statusCode?: number })?.statusCode;
-    selectedUserDisplayNameError.value = status === 409 ? "Этот ник уже занят." : "Проверьте формат ника.";
-  } finally {
-    selectedUserDisplayNameSaving.value = false;
-  }
-}
 
 function extendAccess(days: number) {
   const today = new Date();
@@ -2072,21 +1802,6 @@ function formatStorageSize(bytes: number) {
   return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function formatServerUptime(seconds: number) {
-  const days = Math.floor(seconds / 86_400);
-  const hours = Math.floor((seconds % 86_400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-
-  if (days > 0) {
-    return `${days} д. ${hours} ч.`;
-  }
-
-  if (hours > 0) {
-    return `${hours} ч. ${minutes} мин.`;
-  }
-
-  return `${minutes} мин.`;
-}
 
 function storageObjectFileName(key: string) {
   return key.split("/").filter(Boolean).at(-1) ?? key;
@@ -2318,7 +2033,6 @@ async function loadAll() {
     const shouldLoadCommunity = hasCurrentAdminPermission("community");
     const shouldLoadMailings = hasCurrentAdminPermission("mailings");
     const shouldLoadAdminActions = hasCurrentAdminPermission("admins");
-    const shouldLoadProjectSettings = hasCurrentAdminPermission("project_settings");
     const [
       adminsResponse,
       statsResponse,
@@ -2326,8 +2040,7 @@ async function loadAll() {
       paymentsResponse,
       topicsResponse,
       mailingsResponse,
-      actionLogsResponse,
-      projectSettingsResponse
+      actionLogsResponse
     ] = await Promise.all([
       shouldLoadAdmins ? getAdminUsers() : Promise.resolve(null),
       shouldLoadStats ? getAdminStats() : Promise.resolve(null),
@@ -2335,8 +2048,7 @@ async function loadAll() {
       shouldLoadPayments ? getAdminPaymentHistory() : Promise.resolve(null),
       shouldLoadCommunity ? getCommunityTopics() : Promise.resolve(null),
       shouldLoadMailings ? getAdminMailings() : Promise.resolve(null),
-      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null),
-      shouldLoadProjectSettings ? getAdminProjectSettings() : Promise.resolve(null)
+      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null)
     ]);
     if (adminsResponse) {
       ownerTelegramId.value = adminsResponse.ownerTelegramId;
@@ -2360,10 +2072,6 @@ async function loadAll() {
     if (actionLogsResponse) {
       adminActionAdmins.value = actionLogsResponse.admins;
       adminActionLogs.value = actionLogsResponse.logs;
-    }
-    if (projectSettingsResponse) {
-      referralRewardDaysDraft.value = projectSettingsResponse.settings.referralRewardDays;
-      projectSettingsLoaded.value = true;
     }
     if (learningResponse) {
       learningCategories.value = learningResponse.categories;
@@ -2536,41 +2244,11 @@ async function handleRevokeMute(id: string) {
   }
 }
 
-function handleMaterialFileChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  materialFile.value = input.files?.[0] ?? null;
-}
 
-function resetMaterialForm() {
-  materialTitle.value = "";
-  materialSummary.value = "";
-  materialBody.value = "";
-  materialKind.value = "text";
-  materialPublished.value = true;
-  materialFile.value = null;
-  if (editorRef.value) {
-    editorRef.value.innerHTML = "";
-  }
-}
 
-function openMaterialModal() {
-  if (!materialCategoryId.value && learningCategories.value[0]) {
-    materialCategoryId.value = learningCategories.value[0].id;
-  }
-  showMaterialModal.value = true;
-}
 
-function closeMaterialModal() {
-  showMaterialModal.value = false;
-}
 
-function openCategoryModal() {
-  showCategoryModal.value = true;
-}
 
-function closeCategoryModal() {
-  showCategoryModal.value = false;
-}
 
 function openTransferOwnerModal() {
   transferOwnerTelegramId.value = admins.value[0]?.telegramId ?? "";
@@ -2585,144 +2263,12 @@ function closeTransferOwnerModal() {
   closeAdminTask();
 }
 
-function syncEditorBody() {
-  materialBody.value = editorRef.value?.innerHTML ?? "";
-}
 
-function applyEditorCommand(command: string, value?: string) {
-  editorRef.value?.focus();
-  document.execCommand(command, false, value);
-  syncEditorBody();
-}
 
-async function handleCreateMaterial() {
-  if (!materialCategoryId.value || !materialTitle.value.trim()) {
-    setError("Укажите категорию и название контента.");
-    return;
-  }
-  if (materialKind.value !== "text" && !materialFile.value) {
-    setError("Для фото, видео и аудио нужен файл.");
-    return;
-  }
 
-  const form = new FormData();
-  form.set("categoryId", materialCategoryId.value);
-  form.set("kind", materialKind.value);
-  form.set("title", materialTitle.value.trim());
-  form.set("summary", materialSummary.value.trim());
-  form.set("body", materialBody.value.trim());
-  form.set("isPublished", String(materialPublished.value));
-  if (materialFile.value) {
-    form.set("file", materialFile.value);
-  }
 
-  saving.value = true;
-  try {
-    const response = await createAdminLearningMaterial(form);
-    learningMaterials.value = [response.material, ...learningMaterials.value];
-    learningCategories.value = learningCategories.value.map((category) =>
-      category.id === response.material.categoryId ? { ...category, itemsCount: category.itemsCount + 1 } : category
-    );
-    resetMaterialForm();
-    closeMaterialModal();
-    showSuccessAlert("Контент добавлен.");
-  } catch {
-    setError("Не удалось добавить контент.");
-  } finally {
-    saving.value = false;
-  }
-}
 
-async function handleToggleMaterial(material: AdminLearningMaterial) {
-  saving.value = true;
-  try {
-    const response = await updateAdminLearningMaterialStatus(material.id, !material.isPublished);
-    learningMaterials.value = learningMaterials.value.map((item) => (item.id === material.id ? response.material : item));
-    setStatus(response.material.isPublished ? "Контент открыт." : "Контент скрыт.");
-  } catch {
-    setError("Не удалось изменить доступность контента.");
-  } finally {
-    saving.value = false;
-  }
-}
 
-async function handleCreateCategory() {
-  if (!categoryTitle.value.trim()) {
-    setError("Укажите название категории.");
-    return;
-  }
-
-  saving.value = true;
-  try {
-    const response = await createAdminLearningCategory({
-      title: categoryTitle.value.trim(),
-      description: categoryDescription.value.trim() || null
-    });
-    learningCategories.value = [...learningCategories.value, response.category];
-    materialCategoryId.value = response.category.id;
-    categoryTitle.value = "";
-    categoryDescription.value = "";
-    closeCategoryModal();
-    showSuccessAlert("Категория добавлена.");
-  } catch {
-    setError("Не удалось добавить категорию.");
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function handleDeleteCategory(category: LearningCategory) {
-  const confirmed = await appDialogs.confirm({
-    title: `Удалить категорию «${category.title}»?`,
-    description: "Весь контент внутри категории также будет удалён.",
-    confirmLabel: "Удалить категорию",
-    tone: "danger"
-  });
-  if (!confirmed) {
-    return;
-  }
-
-  saving.value = true;
-  try {
-    await deleteAdminLearningCategory(category.id);
-    learningCategories.value = learningCategories.value.filter((item) => item.id !== category.id);
-    learningMaterials.value = learningMaterials.value.filter((item) => item.categoryId !== category.id);
-    if (materialCategoryId.value === category.id) {
-      materialCategoryId.value = learningCategories.value[0]?.id ?? "";
-    }
-    setStatus("Категория удалена.");
-  } catch {
-    setError("Не удалось удалить категорию.");
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function handleDeleteMaterial(material: AdminLearningMaterial) {
-  const confirmed = await appDialogs.confirm({
-    title: `Удалить контент «${material.title}»?`,
-    description: "Материал станет недоступен клиентам.",
-    confirmLabel: "Удалить контент",
-    tone: "danger"
-  });
-  if (!confirmed) {
-    return;
-  }
-
-  saving.value = true;
-  try {
-    await deleteAdminLearningMaterial(material.id);
-    learningMaterials.value = learningMaterials.value.filter((item) => item.id !== material.id);
-    learningCategories.value = learningCategories.value.map((category) =>
-      category.id === material.categoryId ? { ...category, itemsCount: Math.max(0, category.itemsCount - 1) } : category
-    );
-    setStatus("Контент удалён.");
-  } catch {
-    setError("Не удалось удалить контент.");
-  } finally {
-    saving.value = false;
-  }
-}
 
 async function handleAddAdmin(telegramId = resolveAdminSearchTelegramId()) {
   if (!telegramId) {
@@ -2830,7 +2376,6 @@ function resetAdminTaskState() {
   showStorageFilesModal.value = false;
   showStorageFolderModal.value = false;
   showStorageSettingsModal.value = false;
-  showServerLogsModal.value = false;
   showTransferOwnerModal.value = false;
   showTransferOwnerConfirm.value = false;
   selectedAdminAccess.value = null;
@@ -2921,8 +2466,6 @@ async function syncAdminTaskRoute() {
   }
   if (path === "/admin/server/logs" || path === "/admin/server") {
     activePanel.value = "server-logs";
-    showServerLogsModal.value = true;
-    void loadServerErrorLogs().catch(() => null);
     return;
   }
   if (path === "/admin/owner/transfer") {
@@ -3043,57 +2586,12 @@ watch(
   }
 );
 
-function stopServerLogsAutoRefresh() {
-  if (serverLogsRefreshTimer !== null) {
-    window.clearInterval(serverLogsRefreshTimer);
-    serverLogsRefreshTimer = null;
-  }
-}
-
-function startServerLogsAutoRefresh() {
-  stopServerLogsAutoRefresh();
-  void loadServerDashboard().catch(() => null);
-  serverLogsRefreshTimer = window.setInterval(() => {
-    if (activePanel.value === "server-logs") {
-      void loadServerDashboard().catch(() => null);
-    }
-  }, 5000);
-}
-
-watch(
-  () => activePanel.value,
-  (panel) => {
-    if (
-      panel !== "project-settings" &&
-      (generatedEmailLoginCode.value || ownerLoginCodeError.value || ownerLoginCodeLoading.value)
-    ) {
-      resetOwnerLoginCode();
-    }
-
-    if (panel === "server-logs") {
-      startServerLogsAutoRefresh();
-      return;
-    }
-
-    if (panel === "project-settings" && !projectSettingsLoaded.value) {
-      void loadProjectSettings().catch(() => {
-        projectSettingsMessage.value = "Не удалось загрузить настройки проекта.";
-      });
-    }
-
-    stopServerLogsAutoRefresh();
-  },
-  { immediate: true }
-);
-
 onUnmounted(() => {
-  resetOwnerLoginCode();
   resetAccessSaveState();
   if (mailingPreviewTimer) {
     window.clearTimeout(mailingPreviewTimer);
     mailingPreviewTimer = null;
   }
-  stopServerLogsAutoRefresh();
 });
 </script>
 
@@ -4332,61 +3830,6 @@ onUnmounted(() => {
 
     <AdminPaymentsPanel v-else-if="isPaymentsPanel" class="admin-panel ui-page-section" />
 
-    <section v-else-if="false" class="admin-panel ui-page-section">
-      <div class="admin-panel-head ui-page-header">
-        <div>
-          <h3>Платежи</h3>
-          <p>История заказов, webhook и статусы оплат Prodamus.</p>
-        </div>
-      </div>
-
-      <div class="admin-payment-summary">
-        <article>
-          <span>Всего заказов</span>
-          <strong>{{ paymentOrders.length }}</strong>
-        </article>
-        <article>
-          <span>Оплачено</span>
-          <strong>{{ paidOrders }}</strong>
-        </article>
-        <article>
-          <span>Разовые</span>
-          <strong>{{ oneTimePaidOrders }}</strong>
-        </article>
-        <article>
-          <span>Рекуррент</span>
-          <strong>{{ recurrentPaidOrders }}</strong>
-        </article>
-        <article>
-          <span>Сумма оплат</span>
-          <strong>{{ paidRevenue.toLocaleString("ru-RU") }} ₽</strong>
-        </article>
-      </div>
-
-      <div class="admin-list">
-        <article v-for="order in paymentOrders" :key="order.id" class="admin-payment-card">
-          <div class="admin-payment-main">
-            <div>
-              <strong>{{ order.productTitle }}</strong>
-              <small>{{ paymentCustomerTitle(order) }} · ID {{ order.customer.telegramId }}</small>
-            </div>
-            <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
-          </div>
-          <div class="admin-payment-meta">
-            <span>{{ paymentOrderDate(order) }}</span>
-            <span>{{ order.amountRub.toLocaleString("ru-RU") }} ₽</span>
-            <span>{{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }} · {{ order.provider === "lava" ? "Lava" : "Prodamus" }}</span>
-            <span>Webhook: {{ order.webhook ? (order.webhook?.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
-          </div>
-          <div class="admin-payment-ids">
-            <span>order: {{ order.providerOrderId }}</span>
-            <span v-if="order.providerPaymentId">payment: {{ order.providerPaymentId }}</span>
-          </div>
-        </article>
-        <p v-if="!paymentOrders.length" class="admin-empty">Оплат пока нет. Первый заказ появится сразу после нажатия клиентом на оплату.</p>
-      </div>
-    </section>
-
     <section v-else-if="activePanel === 'storage' && canUseStorage" class="admin-panel ui-page-section">
       <div class="admin-panel-head ui-page-header">
         <div>
@@ -4708,224 +4151,7 @@ onUnmounted(() => {
 
     <AdminProjectSettingsPanel v-else-if="isProjectSettingsPanel" class="admin-panel ui-page-section" :is-owner="isOwner" />
 
-    <section v-else-if="false" class="admin-panel ui-page-section admin-permissions-panel">
-      <div class="admin-panel-head ui-page-header">
-        <div>
-          <h3>Настройки проекта</h3>
-          <p>Общие параметры клуба. Доступно разработчику и администраторам с правом.</p>
-        </div>
-        <button class="secondary-button ui-button" type="button" :disabled="saving" @click="loadProjectSettings">
-          Обновить
-        </button>
-      </div>
-
-      <section class="admin-crm-block ui-card admin-project-settings-card">
-        <div>
-          <h4>Реферальная система</h4>
-          <p>Сколько бонусных дней начислять пригласившему клиенту после первой оплаты приглашённого.</p>
-        </div>
-
-        <form class="admin-project-settings-form" @submit.prevent="saveProjectSettings">
-          <label class="admin-field">
-            <span>Реферальное вознаграждение</span>
-            <input v-model.number="referralRewardDaysDraft" class="text-input" min="1" max="3650" type="number" inputmode="numeric" />
-            <small>Дни копятся в профиле клиента и активируются вручную. При активной автоподписке активировать нельзя.</small>
-          </label>
-
-          <button class="primary-button ui-button" type="submit" :disabled="saving">
-            Сохранить настройки
-          </button>
-        </form>
-
-        <p v-if="projectSettingsMessage" class="admin-form-note">{{ projectSettingsMessage }}</p>
-      </section>
-
-      <section v-if="isOwner" class="admin-crm-block ui-card admin-owner-login-code-card">
-        <div>
-          <h4>Аварийный вход по email</h4>
-          <p>Создайте одноразовый код для существующего или нового email. Клиент будет создан после успешного ввода кода.</p>
-        </div>
-
-        <form v-if="!generatedEmailLoginCode" class="admin-owner-login-code-form" @submit.prevent="generateEmergencyEmailLoginCode">
-          <label class="admin-field">
-            <span>Email для входа</span>
-            <input
-              v-model="ownerLoginCodeEmail"
-              class="text-input"
-              type="email"
-              inputmode="email"
-              autocomplete="email"
-              placeholder="client@example.com"
-              required
-            />
-          </label>
-          <button class="primary-button ui-button" type="submit" :disabled="ownerLoginCodeLoading">
-            {{ ownerLoginCodeLoading ? "Генерируем…" : "Сгенерировать код" }}
-          </button>
-        </form>
-
-        <div v-else class="admin-owner-login-code-result">
-          <div class="admin-owner-login-code-copy">
-            <span>{{ generatedEmailLoginCode?.email }}</span>
-            <strong class="admin-owner-login-code-value">{{ generatedEmailLoginCode?.code }}</strong>
-            <small>Действует до {{ formatGeneratedLoginCodeExpiry(generatedEmailLoginCode) }}</small>
-          </div>
-          <div class="admin-owner-login-code-actions">
-            <button class="secondary-button ui-button" type="button" @click="copyOwnerLoginCode">
-              <Copy :size="17" />
-              {{ ownerLoginCodeCopied ? "Скопировано" : "Скопировать код" }}
-            </button>
-            <button class="secondary-button ui-button" type="button" @click="resetOwnerLoginCode">
-              Создать другой
-            </button>
-          </div>
-        </div>
-
-        <p v-if="ownerLoginCodeError" class="admin-form-note admin-form-note-error">{{ ownerLoginCodeError }}</p>
-      </section>
-    </section>
-
     <AdminServerPanel v-else-if="isServerPanel" class="admin-panel ui-page-section" />
-
-    <TaskScreen v-if="showServerLogsModal" class="admin-task-screen" title="Логи сервера" :subtitle="serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : 'Ошибок пока нет'" portal @back="closeServerLogsModal">
-      <section class="admin-detail ui-card admin-client-modal admin-server-logs-modal">
-        <header class="admin-client-modal-head">
-          <div>
-            <h3 id="admin-server-logs-title">Логи сервера</h3>
-            <p>{{ serverErrorLogs.length ? `${serverErrorLogs.length} последних ошибок API` : "Ошибок пока нет" }}</p>
-          </div>
-          <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть логи сервера" @click="closeServerLogsModal">
-            <X class="h-4 w-4" aria-hidden="true" />
-          </button>
-        </header>
-
-        <p class="admin-log-note">
-          Здесь не Docker-логи и не все запросы. Показываются падения API 500 и ошибки сборки загрузок уроков из частей.
-        </p>
-
-        <div class="admin-action-log-list">
-          <article v-for="log in serverErrorLogs" :key="log.id" class="admin-action-log-item">
-            <div>
-              <strong>{{ log.title }}</strong>
-              <span>{{ formatDateTime(log.createdAt) }} · {{ log.method }} {{ log.path }} · {{ log.status }}</span>
-              <small>{{ log.detail }}</small>
-            </div>
-          </article>
-          <p v-if="!serverErrorLogs.length" class="admin-empty">Ошибок сервера пока нет.</p>
-        </div>
-      </section>
-    </TaskScreen>
-
-    <section v-else-if="false" class="admin-panel ui-page-section admin-permissions-panel">
-      <div class="admin-panel-head ui-page-header">
-        <div>
-          <h3>Сервер</h3>
-          <p>Состояние, ресурсы и ошибки API. Доступно разработчику.</p>
-        </div>
-        <button class="secondary-button ui-button" type="button" @click="loadServerDashboard">
-          Обновить
-        </button>
-      </div>
-
-      <section class="admin-server-grid ui-responsive-grid">
-        <article class="admin-server-card ui-card admin-server-card-ok">
-          <div>
-            <span>Статус</span>
-            <strong>{{ legacyServerStatus.ok ? "Работает" : "Нет данных" }}</strong>
-            <small>Проверено {{ formatDateTime(legacyServerStatus.checkedAt) }}</small>
-          </div>
-        </article>
-
-        <article class="admin-server-card ui-card">
-          <div>
-            <span>Uptime</span>
-            <strong>{{ formatServerUptime(legacyServerStatus.processUptimeSeconds) }}</strong>
-            <small>Процесс API</small>
-          </div>
-        </article>
-
-        <article class="admin-server-card ui-card">
-          <div>
-            <span>Память Node</span>
-            <strong>{{ formatStorageSize(legacyServerStatus.processMemory.rssBytes) }}</strong>
-            <small>
-              Heap {{ formatStorageSize(legacyServerStatus.processMemory.heapUsedBytes) }} / {{ formatStorageSize(legacyServerStatus.processMemory.heapTotalBytes) }}
-            </small>
-          </div>
-        </article>
-
-        <article class="admin-server-card ui-card">
-          <div>
-            <span>Память сервера</span>
-            <strong>{{ legacyServerStatus.systemMemory.usedPercent }}%</strong>
-            <small>
-              {{ formatStorageSize(legacyServerStatus.systemMemory.usedBytes) }} / {{ formatStorageSize(legacyServerStatus.systemMemory.totalBytes) }}
-            </small>
-          </div>
-        </article>
-
-        <article class="admin-server-card ui-card">
-          <div>
-            <span>Диск</span>
-            <strong>{{ formatLegacyDiskPercent(legacyServerStatus) }}</strong>
-            <small>
-              {{ formatLegacyDiskUsage(legacyServerStatus) }}
-            </small>
-          </div>
-        </article>
-
-        <article class="admin-server-card ui-card">
-          <div>
-            <span>Нагрузка</span>
-            <strong>{{ legacyServerStatus.loadAverage.join(" / ") }}</strong>
-            <small>{{ legacyServerStatus.cpuCount }} CPU</small>
-          </div>
-        </article>
-      </section>
-
-      <section class="admin-crm-block ui-card admin-database-tools">
-        <div class="admin-database-tools-head">
-          <div>
-            <h4>База данных</h4>
-            <p>Ручная резервная копия и восстановление PostgreSQL.</p>
-            <small>Восстановление полностью заменит текущие данные клуба.</small>
-          </div>
-          <button class="secondary-button ui-button" type="button" :disabled="databaseBackupBusy" @click="handleDownloadDatabaseBackup">
-            {{ databaseBackupBusy ? "Скачиваю..." : "Скачать базу" }}
-          </button>
-        </div>
-
-        <div class="admin-database-restore">
-          <label class="admin-field">
-            <span>Файл резервной копии</span>
-            <input ref="databaseRestoreInputRef" class="text-input" type="file" accept=".dump,application/octet-stream" @change="updateDatabaseRestoreFile" />
-            <small>{{ databaseRestoreFile?.name ?? "Файл формата .dump, скачанный из этой вкладки." }}</small>
-          </label>
-
-          <label class="admin-field">
-            <span>Подтверждение</span>
-            <input v-model.trim="databaseRestoreConfirmation" class="text-input" autocomplete="off" placeholder="Введите ВОССТАНОВИТЬ" />
-            <small>Без этой фразы восстановление не запустится.</small>
-          </label>
-
-          <button class="secondary-button ui-button danger-action" type="button" :disabled="!databaseRestoreCanSubmit" @click="handleRestoreDatabaseBackup">
-            {{ databaseRestoreBusy ? "Восстанавливаю..." : "Восстановить базу" }}
-          </button>
-        </div>
-      </section>
-
-      <section class="admin-crm-block ui-card admin-server-log-summary">
-        <div>
-          <h4>Логи сервера</h4>
-          <p>{{ legacyServerStatus.serverErrorCount }} ошибок</p>
-          <small>Не Docker-логи. Только последние 100 ошибок API, список очищается после перезапуска сервера.</small>
-        </div>
-        <button class="secondary-button ui-button" type="button" @click="openServerLogsModal">
-          Открыть логи
-        </button>
-      </section>
-
-    </section>
 
     <section v-else-if="activePanel === 'admins'" class="admin-panel ui-page-section admin-permissions-panel">
       <div class="admin-panel-head ui-page-header">

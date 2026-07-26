@@ -5,7 +5,7 @@ import type { UserRole } from "@club/shared";
 import { z } from "zod";
 import { hasPwaStandaloneAuthHeader, hashAuthToken, pwaInstallRequiredMessage, pwaStandaloneAuthHeaderName } from "../auth/emailAuth";
 import { db } from "../db/client";
-import { authSessions, users, type User } from "../db/schema";
+import { authSessions, type User } from "../db/schema";
 import { isOwnerTelegramId } from "../admin/roles";
 import { logger } from "../logger";
 import { getTrustedClientIp } from "../security/clientIp";

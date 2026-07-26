@@ -328,7 +328,7 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
 
     async cancelSubscription(input) {
       const apiKey = configuredApiKey(input.credentials, options.apiKey);
-      const client = apiKey === options.apiKey ? request : async (path: string, init?: RequestInit) => {
+      const client = apiKey === options.apiKey ? request : async (_path: string, _init?: RequestInit) => {
         const nested = createLavaClient({ apiKey, fetch: fetchImpl });
         if (!nested.cancelSubscription) throw new LavaApiError("LAVA_UNAVAILABLE");
         await nested.cancelSubscription(input);

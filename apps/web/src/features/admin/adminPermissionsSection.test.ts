@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
+const adminServerPanelSource = readFileSync(resolve(__dirname, "AdminServerPanel.vue"), "utf-8");
 const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
 const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/shared/src/index.ts"), "utf-8");
 const adminRouteSource = readFileSync(resolve(__dirname, "../../../../../apps/api/src/routes/admin.ts"), "utf-8");
@@ -114,20 +115,15 @@ describe("admin permissions section", () => {
     expect(adminSectionSource).toContain("Все администраторы");
   });
 
-  it("shows understandable server errors in a dedicated server logs panel with auto refresh", () => {
+  it("shows understandable persistent server errors with explicit refresh", () => {
     expect(apiClientSource).toContain("getAdminServerErrors");
     expect(apiClientSource).toContain("getAdminServerStatus");
-    expect(adminSectionSource).toContain("activePanel === 'server-logs'");
-    expect(adminSectionSource).toContain("serverErrorLogs");
-    expect(adminSectionSource).toContain("serverStatus");
-    expect(adminSectionSource).toContain("Сервер");
-    expect(adminSectionSource).toContain("Логи сервера");
-    expect(adminSectionSource).toContain("Открыть логи");
-    expect(adminSectionSource).toContain("Доступно разработчику");
-    expect(adminSectionSource).toContain("Здесь не Docker-логи");
-    expect(adminSectionSource).toContain("последние 100 ошибок");
-    expect(adminSectionSource).toContain("serverLogsRefreshTimer");
-    expect(adminSectionSource).toContain("window.setInterval");
+    expect(adminSectionSource).toContain("AdminServerPanel");
+    expect(adminServerPanelSource).toContain("Сервер и интеграции");
+    expect(adminServerPanelSource).toContain("Ошибки API");
+    expect(adminServerPanelSource).toContain("сохраняются между перезапусками");
+    expect(adminServerPanelSource).toContain('@click="load"');
+    expect(adminServerPanelSource).toContain("onMounted(load)");
   });
 
   it("offers owner-only manual database backup and restore from the server panel", () => {
@@ -138,12 +134,12 @@ describe("admin permissions section", () => {
     expect(adminRouteSource).toContain(".post(\"/database/backup-link\"");
     expect(adminRouteSource).toContain(".get(\"/database/backup-download/:token\"");
     expect(adminRouteSource).toContain(".post(\"/database/restore\"");
-    expect(adminSectionSource).toContain("openDatabaseBackupDownloadUrl");
-    expect(adminSectionSource).toContain('window.open(url, "_blank", "noopener,noreferrer")');
-    expect(adminSectionSource).toContain("Скачать базу");
-    expect(adminSectionSource).toContain("Восстановить базу");
-    expect(adminSectionSource).toContain("ВОССТАНОВИТЬ");
-    expect(adminSectionSource).toContain("databaseRestoreFile");
+    expect(adminServerPanelSource).toContain("createAdminDatabaseBackupDownloadLink");
+    expect(adminServerPanelSource).toContain("window.location.assign(link.url)");
+    expect(adminServerPanelSource).toContain("Скачать резервную копию");
+    expect(adminServerPanelSource).toContain("Восстановить");
+    expect(adminServerPanelSource).toContain("ВОССТАНОВИТЬ");
+    expect(adminServerPanelSource).toContain("restoreFile");
   });
 
   it("shows release notes in the admin section only to the developer mode", () => {

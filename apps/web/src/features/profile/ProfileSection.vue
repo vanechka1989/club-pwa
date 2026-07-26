@@ -30,7 +30,6 @@ import { UiPageHeader } from "@/features/ui";
 import { findActiveRecurrentSubscription, findRestorableRecurrentSubscription } from "@/features/billing/recurrentSubscription";
 import {
   applyAvatarGesture,
-  clampAvatarPosition,
   clampAvatarScale,
   getAvatarGestureMetrics,
   type AvatarGestureMetrics
@@ -38,7 +37,6 @@ import {
 import {
   canUseReferralActivation,
   getProfileMembershipStatusText,
-  getProfileMembershipStatusTone,
   getProfilePaymentActionText,
   getReferralRewardText
 } from "@/features/profile/profileSubscriptionCopy";
@@ -178,44 +176,6 @@ const subscriptionMeta = computed(() => {
 
   return `${daysLeft.value} ${t("profileDaysLeft")}`;
 });
-const paymentStatusText = computed(() => {
-  if (!isMember.value) {
-    return t("homeInactive");
-  }
-
-  if (session.user?.paymentType === "recurrent") {
-    return session.user.recurrentPaymentStatus === "cancelled" ? t("profileRecurrentCancelled") : t("profileRecurrentPayment");
-  }
-
-  if (session.user?.paymentType === "one_time") {
-    return t("profileOneTimePayment");
-  }
-
-  if (session.user?.paymentType === "manual") {
-    return t("profileManualAccess");
-  }
-
-  return t("profileAccessActive");
-});
-const paymentDateText = computed(() => {
-  if (!isMember.value) {
-    return null;
-  }
-
-  if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "active" && session.user.nextPaymentAt) {
-    return `${t("profileNextPayment")} ${new Date(session.user.nextPaymentAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
-  }
-
-  if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "cancelled" && session.user.membershipExpiresAt) {
-    return `${t("profileWorksUntil")} ${new Date(session.user.membershipExpiresAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
-  }
-
-  if (session.user?.paymentType === "one_time" && session.user.membershipExpiresAt) {
-    return `${t("profileWorksUntil")} ${new Date(session.user.membershipExpiresAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")}`;
-  }
-
-  return null;
-});
 const activeRecurrentSubscription = computed(() => findActiveRecurrentSubscription(recurrentSubscriptions.value));
 const restorableRecurrentSubscription = computed(() =>
   findRestorableRecurrentSubscription(recurrentSubscriptions.value, {
@@ -240,7 +200,6 @@ const profileSubscriptionStatusText = computed(() =>
     inactiveText: t("profileSubscriptionInactive")
   })
 );
-const profileSubscriptionStatusClass = computed(() => getProfileMembershipStatusTone({ isMember: isMember.value }));
 const referralRewardText = computed(() =>
   getReferralRewardText({
     rewardDays: referralRewardDays.value,
@@ -268,7 +227,6 @@ const learningProgress = computed(() => {
 
   return Math.round((completedItems.value / totalItems.value) * 100);
 });
-const isStatsEmpty = computed(() => completedItems.value === 0 && !lastOpenedTitle.value);
 const themeOptions = computed<Array<{ value: Theme; label: string; icon: typeof Moon }>>(() => [
   { value: "dark", label: t("profileThemeNight"), icon: Moon },
   { value: "light", label: t("profileThemeDay"), icon: Sun }

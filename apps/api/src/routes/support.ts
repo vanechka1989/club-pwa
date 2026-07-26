@@ -6,7 +6,6 @@ import { recordAdminAction } from "../admin/actionLog";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import { supportTicketAttachments, supportTicketMessages, supportTickets, users } from "../db/schema";
-import { env } from "../env";
 import { logger } from "../logger";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";

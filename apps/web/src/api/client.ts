@@ -36,8 +36,6 @@ import type {
   ClubMessagesResponse,
   ClubTopicMutationResponse,
   ClubTopicsResponse,
-  DeviceDiagnostics,
-  DeviceDiagnosticsMutationResponse,
   AdminMutationResponse,
   AdminServerErrorsResponse,
   AdminServerStatusResponse,
@@ -55,7 +53,6 @@ import type {
   LearningPlaybackMutationResponse,
   LearningProgressMutationResponse,
   MessageReaction,
-  MeResponse,
   PaymentsResponse,
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
@@ -63,8 +60,6 @@ import type {
   PaymentProviderCatalogResponse,
   PaymentProviderCode,
   PaymentProviderMutationResponse,
-  ReferralActivationResponse,
-  ReferralProfileResponse,
   S3StorageObjectUrlResponse,
   S3StorageObjectsResponse,
   S3StorageSettingsMutationResponse,
@@ -73,12 +68,8 @@ import type {
   SupportHomeResponse,
   AdminSupportResponse,
   AdminPermission,
-  AppNotificationMutationResponse,
-  AppNotificationsResponse,
-  AppStateResponse,
   SupportTicketMutationResponse,
-  SupportUnreadResponse,
-  AcquisitionDestination
+  SupportUnreadResponse
 } from "@club/shared";
 import { getCommunityVoiceUploadFileName } from "../features/community/voiceUpload";
 import { api, apiUrl, getApiRequestHeaders, previewModeStorageKey } from "./http";
