@@ -16,6 +16,16 @@ export const releaseNotes: ReleaseNote[] = [
     items: [...currentRelease.items]
   },
   {
+    version: "5.66",
+    updatedAt: "26.07.2026 22:15",
+    title: "Приложение без браузерных меню",
+    items: [
+      "Долгое нажатие на карточки, изображения, ссылки и кнопки больше не открывает системное меню браузера.",
+      "Правая кнопка мыши не показывает контекстное меню внутри обычного интерфейса приложения.",
+      "Поля ввода и редакторы сохранили выделение, вставку и другие системные действия для работы с текстом."
+    ]
+  },
+  {
     version: "5.65",
     updatedAt: "26.07.2026 21:50",
     title: "Компактные страницы, модули и поддержка",
@@ -4283,11 +4293,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "App-like long press behavior",
+  title: "Clear payments and modern support",
   items: [
-    "Long presses on cards, images, links, and buttons no longer open the browser menu.",
-    "Right-click no longer shows a context menu on ordinary application UI.",
-    "Text fields and editors retain selection, paste, and other native editing actions."
+    "Recurring tariffs now use the same Pay action while keeping renewal details visible in the description.",
+    "Support metrics are grouped into a clear, modern overview panel.",
+    "Customer requests use compact cards with visible status, color accents, and quick navigation."
   ]
 };
 

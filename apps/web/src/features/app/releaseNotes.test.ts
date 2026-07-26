@@ -3,9 +3,12 @@ import { appVersion } from "./version";
 import { getLocalizedReleaseNotes, getReleaseNoteByVersion, releaseNotes } from "./releaseNotes";
 
 describe("release notes", () => {
-  it("publishes app-like long press behavior as version 5.66", () => {
-    expect(appVersion).toBe("5.66");
-    expect(releaseNotes[0]?.title).toBe("Приложение без браузерных меню");
+  it("publishes clear payments and modern support as version 5.67", () => {
+    expect(appVersion).toBe("5.67");
+    expect(releaseNotes[0]?.title).toBe("Понятная оплата и современная поддержка");
+
+    const appLikeInteractionsRelease = releaseNotes.find((note) => note.version === "5.66");
+    expect(appLikeInteractionsRelease?.title).toBe("Приложение без браузерных меню");
 
     const compactDetailRelease = releaseNotes.find((note) => note.version === "5.65");
     expect(compactDetailRelease?.title).toBe("Компактные страницы, модули и поддержка");
@@ -189,7 +192,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("App-like long press behavior");
+    expect(englishNotes[0]?.title).toBe("Clear payments and modern support");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
