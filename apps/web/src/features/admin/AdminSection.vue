@@ -36,7 +36,6 @@ import {
   Link2,
   Megaphone,
   Paperclip,
-  RotateCcw,
   Server,
   SlidersHorizontal,
   Shield,
@@ -132,6 +131,7 @@ const AdminAcquisitionAnalytics = defineAsyncComponent(() => import("./AdminAcqu
 const AdminLearningEngagement = defineAsyncComponent(() => import("./AdminLearningEngagement.vue"));
 const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));
 const AdminPaymentsPanel = defineAsyncComponent(() => import("./AdminPaymentsPanel.vue"));
+const AdminMailingsPanel = defineAsyncComponent(() => import("./AdminMailingsPanel.vue"));
 const AdminStoragePanel = defineAsyncComponent(() => import("./AdminStoragePanel.vue"));
 const AdminProjectSettingsPanel = defineAsyncComponent(() => import("./AdminProjectSettingsPanel.vue"));
 const AdminServerPanel = defineAsyncComponent(() => import("./AdminServerPanel.vue"));
@@ -255,7 +255,6 @@ const mailingFilters = ref<MailingFilters>({
 });
 const mailingScheduledAt = ref("");
 const mailingAttachment = ref<File | null>(null);
-const mailingEditorRef = ref<HTMLElement | null>(null);
 const mailingPreviewLoading = ref(false);
 const showMailingComposer = ref(false);
 const showMailingHistory = ref(false);
@@ -339,6 +338,7 @@ const selectedStorageFolder = ref<(typeof storagePrefixOptions)[number] | null>(
 const storageFolderSort = ref<"date" | "size" | "uploader">("date");
 const showStorageSettingsModal = ref(false);
 const storagePanelRef = ref<{ focusStorageActions: () => void } | null>(null);
+const mailingsPanelRef = ref<{ getMailingEditor: () => HTMLElement | null } | null>(null);
 const selectedStorageTarget = ref<"primary" | "reserve">("primary");
 const storageForm = ref({
   endpoint: "",
@@ -758,9 +758,17 @@ const statisticsPeriodShortLabel = computed(
 
 useOperationIndicator(adminOperation);
 
-function syncMailingEditorBody() {
-  mailingBodyHtml.value = mailingEditorRef.value?.innerHTML ?? "";
+function getMailingEditor() {
+  return mailingsPanelRef.value?.getMailingEditor() ?? null;
+}
+
+function updateMailingBodyHtml(value: string) {
+  mailingBodyHtml.value = value;
   mailingBody.value = mailingPreparedMessage.value.plainText;
+}
+
+function syncMailingEditorBody() {
+  updateMailingBodyHtml(getMailingEditor()?.innerHTML ?? "");
 }
 
 function syncActiveMailingEditor() {
@@ -784,8 +792,9 @@ async function setMailingEditorMode(mode: MailingEditorMode) {
 
   mailingEditorMode.value = mode;
   await nextTick();
-  if (mode === "visual" && mailingEditorRef.value) {
-    mailingEditorRef.value.innerHTML = mailingBodyHtml.value;
+  const editor = getMailingEditor();
+  if (mode === "visual" && editor) {
+    editor.innerHTML = mailingBodyHtml.value;
   }
 }
 
@@ -799,7 +808,7 @@ function handleMailingEditorPaste(event: ClipboardEvent) {
 }
 
 function applyMailingEditorCommand(command: string, value?: string) {
-  mailingEditorRef.value?.focus();
+  getMailingEditor()?.focus();
   document.execCommand(command, false, value);
   syncMailingEditorBody();
 }
@@ -830,11 +839,6 @@ async function applyMailingEditorLink() {
   applyMailingEditorCommand("createLink", url);
 }
 
-function updateMailingAttachment(event: Event) {
-  const input = event.target as HTMLInputElement;
-  mailingAttachment.value = input.files?.[0] ?? null;
-}
-
 function resetMailingForm() {
   mailingTitle.value = "";
   mailingBody.value = "";
@@ -849,8 +853,9 @@ function resetMailingForm() {
   };
   mailingScheduledAt.value = "";
   mailingAttachment.value = null;
-  if (mailingEditorRef.value) {
-    mailingEditorRef.value.innerHTML = "";
+  const editor = getMailingEditor();
+  if (editor) {
+    editor.innerHTML = "";
   }
   scheduleMailingPreview();
 }
@@ -865,8 +870,9 @@ async function openMailingComposer(options: { reset?: boolean } = {}) {
   openAdminTask("/admin/mailings/new");
   await nextTick();
 
-  if (mailingEditorRef.value) {
-    mailingEditorRef.value.innerHTML = mailingBodyHtml.value;
+  const editor = getMailingEditor();
+  if (editor) {
+    editor.innerHTML = mailingBodyHtml.value;
     syncMailingEditorBody();
   }
 
@@ -3303,544 +3309,59 @@ onUnmounted(() => {
       </Teleport>
     </section>
 
-    <section v-else-if="activePanel === 'mailings'" class="admin-panel ui-page-section admin-mailings-panel">
-      <div class="admin-panel-head ui-page-header">
-        <div>
-          <h3>Рассылки</h3>
-          <p>Push и email для выбранной аудитории.</p>
-        </div>
-        <button class="primary-button ui-button admin-add-button" type="button" @click="openMailingComposer()">Новая рассылка</button>
-      </div>
-
-      <section class="admin-crm-block ui-card admin-email-quota" aria-label="Суточный лимит email">
-        <div class="admin-email-quota-head">
-          <div>
-            <span>Email за 24 часа</span>
-            <strong>{{ mailingEmailQuota.used }} / {{ mailingEmailQuota.limit }}</strong>
-          </div>
-          <span>{{ mailingEmailQuota.remaining }} доступно</span>
-        </div>
-        <div class="admin-email-quota-track" aria-hidden="true">
-          <span :style="{ width: `${Math.min(100, (mailingEmailQuota.used / mailingEmailQuota.limit) * 100)}%` }"></span>
-        </div>
-        <p>Коды авторизации, тестовые письма и рассылки учитываются вместе. Скорость — до {{ mailingEmailQuota.messagesPerSecond }} писем/с.</p>
-        <small v-if="mailingEmailQuota.resetsAt">Ближайшее место освободится {{ formatDateTime(mailingEmailQuota.resetsAt) }}</small>
-      </section>
-
-      <button class="admin-mailing-history-entry ui-button" type="button" @click="openMailingHistory">
-        <span>
-          <strong>История рассылок</strong>
-          <small>{{ mailings.length ? `${mailings.length} рассылок` : "Рассылок пока нет" }}</small>
-        </span>
-        <ChevronRight class="h-5 w-5" aria-hidden="true" />
-      </button>
-
-      <TaskScreen v-if="showMailingHistory" class="admin-task-screen admin-mailing-history-task-screen" title="История рассылок" :subtitle="mailings.length ? `${mailings.length} рассылок` : 'Рассылок пока нет'" portal @back="closeMailingHistory">
-          <section class="admin-mailing-list admin-mailing-history-screen">
-
-            <article
-              v-for="mailing in mailings"
-              :key="mailing.id"
-              class="admin-mailing-card"
-              role="button"
-              tabindex="0"
-              @click="openMailingDetail(mailing)"
-              @keydown.enter.prevent="openMailingDetail(mailing)"
-            >
-              <header>
-                <div>
-                  <strong>{{ mailing.title }}</strong>
-                  <small>{{ formatDateTime(mailing.createdAt) }} · {{ mailingAuthorLabel(mailing) }}</small>
-                  <small>{{ getMailingChannelLabel(mailing.channel) }} · {{ getMailingStatusLabel(mailing.status) }}</small>
-                </div>
-                <span :class="`admin-mailing-status admin-mailing-status-${mailing.status}`">
-                  {{ getMailingStatusLabel(mailing.status) }}
-                </span>
-              </header>
-              <p>{{ mailing.body }}</p>
-              <a
-                v-if="mailing.attachment"
-                class="admin-mailing-attachment"
-                :href="mailing.attachment.url ?? '#'"
-                target="_blank"
-                rel="noreferrer"
-                @click.stop
-              >
-                <Paperclip class="h-3.5 w-3.5" aria-hidden="true" />
-                {{ mailingAttachmentText(mailing) }}
-              </a>
-              <div class="admin-mailing-progress">
-                <span>{{ mailing.sentCount }} / {{ mailing.deliveryCount }} доставок</span>
-                <span>{{ mailing.estimatedLabel }}</span>
-              </div>
-              <div class="admin-mailing-delivery-stats" aria-label="Состояние доставки">
-                <span>Доставлено <strong>{{ mailing.sentCount }}</strong></span>
-                <span>Ожидает <strong>{{ mailing.pendingCount }}</strong></span>
-                <span>В обработке <strong>{{ mailing.processingCount }}</strong></span>
-                <span>Пропущено <strong>{{ mailing.skippedCount }}</strong></span>
-                <span :class="{ 'admin-mailing-delivery-error': mailing.failedCount > 0 }">Ошибки <strong>{{ mailing.failedCount }}</strong></span>
-              </div>
-              <div class="admin-mailing-actions">
-                <button class="secondary-button ui-button" type="button" :disabled="saving" @click.stop="reuseMailing(mailing)">
-                  Использовать снова
-                </button>
-                <button
-                  v-if="canRetryFailedMailing(mailing)"
-                  class="secondary-button ui-button"
-                  type="button"
-                  :aria-label="`Повторить ошибки: ${mailing.failedCount}`"
-                  :disabled="saving"
-                  @click.stop="handleRetryFailedMailing(mailing)"
-                >
-                  Повторить ошибки
-                </button>
-                <button class="secondary-button ui-button" type="button" :disabled="saving" @click.stop="handleTestMailing(mailing)">
-                  Тест себе
-                </button>
-                <button v-if="mailing.status === 'running'" class="secondary-button ui-button" type="button" :disabled="saving" @click.stop="handlePauseMailing(mailing)">
-                  Пауза
-                </button>
-                <button v-if="mailing.status === 'paused'" class="secondary-button ui-button" type="button" :disabled="saving" @click.stop="handleResumeMailing(mailing)">
-                  Продолжить
-                </button>
-                <button
-                  v-if="mailing.status === 'running' || mailing.status === 'paused' || mailing.status === 'scheduled'"
-                  class="secondary-button ui-button admin-mailing-stop"
-                  type="button"
-                  :disabled="saving"
-                  @click.stop="handleStopMailing(mailing)"
-                >
-                  Остановить
-                </button>
-              </div>
-            </article>
-            <p v-if="!mailings.length" class="admin-empty">Рассылок пока нет.</p>
-          </section>
-      </TaskScreen>
-
-      <TaskScreen v-if="showMailingComposer" class="admin-task-screen admin-mailing-task-screen" title="Новая рассылка" subtitle="Текст, вложение, фильтры и планирование." portal @back="closeMailingComposer">
-        <template #actions>
-          <button class="secondary-button ui-icon-button admin-mailing-reset-button" type="button" aria-label="Сбросить форму" title="Сбросить форму" @click="resetMailingForm">
-            <RotateCcw class="h-5 w-5" aria-hidden="true" />
-          </button>
-        </template>
-          <section class="admin-detail ui-card admin-client-modal admin-mailing-composer-modal">
-            <form id="admin-mailing-form" class="admin-crm-block ui-card admin-mailing-builder" @submit.prevent="handleCreateMailing">
-              <div class="admin-panel-head ui-page-header admin-mailing-builder-head">
-                <div>
-                  <p class="admin-overline">Рассылки</p>
-                  <h4 id="admin-mailing-composer-title">Новая рассылка</h4>
-                  <p>Текст, HTML-форматирование, вложение, фильтры и планирование.</p>
-                </div>
-                <div class="admin-mailing-modal-actions">
-                  <button class="secondary-button ui-button" type="button" @click="resetMailingForm">Сбросить</button>
-                  <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть рассылку" @click="closeMailingComposer">
-                    <X class="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-
-              <div class="admin-mailing-builder-body">
-              <label class="admin-field">
-                <span>Заголовок</span>
-                <input v-model.trim="mailingTitle" class="text-input" placeholder="Например: Новая практика в клубе" />
-              </label>
-
-              <div class="admin-editor admin-mailing-editor">
-                <div class="admin-mailing-editor-modes" role="group" aria-label="Режим редактора">
-                  <button
-                    class="secondary-button ui-button admin-mailing-editor-mode"
-                    :class="{ 'admin-mailing-editor-mode-active': mailingEditorMode === 'visual' }"
-                    type="button"
-                    :aria-pressed="mailingEditorMode === 'visual'"
-                    @click="setMailingEditorMode('visual')"
-                  >Визуально</button>
-                  <button
-                    class="secondary-button ui-button admin-mailing-editor-mode"
-                    :class="{ 'admin-mailing-editor-mode-active': mailingEditorMode === 'html' }"
-                    type="button"
-                    :aria-pressed="mailingEditorMode === 'html'"
-                    @click="setMailingEditorMode('html')"
-                  >HTML-код</button>
-                </div>
-                <template v-if="mailingEditorMode === 'visual'">
-                  <div class="admin-editor-toolbar">
-                    <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('bold')">B</button>
-                    <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('italic')">I</button>
-                    <button class="icon-button ui-icon-button" type="button" @click="applyMailingEditorCommand('underline')">U</button>
-                    <button class="secondary-button ui-button" type="button" @click="applyMailingEditorCommand('insertUnorderedList')">Список</button>
-                    <button class="secondary-button ui-button" type="button" @click="applyMailingEditorLink">Ссылка</button>
-                  </div>
-                  <div
-                    ref="mailingEditorRef"
-                    class="admin-rich-editor"
-                    contenteditable="true"
-                    role="textbox"
-                    aria-label="Текст рассылки"
-                    data-placeholder="Текст рассылки"
-                    @input="syncMailingEditorBody"
-                    @paste="handleMailingEditorPaste"
-                  ></div>
-                </template>
-                <textarea
-                  v-else
-                  v-model="mailingBodyHtml"
-                  class="text-input admin-mailing-html-source"
-                  aria-label="HTML-код рассылки"
-                  placeholder="<b>Важный текст</b>"
-                  spellcheck="false"
-                  @input="syncActiveMailingEditor"
-                ></textarea>
-                <section v-if="mailingPreparedMessage.safeHtml" class="admin-mailing-message-preview" aria-label="Предпросмотр сообщения">
-                  <span>Предпросмотр сообщения</span>
-                  <div v-html="mailingPreparedMessage.safeHtml"></div>
-                </section>
-              </div>
-
-              <div class="admin-mailing-channels" aria-label="Куда отправляем рассылку">
-                <button
-                  v-for="channel in mailingChannelOptions"
-                  :key="channel.value"
-                  class="admin-mailing-channel"
-                  :class="{ 'admin-mailing-channel-active': mailingChannel === channel.value }"
-                  type="button"
-                  @click="mailingChannel = channel.value"
-                >
-                  <strong>{{ channel.label }}</strong>
-                  <span>{{ channel.hint }}</span>
-                </button>
-              </div>
-
-              <div class="admin-mailing-filter-grid">
-                <label class="admin-field">
-                  <span>Статус доступа</span>
-                  <select v-model="mailingFilters.accessStatus" class="text-input">
-                    <option v-for="option in mailingAccessStatusOptions" :key="option.value" :value="option.value">
-                      {{ option.label }}
-                    </option>
-                  </select>
-                </label>
-                <label class="admin-field">
-                  <span>Тип доступа</span>
-                  <select v-model="mailingFilters.accessType" class="text-input">
-                    <option v-for="option in mailingAccessTypeOptions" :key="option.value" :value="option.value">
-                      {{ option.label }}
-                    </option>
-                  </select>
-                </label>
-              </div>
-
-              <div class="admin-mailing-checks">
-                <label class="admin-check-row">
-                  <input v-model="mailingFilters.excludeAdmins" type="checkbox" />
-                  <span>Исключить админов</span>
-                </label>
-                <label class="admin-check-row">
-                  <input v-model="mailingFilters.excludeRestricted" type="checkbox" />
-                  <span>Исключить ограничения</span>
-                </label>
-              </div>
-
-              <div class="admin-mailing-row">
-                <label class="admin-mailing-file">
-                  <Paperclip class="h-4 w-4" aria-hidden="true" />
-                  <span>{{ mailingAttachmentLabel }}</span>
-                  <input type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" @change="updateMailingAttachment" />
-                </label>
-                <label class="admin-field admin-mailing-date">
-                  <span>Запланировать</span>
-                  <input v-model="mailingScheduledAt" class="text-input" type="datetime-local" />
-                </label>
-              </div>
-
-              <section class="admin-crm-block ui-card admin-mailing-preview admin-mailing-composer-preview">
-                <div class="admin-panel-head ui-page-header admin-mailing-list-head">
-                  <div>
-                    <h4>Расчёт</h4>
-                    <p>Сколько получателей попадёт в выбранные каналы.</p>
-                  </div>
-                  <button class="secondary-button ui-button" type="button" :disabled="mailingPreviewLoading" @click="refreshMailingPreview">
-                    Пересчитать
-                  </button>
-                </div>
-                <div class="admin-mailing-preview-grid">
-                  <article>
-                    <span>Получателей</span>
-                    <strong>{{ mailingPreview?.targetCount ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Всего доставок</span>
-                    <strong>{{ mailingPreview?.deliveryCount ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Push</span>
-                    <strong>{{ mailingPreview?.pushCount ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>PWA-подписок</span>
-                    <strong>{{ mailingPreview?.pushSubscriptionCount ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Email</span>
-                    <strong>{{ mailingPreview?.emailCount ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Email за 24 часа</span>
-                    <strong>{{ mailingPreview?.emailQuota.used ?? "—" }} / {{ mailingPreview?.emailQuota.limit ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Доступно email</span>
-                    <strong>{{ mailingPreview?.emailQuota.remaining ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Email без адреса</span>
-                    <strong>{{ mailingPreview?.excludedMissingEmail ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Отписались от email</span>
-                    <strong>{{ mailingPreview?.excludedEmailOptOut ?? "—" }}</strong>
-                  </article>
-                  <article>
-                    <span>Не прошли фильтры</span>
-                    <strong>{{ mailingPreview?.excludedByFilters ?? "—" }}</strong>
-                  </article>
-                  <article class="admin-mailing-preview-time">
-                    <span>Примерное время</span>
-                    <strong>{{ mailingPreviewLoading ? "считаем..." : mailingPreview?.estimatedLabel ?? "—" }}</strong>
-                  </article>
-                </div>
-                <p v-if="mailingPreview?.emailDelayedByDailyLimit" class="admin-warning-line">
-                  Часть email будет автоматически отправлена после освобождения суточного лимита.
-                </p>
-              </section>
-              </div>
-
-            </form>
-          </section>
-        <template #footer>
-          <div class="admin-mailing-submit-row admin-mailing-builder-footer">
-            <button class="secondary-button ui-button" type="button" :disabled="saving || !mailingCanSubmit" @click="handleTestMailingDraft">
-              Тест себе
-            </button>
-            <button class="primary-button ui-button" form="admin-mailing-form" type="submit" :disabled="saving || !mailingCanSubmit">
-              {{ mailingScheduledAt ? "Запланировать рассылку" : "Запустить рассылку" }}
-            </button>
-          </div>
-        </template>
-      </TaskScreen>
-
-      <TaskScreen v-if="selectedMailing" class="admin-task-screen" :title="selectedMailing.title" :subtitle="`${formatDateTime(selectedMailing.createdAt)} · ${mailingAuthorLabel(selectedMailing)}`" portal @back="closeMailingDetail">
-          <section class="admin-detail ui-card admin-client-modal admin-mailing-detail-modal">
-            <header class="admin-client-modal-head">
-              <div>
-                <p class="admin-overline">Рассылка</p>
-                <h3 id="admin-mailing-detail-title">{{ selectedMailing.title }}</h3>
-                <p>{{ formatDateTime(selectedMailing.createdAt) }} · {{ mailingAuthorLabel(selectedMailing) }}</p>
-              </div>
-              <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть рассылку" @click="closeMailingDetail">
-                <X class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </header>
-
-            <div class="admin-mailing-detail-grid">
-              <article>
-                <span>Канал</span>
-                <strong>{{ getMailingChannelLabel(selectedMailing.channel) }}</strong>
-              </article>
-              <article>
-                <span>Статус</span>
-                <strong>{{ getMailingStatusLabel(selectedMailing.status) }}</strong>
-              </article>
-              <article>
-                <span>Отправлено</span>
-                <strong>{{ selectedMailing.sentCount }} / {{ selectedMailing.deliveryCount }}</strong>
-              </article>
-              <article>
-                <span>Примерное время</span>
-                <strong>{{ selectedMailing.estimatedLabel }}</strong>
-              </article>
-            </div>
-
-            <div class="admin-mailing-delivery-stats" aria-label="Состояние доставки">
-              <span>Доставлено <strong>{{ selectedMailing.sentCount }}</strong></span>
-              <span>Ожидает <strong>{{ selectedMailing.pendingCount }}</strong></span>
-              <span>В обработке <strong>{{ selectedMailing.processingCount }}</strong></span>
-              <span>Пропущено <strong>{{ selectedMailing.skippedCount }}</strong></span>
-              <span :class="{ 'admin-mailing-delivery-error': selectedMailing.failedCount > 0 }">Ошибки <strong>{{ selectedMailing.failedCount }}</strong></span>
-            </div>
-
-            <section class="admin-mailing-analytics" aria-labelledby="admin-mailing-analytics-title">
-              <header class="admin-mailing-analytics-head">
-                <div>
-                  <span class="admin-overline">Аналитика</span>
-                  <h4 id="admin-mailing-analytics-title">Вовлечённость получателей</h4>
-                </div>
-                <button class="secondary-button ui-button" type="button" :disabled="mailingAnalyticsLoading" @click="refreshMailingAnalytics">
-                  Обновить
-                </button>
-              </header>
-
-              <p v-if="mailingAnalyticsLoading" class="admin-empty">Загружаю аналитику…</p>
-              <div v-else-if="mailingAnalyticsError" class="admin-mailing-analytics-notice admin-mailing-analytics-notice-error">
-                <p>Не удалось загрузить аналитику.</p>
-                <button class="secondary-button ui-button" type="button" @click="refreshMailingAnalytics">Повторить</button>
-              </div>
-              <p v-else-if="mailingAnalytics && !mailingAnalytics.trackingEnabledAt" class="admin-mailing-analytics-notice">
-                Отслеживание вовлечённости появилось в версии 5.26. Для более ранних рассылок данных нет.
-              </p>
-
-              <template v-else-if="mailingAnalytics">
-                <div class="admin-mailing-analytics-kpis">
-                  <article><span>Доставлено</span><strong>{{ mailingAnalytics.summary.sent }}</strong></article>
-                  <article><span>Открыто</span><strong>{{ mailingAnalytics.summary.opened }}</strong></article>
-                  <article><span>Переходы</span><strong>{{ mailingAnalytics.summary.clicked }}</strong></article>
-                  <article><span>Open rate</span><strong>{{ formatMailingAnalyticsRate(mailingAnalytics.summary.openRate) }}</strong></article>
-                  <article><span>CTR</span><strong>{{ formatMailingAnalyticsRate(mailingAnalytics.summary.clickRate) }}</strong></article>
-                  <article><span>CTOR</span><strong>{{ formatMailingAnalyticsRate(mailingAnalytics.summary.clickToOpenRate) }}</strong></article>
-                </div>
-
-                <p v-if="mailingAnalytics.emailOpenEstimate" class="admin-mailing-analytics-estimate">
-                  Открытия Email приблизительные: почтовые клиенты могут блокировать или автоматически загружать пиксель.
-                </p>
-
-                <div class="admin-mailing-analytics-channels" aria-label="Аналитика по каналам">
-                  <article v-for="channel in mailingAnalytics.channels" :key="channel.channel">
-                    <header>
-                      <strong>{{ channel.channel === "push" ? "Push" : "Email" }}</strong>
-                      <span>{{ channel.sent }} доставлено</span>
-                    </header>
-                    <div><span>Открыто {{ channel.opened }}</span><strong>{{ formatMailingAnalyticsRate(channel.openRate) }}</strong></div>
-                    <div><span>Переходы {{ channel.clicked }}</span><strong>{{ formatMailingAnalyticsRate(channel.clickRate) }}</strong></div>
-                    <small v-if="channel.failed || channel.skipped">Ошибки {{ channel.failed }} · пропущено {{ channel.skipped }}</small>
-                  </article>
-                </div>
-
-                <section class="admin-mailing-analytics-block">
-                  <h5>Динамика</h5>
-                  <p v-if="!mailingAnalytics.timeline.length" class="admin-empty">События пока не зафиксированы.</p>
-                  <div v-else class="admin-mailing-analytics-timeline">
-                    <article v-for="item in mailingAnalytics.timeline" :key="item.bucket">
-                      <time :datetime="item.bucket">{{ formatMailingAnalyticsBucket(item.bucket) }}</time>
-                      <div><span>Доставлено {{ item.sent }}</span><i class="is-sent" :style="{ width: mailingAnalyticsBarWidth(item.sent) }"></i></div>
-                      <div><span>Открыто {{ item.opened }}</span><i class="is-opened" :style="{ width: mailingAnalyticsBarWidth(item.opened) }"></i></div>
-                      <div><span>Переходы {{ item.clicked }}</span><i class="is-clicked" :style="{ width: mailingAnalyticsBarWidth(item.clicked) }"></i></div>
-                    </article>
-                  </div>
-                </section>
-
-                <section class="admin-mailing-analytics-block">
-                  <h5>Популярные ссылки</h5>
-                  <p v-if="!mailingAnalytics.links.length" class="admin-empty">Переходов по ссылкам пока нет.</p>
-                  <ol v-else class="admin-mailing-analytics-links">
-                    <li v-for="link in mailingAnalytics.links" :key="link.destination">
-                      <a :href="link.destination" target="_blank" rel="noreferrer">{{ link.destination }}</a>
-                      <strong>{{ link.uniqueClicks }}</strong>
-                    </li>
-                  </ol>
-                </section>
-
-                <section class="admin-mailing-analytics-block">
-                  <div class="admin-mailing-analytics-recipients-head">
-                    <h5>Получатели</h5>
-                    <span>{{ mailingAnalyticsRecipients.length }} показано</span>
-                  </div>
-                  <div class="admin-mailing-analytics-filters">
-                    <label>
-                      <span>Статус</span>
-                      <select v-model="mailingAnalyticsRecipientStatus" @change="updateMailingAnalyticsRecipients">
-                        <option value="all">Все статусы</option>
-                        <option value="delivered">Доставлено</option>
-                        <option value="opened">Открыто</option>
-                        <option value="clicked">Переход</option>
-                        <option value="failed">Ошибка</option>
-                        <option value="skipped">Пропущено</option>
-                        <option value="pending">Ожидает</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span>Канал</span>
-                      <select v-model="mailingAnalyticsRecipientChannel" @change="updateMailingAnalyticsRecipients">
-                        <option value="all">Все каналы</option>
-                        <option value="push">Push</option>
-                        <option value="email">Email</option>
-                      </select>
-                    </label>
-                  </div>
-                  <p v-if="mailingAnalyticsRecipientsLoading && !mailingAnalyticsRecipients.length" class="admin-empty">Загружаю получателей…</p>
-                  <p v-else-if="!mailingAnalyticsRecipients.length" class="admin-empty">По выбранным фильтрам получателей нет.</p>
-                  <div v-else class="admin-mailing-analytics-recipients">
-                    <article v-for="recipient in mailingAnalyticsRecipients" :key="recipient.id">
-                      <header>
-                        <div><strong>{{ recipient.displayName }}</strong><small>ID {{ recipient.telegramId }} · {{ recipient.channel === "push" ? "Push" : "Email" }}</small></div>
-                        <span :class="`is-${recipient.analyticsStatus}`">{{ mailingAnalyticsStatusLabel(recipient.analyticsStatus) }}</span>
-                      </header>
-                      <div class="admin-mailing-analytics-recipient-times">
-                        <span>Отправлено: {{ formatDateTime(recipient.sentAt) }}</span>
-                        <span v-if="recipient.openedAt">Открыто: {{ formatDateTime(recipient.openedAt) }}</span>
-                        <span v-if="recipient.clickedAt">Переход: {{ formatDateTime(recipient.clickedAt) }}</span>
-                      </div>
-                      <small v-if="recipient.error" class="admin-mailing-delivery-error">{{ recipient.error }}</small>
-                    </article>
-                  </div>
-                  <button
-                    v-if="mailingAnalyticsNextCursor"
-                    class="secondary-button ui-button admin-mailing-analytics-more"
-                    type="button"
-                    :disabled="mailingAnalyticsRecipientsLoading"
-                    @click="loadMailingAnalyticsRecipients(false)"
-                  >Показать ещё</button>
-                </section>
-              </template>
-            </section>
-
-            <section class="admin-mailing-detail-section">
-              <span>Фильтры</span>
-              <p>{{ mailingFilterSummary(selectedMailing) }}</p>
-            </section>
-
-            <section class="admin-mailing-detail-section">
-              <span>Сообщение</span>
-              <div v-if="selectedMailingBodyHtml" class="admin-mailing-detail-body" v-html="selectedMailingBodyHtml"></div>
-              <p v-else>{{ selectedMailing.body }}</p>
-            </section>
-
-            <section class="admin-mailing-detail-section">
-              <span>Вложение</span>
-              <a
-                v-if="selectedMailing.attachment"
-                class="admin-mailing-attachment"
-                :href="selectedMailing.attachment.url ?? '#'"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Paperclip class="h-3.5 w-3.5" aria-hidden="true" />
-                {{ mailingAttachmentText(selectedMailing) }}
-              </a>
-              <p v-else>Без вложения</p>
-            </section>
-
-            <div class="admin-mailing-actions">
-              <button class="primary-button ui-button" type="button" :disabled="saving" @click="reuseMailing(selectedMailing)">
-                Использовать снова
-              </button>
-              <button
-                v-if="canRetryFailedMailing(selectedMailing)"
-                class="secondary-button ui-button"
-                type="button"
-                :aria-label="`Повторить ошибки: ${selectedMailing.failedCount}`"
-                :disabled="saving"
-                @click="handleRetryFailedMailing(selectedMailing)"
-              >
-                Повторить ошибки
-              </button>
-              <button class="secondary-button ui-button" type="button" :disabled="saving" @click="handleTestMailing(selectedMailing)">
-                Тест себе
-              </button>
-            </div>
-          </section>
-      </TaskScreen>
-    </section>
-
+    <AdminMailingsPanel
+      ref="mailingsPanelRef"
+      v-else-if="activePanel === 'mailings'"
+      :mailing-email-quota="mailingEmailQuota"       :mailings="mailings"
+      :show-mailing-history="showMailingHistory"       :show-mailing-composer="showMailingComposer"
+      :selected-mailing="selectedMailing"       :mailing-title="mailingTitle"
+      :mailing-body-html="mailingBodyHtml"       :mailing-editor-mode="mailingEditorMode"
+      :mailing-channel="mailingChannel"       :mailing-filters="mailingFilters"
+      :mailing-scheduled-at="mailingScheduledAt"       :mailing-attachment-label="mailingAttachmentLabel"
+      :mailing-preview="mailingPreview"       :mailing-preview-loading="mailingPreviewLoading"
+      :mailing-prepared-message="mailingPreparedMessage"       :mailing-can-submit="mailingCanSubmit"
+      :saving="saving"       :mailing-analytics="mailingAnalytics"
+      :mailing-analytics-loading="mailingAnalyticsLoading"       :mailing-analytics-error="mailingAnalyticsError"
+      :mailing-analytics-recipients="mailingAnalyticsRecipients"       :mailing-analytics-recipients-loading="mailingAnalyticsRecipientsLoading"
+      :mailing-analytics-recipient-status="mailingAnalyticsRecipientStatus"       :mailing-analytics-recipient-channel="mailingAnalyticsRecipientChannel"
+      :mailing-analytics-next-cursor="mailingAnalyticsNextCursor"       :selected-mailing-body-html="selectedMailingBodyHtml"
+      :mailing-channel-options="mailingChannelOptions"       :mailing-access-status-options="mailingAccessStatusOptions"
+      :mailing-access-type-options="mailingAccessTypeOptions"       :format-date-time="formatDateTime"
+      :mailing-author-label="mailingAuthorLabel"       :mailing-attachment-text="mailingAttachmentText"
+      :mailing-filter-summary="mailingFilterSummary"       :get-mailing-channel-label="getMailingChannelLabel"
+      :get-mailing-status-label="getMailingStatusLabel"       :can-retry-failed-mailing="canRetryFailedMailing"
+      :format-mailing-analytics-rate="formatMailingAnalyticsRate"       :format-mailing-analytics-bucket="formatMailingAnalyticsBucket"
+      :mailing-analytics-bar-width="mailingAnalyticsBarWidth"       :mailing-analytics-status-label="mailingAnalyticsStatusLabel"
+      @open-composer="openMailingComposer()"
+      @open-history="openMailingHistory"
+      @open-detail="openMailingDetail"
+      @back="task => task === 'history' ? closeMailingHistory() : task === 'composer' ? closeMailingComposer() : closeMailingDetail()"
+      @update:mailing-title="mailingTitle = $event"
+      @update:mailing-body-html="updateMailingBodyHtml"
+      @update:mailing-editor-mode="setMailingEditorMode"
+      @update:mailing-channel="mailingChannel = $event"
+      @update:mailing-filters="mailingFilters = $event"
+      @update:mailing-scheduled-at="mailingScheduledAt = $event"
+      @update:mailing-attachment="mailingAttachment = $event"
+      @editor-paste="handleMailingEditorPaste"
+      @editor-command="applyMailingEditorCommand"
+      @editor-link="applyMailingEditorLink"
+      @reset="resetMailingForm"
+      @refresh-preview="refreshMailingPreview"
+      @submit="handleCreateMailing"
+      @test-draft="handleTestMailingDraft"
+      @reuse="reuseMailing"
+      @retry="handleRetryFailedMailing"
+      @test="handleTestMailing"
+      @pause="handlePauseMailing"
+      @resume="handleResumeMailing"
+      @stop="handleStopMailing"
+      @refresh-analytics="refreshMailingAnalytics"
+      @update:mailing-analytics-recipient-status="mailingAnalyticsRecipientStatus = $event"
+      @update:mailing-analytics-recipient-channel="mailingAnalyticsRecipientChannel = $event"
+      @refresh-analytics-recipients="updateMailingAnalyticsRecipients"
+      @load-more-analytics-recipients="loadMailingAnalyticsRecipients(false)"
+    />
     <AdminPaymentsPanel v-else-if="isPaymentsPanel" class="admin-panel ui-page-section" />
 
     <AdminStoragePanel

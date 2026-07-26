@@ -5,6 +5,7 @@ import { readAppStyles } from "@/test/appStyles";
 
 const adminPanelsSource = readFileSync(resolve(__dirname, "adminPanels.ts"), "utf-8");
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
+const mailingsPanelSource = readFileSync(resolve(__dirname, "AdminMailingsPanel.vue"), "utf-8");
 const clientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
 const stylesSource = readAppStyles("admin");
 
@@ -17,21 +18,19 @@ describe("admin mailings panel", () => {
   });
 
   it("offers channel choices, filters, attachments, test send, and ETA", () => {
-    expect(adminSectionSource).toContain("Push");
-    expect(adminSectionSource).toContain("Email");
-    expect(adminSectionSource).toContain("Push + Email");
-    expect(adminSectionSource).toContain("Статус доступа");
-    expect(adminSectionSource).toContain("Тип доступа");
-    expect(adminSectionSource).not.toContain("Бот заблокирован");
-    expect(adminSectionSource).not.toContain("В бот");
-    expect(adminSectionSource).toContain("Тест себе");
+    expect(mailingsPanelSource).toContain("mailingChannelOptions");
+    expect(mailingsPanelSource).toContain("Статус доступа");
+    expect(mailingsPanelSource).toContain("Тип доступа");
+    expect(mailingsPanelSource).not.toContain("Бот заблокирован");
+    expect(mailingsPanelSource).not.toContain("В бот");
+    expect(mailingsPanelSource).toContain("Тест себе");
     expect(adminSectionSource).toContain("handleTestMailingDraft");
-    expect(adminSectionSource).toContain("Примерное время");
-    expect(adminSectionSource).toContain("PWA-подписок");
-    expect(adminSectionSource).toContain("Email без адреса");
-    expect(adminSectionSource).toContain("Email за 24 часа");
-    expect(adminSectionSource).toContain("mailingPreview?.emailQuota.used");
-    expect(adminSectionSource).toContain("mailingPreview?.emailQuota.remaining");
+    expect(mailingsPanelSource).toContain("Примерное время");
+    expect(mailingsPanelSource).toContain("PWA-подписок");
+    expect(mailingsPanelSource).toContain("Email без адреса");
+    expect(mailingsPanelSource).toContain("Email за 24 часа");
+    expect(mailingsPanelSource).toContain("mailingPreview?.emailQuota.used");
+    expect(mailingsPanelSource).toContain("mailingPreview?.emailQuota.remaining");
     expect(adminSectionSource).toContain("pauseAdminMailing");
     expect(adminSectionSource).toContain("stopAdminMailing");
   });
@@ -39,32 +38,41 @@ describe("admin mailings panel", () => {
   it("uses push by default and an accessible compact reset action", () => {
     expect(adminSectionSource).toContain('ref<MailingChannel>("push")');
     expect(adminSectionSource).toContain('mailingChannel.value = "push"');
-    expect(adminSectionSource).toContain('aria-label="Сбросить форму"');
-    expect(adminSectionSource).toContain("<RotateCcw");
+    expect(mailingsPanelSource).toContain('aria-label="Сбросить форму"');
+    expect(mailingsPanelSource).toContain("<RotateCcw");
+  });
+
+  it("keeps mailing routes and operations in the shell while lazy-loading the panel", () => {
+    expect(adminSectionSource).toContain('defineAsyncComponent(() => import("./AdminMailingsPanel.vue"))');
+    expect(adminSectionSource).toContain('<AdminMailingsPanel\n      ref="mailingsPanelRef"\n      v-else-if="activePanel === \'mailings\'"');
+    expect(adminSectionSource).toContain('@open-detail="openMailingDetail"');
+    expect(adminSectionSource).toContain('@retry="handleRetryFailedMailing"');
+    expect(adminSectionSource).toContain('openAdminTask("/admin/mailings/new")');
+    expect(adminSectionSource).toContain("retryFailedAdminMailing(mailing.id)");
   });
 
   it("creates new mailings from a routed task screen with HTML controls", () => {
     expect(adminSectionSource).toContain("showMailingComposer");
     expect(adminSectionSource).toContain("openMailingComposer");
-    expect(adminSectionSource).toContain("admin-mailing-task-screen");
+    expect(mailingsPanelSource).toContain("admin-mailing-task-screen");
     expect(adminSectionSource).toContain('openAdminTask("/admin/mailings/new")');
-    expect(adminSectionSource).toContain("Новая рассылка");
+    expect(mailingsPanelSource).toContain("Новая рассылка");
     expect(adminSectionSource).toContain("applyMailingEditorLink");
-    expect(adminSectionSource).toContain("Ссылка");
-    expect(adminSectionSource).toContain('@paste="handleMailingEditorPaste"');
-    expect(adminSectionSource).toContain('class="admin-mailing-builder-body"');
-    expect(adminSectionSource).toContain('class="admin-mailing-submit-row admin-mailing-builder-footer"');
+    expect(mailingsPanelSource).toContain("Ссылка");
+    expect(mailingsPanelSource).toContain('@paste="emit(\'editor-paste\', $event)"');
+    expect(mailingsPanelSource).toContain('class="admin-mailing-builder-body"');
+    expect(mailingsPanelSource).toContain('class="admin-mailing-submit-row admin-mailing-builder-footer"');
   });
 
   it("opens mailing history as a separate routed screen without a manual refresh action", () => {
     expect(adminSectionSource).toContain("const showMailingHistory = ref(false)");
     expect(adminSectionSource).toContain('openAdminTask("/admin/mailings/history")');
-    expect(adminSectionSource).toContain('title="История рассылок"');
-    expect(adminSectionSource).toContain('class="admin-mailing-history-entry ui-button"');
+    expect(mailingsPanelSource).toContain('title="История рассылок"');
+    expect(mailingsPanelSource).toContain('class="admin-mailing-history-entry ui-button"');
 
-    const historyStart = adminSectionSource.indexOf('title="История рассылок"');
-    const historyEnd = adminSectionSource.indexOf("</TaskScreen>", historyStart);
-    const historyScreen = adminSectionSource.slice(historyStart, historyEnd);
+    const historyStart = mailingsPanelSource.indexOf('title="История рассылок"');
+    const historyEnd = mailingsPanelSource.indexOf("</TaskScreen>", historyStart);
+    const historyScreen = mailingsPanelSource.slice(historyStart, historyEnd);
     expect(historyScreen).toContain('v-for="mailing in mailings"');
     expect(historyScreen).not.toContain("@click=\"loadMailings\"");
   });
@@ -72,13 +80,13 @@ describe("admin mailings panel", () => {
   it("offers safe visual and HTML source editing with a real message preview", () => {
     expect(adminSectionSource).toContain('import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode"');
     expect(adminSectionSource).toContain('ref<MailingEditorMode>("visual")');
-    expect(adminSectionSource).toContain("setMailingEditorMode");
-    expect(adminSectionSource).toContain(">Визуально</button>");
-    expect(adminSectionSource).toContain(">HTML-код</button>");
-    expect(adminSectionSource).toContain('v-if="mailingEditorMode === \'visual\'"');
-    expect(adminSectionSource).toContain('class="text-input admin-mailing-html-source"');
-    expect(adminSectionSource).toContain("mailingPreparedMessage.safeHtml");
-    expect(adminSectionSource).toContain('v-html="mailingPreparedMessage.safeHtml"');
+    expect(mailingsPanelSource).toContain("update:mailing-editor-mode");
+    expect(mailingsPanelSource).toContain(">Визуально</button>");
+    expect(mailingsPanelSource).toContain(">HTML-код</button>");
+    expect(mailingsPanelSource).toContain('v-if="mailingEditorMode === \'visual\'"');
+    expect(mailingsPanelSource).toContain('class="text-input admin-mailing-html-source"');
+    expect(mailingsPanelSource).toContain("mailingPreparedMessage.safeHtml");
+    expect(mailingsPanelSource).toContain('v-html="mailingPreparedMessage.safeHtml"');
     expect(adminSectionSource).toContain("syncActiveMailingEditor");
   });
 
@@ -89,9 +97,9 @@ describe("admin mailings panel", () => {
   });
 
   it("keeps the audience calculation block only inside the mailing composer", () => {
-    const composerPreviewStart = adminSectionSource.indexOf("admin-mailing-composer-preview");
-    const composerPreviewEnd = adminSectionSource.indexOf("admin-mailing-submit-row", composerPreviewStart);
-    const composerPreview = adminSectionSource.slice(composerPreviewStart, composerPreviewEnd);
+    const composerPreviewStart = mailingsPanelSource.indexOf("admin-mailing-composer-preview");
+    const composerPreviewEnd = mailingsPanelSource.indexOf("admin-mailing-submit-row", composerPreviewStart);
+    const composerPreview = mailingsPanelSource.slice(composerPreviewStart, composerPreviewEnd);
 
     expect(adminSectionSource).not.toContain('<section class="admin-crm-block admin-mailing-preview">');
     expect(composerPreview).toContain("Пересчитать");
@@ -117,25 +125,25 @@ describe("admin mailings panel", () => {
 
   it("keeps template reuse separate from retrying failed deliveries", () => {
     expect(adminSectionSource).not.toContain("resetMailingForm();\n    setStatus");
-    expect(adminSectionSource).toContain("openMailingDetail");
+    expect(mailingsPanelSource).toContain("open-detail");
     expect(adminSectionSource).toContain("selectedMailing");
-    expect(adminSectionSource).toContain("mailingAuthorLabel");
-    expect(adminSectionSource).toContain("formatDateTime(mailing.createdAt)");
-    expect(adminSectionSource).toContain("mailing.attachment");
-    expect(adminSectionSource).toContain("Использовать снова");
-    expect(adminSectionSource).toContain("Повторить ошибки");
+    expect(mailingsPanelSource).toContain("mailingAuthorLabel");
+    expect(mailingsPanelSource).toContain("formatDateTime(mailing.createdAt)");
+    expect(mailingsPanelSource).toContain("mailing.attachment");
+    expect(mailingsPanelSource).toContain("Использовать снова");
+    expect(mailingsPanelSource).toContain("Повторить ошибки");
     expect(adminSectionSource).toContain("handleRetryFailedMailing");
-    expect(adminSectionSource).toContain("mailing.failedCount > 0");
+    expect(mailingsPanelSource).toContain("mailing.failedCount > 0");
     expect(adminSectionSource).toContain("retryFailedAdminMailing(mailing.id)");
     expect(adminSectionSource).toContain("Ошибочные доставки возвращены в очередь.");
   });
 
   it("shows compact live delivery state counters", () => {
-    expect(adminSectionSource).toContain("mailing.pendingCount");
-    expect(adminSectionSource).toContain("mailing.processingCount");
-    expect(adminSectionSource).toContain("mailing.skippedCount");
-    expect(adminSectionSource).toContain("mailing.failedCount");
-    expect(adminSectionSource).toContain('class="admin-mailing-delivery-stats"');
+    expect(mailingsPanelSource).toContain("mailing.pendingCount");
+    expect(mailingsPanelSource).toContain("mailing.processingCount");
+    expect(mailingsPanelSource).toContain("mailing.skippedCount");
+    expect(mailingsPanelSource).toContain("mailing.failedCount");
+    expect(mailingsPanelSource).toContain('class="admin-mailing-delivery-stats"');
     expect(stylesSource).toMatch(/\.admin-mailing-delivery-stats\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s);
   });
 });
