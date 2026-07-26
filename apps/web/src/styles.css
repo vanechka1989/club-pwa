@@ -527,10 +527,12 @@ button:disabled {
   inset: 0;
   z-index: 120;
   display: grid;
-  place-items: center;
+  align-items: end;
+  justify-items: center;
   padding: max(1rem, var(--club-safe-top)) max(1rem, var(--club-safe-right)) max(1rem, var(--club-safe-bottom)) max(1rem, var(--club-safe-left));
-  background: rgb(2 6 23 / 54%);
-  backdrop-filter: blur(5px);
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
 }
 
 .push-permission-card {
@@ -545,6 +547,7 @@ button:disabled {
   color: #0f172a;
   padding: 1rem;
   box-shadow: 0 28px 90px rgb(0 0 0 / 42%);
+  pointer-events: auto;
 }
 
 .push-permission-icon {
@@ -7298,4 +7301,18 @@ textarea {
   font-size: var(--content-font-input);
   font-weight: 500;
   line-height: 1.35;
+}
+
+/* Push onboarding is an optional notice, so it must never block app navigation. */
+.push-permission-layer,
+body.club-mobile-device .push-permission-layer {
+  align-items: end;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+  padding-bottom: max(calc(var(--nav-space, 0rem) + 0.75rem), var(--club-safe-bottom));
+}
+
+.push-permission-card {
+  pointer-events: auto;
 }

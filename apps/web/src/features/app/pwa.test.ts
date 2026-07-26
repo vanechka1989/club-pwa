@@ -149,8 +149,9 @@ describe("PWA shell", () => {
     const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
     expect(prompt).toContain("push-permission-layer");
     expect(styles).toContain(".push-permission-layer");
-    expect(styles).toContain("place-items: center");
-    expect(styles).toContain("background: rgb(2 6 23 / 54%)");
+    expect(prompt).toContain('role="complementary"');
+    expect(styles).toMatch(/\.push-permission-layer\s*\{[^}]*pointer-events: none;/s);
+    expect(styles).toMatch(/\.push-permission-card\s*\{[^}]*pointer-events: auto;/s);
   });
 
   it("shows install guidance before login even when the native install prompt is not ready", async () => {

@@ -81,7 +81,7 @@ watch(
 
 <template>
   <div v-if="isVisible" class="push-permission-layer">
-    <aside class="push-permission-card" role="dialog" aria-live="polite" aria-labelledby="push-permission-title">
+    <aside class="push-permission-card" role="complementary" aria-live="polite" aria-labelledby="push-permission-title">
       <button class="push-permission-close" type="button" aria-label="Закрыть предложение уведомлений" @click="dismissPrompt">
         <X class="h-4 w-4" aria-hidden="true" />
       </button>
