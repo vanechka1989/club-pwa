@@ -6,6 +6,34 @@ import LavaCatalogList from "./LavaCatalogList.vue";
 afterEach(cleanup);
 
 describe("LavaCatalogList", () => {
+  it("shows every Lava price with cents and names a dynamic price by currency", () => {
+    render(LavaCatalogList, {
+      props: {
+        items: [{
+          id: "currencies",
+          externalProductId: "product-1",
+          externalOfferId: "offer-1",
+          title: "Мультивалютный доступ",
+          kind: "one_time",
+          amountRub: 990,
+          prices: [
+            { currency: "RUB", amountMinor: 99050, periodicity: null },
+            { currency: "USD", amountMinor: 1999, periodicity: null },
+            { currency: "EUR", amountMinor: null, periodicity: null }
+          ],
+          isStale: false,
+          isSelectable: true,
+          syncedAt: "2026-07-27T10:00:00.000Z"
+        }],
+        busyId: null
+      }
+    });
+
+    expect(screen.getByText(/990,50.*₽/)).toBeTruthy();
+    expect(screen.getByText(/19,99.*\$/)).toBeTruthy();
+    expect(screen.getByText(/EUR.*цена в Lava/i)).toBeTruthy();
+  });
+
   it("shows synced Lava products and changes their availability for tariffs", async () => {
     const view = render(LavaCatalogList, {
       props: {

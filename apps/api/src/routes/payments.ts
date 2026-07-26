@@ -623,7 +623,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       selected.provider
     );
     if (moneyResolution.kind === "choice") {
-      return c.json({ checkoutUrl: null, message: "Выберите валюту оплаты.", options: moneyResolution.options }, 400);
+      return c.json({ checkoutUrl: null, message: "Выберите валюту оплаты.", currencyOptions: moneyResolution.options });
     }
     if (moneyResolution.kind === "unavailable") {
       return c.json({ checkoutUrl: null, message: "Выбранная валюта оплаты сейчас недоступна." }, 400);

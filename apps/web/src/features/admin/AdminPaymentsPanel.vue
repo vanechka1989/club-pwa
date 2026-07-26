@@ -2,6 +2,7 @@
 import type { PaymentOrderLog, PaymentOrderLogsResponse } from "@club/shared";
 import { onMounted, ref } from "vue";
 import { getAdminPaymentHistory } from "@/api/client";
+import { formatAdminPaymentMoney } from "./adminPaymentMoney";
 
 const data = ref<PaymentOrderLogsResponse | null>(null);
 const loading = ref(false);
@@ -82,7 +83,7 @@ onMounted(load);
     <div class="ops-list">
       <article v-for="order in data?.orders ?? []" :key="order.id" class="payment-card">
         <div class="payment-top">
-          <div><strong>{{ order.productTitle }}</strong><small>{{ customerTitle(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽</small></div>
+          <div><strong>{{ order.productTitle }}</strong><small>{{ customerTitle(order) }} · {{ formatAdminPaymentMoney(order) }}</small></div>
           <em :class="`severity-${diagnosticFor(order).severity}`">{{ diagnosticLabels[diagnosticFor(order).state] }}</em>
         </div>
         <p>{{ diagnosticFor(order).reason }}</p>

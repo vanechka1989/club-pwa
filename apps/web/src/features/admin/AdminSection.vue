@@ -118,6 +118,7 @@ import {
 } from "@/features/admin/adminUserDrilldown";
 import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
+import { formatAdminPaymentMoney, paymentRubMajor } from "@/features/admin/adminPaymentMoney";
 import { canUseDeveloperPreview, normalizeAdminPreviewMode } from "@/features/admin/developerPreview";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
@@ -490,7 +491,7 @@ const selectedUserLastPayment = computed(
       (left, right) => Date.parse(right.paidAt ?? right.createdAt) - Date.parse(left.paidAt ?? left.createdAt)
     )[0] ?? null
 );
-const selectedUserPaidTotal = computed(() => selectedUserPaidOrders.value.reduce((sum, order) => sum + order.amountRub, 0));
+const selectedUserPaidTotal = computed(() => selectedUserPaidOrders.value.reduce((sum, order) => sum + paymentRubMajor(order), 0));
 const selectedUserDevices = computed(() => selectedUserDetail.value?.devices ?? []);
 const selectedUserDeviceText = computed(() => {
   if (!selectedUserDevices.value.length) {
@@ -2655,7 +2656,7 @@ onUnmounted(() => {
                 <strong>{{ paymentCustomerTitle(order) }}</strong>
                 <small>ID {{ order.customer.telegramId }} · {{ order.productTitle }}</small>
                 <em>
-                  {{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽ ·
+                  {{ paymentOrderDate(order) }} · {{ formatAdminPaymentMoney(order) }} ·
                   {{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }} · {{ order.provider === "lava" ? "Lava" : "Prodamus" }}
                 </em>
               </span>
@@ -3063,7 +3064,7 @@ onUnmounted(() => {
                 </article>
                 <article v-if="selectedUserLastPayment">
                   <span class="admin-client-dot admin-client-dot-blue"></span>
-                  <strong>Оплата: {{ selectedUserLastPayment.amountRub.toLocaleString("ru-RU") }} ₽</strong>
+                  <strong>Оплата: {{ formatAdminPaymentMoney(selectedUserLastPayment) }}</strong>
                   <time>{{ paymentOrderDate(selectedUserLastPayment) }}</time>
                 </article>
                 <p v-if="!selectedUser.lastOpenedItemTitle && !selectedUserLastPayment" class="admin-empty">
@@ -3119,7 +3120,7 @@ onUnmounted(() => {
                   <div class="admin-payment-main">
                     <div>
                       <strong>{{ order.productTitle }}</strong>
-                      <small>{{ paymentOrderDate(order) }} · {{ order.amountRub.toLocaleString("ru-RU") }} ₽</small>
+                      <small>{{ paymentOrderDate(order) }} · {{ formatAdminPaymentMoney(order) }}</small>
                     </div>
                     <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
                   </div>

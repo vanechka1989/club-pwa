@@ -84,6 +84,22 @@ describe("Lava tariff autofill", () => {
     expect(result.amountRub).toBeNull();
   });
 
+  it("adds all fixed catalog currencies to a newly selected Lava binding", () => {
+    const result = applyLavaCatalogItem({
+      ...form,
+      bindings: [{ provider: "lava" as const, enabled: true, externalProductId: null, externalOfferId: null, prices: [] }]
+    }, {
+      id: "catalog-multi", externalProductId: "product", externalOfferId: "offer", title: "Мультивалютный", kind: "one_time", amountRub: 990,
+      prices: [{ currency: "RUB", amountMinor: 99000, periodicity: null }, { currency: "USD", amountMinor: 1999, periodicity: null }],
+      periodicity: null, isStale: false, isSelectable: true, syncedAt: "2026-07-27T00:00:00.000Z"
+    });
+
+    expect(result.bindings?.[0]?.prices).toEqual([
+      { currency: "RUB", amountMinor: 99000, enabled: true },
+      { currency: "USD", amountMinor: 1999, enabled: true }
+    ]);
+  });
+
   it.each([
     ["MONTHLY", 30],
     ["PERIOD_90_DAYS", 90],

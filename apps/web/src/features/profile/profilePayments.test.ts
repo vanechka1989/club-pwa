@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getLatestPaidOrder } from "./profilePayments";
+import { formatProfilePaymentMoney, getLatestPaidOrder } from "./profilePayments";
 
 describe("profile payment summary", () => {
   it("ignores a newer pending checkout and returns the latest completed payment", () => {
@@ -17,5 +17,13 @@ describe("profile payment summary", () => {
       { id: "failed", status: "failed", createdAt: "2026-07-16T10:00:00.000Z" },
       { id: "cancelled", status: "cancelled", createdAt: "2026-07-15T10:00:00.000Z" }
     ])).toBeNull();
+  });
+
+  it.each([
+    [{ currency: "RUB" as const, amountMinor: 99050, amountRub: 990 }, "₽"],
+    [{ currency: "USD" as const, amountMinor: 1999, amountRub: null }, "$"],
+    [{ currency: "EUR" as const, amountMinor: 1750, amountRub: null }, "€"]
+  ])("formats a paid order with its stored currency", (order, symbol) => {
+    expect(formatProfilePaymentMoney(order)).toContain(symbol);
   });
 });

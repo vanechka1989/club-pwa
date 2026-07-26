@@ -1,10 +1,11 @@
-import type { PaymentProductKind, PaymentProviderCatalogItem } from "@club/shared";
+import type { PaymentProductKind, PaymentProductProviderBinding, PaymentProviderCatalogItem } from "@club/shared";
 
 type PaymentProductFormBasics = {
   kind: PaymentProductKind;
   title: string;
   amountRub: number | null;
   accessDays: number;
+  bindings?: PaymentProductProviderBinding[];
 };
 
 const lavaAccessDaysByPeriodicity = new Map<string, number>([
@@ -23,11 +24,20 @@ export function applyLavaCatalogItem(
   item: PaymentProviderCatalogItem
 ): PaymentProductFormBasics {
   const hasForeignOnlyPrices = Boolean(item.prices?.length) && !item.prices?.some((price) => price.currency === "RUB");
+  const fixedPrices = (item.prices ?? [])
+    .filter((price): price is typeof price & { amountMinor: number } => price.amountMinor !== null)
+    .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, enabled: true }));
+  const bindings = form.bindings?.map((binding) =>
+    binding.provider === "lava"
+      ? { ...binding, externalProductId: item.externalProductId, externalOfferId: item.externalOfferId, prices: fixedPrices }
+      : binding
+  );
   return {
     ...form,
     kind: item.kind,
     title: item.title,
     amountRub: hasForeignOnlyPrices ? null : item.amountRub ?? form.amountRub,
-    accessDays: lavaCatalogAccessDays(item.periodicity ?? null) ?? form.accessDays
+    accessDays: lavaCatalogAccessDays(item.periodicity ?? null) ?? form.accessDays,
+    ...(bindings ? { bindings } : {})
   };
 }

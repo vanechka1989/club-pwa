@@ -99,7 +99,7 @@ describe("payment provider status style", () => {
     const editor = source.slice(source.indexOf('<form class="payment-form-body'));
     expect(editor.indexOf("<PaymentProductBindings")).toBeGreaterThanOrEqual(0);
     expect(editor.indexOf("<PaymentProductBindings")).toBeLessThan(editor.indexOf(">Название</span>"));
-    expect(editor.indexOf("<PaymentProductBindings")).toBeLessThan(editor.indexOf(">Цена, ₽</span>"));
+    expect(editor.indexOf("<PaymentProductBindings")).toBeLessThan(editor.indexOf(">Цена для Prodamus, ₽</span>"));
   });
 
   it("offers an explicit way to copy the saved Lava webhook key", () => {

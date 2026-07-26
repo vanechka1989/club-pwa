@@ -59,6 +59,7 @@ import type {
   PaymentProductProviderBinding,
   PaymentProviderCatalogResponse,
   PaymentProviderCode,
+  PaymentCurrency,
   PaymentProviderMutationResponse,
   S3StorageObjectUrlResponse,
   S3StorageObjectsResponse,
@@ -102,10 +103,10 @@ export {
   type AvatarDisplayDraft
 } from "./startup";
 
-export function createPaymentCheckout(productId: string, provider?: PaymentProviderCode) {
+export function createPaymentCheckout(productId: string, provider?: PaymentProviderCode, currency?: PaymentCurrency) {
   return api<SubscribeResponse>("/payments/checkout", {
     method: "POST",
-    body: { productId, ...(provider ? { provider } : {}) }
+    body: { productId, ...(provider ? { provider } : {}), ...(currency ? { currency } : {}) }
   });
 }
 

@@ -268,6 +268,12 @@ export const subscribeResponseSchema = z.object({
       provider: z.enum(["prodamus", "lava"]),
       title: z.string()
     }))
+    .optional(),
+  currencyOptions: z
+    .array(z.object({
+      currency: z.enum(["RUB", "USD", "EUR"]),
+      amountMinor: z.number().int().positive()
+    }))
     .optional()
 });
 export type SubscribeResponse = z.infer<typeof subscribeResponseSchema>;

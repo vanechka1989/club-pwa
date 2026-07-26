@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type {
+  PaymentCurrency,
   PaymentProductKind,
   PaymentProductProviderBinding,
   PaymentProviderCatalogItem,
   PaymentProviderCode
 } from "@club/shared";
 import { computed, watch } from "vue";
+import { formatPaymentMoney } from "./paymentMoney";
 
 const props = defineProps<{
   modelValue: PaymentProductProviderBinding[];
@@ -32,7 +34,8 @@ function binding(provider: PaymentProviderCode) {
     provider,
     enabled: false,
     externalProductId: null,
-    externalOfferId: null
+    externalOfferId: null,
+    prices: []
   };
 }
 
@@ -66,11 +69,84 @@ watch(
 
 function chooseLava(value: string) {
   const item = props.lavaCatalog.find((entry) => entry.id === value);
+  const fixedPrices = (item?.prices ?? [])
+    .filter((price): price is typeof price & { amountMinor: number } => price.amountMinor !== null)
+    .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, enabled: true }));
   update("lava", {
     externalProductId: item?.externalProductId ?? null,
-    externalOfferId: item?.externalOfferId ?? null
+    externalOfferId: item?.externalOfferId ?? null,
+    prices: fixedPrices
   });
   if (item) emit("lava-item-selected", item);
+}
+
+const lavaPriceOptions = computed(() => {
+  const selected = props.lavaCatalog.find((entry) => entry.externalOfferId === binding("lava").externalOfferId);
+  return selected?.prices?.length
+    ? selected.prices.map((price) => ({ currency: price.currency, amountMinor: price.amountMinor }))
+    : (["RUB", "USD", "EUR"] as PaymentCurrency[]).map((currency) => ({ currency, amountMinor: null }));
+});
+
+function lavaPrice(currency: PaymentCurrency) {
+  return lavaPrices().find((price) => price.currency === currency) ?? null;
+}
+
+function lavaPrices() {
+  return (binding("lava").prices ?? []).map((price) => ({ ...price, enabled: price.enabled ?? true }));
+}
+
+function isLavaPriceSelected(currency: PaymentCurrency) {
+  return Boolean(lavaPrice(currency)?.enabled);
+}
+
+function amountMinorFor(currency: PaymentCurrency, fixedAmountMinor: number | null) {
+  return fixedAmountMinor ?? lavaPrice(currency)?.amountMinor ?? null;
+}
+
+function updateLavaPrices(nextPrices: Array<{ currency: PaymentCurrency; amountMinor: number; enabled: boolean }>) {
+  update("lava", { prices: nextPrices });
+}
+
+function toggleLavaPrice(currency: PaymentCurrency, fixedAmountMinor: number | null, checked: boolean) {
+  const current = lavaPrices();
+  const existing = lavaPrice(currency);
+  if (!checked) {
+    if (current.filter((price) => price.enabled).length <= 1 && existing?.enabled) return;
+    updateLavaPrices(current.map((price) => price.currency === currency ? { ...price, enabled: false } : price));
+    return;
+  }
+  const amountMinor = amountMinorFor(currency, fixedAmountMinor);
+  if (!amountMinor || amountMinor <= 0) return;
+  updateLavaPrices(existing
+    ? current.map((price) => price.currency === currency ? { ...price, amountMinor, enabled: true } : price)
+    : [...current, { currency, amountMinor, enabled: true }]
+  );
+}
+
+function majorAmount(currency: PaymentCurrency) {
+  const amountMinor = lavaPrice(currency)?.amountMinor;
+  return amountMinor ? (amountMinor / 100).toFixed(2) : "";
+}
+
+function updateDynamicAmount(currency: PaymentCurrency, value: string) {
+  const normalized = value.trim().replace(",", ".");
+  const valid = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(normalized);
+  const amountMinor = valid ? Math.round(Number(normalized) * 100) : 0;
+  const current = lavaPrices();
+  const existing = lavaPrice(currency);
+  if (!amountMinor) {
+    updateLavaPrices(current.filter((price) => price.currency !== currency));
+    return;
+  }
+  updateLavaPrices(existing
+    ? current.map((price) => price.currency === currency ? { ...price, amountMinor } : price)
+    : [...current, { currency, amountMinor, enabled: false }]
+  );
+}
+
+function formatCatalogPrice(price: { currency: PaymentCurrency; amountMinor: number | null }) {
+  if (price.amountMinor === null) return `${price.currency}: цена в Lava`;
+  return formatPaymentMoney({ currency: price.currency, amountMinor: price.amountMinor });
 }
 </script>
 
@@ -119,11 +195,43 @@ function chooseLava(value: string) {
           >
             <option value="">Выберите товар</option>
             <option v-for="item in availableLavaCatalog" :key="item.id" :value="item.id">
-              {{ item.title }}<template v-if="item.amountRub !== null"> · {{ item.amountRub }} ₽</template>
+              {{ item.title }}<template v-if="item.prices?.length"> · {{ item.prices.map(formatCatalogPrice).join(" · ") }}</template>
+              <template v-else-if="item.amountRub !== null"> · {{ formatPaymentMoney({ currency: 'RUB', amountMinor: item.amountRub * 100 }) }}</template>
               · {{ item.kind === "recurrent" ? "Подписка" : "Разовая оплата" }}
             </option>
           </select>
         </label>
+        <fieldset class="product-binding__currencies">
+          <legend>Валюты для оплаты</legend>
+          <p>Выберите хотя бы одну валюту. Фиксированные цены Lava изменить нельзя.</p>
+          <div v-for="option in lavaPriceOptions" :key="option.currency" class="product-binding__currency-row">
+            <label :for="`lava-price-${option.currency}`" class="product-binding__currency-toggle">
+              <input
+                :id="`lava-price-${option.currency}`"
+                type="checkbox"
+                :aria-label="`Оплата в ${option.currency}`"
+                :checked="isLavaPriceSelected(option.currency)"
+                :disabled="amountMinorFor(option.currency, option.amountMinor) === null"
+                @change="toggleLavaPrice(option.currency, option.amountMinor, ($event.target as HTMLInputElement).checked)"
+              />
+              <span>{{ option.currency }}</span>
+            </label>
+            <output v-if="option.amountMinor !== null">{{ formatPaymentMoney({ currency: option.currency, amountMinor: option.amountMinor }) }}</output>
+            <label v-else :for="`lava-price-amount-${option.currency}`" class="product-binding__currency-amount">
+              <span class="sr-only">Сумма {{ option.currency }}</span>
+              <input
+                :id="`lava-price-amount-${option.currency}`"
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputmode="decimal"
+                :aria-label="`Сумма ${option.currency}`"
+                :value="majorAmount(option.currency)"
+                @input="updateDynamicAmount(option.currency, ($event.target as HTMLInputElement).value)"
+              />
+            </label>
+          </div>
+        </fieldset>
         <details class="product-binding__manual">
           <summary>Указать вручную</summary>
           <label><span>ID товара</span><input :value="binding('lava').externalProductId ?? ''" @input="update('lava', { externalProductId: ($event.target as HTMLInputElement).value || null })" /></label>
@@ -135,5 +243,5 @@ function chooseLava(value: string) {
 </template>
 
 <style scoped>
-.product-bindings{display:grid;gap:12px;min-width:0;margin:0;padding:0;border:0}.product-bindings>legend{margin-bottom:8px;color:var(--muted);font-size:.875rem;font-weight:700}.product-binding{display:grid;gap:12px;min-width:0;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--field)}.product-binding__toggle{display:flex!important;align-items:center;justify-content:space-between;gap:12px}.product-binding__toggle>span{display:grid;gap:3px;min-width:0}.product-binding__toggle small{color:var(--muted)}.product-binding__toggle input{width:22px;height:22px;flex:none}.product-binding label{display:grid;gap:7px;color:var(--muted);font-size:.82rem;font-weight:700}.product-binding input:not([type=radio]),.product-binding select{width:100%;min-width:0;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);font:inherit}.product-binding__manual{display:grid;gap:10px;min-width:0}.product-binding__manual summary{min-height:44px;padding:12px 0;color:var(--accent);font-weight:750;cursor:pointer}.product-binding__manual[open] summary{margin-bottom:8px}
+.product-bindings{display:grid;gap:12px;min-width:0;margin:0;padding:0;border:0}.product-bindings>legend{margin-bottom:8px;color:var(--muted);font-size:.875rem;font-weight:700}.product-binding{display:grid;gap:12px;min-width:0;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--field)}.product-binding__toggle{display:flex!important;align-items:center;justify-content:space-between;gap:12px}.product-binding__toggle>span{display:grid;gap:3px;min-width:0}.product-binding__toggle small{color:var(--muted)}.product-binding__toggle input{width:22px;height:22px;flex:none}.product-binding label{display:grid;gap:7px;color:var(--muted);font-size:.82rem;font-weight:700}.product-binding input:not([type=radio]),.product-binding select{width:100%;min-width:0;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);font:inherit}.product-binding__manual{display:grid;gap:10px;min-width:0}.product-binding__manual summary{min-height:44px;padding:12px 0;color:var(--accent);font-weight:750;cursor:pointer}.product-binding__manual[open] summary{margin-bottom:8px}.product-binding__currencies{display:grid;gap:8px;min-width:0;margin:0;padding:12px;border:1px solid var(--line);border-radius:14px}.product-binding__currencies legend{padding:0 4px;color:var(--text);font-size:.82rem;font-weight:800}.product-binding__currencies>p{margin:0;color:var(--muted);font-size:.72rem;line-height:1.4}.product-binding__currency-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(5.5rem,auto);align-items:center;gap:10px;min-width:0;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}.product-binding__currency-toggle{display:flex!important;align-items:center;gap:9px;min-height:44px;color:var(--text)!important}.product-binding__currency-toggle input{width:22px;height:22px;margin:0}.product-binding__currency-row output{min-width:0;color:var(--text);font-size:.86rem;font-weight:750;text-align:right;white-space:nowrap}.product-binding__currency-amount input{min-height:44px!important;text-align:right}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:340px){.product-binding__currency-row{grid-template-columns:1fr}.product-binding__currency-row output{text-align:left}.product-binding__currency-amount input{text-align:left}}
 </style>

@@ -2,6 +2,8 @@
 import "./billingRoute.css";
 import type {
   PaymentCheckoutOption,
+  PaymentCurrency,
+  PaymentMoney,
   PaymentProduct,
   PaymentProductProviderBinding,
   PaymentProvider,
@@ -48,18 +50,21 @@ import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import PaymentProductBindings from "./PaymentProductBindings.vue";
 import PaymentProviderChooser from "./PaymentProviderChooser.vue";
+import PaymentCurrencyPicker from "./PaymentCurrencyPicker.vue";
 import PaymentProviderSettings from "./PaymentProviderSettings.vue";
 import LavaProviderTabs from "./LavaProviderTabs.vue";
 import LavaCatalogList from "./LavaCatalogList.vue";
 import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
 import { buildLavaProviderForm } from "./lavaProviderForm";
+import { productCurrencyOptions } from "./paymentCheckout";
+import { formatPaymentMoneyWithLegacyFallback } from "./paymentMoney";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
 const appDialogs = useAppDialogsStore();
 const route = useRoute();
 const router = useRouter();
-const { currentLocale, t } = useI18n();
+const { t } = useI18n();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -80,8 +85,12 @@ const isEditingPayments = ref(false);
 const checkoutProductId = ref<string | null>(null);
 const showCheckoutConfirm = ref(false);
 const showCheckoutProviderPicker = ref(false);
+const showCheckoutCurrencyPicker = ref(false);
 const checkoutOptions = ref<PaymentCheckoutOption[]>([]);
+const checkoutCurrencyOptions = ref<PaymentMoney[]>([]);
 const checkoutChoiceProduct = ref<PaymentProduct | null>(null);
+const checkoutCurrencyProduct = ref<PaymentProduct | null>(null);
+const checkoutChoiceCurrency = ref<PaymentCurrency | undefined>();
 const checkoutConfirmProduct = ref<PaymentProduct | null>(null);
 let checkoutConfirmResolve: ((confirmed: boolean) => void) | null = null;
 
@@ -131,6 +140,9 @@ const selectedLavaCatalogItem = computed(() => {
 });
 const selectedLavaAccessDays = computed(() =>
   selectedLavaCatalogItem.value ? lavaCatalogAccessDays(selectedLavaCatalogItem.value.periodicity ?? null) : null
+);
+const selectedProductProvider = computed(() =>
+  productForm.value.bindings.find((binding) => binding.enabled)?.provider ?? "prodamus"
 );
 const activeProducts = computed(() => products.value.filter((product) => product.isPublished && !product.archivedUntil));
 const hiddenProducts = computed(() => products.value.filter((product) => !product.isPublished && !product.archivedUntil));
@@ -551,8 +563,15 @@ async function handleSaveProduct() {
   try {
     const amountRub = productForm.value.amountRub;
     const hasEnabledProdamus = productForm.value.bindings.some((binding) => binding.provider === "prodamus" && binding.enabled);
+    const hasEnabledLava = productForm.value.bindings.some((binding) => binding.provider === "lava" && binding.enabled);
     if (amountRub === null && hasEnabledProdamus) {
       error.value = "Для сохранения тарифа укажите цену в рублях.";
+      return;
+    }
+    if (hasEnabledLava && !productForm.value.bindings.some((binding) =>
+      binding.provider === "lava" && binding.prices?.some((price) => price.enabled && price.amountMinor > 0)
+    )) {
+      error.value = "Выберите валюту Lava и укажите цену.";
       return;
     }
     const prodamusBinding = productForm.value.bindings.find((binding) => binding.provider === "prodamus");
@@ -637,21 +656,30 @@ async function handleDeleteProduct(product: PaymentProduct) {
   }
 }
 
-async function startCheckout(product: PaymentProduct, selectedProvider?: PaymentProviderCode) {
+async function startCheckout(product: PaymentProduct, selectedProvider?: PaymentProviderCode, currency?: PaymentCurrency) {
   checkoutProductId.value = product.id;
   saving.value = true;
   error.value = null;
   try {
-    const response = await createPaymentCheckout(product.id, selectedProvider);
+    const response = await createPaymentCheckout(product.id, selectedProvider, currency);
+    if (response.currencyOptions?.length) {
+      checkoutCurrencyOptions.value = response.currencyOptions;
+      checkoutCurrencyProduct.value = product;
+      checkoutChoiceCurrency.value = undefined;
+      showCheckoutCurrencyPicker.value = true;
+      return;
+    }
     if (response.options?.length) {
       checkoutOptions.value = response.options;
       checkoutChoiceProduct.value = product;
+      checkoutChoiceCurrency.value = currency;
       showCheckoutProviderPicker.value = true;
       return;
     }
     if (response.checkoutUrl) {
       showCheckoutProviderPicker.value = false;
       checkoutChoiceProduct.value = null;
+      checkoutChoiceCurrency.value = undefined;
       startPaymentWatch();
       openPaymentCheckoutUrl(response.checkoutUrl);
       return;
@@ -675,16 +703,37 @@ async function handleCheckout(product: PaymentProduct) {
     return;
   }
 
-  if (!(await confirmPaymentRedirect(product))) {
+  const options = productCurrencyOptions(product);
+  if (options.length > 1) {
+    checkoutCurrencyOptions.value = options;
+    checkoutCurrencyProduct.value = product;
+    showCheckoutCurrencyPicker.value = true;
     return;
   }
-
-  await startCheckout(product);
+  await confirmAndStartCheckout(product, options[0]?.currency);
 }
 
 async function chooseCheckoutProvider(selectedProvider: PaymentProviderCode) {
   if (!checkoutChoiceProduct.value) return;
-  await startCheckout(checkoutChoiceProduct.value, selectedProvider);
+  await startCheckout(checkoutChoiceProduct.value, selectedProvider, checkoutChoiceCurrency.value);
+}
+
+async function chooseCheckoutCurrency(currency: PaymentCurrency) {
+  const product = checkoutCurrencyProduct.value;
+  showCheckoutCurrencyPicker.value = false;
+  checkoutCurrencyProduct.value = null;
+  checkoutCurrencyOptions.value = [];
+  if (product) await confirmAndStartCheckout(product, currency);
+}
+
+function closeCheckoutCurrencyPicker() {
+  showCheckoutCurrencyPicker.value = false;
+  checkoutCurrencyProduct.value = null;
+  checkoutCurrencyOptions.value = [];
+}
+
+async function confirmAndStartCheckout(product: PaymentProduct, currency?: PaymentCurrency) {
+  if (await confirmPaymentRedirect(product)) await startCheckout(product, undefined, currency);
 }
 
 async function handleCancelSubscription(subscription: UserRecurrentSubscription) {
@@ -742,8 +791,11 @@ async function handleRestoreSubscription(subscription: UserRecurrentSubscription
   }
 }
 
-function formatMoney(amountRub: number) {
-  return `${amountRub.toLocaleString(currentLocale.value === "en" ? "en-US" : "ru-RU")} ₽`;
+function formatProductPrices(product: PaymentProduct) {
+  const options = productCurrencyOptions(product);
+  return options.length
+    ? options.map((price) => formatPaymentMoneyWithLegacyFallback(price)).join(" · ")
+    : "Цена уточняется";
 }
 
 function productPeriod(product: PaymentProduct) {
@@ -868,8 +920,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               <p class="payment-product-title">{{ product.title }}</p>
             </div>
             <div class="payment-product-details">
-              <p v-if="product.amountRub !== null" class="payment-product-meta">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
-              <p v-else class="payment-product-meta">Цена уточняется · {{ productPeriod(product) }}</p>
+              <p class="payment-product-meta">{{ formatProductPrices(product) }} · {{ productPeriod(product) }}</p>
               <span v-if="product.badgeLabel" class="payment-product-badge">{{ product.badgeLabel }}</span>
             </div>
           </div>
@@ -969,8 +1020,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       <article v-for="product in hiddenProducts" :key="product.id" class="flex items-center justify-between gap-3 rounded-[18px] bg-[var(--field)] p-4">
         <div>
           <p class="font-semibold text-[var(--text)]">{{ product.title }}</p>
-          <p v-if="product.amountRub !== null" class="text-sm text-[var(--muted)]">{{ formatMoney(product.amountRub) }} · {{ productPeriod(product) }}</p>
-          <p v-else class="text-sm text-[var(--muted)]">Цена уточняется · {{ productPeriod(product) }}</p>
+          <p class="text-sm text-[var(--muted)]">{{ formatProductPrices(product) }} · {{ productPeriod(product) }}</p>
         </div>
         <div class="flex gap-2">
           <button class="icon-button ui-icon-button" type="button" aria-label="Открыть тариф" @click="handleToggleProduct(product)">
@@ -1017,6 +1067,14 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
         :options="checkoutOptions"
         @select="chooseCheckoutProvider"
         @close="showCheckoutProviderPicker = false"
+      />
+    </BottomSheet>
+
+    <BottomSheet :open="showCheckoutCurrencyPicker" title="Выберите валюту оплаты" @close="closeCheckoutCurrencyPicker">
+      <PaymentCurrencyPicker
+        :options="checkoutCurrencyOptions"
+        @select="chooseCheckoutCurrency"
+        @close="closeCheckoutCurrencyPicker"
       />
     </BottomSheet>
 
@@ -1208,23 +1266,16 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               <span class="text-sm font-semibold text-[var(--muted)]">Метка (необязательно)</span>
               <input v-model="productForm.badgeLabel" class="text-input mt-2" maxlength="32" placeholder="Например: Выгодно" />
             </label>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block">
-                <span class="text-sm font-semibold text-[var(--muted)]">Цена, ₽</span>
+            <div class="grid gap-3" :class="selectedProductProvider === 'prodamus' ? 'grid-cols-2' : 'grid-cols-1'">
+              <label v-if="selectedProductProvider === 'prodamus'" class="block">
+                <span class="text-sm font-semibold text-[var(--muted)]">Цена для Prodamus, ₽</span>
                 <input
                   v-model.number="productForm.amountRub"
                   class="text-input mt-2"
                   type="number"
                   min="1"
                   required
-                  :readonly="selectedLavaCatalogItem?.amountRub !== null && selectedLavaCatalogItem?.amountRub !== undefined"
                 />
-                <small
-                  v-if="selectedLavaCatalogItem?.amountRub !== null && selectedLavaCatalogItem?.amountRub !== undefined"
-                  class="payment-product-field-hint"
-                >
-                  Цена из Lava.
-                </small>
               </label>
               <label class="block">
                 <span class="text-sm font-semibold text-[var(--muted)]">Дней доступа</span>

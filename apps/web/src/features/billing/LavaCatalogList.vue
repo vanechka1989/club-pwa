@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PaymentProviderCatalogItem } from "@club/shared";
 import { computed } from "vue";
+import { formatPaymentMoney } from "./paymentMoney";
 
 const props = defineProps<{
   items: PaymentProviderCatalogItem[];
@@ -12,8 +13,15 @@ const emit = defineEmits<{
 
 const currentItems = computed(() => props.items.filter((item) => !item.isStale));
 
-function formatAmount(amountRub: number | null) {
-  return amountRub === null ? "Цена в Lava" : `${amountRub.toLocaleString("ru-RU")} ₽`;
+function formatPrices(item: PaymentProviderCatalogItem) {
+  const prices = item.prices ?? [];
+  if (!prices.length) return item.amountRub === null ? "Цена в Lava" : formatPaymentMoney({ currency: "RUB", amountMinor: item.amountRub * 100 });
+  return prices.map(formatCatalogPrice).join(" · ");
+}
+
+function formatCatalogPrice(price: { currency: "RUB" | "USD" | "EUR"; amountMinor: number | null }) {
+  if (price.amountMinor === null) return `${price.currency}: цена в Lava`;
+  return formatPaymentMoney({ currency: price.currency, amountMinor: price.amountMinor });
 }
 </script>
 
@@ -36,7 +44,7 @@ function formatAmount(amountRub: number | null) {
           <strong>{{ item.title }}</strong>
           <small>
             {{ item.kind === "recurrent" ? "Рекуррентная подписка" : "Обычная оплата" }}
-            · {{ formatAmount(item.amountRub) }}
+            · {{ formatPrices(item) }}
           </small>
         </span>
         <span class="lava-catalog__control">

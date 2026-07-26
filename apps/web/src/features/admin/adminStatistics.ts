@@ -1,6 +1,7 @@
 import type { AdminCommunityMessage, AdminLearningMaterial, AdminStatsUser, ClubTopic, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
 import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
 import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
+import { paymentRubMajor } from "./adminPaymentMoney";
 
 export type AdminStatisticsPeriod = "7d" | "30d" | "all" | "custom";
 export type AdminStatisticsDateRange = {
@@ -189,7 +190,7 @@ function paymentTimeline(orders: PaymentOrderLog[]) {
     const date = new Date(orderDate(order)).toISOString().slice(0, 10);
     const row = rows.get(date) ?? { date, orders: 0, revenueRub: 0 };
     row.orders += 1;
-    row.revenueRub += order.amountRub;
+    row.revenueRub += paymentRubMajor(order);
     rows.set(date, row);
   });
   return [...rows.values()].sort((left, right) => left.date.localeCompare(right.date)).slice(-14);
@@ -216,7 +217,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
   const failedWebhookOrders = periodOrders.filter((order) => order.webhook && !order.webhook.isValid).length;
   const oneTimePaidOrders = paidOrders.filter((order) => order.productKind === "one_time").length;
   const recurrentPaidOrders = paidOrders.filter((order) => order.productKind === "recurrent").length;
-  const revenueRub = paidOrders.reduce((sum, order) => sum + order.amountRub, 0);
+  const revenueRub = paidOrders.reduce((sum, order) => sum + paymentRubMajor(order), 0);
   const completedItems = input.users.reduce((sum, user) => sum + user.completedItems, 0);
   const totalItems = input.users.reduce((sum, user) => sum + user.totalItems, 0);
   const publishedMaterials = input.learningMaterials.filter((material) => material.isPublished && !isArchived(material));

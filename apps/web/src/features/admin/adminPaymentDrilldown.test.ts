@@ -6,7 +6,6 @@ function payment(overrides: Partial<PaymentOrderLog>): PaymentOrderLog {
   return {
     id: "order-id",
     status: "pending",
-    amountRub: 0,
     providerOrderId: "club-order",
     providerPaymentId: null,
     productTitle: "Тариф",
@@ -25,7 +24,10 @@ function payment(overrides: Partial<PaymentOrderLog>): PaymentOrderLog {
     paidAt: null,
     createdAt: "2026-06-25T10:00:00.000Z",
     updatedAt: "2026-06-25T10:00:00.000Z",
-    ...overrides
+    ...overrides,
+    amountRub: overrides.amountRub === undefined ? 0 : overrides.amountRub,
+    currency: overrides.currency ?? "RUB",
+    amountMinor: overrides.amountMinor ?? (overrides.amountRub ?? 0) * 100
   };
 }
 
