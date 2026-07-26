@@ -3,14 +3,15 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readAppStyles } from "@/test/appStyles";
 
-const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+const shellSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
 const styles = [readAppStyles("admin"), readFileSync(resolve(__dirname, "adminShell.css"), "utf8")].join("\n");
 
 describe("compact admin statistics and clients", () => {
   it("uses a compact KPI summary and focused statistic navigation", () => {
-    expect(source).toContain('class="admin-stat-period-summary ui-card"');
-    expect(source.match(/class="admin-stat-nav-row/g)?.length).toBe(6);
-    expect(source).not.toContain("<small v-if=\"item.value\">Подробнее</small>");
+    expect(shellSource).toContain('class="admin-stat-period-summary ui-card"');
+    expect(shellSource.match(/class="admin-stat-nav-row/g)?.length).toBe(6);
+    expect(shellSource).not.toContain("<small v-if=\"item.value\">Подробнее</small>");
     expect(styles).toContain(".admin-stat-period-summary");
     expect(styles).toMatch(/\.admin-statistics-panel \.admin-stat-nav-row,[^{]+\{[^}]*min-height:\s*72px;[^}]*height:\s*auto;/);
   });

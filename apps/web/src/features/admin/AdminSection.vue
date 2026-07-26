@@ -30,11 +30,9 @@ import {
   BarChart3,
   ChevronRight,
   Cloud,
-  Copy,
   CreditCard,
   Link2,
   Megaphone,
-  Paperclip,
   Server,
   SlidersHorizontal,
   Shield,
@@ -45,6 +43,7 @@ import {
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
+import AdminClientsPanel from "./AdminClientsPanel.vue";
 import type { StatisticsDetail } from "./AdminStatisticsDetail.vue";
 import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode";
 import {
@@ -83,10 +82,6 @@ import {
 } from "@/api/client";
 import {
   getAccessSaveButtonText,
-  getAdminSubscriptionActorLabel,
-  getAdminSubscriptionSourceLabel,
-  getAdminSubscriptionTitle,
-  getAdminClientAccessState,
   getAdminClientDisplayName,
   getAdminTariffLabel
 } from "@/features/admin/adminClientCard";
@@ -94,7 +89,6 @@ import {
   allClientSourcesFilter,
   filterAdminClients,
   getAdminClientSourceOptions,
-  untaggedClientSourceFilter,
   type AdminClientUtmField
 } from "@/features/admin/adminClientAcquisitionFilters";
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
@@ -127,7 +121,6 @@ import "./adminShell.css";
 const AdminStatisticsDetail = defineAsyncComponent(() => import("./AdminStatisticsDetail.vue"));
 const AdminAcquisitionAnalytics = defineAsyncComponent(() => import("./AdminAcquisitionAnalytics.vue"));
 const AdminLearningEngagement = defineAsyncComponent(() => import("./AdminLearningEngagement.vue"));
-const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));
 const AdminPaymentsPanel = defineAsyncComponent(() => import("./AdminPaymentsPanel.vue"));
 const AdminMailingsPanel = defineAsyncComponent(() => import("./AdminMailingsPanel.vue"));
 const AdminStoragePanel = defineAsyncComponent(() => import("./AdminStoragePanel.vue"));
@@ -162,6 +155,18 @@ const emit = defineEmits<{
 }>();
 
 type ClientAccessAction = "open" | "close" | "extend7" | "extend30" | "manual";
+type ClientFilters = {
+  query: string;
+  subscription: "all" | "active" | "closed";
+  tariff: string;
+  restrictions: "all" | "restricted";
+  source: string;
+  utmField: AdminClientUtmField;
+  utmValue: string;
+};
+type AdminClientsPanelExpose = {
+  getClientMessageInput: () => HTMLTextAreaElement | null;
+};
 type AnalyticsDetail = "acquisition" | StatisticsDetail;
 type UserDrilldownSelection =
   | {
@@ -313,6 +318,7 @@ const clientMessageOpen = ref(false);
 const clientMessageText = ref("");
 const clientMessageFiles = ref<File[]>([]);
 const clientMessageInputRef = ref<HTMLTextAreaElement | null>(null);
+const clientsPanelRef = ref<AdminClientsPanelExpose | null>(null);
 const sendingClientMessage = ref(false);
 const adminSearchQuery = ref("");
 const selectedAdminAccess = ref<AdminUser | null>(null);
@@ -428,6 +434,26 @@ const tariffOptions = computed(() => {
   ];
 });
 const clientSourceOptions = computed(() => getAdminClientSourceOptions(users.value));
+const clientFilters = computed<ClientFilters>(() => ({
+  query: search.value,
+  subscription: subscriptionFilter.value,
+  tariff: tariffFilter.value,
+  restrictions: restrictionFilter.value,
+  source: sourceFilter.value,
+  utmField: utmFieldFilter.value,
+  utmValue: utmValueFilter.value
+}));
+const clientSummary = computed(() => ({
+  total: totalUsers.value,
+  active: activeUsers.value,
+  restricted: restrictedUsers.value
+}));
+const clientMessage = computed(() => ({
+  open: clientMessageOpen.value,
+  text: clientMessageText.value,
+  files: clientMessageFiles.value,
+  sending: sendingClientMessage.value
+}));
 const filteredUsers = computed(() => filterAdminClients(users.value, {
   query: search.value,
   subscription: subscriptionFilter.value,
@@ -1650,6 +1676,7 @@ async function openClientMessageModal() {
   clientMessageFiles.value = [];
   clientMessageOpen.value = true;
   await nextTick();
+  clientMessageInputRef.value = clientsPanelRef.value?.getClientMessageInput() ?? null;
   clientMessageInputRef.value?.focus({ preventScroll: true });
 }
 
@@ -1657,12 +1684,6 @@ function closeClientMessageModal() {
   clientMessageOpen.value = false;
   clientMessageText.value = "";
   clientMessageFiles.value = [];
-}
-
-function updateClientMessageFiles(event: Event) {
-  const input = event.target as HTMLInputElement;
-  clientMessageFiles.value = Array.from(input.files ?? []).slice(0, 4);
-  input.value = "";
 }
 
 function resetClientFilters() {
@@ -1673,6 +1694,16 @@ function resetClientFilters() {
   sourceFilter.value = allClientSourcesFilter;
   utmFieldFilter.value = "all";
   utmValueFilter.value = "";
+}
+
+function updateClientFilters(filters: ClientFilters) {
+  search.value = filters.query;
+  subscriptionFilter.value = filters.subscription;
+  tariffFilter.value = filters.tariff;
+  restrictionFilter.value = filters.restrictions;
+  sourceFilter.value = filters.source;
+  utmFieldFilter.value = filters.utmField;
+  utmValueFilter.value = filters.utmValue;
 }
 
 function setStatus(text: string) {
@@ -2746,489 +2777,69 @@ onUnmounted(() => {
       </TaskScreen>
     </section>
 
-    <section v-else-if="activePanel === 'users'" class="admin-panel ui-page-section">
-      <div class="admin-panel-head ui-page-header">
-        <div>
-          <h3>Клиенты и доступ</h3>
-          <p>Поиск, продление доступа, быстрый мут и просмотр статистики.</p>
-        </div>
-      </div>
-
-      <section class="admin-client-overview" aria-label="Сводка по клиентам">
-        <article><span>Всего</span><strong>{{ totalUsers }}</strong></article>
-        <article><span>С доступом</span><strong>{{ activeUsers }}</strong></article>
-        <article><span>Ограничены</span><strong>{{ restrictedUsers }}</strong></article>
-      </section>
-
-      <div class="admin-client-searchbar">
-        <input v-model.trim="search" class="text-input" placeholder="Поиск по ID, имени или username" />
-        <span>Найдено: {{ filteredUsers.length }}</span>
-      </div>
-      <div class="admin-client-filter-chips" aria-label="Быстрые фильтры клиентов">
-        <button type="button" :class="{ active: subscriptionFilter === 'all' && restrictionFilter === 'all' }" @click="subscriptionFilter = 'all'; restrictionFilter = 'all'">Все</button>
-        <button type="button" :class="{ active: subscriptionFilter === 'active' }" @click="subscriptionFilter = 'active'; restrictionFilter = 'all'">Активные</button>
-        <button type="button" :class="{ active: subscriptionFilter === 'closed' }" @click="subscriptionFilter = 'closed'; restrictionFilter = 'all'">Закрыты</button>
-        <button type="button" :class="{ active: restrictionFilter === 'restricted' }" @click="restrictionFilter = 'restricted'; subscriptionFilter = 'all'">Ограничены</button>
-      </div>
-      <details class="admin-client-more-filters">
-        <summary><SlidersHorizontal class="h-4 w-4" /> Дополнительные фильтры</summary>
-        <div class="admin-filter-grid ui-responsive-grid">
-        <select v-model="subscriptionFilter" class="text-input">
-          <option value="all">Любой доступ</option>
-          <option value="active">Доступ открыт</option>
-          <option value="closed">Доступ закрыт</option>
-        </select>
-        <select v-model="tariffFilter" class="text-input">
-          <option v-for="tariff in tariffOptions" :key="tariff.value" :value="tariff.value">
-            {{ tariff.label }}
-          </option>
-        </select>
-        <select v-model="restrictionFilter" class="text-input">
-          <option value="all">Все клиенты</option>
-          <option value="restricted">С ограничениями</option>
-        </select>
-        <div class="admin-client-acquisition-filters">
-          <select v-model="sourceFilter" class="text-input" aria-label="Источник клиента">
-            <option :value="allClientSourcesFilter">Любой источник</option>
-            <option :value="untaggedClientSourceFilter">Без метки</option>
-            <option v-for="source in clientSourceOptions" :key="source.value" :value="source.value">
-              {{ source.label }}
-            </option>
-          </select>
-          <select v-model="utmFieldFilter" class="text-input" aria-label="Поле UTM">
-            <option value="all">Любая UTM-метка</option>
-            <option value="source">utm_source</option>
-            <option value="medium">utm_medium</option>
-            <option value="campaign">utm_campaign</option>
-            <option value="content">utm_content</option>
-          </select>
-          <input
-            v-model.trim="utmValueFilter"
-            class="text-input"
-            aria-label="Значение UTM"
-            placeholder="Значение UTM"
-          />
-        </div>
-        <button class="secondary-button ui-button admin-filter-reset" type="button" :disabled="!filtersActive" @click="resetClientFilters">
-          Сбросить
-        </button>
-        </div>
-      </details>
-
-      <div class="admin-user-layout">
-        <div class="admin-list">
-          <button
-            v-for="user in filteredUsers"
-            :key="user.id"
-            class="admin-list-item ui-card admin-client-list-row"
-            :class="{ 'admin-list-item-active': selectedUser?.id === user.id }"
-            type="button"
-            @click="selectUser(user)"
-          >
-            <span class="admin-client-list-avatar">
-              <img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" loading="lazy" decoding="async" />
-              <span v-else>{{ userInitial(user) }}</span>
-            </span>
-            <span class="admin-list-item-main">
-              <span class="admin-list-item-copy">
-                <span class="admin-client-list-name-line">
-                  <strong>{{ userTitle(user) }}</strong>
-                  <small v-if="user.email">{{ user.email }}</small>
-                </span>
-              </span>
-              <span class="admin-list-item-meta">
-                <span>{{ getAdminTariffLabel(user.tariff) }}</span>
-                <span class="admin-list-item-progress">Уроки {{ user.completedItems }}/{{ user.totalItems }}</span>
-                <span>Вход {{ formatAdminCompactDateTime(user.lastLoginAt) }}</span>
-              </span>
-            </span>
-            <span class="admin-list-badges">
-              <em v-if="user.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</em>
-              <em
-                class="admin-access-badge"
-                :class="`admin-access-badge-${getAdminClientAccessState(user).tone}`"
-              >{{ getAdminClientAccessState(user).label }}</em>
-            </span>
-            <span class="admin-client-list-chevron"><ChevronRight aria-hidden="true" /></span>
-          </button>
-        </div>
-      </div>
-
-      <TaskScreen
-        v-if="selectedUser && activePanel === 'users'"
-        class="admin-task-screen admin-client-task-screen"
-        :title="userTitle(selectedUser)"
-        :subtitle="selectedUserMeta(selectedUser)"
-        portal
-        @back="closeSelectedUser"
-      >
-          <div class="admin-client-workspace">
-            <header class="admin-client-identity admin-detail ui-card">
-              <div class="admin-client-card-head">
-                <span class="admin-client-avatar">
-                  <img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" />
-                  <span v-else>{{ userInitial(selectedUser) }}</span>
-                </span>
-                <div class="admin-client-card-title">
-                  <div class="admin-client-title-row">
-                    <h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3>
-                  </div>
-                  <p>{{ selectedUserMeta(selectedUser) }}</p>
-                  <span class="admin-client-last-login">Последний вход: {{ formatAdminCompactDateTime(selectedUser.lastLoginAt) }}</span>
-                </div>
-              </div>
-              <div class="admin-client-status-row">
-                <span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span>
-                <span
-                  class="admin-status-pill"
-                  :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`"
-                >{{ getAdminClientAccessState(selectedUser).label }}</span>
-                <span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span>
-                <span class="admin-status-pill admin-status-pill-blue">{{ getAdminTariffLabel(selectedUser.tariff) }}</span>
-              </div>
-            </header>
-
-            <section class="admin-client-kpi-grid" aria-label="Краткая сводка клиента">
-              <article class="admin-client-kpi">
-                <span>Доступ</span>
-                <strong>{{ selectedUser.membershipExpiresAt ? `до ${formatAdminShortDate(selectedUser.membershipExpiresAt)}` : formatMembershipStatus(selectedUser.membershipStatus) }}</strong>
-              </article>
-              <article class="admin-client-kpi">
-                <span>Обучение</span>
-                <strong>{{ selectedUser.completedItems }} / {{ selectedUser.totalItems }}</strong>
-              </article>
-              <article class="admin-client-kpi">
-                <span>Оплаты</span>
-                <strong>{{ selectedUserPaidTotal.toLocaleString("ru-RU") }} ₽</strong>
-              </article>
-              <article class="admin-client-kpi">
-                <span>Последнее действие</span>
-                <strong>{{ selectedUser.lastOpenedItemTitle ?? "Нет активности" }}</strong>
-              </article>
-            </section>
-
-            <section class="admin-client-action-panel admin-detail ui-card" aria-label="Действия с клиентом">
-              <div class="admin-client-action-head">
-                <strong>Действие</strong>
-                <small>{{ getAccessActionSummary(selectedUser) }}</small>
-              </div>
-              <div class="admin-access-toggle">
-                <button
-                  class="admin-access-open"
-                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'open' }"
-                  type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
-                  @click="handleOpenAccess"
-                >
-                  {{ pendingClientAccessAction === "open" ? "Открываю..." : "Открыть доступ" }}
-                </button>
-                <button
-                  class="admin-access-close"
-                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'close' }"
-                  type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
-                  @click="handleCloseAccess"
-                >
-                  {{ pendingClientAccessAction === "close" ? "Закрываю..." : "Закрыть доступ" }}
-                </button>
-                <button
-                  class="admin-access-add"
-                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend7' }"
-                  type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
-                  @click="handleExtendAccess(7)"
-                >
-                  {{ pendingClientAccessAction === "extend7" ? "Продлеваю..." : "+7 дней" }}
-                </button>
-                <button
-                  class="admin-access-add"
-                  :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend30' }"
-                  type="button"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
-                  @click="handleExtendAccess(30)"
-                >
-                  {{ pendingClientAccessAction === "extend30" ? "Продлеваю..." : "+30 дней" }}
-                </button>
-              </div>
-              <form class="admin-compact-date-row" @submit.prevent="handleManualAccessSave">
-                <label class="admin-date-action">
-                  <span>Ручной доступ</span>
-                  <input v-model="accessExpiresAt" type="date" aria-label="Дата окончания доступа" :disabled="!canManageSelectedUserAccess" />
-                </label>
-                <button
-                  class="admin-client-mute-action"
-                  type="button"
-                  :disabled="saving || !canManageSelectedUser"
-                  @click="handleQuickMute(selectedUser)"
-                >
-                  Мут до снятия
-                </button>
-                <button
-                  class="admin-date-save"
-                  :class="{ 'admin-save-success': accessSaveSucceeded, 'admin-access-button-pending': pendingClientAccessAction === 'manual' }"
-                  type="submit"
-                  :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess"
-                >
-                  {{ pendingClientAccessAction === "manual" ? "Сохраняю..." : accessSaveButtonText }}
-                </button>
-              </form>
-            </section>
-
-            <div class="admin-client-primary-actions">
-              <button class="primary-button ui-button admin-message-client-button" type="button" :disabled="saving" @click="openClientMessageModal">
-                Написать клиенту
-              </button>
-            </div>
-
-            <p v-if="!canGrantClientAccess" class="admin-warning-line">
-              Для выдачи доступа нужно право Доступы.
-            </p>
-            <p v-else-if="!canManageSelectedUser" class="admin-warning-line">
-              Менять доступ и ограничения администраторов может только главный админ.
-            </p>
-
-            <AdminClientAcquisition :telegram-id="selectedUser.telegramId" />
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Активность <span>последние события</span></summary>
-              <div class="admin-client-section-head admin-client-section-head-hidden">
-                <h4>Активность</h4>
-                <small>последние события</small>
-              </div>
-              <div class="admin-client-timeline">
-                <article v-if="selectedUser.lastOpenedItemTitle">
-                  <span class="admin-client-dot admin-client-dot-green"></span>
-                  <strong>Открыл урок "{{ selectedUser.lastOpenedItemTitle }}"</strong>
-                  <time>{{ selectedUser.lastOpenedAt ? formatAdminCompactDateTime(selectedUser.lastOpenedAt) : "время не сохранено" }}</time>
-                </article>
-                <article v-if="selectedUserLastPayment">
-                  <span class="admin-client-dot admin-client-dot-blue"></span>
-                  <strong>Оплата: {{ formatAdminPaymentMoney(selectedUserLastPayment) }}</strong>
-                  <time>{{ paymentOrderDate(selectedUserLastPayment) }}</time>
-                </article>
-                <p v-if="!selectedUser.lastOpenedItemTitle && !selectedUserLastPayment" class="admin-empty">
-                  Последних событий пока нет.
-                </p>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Просмотры обучения <span>{{ selectedUserDetail?.learningEngagement.length ?? 0 }} карточек</span></summary>
-              <div class="admin-accordion-body">
-                <p v-if="!selectedUserDetail?.learningEngagement.length" class="admin-empty">Данных об активном просмотре пока нет.</p>
-                <article v-for="item in selectedUserDetail?.learningEngagement ?? []" :key="item.contentItemId" class="admin-payment-card admin-payment-card-compact">
-                  <div class="admin-payment-main">
-                    <div><strong>{{ item.title }}</strong><small>{{ item.categoryTitle }}</small></div>
-                    <em>{{ formatLearningEngagementDuration(item.totalActiveSeconds) }}</em>
-                  </div>
-                  <div class="admin-payment-meta">
-                    <span>{{ item.opens }} открытий</span>
-                    <span v-if="item.videoSeconds">видео {{ formatLearningEngagementDuration(item.videoSeconds) }}</span>
-                    <span>последний просмотр {{ formatAdminCompactDateTime(item.lastViewedAt) }}</span>
-                  </div>
-                </article>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Подписки <span>{{ selectedUserDetail?.subscriptions.length ?? 0 }} записей</span></summary>
-              <div class="admin-accordion-body">
-                <p v-if="!selectedUserDetail?.subscriptions.length" class="admin-empty">Истории подписок пока нет.</p>
-                <article v-for="subscription in selectedUserDetail?.subscriptions ?? []" :key="subscription.id" class="admin-payment-card admin-payment-card-compact">
-                  <div class="admin-payment-main">
-                    <div>
-                      <strong>{{ getAdminSubscriptionTitle(subscription) }}</strong>
-                      <small>{{ getAdminSubscriptionSourceLabel(subscription) }}</small>
-                    </div>
-                    <em :class="`membership-history-status-${subscription.status}`">{{ formatMembershipStatus(subscription.status) }}</em>
-                  </div>
-                  <div class="admin-payment-meta">
-                    <span>{{ new Date(subscription.createdAt).toLocaleDateString("ru-RU") }}</span>
-                    <span v-if="subscription.expiresAt">до {{ new Date(subscription.expiresAt).toLocaleDateString("ru-RU") }}</span>
-                    <span v-if="getAdminSubscriptionActorLabel(subscription)">{{ getAdminSubscriptionActorLabel(subscription) }}</span>
-                  </div>
-                </article>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Оплаты клиента <span>{{ selectedUserPaymentOrders.length }} записей</span></summary>
-              <div class="admin-accordion-body">
-                <p v-if="!selectedUserPaymentOrders.length" class="admin-empty">Оплат пока нет.</p>
-                <article v-for="order in selectedUserPaymentOrders" :key="order.id" class="admin-payment-card admin-payment-card-compact">
-                  <div class="admin-payment-main">
-                    <div>
-                      <strong>{{ order.productTitle }}</strong>
-                      <small>{{ paymentOrderDate(order) }} · {{ formatAdminPaymentMoney(order) }}</small>
-                    </div>
-                    <em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em>
-                  </div>
-                  <div class="admin-payment-ids">
-                    <span>order: {{ order.providerOrderId }}</span>
-                    <span>Webhook: {{ order.webhook ? (order.webhook.isValid ? "валидный" : "ошибка подписи") : "не пришёл" }}</span>
-                  </div>
-                </article>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Рефералы <span>{{ selectedUserDetail?.referrals.invited.length ?? 0 }} приглашённых</span></summary>
-              <div class="admin-accordion-body">
-                <article v-if="selectedUserDetail?.referrals.invitedBy" class="admin-payment-card admin-payment-card-compact">
-                  <div class="admin-payment-main">
-                    <div>
-                      <strong>Пришёл по ссылке</strong>
-                      <small>{{ referralUserTitle(selectedUserDetail.referrals.invitedBy.inviterUser) }}</small>
-                    </div>
-                    <em>{{ formatAdminDateTime(selectedUserDetail.referrals.invitedBy.invitedAt) }}</em>
-                  </div>
-                  <div class="admin-payment-meta">
-                    <span>ID {{ selectedUserDetail.referrals.invitedBy.inviterUser.telegramId }}</span>
-                    <span v-if="selectedUserDetail.referrals.invitedBy.firstPaidAt">
-                      первая оплата {{ formatAdminDateTime(selectedUserDetail.referrals.invitedBy.firstPaidAt) }}
-                    </span>
-                    <span v-else>первой оплаты ещё нет</span>
-                  </div>
-                </article>
-
-                <p v-if="!selectedUserDetail?.referrals.invitedBy && !selectedUserDetail?.referrals.invited.length" class="admin-empty">
-                  Реферальных связей пока нет.
-                </p>
-
-                <article v-for="referral in selectedUserDetail?.referrals.invited ?? []" :key="referral.id" class="admin-payment-card admin-payment-card-compact">
-                  <div class="admin-payment-main">
-                    <div>
-                      <strong>{{ referralUserTitle(referral.invitedUser) }}</strong>
-                      <small>приглашён {{ formatAdminDateTime(referral.invitedAt) }}</small>
-                    </div>
-                    <em>{{ referralRewardStatusLabel(referral.rewardStatus) }}</em>
-                  </div>
-                  <div class="admin-payment-meta">
-                    <span>ID {{ referral.invitedUser.telegramId }}</span>
-                    <span>{{ referral.rewardDays }} дн. вознаграждения</span>
-                    <span v-if="referral.firstPaidAt">первая оплата {{ formatAdminDateTime(referral.firstPaidAt) }}</span>
-                    <span v-else>оплаты ещё нет</span>
-                  </div>
-                </article>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card">
-              <summary>Ограничения и удаления <span>{{ selectedUserDetail?.moderationEvents.length ?? 0 }} записей</span></summary>
-              <div class="admin-accordion-body">
-                <p v-if="!selectedUserDetail?.moderationEvents.length" class="admin-empty">Ограничений и удалений пока нет.</p>
-                <article v-for="event in selectedUserDetail?.moderationEvents ?? []" :key="`${event.kind}-${event.id}`" class="admin-log-item">
-                  <time>{{ new Date(event.createdAt).toLocaleString("ru-RU") }}</time>
-                  <div>
-                    <strong>
-                      {{ event.kind === "mute" ? "Мут" : event.kind === "chat_message" ? "Сообщение" : "Комментарий" }}
-                      · {{ event.status }}
-                    </strong>
-                    <span v-if="event.sourceTitle">{{ event.sourceTitle }}</span>
-                    <p v-if="event.body">{{ event.body }}</p>
-                    <small v-if="event.resolvedAt">обработано {{ new Date(event.resolvedAt).toLocaleString("ru-RU") }}</small>
-                    <button
-                      v-if="event.kind === 'mute' && !event.resolvedAt && canManageSelectedUser"
-                      class="secondary-button ui-button mt-2"
-                      type="button"
-                      :disabled="saving"
-                      @click="handleRevokeMute(event.id)"
-                    >
-                      Снять мут
-                    </button>
-                  </div>
-                </article>
-              </div>
-            </details>
-
-            <details class="admin-client-section admin-client-compact-section admin-detail ui-card admin-client-device-history">
-              <summary>Устройства <span>{{ selectedUserDevices.length }} сохранено</span></summary>
-              <div class="admin-client-section-head admin-client-section-head-hidden">
-                <h4>Устройства</h4>
-                <button
-                  class="admin-client-copy-button"
-                  type="button"
-                  :disabled="!selectedUserDeviceText"
-                  @click="copyTextToClipboard(selectedUserDeviceText)"
-                >
-                  <Copy class="h-4 w-4" aria-hidden="true" />
-                  Скопировать
-                </button>
-              </div>
-              <p v-if="!selectedUserDevices.length" class="admin-empty">История появится после следующего входа клиента.</p>
-              <div v-else class="admin-client-device-list">
-                <article v-for="entry in selectedUserDevices" :key="entry.id" class="admin-client-device-card">
-                  <div class="admin-client-device-title">
-                    <strong>{{ getClientDeviceTitle(entry.diagnostics) }}</strong>
-                    <span>{{ getClientDeviceScreen(entry.diagnostics) }}</span>
-                  </div>
-                  <div class="admin-client-device-dates">
-                    <span>Впервые: {{ formatAdminCompactDateTime(entry.firstSeenAt) }}</span>
-                    <span>Последний вход: {{ formatAdminCompactDateTime(entry.lastSeenAt) }}</span>
-                  </div>
-                  <small>{{ entry.diagnostics.userAgent }}</small>
-                </article>
-              </div>
-            </details>
-
-            <details v-if="canViewLoginIps" class="admin-client-section admin-login-ips-section admin-client-compact-section admin-detail ui-card">
-              <summary>IP входов <span>{{ selectedUserLoginIps.length }} адресов</span></summary>
-              <div class="admin-client-section-head admin-client-section-head-hidden">
-                <h4>IP входов</h4>
-                <small>{{ selectedUserLoginIps.length }} адресов</small>
-              </div>
-              <p v-if="selectedUserLoginIpsLoading" class="admin-empty">Загружаю историю IP…</p>
-              <p v-else-if="selectedUserLoginIpsError" class="admin-warning-line">Не удалось загрузить историю IP.</p>
-              <p v-else-if="!selectedUserLoginIps.length" class="admin-empty">История IP появится после следующего входа клиента.</p>
-              <div v-else class="admin-login-ip-list">
-                <article v-for="entry in selectedUserLoginIps" :key="entry.id" class="admin-login-ip-row">
-                  <div class="admin-login-ip-main">
-                    <strong class="admin-login-ip-address">{{ entry.ipAddress }}</strong>
-                    <span v-if="isNewLoginIp(entry)" class="admin-login-ip-new">Новый IP</span>
-                  </div>
-                  <div class="admin-login-ip-meta">
-                    <span>Впервые: {{ formatAdminCompactDateTime(entry.firstSeenAt) }}</span>
-                    <span>Последний вход: {{ formatAdminCompactDateTime(entry.lastSeenAt) }}</span>
-                    <span>Входов: {{ entry.loginCount }}</span>
-                  </div>
-                </article>
-              </div>
-            </details>
-          </div>
-      </TaskScreen>
-
-      <Teleport to="body">
-        <div v-if="clientMessageOpen && selectedUser" class="admin-client-message-layer" @click.self="closeClientMessageModal">
-            <form class="admin-client-message-modal" role="dialog" aria-modal="true" aria-labelledby="admin-client-message-title" @submit.prevent="submitClientMessage">
-              <header class="admin-client-message-head">
-                <div>
-                  <h3 id="admin-client-message-title">Сообщение клиенту</h3>
-                  <p>{{ userTitle(selectedUser) }} · ID {{ selectedUser.telegramId }}</p>
-                </div>
-                <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть сообщение клиенту" @click="closeClientMessageModal">
-                  <X class="h-4 w-4" aria-hidden="true" />
-                </button>
-              </header>
-              <div class="admin-client-message-body">
-                <div class="admin-client-message-row">
-                  <label class="support-file-icon-button ui-icon-button admin-client-file-button" title="Добавить файл" aria-label="Добавить файл">
-                    <Paperclip class="h-4 w-4" aria-hidden="true" />
-                    <span v-if="clientMessageFiles.length" class="support-file-count">{{ clientMessageFiles.length }}</span>
-                    <input type="file" accept="image/*,video/*" multiple @change="updateClientMessageFiles" />
-                  </label>
-                  <textarea ref="clientMessageInputRef" v-model="clientMessageText" rows="3" placeholder="Напишите сообщение клиенту" />
-                </div>
-                <div v-if="clientMessageFiles.length" class="admin-client-file-list">
-                  <span v-for="file in clientMessageFiles" :key="file.name">{{ file.name }}</span>
-                </div>
-              </div>
-              <button class="primary-button ui-button" type="submit" :disabled="sendingClientMessage">
-                {{ sendingClientMessage ? "Отправляем..." : "Отправить" }}
-              </button>
-            </form>
-        </div>
-      </Teleport>
-    </section>
+    <AdminClientsPanel
+      ref="clientsPanelRef"
+      v-else-if="activePanel === 'users'"
+      :summary="clientSummary"
+      :filters="clientFilters"
+      :filters-active="filtersActive"
+      :tariff-options="tariffOptions"
+      :client-source-options="clientSourceOptions"
+      :filtered-users="filteredUsers"
+      :selected-user="selectedUser"
+      :selected-user-detail="selectedUserDetail"
+      :selected-user-payment-orders="selectedUserPaymentOrders"
+      :selected-user-last-payment="selectedUserLastPayment"
+      :selected-user-paid-total="selectedUserPaidTotal"
+      :selected-user-devices="selectedUserDevices"
+      :selected-user-device-text="selectedUserDeviceText"
+      :selected-user-login-ips="selectedUserLoginIps"
+      :selected-user-login-ips-loading="selectedUserLoginIpsLoading"
+      :selected-user-login-ips-error="selectedUserLoginIpsError"
+      :access-expires-at="accessExpiresAt"
+      :pending-client-access-action="pendingClientAccessAction"
+      :access-save-succeeded="accessSaveSucceeded"
+      :access-save-button-text="accessSaveButtonText"
+      :client-access-busy="clientAccessBusy"
+      :can-grant-client-access="canGrantClientAccess"
+      :can-manage-selected-user="canManageSelectedUser"
+      :can-manage-selected-user-access="canManageSelectedUserAccess"
+      :can-view-login-ips="canViewLoginIps"
+      :saving="saving"
+      :client-message="clientMessage"
+      :user-title="userTitle"
+      :user-initial="userInitial"
+      :selected-user-meta="selectedUserMeta"
+      :get-access-action-summary="getAccessActionSummary"
+      :payment-order-date="paymentOrderDate"
+      :payment-order-status-label="paymentOrderStatusLabel"
+      :format-admin-date-time="formatAdminDateTime"
+      :format-admin-short-date="formatAdminShortDate"
+      :format-admin-compact-date-time="formatAdminCompactDateTime"
+      :format-learning-engagement-duration="formatLearningEngagementDuration"
+      :referral-user-title="referralUserTitle"
+      :referral-reward-status-label="referralRewardStatusLabel"
+      :get-client-device-title="getClientDeviceTitle"
+      :get-client-device-screen="getClientDeviceScreen"
+      :is-new-login-ip="isNewLoginIp"
+      @update:filters="updateClientFilters"
+      @reset-filters="resetClientFilters"
+      @select-user="selectUser"
+      @client-card-close="closeSelectedUser"
+      @update:access-expires-at="accessExpiresAt = $event"
+      @open-access="handleOpenAccess"
+      @close-access="handleCloseAccess"
+      @extend-access="handleExtendAccess"
+      @manual-access="handleManualAccessSave"
+      @quick-mute="handleQuickMute"
+      @open-message="openClientMessageModal"
+      @close-message="closeClientMessageModal"
+      @update:client-message-text="clientMessageText = $event"
+      @update:client-message-files="clientMessageFiles = $event"
+      @submit-message="submitClientMessage"
+      @revoke-mute="handleRevokeMute"
+      @copy-device-info="copyTextToClipboard"
+    />
 
     <AdminMailingsPanel
       ref="mailingsPanelRef"

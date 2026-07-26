@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const appSource = readFileSync(resolve(__dirname, "../../App.vue"), "utf8");
 const adminSource = readFileSync(resolve(__dirname, "../admin/AdminSection.vue"), "utf8");
+const clientsPanelSource = readFileSync(resolve(__dirname, "../admin/AdminClientsPanel.vue"), "utf8");
 const globalStyles = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
 describe("authenticated section loading", () => {
@@ -34,7 +35,6 @@ describe("authenticated section loading", () => {
       "AdminStatisticsDetail",
       "AdminAcquisitionAnalytics",
       "AdminLearningEngagement",
-      "AdminClientAcquisition",
       "AdminPaymentsPanel",
       "AdminProjectSettingsPanel",
       "AdminServerPanel"
@@ -42,6 +42,8 @@ describe("authenticated section loading", () => {
       expect(adminSource).toMatch(new RegExp(`const ${name} = defineAsyncComponent\\(\\(\\) => import\\("\\./${name}\\.vue"\\)\\);`));
       expect(adminSource).not.toContain(`import ${name} from "./${name}.vue";`);
     }
+    expect(clientsPanelSource).toContain('const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));');
+    expect(clientsPanelSource).not.toContain('import AdminClientAcquisition from "./AdminClientAcquisition.vue";');
   });
 
   it("keeps the release history outside the main admin chunk", () => {

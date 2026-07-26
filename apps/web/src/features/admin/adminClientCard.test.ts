@@ -26,7 +26,7 @@ describe("admin client card helpers", () => {
   });
 
   it("shows an email opt-out marker in the client list and detail card", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
     const styles = adminStyles;
     const apiSource = readFileSync(resolve(__dirname, "../../../../api/src/routes/admin.ts"), "utf8");
     const sharedSource = readFileSync(resolve(__dirname, "../../../../../packages/shared/src/index.ts"), "utf8");
@@ -40,14 +40,14 @@ describe("admin client card helpers", () => {
   });
 
   it("shows the last login in the compact client card header", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
 
     expect(source).toContain("Последний вход:");
     expect(source).toContain("selectedUser.lastLoginAt");
   });
 
   it("keeps bot status out of the PWA client card header", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
 
     expect(source).toContain("admin-client-title-row");
     expect(source).toContain("admin-client-card-head");
@@ -57,13 +57,13 @@ describe("admin client card helpers", () => {
   });
 
   it("keeps bot status out of the PWA client list", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
 
     expect(source).not.toContain("getTelegramBotStatusLabel(user.telegramBotStatus)");
   });
 
   it("labels the custom access date as manual access", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
 
     expect(source).toContain("admin-client-action-panel");
     expect(source).toContain("Открыть доступ");
@@ -74,8 +74,8 @@ describe("admin client card helpers", () => {
   });
 
   it("places client actions before messaging and the acquisition source after it", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    const detail = source.slice(source.indexOf('v-if="selectedUser && activePanel === \'users\'"'));
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const detail = source.slice(source.indexOf('<TaskScreen v-if="selectedUser"'));
     const actions = detail.indexOf('class="admin-client-action-panel admin-detail ui-card"');
     const message = detail.indexOf('class="admin-client-primary-actions"');
     const acquisition = detail.indexOf('<AdminClientAcquisition');
@@ -86,7 +86,8 @@ describe("admin client card helpers", () => {
   });
 
   it("opens the client message form in a dedicated overlay above the task screen", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const shell = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const apiSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
     const styles = adminStyles;
 
@@ -96,7 +97,7 @@ describe("admin client card helpers", () => {
     expect(source).not.toContain("admin-client-message-inline");
     expect(source).toContain("Paperclip");
     expect(source).toContain("admin-client-file-button");
-    expect(source).toContain("createAdminClientSupportTicket");
+    expect(shell).toContain("createAdminClientSupportTicket");
     expect(apiSource).toContain("/support/admin/users/${telegramId}/tickets");
     expect(styles).toContain(".admin-client-message-layer");
   });
@@ -118,11 +119,12 @@ describe("admin client card helpers", () => {
   });
 
   it("loads and shows login IP history only with the dedicated permission", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const shell = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const styles = adminStyles;
 
-    expect(source).toContain('hasCurrentAdminPermission("login_ips")');
-    expect(source).toContain("getAdminUserLoginIps");
+    expect(shell).toContain('hasCurrentAdminPermission("login_ips")');
+    expect(shell).toContain("getAdminUserLoginIps");
     expect(source).toContain('v-if="canViewLoginIps"');
     expect(source).toContain("IP входов");
     expect(source).toContain("История IP появится после следующего входа клиента.");
@@ -130,7 +132,7 @@ describe("admin client card helpers", () => {
   });
 
   it("removes the duplicate profile disclosure and places device history and IPs last", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
     const activityIndex = source.indexOf("<summary>Активность");
     const deviceIndex = source.indexOf("<summary>Устройства");
     const ipIndex = source.indexOf("<summary>IP входов");
@@ -142,7 +144,7 @@ describe("admin client card helpers", () => {
   });
 
   it("centers four compact KPI cards directly below the identity card", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
     const styles = adminStyles;
 
     expect(source.indexOf('class="admin-client-kpi-grid"')).toBeGreaterThan(source.indexOf('class="admin-client-identity'));
@@ -150,18 +152,18 @@ describe("admin client card helpers", () => {
   });
 
   it("places mute left and save right inside the access action panel", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    const clientScreen = source.slice(source.indexOf('v-if="selectedUser && activePanel'), source.indexOf('v-if="clientMessageOpen"'));
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const clientScreen = source.slice(source.indexOf('<TaskScreen v-if="selectedUser"'), source.indexOf('<Teleport to="body">'));
     const actionForm = clientScreen.slice(clientScreen.indexOf('class="admin-compact-date-row"'), clientScreen.indexOf("</form>", clientScreen.indexOf('class="admin-compact-date-row"')));
 
     expect(clientScreen).not.toContain("admin-client-secondary-actions");
-    expect(actionForm).toContain("handleQuickMute(selectedUser)");
+    expect(actionForm).toContain("emit('quick-mute', selectedUser)");
     expect(actionForm.indexOf("Мут до снятия")).toBeLessThan(actionForm.indexOf("accessSaveButtonText"));
   });
 
   it("uses one disclosure style for subscriptions, payments, referrals, restrictions, devices and IPs", () => {
-    const source = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    const clientScreen = source.slice(source.indexOf('v-if="selectedUser && activePanel'), source.indexOf('v-if="clientMessageOpen"'));
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const clientScreen = source.slice(source.indexOf('<TaskScreen v-if="selectedUser"'), source.indexOf('<Teleport to="body">'));
 
     for (const label of ["Подписки", "Оплаты клиента", "Рефералы", "Ограничения и удаления", "Устройства", "IP входов"]) {
       expect(clientScreen).toContain(`<summary>${label}`);

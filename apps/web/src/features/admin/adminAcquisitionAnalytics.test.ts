@@ -68,7 +68,7 @@ describe("admin acquisition analytics", () => {
 
   it("shows one client source with UTM values and no attribution journey", () => {
     const card = readFileSync(resolve(__dirname, "AdminClientAcquisition.vue"), "utf8");
-    const section = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const section = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
     expect(card).toContain("Источник клиента");
     expect(card).toContain("utm_source");
     expect(card).toContain("utm_medium");

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const adminSectionSource = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf-8");
+const clientsPanelSource = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf-8");
 const permissionsPanelSource = readFileSync(resolve(__dirname, "AdminPermissionsPanel.vue"), "utf-8");
 const adminServerPanelSource = readFileSync(resolve(__dirname, "AdminServerPanel.vue"), "utf-8");
 const apiClientSource = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf-8");
@@ -33,7 +34,7 @@ describe("admin permissions section", () => {
     expect(sharedSource).toContain('accesses: "Доступы"');
     expect(adminRouteSource).toContain('.use("/access", requireAdminPermission("accesses"))');
     expect(adminSectionSource).toContain("canGrantClientAccess");
-    expect(adminSectionSource).toContain("Для выдачи доступа нужно право Доступы.");
+    expect(clientsPanelSource).toContain("Для выдачи доступа нужно право Доступы.");
   });
 
   it("places preview mode switcher in the admin header, not inside the admins section", () => {
@@ -169,9 +170,9 @@ describe("admin permissions section", () => {
 
   it("shows pending feedback on client access action buttons", () => {
     expect(adminSectionSource).toContain("pendingClientAccessAction");
-    expect(adminSectionSource).toContain("admin-access-button-pending");
-    expect(adminSectionSource).toContain("Открываю...");
-    expect(adminSectionSource).toContain("Закрываю...");
+    expect(clientsPanelSource).toContain("admin-access-button-pending");
+    expect(clientsPanelSource).toContain("Открываю...");
+    expect(clientsPanelSource).toContain("Закрываю...");
   });
 
   it("allows choosing a custom statistics period", () => {

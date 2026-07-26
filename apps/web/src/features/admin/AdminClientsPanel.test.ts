@@ -1,0 +1,212 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { createPinia, setActivePinia } from "pinia";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AdminStatsResponse, AdminStatsUser, AdminUserDetailResponse, ClubUser } from "@club/shared";
+import { getAdminStats, getAdminUserDetail } from "@/api/client";
+import { useSessionStore } from "@/stores/session";
+import AdminClientsPanel from "./AdminClientsPanel.vue";
+import AdminSection from "./AdminSection.vue";
+
+const routerMocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn()
+}));
+
+vi.mock("vue-router", () => ({
+  useRoute: () => ({ path: "/admin" }),
+  useRouter: () => routerMocks
+}));
+
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return {
+    ...actual,
+    getAdminStats: vi.fn(),
+    getAdminUserDetail: vi.fn()
+  };
+});
+
+const client: AdminStatsUser = {
+  id: "client-1",
+  telegramId: "1001",
+  email: null,
+  firstName: "Анна",
+  username: "anna",
+  displayName: null,
+  displayNameChangedByUserAt: null,
+  photoUrl: null,
+  role: "member",
+  membershipStatus: "active",
+  membershipExpiresAt: null,
+  tariff: "manual",
+  hasRestrictions: false,
+  completedItems: 0,
+  totalItems: 0,
+  lastOpenedItemTitle: null,
+  lastOpenedAt: null,
+  lastLoginAt: "2026-07-27T00:00:00.000Z",
+  telegramBotStatus: "unknown",
+  telegramBotBlockedAt: null,
+  telegramBotUnblockedAt: null,
+  acquisition: null,
+  createdAt: "2026-07-27T00:00:00.000Z"
+};
+
+const statsResponse: AdminStatsResponse = {
+  totalUsers: 1,
+  activeUsers: 1,
+  completedItems: 0,
+  totalItems: 0,
+  users: [client],
+  communityMessages: [],
+  pollStats: {
+    totalPolls: 0,
+    activePolls: 0,
+    closedPolls: 0,
+    uniqueParticipants: 0,
+    totalVotes: 0,
+    participationPercent: 0,
+    polls: []
+  }
+};
+
+const clientDetail: AdminUserDetailResponse = {
+  user: client,
+  subscriptions: [],
+  moderationEvents: [],
+  device: null,
+  devices: [],
+  referrals: { invitedBy: null, invited: [] },
+  learningEngagement: []
+};
+
+const adminUser: ClubUser = {
+  id: "admin-1",
+  telegramId: "admin@example.com",
+  email: "admin@example.com",
+  firstName: "Админ",
+  username: "admin",
+  photoUrl: null,
+  role: "admin",
+  realRole: "admin",
+  adminRoleLabel: null,
+  adminPermissions: ["users"],
+  membershipStatus: "active",
+  membershipExpiresAt: null,
+  paymentType: "manual",
+  recurrentPaymentStatus: null,
+  nextPaymentAt: null,
+  avatarPositionX: 50,
+  avatarPositionY: 50,
+  avatarScale: 1,
+  avatarRefreshedAt: null
+};
+
+function createProps(overrides: Record<string, unknown> = {}) {
+  return {
+    summary: { total: 1, active: 1, restricted: 0 },
+    filters: { query: "", subscription: "all", tariff: "all", restrictions: "all", source: "all", utmField: "all", utmValue: "" } as const,
+    filtersActive: false,
+    tariffOptions: [{ value: "all", label: "Все тарифы" }],
+    clientSourceOptions: [],
+    filteredUsers: [client],
+    selectedUser: null,
+    selectedUserDetail: null,
+    selectedUserPaymentOrders: [],
+    selectedUserLastPayment: null,
+    selectedUserPaidTotal: 0,
+    selectedUserDevices: [],
+    selectedUserDeviceText: "",
+    selectedUserLoginIps: [],
+    selectedUserLoginIpsLoading: false,
+    selectedUserLoginIpsError: false,
+    accessExpiresAt: "",
+    pendingClientAccessAction: null,
+    accessSaveSucceeded: false,
+    accessSaveButtonText: "Сохранить",
+    clientAccessBusy: false,
+    canGrantClientAccess: true,
+    canManageSelectedUser: true,
+    canManageSelectedUserAccess: true,
+    canViewLoginIps: false,
+    saving: false,
+    clientMessage: { open: false, text: "", files: [], sending: false },
+    userTitle: (user: AdminStatsUser) => user.firstName ?? `ID ${user.telegramId}`,
+    userInitial: () => "А",
+    selectedUserMeta: () => "Клиент",
+    getAccessActionSummary: () => "Ручной доступ",
+    paymentOrderDate: () => "27.07",
+    paymentOrderStatusLabel: () => "Оплачен",
+    formatAdminDateTime: () => "27.07",
+    formatAdminShortDate: () => "27.07",
+    formatAdminCompactDateTime: () => "27.07",
+    formatLearningEngagementDuration: () => "0 сек.",
+    referralUserTitle: () => "Клиент",
+    referralRewardStatusLabel: () => "Дни начислены",
+    getClientDeviceTitle: () => "Android",
+    getClientDeviceScreen: () => "100×100",
+    isNewLoginIp: () => false,
+    ...overrides
+  };
+}
+
+describe("AdminClientsPanel", () => {
+  afterEach(cleanup);
+
+  it("keeps the default clients surface eager and delegates card closure to the shell", () => {
+    const shell = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const panel = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+
+    expect(shell).toContain('import AdminClientsPanel from "./AdminClientsPanel.vue";');
+    expect(shell).toContain("<AdminClientsPanel");
+    expect(shell).toContain('@client-card-close="closeSelectedUser"');
+    expect(shell).not.toContain('class="admin-client-overview"');
+    expect(shell.slice(shell.indexOf("function closeSelectedUser"), shell.indexOf("function isNewLoginIp"))).toContain("if (!props.clientCardOnly)");
+    expect(panel).not.toContain("@/api/client");
+    expect(panel).not.toContain("useRouter");
+    expect(panel).not.toContain("useSessionStore");
+  });
+
+  it("emits a cloned filter update without mutating the filter prop", async () => {
+    const props = createProps();
+    const { emitted } = render(AdminClientsPanel, { props });
+
+    await fireEvent.update(screen.getByPlaceholderText("Поиск по ID, имени или username"), "Анна");
+
+    expect(props.filters).toEqual({ query: "", subscription: "all", tariff: "all", restrictions: "all", source: "all", utmField: "all", utmValue: "" });
+    expect(emitted()["update:filters"]).toEqual([[{ ...props.filters, query: "Анна" }]]);
+  });
+
+  it("emits the access action payload from the selected client card", async () => {
+    const { emitted } = render(AdminClientsPanel, { props: createProps({ selectedUser: client }) });
+
+    await fireEvent.click(screen.getByRole("button", { name: "+7 дней" }));
+
+    expect(emitted()["extend-access"]).toEqual([[7]]);
+  });
+
+  it("emits client-card-close from a clientCardOnly card without owning router side effects", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useSessionStore().user = adminUser;
+    vi.mocked(getAdminStats).mockResolvedValue(statsResponse);
+    vi.mocked(getAdminUserDetail).mockResolvedValue(clientDetail);
+    routerMocks.push.mockClear();
+    routerMocks.replace.mockClear();
+    const { emitted } = render(AdminSection, {
+      props: { clientCardOnly: true, openClientTelegramId: client.telegramId },
+      global: {
+        plugins: [pinia],
+        stubs: { AdminClientAcquisition: true }
+      }
+    });
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Назад" }));
+
+    expect(emitted()["client-card-close"]).toEqual([[]]);
+    expect(routerMocks.push).not.toHaveBeenCalled();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
+  });
+});
