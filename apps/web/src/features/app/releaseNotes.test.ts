@@ -13,9 +13,12 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes clear payments and modern support as version 5.67", () => {
-    expect(appVersion).toBe("5.67");
-    expect(releaseNotes[0]?.title).toBe("Понятная оплата и современная поддержка");
+  it("publishes code and loading optimization as version 5.68", () => {
+    expect(appVersion).toBe("5.68");
+    expect(releaseNotes[0]?.title).toBe("Оптимизация кода и загрузки");
+
+    const paymentAndSupportRelease = releaseNotes.find((note) => note.version === "5.67");
+    expect(paymentAndSupportRelease?.title).toBe("Понятная оплата и современная поддержка");
 
     const appLikeInteractionsRelease = releaseNotes.find((note) => note.version === "5.66");
     expect(appLikeInteractionsRelease?.title).toBe("Приложение без браузерных меню");
@@ -202,7 +205,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Clear payments and modern support");
+    expect(englishNotes[0]?.title).toBe("Faster loading and cleaner code");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

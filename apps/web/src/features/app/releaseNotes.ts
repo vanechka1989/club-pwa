@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clear payments and modern support",
+  title: "Faster loading and cleaner code",
   items: [
-    "Recurring tariffs now use the same Pay action while keeping renewal details visible in the description.",
-    "Support metrics are grouped into a clear, modern overview panel.",
-    "Customer requests use compact cards with visible status, color accents, and quick navigation."
+    "Unreachable legacy screens and unused code were removed without changing active features.",
+    "The API container now includes production dependencies only, and an unused S3 library was removed.",
+    "Route styles and release history are split more safely, reducing startup and maintenance overhead."
   ]
 };
 
