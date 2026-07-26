@@ -831,17 +831,13 @@ onBeforeUnmount(discardAvatarDraftFile);
     </div>
 
     <TaskScreen v-if='activeProfilePanel === "referrals"' class="profile-detail-task-screen" :title="t('referralTitle')" :subtitle="t('referralSubtitle')" portal @back="closeProfilePanel">
-    <section class="soft-card ui-card profile-referral-card">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h3 class="soft-section-title">{{ t("referralTitle") }}</h3>
-          <p class="profile-empty-text">{{ t("referralSubtitle") }}</p>
-          <p class="profile-referral-reward">{{ referralRewardText }}</p>
-        </div>
+    <section class="profile-detail-content profile-referral-content">
+      <div class="profile-referral-summary">
         <Gift class="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
+        <p class="profile-referral-reward">{{ referralRewardText }}</p>
       </div>
 
-      <div v-if="referral" class="profile-referral-body mt-3">
+      <div v-if="referral" class="profile-referral-body">
         <div class="profile-referral-link">
           <span>{{ referral.link }}</span>
           <button class="ui-icon-button" type="button" :aria-label="t('referralCopy')" @click="copyReferralLink">
@@ -876,18 +872,13 @@ onBeforeUnmount(discardAvatarDraftFile);
         <p class="profile-empty-text">{{ referralMessage || referralBlockReason() || t("referralHint") }}</p>
       </div>
 
-      <p v-else class="profile-empty-text mt-3">{{ t("referralLoading") }}</p>
+      <p v-else class="profile-empty-text">{{ t("referralLoading") }}</p>
     </section>
     </TaskScreen>
 
     <TaskScreen v-if='activeProfilePanel === "appearance"' class="profile-detail-task-screen" :title="t('profileAppearance')" :subtitle="`${currentDesignThemeLabel} · ${currentThemeLabel}`" portal @back="closeProfilePanel">
-    <section class="soft-card ui-card profile-settings">
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="soft-section-title">{{ t("profileAppearance") }}</h3>
-        <Palette class="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
-      </div>
-
-      <div class="appearance-setting-group mt-3">
+    <section class="profile-detail-content profile-appearance-content">
+      <div class="appearance-setting-group">
         <span class="appearance-setting-label">{{ t("profileAppearanceMode") }}</span>
         <div class="theme-choice-row">
         <button
@@ -904,7 +895,7 @@ onBeforeUnmount(discardAvatarDraftFile);
         </div>
       </div>
 
-      <div class="appearance-setting-group mt-3">
+      <div class="appearance-setting-group">
         <span class="appearance-setting-label">{{ t("profileAppearanceThemes") }}</span>
         <div class="design-theme-choice-grid">
           <button
@@ -930,7 +921,7 @@ onBeforeUnmount(discardAvatarDraftFile);
         </div>
       </div>
 
-      <div class="visual-scale-control appearance-setting-card mt-3">
+      <div class="visual-scale-control appearance-setting-card">
         <div class="visual-scale-control-head">
           <span>{{ t("profileVisualScaleControl") }}</span>
           <strong>{{ visualScaleDisplayValue }}</strong>
@@ -967,7 +958,7 @@ onBeforeUnmount(discardAvatarDraftFile);
         </div>
       </div>
 
-      <div class="profile-bottom-navigation-position appearance-setting-card mt-3">
+      <div class="profile-bottom-navigation-position appearance-setting-card">
         <span class="profile-bottom-navigation-copy">
           <strong>{{ t("profileBottomNavigationFlush") }}</strong>
           <small>{{ t("profileBottomNavigationFlushHint") }}</small>

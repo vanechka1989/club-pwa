@@ -57,6 +57,17 @@ describe("compact profile layout", () => {
     expect(styles).toMatch(/\.profile-detail-task-screen \.task-screen-body > :first-child\s*\{[^}]*width:\s*100%;[^}]*margin-inline:\s*0;/s);
   });
 
+  it("uses the task header once and gives both detail screens the full body width", () => {
+    expect(source).toContain('class="profile-detail-content profile-referral-content"');
+    expect(source).toContain('class="profile-detail-content profile-appearance-content"');
+    expect(source).not.toContain('class="soft-card ui-card profile-referral-card"');
+    expect(source).not.toContain('class="soft-card ui-card profile-settings"');
+    expect(source).toContain('class="profile-referral-summary"');
+    expect(styles).toMatch(
+      /\.profile-detail-task-screen \.profile-detail-content\s*\{[^}]*display:\s*grid;[^}]*width:\s*100%;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*padding:\s*0;/s
+    );
+  });
+
   it("keeps referral content readable across narrow profile screens", () => {
     expect(styles).toMatch(/\.profile-detail-task-screen \.profile-referral-link span\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*text-overflow:\s*clip;[^}]*white-space:\s*normal;/s);
     expect(styles).toMatch(/\.profile-detail-task-screen \.profile-referral-stats span\s*\{[^}]*overflow:\s*visible;[^}]*white-space:\s*normal;/s);
