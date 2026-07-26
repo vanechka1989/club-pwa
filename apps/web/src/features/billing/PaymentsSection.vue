@@ -875,7 +875,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               :aria-busy="checkoutProductId === product.id"
               @click="handleCheckout(product)"
             >
-              <span>{{ checkoutProductId === product.id ? t("paymentsOpening") : product.kind === "recurrent" ? t("paymentsSubscribe") : t("paymentsPay") }}</span>
+              <span>{{ checkoutProductId === product.id ? t("paymentsOpening") : t("paymentsPay") }}</span>
             </button>
             <div v-if="isOwner && isEditingPayments" class="payment-product-admin-actions">
               <button class="icon-button ui-icon-button" type="button" aria-label="Редактировать тариф" @click="openProductModal(product)">

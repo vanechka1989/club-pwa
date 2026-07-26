@@ -444,6 +444,21 @@ async function mockApi(page: Page, sessionUser = currentUser) {
               bindings: [],
               createdAt: now,
               updatedAt: now
+            },
+            {
+              id: "product-recurring",
+              providerId: "provider-demo",
+              kind: "recurrent",
+              title: "Автоподписка 30 дней",
+              description: "Автоматическое продление доступа",
+              amountRub: 500,
+              accessDays: 30,
+              prodamusSubscriptionId: "subscription-recurring",
+              isPublished: true,
+              archivedUntil: null,
+              bindings: [],
+              createdAt: now,
+              updatedAt: now
             }
           ],
           recurrentSubscriptions: []
@@ -1603,6 +1618,17 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
   for (const section of ["Модули", "Общение", "Оплата", "Поддержка"]) {
     await page.getByRole("button", { name: section }).click();
     await expect(page.getByRole("heading", { name: section }).first()).toBeVisible();
+    if (section === "Оплата") {
+      const tariffActions = page.locator(".payment-product-pay");
+      await expect(tariffActions).toHaveCount(3);
+      for (let index = 0; index < 3; index += 1) {
+        await expect(tariffActions.nth(index)).toHaveText("Оплатить");
+      }
+      await expect(page.getByRole("button", { name: "Оформить подписку" })).toHaveCount(0);
+      if (testInfo.project.name === "release-android") {
+        await page.screenshot({ path: testInfo.outputPath("payment-unified-actions.png"), fullPage: false });
+      }
+    }
     await expectNoHorizontalOverflow(page);
   }
 
