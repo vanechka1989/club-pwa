@@ -15,7 +15,7 @@ const routeStyles = {
 type RouteStyleName = keyof typeof routeStyles;
 
 function read(relativePath: string) {
-  return readFileSync(resolve(sourceRoot, relativePath), "utf8");
+  return readFileSync(resolve(sourceRoot, relativePath), "utf8").replace(/\r\n/g, "\n");
 }
 
 export function readAppStyles(route?: RouteStyleName) {
