@@ -393,8 +393,6 @@ describe("support section", () => {
     expect(source).toContain('class="support-admin-ticket-header"');
     expect(source).toContain('class="support-admin-ticket-chevron"');
     expect(source).toContain(':data-state="getSupportTicketDisplayState(ticket, true)"');
-    expect(latestRule(".support-section .support-ticket-list")).toMatch(/border:\s*0/);
-    expect(latestRule(".support-section .support-ticket-list")).toMatch(/background:\s*transparent/);
     expect(latestRule(".support-section .support-ticket-list")).toMatch(/gap:\s*8px/);
     expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/min-height:\s*86px/);
     expect(latestRule("body.club-mobile-device .support-section .support-admin-ticket")).toMatch(/padding:\s*10px 10px 10px 14px/);

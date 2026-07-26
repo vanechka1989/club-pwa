@@ -20,7 +20,10 @@ export function splitRouteCssSource(webRoot) {
   writeFileSync(stylesPath, `${result.globalCss.trimEnd()}\n`);
 
   for (const [route, relativePath] of Object.entries(routeTargets)) {
-    writeFileSync(resolve(webRoot, relativePath), `${result.routeCss[route].trim()}\n`);
+    const targetPath = resolve(webRoot, relativePath);
+    const existing = readFileSync(targetPath, "utf8").trimEnd();
+    const extracted = result.routeCss[route].trim();
+    writeFileSync(targetPath, `${[extracted, existing].filter(Boolean).join("\n\n")}\n`);
   }
 
   return result.counts;

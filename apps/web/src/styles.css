@@ -1772,13 +1772,7 @@ body.club-keyboard-open .lesson-preview-modal {
   line-height: 1.35;
 }
 
-.payment-status-pending,
-.payment-status-paid,
-.payment-status-failed,
-.payment-status-cancelled,
-.membership-history-status-active,
-.membership-history-status-inactive,
-.membership-history-status-expired {
+.membership-history-status-active, .membership-history-status-inactive, .membership-history-status-expired {
   flex-shrink: 0;
   border-radius: 999px;
   padding: 0.22rem 0.48rem;
@@ -2700,11 +2694,7 @@ body.club-mobile-device .section-title {
   line-height: 1.18;
 }
 
-body.club-mobile-device .section-subtitle,
-body.club-mobile-device .soft-list-card p,
-body.club-mobile-device .profile-empty-text,
-body.club-mobile-device .profile-referral-reward,
-body.club-mobile-device .profile-avatar-help {
+body.club-mobile-device .section-subtitle, body.club-mobile-device .soft-list-card p {
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -2817,11 +2807,7 @@ body.club-mobile-app-scaled .section-title {
   line-height: 1.18;
 }
 
-body.club-mobile-app-scaled .section-subtitle,
-body.club-mobile-app-scaled .soft-list-card p,
-body.club-mobile-app-scaled .profile-empty-text,
-body.club-mobile-app-scaled .profile-referral-reward,
-body.club-mobile-app-scaled .profile-avatar-help {
+body.club-mobile-app-scaled .section-subtitle, body.club-mobile-app-scaled .soft-list-card p {
   font-size: 0.8rem;
   line-height: 1.38;
 }
@@ -3557,8 +3543,7 @@ body.club-mobile-app-scaled .support-modal-head {
     padding-bottom: 0;
   }
 
-  .app-root.nav-is-collapsed,
-  body.club-screen-short:not(.community-chat-open) {
+  .app-root.nav-is-collapsed {
     --nav-space: 0px;
   }
 
@@ -3657,8 +3642,7 @@ body.club-mobile-app-scaled .support-modal-head {
     backdrop-filter: none;
   }
 
-  .primary-button,
-  .payment-product-pay {
+  .primary-button {
     box-shadow: none;
   }
 }

@@ -4,6 +4,6 @@ export const routeCssCategories = [
   { name: "support", classPatterns: [/^support-/] },
   { name: "billing", classPatterns: [/^payment-/, /^billing-/, /^lava-/, /^prodamus-/] },
   { name: "admin", classPatterns: [/^admin-(?!mockup-)/] },
-  { name: "notification", classPatterns: [/^notification-/] },
+  { name: "notification", classPatterns: [/^notification-(?!center-(?:button|badge)$)/] },
   { name: "community", classPatterns: [/^community-/, /^chat-/, /^poll-/] }
 ];

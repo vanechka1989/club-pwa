@@ -8,7 +8,7 @@ const categories = [
 ];
 
 describe("route CSS splitter", () => {
-  it("moves a rule only when every selector belongs to the same route", () => {
+  it("partitions route-owned selectors away from shared selectors", () => {
     const result = splitRouteCss(
       [
         ".profile-card { color: red; }",
@@ -19,11 +19,20 @@ describe("route CSS splitter", () => {
       categories
     );
 
-    expect(result.counts).toEqual({ profile: 2, support: 0 });
+    expect(result.counts).toEqual({ profile: 3, support: 0 });
     expect(result.routeCss.profile).toContain(".profile-card { color: red; }");
     expect(result.routeCss.profile).toContain(".profile-title, .profile-copy { color: blue; }");
-    expect(result.globalCss).toContain(".profile-card, .surface-card { border: 0; }");
+    expect(result.routeCss.profile).toContain(".profile-card { border: 0; }");
+    expect(result.globalCss).toContain(".surface-card { border: 0; }");
+    expect(result.globalCss).not.toContain(".profile-card, .surface-card");
     expect(result.globalCss).toContain(".profile-card.support-card { padding: 1rem; }");
+  });
+
+  it("keeps declarations shared by different routes in the global stylesheet", () => {
+    const result = splitRouteCss(".profile-card, .support-card { padding: 1rem; }", categories);
+
+    expect(result.counts).toEqual({ profile: 0, support: 0 });
+    expect(result.globalCss).toContain(".profile-card, .support-card { padding: 1rem; }");
   });
 
   it("treats commas inside functional selectors as part of one selector", () => {
@@ -63,5 +72,13 @@ describe("route CSS splitter", () => {
 
     expect(result.counts.admin).toBe(0);
     expect(result.globalCss).toContain(".admin-mockup-grid");
+  });
+
+  it("keeps final mobile guard rules in the always-loaded stylesheet", () => {
+    const source = "/* Final mobile modal guard */\n.support-modal { width: 100%; }";
+    const result = splitRouteCss(source, categories);
+
+    expect(result.counts.support).toBe(0);
+    expect(result.globalCss).toContain(".support-modal { width: 100%; }");
   });
 });

@@ -1,8 +1,8 @@
 import postcss from "postcss";
 import selectorParser from "postcss-selector-parser";
 
-function categoryForRule(selectorText, categories) {
-  const selectorCategories = [];
+function partitionRuleSelectors(selectorText, categories) {
+  const selectors = [];
 
   try {
     selectorParser((root) => {
@@ -15,23 +15,21 @@ function categoryForRule(selectorText, categories) {
             }
           }
         });
-        selectorCategories.push(matches);
+        selectors.push({
+          selector: selector.toString().trim(),
+          category: matches.size === 1 ? [...matches][0] : null
+        });
       });
     }).processSync(selectorText);
   } catch {
     return null;
   }
 
-  if (!selectorCategories.length || selectorCategories.some((matches) => matches.size !== 1)) {
-    return null;
-  }
-
-  const [firstCategory] = selectorCategories[0];
-  return selectorCategories.every((matches) => matches.has(firstCategory)) ? firstCategory : null;
+  return selectors.length ? selectors : null;
 }
 
-function appendWithAncestorRules(destination, rule) {
-  let extractedNode = rule.clone();
+function appendWithAncestorRules(destination, rule, selector = rule.selector) {
+  let extractedNode = rule.clone({ selector });
   let parent = rule.parent;
 
   while (parent && parent.type !== "root") {
@@ -59,18 +57,30 @@ function pruneEmptyContainers(root) {
 
 export function splitRouteCss(source, categories) {
   const globalRoot = postcss.parse(source);
+  const finalMobileGuardOffset = source.indexOf("Final mobile modal guard");
   const routeRoots = Object.fromEntries(categories.map((category) => [category.name, postcss.root()]));
   const counts = Object.fromEntries(categories.map((category) => [category.name, 0]));
   const rules = [];
   globalRoot.walkRules((rule) => rules.push(rule));
 
   for (const rule of rules) {
-    const category = categoryForRule(rule.selector, categories);
-    if (!category) continue;
+    if (finalMobileGuardOffset >= 0 && (rule.source?.start?.offset ?? 0) >= finalMobileGuardOffset) continue;
+    const selectors = partitionRuleSelectors(rule.selector, categories);
+    if (!selectors) continue;
+    const ownedCategories = new Set(selectors.map((entry) => entry.category).filter(Boolean));
+    if (ownedCategories.size !== 1) continue;
+    const [ownedCategory] = ownedCategories;
 
-    appendWithAncestorRules(routeRoots[category], rule);
-    counts[category] += 1;
-    rule.remove();
+    const routeSelectors = selectors.filter((entry) => entry.category === ownedCategory).map((entry) => entry.selector);
+    appendWithAncestorRules(routeRoots[ownedCategory], rule, routeSelectors.join(", "));
+    counts[ownedCategory] += 1;
+
+    const globalSelectors = selectors.filter((entry) => entry.category === null).map((entry) => entry.selector);
+    if (globalSelectors.length) {
+      rule.selector = globalSelectors.join(", ");
+    } else {
+      rule.remove();
+    }
   }
 
   pruneEmptyContainers(globalRoot);

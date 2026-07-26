@@ -1,3 +1,11 @@
+@media (min-width: 1024px) {
+
+  body.club-screen-short:not(.community-chat-open) {
+    --nav-space: 0px;
+  }
+
+}
+
 .app-root.community-active {
   padding-bottom: var(--nav-space);
 }
@@ -564,7 +572,7 @@ body.club-mobile-device .app-root.desktop-mobile-preview.community-chat-open {
   display: grid;
   width: 100%;
   min-width: 0;
-  gap: 12px;
+  gap: 8px;
 }
 
 .chat-pinned-bar {
