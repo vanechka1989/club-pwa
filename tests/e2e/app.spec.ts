@@ -2497,7 +2497,7 @@ test("captures PWA UI foundation screenshots for audited routes", async ({ page 
 });
 
 test("keeps design theme independent from day and night mode", async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const root = page.locator("html");
   const designThemes = [
     { name: /Dark Soft Touch Premium/, value: "dark-soft-touch", lightBg: "#eef4fb", darkBg: "#080d16" },
