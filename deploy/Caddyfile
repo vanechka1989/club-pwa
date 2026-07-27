@@ -27,7 +27,7 @@
   }
   handle @supportUpload {
     request_body {
-      max_size 51MB
+      max_size 53MB
     }
     uri strip_prefix /api
     reverse_proxy api:3000 {

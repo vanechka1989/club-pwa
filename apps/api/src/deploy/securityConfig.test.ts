@@ -178,7 +178,7 @@ describe("production security config", () => {
       expect(source).toContain("path /api/support/uploads/*");
       expect(source).toContain("method PUT");
       expect(source).toContain("max_size 11MB");
-      expect(source).toContain("max_size 51MB");
+      expect(source).toContain("max_size 53MB");
       expect(source.indexOf("handle @avatarUpload")).toBeLessThan(source.indexOf("handle_path /api/*"));
       expect(source.indexOf("handle @supportUpload")).toBeLessThan(source.indexOf("handle_path /api/*"));
       expect(source).not.toContain("@learningUpload");

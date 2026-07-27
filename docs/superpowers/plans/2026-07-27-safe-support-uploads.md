@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Limit avatars to 10 MiB and move all support attachments up to 50 MiB directly from the browser to S3 without changing lesson uploads.
+**Goal:** Limit avatars to 10 MiB and stream all support attachments up to 50 MiB into S3 without buffering or changing lesson uploads.
 
-**Architecture:** Avatar multipart stays bounded and processed by the API. Support uses an authenticated upload-intent endpoint, a short-lived signed S3 PUT, and JSON message finalization that verifies S3 metadata before inserting attachment rows. Learning routes and multipart contracts remain untouched.
+**Architecture:** Avatar multipart stays bounded and processed by the API. Support uses an authenticated upload-intent endpoint, a short-lived same-origin streaming PUT, and JSON message finalization that verifies S3 metadata before inserting attachment rows. This avoids the current Beget browser-CORS restriction. Learning routes and multipart contracts remain untouched.
 
 **Tech Stack:** TypeScript, Hono, Vue 3, Zod, AWS SDK S3, Vitest, Caddy/nginx.
 
@@ -12,7 +12,7 @@
 
 - Avatar maximum is exactly 10 MiB.
 - Support maximum is four attachments, 50 MiB per file, and 100 MiB per message.
-- Support bytes must not pass through Bun in the new flow.
+- Support bytes may stream through Bun but must never be parsed as multipart or buffered in full.
 - Lesson upload endpoints and size limits must remain unchanged.
 - Use test-first red/green cycles for every behavior change.
 
@@ -63,13 +63,13 @@
 - Create: `apps/api/drizzle/0062_support_attachment_object_key_unique.sql`
 
 **Interfaces:**
-- Produces: `POST /api/support/uploads` returning `{ uploadUrl, objectKey, uploadToken, contentType, sizeBytes, expiresAt }`.
+- Produces: `POST /api/support/uploads` returning `{ uploadUrl, objectKey, uploadToken, contentType, sizeBytes, expiresAt }` and a bounded `PUT /api/support/uploads/:uploadToken` streaming route.
 - Consumes JSON bodies on all four message paths with `attachments: SupportUploadedObject[]`.
 - Uses `getObjectMetadata(objectKey)` immediately before attachment insertion.
 
 - [ ] Write failing route tests for authentication, rate limiting, generated keys, signed PUT responses, foreign tokens, missing S3 objects, oversized metadata, reused objects, and successful finalization.
 - [ ] Run the route tests and confirm they fail because the endpoint and JSON path do not exist.
-- [ ] Add the upload-intent endpoint using `createObjectUploadUrl` with a ten-minute expiry and an HMAC ownership token bound to user, key, size, type, and expiry.
+- [ ] Add a ten-minute upload-intent endpoint and an authenticated streaming PUT route bound to user, key, size, type, and expiry.
 - [ ] Replace support `formData()` parsing on new ticket, follow-up, admin reply, and admin-created ticket with shared JSON parsing and verified attachment persistence.
 - [ ] Add a unique database index on `support_ticket_attachments.object_key` so an uploaded object can be consumed once; delete the S3 object after a failed metadata/ownership verification and delete unreferenced pending objects older than one hour in the existing cleanup pass.
 - [ ] Run support/API tests and commit `feat: finalize support files from s3`.
@@ -87,7 +87,7 @@
 - Produces: `uploadSupportAttachments(files, onProgress?)` returning uploaded-object references accepted by Task 3.
 - `createSupportTicket`, `createSupportTicketMessage`, `replyAdminSupportTicket`, and `createAdminClientSupportTicket` accept JSON payloads rather than `FormData`.
 
-- [ ] Write failing tests proving each file obtains an intent, uploads with signed PUT and exact `Content-Type`, and only then finalizes the support message.
+- [ ] Write failing tests proving each file obtains an intent, uploads with same-origin PUT and exact `Content-Type`, and only then finalizes the support message.
 - [ ] Add failures for network interruption, expired signed URL, unsupported type, 50 MiB overflow, and 100 MiB aggregate overflow.
 - [ ] Run focused web tests and confirm the current FormData implementation fails them.
 - [ ] Implement sequential or two-at-a-time direct uploads with progress state and retryable errors.
@@ -102,7 +102,7 @@
 - Modify: `apps/api/src/deploy/securityConfig.test.ts`
 
 **Interfaces:**
-- Produces: an early avatar request cap large enough for multipart overhead but close to 10 MiB, without matching `/api/admin/learning/materials/uploads/*`.
+- Produces: early avatar and support-stream caps without matching `/api/admin/learning/materials/uploads/*`.
 
 - [ ] Write a failing deployment test asserting the avatar-only matcher/cap and proving learning route text is outside that matcher.
 - [ ] Run `pnpm --filter @club/api test -- src/deploy/securityConfig.test.ts` and confirm failure.
