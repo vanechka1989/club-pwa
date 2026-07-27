@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Copyable errors and branded alerts",
+  title: "A dedicated screen for every error",
   items: [
-    "A complete sanitized error report and its technical type can now be copied with dedicated actions.",
-    "PWA push alerts show the route, release and repetition count and open the exact incident.",
-    "Error emails now use a responsive branded layout, diagnostic panel and clear action button."
+    "Every incident now opens on its own full-screen task page with a direct URL.",
+    "Status actions, report copying and technical events are collected in one focused workspace.",
+    "Push and email alerts open the exact error while legacy links remain supported."
   ]
 };
 

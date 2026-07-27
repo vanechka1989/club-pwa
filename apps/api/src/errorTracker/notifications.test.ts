@@ -27,7 +27,7 @@ describe("error tracker notifications", () => {
   it("builds a safe operational email with an internal incident link", () => {
     const message = buildErrorAlertEmail(group, "https://club.example");
     expect(message.subject).toContain("[КРИТИЧНО]");
-    expect(message.text).toContain("https://club.example/admin/server/logs?error=506b24dd-1109-40e0-8933-1b96d0b1a619");
+    expect(message.text).toContain("https://club.example/admin/server/errors/506b24dd-1109-40e0-8933-1b96d0b1a619");
     expect(message.text).toContain("Затронуто клиентов: 2");
     expect(message.text).not.toContain("fingerprint");
     expect(message.text).toContain("Технический тип: window-error");
@@ -52,7 +52,7 @@ describe("error tracker notifications", () => {
     expect(sendPush).toHaveBeenCalledWith(expect.any(Array), {
       title: "🔴 КРИТИЧНО · Не удалось открыть оплату",
       body: "/billing · v5.73 · 4 события",
-      url: "/admin/server/logs?error=506b24dd-1109-40e0-8933-1b96d0b1a619"
+      url: "/admin/server/errors/506b24dd-1109-40e0-8933-1b96d0b1a619"
     });
   });
 

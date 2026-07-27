@@ -32,7 +32,7 @@ function escapeHtml(value: string) {
 }
 
 export function buildErrorAlertEmail(group: StoredErrorGroup, origin: string) {
-  const detailUrl = `${origin.replace(/\/$/, "")}/admin/server/logs?error=${group.id}`;
+  const detailUrl = `${origin.replace(/\/$/, "")}/admin/server/errors/${group.id}`;
   const safeTitle = redactDiagnosticText(group.title);
   const subject = redactDiagnosticText(`[${severityLabels[group.severity]}] Club PWA · ${group.title}`).slice(0, 180);
   const report = buildErrorDiagnosticReport(group);
@@ -51,7 +51,7 @@ export function buildErrorAlertEmail(group: StoredErrorGroup, origin: string) {
 }
 
 export async function dispatchErrorNotifications(group: StoredErrorGroup, dependencies: NotificationDependencies) {
-  const url = `/admin/server/logs?error=${group.id}`;
+  const url = `/admin/server/errors/${group.id}`;
   const pushTask = async () => {
     if (!dependencies.pushEnabled || dependencies.recipientUserIds.length === 0) {
       await dependencies.recordDelivery({ channel: "push", status: "skipped", error: null });

@@ -58,16 +58,25 @@ describe("AdminErrorTracker", () => {
       deliveries: []
     });
 
-    render(AdminErrorTracker);
+    const view = render(AdminErrorTracker);
     await screen.findByText("Не удалось открыть оплату");
     await screen.getByRole("button", { name: "Создать тестовую ошибку" }).click();
 
-    await waitFor(() => expect(api.getAdminErrorGroup).toHaveBeenCalledWith(groupId));
-    expect(await screen.findByText("Тестовая критическая ошибка создана владельцем приложения.")).toBeTruthy();
+    await waitFor(() => expect(view.emitted()["open-error"]).toEqual([[groupId]]));
+    expect(api.getAdminErrorGroup).not.toHaveBeenCalled();
     expect(screen.getByText("Тестовая ошибка создана. Проверьте включённые push и email.")).toBeTruthy();
   });
 
-  it("copies a complete report and the technical type from an opened incident", async () => {
+  it("emits navigation instead of opening an inline detail", async () => {
+    const group = (await api.getAdminErrorGroups()).groups[0];
+    const view = render(AdminErrorTracker);
+    await fireEvent.click(await screen.findByRole("button", { name: /Не удалось открыть оплату/ }));
+    expect(view.emitted()["open-error"]).toEqual([[group.id]]);
+    expect(api.getAdminErrorGroup).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Скопировать отчёт" })).toBeNull();
+  });
+
+  it("renders the selected incident in a portal task screen and closes it through an event", async () => {
     const group = (await api.getAdminErrorGroups()).groups[0];
     api.getAdminErrorGroup.mockResolvedValue({
       group,
@@ -82,8 +91,7 @@ describe("AdminErrorTracker", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
 
-    render(AdminErrorTracker);
-    await fireEvent.click(await screen.findByRole("button", { name: /Не удалось открыть оплату/ }));
+    const view = render(AdminErrorTracker, { props: { errorId: group.id } });
     await fireEvent.click(await screen.findByRole("button", { name: "Скопировать отчёт" }));
     expect(writeText.mock.calls[0]?.[0]).toContain("Название: Не удалось открыть оплату");
     expect(await screen.findByText("Отчёт скопирован.")).toBeTruthy();
@@ -91,5 +99,9 @@ describe("AdminErrorTracker", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Скопировать технический тип" }));
     expect(writeText).toHaveBeenLastCalledWith("window-error");
     expect(await screen.findByText("Технический тип скопирован.")).toBeTruthy();
+
+    expect(screen.getByRole("heading", { name: "Ошибка" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(view.emitted()["close-error"]).toEqual([[]]);
   });
 });

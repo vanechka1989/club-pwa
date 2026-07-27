@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { AdminIntegrationHealthResponse, AdminServerErrorLog, AdminServerStatus } from "@club/shared";
 import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { createAdminDatabaseBackupDownloadLink, getAdminIntegrationHealth, getAdminServerErrors, getAdminServerStatus, restoreAdminDatabaseBackup } from "@/api/client";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import AdminErrorTracker from "./AdminErrorTracker.vue";
 
 const dialogs = useAppDialogsStore();
+const route = useRoute();
+const router = useRouter();
 const status = ref<AdminServerStatus | null>(null);
 const integrations = ref<AdminIntegrationHealthResponse | null>(null);
 const errors = ref<AdminServerErrorLog[]>([]);
@@ -27,6 +30,19 @@ const storageTone = computed(() => {
   return usedPercent >= 85 ? "danger" : usedPercent >= 70 ? "warning" : "healthy";
 });
 const maintenanceLabel = computed(() => status.value?.storageMaintenance?.status === "failure" ? "Завершено с ошибкой" : "Выполнено успешно");
+const selectedErrorId = computed(() => {
+  const routeId = Array.isArray(route.params.errorId) ? route.params.errorId[0] : route.params.errorId;
+  const legacyId = Array.isArray(route.query.error) ? route.query.error[0] : route.query.error;
+  return routeId || legacyId || null;
+});
+
+function openTrackedError(id: string) {
+  return router.push(`/admin/server/errors/${encodeURIComponent(id)}`);
+}
+
+function closeTrackedError() {
+  return router.push("/admin/server/logs");
+}
 
 async function load() {
   loading.value = true;
@@ -108,7 +124,7 @@ onMounted(load);
     <section class="ops-card"><div><h4>Интеграции</h4><p>Проверяется не наличие поля в настройках, а возможность работы сервиса.</p></div><div class="integration-list"><article v-for="item in integrations?.items ?? []" :key="item.id"><div><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></div><em :class="`state-${item.status}`">{{ integrationLabels[item.status] }}</em></article></div></section>
     <section class="ops-card"><div><h4>База данных</h4><p>Резервная копия и восстановление PostgreSQL.</p></div><button class="ops-button" type="button" :disabled="loading" @click="downloadBackup">Скачать резервную копию</button><div class="restore"><input type="file" accept=".dump,application/octet-stream" @change="selectRestoreFile"><input v-model.trim="restoreConfirmation" placeholder="Введите ВОССТАНОВИТЬ"><button class="danger-action" type="button" :disabled="!canRestore" @click="restoreBackup">Восстановить</button></div></section>
     <p v-if="message" class="ops-note">{{ message }}</p>
-    <section class="ops-card"><AdminErrorTracker /></section>
+    <section class="ops-card"><AdminErrorTracker :error-id="selectedErrorId" @open-error="openTrackedError" @close-error="closeTrackedError" /></section>
     <details class="ops-card"><summary>Ошибки API — исходный журнал</summary><p>{{ status?.serverErrorCount ?? errors.length }} записей сохраняются между перезапусками для совместимости.</p><div class="error-list"><article v-for="entry in errors" :key="entry.id"><strong>{{ entry.title }}</strong><span>{{ entry.method || "CLIENT" }} {{ entry.path || "—" }} · {{ formatDate(entry.createdAt) }}</span><small>{{ entry.detail }}</small></article><p v-if="!errors.length">Ошибок пока нет.</p></div></details>
   </section>
 </template>

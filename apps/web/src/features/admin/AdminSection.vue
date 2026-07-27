@@ -2436,7 +2436,7 @@ async function syncAdminTaskRoute() {
     if (folder && selectedStorageFolder.value?.value !== folder.value) await openStorageFolder(folder);
     return;
   }
-  if (path === "/admin/server/logs" || path === "/admin/server") {
+  if (path === "/admin/server/logs" || path === "/admin/server" || /^\/admin\/server\/errors\/[^/]+$/.test(path)) {
     activePanel.value = "server-logs";
     return;
   }

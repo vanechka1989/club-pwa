@@ -146,6 +146,7 @@ describe("responsive layout audit contract", () => {
     expect(taskNavigation).toContain('"/admin/storage/files"');
     expect(taskNavigation).toContain('"/admin/storage/folders/:folderId"');
     expect(taskNavigation).toContain('"/admin/server/logs"');
+    expect(taskNavigation).toContain('"/admin/server/errors/:errorId"');
     expect(taskNavigation).toContain('"/admin/admins/:adminId/access"');
     expect(taskNavigation).toContain('"/admin/statistics/payments/:segment"');
     expect(taskNavigation).toContain('"/admin/statistics/users/:segment"');
@@ -159,6 +160,10 @@ describe("responsive layout audit contract", () => {
     expect(adminSection).toContain("`/admin/statistics/users/tariff-${encodeURIComponent(tariff.tariff)}`");
     expect(adminSection).toContain('path === "/admin/storage/files"');
     expect(adminSection).toContain('path === "/admin/server/logs"');
+    expect(adminSection).toContain("/^\\/admin\\/server\\/errors\\/[^/]+$/");
+    expect(adminServerPanel).toContain("route.params.errorId");
+    expect(adminServerPanel).toContain("route.query.error");
+    expect(adminServerPanel).toContain("`/admin/server/errors/${encodeURIComponent(id)}`");
     expect(adminSection).toContain("/^\\/admin\\/admins\\/([^/]+)\\/access$/");
     expect(adminSection).toContain("/^\\/admin\\/storage\\/folders\\/([^/]+)$/");
     expect(adminSection).toContain("/^\\/admin\\/statistics\\/payments\\/([^/]+)$/");

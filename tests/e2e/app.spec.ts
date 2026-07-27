@@ -2406,11 +2406,19 @@ test("keeps the copyable error detail usable at all target widths", async ({ pag
     await page.goto("/admin");
     await page.getByRole("button", { name: "Сервер", exact: true }).click();
     await page.getByRole("button", { name: /Не удалось открыть оплату/ }).click();
+    await expect(page).toHaveURL(new RegExp(`/admin/server/errors/${errorTrackerGroup.id}$`));
+    await expect(page.getByRole("heading", { name: "Ошибка", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Скопировать отчёт" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Скопировать технический тип" })).toBeVisible();
-    await expectResponsiveLayoutIntegrity(page, "/admin/server/logs");
-    await page.screenshot({ path: testInfo.outputPath(`error-copy-${viewport.name}.png`), fullPage: true, animations: "disabled" });
+    await expectResponsiveLayoutIntegrity(page, `/admin/server/errors/${errorTrackerGroup.id}`);
+    await page.screenshot({ path: testInfo.outputPath(`error-copy-${viewport.name}.png`), animations: "disabled" });
+    await page.getByRole("button", { name: "Назад" }).click();
+    await expect(page).toHaveURL(/\/admin\/server\/logs$/);
   }
+
+  await page.goto(`/admin/server/logs?error=${errorTrackerGroup.id}`);
+  await expect(page.getByRole("heading", { name: "Ошибка", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Скопировать отчёт" })).toBeVisible();
 });
 
 test("opens payment admin task screens when their URLs are loaded directly", async ({ page }) => {

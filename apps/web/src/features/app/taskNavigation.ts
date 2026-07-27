@@ -25,6 +25,7 @@ export const taskRoutePaths = [
   "/admin/storage/folders/:folderId",
   "/admin/storage/settings",
   "/admin/server/logs",
+  "/admin/server/errors/:errorId",
   "/admin/owner/transfer",
   "/admin/admins/:adminId/access",
   "/payments/provider",

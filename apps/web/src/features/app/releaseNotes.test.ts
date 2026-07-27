@@ -13,12 +13,12 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes copyable errors and branded notifications as version 5.75", () => {
-    expect(appVersion).toBe("5.75");
-    expect(releaseNotes[0]?.title).toBe("Ошибки легко передать разработчику");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/копир/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/push/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/письм/i);
+  it("publishes a dedicated error task screen as version 5.76", () => {
+    expect(appVersion).toBe("5.76");
+    expect(releaseNotes[0]?.title).toBe("Каждая ошибка открывается отдельно");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/отдельн/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/работ/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/уведомлен/i);
 
     const periodPriceRelease = releaseNotes.find((note) => note.version === "5.70");
     expect(periodPriceRelease?.title).toBe("Надёжные цены Lava и раздельная статистика");
@@ -217,7 +217,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Copyable errors and branded alerts");
+    expect(englishNotes[0]?.title).toBe("A dedicated screen for every error");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

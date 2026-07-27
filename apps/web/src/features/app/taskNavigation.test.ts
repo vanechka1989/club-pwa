@@ -29,11 +29,17 @@ describe("task navigation", () => {
         .replace(":mailingId", "mailing-1")
         .replace(":folderId", "folder-1")
         .replace(":adminId", "admin-1")
+        .replace(":errorId", "error-1")
         .replace(":planId", "plan-1")
         .replace(":moduleId", "module-1")
         .replace(":lessonId", "lesson-1");
       expect(isTaskPath(concretePath), path).toBe(true);
     }
+  });
+
+  it("treats an individual tracked error as a dedicated task screen", () => {
+    expect(taskRoutePaths).toContain("/admin/server/errors/:errorId");
+    expect(isTaskPath("/admin/server/errors/error-1")).toBe(true);
   });
 
   it("keeps the client card opened from support inside the support task route", () => {
