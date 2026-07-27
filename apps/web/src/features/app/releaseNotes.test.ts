@@ -13,11 +13,11 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the Lava owner test email as version 5.72", () => {
-    expect(appVersion).toBe("5.72");
-    expect(releaseNotes[0]?.title).toBe("Тестовая почта для Lava");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/тестов.*почт/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/владел/i);
+  it("publishes the developer error center as version 5.73", () => {
+    expect(appVersion).toBe("5.73");
+    expect(releaseNotes[0]?.title).toBe("Центр ошибок клиентов");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/push/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/почт/i);
 
     const periodPriceRelease = releaseNotes.find((note) => note.version === "5.70");
     expect(periodPriceRelease?.title).toBe("Надёжные цены Lava и раздельная статистика");
@@ -216,7 +216,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Lava test buyer email");
+    expect(englishNotes[0]?.title).toBe("Customer error center");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { eq, isNull, and } from "drizzle-orm";
+import { eq, isNull, and, inArray } from "drizzle-orm";
 
 export type NormalizedPushSubscription = {
   endpoint: string;
@@ -58,6 +58,10 @@ function configureWebPush(config: WebPushConfig) {
 }
 
 export async function sendWebPushToUser(userId: string, payload: WebPushPayload) {
+  return sendWebPushToUsers([userId], payload);
+}
+
+export async function sendWebPushToUsers(userIds: string[], payload: WebPushPayload) {
   const [{ env }, { db }, { pushSubscriptions }, { logger }] = await Promise.all([
     import("../env"),
     import("../db/client"),
@@ -69,8 +73,10 @@ export async function sendWebPushToUser(userId: string, payload: WebPushPayload)
     return { sent: 0, skipped: true };
   }
 
+  const uniqueUserIds = [...new Set(userIds)];
+  if (uniqueUserIds.length === 0) return { sent: 0, skipped: true };
   const rows = await db.query.pushSubscriptions.findMany({
-    where: and(eq(pushSubscriptions.userId, userId), isNull(pushSubscriptions.revokedAt))
+    where: and(inArray(pushSubscriptions.userId, uniqueUserIds), isNull(pushSubscriptions.revokedAt))
   });
   let sent = 0;
 
@@ -101,7 +107,7 @@ export async function sendWebPushToUser(userId: string, payload: WebPushPayload)
           return;
         }
 
-        logger.warn({ error, userId, subscriptionId: row.id }, "web push delivery failed");
+        logger.warn({ error, userId: row.userId, subscriptionId: row.id }, "web push delivery failed");
       }
     })
   );

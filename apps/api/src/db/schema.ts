@@ -173,6 +173,79 @@ export const serverErrorLogs = pgTable(
   })
 );
 
+export const errorGroups = pgTable(
+  "error_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fingerprint: varchar("fingerprint", { length: 64 }).notNull(),
+    title: varchar("title", { length: 180 }).notNull(),
+    source: varchar("source", { length: 32 }).notNull(),
+    kind: varchar("kind", { length: 80 }).notNull(),
+    severity: varchar("severity", { length: 16 }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("new"),
+    route: text("route"),
+    firstRelease: varchar("first_release", { length: 64 }),
+    latestRelease: varchar("latest_release", { length: 64 }),
+    totalCount: integer("total_count").notNull().default(1),
+    affectedUsers: integer("affected_users").notNull().default(0),
+    affectedDevices: integer("affected_devices").notNull().default(0),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastNotifiedAt: timestamp("last_notified_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    mutedUntil: timestamp("muted_until", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    fingerprintIdx: uniqueIndex("error_groups_fingerprint_idx").on(table.fingerprint),
+    statusSeenIdx: index("error_groups_status_seen_idx").on(table.status, table.lastSeenAt),
+    severitySeenIdx: index("error_groups_severity_seen_idx").on(table.severity, table.lastSeenAt)
+  })
+);
+
+export const errorOccurrences = pgTable(
+  "error_occurrences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id").notNull().references(() => errorGroups.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    installationId: varchar("installation_id", { length: 64 }),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    route: text("route"),
+    method: varchar("method", { length: 16 }),
+    httpStatus: integer("http_status"),
+    release: varchar("release", { length: 64 }),
+    platform: varchar("platform", { length: 120 }),
+    userAgent: text("user_agent"),
+    context: jsonb("context").$type<Record<string, unknown>>().notNull().default({}),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    groupOccurredIdx: index("error_occurrences_group_occurred_idx").on(table.groupId, table.occurredAt),
+    userOccurredIdx: index("error_occurrences_user_occurred_idx").on(table.userId, table.occurredAt),
+    occurredIdx: index("error_occurrences_occurred_idx").on(table.occurredAt)
+  })
+);
+
+export const errorNotificationDeliveries = pgTable(
+  "error_notification_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id").notNull().references(() => errorGroups.id, { onDelete: "cascade" }),
+    channel: varchar("channel", { length: 16 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: varchar("last_error", { length: 500 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    groupCreatedIdx: index("error_notification_deliveries_group_created_idx").on(table.groupId, table.createdAt),
+    statusUpdatedIdx: index("error_notification_deliveries_status_updated_idx").on(table.status, table.updatedAt)
+  })
+);
+
 export const idempotencyOperations = pgTable(
   "idempotency_operations",
   {
@@ -1538,6 +1611,9 @@ export type User = typeof users.$inferSelect;
 export type AdminUser = typeof adminUsers.$inferSelect;
 export type AdminActionLog = typeof adminActionLogs.$inferSelect;
 export type ServerErrorLog = typeof serverErrorLogs.$inferSelect;
+export type ErrorGroup = typeof errorGroups.$inferSelect;
+export type ErrorOccurrence = typeof errorOccurrences.$inferSelect;
+export type ErrorNotificationDelivery = typeof errorNotificationDeliveries.$inferSelect;
 export type ClubSetting = typeof clubSettings.$inferSelect;
 export type AuthEmailLoginCode = typeof authEmailLoginCodes.$inferSelect;
 export type AuthSession = typeof authSessions.$inferSelect;

@@ -17,7 +17,7 @@ export type RawErrorEvent = {
   release?: string | null;
   userAgent?: string | null;
   platform?: string | null;
-  viewport?: { width?: number | null; height?: number | null } | null;
+  viewport?: { width?: number | null | undefined; height?: number | null | undefined } | null;
   displayMode?: string | null;
   online?: boolean | null;
   installationId?: string | null;
@@ -121,7 +121,7 @@ export function classifyErrorSeverity(event: SanitizedErrorEvent): ErrorSeverity
   if (/blank-screen|startup|boot|payment|payments|webhook|auth/.test(sensitive) || (event.status ?? 0) >= 500 && /pay|auth/.test(sensitive)) {
     return "critical";
   }
-  if (/recoverable|warning|retry/.test(sensitive) || (event.status ?? 0) < 500 && event.source !== "api") return "warning";
+  if (/recoverable|warning|retry/.test(sensitive)) return "warning";
   return "error";
 }
 

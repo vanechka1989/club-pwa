@@ -17,8 +17,14 @@ export function reportClientError(payload: {
   kind: string;
   message: string;
   url?: string;
+  route?: string;
+  stack?: string | null;
+  release?: string;
   userAgent?: string;
   platform?: string;
+  displayMode?: string;
+  online?: boolean;
+  installationId?: string | null;
   viewport?: { width: number; height: number };
   detail?: unknown;
 }) {

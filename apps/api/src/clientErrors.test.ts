@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClientErrorRecord, createClientErrorRateLimiter } from "./clientErrors";
+import { buildClientErrorRecord, createClientErrorRateLimiter, parseClientErrorPayload } from "./clientErrors";
 
 describe("client error diagnostics", () => {
   it("converts a frontend boot failure into an understandable server log entry", () => {
@@ -45,5 +45,24 @@ describe("client error diagnostics", () => {
     expect(record.title).toBe("Ошибка загрузки урока");
     expect(record.error).toContain("UPLOAD_CONNECTION_CLOSED");
     expect(record.error).toContain("Дополнительный материал 2");
+  });
+
+  it("accepts bounded release and device context without accepting an identity", () => {
+    const parsed = parseClientErrorPayload({
+      kind: "vue-error",
+      message: "Component failed",
+      route: "/modules",
+      release: "5.73",
+      stack: "Error: Component failed\n at LessonCard.vue:12",
+      displayMode: "standalone",
+      online: true,
+      installationId: "device-123",
+      userId: "attacker-controlled"
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.release).toBe("5.73");
+      expect(parsed.data).not.toHaveProperty("userId");
+    }
   });
 });

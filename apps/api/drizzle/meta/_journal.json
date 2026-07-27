@@ -428,6 +428,13 @@
       "when": 1785178800000,
       "tag": "0060_lava_test_buyer_email",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1785182400000,
+      "tag": "0061_error_tracker",
+      "breakpoints": true
     }
   ]
 }

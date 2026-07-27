@@ -21,13 +21,16 @@ import { subscriptionsRoute } from "./routes/subscriptions";
 import { supportRoute } from "./routes/support";
 import { getLocalUploadResponse } from "./storage/localUploads";
 import { recordServerError } from "./serverErrors";
-import { buildClientErrorRecord, createClientErrorRateLimiter, parseClientErrorPayload } from "./clientErrors";
+import { createClientErrorRateLimiter, parseClientErrorPayload } from "./clientErrors";
 import { startBackgroundJobs } from "./backgroundJobs";
 import { checkApplicationReadiness } from "./readiness";
 import { requestMetrics } from "./requestMetrics";
 import { getCommunityRealtimeSubscriberCount } from "./community/realtime";
 import { hasObservabilityAccess } from "./observability";
 import { sessionAuth } from "./middleware/auth";
+import { resolveOptionalSessionUserId } from "./middleware/auth";
+import { recordTrackedError } from "./errorTracker/service";
+import { sanitizeErrorEvent } from "./errorTracker/domain";
 
 const app = new Hono();
 const clientErrorRateLimiter = createClientErrorRateLimiter({ maxEvents: 20, windowMs: 60 * 1000 });
@@ -44,14 +47,29 @@ app.use("*", async (c, next) => {
     await next();
     requestStatus = c.res.status;
   } catch (error) {
+    const trackedInput = {
+      source: "api" as const,
+      kind: "uncaught-request-error",
+      title: "API упал при обработке запроса",
+      message: error instanceof Error ? error.message : "Неизвестная ошибка сервера",
+      stack: error instanceof Error ? error.stack ?? null : null,
+      method: c.req.method,
+      route: c.req.path,
+      status: 500
+    };
+    const sanitized = sanitizeErrorEvent(trackedInput);
     recordServerError({
-      error,
+      error: sanitized.message,
       title: "API упал при обработке запроса",
       method: c.req.method,
-      path: c.req.path,
+      path: sanitized.route,
       status: 500
     });
-    logger.error({ error, method: c.req.method, path: c.req.path }, "request failed");
+    logger.error({ error: sanitized.message, stack: sanitized.stack, method: c.req.method, path: sanitized.route }, "request failed");
+    void recordTrackedError(
+      trackedInput,
+      { userId: null, installationId: null }
+    ).catch((trackerError) => logger.warn({ error: trackerError }, "Unable to persist grouped API error"));
     throw error;
   } finally {
     const durationMs = Math.round(performance.now() - startedAt);
@@ -116,18 +134,36 @@ app.post("/client-errors", async (c) => {
     return c.json({ ok: false }, 400);
   }
 
-  const record = buildClientErrorRecord(body.data);
-  recordServerError(record);
-  logger.warn(
-    {
-      kind: body.data.kind,
-      message: body.data.message,
-      url: body.data.url,
-      platform: body.data.platform,
-      userAgent: body.data.userAgent
-    },
-    "client application error"
-  );
+  const input = {
+    source: "client" as const,
+    kind: body.data.kind,
+    message: body.data.message,
+    route: body.data.route ?? body.data.url ?? null,
+    stack: body.data.stack ?? null,
+    detail: body.data.detail,
+    release: body.data.release ?? null,
+    userAgent: body.data.userAgent ?? null,
+    platform: body.data.platform ?? null,
+    viewport: body.data.viewport ?? null,
+    displayMode: body.data.displayMode ?? null,
+    online: body.data.online ?? null,
+    installationId: body.data.installationId ?? null
+  };
+  const sanitized = sanitizeErrorEvent(input);
+  try {
+    const userId = await resolveOptionalSessionUserId(c);
+    await recordTrackedError(input, { userId, installationId: body.data.installationId ?? null });
+  } catch (error) {
+    recordServerError({
+      error: sanitized.message,
+      title: sanitized.title,
+      path: sanitized.route,
+      method: "CLIENT",
+      status: null
+    });
+    logger.warn({ error }, "Unable to persist grouped client error");
+  }
+  logger.warn({ kind: sanitized.kind, route: sanitized.route, platform: sanitized.platform }, "client application error");
 
   return c.json({ ok: true });
 });

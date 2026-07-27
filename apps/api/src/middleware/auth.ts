@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { and, eq, gt, isNull, lt } from "drizzle-orm";
 import { getCookie } from "hono/cookie";
 import type { UserRole } from "@club/shared";
@@ -120,3 +120,13 @@ export const sessionAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
 };
 
 export const telegramAuth = sessionAuth;
+
+export async function resolveOptionalSessionUserId(c: Context) {
+  const token = getCookie(c, sessionCookieName);
+  if (!token) return null;
+  const session = await db.query.authSessions.findFirst({
+    columns: { userId: true },
+    where: and(eq(authSessions.tokenHash, hashAuthToken(token)), isNull(authSessions.revokedAt), gt(authSessions.expiresAt, new Date()))
+  });
+  return session?.userId ?? null;
+}

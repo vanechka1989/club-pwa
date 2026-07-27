@@ -18,6 +18,9 @@ import {
   normalizeExternalMediaUrl,
   isValidDisplayName,
   normalizeDisplayName,
+  errorTrackerSeveritySchema,
+  errorTrackerSourceSchema,
+  errorTrackerStatusSchema,
   type AdminLearningMaterial,
   type AdminPermission,
   type AdminUserDetailResponse,
@@ -72,6 +75,8 @@ import { logger } from "../logger";
 import { readHostMaintenanceStatus } from "../operations/hostMaintenanceStatus";
 import { requestMetrics } from "../requestMetrics";
 import { countServerErrors, listServerErrors, recordServerError } from "../serverErrors";
+import { getPersistedErrorGroup, getPersistedErrorSummary, listPersistedErrorGroups } from "../errorTracker/postgresRepository";
+import { getErrorTrackerSettings, saveErrorTrackerSettings, updateTrackedErrorStatus } from "../errorTracker/service";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
@@ -186,6 +191,24 @@ const ownerEmailLoginCodePayloadSchema = z.object({
 });
 
 const ownerEmailLoginCodeCooldownSeconds = 30;
+const errorTrackerStatusPayloadSchema = z.object({ status: errorTrackerStatusSchema });
+const errorTrackerIdSchema = z.string().uuid();
+const errorTrackerSettingsPayloadSchema = z.object({
+  email: z.string().trim().email().nullable(),
+  emailEnabled: z.boolean(),
+  pushEnabled: z.boolean()
+});
+
+function errorGroupResponse(group: Awaited<ReturnType<typeof listPersistedErrorGroups>>["groups"][number]) {
+  return {
+    ...group,
+    firstSeenAt: group.firstSeenAt.toISOString(),
+    lastSeenAt: group.lastSeenAt.toISOString(),
+    lastNotifiedAt: group.lastNotifiedAt?.toISOString() ?? null,
+    resolvedAt: group.resolvedAt?.toISOString() ?? null,
+    mutedUntil: group.mutedUntil?.toISOString() ?? null
+  };
+}
 
 const moderationStatusPayloadSchema = z.object({
   status: z.enum(["visible", "hidden", "deleted"]),
@@ -1773,6 +1796,87 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json({ errors: await listServerErrors() });
+  })
+  .get("/error-tracker/summary", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+    return c.json(await getPersistedErrorSummary());
+  })
+  .get("/error-tracker/groups", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+    const status = errorTrackerStatusSchema.safeParse(c.req.query("status"));
+    const severity = errorTrackerSeveritySchema.safeParse(c.req.query("severity"));
+    const source = errorTrackerSourceSchema.safeParse(c.req.query("source"));
+    const cursorValue = c.req.query("cursor");
+    const cursor = cursorValue && !Number.isNaN(Date.parse(cursorValue)) ? new Date(cursorValue) : undefined;
+    const route = c.req.query("route")?.slice(0, 512);
+    const result = await listPersistedErrorGroups({
+      ...(status.success ? { status: status.data } : {}),
+      ...(severity.success ? { severity: severity.data } : {}),
+      ...(source.success ? { source: source.data } : {}),
+      ...(route ? { route } : {}),
+      ...(cursor ? { cursor } : {}),
+      limit: Number(c.req.query("limit") ?? 30)
+    });
+    return c.json({ ...result, groups: result.groups.map(errorGroupResponse) });
+  })
+  .get("/error-tracker/groups/:id", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+    const groupId = errorTrackerIdSchema.safeParse(c.req.param("id"));
+    if (!groupId.success) return c.json({ error: "Invalid error group id" }, 400);
+    const detail = await getPersistedErrorGroup(groupId.data);
+    if (!detail) return c.json({ error: "Error group not found" }, 404);
+    return c.json({
+      group: errorGroupResponse(detail.group),
+      occurrences: detail.occurrences.map((occurrence) => ({
+        ...occurrence,
+        occurredAt: occurrence.occurredAt.toISOString()
+      })),
+      deliveries: detail.deliveries.map((delivery) => ({
+        ...delivery,
+        createdAt: delivery.createdAt.toISOString(),
+        updatedAt: delivery.updatedAt.toISOString()
+      }))
+    });
+  })
+  .patch("/error-tracker/groups/:id/status", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+    const body = errorTrackerStatusPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "Invalid error status" }, 400);
+    const groupId = errorTrackerIdSchema.safeParse(c.req.param("id"));
+    if (!groupId.success) return c.json({ error: "Invalid error group id" }, 400);
+    const group = await updateTrackedErrorStatus(groupId.data, body.data.status);
+    if (!group) return c.json({ error: "Error group not found" }, 404);
+    await recordAdminAction(c, {
+      action: "error_tracker.status.update",
+      entityType: "error_group",
+      entityId: group.id,
+      summary: `Изменил статус технической ошибки на ${body.data.status}`,
+      metadata: { status: body.data.status }
+    });
+    return c.json({ group: errorGroupResponse(group) });
+  })
+  .get("/error-tracker/settings", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+    return c.json(await getErrorTrackerSettings());
+  })
+  .patch("/error-tracker/settings", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+    const body = errorTrackerSettingsPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "Invalid error tracker settings" }, 400);
+    const settings = await saveErrorTrackerSettings(body.data, c.get("userId"));
+    await recordAdminAction(c, {
+      action: "error_tracker.settings.update",
+      entityType: "club_settings",
+      summary: "Обновил уведомления центра ошибок",
+      metadata: { emailEnabled: settings.emailEnabled, pushEnabled: settings.pushEnabled }
+    });
+    return c.json(settings);
   })
   .get("/integration-health", async (c) => {
     const ownerError = await rejectIfNotOwner(c);

@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Lava test buyer email",
+  title: "Customer error center",
   items: [
-    "The owner can configure a separate test buyer email in the Lava connection settings.",
-    "The test email applies only to owner checkouts and never changes customer data.",
-    "A rejected Lava author email now produces a clear checkout message."
+    "Customer and API failures are sanitized, grouped, and shown in one developer inbox.",
+    "Critical incidents send independent PWA push and email alerts without duplicate noise.",
+    "The owner can manage incident status and configure a dedicated alert email."
   ]
 };
 

@@ -4,8 +4,14 @@ const clientErrorPayloadSchema = z.object({
   kind: z.string().trim().min(1).max(80).default("client-error"),
   message: z.string().trim().min(1).max(1000),
   url: z.string().trim().max(2048).nullable().optional(),
+  route: z.string().trim().max(512).nullable().optional(),
+  stack: z.string().trim().max(4000).nullable().optional(),
+  release: z.string().trim().max(64).nullable().optional(),
   userAgent: z.string().trim().max(1000).nullable().optional(),
   platform: z.string().trim().max(120).nullable().optional(),
+  displayMode: z.string().trim().max(32).nullable().optional(),
+  online: z.boolean().nullable().optional(),
+  installationId: z.string().trim().max(64).nullable().optional(),
   viewport: z
     .object({
       width: z.number().nullable().optional(),

@@ -10,14 +10,16 @@ export async function startBackgroundJobs() {
     { startMailingDispatcher, stopMailingDispatcher },
     { startCommunityMediaCleanupJob },
     { startPaymentReconciliationJob },
-    { startMembershipExpiryReminderJob }
+    { startMembershipExpiryReminderJob },
+    { startErrorTrackerCleanupJob }
   ] =
     await Promise.all([
       import("./payments/orderCleanupJob"),
       import("./routes/mailings"),
       import("./community/mediaCleanup"),
       import("./payments/paymentReconciliation"),
-      import("./membership/expiryReminderJob")
+      import("./membership/expiryReminderJob"),
+      import("./errorTracker/cleanupJob")
     ]);
 
   const orderCleanupTimer = startExpiredPendingPaymentOrderCleanup();
@@ -25,11 +27,13 @@ export async function startBackgroundJobs() {
   const mediaCleanupTimer = startCommunityMediaCleanupJob();
   const paymentReconciliationTimer = startPaymentReconciliationJob();
   const membershipExpiryReminderTimer = startMembershipExpiryReminderJob();
+  const errorTrackerCleanupTimer = startErrorTrackerCleanupJob();
   return () => {
     clearInterval(orderCleanupTimer);
     stopMailingDispatcher();
     clearInterval(mediaCleanupTimer);
     clearInterval(paymentReconciliationTimer);
     clearInterval(membershipExpiryReminderTimer);
+    clearInterval(errorTrackerCleanupTimer);
   };
 }

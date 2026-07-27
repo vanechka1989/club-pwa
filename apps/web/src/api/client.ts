@@ -40,6 +40,13 @@ import type {
   AdminServerErrorsResponse,
   AdminServerStatusResponse,
   AdminIntegrationHealthResponse,
+  AdminErrorTrackerSummary,
+  AdminErrorTrackerListResponse,
+  AdminErrorTrackerDetailResponse,
+  AdminErrorTrackerSettings,
+  ErrorTrackerSeverity,
+  ErrorTrackerSource,
+  ErrorTrackerStatus,
   AdminStatsResponse,
   AdminStatsUser,
   LearningContentResponse,
@@ -538,6 +545,30 @@ export function getAdminActionLogs(actorTelegramId?: string) {
 
 export function getAdminServerErrors() {
   return api<AdminServerErrorsResponse>("/admin/server-errors");
+}
+
+export function getAdminErrorTrackerSummary() {
+  return api<AdminErrorTrackerSummary>("/admin/error-tracker/summary");
+}
+
+export function getAdminErrorGroups(filters: { status?: ErrorTrackerStatus; severity?: ErrorTrackerSeverity; source?: ErrorTrackerSource } = {}) {
+  return api<AdminErrorTrackerListResponse>("/admin/error-tracker/groups", { query: filters });
+}
+
+export function getAdminErrorGroup(id: string) {
+  return api<AdminErrorTrackerDetailResponse>(`/admin/error-tracker/groups/${id}`);
+}
+
+export function updateAdminErrorGroupStatus(id: string, status: ErrorTrackerStatus) {
+  return api<{ group: AdminErrorTrackerDetailResponse["group"] }>(`/admin/error-tracker/groups/${id}/status`, { method: "PATCH", body: { status } });
+}
+
+export function getAdminErrorTrackerSettings() {
+  return api<AdminErrorTrackerSettings>("/admin/error-tracker/settings");
+}
+
+export function updateAdminErrorTrackerSettings(payload: AdminErrorTrackerSettings) {
+  return api<AdminErrorTrackerSettings>("/admin/error-tracker/settings", { method: "PATCH", body: payload });
 }
 
 export function getAdminServerStatus() {

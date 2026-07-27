@@ -11,12 +11,23 @@
 
   function collectPayload(kind, message, detail) {
     var visualViewport = window.visualViewport;
+    var release = null;
+    var installationId = null;
+    try {
+      release = window.localStorage.getItem("club-release");
+      installationId = window.localStorage.getItem("club-device-installation-id");
+    } catch (_error) {}
     return {
       kind: safeText(kind) || "client-error",
       message: safeText(message) || "Неизвестная ошибка клиента",
       url: window.location.href,
+      route: window.location.pathname,
+      release: release,
       userAgent: navigator.userAgent,
       platform: navigator.platform || null,
+      displayMode: window.matchMedia && window.matchMedia("(display-mode: standalone)").matches ? "standalone" : "browser",
+      online: navigator.onLine,
+      installationId: installationId,
       viewport: {
         width: window.innerWidth || (visualViewport && visualViewport.width) || null,
         height: window.innerHeight || (visualViewport && visualViewport.height) || null
