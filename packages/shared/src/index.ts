@@ -709,6 +709,34 @@ export const supportTopicSchema = z.object({
 });
 export type SupportTopic = z.infer<typeof supportTopicSchema>;
 
+export const supportUploadContentTypeSchema = z.enum([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm"
+]);
+
+export const supportUploadIntentSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  contentType: supportUploadContentTypeSchema,
+  sizeBytes: z.number().int().positive().max(50 * 1024 * 1024)
+});
+export type SupportUploadIntent = z.infer<typeof supportUploadIntentSchema>;
+
+export const supportUploadedObjectSchema = supportUploadIntentSchema.extend({
+  objectKey: z.string().trim().min(1).max(512),
+  uploadToken: z.string().uuid()
+});
+export type SupportUploadedObject = z.infer<typeof supportUploadedObjectSchema>;
+
+export const supportUploadedObjectsSchema = z.array(supportUploadedObjectSchema).max(4).superRefine((items, context) => {
+  if (items.reduce((total, item) => total + item.sizeBytes, 0) > 100 * 1024 * 1024) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "support_attachments_total_too_large" });
+  }
+});
+
 export const supportAttachmentSchema = z.object({
   id: z.string(),
   kind: z.enum(["photo", "video"]),
