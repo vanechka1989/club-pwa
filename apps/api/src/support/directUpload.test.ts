@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { supportUploadedObjectSchema, supportUploadIntentSchema } from "@club/shared";
 import {
   buildSupportPendingObjectKey,
+  createSupportUploadIntent,
+  verifySupportUploadedObjects,
   validateSupportUploadedObject
 } from "./directUpload";
 
@@ -32,5 +34,41 @@ describe("support direct uploads", () => {
     expect(validateSupportUploadedObject({ uploaded, userId: "33333333-3333-4333-8333-333333333333", metadata: { key: objectKey, contentType: "video/mp4", sizeBytes: 1024 } })).toEqual({ ok: false, error: "foreign_object" });
     expect(validateSupportUploadedObject({ uploaded, userId: me, metadata: { key: objectKey, contentType: "video/mp4", sizeBytes: 0 } })).toEqual({ ok: false, error: "metadata_mismatch" });
     expect(validateSupportUploadedObject({ uploaded, userId: me, metadata: { key: objectKey, contentType: "video/mp4", sizeBytes: 2048 } })).toEqual({ ok: false, error: "metadata_mismatch" });
+  });
+
+  it("creates a short-lived signed upload intent for an API-generated key", async () => {
+    const result = await createSupportUploadIntent({
+      userId: me,
+      input: { fileName: "clip.mp4", contentType: "video/mp4", sizeBytes: 1024 },
+      uploadToken: token,
+      now: new Date("2026-07-27T10:00:00Z"),
+      createUploadUrl: async ({ key, contentType, expiresInSeconds }) => ({
+        uploadUrl: `https://s3.example/${key}`,
+        key,
+        expiresAt: new Date("2026-07-27T10:10:00Z"),
+        observed: { contentType, expiresInSeconds }
+      })
+    });
+
+    expect(result).toEqual({
+      uploadUrl: `https://s3.example/support/pending/${me}/2026-07-27/${token}-clip.mp4`,
+      objectKey: `support/pending/${me}/2026-07-27/${token}-clip.mp4`,
+      uploadToken: token,
+      contentType: "video/mp4",
+      sizeBytes: 1024,
+      expiresAt: "2026-07-27T10:10:00.000Z"
+    });
+  });
+
+  it("rejects a consumed object before message creation", async () => {
+    const objectKey = `support/pending/${me}/2026-07-27/${token}-clip.mp4`;
+    const uploaded = supportUploadedObjectSchema.parse({ objectKey, uploadToken: token, fileName: "clip.mp4", contentType: "video/mp4", sizeBytes: 1024 });
+
+    await expect(verifySupportUploadedObjects({
+      uploaded: [uploaded],
+      userId: me,
+      getMetadata: async () => ({ key: objectKey, contentType: "video/mp4", sizeBytes: 1024 }),
+      isConsumed: async () => true
+    })).rejects.toThrow("support_object_already_consumed");
   });
 });

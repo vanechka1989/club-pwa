@@ -1047,6 +1047,7 @@ export const supportTicketAttachments = pgTable(
   },
   (table) => ({
     ticketIdx: index("support_ticket_attachments_ticket_idx").on(table.ticketId),
+    objectKeyIdx: uniqueIndex("support_ticket_attachments_object_key_idx").on(table.objectKey),
     expiresAtIdx: index("support_ticket_attachments_expires_at_idx").on(table.expiresAt)
   })
 );

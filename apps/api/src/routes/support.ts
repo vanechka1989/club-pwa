@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull, lte, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { supportUploadedObjectsSchema, supportUploadIntentSchema, type SupportUploadedObject } from "@club/shared";
 import { recordAdminAction } from "../admin/actionLog";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
@@ -11,14 +12,11 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
 import { createAppNotification } from "../notifications/create";
-import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
-import { optimizeImageForUpload } from "../storage/imageOptimizer";
+import { createObjectUploadUrl, deleteObject, getObjectMetadata, getObjectReadUrl } from "../storage/s3";
 import {
-  buildSupportAttachmentObjectKey,
-  getSupportAttachmentExpiresAt,
-  getSupportAttachmentLimitError,
-  getSupportAttachmentUploadContentType
+  getSupportAttachmentExpiresAt
 } from "../support/mediaUpload";
+import { createSupportUploadIntent, verifySupportUploadedObjects } from "../support/directUpload";
 import { selectSupportAdminTelegramIds } from "../support/adminNotificationRecipients";
 import { getSupportUnreadCount } from "../support/unreadCount";
 
@@ -58,6 +56,16 @@ const adminTicketStatusLabel: Record<string, string> = {
 };
 
 const ticketTopicSchema = z.enum(["payment", "access", "media", "other"]);
+const supportTicketCreateSchema = z.object({
+  topic: ticketTopicSchema,
+  customTopic: z.string().trim().max(200).default(""),
+  message: z.string().trim().min(1).max(10_000),
+  attachments: supportUploadedObjectsSchema.default([])
+});
+const supportMessageCreateSchema = z.object({
+  message: z.string().trim().max(10_000).default(""),
+  attachments: supportUploadedObjectsSchema.default([])
+});
 
 function isAdminRole(role: string) {
   return role === "admin" || role === "owner";
@@ -84,32 +92,41 @@ function isAfter(left: Date | null | undefined, right: Date | null | undefined) 
   return Boolean(left && (!right || left.getTime() > right.getTime()));
 }
 
-function getFormString(form: FormData, key: string) {
-  const value = form.get(key);
-  return typeof value === "string" ? value.trim() : "";
+async function readSupportAttachments(userId: string, uploaded: SupportUploadedObject[]) {
+  return verifySupportUploadedObjects({
+    uploaded,
+    userId,
+    getMetadata: getObjectMetadata,
+    isConsumed: async (objectKey) => Boolean(await db.query.supportTicketAttachments.findFirst({
+      where: eq(supportTicketAttachments.objectKey, objectKey),
+      columns: { id: true }
+    }))
+  });
 }
 
-function getFormFiles(form: FormData) {
-  return form
-    .getAll("attachments")
-    .filter((value): value is File => typeof value === "object" && value instanceof File && value.size > 0);
-}
-
-function getAttachmentLimitMessage(files: File[]) {
-  const error = getSupportAttachmentLimitError(files);
-  if (!error) {
-    return null;
-  }
-
-  if (error === "too_many_files") {
-    return "Можно приложить не больше 4 файлов.";
-  }
-
-  if (error === "file_too_large") {
-    return "Файл слишком большой. Максимум 50 МБ на файл.";
-  }
-
-  return "Файлы слишком большие. Максимум 100 МБ за одно сообщение.";
+async function persistSupportAttachments({
+  ticketId,
+  messageId,
+  attachments,
+  now
+}: {
+  ticketId: string;
+  messageId: string;
+  attachments: Awaited<ReturnType<typeof readSupportAttachments>>;
+  now: Date;
+}) {
+  if (!attachments.length) return;
+  await db.insert(supportTicketAttachments).values(attachments.map((attachment) => ({
+    ticketId,
+    messageId,
+    kind: attachment.kind,
+    fileName: attachment.fileName,
+    objectKey: attachment.objectKey,
+    contentType: attachment.contentType,
+    sizeBytes: attachment.sizeBytes,
+    expiresAt: getSupportAttachmentExpiresAt(now),
+    createdAt: now
+  })));
 }
 
 async function serializeAttachment(attachment: typeof supportTicketAttachments.$inferSelect) {
@@ -203,53 +220,6 @@ async function getTicketById(id: string) {
       }
     }
   });
-}
-
-async function uploadAttachments({
-  ticketId,
-  messageId,
-  files
-}: {
-  ticketId: string;
-  messageId: string;
-  files: File[];
-}) {
-  for (const file of files) {
-    const contentType = getSupportAttachmentUploadContentType(file.type, file.name);
-    if (!contentType) {
-      throw new Error("UNSUPPORTED_FILE_TYPE");
-    }
-
-    const id = randomUUID();
-    const createdAt = new Date();
-    const originalBytes = new Uint8Array(await file.arrayBuffer());
-    const optimized = contentType.startsWith("image/")
-      ? await optimizeImageForUpload({ bytes: originalBytes, contentType, fileName: file.name })
-      : {
-          body: originalBytes,
-          contentType,
-          fileName: file.name,
-          sizeBytes: file.size
-        };
-    const key = buildSupportAttachmentObjectKey({ fileName: optimized.fileName, id, now: createdAt });
-    await uploadObject({
-      key,
-      body: optimized.body,
-      contentType: optimized.contentType
-    });
-
-    await db.insert(supportTicketAttachments).values({
-      ticketId,
-      messageId,
-      kind: optimized.contentType.startsWith("video/") ? "video" : "photo",
-      fileName: optimized.fileName || "attachment",
-      objectKey: key,
-      contentType: optimized.contentType,
-      sizeBytes: optimized.sizeBytes,
-      expiresAt: getSupportAttachmentExpiresAt(createdAt),
-      createdAt
-    });
-  }
 }
 
 async function cleanupExpiredSupportAttachments(now = new Date()) {
@@ -356,35 +326,52 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       unreadCount: await getSupportUnreadCount({ userId, isSupportAdmin })
     });
   })
+  .post("/uploads", async (c) => {
+    const body = supportUploadIntentSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Файл не подходит. Максимальный размер — 50 МБ." }, 413);
+    }
+
+    try {
+      return c.json(await createSupportUploadIntent({
+        userId: c.get("userId"),
+        input: body.data,
+        uploadToken: randomUUID(),
+        createUploadUrl: createObjectUploadUrl
+      }));
+    } catch (error) {
+      logger.warn({ error, userId: c.get("userId") }, "Unable to create support upload intent");
+      return c.json({ error: "Не удалось подготовить загрузку файла." }, 503);
+    }
+  })
   .post("/tickets", async (c) => {
     const userId = c.get("userId");
     const role = c.get("previewRole") ?? (await getUserRole(c.get("telegramUser").id));
     const isSupportAdmin = await canUseSupportAdmin(c, role);
-    const form = await c.req.formData();
-    const topicResult = ticketTopicSchema.safeParse(getFormString(form, "topic"));
-    const message = getFormString(form, "message");
-    const customTopic = getFormString(form, "customTopic");
-
-    if (!topicResult.success || !message) {
+    const body = supportTicketCreateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
       return c.json({ error: "Заполните причину обращения и сообщение." }, 400);
     }
+    const { topic, message, customTopic } = body.data;
 
-    if (topicResult.data === "other" && !customTopic) {
+    if (topic === "other" && !customTopic) {
       return c.json({ error: "Напишите свою причину обращения." }, 400);
     }
 
-    const files = getFormFiles(form);
-    const attachmentLimitMessage = getAttachmentLimitMessage(files);
-    if (attachmentLimitMessage) {
-      return c.json({ error: attachmentLimitMessage }, 413);
+    let attachments: Awaited<ReturnType<typeof readSupportAttachments>>;
+    try {
+      attachments = await readSupportAttachments(userId, body.data.attachments);
+    } catch (error) {
+      logger.warn({ error, userId }, "Unable to verify support attachments");
+      return c.json({ error: "Не удалось проверить загруженный файл. Загрузите его повторно." }, 400);
     }
     const now = new Date();
     const [ticket] = await db
       .insert(supportTickets)
       .values({
         userId,
-        topic: topicResult.data,
-        customTopic: topicResult.data === "other" ? customTopic : null,
+        topic,
+        customTopic: topic === "other" ? customTopic : null,
         message,
         status: "open",
         lastCustomerMessageAt: now,
@@ -413,12 +400,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось создать сообщение обращения." }, 500);
     }
 
-    try {
-      await uploadAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, files });
-    } catch (error) {
-      logger.warn({ error, ticketId: ticket.id }, "Unable to upload support attachment");
-      return c.json({ error: "Файл не подходит. Можно загрузить фото или видео." }, 400);
-    }
+    await persistSupportAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, attachments, now });
 
     const createdTicket = await getTicketById(ticket.id);
     if (!createdTicket) {
@@ -449,15 +431,20 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Обращение закрыто. Создайте новое, если вопрос снова актуален." }, 400);
     }
 
-    const form = await c.req.formData();
-    const message = getFormString(form, "message");
-    const files = getFormFiles(form);
-    const attachmentLimitMessage = getAttachmentLimitMessage(files);
-    if (attachmentLimitMessage) {
-      return c.json({ error: attachmentLimitMessage }, 413);
+    const body = supportMessageCreateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Некорректное сообщение или вложение." }, 400);
     }
-    if (!message && files.length === 0) {
+    const { message } = body.data;
+    if (!message && body.data.attachments.length === 0) {
       return c.json({ error: "Напишите сообщение или приложите файл." }, 400);
+    }
+    let attachments: Awaited<ReturnType<typeof readSupportAttachments>>;
+    try {
+      attachments = await readSupportAttachments(userId, body.data.attachments);
+    } catch (error) {
+      logger.warn({ error, userId, ticketId: ticket.id }, "Unable to verify support follow-up attachments");
+      return c.json({ error: "Не удалось проверить загруженный файл. Загрузите его повторно." }, 400);
     }
 
     const now = new Date();
@@ -477,12 +464,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось добавить сообщение." }, 500);
     }
 
-    try {
-      await uploadAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, files });
-    } catch (error) {
-      logger.warn({ error, ticketId: ticket.id }, "Unable to upload support follow-up attachment");
-      return c.json({ error: "Файл не подходит. Можно загрузить фото или видео." }, 400);
-    }
+    await persistSupportAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, attachments, now });
 
     await db
       .update(supportTickets)
@@ -620,15 +602,20 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Клиент не найден." }, 404);
     }
 
-    const form = await c.req.formData();
-    const message = getFormString(form, "message");
-    const files = getFormFiles(form);
-    const attachmentLimitMessage = getAttachmentLimitMessage(files);
-    if (attachmentLimitMessage) {
-      return c.json({ error: attachmentLimitMessage }, 413);
+    const body = supportMessageCreateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Некорректное сообщение или вложение." }, 400);
     }
-    if (!message && files.length === 0) {
+    const { message } = body.data;
+    if (!message && body.data.attachments.length === 0) {
       return c.json({ error: "Напишите сообщение или приложите файл." }, 400);
+    }
+    let attachments: Awaited<ReturnType<typeof readSupportAttachments>>;
+    try {
+      attachments = await readSupportAttachments(userId, body.data.attachments);
+    } catch (error) {
+      logger.warn({ error, userId, targetUserId: target.id }, "Unable to verify admin support attachments");
+      return c.json({ error: "Не удалось проверить загруженный файл. Загрузите его повторно." }, 400);
     }
 
     const now = new Date();
@@ -669,12 +656,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось создать сообщение." }, 500);
     }
 
-    try {
-      await uploadAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, files });
-    } catch (error) {
-      logger.warn({ error, ticketId: ticket.id }, "Unable to upload admin support attachment");
-      return c.json({ error: "Файл не подходит. Можно загрузить фото или видео." }, 400);
-    }
+    await persistSupportAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, attachments, now });
 
     const createdTicket = await getTicketById(ticket.id);
     if (!createdTicket) {
@@ -692,7 +674,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       summary: "Создал обращение клиенту от клуба",
       metadata: {
         hasMessage: Boolean(message),
-        attachmentsCount: files.length
+        attachmentsCount: attachments.length
       }
     });
 
@@ -723,15 +705,20 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Обращение уже закрыто." }, 400);
     }
 
-    const form = await c.req.formData();
-    const message = getFormString(form, "message");
-    const files = getFormFiles(form);
-    const attachmentLimitMessage = getAttachmentLimitMessage(files);
-    if (attachmentLimitMessage) {
-      return c.json({ error: attachmentLimitMessage }, 413);
+    const body = supportMessageCreateSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Некорректное сообщение или вложение." }, 400);
     }
-    if (!message && files.length === 0) {
+    const { message } = body.data;
+    if (!message && body.data.attachments.length === 0) {
       return c.json({ error: "Напишите ответ или приложите файл." }, 400);
+    }
+    let attachments: Awaited<ReturnType<typeof readSupportAttachments>>;
+    try {
+      attachments = await readSupportAttachments(userId, body.data.attachments);
+    } catch (error) {
+      logger.warn({ error, userId, ticketId: ticket.id }, "Unable to verify support reply attachments");
+      return c.json({ error: "Не удалось проверить загруженный файл. Загрузите его повторно." }, 400);
     }
 
     const now = new Date();
@@ -751,12 +738,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось создать ответ." }, 500);
     }
 
-    try {
-      await uploadAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, files });
-    } catch (error) {
-      logger.warn({ error, ticketId: ticket.id }, "Unable to upload support reply attachment");
-      return c.json({ error: "Файл не подходит. Можно загрузить фото или видео." }, 400);
-    }
+    await persistSupportAttachments({ ticketId: ticket.id, messageId: ticketMessage.id, attachments, now });
 
     await db
       .update(supportTickets)
@@ -784,7 +766,7 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
       summary: "Ответил клиенту в поддержке",
       metadata: {
         hasMessage: Boolean(message),
-        attachmentsCount: files.length
+        attachmentsCount: attachments.length
       }
     });
 

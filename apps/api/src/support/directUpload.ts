@@ -1,4 +1,4 @@
-import type { SupportUploadedObject } from "@club/shared";
+import type { SupportUploadIntent, SupportUploadedObject } from "@club/shared";
 
 const supportPendingPrefix = "support/pending";
 
@@ -74,4 +74,58 @@ export function validateSupportUploadedObject({
       kind: uploaded.contentType.startsWith("video/") ? "video" : "photo"
     }
   };
+}
+
+export async function createSupportUploadIntent({
+  userId,
+  input,
+  uploadToken,
+  now = new Date(),
+  createUploadUrl
+}: {
+  userId: string;
+  input: SupportUploadIntent;
+  uploadToken: string;
+  now?: Date;
+  createUploadUrl: (input: { key: string; contentType: string; expiresInSeconds: number }) => Promise<{
+    uploadUrl: string;
+    key: string;
+    expiresAt: Date;
+  }>;
+}) {
+  const objectKey = buildSupportPendingObjectKey({ userId, uploadToken, fileName: input.fileName, now });
+  const signed = await createUploadUrl({ key: objectKey, contentType: input.contentType, expiresInSeconds: 600 });
+  return {
+    uploadUrl: signed.uploadUrl,
+    objectKey: signed.key,
+    uploadToken,
+    contentType: input.contentType,
+    sizeBytes: input.sizeBytes,
+    expiresAt: signed.expiresAt.toISOString()
+  };
+}
+
+export async function verifySupportUploadedObjects({
+  uploaded,
+  userId,
+  getMetadata,
+  isConsumed
+}: {
+  uploaded: SupportUploadedObject[];
+  userId: string;
+  getMetadata: (key: string) => Promise<SupportObjectMetadata>;
+  isConsumed: (key: string) => Promise<boolean>;
+}) {
+  const verified: ValidSupportObject[] = [];
+  for (const item of uploaded) {
+    if (await isConsumed(item.objectKey)) {
+      throw new Error("support_object_already_consumed");
+    }
+    const validation = validateSupportUploadedObject({ uploaded: item, userId, metadata: await getMetadata(item.objectKey) });
+    if (!validation.ok) {
+      throw new Error(`support_${validation.error}`);
+    }
+    verified.push(validation.value);
+  }
+  return verified;
 }
