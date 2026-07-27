@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";
 
 type RelationHelpers = {
@@ -21,6 +22,20 @@ describe("multicurrency payment database model", () => {
     expect(catalogPrices?.currency?.name).toBe("currency");
     expect(catalogPrices?.amountMinor?.name).toBe("amount_minor");
     expect(catalogPrices?.periodicity?.name).toBe("periodicity");
+  });
+
+  it("allows the same catalog currency across different billing periods", () => {
+    const config = getTableConfig(schema.paymentProviderCatalogItemPrices);
+    const priceIndex = config.indexes.find((index) =>
+      index.config.name === "payment_provider_catalog_item_prices_catalog_item_currency_periodicity_idx"
+    );
+
+    expect(priceIndex?.config.unique).toBe(true);
+    expect(priceIndex?.config.columns.map((column) => "name" in column ? column.name : null)).toEqual([
+      "catalog_item_id",
+      "currency",
+      "periodicity"
+    ]);
   });
 
   it("models enabled binding prices by currency", () => {

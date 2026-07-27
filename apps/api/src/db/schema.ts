@@ -463,13 +463,13 @@ export const paymentProviderCatalogItemPrices = pgTable(
     catalogItemId: uuid("catalog_item_id").notNull().references(() => paymentProviderCatalogItems.id, { onDelete: "cascade" }),
     currency: paymentCurrency("currency").notNull(),
     amountMinor: integer("amount_minor"),
-    periodicity: varchar("periodicity", { length: 64 }),
+    periodicity: varchar("periodicity", { length: 64 }).notNull().default("ONE_TIME"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    catalogItemCurrencyIdx: uniqueIndex("payment_provider_catalog_item_prices_catalog_item_currency_idx")
-      .on(table.catalogItemId, table.currency)
+    catalogItemCurrencyPeriodicityIdx: uniqueIndex("payment_provider_catalog_item_prices_catalog_item_currency_periodicity_idx")
+      .on(table.catalogItemId, table.currency, table.periodicity)
   })
 );
 
