@@ -43,6 +43,7 @@ import {
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
+import { uploadSupportAttachments } from "@/features/support/directUpload";
 import AdminClientsPanel from "./AdminClientsPanel.vue";
 import type { StatisticsDetail } from "./AdminStatisticsDetail.vue";
 import { prepareMailingHtml, type MailingEditorMode } from "./mailingEditorMode";
@@ -2170,12 +2171,9 @@ async function submitClientMessage() {
 
   saving.value = true;
   sendingClientMessage.value = true;
-  const form = new FormData();
-  form.set("message", text);
-  clientMessageFiles.value.forEach((file) => form.append("attachments", file));
-
   try {
-    await createAdminClientSupportTicket(telegramId, form);
+    const attachments = await uploadSupportAttachments(clientMessageFiles.value);
+    await createAdminClientSupportTicket(telegramId, { message: text, attachments });
     closeClientMessageModal();
     setStatus("Сообщение отправлено клиенту.");
   } catch (requestError) {

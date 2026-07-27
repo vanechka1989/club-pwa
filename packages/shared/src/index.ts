@@ -731,6 +731,12 @@ export const supportUploadedObjectSchema = supportUploadIntentSchema.extend({
 });
 export type SupportUploadedObject = z.infer<typeof supportUploadedObjectSchema>;
 
+export const supportUploadIntentResponseSchema = supportUploadedObjectSchema.omit({ fileName: true }).extend({
+  uploadUrl: z.string().trim().min(1),
+  expiresAt: z.string().datetime()
+});
+export type SupportUploadIntentResponse = z.infer<typeof supportUploadIntentResponseSchema>;
+
 export const supportUploadedObjectsSchema = z.array(supportUploadedObjectSchema).max(4).superRefine((items, context) => {
   if (items.reduce((total, item) => total + item.sizeBytes, 0) > 100 * 1024 * 1024) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "support_attachments_total_too_large" });

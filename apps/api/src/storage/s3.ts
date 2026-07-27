@@ -104,14 +104,21 @@ function resolveS3TargetConfig(config: StoredS3Config, target: S3StorageTarget) 
   return { ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null };
 }
 
-async function putObjectToConfig(config: StoredS3Config, key: string, body: UploadObjectInput["body"], contentType: string) {
+async function putObjectToConfig(
+  config: StoredS3Config,
+  key: string,
+  body: UploadObjectInput["body"],
+  contentType: string,
+  contentLength?: number
+) {
   const client = createS3Client(config);
   await client.send(
     new PutObjectCommand({
       Bucket: config.bucket,
       Key: key,
       Body: body,
-      ContentType: contentType
+      ContentType: contentType,
+      ContentLength: contentLength
     })
   );
 }
@@ -172,6 +179,18 @@ export async function uploadObject({ key, body, contentType }: UploadObjectInput
     key: normalizedKey,
     url: null
   };
+}
+
+export async function uploadObjectStream({
+  key,
+  body,
+  contentType,
+  sizeBytes
+}: UploadObjectInput & { sizeBytes: number }) {
+  const config = await requireS3Config();
+  const normalizedKey = normalizeS3ObjectKey(key);
+  await putObjectToConfig(config, normalizedKey, body, contentType, sizeBytes);
+  return { key: normalizedKey, url: null };
 }
 
 export async function createObjectUploadUrl({ key, contentType, expiresInSeconds = 600 }: { key: string; contentType: string; expiresInSeconds?: number }) {

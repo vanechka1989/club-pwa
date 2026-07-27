@@ -4,6 +4,7 @@ import {
   buildSupportPendingObjectKey,
   createSupportUploadIntent,
   verifySupportUploadedObjects,
+  validateSupportUploadStreamRequest,
   validateSupportUploadedObject
 } from "./directUpload";
 
@@ -37,21 +38,15 @@ describe("support direct uploads", () => {
   });
 
   it("creates a short-lived signed upload intent for an API-generated key", async () => {
-    const result = await createSupportUploadIntent({
+    const result = createSupportUploadIntent({
       userId: me,
       input: { fileName: "clip.mp4", contentType: "video/mp4", sizeBytes: 1024 },
       uploadToken: token,
-      now: new Date("2026-07-27T10:00:00Z"),
-      createUploadUrl: async ({ key, contentType, expiresInSeconds }) => ({
-        uploadUrl: `https://s3.example/${key}`,
-        key,
-        expiresAt: new Date("2026-07-27T10:10:00Z"),
-        observed: { contentType, expiresInSeconds }
-      })
+      now: new Date("2026-07-27T10:00:00Z")
     });
 
     expect(result).toEqual({
-      uploadUrl: `https://s3.example/support/pending/${me}/2026-07-27/${token}-clip.mp4`,
+      uploadUrl: `/support/uploads/${token}?objectKey=support%2Fpending%2F${me}%2F2026-07-27%2F${token}-clip.mp4&fileName=clip.mp4&contentType=video%2Fmp4&sizeBytes=1024&expiresAt=2026-07-27T10%3A10%3A00.000Z`,
       objectKey: `support/pending/${me}/2026-07-27/${token}-clip.mp4`,
       uploadToken: token,
       contentType: "video/mp4",
@@ -70,5 +65,17 @@ describe("support direct uploads", () => {
       getMetadata: async () => ({ key: objectKey, contentType: "video/mp4", sizeBytes: 1024 }),
       isConsumed: async () => true
     })).rejects.toThrow("support_object_already_consumed");
+  });
+
+  it("accepts only an owned stream with the declared length and type", () => {
+    const objectKey = `support/pending/${me}/2026-07-27/${token}-clip.mp4`;
+    const uploaded = supportUploadedObjectSchema.parse({ objectKey, uploadToken: token, fileName: "clip.mp4", contentType: "video/mp4", sizeBytes: 1024 });
+
+    const base = { uploaded, userId: me, contentLength: 1024, contentType: "video/mp4", hasBody: true, expiresAt: new Date("2026-07-27T10:10:00Z"), now: new Date("2026-07-27T10:05:00Z") };
+    expect(validateSupportUploadStreamRequest(base)).toEqual({ ok: true });
+    expect(validateSupportUploadStreamRequest({ ...base, contentLength: 2048 })).toEqual({ ok: false, error: "content_length_mismatch" });
+    expect(validateSupportUploadStreamRequest({ ...base, contentType: "application/octet-stream" })).toEqual({ ok: false, error: "content_type_mismatch" });
+    expect(validateSupportUploadStreamRequest({ ...base, userId: "33333333-3333-4333-8333-333333333333" })).toEqual({ ok: false, error: "foreign_object" });
+    expect(validateSupportUploadStreamRequest({ ...base, now: new Date("2026-07-27T10:10:01Z") })).toEqual({ ok: false, error: "expired" });
   });
 });

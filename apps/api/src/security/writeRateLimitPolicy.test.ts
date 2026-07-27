@@ -6,5 +6,6 @@ describe("product write rate limiting policy", () => {
     expect(getWriteRateLimitPolicy("GET", "/community/topics/a/messages")).toBeNull();
     expect(getWriteRateLimitPolicy("POST", "/community/topics/a/messages")).toEqual({ scope: "community", limit: 60, windowMs: 60_000 });
     expect(getWriteRateLimitPolicy("POST", "/support/tickets/a/messages")).toEqual({ scope: "support", limit: 30, windowMs: 60_000 });
+    expect(getWriteRateLimitPolicy("PUT", "/support/uploads/token")).toEqual({ scope: "support", limit: 30, windowMs: 60_000 });
   });
 });

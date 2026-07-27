@@ -77,7 +77,10 @@ import type {
   AdminSupportResponse,
   AdminPermission,
   SupportTicketMutationResponse,
-  SupportUnreadResponse
+  SupportUnreadResponse,
+  SupportUploadIntent,
+  SupportUploadIntentResponse,
+  SupportUploadedObject
 } from "@club/shared";
 import { getCommunityVoiceUploadFileName } from "../features/community/voiceUpload";
 import { api, apiUrl, getApiRequestHeaders, previewModeStorageKey } from "./http";
@@ -489,14 +492,18 @@ export function getSupportUnreadCount() {
   return api<SupportUnreadResponse>("/support/unread");
 }
 
-export function createSupportTicket(payload: FormData) {
+export function createSupportUploadIntent(payload: SupportUploadIntent) {
+  return api<SupportUploadIntentResponse>("/support/uploads", { method: "POST", body: payload });
+}
+
+export function createSupportTicket(payload: { topic: string; customTopic: string; message: string; attachments: SupportUploadedObject[] }) {
   return api<SupportTicketMutationResponse>("/support/tickets", {
     method: "POST",
     body: payload
   });
 }
 
-export function createSupportTicketMessage(id: string, payload: FormData) {
+export function createSupportTicketMessage(id: string, payload: { message: string; attachments: SupportUploadedObject[] }) {
   return api<SupportTicketMutationResponse>(`/support/tickets/${id}/messages`, {
     method: "POST",
     body: payload
@@ -519,14 +526,14 @@ export function getAdminSupportTickets() {
   return api<AdminSupportResponse>("/support/admin/tickets");
 }
 
-export function replyAdminSupportTicket(id: string, payload: FormData) {
+export function replyAdminSupportTicket(id: string, payload: { message: string; attachments: SupportUploadedObject[] }) {
   return api<SupportTicketMutationResponse>(`/support/admin/tickets/${id}/replies`, {
     method: "POST",
     body: payload
   });
 }
 
-export function createAdminClientSupportTicket(telegramId: string, payload: FormData) {
+export function createAdminClientSupportTicket(telegramId: string, payload: { message: string; attachments: SupportUploadedObject[] }) {
   return api<SupportTicketMutationResponse>(`/support/admin/users/${telegramId}/tickets`, {
     method: "POST",
     body: payload

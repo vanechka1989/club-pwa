@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, inArray, isNotNull, lte, ne } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
 import { z } from "zod";
-import { supportUploadedObjectsSchema, supportUploadIntentSchema, type SupportUploadedObject } from "@club/shared";
+import { supportUploadedObjectSchema, supportUploadedObjectsSchema, supportUploadIntentSchema, type SupportUploadedObject } from "@club/shared";
 import { recordAdminAction } from "../admin/actionLog";
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
@@ -12,11 +13,11 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
 import { createAppNotification } from "../notifications/create";
-import { createObjectUploadUrl, deleteObject, getObjectMetadata, getObjectReadUrl } from "../storage/s3";
+import { deleteObject, getObjectMetadata, getObjectReadUrl, mirrorObjectToReserve, uploadObjectStream } from "../storage/s3";
 import {
   getSupportAttachmentExpiresAt
 } from "../support/mediaUpload";
-import { createSupportUploadIntent, verifySupportUploadedObjects } from "../support/directUpload";
+import { createSupportUploadIntent, validateSupportUploadStreamRequest, verifySupportUploadedObjects } from "../support/directUpload";
 import { selectSupportAdminTelegramIds } from "../support/adminNotificationRecipients";
 import { getSupportUnreadCount } from "../support/unreadCount";
 
@@ -333,15 +334,58 @@ export const supportRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     try {
-      return c.json(await createSupportUploadIntent({
+      return c.json(createSupportUploadIntent({
         userId: c.get("userId"),
         input: body.data,
-        uploadToken: randomUUID(),
-        createUploadUrl: createObjectUploadUrl
+        uploadToken: randomUUID()
       }));
     } catch (error) {
       logger.warn({ error, userId: c.get("userId") }, "Unable to create support upload intent");
       return c.json({ error: "Не удалось подготовить загрузку файла." }, 503);
+    }
+  })
+  .put("/uploads/:uploadToken", async (c) => {
+    const uploaded = supportUploadedObjectSchema.safeParse({
+      uploadToken: c.req.param("uploadToken"),
+      objectKey: c.req.query("objectKey"),
+      fileName: c.req.query("fileName"),
+      contentType: c.req.query("contentType"),
+      sizeBytes: Number(c.req.query("sizeBytes"))
+    });
+    const expiresAt = z.coerce.date().safeParse(c.req.query("expiresAt"));
+    if (!uploaded.success || !expiresAt.success) {
+      return c.json({ error: "Некорректные параметры загрузки." }, 400);
+    }
+
+    const rawLength = Number(c.req.header("content-length"));
+    const validation = validateSupportUploadStreamRequest({
+      uploaded: uploaded.data,
+      userId: c.get("userId"),
+      contentLength: Number.isSafeInteger(rawLength) ? rawLength : null,
+      contentType: c.req.header("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "",
+      hasBody: Boolean(c.req.raw.body),
+      expiresAt: expiresAt.data
+    });
+    if (!validation.ok) {
+      const status = validation.error === "content_length_mismatch" ? 413 : 400;
+      return c.json({ error: "Файл не прошёл проверку загрузки." }, status);
+    }
+
+    try {
+      const body = Readable.fromWeb(c.req.raw.body as never);
+      await uploadObjectStream({
+        key: uploaded.data.objectKey,
+        body,
+        contentType: uploaded.data.contentType,
+        sizeBytes: uploaded.data.sizeBytes
+      });
+      void mirrorObjectToReserve(uploaded.data.objectKey, uploaded.data.contentType).catch((error) => {
+        logger.warn({ error, objectKey: uploaded.data.objectKey }, "Unable to mirror support upload to reserve S3");
+      });
+      return c.json({ ok: true });
+    } catch (error) {
+      logger.warn({ error, userId: c.get("userId"), objectKey: uploaded.data.objectKey }, "Unable to stream support upload to S3");
+      return c.json({ error: "Хранилище временно не приняло файл." }, 503);
     }
   })
   .post("/tickets", async (c) => {

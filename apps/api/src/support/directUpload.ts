@@ -76,32 +76,32 @@ export function validateSupportUploadedObject({
   };
 }
 
-export async function createSupportUploadIntent({
+export function createSupportUploadIntent({
   userId,
   input,
   uploadToken,
-  now = new Date(),
-  createUploadUrl
+  now = new Date()
 }: {
   userId: string;
   input: SupportUploadIntent;
   uploadToken: string;
   now?: Date;
-  createUploadUrl: (input: { key: string; contentType: string; expiresInSeconds: number }) => Promise<{
-    uploadUrl: string;
-    key: string;
-    expiresAt: Date;
-  }>;
 }) {
   const objectKey = buildSupportPendingObjectKey({ userId, uploadToken, fileName: input.fileName, now });
-  const signed = await createUploadUrl({ key: objectKey, contentType: input.contentType, expiresInSeconds: 600 });
+  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
+  const uploadUrl = new URL(`/support/uploads/${uploadToken}`, "http://internal");
+  uploadUrl.searchParams.set("objectKey", objectKey);
+  uploadUrl.searchParams.set("fileName", input.fileName);
+  uploadUrl.searchParams.set("contentType", input.contentType);
+  uploadUrl.searchParams.set("sizeBytes", String(input.sizeBytes));
+  uploadUrl.searchParams.set("expiresAt", expiresAt.toISOString());
   return {
-    uploadUrl: signed.uploadUrl,
-    objectKey: signed.key,
+    uploadUrl: `${uploadUrl.pathname}${uploadUrl.search}`,
+    objectKey,
     uploadToken,
     contentType: input.contentType,
     sizeBytes: input.sizeBytes,
-    expiresAt: signed.expiresAt.toISOString()
+    expiresAt: expiresAt.toISOString()
   };
 }
 
@@ -128,4 +128,34 @@ export async function verifySupportUploadedObjects({
     verified.push(validation.value);
   }
   return verified;
+}
+
+export function validateSupportUploadStreamRequest({
+  uploaded,
+  userId,
+  contentLength,
+  contentType,
+  hasBody,
+  expiresAt,
+  now = new Date()
+}: {
+  uploaded: SupportUploadedObject;
+  userId: string;
+  contentLength: number | null;
+  contentType: string;
+  hasBody: boolean;
+  expiresAt: Date;
+  now?: Date;
+}): { ok: true } | { ok: false; error: "foreign_object" | "missing_body" | "content_length_mismatch" | "content_type_mismatch" | "expired" } {
+  const ownership = validateSupportUploadedObject({
+    uploaded,
+    userId,
+    metadata: { key: uploaded.objectKey, contentType: uploaded.contentType, sizeBytes: uploaded.sizeBytes }
+  });
+  if (!ownership.ok) return { ok: false, error: "foreign_object" };
+  if (expiresAt.getTime() < now.getTime()) return { ok: false, error: "expired" };
+  if (!hasBody) return { ok: false, error: "missing_body" };
+  if (contentLength !== uploaded.sizeBytes) return { ok: false, error: "content_length_mismatch" };
+  if (contentType !== uploaded.contentType) return { ok: false, error: "content_type_mismatch" };
+  return { ok: true };
 }

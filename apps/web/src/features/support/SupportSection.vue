@@ -40,6 +40,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import { useImageViewerGestures } from "@/features/community/useImageViewerGestures";
+import { uploadSupportAttachments } from "@/features/support/directUpload";
 
 const emit = defineEmits<{
   "unread-change": [count: number];
@@ -504,13 +505,13 @@ async function submitTicket() {
   try {
     await dismissActiveTextFieldBeforeOperation();
     sendingTicket.value = true;
-    const form = new FormData();
-    form.set("topic", topic.value);
-    form.set("customTopic", customTopic.value);
-    form.set("message", text);
-    attachments.value.forEach((file) => form.append("attachments", file));
-
-    const response = await createSupportTicket(form);
+    const uploadedAttachments = await uploadSupportAttachments(attachments.value);
+    const response = await createSupportTicket({
+      topic: topic.value,
+      customTopic: customTopic.value,
+      message: text,
+      attachments: uploadedAttachments
+    });
     replaceTicket(response.ticket);
     emit("unread-change", response.unreadCount);
     resetCustomerForm();
@@ -540,11 +541,8 @@ async function submitReply() {
   try {
     await dismissActiveTextFieldBeforeOperation();
     sendingReply.value = true;
-    const form = new FormData();
-    form.set("message", text);
-    replyAttachments.value.forEach((file) => form.append("attachments", file));
-
-    const response = await replyAdminSupportTicket(selectedTicket.value.id, form);
+    const uploadedAttachments = await uploadSupportAttachments(replyAttachments.value);
+    const response = await replyAdminSupportTicket(selectedTicket.value.id, { message: text, attachments: uploadedAttachments });
     replaceTicket(response.ticket);
     selectedTicketId.value = response.ticket.id;
     replyMessage.value = "";
@@ -576,11 +574,8 @@ async function submitFollowUp() {
   try {
     await dismissActiveTextFieldBeforeOperation();
     sendingFollowUp.value = true;
-    const form = new FormData();
-    form.set("message", text);
-    followUpAttachments.value.forEach((file) => form.append("attachments", file));
-
-    const response = await createSupportTicketMessage(selectedTicket.value.id, form);
+    const uploadedAttachments = await uploadSupportAttachments(followUpAttachments.value);
+    const response = await createSupportTicketMessage(selectedTicket.value.id, { message: text, attachments: uploadedAttachments });
     replaceTicket(response.ticket);
     selectedTicketId.value = response.ticket.id;
     followUpMessage.value = "";
