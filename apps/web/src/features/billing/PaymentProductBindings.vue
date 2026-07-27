@@ -8,12 +8,14 @@ import type {
 } from "@club/shared";
 import { computed, watch } from "vue";
 import { formatPaymentMoney } from "./paymentMoney";
+import { lavaCatalogAccessDays, lavaCatalogPricesForTariff } from "./paymentProductForm";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: PaymentProductProviderBinding[];
   kind: PaymentProductKind;
+  accessDays?: number;
   lavaCatalog: PaymentProviderCatalogItem[];
-}>();
+}>(), { accessDays: 30 });
 const emit = defineEmits<{
   "update:modelValue": [bindings: PaymentProductProviderBinding[]];
   "lava-item-selected": [item: PaymentProviderCatalogItem];
@@ -27,6 +29,13 @@ const availableLavaCatalog = computed(() => {
     !item.isStale &&
     (item.isSelectable || item.externalOfferId === selectedOfferId)
   );
+});
+const selectedLavaCatalogItem = computed(() => {
+  const current = binding("lava");
+  return props.lavaCatalog.find((item) =>
+    item.externalOfferId === current.externalOfferId &&
+    (!current.externalProductId || item.externalProductId === current.externalProductId)
+  ) ?? null;
 });
 
 function binding(provider: PaymentProviderCode) {
@@ -69,7 +78,8 @@ watch(
 
 function chooseLava(value: string) {
   const item = props.lavaCatalog.find((entry) => entry.id === value);
-  const fixedPrices = (item?.prices ?? [])
+  const accessDays = item ? lavaCatalogAccessDays(item.periodicity ?? null) ?? props.accessDays : props.accessDays;
+  const fixedPrices = (item ? lavaCatalogPricesForTariff(item, item.kind, accessDays) : [])
     .filter((price): price is typeof price & { amountMinor: number } => price.amountMinor !== null)
     .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor, isEnabled: true }));
   update("lava", {
@@ -81,9 +91,10 @@ function chooseLava(value: string) {
 }
 
 const lavaPriceOptions = computed(() => {
-  const selected = props.lavaCatalog.find((entry) => entry.externalOfferId === binding("lava").externalOfferId);
-  return selected?.prices?.length
-    ? selected.prices.map((price) => ({ currency: price.currency, amountMinor: price.amountMinor }))
+  const selected = selectedLavaCatalogItem.value;
+  return selected
+    ? lavaCatalogPricesForTariff(selected, props.kind, props.accessDays)
+      .map((price) => ({ currency: price.currency, amountMinor: price.amountMinor }))
     : (["RUB", "USD", "EUR"] as PaymentCurrency[]).map((currency) => ({ currency, amountMinor: null }));
 });
 
@@ -148,6 +159,52 @@ function formatCatalogPrice(price: { currency: PaymentCurrency; amountMinor: num
   if (price.amountMinor === null) return `${price.currency}: цена в Lava`;
   return formatPaymentMoney({ currency: price.currency, amountMinor: price.amountMinor });
 }
+
+function catalogPricesForOption(item: PaymentProviderCatalogItem) {
+  const accessDays = lavaCatalogAccessDays(item.periodicity ?? null) ?? props.accessDays;
+  return lavaCatalogPricesForTariff(item, item.kind, accessDays);
+}
+
+function sameLavaPrices(
+  current: Array<{ currency: PaymentCurrency; amountMinor: number; isEnabled: boolean }>,
+  next: Array<{ currency: PaymentCurrency; amountMinor: number; isEnabled: boolean }>
+) {
+  return current.length === next.length && current.every((price, index) => {
+    const candidate = next[index];
+    return candidate?.currency === price.currency &&
+      candidate.amountMinor === price.amountMinor &&
+      candidate.isEnabled === price.isEnabled;
+  });
+}
+
+watch(
+  () => {
+    const selected = selectedLavaCatalogItem.value;
+    const prices = selected ? lavaCatalogPricesForTariff(selected, props.kind, props.accessDays) : [];
+    return [selected?.id, selected?.syncedAt, props.kind, props.accessDays, JSON.stringify(prices)] as const;
+  },
+  () => {
+    const selected = selectedLavaCatalogItem.value;
+    if (!selected) return;
+    const catalogPrices = lavaCatalogPricesForTariff(selected, props.kind, props.accessDays);
+    if (!catalogPrices.length) return;
+    const current = lavaPrices();
+    const hasCurrentPrices = current.length > 0;
+    const next = catalogPrices.flatMap((price) => {
+      const existing = current.find((entry) => entry.currency === price.currency);
+      const amountMinor = price.amountMinor ?? existing?.amountMinor ?? null;
+      if (!amountMinor) return [];
+      return [{
+        currency: price.currency,
+        amountMinor,
+        isEnabled: existing?.isEnabled ?? !hasCurrentPrices
+      }];
+    });
+    if (next.length && !next.some((price) => price.isEnabled)) next[0] = { ...next[0]!, isEnabled: true };
+    if (!sameLavaPrices(current, next)) updateLavaPrices(next);
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -195,7 +252,7 @@ function formatCatalogPrice(price: { currency: PaymentCurrency; amountMinor: num
           >
             <option value="">Выберите товар</option>
             <option v-for="item in availableLavaCatalog" :key="item.id" :value="item.id">
-              {{ item.title }}<template v-if="item.prices?.length"> · {{ item.prices.map(formatCatalogPrice).join(" · ") }}</template>
+              {{ item.title }}<template v-if="catalogPricesForOption(item).length"> · {{ catalogPricesForOption(item).map(formatCatalogPrice).join(" · ") }}</template>
               <template v-else-if="item.amountRub !== null"> · {{ formatPaymentMoney({ currency: 'RUB', amountMinor: item.amountRub * 100 }) }}</template>
               · {{ item.kind === "recurrent" ? "Подписка" : "Разовая оплата" }}
             </option>
@@ -204,6 +261,9 @@ function formatCatalogPrice(price: { currency: PaymentCurrency; amountMinor: num
         <fieldset class="product-binding__currencies">
           <legend>Валюты для оплаты</legend>
           <p>Выберите хотя бы одну валюту. Фиксированные цены Lava изменить нельзя.</p>
+          <p v-if="selectedLavaCatalogItem && !lavaPriceOptions.length" class="product-binding__currency-empty">
+            Для выбранного периода в Lava нет доступных цен.
+          </p>
           <div v-for="option in lavaPriceOptions" :key="option.currency" class="product-binding__currency-row">
             <label :for="`lava-price-${option.currency}`" class="product-binding__currency-toggle">
               <input
@@ -214,7 +274,7 @@ function formatCatalogPrice(price: { currency: PaymentCurrency; amountMinor: num
                 :disabled="amountMinorFor(option.currency, option.amountMinor) === null"
                 @change="toggleLavaPrice(option.currency, option.amountMinor, ($event.target as HTMLInputElement).checked)"
               />
-              <span>{{ option.currency }}</span>
+              <span class="product-binding__currency-code">{{ option.currency }}</span>
             </label>
             <output v-if="option.amountMinor !== null">{{ formatPaymentMoney({ currency: option.currency, amountMinor: option.amountMinor }) }}</output>
             <label v-else :for="`lava-price-amount-${option.currency}`" class="product-binding__currency-amount">
@@ -243,5 +303,5 @@ function formatCatalogPrice(price: { currency: PaymentCurrency; amountMinor: num
 </template>
 
 <style scoped>
-.product-bindings{display:grid;gap:12px;min-width:0;margin:0;padding:0;border:0}.product-bindings>legend{margin-bottom:8px;color:var(--muted);font-size:.875rem;font-weight:700}.product-binding{display:grid;gap:12px;min-width:0;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--field)}.product-binding__toggle{display:flex!important;align-items:center;justify-content:space-between;gap:12px}.product-binding__toggle>span{display:grid;gap:3px;min-width:0}.product-binding__toggle small{color:var(--muted)}.product-binding__toggle input{width:22px;height:22px;flex:none}.product-binding label{display:grid;gap:7px;color:var(--muted);font-size:.82rem;font-weight:700}.product-binding input:not([type=radio]),.product-binding select{width:100%;min-width:0;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);font:inherit}.product-binding__manual{display:grid;gap:10px;min-width:0}.product-binding__manual summary{min-height:44px;padding:12px 0;color:var(--accent);font-weight:750;cursor:pointer}.product-binding__manual[open] summary{margin-bottom:8px}.product-binding__currencies{display:grid;gap:8px;min-width:0;margin:0;padding:12px;border:1px solid var(--line);border-radius:14px}.product-binding__currencies legend{padding:0 4px;color:var(--text);font-size:.82rem;font-weight:800}.product-binding__currencies>p{margin:0;color:var(--muted);font-size:.72rem;line-height:1.4}.product-binding__currency-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(5.5rem,auto);align-items:center;gap:10px;min-width:0;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}.product-binding__currency-toggle{display:flex!important;align-items:center;gap:9px;min-height:44px;color:var(--text)!important}.product-binding__currency-toggle input{width:22px;height:22px;margin:0}.product-binding__currency-row output{min-width:0;color:var(--text);font-size:.86rem;font-weight:750;text-align:right;white-space:nowrap}.product-binding__currency-amount input{min-height:44px!important;text-align:right}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:340px){.product-binding__currency-row{grid-template-columns:1fr}.product-binding__currency-row output{text-align:left}.product-binding__currency-amount input{text-align:left}}
+.product-bindings{display:grid;gap:12px;min-width:0;margin:0;padding:0;border:0}.product-bindings>legend{margin-bottom:8px;color:var(--muted);font-size:.875rem;font-weight:700}.product-binding{display:grid;gap:12px;min-width:0;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--field)}.product-binding__toggle{display:flex!important;align-items:center;justify-content:space-between;gap:12px}.product-binding__toggle>span{display:grid;gap:3px;min-width:0}.product-binding__toggle small{color:var(--muted)}.product-binding__toggle input{width:22px;height:22px;flex:none}.product-binding label{display:grid;gap:7px;color:var(--muted);font-size:.82rem;font-weight:700}.product-binding input:not([type=radio]):not([type=checkbox]),.product-binding select{width:100%;min-width:0;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);font:inherit}.product-binding__manual{display:grid;gap:10px;min-width:0}.product-binding__manual summary{min-height:44px;padding:12px 0;color:var(--accent);font-weight:750;cursor:pointer}.product-binding__manual[open] summary{margin-bottom:8px}.product-binding__currencies{display:grid;gap:8px;min-width:0;margin:0;padding:12px;border:1px solid var(--line);border-radius:14px}.product-binding__currencies legend{padding:0 4px;color:var(--text);font-size:.82rem;font-weight:800}.product-binding__currencies>p{margin:0;color:var(--muted);font-size:.72rem;line-height:1.4}.product-binding__currency-empty{padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--warning) 12%,transparent);color:var(--warning-text)!important}.product-binding__currency-row{display:grid;grid-template-columns:minmax(5.5rem,1fr) minmax(6rem,1.25fr);align-items:center;gap:10px;min-width:0;min-height:48px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--line) 72%,transparent);border-radius:12px;background:color-mix(in srgb,var(--surface) 82%,transparent)}.product-binding__currency-toggle{display:flex!important;align-items:center;gap:9px;min-width:0;min-height:32px;color:var(--text)!important}.product-binding__currency-toggle input{width:20px;height:20px;min-height:20px;flex:0 0 20px;margin:0;padding:0;accent-color:var(--accent)}.product-binding__currency-code{white-space:nowrap;font-size:.86rem;font-weight:800}.product-binding__currency-row output{min-width:0;color:var(--text);font-size:.86rem;font-weight:750;text-align:right;white-space:nowrap}.product-binding__currency-amount input{min-height:40px!important;text-align:right}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>

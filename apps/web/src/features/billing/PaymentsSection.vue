@@ -1267,6 +1267,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
             <PaymentProductBindings
               v-model="productForm.bindings"
               :kind="productForm.kind"
+              :access-days="productForm.accessDays"
               :lava-catalog="lavaCatalog"
               @lava-item-selected="handleLavaItemSelected"
             />
