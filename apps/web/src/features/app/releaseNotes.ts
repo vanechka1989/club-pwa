@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "A dedicated screen for every error",
+  title: "Large files in support",
   items: [
-    "Every incident now opens on its own full-screen task page with a direct URL.",
-    "Status actions, report copying and technical events are collected in one focused workspace.",
-    "Push and email alerts open the exact error while legacy links remain supported."
+    "Support now accepts photos and videos up to 50 MB per file with server-side validation.",
+    "The avatar limit is now 10 MB and is enforced consistently by the app and server.",
+    "Large attachments stream without filling server memory, while large lesson uploads remain on their existing path."
   ]
 };
 

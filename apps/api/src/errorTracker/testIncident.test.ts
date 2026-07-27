@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { currentRelease } from "@club/shared";
 import { createErrorTrackerTestIncident } from "./testIncident";
 
 describe("error tracker test incident", () => {
@@ -26,7 +27,7 @@ describe("error tracker test incident", () => {
       method: "POST",
       stack: "error-tracker-test:52a06ed4-9c0f-4b31-a9c0-b63d31b858fe",
       detail: { test: true, initiatedBy: "owner" },
-      release: "5.76",
+      release: currentRelease.version,
       platform: "admin-test",
       displayMode: "pwa",
       online: true,
