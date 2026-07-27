@@ -43,7 +43,7 @@ describe("compact admin statistics and clients", () => {
     expect(source).toContain('class="admin-client-list-name-line"');
     expect(source).toContain("getAdminClientContact(user)");
     expect(source).toContain("formatAdminClientLastLogin");
-    expect(styles).toMatch(/\.admin-list-item\.admin-client-list-row\s*\{[^}]*min-height:\s*64px;/s);
+    expect(styles).toMatch(/\.admin-list-item\.admin-client-list-row\s*\{[^}]*min-height:\s*72px;/s);
     expect(styles).toContain(".admin-access-badge-open");
     expect(styles).toContain(".admin-access-badge-closed");
   });
@@ -56,6 +56,18 @@ describe("compact admin statistics and clients", () => {
     expect(source).toContain("admin-client-last-visit");
     expect(source).toContain("admin-client-status-rail");
     expect(source).toContain("formatAdminClientLastLogin");
+  });
+
+  it("keeps activity-first client cards readable down to 320 px", () => {
+    expect(styles).toMatch(/\.admin-list-item\.admin-client-list-row\s*\{[^}]*grid-template-columns:\s*4px 40px minmax\(0, 1fr\) minmax\(88px, auto\) 14px;/s);
+    expect(styles).toContain(".admin-client-status-rail");
+    expect(styles).toContain(".admin-client-last-visit");
+    expect(styles).toContain(".admin-client-list-row-open");
+    expect(styles).toContain(".admin-client-list-row-restricted");
+    expect(styles).toContain(".admin-client-list-row-closed");
+    expect(styles).toMatch(/@media \(max-width: 359px\)[\s\S]*\.admin-client-last-visit/);
+    expect(styles).toMatch(/\.admin-list-item\.admin-client-list-row:hover\s*\{[^}]*var\(--accent\)/s);
+    expect(styles).toMatch(/\.admin-list-item:focus-visible\s*\{[^}]*outline:[^}]*var\(--accent\)/s);
   });
 
   it("balances the separate client screen between a summary and access controls", () => {
