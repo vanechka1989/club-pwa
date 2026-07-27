@@ -1,6 +1,6 @@
 import { createPinia } from "pinia";
 import { createApp } from "vue";
-import { currentRelease } from "@club/shared";
+import { currentRelease } from "@club/shared/release";
 import App from "./App.vue";
 import { reportClientError } from "./api/startup";
 import { getOrCreateDeviceInstallationId } from "./features/app/deviceLayout";

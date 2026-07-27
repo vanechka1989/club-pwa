@@ -109,7 +109,7 @@ onMounted(load);
     <section class="ops-card"><div><h4>База данных</h4><p>Резервная копия и восстановление PostgreSQL.</p></div><button class="ops-button" type="button" :disabled="loading" @click="downloadBackup">Скачать резервную копию</button><div class="restore"><input type="file" accept=".dump,application/octet-stream" @change="selectRestoreFile"><input v-model.trim="restoreConfirmation" placeholder="Введите ВОССТАНОВИТЬ"><button class="danger-action" type="button" :disabled="!canRestore" @click="restoreBackup">Восстановить</button></div></section>
     <p v-if="message" class="ops-note">{{ message }}</p>
     <section class="ops-card"><AdminErrorTracker /></section>
-    <details class="ops-card"><summary>Исходный журнал API</summary><p>{{ status?.serverErrorCount ?? errors.length }} последних записей для совместимости.</p><div class="error-list"><article v-for="entry in errors" :key="entry.id"><strong>{{ entry.title }}</strong><span>{{ entry.method || "CLIENT" }} {{ entry.path || "—" }} · {{ formatDate(entry.createdAt) }}</span><small>{{ entry.detail }}</small></article><p v-if="!errors.length">Ошибок пока нет.</p></div></details>
+    <details class="ops-card"><summary>Ошибки API — исходный журнал</summary><p>{{ status?.serverErrorCount ?? errors.length }} записей сохраняются между перезапусками для совместимости.</p><div class="error-list"><article v-for="entry in errors" :key="entry.id"><strong>{{ entry.title }}</strong><span>{{ entry.method || "CLIENT" }} {{ entry.path || "—" }} · {{ formatDate(entry.createdAt) }}</span><small>{{ entry.detail }}</small></article><p v-if="!errors.length">Ошибок пока нет.</p></div></details>
   </section>
 </template>
 

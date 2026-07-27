@@ -1,15 +1,5 @@
 import { z } from "zod";
-
-export const currentRelease = {
-  version: "5.73",
-  updatedAt: "27.07.2026 12:25",
-  title: "Центр ошибок клиентов",
-  items: [
-    "Сбои у клиентов и API автоматически очищаются от личных данных, объединяются и показываются разработчику одним списком.",
-    "Критические ошибки отправляют независимые PWA push и email-уведомления без повторного спама.",
-    "Владелец может взять ошибку в работу, отметить решённой или игнорировать и настроить отдельную почту получателя."
-  ]
-} as const;
+export { currentRelease } from "./release";
 
 export const displayNamePattern = /^[\p{L}\p{N}_-]{3,20}$/u;
 export function normalizeDisplayName(value: string) {
