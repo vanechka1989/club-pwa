@@ -1441,6 +1441,92 @@ export const adminServerErrorsResponseSchema = z.object({
 });
 export type AdminServerErrorsResponse = z.infer<typeof adminServerErrorsResponseSchema>;
 
+export const errorTrackerSourceSchema = z.enum(["client", "api", "background-job", "payment-webhook"]);
+export const errorTrackerSeveritySchema = z.enum(["warning", "error", "critical"]);
+export const errorTrackerStatusSchema = z.enum(["new", "acknowledged", "resolved", "ignored"]);
+export type ErrorTrackerSource = z.infer<typeof errorTrackerSourceSchema>;
+export type ErrorTrackerSeverity = z.infer<typeof errorTrackerSeveritySchema>;
+export type ErrorTrackerStatus = z.infer<typeof errorTrackerStatusSchema>;
+
+export const adminErrorGroupSchema = z.object({
+  id: z.string().uuid(),
+  fingerprint: z.string().length(64),
+  title: z.string(),
+  source: errorTrackerSourceSchema,
+  kind: z.string(),
+  severity: errorTrackerSeveritySchema,
+  status: errorTrackerStatusSchema,
+  route: z.string().nullable(),
+  firstRelease: z.string().nullable(),
+  latestRelease: z.string().nullable(),
+  totalCount: z.number().int().nonnegative(),
+  affectedUsers: z.number().int().nonnegative(),
+  affectedDevices: z.number().int().nonnegative(),
+  firstSeenAt: z.string().datetime(),
+  lastSeenAt: z.string().datetime(),
+  lastNotifiedAt: z.string().datetime().nullable(),
+  resolvedAt: z.string().datetime().nullable(),
+  mutedUntil: z.string().datetime().nullable()
+});
+export type AdminErrorGroup = z.infer<typeof adminErrorGroupSchema>;
+
+export const adminErrorOccurrenceSchema = z.object({
+  id: z.string().uuid(),
+  message: z.string(),
+  stack: z.string().nullable(),
+  route: z.string().nullable(),
+  method: z.string().nullable(),
+  httpStatus: z.number().int().nullable(),
+  release: z.string().nullable(),
+  userId: z.string().uuid().nullable(),
+  installationId: z.string().nullable(),
+  platform: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  context: z.record(z.unknown()),
+  occurredAt: z.string().datetime()
+});
+export type AdminErrorOccurrence = z.infer<typeof adminErrorOccurrenceSchema>;
+
+export const adminErrorDeliverySchema = z.object({
+  id: z.string().uuid(),
+  channel: z.enum(["push", "email"]),
+  status: z.enum(["pending", "sent", "failed", "skipped"]),
+  attemptCount: z.number().int().nonnegative(),
+  lastError: z.string().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+export type AdminErrorDelivery = z.infer<typeof adminErrorDeliverySchema>;
+
+export const adminErrorTrackerSummarySchema = z.object({
+  newCritical: z.number().int().nonnegative(),
+  activeGroups: z.number().int().nonnegative(),
+  affectedUsers24h: z.number().int().nonnegative(),
+  occurrences24h: z.number().int().nonnegative()
+});
+export type AdminErrorTrackerSummary = z.infer<typeof adminErrorTrackerSummarySchema>;
+
+export const adminErrorTrackerListResponseSchema = z.object({
+  groups: z.array(adminErrorGroupSchema),
+  total: z.number().int().nonnegative(),
+  nextCursor: z.string().nullable()
+});
+export type AdminErrorTrackerListResponse = z.infer<typeof adminErrorTrackerListResponseSchema>;
+
+export const adminErrorTrackerDetailResponseSchema = z.object({
+  group: adminErrorGroupSchema,
+  occurrences: z.array(adminErrorOccurrenceSchema),
+  deliveries: z.array(adminErrorDeliverySchema)
+});
+export type AdminErrorTrackerDetailResponse = z.infer<typeof adminErrorTrackerDetailResponseSchema>;
+
+export const adminErrorTrackerSettingsSchema = z.object({
+  email: z.string().email().nullable(),
+  emailEnabled: z.boolean(),
+  pushEnabled: z.boolean()
+});
+export type AdminErrorTrackerSettings = z.infer<typeof adminErrorTrackerSettingsSchema>;
+
 export const adminServerUsageSchema = z.object({
   usedBytes: z.number().int().nonnegative(),
   totalBytes: z.number().int().nonnegative(),
