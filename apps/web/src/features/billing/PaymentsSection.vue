@@ -54,7 +54,7 @@ import PaymentCurrencyPicker from "./PaymentCurrencyPicker.vue";
 import PaymentProviderSettings from "./PaymentProviderSettings.vue";
 import LavaProviderTabs from "./LavaProviderTabs.vue";
 import LavaCatalogList from "./LavaCatalogList.vue";
-import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
+import { applyLavaCatalogItem, lavaCatalogAccessDays, lavaCatalogPeriodOptions } from "./paymentProductForm";
 import { buildLavaProviderForm } from "./lavaProviderForm";
 import { productCheckoutAction, productCurrencyOptions, serverCurrencyPickerAction } from "./paymentCheckout";
 import { startConfirmedCheckout, startCurrencyChoiceCheckout } from "./checkoutFlow";
@@ -141,7 +141,11 @@ const selectedLavaCatalogItem = computed(() => {
   return offerId ? lavaCatalog.value.find((item) => item.externalOfferId === offerId) ?? null : null;
 });
 const selectedLavaAccessDays = computed(() =>
-  selectedLavaCatalogItem.value ? lavaCatalogAccessDays(selectedLavaCatalogItem.value.periodicity ?? null) : null
+  selectedLavaCatalogItem.value
+    ? lavaCatalogPeriodOptions(selectedLavaCatalogItem.value)
+      .find((period) => period.accessDays === productForm.value.accessDays)?.accessDays
+      ?? lavaCatalogAccessDays(selectedLavaCatalogItem.value.periodicity ?? null)
+    : null
 );
 const selectedProductProvider = computed(() =>
   productForm.value.bindings.find((binding) => binding.enabled)?.provider ?? "prodamus"
@@ -349,6 +353,10 @@ function resetProductForm() {
 
 function handleLavaItemSelected(item: PaymentProviderCatalogItem) {
   Object.assign(productForm.value, applyLavaCatalogItem(productForm.value, item));
+}
+
+function handleLavaPeriodSelected(accessDays: number) {
+  productForm.value.accessDays = accessDays;
 }
 
 function setProductForm(product?: PaymentProduct) {
@@ -1270,6 +1278,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               :access-days="productForm.accessDays"
               :lava-catalog="lavaCatalog"
               @lava-item-selected="handleLavaItemSelected"
+              @lava-period-selected="handleLavaPeriodSelected"
             />
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">Тип</span>

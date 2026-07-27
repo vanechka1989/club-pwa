@@ -8,12 +8,15 @@ type PaymentProductFormBasics = {
   bindings?: PaymentProductProviderBinding[];
 };
 
-const lavaAccessDaysByPeriodicity = new Map<string, number>([
-  ["MONTHLY", 30],
-  ["PERIOD_90_DAYS", 90],
-  ["PERIOD_180_DAYS", 180],
-  ["PERIOD_YEAR", 365]
-]);
+const lavaPeriods = [
+  { periodicity: "MONTHLY", accessDays: 30, label: "1 месяц" },
+  { periodicity: "PERIOD_90_DAYS", accessDays: 90, label: "3 месяца" },
+  { periodicity: "PERIOD_180_DAYS", accessDays: 180, label: "6 месяцев" },
+  { periodicity: "PERIOD_YEAR", accessDays: 365, label: "1 год" }
+] as const;
+const lavaAccessDaysByPeriodicity = new Map<string, number>(
+  lavaPeriods.map(({ periodicity, accessDays }) => [periodicity, accessDays])
+);
 const lavaPeriodicityByAccessDays = new Map<number, string>(
   Array.from(lavaAccessDaysByPeriodicity, ([periodicity, accessDays]) => [accessDays, periodicity])
 );
@@ -25,6 +28,20 @@ export function lavaCatalogAccessDays(periodicity: string | null) {
 export function lavaPeriodicityForTariff(kind: PaymentProductKind, accessDays: number) {
   if (kind === "one_time") return "ONE_TIME";
   return lavaPeriodicityByAccessDays.get(accessDays) ?? null;
+}
+
+export function lavaCatalogPeriodLabel(periodicity: string | null | undefined) {
+  if (!periodicity || periodicity === "ONE_TIME") return "Разовая оплата";
+  return lavaPeriods.find((period) => period.periodicity === periodicity)?.label ?? periodicity;
+}
+
+export function lavaCatalogPeriodOptions(item: PaymentProviderCatalogItem) {
+  if (item.kind !== "recurrent") return [];
+  const available = new Set(
+    (item.prices?.length ? item.prices.map((price) => price.periodicity) : [item.periodicity])
+      .filter((periodicity): periodicity is string => Boolean(periodicity))
+  );
+  return lavaPeriods.filter((period) => available.has(period.periodicity));
 }
 
 export function lavaCatalogPricesForTariff(
@@ -44,7 +61,12 @@ export function applyLavaCatalogItem(
   form: PaymentProductFormBasics,
   item: PaymentProviderCatalogItem
 ): PaymentProductFormBasics {
-  const accessDays = lavaCatalogAccessDays(item.periodicity ?? null) ?? form.accessDays;
+  const periods = lavaCatalogPeriodOptions(item);
+  const accessDays = periods.find((period) => period.accessDays === form.accessDays)?.accessDays
+    ?? periods.find((period) => period.periodicity === item.periodicity)?.accessDays
+    ?? periods[0]?.accessDays
+    ?? lavaCatalogAccessDays(item.periodicity ?? null)
+    ?? form.accessDays;
   const catalogPrices = lavaCatalogPricesForTariff(item, item.kind, accessDays);
   const hasForeignOnlyPrices = Boolean(catalogPrices.length) && !catalogPrices.some((price) => price.currency === "RUB");
   const fixedPrices = catalogPrices

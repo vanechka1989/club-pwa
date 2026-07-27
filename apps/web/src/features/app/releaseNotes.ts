@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable Lava prices and separate support stats",
+  title: "Lava periods and currency checkout",
   items: [
-    "Lava catalog prices are stored and validated separately for every currency and billing period.",
-    "The tariff editor refreshes current amounts while preserving enabled currencies in a compact layout.",
-    "Support metrics now appear as four independent cards."
+    "The Lava tariff editor now offers explicit 1, 3, 6, and 12 month period choices.",
+    "The Lava catalog groups RUB, USD, and EUR prices by billing period.",
+    "Fixed-price one-time and recurrent currency checkout opens correctly."
   ]
 };
 

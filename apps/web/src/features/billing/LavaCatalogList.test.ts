@@ -75,4 +75,35 @@ describe("LavaCatalogList", () => {
       isSelectable: true
     });
   });
+
+  it("groups recurrent prices by their labelled subscription period", () => {
+    render(LavaCatalogList, {
+      props: {
+        items: [{
+          id: "periods",
+          externalProductId: "product-periods",
+          externalOfferId: "offer-periods",
+          title: "Доступ по периодам",
+          kind: "recurrent",
+          amountRub: 100,
+          periodicity: "MONTHLY",
+          prices: [
+            { currency: "RUB", amountMinor: 10000, periodicity: "MONTHLY" },
+            { currency: "USD", amountMinor: 500, periodicity: "MONTHLY" },
+            { currency: "RUB", amountMinor: 60000, periodicity: "PERIOD_180_DAYS" },
+            { currency: "USD", amountMinor: 3000, periodicity: "PERIOD_180_DAYS" }
+          ],
+          isStale: false,
+          isSelectable: true,
+          syncedAt: "2026-07-27T10:00:00.000Z"
+        }],
+        busyId: null
+      }
+    });
+
+    expect(screen.getByText("1 месяц")).toBeTruthy();
+    expect(screen.getByText("6 месяцев")).toBeTruthy();
+    expect(screen.getByText(/100,00.*₽.*5,00.*\$/)).toBeTruthy();
+    expect(screen.getByText(/600,00.*₽.*30,00.*\$/)).toBeTruthy();
+  });
 });

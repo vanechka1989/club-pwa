@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   applyLavaCatalogItem,
   lavaCatalogAccessDays,
+  lavaCatalogPeriodLabel,
+  lavaCatalogPeriodOptions,
   lavaCatalogPricesForTariff,
   lavaPeriodicityForTariff
 } from "./paymentProductForm";
@@ -151,6 +153,58 @@ describe("Lava tariff autofill", () => {
       { currency: "USD", amountMinor: 12000, periodicity: "PERIOD_180_DAYS" }
     ]);
     expect(lavaCatalogPricesForTariff(item, "recurrent", 90)).toEqual([]);
+  });
+
+  it("discovers supported subscription periods in a stable order", () => {
+    const item = {
+      id: "catalog-period-options",
+      externalProductId: "product-period-options",
+      externalOfferId: "offer-period-options",
+      title: "Клуб",
+      kind: "recurrent" as const,
+      amountRub: 100,
+      periodicity: "MONTHLY",
+      prices: [
+        { currency: "USD" as const, amountMinor: 1500, periodicity: "PERIOD_YEAR" },
+        { currency: "RUB" as const, amountMinor: 10000, periodicity: "MONTHLY" },
+        { currency: "USD" as const, amountMinor: 500, periodicity: "MONTHLY" },
+        { currency: "EUR" as const, amountMinor: 900, periodicity: "PERIOD_180_DAYS" },
+        { currency: "RUB" as const, amountMinor: 30000, periodicity: "PERIOD_90_DAYS" },
+        { currency: "RUB" as const, amountMinor: 1, periodicity: "WEEKLY" }
+      ],
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-27T00:00:00.000Z"
+    };
+
+    expect(lavaCatalogPeriodOptions(item)).toEqual([
+      { periodicity: "MONTHLY", accessDays: 30, label: "1 месяц" },
+      { periodicity: "PERIOD_90_DAYS", accessDays: 90, label: "3 месяца" },
+      { periodicity: "PERIOD_180_DAYS", accessDays: 180, label: "6 месяцев" },
+      { periodicity: "PERIOD_YEAR", accessDays: 365, label: "1 год" }
+    ]);
+    expect(lavaCatalogPeriodLabel("ONE_TIME")).toBe("Разовая оплата");
+  });
+
+  it("keeps an available selected period when applying a multi-period offer", () => {
+    const result = applyLavaCatalogItem({ ...form, accessDays: 180 }, {
+      id: "catalog-current-period",
+      externalProductId: "product-current-period",
+      externalOfferId: "offer-current-period",
+      title: "Клуб",
+      kind: "recurrent",
+      amountRub: 100,
+      periodicity: "MONTHLY",
+      prices: [
+        { currency: "RUB", amountMinor: 10000, periodicity: "MONTHLY" },
+        { currency: "RUB", amountMinor: 60000, periodicity: "PERIOD_180_DAYS" }
+      ],
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-27T00:00:00.000Z"
+    });
+
+    expect(result.accessDays).toBe(180);
   });
 
   it("autofills only the selected catalog period prices", () => {

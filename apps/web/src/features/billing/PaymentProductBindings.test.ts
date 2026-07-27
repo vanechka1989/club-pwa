@@ -222,6 +222,43 @@ describe("PaymentProductBindings", () => {
     expect(amounts).not.toEqual(expect.arrayContaining([expect.stringMatching(/1\s?500,00.*₽/)]));
   });
 
+  it("offers every available Lava subscription period and reports the selected one", async () => {
+    const modelValue = [
+      { provider: "prodamus" as const, enabled: false, externalProductId: null, externalOfferId: null, prices: [] },
+      { provider: "lava" as const, enabled: true, externalProductId: "product", externalOfferId: "offer", prices: [
+        { currency: "RUB" as const, amountMinor: 10000, isEnabled: true }
+      ] }
+    ];
+    const lavaCatalog = [{
+      id: "catalog-period-picker", externalProductId: "product", externalOfferId: "offer", title: "Доступ", kind: "recurrent" as const, amountRub: 100,
+      periodicity: "MONTHLY",
+      prices: [
+        { currency: "RUB" as const, amountMinor: 10000, periodicity: "MONTHLY" },
+        { currency: "USD" as const, amountMinor: 500, periodicity: "MONTHLY" },
+        { currency: "RUB" as const, amountMinor: 60000, periodicity: "PERIOD_180_DAYS" },
+        { currency: "USD" as const, amountMinor: 3000, periodicity: "PERIOD_180_DAYS" }
+      ],
+      isStale: false, isSelectable: true, syncedAt: "2026-07-27T10:00:00.000Z"
+    }];
+    const view = render(PaymentProductBindings, {
+      props: { kind: "recurrent", accessDays: 30, modelValue, lavaCatalog }
+    });
+
+    expect(screen.getByRole("group", { name: "Период подписки" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "1 месяц" })).toHaveProperty("checked", true);
+    await fireEvent.click(screen.getByRole("radio", { name: "6 месяцев" }));
+    const periodEvents = view.emitted("lava-period-selected") as unknown[][] | undefined;
+    expect(periodEvents?.at(-1)?.[0]).toBe(180);
+
+    await view.rerender({ kind: "recurrent", accessDays: 180, modelValue, lavaCatalog });
+    const amounts = Array.from(view.container.querySelectorAll("output"), (output) => output.textContent);
+    expect(amounts).toEqual(expect.arrayContaining([
+      expect.stringMatching(/600,00.*₽/),
+      expect.stringMatching(/30,00.*\$/)
+    ]));
+    expect(amounts).not.toEqual(expect.arrayContaining([expect.stringMatching(/100,00.*₽/)]));
+  });
+
   it("refreshes fixed amounts while preserving enabled currencies", async () => {
     const modelValue = [
       { provider: "prodamus" as const, enabled: false, externalProductId: null, externalOfferId: null, prices: [] },

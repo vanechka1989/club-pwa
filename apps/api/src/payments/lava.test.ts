@@ -43,7 +43,6 @@ describe("Lava API client", () => {
       email: "buyer@example.com",
       offerId: "836b9fc5-7ae9-4a27-9642-592bc44072b7",
       currency: "RUB",
-      amount: 990,
       buyerLanguage: "RU"
     });
   });
@@ -80,7 +79,7 @@ describe("Lava API client", () => {
     expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ currency: "USD", amount: 19.99 }));
   });
 
-  it("sends the immutable selected fixed-currency snapshot without rounding cents", async () => {
+  it("lets Lava resolve the selected fixed-currency price from the offer", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
       paymentUrl: "https://app.lava.top/invoice-1"
@@ -107,7 +106,8 @@ describe("Lava API client", () => {
     });
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ currency: "USD", amount: 19.99 }));
+    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ currency: "USD" }));
+    expect(JSON.parse(String(request.body))).not.toHaveProperty("amount");
   });
 
   it("maps authorization and throttling errors to safe codes", async () => {
@@ -261,7 +261,45 @@ describe("Lava API client", () => {
     });
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ periodicity: "MONTHLY" }));
+    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({
+      currency: "RUB",
+      periodicity: "MONTHLY"
+    }));
+    expect(JSON.parse(String(request.body))).not.toHaveProperty("amount");
+  });
+
+  it("lets Lava resolve a fixed foreign-currency subscription price", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
+      paymentUrl: "https://app.lava.top/subscription-usd"
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = createLavaClient({ apiKey: "api-key", fetch: fetchMock });
+
+    await client.createCheckout({
+      credentials: { apiKey: "api-key" },
+      orderId: "club-order-recurrent-usd",
+      user: { id: "user-1", telegramId: "123", email: "buyer@example.com" },
+      product: {
+        title: "Клуб",
+        amountRub: null,
+        amountMinor: 128,
+        currency: "USD",
+        useCustomAmount: false,
+        kind: "recurrent",
+        accessDays: 30,
+        externalProductId: "product-1",
+        externalOfferId: "836b9fc5-7ae9-4a27-9642-592bc44072b7"
+      },
+      returnUrl: "https://club.example/",
+      notificationUrl: "https://club.example/api/payments/lava/webhook/payment"
+    });
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({
+      currency: "USD",
+      periodicity: "MONTHLY"
+    }));
+    expect(JSON.parse(String(request.body))).not.toHaveProperty("amount");
   });
 
   it("rejects an unsafe or malformed checkout response", async () => {

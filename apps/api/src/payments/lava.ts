@@ -210,12 +210,15 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         throw new LavaApiError("LAVA_INVALID_RESPONSE");
       }
 
-      let amountMinor: number;
-      try {
-        amountMinor = input.product.amountMinor ?? majorToMinor(input.product.amountRub ?? "");
-      } catch (error) {
-        if (error instanceof PaymentMoneyError) throw new LavaApiError("LAVA_INVALID_RESPONSE");
-        throw error;
+      let customAmount: number | undefined;
+      if (input.product.useCustomAmount) {
+        try {
+          const amountMinor = input.product.amountMinor ?? majorToMinor(input.product.amountRub ?? "");
+          customAmount = minorToMajor(amountMinor);
+        } catch (error) {
+          if (error instanceof PaymentMoneyError) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+          throw error;
+        }
       }
       const payload = await (apiKey === options.apiKey
         ? request("/api/v3/invoice", {
@@ -224,7 +227,7 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
               email: input.user.email,
               offerId: input.product.externalOfferId,
               currency: input.product.currency ?? "RUB",
-              amount: minorToMajor(amountMinor),
+              ...(customAmount === undefined ? {} : { amount: customAmount }),
               buyerLanguage: "RU",
               ...(lavaPeriodicity(input.product.kind, input.product.accessDays)
                 ? { periodicity: lavaPeriodicity(input.product.kind, input.product.accessDays) }
