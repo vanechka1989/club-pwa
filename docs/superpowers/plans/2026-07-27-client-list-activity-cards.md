@@ -4,7 +4,7 @@
 
 **Goal:** Сделать список клиентов визуально выразительным и всегда сортировать его по последнему входу от самого свежего к более ранним.
 
-**Architecture:** Существующая чистая функция фильтрации получает детерминированную сортировку, которая возвращает новую коллекцию и не изменяет ответ API. `AdminClientsPanel.vue` переиспользует текущие функции статуса и тарифа, но разделяет карточку на идентификацию, вторичные показатели и акцентный блок последнего входа. Адаптивное оформление остаётся в `adminShell.css` и использует существующие семантические переменные тем.
+**Architecture:** Существующая чистая функция фильтрации получает детерминированную сортировку, которая возвращает новую коллекцию и не изменяет ответ API. Существующее поле `AdminStatsUser.lastLoginAt` становится nullable; API возвращает последнюю auth-сессию либо `null` без подстановки даты создания. `AdminClientsPanel.vue` переиспользует текущие функции статуса и тарифа, но разделяет карточку на идентификацию, вторичные показатели и акцентный блок последнего входа. Адаптивное оформление остаётся в `adminShell.css` и использует существующие семантические переменные тем.
 
 **Tech Stack:** Vue 3, TypeScript, Vitest, CSS design tokens, Playwright release tests.
 
@@ -13,10 +13,10 @@
 - Сортировка только по `lastLoginAt`: самый свежий вход сверху, клиенты без корректной даты в конце.
 - При одинаковом времени порядок стабилизируется по отображаемому имени, затем по `id`.
 - Переключатель сортировки не добавляется.
-- API, схема базы данных и существующие фильтры не меняются.
+- Новые API endpoint, поля и миграции не добавляются; nullability существующего `lastLoginAt` меняется минимально, схема базы данных и существующие фильтры сохраняются.
 - Карточка остаётся одной доступной кнопкой с минимальной областью нажатия 44 × 44 px.
 - Дата последнего входа и подписанный статус остаются видимыми начиная с ширины 320 px.
-- Цвета используют существующие семантические переменные и работают во всех четырёх темах.
+- Цвета используют существующие семантические переменные и работают во всех пяти текущих темах в светлом и тёмном режимах.
 
 ---
 
@@ -29,6 +29,10 @@
 - Modify: `apps/web/src/features/admin/AdminClientsPanel.vue` — семантическая структура activity-first карточки.
 - Modify: `apps/web/src/features/admin/adminCompactLayout.test.ts` — структурный контракт карточки и адаптивного оформления.
 - Modify: `apps/web/src/features/admin/adminShell.css` — визуальная иерархия, статусная полоса и responsive-компоновка.
+- Modify: `packages/shared/src/index.ts` — nullable-контракт существующего `lastLoginAt`.
+- Create: `apps/api/src/admin/adminClientLastLogin.ts` — сериализация последней auth-сессии без `createdAt` fallback.
+- Modify: `apps/api/src/routes/admin.ts` — возврат реального последнего входа либо `null`.
+- Modify: `tests/e2e/app.spec.ts` — browser-аудит всех тем, режимов и целевых ширин.
 
 ---
 
@@ -63,7 +67,7 @@ it("puts missing logins last and stabilizes equal timestamps by name and id", ()
     client({ id: "z", displayName: "Борис", lastLoginAt: sameTime }),
     client({ id: "b", displayName: "Анна", lastLoginAt: sameTime }),
     client({ id: "a", displayName: "Анна", lastLoginAt: sameTime }),
-    client({ id: "never", lastLoginAt: undefined as never })
+    client({ id: "never", lastLoginAt: null })
   ]);
 
   expect(result.map((user) => user.id)).toEqual(["a", "b", "z", "never"]);
@@ -189,8 +193,8 @@ describe("admin client list presentation", () => {
   it("shows a safe fallback when the last login is missing or invalid", () => {
     const formatter = (value: string) => `formatted:${value}`;
     expect(formatAdminClientLastLogin("2026-07-27T18:00:00.000Z", formatter)).toBe("formatted:2026-07-27T18:00:00.000Z");
-    expect(formatAdminClientLastLogin(null, formatter)).toBe("Ещё не входил");
-    expect(formatAdminClientLastLogin("invalid", formatter)).toBe("Ещё не входил");
+    expect(formatAdminClientLastLogin(null, formatter)).toBe("Не входил");
+    expect(formatAdminClientLastLogin("invalid", formatter)).toBe("Не входил");
   });
 });
 ```
@@ -234,7 +238,7 @@ export function formatAdminClientLastLogin(
   value: string | null | undefined,
   formatter: (value: string) => string
 ) {
-  return value && Number.isFinite(Date.parse(value)) ? formatter(value) : "Ещё не входил";
+  return value && Number.isFinite(Date.parse(value)) ? formatter(value) : "Не входил";
 }
 ```
 
@@ -361,13 +365,12 @@ body.club-mobile-app-scaled .admin-list-item.admin-client-list-row {
 
 @media (max-width: 359px) {
   .admin-list-item.admin-client-list-row {
-    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto);
+    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto) 14px;
   }
   body.club-mobile-device .admin-list-item.admin-client-list-row,
   body.club-mobile-app-scaled .admin-list-item.admin-client-list-row {
-    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto);
+    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto) 14px;
   }
-  .admin-client-list-chevron { display: none; }
   .admin-client-last-visit { min-width: 78px; }
 }
 ```
@@ -393,7 +396,7 @@ Run:
 pnpm --filter @club/web build
 ```
 
-Use the repository Playwright/browser setup to inspect the clients screen at 320, 390, 768 and 1024 px. Verify long names, email-to-username fallback, open/restricted/closed cards, keyboard focus, all four themes and zero horizontal overflow. Correct any observed defect and rerun the focused tests.
+Use the repository Playwright/browser setup to inspect the clients screen at 320, 390, 768 and 1024 px. Verify long names, email-to-username fallback, open/restricted/closed cards, keyboard focus, all five current themes in light/dark modes, a visible chevron at 320 px and zero horizontal overflow. Correct any observed defect and rerun the focused tests.
 
 - [ ] **Step 6: Run complete regression and release gates**
 

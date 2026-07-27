@@ -1059,7 +1059,7 @@ export const adminStatsUserSchema = z.object({
   totalItems: z.number().int().nonnegative(),
   lastOpenedItemTitle: z.string().nullable(),
   lastOpenedAt: z.string().datetime().nullable(),
-  lastLoginAt: z.string().datetime(),
+  lastLoginAt: z.string().datetime().nullable(),
   telegramBotStatus: telegramBotStatusSchema,
   telegramBotBlockedAt: z.string().datetime().nullable(),
   telegramBotUnblockedAt: z.string().datetime().nullable(),

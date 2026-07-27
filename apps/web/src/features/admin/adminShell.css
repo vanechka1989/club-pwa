@@ -243,7 +243,7 @@
 }
 
 .admin-list-item:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--accent) 46%, transparent);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -304,10 +304,19 @@
   white-space: nowrap;
 }
 
-.admin-client-list-name-line small {
-  flex: 1 1 auto;
+.admin-list-item.admin-client-list-row .admin-client-list-name-line strong {
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.admin-client-list-contact {
+  display: block;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -318,10 +327,18 @@
   line-height: 1.2;
 }
 
-.admin-client-list-metrics {
+.admin-list-item.admin-client-list-row .admin-client-list-metrics {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 8px;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.admin-client-list-metrics .admin-list-item-progress {
+  color: inherit;
 }
 
 .admin-client-last-visit {
@@ -337,9 +354,10 @@
   font-size: 0.62rem;
 }
 
-.admin-client-last-visit > strong {
+.admin-list-item.admin-client-list-row .admin-client-last-visit > strong {
   color: var(--text);
-  font-size: 0.73rem;
+  font-size: 0.76rem;
+  font-weight: 850;
   line-height: 1.15;
 }
 
@@ -619,16 +637,21 @@ body.club-mobile-app-scaled .admin-client-list-row .admin-client-list-avatar {
   }
 
   .admin-list-item.admin-client-list-row {
-    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto);
+    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto) 14px;
   }
 
   body.club-mobile-device .admin-list-item.admin-client-list-row,
   body.club-mobile-app-scaled .admin-list-item.admin-client-list-row {
-    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto);
+    grid-template-columns: 4px 36px minmax(0, 1fr) minmax(78px, auto) 14px;
   }
 
   .admin-client-list-chevron {
-    display: none;
+    width: 14px;
+  }
+
+  .admin-client-list-chevron svg {
+    width: 14px;
+    height: 14px;
   }
 
   .admin-client-last-visit {

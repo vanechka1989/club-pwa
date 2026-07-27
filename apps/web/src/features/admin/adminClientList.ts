@@ -10,5 +10,5 @@ export function formatAdminClientLastLogin(
   value: string | null | undefined,
   formatter: (value: string) => string
 ) {
-  return value && Number.isFinite(Date.parse(value)) ? formatter(value) : "Ещё не входил";
+  return value && Number.isFinite(Date.parse(value)) ? formatter(value) : "Не входил";
 }

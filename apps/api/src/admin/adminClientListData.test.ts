@@ -10,6 +10,7 @@ describe("admin client list data", () => {
     expect(source).toContain("user.avatarObjectKey");
     expect(source).toContain("getObjectReadUrl(user.avatarObjectKey)");
     expect(source).toContain("db.query.authSessions.findFirst");
-    expect(source).toContain("latestSession?.lastSeenAt");
+    expect(source).toContain("serializeAdminLastLoginAt(latestSession?.lastSeenAt)");
+    expect(source).not.toContain("latestSession?.lastSeenAt ?? user.createdAt");
   });
 });

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/vue";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createPinia, setActivePinia } from "pinia";
@@ -179,12 +179,50 @@ describe("AdminClientsPanel", () => {
     expect(emitted()["update:filters"]).toEqual([[{ ...props.filters, query: "Анна" }]]);
   });
 
+  it("renders one complete client button and emits its user when the card is clicked", async () => {
+    const neverLoggedInClient: AdminStatsUser = {
+      ...client,
+      email: "anna.long.contact@example.com",
+      completedItems: 3,
+      totalItems: 9,
+      lastLoginAt: null
+    };
+    const { container, emitted } = render(AdminClientsPanel, {
+      props: createProps({ filteredUsers: [neverLoggedInClient] })
+    });
+    const cards = container.querySelectorAll<HTMLButtonElement>("button.admin-client-list-row");
+
+    expect(cards).toHaveLength(1);
+    const card = cards[0]!;
+    expect(card.tagName).toBe("BUTTON");
+    const cardContent = within(card);
+    expect(cardContent.getByText("Анна", { exact: true })).toBeTruthy();
+    expect(cardContent.getByText("anna.long.contact@example.com", { exact: true })).toBeTruthy();
+    expect(cardContent.getByText("Ручной доступ", { exact: true })).toBeTruthy();
+    expect(cardContent.getByText("Уроки 3/9", { exact: true })).toBeTruthy();
+    expect(cardContent.getByText("Не входил", { exact: true })).toBeTruthy();
+    expect(cardContent.getByText("Доступ открыт", { exact: true })).toBeTruthy();
+
+    await fireEvent.click(card);
+
+    expect(emitted()["select-user"]).toEqual([[neverLoggedInClient]]);
+  });
+
   it("emits the access action payload from the selected client card", async () => {
     const { emitted } = render(AdminClientsPanel, { props: createProps({ selectedUser: client }) });
 
     await fireEvent.click(screen.getByRole("button", { name: "+7 дней" }));
 
     expect(emitted()["extend-access"]).toEqual([[7]]);
+  });
+
+  it("uses the never-login fallback in the selected client detail", () => {
+    const neverLoggedInClient: AdminStatsUser = { ...client, lastLoginAt: null };
+    render(AdminClientsPanel, {
+      props: createProps({ filteredUsers: [neverLoggedInClient], selectedUser: neverLoggedInClient })
+    });
+
+    expect(screen.getByText("Последний вход: Не входил", { exact: true })).toBeTruthy();
   });
 
   it("emits client-card-close from a clientCardOnly card without owning router side effects", async () => {

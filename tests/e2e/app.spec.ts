@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
@@ -147,6 +147,7 @@ const adminLearningMaterial = {
 const adminStatsUser = {
   id: currentUser.id,
   telegramId: currentUser.telegramId,
+  email: "ekaterina.with.a.long.contact.address@example.com",
   firstName: "Екатерина С Очень Длинной Фамилией Для Проверки Переноса",
   username: "katya.long.username.with.many.parts",
   photoUrl: currentUser.photoUrl,
@@ -171,7 +172,8 @@ const inactiveStatsUser = {
   id: "user-inactive",
   telegramId: "777777777",
   firstName: "Клиент Без Доступа",
-  username: "client.with.very.long.email.like.name@example.com",
+  email: null,
+  username: null,
   role: "member",
   membershipStatus: "inactive",
   membershipExpiresAt: null,
@@ -180,9 +182,33 @@ const inactiveStatsUser = {
   completedItems: 0,
   totalItems: 9,
   lastOpenedItemTitle: null,
+  lastLoginAt: null,
   telegramBotStatus: "blocked",
   telegramBotBlockedAt: now,
   createdAt: "2026-06-15T10:00:00.000Z"
+};
+
+const closedStatsUser = {
+  ...adminStatsUser,
+  id: "user-closed",
+  telegramId: "888888888",
+  email: null,
+  firstName: "Клиент С Закрытым Доступом",
+  username: "closed.client",
+  photoUrl: null,
+  role: "member",
+  membershipStatus: "inactive",
+  membershipExpiresAt: null,
+  tariff: "lava",
+  hasRestrictions: false,
+  completedItems: 2,
+  totalItems: 9,
+  lastOpenedItemTitle: null,
+  lastOpenedAt: null,
+  lastLoginAt: "2026-06-20T08:00:00.000Z",
+  telegramBotStatus: "unknown",
+  telegramBotBlockedAt: null,
+  createdAt: "2026-06-10T10:00:00.000Z"
 };
 
 const adminUser = {
@@ -618,11 +644,11 @@ async function mockApi(page: Page, sessionUser = currentUser) {
     if (path === "/admin/stats") {
       await route.fulfill(
         json({
-          totalUsers: 2,
+          totalUsers: 3,
           activeUsers: 1,
           completedItems: 4,
           totalItems: 18,
-          users: [adminStatsUser, inactiveStatsUser],
+          users: [adminStatsUser, inactiveStatsUser, closedStatsUser],
           communityMessages: [
             {
               id: "admin-community-message",
@@ -2678,6 +2704,199 @@ test("keeps design theme independent from day and night mode", async ({ page }) 
   }
 
   await expectNoHorizontalOverflow(page);
+});
+
+test("audits activity-first client cards across every theme and target viewport", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  test.setTimeout(420_000);
+
+  const viewports = [
+    { name: "320", width: 320, height: 720 },
+    { name: "390", width: 390, height: 844 },
+    { name: "768", width: 768, height: 1024 },
+    { name: "1024", width: 1024, height: 768 }
+  ] as const;
+  const themes = ["dark-soft-touch", "graphite-electric-blue", "pine-teal", "warm-clay", "plum-rose"] as const;
+  const modes = ["light", "dark"] as const;
+  const artifactDir = process.env.CLIENT_ACTIVITY_ARTIFACT_DIR;
+  const auditResults: Array<Record<string, unknown>> = [];
+  if (artifactDir) mkdirSync(artifactDir, { recursive: true });
+
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Клиенты", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Клиенты и доступ" })).toBeVisible();
+
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+    for (const theme of themes) {
+      for (const mode of modes) {
+        const context = `${theme}/${mode}/${viewport.name}`;
+        await page.evaluate(
+          ({ designTheme, colorMode }) => {
+            document.documentElement.dataset.designTheme = designTheme;
+            document.documentElement.dataset.theme = colorMode;
+          },
+          { designTheme: theme, colorMode: mode }
+        );
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+
+        const cards = page.locator(".admin-client-list-row");
+        await expect(cards, context).toHaveCount(3);
+        const firstCard = cards.first();
+        await page.locator(".admin-client-searchbar input").focus();
+        for (let step = 0; step < 12 && !(await firstCard.evaluate((card) => document.activeElement === card)); step += 1) {
+          await page.keyboard.press("Tab");
+        }
+        await expect(firstCard, context).toBeFocused();
+
+        const visualMetrics = await firstCard.evaluate((card) => {
+          type Color = [number, number, number, number];
+          const canvas = document.createElement("canvas");
+          canvas.width = 1;
+          canvas.height = 1;
+          const canvasContext = canvas.getContext("2d", { willReadFrequently: true })!;
+          const parseColor = (value: string): Color => {
+            canvasContext.clearRect(0, 0, 1, 1);
+            canvasContext.fillStyle = value;
+            canvasContext.fillRect(0, 0, 1, 1);
+            const [red, green, blue, alpha] = canvasContext.getImageData(0, 0, 1, 1).data;
+            return [red!, green!, blue!, alpha! / 255];
+          };
+          const over = (foreground: Color, background: Color): Color => {
+            const alpha = foreground[3] + background[3] * (1 - foreground[3]);
+            if (alpha === 0) return [0, 0, 0, 0];
+            return [
+              (foreground[0] * foreground[3] + background[0] * background[3] * (1 - foreground[3])) / alpha,
+              (foreground[1] * foreground[3] + background[1] * background[3] * (1 - foreground[3])) / alpha,
+              (foreground[2] * foreground[3] + background[2] * background[3] * (1 - foreground[3])) / alpha,
+              alpha
+            ];
+          };
+          const effectiveBackground = (start: Element | null): Color => {
+            let result: Color = [0, 0, 0, 0];
+            for (let current = start; current && result[3] < 0.999; current = current.parentElement) {
+              result = over(result, parseColor(getComputedStyle(current).backgroundColor));
+            }
+            const canvas: Color = getComputedStyle(document.documentElement).colorScheme === "dark" ? [0, 0, 0, 1] : [255, 255, 255, 1];
+            return over(result, canvas);
+          };
+          const luminance = (color: Color) => {
+            const channels = color.slice(0, 3).map((channel) => {
+              const value = channel / 255;
+              return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+          };
+          const contrast = (first: Color, second: Color) => {
+            const lighter = Math.max(luminance(first), luminance(second));
+            const darker = Math.min(luminance(first), luminance(second));
+            return (lighter + 0.05) / (darker + 0.05);
+          };
+          const cardStyle = getComputedStyle(card);
+          const outsideBackground = effectiveBackground(card.parentElement);
+          const outline = over(parseColor(cardStyle.outlineColor), outsideBackground);
+          const insideBackground = effectiveBackground(card);
+          const name = card.querySelector<HTMLElement>(".admin-client-list-name-line strong")!;
+          const lastLogin = card.querySelector<HTMLElement>(".admin-client-last-visit > strong")!;
+          const metrics = Array.from(card.querySelectorAll<HTMLElement>(".admin-client-list-metrics > span"));
+          const nameStyle = getComputedStyle(name);
+          const lastLoginStyle = getComputedStyle(lastLogin);
+          const metricStyles = metrics.map((metric) => getComputedStyle(metric));
+          const metricContrasts = metricStyles.map((style) => contrast(over(parseColor(style.color), insideBackground), insideBackground));
+
+          return {
+            outlineContrast: contrast(outline, outsideBackground),
+            outlineStyle: cardStyle.outlineStyle,
+            nameSize: Number.parseFloat(nameStyle.fontSize),
+            lastLoginSize: Number.parseFloat(lastLoginStyle.fontSize),
+            lastLoginWeight: Number.parseInt(lastLoginStyle.fontWeight, 10),
+            metricSize: Math.max(...metricStyles.map((style) => Number.parseFloat(style.fontSize))),
+            metricWeight: Math.max(...metricStyles.map((style) => Number.parseInt(style.fontWeight, 10))),
+            lastLoginContrast: contrast(over(parseColor(lastLoginStyle.color), insideBackground), insideBackground),
+            metricContrast: Math.max(...metricContrasts)
+          };
+        });
+
+        expect.soft(visualMetrics.outlineStyle, context).not.toBe("none");
+        expect.soft(visualMetrics.outlineContrast, context).toBeGreaterThanOrEqual(3);
+        expect.soft(visualMetrics.nameSize, context).toBeGreaterThan(visualMetrics.lastLoginSize);
+        expect.soft(visualMetrics.lastLoginSize, context).toBeGreaterThan(visualMetrics.metricSize);
+        expect.soft(visualMetrics.lastLoginWeight, context).toBeGreaterThan(visualMetrics.metricWeight);
+        expect.soft(visualMetrics.lastLoginContrast, context).toBeGreaterThan(visualMetrics.metricContrast);
+
+        const longContact = firstCard.locator(".admin-client-list-contact");
+        let contactLayout: {
+          clientWidth: number;
+          scrollWidth: number;
+          overflow: string;
+          textOverflow: string;
+          whiteSpace: string;
+        } | null = null;
+        if (viewport.width <= 390) {
+          contactLayout = await longContact.evaluate((contact) => {
+            const style = getComputedStyle(contact);
+            return {
+              clientWidth: contact.clientWidth,
+              scrollWidth: contact.scrollWidth,
+              overflow: style.overflow,
+              textOverflow: style.textOverflow,
+              whiteSpace: style.whiteSpace
+            };
+          });
+          expect.soft(contactLayout.whiteSpace, context).toBe("nowrap");
+          expect.soft(contactLayout.overflow, context).toBe("hidden");
+          expect.soft(contactLayout.textOverflow, context).toBe("ellipsis");
+          expect.soft(contactLayout.scrollWidth, context).toBeGreaterThan(contactLayout.clientWidth);
+        }
+
+        const neverLoginCard = cards.filter({ hasText: "Клиент Без Доступа" });
+        expect.soft((await neverLoginCard.locator(".admin-client-last-visit > strong").textContent())?.trim(), context).toBe("Не входил");
+        expect.soft(await neverLoginCard.locator(".admin-client-list-contact").count(), context).toBe(0);
+        expect.soft(await cards.locator(".admin-access-badge").allTextContents(), context).toEqual(
+          expect.arrayContaining(["Доступ открыт", "Доступ ограничен", "Доступ закрыт"])
+        );
+
+        const cardBounds = await cards.evaluateAll((elements) => elements.map((element) => {
+          const cardRect = element.getBoundingClientRect();
+          const chevron = element.querySelector<HTMLElement>(".admin-client-list-chevron");
+          const chevronRect = chevron?.getBoundingClientRect();
+          return {
+            cardClientWidth: element.clientWidth,
+            cardScrollWidth: element.scrollWidth,
+            cardLeft: cardRect.left,
+            cardRight: cardRect.right,
+            chevronDisplay: chevron ? getComputedStyle(chevron).display : "missing",
+            chevronWidth: chevronRect?.width ?? 0,
+            chevronLeft: chevronRect?.left ?? -1,
+            chevronRight: chevronRect?.right ?? -1
+          };
+        }));
+        for (const bounds of cardBounds) {
+          expect.soft(bounds.cardScrollWidth, context).toBeLessThanOrEqual(bounds.cardClientWidth);
+          expect.soft(bounds.cardLeft, context).toBeGreaterThanOrEqual(-1);
+          expect.soft(bounds.cardRight, context).toBeLessThanOrEqual(viewport.width + 1);
+          expect.soft(bounds.chevronDisplay, context).not.toBe("none");
+          expect.soft(bounds.chevronWidth, context).toBeGreaterThan(0);
+          expect.soft(bounds.chevronLeft, context).toBeGreaterThanOrEqual(bounds.cardLeft);
+          expect.soft(bounds.chevronRight, context).toBeLessThanOrEqual(bounds.cardRight + 1);
+        }
+        await expectNoHorizontalOverflow(page, ".admin-panel");
+        auditResults.push({ theme, mode, viewport: viewport.name, ...visualMetrics, contactLayout, cardBounds });
+
+        if (artifactDir) {
+          await page.screenshot({
+            path: `${artifactDir}/clients-${theme}-${mode}-${viewport.name}.png`,
+            fullPage: true,
+            animations: "disabled",
+            caret: "hide"
+          });
+        }
+      }
+    }
+  }
+
+  if (artifactDir) writeFileSync(`${artifactDir}/audit-results.json`, `${JSON.stringify(auditResults, null, 2)}\n`);
 });
 
 test("uses Warm Clay day and protects mobile scale from accidental swipes", async ({ page }) => {

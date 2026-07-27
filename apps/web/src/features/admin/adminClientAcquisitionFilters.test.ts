@@ -107,9 +107,65 @@ describe("admin client acquisition filters", () => {
       client({ id: "z", displayName: "Борис", lastLoginAt: sameTime }),
       client({ id: "b", displayName: "Анна", lastLoginAt: sameTime }),
       client({ id: "a", displayName: "Анна", lastLoginAt: sameTime }),
-      client({ id: "never", lastLoginAt: undefined as never })
+      client({ id: "never", lastLoginAt: null })
     ]);
 
     expect(result.map((user) => user.id)).toEqual(["a", "b", "z", "never"]);
+  });
+
+  it.each([
+    {
+      label: "search",
+      filters: { query: "совпадение" },
+      matches: { firstName: "Совпадение старое" },
+      newerMatches: { firstName: "Совпадение новое" },
+      excluded: { firstName: "Другой клиент" }
+    },
+    {
+      label: "subscription",
+      filters: { subscription: "active" as const },
+      matches: { membershipStatus: "active" as const },
+      newerMatches: { membershipStatus: "active" as const },
+      excluded: { membershipStatus: "inactive" as const }
+    },
+    {
+      label: "tariff",
+      filters: { tariff: "manual" },
+      matches: { tariff: "manual" },
+      newerMatches: { tariff: "manual" },
+      excluded: { tariff: "lava" }
+    },
+    {
+      label: "restrictions",
+      filters: { restrictions: "restricted" as const },
+      matches: { hasRestrictions: true },
+      newerMatches: { hasRestrictions: true },
+      excluded: { hasRestrictions: false }
+    },
+    {
+      label: "source",
+      filters: { source: "vk" },
+      matches: { acquisition: { source: "vk", medium: "cpc", campaign: "one", content: null } },
+      newerMatches: { acquisition: { source: "VK", medium: "social", campaign: "two", content: null } },
+      excluded: { acquisition: { source: "email", medium: "newsletter", campaign: "three", content: null } }
+    },
+    {
+      label: "UTM",
+      filters: { utmField: "campaign" as const, utmValue: "лето" },
+      matches: { acquisition: { source: "vk", medium: "cpc", campaign: "Лето один", content: null } },
+      newerMatches: { acquisition: { source: "email", medium: "newsletter", campaign: "лето два", content: null } },
+      excluded: { acquisition: { source: "direct", medium: "none", campaign: "зима", content: null } }
+    }
+  ])("sorts multiple matches after the $label filter", ({ filters, matches, newerMatches, excluded }) => {
+    const result = filterAdminClients(
+      [
+        client({ id: "old-match", lastLoginAt: "2026-07-20T08:00:00.000Z", ...matches }),
+        client({ id: "excluded-newest", lastLoginAt: "2026-07-29T08:00:00.000Z", ...excluded }),
+        client({ id: "new-match", lastLoginAt: "2026-07-27T08:00:00.000Z", ...newerMatches })
+      ],
+      { ...baseFilters, ...filters }
+    );
+
+    expect(result.map((user) => user.id)).toEqual(["new-match", "old-match"]);
   });
 });

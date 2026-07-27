@@ -43,4 +43,9 @@ describe("admin stats user schema", () => {
     const parsed = adminStatsUserSchema.partial().parse({ acquisition: null });
     expect(parsed.acquisition).toBeNull();
   });
+
+  it("preserves a null last login for clients who have never authenticated", () => {
+    const parsed = adminStatsUserSchema.partial().parse({ lastLoginAt: null });
+    expect(parsed.lastLoginAt).toBeNull();
+  });
 });

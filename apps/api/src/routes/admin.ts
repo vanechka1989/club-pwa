@@ -37,6 +37,7 @@ import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
 import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } from "../admin/s3DeletionAudit";
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
+import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt } from "../community/pollStats";
@@ -809,7 +810,7 @@ async function buildStatsUser(
     totalItems,
     lastOpenedItemTitle: lastOpened?.item?.title ?? null,
     lastOpenedAt: lastOpened?.lastOpenedAt.toISOString() ?? null,
-    lastLoginAt: (latestSession?.lastSeenAt ?? user.createdAt).toISOString(),
+    lastLoginAt: serializeAdminLastLoginAt(latestSession?.lastSeenAt),
     telegramBotStatus: user.telegramBotStatus as AdminStatsUser["telegramBotStatus"],
     telegramBotBlockedAt: user.telegramBotBlockedAt?.toISOString() ?? null,
     telegramBotUnblockedAt: user.telegramBotUnblockedAt?.toISOString() ?? null,
