@@ -34,6 +34,7 @@ import {
   getAvatarGestureMetrics,
   type AvatarGestureMetrics
 } from "@/features/profile/avatarGesture";
+import { getAvatarFileError } from "@/features/profile/avatarFilePolicy";
 import {
   canUseReferralActivation,
   getProfileMembershipStatusText,
@@ -99,9 +100,6 @@ const displayNameEditorOpen = ref(false);
 const displayNameDraft = ref("");
 const displayNameSaving = ref(false);
 const displayNameError = ref<string | null>(null);
-const avatarMaxSizeBytes = 5 * 1024 * 1024;
-const avatarAllowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const avatarAllowedExtension = /\.(jpe?g|png|webp)$/i;
 const accessUntil = computed(() =>
   session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
 );
@@ -330,7 +328,7 @@ function nudgeVisualScale(delta: number) {
 }
 
 function isAvatarFileAllowed(file: File) {
-  return file.size > 0 && file.size <= avatarMaxSizeBytes && (avatarAllowedTypes.has(file.type) || avatarAllowedExtension.test(file.name));
+  return getAvatarFileError(file) === null;
 }
 
 function startAvatarGestureSession(target: HTMLElement) {

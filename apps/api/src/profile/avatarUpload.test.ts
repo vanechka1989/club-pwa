@@ -30,8 +30,9 @@ describe("profile avatar uploads", () => {
 
   it("rejects empty or oversized avatar files before reading them into memory", () => {
     expect(getAvatarUploadLimitError({ size: 0 })).toBe("empty_file");
-    expect(getAvatarUploadLimitError({ size: avatarUploadLimits.maxFileBytes + 1 })).toBe("file_too_large");
-    expect(getAvatarUploadLimitError({ size: 1024 })).toBeNull();
+    expect(getAvatarUploadLimitError({ size: 10 * 1024 * 1024 })).toBeNull();
+    expect(getAvatarUploadLimitError({ size: 10 * 1024 * 1024 + 1 })).toBe("file_too_large");
+    expect(avatarUploadLimits.maxFileBytes).toBe(10 * 1024 * 1024);
   });
 
   it("normalizes crop settings submitted with the avatar file", () => {

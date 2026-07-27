@@ -1,7 +1,7 @@
 import { normalizeAvatarDisplay } from "./avatarDisplay";
 
 export const avatarUploadLimits = {
-  maxFileBytes: 5 * 1024 * 1024
+  maxFileBytes: 10 * 1024 * 1024
 } as const;
 
 const allowedContentTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
