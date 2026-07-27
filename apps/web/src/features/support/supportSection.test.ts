@@ -230,6 +230,7 @@ describe("support section", () => {
     expect(latestRule(".support-section .support-stat")).toMatch(/box-shadow:/);
     expect(styles).toMatch(/@media \(min-width:\s*620px\)\s*\{[^}]*\.support-section \.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/s);
     expect(styles).not.toMatch(/@media \(max-width:\s*1100px\)\s*\{[^}]*\.support-section \.support-admin-stats/s);
+    expect(styles).not.toContain("body.club-mobile-device .support-admin-stats");
   });
 
   it("opens support photos in the same frameless gesture viewer as chat images", () => {

@@ -1632,14 +1632,20 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
     if (section === "Поддержка") {
       const supportLayout = await page.locator(".support-admin-board").evaluate((board) => {
         const stats = board.querySelector<HTMLElement>(".support-admin-stats");
+        const firstMetric = stats?.querySelector<HTMLElement>(".support-stat") ?? null;
+        const firstMetricStyle = firstMetric ? getComputedStyle(firstMetric) : null;
         const ticket = board.querySelector<HTMLElement>(".support-admin-ticket");
         const ticketStyle = ticket ? getComputedStyle(ticket) : null;
         const markerStyle = ticket ? getComputedStyle(ticket, "::before") : null;
         return {
           metricCount: stats?.children.length ?? 0,
           metricColumns: stats ? getComputedStyle(stats).gridTemplateColumns.split(" ").length : 0,
+          wideStats: window.matchMedia("(min-width: 620px)").matches,
           statsRadius: stats ? getComputedStyle(stats).borderRadius : "",
           statsBackground: stats ? getComputedStyle(stats).backgroundColor : "",
+          metricRadius: firstMetricStyle?.borderRadius ?? "",
+          metricBorder: firstMetricStyle?.borderTopWidth ?? "",
+          metricBackground: firstMetricStyle?.backgroundColor ?? "",
           normalizedTicketHeight:
             ticket && Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 0
               ? (ticket.offsetHeight * 16) / Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
@@ -1652,9 +1658,12 @@ test("keeps core sections inside the mobile viewport", async ({ page }, testInfo
         };
       });
       expect(supportLayout.metricCount).toBe(4);
-      expect(supportLayout.metricColumns).toBe(2);
-      expect(supportLayout.statsRadius).toBe("8px");
-      expect(supportLayout.statsBackground).not.toBe("rgba(0, 0, 0, 0)");
+      expect(supportLayout.metricColumns).toBe(supportLayout.wideStats ? 4 : 2);
+      expect(supportLayout.statsRadius).toBe("0px");
+      expect(supportLayout.statsBackground).toBe("rgba(0, 0, 0, 0)");
+      expect(supportLayout.metricRadius).toBe("8px");
+      expect(supportLayout.metricBorder).toBe("1px");
+      expect(supportLayout.metricBackground).not.toBe("rgba(0, 0, 0, 0)");
       expect(supportLayout.normalizedTicketHeight).toBeGreaterThanOrEqual(60);
       expect(supportLayout.normalizedTicketHeight).toBeLessThanOrEqual(96);
       expect(supportLayout.ticketRadius).toBe("8px");

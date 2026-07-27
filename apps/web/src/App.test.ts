@@ -1011,8 +1011,9 @@ describe("App", () => {
       /body\.club-mobile-device \.admin-filter-grid\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/
     );
     expect(styles).toMatch(
-      /body\.club-mobile-device \.support-admin-stats\s*\{[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/
+      /\.support-section \.support-admin-stats\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[\s\S]*background: transparent;/
     );
+    expect(styles).not.toContain("body.club-mobile-device .support-admin-stats");
     expect(styles).toMatch(
       /body\.club-mobile-device \.support-section \.support-admin-ticket\s*\{[\s\S]*min-height: 86px;[\s\S]*padding: 10px 10px 10px 14px;[\s\S]*border-radius: 8px;/
     );

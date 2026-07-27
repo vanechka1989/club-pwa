@@ -14,15 +14,15 @@ describe("PWA browser regression workflow", () => {
     expect(existsSync(deviceConfigPath)).toBe(true);
     expect(workflow).toContain("pnpm test:e2e:devices");
     expect(workflow).toContain("pnpm test:e2e:release");
-    expect(workflow).toContain("playwright install --with-deps chromium webkit");
+    expect(workflow).toContain("playwright install --with-deps chromium firefox webkit");
     expect(workflow).toContain("actions/upload-artifact@v4");
     expect(workflow).toContain("playwright-report/");
     expect(workflow).toContain("test-results/");
   });
 
-  it("blocks deployment until focused Chromium and WebKit release checks pass", () => {
+  it("blocks deployment until focused Chromium, Firefox, and WebKit release checks pass", () => {
     expect(existsSync(releaseConfigPath)).toBe(true);
-    expect(deployWorkflow).toContain("playwright install --with-deps chromium webkit");
+    expect(deployWorkflow).toContain("playwright install --with-deps chromium firefox webkit");
     expect(deployWorkflow).toContain("pnpm test:e2e:release");
   });
 });

@@ -1106,27 +1106,6 @@ body.club-mobile-device .support-reply-actions {
   grid-template-columns: 1fr;
 }
 
-body.club-mobile-device .support-admin-stats {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.35rem;
-}
-
-body.club-mobile-device .support-admin-stats article {
-  min-height: 3.15rem;
-  border-radius: 18px;
-  padding: 0.42rem 0.34rem;
-}
-
-body.club-mobile-device .support-admin-stats span {
-  font-size: 0.58rem;
-  line-height: 1.1;
-}
-
-body.club-mobile-device .support-admin-stats strong {
-  font-size: 0.9rem;
-  line-height: 1.08;
-}
-
 body.club-mobile-device .support-ticket-list {
   gap: 0.46rem;
   border-radius: 20px;
