@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/vue";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminErrorTracker from "./AdminErrorTracker.vue";
 
@@ -65,5 +65,31 @@ describe("AdminErrorTracker", () => {
     await waitFor(() => expect(api.getAdminErrorGroup).toHaveBeenCalledWith(groupId));
     expect(await screen.findByText("Тестовая критическая ошибка создана владельцем приложения.")).toBeTruthy();
     expect(screen.getByText("Тестовая ошибка создана. Проверьте включённые push и email.")).toBeTruthy();
+  });
+
+  it("copies a complete report and the technical type from an opened incident", async () => {
+    const group = (await api.getAdminErrorGroups()).groups[0];
+    api.getAdminErrorGroup.mockResolvedValue({
+      group,
+      occurrences: [{
+        id: "9db38811-2236-4126-8c86-86302b7b80f3", message: "Payment failed", stack: "Error: payment failed",
+        route: "/billing", method: "POST", httpStatus: 502, release: "5.73", userId: null,
+        installationId: "install-1", platform: "Android 14", userAgent: "Chrome Mobile", context: {},
+        occurredAt: "2026-07-27T08:05:00.000Z"
+      }],
+      deliveries: []
+    });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+
+    render(AdminErrorTracker);
+    await fireEvent.click(await screen.findByRole("button", { name: /Не удалось открыть оплату/ }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Скопировать отчёт" }));
+    expect(writeText.mock.calls[0]?.[0]).toContain("Название: Не удалось открыть оплату");
+    expect(await screen.findByText("Отчёт скопирован.")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Скопировать технический тип" }));
+    expect(writeText).toHaveBeenLastCalledWith("window-error");
+    expect(await screen.findByText("Технический тип скопирован.")).toBeTruthy();
   });
 });

@@ -30,6 +30,48 @@ describe("error tracker notifications", () => {
     expect(message.text).toContain("https://club.example/admin/server/logs?error=506b24dd-1109-40e0-8933-1b96d0b1a619");
     expect(message.text).toContain("Затронуто клиентов: 2");
     expect(message.text).not.toContain("fingerprint");
+    expect(message.text).toContain("Технический тип: window-error");
+    expect(message.html).toContain("Club PWA · Центр ошибок");
+    expect(message.html).toContain("Открыть ошибку");
+    expect(message.html).toContain("border-top:4px solid #ff6b7a");
+    expect(message.html).toContain("background:#071d18");
+  });
+
+  it("builds a compact push that shows route, version and repetitions", async () => {
+    const sendPush = vi.fn().mockResolvedValue({ sent: 1 });
+    await dispatchErrorNotifications(group, {
+      origin: "https://club.example",
+      recipientUserIds: ["4d914956-c82e-4b61-9f20-a37866613aa1"],
+      email: null,
+      pushEnabled: true,
+      emailEnabled: false,
+      sendPush,
+      sendEmail: vi.fn(),
+      recordDelivery: vi.fn()
+    });
+    expect(sendPush).toHaveBeenCalledWith(expect.any(Array), {
+      title: "🔴 КРИТИЧНО · Не удалось открыть оплату",
+      body: "/billing · v5.73 · 4 события",
+      url: "/admin/server/logs?error=506b24dd-1109-40e0-8933-1b96d0b1a619"
+    });
+  });
+
+  it("redacts sensitive values from every notification surface", async () => {
+    const unsafeGroup = { ...group, title: "Crash user@example.com token=secret", route: "/billing?email=user@example.com" };
+    const message = buildErrorAlertEmail(unsafeGroup, "https://club.example");
+    expect(message.subject).not.toContain("user@example.com");
+    expect(message.subject).not.toContain("secret");
+    expect(message.html).not.toContain("user@example.com");
+    expect(message.html).not.toContain("token=secret");
+
+    const sendPush = vi.fn().mockResolvedValue({ sent: 1 });
+    await dispatchErrorNotifications(unsafeGroup, {
+      origin: "https://club.example", recipientUserIds: ["4d914956-c82e-4b61-9f20-a37866613aa1"], email: null,
+      pushEnabled: true, emailEnabled: false, sendPush, sendEmail: vi.fn(), recordDelivery: vi.fn()
+    });
+    const payload = sendPush.mock.calls[0]?.[1];
+    expect(`${payload.title} ${payload.body}`).not.toContain("user@example.com");
+    expect(`${payload.title} ${payload.body}`).not.toContain("secret");
   });
 
   it("records email failure while still delivering push", async () => {

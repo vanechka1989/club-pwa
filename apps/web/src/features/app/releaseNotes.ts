@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Customer error center",
+  title: "Copyable errors and branded alerts",
   items: [
-    "Customer and API failures are sanitized, grouped, and shown in one developer inbox.",
-    "Critical incidents send independent PWA push and email alerts without duplicate noise.",
-    "The owner can manage incident status and configure a dedicated alert email."
+    "A complete sanitized error report and its technical type can now be copied with dedicated actions.",
+    "PWA push alerts show the route, release and repetition count and open the exact incident.",
+    "Error emails now use a responsive branded layout, diagnostic panel and clear action button."
   ]
 };
 

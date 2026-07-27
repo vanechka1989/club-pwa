@@ -9,6 +9,26 @@ const apiBaseUrl = "http://localhost:3000";
 const appApiUrlPattern = /^https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/api\/.*/;
 const now = "2026-07-01T10:00:00.000Z";
 const activeUntil = "2026-08-30T00:00:00.000Z";
+const errorTrackerGroup = {
+  id: "506b24dd-1109-40e0-8933-1b96d0b1a619",
+  fingerprint: "a".repeat(64),
+  title: "Не удалось открыть оплату",
+  source: "client",
+  kind: "payment-open-error:83a2e303-4a0b-4754",
+  severity: "critical",
+  status: "new",
+  route: "/billing",
+  firstRelease: "5.74",
+  latestRelease: "5.75",
+  totalCount: 4,
+  affectedUsers: 2,
+  affectedDevices: 2,
+  firstSeenAt: now,
+  lastSeenAt: now,
+  lastNotifiedAt: now,
+  resolvedAt: null,
+  mutedUntil: null
+};
 
 const currentUser = {
   id: "user-owner",
@@ -545,12 +565,38 @@ async function mockApi(page: Page, sessionUser = currentUser) {
     }
 
     if (path === "/admin/error-tracker/summary") {
-      await route.fulfill(json({ newCritical: 0, activeGroups: 0, affectedUsers24h: 0, occurrences24h: 0 }));
+      await route.fulfill(json({ newCritical: 1, activeGroups: 1, affectedUsers24h: 2, occurrences24h: 4 }));
+      return;
+    }
+
+    if (path === `/admin/error-tracker/groups/${errorTrackerGroup.id}`) {
+      await route.fulfill(json({
+        group: errorTrackerGroup,
+        occurrences: [{
+          id: "9db38811-2236-4126-8c86-86302b7b80f3",
+          message: "Платёжная ссылка не была сформирована.",
+          stack: "Error: checkout request failed\n    at openPayment (/billing)",
+          route: "/billing",
+          method: "POST",
+          httpStatus: 502,
+          release: "5.75",
+          userId: null,
+          installationId: "install-test",
+          platform: "Android 14",
+          userAgent: "Chrome Mobile",
+          context: { provider: "lava" },
+          occurredAt: now
+        }],
+        deliveries: [{
+          id: "b3d38811-2236-4126-8c86-86302b7b80f3", channel: "push", status: "sent", attemptCount: 1,
+          lastError: null, createdAt: now, updatedAt: now
+        }]
+      }));
       return;
     }
 
     if (path === "/admin/error-tracker/groups") {
-      await route.fulfill(json({ groups: [], total: 0, nextCursor: null }));
+      await route.fulfill(json({ groups: [errorTrackerGroup], total: 1, nextCursor: null }));
       return;
     }
 
@@ -2343,6 +2389,28 @@ test("keeps error tracker notification controls compact", async ({ page }, testI
   await expect(page.getByRole("button", { name: "Создать тестовую ошибку" })).toBeVisible();
   await expectResponsiveLayoutIntegrity(page, "/admin/server/logs");
   await page.screenshot({ path: testInfo.outputPath("error-tracker-compact-controls.png"), fullPage: true, animations: "disabled" });
+});
+
+test("keeps the copyable error detail usable at all target widths", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  test.setTimeout(120_000);
+  const viewports = [
+    { name: "320", width: 320, height: 720 },
+    { name: "390", width: 390, height: 844 },
+    { name: "768", width: 768, height: 1024 },
+    { name: "1024", width: 1024, height: 768 },
+    { name: "1440", width: 1440, height: 900 }
+  ];
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/admin");
+    await page.getByRole("button", { name: "Сервер", exact: true }).click();
+    await page.getByRole("button", { name: /Не удалось открыть оплату/ }).click();
+    await expect(page.getByRole("button", { name: "Скопировать отчёт" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Скопировать технический тип" })).toBeVisible();
+    await expectResponsiveLayoutIntegrity(page, "/admin/server/logs");
+    await page.screenshot({ path: testInfo.outputPath(`error-copy-${viewport.name}.png`), fullPage: true, animations: "disabled" });
+  }
 });
 
 test("opens payment admin task screens when their URLs are loaded directly", async ({ page }) => {
