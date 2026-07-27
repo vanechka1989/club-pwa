@@ -7,6 +7,7 @@ describe("PWA browser regression workflow", () => {
   const workflow = existsSync(path) ? readFileSync(path, "utf-8") : "";
   const deployWorkflow = readFileSync(resolve(__dirname, "../../../../.github/workflows/deploy.yml"), "utf-8");
   const releaseConfigPath = resolve(__dirname, "../../../../playwright.release.config.ts");
+  const releaseConfig = readFileSync(releaseConfigPath, "utf-8");
   const deviceConfigPath = resolve(__dirname, "../../../../playwright.device.config.ts");
 
   it("tests Android and iPhone-sized layouts and preserves failure artifacts", () => {
@@ -24,5 +25,6 @@ describe("PWA browser regression workflow", () => {
     expect(existsSync(releaseConfigPath)).toBe(true);
     expect(deployWorkflow).toContain("playwright install --with-deps chromium firefox webkit");
     expect(deployWorkflow).toContain("pnpm test:e2e:release");
+    expect(releaseConfig).toContain("retries: process.env.CI ? 1 : 0");
   });
 });
