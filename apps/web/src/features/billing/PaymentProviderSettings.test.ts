@@ -38,6 +38,7 @@ describe("PaymentProviderSettings", () => {
           isEnabled: true,
           secretConfigured: true,
           webhookSecretConfigured: true,
+          testBuyerEmail: null,
           connectionState: "verified",
           lastCheckedAt: "2026-07-25T10:00:00.000Z",
           lastCheckError: null,

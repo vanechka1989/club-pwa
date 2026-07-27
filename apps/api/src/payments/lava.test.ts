@@ -328,6 +328,35 @@ describe("Lava API client", () => {
     })).rejects.toEqual(new LavaApiError("LAVA_INVALID_RESPONSE"));
   });
 
+  it("identifies when Lava rejects the buyer email", async () => {
+    const client = createLavaClient({
+      apiKey: "api-key",
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        error: "Incorrect email to purchase",
+        details: {}
+      }), { status: 400, headers: { "content-type": "application/json" } }))
+    });
+
+    await expect(client.createCheckout({
+      credentials: { apiKey: "api-key" },
+      orderId: "club-order-1",
+      user: { id: "user-1", telegramId: "123", email: "owner@example.com" },
+      product: {
+        title: "Клуб",
+        amountRub: 1200,
+        amountMinor: 120000,
+        currency: "RUB",
+        useCustomAmount: false,
+        kind: "recurrent",
+        accessDays: 365,
+        externalProductId: "product-1",
+        externalOfferId: "836b9fc5-7ae9-4a27-9642-592bc44072b7"
+      },
+      returnUrl: "https://club.example/",
+      notificationUrl: "https://club.example/api/payments/lava/webhook/payment"
+    })).rejects.toEqual(new LavaApiError("LAVA_BUYER_EMAIL_REJECTED"));
+  });
+
   it("normalizes a completed invoice during reconciliation", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",

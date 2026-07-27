@@ -359,6 +359,7 @@ export const paymentProviders = pgTable(
     sys: varchar("sys", { length: 96 }).notNull(),
     apiKey: text("api_key"),
     webhookSecret: text("webhook_secret"),
+    testBuyerEmail: varchar("test_buyer_email", { length: 320 }),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
     lastCheckError: text("last_check_error"),
     lastCatalogSyncAt: timestamp("last_catalog_sync_at", { withTimezone: true }),

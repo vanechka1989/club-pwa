@@ -83,6 +83,7 @@ export type LavaApiErrorCode =
   | "LAVA_UNAUTHORIZED"
   | "LAVA_RATE_LIMITED"
   | "LAVA_TIMEOUT"
+  | "LAVA_BUYER_EMAIL_REJECTED"
   | "LAVA_INVALID_RESPONSE"
   | "LAVA_UNAVAILABLE";
 
@@ -188,7 +189,15 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         },
         signal: controller.signal
       });
-      if (!response.ok) throw errorForStatus(response.status);
+      if (!response.ok) {
+        if (response.status === 400) {
+          const payload = await response.clone().json().catch(() => null) as { error?: unknown } | null;
+          if (payload?.error === "Incorrect email to purchase") {
+            throw new LavaApiError("LAVA_BUYER_EMAIL_REJECTED");
+          }
+        }
+        throw errorForStatus(response.status);
+      }
       return await response.json().catch(() => {
         throw new LavaApiError("LAVA_INVALID_RESPONSE");
       });

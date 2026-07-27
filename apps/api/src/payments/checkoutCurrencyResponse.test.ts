@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { subscribeResponseSchema } from "@club/shared";
-import { checkoutCurrencyChoiceResponse, checkoutPreflightChoiceResult } from "./checkoutCurrencyResponse";
+import { checkoutCurrencyChoiceResponse, checkoutFailureResponse, checkoutPreflightChoiceResult } from "./checkoutCurrencyResponse";
 import { runCheckoutPreflight } from "./checkoutOrchestration";
 
 describe("checkout currency choice response", () => {
@@ -33,5 +33,15 @@ describe("checkout currency choice response", () => {
       { currency: "USD", amountMinor: 1999 },
       { currency: "EUR", amountMinor: 1750 }
     ]);
+  });
+
+  it("explains that the Lava owner email cannot purchase its own offer", () => {
+    expect(checkoutFailureResponse(new Error("LAVA_BUYER_EMAIL_REJECTED"))).toEqual({
+      status: 400,
+      body: {
+        checkoutUrl: null,
+        message: "Почта владельца Lava не может использоваться для покупки собственного товара. Войдите с другой почтой."
+      }
+    });
   });
 });

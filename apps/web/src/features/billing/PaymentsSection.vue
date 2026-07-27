@@ -101,7 +101,7 @@ const providerForm = ref({
   secretKey: "",
   isEnabled: true
 });
-const lavaProviderForm = ref({ apiKey: "", webhookSecret: "", isEnabled: true });
+const lavaProviderForm = ref({ apiKey: "", webhookSecret: "", testBuyerEmail: "", isEnabled: true });
 const lavaProviderTab = ref<"connection" | "catalog">("connection");
 const lavaWebhookUrls = ref<{ payment: string; subscription: string } | null>(null);
 const catalogItemSavingId = ref<string | null>(null);
@@ -481,8 +481,9 @@ async function handleSaveLavaProvider() {
   saving.value = true;
   error.value = null;
   try {
-    const payload: { apiKey?: string; webhookSecret?: string; isEnabled?: boolean } = {
-      isEnabled: lavaProviderForm.value.isEnabled
+    const payload: { apiKey?: string; webhookSecret?: string; testBuyerEmail?: string | null; isEnabled?: boolean } = {
+      isEnabled: lavaProviderForm.value.isEnabled,
+      testBuyerEmail: lavaProviderForm.value.testBuyerEmail.trim() || null
     };
     if (lavaProviderForm.value.apiKey.trim()) payload.apiKey = lavaProviderForm.value.apiKey.trim();
     if (lavaProviderForm.value.webhookSecret.trim()) payload.webhookSecret = lavaProviderForm.value.webhookSecret.trim();
@@ -1229,6 +1230,20 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
                     <Copy :size="18" />
                   </button>
                 </div>
+              </label>
+              <label class="block">
+                <span class="text-sm font-semibold text-[var(--muted)]">Тестовая почта покупателя</span>
+                <p class="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+                  Используется только при оплате владельцем. Укажите почту, отличную от аккаунта автора Lava.
+                </p>
+                <input
+                  v-model.trim="lavaProviderForm.testBuyerEmail"
+                  class="text-input mt-2"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  placeholder="buyer@example.com"
+                />
               </label>
               <label class="payment-product-publish-toggle">
                 <span class="payment-product-publish-copy">

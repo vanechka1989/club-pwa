@@ -29,6 +29,7 @@ describe("provider-neutral payment contracts", () => {
       connectionState: "verified",
       lastCheckedAt: "2026-07-25T10:00:00.000Z",
       lastCheckError: null,
+      testBuyerEmail: "buyer-test@example.com",
       webhookUrls: {
         payment: "https://club.example/api/payments/lava/webhook/payment",
         subscription: "https://club.example/api/payments/lava/webhook/subscription"
@@ -36,6 +37,7 @@ describe("provider-neutral payment contracts", () => {
     });
 
     expect(provider.provider).toBe("lava");
+    expect(provider.testBuyerEmail).toBe("buyer-test@example.com");
   });
 
   it("accepts multiple provider bindings for one tariff", () => {

@@ -14,3 +14,19 @@ export function checkoutPreflightChoiceResult(preflight: { kind: "choice"; optio
     body: checkoutCurrencyChoiceResponse(preflight.options)
   };
 }
+
+export function checkoutFailureResponse(error: unknown) {
+  if (error instanceof Error && error.message === "LAVA_BUYER_EMAIL_REJECTED") {
+    return {
+      status: 400 as const,
+      body: {
+        checkoutUrl: null,
+        message: "Почта владельца Lava не может использоваться для покупки собственного товара. Войдите с другой почтой."
+      }
+    };
+  }
+  return {
+    status: 502 as const,
+    body: { checkoutUrl: null, message: "Не удалось открыть оплату. Попробуйте ещё раз." }
+  };
+}

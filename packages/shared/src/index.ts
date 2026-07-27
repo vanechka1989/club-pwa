@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 export const currentRelease = {
-  version: "5.71",
-  updatedAt: "27.07.2026 10:20",
-  title: "Периоды и валютная оплата Lava",
+  version: "5.72",
+  updatedAt: "27.07.2026 11:13",
+  title: "Тестовая почта для Lava",
   items: [
-    "В редакторе тарифа Lava теперь можно явно выбрать доступный период: 1, 3, 6 или 12 месяцев.",
-    "Каталог Lava группирует RUB, USD и EUR по периодам, поэтому цены больше не сливаются в одну строку.",
-    "Исправлено открытие обычной и рекуррентной валютной оплаты для товаров Lava с фиксированной ценой."
+    "Владелец может указать отдельную тестовую почту покупателя в настройках подключения Lava.",
+    "Тестовая почта применяется только к оплатам владельца и не меняет данные обычных клиентов.",
+    "Если Lava отклоняет почту автора при покупке собственного товара, приложение показывает понятную причину."
   ]
 } as const;
 
@@ -532,6 +532,7 @@ export const paymentProviderSchema = z.object({
   isEnabled: z.boolean(),
   secretConfigured: z.boolean(),
   webhookSecretConfigured: z.boolean().default(false),
+  testBuyerEmail: z.string().email().nullable().default(null),
   connectionState: paymentProviderConnectionStateSchema.default("configured"),
   lastCheckedAt: z.string().datetime().nullable().default(null),
   lastCheckError: z.string().nullable().default(null),

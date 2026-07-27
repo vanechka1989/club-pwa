@@ -27,6 +27,7 @@ export function mapPaymentProviderForAdmin(provider: PaymentProvider, origin: st
     isEnabled: provider.isEnabled,
     secretConfigured: provider.provider === "lava" ? Boolean(provider.apiKey) : Boolean(provider.secretKey),
     webhookSecretConfigured: Boolean(provider.webhookSecret),
+    testBuyerEmail: provider.testBuyerEmail,
     connectionState,
     lastCheckedAt: provider.lastCheckedAt?.toISOString() ?? null,
     lastCheckError: provider.lastCheckError ? "Не удалось проверить подключение." : null,

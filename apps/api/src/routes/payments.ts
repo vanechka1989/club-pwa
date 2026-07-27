@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { PaymentOrderLog, PaymentProviderCode } from "@club/shared";
 import { recordAdminAction } from "../admin/actionLog";
-import { getAdminAccessProfile, getUserRole } from "../admin/roles";
+import { getAdminAccessProfile, getUserRole, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import {
   paymentOrders,
@@ -61,8 +61,9 @@ import { productBindingPayloadSchema } from "../payments/productBindingPayload";
 import { mapPaymentProduct } from "../payments/productMapping";
 import { runProductBindingMutation } from "../payments/productMutationOrchestration";
 import { runCheckoutPreflight } from "../payments/checkoutOrchestration";
-import { checkoutCurrencyChoiceResponse, checkoutPreflightChoiceResult } from "../payments/checkoutCurrencyResponse";
+import { checkoutCurrencyChoiceResponse, checkoutFailureResponse, checkoutPreflightChoiceResult } from "../payments/checkoutCurrencyResponse";
 import { isLavaCatalogPriceForProduct } from "../payments/lavaPeriodicity";
+import { resolveLavaCheckoutBuyerEmail } from "../payments/lavaCheckoutBuyer";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -82,6 +83,7 @@ const providerPayloadSchema = z.object({
 const lavaProviderPayloadSchema = z.object({
   apiKey: z.string().trim().min(8).max(512).optional(),
   webhookSecret: z.string().trim().min(16).max(80).optional(),
+  testBuyerEmail: z.string().trim().email().max(320).nullable().optional(),
   isEnabled: z.boolean().optional()
 });
 
@@ -606,6 +608,13 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (!selected) {
       return c.json({ checkoutUrl: null, message: "Платежная система пока не подключена." }, 400);
     }
+    const checkoutBuyerEmail = selected.provider === "lava"
+      ? resolveLavaCheckoutBuyerEmail({
+          isOwner: await isOwnerTelegramId(user.telegramId),
+          userEmail: user.email,
+          testBuyerEmail: selected.binding.provider.testBuyerEmail
+        })
+      : user.email;
     const legacyAmountRub = typeof product.amountRub === "number" && Number.isInteger(product.amountRub) && product.amountRub > 0
       ? product.amountRub
       : null;
@@ -624,10 +633,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ checkoutUrl: null, message: "Выбранная валюта оплаты сейчас недоступна." }, 400);
     }
     const money = moneyResolution;
-    if (selected.provider === "lava" && (!user.email || !selected.binding.externalOfferId)) {
+    if (selected.provider === "lava" && (!checkoutBuyerEmail || !selected.binding.externalOfferId)) {
       return c.json({
         checkoutUrl: null,
-        message: !user.email
+        message: !checkoutBuyerEmail
           ? "Для оплаты через Lava в профиле должен быть указан email."
           : "Для тарифа не выбрано предложение Lava."
       }, 400);
@@ -702,7 +711,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
           user: {
             id: user.id,
             telegramId: user.telegramId,
-            email: user.email
+            email: checkoutBuyerEmail
           },
           product: {
             title: product.title,
@@ -755,7 +764,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
           .set({ status: "failed", updatedAt: new Date() })
           .where(eq(paymentOrders.id, created.order.id));
       }
-      return c.json({ checkoutUrl: null, message: "Не удалось открыть оплату. Попробуйте ещё раз." }, 502);
+      const failure = checkoutFailureResponse(error);
+      return c.json(failure.body, failure.status);
     }
   })
   .post("/recurrent-subscriptions/:id/cancel", async (c) => {
@@ -1064,6 +1074,9 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       webhookSecret: body.data.webhookSecret
         ? encryptProviderSecret(body.data.webhookSecret)
         : existing?.webhookSecret ?? null,
+      testBuyerEmail: body.data.testBuyerEmail === undefined
+        ? existing?.testBuyerEmail ?? null
+        : body.data.testBuyerEmail,
       isEnabled: body.data.isEnabled ?? true,
       createdByUserId: c.get("userId"),
       lastCheckedAt: body.data.apiKey ? null : existing?.lastCheckedAt ?? null,
@@ -1083,7 +1096,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       metadata: {
         isEnabled: provider.isEnabled,
         apiKey: body.data.apiKey ? "[changed]" : "[unchanged]",
-        webhookSecret: body.data.webhookSecret ? "[changed]" : "[unchanged]"
+        webhookSecret: body.data.webhookSecret ? "[changed]" : "[unchanged]",
+        testBuyerEmail: body.data.testBuyerEmail === undefined ? "[unchanged]" : "[changed]"
       }
     });
     return c.json({ ok: true, provider: mapPaymentProviderForAdmin(provider, env.WEB_ORIGIN) });

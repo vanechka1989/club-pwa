@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Lava periods and currency checkout",
+  title: "Lava test buyer email",
   items: [
-    "The Lava tariff editor now offers explicit 1, 3, 6, and 12 month period choices.",
-    "The Lava catalog groups RUB, USD, and EUR prices by billing period.",
-    "Fixed-price one-time and recurrent currency checkout opens correctly."
+    "The owner can configure a separate test buyer email in the Lava connection settings.",
+    "The test email applies only to owner checkouts and never changes customer data.",
+    "A rejected Lava author email now produces a clear checkout message."
   ]
 };
 

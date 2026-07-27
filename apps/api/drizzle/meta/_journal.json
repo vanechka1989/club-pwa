@@ -421,6 +421,13 @@
       "when": 1785175200000,
       "tag": "0059_lava_catalog_price_periodicity",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785178800000,
+      "tag": "0060_lava_test_buyer_email",
+      "breakpoints": true
     }
   ]
 }

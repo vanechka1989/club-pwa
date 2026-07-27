@@ -8,6 +8,7 @@ describe("Lava provider form", () => {
     expect(buildLavaProviderForm(null, "existing-unsaved-key", generate)).toEqual({
       apiKey: "",
       webhookSecret: "existing-unsaved-key",
+      testBuyerEmail: "",
       isEnabled: true
     });
     expect(generate).not.toHaveBeenCalled();
@@ -23,9 +24,10 @@ describe("Lava provider form", () => {
   it("does not expose a saved provider key until the owner requests it", () => {
     const generate = vi.fn(() => "new-generated-key");
 
-    expect(buildLavaProviderForm({ isEnabled: false }, "stale-value", generate)).toEqual({
+    expect(buildLavaProviderForm({ isEnabled: false, testBuyerEmail: "buyer-test@example.com" }, "stale-value", generate)).toEqual({
       apiKey: "",
       webhookSecret: "",
+      testBuyerEmail: "buyer-test@example.com",
       isEnabled: false
     });
     expect(generate).not.toHaveBeenCalled();

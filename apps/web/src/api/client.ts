@@ -388,7 +388,7 @@ export function getPaymentProviders() {
   return api<AdminPaymentProvidersResponse>("/payments/admin/providers");
 }
 
-export function saveLavaProvider(payload: { apiKey?: string; webhookSecret?: string; isEnabled?: boolean }) {
+export function saveLavaProvider(payload: { apiKey?: string; webhookSecret?: string; testBuyerEmail?: string | null; isEnabled?: boolean }) {
   return api<PaymentProviderMutationResponse>("/payments/admin/providers/lava", {
     method: "POST",
     body: payload

@@ -13,6 +13,7 @@ describe("payment provider administration", () => {
       sys: "",
       apiKey: "enc:v1:secret",
       webhookSecret: "enc:v1:webhook",
+      testBuyerEmail: "buyer-test@example.com",
       isEnabled: true,
       lastCheckedAt: new Date("2026-07-25T10:00:00.000Z"),
       lastCheckError: null,
@@ -27,6 +28,7 @@ describe("payment provider administration", () => {
       payment: "https://club.example/api/payments/lava/webhook/payment",
       subscription: "https://club.example/api/payments/lava/webhook/subscription"
     });
+    expect(response.testBuyerEmail).toBe("buyer-test@example.com");
     expect(JSON.stringify(response)).not.toContain("enc:v1");
   });
 
@@ -40,6 +42,7 @@ describe("payment provider administration", () => {
       sys: "",
       apiKey: "encrypted",
       webhookSecret: "encrypted",
+      testBuyerEmail: null,
       isEnabled: true,
       lastCheckedAt: new Date("2026-07-25T10:00:00.000Z"),
       lastCheckError: "LAVA_UNAUTHORIZED",
