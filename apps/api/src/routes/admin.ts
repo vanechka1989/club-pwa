@@ -76,7 +76,8 @@ import { readHostMaintenanceStatus } from "../operations/hostMaintenanceStatus";
 import { requestMetrics } from "../requestMetrics";
 import { countServerErrors, listServerErrors, recordServerError } from "../serverErrors";
 import { getPersistedErrorGroup, getPersistedErrorSummary, listPersistedErrorGroups } from "../errorTracker/postgresRepository";
-import { getErrorTrackerSettings, saveErrorTrackerSettings, updateTrackedErrorStatus } from "../errorTracker/service";
+import { getErrorTrackerSettings, recordTrackedError, saveErrorTrackerSettings, updateTrackedErrorStatus } from "../errorTracker/service";
+import { createErrorTrackerTestIncident } from "../errorTracker/testIncident";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
@@ -1801,6 +1802,20 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const ownerError = await rejectIfNotOwner(c);
     if (ownerError) return ownerError;
     return c.json(await getPersistedErrorSummary());
+  })
+  .post("/error-tracker/test", async (c) => {
+    const ownerError = await rejectIfNotOwner(c);
+    if (ownerError) return ownerError;
+    const identity = { userId: c.get("userId"), installationId: "owner-admin-test" };
+    const recorded = await createErrorTrackerTestIncident(identity, { runId: randomUUID(), record: recordTrackedError });
+    await recordAdminAction(c, {
+      action: "error_tracker.test.create",
+      entityType: "error_group",
+      entityId: recorded.group.id,
+      summary: "Создал тестовую ошибку центра ошибок",
+      metadata: { test: true }
+    });
+    return c.json({ ok: true as const, groupId: recorded.group.id });
   })
   .get("/error-tracker/groups", async (c) => {
     const ownerError = await rejectIfNotOwner(c);

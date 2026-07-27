@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/vue";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/vue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminErrorTracker from "./AdminErrorTracker.vue";
 
 const api = vi.hoisted(() => ({
@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   getAdminErrorGroups: vi.fn(),
   getAdminErrorTrackerSettings: vi.fn(),
   getAdminErrorGroup: vi.fn(),
+  createAdminErrorTrackerTestIncident: vi.fn(),
   updateAdminErrorGroupStatus: vi.fn(),
   updateAdminErrorTrackerSettings: vi.fn()
 }));
@@ -14,6 +15,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/api/client", () => api);
 
 describe("AdminErrorTracker", () => {
+  afterEach(cleanup);
   beforeEach(() => {
     api.getAdminErrorTrackerSummary.mockResolvedValue({ newCritical: 1, activeGroups: 3, affectedUsers24h: 2, occurrences24h: 7 });
     api.getAdminErrorGroups.mockResolvedValue({
@@ -36,5 +38,32 @@ describe("AdminErrorTracker", () => {
     expect(screen.getByText("7 событий")).toBeTruthy();
     await waitFor(() => expect((screen.getByLabelText("Почта для ошибок") as HTMLInputElement).value).toBe("developer@example.com"));
     expect(screen.getByLabelText("PWA push")).toBeTruthy();
+  });
+
+  it("creates and opens a test incident through the real tracker action", async () => {
+    const groupId = "83c765f0-8f73-4723-8b68-f67a51e090ac";
+    api.createAdminErrorTrackerTestIncident.mockResolvedValue({ ok: true, groupId });
+    api.getAdminErrorGroup.mockResolvedValue({
+      group: {
+        id: groupId, fingerprint: "b".repeat(64), title: "[ТЕСТ] Проверка центра ошибок",
+        source: "client", kind: "admin-test-payment-monitoring", severity: "critical", status: "new", route: "/admin/server/logs",
+        firstRelease: "5.74", latestRelease: "5.74", totalCount: 1, affectedUsers: 1, affectedDevices: 1,
+        firstSeenAt: "2026-07-27T06:40:00.000Z", lastSeenAt: "2026-07-27T06:40:00.000Z", lastNotifiedAt: "2026-07-27T06:40:00.000Z",
+        resolvedAt: null, mutedUntil: null
+      },
+      occurrences: [{
+        id: "9db38811-2236-4126-8c86-86302b7b80f3", groupId, message: "Тестовая критическая ошибка создана владельцем приложения.",
+        stack: null, detail: { test: true }, release: "5.74", platform: "admin-test", occurredAt: "2026-07-27T06:40:00.000Z"
+      }],
+      deliveries: []
+    });
+
+    render(AdminErrorTracker);
+    await screen.findByText("Не удалось открыть оплату");
+    await screen.getByRole("button", { name: "Создать тестовую ошибку" }).click();
+
+    await waitFor(() => expect(api.getAdminErrorGroup).toHaveBeenCalledWith(groupId));
+    expect(await screen.findByText("Тестовая критическая ошибка создана владельцем приложения.")).toBeTruthy();
+    expect(screen.getByText("Тестовая ошибка создана. Проверьте включённые push и email.")).toBeTruthy();
   });
 });

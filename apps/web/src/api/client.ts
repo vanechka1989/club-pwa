@@ -551,6 +551,10 @@ export function getAdminErrorTrackerSummary() {
   return api<AdminErrorTrackerSummary>("/admin/error-tracker/summary");
 }
 
+export function createAdminErrorTrackerTestIncident() {
+  return api<{ ok: true; groupId: string }>("/admin/error-tracker/test", { method: "POST" });
+}
+
 export function getAdminErrorGroups(filters: { status?: ErrorTrackerStatus; severity?: ErrorTrackerSeverity; source?: ErrorTrackerSource } = {}) {
   return api<AdminErrorTrackerListResponse>("/admin/error-tracker/groups", { query: filters });
 }

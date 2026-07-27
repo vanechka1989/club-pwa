@@ -530,10 +530,32 @@ async function mockApi(page: Page, sessionUser = currentUser) {
             processMemory: { rssBytes: 84_000_000, heapUsedBytes: 32_000_000, heapTotalBytes: 64_000_000 },
             systemMemory: { usedBytes: 1_000_000_000, totalBytes: 2_000_000_000, freeBytes: 1_000_000_000, usedPercent: 50 },
             disk: { usedBytes: 6_000_000_000, totalBytes: 20_000_000_000, freeBytes: 14_000_000_000, usedPercent: 30 },
-            serverErrorCount: 0
+            storageMaintenance: null,
+            serverErrorCount: 0,
+            requestMetrics: { requests: 24, failedRequests: 0, requestsPerMinute: 6, errorRatePercent: 0, averageDurationMs: 18, p95DurationMs: 32, maxDurationMs: 45, windowSeconds: 240 }
           }
         })
       );
+      return;
+    }
+
+    if (path === "/admin/integration-health") {
+      await route.fulfill(json({ items: [] }));
+      return;
+    }
+
+    if (path === "/admin/error-tracker/summary") {
+      await route.fulfill(json({ newCritical: 0, activeGroups: 0, affectedUsers24h: 0, occurrences24h: 0 }));
+      return;
+    }
+
+    if (path === "/admin/error-tracker/groups") {
+      await route.fulfill(json({ groups: [], total: 0, nextCursor: null }));
+      return;
+    }
+
+    if (path === "/admin/error-tracker/settings") {
+      await route.fulfill(json({ email: "owner@example.com", emailEnabled: true, pushEnabled: true }));
       return;
     }
 
@@ -2303,6 +2325,24 @@ test("opens admin task screens when their URLs are loaded directly", async ({ pa
   await page.goto("/admin/server/logs");
   await expect(page).toHaveURL(/\/admin\/server\/logs$/);
   await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
+});
+
+test("keeps error tracker notification controls compact", async ({ page }, testInfo) => {
+  test.skip(!["android-compact-320", "viewport-390-844"].includes(testInfo.project.name));
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Сервер", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Сервер и интеграции" })).toBeVisible();
+  const pushCheckbox = page.getByLabel("PWA push");
+  const emailCheckbox = page.getByLabel("Email", { exact: true });
+  await expect(pushCheckbox).toBeVisible();
+  await expect(emailCheckbox).toBeVisible();
+  await expect(pushCheckbox).toHaveCSS("width", "20px");
+  await expect(pushCheckbox).toHaveCSS("height", "20px");
+  await expect(emailCheckbox).toHaveCSS("width", "20px");
+  await expect(emailCheckbox).toHaveCSS("height", "20px");
+  await expect(page.getByRole("button", { name: "Создать тестовую ошибку" })).toBeVisible();
+  await expectResponsiveLayoutIntegrity(page, "/admin/server/logs");
+  await page.screenshot({ path: testInfo.outputPath("error-tracker-compact-controls.png"), fullPage: true, animations: "disabled" });
 });
 
 test("opens payment admin task screens when their URLs are loaded directly", async ({ page }) => {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AdminErrorGroup, AdminErrorTrackerDetailResponse, AdminErrorTrackerSettings, AdminErrorTrackerSummary, ErrorTrackerSeverity, ErrorTrackerSource, ErrorTrackerStatus } from "@club/shared";
 import { onMounted, ref } from "vue";
-import { getAdminErrorGroup, getAdminErrorGroups, getAdminErrorTrackerSettings, getAdminErrorTrackerSummary, updateAdminErrorGroupStatus, updateAdminErrorTrackerSettings } from "@/api/client";
+import { createAdminErrorTrackerTestIncident, getAdminErrorGroup, getAdminErrorGroups, getAdminErrorTrackerSettings, getAdminErrorTrackerSummary, updateAdminErrorGroupStatus, updateAdminErrorTrackerSettings } from "@/api/client";
 
 const summary = ref<AdminErrorTrackerSummary | null>(null);
 const groups = ref<AdminErrorGroup[]>([]);
@@ -11,6 +11,7 @@ const statusFilter = ref<ErrorTrackerStatus | "">("");
 const severityFilter = ref<ErrorTrackerSeverity | "">("");
 const sourceFilter = ref<ErrorTrackerSource | "">("");
 const loading = ref(false);
+const creatingTest = ref(false);
 const message = ref("");
 
 const severityLabels = { warning: "Внимание", error: "Ошибка", critical: "Критично" } as const;
@@ -65,12 +66,27 @@ async function saveSettings() {
   finally { loading.value = false; }
 }
 
+async function createTestIncident() {
+  creatingTest.value = true;
+  message.value = "";
+  try {
+    const result = await createAdminErrorTrackerTestIncident();
+    await load();
+    selected.value = await getAdminErrorGroup(result.groupId);
+    message.value = "Тестовая ошибка создана. Проверьте включённые push и email.";
+  } catch (cause) {
+    message.value = cause instanceof Error ? cause.message : "Не удалось создать тестовую ошибку.";
+  } finally {
+    creatingTest.value = false;
+  }
+}
+
 onMounted(load);
 </script>
 
 <template>
   <section class="tracker">
-    <header class="tracker-head"><div><h4>Центр ошибок</h4><p>Сбои у клиентов, API и платёжных обработчиков без повторного спама.</p></div><button type="button" :disabled="loading" @click="load">{{ loading ? "Загрузка…" : "Обновить" }}</button></header>
+    <header class="tracker-head"><div><h4>Центр ошибок</h4><p>Сбои у клиентов, API и платёжных обработчиков без повторного спама.</p></div><div class="tracker-actions"><button type="button" :disabled="loading || creatingTest" @click="load">{{ loading ? "Загрузка…" : "Обновить" }}</button><button type="button" class="test-button" :disabled="loading || creatingTest" @click="createTestIncident">{{ creatingTest ? "Создание…" : "Создать тестовую ошибку" }}</button></div></header>
     <div class="tracker-summary">
       <article><span>Новые критичные</span><strong>{{ summary?.newCritical ?? 0 }}</strong></article>
       <article><span>Активные</span><strong>{{ summary?.activeGroups ?? 0 }}</strong></article>
@@ -100,7 +116,7 @@ onMounted(load);
     <section class="tracker-settings">
       <div><h5>Уведомления разработчику</h5><p>Push и email отправляются независимо. Повторы объединяются.</p></div>
       <label class="email-field"><span>Почта для ошибок</span><input v-model="settings.email" aria-label="Почта для ошибок" type="email" placeholder="developer@example.com"></label>
-      <div class="channel-switches"><label><input v-model="settings.pushEnabled" aria-label="PWA push" type="checkbox"> PWA push</label><label><input v-model="settings.emailEnabled" aria-label="Email" type="checkbox"> Email</label></div>
+      <div class="channel-switches"><label><input v-model="settings.pushEnabled" aria-label="PWA push" type="checkbox"><span>PWA push</span></label><label><input v-model="settings.emailEnabled" aria-label="Email" type="checkbox"><span>Email</span></label></div>
       <button type="button" :disabled="loading" @click="saveSettings">Сохранить уведомления</button>
     </section>
     <p v-if="message" class="tracker-note">{{ message }}</p>
@@ -108,5 +124,5 @@ onMounted(load);
 </template>
 
 <style scoped>
-.tracker{display:grid;gap:12px}.tracker-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.tracker h4,.tracker h5,.tracker p{margin:0}.tracker-head p,.tracker-settings p{margin-top:4px;color:var(--muted)}button,select,input{font:inherit}.tracker-head button,.tracker-settings>button,.detail-actions button{min-height:42px;padding:0 14px;border:1px solid var(--border);border-radius:13px;background:var(--surface-2);color:var(--text);font-weight:750}.tracker-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.tracker-summary article{display:grid;gap:4px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2)}.tracker-summary span{color:var(--muted);font-size:.78rem}.tracker-summary strong{font-size:1.3rem}.tracker-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.tracker-filters label,.email-field{display:grid;gap:5px;color:var(--muted);font-size:.78rem}.tracker-filters select,.email-field input{width:100%;min-height:42px;padding:0 11px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text)}.tracker-list{display:grid;gap:8px}.incident{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;text-align:left;border:1px solid var(--border);border-left:4px solid #e1b747;border-radius:14px;background:var(--surface-2);color:var(--text)}.severity-critical{border-left-color:#ff7777}.severity-error{border-left-color:#ffab70}.incident-main,.incident-impact{display:grid;gap:4px;min-width:0}.incident-main small,.incident-impact small{color:var(--muted)}.incident-main strong{overflow-wrap:anywhere}.incident-impact{text-align:right;flex:none}.incident-impact em{font-size:.7rem;font-style:normal;color:var(--accent)}.tracker-detail,.tracker-settings{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.tracker-detail>header{display:flex;justify-content:space-between;gap:12px}.tracker-detail>header button{width:40px;height:40px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text);font-size:1.4rem}.detail-actions{display:flex;flex-wrap:wrap;gap:7px}.occurrence{display:grid;gap:5px;padding:11px;border-radius:13px;background:var(--surface-2)}.occurrence small{color:var(--muted)}.occurrence pre{max-height:150px;margin:0;overflow:auto;white-space:pre-wrap;font-size:.75rem}.delivery-list,.channel-switches{display:flex;flex-wrap:wrap;gap:8px}.delivery-list span,.channel-switches label{padding:7px 10px;border-radius:999px;background:var(--surface-2);font-size:.78rem}.tracker-empty,.tracker-note{padding:11px;border-radius:12px;background:var(--surface-2);color:var(--muted)}@media(max-width:680px){.tracker-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.tracker-filters{grid-template-columns:1fr}.incident{align-items:flex-start}.incident-impact small{max-width:130px}}@media(max-width:380px){.incident{display:grid}.incident-impact{text-align:left}.tracker-head{display:grid}.tracker-head button{width:100%}}
+.tracker{display:grid;gap:12px}.tracker-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.tracker-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.tracker h4,.tracker h5,.tracker p{margin:0}.tracker-head p,.tracker-settings p{margin-top:4px;color:var(--muted)}button,select,input{font:inherit}.tracker-head button,.tracker-settings>button,.detail-actions button{min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:13px;background:var(--surface-2);color:var(--text);font-weight:750}.tracker-head .test-button{border-color:color-mix(in srgb,var(--accent) 52%,var(--border));background:color-mix(in srgb,var(--accent) 10%,var(--surface-2));color:var(--accent)}.tracker-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.tracker-summary article{display:grid;gap:4px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface-2)}.tracker-summary span{color:var(--muted);font-size:.78rem}.tracker-summary strong{font-size:1.3rem}.tracker-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.tracker-filters label,.email-field{display:grid;gap:5px;color:var(--muted);font-size:.78rem}.tracker-filters select,.email-field input{width:100%;min-height:42px;padding:0 11px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text)}.tracker-list{display:grid;gap:8px}.incident{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;text-align:left;border:1px solid var(--border);border-left:4px solid #e1b747;border-radius:14px;background:var(--surface-2);color:var(--text)}.severity-critical{border-left-color:#ff7777}.severity-error{border-left-color:#ffab70}.incident-main,.incident-impact{display:grid;gap:4px;min-width:0}.incident-main small,.incident-impact small{color:var(--muted)}.incident-main strong{overflow-wrap:anywhere}.incident-impact{text-align:right;flex:none}.incident-impact em{font-size:.7rem;font-style:normal;color:var(--accent)}.tracker-detail,.tracker-settings{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.tracker-detail>header{display:flex;justify-content:space-between;gap:12px}.tracker-detail>header button{width:40px;height:40px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text);font-size:1.4rem}.detail-actions{display:flex;flex-wrap:wrap;gap:7px}.occurrence{display:grid;gap:5px;padding:11px;border-radius:13px;background:var(--surface-2)}.occurrence small{color:var(--muted)}.occurrence pre{max-height:150px;margin:0;overflow:auto;white-space:pre-wrap;font-size:.75rem}.delivery-list{display:flex;flex-wrap:wrap;gap:8px}.delivery-list span{padding:7px 10px;border-radius:999px;background:var(--surface-2);font-size:.78rem}.channel-switches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.channel-switches label{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text);font-size:.82rem;cursor:pointer}.channel-switches input[type="checkbox"]{appearance:none;-webkit-appearance:none;display:grid;place-items:center;inline-size:20px;block-size:20px;min-inline-size:20px;min-block-size:20px;margin:0;padding:0;border:1.5px solid color-mix(in srgb,var(--muted) 70%,var(--border));border-radius:6px;background:var(--surface);box-shadow:none}.channel-switches input[type="checkbox"]::after{content:"";inline-size:5px;block-size:9px;border:solid var(--accent-text);border-width:0 2px 2px 0;opacity:0;transform:rotate(45deg) translate(-1px,-1px)}.channel-switches input[type="checkbox"]:checked{border-color:var(--accent);background:var(--accent)}.channel-switches input[type="checkbox"]:checked::after{opacity:1}.channel-switches input[type="checkbox"]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.tracker-empty,.tracker-note{padding:11px;border-radius:12px;background:var(--surface-2);color:var(--muted)}@media(max-width:680px){.tracker-head{display:grid}.tracker-actions{display:grid;grid-template-columns:minmax(0,.7fr) minmax(0,1.3fr);justify-content:stretch}.tracker-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.tracker-filters{grid-template-columns:1fr}.incident{align-items:flex-start}.incident-impact small{max-width:130px}}@media(max-width:380px){.incident{display:grid}.incident-impact{text-align:left}.tracker-actions{grid-template-columns:1fr}.tracker-head button{width:100%}.channel-switches{grid-template-columns:1fr}}
 </style>

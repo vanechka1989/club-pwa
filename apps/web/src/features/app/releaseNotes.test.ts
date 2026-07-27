@@ -13,9 +13,9 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the developer error center as version 5.73", () => {
-    expect(appVersion).toBe("5.73");
-    expect(releaseNotes[0]?.title).toBe("Центр ошибок клиентов");
+  it("publishes the testable developer error center as version 5.74", () => {
+    expect(appVersion).toBe("5.74");
+    expect(releaseNotes[0]?.title).toBe("Проверка центра ошибок");
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/push/i);
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/почт/i);
 
