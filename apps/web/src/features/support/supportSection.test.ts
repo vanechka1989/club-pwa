@@ -212,17 +212,24 @@ describe("support section", () => {
     expect(source).toContain("calculateAverageResponseMinutes");
   });
 
-  it("groups admin support metrics into one modern overview surface", () => {
+  it("separates admin support metrics into independent responsive cards", () => {
     expect(styles).toMatch(/\.support-admin-board\s*\{[^}]*display:\s*grid;[^}]*gap:\s*0\.75rem;/s);
-    expect(source).toContain('class="support-admin-stats surface-card ui-card"');
+    expect(source).toContain('class="support-admin-stats"');
+    expect(source).not.toContain('class="support-admin-stats surface-card ui-card"');
     expect(source.match(/class="support-stat support-stat-/g)).toHaveLength(4);
     expect(source).toContain('class="support-stat-icon"');
     expect(latestRule(".support-section .support-admin-stats")).toMatch(/grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
-    expect(latestRule(".support-section .support-admin-stats")).toMatch(/border-radius:\s*8px/);
-    expect(latestRule(".support-section .support-admin-stats")).toMatch(/overflow:\s*hidden/);
+    expect(latestRule(".support-section .support-admin-stats")).toMatch(/gap:\s*8px/);
+    expect(latestRule(".support-section .support-admin-stats")).toMatch(/border:\s*0/);
+    expect(latestRule(".support-section .support-admin-stats")).toMatch(/background:\s*transparent/);
+    expect(latestRule(".support-section .support-admin-stats")).toMatch(/box-shadow:\s*none/);
     expect(latestRule(".support-section .support-stat")).toMatch(/grid-template-columns:\s*32px minmax\(0,\s*1fr\)/);
     expect(latestRule(".support-section .support-stat")).toMatch(/min-height:\s*72px/);
+    expect(latestRule(".support-section .support-stat")).toMatch(/border:\s*1px solid var\(--border\)/);
+    expect(latestRule(".support-section .support-stat")).toMatch(/border-radius:\s*8px/);
+    expect(latestRule(".support-section .support-stat")).toMatch(/box-shadow:/);
     expect(styles).toMatch(/@media \(min-width:\s*620px\)\s*\{[^}]*\.support-section \.support-admin-stats\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(styles).not.toMatch(/@media \(max-width:\s*1100px\)\s*\{[^}]*\.support-section \.support-admin-stats/s);
   });
 
   it("opens support photos in the same frameless gesture viewer as chat images", () => {

@@ -752,7 +752,7 @@ watch(
 
     <template v-else>
       <div class="support-admin-board">
-        <div class="support-admin-stats surface-card ui-card">
+        <div class="support-admin-stats">
           <article class="support-stat support-stat-new">
             <span class="support-stat-icon"><Inbox aria-hidden="true" /></span>
             <span class="support-stat-copy">

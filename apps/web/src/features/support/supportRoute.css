@@ -1697,13 +1697,13 @@ body.club-mobile-device .support-section .support-status {
 .support-section .support-admin-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  overflow: hidden;
+  gap: 8px;
+  overflow: visible;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 96%, var(--accent-soft));
-  box-shadow: var(--shadow-soft);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .support-section .support-stat {
@@ -1714,19 +1714,11 @@ body.club-mobile-device .support-section .support-status {
   min-height: 72px;
   gap: 10px;
   padding: 12px;
-  border: 0;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--text) 6%, transparent);
   text-align: left;
-}
-
-.support-section .support-stat:nth-child(2n) {
-  border-right: 0;
-}
-
-.support-section .support-stat:nth-last-child(-n + 2) {
-  border-bottom: 0;
 }
 
 .support-section .support-stat-icon {
@@ -1939,17 +1931,6 @@ body.club-mobile-device .support-section .support-admin-ticket em {
   .support-section .support-admin-stats {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-
-  .support-section .support-stat,
-  .support-section .support-stat:nth-child(2n),
-  .support-section .support-stat:nth-last-child(-n + 2) {
-    border-right: 1px solid var(--border);
-    border-bottom: 0;
-  }
-
-  .support-section .support-stat:last-child {
-    border-right: 0;
-  }
 }
 
 @media (max-width: 360px) {
@@ -2058,13 +2039,13 @@ body.club-keyboard-open:has(.support-task-screen.task-screen-route-layer) {
 .support-section .support-admin-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  overflow: hidden;
+  gap: 8px;
+  overflow: visible;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 96%, var(--accent-soft));
-  box-shadow: var(--shadow-soft);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .support-section .support-stat {
@@ -2075,10 +2056,10 @@ body.club-keyboard-open:has(.support-task-screen.task-screen-route-layer) {
   min-height: 72px;
   gap: 10px;
   padding: 12px;
-  border: 0;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 95%, var(--accent-soft));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--text) 6%, transparent);
   text-align: left;
 }
 
@@ -2145,46 +2126,6 @@ body.club-mobile-device .support-section .support-admin-ticket em {
   }
 }
 
-@media (max-width: 1100px) {
-  .support-section .support-admin-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .support-section .support-stat,
-  .support-section .support-stat:nth-child(2n),
-  .support-section .support-stat:nth-last-child(-n + 2) {
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .support-section .support-stat:nth-child(2n) {
-    border-right: 0;
-  }
-
-  .support-section .support-stat:nth-last-child(-n + 2) {
-    border-bottom: 0;
-  }
-}
-
 .support-section .support-admin-ticket em > span {
   font-weight: 650;
-}
-
-body.club-mobile-device .support-section .support-admin-stats {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-body.club-mobile-device .support-section .support-stat,
-body.club-mobile-device .support-section .support-stat:nth-child(2n),
-body.club-mobile-device .support-section .support-stat:nth-last-child(-n + 2) {
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-body.club-mobile-device .support-section .support-stat:nth-child(2n) {
-  border-right: 0;
-}
-
-body.club-mobile-device .support-section .support-stat:nth-last-child(-n + 2) {
-  border-bottom: 0;
 }
