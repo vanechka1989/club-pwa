@@ -13,11 +13,11 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
 import { createAppNotification } from "../notifications/create";
-import { deleteObject, getObjectMetadata, getObjectReadUrl, mirrorObjectToReserve, uploadObjectStream } from "../storage/s3";
+import { deleteObject, getObjectMetadata, getObjectReadUrl, listObjects, mirrorObjectToReserve, uploadObjectStream } from "../storage/s3";
 import {
   getSupportAttachmentExpiresAt
 } from "../support/mediaUpload";
-import { createSupportUploadIntent, validateSupportUploadStreamRequest, verifySupportUploadedObjects } from "../support/directUpload";
+import { createSupportUploadIntent, isSupportPendingObjectExpired, validateSupportUploadStreamRequest, verifySupportUploadedObjects } from "../support/directUpload";
 import { selectSupportAdminTelegramIds } from "../support/adminNotificationRecipients";
 import { getSupportUnreadCount } from "../support/unreadCount";
 
@@ -235,6 +235,40 @@ async function cleanupExpiredSupportAttachments(now = new Date()) {
     });
     await db.delete(supportTicketAttachments).where(eq(supportTicketAttachments.id, attachment.id));
   }
+
+  void cleanupAbandonedSupportUploads(now).catch((error) => {
+    logger.warn({ error }, "Unable to clean abandoned support uploads");
+  });
+}
+
+let pendingUploadCleanupStartedAt = 0;
+let pendingUploadCleanup: Promise<void> | null = null;
+
+async function cleanupAbandonedSupportUploads(now: Date) {
+  if (now.getTime() - pendingUploadCleanupStartedAt < 60 * 60 * 1000) return;
+  if (pendingUploadCleanup) return pendingUploadCleanup;
+  pendingUploadCleanupStartedAt = now.getTime();
+  pendingUploadCleanup = (async () => {
+    let cursor: string | null = null;
+    for (let page = 0; page < 10; page += 1) {
+      const listed = await listObjects({ prefix: "support/pending/", cursor, limit: 100 });
+      const candidates = listed.objects.filter((object) => isSupportPendingObjectExpired(object, now));
+      if (candidates.length) {
+        const keys = candidates.map((object) => object.key);
+        const referenced = await db
+          .select({ objectKey: supportTicketAttachments.objectKey })
+          .from(supportTicketAttachments)
+          .where(inArray(supportTicketAttachments.objectKey, keys));
+        const referencedKeys = new Set(referenced.map((item) => item.objectKey));
+        await Promise.all(keys.filter((key) => !referencedKeys.has(key)).map((key) => deleteObject(key)));
+      }
+      cursor = listed.nextCursor;
+      if (!cursor) break;
+    }
+  })().finally(() => {
+    pendingUploadCleanup = null;
+  });
+  return pendingUploadCleanup;
 }
 
 async function notifyCustomerAboutReply(ticket: NonNullable<Awaited<ReturnType<typeof getTicketById>>>) {

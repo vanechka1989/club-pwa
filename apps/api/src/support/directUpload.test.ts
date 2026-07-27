@@ -3,6 +3,7 @@ import { supportUploadedObjectSchema, supportUploadIntentSchema } from "@club/sh
 import {
   buildSupportPendingObjectKey,
   createSupportUploadIntent,
+  isSupportPendingObjectExpired,
   verifySupportUploadedObjects,
   validateSupportUploadStreamRequest,
   validateSupportUploadedObject
@@ -77,5 +78,12 @@ describe("support direct uploads", () => {
     expect(validateSupportUploadStreamRequest({ ...base, contentType: "application/octet-stream" })).toEqual({ ok: false, error: "content_type_mismatch" });
     expect(validateSupportUploadStreamRequest({ ...base, userId: "33333333-3333-4333-8333-333333333333" })).toEqual({ ok: false, error: "foreign_object" });
     expect(validateSupportUploadStreamRequest({ ...base, now: new Date("2026-07-27T10:10:01Z") })).toEqual({ ok: false, error: "expired" });
+  });
+
+  it("selects only pending objects older than one hour for abandoned-upload cleanup", () => {
+    const now = new Date("2026-07-27T12:00:00Z");
+    expect(isSupportPendingObjectExpired({ key: "support/pending/user/file", lastModified: "2026-07-27T10:59:59Z" }, now)).toBe(true);
+    expect(isSupportPendingObjectExpired({ key: "support/pending/user/file", lastModified: "2026-07-27T11:30:00Z" }, now)).toBe(false);
+    expect(isSupportPendingObjectExpired({ key: "support/2026-07-27/file", lastModified: "2026-07-20T00:00:00Z" }, now)).toBe(false);
   });
 });

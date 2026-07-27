@@ -1,6 +1,16 @@
 import type { SupportUploadIntent, SupportUploadedObject } from "@club/shared";
 
 const supportPendingPrefix = "support/pending";
+const abandonedUploadAgeMs = 60 * 60 * 1000;
+
+export function isSupportPendingObjectExpired(
+  object: { key: string; lastModified: string | null },
+  now = new Date()
+) {
+  if (!object.key.startsWith(`${supportPendingPrefix}/`) || !object.lastModified) return false;
+  const modifiedAt = Date.parse(object.lastModified);
+  return Number.isFinite(modifiedAt) && now.getTime() - modifiedAt > abandonedUploadAgeMs;
+}
 
 function sanitizeKeyPart(value: string) {
   return value
