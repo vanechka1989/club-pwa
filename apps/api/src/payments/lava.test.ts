@@ -177,12 +177,65 @@ describe("Lava API client", () => {
     await expect(client.listCatalog({ apiKey: "api-key" })).resolves.toEqual([
       expect.objectContaining({
         prices: [
-          { currency: "RUB", amountMinor: 99000, periodicity: null },
-          { currency: "USD", amountMinor: 1999, periodicity: null },
-          { currency: "EUR", amountMinor: 1750, periodicity: null }
+          { currency: "RUB", amountMinor: 99000, periodicity: "ONE_TIME" },
+          { currency: "USD", amountMinor: 1999, periodicity: "ONE_TIME" },
+          { currency: "EUR", amountMinor: 1750, periodicity: "ONE_TIME" }
         ]
       })
     ]);
+  });
+
+  it("keeps one price per currency and billing period when Lava repeats exact rows", async () => {
+    const client = createLavaClient({
+      apiKey: "api-key",
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        items: [{
+          id: "product-1",
+          title: "Клуб",
+          offers: [{
+            id: "offer-1",
+            prices: [
+              { amount: 20, currency: "USD", periodicity: "MONTHLY" },
+              { amount: 20, currency: "USD", periodicity: "MONTHLY" },
+              { amount: 120, currency: "USD", periodicity: "PERIOD_180_DAYS" },
+              { amount: 200, currency: "EUR", periodicity: "PERIOD_YEAR" },
+              { amount: 1500, currency: "RUB", periodicity: "MONTHLY" }
+            ]
+          }]
+        }]
+      }), { status: 200, headers: { "content-type": "application/json" } }))
+    });
+
+    await expect(client.listCatalog({ apiKey: "api-key" })).resolves.toEqual([
+      expect.objectContaining({
+        prices: [
+          { currency: "USD", amountMinor: 2000, periodicity: "MONTHLY" },
+          { currency: "USD", amountMinor: 12000, periodicity: "PERIOD_180_DAYS" },
+          { currency: "EUR", amountMinor: 20000, periodicity: "PERIOD_YEAR" },
+          { currency: "RUB", amountMinor: 150000, periodicity: "MONTHLY" }
+        ]
+      })
+    ]);
+  });
+
+  it("rejects conflicting amounts for the same currency and billing period", async () => {
+    const client = createLavaClient({
+      apiKey: "api-key",
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        items: [{
+          id: "product-1",
+          offers: [{
+            id: "offer-1",
+            prices: [
+              { amount: 20, currency: "USD", periodicity: "MONTHLY" },
+              { amount: 21, currency: "USD", periodicity: "MONTHLY" }
+            ]
+          }]
+        }]
+      }), { status: 200, headers: { "content-type": "application/json" } }))
+    });
+
+    await expect(client.listCatalog({ apiKey: "api-key" })).rejects.toEqual(new LavaApiError("LAVA_INVALID_RESPONSE"));
   });
 
   it("sends the Lava subscription periodicity derived from access days", async () => {

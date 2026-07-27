@@ -147,6 +147,30 @@ function normalizeMoney(amount: number, currency: string) {
   }
 }
 
+function normalizeCatalogPrices(prices: ProviderCatalogItem["prices"]) {
+  const normalized: ProviderCatalogItem["prices"] = [];
+  const byCurrencyAndPeriod = new Map<string, ProviderCatalogItem["prices"][number]>();
+
+  for (const price of prices) {
+    const entry = {
+      ...price,
+      periodicity: price.periodicity?.trim() || "ONE_TIME"
+    };
+    const key = `${entry.currency}:${entry.periodicity}`;
+    const existing = byCurrencyAndPeriod.get(key);
+    if (existing) {
+      if (existing.amountMinor !== entry.amountMinor) {
+        throw new LavaApiError("LAVA_INVALID_RESPONSE");
+      }
+      continue;
+    }
+    byCurrencyAndPeriod.set(key, entry);
+    normalized.push(entry);
+  }
+
+  return normalized;
+}
+
 export function createLavaClient(options: LavaClientOptions): PaymentProviderAdapter {
   const fetchImpl = options.fetch ?? fetch;
 
@@ -241,21 +265,22 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
         const item = normalizeCatalogItem(rawItem);
         if (!item.feedType.toUpperCase().includes("PRODUCT")) continue;
         for (const offer of item.offers ?? []) {
-          const prices: ProviderCatalogItem["prices"] = [];
+          const rawPrices: ProviderCatalogItem["prices"] = [];
           for (const price of offer.prices) {
             const currency = paymentCurrencySchema.safeParse(price.currency.toUpperCase());
             if (!currency.success) continue;
             if (price.amount === null || price.amount === undefined) {
-              prices.push({ currency: currency.data, amountMinor: null, periodicity: price.periodicity ?? null });
+              rawPrices.push({ currency: currency.data, amountMinor: null, periodicity: price.periodicity ?? null });
               continue;
             }
             try {
-              prices.push({ currency: currency.data, amountMinor: majorToMinor(price.amount), periodicity: price.periodicity ?? null });
+              rawPrices.push({ currency: currency.data, amountMinor: majorToMinor(price.amount), periodicity: price.periodicity ?? null });
             } catch (error) {
               if (error instanceof PaymentMoneyError) throw new LavaApiError("LAVA_INVALID_RESPONSE");
               throw error;
             }
           }
+          const prices = normalizeCatalogPrices(rawPrices);
           const rubPrice = prices.find((price) => price.currency === "RUB");
           const periodicity = rubPrice?.periodicity ?? offer.prices[0]?.periodicity ?? offer.recurrent;
           result.push({
