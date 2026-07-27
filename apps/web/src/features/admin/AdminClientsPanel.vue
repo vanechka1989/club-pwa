@@ -12,6 +12,7 @@ import {
   getAdminTariffLabel
 } from "./adminClientCard";
 import { allClientSourcesFilter, untaggedClientSourceFilter, type AdminClientUtmField } from "./adminClientAcquisitionFilters";
+import { formatAdminClientLastLogin, getAdminClientContact } from "./adminClientList";
 import { formatAdminPaymentMoney } from "./adminPaymentMoney";
 
 const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));
@@ -173,10 +174,35 @@ function updateClientMessageFiles(event: Event) {
     </details>
 
     <div class="admin-user-layout"><div class="admin-list">
-      <button v-for="user in filteredUsers" :key="user.id" class="admin-list-item ui-card admin-client-list-row" :class="{ 'admin-list-item-active': selectedUser?.id === user.id }" type="button" @click="emit('select-user', user)">
+      <p class="admin-client-sort-note">Последний вход ↓</p>
+      <button
+        v-for="user in filteredUsers"
+        :key="user.id"
+        class="admin-list-item ui-card admin-client-list-row"
+        :class="[
+          `admin-client-list-row-${getAdminClientAccessState(user).tone}`,
+          { 'admin-list-item-active': selectedUser?.id === user.id }
+        ]"
+        type="button"
+        @click="emit('select-user', user)"
+      >
+        <span class="admin-client-status-rail" aria-hidden="true"></span>
         <span class="admin-client-list-avatar"><img v-if="user.photoUrl" :src="user.photoUrl" :alt="userTitle(user)" loading="lazy" decoding="async" /><span v-else>{{ userInitial(user) }}</span></span>
-        <span class="admin-list-item-main"><span class="admin-list-item-copy"><span class="admin-client-list-name-line"><strong>{{ userTitle(user) }}</strong><small v-if="user.email">{{ user.email }}</small></span></span><span class="admin-list-item-meta"><span>{{ getAdminTariffLabel(user.tariff) }}</span><span class="admin-list-item-progress">Уроки {{ user.completedItems }}/{{ user.totalItems }}</span><span>Вход {{ formatAdminCompactDateTime(user.lastLoginAt) }}</span></span></span>
-        <span class="admin-list-badges"><em v-if="user.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</em><em class="admin-access-badge" :class="`admin-access-badge-${getAdminClientAccessState(user).tone}`">{{ getAdminClientAccessState(user).label }}</em></span><span class="admin-client-list-chevron"><ChevronRight aria-hidden="true" /></span>
+        <span class="admin-list-item-main">
+          <span class="admin-client-list-name-line"><strong>{{ userTitle(user) }}</strong></span>
+          <small v-if="getAdminClientContact(user)" class="admin-client-list-contact">{{ getAdminClientContact(user) }}</small>
+          <span class="admin-client-list-metrics">
+            <span>{{ getAdminTariffLabel(user.tariff) }}</span>
+            <span class="admin-list-item-progress">Уроки {{ user.completedItems }}/{{ user.totalItems }}</span>
+          </span>
+        </span>
+        <span class="admin-client-last-visit">
+          <small>Последний вход</small>
+          <strong>{{ formatAdminClientLastLogin(user.lastLoginAt, formatAdminCompactDateTime) }}</strong>
+          <em v-if="user.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</em>
+          <em class="admin-access-badge" :class="`admin-access-badge-${getAdminClientAccessState(user).tone}`">{{ getAdminClientAccessState(user).label }}</em>
+        </span>
+        <span class="admin-client-list-chevron"><ChevronRight aria-hidden="true" /></span>
       </button>
     </div></div>
 

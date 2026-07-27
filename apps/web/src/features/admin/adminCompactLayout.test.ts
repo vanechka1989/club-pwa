@@ -38,14 +38,24 @@ describe("compact admin statistics and clients", () => {
     expect(source).toContain('class="admin-client-list-avatar"');
     expect(source).toContain('class="admin-client-list-chevron"');
     expect(source).toContain('class="admin-list-item-main"');
-    expect(source).toContain('class="admin-list-item-meta"');
+    expect(source).toContain('class="admin-client-list-metrics"');
     expect(source).toContain('class="admin-list-item-progress"');
     expect(source).toContain('class="admin-client-list-name-line"');
-    expect(source).toContain("user.email");
-    expect(source).toContain("Последний вход:");
+    expect(source).toContain("getAdminClientContact(user)");
+    expect(source).toContain("formatAdminClientLastLogin");
     expect(styles).toMatch(/\.admin-list-item\.admin-client-list-row\s*\{[^}]*min-height:\s*64px;/s);
     expect(styles).toContain(".admin-access-badge-open");
     expect(styles).toContain(".admin-access-badge-closed");
+  });
+
+  it("prioritizes contact, activity, and access state in client cards", () => {
+    expect(source).toContain('class="admin-client-sort-note"');
+    expect(source).toContain("Последний вход ↓");
+    expect(source).toContain("admin-client-list-contact");
+    expect(source).toContain("admin-client-list-metrics");
+    expect(source).toContain("admin-client-last-visit");
+    expect(source).toContain("admin-client-status-rail");
+    expect(source).toContain("formatAdminClientLastLogin");
   });
 
   it("balances the separate client screen between a summary and access controls", () => {
