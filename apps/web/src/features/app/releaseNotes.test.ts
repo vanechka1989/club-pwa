@@ -13,9 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes multicurrency payments as version 5.69", () => {
-    expect(appVersion).toBe("5.69");
-    expect(releaseNotes[0]?.title).toBe("Оплата в рублях, евро и долларах");
+  it("publishes reliable Lava period prices as version 5.70", () => {
+    expect(appVersion).toBe("5.70");
+    expect(releaseNotes[0]?.title).toBe("Надёжные цены Lava и раздельная статистика");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/период/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/поддержк/i);
+
+    const multicurrencyRelease = releaseNotes.find((note) => note.version === "5.69");
+    expect(multicurrencyRelease?.title).toBe("Оплата в рублях, евро и долларах");
 
     const previousOptimizationRelease = releaseNotes.find((note) => note.version === "5.68");
     expect(previousOptimizationRelease?.title).toBe("Оптимизация кода и загрузки");
@@ -208,7 +213,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Faster loading and cleaner code");
+    expect(englishNotes[0]?.title).toBe("Reliable Lava prices and separate support stats");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

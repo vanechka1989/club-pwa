@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Faster loading and cleaner code",
+  title: "Reliable Lava prices and separate support stats",
   items: [
-    "Unreachable legacy screens and unused code were removed without changing active features.",
-    "The API container now includes production dependencies only, and an unused S3 library was removed.",
-    "Route styles and release history are split more safely, reducing startup and maintenance overhead."
+    "Lava catalog prices are stored and validated separately for every currency and billing period.",
+    "The tariff editor refreshes current amounts while preserving enabled currencies in a compact layout.",
+    "Support metrics now appear as four independent cards."
   ]
 };
 
