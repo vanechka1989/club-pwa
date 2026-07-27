@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { applyLavaCatalogItem, lavaCatalogAccessDays } from "./paymentProductForm";
+import {
+  applyLavaCatalogItem,
+  lavaCatalogAccessDays,
+  lavaCatalogPricesForTariff,
+  lavaPeriodicityForTariff
+} from "./paymentProductForm";
 
 const form = {
   kind: "one_time" as const,
@@ -108,5 +113,72 @@ describe("Lava tariff autofill", () => {
     [null, null]
   ])("maps Lava periodicity %s to %s access days", (periodicity, expected) => {
     expect(lavaCatalogAccessDays(periodicity)).toBe(expected);
+  });
+
+  it.each([
+    ["one_time", 30, "ONE_TIME"],
+    ["recurrent", 30, "MONTHLY"],
+    ["recurrent", 90, "PERIOD_90_DAYS"],
+    ["recurrent", 180, "PERIOD_180_DAYS"],
+    ["recurrent", 365, "PERIOD_YEAR"],
+    ["recurrent", 45, null]
+  ] as const)("maps tariff %s/%s to Lava period %s", (kind, accessDays, expected) => {
+    expect(lavaPeriodicityForTariff(kind, accessDays)).toBe(expected);
+  });
+
+  it("selects only prices for the tariff billing period", () => {
+    const item = {
+      id: "catalog-periods",
+      externalProductId: "product-periods",
+      externalOfferId: "offer-periods",
+      title: "Клуб",
+      kind: "recurrent" as const,
+      amountRub: 1500,
+      periodicity: "MONTHLY",
+      prices: [
+        { currency: "RUB" as const, amountMinor: 150000, periodicity: "MONTHLY" },
+        { currency: "USD" as const, amountMinor: 2000, periodicity: "MONTHLY" },
+        { currency: "RUB" as const, amountMinor: 900000, periodicity: "PERIOD_180_DAYS" },
+        { currency: "USD" as const, amountMinor: 12000, periodicity: "PERIOD_180_DAYS" }
+      ],
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-27T00:00:00.000Z"
+    };
+
+    expect(lavaCatalogPricesForTariff(item, "recurrent", 180)).toEqual([
+      { currency: "RUB", amountMinor: 900000, periodicity: "PERIOD_180_DAYS" },
+      { currency: "USD", amountMinor: 12000, periodicity: "PERIOD_180_DAYS" }
+    ]);
+    expect(lavaCatalogPricesForTariff(item, "recurrent", 90)).toEqual([]);
+  });
+
+  it("autofills only the selected catalog period prices", () => {
+    const result = applyLavaCatalogItem({
+      ...form,
+      bindings: [{ provider: "lava" as const, enabled: true, externalProductId: null, externalOfferId: null, prices: [] }]
+    }, {
+      id: "catalog-periods",
+      externalProductId: "product-periods",
+      externalOfferId: "offer-periods",
+      title: "Клуб",
+      kind: "recurrent",
+      amountRub: 1500,
+      periodicity: "MONTHLY",
+      prices: [
+        { currency: "RUB", amountMinor: 150000, periodicity: "MONTHLY" },
+        { currency: "USD", amountMinor: 2000, periodicity: "MONTHLY" },
+        { currency: "RUB", amountMinor: 900000, periodicity: "PERIOD_180_DAYS" }
+      ],
+      isStale: false,
+      isSelectable: true,
+      syncedAt: "2026-07-27T00:00:00.000Z"
+    });
+
+    expect(result.accessDays).toBe(30);
+    expect(result.bindings?.[0]?.prices).toEqual([
+      { currency: "RUB", amountMinor: 150000, isEnabled: true },
+      { currency: "USD", amountMinor: 2000, isEnabled: true }
+    ]);
   });
 });
