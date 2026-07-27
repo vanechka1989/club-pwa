@@ -13,12 +13,15 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes safe large support uploads as version 5.77", () => {
-    expect(appVersion).toBe("5.77");
-    expect(releaseNotes[0]?.title).toBe("Большие файлы в поддержке");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/50 МБ/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/аватар/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/урок/i);
+  it("publishes client activity cards as version 5.78", () => {
+    expect(appVersion).toBe("5.78");
+    expect(releaseNotes[0]?.title).toBe("Клиенты по последней активности");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/последн(ему|ий) вход/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Не входил/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/карточ/i);
+
+    const largeSupportRelease = releaseNotes.find((note) => note.version === "5.77");
+    expect(largeSupportRelease?.title).toBe("Большие файлы в поддержке");
 
     const dedicatedErrorRelease = releaseNotes.find((note) => note.version === "5.76");
     expect(dedicatedErrorRelease?.title).toBe("Каждая ошибка открывается отдельно");
@@ -220,7 +223,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Large files in support");
+    expect(englishNotes[0]?.title).toBe("Clients by latest activity");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

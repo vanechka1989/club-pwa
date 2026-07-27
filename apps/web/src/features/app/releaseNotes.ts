@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Large files in support",
+  title: "Clients by latest activity",
   items: [
-    "Support now accepts photos and videos up to 50 MB per file with server-side validation.",
-    "The avatar limit is now 10 MB and is enforced consistently by the app and server.",
-    "Large attachments stream without filling server memory, while large lesson uploads remain on their existing path."
+    "Clients are automatically sorted by latest login, with the most recently active shown first.",
+    "Cards highlight login time, access status, plan, and learning progress while remaining convenient on mobile.",
+    "Clients who have never signed in are marked as ‘Never signed in’ and placed at the end of the list."
   ]
 };
 
