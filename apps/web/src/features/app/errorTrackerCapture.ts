@@ -39,6 +39,7 @@ export function installVueErrorHandler(
   getContext: () => RuntimeErrorContext
 ) {
   app.config.errorHandler = (error, _instance, info) => {
+    console.error("Vue application error", error, info);
     void report(buildRuntimeErrorPayload(error, info, getContext())).catch(() => undefined);
   };
 }

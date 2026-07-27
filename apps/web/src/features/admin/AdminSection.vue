@@ -106,6 +106,7 @@ import {
   type AdminAccessBreakdownItem
 } from "@/features/admin/adminUserDrilldown";
 import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
+import { resolveAdminPollStats } from "@/features/admin/adminStatsFallback";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { formatAdminPaymentMoney, paymentRubMajor } from "@/features/admin/adminPaymentMoney";
 import { canUseDeveloperPreview, normalizeAdminPreviewMode } from "@/features/admin/developerPreview";
@@ -2041,7 +2042,7 @@ async function loadAll() {
     if (statsResponse) {
       users.value = statsResponse.users;
       communityMessages.value = statsResponse.communityMessages ?? [];
-      pollStats.value = statsResponse.pollStats;
+      pollStats.value = resolveAdminPollStats(statsResponse.pollStats, pollStats.value);
     }
     if (paymentsResponse) {
       paymentOrders.value = paymentsResponse.orders;
