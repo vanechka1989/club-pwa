@@ -4,6 +4,7 @@ import {
   allClientSourcesFilter,
   filterAdminClients,
   getAdminClientSourceOptions,
+  sortAdminClientsByLastLogin,
   untaggedClientSourceFilter
 } from "./adminClientAcquisitionFilters";
 
@@ -88,5 +89,27 @@ describe("admin client acquisition filters", () => {
       { value: "email", label: "email" },
       { value: "vk", label: "vk" }
     ]);
+  });
+
+  it("sorts filtered clients by the latest login without mutating the input", () => {
+    const oldest = client({ id: "oldest", lastLoginAt: "2026-07-20T08:00:00.000Z" });
+    const newest = client({ id: "newest", lastLoginAt: "2026-07-27T18:00:00.000Z" });
+    const middle = client({ id: "middle", lastLoginAt: "2026-07-25T12:00:00.000Z" });
+    const input = [oldest, newest, middle];
+
+    expect(filterAdminClients(input, baseFilters).map((user) => user.id)).toEqual(["newest", "middle", "oldest"]);
+    expect(input.map((user) => user.id)).toEqual(["oldest", "newest", "middle"]);
+  });
+
+  it("puts missing logins last and stabilizes equal timestamps by name and id", () => {
+    const sameTime = "2026-07-27T12:00:00.000Z";
+    const result = sortAdminClientsByLastLogin([
+      client({ id: "z", displayName: "Борис", lastLoginAt: sameTime }),
+      client({ id: "b", displayName: "Анна", lastLoginAt: sameTime }),
+      client({ id: "a", displayName: "Анна", lastLoginAt: sameTime }),
+      client({ id: "never", lastLoginAt: undefined as never })
+    ]);
+
+    expect(result.map((user) => user.id)).toEqual(["a", "b", "z", "never"]);
   });
 });

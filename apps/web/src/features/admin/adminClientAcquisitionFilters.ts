@@ -1,4 +1,5 @@
 import type { AdminStatsUser } from "@club/shared";
+import { getAdminClientDisplayName } from "./adminClientCard";
 
 export const allClientSourcesFilter = "__all_sources__";
 export const untaggedClientSourceFilter = "__untagged_source__";
@@ -17,6 +18,25 @@ export type AdminClientFilters = {
 
 function normalize(value: string | null | undefined) {
   return value?.trim().toLocaleLowerCase("ru") ?? "";
+}
+
+function loginTimestamp(value: string | null | undefined) {
+  const timestamp = value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+export function sortAdminClientsByLastLogin(users: readonly AdminStatsUser[]) {
+  return [...users].sort((left, right) => {
+    const leftLogin = loginTimestamp(left.lastLoginAt);
+    const rightLogin = loginTimestamp(right.lastLoginAt);
+
+    if (leftLogin === null && rightLogin !== null) return 1;
+    if (leftLogin !== null && rightLogin === null) return -1;
+    if (leftLogin !== null && rightLogin !== null && leftLogin !== rightLogin) return rightLogin - leftLogin;
+
+    const byName = getAdminClientDisplayName(left).localeCompare(getAdminClientDisplayName(right), "ru");
+    return byName || left.id.localeCompare(right.id, "ru");
+  });
 }
 
 export function getAdminClientSourceOptions(users: AdminStatsUser[]) {
@@ -38,7 +58,7 @@ export function filterAdminClients(users: AdminStatsUser[], filters: AdminClient
   const source = normalize(filters.source);
   const utmValue = normalize(filters.utmValue);
 
-  return users.filter((user) => {
+  const filteredUsers = users.filter((user) => {
     const matchesQuery =
       !query ||
       [user.telegramId, user.firstName, user.username, user.displayName, user.email].some((value) => normalize(value).includes(query));
@@ -62,4 +82,6 @@ export function filterAdminClients(users: AdminStatsUser[], filters: AdminClient
 
     return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions && matchesSource && matchesUtm;
   });
+
+  return sortAdminClientsByLastLogin(filteredUsers);
 }
