@@ -9,6 +9,33 @@
     Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
   }
 
+  @avatarUpload path /api/me/avatar/upload
+  handle @avatarUpload {
+    request_body {
+      max_size 11MB
+    }
+    uri strip_prefix /api
+    reverse_proxy api:3000 {
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+    }
+  }
+
+  @supportUpload {
+    path /api/support/uploads/*
+    method PUT
+  }
+  handle @supportUpload {
+    request_body {
+      max_size 51MB
+    }
+    uri strip_prefix /api
+    reverse_proxy api:3000 {
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+    }
+  }
+
   handle_path /api/* {
     reverse_proxy api:3000 {
       header_up X-Forwarded-For {remote_host}

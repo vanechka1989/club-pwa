@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const caddyfile = readFileSync(resolve(__dirname, "../../../../deploy/Caddyfile"), "utf-8");
+const scaleCaddyfile = readFileSync(resolve(__dirname, "../../../../deploy/Caddyfile.scale"), "utf-8");
 const nginxConf = readFileSync(resolve(__dirname, "../../../../apps/web/nginx.conf"), "utf-8");
 const serverInstall = readFileSync(resolve(__dirname, "../../../../deploy/server-install.sh"), "utf-8");
 const sshInstall = readFileSync(resolve(__dirname, "../../../../deploy/install.sh"), "utf-8");
@@ -168,5 +169,19 @@ describe("production security config", () => {
     const apiStart = productionCompose.indexOf("  api:\n");
     const apiEnd = productionCompose.indexOf("\n  migrate:\n", apiStart);
     expect(productionCompose.slice(apiStart, apiEnd)).toContain("stop_grace_period: 30s");
+  });
+
+  it("bounds avatar and support streams before the general API handler without limiting lessons", () => {
+    for (const source of [caddyfile, scaleCaddyfile]) {
+      expect(source).toContain("@avatarUpload path /api/me/avatar/upload");
+      expect(source).toContain("@supportUpload {");
+      expect(source).toContain("path /api/support/uploads/*");
+      expect(source).toContain("method PUT");
+      expect(source).toContain("max_size 11MB");
+      expect(source).toContain("max_size 51MB");
+      expect(source.indexOf("handle @avatarUpload")).toBeLessThan(source.indexOf("handle_path /api/*"));
+      expect(source.indexOf("handle @supportUpload")).toBeLessThan(source.indexOf("handle_path /api/*"));
+      expect(source).not.toContain("@learningUpload");
+    }
   });
 });
