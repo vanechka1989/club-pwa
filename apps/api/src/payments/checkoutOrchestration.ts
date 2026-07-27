@@ -1,8 +1,8 @@
-import type { PaymentCurrency, PaymentProviderCode } from "@club/shared";
+import type { PaymentCurrency, PaymentProductKind, PaymentProviderCode } from "@club/shared";
 import { isLavaCatalogPriceCurrent, resolveCheckoutMoney } from "./checkoutMoney";
 
 type Price = { currency: PaymentCurrency; amountMinor: number; isEnabled: boolean };
-type CatalogItem = { isStale: boolean; prices: Array<{ currency: PaymentCurrency; amountMinor: number | null }> } | null;
+type CatalogItem = { isStale: boolean; prices: Array<{ currency: PaymentCurrency; amountMinor: number | null; periodicity?: string | null }> } | null;
 
 function effectivePrices(prices: Price[], amountRub: number | null) {
   if (prices.length || typeof amountRub !== "number" || !Number.isInteger(amountRub) || amountRub <= 0) return prices;
@@ -14,12 +14,19 @@ export async function runCheckoutPreflight<T>(input: {
   requestedCurrency: PaymentCurrency | undefined;
   prices: Price[];
   amountRub: number | null;
+  kind?: PaymentProductKind;
+  accessDays?: number;
   catalogItem: CatalogItem;
   createOrder: (money: { currency: PaymentCurrency; amountMinor: number }) => Promise<T>;
 }) {
   const money = resolveCheckoutMoney(effectivePrices(input.prices, input.amountRub), input.requestedCurrency, input.provider);
   if (money.kind !== "selected") return money;
-  if (input.provider === "lava" && input.catalogItem && !isLavaCatalogPriceCurrent(input.catalogItem, money)) {
+  if (input.provider === "lava" && input.catalogItem && !isLavaCatalogPriceCurrent(
+    input.catalogItem,
+    money,
+    input.kind ?? "one_time",
+    input.accessDays ?? 30
+  )) {
     return { kind: "drift" as const };
   }
   return { kind: "created" as const, value: await input.createOrder({ currency: money.currency, amountMinor: money.amountMinor }) };

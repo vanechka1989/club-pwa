@@ -30,6 +30,29 @@ describe("product binding price preparation", () => {
     });
   });
 
+  it("validates a fixed Lava price against the tariff billing period", () => {
+    const periodCatalog = [{
+      ...catalog[0]!,
+      prices: [
+        { currency: "USD" as const, amountMinor: 1999, periodicity: "MONTHLY" },
+        { currency: "USD" as const, amountMinor: 12000, periodicity: "PERIOD_180_DAYS" }
+      ]
+    }];
+    const base = {
+      providers: [{ id: "lava-provider", provider: "lava" as const }],
+      catalogItems: periodCatalog,
+      amountRub: null,
+      kind: "recurrent" as const,
+      accessDays: 180
+    };
+
+    expect(prepareProductBindingPrices({
+      ...base,
+      bindings: [{ ...lava, prices: [{ currency: "USD", amountMinor: 12000, isEnabled: true }] }]
+    }).ok).toBe(true);
+    expect(prepareProductBindingPrices({ ...base, bindings: [lava] }).ok).toBe(false);
+  });
+
   it("rejects duplicate, disabled-only, unsupported, and non-positive Lava prices", () => {
     const base = { providers: [{ id: "lava-provider", provider: "lava" as const }], catalogItems: catalog, amountRub: null };
 

@@ -1,4 +1,5 @@
-import type { PaymentCurrency, PaymentProviderCode } from "@club/shared";
+import type { PaymentCurrency, PaymentProductKind, PaymentProviderCode } from "@club/shared";
+import { isLavaCatalogPriceForProduct } from "./lavaPeriodicity";
 
 export type ProductBindingPriceInput = {
   currency: PaymentCurrency;
@@ -20,7 +21,7 @@ type CatalogItem = {
   externalOfferId: string;
   isStale: boolean;
   isSelectable: boolean;
-  prices: Array<{ currency: PaymentCurrency; amountMinor: number | null }>;
+  prices: Array<{ currency: PaymentCurrency; amountMinor: number | null; periodicity?: string | null }>;
 };
 
 type ExistingBinding = { provider: PaymentProviderCode; externalOfferId: string | null };
@@ -31,6 +32,8 @@ type PreparationInput = {
   catalogItems: CatalogItem[];
   existingBindings?: ExistingBinding[];
   amountRub: number | null;
+  kind?: PaymentProductKind;
+  accessDays?: number;
 };
 
 type PreparationResult =
@@ -48,7 +51,9 @@ function isAlreadyBound(binding: ProductBindingInput, existingBindings: Existing
 function validateLavaPrices(
   binding: ProductBindingInput,
   catalogItem: CatalogItem | undefined,
-  existingBindings: ExistingBinding[]
+  existingBindings: ExistingBinding[],
+  kind: PaymentProductKind,
+  accessDays: number
 ): string | null {
   if (!binding.externalProductId || !binding.externalOfferId) return "Для Lava укажите ID товара и предложения.";
   if (!binding.prices.some((price) => price.isEnabled)) return "Для Lava выберите хотя бы одну валюту.";
@@ -67,7 +72,9 @@ function validateLavaPrices(
     return "Выбранное предложение Lava сейчас недоступно.";
   }
   for (const price of binding.prices) {
-    const catalogPrice = catalogItem.prices.find((entry) => entry.currency === price.currency);
+    const catalogPrice = catalogItem.prices.find((entry) =>
+      entry.currency === price.currency && isLavaCatalogPriceForProduct(entry.periodicity, kind, accessDays)
+    );
     if (!catalogPrice) return "Выбранная валюта отсутствует в предложении Lava.";
     if (catalogPrice.amountMinor !== null && catalogPrice.amountMinor !== price.amountMinor) {
       return "Цена Lava изменилась. Обновите выбранные валюты.";
@@ -78,6 +85,8 @@ function validateLavaPrices(
 
 export function prepareProductBindingPrices(input: PreparationInput): PreparationResult {
   const existingBindings = input.existingBindings ?? [];
+  const kind = input.kind ?? "one_time";
+  const accessDays = input.accessDays ?? 30;
   const providersByCode = new Map(input.providers.map((provider) => [provider.provider, provider]));
   const bindings: ProductBindingInput[] = [];
 
@@ -103,7 +112,7 @@ export function prepareProductBindingPrices(input: PreparationInput): Preparatio
     const catalogItem = binding.externalOfferId
       ? input.catalogItems.find((item) => item.providerId === provider.id && item.externalOfferId === binding.externalOfferId)
       : undefined;
-    const error = validateLavaPrices(binding, catalogItem, existingBindings);
+    const error = validateLavaPrices(binding, catalogItem, existingBindings, kind, accessDays);
     if (error) return { ok: false, error };
     bindings.push({ ...binding, prices: binding.prices.map((price) => ({ ...price })) });
   }

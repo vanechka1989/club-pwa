@@ -62,6 +62,7 @@ import { mapPaymentProduct } from "../payments/productMapping";
 import { runProductBindingMutation } from "../payments/productMutationOrchestration";
 import { runCheckoutPreflight } from "../payments/checkoutOrchestration";
 import { checkoutCurrencyChoiceResponse, checkoutPreflightChoiceResult } from "../payments/checkoutCurrencyResponse";
+import { isLavaCatalogPriceForProduct } from "../payments/lavaPeriodicity";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -193,7 +194,11 @@ async function loadLavaCatalogItems(providers: PaymentProvider[]) {
     externalOfferId: item.externalOfferId,
     isStale: item.isStale,
     isSelectable: item.isSelectable,
-    prices: item.prices.map((price) => ({ currency: price.currency, amountMinor: price.amountMinor }))
+    prices: item.prices.map((price) => ({
+      currency: price.currency,
+      amountMinor: price.amountMinor,
+      periodicity: price.periodicity
+    }))
   }));
 }
 
@@ -654,7 +659,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
           with: { prices: true }
         })
       : null;
-    const catalogPrice = lavaCatalogItem?.prices.find((price) => price.currency === money.currency);
+    const catalogPrice = lavaCatalogItem?.prices.find((price) =>
+      price.currency === money.currency &&
+      isLavaCatalogPriceForProduct(price.periodicity, product.kind, product.accessDays)
+    );
     const now = new Date();
     const orderId = `club-${randomUUID()}`;
     const created = { order: null as typeof paymentOrders.$inferSelect | null };
@@ -666,6 +674,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         requestedCurrency: body.data.currency,
         prices: selected.binding.prices,
         amountRub: product.amountRub,
+        kind: product.kind,
+        accessDays: product.accessDays,
         catalogItem: lavaCatalogItem ?? null,
         createOrder: async (selectedMoney) => createCheckoutWithSnapshot({
         snapshot: selectedMoney,
@@ -1188,7 +1198,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
               catalogItemId: catalogItem.id,
               currency: price.currency,
               amountMinor: price.amountMinor,
-              periodicity: price.periodicity,
+              periodicity: price.periodicity ?? "ONE_TIME",
               createdAt: syncedAt,
               updatedAt: syncedAt
             })));
@@ -1316,6 +1326,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       providers: providers.map((provider) => ({ id: provider.id, provider: provider.provider as PaymentProviderCode })),
       catalogItems,
       amountRub: body.data.amountRub,
+      kind: body.data.kind,
+      accessDays: body.data.accessDays,
       transaction: async (preparedBindings) => {
         const now = new Date();
         return db.transaction(async (tx) => {
@@ -1433,6 +1445,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       providers: providers.map((provider) => ({ id: provider.id, provider: provider.provider as PaymentProviderCode })),
       catalogItems,
       amountRub: body.data.amountRub,
+      kind: body.data.kind,
+      accessDays: body.data.accessDays,
       existingAmountRub: existingProduct.amountRub,
       existingBindings: existingProduct.providerBindings.map((binding) => ({
         provider: binding.provider.provider as PaymentProviderCode,

@@ -49,6 +49,19 @@ describe("checkout money resolution", () => {
     )).toBe(true);
   });
 
+  it("checks Lava catalog drift against the checkout billing period", () => {
+    const catalog = {
+      isStale: false,
+      prices: [
+        { currency: "USD" as const, amountMinor: 1999, periodicity: "MONTHLY" },
+        { currency: "USD" as const, amountMinor: 12000, periodicity: "PERIOD_180_DAYS" }
+      ]
+    };
+
+    expect(isLavaCatalogPriceCurrent(catalog, { currency: "USD", amountMinor: 12000 }, "recurrent", 180)).toBe(true);
+    expect(isLavaCatalogPriceCurrent(catalog, { currency: "USD", amountMinor: 1999 }, "recurrent", 180)).toBe(false);
+  });
+
   it("persists the selected snapshot and passes that exact pair to the adapter", async () => {
     const inserted: Array<{ currency: string; amountMinor: number; amountRub: number | null }> = [];
     const adapterProducts: Array<{ currency: string; amountMinor: number; amountRub: number | null }> = [];

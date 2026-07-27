@@ -44,4 +44,26 @@ describe("checkout preflight orchestration", () => {
     expect(zero).toEqual({ kind: "unavailable" });
     expect(legacy).toEqual({ kind: "created", value: { currency: "RUB", amountMinor: 99000 } });
   });
+
+  it("uses the matching Lava billing period for catalog drift checks", async () => {
+    const createOrder = vi.fn(async () => ({ id: "order-180" }));
+    const result = await runCheckoutPreflight({
+      provider: "lava",
+      requestedCurrency: "USD",
+      prices: [{ currency: "USD", amountMinor: 12000, isEnabled: true }],
+      amountRub: null,
+      kind: "recurrent",
+      accessDays: 180,
+      catalogItem: {
+        isStale: false,
+        prices: [
+          { currency: "USD", amountMinor: 1999, periodicity: "MONTHLY" },
+          { currency: "USD", amountMinor: 12000, periodicity: "PERIOD_180_DAYS" }
+        ]
+      },
+      createOrder
+    });
+
+    expect(result).toEqual({ kind: "created", value: { id: "order-180" } });
+  });
 });

@@ -1,4 +1,5 @@
-import type { PaymentCurrency, PaymentProviderCode } from "@club/shared";
+import type { PaymentCurrency, PaymentProductKind, PaymentProviderCode } from "@club/shared";
+import { isLavaCatalogPriceForProduct } from "./lavaPeriodicity";
 
 type CheckoutPrice = {
   currency: PaymentCurrency;
@@ -33,12 +34,16 @@ export function resolveCheckoutMoney(
 export function isLavaCatalogPriceCurrent(
   catalogItem: {
     isStale: boolean;
-    prices: Array<{ currency: PaymentCurrency; amountMinor: number | null }>;
+    prices: Array<{ currency: PaymentCurrency; amountMinor: number | null; periodicity?: string | null }>;
   },
-  expected: { currency: PaymentCurrency; amountMinor: number }
+  expected: { currency: PaymentCurrency; amountMinor: number },
+  kind: PaymentProductKind = "one_time",
+  accessDays = 30
 ) {
   if (catalogItem.isStale) return false;
-  const catalogPrice = catalogItem.prices.find((price) => price.currency === expected.currency);
+  const catalogPrice = catalogItem.prices.find((price) =>
+    price.currency === expected.currency && isLavaCatalogPriceForProduct(price.periodicity, kind, accessDays)
+  );
   return catalogPrice !== undefined && (catalogPrice.amountMinor === null || catalogPrice.amountMinor === expected.amountMinor);
 }
 
