@@ -18,10 +18,13 @@ export function canAuthorMutateMessage(
   userId: string,
   now = new Date()
 ) {
+  const elapsedMs = now.getTime() - message.createdAt.getTime();
+
   return (
     message.userId === userId &&
     !message.deletedByUserAt &&
-    now.getTime() - message.createdAt.getTime() <= authorMutationWindowMs
+    elapsedMs >= 0 &&
+    elapsedMs <= authorMutationWindowMs
   );
 }
 

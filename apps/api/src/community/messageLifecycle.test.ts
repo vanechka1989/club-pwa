@@ -13,9 +13,13 @@ const messageAt = (value: string) => ({
 });
 
 describe("message lifecycle", () => {
-  it("allows the author to mutate an active message for fifteen minutes", () => {
-    expect(canAuthorMutateMessage(messageAt("10:00"), "owner", new Date("2026-07-28T10:14:59.000Z"))).toBe(true);
-    expect(canAuthorMutateMessage(messageAt("10:00"), "owner", new Date("2026-07-28T10:15:01.000Z"))).toBe(false);
+  it("allows the author through the exact fifteen-minute boundary", () => {
+    expect(canAuthorMutateMessage(messageAt("10:00"), "owner", new Date("2026-07-28T10:15:00.000Z"))).toBe(true);
+    expect(canAuthorMutateMessage(messageAt("10:00"), "owner", new Date("2026-07-28T10:15:00.001Z"))).toBe(false);
+  });
+
+  it("rejects mutation before the server creation timestamp", () => {
+    expect(canAuthorMutateMessage(messageAt("10:00"), "owner", new Date("2026-07-28T09:59:59.999Z"))).toBe(false);
   });
 
   it("rejects mutations by another user or after user deletion", () => {

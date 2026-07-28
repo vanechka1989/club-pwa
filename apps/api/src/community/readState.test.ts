@@ -26,4 +26,19 @@ describe("advanceReadPosition", () => {
 
     expect(advanceReadPosition(null, candidate)).toEqual(candidate);
   });
+
+  it("uses message id as a stable tie-breaker for equal timestamps", () => {
+    const earlier = positionAt("00000000-0000-0000-0000-000000000001", "2026-07-28T12:00:00.000Z");
+    const later = positionAt("00000000-0000-0000-0000-000000000002", "2026-07-28T12:00:00.000Z");
+
+    expect(advanceReadPosition(earlier, later)).toBe(later);
+    expect(advanceReadPosition(later, earlier)).toBe(later);
+  });
+
+  it("keeps the current position for an idempotent candidate", () => {
+    const current = positionAt("00000000-0000-0000-0000-000000000001", "2026-07-28T12:00:00.000Z");
+    const candidate = positionAt("00000000-0000-0000-0000-000000000001", "2026-07-28T12:00:00.000Z");
+
+    expect(advanceReadPosition(current, candidate)).toBe(current);
+  });
 });
