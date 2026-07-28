@@ -12,6 +12,8 @@ import {
   verifyEmailCode as verifyEmailCodeApi
 } from "@/api/startup";
 import { getAcquisitionVisitorId } from "@/features/app/acquisitionTracking";
+import { clearCommunityDraftsForUser } from "@/features/community/communityDrafts";
+import { clearCommunityOutboxForUser } from "@/features/community/communityOutbox";
 import { clearCommunityUploadSessions } from "@/features/community/directUpload";
 
 type AuthRequestError = Error & {
@@ -268,8 +270,13 @@ export const useSessionStore = defineStore("session", () => {
   }
 
   async function logout() {
+    const communityUserId = user.value?.id;
     await logoutSession();
     clearCommunityUploadSessions();
+    if (communityUserId) {
+      clearCommunityDraftsForUser(communityUserId);
+      clearCommunityOutboxForUser(communityUserId);
+    }
     user.value = null;
     resetEmailAuth();
   }

@@ -10,22 +10,28 @@ import ChatComposer from "./ChatComposer.vue";
 import ChatMessage from "./ChatMessage.vue";
 import ChatRoom from "./ChatRoom.vue";
 import CommunitySection from "./CommunitySection.vue";
+import { resetCommunityDrafts } from "./communityDrafts";
+import { resetCommunityOutbox } from "./communityOutbox";
 
 const apiMocks = vi.hoisted(() => ({
+  createClubMessage: vi.fn(),
   createTopicUserMute: vi.fn(),
   deleteTopicMessages: vi.fn(),
   getClubMessages: vi.fn(),
-  getCommunityTopics: vi.fn()
+  getCommunityTopics: vi.fn(),
+  markCommunityTopicRead: vi.fn()
 }));
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
   return {
     ...actual,
+    createClubMessage: apiMocks.createClubMessage,
     createTopicUserMute: apiMocks.createTopicUserMute,
     deleteTopicMessages: apiMocks.deleteTopicMessages,
     getClubMessages: apiMocks.getClubMessages,
-    getCommunityTopics: apiMocks.getCommunityTopics
+    getCommunityTopics: apiMocks.getCommunityTopics,
+    markCommunityTopicRead: apiMocks.markCommunityTopicRead
   };
 });
 
@@ -145,13 +151,13 @@ function roomProps(overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function renderCommunity() {
+async function renderCommunity(expectedMessage = "Сообщение для модерации") {
   const pinia = createPinia();
   setActivePinia(pinia);
   useSessionStore(pinia).user = adminUser();
   const view = render(CommunitySection, { global: { plugins: [pinia] } });
   await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
-  await screen.findByText("Сообщение для модерации");
+  await screen.findByText(expectedMessage);
   return view;
 }
 
@@ -160,11 +166,17 @@ const originalCreateObjectUrl = URL.createObjectURL;
 const originalRevokeObjectUrl = URL.revokeObjectURL;
 
 beforeEach(() => {
+  localStorage.clear();
+  resetCommunityDrafts();
+  resetCommunityOutbox();
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
     configurable: true,
     value: vi.fn()
   });
   apiMocks.createTopicUserMute.mockReset().mockResolvedValue({ message: message({ id: "mute-system", isSystem: true }) });
+  apiMocks.createClubMessage.mockReset().mockResolvedValue({
+    message: message({ id: "sent-message", body: "Отправлено" })
+  });
   apiMocks.deleteTopicMessages.mockReset().mockResolvedValue({ ok: true });
   apiMocks.getClubMessages.mockReset().mockResolvedValue({
     messages: [message()],
@@ -173,6 +185,11 @@ beforeEach(() => {
     mutedPermanently: false
   });
   apiMocks.getCommunityTopics.mockReset().mockResolvedValue({ topics: [topic] });
+  apiMocks.markCommunityTopicRead.mockReset().mockResolvedValue({
+    unreadCount: 0,
+    lastReadMessageId: "00000000-0000-4000-8000-000000000100",
+    notificationMode: "mentions"
+  });
 });
 
 afterEach(() => {
@@ -333,5 +350,62 @@ describe("community component boundaries", () => {
     await screen.findByText("Сообщение для модерации");
 
     expect(screen.queryByRole("dialog", { name: "Выберите реакцию" })).toBeNull();
+  });
+
+  it("restores the authenticated user's topic draft after the community view reloads", async () => {
+    const first = await renderCommunity();
+    const composer = screen.getByPlaceholderText("Сообщение") as HTMLInputElement;
+    await fireEvent.update(composer, "Сохранённый черновик");
+    first.unmount();
+    cleanup();
+
+    await renderCommunity();
+
+    expect((screen.getByPlaceholderText("Сообщение") as HTMLInputElement).value).toBe("Сохранённый черновик");
+  });
+
+  it("keeps a failed text send optimistic and reconciles it with a realtime confirmation after reload", async () => {
+    apiMocks.createClubMessage.mockRejectedValue(new Error("offline"));
+    const first = await renderCommunity();
+    await fireEvent.update(screen.getByPlaceholderText("Сообщение"), "Офлайн-сообщение");
+    await fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    await waitFor(() => expect(localStorage.getItem("club-community-text-outbox-v1")).not.toBeNull());
+    await screen.findByText("Офлайн-сообщение");
+    const [queued] = JSON.parse(localStorage.getItem("club-community-text-outbox-v1") ?? "[]") as Array<{
+      deliveryKey: string;
+    }>;
+    first.unmount();
+    cleanup();
+    resetCommunityDrafts();
+    resetCommunityOutbox();
+    apiMocks.getClubMessages.mockResolvedValue({
+      messages: [message({
+        id: "confirmed-message",
+        body: "Офлайн-сообщение",
+        clientOperationId: queued!.deliveryKey
+      })],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false
+    });
+
+    await renderCommunity("Офлайн-сообщение");
+
+    expect(await screen.findAllByText("Офлайн-сообщение")).toHaveLength(1);
+    expect(localStorage.getItem("club-community-text-outbox-v1")).toBeNull();
+  });
+
+  it("restores the draft instead of retrying a terminal muted-account rejection", async () => {
+    apiMocks.createClubMessage.mockRejectedValue({
+      status: 403,
+      data: { mutedPermanently: true }
+    });
+    await renderCommunity();
+    const composer = screen.getByPlaceholderText("Сообщение") as HTMLInputElement;
+    await fireEvent.update(composer, "Сообщение во время мута");
+    await fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+
+    await waitFor(() => expect(localStorage.getItem("club-community-text-outbox-v1")).toBeNull());
+    expect(composer.value).toBe("Сообщение во время мута");
   });
 });
