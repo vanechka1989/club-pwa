@@ -5,6 +5,74 @@ import { buildMessageAuthor } from "./messageMetadata";
 import { isTopicAccessibleForRole } from "./topicAccess";
 
 const maximumExcerptLength = 500;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const postgresTimestampPattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{6})Z$/;
+
+export type SearchCursor = { createdAt: string; messageId: string };
+type MessageSearchDatabase = typeof import("../db/client").db;
+
+export type MessageSearchInput = {
+  query: string;
+  topicId?: string;
+  before?: SearchCursor;
+  limit: number;
+  role: UserRole;
+};
+
+export type MessageContextInput = {
+  topicId: string;
+  messageId: string;
+  before: number;
+  after: number;
+};
+
+export type SafeReplyInput = { topicId: string; messageId: string };
+
+export function encodeSearchCursor(cursor: SearchCursor) {
+  return Buffer.from(`${cursor.createdAt}|${cursor.messageId}`, "utf8").toString("base64url");
+}
+
+function isValidPostgresTimestamp(value: string) {
+  const match = postgresTimestampPattern.exec(value);
+  if (!match) return false;
+  const [, yearValue, monthValue, dayValue, hourValue, minuteValue, secondValue] = match;
+  const [year, month, day, hour, minute, second] = [
+    yearValue,
+    monthValue,
+    dayValue,
+    hourValue,
+    minuteValue,
+    secondValue
+  ].map(Number);
+  if (year! < 1 || hour! > 23 || minute! > 59 || second! > 59) return false;
+  const calendar = new Date(0);
+  calendar.setUTCHours(0, 0, 0, 0);
+  calendar.setUTCFullYear(year!, month! - 1, day!);
+  return (
+    calendar.getUTCFullYear() === year
+    && calendar.getUTCMonth() === month! - 1
+    && calendar.getUTCDate() === day
+  );
+}
+
+export function decodeSearchCursor(cursor: string): SearchCursor | null {
+  try {
+    const decoded = Buffer.from(cursor, "base64url").toString("utf8");
+    const separator = decoded.indexOf("|");
+    if (separator < 0 || decoded.indexOf("|", separator + 1) >= 0) return null;
+    const createdAtValue = decoded.slice(0, separator);
+    const messageId = decoded.slice(separator + 1);
+    if (
+      !uuidPattern.test(messageId)
+      || !isValidPostgresTimestamp(createdAtValue)
+    ) {
+      return null;
+    }
+    return { createdAt: createdAtValue, messageId };
+  } catch {
+    return null;
+  }
+}
 
 export function buildSearchTokens(query: string) {
   return query.trim().toLocaleLowerCase("ru").split(/\s+/u).filter(Boolean);
@@ -68,6 +136,10 @@ const hasQuarantinedAttachment = sql<boolean>`exists (
   where ${clubMessageAttachments.messageId} = ${clubChatMessages.id}
     and (${clubMessageAttachments.scanStatus} <> 'ready' or ${clubMessageAttachments.deletedAt} is not null)
 )`;
+const preciseMessageCreatedAt = sql<string>`to_char(
+  ${clubChatMessages.createdAt} at time zone 'UTC',
+  'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+)`;
 
 export function searchableMessageCondition() {
   return and(
@@ -81,14 +153,7 @@ function escapeLikePattern(value: string) {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 
-export async function searchCommunityMessages(input: {
-  query: string;
-  topicId?: string;
-  before?: string;
-  limit: number;
-  role: UserRole;
-}) {
-  const { db } = await import("../db/client");
+async function searchCommunityMessagesWithDatabase(db: MessageSearchDatabase, input: MessageSearchInput) {
   const tokens = buildSearchTokens(input.query);
   const normalizedQuery = tokens.join(" ");
   const limit = normalizeSearchLimit(input.limit);
@@ -103,6 +168,7 @@ export async function searchCommunityMessages(input: {
         deletedByUserAt: clubChatMessages.deletedByUserAt,
         createdAt: clubChatMessages.createdAt
       },
+      cursorCreatedAt: preciseMessageCreatedAt,
       topic: {
         title: clubChatTopics.title,
         isAdminOnly: clubChatTopics.isAdminOnly,
@@ -131,7 +197,15 @@ export async function searchCommunityMessages(input: {
           ? and(eq(clubChatTopics.isPublished, true), eq(clubChatTopics.isAdminOnly, false))
           : undefined,
         input.topicId ? eq(clubChatMessages.topicId, input.topicId) : undefined,
-        input.before ? lt(clubChatMessages.createdAt, new Date(input.before)) : undefined,
+        input.before
+          ? or(
+              sql`${clubChatMessages.createdAt} < ${input.before.createdAt}::timestamptz`,
+              and(
+                sql`${clubChatMessages.createdAt} = ${input.before.createdAt}::timestamptz`,
+                lt(clubChatMessages.id, input.before.messageId)
+              )
+            )
+          : undefined,
         or(
           sql`to_tsvector('simple', coalesce(${clubChatMessages.body}, '')) @@ websearch_to_tsquery('simple', ${normalizedQuery})`,
           sql`lower(regexp_replace(concat_ws(' ', coalesce(${users.displayName}, ''), coalesce(${users.firstName}, ''), coalesce(${users.username}, '')), '\\s+', ' ', 'g')) like ${authorPattern} escape '\\'`
@@ -151,6 +225,7 @@ export async function searchCommunityMessages(input: {
   );
   const hasMore = discoverableRows.length > limit;
   const page = discoverableRows.slice(0, limit);
+  const lastRow = page.at(-1);
 
   return {
     results: page.map((row) => ({
@@ -161,26 +236,25 @@ export async function searchCommunityMessages(input: {
       excerpt: buildSearchExcerpt(row.message.body, tokens),
       createdAt: row.message.createdAt.toISOString()
     })),
-    nextCursor: hasMore ? page.at(-1)?.message.createdAt.toISOString() ?? null : null
+    nextCursor: hasMore && lastRow
+      ? encodeSearchCursor({ createdAt: lastRow.cursorCreatedAt, messageId: lastRow.message.id })
+      : null
   };
 }
 
-export async function loadMessageContext(input: {
-  topicId: string;
-  messageId: string;
-  before: number;
-  after: number;
-}) {
-  const { db } = await import("../db/client");
-  const target = await db.query.clubChatMessages.findFirst({
-    where: and(
+async function loadMessageContextWithDatabase(db: MessageSearchDatabase, input: MessageContextInput) {
+  const [targetRow] = await db
+    .select({ message: clubChatMessages, user: users, cursorCreatedAt: preciseMessageCreatedAt })
+    .from(clubChatMessages)
+    .innerJoin(users, eq(users.id, clubChatMessages.userId))
+    .where(and(
       eq(clubChatMessages.id, input.messageId),
       eq(clubChatMessages.topicId, input.topicId),
       searchableMessageCondition()
-    ),
-    with: { user: true }
-  });
-  if (!target) return null;
+    ))
+    .limit(1);
+  if (!targetRow) return null;
+  const target = { ...targetRow.message, user: targetRow.user };
 
   const beforeLimit = normalizeContextWindow(input.before);
   const afterLimit = normalizeContextWindow(input.after);
@@ -191,8 +265,11 @@ export async function loadMessageContext(input: {
             eq(clubChatMessages.topicId, input.topicId),
             searchableMessageCondition(),
             or(
-              lt(clubChatMessages.createdAt, target.createdAt),
-              and(eq(clubChatMessages.createdAt, target.createdAt), lt(clubChatMessages.id, target.id))
+              sql`${clubChatMessages.createdAt} < ${targetRow.cursorCreatedAt}::timestamptz`,
+              and(
+                sql`${clubChatMessages.createdAt} = ${targetRow.cursorCreatedAt}::timestamptz`,
+                lt(clubChatMessages.id, target.id)
+              )
             )
           ),
           orderBy: [desc(clubChatMessages.createdAt), desc(clubChatMessages.id)],
@@ -206,8 +283,11 @@ export async function loadMessageContext(input: {
             eq(clubChatMessages.topicId, input.topicId),
             searchableMessageCondition(),
             or(
-              gt(clubChatMessages.createdAt, target.createdAt),
-              and(eq(clubChatMessages.createdAt, target.createdAt), gt(clubChatMessages.id, target.id))
+              sql`${clubChatMessages.createdAt} > ${targetRow.cursorCreatedAt}::timestamptz`,
+              and(
+                sql`${clubChatMessages.createdAt} = ${targetRow.cursorCreatedAt}::timestamptz`,
+                gt(clubChatMessages.id, target.id)
+              )
             )
           ),
           orderBy: [asc(clubChatMessages.createdAt), asc(clubChatMessages.id)],
@@ -221,4 +301,38 @@ export async function loadMessageContext(input: {
     targetMessageId: target.id,
     messages: [...beforeRows.reverse(), target, ...afterRows]
   };
+}
+
+async function loadSafeReplyWithDatabase(db: MessageSearchDatabase, input: SafeReplyInput) {
+  return (await db.query.clubChatMessages.findFirst({
+    where: and(
+      eq(clubChatMessages.id, input.messageId),
+      eq(clubChatMessages.topicId, input.topicId),
+      searchableMessageCondition()
+    ),
+    with: { user: true }
+  })) ?? null;
+}
+
+export function createMessageSearchRepository(database: MessageSearchDatabase) {
+  return {
+    search: (input: MessageSearchInput) => searchCommunityMessagesWithDatabase(database, input),
+    loadContext: (input: MessageContextInput) => loadMessageContextWithDatabase(database, input),
+    loadSafeReply: (input: SafeReplyInput) => loadSafeReplyWithDatabase(database, input)
+  };
+}
+
+export async function searchCommunityMessages(input: MessageSearchInput) {
+  const { db } = await import("../db/client");
+  return createMessageSearchRepository(db).search(input);
+}
+
+export async function loadMessageContext(input: MessageContextInput) {
+  const { db } = await import("../db/client");
+  return createMessageSearchRepository(db).loadContext(input);
+}
+
+export async function loadSafeReplyMessage(input: SafeReplyInput) {
+  const { db } = await import("../db/client");
+  return createMessageSearchRepository(db).loadSafeReply(input);
 }

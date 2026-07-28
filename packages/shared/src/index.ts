@@ -1045,10 +1045,13 @@ export type CommunityTopicNotificationSettingsRequest = z.infer<typeof community
 export const communityTopicNotificationSettingsResponseSchema = communityTopicStateSchema;
 export type CommunityTopicNotificationSettingsResponse = z.infer<typeof communityTopicNotificationSettingsResponseSchema>;
 
+export const communityMessageSearchCursorSchema = z.string().trim().min(40).max(160).regex(/^[A-Za-z0-9_-]+$/);
+export type CommunityMessageSearchCursor = z.infer<typeof communityMessageSearchCursorSchema>;
+
 export const communityMessageSearchQuerySchema = z.object({
   q: z.string().trim().min(2).max(120),
   topicId: z.string().uuid().optional(),
-  before: z.string().datetime().optional(),
+  before: communityMessageSearchCursorSchema.optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20)
 });
 export type CommunityMessageSearchQuery = z.infer<typeof communityMessageSearchQuerySchema>;
@@ -1065,7 +1068,7 @@ export type CommunityMessageSearchResult = z.infer<typeof communityMessageSearch
 
 export const communityMessageSearchResponseSchema = z.object({
   results: z.array(communityMessageSearchResultSchema),
-  nextCursor: z.string().datetime().nullable()
+  nextCursor: communityMessageSearchCursorSchema.nullable()
 });
 export type CommunityMessageSearchResponse = z.infer<typeof communityMessageSearchResponseSchema>;
 

@@ -18,7 +18,7 @@ import {
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
-import { loadMessageContext, searchableMessageCondition, searchCommunityMessages } from "../community/messageSearch";
+import { decodeSearchCursor, loadMessageContext, loadSafeReplyMessage, searchCommunityMessages } from "../community/messageSearch";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
@@ -36,6 +36,7 @@ import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
+import { persistentCommunityReadRateLimit } from "../security/persistentCommunityReadRateLimit";
 import { createAppNotification } from "../notifications/create";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 
@@ -51,6 +52,10 @@ const messageContextQuerySchema = z.object({
   before: z.coerce.number().int().min(0).max(50).default(20),
   after: z.coerce.number().int().min(0).max(50).default(20)
 });
+const messageContextPathSchema = z.object({
+  topicId: z.string().uuid(),
+  messageId: z.string().uuid()
+}).strict();
 
 const topicPayloadSchema = z.object({
   title: z.string().trim().min(2).max(180),
@@ -290,20 +295,14 @@ async function serializeMessage(
   const reactions = await db.query.clubMessageReactions.findMany({
     where: eq(clubMessageReactions.messageId, message.id)
   });
-  const replyTo = message.replyToMessageId
-    ? await db.query.clubChatMessages.findFirst({
-        where: safeReplyPreview
-          ? and(
-              eq(clubChatMessages.id, message.replyToMessageId),
-              eq(clubChatMessages.topicId, message.topicId),
-              searchableMessageCondition()
-            )
-          : eq(clubChatMessages.id, message.replyToMessageId),
-        with: {
-          user: true
-        }
-      })
-    : null;
+  const replyTo = !message.replyToMessageId
+    ? null
+    : safeReplyPreview
+      ? await loadSafeReplyMessage({ topicId: message.topicId, messageId: message.replyToMessageId })
+      : await db.query.clubChatMessages.findFirst({
+          where: eq(clubChatMessages.id, message.replyToMessageId),
+          with: { user: true }
+        });
   const reactionSummary = summarizeReactions(reactions, currentUserId);
   const authorMute = await getActiveMute(message.user.id);
   const attachments = await db.query.clubMessageAttachments.findMany({
@@ -629,6 +628,26 @@ async function notifyReplyRecipient({
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .use("*", persistentWriteRateLimit)
+  .use("/messages/search", async (c, next) => {
+    const query = communityMessageSearchQuerySchema.safeParse(c.req.query());
+    if (!query.success) {
+      return c.json({ error: "Invalid message search" }, 400);
+    }
+    if (query.data.before && !decodeSearchCursor(query.data.before)) {
+      return c.json({ error: "Invalid message search cursor" }, 400);
+    }
+    await next();
+  })
+  .use("/topics/:topicId/messages/:messageId/context", async (c, next) => {
+    if (!messageContextPathSchema.safeParse(c.req.param()).success) {
+      return c.json({ error: "Invalid message context path" }, 400);
+    }
+    if (!messageContextQuerySchema.safeParse(c.req.query()).success) {
+      return c.json({ error: "Invalid message context" }, 400);
+    }
+    await next();
+  })
+  .use("*", persistentCommunityReadRateLimit)
   .use("*", async (c, next) => {
     await next();
 
@@ -968,6 +987,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (!query.success) {
       return c.json({ error: "Invalid message search" }, 400);
     }
+    const before = query.data.before ? decodeSearchCursor(query.data.before) : undefined;
+    if (query.data.before && !before) {
+      return c.json({ error: "Invalid message search cursor" }, 400);
+    }
 
     await purgeExpiredDeletedMessages();
     if (query.data.topicId) {
@@ -983,11 +1006,15 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         limit: query.data.limit,
         role,
         ...(query.data.topicId ? { topicId: query.data.topicId } : {}),
-        ...(query.data.before ? { before: query.data.before } : {})
+        ...(before ? { before } : {})
       })
     );
   })
   .get("/topics/:topicId/messages/:messageId/context", async (c) => {
+    const path = messageContextPathSchema.safeParse(c.req.param());
+    if (!path.success) {
+      return c.json({ error: "Invalid message context path" }, 400);
+    }
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
@@ -1000,14 +1027,14 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     await purgeExpiredDeletedMessages();
-    const topic = await getAccessibleTopic(c.req.param("topicId"), role);
+    const topic = await getAccessibleTopic(path.data.topicId, role);
     if (!topic) {
       return c.json({ error: "Topic not found" }, 404);
     }
 
     const context = await loadMessageContext({
       topicId: topic.id,
-      messageId: c.req.param("messageId"),
+      messageId: path.data.messageId,
       before: query.data.before,
       after: query.data.after
     });

@@ -62,6 +62,7 @@ import type {
   LearningProgressMutationResponse,
   MessageReaction,
   CommunityNotificationMode,
+  CommunityMessageSearchCursor,
   CommunityMessageSearchResponse,
   CommunityTopicNotificationSettingsRequest,
   CommunityTopicNotificationSettingsResponse,
@@ -256,7 +257,7 @@ export function getClubMessages(topicId: string, before?: string | null) {
 export function searchCommunityMessages(query: {
   q: string;
   topicId?: string;
-  before?: string;
+  before?: CommunityMessageSearchCursor;
   limit?: number;
 }) {
   return api<CommunityMessageSearchResponse>("/community/messages/search", { query });

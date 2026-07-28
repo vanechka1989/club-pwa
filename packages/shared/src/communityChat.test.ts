@@ -5,6 +5,7 @@ const MiB = 1024 * 1024;
 const userId = "11111111-1111-4111-8111-111111111111";
 const topicId = "22222222-2222-4222-8222-222222222222";
 const messageId = "33333333-3333-4333-8333-333333333333";
+const searchCursor = Buffer.from(`2026-07-28T00:00:00.000000Z|${messageId}`).toString("base64url");
 
 const author = {
   id: userId,
@@ -153,7 +154,7 @@ describe("read, notification, and search contracts", () => {
 
   it("returns only bounded safe search result fields", () => {
     const resultSchema = contract<Record<string, unknown>>("communityMessageSearchResultSchema");
-    const responseSchema = contract<{ results: Record<string, unknown>[] }>("communityMessageSearchResponseSchema");
+    const responseSchema = contract<{ results: Record<string, unknown>[]; nextCursor: string | null }>("communityMessageSearchResponseSchema");
     const result = {
       messageId,
       topicId,
@@ -174,11 +175,15 @@ describe("read, notification, and search contracts", () => {
       createdAt: "2026-07-28T00:00:00.000Z"
     });
     expect(responseSchema.parse({ results: [result], nextCursor: null }).results).toHaveLength(1);
+    expect(responseSchema.parse({ results: [result], nextCursor: searchCursor }).nextCursor).toBe(searchCursor);
+    expect(responseSchema.safeParse({ results: [result], nextCursor: result.createdAt }).success).toBe(false);
     expect(responseSchema.safeParse({ messages: [messageFixture], nextCursor: null }).success).toBe(false);
   });
 
   it("keeps search queries bounded", () => {
     expect(shared.communityMessageSearchQuerySchema.parse({ q: "  Анна  " })).toEqual({ q: "Анна", limit: 20 });
+    expect(shared.communityMessageSearchQuerySchema.parse({ q: "Анна", before: searchCursor }).before).toBe(searchCursor);
+    expect(shared.communityMessageSearchQuerySchema.safeParse({ q: "Анна", before: "2026-07-28T00:00:00.000Z" }).success).toBe(false);
     expect(shared.communityMessageSearchQuerySchema.safeParse({ q: "а" }).success).toBe(false);
     expect(shared.communityMessageSearchQuerySchema.safeParse({ q: "Анна", limit: 51 }).success).toBe(false);
   });
