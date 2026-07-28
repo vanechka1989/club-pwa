@@ -10,9 +10,9 @@ import {
   authorName,
   formatMessageTime,
   reactionOptions,
-  type ChatPollDraft,
+  type ChatComposerEventMap,
+  type ChatMessageEventMap,
   type CommunityViewer,
-  type VisibleMessageReaction
 } from "./communityViewModel";
 
 const props = defineProps<{
@@ -32,31 +32,32 @@ const props = defineProps<{
   draft: string;
   composerResetVersion: number;
   reactionCompletedVersion: number;
+  interactionResetVersion: number;
   activeModerationMessage: ClubMessage | null;
 }>();
 
 const emit = defineEmits<{
   back: [];
-  toggleTopicLock: [];
-  deleteTopicMessages: [];
-  loadOlderMessages: [];
-  reply: [message: ClubMessage];
-  react: [message: ClubMessage, reaction: VisibleMessageReaction];
-  openActions: [message: ClubMessage];
-  pollVote: [message: ClubMessage, optionIds: string[]];
-  pollClose: [message: ClubMessage];
-  sendText: [body: string];
-  sendVoice: [blob: Blob, durationSeconds: number];
-  sendFiles: [files: File[]];
-  createPoll: [payload: ChatPollDraft];
-  draftChange: [body: string];
-  cancelReply: [];
-  closeActions: [];
-  togglePin: [message: ClubMessage];
-  toggleStatus: [message: ClubMessage, status: "visible" | "hidden" | "deleted"];
+  "toggle-topic-lock": [];
+  "delete-topic-messages": [];
+  "load-older-messages": [];
+  reply: ChatMessageEventMap["reply"];
+  react: ChatMessageEventMap["react"];
+  "open-actions": ChatMessageEventMap["open-actions"];
+  "poll-vote": ChatMessageEventMap["poll-vote"];
+  "poll-close": ChatMessageEventMap["poll-close"];
+  "send-text": ChatComposerEventMap["send-text"];
+  "send-voice": ChatComposerEventMap["send-voice"];
+  "send-files": ChatComposerEventMap["send-files"];
+  "create-poll": ChatComposerEventMap["create-poll"];
+  "draft-change": ChatComposerEventMap["draft-change"];
+  "cancel-reply": ChatComposerEventMap["cancel-reply"];
+  "close-actions": [];
+  "toggle-pin": [message: ClubMessage];
+  "toggle-status": [message: ClubMessage, status: "visible" | "hidden" | "deleted"];
   mute: [message: ClubMessage];
-  revokeMute: [message: ClubMessage];
-  deleteAuthorMessages: [message: ClubMessage];
+  "revoke-mute": [message: ClubMessage];
+  "delete-author-messages": [message: ClubMessage];
 }>();
 
 const { t } = useI18n();
@@ -101,7 +102,7 @@ function toggleReactionPicker(message: ClubMessage) {
   activeReactionMessageId.value = activeReactionMessageId.value === message.id ? null : message.id;
 }
 
-function handleReaction(message: ClubMessage, reaction: VisibleMessageReaction) {
+function handleReaction(message: ClubMessage, reaction: ChatMessageEventMap["react"][1]) {
   emit("react", message, reaction);
 }
 
@@ -112,23 +113,23 @@ function handleReply(message: ClubMessage) {
 
 function handleTopicLock() {
   showTopicAdminMenu.value = false;
-  emit("toggleTopicLock");
+  emit("toggle-topic-lock");
 }
 
 function handleDeleteTopicMessages() {
   showTopicAdminMenu.value = false;
-  emit("deleteTopicMessages");
+  emit("delete-topic-messages");
 }
 
-watch(
-  () => props.topic.id,
-  () => {
-    showTopicAdminMenu.value = false;
-    showPinnedMessages.value = false;
-    activeReactionMessageId.value = null;
-    highlightedMessageId.value = null;
-  }
-);
+function resetLocalInteractions() {
+  showTopicAdminMenu.value = false;
+  showPinnedMessages.value = false;
+  activeReactionMessageId.value = null;
+  highlightedMessageId.value = null;
+}
+
+watch(() => props.topic.id, resetLocalInteractions);
+watch(() => props.interactionResetVersion, resetLocalInteractions);
 watch(() => props.reactionCompletedVersion, () => {
   activeReactionMessageId.value = null;
 });
@@ -220,7 +221,7 @@ defineExpose({ getMessagesElement, scrollToBottom });
         class="mx-auto mb-3 min-h-10 rounded-full border border-[var(--line)] px-4 text-xs font-semibold text-[var(--muted)]"
         type="button"
         :disabled="loadingOlderMessages"
-        @click="$emit('loadOlderMessages')"
+        @click="$emit('load-older-messages')"
       >
         {{ loadingOlderMessages ? "Загрузка…" : "Показать предыдущие сообщения" }}
       </button>
@@ -235,10 +236,10 @@ defineExpose({ getMessagesElement, scrollToBottom });
         :highlighted="highlightedMessageId === message.id"
         @reply="handleReply"
         @react="handleReaction"
-        @open-actions="$emit('openActions', $event)"
+        @open-actions="$emit('open-actions', $event)"
         @jump-reply="scrollToMessage"
-        @poll-vote="(message, optionIds) => $emit('pollVote', message, optionIds)"
-        @poll-close="$emit('pollClose', $event)"
+        @poll-vote="(message, optionIds) => $emit('poll-vote', message, optionIds)"
+        @poll-close="$emit('poll-close', $event)"
         @toggle-reactions="toggleReactionPicker"
       />
       <div ref="messagesEnd"></div>
@@ -253,12 +254,12 @@ defineExpose({ getMessagesElement, scrollToBottom });
       :reply-to-message="replyToMessage"
       :draft="draft"
       :reset-version="composerResetVersion"
-      @send-text="$emit('sendText', $event)"
-      @send-voice="(blob, durationSeconds) => $emit('sendVoice', blob, durationSeconds)"
-      @send-files="$emit('sendFiles', $event)"
-      @create-poll="$emit('createPoll', $event)"
-      @draft-change="$emit('draftChange', $event)"
-      @cancel-reply="$emit('cancelReply')"
+      @send-text="$emit('send-text', $event)"
+      @send-voice="(blob, durationSeconds) => $emit('send-voice', blob, durationSeconds)"
+      @send-files="$emit('send-files', $event)"
+      @create-poll="$emit('create-poll', $event)"
+      @draft-change="$emit('draft-change', $event)"
+      @cancel-reply="$emit('cancel-reply')"
     />
   </div>
 
@@ -287,11 +288,11 @@ defineExpose({ getMessagesElement, scrollToBottom });
   <ChatModerationMenu
     v-if="isModerator && activeModerationMessage"
     :message="activeModerationMessage"
-    @close="$emit('closeActions')"
-    @toggle-pin="$emit('togglePin', $event)"
-    @toggle-status="(message, status) => $emit('toggleStatus', message, status)"
+    @close="$emit('close-actions')"
+    @toggle-pin="$emit('toggle-pin', $event)"
+    @toggle-status="(message, status) => $emit('toggle-status', message, status)"
     @mute="$emit('mute', $event)"
-    @revoke-mute="$emit('revokeMute', $event)"
-    @delete-author-messages="$emit('deleteAuthorMessages', $event)"
+    @revoke-mute="$emit('revoke-mute', $event)"
+    @delete-author-messages="$emit('delete-author-messages', $event)"
   />
 </template>

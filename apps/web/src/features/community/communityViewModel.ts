@@ -2,11 +2,15 @@ import { resolveDisplayName, type ClubMessage, type MessageReaction } from "@clu
 
 export type VisibleMessageReaction = Exclude<MessageReaction, "like" | "dislike">;
 
-export type ChatMessageAction =
-  | { type: "reply"; message: ClubMessage }
-  | { type: "react"; message: ClubMessage; reaction: VisibleMessageReaction }
-  | { type: "open-actions"; message: ClubMessage }
-  | { type: "jump-reply"; messageId: string };
+export type ChatMessageEventMap = {
+  reply: [message: ClubMessage];
+  react: [message: ClubMessage, reaction: VisibleMessageReaction];
+  "open-actions": [message: ClubMessage];
+  "jump-reply": [messageId: string];
+  "poll-vote": [message: ClubMessage, optionIds: string[]];
+  "poll-close": [message: ClubMessage];
+  "toggle-reactions": [message: ClubMessage];
+};
 
 export interface CommunityViewer {
   id: string;
@@ -23,6 +27,15 @@ export interface ChatPollDraft {
   isAnonymous: boolean;
   closesAt: string | null;
 }
+
+export type ChatComposerEventMap = {
+  "send-text": [body: string];
+  "send-voice": [blob: Blob, durationSeconds: number];
+  "send-files": [files: File[]];
+  "create-poll": [payload: ChatPollDraft];
+  "draft-change": [body: string];
+  "cancel-reply": [];
+};
 
 export const quickEmoji = ["👍", "🔥", "❤️", "😂", "👏", "💩"] as const;
 

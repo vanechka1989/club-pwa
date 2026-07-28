@@ -15,8 +15,8 @@ import {
   messageAuthorPhotoUrl,
   reactionLabel,
   visibleReactionCounts,
+  type ChatMessageEventMap,
   type CommunityViewer,
-  type VisibleMessageReaction
 } from "./communityViewModel";
 
 const props = defineProps<{
@@ -27,15 +27,7 @@ const props = defineProps<{
   highlighted: boolean;
 }>();
 
-const emit = defineEmits<{
-  reply: [message: ClubMessage];
-  react: [message: ClubMessage, reaction: VisibleMessageReaction];
-  "open-actions": [message: ClubMessage];
-  "jump-reply": [messageId: string];
-  "poll-vote": [message: ClubMessage, optionIds: string[]];
-  "poll-close": [message: ClubMessage];
-  "toggle-reactions": [message: ClubMessage];
-}>();
+const emit = defineEmits<ChatMessageEventMap>();
 
 const pointerStartX = ref<number | null>(null);
 const pointerStartY = ref<number | null>(null);
@@ -107,6 +99,12 @@ function handleMessageClick() {
   }
 
   emit("toggle-reactions", props.message);
+}
+
+function jumpToReply() {
+  if (props.message.replyTo) {
+    emit("jump-reply", props.message.replyTo.id);
+  }
 }
 
 function handleTouchStart(event: TouchEvent) {
@@ -185,7 +183,12 @@ function handleTouchEnd(event: TouchEvent) {
         <div
           v-if="message.replyTo"
           class="reply-preview"
-          @click.stop="$emit('jump-reply', message.replyTo.id)"
+          role="button"
+          tabindex="0"
+          :aria-label="`Перейти к сообщению ${resolveDisplayName(message.replyTo.author)}`"
+          @click.stop="jumpToReply"
+          @keydown.enter.stop.prevent="jumpToReply"
+          @keydown.space.stop.prevent="jumpToReply"
         >
           <span>{{ resolveDisplayName(message.replyTo.author) }}</span>
           <span>{{ message.replyTo.body }}</span>

@@ -19,7 +19,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "@/features/app/i18n";
 import ChatPollComposer from "./ChatPollComposer.vue";
 import ChatVoiceWaveform from "./ChatVoiceWaveform.vue";
-import { authorName, quickEmoji, type ChatPollDraft } from "./communityViewModel";
+import { authorName, quickEmoji, type ChatComposerEventMap } from "./communityViewModel";
 import { useImageDraft } from "./useImageDraft";
 import { useVoiceRecorder } from "./useVoiceRecorder";
 import { formatVoiceTime } from "./voiceWaveform";
@@ -35,14 +35,7 @@ const props = defineProps<{
   resetVersion: number;
 }>();
 
-const emit = defineEmits<{
-  "send-text": [body: string];
-  "send-voice": [blob: Blob, durationSeconds: number];
-  "send-files": [files: File[]];
-  "create-poll": [payload: ChatPollDraft];
-  "draft-change": [body: string];
-  "cancel-reply": [];
-}>();
+const emit = defineEmits<ChatComposerEventMap>();
 
 const { t } = useI18n();
 const showEmojiPicker = ref(false);

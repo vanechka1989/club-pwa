@@ -67,6 +67,7 @@ const showDeleteTopicMessagesConfirm = ref(false);
 const deleteTopicMessagesBusy = ref(false);
 const composerResetVersion = ref(0);
 const reactionCompletedVersion = ref(0);
+const interactionResetVersion = ref(0);
 const chatRoom = ref<{
   getMessagesElement: () => HTMLElement | null;
   scrollToBottom: () => Promise<void>;
@@ -460,6 +461,7 @@ async function openTopic(topic: ClubTopic) {
   hasLoadedOlderMessages.value = false;
   activeModerationMessageId.value = null;
   composerResetVersion.value += 1;
+  interactionResetVersion.value += 1;
   clearCommunityError();
   await refreshSelectedTopic({ keepScroll: false });
   markTopicRead(topic.id);
@@ -535,6 +537,7 @@ async function confirmDeleteTopicMessages() {
   try {
     await deleteTopicMessages(selectedTopic.value.id);
     activeModerationMessageId.value = null;
+    interactionResetVersion.value += 1;
     await refreshSelectedTopic({ keepScroll: false });
     await loadTopics();
   } catch {
@@ -563,6 +566,7 @@ async function handleDeleteAuthorMessages(message: ClubMessage) {
 
   await deleteTopicAuthorMessages(selectedTopic.value.id, message.author.telegramId);
   activeModerationMessageId.value = null;
+  interactionResetVersion.value += 1;
   await refreshSelectedTopic({ keepScroll: true });
   await loadTopics();
 }
@@ -863,6 +867,7 @@ onBeforeUnmount(() => {
       :draft="newMessage"
       :composer-reset-version="composerResetVersion"
       :reaction-completed-version="reactionCompletedVersion"
+      :interaction-reset-version="interactionResetVersion"
       :active-moderation-message="activeModerationMessage"
       @back="selectedTopic = null"
       @toggle-topic-lock="handleToggleTopicLock"
