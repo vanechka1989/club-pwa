@@ -278,7 +278,7 @@ function resolveRelationshipTarget(source: string | null, target: string) {
 
 type ParsedRelationships = { officeDocumentTargets: string[]; targets: string[] };
 
-function parseRelationships(xml: string, source: string | null): ParsedRelationships | null {
+function parseRelationships(xml: string, source: string | null, allowedTypes: ReadonlySet<string>): ParsedRelationships | null {
   const root = parseXmlDocument(xml);
   if (!root || root.localName !== "Relationships" || root.namespaceUri !== packageRelationshipsNamespace) return null;
   const targets: string[] = [];
@@ -288,7 +288,9 @@ function parseRelationships(xml: string, source: string | null): ParsedRelations
     const type = relationship.attributes.get("Type");
     const target = relationship.attributes.get("Target");
     const targetMode = relationship.attributes.get("TargetMode")?.trim().toLowerCase();
-    if (!type || !target || targetMode && targetMode !== "internal") return null;
+    const relationshipName = type?.slice(type.lastIndexOf("/") + 1).toLowerCase();
+    if (!type || !type.includes("/relationships/") || !relationshipName || !allowedTypes.has(relationshipName)
+      || !target || targetMode && targetMode !== "internal") return null;
     const resolved = resolveRelationshipTarget(source, target);
     if (!resolved) return null;
     targets.push(resolved);
@@ -299,26 +301,102 @@ function parseRelationships(xml: string, source: string | null): ParsedRelations
 
 const disallowedPart = /(?:^|\/)(?:activex|embeddings|customui)(?:\/|$)|\.(?:bin|exe|dll|com|scr|bat|cmd|ps1|js|vbs|jar|html?|svg)$/i;
 
-const officeKinds: Record<string, { mainEntry: string; mainContentType: string; rootName: string; rootNamespace: string }> = {
+const commonRelationshipTypes = [
+  "officeDocument", "core-properties", "extended-properties", "custom-properties", "thumbnail",
+  "theme", "image", "hyperlink", "chart", "chartUserShapes", "diagramData", "diagramLayout",
+  "diagramQuickStyle", "diagramColors", "customXml", "customXmlProps"
+].map((value) => value.toLowerCase());
+
+const officeKinds: Record<string, {
+  mainEntry: string;
+  mainContentType: string;
+  rootName: string;
+  rootNamespace: string;
+  contentTypeFamily: string;
+  relationshipTypes: ReadonlySet<string>;
+}> = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
     mainEntry: "word/document.xml",
     mainContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
     rootName: "document",
-    rootNamespace: "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    rootNamespace: "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+    contentTypeFamily: "wordprocessingml",
+    relationshipTypes: new Set([...commonRelationshipTypes, "styles", "settings", "websettings", "fonttable", "numbering", "header", "footer", "footnotes", "endnotes", "comments", "commentsextended", "glossarydocument", "people"])
   },
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
     mainEntry: "xl/workbook.xml",
     mainContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
     rootName: "workbook",
-    rootNamespace: "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    rootNamespace: "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+    contentTypeFamily: "spreadsheetml",
+    relationshipTypes: new Set([...commonRelationshipTypes, "worksheet", "styles", "sharedstrings", "calcchain", "drawing", "table", "pivottable", "pivotcachedefinition", "pivotcacherecords", "connections", "querytable", "comments", "threadedcomment", "person"])
   },
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": {
     mainEntry: "ppt/presentation.xml",
     mainContentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml",
     rootName: "presentation",
-    rootNamespace: "http://schemas.openxmlformats.org/presentationml/2006/main"
+    rootNamespace: "http://schemas.openxmlformats.org/presentationml/2006/main",
+    contentTypeFamily: "presentationml",
+    relationshipTypes: new Set([...commonRelationshipTypes, "slide", "slidemaster", "slidelayout", "notesmaster", "notesslide", "handoutmaster", "presprops", "viewprops", "tablestyles", "comments", "commentauthors", "audio", "video", "media"])
   }
 };
+
+function parseContentTypes(xml: string) {
+  const root = parseXmlDocument(xml);
+  if (!root || root.localName !== "Types" || root.namespaceUri !== packageContentTypesNamespace) return null;
+  const defaults = new Map<string, string>();
+  const overrides = new Map<string, string>();
+  for (const declaration of root.children) {
+    if (declaration.namespaceUri !== packageContentTypesNamespace) return null;
+    const contentType = declaration.attributes.get("ContentType")?.trim().toLowerCase();
+    if (!contentType || contentType.includes(";")) return null;
+    if (declaration.localName === "Default") {
+      const extension = declaration.attributes.get("Extension")?.trim().replace(/^\./, "").toLowerCase();
+      if (!extension || !/^[a-z0-9]+$/.test(extension) || defaults.has(extension)) return null;
+      defaults.set(extension, contentType);
+      continue;
+    }
+    if (declaration.localName === "Override") {
+      const partName = declaration.attributes.get("PartName")?.replace(/^\//, "");
+      if (!partName || !safePath(partName) || overrides.has(partName)) return null;
+      overrides.set(partName, contentType);
+      continue;
+    }
+    return null;
+  }
+  return {
+    root,
+    effectiveType(partName: string) {
+      const override = overrides.get(partName);
+      if (override) return override;
+      const fileName = partName.slice(partName.lastIndexOf("/") + 1);
+      const separator = fileName.lastIndexOf(".");
+      return separator < 0 ? null : defaults.get(fileName.slice(separator + 1).toLowerCase()) ?? null;
+    }
+  };
+}
+
+const safeCommonContentTypes = new Set([
+  "application/xml",
+  "text/xml",
+  "application/vnd.openxmlformats-package.relationships+xml",
+  "application/vnd.openxmlformats-package.core-properties+xml",
+  "application/vnd.openxmlformats-officedocument.extended-properties+xml",
+  "application/vnd.openxmlformats-officedocument.custom-properties+xml",
+  "application/vnd.openxmlformats-officedocument.theme+xml",
+  "application/vnd.openxmlformats-officedocument.vmldrawing",
+  "image/png", "image/jpeg", "image/gif", "image/tiff", "image/bmp", "image/x-emf", "image/x-wmf",
+  "audio/mpeg", "audio/mp4", "audio/wav", "video/mp4", "video/mpeg",
+  "application/x-fontdata", "application/x-font-ttf", "font/ttf", "font/otf"
+]);
+
+function isAllowedPartContentType(contentType: string, family: string) {
+  const normalized = contentType.toLowerCase();
+  if (/macroenabled|vbaproject|javascript|ecmascript|text\/html|application\/xhtml\+xml|image\/svg\+xml|message\/rfc822|(?:application|text)\/rtf|application\/octet-stream/.test(normalized)) return false;
+  if (safeCommonContentTypes.has(normalized)) return true;
+  if (normalized.startsWith(`application/vnd.openxmlformats-officedocument.${family}.`) && (normalized.endsWith("+xml") || normalized.endsWith("printersettings"))) return true;
+  return normalized.startsWith("application/vnd.openxmlformats-officedocument.drawingml.") && normalized.endsWith("+xml");
+}
 
 export async function validateCommunityOoxml(contentType: string, source: RangeSource) {
   const expected = officeKinds[contentType];
@@ -356,18 +434,23 @@ export async function validateCommunityOoxml(contentType: string, source: RangeS
     ]);
     if (!typesXml || !relsXml || !mainXml) return false;
 
-    const typesRoot = parseXmlDocument(typesXml);
-    if (!typesRoot || typesRoot.localName !== "Types" || typesRoot.namespaceUri !== packageContentTypesNamespace) return false;
-    const matchingOverrides = typesRoot.children.filter((child) => child.localName === "Override"
+    const contentTypes = parseContentTypes(typesXml);
+    if (!contentTypes) return false;
+    const matchingOverrides = contentTypes.root.children.filter((child) => child.localName === "Override"
       && child.namespaceUri === packageContentTypesNamespace
       && child.attributes.get("PartName") === `/${expected.mainEntry}`
       && child.attributes.get("ContentType") === expected.mainContentType);
     if (matchingOverrides.length !== 1 || /macroEnabled|vbaProject/i.test(typesXml)) return false;
+    for (const entry of entries) {
+      if (entry.name === "[Content_Types].xml") continue;
+      const effectiveType = contentTypes.effectiveType(entry.name);
+      if (!effectiveType || !isAllowedPartContentType(effectiveType, expected.contentTypeFamily)) return false;
+    }
 
     const mainRoot = parseXmlDocument(mainXml);
     if (!mainRoot || mainRoot.localName !== expected.rootName || mainRoot.namespaceUri !== expected.rootNamespace) return false;
 
-    const rootRelationships = parseRelationships(relsXml, null);
+    const rootRelationships = parseRelationships(relsXml, null, expected.relationshipTypes);
     if (!rootRelationships || rootRelationships.officeDocumentTargets.length !== 1 || rootRelationships.officeDocumentTargets[0] !== expected.mainEntry) return false;
     const relationshipTargets = new Map<string | null, string[]>();
     relationshipTargets.set(null, rootRelationships.targets);
@@ -377,7 +460,7 @@ export async function validateCommunityOoxml(contentType: string, source: RangeS
       if (typeof relationshipOwner !== "string" || !byName.has(relationshipOwner)) return false;
       const xml = await readEntry(source, entry, centralOffset);
       if (!xml) return false;
-      const parsed = parseRelationships(xml, relationshipOwner);
+      const parsed = parseRelationships(xml, relationshipOwner, expected.relationshipTypes);
       if (!parsed) return false;
       relationshipTargets.set(relationshipOwner, parsed.targets);
     }

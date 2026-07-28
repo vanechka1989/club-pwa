@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveCommunityUploadMessage, validateCommunityUploadAttachmentBatch } from "./uploadAttachment";
+import { deriveCommunityUploadMessage, isExactCommunityUploadReplayBatch, validateCommunityUploadAttachmentBatch } from "./uploadAttachment";
 
 const userId = "11111111-1111-4111-8111-111111111111";
 
@@ -27,6 +27,17 @@ describe("transactional community upload attachment policy", () => {
   it("rejects mixed media and singleton-kind cardinality violations", () => {
     expect(deriveCommunityUploadMessage([image(1), image(2, { kind: "video" })])).toEqual({ error: "upload_kind_mismatch" });
     expect(deriveCommunityUploadMessage([image(1, { kind: "voice" }), image(2, { kind: "voice" })])).toEqual({ error: "upload_kind_mismatch" });
+  });
+
+  it("accepts only the exact replay attachment set independent of token order", () => {
+    const first = image(1, { attachmentId: "attachment-1" });
+    const second = image(2, { attachmentId: "attachment-2" });
+    const messageAttachments = [{ id: "attachment-1" }, { id: "attachment-2" }];
+    expect(isExactCommunityUploadReplayBatch([first, second], messageAttachments)).toBe(true);
+    expect(isExactCommunityUploadReplayBatch([second, first], messageAttachments)).toBe(true);
+    expect(isExactCommunityUploadReplayBatch([first], messageAttachments)).toBe(false);
+    expect(isExactCommunityUploadReplayBatch([first, second, image(3, { attachmentId: "attachment-3" })], messageAttachments)).toBe(false);
+    expect(isExactCommunityUploadReplayBatch([first, image(3, { attachmentId: "attachment-3" })], messageAttachments)).toBe(false);
   });
 
   it("accepts ten images but rejects eleven across existing and newly attached media", () => {

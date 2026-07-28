@@ -31,7 +31,7 @@ import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage 
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { topicStateRepository } from "../community/topicStateRepository";
-import { deriveCommunityUploadMessage, validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
+import { deriveCommunityUploadMessage, isExactCommunityUploadReplayBatch, validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
 import { createCommunityUploadSessionService } from "../community/uploadSessions";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, prepareCommunityVoice, validateCommunityImageFiles } from "../community/mediaUpload";
@@ -1049,8 +1049,14 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           if (!message || message.userId !== c.get("userId") || message.topicId !== topic.id || message.status !== "visible" || message.deletedByUserAt) {
             return { error: "upload_already_attached", status: 409 as const };
           }
+          const messageAttachments = await database.query.clubMessageAttachments.findMany({
+            where: eq(clubMessageAttachments.messageId, message.id)
+          });
           const derived = deriveCommunityUploadMessage(manifests);
-          if ("error" in derived || message.kind !== derived.kind || message.replyToMessageId !== body.data.replyToMessageId) {
+          if (!isExactCommunityUploadReplayBatch(manifests, messageAttachments)
+            || "error" in derived
+            || message.kind !== derived.kind
+            || message.replyToMessageId !== body.data.replyToMessageId) {
             return { error: "upload_already_attached", status: 409 as const };
           }
           return { messageId: message.id };

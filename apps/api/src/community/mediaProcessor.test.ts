@@ -35,6 +35,27 @@ describe("bounded community media processor", () => {
     expect(shouldProcessCommunityMediaManifest({ status: "processing", attachmentId: "attachment-1" })).toBe(true);
   });
 
+  it("does not delete winner-owned objects when a stale worker loses its failure lease", async () => {
+    const deleteCopies = vi.fn(async () => undefined);
+    const fail = vi.fn(async () => false);
+    await expect(processCommunityMediaManifest(manifest, dependencies({
+      downloadToFile: async () => { throw new Error("late worker failure"); },
+      deleteCopies,
+      fail
+    }))).resolves.toBe("lease_lost");
+    expect(fail).toHaveBeenCalledTimes(1);
+    expect(deleteCopies).not.toHaveBeenCalled();
+  });
+
+  it("does not delete winner-owned objects when stale success is fenced at completion", async () => {
+    const deleteCopies = vi.fn(async () => undefined);
+    await expect(processCommunityMediaManifest(manifest, dependencies({
+      complete: async () => { throw new Error("manifest_lease_lost"); },
+      deleteCopies
+    }))).rejects.toThrow("manifest_lease_lost");
+    expect(deleteCopies).not.toHaveBeenCalled();
+  });
+
   it("rejects an actual voice duration over five minutes even when the client declared one second", async () => {
     const transcodeVoiceFile = vi.fn();
     const uploadFile = vi.fn();

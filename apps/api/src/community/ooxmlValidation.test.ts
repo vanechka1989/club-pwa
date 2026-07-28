@@ -37,7 +37,7 @@ function dependencies(bytes: Uint8Array) {
   };
 }
 
-const contentTypes = (main: string, mainType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml") => `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/${main}" ContentType="${mainType}"/></Types>`;
+const contentTypes = (main: string, mainType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml") => `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/${main}" ContentType="${mainType}"/></Types>`;
 const relationships = (target = "word/document.xml", extra = "") => `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="${target}"/>${extra}</Relationships>`;
 const documentXml = `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>`;
 
@@ -149,5 +149,23 @@ describe("OOXML archive validation", () => {
     for (const archive of [unreferenced, external, macro, crossKind]) {
       await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(archive))).resolves.toBe(false);
     }
+  });
+
+  it("rejects an internally related HTML aFChunk hidden behind a neutral extension", async () => {
+    const archive = storedZip([
+      {
+        name: "[Content_Types].xml",
+        body: `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/chunk.dat" ContentType="text/html"/></Types>`
+      },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: documentXml },
+      {
+        name: "word/_rels/document.xml.rels",
+        body: `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="chunk.dat"/></Relationships>`
+      },
+      { name: "word/chunk.dat", body: "<html><script>alert(1)</script></html>" }
+    ]);
+
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(archive))).resolves.toBe(false);
   });
 });

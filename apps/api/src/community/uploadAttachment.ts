@@ -26,6 +26,16 @@ export function deriveCommunityUploadMessage(manifests: Array<Pick<UploadManifes
   return { error: "upload_kind_mismatch" } as const;
 }
 
+export function isExactCommunityUploadReplayBatch(
+  manifests: Array<Pick<UploadManifest, "attachmentId">>,
+  messageAttachments: Array<{ id: string }>
+) {
+  const requestedIds = manifests.map((manifest) => manifest.attachmentId).filter((id): id is string => Boolean(id));
+  if (requestedIds.length !== manifests.length || new Set(requestedIds).size !== requestedIds.length) return false;
+  const existingIds = new Set(messageAttachments.map((attachment) => attachment.id));
+  return existingIds.size === requestedIds.length && requestedIds.every((id) => existingIds.has(id));
+}
+
 export function validateCommunityUploadAttachmentBatch({
   userId,
   existingImageCount,

@@ -46,7 +46,7 @@ type MediaProcessorDependencies = {
     width: number | null;
     height: number | null;
   }) => Promise<void>;
-  fail: (manifestId: string, errorCode: string) => Promise<void>;
+  fail: (manifestId: string, errorCode: string) => Promise<boolean | void>;
 };
 
 export function shouldProcessCommunityMediaManifest(manifest: { status: string; attachmentId: string | null }) {
@@ -118,12 +118,12 @@ export async function processCommunityMediaManifest(manifest: MediaManifest, dep
     });
   } catch (error) {
     if (completeAttempted) throw error;
-    await dependencies.deleteCopies(manifest.quarantineObjectKey).catch(() => undefined);
-    if (finalObjectKey) await dependencies.deleteCopies(finalObjectKey).catch(() => undefined);
     const errorCode = error instanceof Error && error.message === "voice_duration_exceeded"
       ? "voice_duration_exceeded"
       : "media_processing_failed";
-    await dependencies.fail(manifest.id, errorCode);
+    if (await dependencies.fail(manifest.id, errorCode) === false) return "lease_lost" as const;
+    await dependencies.deleteCopies(manifest.quarantineObjectKey).catch(() => undefined);
+    if (finalObjectKey) await dependencies.deleteCopies(finalObjectKey).catch(() => undefined);
     return "failed" as const;
   }
 }
@@ -197,8 +197,9 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
   for (const manifest of manifests) {
     if (!manifest.quarantineObjectKey || (manifest.kind !== "image" && manifest.kind !== "voice")) continue;
     const staleAt = new Date(Date.now() - 2 * 60 * 1000);
+    const claimedAt = new Date();
     const [claimed] = await db.update(communityUploadManifests)
-      .set({ status: "normalizing", updatedAt: new Date() })
+      .set({ status: "normalizing", updatedAt: claimedAt })
       .where(and(
         eq(communityUploadManifests.id, manifest.id),
         isNotNull(communityUploadManifests.attachmentId),
@@ -207,7 +208,7 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
           and(eq(communityUploadManifests.status, "normalizing"), lte(communityUploadManifests.updatedAt, staleAt))
         )
       ))
-      .returning({ id: communityUploadManifests.id });
+      .returning({ id: communityUploadManifests.id, updatedAt: communityUploadManifests.updatedAt });
     if (!claimed) continue;
     await processCommunityMediaManifest({
       ...manifest,
@@ -246,9 +247,14 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
             status: "ready",
             errorCode: null,
             updatedAt: new Date()
-          }).where(and(eq(communityUploadManifests.id, manifestId), eq(communityUploadManifests.status, "normalizing"), isNotNull(communityUploadManifests.attachmentId)))
+          }).where(and(
+            eq(communityUploadManifests.id, manifestId),
+            eq(communityUploadManifests.status, "normalizing"),
+            eq(communityUploadManifests.updatedAt, claimed.updatedAt),
+            isNotNull(communityUploadManifests.attachmentId)
+          ))
             .returning({ attachmentId: communityUploadManifests.attachmentId });
-          if (!completed?.attachmentId) throw new Error("manifest_finish_conflict");
+          if (!completed?.attachmentId) throw new Error("manifest_lease_lost");
           await database.update(clubMessageAttachments).set({
             objectKey: result.finalObjectKey,
             fileName: result.fileName,
@@ -264,15 +270,22 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
         });
       },
       fail: async (manifestId, errorCode) => {
-        await db.transaction(async (transaction) => {
+        return db.transaction(async (transaction) => {
           const database = transaction as unknown as typeof db;
           const [failed] = await database.update(communityUploadManifests).set({ status: "failed", errorCode, updatedAt: new Date() })
-            .where(eq(communityUploadManifests.id, manifestId))
+            .where(and(
+              eq(communityUploadManifests.id, manifestId),
+              eq(communityUploadManifests.status, "normalizing"),
+              eq(communityUploadManifests.updatedAt, claimed.updatedAt),
+              isNotNull(communityUploadManifests.attachmentId)
+            ))
             .returning({ attachmentId: communityUploadManifests.attachmentId });
+          if (!failed?.attachmentId) return false;
           if (failed?.attachmentId) {
             await database.update(clubMessageAttachments).set({ scanStatus: "failed", scanError: errorCode, scannedAt: new Date() })
               .where(eq(clubMessageAttachments.id, failed.attachmentId));
           }
+          return true;
         });
       }
     });
