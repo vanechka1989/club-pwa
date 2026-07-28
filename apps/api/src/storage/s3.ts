@@ -198,7 +198,17 @@ export async function uploadObjectStream({
   return { key: normalizedKey, url: null };
 }
 
-export async function createObjectUploadUrl({ key, contentType, expiresInSeconds = 600 }: { key: string; contentType: string; expiresInSeconds?: number }) {
+export async function createObjectUploadUrl({
+  key,
+  contentType,
+  sizeBytes,
+  expiresInSeconds = 600
+}: {
+  key: string;
+  contentType: string;
+  sizeBytes?: number;
+  expiresInSeconds?: number;
+}) {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
   const client = createS3Client(config);
@@ -207,7 +217,8 @@ export async function createObjectUploadUrl({ key, contentType, expiresInSeconds
     new PutObjectCommand({
       Bucket: config.bucket,
       Key: normalizedKey,
-      ContentType: contentType
+      ContentType: contentType,
+      ContentLength: sizeBytes
     }),
     { expiresIn: expiresInSeconds }
   );
@@ -217,6 +228,35 @@ export async function createObjectUploadUrl({ key, contentType, expiresInSeconds
     key: normalizedKey,
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000)
   };
+}
+
+export async function createMultipartPartUploadUrl({
+  key,
+  uploadId,
+  partNumber,
+  expiresInSeconds = 600
+}: {
+  key: string;
+  uploadId: string;
+  partNumber: number;
+  expiresInSeconds?: number;
+}) {
+  const config = await requireS3Config();
+  const normalizedKey = normalizeS3ObjectKey(key);
+  if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 1000) {
+    throw new Error("Invalid multipart part number");
+  }
+  const uploadUrl = await getSignedUrl(
+    createS3Client(config),
+    new UploadPartCommand({
+      Bucket: config.bucket,
+      Key: normalizedKey,
+      UploadId: uploadId,
+      PartNumber: partNumber
+    }),
+    { expiresIn: expiresInSeconds }
+  );
+  return uploadUrl;
 }
 
 export async function createMultipartUpload({
@@ -357,6 +397,40 @@ export async function downloadObjectBytes(key: string, target: S3StorageTarget =
     throw new Error("S3 object body is empty");
   }
   return response.Body.transformToByteArray();
+}
+
+export async function downloadObjectPrefix(key: string, maxBytes: number, target: S3StorageTarget = "primary") {
+  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024) {
+    throw new Error("Invalid S3 prefix byte limit");
+  }
+  const config = await requireS3Config();
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const response = await createS3Client(targetConfig).send(
+    new GetObjectCommand({
+      Bucket: targetConfig.bucket,
+      Key: normalizedKey,
+      Range: `bytes=0-${maxBytes - 1}`
+    })
+  );
+  if (!response.Body) throw new Error("S3 object body is empty");
+  const bytes = await response.Body.transformToByteArray();
+  return bytes.byteLength > maxBytes ? bytes.slice(0, maxBytes) : bytes;
+}
+
+export async function* streamObjectBytes(key: string, target: S3StorageTarget = "primary"): AsyncGenerator<Uint8Array> {
+  const config = await requireS3Config();
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const response = await createS3Client(targetConfig).send(
+    new GetObjectCommand({ Bucket: targetConfig.bucket, Key: normalizedKey })
+  );
+  if (!response.Body) throw new Error("S3 object body is empty");
+  const body = response.Body as unknown as AsyncIterable<Uint8Array>;
+  if (!body[Symbol.asyncIterator]) throw new Error("S3 object body is not streamable");
+  for await (const chunk of body) {
+    yield chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+  }
 }
 
 export async function mirrorObjectToReserve(key: string, contentType: string) {

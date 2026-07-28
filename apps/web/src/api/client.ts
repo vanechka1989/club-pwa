@@ -73,6 +73,9 @@ import type {
   CommunityTopicNotificationSettingsResponse,
   CommunityTopicReadPositionRequest,
   CommunityTopicReadPositionResponse,
+  CommunityUploadIntent,
+  CommunityUploadIntentResponse,
+  CommunityUploadedObject,
   PaymentsResponse,
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
@@ -257,6 +260,23 @@ export function updateCommunityTopicNotificationSettings(topicId: string, mode: 
 export function getClubMessages(topicId: string, before?: string | null) {
   const query = before ? `?before=${encodeURIComponent(before)}` : "";
   return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages${query}`);
+}
+
+export function createCommunityUploadIntent(payload: CommunityUploadIntent) {
+  return api<CommunityUploadIntentResponse>("/community/uploads", { method: "POST", body: payload });
+}
+
+export function completeCommunityPutUpload(payload: CommunityUploadedObject) {
+  return api<CommunityUploadedObject>("/community/uploads/complete", { method: "POST", body: payload });
+}
+
+export function completeCommunityMultipartUpload(payload: {
+  upload: CommunityUploadedObject;
+  uploadId: string;
+  partSizeBytes: number;
+  parts: Array<{ partNumber: number; etag: string }>;
+}) {
+  return api<CommunityUploadedObject>("/community/uploads/multipart/complete", { method: "POST", body: payload });
 }
 
 export function searchCommunityMessages(query: {

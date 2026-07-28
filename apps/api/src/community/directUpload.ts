@@ -1,0 +1,597 @@
+import type { CommunityUploadIntent, CommunityUploadedObject } from "@club/shared";
+import { createHash, randomUUID } from "node:crypto";
+
+export const communityDirectPutMaxBytes = 25 * 1024 * 1024;
+export const communityMultipartPartSizeBytes = 8 * 1024 * 1024;
+export const communityMaxMultipartParts = 100;
+export const communityUploadIntentTtlMs = 10 * 60 * 1000;
+export const communitySignaturePrefixBytes = 4096;
+
+export type CommunityUploadError =
+  | "unsupported_type"
+  | "type_extension_mismatch"
+  | "file_too_large"
+  | "invalid_duration"
+  | "too_many_files";
+
+const imageTypes = new Map([
+  ["image/jpeg", new Set(["jpg", "jpeg"])],
+  ["image/png", new Set(["png"])],
+  ["image/webp", new Set(["webp"])],
+  ["image/heic", new Set(["heic"])],
+  ["image/heif", new Set(["heif"])]
+]);
+const voiceTypes = new Map([
+  ["audio/webm", new Set(["webm"])],
+  ["audio/mp4", new Set(["m4a", "mp4"])],
+  ["video/mp4", new Set(["m4a", "mp4"])],
+  ["audio/ogg", new Set(["ogg", "oga", "opus"])],
+  ["audio/mpeg", new Set(["mp3"])],
+  ["audio/aac", new Set(["aac"])],
+  ["audio/wav", new Set(["wav"])],
+  ["audio/x-wav", new Set(["wav"])]
+]);
+const videoTypes = new Map([
+  ["video/mp4", new Set(["mp4", "m4v"])],
+  ["video/quicktime", new Set(["mov"])],
+  ["video/webm", new Set(["webm"])]
+]);
+const documentTypes = new Map([
+  ["application/pdf", new Set(["pdf"])],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", new Set(["docx"])],
+  ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new Set(["xlsx"])],
+  ["application/vnd.openxmlformats-officedocument.presentationml.presentation", new Set(["pptx"])]
+]);
+
+function extension(fileName: string) {
+  return fileName.trim().toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "";
+}
+
+function typesForKind(kind: CommunityUploadIntent["kind"]) {
+  if (kind === "image") return imageTypes;
+  if (kind === "voice") return voiceTypes;
+  if (kind === "video") return videoTypes;
+  return documentTypes;
+}
+
+function maxSizeForKind(kind: CommunityUploadIntent["kind"]) {
+  if (kind === "image") return 15 * 1024 * 1024;
+  if (kind === "voice") return 30 * 1024 * 1024;
+  if (kind === "video") return 100 * 1024 * 1024;
+  return 50 * 1024 * 1024;
+}
+
+export function getCommunityUploadError(input: CommunityUploadIntent, imageCount = 1): CommunityUploadError | null {
+  if (input.kind === "image" && (imageCount < 1 || imageCount > 10)) return "too_many_files";
+  if (!Number.isInteger(input.sizeBytes) || input.sizeBytes <= 0 || input.sizeBytes > maxSizeForKind(input.kind)) {
+    return "file_too_large";
+  }
+  const allowedExtensions = typesForKind(input.kind).get(input.contentType);
+  if (!allowedExtensions) return "unsupported_type";
+  if (!allowedExtensions.has(extension(input.fileName))) return "type_extension_mismatch";
+  if (input.kind === "voice" && (!Number.isInteger(input.durationSeconds) || input.durationSeconds < 1 || input.durationSeconds > 300)) {
+    return "invalid_duration";
+  }
+  return null;
+}
+
+function sanitizeKeyPart(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "media";
+}
+
+export function buildCommunityPendingObjectKey({
+  userId,
+  uploadToken,
+  fileName,
+  now = new Date()
+}: {
+  userId: string;
+  uploadToken: string;
+  fileName: string;
+  now?: Date;
+}) {
+  return `community/pending/${sanitizeKeyPart(userId)}/${now.toISOString().slice(0, 10)}/${sanitizeKeyPart(uploadToken)}-${sanitizeKeyPart(fileName)}`;
+}
+
+function startsWith(bytes: Uint8Array, prefix: number[]) {
+  return bytes.length >= prefix.length && prefix.every((value, index) => bytes[index] === value);
+}
+
+function ascii(bytes: Uint8Array, start: number, length: number) {
+  return new TextDecoder("ascii").decode(bytes.slice(start, start + length));
+}
+
+function hasIsoMediaSignature(bytes: Uint8Array) {
+  return ascii(bytes, 4, 4) === "ftyp";
+}
+
+function hasFragmentedVoiceIsoMediaSignature(bytes: Uint8Array) {
+  if (hasIsoMediaSignature(bytes)) return true;
+  if (ascii(bytes, 4, 4) !== "moof") return false;
+  const maxOffset = Math.min(bytes.length - 4, 1024);
+  for (let offset = 8; offset <= maxOffset; offset += 1) {
+    if (ascii(bytes, offset, 4) === "ftyp") return true;
+  }
+  return false;
+}
+
+function hasDangerousSignature(bytes: Uint8Array) {
+  if (startsWith(bytes, [0x4d, 0x5a]) || startsWith(bytes, [0x7f, 0x45, 0x4c, 0x46])) return true;
+  const prefix = new TextDecoder().decode(bytes.slice(0, 256)).trimStart().toLowerCase();
+  return prefix.startsWith("<svg") || prefix.startsWith("<?xml") && prefix.includes("<svg") || prefix.startsWith("<!doctype html") || prefix.startsWith("<html");
+}
+
+function hasZipSignature(bytes: Uint8Array) {
+  return startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) || startsWith(bytes, [0x50, 0x4b, 0x05, 0x06]) || startsWith(bytes, [0x50, 0x4b, 0x07, 0x08]);
+}
+
+export function validateCommunitySignature(input: CommunityUploadIntent, bytes: Uint8Array) {
+  if (hasDangerousSignature(bytes)) return false;
+  if (input.kind !== "document" && hasZipSignature(bytes)) return false;
+
+  switch (input.contentType) {
+    case "image/jpeg":
+      return startsWith(bytes, [0xff, 0xd8, 0xff]);
+    case "image/png":
+      return startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    case "image/webp":
+      return startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && ascii(bytes, 8, 4) === "WEBP";
+    case "image/heic":
+    case "image/heif": {
+      if (!hasIsoMediaSignature(bytes)) return false;
+      const brand = ascii(bytes, 8, 4);
+      return new Set(["heic", "heix", "hevc", "hevx", "mif1", "msf1"]).has(brand);
+    }
+    case "audio/webm":
+    case "video/webm":
+      return startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3]);
+    case "audio/mp4":
+      return hasFragmentedVoiceIsoMediaSignature(bytes);
+    case "video/mp4":
+      return input.kind === "voice" ? hasFragmentedVoiceIsoMediaSignature(bytes) : hasIsoMediaSignature(bytes);
+    case "video/quicktime":
+      return hasIsoMediaSignature(bytes);
+    case "audio/ogg":
+      return ascii(bytes, 0, 4) === "OggS";
+    case "audio/mpeg":
+      return ascii(bytes, 0, 3) === "ID3" || (bytes[0] === 0xff && bytes.length > 1 && (bytes[1]! & 0xe0) === 0xe0);
+    case "audio/aac":
+      return bytes[0] === 0xff && bytes.length > 1 && (bytes[1]! & 0xf6) === 0xf0;
+    case "audio/wav":
+    case "audio/x-wav":
+      return ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WAVE";
+    case "application/pdf":
+      return ascii(bytes, 0, 5) === "%PDF-";
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      return hasZipSignature(bytes);
+    default:
+      return false;
+  }
+}
+
+type CommunityObjectMetadata = {
+  key: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+};
+
+type CommunityObjectValidationError =
+  | "foreign_object"
+  | "expired_intent"
+  | "object_already_consumed"
+  | "metadata_mismatch"
+  | "signature_mismatch";
+
+export function validateCommunityObject({
+  uploaded,
+  userId,
+  metadata,
+  leadingBytes,
+  expiresAt,
+  now = new Date(),
+  consumed
+}: {
+  uploaded: CommunityUploadedObject;
+  userId: string;
+  metadata: CommunityObjectMetadata;
+  leadingBytes: Uint8Array;
+  expiresAt: Date;
+  now?: Date;
+  consumed: boolean;
+}): { ok: true; value: CommunityUploadedObject } | { ok: false; error: CommunityObjectValidationError } {
+  const expectedPrefix = `community/pending/${sanitizeKeyPart(userId)}/`;
+  const tokenMarker = `/${sanitizeKeyPart(uploaded.uploadToken)}-`;
+  if (!uploaded.objectKey.startsWith(expectedPrefix) || !uploaded.objectKey.includes(tokenMarker)) {
+    return { ok: false, error: "foreign_object" };
+  }
+  if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() < now.getTime()) {
+    return { ok: false, error: "expired_intent" };
+  }
+  if (consumed) return { ok: false, error: "object_already_consumed" };
+  if (
+    metadata.key !== uploaded.objectKey ||
+    metadata.contentType !== uploaded.contentType ||
+    metadata.sizeBytes !== uploaded.sizeBytes ||
+    metadata.sizeBytes === null ||
+    metadata.sizeBytes <= 0
+  ) {
+    return { ok: false, error: "metadata_mismatch" };
+  }
+  if (!validateCommunitySignature(uploaded, leadingBytes)) {
+    return { ok: false, error: "signature_mismatch" };
+  }
+  return { ok: true, value: uploaded };
+}
+
+export function validateMultipartCompletion({
+  sizeBytes,
+  partSizeBytes,
+  parts
+}: {
+  sizeBytes: number;
+  partSizeBytes: number;
+  parts: Array<{ partNumber: number; etag: string }>;
+}): { ok: true } | { ok: false; error: "invalid_part_size" | "missing_parts" | "duplicate_part" | "too_many_parts" | "invalid_part" } {
+  if (!Number.isInteger(partSizeBytes) || partSizeBytes !== communityMultipartPartSizeBytes) {
+    return { ok: false, error: "invalid_part_size" };
+  }
+  const expectedCount = Math.ceil(sizeBytes / partSizeBytes);
+  if (expectedCount > communityMaxMultipartParts || parts.length > expectedCount) {
+    return { ok: false, error: "too_many_parts" };
+  }
+  const seen = new Set<number>();
+  for (const part of parts) {
+    if (seen.has(part.partNumber)) return { ok: false, error: "duplicate_part" };
+    if (!Number.isInteger(part.partNumber) || part.partNumber < 1 || part.partNumber > expectedCount || !part.etag.trim()) {
+      return { ok: false, error: "invalid_part" };
+    }
+    seen.add(part.partNumber);
+  }
+  if (parts.length !== expectedCount) return { ok: false, error: "missing_parts" };
+  return { ok: true };
+}
+
+type CommunityUploadRegistryRecord = {
+  userId: string;
+  uploadToken: string;
+  objectKey: string;
+  fingerprint: string;
+  expiresAt: Date;
+};
+
+type CommunityUploadClaim =
+  | { ok: true }
+  | { ok: false; error: "foreign_object" | "expired_intent" | "object_already_consumed" | "intent_mismatch" };
+
+type CommunityUploadServiceDependencies = {
+  issue: (record: CommunityUploadRegistryRecord) => Promise<void>;
+  claim: (record: Omit<CommunityUploadRegistryRecord, "objectKey" | "expiresAt"> & { now: Date }) => Promise<CommunityUploadClaim>;
+  finish: (record: { userId: string; uploadToken: string; fingerprint: string }) => Promise<void>;
+  fail: (record: { userId: string; uploadToken: string; fingerprint: string }, error: string) => Promise<void>;
+  createPutUrl: (input: { key: string; contentType: string; sizeBytes: number; expiresInSeconds: number }) => Promise<{
+    key: string;
+    uploadUrl: string;
+    expiresAt: Date;
+  }>;
+  createMultipart: (input: { key: string; contentType: string; partsCount: number; expiresInSeconds: number }) => Promise<{
+    key: string;
+    uploadId: string;
+    parts: Array<{ partNumber: number }>;
+    expiresAt: Date;
+  }>;
+  createPartUrl: (input: { key: string; uploadId: string; partNumber: number; expiresInSeconds: number }) => Promise<string>;
+  completeMultipart: (input: { key: string; uploadId: string; parts: Array<{ partNumber: number; etag: string }> }) => Promise<{ key: string }>;
+  abortMultipart: (input: { key: string; uploadId: string }) => Promise<void>;
+  getMetadata: (key: string) => Promise<CommunityObjectMetadata>;
+  getLeadingBytes: (key: string, maxBytes: number) => Promise<Uint8Array>;
+  mirrorToReserve: (key: string, contentType: string) => Promise<void>;
+  deleteCopies: (key: string) => Promise<void>;
+};
+
+export function getCommunityUploadFingerprint(uploaded: CommunityUploadedObject) {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      kind: uploaded.kind,
+      fileName: uploaded.fileName,
+      contentType: uploaded.contentType,
+      sizeBytes: uploaded.sizeBytes,
+      durationSeconds: uploaded.kind === "voice" ? uploaded.durationSeconds : null,
+      objectKey: uploaded.objectKey,
+      uploadToken: uploaded.uploadToken
+    }))
+    .digest("hex");
+}
+
+function completedObject(input: CommunityUploadIntent, uploadToken: string, objectKey: string): CommunityUploadedObject {
+  return { ...input, uploadToken, objectKey } as CommunityUploadedObject;
+}
+
+export function createCommunityUploadService(dependencies: CommunityUploadServiceDependencies) {
+  async function claim(userId: string, uploaded: CommunityUploadedObject, now: Date) {
+    const fingerprint = getCommunityUploadFingerprint(uploaded);
+    const result = await dependencies.claim({ userId, uploadToken: uploaded.uploadToken, fingerprint, now });
+    if (!result.ok) throw new Error(result.error);
+    return fingerprint;
+  }
+
+  async function verifyClaimedObject(userId: string, uploaded: CommunityUploadedObject, fingerprint: string, now: Date) {
+    let failureRecorded = false;
+    try {
+      const metadata = await dependencies.getMetadata(uploaded.objectKey);
+      const leadingBytes = await dependencies.getLeadingBytes(uploaded.objectKey, communitySignaturePrefixBytes);
+      const validation = validateCommunityObject({
+        uploaded,
+        userId,
+        metadata,
+        leadingBytes,
+        expiresAt: new Date(now.getTime() + 1),
+        now,
+        consumed: false
+      });
+      if (!validation.ok) {
+        await dependencies.deleteCopies(uploaded.objectKey).catch(() => undefined);
+        await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, validation.error);
+        failureRecorded = true;
+        throw new Error(validation.error);
+      }
+      if (uploaded.kind !== "document") {
+        await dependencies.mirrorToReserve(uploaded.objectKey, uploaded.contentType);
+      }
+      await dependencies.finish({ userId, uploadToken: uploaded.uploadToken, fingerprint });
+      return validation.value;
+    } catch (error) {
+      if (!failureRecorded) {
+        await dependencies.deleteCopies(uploaded.objectKey).catch(() => undefined);
+        await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "storage_verification_failed").catch(() => undefined);
+      }
+      throw error;
+    }
+  }
+
+  return {
+    async createIntent({
+      userId,
+      input,
+      now = new Date(),
+      tokenFactory = randomUUID
+    }: {
+      userId: string;
+      input: CommunityUploadIntent;
+      now?: Date;
+      tokenFactory?: () => string;
+    }) {
+      const policyError = getCommunityUploadError(input);
+      if (policyError) throw new Error(policyError);
+      const uploadToken = tokenFactory();
+      const objectKey = buildCommunityPendingObjectKey({ userId, uploadToken, fileName: input.fileName, now });
+      const object = completedObject(input, uploadToken, objectKey);
+      const fingerprint = getCommunityUploadFingerprint(object);
+      const expiresInSeconds = communityUploadIntentTtlMs / 1000;
+
+      if (input.sizeBytes <= communityDirectPutMaxBytes) {
+        const upload = await dependencies.createPutUrl({ key: objectKey, contentType: input.contentType, sizeBytes: input.sizeBytes, expiresInSeconds });
+        await dependencies.issue({ userId, uploadToken, objectKey: upload.key, fingerprint, expiresAt: upload.expiresAt });
+        return {
+          ...input,
+          uploadType: "put" as const,
+          objectKey: upload.key,
+          uploadToken,
+          uploadUrl: upload.uploadUrl,
+          expiresAt: upload.expiresAt.toISOString()
+        };
+      }
+
+      const partsCount = Math.ceil(input.sizeBytes / communityMultipartPartSizeBytes);
+      if (partsCount > communityMaxMultipartParts) throw new Error("too_many_parts");
+      const upload = await dependencies.createMultipart({
+        key: objectKey,
+        contentType: input.contentType,
+        partsCount,
+        expiresInSeconds
+      });
+      try {
+        const parts = await Promise.all(upload.parts.map(async ({ partNumber }) => ({
+          partNumber,
+          uploadUrl: await dependencies.createPartUrl({
+            key: upload.key,
+            uploadId: upload.uploadId,
+            partNumber,
+            expiresInSeconds
+          })
+        })));
+        await dependencies.issue({ userId, uploadToken, objectKey: upload.key, fingerprint, expiresAt: upload.expiresAt });
+        return {
+          ...input,
+          uploadType: "multipart" as const,
+          objectKey: upload.key,
+          uploadToken,
+          uploadId: upload.uploadId,
+          partSizeBytes: communityMultipartPartSizeBytes,
+          parts,
+          expiresAt: upload.expiresAt.toISOString()
+        };
+      } catch (error) {
+        await dependencies.abortMultipart({ key: upload.key, uploadId: upload.uploadId }).catch(() => undefined);
+        throw error;
+      }
+    },
+
+    async completePut({ userId, uploaded, now = new Date() }: { userId: string; uploaded: CommunityUploadedObject; now?: Date }) {
+      const policyError = getCommunityUploadError(uploaded);
+      if (policyError) throw new Error(policyError);
+      if (uploaded.sizeBytes > communityDirectPutMaxBytes) throw new Error("multipart_required");
+      const fingerprint = await claim(userId, uploaded, now);
+      return verifyClaimedObject(userId, uploaded, fingerprint, now);
+    },
+
+    async completeMultipartUpload({
+      userId,
+      uploaded,
+      uploadId,
+      partSizeBytes,
+      parts,
+      now = new Date()
+    }: {
+      userId: string;
+      uploaded: CommunityUploadedObject;
+      uploadId: string;
+      partSizeBytes: number;
+      parts: Array<{ partNumber: number; etag: string }>;
+      now?: Date;
+    }) {
+      const policyError = getCommunityUploadError(uploaded);
+      if (policyError) throw new Error(policyError);
+      if (uploaded.sizeBytes <= communityDirectPutMaxBytes) throw new Error("put_required");
+      const partsValidation = validateMultipartCompletion({ sizeBytes: uploaded.sizeBytes, partSizeBytes, parts });
+      if (!partsValidation.ok) throw new Error(partsValidation.error);
+      const fingerprint = await claim(userId, uploaded, now);
+      try {
+        await dependencies.completeMultipart({ key: uploaded.objectKey, uploadId, parts });
+      } catch (error) {
+        await dependencies.abortMultipart({ key: uploaded.objectKey, uploadId }).catch(() => undefined);
+        await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "multipart_completion_failed");
+        throw error;
+      }
+      return verifyClaimedObject(userId, uploaded, fingerprint, now);
+    }
+  };
+}
+
+export function createTaskLimiter(limit: number) {
+  if (!Number.isInteger(limit) || limit < 1) throw new Error("invalid_worker_limit");
+  let active = 0;
+  const queue: Array<() => void> = [];
+  return async function runLimited<T>(task: () => Promise<T>) {
+    if (active >= limit) {
+      await new Promise<void>((resolve) => queue.push(resolve));
+    }
+    active += 1;
+    try {
+      return await task();
+    } finally {
+      active -= 1;
+      queue.shift()?.();
+    }
+  };
+}
+
+type NormalizedImage = {
+  body: Uint8Array;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  width: number;
+  height: number;
+};
+
+type NormalizedVoice = {
+  body: Uint8Array;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+};
+
+type CommunityPostUploadDependencies = {
+  voiceTimeoutMs?: number;
+  downloadBytes: (key: string) => Promise<Uint8Array>;
+  normalizeImage: (input: CommunityUploadedObject, bytes: Uint8Array) => Promise<NormalizedImage>;
+  normalizeVoice: (input: CommunityUploadedObject, bytes: Uint8Array) => Promise<NormalizedVoice>;
+  replaceObject: (input: { key: string; body: Uint8Array; contentType: string; sizeBytes: number }) => Promise<void>;
+  mirrorToReserve: (key: string, contentType: string) => Promise<void>;
+  deleteCopies: (key: string) => Promise<void>;
+};
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorCode: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(errorCode)), timeoutMs);
+    })
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+export function createCommunityPostUploadProcessor(dependencies: CommunityPostUploadDependencies) {
+  const imageWorker = createTaskLimiter(2);
+  const voiceWorker = createTaskLimiter(2);
+  const voiceTimeoutMs = dependencies.voiceTimeoutMs ?? 60_000;
+
+  return async function processCommunityPostUpload(uploaded: CommunityUploadedObject) {
+    const base = {
+      kind: uploaded.kind,
+      uploadToken: uploaded.uploadToken,
+      objectKey: uploaded.objectKey,
+      fileName: uploaded.fileName,
+      contentType: uploaded.contentType,
+      sizeBytes: uploaded.sizeBytes
+    };
+    if (uploaded.kind === "document") {
+      return { ...base, scanStatus: "scanning" as const };
+    }
+
+    try {
+      if (uploaded.kind === "image") {
+        return await imageWorker(async () => {
+          const normalized = await dependencies.normalizeImage(uploaded, await dependencies.downloadBytes(uploaded.objectKey));
+          await dependencies.replaceObject({
+            key: uploaded.objectKey,
+            body: normalized.body,
+            contentType: normalized.contentType,
+            sizeBytes: normalized.sizeBytes
+          });
+          await dependencies.mirrorToReserve(uploaded.objectKey, normalized.contentType);
+          return {
+            ...base,
+            fileName: normalized.fileName,
+            contentType: normalized.contentType,
+            sizeBytes: normalized.sizeBytes,
+            width: normalized.width,
+            height: normalized.height,
+            scanStatus: "ready" as const
+          };
+        });
+      }
+
+      if (uploaded.kind === "voice") {
+        return await voiceWorker(async () => {
+          const normalized = await withTimeout(
+            dependencies.normalizeVoice(uploaded, await dependencies.downloadBytes(uploaded.objectKey)),
+            voiceTimeoutMs,
+            "voice_conversion_timeout"
+          );
+          await dependencies.replaceObject({
+            key: uploaded.objectKey,
+            body: normalized.body,
+            contentType: normalized.contentType,
+            sizeBytes: normalized.sizeBytes
+          });
+          await dependencies.mirrorToReserve(uploaded.objectKey, normalized.contentType);
+          return {
+            ...base,
+            fileName: normalized.fileName,
+            contentType: normalized.contentType,
+            sizeBytes: normalized.sizeBytes,
+            durationSeconds: uploaded.durationSeconds,
+            scanStatus: "ready" as const
+          };
+        });
+      }
+
+      await dependencies.mirrorToReserve(uploaded.objectKey, uploaded.contentType);
+      return { ...base, width: 1, height: 1, durationSeconds: 0, scanStatus: "ready" as const };
+    } catch (error) {
+      await dependencies.deleteCopies(uploaded.objectKey).catch(() => undefined);
+      throw error;
+    }
+  };
+}

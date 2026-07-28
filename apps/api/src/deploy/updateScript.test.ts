@@ -239,3 +239,12 @@ describe("direct learning S3 uploads", () => {
     expect(s3Storage).toContain("if (verifyReadable) {");
   });
 });
+
+describe("direct community S3 uploads", () => {
+  it("presigns browser PUT and multipart parts while verifying bounded object prefixes", () => {
+    expect(s3Storage).toContain("createMultipartPartUploadUrl");
+    expect(s3Storage).toContain("downloadObjectPrefix");
+    expect(s3Storage).toContain("Range: `bytes=0-${maxBytes - 1}`");
+    expect(s3Storage).toContain("streamObjectBytes");
+  });
+});

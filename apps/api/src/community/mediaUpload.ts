@@ -63,7 +63,7 @@ export function normalizeCommunityVoiceSource(source: Uint8Array, contentType: s
   return source;
 }
 
-export async function prepareCommunityVoice(file: File) {
+export async function prepareCommunityVoice(file: File, options: { timeoutMs?: number } = {}) {
   const plan = getCommunityVoiceStoragePlan(file.type, file.name);
   if (!plan) throw new Error("Unsupported voice format");
   const source = normalizeCommunityVoiceSource(new Uint8Array(await file.arrayBuffer()), file.type);
@@ -93,7 +93,7 @@ export async function prepareCommunityVoice(file: File) {
       "-movflags",
       "+faststart",
       outputPath
-    ]);
+    ], { timeout: options.timeoutMs ?? 60_000, killSignal: "SIGKILL" });
     return { ...plan, body: new Uint8Array(await readFile(outputPath)) };
   } finally {
     await rm(directory, { recursive: true, force: true });

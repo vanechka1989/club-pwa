@@ -12,6 +12,8 @@ import {
   communityParticipantSuggestionsQuerySchema,
   communityTopicNotificationSettingsRequestSchema,
   communityTopicReadPositionRequestSchema,
+  communityUploadedObjectSchema,
+  communityUploadIntentSchema,
   type ClubChat,
   type ClubMessage,
   type ClubTopic,
@@ -20,6 +22,7 @@ import {
 } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
+import { createCommunityPostUploadProcessor, createCommunityUploadService } from "../community/directUpload";
 import { buildMessageAuthor, buildReplyPreview, getMessageContentView, summarizeReactions } from "../community/messageMetadata";
 import { MessageMutationError, messageMutationService } from "../community/messageMutationService";
 import { decodeSearchCursor, loadMessageContext, loadSafeReplyMessage, searchCommunityMessages } from "../community/messageSearch";
@@ -32,7 +35,7 @@ import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoice
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
 import { publishCommunityChange, subscribeToCommunityChanges } from "../community/realtime";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, userMutes, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, idempotencyOperations, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
@@ -40,7 +43,22 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
 import { persistentCommunityReadRateLimit } from "../security/persistentCommunityReadRateLimit";
-import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
+import {
+  abortMultipartUpload,
+  completeMultipartUpload,
+  createMultipartPartUploadUrl,
+  createMultipartUpload,
+  createObjectUploadUrl,
+  deleteObject,
+  deleteObjectCopies,
+  downloadObjectBytes,
+  downloadObjectPrefix,
+  getObjectMetadata,
+  getObjectReadUrl,
+  mirrorObjectToReserve,
+  uploadObject,
+  uploadObjectStream
+} from "../storage/s3";
 
 const chatPayloadSchema = z.object({
   title: z.string().trim().min(2).max(160),
@@ -98,6 +116,16 @@ const deleteAuthorMessagesPayloadSchema = z.object({
   telegramId: z.string().trim().min(3).max(320)
 });
 
+const communityMultipartCompleteSchema = z.object({
+  upload: communityUploadedObjectSchema,
+  uploadId: z.string().trim().min(1).max(512),
+  partSizeBytes: z.number().int().positive(),
+  parts: z.array(z.object({
+    partNumber: z.number().int().positive().max(100),
+    etag: z.string().trim().min(1).max(1024)
+  })).min(1).max(100)
+}).strict();
+
 const topicSettingsSchema = z.object({
   isLocked: z.boolean().optional(),
   isPublished: z.boolean().optional()
@@ -106,6 +134,7 @@ const topicSettingsSchema = z.object({
 const systemChatSlug = "club-community";
 const communityMutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const realtimeTopicHeader = "x-club-community-realtime-topic";
+const communityUploadScope = "community_direct_upload";
 const defaultTopics = [
   {
     title: "Новости клуба",
@@ -127,6 +156,111 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 
   return slug || `chat-${Date.now()}`;
+}
+
+const communityUploadService = createCommunityUploadService({
+  issue: async (record) => {
+    await db.insert(idempotencyOperations).values({
+      actorTelegramId: record.userId,
+      scope: communityUploadScope,
+      idempotencyKey: record.uploadToken,
+      requestFingerprint: record.fingerprint,
+      status: "processing",
+      expiresAt: record.expiresAt
+    });
+  },
+  claim: async (record) => {
+    const existing = await db.query.idempotencyOperations.findFirst({
+      where: and(
+        eq(idempotencyOperations.actorTelegramId, record.userId),
+        eq(idempotencyOperations.scope, communityUploadScope),
+        eq(idempotencyOperations.idempotencyKey, record.uploadToken)
+      )
+    });
+    if (!existing) return { ok: false as const, error: "foreign_object" as const };
+    if (existing.requestFingerprint !== record.fingerprint) return { ok: false as const, error: "intent_mismatch" as const };
+    if (existing.expiresAt <= record.now) return { ok: false as const, error: "expired_intent" as const };
+    if (existing.status !== "processing") return { ok: false as const, error: "object_already_consumed" as const };
+    const [claimed] = await db.update(idempotencyOperations)
+      .set({ status: "completing", updatedAt: record.now })
+      .where(and(eq(idempotencyOperations.id, existing.id), eq(idempotencyOperations.status, "processing")))
+      .returning({ id: idempotencyOperations.id });
+    return claimed
+      ? { ok: true as const }
+      : { ok: false as const, error: "object_already_consumed" as const };
+  },
+  finish: async (record) => {
+    await db.update(idempotencyOperations)
+      .set({ status: "completed", errorCode: null, updatedAt: new Date() })
+      .where(and(
+        eq(idempotencyOperations.actorTelegramId, record.userId),
+        eq(idempotencyOperations.scope, communityUploadScope),
+        eq(idempotencyOperations.idempotencyKey, record.uploadToken),
+        eq(idempotencyOperations.requestFingerprint, record.fingerprint),
+        eq(idempotencyOperations.status, "completing")
+      ));
+  },
+  fail: async (record, error) => {
+    await db.update(idempotencyOperations)
+      .set({ status: "failed", errorCode: error.slice(0, 96), updatedAt: new Date() })
+      .where(and(
+        eq(idempotencyOperations.actorTelegramId, record.userId),
+        eq(idempotencyOperations.scope, communityUploadScope),
+        eq(idempotencyOperations.idempotencyKey, record.uploadToken),
+        eq(idempotencyOperations.requestFingerprint, record.fingerprint)
+      ));
+  },
+  createPutUrl: (input) => createObjectUploadUrl(input),
+  createMultipart: (input) => createMultipartUpload(input),
+  createPartUrl: (input) => createMultipartPartUploadUrl(input),
+  completeMultipart: (input) => completeMultipartUpload(input),
+  abortMultipart: (input) => abortMultipartUpload(input),
+  getMetadata: (key) => getObjectMetadata(key),
+  getLeadingBytes: (key, maxBytes) => downloadObjectPrefix(key, maxBytes),
+  mirrorToReserve: (key, contentType) => mirrorObjectToReserve(key, contentType),
+  deleteCopies: (key) => deleteObjectCopies(key)
+});
+
+const communityPostUploadProcessor = createCommunityPostUploadProcessor({
+  downloadBytes: (key) => downloadObjectBytes(key),
+  normalizeImage: async (input, bytes) => prepareCommunityImage(
+    new File([new Uint8Array(bytes)], input.fileName, { type: input.contentType })
+  ),
+  normalizeVoice: async (input, bytes) => {
+    const prepared = await prepareCommunityVoice(
+      new File([new Uint8Array(bytes)], input.fileName, { type: input.contentType }),
+      { timeoutMs: 60_000 }
+    );
+    return { ...prepared, sizeBytes: prepared.body.byteLength };
+  },
+  replaceObject: (input) => uploadObjectStream(input).then(() => undefined),
+  mirrorToReserve: (key, contentType) => mirrorObjectToReserve(key, contentType),
+  deleteCopies: (key) => deleteObjectCopies(key)
+});
+
+function communityUploadFailure(c: Context, error: unknown) {
+  const code = error instanceof Error ? error.message : "upload_failed";
+  if (code === "foreign_object") return c.json({ error: code }, 403);
+  if (code === "expired_intent") return c.json({ error: code }, 410);
+  if (code === "object_already_consumed" || code === "intent_mismatch") return c.json({ error: code }, 409);
+  if ([
+    "unsupported_type",
+    "type_extension_mismatch",
+    "file_too_large",
+    "invalid_duration",
+    "too_many_files",
+    "too_many_parts",
+    "missing_parts",
+    "duplicate_part",
+    "invalid_part",
+    "invalid_part_size",
+    "metadata_mismatch",
+    "signature_mismatch",
+    "multipart_required",
+    "put_required"
+  ].includes(code)) return c.json({ error: code }, 400);
+  logger.warn({ error }, "community direct upload failed");
+  return c.json({ error: "storage_unavailable" }, 503);
 }
 
 async function serializeChat(chat: typeof clubChats.$inferSelect, role: UserRole): Promise<ClubChat> {
@@ -663,6 +797,56 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       publishCommunityChange(
         explicitTopicId ?? (topicMatch?.[1] ? decodeURIComponent(topicMatch[1]) : null)
       );
+    }
+  })
+  .post("/uploads", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const body = communityUploadIntentSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_upload" }, 400);
+    try {
+      const intent = await communityUploadService.createIntent({ userId: c.get("userId"), input: body.data });
+      c.header(realtimeTopicHeader, "skip");
+      return c.json(intent);
+    } catch (error) {
+      return communityUploadFailure(c, error);
+    }
+  })
+  .post("/uploads/complete", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const body = communityUploadedObjectSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_upload" }, 400);
+    try {
+      const verified = await communityUploadService.completePut({ userId: c.get("userId"), uploaded: body.data });
+      const uploaded = await communityPostUploadProcessor(verified);
+      c.header(realtimeTopicHeader, "skip");
+      return c.json(uploaded);
+    } catch (error) {
+      return communityUploadFailure(c, error);
+    }
+  })
+  .post("/uploads/multipart/complete", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const body = communityMultipartCompleteSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "invalid_upload" }, 400);
+    try {
+      const verified = await communityUploadService.completeMultipartUpload({
+        userId: c.get("userId"),
+        uploaded: body.data.upload,
+        uploadId: body.data.uploadId,
+        partSizeBytes: body.data.partSizeBytes,
+        parts: body.data.parts
+      });
+      const uploaded = await communityPostUploadProcessor(verified);
+      c.header(realtimeTopicHeader, "skip");
+      return c.json(uploaded);
+    } catch (error) {
+      return communityUploadFailure(c, error);
     }
   })
   .get("/events", async (c) => {

@@ -165,6 +165,25 @@ describe("production security config", () => {
     }
   });
 
+  it("runs ClamAV as a private, persistent, resource-bounded quarantine sidecar", () => {
+    for (const source of [productionCompose, scaleCompose]) {
+      const start = source.indexOf("  clamav:\n");
+      expect(start).toBeGreaterThan(-1);
+      const rest = source.slice(start + 2);
+      const next = rest.search(/\n  [a-z][a-z0-9-]*:\n/);
+      const block = next === -1 ? rest : rest.slice(0, next);
+      expect(block).toContain("image: clamav/clamav:1.4");
+      expect(block).toContain('expose:\n      - "3310"');
+      expect(block).toContain("healthcheck:");
+      expect(block).toContain("mem_limit: 768m");
+      expect(block).toContain("pids_limit: 256");
+      expect(block).toContain("clamav-signatures:/var/lib/clamav");
+      expect(block).not.toContain("ports:");
+      expect(source).toContain("CLAMAV_HOST: clamav");
+      expect(source).toContain("CLAMAV_PORT: 3310");
+    }
+  });
+
   it("allows the API time to drain requests during deployment", () => {
     const apiStart = productionCompose.indexOf("  api:\n");
     const apiEnd = productionCompose.indexOf("\n  migrate:\n", apiStart);
