@@ -5,7 +5,15 @@ import { Hono } from "hono";
 import { streamSSE, type SSEMessage } from "hono/streaming";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import type { ClubChat, ClubMessage, ClubTopic, CommunityAttachmentScanStatus, UserRole } from "@club/shared";
+import {
+  communityTopicNotificationSettingsRequestSchema,
+  communityTopicReadPositionRequestSchema,
+  type ClubChat,
+  type ClubMessage,
+  type ClubTopic,
+  type CommunityAttachmentScanStatus,
+  type UserRole
+} from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
@@ -13,6 +21,7 @@ import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage 
 import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
+import { topicStateRepository } from "../community/topicStateRepository";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, prepareCommunityVoice, validateCommunityImageFiles } from "../community/mediaUpload";
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
@@ -209,7 +218,7 @@ async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>
 
   const topicIds = topics.map((topic) => topic.id);
   const originalMessage = alias(clubChatMessages, "original_message");
-  const [messageCounts, latestReplies] = await Promise.all([
+  const [messageCounts, latestReplies, topicStates] = await Promise.all([
     db
       .select({ topicId: clubChatMessages.topicId, value: count(clubChatMessages.id) })
       .from(clubChatMessages)
@@ -227,7 +236,8 @@ async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>
           ne(clubChatMessages.userId, currentUserId)
         )
       )
-      .groupBy(clubChatMessages.topicId)
+      .groupBy(clubChatMessages.topicId),
+    topicStateRepository.getStates(currentUserId, topicIds)
   ]);
   const countsByTopic = new Map(messageCounts.map((row) => [row.topicId, row.value]));
   const repliesByTopic = new Map(latestReplies.map((row) => [row.topicId, row.createdAt]));
@@ -244,8 +254,8 @@ async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>
     archivedUntil: topic.archivedUntil?.toISOString() ?? null,
     messagesCount: countsByTopic.get(topic.id) ?? 0,
     latestReplyToMeAt: repliesByTopic.get(topic.id)?.toISOString() ?? null,
-    unreadCount: 0,
-    notificationMode: "mentions",
+    unreadCount: topicStates.get(topic.id)?.unreadCount ?? 0,
+    notificationMode: topicStates.get(topic.id)?.notificationMode ?? "mentions",
     createdAt: topic.createdAt.toISOString()
   }));
 }
@@ -799,7 +809,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({
-      topics: await Promise.all(topics.map((topic) => serializeTopic(topic, c.get("userId"))))
+      topics: await serializeTopics(topics, c.get("userId"))
     });
   })
   .post("/chats/:id/topics", async (c) => {
@@ -880,6 +890,59 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       ok: true,
       topic: await serializeTopic(topic, c.get("userId"))
     });
+  })
+  .post("/topics/:id/read", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    const body = communityTopicReadPositionRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid read position" }, 400);
+    }
+
+    const lastReadMessageId = await topicStateRepository.markRead({
+      userId: c.get("userId"),
+      topicId: topic.id,
+      messageId: body.data.messageId
+    });
+    if (!lastReadMessageId) {
+      return c.json({ error: "Message does not belong to topic" }, 400);
+    }
+
+    return c.json(await topicStateRepository.getState(c.get("userId"), topic.id));
+  })
+  .put("/topics/:id/notification-settings", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    const body = communityTopicNotificationSettingsRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid notification settings" }, 400);
+    }
+
+    await topicStateRepository.setNotificationMode({
+      userId: c.get("userId"),
+      topicId: topic.id,
+      mode: body.data.mode
+    });
+
+    return c.json(await topicStateRepository.getState(c.get("userId"), topic.id));
   })
   .get("/topics/:id/messages", async (c) => {
     const role = await getCommunityRole(c);

@@ -60,6 +60,11 @@ import type {
   LearningPlaybackMutationResponse,
   LearningProgressMutationResponse,
   MessageReaction,
+  CommunityNotificationMode,
+  CommunityTopicNotificationSettingsRequest,
+  CommunityTopicNotificationSettingsResponse,
+  CommunityTopicReadPositionRequest,
+  CommunityTopicReadPositionResponse,
   PaymentsResponse,
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
@@ -222,6 +227,22 @@ export function updateClubTopicSettings(topicId: string, payload: { isLocked?: b
   return api<ClubTopicMutationResponse>(`/community/topics/${topicId}/settings`, {
     method: "POST",
     body: payload
+  });
+}
+
+export function markCommunityTopicRead(topicId: string, messageId: string) {
+  const body: CommunityTopicReadPositionRequest = { messageId };
+  return api<CommunityTopicReadPositionResponse>(`/community/topics/${topicId}/read`, {
+    method: "POST",
+    body
+  });
+}
+
+export function updateCommunityTopicNotificationSettings(topicId: string, mode: CommunityNotificationMode) {
+  const body: CommunityTopicNotificationSettingsRequest = { mode };
+  return api<CommunityTopicNotificationSettingsResponse>(`/community/topics/${topicId}/notification-settings`, {
+    method: "PUT",
+    body
   });
 }
 
