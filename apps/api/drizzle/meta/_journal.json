@@ -449,6 +449,13 @@
       "when": 1785189600000,
       "tag": "0063_reliable_community_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1785276000000,
+      "tag": "0064_community_message_reliability",
+      "breakpoints": true
     }
   ]
 }

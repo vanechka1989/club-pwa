@@ -12,6 +12,7 @@ import {
 } from "./schema";
 
 const migration = readFileSync(new URL("../../drizzle/0063_reliable_community_chat.sql", import.meta.url), "utf8");
+const reliabilityMigration = readFileSync(new URL("../../drizzle/0064_community_message_reliability.sql", import.meta.url), "utf8");
 
 const foreignKeys = (table: Parameters<typeof getTableConfig>[0]) =>
   getTableConfig(table).foreignKeys.map((key) => {
@@ -79,6 +80,9 @@ describe("reliable community chat Drizzle metadata", () => {
     expect(operationIndex?.config.where).toBeDefined();
     expect(searchIndex?.config.method).toBe("gin");
     expect(messageConfig.indexes.map((item) => item.config.name)).toContain("club_chat_messages_deleted_expiry_idx");
+    expect(clubChatMessages.createRequestFingerprint.dataType).toBe("string");
+    expect(clubChatMessages.createRequestFingerprint.columnType).toBe("PgVarchar");
+    expect(messageConfig.indexes.map((item) => item.config.name)).toContain("club_chat_messages_deleted_cleanup_idx");
   });
 });
 
@@ -93,6 +97,17 @@ describe("reliable community chat migration", () => {
     expect(migrationJournal.entries.find((entry) => entry.tag === "0063_reliable_community_chat")).toMatchObject({
       idx: 63,
       tag: "0063_reliable_community_chat"
+    });
+  });
+
+  it("adds immutable operation fingerprints and retryable cleanup claims in migration 64", () => {
+    expect(reliabilityMigration).toContain('ADD COLUMN "create_request_fingerprint" varchar(64)');
+    expect(reliabilityMigration).toContain('ADD COLUMN "deleted_cleanup_claim_id" uuid');
+    expect(reliabilityMigration).toContain('ADD COLUMN "deleted_cleanup_claimed_at" timestamptz');
+    expect(reliabilityMigration).toContain('CREATE INDEX "club_chat_messages_deleted_cleanup_idx"');
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0064_community_message_reliability")).toMatchObject({
+      idx: 64,
+      tag: "0064_community_message_reliability"
     });
   });
 });

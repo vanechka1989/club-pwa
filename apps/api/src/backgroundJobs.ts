@@ -27,17 +27,17 @@ export async function startBackgroundJobs() {
   const orderCleanupTimer = startExpiredPendingPaymentOrderCleanup();
   startMailingDispatcher();
   const mediaCleanupTimer = startCommunityMediaCleanupJob();
-  const deletedMessageCleanupTimer = startDeletedMessageCleanupJob();
+  const deletedMessageCleanupJob = startDeletedMessageCleanupJob();
   const paymentReconciliationTimer = startPaymentReconciliationJob();
   const membershipExpiryReminderTimer = startMembershipExpiryReminderJob();
   const errorTrackerCleanupTimer = startErrorTrackerCleanupJob();
-  return () => {
+  return async () => {
     clearInterval(orderCleanupTimer);
     stopMailingDispatcher();
     clearInterval(mediaCleanupTimer);
-    clearInterval(deletedMessageCleanupTimer);
     clearInterval(paymentReconciliationTimer);
     clearInterval(membershipExpiryReminderTimer);
     clearInterval(errorTrackerCleanupTimer);
+    await deletedMessageCleanupJob.stop();
   };
 }

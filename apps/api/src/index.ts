@@ -187,12 +187,12 @@ const server = Bun.serve({
   fetch: app.fetch
 });
 
-let stopBackgroundJobs: (() => void) | null = null;
+let stopBackgroundJobs: (() => Promise<void>) | null = null;
 let shutdownRequested = false;
 void startBackgroundJobs()
-  .then((stop) => {
+  .then(async (stop) => {
     if (!stop) return;
-    if (shutdownRequested) stop();
+    if (shutdownRequested) await stop();
     else stopBackgroundJobs = stop;
   })
   .catch((error) => logger.error({ error }, "Unable to start background jobs"));
@@ -201,10 +201,10 @@ async function shutdown(signal: string) {
   if (shutdownRequested) return;
   shutdownRequested = true;
   logger.info({ signal }, "graceful shutdown started");
-  stopBackgroundJobs?.();
-  stopBackgroundJobs = null;
   const forceTimer = setTimeout(() => process.exit(1), 25_000);
   forceTimer.unref();
+  await stopBackgroundJobs?.();
+  stopBackgroundJobs = null;
   await server.stop(false);
   clearTimeout(forceTimer);
   process.exit(0);

@@ -7,9 +7,9 @@ import type {
   createMessageMutationService as CreateMessageMutationService,
   MessageMutationRepository
 } from "./messageMutationService";
+import { resolveMessageMutationTestDatabaseUrl } from "./postgresTestGate";
 
-const databaseUrl = process.env.COMMUNITY_MESSAGE_MUTATION_TEST_DATABASE_URL
-  ?? process.env.COMMUNITY_TOPIC_STATE_TEST_DATABASE_URL;
+const databaseUrl = resolveMessageMutationTestDatabaseUrl();
 const integrationDescribe = databaseUrl ? describe : describe.skip;
 
 const userId = "00000000-0000-4000-8000-000000000001";
@@ -65,8 +65,10 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         is_system boolean not null default false, status text not null default 'visible',
         moderated_by_user_id uuid, moderated_at timestamptz, moderation_reason text,
         pinned_at timestamptz, pinned_by_user_id uuid, purge_at timestamptz,
-        client_operation_id varchar(96), edited_at timestamptz, deleted_by_user_at timestamptz,
-        deleted_content_expires_at timestamptz, created_at timestamptz not null default clock_timestamp(),
+        client_operation_id varchar(96), create_request_fingerprint varchar(64), edited_at timestamptz,
+        deleted_by_user_at timestamptz, deleted_content_expires_at timestamptz,
+        deleted_cleanup_claim_id uuid, deleted_cleanup_claimed_at timestamptz,
+        created_at timestamptz not null default clock_timestamp(),
         updated_at timestamptz not null default clock_timestamp()
       );
       create unique index club_chat_messages_user_operation_idx
@@ -159,5 +161,32 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
     const rejected = results.find((result) => result.status === "rejected");
     expect(rejected).toMatchObject({ reason: { code: "operation_conflict", status: 409 } });
     expect(["Первый", "Второй"]).toContain(rows[0]!.body);
+  });
+
+  it("keeps the immutable create fingerprint after edit, deletion, and final purge", async () => {
+    const original = input("Исходный текст");
+    const first = await serviceA.createText(original);
+
+    await clientA`
+      update club_chat_messages
+      set body = 'Исправленный текст', edited_at = clock_timestamp()
+      where id = ${first.message.id}
+    `;
+    await expect(serviceB.createText(original)).resolves.toMatchObject({ created: false });
+    await expect(serviceB.createText(input("Исправленный текст"))).rejects.toMatchObject({
+      code: "operation_conflict",
+      status: 409
+    });
+
+    await clientA`
+      update club_chat_messages
+      set body = '', deleted_by_user_at = clock_timestamp(), deleted_content_expires_at = null
+      where id = ${first.message.id}
+    `;
+    await expect(serviceB.createText(original)).resolves.toMatchObject({ created: false });
+    await expect(serviceB.createText(input(""))).rejects.toMatchObject({
+      code: "operation_conflict",
+      status: 409
+    });
   });
 });

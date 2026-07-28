@@ -12,16 +12,17 @@ import {
   clubChatTopics,
   clubMessageMentions,
   communityTopicNotificationSettings,
+  appNotifications,
   users
 } from "../db/schema";
 import { getMembership } from "../membership/getMembership";
 import { createAppNotification, type CreateAppNotificationInput } from "../notifications/create";
+import { createRequestFingerprint } from "../idempotency/operation";
 import { buildMessageAuthor } from "./messageMetadata";
 import { canAuthorMutateMessage, getDeletedContentExpiry } from "./messageLifecycle";
 import { validateMentionRanges, type ValidatedMentionRange } from "./mentions";
 import { shouldNotifyCommunityUser } from "./notificationPolicy";
 import { publishCommunityChange } from "./realtime";
-import { formatReplyNotificationText } from "./replyNotification";
 import { isTopicAccessibleForRole } from "./topicAccess";
 
 export type MutationTopic = Pick<
@@ -53,6 +54,7 @@ export type MutationMessage = Pick<
   | "isSystem"
   | "status"
   | "clientOperationId"
+  | "createRequestFingerprint"
   | "editedAt"
   | "deletedByUserAt"
   | "deletedContentExpiresAt"
@@ -75,12 +77,13 @@ export interface MessageMutationStore {
     body: string;
     replyToMessageId: string | null;
     clientOperationId: string;
+    createRequestFingerprint: string;
   }): Promise<MutationMessage | null>;
-  getMentions(messageId: string): Promise<StoredMention[]>;
   insertMentions(messageId: string, mentions: StoredMention[]): Promise<void>;
   replaceMentions(messageId: string, mentions: StoredMention[]): Promise<void>;
   updateText(messageId: string, body: string, editedAt: Date): Promise<MutationMessage>;
   markDeletedByAuthor(messageId: string, deletedAt: Date, expiresAt: Date): Promise<MutationMessage>;
+  deleteMessageNotifications(messageId: string): Promise<void>;
 }
 
 export interface MessageMutationRepository {
@@ -150,25 +153,21 @@ function normalizeMentions(body: string, mentions: readonly CommunityMention[]) 
   }
 }
 
-function sameMentions(left: readonly StoredMention[], right: readonly StoredMention[]) {
-  const byRange = (value: StoredMention) => `${value.start}:${value.end}:${value.userId}`;
-  return [...left].map(byRange).sort().join("|") === [...right].map(byRange).sort().join("|");
+function messageCreateFingerprint(
+  input: Pick<CreateTextInput, "topicId" | "body" | "replyToMessageId">,
+  mentions: readonly ValidatedMentionRange[]
+) {
+  return createRequestFingerprint({
+    kind: "text",
+    topicId: input.topicId,
+    body: input.body,
+    replyToMessageId: input.replyToMessageId,
+    mentions: mentions.map(({ userId, start, end }) => ({ userId, start, end }))
+  });
 }
 
-async function assertSameOperation(
-  store: MessageMutationStore,
-  existing: MutationMessage,
-  input: CreateTextInput,
-  mentions: ValidatedMentionRange[]
-) {
-  const existingMentions = await store.getMentions(existing.id);
-  if (
-    existing.kind !== "text" ||
-    existing.topicId !== input.topicId ||
-    existing.body !== input.body ||
-    existing.replyToMessageId !== input.replyToMessageId ||
-    !sameMentions(existingMentions, mentions)
-  ) {
+function assertSameOperation(existing: MutationMessage, createRequestFingerprint: string) {
+  if (existing.createRequestFingerprint !== createRequestFingerprint) {
     throw mutationError("operation_conflict", 409, "Operation id was already used for another message");
   }
 }
@@ -236,6 +235,16 @@ function notificationTitle(reason: "reply" | "mention" | "all", topicTitle: stri
   return `Новое сообщение: ${topicTitle}`;
 }
 
+function notificationBody(
+  reason: "reply" | "mention" | "all",
+  senderName: string,
+  topicTitle: string
+) {
+  if (reason === "reply") return `Новый ответ в чате "${topicTitle}". Автор: ${senderName}.`;
+  if (reason === "mention") return `Новое упоминание в чате "${topicTitle}". Автор: ${senderName}.`;
+  return `Новое сообщение в чате "${topicTitle}". Автор: ${senderName}.`;
+}
+
 export function createMessageMutationService(dependencies: MessageMutationDependencies) {
   const { repository, createNotification, canUserAccessTopic, publishChange } = dependencies;
 
@@ -266,15 +275,12 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
       if (!(await canUserAccessTopic(candidate.user, input.topic))) continue;
 
       const reason = replied ? "reply" : mentioned ? "mention" : "all";
+      const senderName = resolveDisplayName(input.sender);
       await createNotification({
         userId: candidate.user.id,
         kind: "client",
         title: notificationTitle(reason, input.topic.title),
-        body: formatReplyNotificationText({
-          senderName: resolveDisplayName(input.sender),
-          topicTitle: input.topic.title,
-          body: input.message.body
-        }),
+        body: notificationBody(reason, senderName, input.topic.title),
         source: `community_${reason}`,
         sourceId: input.message.id,
         pushUrl: `/community/topics/${input.topic.id}?message=${input.message.id}`,
@@ -285,13 +291,15 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
 
   return {
     async createText(input: CreateTextInput) {
-      const mentions = normalizeMentions(input.body, input.mentions);
+      const normalizedInput = { ...input, body: input.body.trim() };
+      const mentions = normalizeMentions(normalizedInput.body, normalizedInput.mentions);
+      const createRequestFingerprint = messageCreateFingerprint(normalizedInput, mentions);
       const result = await repository.transaction(async (store) => {
-        const prior = await store.findMessageByOperation(input.userId, input.clientOperationId);
+        const prior = await store.findMessageByOperation(normalizedInput.userId, normalizedInput.clientOperationId);
         if (prior) {
-          await assertSameOperation(store, prior, input, mentions);
-          const topic = assertTopicReadable(await store.findTopicForMutation(prior.topicId), input.role);
-          const sender = (await store.findUsersByIds([input.userId]))[0];
+          assertSameOperation(prior, createRequestFingerprint);
+          const topic = assertTopicReadable(await store.findTopicForMutation(prior.topicId), normalizedInput.role);
+          const sender = (await store.findUsersByIds([normalizedInput.userId]))[0];
           if (!sender) throw new Error("Unable to resolve message sender");
           const reply = prior.replyToMessageId
             ? await store.findReplyForMutation(prior.replyToMessageId, prior.topicId)
@@ -299,13 +307,13 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
           return { message: prior, created: false as const, topic, sender, replyUserId: reply?.userId ?? null };
         }
 
-        const topic = assertTopicWritable(await store.findTopicForMutation(input.topicId), input.role);
-        const sender = await validateSelectedUsers(store, input, topic, mentions, canUserAccessTopic);
-        const reply = input.replyToMessageId
-          ? await store.findReplyForMutation(input.replyToMessageId, topic.id)
+        const topic = assertTopicWritable(await store.findTopicForMutation(normalizedInput.topicId), normalizedInput.role);
+        const sender = await validateSelectedUsers(store, normalizedInput, topic, mentions, canUserAccessTopic);
+        const reply = normalizedInput.replyToMessageId
+          ? await store.findReplyForMutation(normalizedInput.replyToMessageId, topic.id)
           : null;
         if (
-          input.replyToMessageId &&
+          normalizedInput.replyToMessageId &&
           (!reply || reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt)
         ) {
           throw mutationError("reply_not_available", 400, "Reply message is unavailable");
@@ -313,15 +321,16 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
 
         const inserted = await store.insertText({
           topicId: topic.id,
-          userId: input.userId,
-          body: input.body,
-          replyToMessageId: input.replyToMessageId,
-          clientOperationId: input.clientOperationId
+          userId: normalizedInput.userId,
+          body: normalizedInput.body,
+          replyToMessageId: normalizedInput.replyToMessageId,
+          clientOperationId: normalizedInput.clientOperationId,
+          createRequestFingerprint
         });
         if (!inserted) {
-          const winner = await store.findMessageByOperation(input.userId, input.clientOperationId);
+          const winner = await store.findMessageByOperation(normalizedInput.userId, normalizedInput.clientOperationId);
           if (!winner) throw new Error("Idempotent message insert did not return its winner");
-          await assertSameOperation(store, winner, input, mentions);
+          assertSameOperation(winner, createRequestFingerprint);
           return {
             message: winner,
             created: false as const,
@@ -342,13 +351,15 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
       });
 
       if (result.created) publishChange(result.message.topicId);
-      await notifyCreatedMessage({
-        message: result.message,
-        topic: result.topic,
-        sender: result.sender,
-        replyUserId: result.replyUserId,
-        mentionUserIds: mentions.map((mention) => mention.userId)
-      });
+      if (result.message.status === "visible" && !result.message.deletedByUserAt) {
+        await notifyCreatedMessage({
+          message: result.message,
+          topic: result.topic,
+          sender: result.sender,
+          replyUserId: result.replyUserId,
+          mentionUserIds: mentions.map((mention) => mention.userId)
+        });
+      }
 
       return { message: result.message, created: result.created };
     },
@@ -393,6 +404,7 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
         if (!canAuthorMutateMessage(current, input.userId, now)) {
           throw mutationError("mutation_window_expired", 409, "Message mutation window has expired");
         }
+        await store.deleteMessageNotifications(current.id);
         return {
           message: await store.markDeletedByAuthor(current.id, now, getDeletedContentExpiry(now))
         };
@@ -468,17 +480,12 @@ function createDrizzleStore(database: typeof db): MessageMutationStore {
           userId: input.userId,
           body: input.body,
           replyToMessageId: input.replyToMessageId,
-          clientOperationId: input.clientOperationId
+          clientOperationId: input.clientOperationId,
+          createRequestFingerprint: input.createRequestFingerprint
         })
         .onConflictDoNothing()
         .returning();
       return created ? toMutationMessage(created) : null;
-    },
-    async getMentions(messageId) {
-      const rows = await database.query.clubMessageMentions.findMany({
-        where: eq(clubMessageMentions.messageId, messageId)
-      });
-      return rows.map((row) => ({ userId: row.userId, start: row.startOffset, end: row.endOffset }));
     },
     async insertMentions(messageId, mentions) {
       if (!mentions.length) return;
@@ -527,6 +534,12 @@ function createDrizzleStore(database: typeof db): MessageMutationStore {
         .returning();
       if (!updated) throw mutationError("message_not_deletable", 409, "Message cannot be deleted");
       return toMutationMessage(updated);
+    },
+    async deleteMessageNotifications(messageId) {
+      await database.delete(appNotifications).where(and(
+        eq(appNotifications.sourceId, messageId),
+        inArray(appNotifications.source, ["community_reply", "community_mention", "community_all"])
+      ));
     }
   };
 }

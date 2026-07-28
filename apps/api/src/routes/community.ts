@@ -468,7 +468,7 @@ async function serializeMessage(
       : null,
     pinnedAt: message.pinnedAt?.toISOString() ?? null,
     editedAt: content.revealContent ? message.editedAt?.toISOString() ?? null : null,
-    deletedByUserAt: message.deletedByUserAt?.toISOString() ?? null,
+    deletedByUserAt: content.revealContent ? message.deletedByUserAt?.toISOString() ?? null : null,
     clientOperationId: content.revealContent ? message.clientOperationId : null,
     mentions: mentionRows.map((mention) => ({
       userId: mention.userId,

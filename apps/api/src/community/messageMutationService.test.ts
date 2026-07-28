@@ -52,6 +52,7 @@ function message(overrides: Partial<MutationMessage> = {}): MutationMessage {
     isSystem: false,
     status: "visible",
     clientOperationId: "device:1",
+    createRequestFingerprint: null,
     editedAt: null,
     deletedByUserAt: null,
     deletedContentExpiresAt: null,
@@ -90,13 +91,13 @@ function createFixture() {
         body: input.body,
         replyToMessageId: input.replyToMessageId,
         clientOperationId: input.clientOperationId,
+        createRequestFingerprint: (input as typeof input & { createRequestFingerprint?: string }).createRequestFingerprint ?? null,
         createdAt: new Date(serverNow),
         updatedAt: new Date(serverNow)
       });
       messages.push(created);
       return created;
     }),
-    getMentions: vi.fn(async (messageId) => mentions.get(messageId) ?? []),
     insertMentions: vi.fn(async (messageId: string, values: StoredMention[]) => {
       mentions.set(messageId, values.map((value) => ({ ...value })));
     }),
@@ -116,7 +117,8 @@ function createFixture() {
       current.deletedContentExpiresAt = expiresAt;
       current.updatedAt = deletedAt;
       return current;
-    })
+    }),
+    deleteMessageNotifications: vi.fn(async () => undefined)
   };
 
   const repository: MessageMutationRepository = {
@@ -212,6 +214,52 @@ describe("message mutation service", () => {
     });
   });
 
+  it("recognizes the original operation after an edit and rejects the edited payload as a retry", async () => {
+    const fixture = createFixture();
+    const original = createInput();
+    const first = await fixture.service.createText(original);
+
+    await fixture.service.editText({
+      messageId: first.message.id,
+      userId: senderId,
+      role: "member",
+      body: "Исправлено",
+      mentions: []
+    });
+
+    await expect(fixture.service.createText(original)).resolves.toMatchObject({
+      created: false,
+      message: { id: first.message.id }
+    });
+    await expect(fixture.service.createText(createInput({ body: "Исправлено" }))).rejects.toMatchObject({
+      code: "operation_conflict",
+      status: 409
+    });
+  });
+
+  it("recognizes only the original operation after deletion and final content purge", async () => {
+    const fixture = createFixture();
+    const original = createInput({ body: "@Анна привет", mentions: [
+      { userId: mentionedUserId, displayName: "Анна", start: 0, end: 5 }
+    ] });
+    const first = await fixture.service.createText(original);
+
+    await fixture.service.deleteMessage({ messageId: first.message.id, userId: senderId, role: "member" });
+    fixture.createNotification.mockClear();
+    await expect(fixture.service.createText(original)).resolves.toMatchObject({ created: false });
+    expect(fixture.createNotification).not.toHaveBeenCalled();
+
+    first.message.body = "";
+    first.message.deletedContentExpiresAt = null;
+    fixture.mentions.delete(first.message.id);
+
+    await expect(fixture.service.createText(original)).resolves.toMatchObject({ created: false });
+    await expect(fixture.service.createText(createInput({ body: "", mentions: [] }))).rejects.toMatchObject({
+      code: "operation_conflict",
+      status: 409
+    });
+  });
+
   it("validates a reply in the same topic and rejects deleted replies", async () => {
     const fixture = createFixture();
     fixture.store.findReplyForMutation = vi.fn(async () =>
@@ -257,12 +305,36 @@ describe("message mutation service", () => {
       userId: input.userId,
       source: input.source,
       sourceId: input.sourceId,
-      deduplicate: input.deduplicate
+      deduplicate: input.deduplicate,
+      title: input.title,
+      body: input.body
     }))).toEqual([
-      { userId: replyUserId, source: "community_reply", sourceId: expect.any(String), deduplicate: true },
-      { userId: mentionedUserId, source: "community_mention", sourceId: expect.any(String), deduplicate: true },
-      { userId: allUserId, source: "community_all", sourceId: expect.any(String), deduplicate: true }
+      {
+        userId: replyUserId,
+        source: "community_reply",
+        sourceId: expect.any(String),
+        deduplicate: true,
+        title: "Ответ в чате: Общение",
+        body: "Новый ответ в чате \"Общение\". Автор: Иван."
+      },
+      {
+        userId: mentionedUserId,
+        source: "community_mention",
+        sourceId: expect.any(String),
+        deduplicate: true,
+        title: "Вас упомянули: Общение",
+        body: "Новое упоминание в чате \"Общение\". Автор: Иван."
+      },
+      {
+        userId: allUserId,
+        source: "community_all",
+        sourceId: expect.any(String),
+        deduplicate: true,
+        title: "Новое сообщение: Общение",
+        body: "Новое сообщение в чате \"Общение\". Автор: Иван."
+      }
     ]);
+    expect(JSON.stringify(fixture.createNotification.mock.calls)).not.toContain("@Анна ответ");
   });
 
   it("uses the database clock for the exact fifteen-minute author window", async () => {
@@ -345,6 +417,7 @@ describe("message mutation service", () => {
       deletedByUserAt: new Date("2026-07-29T10:14:59.999Z"),
       deletedContentExpiresAt: new Date("2026-08-28T10:14:59.999Z")
     });
+    expect(fixture.store.deleteMessageNotifications).toHaveBeenCalledWith(result.message.id);
   });
 });
 

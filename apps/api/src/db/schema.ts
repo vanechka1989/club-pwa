@@ -893,9 +893,12 @@ export const clubChatMessages = pgTable(
     pinnedByUserId: uuid("pinned_by_user_id").references(() => users.id, { onDelete: "set null" }),
     purgeAt: timestamp("purge_at", { withTimezone: true }),
     clientOperationId: varchar("client_operation_id", { length: 96 }),
+    createRequestFingerprint: varchar("create_request_fingerprint", { length: 64 }),
     editedAt: timestamp("edited_at", { withTimezone: true }),
     deletedByUserAt: timestamp("deleted_by_user_at", { withTimezone: true }),
     deletedContentExpiresAt: timestamp("deleted_content_expires_at", { withTimezone: true }),
+    deletedCleanupClaimId: uuid("deleted_cleanup_claim_id"),
+    deletedCleanupClaimedAt: timestamp("deleted_cleanup_claimed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -915,7 +918,11 @@ export const clubChatMessages = pgTable(
       "gin",
       sql`to_tsvector('simple', coalesce(${table.body}, ''))`
     ),
-    deletedExpiryIdx: index("club_chat_messages_deleted_expiry_idx").on(table.deletedContentExpiresAt)
+    deletedExpiryIdx: index("club_chat_messages_deleted_expiry_idx").on(table.deletedContentExpiresAt),
+    deletedCleanupIdx: index("club_chat_messages_deleted_cleanup_idx").on(
+      table.deletedContentExpiresAt,
+      table.deletedCleanupClaimedAt
+    )
   })
 );
 

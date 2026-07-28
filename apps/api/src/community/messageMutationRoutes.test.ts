@@ -281,7 +281,8 @@ describe("community message mutation routes", () => {
     expect(memberPayload.messages[0]).toMatchObject({
       body: "Сообщение удалено",
       images: [],
-      mentions: []
+      mentions: [],
+      deletedByUserAt: null
     });
     expect(JSON.stringify(memberPayload)).not.toContain("original secret");
     expect(JSON.stringify(memberPayload)).not.toContain("secret.webp");

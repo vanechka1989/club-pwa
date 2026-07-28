@@ -30,6 +30,11 @@ export type UploadObjectInput = {
 
 export type S3StorageTarget = "primary" | "reserve";
 
+type DeleteObjectCopiesDependencies = {
+  loadConfig: () => Promise<StoredS3Config>;
+  deleteFromConfig: (config: StoredS3Config, key: string) => Promise<void>;
+};
+
 async function loadS3Config() {
   const setting = await db.query.clubSettings.findFirst({
     where: eq(clubSettings.key, storageSettingKey)
@@ -412,18 +417,47 @@ export async function getObjectReadUrl(
   }
 }
 
-export async function deleteObject(key: string, target: S3StorageTarget = "primary") {
-  const config = await requireS3Config();
-  const targetConfig = resolveS3TargetConfig(config, target);
-  const client = createS3Client(targetConfig);
+async function deleteObjectFromConfig(config: StoredS3Config, key: string) {
+  const client = createS3Client(config);
   const normalizedKey = normalizeS3ObjectKey(key);
 
   await client.send(
     new DeleteObjectCommand({
-      Bucket: targetConfig.bucket,
+      Bucket: config.bucket,
       Key: normalizedKey
     })
   );
+}
+
+export function createDeleteObjectCopies(dependencies: DeleteObjectCopiesDependencies) {
+  return async function deleteObjectCopiesWithDependencies(key: string) {
+    const config = await dependencies.loadConfig();
+    const normalizedKey = normalizeS3ObjectKey(key);
+    const targets = [
+      config,
+      ...(config.reserve
+        ? [{ ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null }]
+        : [])
+    ];
+    const results = await Promise.allSettled(
+      targets.map((targetConfig) => dependencies.deleteFromConfig(targetConfig, normalizedKey))
+    );
+    const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failures.length === 1) throw failures[0]!.reason;
+    if (failures.length > 1) {
+      throw new AggregateError(failures.map((failure) => failure.reason), "Unable to delete every S3 object copy");
+    }
+  };
+}
+
+export const deleteObjectCopies = createDeleteObjectCopies({
+  loadConfig: requireS3Config,
+  deleteFromConfig: deleteObjectFromConfig
+});
+
+export async function deleteObject(key: string, target: S3StorageTarget = "primary") {
+  const config = await requireS3Config();
+  await deleteObjectFromConfig(resolveS3TargetConfig(config, target), key);
 }
 
 export async function listObjects({

@@ -14,6 +14,22 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      COMMUNITY_MESSAGE_MUTATION_TEST_DATABASE_URL: postgres://club:club@localhost:5432/club
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: club
+          POSTGRES_PASSWORD: club
+          POSTGRES_DB: club
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U club -d club"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
