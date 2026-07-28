@@ -21,5 +21,7 @@ describe("background jobs runtime role", () => {
     const jobs = readFileSync(new URL("./backgroundJobs.ts", import.meta.url), "utf8");
     expect(jobs).toContain("startPaymentReconciliationJob");
     expect(jobs).toContain("clearInterval(paymentReconciliationTimer)");
+    expect(jobs).toContain("startDeletedMessageCleanupJob");
+    expect(jobs).toContain("clearInterval(deletedMessageCleanupTimer)");
   });
 });

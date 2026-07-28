@@ -64,6 +64,11 @@ import type {
   CommunityNotificationMode,
   CommunityMessageSearchCursor,
   CommunityMessageSearchResponse,
+  CommunityMention,
+  CommunityMessageDeleteResponse,
+  CommunityMessageEditRequest,
+  CommunityMessageEditResponse,
+  CommunityParticipantSuggestionsResponse,
   CommunityTopicNotificationSettingsRequest,
   CommunityTopicNotificationSettingsResponse,
   CommunityTopicReadPositionRequest,
@@ -287,10 +292,37 @@ export function deleteTopicAuthorMessages(topicId: string, telegramId: string) {
   });
 }
 
-export function createClubMessage(topicId: string, body: string, replyToMessageId?: string | null) {
+export function createClubMessage(
+  topicId: string,
+  body: string,
+  replyToMessageId?: string | null,
+  options: { clientOperationId?: string; mentions?: CommunityMention[] } = {}
+) {
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages`, {
     method: "POST",
-    body: { body, replyToMessageId: replyToMessageId ?? null }
+    body: {
+      body,
+      replyToMessageId: replyToMessageId ?? null,
+      clientOperationId: options.clientOperationId ?? crypto.randomUUID(),
+      mentions: options.mentions ?? []
+    }
+  });
+}
+
+export function editCommunityMessage(messageId: string, payload: CommunityMessageEditRequest) {
+  return api<CommunityMessageEditResponse>(`/community/messages/${messageId}`, {
+    method: "PATCH",
+    body: payload
+  });
+}
+
+export function deleteCommunityMessage(messageId: string) {
+  return api<CommunityMessageDeleteResponse>(`/community/messages/${messageId}`, { method: "DELETE" });
+}
+
+export function getCommunityParticipants(q: string, limit = 20) {
+  return api<CommunityParticipantSuggestionsResponse>("/community/participants", {
+    query: { q, limit }
   });
 }
 

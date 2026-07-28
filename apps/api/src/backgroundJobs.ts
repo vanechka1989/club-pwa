@@ -9,6 +9,7 @@ export async function startBackgroundJobs() {
     { startExpiredPendingPaymentOrderCleanup },
     { startMailingDispatcher, stopMailingDispatcher },
     { startCommunityMediaCleanupJob },
+    { startDeletedMessageCleanupJob },
     { startPaymentReconciliationJob },
     { startMembershipExpiryReminderJob },
     { startErrorTrackerCleanupJob }
@@ -17,6 +18,7 @@ export async function startBackgroundJobs() {
       import("./payments/orderCleanupJob"),
       import("./routes/mailings"),
       import("./community/mediaCleanup"),
+      import("./community/deletedMessageCleanup"),
       import("./payments/paymentReconciliation"),
       import("./membership/expiryReminderJob"),
       import("./errorTracker/cleanupJob")
@@ -25,6 +27,7 @@ export async function startBackgroundJobs() {
   const orderCleanupTimer = startExpiredPendingPaymentOrderCleanup();
   startMailingDispatcher();
   const mediaCleanupTimer = startCommunityMediaCleanupJob();
+  const deletedMessageCleanupTimer = startDeletedMessageCleanupJob();
   const paymentReconciliationTimer = startPaymentReconciliationJob();
   const membershipExpiryReminderTimer = startMembershipExpiryReminderJob();
   const errorTrackerCleanupTimer = startErrorTrackerCleanupJob();
@@ -32,6 +35,7 @@ export async function startBackgroundJobs() {
     clearInterval(orderCleanupTimer);
     stopMailingDispatcher();
     clearInterval(mediaCleanupTimer);
+    clearInterval(deletedMessageCleanupTimer);
     clearInterval(paymentReconciliationTimer);
     clearInterval(membershipExpiryReminderTimer);
     clearInterval(errorTrackerCleanupTimer);

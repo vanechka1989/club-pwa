@@ -1,4 +1,4 @@
-import type { MessageReaction } from "@club/shared";
+import type { MessageReaction, UserRole } from "@club/shared";
 
 type ReactionValue = MessageReaction;
 
@@ -24,6 +24,12 @@ export type ReplySourceMessage = {
 };
 
 export type MessageAuthorSource = ReplySourceMessage["user"];
+
+type DeletedMessageSource = {
+  body: string;
+  deletedByUserAt: Date | null;
+  deletedContentExpiresAt: Date | null;
+};
 
 function normalizeAvatarScale(value: number | null | undefined) {
   const scale = value ?? 100;
@@ -63,14 +69,28 @@ export function summarizeReactions(reactions: MessageReactionRow[], currentUserI
   };
 }
 
-export function buildReplyPreview(message: ReplySourceMessage | null) {
+export function getMessageContentView(message: DeletedMessageSource, role: UserRole, now = new Date()) {
+  if (!message.deletedByUserAt) {
+    return { body: message.body, revealContent: true, purged: false };
+  }
+
+  const purged = !message.deletedContentExpiresAt || message.deletedContentExpiresAt <= now;
+  const revealContent = role !== "member" && !purged;
+  return {
+    body: revealContent ? message.body : "Сообщение удалено",
+    revealContent,
+    purged
+  };
+}
+
+export function buildReplyPreview(message: ReplySourceMessage | null, visibleBody = message?.body ?? "") {
   if (!message) {
     return null;
   }
 
-  const prefix = message.body.slice(0, 70);
+  const prefix = visibleBody.slice(0, 70);
   const trimmedPrefix = prefix.includes(" ") ? prefix.slice(0, prefix.lastIndexOf(" ")) : prefix;
-  const body = message.body.length > 73 ? `${trimmedPrefix}...` : message.body;
+  const body = visibleBody.length > 73 ? `${trimmedPrefix}...` : visibleBody;
 
   return {
     id: message.id,

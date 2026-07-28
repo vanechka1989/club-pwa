@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReplyPreview, summarizeReactions } from "./messageMetadata";
+import { buildReplyPreview, getMessageContentView, summarizeReactions } from "./messageMetadata";
 
 describe("messageMetadata", () => {
   it("summarizes emoji reactions and the current user's reaction", () => {
@@ -57,5 +57,46 @@ describe("messageMetadata", () => {
         avatarScale: 1.5
       }
     });
+  });
+
+  it("never exposes an author-deleted body to members or after moderator retention expires", () => {
+    const deleted = {
+      body: "секретный оригинал",
+      deletedByUserAt: new Date("2026-07-29T10:00:00.000Z"),
+      deletedContentExpiresAt: new Date("2026-08-28T10:00:00.000Z")
+    };
+
+    expect(getMessageContentView(deleted, "member", new Date("2026-07-30T00:00:00.000Z"))).toEqual({
+      body: "Сообщение удалено",
+      revealContent: false,
+      purged: false
+    });
+    expect(getMessageContentView(deleted, "admin", new Date("2026-08-27T23:59:59.999Z"))).toEqual({
+      body: "секретный оригинал",
+      revealContent: true,
+      purged: false
+    });
+    expect(getMessageContentView(deleted, "owner", new Date("2026-08-28T10:00:00.000Z"))).toEqual({
+      body: "Сообщение удалено",
+      revealContent: false,
+      purged: true
+    });
+  });
+
+  it("uses the role-aware body in reply previews", () => {
+    const preview = buildReplyPreview({
+      id: "m1",
+      body: "оригинал",
+      user: {
+        id: "u1",
+        telegramId: "42",
+        firstName: "Ivan",
+        username: null,
+        displayName: null,
+        photoUrl: null
+      }
+    }, "Сообщение удалено");
+
+    expect(preview?.body).toBe("Сообщение удалено");
   });
 });

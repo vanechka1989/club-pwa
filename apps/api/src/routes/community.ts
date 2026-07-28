@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray, lt, lte, max, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, lt, lte, max, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -6,7 +6,10 @@ import { streamSSE, type SSEMessage } from "hono/streaming";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import {
+  communityMentionSchema,
+  communityMessageEditRequestSchema,
   communityMessageSearchQuerySchema,
+  communityParticipantSuggestionsQuerySchema,
   communityTopicNotificationSettingsRequestSchema,
   communityTopicReadPositionRequestSchema,
   type ClubChat,
@@ -17,10 +20,10 @@ import {
 } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
-import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
+import { buildMessageAuthor, buildReplyPreview, getMessageContentView, summarizeReactions } from "../community/messageMetadata";
+import { MessageMutationError, messageMutationService } from "../community/messageMutationService";
 import { decodeSearchCursor, loadMessageContext, loadSafeReplyMessage, searchCommunityMessages } from "../community/messageSearch";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
-import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { topicStateRepository } from "../community/topicStateRepository";
@@ -29,7 +32,7 @@ import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoice
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
 import { publishCommunityChange, subscribeToCommunityChanges } from "../community/realtime";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, userMutes, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
@@ -37,7 +40,6 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
 import { persistentCommunityReadRateLimit } from "../security/persistentCommunityReadRateLimit";
-import { createAppNotification } from "../notifications/create";
 import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const chatPayloadSchema = z.object({
@@ -65,8 +67,10 @@ const topicPayloadSchema = z.object({
 
 const messagePayloadSchema = z.object({
   body: z.string().trim().min(1).max(3000),
-  replyToMessageId: z.string().uuid().nullable().optional()
-});
+  replyToMessageId: z.string().uuid().nullable().default(null),
+  clientOperationId: z.string().trim().min(1).max(96),
+  mentions: z.array(communityMentionSchema).default([])
+}).strict();
 
 const pollPayloadSchema = z.object({
   question: z.string().max(500),
@@ -101,6 +105,7 @@ const topicSettingsSchema = z.object({
 
 const systemChatSlug = "club-community";
 const communityMutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const realtimeTopicHeader = "x-club-community-realtime-topic";
 const defaultTopics = [
   {
     title: "Новости клуба",
@@ -290,12 +295,16 @@ async function serializeMessage(
     };
   },
   currentUserId: string,
+  role: UserRole,
   safeReplyPreview = false
 ): Promise<ClubMessage> {
-  const reactions = await db.query.clubMessageReactions.findMany({
-    where: eq(clubMessageReactions.messageId, message.id)
-  });
-  const replyTo = !message.replyToMessageId
+  const content = getMessageContentView(message, role);
+  const reactions = content.revealContent
+    ? await db.query.clubMessageReactions.findMany({
+        where: eq(clubMessageReactions.messageId, message.id)
+      })
+    : [];
+  const replyTo = !content.revealContent || !message.replyToMessageId
     ? null
     : safeReplyPreview
       ? await loadSafeReplyMessage({ topicId: message.topicId, messageId: message.replyToMessageId })
@@ -305,11 +314,13 @@ async function serializeMessage(
         });
   const reactionSummary = summarizeReactions(reactions, currentUserId);
   const authorMute = await getActiveMute(message.user.id);
-  const attachments = await db.query.clubMessageAttachments.findMany({
-    where: eq(clubMessageAttachments.messageId, message.id),
-    orderBy: (table, { asc }) => [asc(table.sortOrder)]
-  });
-  const kind = (message.kind as ClubMessage["kind"]) ?? "text";
+  const attachments = content.revealContent
+    ? await db.query.clubMessageAttachments.findMany({
+        where: eq(clubMessageAttachments.messageId, message.id),
+        orderBy: (table, { asc }) => [asc(table.sortOrder)]
+      })
+    : [];
+  const kind = content.revealContent ? ((message.kind as ClubMessage["kind"]) ?? "text") : "text";
   const attachmentStatuses = new Set<CommunityAttachmentScanStatus>([
     "pending",
     "scanning",
@@ -337,7 +348,7 @@ async function serializeMessage(
   const imageAttachments = kind === "images" ? serializedAttachments : [];
   const videoAttachment = kind === "video" ? serializedAttachments[0] : undefined;
   const documentAttachment = kind === "document" ? serializedAttachments[0] : undefined;
-  const pollRecord = kind === "poll"
+  const pollRecord = content.revealContent && kind === "poll"
     ? await db.query.clubPolls.findFirst({
         where: eq(clubPolls.messageId, message.id),
         with: { options: true, votes: true }
@@ -345,10 +356,18 @@ async function serializeMessage(
     : null;
   const pollVoterIds = new Set(pollRecord?.votes.map((vote) => vote.userId) ?? []);
 
+  const mentionRows = content.revealContent
+    ? await db.query.clubMessageMentions.findMany({
+        where: eq(clubMessageMentions.messageId, message.id),
+        with: { user: true }
+      })
+    : [];
+  const replyContent = replyTo ? getMessageContentView(replyTo, role) : null;
+
   return {
     id: message.id,
     topicId: message.topicId,
-    body: message.body,
+    body: content.body,
     kind,
     voice: voiceAttachment
       ? {
@@ -435,7 +454,7 @@ async function serializeMessage(
     isSystem: message.isSystem,
     status: message.status,
     author: buildMessageAuthor(message.user),
-    replyTo: buildReplyPreview(replyTo ?? null),
+    replyTo: buildReplyPreview(replyTo ?? null, replyContent?.body),
     likesCount: reactionSummary.likesCount,
     dislikesCount: reactionSummary.dislikesCount,
     reactionCounts: reactionSummary.reactionCounts,
@@ -448,10 +467,15 @@ async function serializeMessage(
         }
       : null,
     pinnedAt: message.pinnedAt?.toISOString() ?? null,
-    editedAt: message.editedAt?.toISOString() ?? null,
+    editedAt: content.revealContent ? message.editedAt?.toISOString() ?? null : null,
     deletedByUserAt: message.deletedByUserAt?.toISOString() ?? null,
-    clientOperationId: message.clientOperationId,
-    mentions: [],
+    clientOperationId: content.revealContent ? message.clientOperationId : null,
+    mentions: mentionRows.map((mention) => ({
+      userId: mention.userId,
+      displayName: userName(mention.user),
+      start: mention.startOffset,
+      end: mention.endOffset
+    })),
     createdAt: message.createdAt.toISOString()
   };
 }
@@ -490,8 +514,8 @@ async function findOrCreateUserByTelegramId(telegramId: string) {
   );
 }
 
-function userName(user: { telegramId: string; firstName: string | null; username: string | null }) {
-  return user.firstName || user.username || `ID ${user.telegramId}`;
+function userName(user: { telegramId: string; firstName: string | null; username: string | null; displayName?: string | null }) {
+  return user.displayName || user.firstName || user.username || `ID ${user.telegramId}`;
 }
 
 function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
@@ -576,53 +600,33 @@ async function purgeExpiredDeletedMessages(now = new Date()) {
     .where(and(eq(clubChatMessages.status, "deleted"), lte(clubChatMessages.purgeAt, now)));
 }
 
-async function notifyReplyRecipient({
-  topic,
-  replyToMessage,
-  sender,
-  body
-}: {
-  topic: typeof clubChatTopics.$inferSelect;
-  replyToMessage: typeof clubChatMessages.$inferSelect & {
-    user: {
-      id: string;
-      telegramId: string;
-      firstName: string | null;
-      username: string | null;
-      photoUrl: string | null;
-      avatarPositionX?: number | null;
-      avatarPositionY?: number | null;
-      avatarScale?: number | null;
-    };
-  };
-  sender: {
-    id: string;
-    telegramId: string;
-    firstName: string | null;
-    username: string | null;
-    photoUrl: string | null;
-    avatarPositionX?: number | null;
-    avatarPositionY?: number | null;
-    avatarScale?: number | null;
-  };
-  body: string;
-}) {
-  if (replyToMessage.userId === sender.id) {
-    return;
+function mutationErrorResponse(c: Context, error: unknown) {
+  if (error instanceof MessageMutationError) {
+    return c.json({ error: error.message, code: error.code }, error.status);
   }
+  throw error;
+}
 
-  await createAppNotification({
-    userId: replyToMessage.user.id,
-    kind: "client",
-    title: `Ответ в чате: ${topic.title}`,
-    body: formatReplyNotificationText({
-      senderName: userName(sender),
-      topicTitle: topic.title,
-      body
-    }),
-    source: "community_reply",
-    sourceId: topic.id
+async function validateLockedReply(
+  database: typeof db,
+  replyToMessageId: string | null,
+  topicId: string
+) {
+  if (!replyToMessageId) return null;
+  await database.execute(sql`
+    select id
+    from club_chat_messages
+    where id = ${replyToMessageId} and topic_id = ${topicId}
+    for share
+  `);
+  const reply = await database.query.clubChatMessages.findFirst({
+    where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topicId))
   });
+  if (!reply) return { error: "Reply message not found", status: 404 as const };
+  if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
+    return { error: "Reply message is unavailable", status: 400 as const };
+  }
+  return null;
 }
 
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
@@ -651,9 +655,14 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", async (c, next) => {
     await next();
 
+    const explicitTopicId = c.res.headers.get(realtimeTopicHeader);
+    c.res.headers.delete(realtimeTopicHeader);
     if (communityMutationMethods.has(c.req.method) && c.res.status < 400) {
+      if (explicitTopicId === "skip") return;
       const topicMatch = c.req.path.match(/\/topics\/([^/]+)/);
-      publishCommunityChange(topicMatch?.[1] ? decodeURIComponent(topicMatch[1]) : null);
+      publishCommunityChange(
+        explicitTopicId ?? (topicMatch?.[1] ? decodeURIComponent(topicMatch[1]) : null)
+      );
     }
   })
   .get("/events", async (c) => {
@@ -976,6 +985,19 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json(await topicStateRepository.getState(c.get("userId"), topic.id));
   })
+  .get("/participants", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const query = communityParticipantSuggestionsQuerySchema.safeParse(c.req.query());
+    if (!query.success) return c.json({ error: "Invalid participant search" }, 400);
+    return c.json({
+      participants: await messageMutationService.findParticipants({
+        query: query.data.q,
+        limit: query.data.limit
+      })
+    });
+  })
   .get("/messages/search", async (c) => {
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
@@ -1044,7 +1066,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       targetMessageId: context.targetMessageId,
-      messages: await Promise.all(context.messages.map((message) => serializeMessage(message, c.get("userId"), true)))
+      messages: await Promise.all(context.messages.map((message) => serializeMessage(message, c.get("userId"), role, true)))
     });
   })
   .get("/topics/:id/messages", async (c) => {
@@ -1082,7 +1104,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const mute = await getActiveMute(c.get("userId"));
 
     return c.json({
-      messages: await Promise.all(pageMessages.map((message) => serializeMessage(message, c.get("userId")))),
+      messages: await Promise.all(pageMessages.map((message) => serializeMessage(message, c.get("userId"), role))),
       nextCursor: hasMore ? pageMessages.at(-1)?.createdAt.toISOString() ?? null : null,
       ...serializeMute(mute)
     });
@@ -1090,97 +1112,72 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/topics/:id/messages", async (c) => {
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) {
-      return accessError;
-    }
-
+    if (accessError) return accessError;
     const mute = await getActiveMute(c.get("userId"));
-    if (mute) {
-      return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
-    }
-
+    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
     const body = messagePayloadSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) {
-      return c.json({ error: "Invalid message" }, 400);
-    }
+    if (!body.success) return c.json({ error: "Invalid message" }, 400);
 
-    const topic = await getAccessibleTopic(c.req.param("id"), role);
-
-    if (!topic) {
-      return c.json({ error: "Topic not found" }, 404);
-    }
-
-    if (topic.isLocked && role === "member") {
-      return c.json({ error: "Topic is locked" }, 403);
-    }
-
-    const replyToMessage = body.data.replyToMessageId
-      ? await db.query.clubChatMessages.findFirst({
-        where: and(eq(clubChatMessages.id, body.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id)),
-        with: {
-          user: true
-        }
-      })
-      : null;
-
-    if (body.data.replyToMessageId) {
-      if (!replyToMessage) {
-        return c.json({ error: "Reply message not found" }, 404);
-      }
-
-      if (replyToMessage.isSystem) {
-        return c.json({ error: "Cannot reply to system message" }, 400);
-      }
-    }
-
-    const sender = await db.query.users.findFirst({
-      where: eq(users.id, c.get("userId"))
-    });
-
-    if (!sender) {
-      return c.json({ error: "Unable to resolve sender" }, 500);
-    }
-
-    const [message] = await db
-      .insert(clubChatMessages)
-      .values({
-        topicId: topic.id,
+    try {
+      const result = await messageMutationService.createText({
+        topicId: c.req.param("id"),
         userId: c.get("userId"),
-        replyToMessageId: body.data.replyToMessageId ?? null,
-        body: body.data.body
-      })
-      .returning();
-
-    if (!message) {
-      return c.json({ error: "Unable to create message" }, 500);
-    }
-
-    if (replyToMessage) {
-      notifyReplyRecipient({
-        topic,
-        replyToMessage,
-        sender,
-        body: body.data.body
-      }).catch((error: unknown) => {
-        logger.warn({ error, messageId: message.id }, "reply notification failed");
+        role,
+        body: body.data.body,
+        replyToMessageId: body.data.replyToMessageId,
+        clientOperationId: body.data.clientOperationId,
+        mentions: body.data.mentions
       });
+      const createdMessage = await findMessageWithUser(result.message.id);
+      if (!createdMessage) return c.json({ error: "Unable to load message" }, 500);
+      c.header(realtimeTopicHeader, "skip");
+      return c.json({
+        ok: true,
+        message: await serializeMessage(createdMessage, c.get("userId"), role)
+      });
+    } catch (error) {
+      return mutationErrorResponse(c, error);
     }
-
-    const createdMessage = await db.query.clubChatMessages.findFirst({
-      where: eq(clubChatMessages.id, message.id),
-      with: {
-        user: true
-      }
-    });
-
-    if (!createdMessage) {
-      return c.json({ error: "Unable to create message" }, 500);
+  })
+  .patch("/messages/:id", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const body = communityMessageEditRequestSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: "Invalid message edit" }, 400);
+    try {
+      const result = await messageMutationService.editText({
+        messageId: c.req.param("id"),
+        userId: c.get("userId"),
+        role,
+        body: body.data.body,
+        mentions: body.data.mentions
+      });
+      c.header(realtimeTopicHeader, "skip");
+      const updatedMessage = await findMessageWithUser(result.message.id);
+      if (!updatedMessage) return c.json({ error: "Unable to load message" }, 500);
+      return c.json({ ok: true, message: await serializeMessage(updatedMessage, c.get("userId"), role) });
+    } catch (error) {
+      return mutationErrorResponse(c, error);
     }
-
-    return c.json({
-      ok: true,
-      message: await serializeMessage(createdMessage, c.get("userId"))
-    });
+  })
+  .delete("/messages/:id", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    try {
+      const result = await messageMutationService.deleteMessage({
+        messageId: c.req.param("id"),
+        userId: c.get("userId"),
+        role
+      });
+      c.header(realtimeTopicHeader, "skip");
+      const deletedMessage = await findMessageWithUser(result.message.id);
+      if (!deletedMessage) return c.json({ error: "Unable to load message" }, 500);
+      return c.json({ ok: true, message: await serializeMessage(deletedMessage, c.get("userId"), role) });
+    } catch (error) {
+      return mutationErrorResponse(c, error);
+    }
   })
   .post("/topics/:id/messages/voice", async (c) => {
     const role = await getCommunityRole(c);
@@ -1203,7 +1200,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (!contentType) return c.json({ error: "Unsupported voice format" }, 415);
     if (replyToMessageId) {
       const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
-      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
+      if (!reply) return c.json({ error: "Reply message not found" }, 404);
+      if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
+        return c.json({ error: "Reply message is unavailable" }, 400);
+      }
     }
 
     let preparedVoice: Awaited<ReturnType<typeof prepareCommunityVoice>>;
@@ -1214,14 +1214,23 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to prepare voice message" }, 422);
     }
 
-    const [message] = await db.insert(clubChatMessages).values({
-      topicId: topic.id,
-      userId: c.get("userId"),
-      replyToMessageId,
-      body: "Голосовое сообщение",
-      kind: "voice"
-    }).returning();
-    if (!message) return c.json({ error: "Unable to create message" }, 500);
+    const voiceInsert = await db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      const replyError = await validateLockedReply(database, replyToMessageId, topic.id);
+      if (replyError) return replyError;
+      const [message] = await database.insert(clubChatMessages).values({
+        topicId: topic.id,
+        userId: c.get("userId"),
+        replyToMessageId,
+        body: "Голосовое сообщение",
+        kind: "voice"
+      }).returning();
+      return message
+        ? { message }
+        : { error: "Unable to create message", status: 500 as const };
+    });
+    if ("error" in voiceInsert) return c.json({ error: voiceInsert.error }, voiceInsert.status);
+    const { message } = voiceInsert;
 
     const attachmentId = randomUUID();
     const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, preparedVoice.fileName);
@@ -1244,7 +1253,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to upload voice message" }, 500);
     }
     const created = await findMessageWithUser(message.id);
-    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId"), role) });
   })
   .post("/topics/:id/messages/images", async (c) => {
     const role = await getCommunityRole(c);
@@ -1263,7 +1272,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (validationError) return c.json({ error: validationError }, 400);
     if (replyToMessageId) {
       const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
-      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
+      if (!reply) return c.json({ error: "Reply message not found" }, 404);
+      if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
+        return c.json({ error: "Reply message is unavailable" }, 400);
+      }
     }
     let prepared: Awaited<ReturnType<typeof prepareCommunityImage>>[];
     try {
@@ -1272,14 +1284,23 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось обработать изображение." }, 415);
     }
 
-    const [message] = await db.insert(clubChatMessages).values({
-      topicId: topic.id,
-      userId: c.get("userId"),
-      replyToMessageId,
-      body: files.length === 1 ? "Изображение" : `${files.length} изображений`,
-      kind: "images"
-    }).returning();
-    if (!message) return c.json({ error: "Unable to create message" }, 500);
+    const imageInsert = await db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      const replyError = await validateLockedReply(database, replyToMessageId, topic.id);
+      if (replyError) return replyError;
+      const [message] = await database.insert(clubChatMessages).values({
+        topicId: topic.id,
+        userId: c.get("userId"),
+        replyToMessageId,
+        body: files.length === 1 ? "Изображение" : `${files.length} изображений`,
+        kind: "images"
+      }).returning();
+      return message
+        ? { message }
+        : { error: "Unable to create message", status: 500 as const };
+    });
+    if ("error" in imageInsert) return c.json({ error: imageInsert.error }, imageInsert.status);
+    const { message } = imageInsert;
 
     const uploadedKeys: string[] = [];
     try {
@@ -1308,7 +1329,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to upload images" }, 500);
     }
     const created = await findMessageWithUser(message.id);
-    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId"), role) });
   })
   .post("/topics/:id/messages/poll", async (c) => {
     const role = await getCommunityRole(c);
@@ -1329,12 +1350,18 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     }
     if (parsed.data.replyToMessageId) {
       const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, parsed.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
-      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
+      if (!reply) return c.json({ error: "Reply message not found" }, 404);
+      if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
+        return c.json({ error: "Reply message is unavailable" }, 400);
+      }
     }
 
     const messageId = randomUUID();
-    await db.transaction(async (tx) => {
-      await tx.insert(clubChatMessages).values({
+    const pollInsert = await db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      const replyError = await validateLockedReply(database, parsed.data.replyToMessageId ?? null, topic.id);
+      if (replyError) return replyError;
+      await database.insert(clubChatMessages).values({
         id: messageId,
         topicId: topic.id,
         userId: c.get("userId"),
@@ -1342,7 +1369,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         body: draft.question,
         kind: "poll"
       });
-      const [poll] = await tx.insert(clubPolls).values({
+      const [poll] = await database.insert(clubPolls).values({
         messageId,
         question: draft.question,
         allowsMultiple: draft.allowsMultiple,
@@ -1350,10 +1377,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         closesAt: draft.closesAt
       }).returning();
       if (!poll) throw new Error("Unable to create poll");
-      await tx.insert(clubPollOptions).values(draft.options.map((text, sortOrder) => ({ pollId: poll.id, text, sortOrder })));
+      await database.insert(clubPollOptions).values(draft.options.map((text, sortOrder) => ({ pollId: poll.id, text, sortOrder })));
+      return { messageId };
     });
+    if ("error" in pollInsert) return c.json({ error: pollInsert.error }, pollInsert.status);
     const created = await findMessageWithUser(messageId);
-    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId"), role) });
   })
   .post("/polls/:id/votes", async (c) => {
     const role = await getCommunityRole(c);
@@ -1363,23 +1392,41 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
     const parsed = pollVotePayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "Invalid vote" }, 400);
-    const poll = await db.query.clubPolls.findFirst({ where: eq(clubPolls.id, c.req.param("id")), with: { options: true, message: { with: { topic: true } } } });
-    if (!poll) return c.json({ error: "Poll not found" }, 404);
-    if (!isTopicAccessibleForRole(poll.message.topic, role)) return c.json({ error: "Poll not found" }, 404);
-    if (role === "member" && (!poll.message.topic.isPublished || poll.message.topic.isLocked)) return c.json({ error: "Topic is unavailable" }, 403);
-    if (poll.closedAt || (poll.closesAt && poll.closesAt <= new Date())) return c.json({ error: "Poll is closed" }, 409);
-    let optionIds: string[];
-    try {
-      optionIds = validatePollSelection(parsed.data.optionIds, poll.options.map((option) => option.id), poll.allowsMultiple);
-    } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : "Invalid vote" }, 400);
-    }
-    await db.transaction(async (tx) => {
-      await tx.delete(clubPollVotes).where(and(eq(clubPollVotes.pollId, poll.id), eq(clubPollVotes.userId, c.get("userId"))));
-      await tx.insert(clubPollVotes).values(optionIds.map((optionId) => ({ pollId: poll.id, optionId, userId: c.get("userId") })));
+    const pollId = c.req.param("id");
+    const voteResult = await db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      await database.execute(sql`
+        select message.id
+        from club_polls poll
+        join club_chat_messages message on message.id = poll.message_id
+        where poll.id = ${pollId}
+        for share of poll, message
+      `);
+      const poll = await database.query.clubPolls.findFirst({ where: eq(clubPolls.id, pollId), with: { options: true, message: { with: { topic: true } } } });
+      if (!poll) return { error: "Poll not found", status: 404 as const };
+      if (!isTopicAccessibleForRole(poll.message.topic, role)) return { error: "Poll not found", status: 404 as const };
+      if (poll.message.status !== "visible" || poll.message.deletedByUserAt) {
+        return { error: "Poll is unavailable", status: 409 as const };
+      }
+      if (role === "member" && (!poll.message.topic.isPublished || poll.message.topic.isLocked)) {
+        return { error: "Topic is unavailable", status: 403 as const };
+      }
+      if (poll.closedAt || (poll.closesAt && poll.closesAt <= new Date())) {
+        return { error: "Poll is closed", status: 409 as const };
+      }
+      let optionIds: string[];
+      try {
+        optionIds = validatePollSelection(parsed.data.optionIds, poll.options.map((option) => option.id), poll.allowsMultiple);
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : "Invalid vote", status: 400 as const };
+      }
+      await database.delete(clubPollVotes).where(and(eq(clubPollVotes.pollId, poll.id), eq(clubPollVotes.userId, c.get("userId"))));
+      await database.insert(clubPollVotes).values(optionIds.map((optionId) => ({ pollId: poll.id, optionId, userId: c.get("userId") })));
+      return { messageId: poll.messageId };
     });
-    const message = await findMessageWithUser(poll.messageId);
-    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId")) });
+    if ("error" in voteResult) return c.json({ error: voteResult.error }, voteResult.status);
+    const message = await findMessageWithUser(voteResult.messageId);
+    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId"), role) });
   })
   .post("/polls/:id/close", async (c) => {
     const role = await getCommunityRole(c);
@@ -1387,7 +1434,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const [poll] = await db.update(clubPolls).set({ closedAt: new Date() }).where(eq(clubPolls.id, c.req.param("id"))).returning();
     if (!poll) return c.json({ error: "Poll not found" }, 404);
     const message = await findMessageWithUser(poll.messageId);
-    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId")) });
+    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId"), role) });
   })
   .post("/messages/:id/pin", async (c) => {
     const role = await getCommunityRole(c);
@@ -1400,51 +1447,53 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid pin state" }, 400);
     }
 
-    const current = await db.query.clubChatMessages.findFirst({
-      where: eq(clubChatMessages.id, c.req.param("id")),
-      with: { user: true }
-    });
-    if (!current) {
-      return c.json({ error: "Message not found" }, 404);
-    }
-    if (current.status !== "visible" || current.isSystem) {
-      return c.json({ error: "Only visible user messages can be pinned" }, 400);
-    }
-
-    if (payload.data.pinned && !current.pinnedAt) {
-      const [row] = await db
-        .select({ value: count(clubChatMessages.id) })
-        .from(clubChatMessages)
-        .where(
-          and(
-            eq(clubChatMessages.topicId, current.topicId),
-            eq(clubChatMessages.status, "visible"),
-            gt(clubChatMessages.pinnedAt, new Date(0))
-          )
-        );
-      if ((row?.value ?? 0) >= 5) {
-        return c.json({ error: "Pinned messages limit reached" }, 409);
+    const messageId = c.req.param("id");
+    const pinResult = await db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      await database.execute(sql`select id from club_chat_messages where id = ${messageId} for update`);
+      const current = await database.query.clubChatMessages.findFirst({
+        where: eq(clubChatMessages.id, messageId),
+        with: { user: true }
+      });
+      if (!current) return { error: "Message not found", status: 404 as const };
+      if (current.deletedByUserAt) return { error: "Message is unavailable", status: 409 as const };
+      if (current.status !== "visible" || current.isSystem) {
+        return { error: "Only visible user messages can be pinned", status: 400 as const };
       }
-    }
 
-    await db
-      .update(clubChatMessages)
-      .set({
-        pinnedAt: payload.data.pinned ? new Date() : null,
-        pinnedByUserId: payload.data.pinned ? c.get("userId") : null,
-        updatedAt: new Date()
-      })
-      .where(eq(clubChatMessages.id, current.id));
+      if (payload.data.pinned && !current.pinnedAt) {
+        const [row] = await database
+          .select({ value: count(clubChatMessages.id) })
+          .from(clubChatMessages)
+          .where(
+            and(
+              eq(clubChatMessages.topicId, current.topicId),
+              eq(clubChatMessages.status, "visible"),
+              gt(clubChatMessages.pinnedAt, new Date(0))
+            )
+          );
+        if ((row?.value ?? 0) >= 5) {
+          return { error: "Pinned messages limit reached", status: 409 as const };
+        }
+      }
 
-    const updated = await db.query.clubChatMessages.findFirst({
-      where: eq(clubChatMessages.id, current.id),
-      with: { user: true }
+      const now = new Date();
+      await database
+        .update(clubChatMessages)
+        .set({
+          pinnedAt: payload.data.pinned ? now : null,
+          pinnedByUserId: payload.data.pinned ? c.get("userId") : null,
+          updatedAt: now
+        })
+        .where(eq(clubChatMessages.id, current.id));
+      const updated = await database.query.clubChatMessages.findFirst({
+        where: eq(clubChatMessages.id, current.id),
+        with: { user: true }
+      });
+      return updated ? { message: updated } : { error: "Message not found", status: 404 as const };
     });
-    if (!updated) {
-      return c.json({ error: "Message not found" }, 404);
-    }
-
-    return c.json({ ok: true, message: await serializeMessage(updated, c.get("userId")) });
+    if ("error" in pinResult) return c.json({ error: pinResult.error }, pinResult.status);
+    return c.json({ ok: true, message: await serializeMessage(pinResult.message, c.get("userId"), role) });
   })
   .post("/topics/:id/messages/delete-all", async (c) => {
     const role = await getCommunityRole(c);
@@ -1604,7 +1653,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      message: await serializeMessage(createdMessage, c.get("userId"))
+      message: await serializeMessage(createdMessage, c.get("userId"), role)
     });
   })
   .delete("/topics/:topicId/mutes/:muteId", async (c) => {
@@ -1662,7 +1711,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      message: await serializeMessage(createdMessage, c.get("userId"))
+      message: await serializeMessage(createdMessage, c.get("userId"), role)
     });
   })
   .post("/messages/:id/reaction", async (c) => {
@@ -1677,49 +1726,54 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid reaction" }, 400);
     }
 
-    const message = await db.query.clubChatMessages.findFirst({
-      where: eq(clubChatMessages.id, c.req.param("id"))
+    const messageId = c.req.param("id");
+    const reactionResult = await db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      await database.execute(sql`select id from club_chat_messages where id = ${messageId} for share`);
+      const message = await database.query.clubChatMessages.findFirst({
+        where: eq(clubChatMessages.id, messageId)
+      });
+      if (!message) return { error: "Message not found", status: 404 as const };
+      if (message.status !== "visible" || message.deletedByUserAt) {
+        return { error: "Message is unavailable", status: 409 as const };
+      }
+      const messageTopic = await database.query.clubChatTopics.findFirst({
+        where: eq(clubChatTopics.id, message.topicId)
+      });
+      if (!messageTopic || !isTopicAccessibleForRole(messageTopic, role)) {
+        return { error: "Message not found", status: 404 as const };
+      }
+
+      if (body.data.reaction === null) {
+        await database
+          .delete(clubMessageReactions)
+          .where(and(eq(clubMessageReactions.messageId, message.id), eq(clubMessageReactions.userId, c.get("userId"))));
+      } else {
+        await database
+          .insert(clubMessageReactions)
+          .values({
+            messageId: message.id,
+            userId: c.get("userId"),
+            reaction: body.data.reaction
+          })
+          .onConflictDoUpdate({
+            target: [clubMessageReactions.messageId, clubMessageReactions.userId],
+            set: {
+              reaction: body.data.reaction,
+              updatedAt: new Date()
+            }
+          });
+      }
+      return { messageId: message.id };
     });
-
-    if (!message) {
-      return c.json({ error: "Message not found" }, 404);
-    }
-
-    const messageTopic = await db.query.clubChatTopics.findFirst({
-      where: eq(clubChatTopics.id, message.topicId)
-    });
-    if (!messageTopic || !isTopicAccessibleForRole(messageTopic, role)) {
-      return c.json({ error: "Message not found" }, 404);
-    }
-
-    if (body.data.reaction === null) {
-      await db
-        .delete(clubMessageReactions)
-        .where(and(eq(clubMessageReactions.messageId, message.id), eq(clubMessageReactions.userId, c.get("userId"))));
-    } else {
-      await db
-        .insert(clubMessageReactions)
-        .values({
-          messageId: message.id,
-          userId: c.get("userId"),
-          reaction: body.data.reaction
-        })
-        .onConflictDoUpdate({
-          target: [clubMessageReactions.messageId, clubMessageReactions.userId],
-          set: {
-            reaction: body.data.reaction,
-            updatedAt: new Date()
-          }
-        });
-    }
-
-    const updatedMessage = await findMessageWithUser(message.id);
+    if ("error" in reactionResult) return c.json({ error: reactionResult.error }, reactionResult.status);
+    const updatedMessage = await findMessageWithUser(reactionResult.messageId);
     if (!updatedMessage) {
       return c.json({ error: "Message not found" }, 404);
     }
 
     return c.json({
       ok: true,
-      message: await serializeMessage(updatedMessage, c.get("userId"))
+      message: await serializeMessage(updatedMessage, c.get("userId"), role)
     });
   });
