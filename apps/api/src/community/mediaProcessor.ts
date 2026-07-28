@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
@@ -20,6 +21,7 @@ type MediaManifest = {
   contentType: string;
   sizeBytes: number;
   durationSeconds: number | null;
+  leaseToken?: string;
 };
 
 type MediaProcessorDependencies = {
@@ -57,6 +59,14 @@ function safeStem(fileName: string) {
   return basename(fileName).replace(/\.[a-z0-9]+$/i, "").replace(/[^a-z0-9._-]+/gi, "-").slice(0, 100) || "media";
 }
 
+function buildLeaseUniqueFinalObjectKey(manifest: MediaManifest, fileName: string) {
+  return buildCommunityFinalObjectKey({
+    userId: manifest.userId,
+    uploadToken: manifest.leaseToken ? `${manifest.uploadToken}-${manifest.leaseToken}` : manifest.uploadToken,
+    fileName
+  });
+}
+
 export async function processCommunityMediaManifest(manifest: MediaManifest, dependencies: MediaProcessorDependencies) {
   let finalObjectKey: string | null = null;
   let completeAttempted = false;
@@ -74,11 +84,7 @@ export async function processCommunityMediaManifest(manifest: MediaManifest, dep
           throw new Error("voice_duration_exceeded");
         }
         const fileName = `${safeStem(manifest.fileName)}.m4a`;
-        finalObjectKey = buildCommunityFinalObjectKey({
-          userId: manifest.userId,
-          uploadToken: manifest.uploadToken,
-          fileName
-        });
+        finalObjectKey = buildLeaseUniqueFinalObjectKey(manifest, fileName);
         const upload = await dependencies.uploadFile({ key: finalObjectKey, path: outputPath, contentType: "audio/mp4" });
         await dependencies.mirrorToReserve(finalObjectKey, "audio/mp4");
         completeAttempted = true;
@@ -96,11 +102,7 @@ export async function processCommunityMediaManifest(manifest: MediaManifest, dep
       }
 
       const normalized = await dependencies.normalizeImageFile(inputPath, outputPath, manifest.fileName);
-      finalObjectKey = buildCommunityFinalObjectKey({
-        userId: manifest.userId,
-        uploadToken: manifest.uploadToken,
-        fileName: normalized.fileName
-      });
+      finalObjectKey = buildLeaseUniqueFinalObjectKey(manifest, normalized.fileName);
       const upload = await dependencies.uploadFile({ key: finalObjectKey, path: outputPath, contentType: normalized.contentType });
       await dependencies.mirrorToReserve(finalObjectKey, normalized.contentType);
       completeAttempted = true;
@@ -117,7 +119,12 @@ export async function processCommunityMediaManifest(manifest: MediaManifest, dep
       return "ready" as const;
     });
   } catch (error) {
-    if (completeAttempted) throw error;
+    if (completeAttempted) {
+      if (manifest.leaseToken && finalObjectKey && error instanceof Error && error.message === "manifest_lease_lost") {
+        await dependencies.deleteCopies(finalObjectKey).catch(() => undefined);
+      }
+      throw error;
+    }
     const errorCode = error instanceof Error && error.message === "voice_duration_exceeded"
       ? "voice_duration_exceeded"
       : "media_processing_failed";
@@ -198,6 +205,7 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
     if (!manifest.quarantineObjectKey || (manifest.kind !== "image" && manifest.kind !== "voice")) continue;
     const staleAt = new Date(Date.now() - 2 * 60 * 1000);
     const claimedAt = new Date();
+    const leaseToken = randomUUID();
     const [claimed] = await db.update(communityUploadManifests)
       .set({ status: "normalizing", updatedAt: claimedAt })
       .where(and(
@@ -213,7 +221,8 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
     await processCommunityMediaManifest({
       ...manifest,
       kind: manifest.kind,
-      quarantineObjectKey: manifest.quarantineObjectKey
+      quarantineObjectKey: manifest.quarantineObjectKey,
+      leaseToken
     }, {
       withWorkspace: productionWorkspace,
       downloadToFile: (key, path, maxBytes) => storage.downloadObjectToFile(key, path, maxBytes),

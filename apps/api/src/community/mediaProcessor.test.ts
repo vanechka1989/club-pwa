@@ -56,6 +56,53 @@ describe("bounded community media processor", () => {
     expect(deleteCopies).not.toHaveBeenCalled();
   });
 
+  it("keeps the winner object immutable when a stale worker uploads after lease reassignment", async () => {
+    const objects = new Map<string, string>();
+    const state: { lease: string; status: string; finalObjectKey: string | null } = {
+      lease: "lease-a",
+      status: "normalizing",
+      finalObjectKey: null
+    };
+    let signalLoserAtUpload!: () => void;
+    let releaseLoserUpload!: () => void;
+    const loserAtUpload = new Promise<void>((resolve) => { signalLoserAtUpload = resolve; });
+    const winnerDone = new Promise<void>((resolve) => { releaseLoserUpload = resolve; });
+
+    const runWorker = (leaseToken: string, payload: string, pauseBeforeUpload = false) => processCommunityMediaManifest({
+      ...manifest,
+      kind: "image" as const,
+      fileName: "photo.png",
+      contentType: "image/png",
+      leaseToken
+    }, dependencies({
+      normalizeImageFile: async () => ({ fileName: "photo.webp", contentType: "image/webp", sizeBytes: 50, width: 20, height: 10 }),
+      uploadFile: async ({ key }: { key: string }) => {
+        if (pauseBeforeUpload) {
+          signalLoserAtUpload();
+          await winnerDone;
+        }
+        objects.set(key, payload);
+      },
+      complete: async (_manifestId: string, result: { finalObjectKey: string }) => {
+        if (state.lease !== leaseToken || state.status !== "normalizing") throw new Error("manifest_lease_lost");
+        state.status = "ready";
+        state.finalObjectKey = result.finalObjectKey;
+      },
+      deleteCopies: async (key: string) => { objects.delete(key); }
+    }));
+
+    const loser = runWorker("lease-a", "loser-bytes", true);
+    await loserAtUpload;
+    state.lease = "lease-b";
+    await expect(runWorker("lease-b", "winner-bytes")).resolves.toBe("ready");
+    releaseLoserUpload();
+    await expect(loser).rejects.toThrow("manifest_lease_lost");
+
+    expect(state).toMatchObject({ lease: "lease-b", status: "ready" });
+    expect(state.finalObjectKey).toBeTruthy();
+    expect(objects).toEqual(new Map([[state.finalObjectKey!, "winner-bytes"]]));
+  });
+
   it("rejects an actual voice duration over five minutes even when the client declared one second", async () => {
     const transcodeVoiceFile = vi.fn();
     const uploadFile = vi.fn();
