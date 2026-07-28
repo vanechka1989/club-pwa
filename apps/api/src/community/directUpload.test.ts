@@ -159,11 +159,12 @@ describe("community direct upload policy", () => {
 
   it("claims and verifies a PUT exactly once before returning the completed object", async () => {
     const events: string[] = [];
+    let attachmentDeadline = "";
     const object = uploaded();
     const service = createCommunityUploadService({
       issue: async () => undefined,
       claim: async () => { events.push("claim"); return { ok: true, intent: { stagingObjectKey: object.objectKey, uploadType: "put", multipartUploadId: null, expectedPartCount: null, partSizeBytes: null } }; },
-      finish: async () => { events.push("finish"); },
+      finish: async (record) => { events.push("finish"); attachmentDeadline = record.expiresAt.toISOString(); },
       fail: async () => { events.push("fail"); },
       createPutUrl: async () => { throw new Error("unused"); },
       createMultipart: async () => { throw new Error("unused"); },
@@ -186,6 +187,7 @@ describe("community direct upload policy", () => {
       scanStatus: "ready"
     });
     expect(events).toEqual(["claim", "mirror", "finish", "delete-staging"]);
+    expect(attachmentDeadline).toBe("2026-07-29T12:20:00.000Z");
   });
 
   it("aborts multipart and cleans an invalid completed object without making it reusable", async () => {

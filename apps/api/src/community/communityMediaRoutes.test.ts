@@ -13,4 +13,18 @@ describe("community media routes", () => {
     expect(route).toContain("durationSeconds > 300");
     expect(route).toContain("await deleteObject(key)");
   });
+
+  it("creates and consumes direct-upload media through the canonical topic message route", () => {
+    expect(route).toContain('.post("/topics/:id/messages/uploads"');
+    expect(route).not.toContain('.post("/messages/:id/uploads"');
+    const endpoint = route.slice(route.indexOf('.post("/topics/:id/messages/uploads"'), route.indexOf('.get("/events"'));
+    expect(endpoint).toContain("getActiveMute");
+    expect(endpoint).toContain("isTopicAccessibleForRole");
+    expect(endpoint).toContain("topic.isLocked");
+    expect(endpoint).toContain("validateLockedReply");
+    expect(endpoint).toContain("getCommunityMediaExpiry(role)");
+    expect(endpoint).toContain("deriveCommunityUploadMessage");
+    expect(endpoint).toContain("serializeMessage");
+    expect(endpoint).toContain("database.transaction");
+  });
 });

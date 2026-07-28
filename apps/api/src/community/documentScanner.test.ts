@@ -16,13 +16,15 @@ describe("community document quarantine scanner", () => {
     expect(parseClamAvResponse("nonsense")).toBe("unavailable");
   });
 
-  it("reclaims scans left in-progress by a worker restart but never reopens terminal rows", () => {
-    expect(shouldRetryCommunityDocumentScan("pending")).toBe(true);
-    expect(shouldRetryCommunityDocumentScan("failed")).toBe(true);
-    expect(shouldRetryCommunityDocumentScan("scanning")).toBe(true);
-    expect(shouldRetryCommunityDocumentScan("cleanup_pending")).toBe(true);
-    expect(shouldRetryCommunityDocumentScan("ready")).toBe(false);
-    expect(shouldRetryCommunityDocumentScan("rejected")).toBe(false);
+  it("claims queued/retry rows immediately but in-progress scans only after a stale lease", () => {
+    const now = new Date("2026-07-29T12:00:00.000Z");
+    expect(shouldRetryCommunityDocumentScan("pending", now, now)).toBe(true);
+    expect(shouldRetryCommunityDocumentScan("failed", now, now)).toBe(true);
+    expect(shouldRetryCommunityDocumentScan("cleanup_pending", now, now)).toBe(true);
+    expect(shouldRetryCommunityDocumentScan("scanning", new Date("2026-07-29T11:59:00.000Z"), now)).toBe(false);
+    expect(shouldRetryCommunityDocumentScan("scanning", new Date("2026-07-29T11:40:00.000Z"), now)).toBe(true);
+    expect(shouldRetryCommunityDocumentScan("ready", now, now)).toBe(false);
+    expect(shouldRetryCommunityDocumentScan("rejected", now, now)).toBe(false);
   });
 
   it("reports scanner and fail-closed queue health separately from API readiness", () => {
@@ -164,5 +166,28 @@ describe("community document quarantine scanner", () => {
 
     expect(processed).toBe(1);
     expect(scanned).toEqual(["a1"]);
+  });
+
+  it("allows only one worker to claim a fresh scan lease", async () => {
+    const now = new Date("2026-07-29T12:00:00.000Z");
+    let status = "pending";
+    let updatedAt = new Date("2026-07-29T11:00:00.000Z");
+    const processed: string[] = [];
+    const candidate = { id: "a1", kind: "document", objectKey: "community/quarantine/u/a.pdf", contentType: "application/pdf" };
+    const dependencies = {
+      claim: async () => {
+        if (!shouldRetryCommunityDocumentScan(status, updatedAt, now)) return false;
+        status = "scanning";
+        updatedAt = now;
+        return true;
+      },
+      process: async () => { processed.push("a1"); }
+    };
+
+    await Promise.all([
+      runDocumentScannerBatch([candidate], dependencies),
+      runDocumentScannerBatch([candidate], dependencies)
+    ]);
+    expect(processed).toEqual(["a1"]);
   });
 });

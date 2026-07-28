@@ -292,10 +292,10 @@ export function abortCommunityUpload(uploadToken: string) {
   return api<{ ok: true }>(`/community/uploads/${uploadToken}`, { method: "DELETE" });
 }
 
-export function attachCommunityUploads(messageId: string, uploadTokens: string[]) {
-  return api<{ ok: true; attachmentIds: string[] }>(`/community/messages/${messageId}/uploads`, {
+export function createCommunityUploadMessage(topicId: string, uploadTokens: string[], replyToMessageId: string | null = null) {
+  return api<{ ok: true; message: ClubMessage }>(`/community/topics/${topicId}/messages/uploads`, {
     method: "POST",
-    body: { uploadTokens }
+    body: { uploadTokens, replyToMessageId }
   });
 }
 

@@ -1,10 +1,12 @@
 import { createConnection } from "node:net";
 
 export type ClamAvScanResult = "clean" | "infected" | "unavailable";
-const retryableDocumentScanStatuses = ["pending", "failed", "scanning", "cleanup_pending"] as const;
+const immediatelyRetryableDocumentScanStatuses = ["pending", "failed", "cleanup_pending"] as const;
+const documentScanLeaseMs = 15 * 60 * 1000;
 
-export function shouldRetryCommunityDocumentScan(status: string) {
-  return retryableDocumentScanStatuses.includes(status as (typeof retryableDocumentScanStatuses)[number]);
+export function shouldRetryCommunityDocumentScan(status: string, updatedAt = new Date(0), now = new Date()) {
+  if (immediatelyRetryableDocumentScanStatuses.includes(status as (typeof immediatelyRetryableDocumentScanStatuses)[number])) return true;
+  return status === "scanning" && updatedAt <= new Date(now.getTime() - documentScanLeaseMs);
 }
 
 const clamAvMaxDocumentBytes = 50 * 1024 * 1024;
@@ -246,11 +248,17 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
     import("../db/schema"),
     import("../storage/s3")
   ]);
-  const { and, asc, eq, inArray } = drizzle;
+  const { and, asc, eq, inArray, isNotNull, lte, or } = drizzle;
+  const now = new Date();
+  const staleScanAt = new Date(now.getTime() - documentScanLeaseMs);
   const manifests = await db.query.communityUploadManifests.findMany({
     where: and(
       eq(communityUploadManifests.kind, "document"),
-      inArray(communityUploadManifests.status, [...retryableDocumentScanStatuses])
+      isNotNull(communityUploadManifests.attachmentId),
+      or(
+        inArray(communityUploadManifests.status, [...immediatelyRetryableDocumentScanStatuses]),
+        and(eq(communityUploadManifests.status, "scanning"), lte(communityUploadManifests.updatedAt, staleScanAt))
+      )
     ),
     orderBy: [asc(communityUploadManifests.createdAt)],
     limit: Math.min(Math.max(limit, 1), 25)
@@ -266,15 +274,22 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
     uploadToken: manifest.uploadToken,
     fileName: manifest.fileName
   }] : []);
+  const claimStates = new Map<string, { status: string; updatedAt: Date }>();
   await runDocumentScannerBatch(candidates, {
     claim: async (manifestId) => {
+      const claimedAt = new Date();
       const [claimed] = await db.update(communityUploadManifests)
-        .set({ status: "scanning", errorCode: null, updatedAt: new Date() })
+        .set({ status: "scanning", errorCode: null, updatedAt: claimedAt })
         .where(and(
           eq(communityUploadManifests.id, manifestId),
-          inArray(communityUploadManifests.status, [...retryableDocumentScanStatuses])
+          isNotNull(communityUploadManifests.attachmentId),
+          or(
+            inArray(communityUploadManifests.status, [...immediatelyRetryableDocumentScanStatuses]),
+            and(eq(communityUploadManifests.status, "scanning"), lte(communityUploadManifests.updatedAt, staleScanAt))
+          )
         ))
-        .returning({ id: communityUploadManifests.id });
+        .returning({ id: communityUploadManifests.id, updatedAt: communityUploadManifests.updatedAt });
+      if (claimed) claimStates.set(manifestId, { status: "scanning", updatedAt: claimed.updatedAt });
       return Boolean(claimed);
     },
     process: async (manifest) => processCommunityDocumentScan(manifest, {
@@ -299,9 +314,12 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
       updateStatus: async (manifestId, status, scanError, finalObjectKey) => {
         await db.transaction(async (transaction) => {
           const database = transaction as unknown as typeof db;
+          const expectedClaim = claimStates.get(manifestId);
+          if (!expectedClaim) throw new Error("scanner_claim_lost");
           const current = await database.query.communityUploadManifests.findFirst({
             where: eq(communityUploadManifests.id, manifestId)
           });
+          const updatedAt = new Date();
           const [updated] = await database.update(communityUploadManifests)
             .set({
               status,
@@ -315,10 +333,16 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
                     objectKey: status === "ready" ? finalObjectKey : manifest.objectKey
                   }
                 : current?.result,
-              updatedAt: new Date()
+              updatedAt
             })
-            .where(eq(communityUploadManifests.id, manifestId))
-            .returning({ attachmentId: communityUploadManifests.attachmentId });
+            .where(and(
+              eq(communityUploadManifests.id, manifestId),
+              eq(communityUploadManifests.status, expectedClaim.status),
+              eq(communityUploadManifests.updatedAt, expectedClaim.updatedAt)
+            ))
+            .returning({ attachmentId: communityUploadManifests.attachmentId, updatedAt: communityUploadManifests.updatedAt });
+          if (!updated) throw new Error("scanner_claim_lost");
+          claimStates.set(manifestId, { status, updatedAt: updated.updatedAt });
           if (updated?.attachmentId) {
             await database.update(clubMessageAttachments)
               .set({

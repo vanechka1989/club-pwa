@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { processCommunityMediaManifest } from "./mediaProcessor";
+import { processCommunityMediaManifest, shouldProcessCommunityMediaManifest } from "./mediaProcessor";
 
 const manifest = {
   id: "manifest-1",
@@ -30,6 +30,11 @@ function dependencies(overrides: Record<string, unknown> = {}) {
 }
 
 describe("bounded community media processor", () => {
+  it("does no media work until the manifest is attached", () => {
+    expect(shouldProcessCommunityMediaManifest({ status: "processing", attachmentId: null })).toBe(false);
+    expect(shouldProcessCommunityMediaManifest({ status: "processing", attachmentId: "attachment-1" })).toBe(true);
+  });
+
   it("rejects an actual voice duration over five minutes even when the client declared one second", async () => {
     const transcodeVoiceFile = vi.fn();
     const uploadFile = vi.fn();

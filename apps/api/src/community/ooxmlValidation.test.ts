@@ -37,20 +37,21 @@ function dependencies(bytes: Uint8Array) {
   };
 }
 
-const contentTypes = (main: string) => `<?xml version="1.0"?><Types><Override PartName="/${main}" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
-const relationships = `<?xml version="1.0"?><Relationships><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+const contentTypes = (main: string, mainType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml") => `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/${main}" ContentType="${mainType}"/></Types>`;
+const relationships = (target = "word/document.xml", extra = "") => `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="${target}"/>${extra}</Relationships>`;
+const documentXml = `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>`;
 
 describe("OOXML archive validation", () => {
   it("accepts only a bounded DOCX package with the expected root parts and content type", async () => {
     const valid = storedZip([
       { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
-      { name: "_rels/.rels", body: relationships },
-      { name: "word/document.xml", body: "<w:document/>" }
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: documentXml }
     ]);
     const generic = storedZip([{ name: "payload.txt", body: "not office" }]);
     const crossKind = storedZip([
       { name: "[Content_Types].xml", body: contentTypes("xl/workbook.xml") },
-      { name: "_rels/.rels", body: relationships },
+      { name: "_rels/.rels", body: relationships("xl/workbook.xml") },
       { name: "xl/workbook.xml", body: "<workbook/>" }
     ]);
 
@@ -59,20 +60,94 @@ describe("OOXML archive validation", () => {
     await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(crossKind))).resolves.toBe(false);
   });
 
+  it("validates the declared main root for each supported OOXML kind", async () => {
+    const xlsx = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("xl/workbook.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml") },
+      { name: "_rels/.rels", body: relationships("xl/workbook.xml") },
+      { name: "xl/workbook.xml", body: `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>` }
+    ]);
+    const pptx = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("ppt/presentation.xml", "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml") },
+      { name: "_rels/.rels", body: relationships("ppt/presentation.xml") },
+      { name: "ppt/presentation.xml", body: `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>` }
+    ]);
+
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", dependencies(xlsx))).resolves.toBe(true);
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.presentationml.presentation", dependencies(pptx))).resolves.toBe(true);
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(xlsx))).resolves.toBe(false);
+  });
+
   it("rejects encrypted and duplicate OOXML entries", async () => {
     const encrypted = storedZip([
       { name: "[Content_Types].xml", body: contentTypes("word/document.xml"), encrypted: true },
-      { name: "_rels/.rels", body: relationships },
-      { name: "word/document.xml", body: "<w:document/>" }
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: documentXml }
     ]);
     const duplicate = storedZip([
       { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
-      { name: "_rels/.rels", body: relationships },
-      { name: "word/document.xml", body: "<w:document/>" },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: documentXml },
       { name: "word/document.xml", body: "<evil/>" }
     ]);
 
     await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(encrypted))).resolves.toBe(false);
     await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(duplicate))).resolves.toBe(false);
+  });
+
+  it("rejects commented fake control tags and malformed or non-XML main parts", async () => {
+    const commented = storedZip([
+      { name: "[Content_Types].xml", body: `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><!-- <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/> --></Types>` },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: documentXml }
+    ]);
+    const nonXmlMain = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: "MZ-not-xml" }
+    ]);
+    const malformedMain = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body></w:document>` }
+    ]);
+    const commentedRelationship = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
+      { name: "_rels/.rels", body: `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><!-- <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/> --></Relationships>` },
+      { name: "word/document.xml", body: documentXml }
+    ]);
+
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(commented))).resolves.toBe(false);
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(nonXmlMain))).resolves.toBe(false);
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(malformedMain))).resolves.toBe(false);
+    await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(commentedRelationship))).resolves.toBe(false);
+  });
+
+  it("rejects unreferenced payloads, external relationships, macros, and cross-kind roots", async () => {
+    const unreferenced = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: documentXml },
+      { name: "payload.txt", body: "unreferenced" }
+    ]);
+    const external = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
+      { name: "_rels/.rels", body: relationships("word/document.xml", `<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://evil.test" TargetMode="External"/>`) },
+      { name: "word/document.xml", body: documentXml }
+    ]);
+    const macro = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: documentXml },
+      { name: "word/vbaProject.bin", body: "macro" }
+    ]);
+    const crossKind = storedZip([
+      { name: "[Content_Types].xml", body: contentTypes("word/document.xml") },
+      { name: "_rels/.rels", body: relationships() },
+      { name: "word/document.xml", body: `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>` }
+    ]);
+
+    for (const archive of [unreferenced, external, macro, crossKind]) {
+      await expect(validateCommunityOoxml("application/vnd.openxmlformats-officedocument.wordprocessingml.document", dependencies(archive))).resolves.toBe(false);
+    }
   });
 });

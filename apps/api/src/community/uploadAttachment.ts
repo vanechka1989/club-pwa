@@ -8,6 +8,24 @@ type UploadManifest = {
   attachmentId?: string | null;
 };
 
+export function deriveCommunityUploadMessage(manifests: Array<Pick<UploadManifest, "kind">>) {
+  if (manifests.length < 1 || manifests.length > 10) return { error: "upload_kind_mismatch" } as const;
+  const kinds = new Set(manifests.map((manifest) => manifest.kind));
+  if (kinds.size !== 1) return { error: "upload_kind_mismatch" } as const;
+  const kind = manifests[0]?.kind;
+  if (kind === "image") {
+    return {
+      kind: "images" as const,
+      body: manifests.length === 1 ? "Изображение" : `${manifests.length} изображения`
+    };
+  }
+  if (manifests.length !== 1) return { error: "upload_kind_mismatch" } as const;
+  if (kind === "voice") return { kind: "voice" as const, body: "Голосовое сообщение" };
+  if (kind === "video") return { kind: "video" as const, body: "Видео" };
+  if (kind === "document") return { kind: "document" as const, body: "Документ" };
+  return { error: "upload_kind_mismatch" } as const;
+}
+
 export function validateCommunityUploadAttachmentBatch({
   userId,
   existingImageCount,
@@ -25,6 +43,10 @@ export function validateCommunityUploadAttachmentBatch({
   for (const manifest of manifests) {
     if (manifest.kind === "document") {
       if (!["pending", "scanning", "failed", "cleanup_pending", "ready"].includes(manifest.status) || !(manifest.finalObjectKey ?? manifest.quarantineObjectKey)) {
+        return { ok: false, error: "upload_not_ready" } as const;
+      }
+    } else if (["image", "voice"].includes(manifest.kind)) {
+      if (!(["processing", "normalizing", "ready"].includes(manifest.status)) || !(manifest.finalObjectKey ?? manifest.quarantineObjectKey)) {
         return { ok: false, error: "upload_not_ready" } as const;
       }
     } else if (manifest.status !== "ready" || !manifest.finalObjectKey) {

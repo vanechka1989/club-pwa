@@ -31,7 +31,7 @@ import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage 
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { topicStateRepository } from "../community/topicStateRepository";
-import { validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
+import { deriveCommunityUploadMessage, validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
 import { createCommunityUploadSessionService } from "../community/uploadSessions";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, prepareCommunityVoice, validateCommunityImageFiles } from "../community/mediaUpload";
@@ -133,7 +133,8 @@ const communityMultipartCompleteSchema = z.object({
 }).strict();
 
 const communityUploadAttachSchema = z.object({
-  uploadTokens: z.array(z.string().uuid()).min(1).max(20)
+  uploadTokens: z.array(z.string().uuid()).min(1).max(10),
+  replyToMessageId: z.string().uuid().nullable().default(null)
 }).strict();
 
 const communityUploadResultSchema = z.intersection(
@@ -262,6 +263,7 @@ const communityUploadService = createCommunityUploadService({
         finalObjectKey: record.status === "ready" ? record.result.objectKey : null,
         result: record.result,
         errorCode: null,
+        expiresAt: record.expiresAt,
         completedAt: new Date(),
         updatedAt: new Date()
       })
@@ -1000,25 +1002,34 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return communityUploadFailure(c, error);
     }
   })
-  .post("/messages/:id/uploads", async (c) => {
+  .post("/topics/:id/messages/uploads", async (c) => {
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) return accessError;
+    const mute = await getActiveMute(c.get("userId"));
+    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
     const body = communityUploadAttachSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success || new Set(body.data.uploadTokens).size !== body.data.uploadTokens.length) {
       return c.json({ error: "invalid_uploads" }, 400);
     }
     try {
-      const result = await db.transaction(async (transaction) => {
+      const database = db;
+      const result = await database.transaction(async (transaction) => {
         const database = transaction as unknown as typeof db;
-        const messageId = c.req.param("id");
-        await database.execute(sql`select id from club_chat_messages where id = ${messageId} for update`);
-        const message = await database.query.clubChatMessages.findFirst({ where: eq(clubChatMessages.id, messageId) });
-        if (!message || message.userId !== c.get("userId") || message.status !== "visible" || message.deletedByUserAt) {
-          return { error: "message_not_found", status: 404 as const };
+        const topicId = c.req.param("id");
+        await database.execute(sql`select id from club_chat_topics where id = ${topicId} for share`);
+        const topic = await database.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, topicId) });
+        if (!topic || !isTopicAccessibleForRole(topic, role)) return { error: "topic_not_found", status: 404 as const };
+        if (topic.isLocked && role === "member") return { error: "topic_locked", status: 403 as const };
+        const replyError = await validateLockedReply(database, body.data.replyToMessageId, topic.id);
+        if (replyError) return replyError;
+        for (const uploadToken of [...body.data.uploadTokens].sort()) {
+          await database.execute(sql`
+            select id from community_upload_manifests
+            where user_id = ${c.get("userId")} and upload_token = ${uploadToken}
+            for update
+          `);
         }
-        const topic = await database.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, message.topicId) });
-        if (!topic || !isTopicAccessibleForRole(topic, role)) return { error: "message_not_found", status: 404 as const };
         const manifests = await database.query.communityUploadManifests.findMany({
           where: and(
             eq(communityUploadManifests.userId, c.get("userId")),
@@ -1026,44 +1037,77 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           )
         });
         if (manifests.length !== body.data.uploadTokens.length) return { error: "foreign_upload", status: 403 as const };
-        const existing = await database.query.clubMessageAttachments.findMany({ where: eq(clubMessageAttachments.messageId, message.id) });
+        if (manifests.every((manifest) => manifest.attachmentId)) {
+          const attachments = await database.query.clubMessageAttachments.findMany({
+            where: inArray(clubMessageAttachments.id, manifests.map((manifest) => manifest.attachmentId!))
+          });
+          const messageIds = new Set(attachments.map((attachment) => attachment.messageId));
+          if (attachments.length !== manifests.length || messageIds.size !== 1) {
+            return { error: "upload_already_attached", status: 409 as const };
+          }
+          const message = await database.query.clubChatMessages.findFirst({ where: eq(clubChatMessages.id, [...messageIds][0]!) });
+          if (!message || message.userId !== c.get("userId") || message.topicId !== topic.id || message.status !== "visible" || message.deletedByUserAt) {
+            return { error: "upload_already_attached", status: 409 as const };
+          }
+          const derived = deriveCommunityUploadMessage(manifests);
+          if ("error" in derived || message.kind !== derived.kind || message.replyToMessageId !== body.data.replyToMessageId) {
+            return { error: "upload_already_attached", status: 409 as const };
+          }
+          return { messageId: message.id };
+        }
+        if (manifests.some((manifest) => manifest.attachmentId || manifest.consumedAt)) {
+          return { error: "upload_already_attached", status: 409 as const };
+        }
+        if (manifests.some((manifest) => manifest.expiresAt <= new Date())) {
+          return { error: "expired_intent", status: 409 as const };
+        }
         const policy = validateCommunityUploadAttachmentBatch({
           userId: c.get("userId"),
-          existingImageCount: existing.filter((attachment) => attachment.kind === "image").length,
+          existingImageCount: 0,
           manifests
         });
         if (!policy.ok) return { error: policy.error, status: 409 as const };
+        const derived = deriveCommunityUploadMessage(manifests);
+        if ("error" in derived) return { error: derived.error, status: 409 as const };
         const byToken = new Map(manifests.map((manifest) => [manifest.uploadToken, manifest]));
-        const attachmentIds: string[] = [];
-        for (const [index, token] of body.data.uploadTokens.entries()) {
+        const prepared = [];
+        for (const token of body.data.uploadTokens) {
           const manifest = byToken.get(token)!;
-          if (manifest.attachmentId) {
-            const attached = existing.find((attachment) => attachment.id === manifest.attachmentId);
-            if (!attached) return { error: "upload_already_attached", status: 409 as const };
-            attachmentIds.push(attached.id);
-            continue;
-          }
           const objectKey = manifest.finalObjectKey ?? manifest.quarantineObjectKey;
-          if (!objectKey) return { error: "upload_not_ready", status: 409 as const };
           const durableResult = communityUploadResultSchema.safeParse(manifest.result);
-          if (!durableResult.success || durableResult.data.objectKey !== objectKey) {
+          if (!objectKey || !durableResult.success || durableResult.data.objectKey !== objectKey || durableResult.data.kind !== manifest.kind) {
             return { error: "upload_not_ready", status: 409 as const };
           }
+          prepared.push({ manifest, objectKey, durableResult: durableResult.data });
+        }
+        const [message] = await database.insert(clubChatMessages).values({
+          topicId: topic.id,
+          userId: c.get("userId"),
+          replyToMessageId: body.data.replyToMessageId,
+          body: derived.body,
+          kind: derived.kind
+        }).returning();
+        if (!message) return { error: "Unable to create message", status: 500 as const };
+        const expiresAt = getCommunityMediaExpiry(role);
+        for (const [index, { manifest, objectKey, durableResult }] of prepared.entries()) {
           const attachmentId = randomUUID();
-          const documentStatus = manifest.status === "cleanup_pending" ? "failed" : manifest.status;
+          const attachmentStatus = manifest.status === "cleanup_pending"
+            ? "failed"
+            : ["processing", "normalizing"].includes(manifest.status) ? "pending" : manifest.status;
           await database.insert(clubMessageAttachments).values({
             id: attachmentId,
             messageId: message.id,
             kind: manifest.kind,
             objectKey,
-            fileName: durableResult.data.fileName,
-            contentType: durableResult.data.contentType,
-            sizeBytes: durableResult.data.sizeBytes,
-            durationSeconds: durableResult.data.kind === "voice" ? durableResult.data.durationSeconds : null,
-            width: durableResult.data.width,
-            height: durableResult.data.height,
-            sortOrder: existing.length + index,
-            scanStatus: manifest.kind === "document" ? documentStatus : "ready",
+            fileName: durableResult.fileName,
+            contentType: durableResult.contentType,
+            sizeBytes: durableResult.sizeBytes,
+            durationSeconds: durableResult.kind === "voice" ? durableResult.durationSeconds : null,
+            width: durableResult.width,
+            height: durableResult.height,
+            sortOrder: index,
+            expiresAt,
+            scanStatus: attachmentStatus,
             scanError: manifest.errorCode
           });
           const [consumed] = await database.update(communityUploadManifests)
@@ -1071,13 +1115,13 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
             .where(and(eq(communityUploadManifests.id, manifest.id), sql`${communityUploadManifests.consumedAt} is null`))
             .returning({ id: communityUploadManifests.id });
           if (!consumed) throw new Error("object_already_consumed");
-          attachmentIds.push(attachmentId);
         }
-        return { attachmentIds };
+        return { messageId: message.id };
       });
       if ("error" in result) return c.json({ error: result.error }, result.status);
-      c.header(realtimeTopicHeader, "skip");
-      return c.json({ ok: true, attachmentIds: result.attachmentIds });
+      const createdMessage = await findMessageWithUser(result.messageId);
+      if (!createdMessage) return c.json({ error: "Unable to load message" }, 500);
+      return c.json({ ok: true, message: await serializeMessage(createdMessage, c.get("userId"), role) });
     } catch (error) {
       return communityUploadFailure(c, error);
     }

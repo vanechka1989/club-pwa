@@ -5,6 +5,7 @@ export const communityDirectPutMaxBytes = 25 * 1024 * 1024;
 export const communityMultipartPartSizeBytes = 8 * 1024 * 1024;
 export const communityMaxMultipartParts = 100;
 export const communityUploadIntentTtlMs = 10 * 60 * 1000;
+export const communityCompletedUploadAttachmentGraceMs = 15 * 60 * 1000;
 export const communitySignaturePrefixBytes = 4096;
 
 export type CommunityUploadError =
@@ -339,6 +340,7 @@ type CommunityUploadServiceDependencies = {
     fingerprint: string;
     result: CommunityUploadResult;
     status: "processing" | "pending" | "ready";
+    expiresAt: Date;
   }) => Promise<void>;
   fail: (record: { userId: string; uploadToken: string; fingerprint: string }, error: string) => Promise<void>;
   createPutUrl: (input: { key: string; contentType: string; sizeBytes: number; expiresInSeconds: number }) => Promise<{
@@ -472,7 +474,14 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
       const result = { ...validation.value, objectKey: destinationKey, scanStatus: status } as CommunityUploadResult;
       if (status === "ready") await dependencies.mirrorToReserve(destinationKey, uploaded.contentType);
       finishAttempted = true;
-      await dependencies.finish({ userId, uploadToken: uploaded.uploadToken, fingerprint, result, status });
+      await dependencies.finish({
+        userId,
+        uploadToken: uploaded.uploadToken,
+        fingerprint,
+        result,
+        status,
+        expiresAt: new Date(now.getTime() + communityCompletedUploadAttachmentGraceMs)
+      });
       await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
       return result;
     } catch (error) {
