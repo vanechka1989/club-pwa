@@ -266,17 +266,37 @@ export function createCommunityUploadIntent(payload: CommunityUploadIntent) {
   return api<CommunityUploadIntentResponse>("/community/uploads", { method: "POST", body: payload });
 }
 
-export function completeCommunityPutUpload(payload: CommunityUploadedObject) {
+export function completeCommunityPutUpload(payload: { uploadToken: string }) {
   return api<CommunityUploadedObject>("/community/uploads/complete", { method: "POST", body: payload });
 }
 
 export function completeCommunityMultipartUpload(payload: {
-  upload: CommunityUploadedObject;
-  uploadId: string;
-  partSizeBytes: number;
+  uploadToken: string;
   parts: Array<{ partNumber: number; etag: string }>;
 }) {
   return api<CommunityUploadedObject>("/community/uploads/multipart/complete", { method: "POST", body: payload });
+}
+
+export function refreshCommunityMultipartUpload(uploadToken: string) {
+  return api<{
+    uploadToken: string;
+    uploadId: string;
+    partSizeBytes: number;
+    parts: Array<{ partNumber: number; uploadUrl: string }>;
+    completedParts: Array<{ partNumber: number; etag: string }>;
+    expiresAt: string;
+  }>(`/community/uploads/${uploadToken}/refresh`, { method: "POST" });
+}
+
+export function abortCommunityUpload(uploadToken: string) {
+  return api<{ ok: true }>(`/community/uploads/${uploadToken}`, { method: "DELETE" });
+}
+
+export function attachCommunityUploads(messageId: string, uploadTokens: string[]) {
+  return api<{ ok: true; attachmentIds: string[] }>(`/community/messages/${messageId}/uploads`, {
+    method: "POST",
+    body: { uploadTokens }
+  });
 }
 
 export function searchCommunityMessages(query: {

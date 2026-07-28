@@ -116,7 +116,8 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp
-    mem_limit: 768m
+    mem_limit: ${CLAMAV_MEMORY_LIMIT:-4g}
+    mem_reservation: 3g
     cpus: "0.75"
     pids_limit: 256
 
@@ -170,6 +171,9 @@ services:
     environment:
       <<: *api-environment
       RUN_BACKGROUND_JOBS: true
+    mem_limit: 1g
+    cpus: "1.00"
+    pids_limit: 256
 
   migrate:
     image: club-pwa-api:latest

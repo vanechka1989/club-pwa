@@ -9,6 +9,8 @@ export async function startBackgroundJobs() {
     { startExpiredPendingPaymentOrderCleanup },
     { startMailingDispatcher, stopMailingDispatcher },
     { startCommunityMediaCleanupJob },
+    { startCommunityMediaProcessorJob },
+    { startCommunityUploadExpiryCleanupJob },
     { startCommunityDocumentScannerJob },
     { startDeletedMessageCleanupJob },
     { startPaymentReconciliationJob },
@@ -19,6 +21,8 @@ export async function startBackgroundJobs() {
       import("./payments/orderCleanupJob"),
       import("./routes/mailings"),
       import("./community/mediaCleanup"),
+      import("./community/mediaProcessor"),
+      import("./community/uploadSessions"),
       import("./community/documentScanner"),
       import("./community/deletedMessageCleanup"),
       import("./payments/paymentReconciliation"),
@@ -29,6 +33,8 @@ export async function startBackgroundJobs() {
   const orderCleanupTimer = startExpiredPendingPaymentOrderCleanup();
   startMailingDispatcher();
   const mediaCleanupTimer = startCommunityMediaCleanupJob();
+  const communityMediaProcessorJob = startCommunityMediaProcessorJob();
+  const communityUploadExpiryCleanupJob = startCommunityUploadExpiryCleanupJob();
   const communityDocumentScannerJob = startCommunityDocumentScannerJob();
   const deletedMessageCleanupJob = startDeletedMessageCleanupJob();
   const paymentReconciliationTimer = startPaymentReconciliationJob();
@@ -41,6 +47,8 @@ export async function startBackgroundJobs() {
     clearInterval(paymentReconciliationTimer);
     clearInterval(membershipExpiryReminderTimer);
     clearInterval(errorTrackerCleanupTimer);
+    await communityMediaProcessorJob.stop();
+    await communityUploadExpiryCleanupJob.stop();
     await communityDocumentScannerJob.stop();
     await deletedMessageCleanupJob.stop();
   };

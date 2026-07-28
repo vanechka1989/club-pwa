@@ -40,6 +40,7 @@ import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildMessageAuthor } from "../community/messageMetadata";
+import { pingClamAv, summarizeCommunityDocumentScannerHealth } from "../community/documentScanner";
 import { resolvePollEndedAt } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
@@ -54,6 +55,7 @@ import {
   appNotifications,
   clubSettings,
   clubMessageAttachments,
+  communityUploadManifests,
   clubChatMessages,
   clubPolls,
   clubPollVotes,
@@ -1929,6 +1931,26 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         database.detail = "PostgreSQL не отвечает.";
       }
       logger.error({ error }, "Admin integration health database check failed");
+    }
+
+    try {
+      const [scannerAvailable, queue] = await Promise.all([
+        pingClamAv({ host: env.CLAMAV_HOST ?? "clamav", port: env.CLAMAV_PORT }),
+        db.select({
+          queued: sql<number>`count(*) filter (where ${communityUploadManifests.status} in ('pending','scanning'))`.mapWith(Number),
+          failed: sql<number>`count(*) filter (where ${communityUploadManifests.status} = 'failed')`.mapWith(Number),
+          cleanupPending: sql<number>`count(*) filter (where ${communityUploadManifests.status} = 'cleanup_pending')`.mapWith(Number)
+        }).from(communityUploadManifests).where(eq(communityUploadManifests.kind, "document"))
+      ]);
+      items.push(summarizeCommunityDocumentScannerHealth({
+        available: scannerAvailable,
+        queued: queue[0]?.queued ?? 0,
+        failed: queue[0]?.failed ?? 0,
+        cleanupPending: queue[0]?.cleanupPending ?? 0
+      }));
+    } catch (error) {
+      items.push(summarizeCommunityDocumentScannerHealth({ available: false, queued: 0, failed: 0, cleanupPending: 0 }));
+      logger.warn({ error }, "Admin community document scanner health check failed");
     }
 
     return c.json({ checkedAt: new Date().toISOString(), items });

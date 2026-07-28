@@ -8,11 +8,16 @@ import {
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
+  CopyObjectCommand,
+  ListPartsCommand,
   UploadPartCommand,
   S3Client,
   type PutObjectCommandInput
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
+import { Readable, Transform } from "node:stream";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { clubSettings } from "../db/schema";
@@ -382,7 +387,9 @@ export async function getObjectMetadata(key: string, target: S3StorageTarget = "
   return {
     key: normalizedKey,
     contentType: response.ContentType ?? null,
-    sizeBytes: response.ContentLength ?? null
+    sizeBytes: response.ContentLength ?? null,
+    etag: response.ETag ?? null,
+    versionId: response.VersionId ?? null
   };
 }
 
@@ -399,7 +406,12 @@ export async function downloadObjectBytes(key: string, target: S3StorageTarget =
   return response.Body.transformToByteArray();
 }
 
-export async function downloadObjectPrefix(key: string, maxBytes: number, target: S3StorageTarget = "primary") {
+export async function downloadObjectPrefix(
+  key: string,
+  maxBytes: number,
+  target: S3StorageTarget = "primary",
+  expectedETag?: string
+) {
   if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024) {
     throw new Error("Invalid S3 prefix byte limit");
   }
@@ -410,12 +422,114 @@ export async function downloadObjectPrefix(key: string, maxBytes: number, target
     new GetObjectCommand({
       Bucket: targetConfig.bucket,
       Key: normalizedKey,
-      Range: `bytes=0-${maxBytes - 1}`
+      Range: `bytes=0-${maxBytes - 1}`,
+      IfMatch: expectedETag
     })
   );
   if (!response.Body) throw new Error("S3 object body is empty");
   const bytes = await response.Body.transformToByteArray();
   return bytes.byteLength > maxBytes ? bytes.slice(0, maxBytes) : bytes;
+}
+
+export async function downloadObjectRange(
+  key: string,
+  start: number,
+  end: number,
+  target: S3StorageTarget = "primary",
+  expectedETag?: string
+) {
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end - start + 1 > 2 * 1024 * 1024) {
+    throw new Error("Invalid S3 byte range");
+  }
+  const config = await requireS3Config();
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const response = await createS3Client(targetConfig).send(new GetObjectCommand({
+    Bucket: targetConfig.bucket,
+    Key: normalizedKey,
+    Range: `bytes=${start}-${end}`,
+    IfMatch: expectedETag
+  }));
+  if (!response.Body) throw new Error("S3 object body is empty");
+  const bytes = await response.Body.transformToByteArray();
+  const expectedLength = end - start + 1;
+  if (bytes.byteLength > expectedLength) return bytes.slice(0, expectedLength);
+  return bytes;
+}
+
+export async function promoteObjectVersion({
+  sourceKey,
+  destinationKey,
+  expectedETag,
+  contentType
+}: {
+  sourceKey: string;
+  destinationKey: string;
+  expectedETag: string;
+  contentType: string;
+}) {
+  const config = await requireS3Config();
+  return promoteObjectVersionWithClient({
+    client: createS3Client(config),
+    bucket: config.bucket,
+    sourceKey,
+    destinationKey,
+    expectedETag,
+    contentType
+  });
+}
+
+export async function promoteObjectVersionWithClient({
+  client,
+  bucket,
+  sourceKey,
+  destinationKey,
+  expectedETag,
+  contentType
+}: {
+  client: S3Client;
+  bucket: string;
+  sourceKey: string;
+  destinationKey: string;
+  expectedETag: string;
+  contentType: string;
+}) {
+  const normalizedSourceKey = normalizeS3ObjectKey(sourceKey);
+  const normalizedDestinationKey = normalizeS3ObjectKey(destinationKey);
+  await client.send(new CopyObjectCommand({
+    Bucket: bucket,
+    Key: normalizedDestinationKey,
+    CopySource: `${bucket}/${encodeURIComponent(normalizedSourceKey).replace(/%2F/g, "/")}`,
+    CopySourceIfMatch: expectedETag,
+    MetadataDirective: "REPLACE",
+    ContentType: contentType
+  }));
+  return { key: normalizedDestinationKey };
+}
+
+export async function listMultipartUploadParts({ key, uploadId }: { key: string; uploadId: string }) {
+  const config = await requireS3Config();
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const client = createS3Client(config);
+  const parts: Array<{ partNumber: number; etag: string; sizeBytes: number }> = [];
+  let marker: string | undefined;
+  do {
+    const response = await client.send(new ListPartsCommand({
+      Bucket: config.bucket,
+      Key: normalizedKey,
+      UploadId: uploadId,
+      PartNumberMarker: marker,
+      MaxParts: 100
+    }));
+    for (const part of response.Parts ?? []) {
+      if (!part.PartNumber || !part.ETag || part.Size === undefined) throw new Error("Invalid S3 multipart part metadata");
+      parts.push({ partNumber: part.PartNumber, etag: part.ETag, sizeBytes: part.Size });
+      if (parts.length > 100) throw new Error("Too many S3 multipart parts");
+    }
+    marker = response.IsTruncated ? response.NextPartNumberMarker : undefined;
+    if (response.IsTruncated && !marker) throw new Error("Invalid S3 multipart pagination");
+  } while (marker);
+  return parts;
 }
 
 export async function* streamObjectBytes(key: string, target: S3StorageTarget = "primary"): AsyncGenerator<Uint8Array> {
@@ -431,6 +545,29 @@ export async function* streamObjectBytes(key: string, target: S3StorageTarget = 
   for await (const chunk of body) {
     yield chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
   }
+}
+
+export async function downloadObjectToFile(
+  key: string,
+  path: string,
+  maxBytes: number,
+  target: S3StorageTarget = "primary"
+) {
+  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 100 * 1024 * 1024) throw new Error("Invalid S3 download size limit");
+  const config = await requireS3Config();
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const normalizedKey = normalizeS3ObjectKey(key);
+  const response = await createS3Client(targetConfig).send(new GetObjectCommand({ Bucket: targetConfig.bucket, Key: normalizedKey }));
+  if (!response.Body) throw new Error("S3 object body is empty");
+  let totalBytes = 0;
+  const limiter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      totalBytes += chunk.byteLength;
+      callback(totalBytes > maxBytes ? new Error("S3 object exceeds download limit") : null, chunk);
+    }
+  });
+  await pipeline(Readable.from(response.Body as unknown as AsyncIterable<Uint8Array>), limiter, createWriteStream(path, { flags: "wx" }));
+  if (totalBytes < 1) throw new Error("S3 object body is empty");
 }
 
 export async function mirrorObjectToReserve(key: string, contentType: string) {

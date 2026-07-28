@@ -186,8 +186,20 @@ vi.mock("../community/realtime", () => ({
 vi.mock("../logger", () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }));
 vi.mock("../notifications/create", () => ({ createAppNotification: vi.fn() }));
 vi.mock("../storage/s3", () => ({
+  abortMultipartUpload: vi.fn(),
+  completeMultipartUpload: vi.fn(),
+  createMultipartPartUploadUrl: vi.fn(),
+  createMultipartUpload: vi.fn(),
+  createObjectUploadUrl: vi.fn(),
   deleteObject: vi.fn(),
+  deleteObjectCopies: vi.fn(),
+  downloadObjectPrefix: vi.fn(),
+  downloadObjectRange: vi.fn(),
+  getObjectMetadata: vi.fn(),
   getObjectReadUrl: mocks.getObjectReadUrl,
+  listMultipartUploadParts: vi.fn(),
+  mirrorObjectToReserve: vi.fn(),
+  promoteObjectVersion: vi.fn(),
   uploadObject: vi.fn()
 }));
 

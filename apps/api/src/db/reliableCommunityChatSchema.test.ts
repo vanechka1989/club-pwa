@@ -7,12 +7,14 @@ import {
   clubChatMessages,
   clubMessageAttachments,
   clubMessageMentions,
+  communityUploadManifests,
   communityTopicNotificationSettings,
   communityTopicReads
 } from "./schema";
 
 const migration = readFileSync(new URL("../../drizzle/0063_reliable_community_chat.sql", import.meta.url), "utf8");
 const reliabilityMigration = readFileSync(new URL("../../drizzle/0064_community_message_reliability.sql", import.meta.url), "utf8");
+const uploadManifestMigration = readFileSync(new URL("../../drizzle/0065_community_upload_manifests.sql", import.meta.url), "utf8");
 
 const foreignKeys = (table: Parameters<typeof getTableConfig>[0]) =>
   getTableConfig(table).foreignKeys.map((key) => {
@@ -84,6 +86,17 @@ describe("reliable community chat Drizzle metadata", () => {
     expect(clubChatMessages.createRequestFingerprint.columnType).toBe("PgVarchar");
     expect(messageConfig.indexes.map((item) => item.config.name)).toContain("club_chat_messages_deleted_cleanup_idx");
   });
+
+  it("durably records authoritative community upload lifecycle and ownership", () => {
+    const config = getTableConfig(communityUploadManifests);
+    expect(config.name).toBe("community_upload_manifests");
+    expect(foreignKeys(communityUploadManifests)).toEqual(expect.arrayContaining([
+      { columns: ["user_id"], foreignTable: "users", foreignColumns: ["id"], onDelete: "cascade" },
+      { columns: ["attachment_id"], foreignTable: "club_message_attachments", foreignColumns: ["id"], onDelete: "set null" }
+    ]));
+    expect(config.indexes.find((item) => item.config.name === "community_upload_manifests_token_idx")?.config.unique).toBe(true);
+    expect(config.checks.map((item) => item.name)).toContain("community_upload_manifests_status_check");
+  });
 });
 
 describe("reliable community chat migration", () => {
@@ -109,5 +122,13 @@ describe("reliable community chat migration", () => {
       idx: 64,
       tag: "0064_community_message_reliability"
     });
+  });
+
+  it("adds durable upload manifests in migration 65", () => {
+    expect(uploadManifestMigration).toContain('CREATE TABLE "community_upload_manifests"');
+    expect(uploadManifestMigration).toContain('"multipart_upload_id" text');
+    expect(uploadManifestMigration).toContain('"final_object_key" text');
+    expect(uploadManifestMigration).toContain('"attachment_id" uuid');
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0065_community_upload_manifests")).toMatchObject({ idx: 65 });
   });
 });

@@ -58,19 +58,20 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp
-    mem_limit: 768m
+    mem_limit: ${CLAMAV_MEMORY_LIMIT:-4g}
+    mem_reservation: 3g
     cpus: "0.75"
     pids_limit: 256
     logging: *default-logging
 
-  api:
+  api: &api-service
     image: club-pwa-api:latest
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     stop_grace_period: 30s
-    environment:
+    environment: &api-environment
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER:-club}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-club}
@@ -104,7 +105,7 @@ services:
       CLAMAV_HOST: clamav
       CLAMAV_PORT: 3310
       REDIS_URL: ${REDIS_URL:-}
-      RUN_BACKGROUND_JOBS: ${RUN_BACKGROUND_JOBS:-true}
+      RUN_BACKGROUND_JOBS: false
       UPLOADS_DIR: /app/uploads
     depends_on:
       postgres:
@@ -132,6 +133,15 @@ services:
     cpus: "1.00"
     pids_limit: 256
     logging: *default-logging
+
+  worker:
+    <<: *api-service
+    environment:
+      <<: *api-environment
+      RUN_BACKGROUND_JOBS: true
+    mem_limit: 1g
+    cpus: "1.00"
+    pids_limit: 256
 
   migrate:
     image: club-pwa-api:latest

@@ -1,7 +1,7 @@
 import { createConnection } from "node:net";
 
 export type ClamAvScanResult = "clean" | "infected" | "unavailable";
-const retryableDocumentScanStatuses = ["pending", "failed", "scanning"] as const;
+const retryableDocumentScanStatuses = ["pending", "failed", "scanning", "cleanup_pending"] as const;
 
 export function shouldRetryCommunityDocumentScan(status: string) {
   return retryableDocumentScanStatuses.includes(status as (typeof retryableDocumentScanStatuses)[number]);
@@ -16,6 +16,57 @@ export function parseClamAvResponse(response: string): ClamAvScanResult {
   if (/:\s+OK$/i.test(normalized)) return "clean";
   if (/\sFOUND$/i.test(normalized)) return "infected";
   return "unavailable";
+}
+
+export async function pingClamAv({
+  host,
+  port,
+  timeoutMs = 1_500
+}: {
+  host: string;
+  port: number;
+  timeoutMs?: number;
+}) {
+  return new Promise<boolean>((resolve) => {
+    const socket = createConnection({ host, port });
+    let response = "";
+    let settled = false;
+    const finish = (available: boolean) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(available);
+    };
+    socket.setTimeout(timeoutMs, () => finish(false));
+    socket.on("error", () => finish(false));
+    socket.on("data", (chunk: Buffer) => {
+      response += chunk.toString("ascii");
+      if (response.length > 64) return finish(false);
+      if (response.includes("\0") || /PONG/i.test(response)) finish(/^PONG\0?$/i.test(response.trim()));
+    });
+    socket.on("end", () => finish(/^PONG\0?$/i.test(response.trim())));
+    socket.on("connect", () => socket.write("zPING\0"));
+  });
+}
+
+export function summarizeCommunityDocumentScannerHealth({
+  available,
+  queued,
+  failed,
+  cleanupPending
+}: {
+  available: boolean;
+  queued: number;
+  failed: number;
+  cleanupPending: number;
+}) {
+  const status: "error" | "warning" | "healthy" = !available ? "error" : failed > 0 || cleanupPending > 0 ? "warning" : "healthy";
+  return {
+    id: "document_scanner" as const,
+    label: "Проверка документов",
+    status,
+    detail: `ClamAV ${available ? "доступен" : "недоступен"}. В очереди: ${queued}, ошибок: ${failed}, очистка: ${cleanupPending}.`
+  };
 }
 
 function lengthFrame(length: number) {
@@ -99,26 +150,46 @@ export function exchangeWithClamAv({
   });
 }
 
-type DocumentAttachment = { id: string; objectKey: string; contentType: string };
-type ScanStatus = "ready" | "rejected" | "failed";
+type DocumentAttachment = {
+  id: string;
+  objectKey: string;
+  contentType: string;
+  status?: string;
+  userId?: string;
+  uploadToken?: string;
+  fileName?: string;
+};
+type ScanStatus = "ready" | "rejected" | "failed" | "cleanup_pending";
 
 type DocumentScanDependencies = {
   scan: (objectKey: string) => Promise<ClamAvScanResult>;
+  promoteToFinal: (objectKey: string, contentType: string) => Promise<string>;
   mirrorToReserve: (objectKey: string, contentType: string) => Promise<void>;
   deleteCopies: (objectKey: string) => Promise<void>;
-  updateStatus: (attachmentId: string, status: ScanStatus, scanError: string | null) => Promise<void>;
+  updateStatus: (attachmentId: string, status: ScanStatus, scanError: string | null, finalObjectKey?: string) => Promise<void>;
 };
 
 export async function processCommunityDocumentScan(
   attachment: DocumentAttachment,
   dependencies: DocumentScanDependencies
 ) {
+  if (attachment.status === "cleanup_pending") {
+    try {
+      await dependencies.deleteCopies(attachment.objectKey);
+      await dependencies.updateStatus(attachment.id, "rejected", "malware_detected");
+      return "infected" as const;
+    } catch {
+      await dependencies.updateStatus(attachment.id, "cleanup_pending", "malware_cleanup_failed");
+      return "unavailable" as const;
+    }
+  }
   const result = await dependencies.scan(attachment.objectKey).catch(() => "unavailable" as const);
   if (result === "infected") {
+    await dependencies.updateStatus(attachment.id, "cleanup_pending", "malware_detected");
     try {
       await dependencies.deleteCopies(attachment.objectKey);
     } catch {
-      await dependencies.updateStatus(attachment.id, "failed", "malware_cleanup_failed");
+      await dependencies.updateStatus(attachment.id, "cleanup_pending", "malware_cleanup_failed");
       return "unavailable" as const;
     }
     await dependencies.updateStatus(attachment.id, "rejected", "malware_detected");
@@ -129,12 +200,16 @@ export async function processCommunityDocumentScan(
     return "unavailable" as const;
   }
 
+  let statusAttempted = false;
   try {
-    await dependencies.mirrorToReserve(attachment.objectKey, attachment.contentType);
-    await dependencies.updateStatus(attachment.id, "ready", null);
+    const finalObjectKey = await dependencies.promoteToFinal(attachment.objectKey, attachment.contentType);
+    await dependencies.mirrorToReserve(finalObjectKey, attachment.contentType);
+    statusAttempted = true;
+    await dependencies.updateStatus(attachment.id, "ready", null, finalObjectKey);
+    await dependencies.deleteCopies(attachment.objectKey).catch(() => undefined);
     return "clean" as const;
   } catch {
-    await dependencies.deleteCopies(attachment.objectKey).catch(() => undefined);
+    if (statusAttempted) throw new Error("scanner_status_reconciliation_required");
     await dependencies.updateStatus(attachment.id, "failed", "storage_copy_failed");
     return "unavailable" as const;
   }
@@ -165,43 +240,101 @@ export async function runDocumentScannerBatch(
 }
 
 export async function runCommunityDocumentScannerBatch(limit = 10) {
-  const [drizzle, { db }, { clubMessageAttachments }, storage] = await Promise.all([
+  const [drizzle, { db }, { clubMessageAttachments, communityUploadManifests }, storage] = await Promise.all([
     import("drizzle-orm"),
     import("../db/client"),
     import("../db/schema"),
     import("../storage/s3")
   ]);
   const { and, asc, eq, inArray } = drizzle;
-  const attachments = await db.query.clubMessageAttachments.findMany({
-    where: inArray(clubMessageAttachments.scanStatus, [...retryableDocumentScanStatuses]),
-    orderBy: [asc(clubMessageAttachments.createdAt)],
+  const manifests = await db.query.communityUploadManifests.findMany({
+    where: and(
+      eq(communityUploadManifests.kind, "document"),
+      inArray(communityUploadManifests.status, [...retryableDocumentScanStatuses])
+    ),
+    orderBy: [asc(communityUploadManifests.createdAt)],
     limit: Math.min(Math.max(limit, 1), 25)
   });
 
-  await runDocumentScannerBatch(attachments, {
-    claim: async (attachmentId) => {
-      const [claimed] = await db.update(clubMessageAttachments)
-        .set({ scanStatus: "scanning", scanError: null })
+  const candidates = manifests.flatMap((manifest) => manifest.quarantineObjectKey ? [{
+    id: manifest.id,
+    kind: manifest.kind,
+    objectKey: manifest.quarantineObjectKey,
+    contentType: manifest.contentType,
+    status: manifest.status,
+    userId: manifest.userId,
+    uploadToken: manifest.uploadToken,
+    fileName: manifest.fileName
+  }] : []);
+  await runDocumentScannerBatch(candidates, {
+    claim: async (manifestId) => {
+      const [claimed] = await db.update(communityUploadManifests)
+        .set({ status: "scanning", errorCode: null, updatedAt: new Date() })
         .where(and(
-          eq(clubMessageAttachments.id, attachmentId),
-          inArray(clubMessageAttachments.scanStatus, [...retryableDocumentScanStatuses])
+          eq(communityUploadManifests.id, manifestId),
+          inArray(communityUploadManifests.status, [...retryableDocumentScanStatuses])
         ))
-        .returning({ id: clubMessageAttachments.id });
+        .returning({ id: communityUploadManifests.id });
       return Boolean(claimed);
     },
-    process: async (attachment) => processCommunityDocumentScan(attachment, {
+    process: async (manifest) => processCommunityDocumentScan(manifest, {
       scan: scanCommunityDocumentObject,
+      promoteToFinal: async (sourceKey, contentType) => {
+        if (!manifest.userId || !manifest.uploadToken || !manifest.fileName) throw new Error("invalid_document_manifest");
+        const { buildCommunityFinalObjectKey } = await import("./directUpload");
+        const finalObjectKey = buildCommunityFinalObjectKey({
+          userId: manifest.userId,
+          uploadToken: manifest.uploadToken,
+          fileName: manifest.fileName
+        });
+        const metadata = await storage.getObjectMetadata(sourceKey);
+        if (!metadata.etag || metadata.contentType !== contentType) throw new Error("document_promotion_mismatch");
+        await storage.promoteObjectVersion({ sourceKey, destinationKey: finalObjectKey, expectedETag: metadata.etag, contentType });
+        const promoted = await storage.getObjectMetadata(finalObjectKey);
+        if (promoted.sizeBytes !== metadata.sizeBytes || promoted.contentType !== contentType) throw new Error("document_promotion_mismatch");
+        return finalObjectKey;
+      },
       mirrorToReserve: storage.mirrorObjectToReserve,
       deleteCopies: storage.deleteObjectCopies,
-      updateStatus: async (attachmentId, status, scanError) => {
-        await db.update(clubMessageAttachments)
-          .set({ scanStatus: status, scanError, scannedAt: new Date() })
-          .where(eq(clubMessageAttachments.id, attachmentId));
+      updateStatus: async (manifestId, status, scanError, finalObjectKey) => {
+        await db.transaction(async (transaction) => {
+          const database = transaction as unknown as typeof db;
+          const current = await database.query.communityUploadManifests.findFirst({
+            where: eq(communityUploadManifests.id, manifestId)
+          });
+          const [updated] = await database.update(communityUploadManifests)
+            .set({
+              status,
+              errorCode: scanError,
+              finalObjectKey: status === "ready" ? finalObjectKey : undefined,
+              quarantineObjectKey: status === "ready" ? null : undefined,
+              result: current?.result && typeof current.result === "object"
+                ? {
+                    ...current.result,
+                    scanStatus: status === "cleanup_pending" ? "failed" : status,
+                    objectKey: status === "ready" ? finalObjectKey : manifest.objectKey
+                  }
+                : current?.result,
+              updatedAt: new Date()
+            })
+            .where(eq(communityUploadManifests.id, manifestId))
+            .returning({ attachmentId: communityUploadManifests.attachmentId });
+          if (updated?.attachmentId) {
+            await database.update(clubMessageAttachments)
+              .set({
+                scanStatus: status === "cleanup_pending" ? "failed" : status,
+                scanError,
+                scannedAt: new Date(),
+                objectKey: status === "ready" ? finalObjectKey : undefined
+              })
+              .where(eq(clubMessageAttachments.id, updated.attachmentId));
+          }
+        });
       }
     })
   });
 
-  return attachments.length;
+  return manifests.length;
 }
 
 export function startCommunityDocumentScannerJob(intervalMs = 30_000) {

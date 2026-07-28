@@ -1913,7 +1913,7 @@ export const adminServerStatusResponseSchema = z.object({
 export type AdminServerStatusResponse = z.infer<typeof adminServerStatusResponseSchema>;
 
 export const adminIntegrationHealthItemSchema = z.object({
-  id: z.enum(["database", "smtp", "s3", "payments", "realtime"]),
+  id: z.enum(["database", "smtp", "s3", "payments", "realtime", "document_scanner"]),
   label: z.string(),
   status: z.enum(["healthy", "warning", "disabled", "error"]),
   detail: z.string()

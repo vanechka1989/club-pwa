@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   createIntent: vi.fn(),
   completePut: vi.fn(),
   completeMultipartUpload: vi.fn(),
-  processUploaded: vi.fn()
+  findManifest: vi.fn()
 }));
 
 vi.mock("../community/directUpload", async (importOriginal) => ({
@@ -17,12 +17,11 @@ vi.mock("../community/directUpload", async (importOriginal) => ({
     createIntent: mocks.createIntent,
     completePut: mocks.completePut,
     completeMultipartUpload: mocks.completeMultipartUpload
-  })),
-  createCommunityPostUploadProcessor: vi.fn(() => mocks.processUploaded)
+  }))
 }));
 vi.mock("../db/client", () => ({
   db: {
-    query: {},
+    query: { communityUploadManifests: { findFirst: mocks.findManifest } },
     select: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
@@ -57,9 +56,12 @@ vi.mock("../storage/s3", () => ({
   deleteObject: vi.fn(),
   deleteObjectCopies: vi.fn(),
   downloadObjectPrefix: vi.fn(),
+  downloadObjectRange: vi.fn(),
   getObjectMetadata: vi.fn(),
   getObjectReadUrl: vi.fn(),
+  listMultipartUploadParts: vi.fn(),
   mirrorObjectToReserve: vi.fn(),
+  promoteObjectVersion: vi.fn(),
   downloadObjectBytes: vi.fn(),
   uploadObjectStream: vi.fn(),
   uploadObject: vi.fn()
@@ -87,7 +89,20 @@ describe("community direct S3 upload routes", () => {
     });
     mocks.completePut.mockResolvedValue(completed);
     mocks.completeMultipartUpload.mockResolvedValue(completed);
-    mocks.processUploaded.mockImplementation(async (value) => value);
+    mocks.findManifest.mockResolvedValue({
+      id: "44444444-4444-4444-8444-444444444444",
+      userId,
+      uploadToken,
+      kind: "video",
+      fileName: "clip.mp4",
+      contentType: "video/mp4",
+      sizeBytes: 1024,
+      durationSeconds: null,
+      stagingObjectKey: objectKey,
+      uploadType: "put",
+      multipartUploadId: null,
+      partSizeBytes: null
+    });
   });
 
   it("creates a direct S3 intent for an authenticated community member", async () => {
@@ -117,15 +132,27 @@ describe("community direct S3 upload routes", () => {
     const put = await communityRoute.request("/uploads/complete", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(completed)
+      body: JSON.stringify({ uploadToken })
+    });
+    mocks.findManifest.mockResolvedValueOnce({
+      id: "44444444-4444-4444-8444-444444444444",
+      userId,
+      uploadToken,
+      kind: "video",
+      fileName: "clip.mp4",
+      contentType: "video/mp4",
+      sizeBytes: 25 * 1024 * 1024 + 1,
+      durationSeconds: null,
+      stagingObjectKey: objectKey,
+      uploadType: "multipart",
+      multipartUploadId: "multipart-1",
+      partSizeBytes: 8 * 1024 * 1024
     });
     const multipart = await communityRoute.request("/uploads/multipart/complete", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        upload: { ...completed, sizeBytes: 25 * 1024 * 1024 + 1 },
-        uploadId: "multipart-1",
-        partSizeBytes: 8 * 1024 * 1024,
+        uploadToken,
         parts: Array.from({ length: 4 }, (_, index) => ({ partNumber: index + 1, etag: `etag-${index + 1}` }))
       })
     });
@@ -134,7 +161,18 @@ describe("community direct S3 upload routes", () => {
     expect(multipart.status).toBe(200);
     expect(mocks.completePut).toHaveBeenCalledWith({ userId, uploaded: completed });
     expect(mocks.completeMultipartUpload).toHaveBeenCalledWith(expect.objectContaining({ userId, uploadId: "multipart-1", partSizeBytes: 8 * 1024 * 1024 }));
-    expect(mocks.processUploaded).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects client-supplied object metadata during completion", async () => {
+    const response = await communityRoute.request("/uploads/complete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(completed)
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.findManifest).not.toHaveBeenCalled();
+    expect(mocks.completePut).not.toHaveBeenCalled();
   });
 
   it("has no API endpoint that accepts direct upload bytes", async () => {

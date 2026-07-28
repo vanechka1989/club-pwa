@@ -107,8 +107,20 @@ vi.mock("../notifications/create", () => ({
 }));
 
 vi.mock("../storage/s3", () => ({
+  abortMultipartUpload: vi.fn(),
+  completeMultipartUpload: vi.fn(),
+  createMultipartPartUploadUrl: vi.fn(),
+  createMultipartUpload: vi.fn(),
+  createObjectUploadUrl: vi.fn(),
   deleteObject: vi.fn(),
+  deleteObjectCopies: vi.fn(),
+  downloadObjectPrefix: vi.fn(),
+  downloadObjectRange: vi.fn(),
+  getObjectMetadata: vi.fn(),
   getObjectReadUrl: vi.fn(),
+  listMultipartUploadParts: vi.fn(),
+  mirrorObjectToReserve: vi.fn(),
+  promoteObjectVersion: vi.fn(),
   uploadObject: vi.fn()
 }));
 

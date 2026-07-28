@@ -25,6 +25,10 @@ describe("background jobs runtime role", () => {
     expect(jobs).toContain("await deletedMessageCleanupJob.stop()");
     expect(jobs).toContain("startCommunityDocumentScannerJob");
     expect(jobs).toContain("await communityDocumentScannerJob.stop()");
+    expect(jobs).toContain("startCommunityMediaProcessorJob");
+    expect(jobs).toContain("await communityMediaProcessorJob.stop()");
+    expect(jobs).toContain("startCommunityUploadExpiryCleanupJob");
+    expect(jobs).toContain("await communityUploadExpiryCleanupJob.stop()");
     expect(jobs.indexOf("clearInterval(paymentReconciliationTimer)")).toBeLessThan(
       jobs.indexOf("await deletedMessageCleanupJob.stop()")
     );

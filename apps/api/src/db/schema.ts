@@ -958,6 +958,54 @@ export const clubMessageAttachments = pgTable(
   })
 );
 
+export const communityUploadManifests = pgTable(
+  "community_upload_manifests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    uploadToken: uuid("upload_token").notNull(),
+    requestFingerprint: varchar("request_fingerprint", { length: 64 }).notNull(),
+    kind: varchar("kind", { length: 16 }).notNull(),
+    uploadType: varchar("upload_type", { length: 16 }).notNull(),
+    stagingObjectKey: text("staging_object_key").notNull(),
+    quarantineObjectKey: text("quarantine_object_key"),
+    finalObjectKey: text("final_object_key"),
+    multipartUploadId: text("multipart_upload_id"),
+    expectedPartCount: integer("expected_part_count"),
+    partSizeBytes: integer("part_size_bytes"),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    contentType: varchar("content_type", { length: 160 }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    durationSeconds: integer("duration_seconds"),
+    width: integer("width"),
+    height: integer("height"),
+    result: jsonb("result").$type<Record<string, unknown> | null>(),
+    status: varchar("status", { length: 24 }).notNull().default("uploading"),
+    errorCode: varchar("error_code", { length: 160 }),
+    attachmentId: uuid("attachment_id").references(() => clubMessageAttachments.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    tokenIdx: uniqueIndex("community_upload_manifests_token_idx").on(table.uploadToken),
+    stagingKeyIdx: uniqueIndex("community_upload_manifests_staging_key_idx").on(table.stagingObjectKey),
+    finalKeyIdx: uniqueIndex("community_upload_manifests_final_key_idx").on(table.finalObjectKey),
+    statusUpdatedIdx: index("community_upload_manifests_status_updated_idx").on(table.status, table.updatedAt),
+    expiryIdx: index("community_upload_manifests_expiry_idx").on(table.expiresAt, table.status),
+    statusCheck: check(
+      "community_upload_manifests_status_check",
+      sql`${table.status} in ('uploading','completing','processing','normalizing','pending','scanning','ready','failed','cleanup_pending','rejected','aborting','aborted')`
+    ),
+    uploadTypeCheck: check(
+      "community_upload_manifests_upload_type_check",
+      sql`${table.uploadType} in ('put','multipart')`
+    )
+  })
+);
+
 export const communityTopicReads = pgTable(
   "community_topic_reads",
   {
@@ -1741,6 +1789,7 @@ export type ClubChat = typeof clubChats.$inferSelect;
 export type ClubChatTopic = typeof clubChatTopics.$inferSelect;
 export type ClubChatMessage = typeof clubChatMessages.$inferSelect;
 export type ClubMessageAttachment = typeof clubMessageAttachments.$inferSelect;
+export type CommunityUploadManifest = typeof communityUploadManifests.$inferSelect;
 export type CommunityTopicRead = typeof communityTopicReads.$inferSelect;
 export type CommunityTopicNotificationSetting = typeof communityTopicNotificationSettings.$inferSelect;
 export type ClubMessageMention = typeof clubMessageMentions.$inferSelect;

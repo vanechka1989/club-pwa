@@ -181,6 +181,8 @@ type CommunityObjectMetadata = {
   key: string;
   contentType: string | null;
   sizeBytes: number | null;
+  etag?: string | null;
+  versionId?: string | null;
 };
 
 type CommunityObjectValidationError =
@@ -259,22 +261,85 @@ export function validateMultipartCompletion({
   return { ok: true };
 }
 
+export function validateListedMultipartParts({
+  sizeBytes,
+  partSizeBytes,
+  submitted,
+  listed
+}: {
+  sizeBytes: number;
+  partSizeBytes: number;
+  submitted: Array<{ partNumber: number; etag: string }>;
+  listed: Array<{ partNumber: number; etag: string; sizeBytes: number }>;
+}): { ok: true } | { ok: false; error: "part_count_mismatch" | "part_size_mismatch" | "part_etag_mismatch" } {
+  if (listed.length !== submitted.length) return { ok: false, error: "part_count_mismatch" };
+  const submittedByNumber = new Map(submitted.map((part) => [part.partNumber, part]));
+  const listedNumbers = new Set<number>();
+  const normalizedEtag = (value: string) => value.trim().replace(/^W\//i, "").replace(/^\"|\"$/g, "");
+  for (const part of listed) {
+    if (listedNumbers.has(part.partNumber) || part.partNumber < 1 || part.partNumber > submitted.length) {
+      return { ok: false, error: "part_count_mismatch" };
+    }
+    listedNumbers.add(part.partNumber);
+    const expectedSize = part.partNumber === submitted.length
+      ? sizeBytes - partSizeBytes * (submitted.length - 1)
+      : partSizeBytes;
+    if (part.sizeBytes !== expectedSize) return { ok: false, error: "part_size_mismatch" };
+    const submittedPart = submittedByNumber.get(part.partNumber);
+    if (!submittedPart || normalizedEtag(submittedPart.etag) !== normalizedEtag(part.etag)) {
+      return { ok: false, error: "part_etag_mismatch" };
+    }
+  }
+  return listedNumbers.size === submitted.length ? { ok: true } : { ok: false, error: "part_count_mismatch" };
+}
+
 type CommunityUploadRegistryRecord = {
   userId: string;
   uploadToken: string;
   objectKey: string;
   fingerprint: string;
   expiresAt: Date;
+  uploadType: "put" | "multipart";
+  multipartUploadId: string | null;
+  expectedPartCount: number | null;
+  partSizeBytes: number | null;
+  kind: CommunityUploadIntent["kind"];
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  durationSeconds: number | null;
 };
 
 type CommunityUploadClaim =
-  | { ok: true }
+  | {
+      ok: true;
+      intent: {
+        stagingObjectKey: string;
+        uploadType: "put" | "multipart";
+        multipartUploadId: string | null;
+        expectedPartCount: number | null;
+        partSizeBytes: number | null;
+      };
+    }
+  | { ok: true; replay: CommunityUploadResult }
   | { ok: false; error: "foreign_object" | "expired_intent" | "object_already_consumed" | "intent_mismatch" };
+
+export type CommunityUploadResult = CommunityUploadedObject & {
+  scanStatus: "processing" | "pending" | "ready" | "failed" | "rejected";
+  width?: number;
+  height?: number;
+};
 
 type CommunityUploadServiceDependencies = {
   issue: (record: CommunityUploadRegistryRecord) => Promise<void>;
-  claim: (record: Omit<CommunityUploadRegistryRecord, "objectKey" | "expiresAt"> & { now: Date }) => Promise<CommunityUploadClaim>;
-  finish: (record: { userId: string; uploadToken: string; fingerprint: string }) => Promise<void>;
+  claim: (record: { userId: string; uploadToken: string; fingerprint: string; now: Date }) => Promise<CommunityUploadClaim>;
+  finish: (record: {
+    userId: string;
+    uploadToken: string;
+    fingerprint: string;
+    result: CommunityUploadResult;
+    status: "processing" | "pending" | "ready";
+  }) => Promise<void>;
   fail: (record: { userId: string; uploadToken: string; fingerprint: string }, error: string) => Promise<void>;
   createPutUrl: (input: { key: string; contentType: string; sizeBytes: number; expiresInSeconds: number }) => Promise<{
     key: string;
@@ -290,10 +355,19 @@ type CommunityUploadServiceDependencies = {
   createPartUrl: (input: { key: string; uploadId: string; partNumber: number; expiresInSeconds: number }) => Promise<string>;
   completeMultipart: (input: { key: string; uploadId: string; parts: Array<{ partNumber: number; etag: string }> }) => Promise<{ key: string }>;
   abortMultipart: (input: { key: string; uploadId: string }) => Promise<void>;
+  listParts: (input: { key: string; uploadId: string }) => Promise<Array<{ partNumber: number; etag: string; sizeBytes: number }>>;
   getMetadata: (key: string) => Promise<CommunityObjectMetadata>;
-  getLeadingBytes: (key: string, maxBytes: number) => Promise<Uint8Array>;
+  getLeadingBytes: (key: string, maxBytes: number, expectedETag?: string) => Promise<Uint8Array>;
+  validateOoxml: (input: CommunityUploadedObject, metadata: CommunityObjectMetadata) => Promise<boolean>;
+  promoteObject: (input: {
+    sourceKey: string;
+    destinationKey: string;
+    expectedETag: string;
+    contentType: string;
+  }) => Promise<void>;
   mirrorToReserve: (key: string, contentType: string) => Promise<void>;
   deleteCopies: (key: string) => Promise<void>;
+  deleteStaging: (key: string) => Promise<void>;
 };
 
 export function getCommunityUploadFingerprint(uploaded: CommunityUploadedObject) {
@@ -314,19 +388,55 @@ function completedObject(input: CommunityUploadIntent, uploadToken: string, obje
   return { ...input, uploadToken, objectKey } as CommunityUploadedObject;
 }
 
+function buildCommunityDestinationObjectKey({
+  prefix,
+  userId,
+  uploadToken,
+  fileName,
+  now = new Date()
+}: {
+  prefix: "final" | "quarantine";
+  userId: string;
+  uploadToken: string;
+  fileName: string;
+  now?: Date;
+}) {
+  return `community/${prefix}/${sanitizeKeyPart(userId)}/${now.toISOString().slice(0, 10)}/${sanitizeKeyPart(uploadToken)}-${sanitizeKeyPart(fileName)}`;
+}
+
+export function buildCommunityFinalObjectKey(input: Omit<Parameters<typeof buildCommunityDestinationObjectKey>[0], "prefix">) {
+  return buildCommunityDestinationObjectKey({ ...input, prefix: "final" });
+}
+
+export function buildCommunityQuarantineObjectKey(input: Omit<Parameters<typeof buildCommunityDestinationObjectKey>[0], "prefix">) {
+  return buildCommunityDestinationObjectKey({ ...input, prefix: "quarantine" });
+}
+
 export function createCommunityUploadService(dependencies: CommunityUploadServiceDependencies) {
   async function claim(userId: string, uploaded: CommunityUploadedObject, now: Date) {
     const fingerprint = getCommunityUploadFingerprint(uploaded);
     const result = await dependencies.claim({ userId, uploadToken: uploaded.uploadToken, fingerprint, now });
     if (!result.ok) throw new Error(result.error);
-    return fingerprint;
+    return { fingerprint, result };
   }
 
-  async function verifyClaimedObject(userId: string, uploaded: CommunityUploadedObject, fingerprint: string, now: Date) {
+  async function verifyClaimedObject(
+    userId: string,
+    uploaded: CommunityUploadedObject,
+    fingerprint: string,
+    intent: Extract<CommunityUploadClaim, { intent: unknown }>["intent"],
+    now: Date
+  ) {
     let failureRecorded = false;
+    let finishAttempted = false;
+    const destinationKey = uploaded.kind === "video"
+      ? buildCommunityFinalObjectKey({ userId, uploadToken: uploaded.uploadToken, fileName: uploaded.fileName, now })
+      : buildCommunityQuarantineObjectKey({ userId, uploadToken: uploaded.uploadToken, fileName: uploaded.fileName, now });
     try {
-      const metadata = await dependencies.getMetadata(uploaded.objectKey);
-      const leadingBytes = await dependencies.getLeadingBytes(uploaded.objectKey, communitySignaturePrefixBytes);
+      if (intent.stagingObjectKey !== uploaded.objectKey) throw new Error("intent_mismatch");
+      const metadata = await dependencies.getMetadata(intent.stagingObjectKey);
+      if (!metadata.etag) throw new Error("metadata_mismatch");
+      const leadingBytes = await dependencies.getLeadingBytes(intent.stagingObjectKey, communitySignaturePrefixBytes, metadata.etag);
       const validation = validateCommunityObject({
         uploaded,
         userId,
@@ -337,19 +447,38 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
         consumed: false
       });
       if (!validation.ok) {
-        await dependencies.deleteCopies(uploaded.objectKey).catch(() => undefined);
+        await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
         await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, validation.error);
         failureRecorded = true;
         throw new Error(validation.error);
       }
-      if (uploaded.kind !== "document") {
-        await dependencies.mirrorToReserve(uploaded.objectKey, uploaded.contentType);
+      if (uploaded.kind === "document" && uploaded.contentType !== "application/pdf" && !(await dependencies.validateOoxml(uploaded, metadata))) {
+        await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
+        await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "invalid_ooxml");
+        failureRecorded = true;
+        throw new Error("invalid_ooxml");
       }
-      await dependencies.finish({ userId, uploadToken: uploaded.uploadToken, fingerprint });
-      return validation.value;
+      await dependencies.promoteObject({
+        sourceKey: intent.stagingObjectKey,
+        destinationKey,
+        expectedETag: metadata.etag,
+        contentType: uploaded.contentType
+      });
+      const promoted = await dependencies.getMetadata(destinationKey);
+      if (promoted.key !== destinationKey || promoted.contentType !== uploaded.contentType || promoted.sizeBytes !== uploaded.sizeBytes) {
+        throw new Error("promotion_mismatch");
+      }
+      const status = uploaded.kind === "video" ? "ready" : uploaded.kind === "document" ? "pending" : "processing";
+      const result = { ...validation.value, objectKey: destinationKey, scanStatus: status } as CommunityUploadResult;
+      if (status === "ready") await dependencies.mirrorToReserve(destinationKey, uploaded.contentType);
+      finishAttempted = true;
+      await dependencies.finish({ userId, uploadToken: uploaded.uploadToken, fingerprint, result, status });
+      await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
+      return result;
     } catch (error) {
-      if (!failureRecorded) {
-        await dependencies.deleteCopies(uploaded.objectKey).catch(() => undefined);
+      if (!failureRecorded && !finishAttempted) {
+        await dependencies.deleteCopies(destinationKey).catch(() => undefined);
+        await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
         await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "storage_verification_failed").catch(() => undefined);
       }
       throw error;
@@ -378,7 +507,22 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
 
       if (input.sizeBytes <= communityDirectPutMaxBytes) {
         const upload = await dependencies.createPutUrl({ key: objectKey, contentType: input.contentType, sizeBytes: input.sizeBytes, expiresInSeconds });
-        await dependencies.issue({ userId, uploadToken, objectKey: upload.key, fingerprint, expiresAt: upload.expiresAt });
+        await dependencies.issue({
+          userId,
+          uploadToken,
+          objectKey: upload.key,
+          fingerprint,
+          expiresAt: upload.expiresAt,
+          uploadType: "put",
+          multipartUploadId: null,
+          expectedPartCount: null,
+          partSizeBytes: null,
+          kind: input.kind,
+          fileName: input.fileName,
+          contentType: input.contentType,
+          sizeBytes: input.sizeBytes,
+          durationSeconds: input.kind === "voice" ? input.durationSeconds : null
+        });
         return {
           ...input,
           uploadType: "put" as const,
@@ -407,7 +551,22 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
             expiresInSeconds
           })
         })));
-        await dependencies.issue({ userId, uploadToken, objectKey: upload.key, fingerprint, expiresAt: upload.expiresAt });
+        await dependencies.issue({
+          userId,
+          uploadToken,
+          objectKey: upload.key,
+          fingerprint,
+          expiresAt: upload.expiresAt,
+          uploadType: "multipart",
+          multipartUploadId: upload.uploadId,
+          expectedPartCount: partsCount,
+          partSizeBytes: communityMultipartPartSizeBytes,
+          kind: input.kind,
+          fileName: input.fileName,
+          contentType: input.contentType,
+          sizeBytes: input.sizeBytes,
+          durationSeconds: input.kind === "voice" ? input.durationSeconds : null
+        });
         return {
           ...input,
           uploadType: "multipart" as const,
@@ -428,8 +587,10 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
       const policyError = getCommunityUploadError(uploaded);
       if (policyError) throw new Error(policyError);
       if (uploaded.sizeBytes > communityDirectPutMaxBytes) throw new Error("multipart_required");
-      const fingerprint = await claim(userId, uploaded, now);
-      return verifyClaimedObject(userId, uploaded, fingerprint, now);
+      const claimed = await claim(userId, uploaded, now);
+      if ("replay" in claimed.result) return claimed.result.replay;
+      if (claimed.result.intent.uploadType !== "put") throw new Error("intent_mismatch");
+      return verifyClaimedObject(userId, uploaded, claimed.fingerprint, claimed.result.intent, now);
     },
 
     async completeMultipartUpload({
@@ -452,146 +613,33 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
       if (uploaded.sizeBytes <= communityDirectPutMaxBytes) throw new Error("put_required");
       const partsValidation = validateMultipartCompletion({ sizeBytes: uploaded.sizeBytes, partSizeBytes, parts });
       if (!partsValidation.ok) throw new Error(partsValidation.error);
-      const fingerprint = await claim(userId, uploaded, now);
+      const claimed = await claim(userId, uploaded, now);
+      if ("replay" in claimed.result) return claimed.result.replay;
+      const intent = claimed.result.intent;
+      if (
+        intent.uploadType !== "multipart" ||
+        intent.multipartUploadId !== uploadId ||
+        intent.expectedPartCount !== parts.length ||
+        intent.partSizeBytes !== partSizeBytes
+      ) throw new Error("intent_mismatch");
+      const listed = await dependencies.listParts({ key: intent.stagingObjectKey, uploadId });
+      const listedValidation = validateListedMultipartParts({ sizeBytes: uploaded.sizeBytes, partSizeBytes, submitted: parts, listed });
+      if (!listedValidation.ok) {
+        await dependencies.abortMultipart({ key: intent.stagingObjectKey, uploadId }).catch(() => undefined);
+        await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint: claimed.fingerprint }, listedValidation.error);
+        throw new Error(listedValidation.error);
+      }
       try {
-        await dependencies.completeMultipart({ key: uploaded.objectKey, uploadId, parts });
+        await dependencies.completeMultipart({ key: intent.stagingObjectKey, uploadId, parts });
       } catch (error) {
-        await dependencies.abortMultipart({ key: uploaded.objectKey, uploadId }).catch(() => undefined);
-        await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "multipart_completion_failed");
-        throw error;
+        const reconciled = await dependencies.getMetadata(intent.stagingObjectKey).catch(() => null);
+        if (reconciled?.contentType !== uploaded.contentType || reconciled.sizeBytes !== uploaded.sizeBytes) {
+          await dependencies.abortMultipart({ key: intent.stagingObjectKey, uploadId }).catch(() => undefined);
+          await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint: claimed.fingerprint }, "multipart_completion_failed");
+          throw error;
+        }
       }
-      return verifyClaimedObject(userId, uploaded, fingerprint, now);
-    }
-  };
-}
-
-export function createTaskLimiter(limit: number) {
-  if (!Number.isInteger(limit) || limit < 1) throw new Error("invalid_worker_limit");
-  let active = 0;
-  const queue: Array<() => void> = [];
-  return async function runLimited<T>(task: () => Promise<T>) {
-    if (active >= limit) {
-      await new Promise<void>((resolve) => queue.push(resolve));
-    }
-    active += 1;
-    try {
-      return await task();
-    } finally {
-      active -= 1;
-      queue.shift()?.();
-    }
-  };
-}
-
-type NormalizedImage = {
-  body: Uint8Array;
-  fileName: string;
-  contentType: string;
-  sizeBytes: number;
-  width: number;
-  height: number;
-};
-
-type NormalizedVoice = {
-  body: Uint8Array;
-  fileName: string;
-  contentType: string;
-  sizeBytes: number;
-};
-
-type CommunityPostUploadDependencies = {
-  voiceTimeoutMs?: number;
-  downloadBytes: (key: string) => Promise<Uint8Array>;
-  normalizeImage: (input: CommunityUploadedObject, bytes: Uint8Array) => Promise<NormalizedImage>;
-  normalizeVoice: (input: CommunityUploadedObject, bytes: Uint8Array) => Promise<NormalizedVoice>;
-  replaceObject: (input: { key: string; body: Uint8Array; contentType: string; sizeBytes: number }) => Promise<void>;
-  mirrorToReserve: (key: string, contentType: string) => Promise<void>;
-  deleteCopies: (key: string) => Promise<void>;
-};
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorCode: string) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  return Promise.race([
-    promise,
-    new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error(errorCode)), timeoutMs);
-    })
-  ]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-}
-
-export function createCommunityPostUploadProcessor(dependencies: CommunityPostUploadDependencies) {
-  const imageWorker = createTaskLimiter(2);
-  const voiceWorker = createTaskLimiter(2);
-  const voiceTimeoutMs = dependencies.voiceTimeoutMs ?? 60_000;
-
-  return async function processCommunityPostUpload(uploaded: CommunityUploadedObject) {
-    const base = {
-      kind: uploaded.kind,
-      uploadToken: uploaded.uploadToken,
-      objectKey: uploaded.objectKey,
-      fileName: uploaded.fileName,
-      contentType: uploaded.contentType,
-      sizeBytes: uploaded.sizeBytes
-    };
-    if (uploaded.kind === "document") {
-      return { ...base, scanStatus: "scanning" as const };
-    }
-
-    try {
-      if (uploaded.kind === "image") {
-        return await imageWorker(async () => {
-          const normalized = await dependencies.normalizeImage(uploaded, await dependencies.downloadBytes(uploaded.objectKey));
-          await dependencies.replaceObject({
-            key: uploaded.objectKey,
-            body: normalized.body,
-            contentType: normalized.contentType,
-            sizeBytes: normalized.sizeBytes
-          });
-          await dependencies.mirrorToReserve(uploaded.objectKey, normalized.contentType);
-          return {
-            ...base,
-            fileName: normalized.fileName,
-            contentType: normalized.contentType,
-            sizeBytes: normalized.sizeBytes,
-            width: normalized.width,
-            height: normalized.height,
-            scanStatus: "ready" as const
-          };
-        });
-      }
-
-      if (uploaded.kind === "voice") {
-        return await voiceWorker(async () => {
-          const normalized = await withTimeout(
-            dependencies.normalizeVoice(uploaded, await dependencies.downloadBytes(uploaded.objectKey)),
-            voiceTimeoutMs,
-            "voice_conversion_timeout"
-          );
-          await dependencies.replaceObject({
-            key: uploaded.objectKey,
-            body: normalized.body,
-            contentType: normalized.contentType,
-            sizeBytes: normalized.sizeBytes
-          });
-          await dependencies.mirrorToReserve(uploaded.objectKey, normalized.contentType);
-          return {
-            ...base,
-            fileName: normalized.fileName,
-            contentType: normalized.contentType,
-            sizeBytes: normalized.sizeBytes,
-            durationSeconds: uploaded.durationSeconds,
-            scanStatus: "ready" as const
-          };
-        });
-      }
-
-      await dependencies.mirrorToReserve(uploaded.objectKey, uploaded.contentType);
-      return { ...base, width: 1, height: 1, durationSeconds: 0, scanStatus: "ready" as const };
-    } catch (error) {
-      await dependencies.deleteCopies(uploaded.objectKey).catch(() => undefined);
-      throw error;
+      return verifyClaimedObject(userId, uploaded, claimed.fingerprint, intent, now);
     }
   };
 }

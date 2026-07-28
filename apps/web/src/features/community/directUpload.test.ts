@@ -47,10 +47,12 @@ describe("community browser direct upload", () => {
         expiresAt: "2026-07-29T12:10:00.000Z"
       }),
       putObject: async (url, blob, contentType) => { calls.push(`put:${url}:${blob.size}:${contentType}`); },
-      completePut: async (uploaded) => { calls.push("complete"); return uploaded; },
+      completePut: async () => { calls.push("complete"); return { ...describeCommunityFile(file), objectKey, uploadToken }; },
       completeMultipart: async () => { throw new Error("unused"); },
+      refreshMultipart: async () => { throw new Error("unused"); },
+      abortUpload: async () => undefined,
       storage: localStorage
-    });
+    }, { userId });
 
     expect(calls).toEqual(["put:https://s3.test/put:10:image/png", "complete"]);
     expect(completed).toMatchObject({ kind: "image", fileName: "photo.png", uploadToken });
@@ -71,7 +73,7 @@ describe("community browser direct upload", () => {
       parts: Array.from({ length: 5 }, (_, index) => ({ partNumber: index + 1, uploadUrl: `https://s3.test/part-${index + 1}` })),
       expiresAt: "2099-07-29T12:10:00.000Z"
     };
-    const completeMultipart = vi.fn(async ({ upload }) => upload);
+    const completeMultipart = vi.fn(async () => ({ ...describeCommunityFile(file), objectKey, uploadToken }));
 
     await uploadCommunityFile(file, {
       createIntent: async () => session,
@@ -85,14 +87,15 @@ describe("community browser direct upload", () => {
       },
       completePut: async () => { throw new Error("unused"); },
       completeMultipart,
+      refreshMultipart: async () => { throw new Error("unused"); },
+      abortUpload: async () => undefined,
       storage: localStorage
-    });
+    }, { userId });
 
     expect(maxActive).toBe(4);
     expect(observedSizes.sort((a, b) => b - a)).toEqual([8 * MiB, 8 * MiB, 8 * MiB, 8 * MiB, MiB]);
     expect(completeMultipart).toHaveBeenCalledWith(expect.objectContaining({
-      uploadId: "multipart-1",
-      partSizeBytes: 8 * MiB,
+      uploadToken,
       parts: expect.arrayContaining([
         expect.objectContaining({ partNumber: 1 }),
         expect.objectContaining({ partNumber: 5 })
@@ -121,18 +124,29 @@ describe("community browser direct upload", () => {
         return `etag-${partNumber}`;
       },
       completePut: async () => { throw new Error("unused"); },
-      completeMultipart: async ({ upload }: any) => upload,
+      completeMultipart: async () => ({ ...describeCommunityFile(file), objectKey, uploadToken }),
+      refreshMultipart: async () => ({
+        uploadToken,
+        uploadId: "multipart-1",
+        partSizeBytes: 8 * MiB,
+        parts: session.parts,
+        completedParts: [],
+        expiresAt: session.expiresAt
+      }),
+      abortUpload: async () => undefined,
       storage: localStorage
     };
 
-    await expect(uploadCommunityFile(file, dependencies)).rejects.toThrow("offline");
+    await expect(uploadCommunityFile(file, dependencies, { userId })).rejects.toThrow("offline");
     const persisted = localStorage.getItem("club-community-multipart-sessions") ?? "";
     expect(persisted).toContain("multipart-1");
     expect(persisted).not.toContain("Uint8Array");
     expect(persisted).not.toContain("blob");
+    expect(persisted).not.toContain("https://");
+    expect(persisted).toContain(userId);
 
     fail = false;
-    await uploadCommunityFile(file, dependencies);
+    await uploadCommunityFile(file, dependencies, { userId });
     expect(createIntent).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem("club-community-multipart-sessions")).toBe("[]");
   });
@@ -164,9 +178,11 @@ describe("community browser direct upload", () => {
         return `etag-${partNumber}`;
       },
       completePut: async () => { throw new Error("unused"); },
-      completeMultipart: async ({ upload: value }) => value,
+      completeMultipart: async () => ({ ...describeCommunityFile(file), objectKey, uploadToken }),
+      refreshMultipart: async () => { throw new Error("unused"); },
+      abortUpload: async () => undefined,
       storage: localStorage
-    }).catch((error) => {
+    }, { userId }).catch((error) => {
       rejected = true;
       throw error;
     });
@@ -176,5 +192,63 @@ describe("community browser direct upload", () => {
     expect(rejected).toBe(false);
     releaseGate();
     await expect(upload).rejects.toThrow("offline");
+  });
+
+  it("never resumes another user or a different File object with spoofed metadata", async () => {
+    const first = fakeFile(26 * MiB);
+    const lookalike = fakeFile(26 * MiB);
+    const createIntent = vi.fn(async () => ({
+      ...describeCommunityFile(first),
+      uploadType: "multipart" as const,
+      uploadToken,
+      objectKey,
+      uploadId: "multipart-1",
+      partSizeBytes: 8 * MiB,
+      parts: Array.from({ length: 4 }, (_, index) => ({ partNumber: index + 1, uploadUrl: `https://s3.test/part-${index + 1}` })),
+      expiresAt: "2099-07-29T12:10:00.000Z"
+    }));
+    const dependencies = {
+      createIntent,
+      putObject: async (_url: string, _blob: Blob, _type: string, partNumber?: number) => {
+        if (partNumber === 2) throw new Error("offline");
+        return `etag-${partNumber}`;
+      },
+      completePut: async () => { throw new Error("unused"); },
+      completeMultipart: async () => { throw new Error("unused"); },
+      refreshMultipart: async () => { throw new Error("must_not_refresh"); },
+      abortUpload: async () => undefined,
+      storage: localStorage
+    };
+
+    await expect(uploadCommunityFile(first, dependencies, { userId })).rejects.toThrow("offline");
+    await expect(uploadCommunityFile(lookalike, dependencies, { userId })).rejects.toThrow("offline");
+    await expect(uploadCommunityFile(first, dependencies, { userId: "other-user" })).rejects.toThrow("offline");
+    expect(createIntent).toHaveBeenCalledTimes(3);
+  });
+
+  it("aborts and forgets a multipart upload after an unrecoverable protocol failure", async () => {
+    const file = fakeFile(26 * MiB);
+    const abortUpload = vi.fn(async () => undefined);
+    await expect(uploadCommunityFile(file, {
+      createIntent: async () => ({
+        ...describeCommunityFile(file),
+        uploadType: "multipart",
+        uploadToken,
+        objectKey,
+        uploadId: "multipart-1",
+        partSizeBytes: 8 * MiB,
+        parts: Array.from({ length: 4 }, (_, index) => ({ partNumber: index + 1, uploadUrl: `https://s3.test/part-${index + 1}` })),
+        expiresAt: "2099-07-29T12:10:00.000Z"
+      }),
+      putObject: async (_url, _blob, _type, partNumber) => partNumber === 2 ? undefined : `etag-${partNumber}`,
+      completePut: async () => { throw new Error("unused"); },
+      completeMultipart: async () => { throw new Error("unused"); },
+      refreshMultipart: async () => { throw new Error("unused"); },
+      abortUpload,
+      storage: localStorage
+    }, { userId })).rejects.toThrow("missing_part_etag");
+
+    expect(abortUpload).toHaveBeenCalledWith(uploadToken);
+    expect(localStorage.getItem("club-community-multipart-sessions")).toBe("[]");
   });
 });

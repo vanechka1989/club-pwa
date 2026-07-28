@@ -1,9 +1,7 @@
 import type { CommunityUploadIntent, CommunityUploadedObject } from "@club/shared";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   buildCommunityPendingObjectKey,
-  createCommunityPostUploadProcessor,
-  createTaskLimiter,
   createCommunityUploadService,
   getCommunityUploadError,
   validateCommunityObject,
@@ -111,7 +109,7 @@ describe("community direct upload policy", () => {
     const issued: Array<Record<string, unknown>> = [];
     const service = createCommunityUploadService({
       issue: async (record) => { issued.push(record); },
-      claim: async () => ({ ok: true }),
+      claim: async () => ({ ok: true, intent: { stagingObjectKey: "unused", uploadType: "put", multipartUploadId: null, expectedPartCount: null, partSizeBytes: null } }),
       finish: async () => undefined,
       fail: async () => undefined,
       createPutUrl: async ({ key }) => ({ key, uploadUrl: "https://s3.test/put", expiresAt: new Date("2026-07-29T12:10:00.000Z") }),
@@ -119,10 +117,14 @@ describe("community direct upload policy", () => {
       createPartUrl: async ({ partNumber }) => `https://s3.test/part-${partNumber}`,
       completeMultipart: async ({ key }) => ({ key }),
       abortMultipart: async () => undefined,
+      listParts: async () => [],
       getMetadata: async (key) => ({ key, contentType: "video/mp4", sizeBytes: 1 }),
       getLeadingBytes: async () => new Uint8Array(),
+      validateOoxml: async () => true,
+      promoteObject: async () => undefined,
       mirrorToReserve: async () => undefined,
-      deleteCopies: async () => undefined
+      deleteCopies: async () => undefined,
+      deleteStaging: async () => undefined
     });
     const tokenFactory = () => uploadToken;
 
@@ -160,7 +162,7 @@ describe("community direct upload policy", () => {
     const object = uploaded();
     const service = createCommunityUploadService({
       issue: async () => undefined,
-      claim: async () => { events.push("claim"); return { ok: true }; },
+      claim: async () => { events.push("claim"); return { ok: true, intent: { stagingObjectKey: object.objectKey, uploadType: "put", multipartUploadId: null, expectedPartCount: null, partSizeBytes: null } }; },
       finish: async () => { events.push("finish"); },
       fail: async () => { events.push("fail"); },
       createPutUrl: async () => { throw new Error("unused"); },
@@ -168,14 +170,22 @@ describe("community direct upload policy", () => {
       createPartUrl: async () => { throw new Error("unused"); },
       completeMultipart: async () => { throw new Error("unused"); },
       abortMultipart: async () => undefined,
-      getMetadata: async (key) => ({ key, contentType: object.contentType, sizeBytes: object.sizeBytes }),
+      listParts: async () => [],
+      getMetadata: async (key) => ({ key, contentType: object.contentType, sizeBytes: object.sizeBytes, etag: '"etag"' }),
       getLeadingBytes: async () => new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]),
+      validateOoxml: async () => true,
+      promoteObject: async () => undefined,
       mirrorToReserve: async () => { events.push("mirror"); },
-      deleteCopies: async () => { events.push("delete"); }
+      deleteCopies: async () => { events.push("delete"); },
+      deleteStaging: async () => { events.push("delete-staging"); }
     });
 
-    await expect(service.completePut({ userId, uploaded: object, now: new Date("2026-07-29T12:05:00.000Z") })).resolves.toEqual(object);
-    expect(events).toEqual(["claim", "mirror", "finish"]);
+    await expect(service.completePut({ userId, uploaded: object, now: new Date("2026-07-29T12:05:00.000Z") })).resolves.toMatchObject({
+      ...object,
+      objectKey: expect.stringMatching(/^community\/final\//),
+      scanStatus: "ready"
+    });
+    expect(events).toEqual(["claim", "mirror", "finish", "delete-staging"]);
   });
 
   it("aborts multipart and cleans an invalid completed object without making it reusable", async () => {
@@ -184,7 +194,7 @@ describe("community direct upload policy", () => {
     const parts = Array.from({ length: 4 }, (_, index) => ({ partNumber: index + 1, etag: `etag-${index + 1}` }));
     const service = createCommunityUploadService({
       issue: async () => undefined,
-      claim: async () => ({ ok: true }),
+      claim: async () => ({ ok: true, intent: { stagingObjectKey: object.objectKey, uploadType: "multipart", multipartUploadId: "multipart-1", expectedPartCount: 4, partSizeBytes: 8 * MiB } }),
       finish: async () => { events.push("finish"); },
       fail: async (_record, error) => { events.push(`fail:${error}`); },
       createPutUrl: async () => { throw new Error("unused"); },
@@ -192,10 +202,14 @@ describe("community direct upload policy", () => {
       createPartUrl: async () => { throw new Error("unused"); },
       completeMultipart: async () => { events.push("complete"); return { key: object.objectKey }; },
       abortMultipart: async () => { events.push("abort"); },
-      getMetadata: async (key) => ({ key, contentType: object.contentType, sizeBytes: object.sizeBytes }),
+      listParts: async () => parts.map((part, index) => ({ ...part, sizeBytes: index === 3 ? MiB + 1 : 8 * MiB })),
+      getMetadata: async (key) => ({ key, contentType: object.contentType, sizeBytes: object.sizeBytes, etag: '"etag"' }),
       getLeadingBytes: async () => new Uint8Array([0x4d, 0x5a, 0x90, 0]),
+      validateOoxml: async () => true,
+      promoteObject: async () => undefined,
       mirrorToReserve: async () => { events.push("mirror"); },
-      deleteCopies: async () => { events.push("delete"); }
+      deleteCopies: async () => { events.push("delete"); },
+      deleteStaging: async () => { events.push("delete-staging"); }
     });
 
     await expect(service.completeMultipartUpload({
@@ -206,66 +220,7 @@ describe("community direct upload policy", () => {
       parts,
       now: new Date("2026-07-29T12:05:00.000Z")
     })).rejects.toThrow("signature_mismatch");
-    expect(events).toEqual(["complete", "delete", "fail:signature_mismatch"]);
+    expect(events).toEqual(["complete", "delete-staging", "fail:signature_mismatch"]);
   });
 
-  it("bounds voice conversion to two concurrent workers", async () => {
-    const limit = createTaskLimiter(2);
-    let active = 0;
-    let maxActive = 0;
-    const gates = Array.from({ length: 4 }, () => Promise.withResolvers<void>());
-    const work = gates.map((gate) => limit(async () => {
-      active += 1;
-      maxActive = Math.max(maxActive, active);
-      await gate.promise;
-      active -= 1;
-    }));
-
-    await Promise.resolve();
-    expect(maxActive).toBe(2);
-    gates[0]?.resolve();
-    gates[1]?.resolve();
-    await Promise.resolve();
-    gates[2]?.resolve();
-    gates[3]?.resolve();
-    await Promise.all(work);
-    expect(maxActive).toBe(2);
-  });
-
-  it("normalizes images, mirrors clean media, and leaves documents quarantined", async () => {
-    const events: string[] = [];
-    const processor = createCommunityPostUploadProcessor({
-      downloadBytes: async () => new Uint8Array([1, 2, 3]),
-      normalizeImage: async () => ({ body: new Uint8Array([4, 5]), fileName: "photo.webp", contentType: "image/webp", sizeBytes: 2, width: 20, height: 10 }),
-      normalizeVoice: async () => ({ body: new Uint8Array([6]), fileName: "voice.m4a", contentType: "audio/mp4", sizeBytes: 1 }),
-      replaceObject: async () => { events.push("replace"); },
-      mirrorToReserve: async () => { events.push("mirror"); },
-      deleteCopies: async () => { events.push("delete"); }
-    });
-
-    const image = await processor(uploaded({ kind: "image", fileName: "photo.png", contentType: "image/png", sizeBytes: 3 }));
-    expect(image).toMatchObject({ kind: "image", fileName: "photo.webp", contentType: "image/webp", sizeBytes: 2, width: 20, height: 10, scanStatus: "ready" });
-    expect(events).toEqual(["replace", "mirror"]);
-
-    events.length = 0;
-    const document = await processor(uploaded({ kind: "document", fileName: "guide.pdf", contentType: "application/pdf", sizeBytes: 3 }));
-    expect(document).toMatchObject({ kind: "document", scanStatus: "scanning" });
-    expect(events).toEqual([]);
-  });
-
-  it("fails and cleans up voice conversion after its timeout", async () => {
-    const deleteCopies = vi.fn(async () => undefined);
-    const processor = createCommunityPostUploadProcessor({
-      voiceTimeoutMs: 1,
-      downloadBytes: async () => new Uint8Array([1]),
-      normalizeImage: async () => { throw new Error("unused"); },
-      normalizeVoice: async () => new Promise(() => undefined),
-      replaceObject: async () => undefined,
-      mirrorToReserve: async () => undefined,
-      deleteCopies
-    });
-
-    await expect(processor(uploaded({ kind: "voice", fileName: "voice.webm", contentType: "audio/webm", sizeBytes: 1, durationSeconds: 3 }))).rejects.toThrow("voice_conversion_timeout");
-    expect(deleteCopies).toHaveBeenCalledWith(expect.stringContaining("community/pending/"));
-  });
 });

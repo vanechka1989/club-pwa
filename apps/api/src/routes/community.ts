@@ -22,7 +22,8 @@ import {
 } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
-import { createCommunityPostUploadProcessor, createCommunityUploadService } from "../community/directUpload";
+import { createCommunityUploadService, type CommunityUploadResult } from "../community/directUpload";
+import { validateCommunityOoxml } from "../community/ooxmlValidation";
 import { buildMessageAuthor, buildReplyPreview, getMessageContentView, summarizeReactions } from "../community/messageMetadata";
 import { MessageMutationError, messageMutationService } from "../community/messageMutationService";
 import { decodeSearchCursor, loadMessageContext, loadSafeReplyMessage, searchCommunityMessages } from "../community/messageSearch";
@@ -30,12 +31,14 @@ import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage 
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { topicStateRepository } from "../community/topicStateRepository";
+import { validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
+import { createCommunityUploadSessionService } from "../community/uploadSessions";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, prepareCommunityVoice, validateCommunityImageFiles } from "../community/mediaUpload";
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
 import { publishCommunityChange, subscribeToCommunityChanges } from "../community/realtime";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, idempotencyOperations, userMutes, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, communityUploadManifests, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
@@ -51,13 +54,14 @@ import {
   createObjectUploadUrl,
   deleteObject,
   deleteObjectCopies,
-  downloadObjectBytes,
   downloadObjectPrefix,
+  downloadObjectRange,
   getObjectMetadata,
   getObjectReadUrl,
+  listMultipartUploadParts,
   mirrorObjectToReserve,
+  promoteObjectVersion,
   uploadObject,
-  uploadObjectStream
 } from "../storage/s3";
 
 const chatPayloadSchema = z.object({
@@ -116,15 +120,30 @@ const deleteAuthorMessagesPayloadSchema = z.object({
   telegramId: z.string().trim().min(3).max(320)
 });
 
+const communityPutCompleteSchema = z.object({
+  uploadToken: z.string().uuid()
+}).strict();
+
 const communityMultipartCompleteSchema = z.object({
-  upload: communityUploadedObjectSchema,
-  uploadId: z.string().trim().min(1).max(512),
-  partSizeBytes: z.number().int().positive(),
+  uploadToken: z.string().uuid(),
   parts: z.array(z.object({
     partNumber: z.number().int().positive().max(100),
     etag: z.string().trim().min(1).max(1024)
   })).min(1).max(100)
 }).strict();
+
+const communityUploadAttachSchema = z.object({
+  uploadTokens: z.array(z.string().uuid()).min(1).max(20)
+}).strict();
+
+const communityUploadResultSchema = z.intersection(
+  communityUploadedObjectSchema,
+  z.object({
+    scanStatus: z.enum(["processing", "pending", "ready", "failed", "rejected"]),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional()
+  })
+);
 
 const topicSettingsSchema = z.object({
   isLocked: z.boolean().optional(),
@@ -134,7 +153,6 @@ const topicSettingsSchema = z.object({
 const systemChatSlug = "club-community";
 const communityMutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const realtimeTopicHeader = "x-club-community-realtime-topic";
-const communityUploadScope = "community_direct_upload";
 const defaultTopics = [
   {
     title: "Новости клуба",
@@ -160,54 +178,109 @@ function slugify(value: string) {
 
 const communityUploadService = createCommunityUploadService({
   issue: async (record) => {
-    await db.insert(idempotencyOperations).values({
-      actorTelegramId: record.userId,
-      scope: communityUploadScope,
-      idempotencyKey: record.uploadToken,
+    await db.insert(communityUploadManifests).values({
+      userId: record.userId,
+      uploadToken: record.uploadToken,
       requestFingerprint: record.fingerprint,
-      status: "processing",
+      kind: record.kind,
+      uploadType: record.uploadType,
+      stagingObjectKey: record.objectKey,
+      multipartUploadId: record.multipartUploadId,
+      expectedPartCount: record.expectedPartCount,
+      partSizeBytes: record.partSizeBytes,
+      fileName: record.fileName,
+      contentType: record.contentType,
+      sizeBytes: record.sizeBytes,
+      durationSeconds: record.durationSeconds,
+      status: "uploading",
       expiresAt: record.expiresAt
     });
   },
   claim: async (record) => {
-    const existing = await db.query.idempotencyOperations.findFirst({
+    const existing = await db.query.communityUploadManifests.findFirst({
       where: and(
-        eq(idempotencyOperations.actorTelegramId, record.userId),
-        eq(idempotencyOperations.scope, communityUploadScope),
-        eq(idempotencyOperations.idempotencyKey, record.uploadToken)
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken)
       )
     });
     if (!existing) return { ok: false as const, error: "foreign_object" as const };
     if (existing.requestFingerprint !== record.fingerprint) return { ok: false as const, error: "intent_mismatch" as const };
+    const replayKey = existing.finalObjectKey ?? existing.quarantineObjectKey;
+    if (replayKey && ["processing", "normalizing", "pending", "scanning", "ready", "failed", "rejected", "cleanup_pending"].includes(existing.status)) {
+      if (existing.result && typeof existing.result === "object") {
+        return { ok: true as const, replay: existing.result as CommunityUploadResult };
+      }
+      const scanStatus = existing.status === "ready" || existing.status === "rejected" || existing.status === "failed"
+        ? existing.status
+        : existing.kind === "document" ? "pending" : "processing";
+      return {
+        ok: true as const,
+        replay: {
+          kind: existing.kind,
+          fileName: existing.fileName,
+          contentType: existing.contentType,
+          sizeBytes: existing.sizeBytes,
+          ...(existing.kind === "voice" ? { durationSeconds: existing.durationSeconds ?? 1 } : {}),
+          uploadToken: existing.uploadToken,
+          objectKey: replayKey,
+          scanStatus,
+          ...(existing.width ? { width: existing.width } : {}),
+          ...(existing.height ? { height: existing.height } : {})
+        } as CommunityUploadResult
+      };
+    }
     if (existing.expiresAt <= record.now) return { ok: false as const, error: "expired_intent" as const };
-    if (existing.status !== "processing") return { ok: false as const, error: "object_already_consumed" as const };
-    const [claimed] = await db.update(idempotencyOperations)
+    const staleCompletingAt = new Date(record.now.getTime() - 2 * 60 * 1000);
+    const [claimed] = await db.update(communityUploadManifests)
       .set({ status: "completing", updatedAt: record.now })
-      .where(and(eq(idempotencyOperations.id, existing.id), eq(idempotencyOperations.status, "processing")))
-      .returning({ id: idempotencyOperations.id });
+      .where(and(
+        eq(communityUploadManifests.id, existing.id),
+        or(
+          eq(communityUploadManifests.status, "uploading"),
+          and(eq(communityUploadManifests.status, "completing"), lte(communityUploadManifests.updatedAt, staleCompletingAt))
+        )
+      ))
+      .returning({ id: communityUploadManifests.id });
     return claimed
-      ? { ok: true as const }
+      ? {
+          ok: true as const,
+          intent: {
+            stagingObjectKey: existing.stagingObjectKey,
+            uploadType: existing.uploadType as "put" | "multipart",
+            multipartUploadId: existing.multipartUploadId,
+            expectedPartCount: existing.expectedPartCount,
+            partSizeBytes: existing.partSizeBytes
+          }
+        }
       : { ok: false as const, error: "object_already_consumed" as const };
   },
   finish: async (record) => {
-    await db.update(idempotencyOperations)
-      .set({ status: "completed", errorCode: null, updatedAt: new Date() })
+    const [finished] = await db.update(communityUploadManifests)
+      .set({
+        status: record.status,
+        quarantineObjectKey: record.status === "ready" ? null : record.result.objectKey,
+        finalObjectKey: record.status === "ready" ? record.result.objectKey : null,
+        result: record.result,
+        errorCode: null,
+        completedAt: new Date(),
+        updatedAt: new Date()
+      })
       .where(and(
-        eq(idempotencyOperations.actorTelegramId, record.userId),
-        eq(idempotencyOperations.scope, communityUploadScope),
-        eq(idempotencyOperations.idempotencyKey, record.uploadToken),
-        eq(idempotencyOperations.requestFingerprint, record.fingerprint),
-        eq(idempotencyOperations.status, "completing")
-      ));
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
+        eq(communityUploadManifests.status, "completing")
+      ))
+      .returning({ id: communityUploadManifests.id });
+    if (!finished) throw new Error("manifest_finish_conflict");
   },
   fail: async (record, error) => {
-    await db.update(idempotencyOperations)
-      .set({ status: "failed", errorCode: error.slice(0, 96), updatedAt: new Date() })
+    await db.update(communityUploadManifests)
+      .set({ status: "failed", errorCode: error.slice(0, 160), updatedAt: new Date() })
       .where(and(
-        eq(idempotencyOperations.actorTelegramId, record.userId),
-        eq(idempotencyOperations.scope, communityUploadScope),
-        eq(idempotencyOperations.idempotencyKey, record.uploadToken),
-        eq(idempotencyOperations.requestFingerprint, record.fingerprint)
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
       ));
   },
   createPutUrl: (input) => createObjectUploadUrl(input),
@@ -215,34 +288,78 @@ const communityUploadService = createCommunityUploadService({
   createPartUrl: (input) => createMultipartPartUploadUrl(input),
   completeMultipart: (input) => completeMultipartUpload(input),
   abortMultipart: (input) => abortMultipartUpload(input),
+  listParts: (input) => listMultipartUploadParts(input),
   getMetadata: (key) => getObjectMetadata(key),
-  getLeadingBytes: (key, maxBytes) => downloadObjectPrefix(key, maxBytes),
+  getLeadingBytes: (key, maxBytes, expectedETag) => downloadObjectPrefix(key, maxBytes, "primary", expectedETag),
+  validateOoxml: (input, metadata) => validateCommunityOoxml(input.contentType, {
+    sizeBytes: metadata.sizeBytes ?? 0,
+    readRange: (start, end) => downloadObjectRange(input.objectKey, start, end, "primary", metadata.etag ?? undefined)
+  }),
+  promoteObject: (input) => promoteObjectVersion(input).then(() => undefined),
   mirrorToReserve: (key, contentType) => mirrorObjectToReserve(key, contentType),
-  deleteCopies: (key) => deleteObjectCopies(key)
+  deleteCopies: (key) => deleteObjectCopies(key),
+  deleteStaging: (key) => deleteObject(key)
 });
 
-const communityPostUploadProcessor = createCommunityPostUploadProcessor({
-  downloadBytes: (key) => downloadObjectBytes(key),
-  normalizeImage: async (input, bytes) => prepareCommunityImage(
-    new File([new Uint8Array(bytes)], input.fileName, { type: input.contentType })
-  ),
-  normalizeVoice: async (input, bytes) => {
-    const prepared = await prepareCommunityVoice(
-      new File([new Uint8Array(bytes)], input.fileName, { type: input.contentType }),
-      { timeoutMs: 60_000 }
-    );
-    return { ...prepared, sizeBytes: prepared.body.byteLength };
+const communityUploadSessionService = createCommunityUploadSessionService({
+  loadOwned: async ({ userId, uploadToken }) => {
+    const manifest = await db.query.communityUploadManifests.findFirst({
+      where: and(eq(communityUploadManifests.userId, userId), eq(communityUploadManifests.uploadToken, uploadToken))
+    });
+    return manifest ? { ...manifest, uploadType: manifest.uploadType as "put" | "multipart" } : null;
   },
-  replaceObject: (input) => uploadObjectStream(input).then(() => undefined),
-  mirrorToReserve: (key, contentType) => mirrorObjectToReserve(key, contentType),
-  deleteCopies: (key) => deleteObjectCopies(key)
+  claimAbort: async ({ userId, uploadToken }) => db.transaction(async (transaction) => {
+    const database = transaction as unknown as typeof db;
+    const manifest = await database.query.communityUploadManifests.findFirst({
+      where: and(eq(communityUploadManifests.userId, userId), eq(communityUploadManifests.uploadToken, uploadToken))
+    });
+    if (!manifest) return null;
+    if (!["uploading", "aborting"].includes(manifest.status)) return { alreadyAborted: true as const };
+    const [claimed] = await database.update(communityUploadManifests)
+      .set({ status: "aborting", updatedAt: new Date() })
+      .where(and(
+        eq(communityUploadManifests.id, manifest.id),
+        inArray(communityUploadManifests.status, ["uploading", "aborting"])
+      ))
+      .returning();
+    return claimed ? { ...claimed, uploadType: claimed.uploadType as "put" | "multipart" } : { alreadyAborted: true as const };
+  }),
+  markAborted: async (manifestId) => {
+    await db.update(communityUploadManifests).set({ status: "aborted", errorCode: null, updatedAt: new Date() })
+      .where(eq(communityUploadManifests.id, manifestId));
+  },
+  listParts: listMultipartUploadParts,
+  createPartUrl: createMultipartPartUploadUrl,
+  abortMultipart: abortMultipartUpload,
+  deleteStaging: deleteObject
 });
+
+async function loadOwnedCommunityUpload(userId: string, uploadToken: string) {
+  const manifest = await db.query.communityUploadManifests.findFirst({
+    where: and(
+      eq(communityUploadManifests.userId, userId),
+      eq(communityUploadManifests.uploadToken, uploadToken)
+    )
+  });
+  if (!manifest) throw new Error("foreign_object");
+  const uploaded = communityUploadedObjectSchema.safeParse({
+    kind: manifest.kind,
+    fileName: manifest.fileName,
+    contentType: manifest.contentType,
+    sizeBytes: manifest.sizeBytes,
+    ...(manifest.kind === "voice" ? { durationSeconds: manifest.durationSeconds } : {}),
+    objectKey: manifest.stagingObjectKey,
+    uploadToken: manifest.uploadToken
+  });
+  if (!uploaded.success) throw new Error("intent_mismatch");
+  return { manifest, uploaded: uploaded.data };
+}
 
 function communityUploadFailure(c: Context, error: unknown) {
   const code = error instanceof Error ? error.message : "upload_failed";
   if (code === "foreign_object") return c.json({ error: code }, 403);
   if (code === "expired_intent") return c.json({ error: code }, 410);
-  if (code === "object_already_consumed" || code === "intent_mismatch") return c.json({ error: code }, 409);
+  if (code === "object_already_consumed" || code === "intent_mismatch" || code === "manifest_finish_conflict") return c.json({ error: code }, 409);
   if ([
     "unsupported_type",
     "type_extension_mismatch",
@@ -256,6 +373,10 @@ function communityUploadFailure(c: Context, error: unknown) {
     "invalid_part_size",
     "metadata_mismatch",
     "signature_mismatch",
+    "invalid_ooxml",
+    "part_count_mismatch",
+    "part_size_mismatch",
+    "part_etag_mismatch",
     "multipart_required",
     "put_required"
   ].includes(code)) return c.json({ error: code }, 400);
@@ -817,13 +938,14 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) return accessError;
-    const body = communityUploadedObjectSchema.safeParse(await c.req.json().catch(() => null));
+    const body = communityPutCompleteSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: "invalid_upload" }, 400);
     try {
-      const verified = await communityUploadService.completePut({ userId: c.get("userId"), uploaded: body.data });
-      const uploaded = await communityPostUploadProcessor(verified);
+      const { manifest, uploaded } = await loadOwnedCommunityUpload(c.get("userId"), body.data.uploadToken);
+      if (manifest.uploadType !== "put") throw new Error("intent_mismatch");
+      const verified = await communityUploadService.completePut({ userId: c.get("userId"), uploaded });
       c.header(realtimeTopicHeader, "skip");
-      return c.json(uploaded);
+      return c.json(verified);
     } catch (error) {
       return communityUploadFailure(c, error);
     }
@@ -835,16 +957,127 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const body = communityMultipartCompleteSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: "invalid_upload" }, 400);
     try {
+      const { manifest, uploaded } = await loadOwnedCommunityUpload(c.get("userId"), body.data.uploadToken);
+      if (manifest.uploadType !== "multipart" || !manifest.multipartUploadId || !manifest.partSizeBytes) {
+        throw new Error("intent_mismatch");
+      }
       const verified = await communityUploadService.completeMultipartUpload({
         userId: c.get("userId"),
-        uploaded: body.data.upload,
-        uploadId: body.data.uploadId,
-        partSizeBytes: body.data.partSizeBytes,
+        uploaded,
+        uploadId: manifest.multipartUploadId,
+        partSizeBytes: manifest.partSizeBytes,
         parts: body.data.parts
       });
-      const uploaded = await communityPostUploadProcessor(verified);
       c.header(realtimeTopicHeader, "skip");
-      return c.json(uploaded);
+      return c.json(verified);
+    } catch (error) {
+      return communityUploadFailure(c, error);
+    }
+  })
+  .post("/uploads/:token/refresh", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const token = z.string().uuid().safeParse(c.req.param("token"));
+    if (!token.success) return c.json({ error: "invalid_upload" }, 400);
+    try {
+      c.header(realtimeTopicHeader, "skip");
+      return c.json(await communityUploadSessionService.refresh({ userId: c.get("userId"), uploadToken: token.data }));
+    } catch (error) {
+      return communityUploadFailure(c, error);
+    }
+  })
+  .delete("/uploads/:token", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const token = z.string().uuid().safeParse(c.req.param("token"));
+    if (!token.success) return c.json({ error: "invalid_upload" }, 400);
+    try {
+      c.header(realtimeTopicHeader, "skip");
+      return c.json(await communityUploadSessionService.abort({ userId: c.get("userId"), uploadToken: token.data }));
+    } catch (error) {
+      return communityUploadFailure(c, error);
+    }
+  })
+  .post("/messages/:id/uploads", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) return accessError;
+    const body = communityUploadAttachSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success || new Set(body.data.uploadTokens).size !== body.data.uploadTokens.length) {
+      return c.json({ error: "invalid_uploads" }, 400);
+    }
+    try {
+      const result = await db.transaction(async (transaction) => {
+        const database = transaction as unknown as typeof db;
+        const messageId = c.req.param("id");
+        await database.execute(sql`select id from club_chat_messages where id = ${messageId} for update`);
+        const message = await database.query.clubChatMessages.findFirst({ where: eq(clubChatMessages.id, messageId) });
+        if (!message || message.userId !== c.get("userId") || message.status !== "visible" || message.deletedByUserAt) {
+          return { error: "message_not_found", status: 404 as const };
+        }
+        const topic = await database.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, message.topicId) });
+        if (!topic || !isTopicAccessibleForRole(topic, role)) return { error: "message_not_found", status: 404 as const };
+        const manifests = await database.query.communityUploadManifests.findMany({
+          where: and(
+            eq(communityUploadManifests.userId, c.get("userId")),
+            inArray(communityUploadManifests.uploadToken, body.data.uploadTokens)
+          )
+        });
+        if (manifests.length !== body.data.uploadTokens.length) return { error: "foreign_upload", status: 403 as const };
+        const existing = await database.query.clubMessageAttachments.findMany({ where: eq(clubMessageAttachments.messageId, message.id) });
+        const policy = validateCommunityUploadAttachmentBatch({
+          userId: c.get("userId"),
+          existingImageCount: existing.filter((attachment) => attachment.kind === "image").length,
+          manifests
+        });
+        if (!policy.ok) return { error: policy.error, status: 409 as const };
+        const byToken = new Map(manifests.map((manifest) => [manifest.uploadToken, manifest]));
+        const attachmentIds: string[] = [];
+        for (const [index, token] of body.data.uploadTokens.entries()) {
+          const manifest = byToken.get(token)!;
+          if (manifest.attachmentId) {
+            const attached = existing.find((attachment) => attachment.id === manifest.attachmentId);
+            if (!attached) return { error: "upload_already_attached", status: 409 as const };
+            attachmentIds.push(attached.id);
+            continue;
+          }
+          const objectKey = manifest.finalObjectKey ?? manifest.quarantineObjectKey;
+          if (!objectKey) return { error: "upload_not_ready", status: 409 as const };
+          const durableResult = communityUploadResultSchema.safeParse(manifest.result);
+          if (!durableResult.success || durableResult.data.objectKey !== objectKey) {
+            return { error: "upload_not_ready", status: 409 as const };
+          }
+          const attachmentId = randomUUID();
+          const documentStatus = manifest.status === "cleanup_pending" ? "failed" : manifest.status;
+          await database.insert(clubMessageAttachments).values({
+            id: attachmentId,
+            messageId: message.id,
+            kind: manifest.kind,
+            objectKey,
+            fileName: durableResult.data.fileName,
+            contentType: durableResult.data.contentType,
+            sizeBytes: durableResult.data.sizeBytes,
+            durationSeconds: durableResult.data.kind === "voice" ? durableResult.data.durationSeconds : null,
+            width: durableResult.data.width,
+            height: durableResult.data.height,
+            sortOrder: existing.length + index,
+            scanStatus: manifest.kind === "document" ? documentStatus : "ready",
+            scanError: manifest.errorCode
+          });
+          const [consumed] = await database.update(communityUploadManifests)
+            .set({ attachmentId, consumedAt: new Date(), updatedAt: new Date() })
+            .where(and(eq(communityUploadManifests.id, manifest.id), sql`${communityUploadManifests.consumedAt} is null`))
+            .returning({ id: communityUploadManifests.id });
+          if (!consumed) throw new Error("object_already_consumed");
+          attachmentIds.push(attachmentId);
+        }
+        return { attachmentIds };
+      });
+      if ("error" in result) return c.json({ error: result.error }, result.status);
+      c.header(realtimeTopicHeader, "skip");
+      return c.json({ ok: true, attachmentIds: result.attachmentIds });
     } catch (error) {
       return communityUploadFailure(c, error);
     }

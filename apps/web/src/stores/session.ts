@@ -12,6 +12,7 @@ import {
   verifyEmailCode as verifyEmailCodeApi
 } from "@/api/startup";
 import { getAcquisitionVisitorId } from "@/features/app/acquisitionTracking";
+import { clearCommunityUploadSessions } from "@/features/community/directUpload";
 
 type AuthRequestError = Error & {
   retryAfterSeconds?: number;
@@ -268,6 +269,7 @@ export const useSessionStore = defineStore("session", () => {
 
   async function logout() {
     await logoutSession();
+    clearCommunityUploadSessions();
     user.value = null;
     resetEmailAuth();
   }

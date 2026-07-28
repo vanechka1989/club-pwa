@@ -13,6 +13,7 @@ const webDockerfile = readFileSync(resolve(__dirname, "../../../../apps/web/Dock
 const productionCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.prod.yml"), "utf-8");
 const scaleCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.scale.yml"), "utf-8");
 const updateWorker = readFileSync(resolve(__dirname, "../../../../deploy/update-worker.sh"), "utf-8");
+const communityUploadOperations = readFileSync(resolve(__dirname, "../../../../docs/operations/community-uploads.md"), "utf-8");
 const apiPackage = JSON.parse(readFileSync(resolve(__dirname, "../../../../apps/api/package.json"), "utf-8")) as {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -175,17 +176,41 @@ describe("production security config", () => {
       expect(block).toContain("image: clamav/clamav:1.4");
       expect(block).toContain('expose:\n      - "3310"');
       expect(block).toContain("healthcheck:");
-      expect(block).toContain("mem_limit: 768m");
+      expect(block).toContain("mem_limit: ${CLAMAV_MEMORY_LIMIT:-4g}");
+      expect(block).toContain("mem_reservation: 3g");
+      expect(block).not.toContain("mem_limit: 768m");
       expect(block).toContain("pids_limit: 256");
       expect(block).toContain("clamav-signatures:/var/lib/clamav");
       expect(block).not.toContain("ports:");
       expect(source).toContain("CLAMAV_HOST: clamav");
       expect(source).toContain("CLAMAV_PORT: 3310");
     }
+    expect(communityUploadOperations).toContain("AbortIncompleteMultipartUpload");
+    expect(communityUploadOperations).toContain("4 GiB");
+    expect(communityUploadOperations).toContain("community/pending/");
+    expect(communityUploadOperations).toContain("community/quarantine/");
+    expect(communityUploadOperations).toContain("community/final/");
+  });
+
+  it("isolates bounded media jobs from externally served API processes", () => {
+    for (const source of [productionCompose, scaleCompose]) {
+      const workerStart = source.indexOf("  worker:\n");
+      expect(workerStart).toBeGreaterThan(-1);
+      const workerBlock = source.slice(workerStart, source.indexOf("\n  migrate:\n", workerStart));
+      expect(workerBlock).toContain("RUN_BACKGROUND_JOBS: true");
+      expect(workerBlock).toContain("mem_limit: 1g");
+      expect(workerBlock).toContain('cpus: "1.00"');
+      expect(workerBlock).toContain("pids_limit: 256");
+    }
+    const productionApi = productionCompose.slice(productionCompose.indexOf("  api: &api-service\n"), productionCompose.indexOf("\n  worker:\n"));
+    expect(productionApi).toContain("RUN_BACKGROUND_JOBS: false");
+    expect(scaleCompose).toContain("api-1:");
+    expect(scaleCompose).toContain("api-2:");
+    expect(scaleCompose.match(/RUN_BACKGROUND_JOBS: false/g)).toHaveLength(3);
   });
 
   it("allows the API time to drain requests during deployment", () => {
-    const apiStart = productionCompose.indexOf("  api:\n");
+    const apiStart = productionCompose.indexOf("  api: &api-service\n");
     const apiEnd = productionCompose.indexOf("\n  migrate:\n", apiStart);
     expect(productionCompose.slice(apiStart, apiEnd)).toContain("stop_grace_period: 30s");
   });

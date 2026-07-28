@@ -4,6 +4,7 @@ import {
   processCommunityDocumentScan,
   runDocumentScannerBatch,
   scanClamAvChunks,
+  summarizeCommunityDocumentScannerHealth,
   shouldRetryCommunityDocumentScan
 } from "./documentScanner";
 
@@ -19,8 +20,15 @@ describe("community document quarantine scanner", () => {
     expect(shouldRetryCommunityDocumentScan("pending")).toBe(true);
     expect(shouldRetryCommunityDocumentScan("failed")).toBe(true);
     expect(shouldRetryCommunityDocumentScan("scanning")).toBe(true);
+    expect(shouldRetryCommunityDocumentScan("cleanup_pending")).toBe(true);
     expect(shouldRetryCommunityDocumentScan("ready")).toBe(false);
     expect(shouldRetryCommunityDocumentScan("rejected")).toBe(false);
+  });
+
+  it("reports scanner and fail-closed queue health separately from API readiness", () => {
+    expect(summarizeCommunityDocumentScannerHealth({ available: true, queued: 0, failed: 0, cleanupPending: 0 })).toMatchObject({ status: "healthy" });
+    expect(summarizeCommunityDocumentScannerHealth({ available: true, queued: 4, failed: 1, cleanupPending: 0 })).toMatchObject({ status: "warning" });
+    expect(summarizeCommunityDocumentScannerHealth({ available: false, queued: 4, failed: 1, cleanupPending: 1 })).toMatchObject({ status: "error" });
   });
 
   it("streams bounded INSTREAM frames instead of buffering the document", async () => {
@@ -48,37 +56,67 @@ describe("community document quarantine scanner", () => {
     const events: string[] = [];
     await processCommunityDocumentScan({ id: "a1", objectKey: "community/pending/u/d/t-guide.pdf", contentType: "application/pdf" }, {
       scan: async () => "clean",
-      mirrorToReserve: async () => { events.push("mirror"); },
-      deleteCopies: async () => { events.push("delete"); },
+      promoteToFinal: async () => { events.push("promote"); return "community/final/u/d/t-guide.pdf"; },
+      mirrorToReserve: async (key) => { events.push(`mirror:${key}`); },
+      deleteCopies: async (key) => { events.push(`delete:${key}`); },
       updateStatus: async (_id, status) => { events.push(`status:${status}`); }
     });
 
-    expect(events).toEqual(["mirror", "status:ready"]);
+    expect(events).toEqual([
+      "promote",
+      "mirror:community/final/u/d/t-guide.pdf",
+      "status:ready",
+      "delete:community/pending/u/d/t-guide.pdf"
+    ]);
   });
 
   it("deletes infected objects and marks them rejected", async () => {
     const events: string[] = [];
     await processCommunityDocumentScan({ id: "a1", objectKey: "community/pending/u/d/t-guide.pdf", contentType: "application/pdf" }, {
       scan: async () => "infected",
+      promoteToFinal: async () => "unused",
       mirrorToReserve: async () => { events.push("mirror"); },
       deleteCopies: async () => { events.push("delete"); },
       updateStatus: async (_id, status) => { events.push(`status:${status}`); }
     });
 
-    expect(events).toEqual(["delete", "status:rejected"]);
+    expect(events).toEqual(["status:cleanup_pending", "delete", "status:rejected"]);
   });
 
   it("keeps an infected document fail-closed for cleanup retry when deletion fails", async () => {
     const updateStatus = vi.fn(async () => undefined);
     await processCommunityDocumentScan({ id: "a1", objectKey: "community/pending/u/d/t-guide.pdf", contentType: "application/pdf" }, {
       scan: async () => "infected",
+      promoteToFinal: async () => "unused",
       mirrorToReserve: async () => undefined,
       deleteCopies: async () => { throw new Error("delete failed"); },
       updateStatus
     });
 
-    expect(updateStatus).toHaveBeenCalledWith("a1", "failed", "malware_cleanup_failed");
+    expect(updateStatus).toHaveBeenCalledWith("a1", "cleanup_pending", "malware_cleanup_failed");
     expect(updateStatus).not.toHaveBeenCalledWith("a1", "rejected", expect.anything());
+  });
+
+  it("retries partial infected-copy cleanup without rescanning a missing primary", async () => {
+    const scan = vi.fn(async () => "unavailable" as const);
+    const deleteCopies = vi.fn(async () => undefined);
+    const updateStatus = vi.fn(async () => undefined);
+    await processCommunityDocumentScan({
+      id: "a1",
+      objectKey: "community/quarantine/u/d/t-guide.pdf",
+      contentType: "application/pdf",
+      status: "cleanup_pending"
+    }, {
+      scan,
+      promoteToFinal: async () => "unused",
+      mirrorToReserve: async () => undefined,
+      deleteCopies,
+      updateStatus
+    });
+
+    expect(scan).not.toHaveBeenCalled();
+    expect(deleteCopies).toHaveBeenCalledTimes(1);
+    expect(updateStatus).toHaveBeenCalledWith("a1", "rejected", "malware_detected");
   });
 
   it("keeps the object quarantined when ClamAV is unavailable", async () => {
@@ -87,6 +125,7 @@ describe("community document quarantine scanner", () => {
     const updateStatus = vi.fn();
     await processCommunityDocumentScan({ id: "a1", objectKey: "community/pending/u/d/t-guide.pdf", contentType: "application/pdf" }, {
       scan: async () => "unavailable",
+      promoteToFinal: async () => "unused",
       mirrorToReserve,
       deleteCopies,
       updateStatus
@@ -102,12 +141,13 @@ describe("community document quarantine scanner", () => {
     const updateStatus = vi.fn(async () => undefined);
     await processCommunityDocumentScan({ id: "a1", objectKey: "community/pending/u/d/t-guide.pdf", contentType: "application/pdf" }, {
       scan: async () => "clean",
+      promoteToFinal: async () => "community/final/u/d/t-guide.pdf",
       mirrorToReserve: async () => { throw new Error("reserve down"); },
       deleteCopies,
       updateStatus
     });
 
-    expect(deleteCopies).toHaveBeenCalledWith("community/pending/u/d/t-guide.pdf");
+    expect(deleteCopies).not.toHaveBeenCalled();
     expect(updateStatus).toHaveBeenCalledWith("a1", "failed", "storage_copy_failed");
   });
 

@@ -456,6 +456,13 @@
       "when": 1785276000000,
       "tag": "0064_community_message_reliability",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1785362400000,
+      "tag": "0065_community_upload_manifests",
+      "breakpoints": true
     }
   ]
 }
