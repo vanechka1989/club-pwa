@@ -41,32 +41,29 @@ export function createTopicStateRepository(database: TopicStateDatabase = db) {
             select ${input.userId}, ${input.topicId}, candidate.id, now()
             from candidate
             on conflict (user_id, topic_id) do update
-            set last_read_message_id = excluded.last_read_message_id,
+            set last_read_message_id = case
+                  when community_topic_reads.last_read_message_id is null then excluded.last_read_message_id
+                  when exists (
+                    select 1
+                    from club_chat_messages current_message
+                    inner join club_chat_messages candidate
+                      on candidate.id = excluded.last_read_message_id
+                    where current_message.id = community_topic_reads.last_read_message_id
+                      and (
+                        candidate.created_at > current_message.created_at
+                        or (
+                          candidate.created_at = current_message.created_at
+                          and candidate.id > current_message.id
+                        )
+                      )
+                  ) then excluded.last_read_message_id
+                  else community_topic_reads.last_read_message_id
+                end,
                 last_read_at = now()
-            where community_topic_reads.last_read_message_id is null
-              or exists (
-                select 1
-                from club_chat_messages current_message, candidate
-                where current_message.id = community_topic_reads.last_read_message_id
-                  and (
-                    candidate.created_at > current_message.created_at
-                    or (
-                      candidate.created_at = current_message.created_at
-                      and candidate.id > current_message.id
-                    )
-                  )
-              )
             returning last_read_message_id as "lastReadMessageId"
           )
           select "lastReadMessageId"
           from upserted
-          union all
-          select current_read.last_read_message_id as "lastReadMessageId"
-          from community_topic_reads current_read
-          inner join candidate on true
-          where current_read.user_id = ${input.userId}
-            and current_read.topic_id = ${input.topicId}
-            and not exists (select 1 from upserted)
           limit 1
         `
       );
@@ -107,59 +104,65 @@ export function createTopicStateRepository(database: TopicStateDatabase = db) {
         return new Map();
       }
 
-      const [stateRows, unreadRows] = await Promise.all([
-        executeRows<StateRow>(
-          database,
-          sql`
-            with requested(topic_id) as (
-              select unnest(${topicIds}::uuid[])
-            )
-            select requested.topic_id as "topicId",
-                   topic_read.last_read_message_id as "lastReadMessageId",
-                   coalesce(notification.mode, 'mentions') as "notificationMode"
+      const requestedTopicValues = sql.join(
+        topicIds.map((topicId) => sql`(${topicId}::uuid)`),
+        sql`, `
+      );
+      const stateRows = await executeRows<StateRow & UnreadRow>(
+        database,
+        sql`
+          with requested(topic_id) as (
+            values ${requestedTopicValues}
+          ),
+          topic_state as materialized (
+            select requested.topic_id,
+                   topic_read.last_read_message_id,
+                   read_message.created_at as last_read_created_at,
+                   coalesce(notification.mode, 'mentions') as notification_mode
             from requested
             left join community_topic_reads topic_read
               on topic_read.user_id = ${userId}
              and topic_read.topic_id = requested.topic_id
+            left join club_chat_messages read_message
+              on read_message.id = topic_read.last_read_message_id
             left join community_topic_notification_settings notification
               on notification.user_id = ${userId}
              and notification.topic_id = requested.topic_id
-          `
-        ),
-        executeRows<UnreadRow>(
-          database,
-          sql`
-            select candidate.topic_id as "topicId",
-                   count(*)::int as "unreadCount"
-            from club_chat_messages candidate
-            left join community_topic_reads topic_read
-              on topic_read.user_id = ${userId}
-             and topic_read.topic_id = candidate.topic_id
-            left join club_chat_messages read_message
-              on read_message.id = topic_read.last_read_message_id
-            where candidate.topic_id = any(${topicIds}::uuid[])
-              and candidate.is_system = false
-              and candidate.status = 'visible'
-              and candidate.deleted_by_user_at is null
-              and (
-                topic_read.last_read_message_id is null
-                or candidate.created_at > read_message.created_at
-                or (
-                  candidate.created_at = read_message.created_at
-                  and candidate.id > read_message.id
-                )
-              )
-            group by candidate.topic_id
-          `
-        )
-      ]);
+          ),
+          unread as (
+            select topic_state.topic_id,
+                   count(candidate.id)::int as unread_count
+            from topic_state
+            inner join club_chat_messages candidate
+              on candidate.topic_id = topic_state.topic_id
+             and candidate.user_id <> ${userId}
+             and candidate.is_system = false
+             and candidate.status = 'visible'
+             and candidate.deleted_by_user_at is null
+             and (
+               topic_state.last_read_message_id is null
+               or candidate.created_at > topic_state.last_read_created_at
+               or (
+                 candidate.created_at = topic_state.last_read_created_at
+                 and candidate.id > topic_state.last_read_message_id
+               )
+             )
+            group by topic_state.topic_id
+          )
+          select topic_state.topic_id as "topicId",
+                 topic_state.last_read_message_id as "lastReadMessageId",
+                 topic_state.notification_mode as "notificationMode",
+                 coalesce(unread.unread_count, 0)::int as "unreadCount"
+          from topic_state
+          left join unread on unread.topic_id = topic_state.topic_id
+        `
+      );
 
-      const unreadByTopic = new Map(unreadRows.map((row) => [row.topicId, row.unreadCount]));
       return new Map(
         stateRows.map((row) => [
           row.topicId,
           {
-            unreadCount: unreadByTopic.get(row.topicId) ?? 0,
+            unreadCount: row.unreadCount,
             lastReadMessageId: row.lastReadMessageId,
             notificationMode: row.notificationMode
           }

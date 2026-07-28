@@ -70,14 +70,12 @@ describe("topic state repository", () => {
     expect(query.params).toEqual(expect.arrayContaining([userId, topicId, "off"]));
   });
 
-  it("loads all topic states with one state query and one grouped unread query", async () => {
+  it("loads all topic states and grouped unread counts in one statement", async () => {
     const secondTopicId = "00000000-0000-0000-0000-000000000005";
-    execute
-      .mockResolvedValueOnce([
-        { topicId, lastReadMessageId: newerId, notificationMode: "all" },
-        { topicId: secondTopicId, lastReadMessageId: null, notificationMode: "mentions" }
-      ])
-      .mockResolvedValueOnce([{ topicId, unreadCount: 2 }]);
+    execute.mockResolvedValueOnce([
+      { topicId, lastReadMessageId: newerId, notificationMode: "all", unreadCount: 2 },
+      { topicId: secondTopicId, lastReadMessageId: null, notificationMode: "mentions", unreadCount: 0 }
+    ]);
 
     await expect(repository.getStates(userId, [topicId, secondTopicId])).resolves.toEqual(
       new Map([
@@ -86,9 +84,10 @@ describe("topic state repository", () => {
       ])
     );
 
-    expect(execute).toHaveBeenCalledTimes(2);
-    const unreadQuery = dialect.sqlToQuery(execute.mock.calls[1]![0]).sql;
-    expect(unreadQuery).toContain("group by candidate.topic_id");
+    expect(execute).toHaveBeenCalledTimes(1);
+    const unreadQuery = dialect.sqlToQuery(execute.mock.calls[0]![0]).sql;
+    expect(unreadQuery).toContain("group by topic_state.topic_id");
+    expect(unreadQuery).toContain("candidate.user_id <>");
     expect(unreadQuery).toContain("candidate.is_system = false");
     expect(unreadQuery).toContain("candidate.status = 'visible'");
     expect(unreadQuery).toContain("candidate.deleted_by_user_at is null");
