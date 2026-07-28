@@ -943,7 +943,11 @@ export const clubMessageAttachments = pgTable(
   (table) => ({
     messageSortIdx: index("club_message_attachments_message_sort_idx").on(table.messageId, table.sortOrder),
     objectKeyIdx: uniqueIndex("club_message_attachments_object_key_idx").on(table.objectKey),
-    expiryIdx: index("club_message_attachments_expiry_idx").on(table.expiresAt, table.deletedAt)
+    expiryIdx: index("club_message_attachments_expiry_idx").on(table.expiresAt, table.deletedAt),
+    scanStatusCheck: check(
+      "club_message_attachments_scan_status_check",
+      sql`${table.scanStatus} in ('pending', 'scanning', 'ready', 'rejected', 'failed', 'deleted')`
+    )
   })
 );
 

@@ -108,6 +108,8 @@ function topic(overrides: Partial<ClubTopic>): ClubTopic {
     archivedUntil: null,
     messagesCount: 0,
     latestReplyToMeAt: null,
+    unreadCount: 0,
+    notificationMode: "mentions",
     createdAt: "2026-06-20T10:00:00.000Z",
     ...overrides
   };

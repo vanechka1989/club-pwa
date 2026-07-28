@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { streamSSE, type SSEMessage } from "hono/streaming";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import type { ClubChat, ClubMessage, ClubTopic, UserRole } from "@club/shared";
+import type { ClubChat, ClubMessage, ClubTopic, CommunityAttachmentScanStatus, UserRole } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
@@ -244,6 +244,8 @@ async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>
     archivedUntil: topic.archivedUntil?.toISOString() ?? null,
     messagesCount: countsByTopic.get(topic.id) ?? 0,
     latestReplyToMeAt: repliesByTopic.get(topic.id)?.toISOString() ?? null,
+    unreadCount: 0,
+    notificationMode: "mentions",
     createdAt: topic.createdAt.toISOString()
   }));
 }
@@ -286,14 +288,33 @@ async function serializeMessage(
     orderBy: (table, { asc }) => [asc(table.sortOrder)]
   });
   const kind = (message.kind as ClubMessage["kind"]) ?? "text";
+  const attachmentStatuses = new Set<CommunityAttachmentScanStatus>([
+    "pending",
+    "scanning",
+    "ready",
+    "rejected",
+    "failed",
+    "deleted"
+  ]);
   const serializedAttachments = await Promise.all(
-    attachments.map(async (attachment) => ({
-      ...attachment,
-      url: attachment.deletedAt ? null : await getObjectReadUrl(attachment.objectKey)
-    }))
+    attachments.map(async (attachment) => {
+      const persistedStatus = attachment.scanStatus as CommunityAttachmentScanStatus;
+      const scanStatus: CommunityAttachmentScanStatus = attachment.deletedAt
+        ? "deleted"
+        : attachmentStatuses.has(persistedStatus)
+          ? persistedStatus
+          : "failed";
+      return {
+        ...attachment,
+        scanStatus,
+        url: scanStatus === "ready" ? await getObjectReadUrl(attachment.objectKey) : null
+      };
+    })
   );
   const voiceAttachment = kind === "voice" ? serializedAttachments[0] : undefined;
   const imageAttachments = kind === "images" ? serializedAttachments : [];
+  const videoAttachment = kind === "video" ? serializedAttachments[0] : undefined;
+  const documentAttachment = kind === "document" ? serializedAttachments[0] : undefined;
   const pollRecord = kind === "poll"
     ? await db.query.clubPolls.findFirst({
         where: eq(clubPolls.messageId, message.id),
@@ -311,23 +332,62 @@ async function serializeMessage(
       ? {
           id: voiceAttachment.id,
           url: voiceAttachment.url,
+          fileName: voiceAttachment.fileName,
           contentType: voiceAttachment.contentType,
           sizeBytes: voiceAttachment.sizeBytes,
           durationSeconds: voiceAttachment.durationSeconds ?? 0,
           expiresAt: voiceAttachment.expiresAt?.toISOString() ?? null,
-          deletedAt: voiceAttachment.deletedAt?.toISOString() ?? null
+          deletedAt: voiceAttachment.deletedAt?.toISOString() ?? null,
+          scanStatus: voiceAttachment.scanStatus,
+          scannedAt: voiceAttachment.scannedAt?.toISOString() ?? null,
+          scanError: voiceAttachment.scanError
         }
       : null,
     images: imageAttachments.map((attachment) => ({
       id: attachment.id,
       url: attachment.url,
+      fileName: attachment.fileName,
       contentType: attachment.contentType,
       sizeBytes: attachment.sizeBytes,
       width: attachment.width ?? 1,
       height: attachment.height ?? 1,
       expiresAt: attachment.expiresAt?.toISOString() ?? null,
-      deletedAt: attachment.deletedAt?.toISOString() ?? null
+      deletedAt: attachment.deletedAt?.toISOString() ?? null,
+      scanStatus: attachment.scanStatus,
+      scannedAt: attachment.scannedAt?.toISOString() ?? null,
+      scanError: attachment.scanError
     })),
+    video: videoAttachment
+      ? {
+          id: videoAttachment.id,
+          url: videoAttachment.url,
+          fileName: videoAttachment.fileName,
+          contentType: videoAttachment.contentType,
+          sizeBytes: videoAttachment.sizeBytes,
+          width: videoAttachment.width ?? 1,
+          height: videoAttachment.height ?? 1,
+          durationSeconds: videoAttachment.durationSeconds ?? 0,
+          expiresAt: videoAttachment.expiresAt?.toISOString() ?? null,
+          deletedAt: videoAttachment.deletedAt?.toISOString() ?? null,
+          scanStatus: videoAttachment.scanStatus,
+          scannedAt: videoAttachment.scannedAt?.toISOString() ?? null,
+          scanError: videoAttachment.scanError
+        }
+      : null,
+    document: documentAttachment
+      ? {
+          id: documentAttachment.id,
+          url: documentAttachment.url,
+          fileName: documentAttachment.fileName ?? "document",
+          contentType: documentAttachment.contentType,
+          sizeBytes: documentAttachment.sizeBytes,
+          expiresAt: documentAttachment.expiresAt?.toISOString() ?? null,
+          deletedAt: documentAttachment.deletedAt?.toISOString() ?? null,
+          scanStatus: documentAttachment.scanStatus,
+          scannedAt: documentAttachment.scannedAt?.toISOString() ?? null,
+          scanError: documentAttachment.scanError
+        }
+      : null,
     poll: pollRecord
       ? {
           id: pollRecord.id,
@@ -366,6 +426,10 @@ async function serializeMessage(
         }
       : null,
     pinnedAt: message.pinnedAt?.toISOString() ?? null,
+    editedAt: message.editedAt?.toISOString() ?? null,
+    deletedByUserAt: message.deletedByUserAt?.toISOString() ?? null,
+    clientOperationId: message.clientOperationId,
+    mentions: [],
     createdAt: message.createdAt.toISOString()
   };
 }

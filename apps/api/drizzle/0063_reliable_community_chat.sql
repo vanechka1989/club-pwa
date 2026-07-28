@@ -27,6 +27,8 @@ ALTER TABLE "club_message_attachments" ADD COLUMN "file_name" varchar(255);--> s
 ALTER TABLE "club_message_attachments" ADD COLUMN "scan_status" varchar(16) NOT NULL DEFAULT 'ready';--> statement-breakpoint
 ALTER TABLE "club_message_attachments" ADD COLUMN "scanned_at" timestamptz;--> statement-breakpoint
 ALTER TABLE "club_message_attachments" ADD COLUMN "scan_error" varchar(160);--> statement-breakpoint
+ALTER TABLE "club_message_attachments" ADD CONSTRAINT "club_message_attachments_scan_status_check"
+  CHECK ("scan_status" IN ('pending','scanning','ready','rejected','failed','deleted'));--> statement-breakpoint
 CREATE UNIQUE INDEX "club_chat_messages_user_operation_idx"
   ON "club_chat_messages" ("user_id", "client_operation_id")
   WHERE "client_operation_id" IS NOT NULL;--> statement-breakpoint

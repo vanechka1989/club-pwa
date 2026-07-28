@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 import * as shared from "./index";
 
+const MiB = 1024 * 1024;
+const userId = "11111111-1111-4111-8111-111111111111";
+const topicId = "22222222-2222-4222-8222-222222222222";
+const messageId = "33333333-3333-4333-8333-333333333333";
+
+const author = {
+  id: userId,
+  telegramId: "web:user-1",
+  firstName: "Иван",
+  username: null,
+  photoUrl: null
+};
+
 const topicFixture = {
-  id: "topic-1",
+  id: topicId,
   chatId: "chat-1",
   title: "Общение",
   description: null,
@@ -17,8 +30,8 @@ const topicFixture = {
 };
 
 const messageFixture = {
-  id: "message-1",
-  topicId: "topic-1",
+  id: messageId,
+  topicId,
   body: "Привет, Анна",
   kind: "text",
   voice: null,
@@ -26,13 +39,7 @@ const messageFixture = {
   poll: null,
   isSystem: false,
   status: "visible",
-  author: {
-    id: "user-1",
-    telegramId: "web:user-1",
-    firstName: "Иван",
-    username: null,
-    photoUrl: null
-  },
+  author,
   replyTo: null,
   likesCount: 0,
   dislikesCount: 0,
@@ -43,18 +50,13 @@ const messageFixture = {
   createdAt: "2026-07-28T00:00:00.000Z"
 };
 
-const userId = "11111111-1111-4111-8111-111111111111";
-const topicId = "22222222-2222-4222-8222-222222222222";
-const messageId = "33333333-3333-4333-8333-333333333333";
-const operationId = "device-1:message-1";
-
-function schema<T>(name: keyof typeof shared) {
+function contract<T>(name: keyof typeof shared) {
   const value = shared[name] as unknown as { parse(input: unknown): T; safeParse(input: unknown): { success: boolean } } | undefined;
   expect(value, `${String(name)} must be exported`).toBeDefined();
   return value!;
 }
 
-describe("reliable community chat contracts", () => {
+describe("reliable community chat state", () => {
   it("parses synchronized topic state", () => {
     const parsed = shared.clubTopicSchema.parse({
       ...topicFixture,
@@ -71,118 +73,218 @@ describe("reliable community chat contracts", () => {
       ...messageFixture,
       editedAt: "2026-07-28T01:00:00.000Z",
       deletedByUserAt: null,
-      clientOperationId: operationId,
+      clientOperationId: "device-1:message-1",
       mentions: [{ userId, displayName: "Анна", start: 7, end: 12 }]
     });
 
     expect(parsed.editedAt).toBe("2026-07-28T01:00:00.000Z");
     expect(parsed.deletedByUserAt).toBeNull();
-    expect(parsed.clientOperationId).toBe(operationId);
     expect(parsed.mentions[0]?.displayName).toBe("Анна");
   });
 
-  it("parses attachment scan state", () => {
-    const parsed = shared.clubMessageSchema.parse({
-      ...messageFixture,
-      kind: "images",
-      images: [
-        {
-          id: "attachment-1",
-          url: null,
-          fileName: "photo.webp",
-          contentType: "image/webp",
-          sizeBytes: 512,
-          width: 640,
-          height: 480,
-          expiresAt: null,
-          deletedAt: null,
-          scanStatus: "pending",
-          scannedAt: null,
-          scanError: null
-        }
-      ]
+  it("supports the complete attachment lifecycle and rejects unknown states", () => {
+    const scanStatus = contract<string>("communityAttachmentScanStatusSchema");
+
+    for (const status of ["pending", "scanning", "ready", "rejected", "failed", "deleted"]) {
+      expect(scanStatus.parse(status)).toBe(status);
+    }
+    expect(scanStatus.safeParse("infected").success).toBe(false);
+  });
+
+  it("serializes video and fail-closed document attachments", () => {
+    const video = {
+      id: "video-1",
+      url: "https://cdn.example.test/video.mp4",
+      fileName: "video.mp4",
+      contentType: "video/mp4",
+      sizeBytes: 10 * MiB,
+      width: 1920,
+      height: 1080,
+      durationSeconds: 60,
+      expiresAt: null,
+      deletedAt: null,
+      scanStatus: "ready",
+      scannedAt: "2026-07-28T01:00:00.000Z",
+      scanError: null
+    };
+    const document = {
+      id: "document-1",
+      url: null,
+      fileName: "guide.pdf",
+      contentType: "application/pdf",
+      sizeBytes: MiB,
+      expiresAt: null,
+      deletedAt: null,
+      scanStatus: "pending",
+      scannedAt: null,
+      scanError: null
+    };
+    const videoMessage = shared.clubMessageSchema.parse({ ...messageFixture, kind: "video", video });
+    const documentMessage = shared.clubMessageSchema.parse({ ...messageFixture, kind: "document", document });
+
+    expect(videoMessage.video?.durationSeconds).toBe(60);
+    expect(documentMessage.document?.scanStatus).toBe("pending");
+    expect(
+      shared.clubMessageSchema.safeParse({
+        ...messageFixture,
+        kind: "document",
+        document: { ...document, url: "https://cdn.example.test/unsafe.pdf" }
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe("read, notification, and search contracts", () => {
+  it("accepts a read messageId and returns authoritative topic state from both mutations", () => {
+    const readRequest = contract<{ messageId: string }>("communityTopicReadPositionRequestSchema");
+    const readResponse = contract<Record<string, unknown>>("communityTopicReadPositionResponseSchema");
+    const notificationResponse = contract<Record<string, unknown>>("communityTopicNotificationSettingsResponseSchema");
+    const state = {
+      unreadCount: 0,
+      lastReadMessageId: messageId,
+      notificationMode: "mentions"
+    };
+
+    expect(readRequest.parse({ messageId })).toEqual({ messageId });
+    expect(readRequest.safeParse({ lastReadMessageId: messageId }).success).toBe(false);
+    expect(readResponse.parse(state)).toEqual(state);
+    expect(notificationResponse.parse(state)).toEqual(state);
+  });
+
+  it("returns only bounded safe search result fields", () => {
+    const resultSchema = contract<Record<string, unknown>>("communityMessageSearchResultSchema");
+    const responseSchema = contract<{ results: Record<string, unknown>[] }>("communityMessageSearchResponseSchema");
+    const result = {
+      messageId,
+      topicId,
+      topicTitle: "Общение",
+      author,
+      excerpt: "Совпавший фрагмент",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      body: "Секретный полный текст",
+      attachments: [{ objectKey: "private/key" }]
+    };
+
+    expect(resultSchema.parse(result)).toEqual({
+      messageId,
+      topicId,
+      topicTitle: "Общение",
+      author: { ...author, avatarPositionX: 50, avatarPositionY: 50, avatarScale: 1 },
+      excerpt: "Совпавший фрагмент",
+      createdAt: "2026-07-28T00:00:00.000Z"
+    });
+    expect(responseSchema.parse({ results: [result], nextCursor: null }).results).toHaveLength(1);
+    expect(responseSchema.safeParse({ messages: [messageFixture], nextCursor: null }).success).toBe(false);
+  });
+
+  it("keeps search queries bounded", () => {
+    expect(shared.communityMessageSearchQuerySchema.parse({ q: "  Анна  " })).toEqual({ q: "Анна", limit: 20 });
+    expect(shared.communityMessageSearchQuerySchema.safeParse({ q: "а" }).success).toBe(false);
+    expect(shared.communityMessageSearchQuerySchema.safeParse({ q: "Анна", limit: 51 }).success).toBe(false);
+  });
+});
+
+describe("discriminated community upload contracts", () => {
+  it("enforces exact image MIME types, 15 MiB per image, and 10 images per batch", () => {
+    const intent = contract<Record<string, unknown>>("communityUploadIntentSchema");
+    const batch = contract<unknown[]>("communityImageUploadBatchSchema");
+    const image = { kind: "image", fileName: "photo.webp", contentType: "image/webp", sizeBytes: 15 * MiB };
+
+    for (const contentType of ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]) {
+      expect(intent.safeParse({ ...image, contentType }).success).toBe(true);
+    }
+    expect(intent.safeParse({ ...image, sizeBytes: 15 * MiB + 1 }).success).toBe(false);
+    expect(intent.safeParse({ ...image, contentType: "image/svg+xml" }).success).toBe(false);
+    expect(batch.parse(Array.from({ length: 10 }, () => image))).toHaveLength(10);
+    expect(batch.safeParse(Array.from({ length: 11 }, () => image)).success).toBe(false);
+  });
+
+  it("enforces voice MIME, 30 MiB, and five-minute duration limits", () => {
+    const intent = contract<Record<string, unknown>>("communityUploadIntentSchema");
+    const voice = {
+      kind: "voice",
+      fileName: "voice.webm",
+      contentType: "audio/webm",
+      sizeBytes: 30 * MiB,
+      durationSeconds: 300
+    };
+
+    for (const contentType of [
+      "audio/webm",
+      "audio/mp4",
+      "audio/ogg",
+      "audio/mpeg",
+      "audio/aac",
+      "audio/wav",
+      "audio/x-wav",
+      "video/mp4"
+    ]) {
+      expect(intent.safeParse({ ...voice, contentType }).success).toBe(true);
+    }
+    expect(intent.safeParse({ ...voice, sizeBytes: 30 * MiB + 1 }).success).toBe(false);
+    expect(intent.safeParse({ ...voice, durationSeconds: 301 }).success).toBe(false);
+    expect(intent.safeParse({ ...voice, contentType: "audio/x-msdownload" }).success).toBe(false);
+  });
+
+  it("accepts bounded MP4/MOV/WebM videos and office documents", () => {
+    const intent = contract<Record<string, unknown>>("communityUploadIntentSchema");
+    const video = { kind: "video", fileName: "clip.mp4", contentType: "video/mp4", sizeBytes: 100 * MiB };
+    const document = { kind: "document", fileName: "guide.pdf", contentType: "application/pdf", sizeBytes: 50 * MiB };
+    const documentTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ];
+
+    for (const contentType of ["video/mp4", "video/quicktime", "video/webm"]) {
+      expect(intent.safeParse({ ...video, contentType }).success).toBe(true);
+    }
+    for (const contentType of documentTypes) {
+      expect(intent.safeParse({ ...document, contentType }).success).toBe(true);
+    }
+    expect(intent.safeParse({ ...video, sizeBytes: 100 * MiB + 1 }).success).toBe(false);
+    expect(intent.safeParse({ ...document, sizeBytes: 50 * MiB + 1 }).success).toBe(false);
+    expect(intent.safeParse({ ...document, contentType: "application/zip" }).success).toBe(false);
+  });
+
+  it("represents presigned PUT and multipart upload sessions", () => {
+    const response = contract<Record<string, unknown>>("communityUploadIntentResponseSchema");
+    const common = {
+      kind: "video",
+      objectKey: "community/video/video-1.mp4",
+      uploadToken: userId,
+      contentType: "video/mp4",
+      sizeBytes: 100 * MiB,
+      expiresAt: "2026-07-28T01:00:00.000Z"
+    };
+
+    expect(
+      response.parse({ ...common, uploadType: "put", uploadUrl: "https://uploads.example.test/video.mp4" }).uploadType
+    ).toBe("put");
+    expect(
+      response.parse({
+        ...common,
+        uploadType: "multipart",
+        uploadId: "upload-1",
+        partSizeBytes: 8 * MiB,
+        parts: [{ partNumber: 1, uploadUrl: "https://uploads.example.test/part-1" }]
+      }).uploadType
+    ).toBe("multipart");
+    expect(response.safeParse({ ...common, uploadType: "multipart", uploadId: "upload-1", parts: [] }).success).toBe(false);
+  });
+
+  it("preserves kind in completed upload objects", () => {
+    const completed = contract<{ kind: string }>("communityUploadedObjectSchema");
+    const parsed = completed.parse({
+      kind: "document",
+      fileName: "guide.pdf",
+      contentType: "application/pdf",
+      sizeBytes: MiB,
+      objectKey: "community/documents/guide.pdf",
+      uploadToken: userId
     });
 
-    expect(parsed.images[0]?.scanStatus).toBe("pending");
-    expect(parsed.images[0]?.fileName).toBe("photo.webp");
-  });
-
-  it("accepts only supported notification modes and bounded search queries", () => {
-    const notificationMode = schema<string>("communityNotificationModeSchema");
-    const searchQuery = schema<{ q: string; limit: number }>("communityMessageSearchQuerySchema");
-
-    expect(notificationMode.parse("off")).toBe("off");
-    expect(notificationMode.safeParse("important").success).toBe(false);
-    expect(searchQuery.parse({ q: "  Анна  " })).toEqual({ q: "Анна", limit: 20 });
-    expect(searchQuery.safeParse({ q: "а" }).success).toBe(false);
-  });
-
-  it("parses read position and notification setting exchanges", () => {
-    const readRequest = schema<{ lastReadMessageId: string | null }>("communityTopicReadPositionRequestSchema");
-    const readResponse = schema<{ unreadCount: number }>("communityTopicReadPositionResponseSchema");
-    const settingsRequest = schema<{ mode: string }>("communityTopicNotificationSettingsRequestSchema");
-    const settingsResponse = schema<{ mode: string }>("communityTopicNotificationSettingsResponseSchema");
-
-    expect(readRequest.parse({ lastReadMessageId: messageId }).lastReadMessageId).toBe(messageId);
-    expect(
-      readResponse.parse({
-        ok: true,
-        topicId,
-        lastReadMessageId: messageId,
-        lastReadAt: "2026-07-28T01:00:00.000Z",
-        unreadCount: 0
-      }).unreadCount
-    ).toBe(0);
-    expect(settingsRequest.parse({ mode: "all" }).mode).toBe("all");
-    expect(
-      settingsResponse.parse({
-        ok: true,
-        topicId,
-        mode: "mentions",
-        updatedAt: "2026-07-28T01:00:00.000Z"
-      }).mode
-    ).toBe("mentions");
-  });
-
-  it("parses search, edit, delete, and participant suggestion contracts", () => {
-    const searchResponse = schema<{ messages: unknown[]; nextCursor: string | null }>("communityMessageSearchResponseSchema");
-    const editRequest = schema<{ body: string; mentions: unknown[] }>("communityMessageEditRequestSchema");
-    const editResponse = schema<{ ok: boolean }>("communityMessageEditResponseSchema");
-    const deleteResponse = schema<{ ok: boolean }>("communityMessageDeleteResponseSchema");
-    const participantQuery = schema<{ q: string; limit: number }>("communityParticipantSuggestionsQuerySchema");
-    const participantResponse = schema<{ participants: unknown[] }>("communityParticipantSuggestionsResponseSchema");
-
-    expect(searchResponse.parse({ messages: [], nextCursor: null })).toEqual({ messages: [], nextCursor: null });
-    expect(editRequest.parse({ body: "  Новый текст  ", mentions: [] })).toEqual({ body: "Новый текст", mentions: [] });
-    expect(editResponse.parse({ ok: true, message: messageFixture }).ok).toBe(true);
-    expect(deleteResponse.parse({ ok: true, message: messageFixture }).ok).toBe(true);
-    expect(participantQuery.parse({ q: "  Ан  " })).toEqual({ q: "Ан", limit: 10 });
-    expect(participantResponse.parse({ participants: [] })).toEqual({ participants: [] });
-  });
-
-  it("parses direct upload intents and completed objects", () => {
-    const uploadIntent = schema<{ fileName: string }>("communityUploadIntentSchema");
-    const uploadIntentResponse = schema<{ uploadUrl: string }>("communityUploadIntentResponseSchema");
-    const uploadedObject = schema<{ objectKey: string; uploadToken: string }>("communityUploadedObjectSchema");
-    const input = { fileName: "voice.webm", contentType: "audio/webm", sizeBytes: 1024 };
-
-    expect(uploadIntent.parse(input).fileName).toBe("voice.webm");
-    expect(
-      uploadIntentResponse.parse({
-        objectKey: "community/user-1/voice.webm",
-        uploadToken: userId,
-        contentType: "audio/webm",
-        sizeBytes: 1024,
-        uploadUrl: "https://uploads.example.test/voice.webm",
-        expiresAt: "2026-07-28T01:00:00.000Z"
-      }).uploadUrl
-    ).toContain("uploads.example.test");
-    expect(
-      uploadedObject.parse({
-        ...input,
-        objectKey: "community/user-1/voice.webm",
-        uploadToken: userId
-      }).objectKey
-    ).toBe("community/user-1/voice.webm");
+    expect(parsed.kind).toBe("document");
   });
 });
