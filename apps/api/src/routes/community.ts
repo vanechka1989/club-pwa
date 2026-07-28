@@ -6,6 +6,7 @@ import { streamSSE, type SSEMessage } from "hono/streaming";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import {
+  communityMessageSearchQuerySchema,
   communityTopicNotificationSettingsRequestSchema,
   communityTopicReadPositionRequestSchema,
   type ClubChat,
@@ -17,6 +18,7 @@ import {
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
+import { loadMessageContext, searchableMessageCondition, searchCommunityMessages } from "../community/messageSearch";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
@@ -44,6 +46,10 @@ const chatPayloadSchema = z.object({
 const messagePageQuerySchema = z.object({
   before: z.string().datetime({ offset: true }).optional(),
   limit: z.coerce.number().int().min(20).max(100).default(50)
+});
+const messageContextQuerySchema = z.object({
+  before: z.coerce.number().int().min(0).max(50).default(20),
+  after: z.coerce.number().int().min(0).max(50).default(20)
 });
 
 const topicPayloadSchema = z.object({
@@ -278,14 +284,21 @@ async function serializeMessage(
       avatarScale?: number | null;
     };
   },
-  currentUserId: string
+  currentUserId: string,
+  safeReplyPreview = false
 ): Promise<ClubMessage> {
   const reactions = await db.query.clubMessageReactions.findMany({
     where: eq(clubMessageReactions.messageId, message.id)
   });
   const replyTo = message.replyToMessageId
     ? await db.query.clubChatMessages.findFirst({
-        where: eq(clubChatMessages.id, message.replyToMessageId),
+        where: safeReplyPreview
+          ? and(
+              eq(clubChatMessages.id, message.replyToMessageId),
+              eq(clubChatMessages.topicId, message.topicId),
+              searchableMessageCondition()
+            )
+          : eq(clubChatMessages.id, message.replyToMessageId),
         with: {
           user: true
         }
@@ -943,6 +956,69 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json(await topicStateRepository.getState(c.get("userId"), topic.id));
+  })
+  .get("/messages/search", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
+    const query = communityMessageSearchQuerySchema.safeParse(c.req.query());
+    if (!query.success) {
+      return c.json({ error: "Invalid message search" }, 400);
+    }
+
+    await purgeExpiredDeletedMessages();
+    if (query.data.topicId) {
+      const topic = await getAccessibleTopic(query.data.topicId, role);
+      if (!topic) {
+        return c.json({ error: "Topic not found" }, 404);
+      }
+    }
+
+    return c.json(
+      await searchCommunityMessages({
+        query: query.data.q,
+        limit: query.data.limit,
+        role,
+        ...(query.data.topicId ? { topicId: query.data.topicId } : {}),
+        ...(query.data.before ? { before: query.data.before } : {})
+      })
+    );
+  })
+  .get("/topics/:topicId/messages/:messageId/context", async (c) => {
+    const role = await getCommunityRole(c);
+    const accessError = await ensureCommunityAccess(c, role);
+    if (accessError) {
+      return accessError;
+    }
+
+    const query = messageContextQuerySchema.safeParse(c.req.query());
+    if (!query.success) {
+      return c.json({ error: "Invalid message context" }, 400);
+    }
+
+    await purgeExpiredDeletedMessages();
+    const topic = await getAccessibleTopic(c.req.param("topicId"), role);
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
+    }
+
+    const context = await loadMessageContext({
+      topicId: topic.id,
+      messageId: c.req.param("messageId"),
+      before: query.data.before,
+      after: query.data.after
+    });
+    if (!context) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    return c.json({
+      targetMessageId: context.targetMessageId,
+      messages: await Promise.all(context.messages.map((message) => serializeMessage(message, c.get("userId"), true)))
+    });
   })
   .get("/topics/:id/messages", async (c) => {
     const role = await getCommunityRole(c);

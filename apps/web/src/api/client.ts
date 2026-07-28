@@ -31,6 +31,7 @@ import type {
   AdminLoginIpsResponse,
   ClubChatMutationResponse,
   ClubChatsResponse,
+  ClubMessage,
   ClubMessageMutationResponse,
   ClubMessageReactionMutationResponse,
   ClubMessagesResponse,
@@ -61,6 +62,7 @@ import type {
   LearningProgressMutationResponse,
   MessageReaction,
   CommunityNotificationMode,
+  CommunityMessageSearchResponse,
   CommunityTopicNotificationSettingsRequest,
   CommunityTopicNotificationSettingsResponse,
   CommunityTopicReadPositionRequest,
@@ -249,6 +251,26 @@ export function updateCommunityTopicNotificationSettings(topicId: string, mode: 
 export function getClubMessages(topicId: string, before?: string | null) {
   const query = before ? `?before=${encodeURIComponent(before)}` : "";
   return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages${query}`);
+}
+
+export function searchCommunityMessages(query: {
+  q: string;
+  topicId?: string;
+  before?: string;
+  limit?: number;
+}) {
+  return api<CommunityMessageSearchResponse>("/community/messages/search", { query });
+}
+
+export function getCommunityMessageContext(
+  topicId: string,
+  messageId: string,
+  options: { before?: number; after?: number } = {}
+) {
+  return api<{ targetMessageId: string; messages: ClubMessage[] }>(
+    `/community/topics/${encodeURIComponent(topicId)}/messages/${encodeURIComponent(messageId)}/context`,
+    { query: options }
+  );
 }
 
 export function deleteTopicMessages(topicId: string) {
