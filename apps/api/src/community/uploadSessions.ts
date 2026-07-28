@@ -95,7 +95,7 @@ function isMissingMultipartUpload(error: unknown) {
     || typeof candidate.message === "string" && /NoSuchUpload/i.test(candidate.message);
 }
 
-const activeCleanupStatuses = new Set(["completing", "processing", "normalizing", "scanning"]);
+const activeCleanupStatuses = new Set(["completing", "processing", "normalizing", "publishing", "scanning"]);
 const cleanupStaleMs = 15 * 60 * 1000;
 
 export function isCommunityUploadCleanupCandidate(
@@ -135,7 +135,7 @@ export async function runCommunityUploadExpiryCleanupBatch(limit = 25) {
   const now = new Date();
   const staleWorkAt = new Date(now.getTime() - cleanupStaleMs);
   const immediatelyReclaimable = ["uploading", "aborting", "pending", "ready", "failed", "cleanup_pending", "rejected"];
-  const staleWork = ["completing", "processing", "normalizing", "scanning"];
+  const staleWork = ["completing", "processing", "normalizing", "publishing", "scanning"];
   const manifests = await db.query.communityUploadManifests.findMany({
     where: and(
       lte(communityUploadManifests.expiresAt, now),

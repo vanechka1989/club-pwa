@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { processCommunityMediaManifest, shouldProcessCommunityMediaManifest } from "./mediaProcessor";
+import {
+  cleanupCommunityMediaCandidate,
+  processCommunityMediaManifest,
+  shouldProcessCommunityMediaManifest
+} from "./mediaProcessor";
 
 const manifest = {
   id: "manifest-1",
@@ -23,6 +27,8 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     uploadFile: async () => undefined,
     mirrorToReserve: async () => undefined,
     deleteCopies: async () => undefined,
+    registerCandidate: async () => undefined,
+    cleanupCandidate: async () => undefined,
     complete: async () => undefined,
     fail: async () => undefined,
     ...overrides
@@ -83,11 +89,14 @@ describe("bounded community media processor", () => {
         }
         objects.set(key, payload);
       },
-      complete: async (_manifestId: string, result: { finalObjectKey: string }) => {
+      complete: async (_manifestId: string, result: { candidateObjectKey: string; finalObjectKey: string }) => {
         if (state.lease !== leaseToken || state.status !== "normalizing") throw new Error("manifest_lease_lost");
+        objects.set(result.finalObjectKey, objects.get(result.candidateObjectKey)!);
+        objects.delete(result.candidateObjectKey);
         state.status = "ready";
         state.finalObjectKey = result.finalObjectKey;
       },
+      cleanupCandidate: async (_manifestId: string, key: string) => { objects.delete(key); },
       deleteCopies: async (key: string) => { objects.delete(key); }
     }));
 
@@ -101,6 +110,93 @@ describe("bounded community media processor", () => {
     expect(state).toMatchObject({ lease: "lease-b", status: "ready" });
     expect(state.finalObjectKey).toBeTruthy();
     expect(objects).toEqual(new Map([[state.finalObjectKey!, "winner-bytes"]]));
+  });
+
+  it("durably registers a candidate before upload and schedules both copies for cleanup after mirror failure", async () => {
+    const events: string[] = [];
+    const fail = vi.fn(async () => false);
+    const cleanupCandidate = vi.fn(async (_manifestId: string, key: string) => { events.push(`cleanup:${key}`); });
+
+    await expect(processCommunityMediaManifest({ ...manifest, leaseToken: "33333333-3333-4333-8333-333333333333" }, dependencies({
+      registerCandidate: async (_manifestId: string, result: { candidateObjectKey: string }) => {
+        events.push(`register:${result.candidateObjectKey}`);
+      },
+      uploadFile: async ({ key }: { key: string }) => { events.push(`upload:${key}`); },
+      mirrorToReserve: async (key: string) => {
+        events.push(`mirror:${key}`);
+        throw new Error("reserve_unavailable");
+      },
+      cleanupCandidate,
+      fail
+    }))).resolves.toBe("lease_lost");
+
+    expect(events).toEqual([
+      expect.stringMatching(/^register:community\/candidates\//),
+      expect.stringMatching(/^upload:community\/candidates\//),
+      expect.stringMatching(/^mirror:community\/candidates\//),
+      expect.stringMatching(/^cleanup:community\/candidates\//)
+    ]);
+    expect(cleanupCandidate).toHaveBeenCalledTimes(1);
+  });
+
+  it("sweeps an interrupted stale candidate without touching the published winner", async () => {
+    const deleted: Array<{ target: "primary" | "reserve"; key: string }> = [];
+    const markComplete = vi.fn(async () => undefined);
+    const result = await cleanupCommunityMediaCandidate({
+      id: "candidate-a",
+      candidateObjectKey: "community/candidates/user/day/lease-a-photo.webp",
+      finalObjectKey: "community/final/user/day/lease-a-photo.webp",
+      status: "staged",
+      updatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestStatus: "normalizing",
+      leaseUpdatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestUpdatedAt: new Date("2026-07-29T00:05:00.000Z")
+    }, {
+      claim: async () => true,
+      deleteCopies: async (key) => {
+        deleted.push({ target: "primary", key }, { target: "reserve", key });
+      },
+      markComplete,
+      markRetry: async () => undefined
+    });
+
+    expect(result).toBe("cleaned");
+    expect(deleted).toEqual([
+      { target: "primary", key: "community/candidates/user/day/lease-a-photo.webp" },
+      { target: "reserve", key: "community/candidates/user/day/lease-a-photo.webp" }
+    ]);
+    expect(deleted.map(({ key }) => key)).not.toContain("community/final/user/day/lease-a-photo.webp");
+    expect(markComplete).toHaveBeenCalledWith("candidate-a", "cleaned");
+  });
+
+  it("leaves failed candidate cleanup retryable and succeeds on the next sweep", async () => {
+    const candidate = {
+      id: "candidate-a",
+      candidateObjectKey: "community/candidates/user/day/lease-a-photo.webp",
+      finalObjectKey: "community/final/user/day/lease-a-photo.webp",
+      status: "cleanup_pending" as const,
+      updatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestStatus: "failed",
+      leaseUpdatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestUpdatedAt: new Date("2026-07-29T00:05:00.000Z")
+    };
+    let attempts = 0;
+    const markRetry = vi.fn(async () => undefined);
+    const markComplete = vi.fn(async () => undefined);
+    const cleanup = {
+      claim: async () => true,
+      deleteCopies: async () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("s3_timeout");
+      },
+      markComplete,
+      markRetry
+    };
+
+    await expect(cleanupCommunityMediaCandidate(candidate, cleanup)).resolves.toBe("retry");
+    await expect(cleanupCommunityMediaCandidate(candidate, cleanup)).resolves.toBe("cleaned");
+    expect(markRetry).toHaveBeenCalledWith("candidate-a", "s3_timeout");
+    expect(markComplete).toHaveBeenCalledWith("candidate-a", "cleaned");
   });
 
   it("rejects an actual voice duration over five minutes even when the client declared one second", async () => {
@@ -143,14 +239,15 @@ describe("bounded community media processor", () => {
       "probe:C:/tmp/input",
       "transcode:C:/tmp/input:C:/tmp/output",
       "probe:C:/tmp/output",
-      expect.stringMatching(/^upload:community\/final\//),
-      expect.stringMatching(/^mirror:community\/final\//),
+      expect.stringMatching(/^upload:community\/candidates\//),
+      expect.stringMatching(/^mirror:community\/candidates\//),
       "complete",
       `delete:${manifest.quarantineObjectKey}`
     ]);
     expect(complete).toHaveBeenCalledWith(manifest.id, expect.objectContaining({
       contentType: "audio/mp4",
       durationSeconds: 300,
+      candidateObjectKey: expect.stringMatching(/^community\/candidates\//),
       finalObjectKey: expect.stringMatching(/^community\/final\//)
     }));
   });

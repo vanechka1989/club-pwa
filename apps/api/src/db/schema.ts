@@ -997,11 +997,38 @@ export const communityUploadManifests = pgTable(
     expiryIdx: index("community_upload_manifests_expiry_idx").on(table.expiresAt, table.status),
     statusCheck: check(
       "community_upload_manifests_status_check",
-      sql`${table.status} in ('uploading','completing','processing','normalizing','pending','scanning','ready','failed','cleanup_pending','rejected','aborting','aborted')`
+      sql`${table.status} in ('uploading','completing','processing','normalizing','publishing','pending','scanning','ready','failed','cleanup_pending','rejected','aborting','aborted')`
     ),
     uploadTypeCheck: check(
       "community_upload_manifests_upload_type_check",
       sql`${table.uploadType} in ('put','multipart')`
+    )
+  })
+);
+
+export const communityMediaCandidates = pgTable(
+  "community_media_candidates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    manifestId: uuid("manifest_id").notNull(),
+    leaseToken: uuid("lease_token").notNull(),
+    leaseUpdatedAt: timestamp("lease_updated_at", { withTimezone: true }).notNull(),
+    candidateObjectKey: text("candidate_object_key").notNull(),
+    finalObjectKey: text("final_object_key").notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+    status: varchar("status", { length: 32 }).notNull().default("staged"),
+    errorCode: varchar("error_code", { length: 160 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    manifestLeaseIdx: uniqueIndex("community_media_candidates_manifest_lease_idx").on(table.manifestId, table.leaseToken),
+    candidateKeyIdx: uniqueIndex("community_media_candidates_candidate_key_idx").on(table.candidateObjectKey),
+    finalKeyIdx: uniqueIndex("community_media_candidates_final_key_idx").on(table.finalObjectKey),
+    statusUpdatedIdx: index("community_media_candidates_status_updated_idx").on(table.status, table.updatedAt),
+    statusCheck: check(
+      "community_media_candidates_status_check",
+      sql`${table.status} in ('staged','publishing','cleanup_pending','published_cleanup_pending','published','cleaned')`
     )
   })
 );

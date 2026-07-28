@@ -144,7 +144,7 @@ describe("community upload session recovery and cleanup", () => {
     for (const status of ["ready", "pending", "failed", "cleanup_pending", "rejected"]) {
       expect(isCommunityUploadCleanupCandidate({ status, consumedAt: null, expiresAt: now, updatedAt: fresh }, now)).toBe(true);
     }
-    for (const status of ["completing", "processing", "normalizing", "scanning"]) {
+    for (const status of ["completing", "processing", "normalizing", "publishing", "scanning"]) {
       expect(isCommunityUploadCleanupCandidate({ status, consumedAt: null, expiresAt: now, updatedAt: fresh }, now)).toBe(false);
       expect(isCommunityUploadCleanupCandidate({ status, consumedAt: null, expiresAt: now, updatedAt: stale }, now)).toBe(true);
     }

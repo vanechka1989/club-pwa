@@ -207,7 +207,7 @@ const communityUploadService = createCommunityUploadService({
     if (!existing) return { ok: false as const, error: "foreign_object" as const };
     if (existing.requestFingerprint !== record.fingerprint) return { ok: false as const, error: "intent_mismatch" as const };
     const replayKey = existing.finalObjectKey ?? existing.quarantineObjectKey;
-    if (replayKey && ["processing", "normalizing", "pending", "scanning", "ready", "failed", "rejected", "cleanup_pending"].includes(existing.status)) {
+    if (replayKey && ["processing", "normalizing", "publishing", "pending", "scanning", "ready", "failed", "rejected", "cleanup_pending"].includes(existing.status)) {
       if (existing.result && typeof existing.result === "object") {
         return { ok: true as const, replay: existing.result as CommunityUploadResult };
       }

@@ -397,7 +397,7 @@ function buildCommunityDestinationObjectKey({
   fileName,
   now = new Date()
 }: {
-  prefix: "final" | "quarantine";
+  prefix: "candidates" | "final" | "quarantine";
   userId: string;
   uploadToken: string;
   fileName: string;
@@ -408,6 +408,10 @@ function buildCommunityDestinationObjectKey({
 
 export function buildCommunityFinalObjectKey(input: Omit<Parameters<typeof buildCommunityDestinationObjectKey>[0], "prefix">) {
   return buildCommunityDestinationObjectKey({ ...input, prefix: "final" });
+}
+
+export function buildCommunityCandidateObjectKey(input: Omit<Parameters<typeof buildCommunityDestinationObjectKey>[0], "prefix">) {
+  return buildCommunityDestinationObjectKey({ ...input, prefix: "candidates" });
 }
 
 export function buildCommunityQuarantineObjectKey(input: Omit<Parameters<typeof buildCommunityDestinationObjectKey>[0], "prefix">) {

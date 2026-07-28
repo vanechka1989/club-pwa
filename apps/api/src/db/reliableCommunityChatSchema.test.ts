@@ -7,6 +7,7 @@ import {
   clubChatMessages,
   clubMessageAttachments,
   clubMessageMentions,
+  communityMediaCandidates,
   communityUploadManifests,
   communityTopicNotificationSettings,
   communityTopicReads
@@ -15,6 +16,7 @@ import {
 const migration = readFileSync(new URL("../../drizzle/0063_reliable_community_chat.sql", import.meta.url), "utf8");
 const reliabilityMigration = readFileSync(new URL("../../drizzle/0064_community_message_reliability.sql", import.meta.url), "utf8");
 const uploadManifestMigration = readFileSync(new URL("../../drizzle/0065_community_upload_manifests.sql", import.meta.url), "utf8");
+const mediaCandidateMigration = readFileSync(new URL("../../drizzle/0066_community_media_candidates.sql", import.meta.url), "utf8");
 
 const foreignKeys = (table: Parameters<typeof getTableConfig>[0]) =>
   getTableConfig(table).foreignKeys.map((key) => {
@@ -97,6 +99,15 @@ describe("reliable community chat Drizzle metadata", () => {
     expect(config.indexes.find((item) => item.config.name === "community_upload_manifests_token_idx")?.config.unique).toBe(true);
     expect(config.checks.map((item) => item.name)).toContain("community_upload_manifests_status_check");
   });
+
+  it("tracks lease-unique media candidates for retryable publication and cleanup", () => {
+    const config = getTableConfig(communityMediaCandidates);
+    expect(config.name).toBe("community_media_candidates");
+    expect(config.indexes.find((item) => item.config.name === "community_media_candidates_manifest_lease_idx")?.config.unique).toBe(true);
+    expect(config.indexes.find((item) => item.config.name === "community_media_candidates_candidate_key_idx")?.config.unique).toBe(true);
+    expect(config.indexes.find((item) => item.config.name === "community_media_candidates_final_key_idx")?.config.unique).toBe(true);
+    expect(config.checks.map((item) => item.name)).toContain("community_media_candidates_status_check");
+  });
 });
 
 describe("reliable community chat migration", () => {
@@ -130,5 +141,14 @@ describe("reliable community chat migration", () => {
     expect(uploadManifestMigration).toContain('"final_object_key" text');
     expect(uploadManifestMigration).toContain('"attachment_id" uuid');
     expect(migrationJournal.entries.find((entry) => entry.tag === "0065_community_upload_manifests")).toMatchObject({ idx: 65 });
+  });
+
+  it("adds durable media candidate tracking in migration 66", () => {
+    expect(mediaCandidateMigration).toContain('CREATE TABLE "community_media_candidates"');
+    expect(mediaCandidateMigration).toContain('"lease_updated_at" timestamptz NOT NULL');
+    expect(mediaCandidateMigration).toContain('"candidate_object_key" text NOT NULL');
+    expect(mediaCandidateMigration).toContain('"final_object_key" text NOT NULL');
+    expect(mediaCandidateMigration).toContain("'published_cleanup_pending'");
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0066_community_media_candidates")).toMatchObject({ idx: 66 });
   });
 });
