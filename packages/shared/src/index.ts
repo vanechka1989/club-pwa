@@ -833,6 +833,27 @@ export const clubChatSchema = z.object({
 });
 export type ClubChat = z.infer<typeof clubChatSchema>;
 
+export const communityNotificationModeSchema = z.enum(["all", "mentions", "off"]);
+export type CommunityNotificationMode = z.infer<typeof communityNotificationModeSchema>;
+
+export const communityMentionSchema = z.object({
+  userId: z.string().uuid(),
+  displayName: z.string().min(1).max(160),
+  start: z.number().int().nonnegative(),
+  end: z.number().int().positive()
+});
+export type CommunityMention = z.infer<typeof communityMentionSchema>;
+
+export const communityAttachmentScanStatusSchema = z.enum(["pending", "ready", "failed"]);
+export type CommunityAttachmentScanStatus = z.infer<typeof communityAttachmentScanStatusSchema>;
+
+const communityAttachmentStateSchema = z.object({
+  fileName: z.string().trim().min(1).max(255).nullable().default(null),
+  scanStatus: communityAttachmentScanStatusSchema.default("ready"),
+  scannedAt: z.string().datetime().nullable().default(null),
+  scanError: z.string().max(160).nullable().default(null)
+});
+
 export const clubTopicSchema = z.object({
   id: z.string(),
   chatId: z.string(),
@@ -845,6 +866,8 @@ export const clubTopicSchema = z.object({
   archivedUntil: z.string().datetime().nullable(),
   messagesCount: z.number().int().nonnegative(),
   latestReplyToMeAt: z.string().datetime().nullable(),
+  unreadCount: z.number().int().nonnegative().default(0),
+  notificationMode: communityNotificationModeSchema.default("mentions"),
   createdAt: z.string().datetime()
 });
 export type ClubTopic = z.infer<typeof clubTopicSchema>;
@@ -864,20 +887,23 @@ export const clubMessageSchema = z.object({
       expiresAt: z.string().datetime().nullable(),
       deletedAt: z.string().datetime().nullable()
     })
+    .merge(communityAttachmentStateSchema)
     .nullable()
     .default(null),
   images: z
     .array(
-      z.object({
-        id: z.string(),
-        url: z.string().url().nullable(),
-        contentType: z.string(),
-        sizeBytes: z.number().int().nonnegative(),
-        width: z.number().int().positive(),
-        height: z.number().int().positive(),
-        expiresAt: z.string().datetime().nullable(),
-        deletedAt: z.string().datetime().nullable()
-      })
+      z
+        .object({
+          id: z.string(),
+          url: z.string().url().nullable(),
+          contentType: z.string(),
+          sizeBytes: z.number().int().nonnegative(),
+          width: z.number().int().positive(),
+          height: z.number().int().positive(),
+          expiresAt: z.string().datetime().nullable(),
+          deletedAt: z.string().datetime().nullable()
+        })
+        .merge(communityAttachmentStateSchema)
     )
     .default([]),
   poll: z
@@ -931,9 +957,122 @@ export const clubMessageSchema = z.object({
     })
     .nullable(),
   pinnedAt: z.string().datetime().nullable().optional(),
+  editedAt: z.string().datetime().nullable().default(null),
+  deletedByUserAt: z.string().datetime().nullable().default(null),
+  clientOperationId: z.string().trim().min(1).max(96).nullable().default(null),
+  mentions: z.array(communityMentionSchema).default([]),
   createdAt: z.string().datetime()
 });
 export type ClubMessage = z.infer<typeof clubMessageSchema>;
+
+export const communityTopicReadPositionRequestSchema = z.object({
+  lastReadMessageId: z.string().uuid().nullable()
+});
+export type CommunityTopicReadPositionRequest = z.infer<typeof communityTopicReadPositionRequestSchema>;
+
+export const communityTopicReadPositionResponseSchema = z.object({
+  ok: z.boolean(),
+  topicId: z.string().uuid(),
+  lastReadMessageId: z.string().uuid().nullable(),
+  lastReadAt: z.string().datetime(),
+  unreadCount: z.number().int().nonnegative()
+});
+export type CommunityTopicReadPositionResponse = z.infer<typeof communityTopicReadPositionResponseSchema>;
+
+export const communityTopicNotificationSettingsRequestSchema = z.object({
+  mode: communityNotificationModeSchema
+});
+export type CommunityTopicNotificationSettingsRequest = z.infer<typeof communityTopicNotificationSettingsRequestSchema>;
+
+export const communityTopicNotificationSettingsResponseSchema = z.object({
+  ok: z.boolean(),
+  topicId: z.string().uuid(),
+  mode: communityNotificationModeSchema,
+  updatedAt: z.string().datetime()
+});
+export type CommunityTopicNotificationSettingsResponse = z.infer<typeof communityTopicNotificationSettingsResponseSchema>;
+
+export const communityMessageSearchQuerySchema = z.object({
+  q: z.string().trim().min(2).max(120),
+  topicId: z.string().uuid().optional(),
+  before: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20)
+});
+export type CommunityMessageSearchQuery = z.infer<typeof communityMessageSearchQuerySchema>;
+
+export const communityMessageSearchResponseSchema = z.object({
+  messages: z.array(clubMessageSchema),
+  nextCursor: z.string().datetime().nullable()
+});
+export type CommunityMessageSearchResponse = z.infer<typeof communityMessageSearchResponseSchema>;
+
+export const communityMessageEditRequestSchema = z.object({
+  body: z.string().trim().min(1).max(3000),
+  mentions: z.array(communityMentionSchema).default([])
+});
+export type CommunityMessageEditRequest = z.infer<typeof communityMessageEditRequestSchema>;
+
+export const communityMessageEditResponseSchema = z.object({
+  ok: z.boolean(),
+  message: clubMessageSchema
+});
+export type CommunityMessageEditResponse = z.infer<typeof communityMessageEditResponseSchema>;
+
+export const communityMessageDeleteResponseSchema = z.object({
+  ok: z.boolean(),
+  message: clubMessageSchema
+});
+export type CommunityMessageDeleteResponse = z.infer<typeof communityMessageDeleteResponseSchema>;
+
+export const communityParticipantSuggestionsQuerySchema = z.object({
+  q: z.string().trim().min(1).max(120),
+  limit: z.coerce.number().int().min(1).max(20).default(10)
+});
+export type CommunityParticipantSuggestionsQuery = z.infer<typeof communityParticipantSuggestionsQuerySchema>;
+
+export const communityParticipantSuggestionsResponseSchema = z.object({
+  participants: z.array(commentAuthorSchema)
+});
+export type CommunityParticipantSuggestionsResponse = z.infer<typeof communityParticipantSuggestionsResponseSchema>;
+
+export const communityUploadContentTypeSchema = z.enum([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg",
+  "audio/mpeg",
+  "audio/aac",
+  "audio/wav"
+]);
+export type CommunityUploadContentType = z.infer<typeof communityUploadContentTypeSchema>;
+
+export const communityUploadIntentSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  contentType: communityUploadContentTypeSchema,
+  sizeBytes: z.number().int().positive().max(50 * 1024 * 1024)
+});
+export type CommunityUploadIntent = z.infer<typeof communityUploadIntentSchema>;
+
+export const communityUploadedObjectSchema = communityUploadIntentSchema.extend({
+  objectKey: z.string().trim().min(1).max(512),
+  uploadToken: z.string().uuid()
+});
+export type CommunityUploadedObject = z.infer<typeof communityUploadedObjectSchema>;
+
+export const communityUploadIntentResponseSchema = communityUploadedObjectSchema.omit({ fileName: true }).extend({
+  uploadUrl: z.string().trim().min(1),
+  expiresAt: z.string().datetime()
+});
+export type CommunityUploadIntentResponse = z.infer<typeof communityUploadIntentResponseSchema>;
+
+export const communityReadPositionRequestSchema = communityTopicReadPositionRequestSchema;
+export const communityReadPositionResponseSchema = communityTopicReadPositionResponseSchema;
+export const communityNotificationSettingsRequestSchema = communityTopicNotificationSettingsRequestSchema;
+export const communityNotificationSettingsResponseSchema = communityTopicNotificationSettingsResponseSchema;
 
 export const clubChatsResponseSchema = z.object({
   chats: z.array(clubChatSchema)

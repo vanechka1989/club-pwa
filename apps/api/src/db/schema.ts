@@ -1,5 +1,5 @@
-import { relations } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { boolean, check, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
 export const contentKind = pgEnum("content_kind", ["text", "photo", "video", "audio"]);
@@ -892,6 +892,10 @@ export const clubChatMessages = pgTable(
     pinnedAt: timestamp("pinned_at", { withTimezone: true }),
     pinnedByUserId: uuid("pinned_by_user_id").references(() => users.id, { onDelete: "set null" }),
     purgeAt: timestamp("purge_at", { withTimezone: true }),
+    clientOperationId: varchar("client_operation_id", { length: 96 }),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    deletedByUserAt: timestamp("deleted_by_user_at", { withTimezone: true }),
+    deletedContentExpiresAt: timestamp("deleted_content_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -903,7 +907,15 @@ export const clubChatMessages = pgTable(
     ),
     userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt),
     topicPinnedIdx: index("club_chat_messages_topic_pinned_idx").on(table.topicId, table.pinnedAt),
-    createdAtIdx: index("club_chat_messages_created_at_idx").on(table.createdAt)
+    createdAtIdx: index("club_chat_messages_created_at_idx").on(table.createdAt),
+    userOperationIdx: uniqueIndex("club_chat_messages_user_operation_idx")
+      .on(table.userId, table.clientOperationId)
+      .where(sql`${table.clientOperationId} is not null`),
+    searchIdx: index("club_chat_messages_search_idx").using(
+      "gin",
+      sql`to_tsvector('simple', coalesce(${table.body}, ''))`
+    ),
+    deletedExpiryIdx: index("club_chat_messages_deleted_expiry_idx").on(table.deletedContentExpiresAt)
   })
 );
 
@@ -914,6 +926,7 @@ export const clubMessageAttachments = pgTable(
     messageId: uuid("message_id").notNull().references(() => clubChatMessages.id, { onDelete: "cascade" }),
     kind: varchar("kind", { length: 16 }).notNull(),
     objectKey: text("object_key").notNull(),
+    fileName: varchar("file_name", { length: 255 }),
     contentType: varchar("content_type", { length: 160 }).notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     durationSeconds: integer("duration_seconds"),
@@ -922,11 +935,55 @@ export const clubMessageAttachments = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    scanStatus: varchar("scan_status", { length: 16 }).notNull().default("ready"),
+    scannedAt: timestamp("scanned_at", { withTimezone: true }),
+    scanError: varchar("scan_error", { length: 160 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     messageSortIdx: index("club_message_attachments_message_sort_idx").on(table.messageId, table.sortOrder),
+    objectKeyIdx: uniqueIndex("club_message_attachments_object_key_idx").on(table.objectKey),
     expiryIdx: index("club_message_attachments_expiry_idx").on(table.expiresAt, table.deletedAt)
+  })
+);
+
+export const communityTopicReads = pgTable(
+  "community_topic_reads",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id").notNull().references(() => clubChatTopics.id, { onDelete: "cascade" }),
+    lastReadMessageId: uuid("last_read_message_id").references(() => clubChatMessages.id, { onDelete: "set null" }),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.topicId] })
+  })
+);
+
+export const communityTopicNotificationSettings = pgTable(
+  "community_topic_notification_settings",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id").notNull().references(() => clubChatTopics.id, { onDelete: "cascade" }),
+    mode: varchar("mode", { length: 16 }).notNull().default("mentions"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.topicId] }),
+    modeCheck: check("community_topic_notification_settings_mode_check", sql`${table.mode} in ('all', 'mentions', 'off')`)
+  })
+);
+
+export const clubMessageMentions = pgTable(
+  "club_message_mentions",
+  {
+    messageId: uuid("message_id").notNull().references(() => clubChatMessages.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    startOffset: integer("start_offset").notNull(),
+    endOffset: integer("end_offset").notNull()
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.messageId, table.userId] })
   })
 );
 
@@ -1198,6 +1255,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   lessonComments: many(lessonComments),
   mutes: many(userMutes),
   chatMessages: many(clubChatMessages),
+  communityTopicReads: many(communityTopicReads),
+  communityTopicNotificationSettings: many(communityTopicNotificationSettings),
+  communityMessageMentions: many(clubMessageMentions),
   notifications: many(appNotifications),
   createdMailings: many(adminMailings),
   mailingRecipients: many(adminMailingRecipients)
@@ -1474,7 +1534,9 @@ export const clubChatTopicsRelations = relations(clubChatTopics, ({ one, many })
     fields: [clubChatTopics.createdByUserId],
     references: [users.id]
   }),
-  messages: many(clubChatMessages)
+  messages: many(clubChatMessages),
+  reads: many(communityTopicReads),
+  notificationSettings: many(communityTopicNotificationSettings)
 }));
 
 export const clubChatMessagesRelations = relations(clubChatMessages, ({ one, many }) => ({
@@ -1496,11 +1558,38 @@ export const clubChatMessagesRelations = relations(clubChatMessages, ({ one, man
     relationName: "message_replies"
   }),
   attachments: many(clubMessageAttachments),
+  mentions: many(clubMessageMentions),
+  readPositions: many(communityTopicReads),
   polls: many(clubPolls)
 }));
 
 export const clubMessageAttachmentsRelations = relations(clubMessageAttachments, ({ one }) => ({
   message: one(clubChatMessages, { fields: [clubMessageAttachments.messageId], references: [clubChatMessages.id] })
+}));
+
+export const communityTopicReadsRelations = relations(communityTopicReads, ({ one }) => ({
+  user: one(users, { fields: [communityTopicReads.userId], references: [users.id] }),
+  topic: one(clubChatTopics, { fields: [communityTopicReads.topicId], references: [clubChatTopics.id] }),
+  lastReadMessage: one(clubChatMessages, {
+    fields: [communityTopicReads.lastReadMessageId],
+    references: [clubChatMessages.id]
+  })
+}));
+
+export const communityTopicNotificationSettingsRelations = relations(
+  communityTopicNotificationSettings,
+  ({ one }) => ({
+    user: one(users, { fields: [communityTopicNotificationSettings.userId], references: [users.id] }),
+    topic: one(clubChatTopics, {
+      fields: [communityTopicNotificationSettings.topicId],
+      references: [clubChatTopics.id]
+    })
+  })
+);
+
+export const clubMessageMentionsRelations = relations(clubMessageMentions, ({ one }) => ({
+  message: one(clubChatMessages, { fields: [clubMessageMentions.messageId], references: [clubChatMessages.id] }),
+  user: one(users, { fields: [clubMessageMentions.userId], references: [users.id] })
 }));
 
 export const clubPollsRelations = relations(clubPolls, ({ one, many }) => ({
@@ -1641,6 +1730,9 @@ export type ClubChat = typeof clubChats.$inferSelect;
 export type ClubChatTopic = typeof clubChatTopics.$inferSelect;
 export type ClubChatMessage = typeof clubChatMessages.$inferSelect;
 export type ClubMessageAttachment = typeof clubMessageAttachments.$inferSelect;
+export type CommunityTopicRead = typeof communityTopicReads.$inferSelect;
+export type CommunityTopicNotificationSetting = typeof communityTopicNotificationSettings.$inferSelect;
+export type ClubMessageMention = typeof clubMessageMentions.$inferSelect;
 export type ClubPoll = typeof clubPolls.$inferSelect;
 export type ClubPollOption = typeof clubPollOptions.$inferSelect;
 export type ClubPollVote = typeof clubPollVotes.$inferSelect;
