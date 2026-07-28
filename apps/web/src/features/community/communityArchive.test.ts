@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readAppStyles } from "@/test/appStyles";
 
-const source = readFileSync(resolve(__dirname, "CommunitySection.vue"), "utf8");
+const sectionSource = readFileSync(resolve(__dirname, "CommunitySection.vue"), "utf8");
+const topicListSource = readFileSync(resolve(__dirname, "ChatTopicList.vue"), "utf8");
+const roomSource = readFileSync(resolve(__dirname, "ChatRoom.vue"), "utf8");
+const messageSource = readFileSync(resolve(__dirname, "ChatMessage.vue"), "utf8");
+const moderationSource = readFileSync(resolve(__dirname, "ChatModerationMenu.vue"), "utf8");
 const styles = readAppStyles("community");
 const communityStyles = readFileSync(resolve(__dirname, "community.css"), "utf8");
 const foundation = readFileSync(resolve(__dirname, "../ui/foundation.css"), "utf8");
@@ -11,28 +15,28 @@ const main = readFileSync(resolve(__dirname, "../../main.ts"), "utf8");
 
 describe("community archive labels", () => {
   it("shows when archived topics will be deleted", () => {
-    expect(source).toContain("formatArchiveDeletionLabel(topic.archivedUntil)");
-    expect(source).not.toContain("В архиве до {{ formatArchiveUntil");
+    expect(topicListSource).toContain("formatArchiveDeletionLabel(topic.archivedUntil)");
+    expect(topicListSource).not.toContain("В архиве до {{ formatArchiveUntil");
   });
 
   it("uses the shared viewport measurement instead of a second chat viewport", () => {
-    expect(source).not.toContain("--club-chat-viewport-height");
-    expect(source).not.toContain("bindChatViewportHeight");
+    expect(sectionSource).not.toContain("--club-chat-viewport-height");
+    expect(sectionSource).not.toContain("bindChatViewportHeight");
   });
 
   it("loads the canonical community stylesheet only with the lazy community section", () => {
     expect(main).toContain('import "./features/ui/foundation.css"');
     expect(main).not.toContain('import "./features/community/community.css"');
-    expect(source).toContain('import "./community.css"');
+    expect(sectionSource).toContain('import "./community.css"');
     expect(foundation).not.toContain(".community-chat-open .chat-room");
   });
 
   it("does not show a chat update alert for automatic polling failures", () => {
-    expect(source).toContain("void refreshSelectedTopic({ silent: true });");
+    expect(sectionSource).toContain("void refreshSelectedTopic({ silent: true });");
   });
 
   it("uses the compact shared gap below the community header", () => {
-    expect(source).toContain('class="community-section-content"');
+    expect(sectionSource).toContain('class="community-section-content"');
     const rule = styles.match(/\.community-section-content\s*\{(?<body>[^}]*)\}/g)?.at(-1) ?? "";
 
     expect(rule).toMatch(/gap:\s*8px/);
@@ -50,54 +54,54 @@ describe("community archive labels", () => {
 
   it("uses a visible light-theme emoji and moderator message pins", () => {
     expect(communityStyles).toMatch(/:root\[data-theme="light"\] \.community-chat-open \.composer-emoji-wrap \.icon-button\s*\{[^}]*color:\s*var\(--color-primary-strong\) !important;/s);
-    expect(source).toContain("setClubMessagePinned");
-    expect(source).toContain('class="chat-pinned-bar"');
-    expect(source).toContain('activeModerationMessage.pinnedAt ? "Открепить сообщение" : "Закрепить сообщение"');
-    expect(source).toContain("pinnedMessages.length");
-    expect(source).toContain("formatMessageTime(message.createdAt)");
-    expect(source).toContain("Можно закрепить не больше 5 сообщений.");
-    expect(source).toContain('notifications.showInfo("Можно закрепить не больше 5 сообщений.")');
-    expect(source).not.toContain('window.alert("Можно закрепить не больше 5 сообщений.")');
+    expect(sectionSource).toContain("setClubMessagePinned");
+    expect(roomSource).toContain('class="chat-pinned-bar"');
+    expect(moderationSource).toContain('message.pinnedAt ? "Открепить сообщение" : "Закрепить сообщение"');
+    expect(roomSource).toContain("pinnedMessages.length");
+    expect(roomSource).toContain("formatMessageTime(message.createdAt)");
+    expect(sectionSource).toContain("Можно закрепить не больше 5 сообщений.");
+    expect(sectionSource).toContain('notifications.showInfo("Можно закрепить не больше 5 сообщений.")');
+    expect(sectionSource).not.toContain('window.alert("Можно закрепить не больше 5 сообщений.")');
   });
 
   it("keeps pinned messages in an accessible collapsible panel", () => {
-    expect(source).toContain(':aria-expanded="showPinnedMessages"');
-    expect(source).toContain('aria-controls="chat-pinned-details"');
-    expect(source).toContain('id="chat-pinned-details"');
-    expect(source).toMatch(/v-if="showPinnedMessages"[^>]*class="chat-pinned-details"/s);
-    expect(source).toContain('class="chat-pinned-toggle"');
-    expect(source).toContain('class="chat-pinned-toggle-icon h-4 w-4"');
+    expect(roomSource).toContain(':aria-expanded="showPinnedMessages"');
+    expect(roomSource).toContain('aria-controls="chat-pinned-details"');
+    expect(roomSource).toContain('id="chat-pinned-details"');
+    expect(roomSource).toMatch(/v-if="showPinnedMessages"[^>]*id="chat-pinned-details"[^>]*class="chat-pinned-details"/s);
+    expect(roomSource).toContain('class="chat-pinned-toggle"');
+    expect(roomSource).toContain('class="chat-pinned-toggle-icon h-4 w-4"');
     expect(communityStyles).toMatch(/\.community-chat-open \.chat-pinned-toggle\s*\{[^}]*min-height:\s*44px;/s);
     expect(communityStyles).toMatch(/\.community-chat-open \.chat-pinned-details\s*\{[^}]*position:\s*absolute;[^}]*max-height:\s*min\(50dvh, 28rem\);/s);
   });
 
   it("uses one touch-friendly moderation action sheet instead of inline buttons", () => {
-    expect(source).toContain('class="moderation-action-sheet-backdrop"');
-    expect(source).toContain('class="moderation-action-sheet"');
-    expect(source).toContain('role="dialog"');
-    expect(source).not.toContain('class="moderation-menu"');
+    expect(moderationSource).toContain('class="moderation-action-sheet-backdrop"');
+    expect(moderationSource).toContain('class="moderation-action-sheet"');
+    expect(moderationSource).toContain('role="dialog"');
+    expect(moderationSource).not.toContain('class="moderation-menu"');
     expect(communityStyles).toMatch(/\.moderation-action-row\s*\{[^}]*min-height:\s*48px;/s);
   });
 
   it("uses the themed in-app confirmation before deleting every topic message", () => {
-    const deleteAllHandler = source.match(/function handleDeleteTopicMessages\(\)[\s\S]*?(?=function cancelDeleteTopicMessages)/)?.[0] ?? "";
+    const deleteAllHandler = sectionSource.match(/function handleDeleteTopicMessages\(\)[\s\S]*?(?=function cancelDeleteTopicMessages)/)?.[0] ?? "";
 
-    expect(source).toContain('import ConfirmDialog from "@/features/app/ConfirmDialog.vue"');
-    expect(source).toContain("showDeleteTopicMessagesConfirm");
-    expect(source).toContain("deleteTopicMessagesBusy");
-    expect(source).toContain("<ConfirmDialog");
-    expect(source).toContain('confirm-label="Удалить всё"');
-    expect(source).toContain(":danger=\"true\"");
-    expect(source).toContain(":busy=\"deleteTopicMessagesBusy\"");
+    expect(sectionSource).toContain('import ConfirmDialog from "@/features/app/ConfirmDialog.vue"');
+    expect(sectionSource).toContain("showDeleteTopicMessagesConfirm");
+    expect(sectionSource).toContain("deleteTopicMessagesBusy");
+    expect(sectionSource).toContain("<ConfirmDialog");
+    expect(sectionSource).toContain('confirm-label="Удалить всё"');
+    expect(sectionSource).toContain(":danger=\"true\"");
+    expect(sectionSource).toContain(":busy=\"deleteTopicMessagesBusy\"");
     expect(deleteAllHandler).toContain("showDeleteTopicMessagesConfirm.value = true");
     expect(deleteAllHandler).not.toContain("window.confirm");
   });
 
   it("highlights the exact message reached from the pinned list", () => {
-    expect(source).toContain("highlightedMessageId");
-    expect(source).toContain("chat-message-jump-highlight");
-    expect(source).toContain("highlightedMessageId.value = messageId");
-    expect(source).toContain("1_800");
+    expect(roomSource).toContain("highlightedMessageId");
+    expect(messageSource).toContain("chat-message-jump-highlight");
+    expect(roomSource).toContain("highlightedMessageId.value = messageId");
+    expect(roomSource).toContain("1_800");
     expect(communityStyles).toContain(".chat-message-jump-highlight .chat-bubble");
   });
 
