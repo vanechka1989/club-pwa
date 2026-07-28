@@ -109,4 +109,65 @@ describe("createAppNotification", () => {
     expect(mocks.sendWebPushToUser).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenCalledTimes(2);
   });
+
+  it("does not persist or push a guarded notification for an inactive community message", async () => {
+    const execute = vi.fn(async () => []);
+    mocks.transaction.mockImplementation(async (work) => work({
+      execute,
+      query: { appNotifications: { findFirst: vi.fn(async () => null) } },
+      insert: () => ({ values: () => ({ returning: mocks.returning }) })
+    }));
+
+    await expect(createAppNotification({
+      userId: "00000000-0000-4000-8000-000000000001",
+      title: "Вас упомянули",
+      body: "Новое упоминание.",
+      source: "community_mention",
+      sourceId: "00000000-0000-4000-8000-000000000100",
+      deduplicate: true
+    }, {
+      activeCommunityMessageId: "00000000-0000-4000-8000-000000000100"
+    })).resolves.toBeNull();
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(mocks.returning).not.toHaveBeenCalled();
+    expect(mocks.sendWebPushToUser).not.toHaveBeenCalled();
+  });
+
+  it("finishes guarded push delivery before releasing the message transaction", async () => {
+    let insideTransaction = false;
+    let pushObservedInsideTransaction = false;
+    const execute = vi.fn()
+      .mockResolvedValueOnce([{ id: "00000000-0000-4000-8000-000000000100" }])
+      .mockResolvedValueOnce([]);
+    mocks.transaction.mockImplementation(async (work) => {
+      insideTransaction = true;
+      try {
+        return await work({
+          execute,
+          query: { appNotifications: { findFirst: vi.fn(async () => null) } },
+          insert: () => ({ values: () => ({ returning: mocks.returning }) })
+        });
+      } finally {
+        insideTransaction = false;
+      }
+    });
+    mocks.sendWebPushToUser.mockImplementation(async () => {
+      pushObservedInsideTransaction = insideTransaction;
+    });
+
+    await createAppNotification({
+      userId: "00000000-0000-4000-8000-000000000001",
+      title: "Вас упомянули",
+      body: "Новое упоминание.",
+      source: "community_mention",
+      sourceId: "00000000-0000-4000-8000-000000000100",
+      deduplicate: true
+    }, {
+      activeCommunityMessageId: "00000000-0000-4000-8000-000000000100"
+    });
+
+    expect(pushObservedInsideTransaction).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
 });

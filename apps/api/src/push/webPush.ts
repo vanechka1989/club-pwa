@@ -13,6 +13,8 @@ export type WebPushPayload = {
   url: string;
 };
 
+export const webPushRequestTimeoutMs = 10_000;
+
 export function normalizePushSubscription(value: unknown): NormalizedPushSubscription | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -91,7 +93,8 @@ export async function sendWebPushToUsers(userIds: string[], payload: WebPushPayl
               auth: row.auth
             }
           },
-          JSON.stringify(buildWebPushPayload(payload))
+          JSON.stringify(buildWebPushPayload(payload)),
+          { timeout: webPushRequestTimeoutMs }
         );
         sent += 1;
       } catch (error) {

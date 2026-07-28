@@ -105,7 +105,7 @@ export function createDeletedMessageCleanupRepository(database: typeof db = db):
         id: row.id,
         claimId: row.claimId,
         attachments: attachments
-          .filter((attachment) => attachment.messageId === row.id && !attachment.deletedAt)
+          .filter((attachment) => attachment.messageId === row.id)
           .map((attachment) => ({ id: attachment.id, objectKey: attachment.objectKey }))
       }));
     },

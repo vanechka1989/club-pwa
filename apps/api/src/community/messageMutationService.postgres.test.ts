@@ -7,6 +7,7 @@ import type {
   createMessageMutationService as CreateMessageMutationService,
   MessageMutationRepository
 } from "./messageMutationService";
+import type { createAppNotificationService as CreateAppNotificationService } from "../notifications/create";
 import { resolveMessageMutationTestDatabaseUrl } from "./postgresTestGate";
 
 const databaseUrl = resolveMessageMutationTestDatabaseUrl();
@@ -28,6 +29,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
   let clientB: Sql;
   let createRepository: typeof CreateMessageMutationRepository;
   let createService: typeof CreateMessageMutationService;
+  let createNotificationService: typeof CreateAppNotificationService;
   let serviceA: ReturnType<typeof CreateMessageMutationService>;
   let serviceB: ReturnType<typeof CreateMessageMutationService>;
 
@@ -35,6 +37,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
     process.env.DATABASE_URL = databaseUrl!;
     ({ createMessageMutationRepository: createRepository, createMessageMutationService: createService } =
       await import("./messageMutationService"));
+    ({ createAppNotificationService: createNotificationService } = await import("../notifications/create"));
     admin = postgres(databaseUrl!, { max: 1, onnotice: () => undefined });
     await admin.unsafe(`create schema "${schemaName}"`);
     const url = schemaConnectionUrl(databaseUrl!, schemaName);
@@ -81,6 +84,15 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         user_id uuid not null, topic_id uuid not null, mode varchar(16) not null default 'mentions',
         updated_at timestamptz not null default now(), primary key (user_id, topic_id)
       );
+      create table app_notifications (
+        id uuid primary key default gen_random_uuid(), user_id uuid not null,
+        kind varchar(32) not null default 'system', title varchar(180) not null,
+        body text not null, body_html text, source varchar(64), source_id uuid,
+        attachment_kind varchar(16), attachment_file_name varchar(255),
+        attachment_object_key text, attachment_content_type varchar(160),
+        attachment_size_bytes integer, read_at timestamptz,
+        created_at timestamptz not null default now()
+      );
     `);
 
     const makeService = (client: Sql) => {
@@ -101,7 +113,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
   }, 30_000);
 
   beforeEach(async () => {
-    await clientA.unsafe("truncate community_topic_notification_settings, club_message_mentions, club_chat_messages, club_chat_topics, users");
+    await clientA.unsafe("truncate app_notifications, community_topic_notification_settings, club_message_mentions, club_chat_messages, club_chat_topics, users");
     await clientA`
       insert into users (id, telegram_id, first_name, display_name)
       values (${userId}, 'web:user', 'Иван', 'Иван')
@@ -189,4 +201,91 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
       status: 409
     });
   });
+
+  it("serializes guarded notification delivery before author deletion and rejects late fanout", async () => {
+    const created = await serviceA.createText(input());
+    const events: string[] = [];
+    let releasePush!: () => void;
+    let pushStarted!: () => void;
+    const started = new Promise<void>((resolve) => { pushStarted = resolve; });
+    const notificationService = createNotificationService({
+      database: drizzle(clientA, { schema: schemaDefinition }),
+      sendWebPushToUser: async () => {
+        events.push("push-started");
+        pushStarted();
+        await new Promise<void>((resolve) => { releasePush = resolve; });
+        events.push("push-finished");
+        return { sent: 1, skipped: false };
+      },
+      logger: { warn: () => undefined }
+    });
+    const notificationInput = {
+      userId,
+      title: "Новое сообщение: Общение",
+      body: "Новое сообщение в чате.",
+      source: "community_all",
+      sourceId: created.message.id,
+      deduplicate: true
+    } as const;
+    const notification = notificationService(notificationInput, {
+      activeCommunityMessageId: created.message.id
+    });
+    await started;
+
+    const deletion = serviceB.deleteMessage({
+      messageId: created.message.id,
+      userId,
+      role: "member"
+    }).then((result) => {
+      events.push("deletion-committed");
+      return result;
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(events).toEqual(["push-started"]);
+
+    releasePush();
+    await Promise.all([notification, deletion]);
+    expect(events).toEqual(["push-started", "push-finished", "deletion-committed"]);
+
+    await expect(notificationService(notificationInput, {
+      activeCommunityMessageId: created.message.id
+    })).resolves.toBeNull();
+    const [remaining] = await clientA<{ count: number }[]>`
+      select count(*)::int as count from app_notifications where source_id = ${created.message.id}
+    `;
+    expect(remaining?.count).toBe(0);
+    expect(events).toEqual(["push-started", "push-finished", "deletion-committed"]);
+  }, 10_000);
+
+  it("releases the message lock after an aborting push failure so author deletion can commit", async () => {
+    const created = await serviceA.createText(input());
+    const notificationService = createNotificationService({
+      database: drizzle(clientA, { schema: schemaDefinition }),
+      sendWebPushToUser: async () => {
+        throw new Error("Socket timeout");
+      },
+      logger: { warn: () => undefined }
+    });
+
+    await expect(notificationService({
+      userId,
+      title: "Новое сообщение: Общение",
+      body: "Новое сообщение в чате.",
+      source: "community_all",
+      sourceId: created.message.id,
+      deduplicate: true
+    }, {
+      activeCommunityMessageId: created.message.id
+    })).resolves.toMatchObject({ sourceId: created.message.id });
+
+    await expect(serviceB.deleteMessage({
+      messageId: created.message.id,
+      userId,
+      role: "member"
+    })).resolves.toMatchObject({ message: { deletedByUserAt: expect.any(Date) } });
+    const [remaining] = await clientA<{ count: number }[]>`
+      select count(*)::int as count from app_notifications where source_id = ${created.message.id}
+    `;
+    expect(remaining?.count).toBe(0);
+  }, 10_000);
 });

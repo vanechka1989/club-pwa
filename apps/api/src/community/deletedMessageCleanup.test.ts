@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import type { StoredS3Config } from "../storage/s3Config";
 
 vi.mock("../db/client", () => ({ db: {} }));
-vi.mock("../storage/s3", () => ({ deleteObject: vi.fn(), deleteObjectCopies: vi.fn() }));
+vi.mock("../env", () => ({ env: {} }));
 vi.mock("../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
+import { createDeleteObjectCopies } from "../storage/s3";
 import {
   createDeletedMessageCleanup,
   createDeletedMessageCleanupJob,
+  createDeletedMessageCleanupRepository,
   deletedMessageCleanupBatchSize,
   type DeletedMessageCleanupRepository
 } from "./deletedMessageCleanup";
@@ -20,6 +23,70 @@ const candidate = {
 };
 
 describe("deleted message cleanup", () => {
+  it("erases primary and reserve copies for an attachment already marked deleted before finalizing", async () => {
+    const legacyDeletedAttachment = {
+      id: "attachment-legacy",
+      messageId: candidate.id,
+      objectKey: "community/images/message-1/legacy.webp",
+      deletedAt: new Date("2026-07-29T09:00:00.000Z")
+    };
+    const claimedRows = [{ id: candidate.id, claimId: candidate.claimId }];
+    const database = {
+      execute: vi.fn(async () => claimedRows),
+      query: {
+        clubMessageAttachments: {
+          findMany: vi.fn(async () => [legacyDeletedAttachment])
+        }
+      }
+    };
+    const claimed = await createDeletedMessageCleanupRepository(database as never).claimBatch({ limit: 100 });
+    const calls: string[] = [];
+    const primary: StoredS3Config = {
+      endpoint: "https://primary.example.com",
+      region: "ru1",
+      bucket: "primary",
+      accessKeyId: "primary-access",
+      secretAccessKey: "primary-secret",
+      publicBaseUrl: null,
+      signedUrlTtlSeconds: 600,
+      reserve: {
+        endpoint: "https://reserve.example.com",
+        region: "ru2",
+        bucket: "reserve",
+        accessKeyId: "reserve-access",
+        secretAccessKey: "reserve-secret",
+        publicBaseUrl: null
+      }
+    };
+    const removeCopies = createDeleteObjectCopies({
+      loadConfig: async () => primary,
+      deleteFromConfig: async (config, key) => {
+        calls.push(`${config.bucket}:${key}`);
+      }
+    });
+    const repository: DeletedMessageCleanupRepository = {
+      claimBatch: vi.fn(async () => claimed),
+      finalize: vi.fn(async () => {
+        calls.push("finalize");
+        return true;
+      }),
+      release: vi.fn(async () => undefined)
+    };
+    const cleanup = createDeletedMessageCleanup({
+      repository,
+      deleteObjectCopies: removeCopies,
+      logger: { info: vi.fn(), warn: vi.fn() }
+    });
+
+    await expect(cleanup()).resolves.toEqual({ purgedMessageIds: [candidate.id], failedMessageIds: [] });
+
+    expect(calls).toEqual([
+      "primary:community/images/message-1/legacy.webp",
+      "reserve:community/images/message-1/legacy.webp",
+      "finalize"
+    ]);
+  });
+
   it("performs remote deletion outside database work and finalizes the bounded claim", async () => {
     let databaseWork = false;
     const calls: string[] = [];

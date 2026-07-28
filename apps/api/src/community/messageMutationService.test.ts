@@ -17,6 +17,8 @@ import {
 } from "./messageMutationService";
 import type { CreateAppNotificationInput } from "../notifications/create";
 
+type NotificationOptions = { activeCommunityMessageId?: string };
+
 const senderId = "00000000-0000-4000-8000-000000000001";
 const replyUserId = "00000000-0000-4000-8000-000000000002";
 const mentionedUserId = "00000000-0000-4000-8000-000000000003";
@@ -132,7 +134,10 @@ function createFixture() {
       { user: users[0]!, mode: "all" as const }
     ])
   };
-  const createNotification = vi.fn<(input: CreateAppNotificationInput) => Promise<unknown>>(
+  const createNotification = vi.fn<(
+    input: CreateAppNotificationInput,
+    options?: NotificationOptions
+  ) => Promise<unknown>>(
     async () => ({ id: "notification" })
   );
   const publishChange = vi.fn();
@@ -335,6 +340,46 @@ describe("message mutation service", () => {
       }
     ]);
     expect(JSON.stringify(fixture.createNotification.mock.calls)).not.toContain("@Анна ответ");
+  });
+
+  it("does not persist or push later recipients when author deletion commits during fanout", async () => {
+    const fixture = createFixture();
+    const persisted = new Set<string>();
+    const pushed: string[] = [];
+    let notificationCall = 0;
+    fixture.store.deleteMessageNotifications = vi.fn(async () => {
+      persisted.clear();
+    });
+    fixture.createNotification.mockImplementation(async (input, options) => {
+      const current = fixture.messages.find((item) => item.id === input.sourceId);
+      if (options?.activeCommunityMessageId &&
+          (!current || current.status !== "visible" || current.deletedByUserAt)) {
+        return null;
+      }
+      persisted.add(`${input.userId}:${input.source}`);
+      pushed.push(input.userId);
+      notificationCall += 1;
+      if (notificationCall === 1) {
+        await fixture.service.deleteMessage({
+          messageId: input.sourceId!,
+          userId: senderId,
+          role: "member"
+        });
+      }
+      return { id: `notification-${notificationCall}` };
+    });
+
+    await fixture.service.createText(createInput({
+      body: "@Анна ответ",
+      replyToMessageId: replyId,
+      mentions: [{ userId: mentionedUserId, displayName: "Анна", start: 0, end: 5 }]
+    }));
+
+    expect(persisted).toEqual(new Set());
+    expect(pushed).toEqual([replyUserId]);
+    expect(fixture.createNotification).toHaveBeenCalledTimes(3);
+    expect(fixture.createNotification.mock.calls.every(([, options]) =>
+      options?.activeCommunityMessageId === fixture.messages[0]?.id)).toBe(true);
   });
 
   it("uses the database clock for the exact fifteen-minute author window", async () => {

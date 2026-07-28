@@ -71,8 +71,12 @@ integrationDescribe("deleted message cleanup claims with PostgreSQL", () => {
       )
     `;
     await clientA`
-      insert into club_message_attachments (id, message_id, kind, object_key, content_type, size_bytes)
-      values ('00000000-0000-4000-8000-000000000201', ${messageId}, 'image', 'community/a.webp', 'image/webp', 10)
+      insert into club_message_attachments (
+        id, message_id, kind, object_key, content_type, size_bytes, deleted_at
+      ) values (
+        '00000000-0000-4000-8000-000000000201', ${messageId}, 'image',
+        'community/a.webp', 'image/webp', 10, clock_timestamp() - interval '1 hour'
+      )
     `;
     await clientA`
       insert into club_message_mentions (message_id, user_id, start_offset, end_offset)
@@ -91,6 +95,10 @@ integrationDescribe("deleted message cleanup claims with PostgreSQL", () => {
     const repositoryB = createRepository(drizzle(clientB, { schema: schemaDefinition }));
     const firstClaim = await repositoryA.claimBatch({ limit: 100 });
     expect(firstClaim).toHaveLength(1);
+    expect(firstClaim[0]?.attachments).toEqual([{
+      id: "00000000-0000-4000-8000-000000000201",
+      objectKey: "community/a.webp"
+    }]);
     await expect(repositoryB.claimBatch({ limit: 100 })).resolves.toEqual([]);
 
     await repositoryA.release(firstClaim[0]!);

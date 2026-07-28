@@ -16,7 +16,11 @@ import {
   users
 } from "../db/schema";
 import { getMembership } from "../membership/getMembership";
-import { createAppNotification, type CreateAppNotificationInput } from "../notifications/create";
+import {
+  createAppNotification,
+  type CreateAppNotificationInput,
+  type CreateAppNotificationOptions
+} from "../notifications/create";
 import { createRequestFingerprint } from "../idempotency/operation";
 import { buildMessageAuthor } from "./messageMetadata";
 import { canAuthorMutateMessage, getDeletedContentExpiry } from "./messageLifecycle";
@@ -132,7 +136,10 @@ type DeleteMessageInput = {
 
 type MessageMutationDependencies = {
   repository: MessageMutationRepository;
-  createNotification: (input: CreateAppNotificationInput) => Promise<unknown>;
+  createNotification: (
+    input: CreateAppNotificationInput,
+    options?: CreateAppNotificationOptions
+  ) => Promise<unknown>;
   canUserAccessTopic: (user: MutationUser, topic: MutationTopic) => Promise<boolean>;
   publishChange: (topicId: string) => unknown;
 };
@@ -285,6 +292,8 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
         sourceId: input.message.id,
         pushUrl: `/community/topics/${input.topic.id}?message=${input.message.id}`,
         deduplicate: true
+      }, {
+        activeCommunityMessageId: input.message.id
       });
     }
   }
