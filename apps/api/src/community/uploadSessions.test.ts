@@ -109,6 +109,28 @@ describe("community upload session recovery and cleanup", () => {
     ]);
   });
 
+  it("reclaims ledger candidates and a partially promoted final when expiry wins publication", async () => {
+    const events: string[] = [];
+    await cleanupUnattachedCommunityUpload({
+      ...record,
+      uploadType: "put" as const,
+      candidateObjectKeys: [
+        "community/candidates/u/lease-photo.webp",
+        "community/final/u/lease-photo.webp"
+      ]
+    }, {
+      abortMultipart: async () => undefined,
+      deleteCopies: async (key) => { events.push(key); },
+      markAborted: async () => { events.push("done"); }
+    });
+    expect(events).toEqual([
+      record.stagingObjectKey,
+      "community/candidates/u/lease-photo.webp",
+      "community/final/u/lease-photo.webp",
+      "done"
+    ]);
+  });
+
   it("retries partial object deletion without prematurely marking cleanup complete", async () => {
     const deleted: string[] = [];
     let failOnce = true;

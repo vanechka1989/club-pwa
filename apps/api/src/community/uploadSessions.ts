@@ -11,6 +11,7 @@ type UploadSessionRecord = {
   status: string;
   quarantineObjectKey?: string | null;
   finalObjectKey?: string | null;
+  candidateObjectKeys?: string[];
   consumedAt?: Date | null;
   updatedAt?: Date;
 };
@@ -120,13 +121,23 @@ export async function cleanupUnattachedCommunityUpload(
       if (!isMissingMultipartUpload(error)) throw error;
     });
   }
-  const keys = [...new Set([record.stagingObjectKey, record.quarantineObjectKey, record.finalObjectKey].filter((key): key is string => Boolean(key)))];
+  const keys = [...new Set([
+    record.stagingObjectKey,
+    record.quarantineObjectKey,
+    record.finalObjectKey,
+    ...(record.candidateObjectKeys ?? [])
+  ].filter((key): key is string => Boolean(key)))];
   for (const key of keys) await dependencies.deleteCopies(key);
   await dependencies.markAborted(record.id);
 }
 
 export async function runCommunityUploadExpiryCleanupBatch(limit = 25) {
-  const [{ and, asc, eq, inArray, isNull, lte, or }, { db }, { communityUploadManifests }, storage] = await Promise.all([
+  const [
+    { and, asc, eq, inArray, isNull, lte, or },
+    { db },
+    { communityMediaCandidates, communityUploadManifests },
+    storage
+  ] = await Promise.all([
     import("drizzle-orm"),
     import("../db/client"),
     import("../db/schema"),
@@ -150,28 +161,60 @@ export async function runCommunityUploadExpiryCleanupBatch(limit = 25) {
   });
   let cleaned = 0;
   for (const manifest of manifests) {
-    const [claimed] = await db.update(communityUploadManifests)
-      .set({ status: "aborting", updatedAt: now })
-      .where(and(
-        eq(communityUploadManifests.id, manifest.id),
-        isNull(communityUploadManifests.consumedAt),
-        lte(communityUploadManifests.expiresAt, now),
-        or(
-          inArray(communityUploadManifests.status, immediatelyReclaimable),
-          and(inArray(communityUploadManifests.status, staleWork), lte(communityUploadManifests.updatedAt, staleWorkAt))
-        )
-      ))
-      .returning();
-    if (!claimed) continue;
+    const claim = await db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      const [claimed] = await database.update(communityUploadManifests)
+        .set({ status: "aborting", updatedAt: now })
+        .where(and(
+          eq(communityUploadManifests.id, manifest.id),
+          isNull(communityUploadManifests.consumedAt),
+          lte(communityUploadManifests.expiresAt, now),
+          or(
+            inArray(communityUploadManifests.status, immediatelyReclaimable),
+            and(inArray(communityUploadManifests.status, staleWork), lte(communityUploadManifests.updatedAt, staleWorkAt))
+          )
+        ))
+        .returning();
+      if (!claimed) return null;
+      await database.update(communityMediaCandidates).set({
+        status: "cleanup_pending",
+        errorCode: null,
+        updatedAt: now
+      }).where(eq(communityMediaCandidates.manifestId, manifest.id));
+      const candidates = await database.query.communityMediaCandidates.findMany({
+        where: eq(communityMediaCandidates.manifestId, manifest.id)
+      });
+      return { claimed, candidates };
+    });
+    if (!claim) continue;
     await cleanupUnattachedCommunityUpload({
-      ...claimed,
-      uploadType: claimed.uploadType as "put" | "multipart"
+      ...claim.claimed,
+      uploadType: claim.claimed.uploadType as "put" | "multipart",
+      candidateObjectKeys: claim.candidates.flatMap((candidate) => [candidate.candidateObjectKey, candidate.finalObjectKey])
     }, {
       abortMultipart: storage.abortMultipartUpload,
       deleteCopies: storage.deleteObjectCopies,
       markAborted: async (manifestId) => {
-        await db.update(communityUploadManifests).set({ status: "aborted", errorCode: "expired_unattached", updatedAt: new Date() })
-          .where(and(eq(communityUploadManifests.id, manifestId), eq(communityUploadManifests.status, "aborting"), isNull(communityUploadManifests.consumedAt)));
+        await db.transaction(async (transaction) => {
+          const database = transaction as unknown as typeof db;
+          const [aborted] = await database.update(communityUploadManifests)
+            .set({ status: "aborted", errorCode: "expired_unattached", updatedAt: new Date() })
+            .where(and(
+              eq(communityUploadManifests.id, manifestId),
+              eq(communityUploadManifests.status, "aborting"),
+              isNull(communityUploadManifests.consumedAt)
+            ))
+            .returning({ id: communityUploadManifests.id });
+          if (!aborted) return;
+          await database.update(communityMediaCandidates).set({
+            status: "cleaned",
+            errorCode: null,
+            updatedAt: new Date()
+          }).where(and(
+            eq(communityMediaCandidates.manifestId, manifestId),
+            eq(communityMediaCandidates.status, "cleanup_pending")
+          ));
+        });
       }
     });
     cleaned += 1;

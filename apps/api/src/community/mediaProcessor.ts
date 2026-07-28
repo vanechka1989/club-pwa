@@ -101,7 +101,10 @@ export async function cleanupCommunityMediaCandidate(candidate: CleanupCandidate
     && candidate.leaseUpdatedAt.getTime() === candidate.manifestUpdatedAt.getTime();
   if (leaseIsCurrent || !await dependencies.claim(candidate)) return "skipped" as const;
   try {
-    await dependencies.deleteCopies(candidate.candidateObjectKey);
+    const keys = candidate.status === "published_cleanup_pending"
+      ? [candidate.candidateObjectKey]
+      : [candidate.candidateObjectKey, candidate.finalObjectKey];
+    for (const key of new Set(keys)) await dependencies.deleteCopies(key);
     await dependencies.markComplete(candidate.id, candidate.status === "published_cleanup_pending" ? "published" : "cleaned");
     return "cleaned" as const;
   } catch (error) {
@@ -109,6 +112,16 @@ export async function cleanupCommunityMediaCandidate(candidate: CleanupCandidate
     await dependencies.markRetry(candidate.id, errorCode);
     return "retry" as const;
   }
+}
+
+export function getCommunityMediaCandidateRecoveryAction(
+  candidate: Pick<CleanupCandidate, "finalObjectKey" | "status">,
+  manifest: { status: string; finalObjectKey: string | null; attachmentId?: string | null } | null
+) {
+  if (candidate.status !== "publishing") return "cleanup" as const;
+  if (manifest?.status === "ready" && manifest.finalObjectKey === candidate.finalObjectKey) return "cleanup_candidate" as const;
+  if (manifest?.status === "publishing" && manifest.attachmentId) return "publish" as const;
+  return "discard" as const;
 }
 
 export async function processCommunityMediaManifest(manifest: MediaManifest, dependencies: MediaProcessorDependencies) {
@@ -267,7 +280,7 @@ function readMediaCandidateResult(value: unknown): MediaCandidateResult {
   };
 }
 
-async function publishAndFinalizeCommunityMediaCandidate(manifest: {
+async function publishAndFinalizeCommunityMediaCandidateAttempt(manifest: {
   id: string;
   kind: string;
   uploadToken: string;
@@ -357,6 +370,53 @@ async function publishAndFinalizeCommunityMediaCandidate(manifest: {
   }
 }
 
+async function reconcileCommunityMediaCandidateAfterPublishFailure(manifestId: string, result: MediaCandidateResult) {
+  const [{ db }, { communityMediaCandidates, communityUploadManifests }] = await Promise.all([
+    import("../db/client"),
+    import("../db/schema")
+  ]);
+  const [candidate, manifest] = await Promise.all([
+    db.query.communityMediaCandidates.findFirst({
+      where: and(
+        eq(communityMediaCandidates.manifestId, manifestId),
+        eq(communityMediaCandidates.candidateObjectKey, result.candidateObjectKey)
+      )
+    }),
+    db.query.communityUploadManifests.findFirst({
+      where: eq(communityUploadManifests.id, manifestId),
+      columns: { status: true, finalObjectKey: true, attachmentId: true }
+    })
+  ]);
+  if (!candidate) return;
+  if (candidate.status === "cleanup_pending" || candidate.status === "cleaned") {
+    await requestCommunityMediaCandidateCleanup(manifestId, result.candidateObjectKey, true);
+    return;
+  }
+  if (candidate.status === "published_cleanup_pending") {
+    await requestCommunityMediaCandidateCleanup(manifestId, result.candidateObjectKey, false);
+    return;
+  }
+  const action = getCommunityMediaCandidateRecoveryAction({
+    finalObjectKey: candidate.finalObjectKey,
+    status: candidate.status as CleanupCandidate["status"]
+  }, manifest ?? null);
+  if (action === "discard") await requestCommunityMediaCandidateCleanup(manifestId, result.candidateObjectKey, true);
+  if (action === "cleanup_candidate") await requestCommunityMediaCandidateCleanup(manifestId, result.candidateObjectKey, false);
+}
+
+async function publishAndFinalizeCommunityMediaCandidate(manifest: {
+  id: string;
+  kind: string;
+  uploadToken: string;
+}, result: MediaCandidateResult) {
+  try {
+    await publishAndFinalizeCommunityMediaCandidateAttempt(manifest, result);
+  } catch (error) {
+    await reconcileCommunityMediaCandidateAfterPublishFailure(manifest.id, result).catch(() => undefined);
+    throw error;
+  }
+}
+
 async function cleanupPersistedCommunityMediaCandidate(candidate: CleanupCandidate) {
   const [{ db }, { communityMediaCandidates }, storage] = await Promise.all([
     import("../db/client"),
@@ -380,21 +440,29 @@ async function cleanupPersistedCommunityMediaCandidate(candidate: CleanupCandida
   });
 }
 
-async function requestCommunityMediaCandidateCleanup(manifestId: string, candidateObjectKey: string) {
+async function requestCommunityMediaCandidateCleanup(
+  manifestId: string,
+  candidateObjectKey: string,
+  deleteUncommittedFinal = true
+) {
   const [{ db }, { communityMediaCandidates, communityUploadManifests }] = await Promise.all([
     import("../db/client"),
     import("../db/schema")
   ]);
-  await db.update(communityMediaCandidates).set({ status: "cleanup_pending", updatedAt: new Date() }).where(and(
+  const cleanupStatus = deleteUncommittedFinal ? "cleanup_pending" : "published_cleanup_pending";
+  const sourceStatuses = deleteUncommittedFinal
+    ? ["staged", "publishing", "cleanup_pending", "published_cleanup_pending", "published", "cleaned"]
+    : ["publishing", "published_cleanup_pending"];
+  await db.update(communityMediaCandidates).set({ status: cleanupStatus, updatedAt: new Date() }).where(and(
     eq(communityMediaCandidates.manifestId, manifestId),
     eq(communityMediaCandidates.candidateObjectKey, candidateObjectKey),
-    inArray(communityMediaCandidates.status, ["staged", "cleaned"])
+    inArray(communityMediaCandidates.status, sourceStatuses)
   ));
   const candidate = await db.query.communityMediaCandidates.findFirst({
     where: and(
       eq(communityMediaCandidates.manifestId, manifestId),
       eq(communityMediaCandidates.candidateObjectKey, candidateObjectKey),
-      inArray(communityMediaCandidates.status, ["cleanup_pending", "published_cleanup_pending"])
+      eq(communityMediaCandidates.status, cleanupStatus)
     )
   });
   if (!candidate) return;
@@ -560,19 +628,38 @@ export async function runCommunityMediaCandidateSweepBatch(limit = 20) {
   for (const candidate of candidates) {
     const manifest = await db.query.communityUploadManifests.findFirst({
       where: eq(communityUploadManifests.id, candidate.manifestId),
-      columns: { id: true, kind: true, uploadToken: true, status: true, updatedAt: true }
+      columns: {
+        id: true,
+        kind: true,
+        uploadToken: true,
+        status: true,
+        updatedAt: true,
+        finalObjectKey: true,
+        attachmentId: true
+      }
     });
     if (candidate.status === "publishing") {
-      if (!manifest || manifest.status !== "publishing") continue;
-      try {
-        await publishAndFinalizeCommunityMediaCandidate(manifest, readMediaCandidateResult(candidate.result));
-      } catch (error) {
-        const errorCode = error instanceof Error ? error.message.slice(0, 160) : "candidate_publish_failed";
-        await db.update(communityMediaCandidates).set({ errorCode, updatedAt: new Date() })
-          .where(and(
-            eq(communityMediaCandidates.id, candidate.id),
-            eq(communityMediaCandidates.status, "publishing")
-          )).catch(() => undefined);
+      const action = getCommunityMediaCandidateRecoveryAction({
+        finalObjectKey: candidate.finalObjectKey,
+        status: "publishing"
+      }, manifest ?? null);
+      if (action === "publish" && manifest) {
+        try {
+          await publishAndFinalizeCommunityMediaCandidate(manifest, readMediaCandidateResult(candidate.result));
+        } catch (error) {
+          const errorCode = error instanceof Error ? error.message.slice(0, 160) : "candidate_publish_failed";
+          await db.update(communityMediaCandidates).set({ errorCode, updatedAt: new Date() })
+            .where(and(
+              eq(communityMediaCandidates.id, candidate.id),
+              eq(communityMediaCandidates.status, "publishing")
+            )).catch(() => undefined);
+        }
+      } else {
+        await requestCommunityMediaCandidateCleanup(
+          candidate.manifestId,
+          candidate.candidateObjectKey,
+          action === "discard"
+        );
       }
       processed += 1;
       continue;

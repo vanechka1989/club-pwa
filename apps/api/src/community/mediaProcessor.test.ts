@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   cleanupCommunityMediaCandidate,
+  getCommunityMediaCandidateRecoveryAction,
   processCommunityMediaManifest,
   shouldProcessCommunityMediaManifest
 } from "./mediaProcessor";
@@ -139,7 +140,7 @@ describe("bounded community media processor", () => {
     expect(cleanupCandidate).toHaveBeenCalledTimes(1);
   });
 
-  it("sweeps an interrupted stale candidate without touching the published winner", async () => {
+  it("sweeps an interrupted stale candidate and every uncommitted final copy", async () => {
     const deleted: Array<{ target: "primary" | "reserve"; key: string }> = [];
     const markComplete = vi.fn(async () => undefined);
     const result = await cleanupCommunityMediaCandidate({
@@ -163,10 +164,67 @@ describe("bounded community media processor", () => {
     expect(result).toBe("cleaned");
     expect(deleted).toEqual([
       { target: "primary", key: "community/candidates/user/day/lease-a-photo.webp" },
-      { target: "reserve", key: "community/candidates/user/day/lease-a-photo.webp" }
+      { target: "reserve", key: "community/candidates/user/day/lease-a-photo.webp" },
+      { target: "primary", key: "community/final/user/day/lease-a-photo.webp" },
+      { target: "reserve", key: "community/final/user/day/lease-a-photo.webp" }
     ]);
-    expect(deleted.map(({ key }) => key)).not.toContain("community/final/user/day/lease-a-photo.webp");
     expect(markComplete).toHaveBeenCalledWith("candidate-a", "cleaned");
+  });
+
+  it("reclaims a primary-promoted candidate when expiry wins during reserve mirroring", async () => {
+    const candidate = {
+      id: "candidate-a",
+      candidateObjectKey: "community/candidates/user/day/lease-a-photo.webp",
+      finalObjectKey: "community/final/user/day/lease-a-photo.webp",
+      status: "publishing" as const,
+      updatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestStatus: "aborted",
+      leaseUpdatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestUpdatedAt: new Date("2026-07-29T00:05:00.000Z")
+    };
+    expect(getCommunityMediaCandidateRecoveryAction(candidate, {
+      status: "aborted",
+      finalObjectKey: null
+    })).toBe("discard");
+
+    const primary = new Set([candidate.candidateObjectKey, candidate.finalObjectKey]);
+    const reserve = new Set([candidate.candidateObjectKey]);
+    await expect(cleanupCommunityMediaCandidate({ ...candidate, status: "cleanup_pending" }, {
+      claim: async () => true,
+      deleteCopies: async (key) => {
+        primary.delete(key);
+        reserve.delete(key);
+      },
+      markComplete: async () => undefined,
+      markRetry: async () => undefined
+    })).resolves.toBe("cleaned");
+    expect(primary).toEqual(new Set());
+    expect(reserve).toEqual(new Set());
+  });
+
+  it("cleans only candidate copies after the final winner is committed", async () => {
+    const candidate = {
+      id: "candidate-a",
+      candidateObjectKey: "community/candidates/user/day/lease-a-photo.webp",
+      finalObjectKey: "community/final/user/day/lease-a-photo.webp",
+      status: "published_cleanup_pending" as const,
+      updatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestStatus: "ready",
+      leaseUpdatedAt: new Date("2026-07-29T00:00:00.000Z"),
+      manifestUpdatedAt: new Date("2026-07-29T00:05:00.000Z")
+    };
+    expect(getCommunityMediaCandidateRecoveryAction({ ...candidate, status: "publishing" }, {
+      status: "ready",
+      finalObjectKey: candidate.finalObjectKey
+    })).toBe("cleanup_candidate");
+    const deleted: string[] = [];
+    await cleanupCommunityMediaCandidate(candidate, {
+      claim: async () => true,
+      deleteCopies: async (key) => { deleted.push(key); },
+      markComplete: async () => undefined,
+      markRetry: async () => undefined
+    });
+    expect(deleted).toEqual([candidate.candidateObjectKey]);
   });
 
   it("leaves failed candidate cleanup retryable and succeeds on the next sweep", async () => {
