@@ -1,0 +1,29 @@
+import { describe, expect, it } from "vitest";
+import { advanceReadPosition } from "./readState";
+
+const positionAt = (messageId: string, createdAt: string) => ({
+  messageId,
+  createdAt: new Date(createdAt)
+});
+
+describe("advanceReadPosition", () => {
+  it("keeps the current position when the candidate is older", () => {
+    const current = positionAt("current", "2026-07-28T12:00:00.000Z");
+    const candidate = positionAt("candidate", "2026-07-28T11:59:00.000Z");
+
+    expect(advanceReadPosition(current, candidate)).toEqual(current);
+  });
+
+  it("advances to a newer candidate", () => {
+    const current = positionAt("current", "2026-07-28T12:00:00.000Z");
+    const candidate = positionAt("candidate", "2026-07-28T12:01:00.000Z");
+
+    expect(advanceReadPosition(current, candidate)).toEqual(candidate);
+  });
+
+  it("uses the candidate when no read position exists", () => {
+    const candidate = positionAt("candidate", "2026-07-28T12:01:00.000Z");
+
+    expect(advanceReadPosition(null, candidate)).toEqual(candidate);
+  });
+});
