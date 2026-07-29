@@ -48,7 +48,17 @@ function serviceDependencies(overrides: Record<string, unknown> = {}) {
     getMetadata: async (key: string) => ({ key, contentType: "video/mp4", sizeBytes: 1024, etag: '"clean-etag"' }),
     getLeadingBytes: async () => new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]),
     validateOoxml: async () => true,
-    recordPromotion: async () => "recorded" as const,
+    recordPromotion: async ({ destinationKey }: { destinationKey: string }) => ({
+      status: "recorded" as const,
+      publication: {
+        id: "00000000-0000-4000-8000-000000000001",
+        publicationToken: "00000000-0000-4000-8000-000000000002",
+        sourceType: "manifest" as const,
+        sourceId: "00000000-0000-4000-8000-000000000003",
+        objectKey: destinationKey
+      }
+    }),
+    withPromotionPublication: async (_publication: unknown, work: (scope: unknown) => Promise<unknown>) => work(undefined),
     promoteObject: async () => undefined,
     mirrorToReserve: async () => undefined,
     deleteCopies: async () => undefined,
@@ -79,7 +89,10 @@ describe("community direct upload immutable lifecycle", () => {
     expect(result.objectKey).toMatch(/^community\/final\//);
     expect(result.objectKey).not.toBe(stagingKey);
     expect(promoted.get(result.objectKey)).toBe("verified-video");
-    expect(finish).toHaveBeenCalledWith(expect.objectContaining({ result: expect.objectContaining({ objectKey: result.objectKey, scanStatus: "ready" }) }));
+    expect(finish).toHaveBeenCalledWith(
+      expect.objectContaining({ result: expect.objectContaining({ objectKey: result.objectKey, scanStatus: "ready" }) }),
+      undefined
+    );
   });
 
   it("uses a private quarantine key for documents and queues durable scanning state", async () => {
@@ -97,7 +110,7 @@ describe("community direct upload immutable lifecycle", () => {
 
     expect(result.objectKey).toMatch(/^community\/quarantine\//);
     expect(result.scanStatus).toBe("pending");
-    expect(finish).toHaveBeenCalledWith(expect.objectContaining({ status: "pending" }));
+    expect(finish).toHaveBeenCalledWith(expect.objectContaining({ status: "pending" }), undefined);
   });
 
   it("returns the durable authoritative result for an identical completion replay", async () => {
@@ -121,7 +134,16 @@ describe("community direct upload immutable lifecycle", () => {
     const service = createCommunityUploadService(serviceDependencies({
       recordPromotion: async ({ destinationKey }: { destinationKey: string }) => {
         finalObjectKey = destinationKey;
-        return "recorded" as const;
+        return {
+          status: "recorded" as const,
+          publication: {
+            id: "00000000-0000-4000-8000-000000000001",
+            publicationToken: "00000000-0000-4000-8000-000000000002",
+            sourceType: "manifest" as const,
+            sourceId: "00000000-0000-4000-8000-000000000003",
+            objectKey: destinationKey
+          }
+        };
       },
       promoteObject: async ({ destinationKey }: { destinationKey: string }) => { objects.add(destinationKey); },
       finish: async () => { throw new Error("database_timeout"); },
@@ -200,7 +222,16 @@ describe("community direct upload immutable lifecycle", () => {
     const service = createCommunityUploadService(serviceDependencies({
       recordPromotion: async ({ destinationKey }: { destinationKey: string }) => {
         finalObjectKey = destinationKey;
-        return "recorded" as const;
+        return {
+          status: "recorded" as const,
+          publication: {
+            id: "00000000-0000-4000-8000-000000000001",
+            publicationToken: "00000000-0000-4000-8000-000000000002",
+            sourceType: "manifest" as const,
+            sourceId: "00000000-0000-4000-8000-000000000003",
+            objectKey: destinationKey
+          }
+        };
       },
       promoteObject: async () => {
         promotionFinished();

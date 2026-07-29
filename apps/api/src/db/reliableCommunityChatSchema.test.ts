@@ -13,6 +13,7 @@ import {
   communityNotificationOutbox,
   communityObjectDeletionEntries,
   communityObjectDeletionJobs,
+  communityObjectPublications,
   communityUploadManifests,
   communityTopicNotificationSettings,
   communityTopicReads,
@@ -119,8 +120,12 @@ describe("reliable community chat Drizzle metadata", () => {
       "community_object_deletion_jobs_status_check",
       "community_object_deletion_jobs_action_check"
     ]));
-    expect(jobConfig.indexes.find((item) => item.config.name === "community_object_deletion_jobs_source_action_idx")?.config.unique).toBe(true);
-    expect(entryConfig.indexes.find((item) => item.config.name === "community_object_deletion_entries_job_key_idx")?.config.unique).toBe(true);
+    expect(jobConfig.uniqueConstraints.map((item) => item.name)).toContain(
+      "community_object_deletion_jobs_source_action_unique"
+    );
+    expect(entryConfig.uniqueConstraints.map((item) => item.name)).toContain(
+      "community_object_deletion_entries_job_key_unique"
+    );
     expect(foreignKeys(communityObjectDeletionEntries)).toContainEqual({
       columns: ["job_id"],
       foreignTable: "community_object_deletion_jobs",
@@ -128,20 +133,47 @@ describe("reliable community chat Drizzle metadata", () => {
       onDelete: "cascade"
     });
     expect(requestConfig.indexes.find((item) => item.config.name === "community_message_purge_requests_key_idx")?.config.unique).toBe(true);
+    const publicationConfig = getTableConfig(communityObjectPublications);
+    expect(publicationConfig.uniqueConstraints.map((item) => item.name)).toContain(
+      "community_object_publications_source_key_unique"
+    );
+    expect(publicationConfig.indexes.map((item) => item.config.name)).toContain(
+      "community_object_publications_object_state_idx"
+    );
   });
 
   it("versions community access and persists revocation-aware notification delivery", () => {
     const outboxConfig = getTableConfig(communityNotificationOutbox);
+    const notificationConfig = getTableConfig(appNotifications);
 
     expect(users.communityAccessVersion.notNull).toBe(true);
     expect(users.communityAccessVersion.default).toBe(1);
     expect(appNotifications.communityTopicId.dataType).toBe("string");
     expect(appNotifications.communityAccessVersion.dataType).toBe("number");
-    expect(outboxConfig.indexes.find((item) => item.config.name === "community_notification_outbox_delivery_idx")?.config.unique).toBe(true);
+    expect(outboxConfig.uniqueConstraints.map((item) => item.name)).toContain(
+      "community_notification_outbox_delivery_unique"
+    );
+    expect(notificationConfig.indexes.map((item) => item.config.name)).toEqual(expect.arrayContaining([
+      "app_notifications_community_access_idx",
+      "app_notifications_community_delivery_idx"
+    ]));
+    expect(notificationConfig.indexes
+      .filter((item) => item.config.name?.startsWith("app_notifications_community_"))
+      .every((item) => item.config.where !== undefined)).toBe(true);
     expect(outboxConfig.checks.map((item) => item.name)).toEqual(expect.arrayContaining([
       "community_notification_outbox_status_check",
       "community_notification_outbox_reason_check"
     ]));
+    expect(outboxConfig.columns.find((column) => column.name === "delivered_at")).toBeDefined();
+  });
+
+  it("matches the terminal-cleanup indexes created by the privacy migration", () => {
+    expect(getTableConfig(clubChatMessages).indexes.map((item) => item.config.name)).toContain(
+      "club_chat_messages_terminal_cleanup_idx"
+    );
+    expect(getTableConfig(clubMessageAttachments).indexes.map((item) => item.config.name)).toContain(
+      "club_message_attachments_terminal_cleanup_idx"
+    );
   });
 });
 

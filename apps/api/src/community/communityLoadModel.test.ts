@@ -37,7 +37,14 @@ function voiceDependencies(transcodeVoiceFile: () => Promise<void>) {
     uploadFile: async () => ({ sizeBytes: 1 }),
     mirrorToReserve: async () => undefined,
     deleteCopies: async () => undefined,
-    registerCandidate: async () => undefined,
+    registerCandidate: async () => ({
+      id: "00000000-0000-4000-8000-000000000001",
+      publicationToken: "00000000-0000-4000-8000-000000000002",
+      sourceType: "candidate" as const,
+      sourceId: "00000000-0000-4000-8000-000000000003",
+      objectKey: "community/candidates/load-model.m4a"
+    }),
+    withCandidatePublication: async <T>(_publication: unknown, work: () => Promise<T>) => work(),
     cleanupCandidate: async () => undefined,
     complete: async () => undefined,
     fail: async () => undefined
@@ -62,6 +69,7 @@ describe("bounded community load model", () => {
       repository: {
         enqueueDue: async () => undefined,
         claimBatch: async ({ limit }) => { claimedLimit = limit; return []; },
+        quiescePublishers: async () => true,
         finalize: async () => true,
         release: async () => undefined
       },

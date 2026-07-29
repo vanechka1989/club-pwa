@@ -24,6 +24,7 @@ previous_web_image=""
 previous_api_image=""
 candidate_images_built=0
 reconciliation_started=0
+privacy_migration_barrier_crossed=0
 
 sanitize_status_value() {
   printf '%s' "$1" | tr '\r\n=' '   '
@@ -59,7 +60,7 @@ fail_status() {
         current_phase="rollback"
         write_status running "$current_phase" || true
         if rollback_services; then
-          echo "Previous application images were restored and verified." >&2
+          echo "A schema-compatible service set was restored and verified." >&2
         else
           echo "Automatic rollback did not reach verified health; rollback tags were preserved." >&2
         fi
@@ -142,6 +143,19 @@ run_community_cleanup_dry_run() {
   current_phase="community-cleanup-dry-run"
   write_status running "$current_phase"
   compose run --rm --no-deps api bun apps/api/src/scripts/auditCommunityCleanup.ts
+}
+
+quiesce_application_for_privacy_migration() {
+  current_phase="quiesce-api-worker"
+  write_status running "$current_phase"
+  reconciliation_started=1
+  compose stop -t 90 api worker
+  if compose ps --status running --quiet api worker | grep -q .; then
+    echo "API or worker remained active after the privacy migration quiesce window." >&2
+    return 1
+  fi
+  privacy_migration_barrier_crossed=1
+  echo "API and worker are quiesced; pre-privacy images are no longer valid rollback targets."
 }
 
 read_env_value() {
@@ -351,7 +365,9 @@ cleanup_previous_images() {
 restore_previous_image_tags() {
   local failed=0
   if [[ $api_changed -eq 1 ]]; then
-    if [[ -z "$previous_api_image" ]]; then
+    if [[ $privacy_migration_barrier_crossed -eq 1 ]]; then
+      echo "Keeping the privacy-compatible candidate API image after the migration barrier."
+    elif [[ -z "$previous_api_image" ]]; then
       echo "No previous API image is available for rollback." >&2
       failed=1
     elif ! docker tag "$previous_api_image" club-pwa-api:latest; then
@@ -393,6 +409,7 @@ deploy_api() {
   current_phase="uploads-permissions"
   write_status running "$current_phase"
   compose run --rm uploads-permissions
+  quiesce_application_for_privacy_migration
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
@@ -416,6 +433,7 @@ deploy_full() {
   current_phase="uploads-permissions"
   write_status running "$current_phase"
   compose run --rm uploads-permissions
+  quiesce_application_for_privacy_migration
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
@@ -446,11 +464,11 @@ install_operational_timers() {
 
 rollback_services() {
   local failed=0
-  echo "Deployment failed after reconciliation; attempting container rollback." >&2
+  echo "Deployment failed after reconciliation; attempting schema-compatible recovery." >&2
   if ! restore_previous_image_tags; then
     failed=1
   fi
-  if [[ $api_changed -eq 1 && -n "$previous_api_image" ]]; then
+  if [[ $api_changed -eq 1 && ( $privacy_migration_barrier_crossed -eq 1 || -n "$previous_api_image" ) ]]; then
     if ! compose up -d --no-deps --force-recreate api worker; then
       failed=1
     fi

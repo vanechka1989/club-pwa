@@ -24,6 +24,40 @@ const job = {
 };
 
 describe("durable community object deletion ledger", () => {
+  it("keeps a deletion job pending until its in-flight publisher is durably quiesced", async () => {
+    let publisherActive = true;
+    const repository: CommunityObjectDeletionRepository = {
+      enqueueDue: vi.fn(async () => undefined),
+      claimBatch: vi.fn(async () => [job]),
+      quiescePublishers: vi.fn(async () => !publisherActive),
+      finalize: vi.fn(async () => true),
+      release: vi.fn(async () => undefined)
+    };
+    const deleteObjectCopies = vi.fn(async () => undefined);
+    const cleanup = createCommunityObjectDeletionCleanup({
+      repository,
+      deleteObjectCopies,
+      logger: { info: vi.fn(), warn: vi.fn() }
+    });
+
+    await expect(cleanup()).resolves.toEqual({
+      completedJobIds: [],
+      deferredJobIds: [job.id],
+      failedJobIds: []
+    });
+    expect(deleteObjectCopies).not.toHaveBeenCalled();
+    expect(repository.finalize).not.toHaveBeenCalled();
+    expect(repository.release).not.toHaveBeenCalled();
+
+    publisherActive = false;
+    await expect(cleanup()).resolves.toEqual({
+      completedJobIds: [job.id],
+      deferredJobIds: [],
+      failedJobIds: []
+    });
+    expect(deleteObjectCopies).toHaveBeenCalledTimes(job.objectKeys.length);
+  });
+
   it("deletes every recorded primary/reserve/versioned key outside the claim and finalizes conditionally", async () => {
     let databaseWork = false;
     const events: string[] = [];
@@ -36,6 +70,7 @@ describe("durable community object deletion ledger", () => {
         databaseWork = false;
         return [job];
       }),
+      quiescePublishers: vi.fn(async () => true),
       finalize: vi.fn(async (candidate) => {
         databaseWork = true;
         events.push(`finalize:${candidate.claimId}`);
@@ -53,7 +88,7 @@ describe("durable community object deletion ledger", () => {
       logger: { info: vi.fn(), warn: vi.fn() }
     });
 
-    await expect(cleanup()).resolves.toEqual({ completedJobIds: [job.id], failedJobIds: [] });
+    await expect(cleanup()).resolves.toEqual({ completedJobIds: [job.id], deferredJobIds: [], failedJobIds: [] });
     expect(events).toEqual([
       "claim",
       ...job.objectKeys.map((key) => `s3:${key}`),
@@ -66,6 +101,7 @@ describe("durable community object deletion ledger", () => {
     const repository: CommunityObjectDeletionRepository = {
       enqueueDue: vi.fn(async () => undefined),
       claimBatch: vi.fn(async () => [job]),
+      quiescePublishers: vi.fn(async () => true),
       finalize: vi.fn(async () => true),
       release: vi.fn(async () => undefined)
     };
@@ -78,12 +114,12 @@ describe("durable community object deletion ledger", () => {
       logger: { info: vi.fn(), warn: vi.fn() }
     });
 
-    await expect(cleanup()).resolves.toEqual({ completedJobIds: [], failedJobIds: [job.id] });
+    await expect(cleanup()).resolves.toEqual({ completedJobIds: [], deferredJobIds: [], failedJobIds: [job.id] });
     expect(repository.release).toHaveBeenCalledWith(job, expect.stringContaining("reserve unavailable"));
     expect(repository.finalize).not.toHaveBeenCalled();
 
     attempt += 1;
-    await expect(cleanup()).resolves.toEqual({ completedJobIds: [job.id], failedJobIds: [] });
+    await expect(cleanup()).resolves.toEqual({ completedJobIds: [job.id], deferredJobIds: [], failedJobIds: [] });
     expect(deleteObjectCopies.mock.calls.filter(([key]) => key === job.objectKeys[0])).toHaveLength(2);
   });
 

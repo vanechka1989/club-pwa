@@ -28,7 +28,8 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     uploadFile: async () => undefined,
     mirrorToReserve: async () => undefined,
     deleteCopies: async () => undefined,
-    registerCandidate: async () => undefined,
+    registerCandidate: async () => ({ id: "publication-1" }),
+    withCandidatePublication: async (_publication: unknown, work: () => Promise<unknown>) => work(),
     cleanupCandidate: async () => undefined,
     complete: async () => undefined,
     fail: async () => undefined,
@@ -138,6 +139,41 @@ describe("bounded community media processor", () => {
       expect.stringMatching(/^cleanup:community\/candidates\//)
     ]);
     expect(cleanupCandidate).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the delayed candidate upload and reserve mirror inside the durable publication fence", async () => {
+    const events: string[] = [];
+    const publication = { id: "publication-1" };
+
+    await expect(processCommunityMediaManifest({ ...manifest, leaseToken: "44444444-4444-4444-8444-444444444444" }, dependencies({
+      registerCandidate: async () => {
+        events.push("publication:reserved");
+        return publication;
+      },
+      withCandidatePublication: async (claim: unknown, work: () => Promise<unknown>) => {
+        expect(claim).toBe(publication);
+        events.push("publication:locked");
+        const result = await work();
+        events.push("publication:committed");
+        return result;
+      },
+      uploadFile: async () => {
+        events.push("candidate:uploaded");
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      },
+      mirrorToReserve: async () => { events.push("candidate:mirrored"); },
+      complete: async () => { events.push("final:published"); },
+      deleteCopies: async (key: string) => { events.push(`delete:${key}`); }
+    }))).resolves.toBe("ready");
+
+    expect(events.slice(0, 6)).toEqual([
+      "publication:reserved",
+      "publication:locked",
+      "candidate:uploaded",
+      "candidate:mirrored",
+      "publication:committed",
+      "final:published"
+    ]);
   });
 
   it("sweeps an interrupted stale candidate and every uncommitted final copy", async () => {

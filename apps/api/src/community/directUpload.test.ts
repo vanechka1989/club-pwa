@@ -121,7 +121,17 @@ describe("community direct upload policy", () => {
       getMetadata: async (key) => ({ key, contentType: "video/mp4", sizeBytes: 1 }),
       getLeadingBytes: async () => new Uint8Array(),
       validateOoxml: async () => true,
-      recordPromotion: async () => "recorded" as const,
+      recordPromotion: async () => ({
+        status: "recorded" as const,
+        publication: {
+          id: "00000000-0000-4000-8000-000000000001",
+          publicationToken: "00000000-0000-4000-8000-000000000002",
+          sourceType: "manifest" as const,
+          sourceId: "00000000-0000-4000-8000-000000000003",
+          objectKey: "community/final/user/video.mp4"
+        }
+      }),
+      withPromotionPublication: async (_publication, work) => work(undefined),
       markCleanupPending: async () => undefined,
       completeCancelledCleanup: async () => undefined,
       promoteObject: async () => undefined,
@@ -178,7 +188,25 @@ describe("community direct upload policy", () => {
       getMetadata: async (key) => ({ key, contentType: object.contentType, sizeBytes: object.sizeBytes, etag: '"etag"' }),
       getLeadingBytes: async () => new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]),
       validateOoxml: async () => true,
-      recordPromotion: async () => { events.push("ledger"); return "recorded" as const; },
+      recordPromotion: async () => {
+        events.push("ledger");
+        return {
+          status: "recorded" as const,
+          publication: {
+            id: "00000000-0000-4000-8000-000000000001",
+            publicationToken: "00000000-0000-4000-8000-000000000002",
+            sourceType: "manifest" as const,
+            sourceId: "00000000-0000-4000-8000-000000000003",
+            objectKey: "community/final/user/video.mp4"
+          }
+        };
+      },
+      withPromotionPublication: async (_publication, work) => {
+        events.push("publication:locked");
+        const result = await work(undefined);
+        events.push("publication:committed");
+        return result;
+      },
       markCleanupPending: async () => undefined,
       completeCancelledCleanup: async () => undefined,
       promoteObject: async () => undefined,
@@ -192,7 +220,15 @@ describe("community direct upload policy", () => {
       objectKey: expect.stringMatching(/^community\/final\//),
       scanStatus: "ready"
     });
-    expect(events).toEqual(["claim", "ledger", "mirror", "finish", "delete-staging"]);
+    expect(events).toEqual([
+      "claim",
+      "ledger",
+      "publication:locked",
+      "mirror",
+      "finish",
+      "publication:committed",
+      "delete-staging"
+    ]);
     expect(attachmentDeadline).toBe("2026-07-29T12:20:00.000Z");
   });
 
@@ -214,7 +250,17 @@ describe("community direct upload policy", () => {
       getMetadata: async (key) => ({ key, contentType: object.contentType, sizeBytes: object.sizeBytes, etag: '"etag"' }),
       getLeadingBytes: async () => new Uint8Array([0x4d, 0x5a, 0x90, 0]),
       validateOoxml: async () => true,
-      recordPromotion: async () => "recorded" as const,
+      recordPromotion: async () => ({
+        status: "recorded" as const,
+        publication: {
+          id: "00000000-0000-4000-8000-000000000001",
+          publicationToken: "00000000-0000-4000-8000-000000000002",
+          sourceType: "manifest" as const,
+          sourceId: "00000000-0000-4000-8000-000000000003",
+          objectKey: "community/final/user/video.mp4"
+        }
+      }),
+      withPromotionPublication: async (_publication, work) => work(undefined),
       markCleanupPending: async () => undefined,
       completeCancelledCleanup: async () => undefined,
       promoteObject: async () => undefined,

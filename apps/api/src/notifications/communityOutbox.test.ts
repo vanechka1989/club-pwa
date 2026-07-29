@@ -51,16 +51,40 @@ describe("access-versioned community notification outbox", () => {
     expect(execute).toHaveBeenCalledOnce();
   });
 
-  it("rechecks a revoke after persistence and retracts metadata before any push", async () => {
+  it("sends only privacy-safe generic push content after the durable access decision", async () => {
+    const repository: CommunityNotificationOutboxRepository = {
+      claimBatch: vi.fn(async () => [candidate]),
+      sealForDelivery: vi.fn(async () => ({ status: "deliver" as const, notificationId: "notification-1" })),
+      recordPushFailure: vi.fn(async () => undefined),
+      release: vi.fn(async () => undefined)
+    };
+    const sendPush = vi.fn(async () => undefined);
+    const worker = createCommunityNotificationOutboxWorker({
+      repository,
+      sendPush,
+      logger: { info: vi.fn(), warn: vi.fn() }
+    });
+
+    await worker();
+
+    expect(sendPush).toHaveBeenCalledWith(candidate.userId, {
+      title: "Новое уведомление",
+      body: "Откройте приложение, чтобы проверить обновления.",
+      url: "/notifications"
+    });
+    expect(JSON.stringify(sendPush.mock.calls)).not.toContain(candidate.topicId);
+    expect(JSON.stringify(sendPush.mock.calls)).not.toContain(candidate.messageId);
+    expect(JSON.stringify(sendPush.mock.calls)).not.toContain("Закрытая тема");
+  });
+
+  it("suppresses revoked delivery durably before any push", async () => {
     const repository: CommunityNotificationOutboxRepository = {
       claimBatch: vi.fn(async ({ limit }) => {
         expect(limit).toBe(communityNotificationOutboxBatchSize);
         return [candidate];
       }),
-      persistIfAccessible: vi.fn(async () => ({ notificationId: "notification-1" })),
-      isStillAccessible: vi.fn(async () => false),
-      finalize: vi.fn(async () => true),
-      revoke: vi.fn(async () => undefined),
+      sealForDelivery: vi.fn(async () => ({ status: "suppressed" as const })),
+      recordPushFailure: vi.fn(async () => undefined),
       release: vi.fn(async () => undefined)
     };
     const sendPush = vi.fn(async () => undefined);
@@ -71,28 +95,29 @@ describe("access-versioned community notification outbox", () => {
     });
 
     await expect(worker()).resolves.toMatchObject({ revoked: 1, pushed: 0 });
-    expect(repository.revoke).toHaveBeenCalledWith(candidate);
+    expect(repository.sealForDelivery).toHaveBeenCalledWith(candidate);
     expect(sendPush).not.toHaveBeenCalled();
   });
 
-  it("performs slow network delivery outside repository work and retries a failure idempotently", async () => {
+  it("seals delivery before network I/O and never retries a possibly delivered push", async () => {
     let databaseWork = false;
-    let attempt = 0;
+    let claimed = false;
+    const events: string[] = [];
     const repository: CommunityNotificationOutboxRepository = {
-      claimBatch: vi.fn(async () => [candidate]),
-      persistIfAccessible: vi.fn(async () => {
+      claimBatch: vi.fn(async () => claimed ? [] : (claimed = true, [candidate])),
+      sealForDelivery: vi.fn(async () => {
         databaseWork = true;
+        events.push("sealed");
         databaseWork = false;
-        return { notificationId: "notification-1" };
+        return { status: "deliver" as const, notificationId: "notification-1" };
       }),
-      isStillAccessible: vi.fn(async () => true),
-      finalize: vi.fn(async () => true),
-      revoke: vi.fn(async () => undefined),
+      recordPushFailure: vi.fn(async () => { events.push("push-failure-recorded"); }),
       release: vi.fn(async () => undefined)
     };
     const sendPush = vi.fn(async () => {
       expect(databaseWork).toBe(false);
-      if (attempt++ === 0) throw new Error("push timeout");
+      events.push("push-attempted");
+      throw new Error("push timeout");
     });
     const worker = createCommunityNotificationOutboxWorker({
       repository,
@@ -101,8 +126,10 @@ describe("access-versioned community notification outbox", () => {
     });
 
     await expect(worker()).resolves.toMatchObject({ failed: 1, pushed: 0 });
-    expect(repository.release).toHaveBeenCalledWith(candidate, "push timeout");
-    await expect(worker()).resolves.toMatchObject({ failed: 0, pushed: 1 });
-    expect(repository.finalize).toHaveBeenCalledWith(candidate);
+    expect(repository.recordPushFailure).toHaveBeenCalledWith(candidate, "push timeout");
+    expect(repository.release).not.toHaveBeenCalled();
+    await expect(worker()).resolves.toMatchObject({ failed: 0, pushed: 0 });
+    expect(sendPush).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(["sealed", "push-attempted", "push-failure-recorded"]);
   });
 });

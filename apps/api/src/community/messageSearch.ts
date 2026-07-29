@@ -2,6 +2,7 @@ import type { ModerationStatus, UserRole } from "@club/shared";
 import { and, asc, desc, eq, gt, isNull, lt, not, or, sql } from "drizzle-orm";
 import { clubChatMessages, clubChatTopics, clubMessageAttachments, users } from "../db/schema";
 import { buildMessageAuthor } from "./messageMetadata";
+import { preciseCommunityMessageCreatedAt } from "./messageTimestamp";
 import { isTopicAccessibleForRole } from "./topicAccess";
 
 const maximumExcerptLength = 500;
@@ -136,10 +137,6 @@ const hasQuarantinedAttachment = sql<boolean>`exists (
   where ${clubMessageAttachments.messageId} = ${clubChatMessages.id}
     and (${clubMessageAttachments.scanStatus} <> 'ready' or ${clubMessageAttachments.deletedAt} is not null)
 )`;
-const preciseMessageCreatedAt = sql<string>`to_char(
-  ${clubChatMessages.createdAt} at time zone 'UTC',
-  'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
-)`;
 
 export function searchableMessageCondition() {
   return and(
@@ -168,7 +165,7 @@ async function searchCommunityMessagesWithDatabase(db: MessageSearchDatabase, in
         deletedByUserAt: clubChatMessages.deletedByUserAt,
         createdAt: clubChatMessages.createdAt
       },
-      cursorCreatedAt: preciseMessageCreatedAt,
+      cursorCreatedAt: preciseCommunityMessageCreatedAt(),
       topic: {
         title: clubChatTopics.title,
         isAdminOnly: clubChatTopics.isAdminOnly,
@@ -234,7 +231,7 @@ async function searchCommunityMessagesWithDatabase(db: MessageSearchDatabase, in
       topicTitle: row.topic.title,
       author: buildMessageAuthor(row.user),
       excerpt: buildSearchExcerpt(row.message.body, tokens),
-      createdAt: row.message.createdAt.toISOString()
+      createdAt: row.cursorCreatedAt
     })),
     nextCursor: hasMore && lastRow
       ? encodeSearchCursor({ createdAt: lastRow.cursorCreatedAt, messageId: lastRow.message.id })
@@ -244,7 +241,7 @@ async function searchCommunityMessagesWithDatabase(db: MessageSearchDatabase, in
 
 async function loadMessageContextWithDatabase(db: MessageSearchDatabase, input: MessageContextInput) {
   const [targetRow] = await db
-    .select({ message: clubChatMessages, user: users, cursorCreatedAt: preciseMessageCreatedAt })
+    .select({ message: clubChatMessages, user: users, cursorCreatedAt: preciseCommunityMessageCreatedAt() })
     .from(clubChatMessages)
     .innerJoin(users, eq(users.id, clubChatMessages.userId))
     .where(and(
@@ -254,14 +251,24 @@ async function loadMessageContextWithDatabase(db: MessageSearchDatabase, input: 
     ))
     .limit(1);
   if (!targetRow) return null;
-  const target = { ...targetRow.message, user: targetRow.user };
+  const target = {
+    ...targetRow.message,
+    preciseCreatedAt: targetRow.cursorCreatedAt,
+    user: targetRow.user
+  };
 
   const beforeLimit = normalizeContextWindow(input.before);
   const afterLimit = normalizeContextWindow(input.after);
   const [beforeRows, afterRows] = await Promise.all([
     beforeLimit
-      ? db.query.clubChatMessages.findMany({
-          where: and(
+      ? db.select({
+          message: clubChatMessages,
+          user: users,
+          preciseCreatedAt: preciseCommunityMessageCreatedAt()
+        })
+          .from(clubChatMessages)
+          .innerJoin(users, eq(users.id, clubChatMessages.userId))
+          .where(and(
             eq(clubChatMessages.topicId, input.topicId),
             searchableMessageCondition(),
             or(
@@ -271,15 +278,19 @@ async function loadMessageContextWithDatabase(db: MessageSearchDatabase, input: 
                 lt(clubChatMessages.id, target.id)
               )
             )
-          ),
-          orderBy: [desc(clubChatMessages.createdAt), desc(clubChatMessages.id)],
-          limit: beforeLimit,
-          with: { user: true }
-        })
+          ))
+          .orderBy(desc(clubChatMessages.createdAt), desc(clubChatMessages.id))
+          .limit(beforeLimit)
       : Promise.resolve([]),
     afterLimit
-      ? db.query.clubChatMessages.findMany({
-          where: and(
+      ? db.select({
+          message: clubChatMessages,
+          user: users,
+          preciseCreatedAt: preciseCommunityMessageCreatedAt()
+        })
+          .from(clubChatMessages)
+          .innerJoin(users, eq(users.id, clubChatMessages.userId))
+          .where(and(
             eq(clubChatMessages.topicId, input.topicId),
             searchableMessageCondition(),
             or(
@@ -289,17 +300,26 @@ async function loadMessageContextWithDatabase(db: MessageSearchDatabase, input: 
                 gt(clubChatMessages.id, target.id)
               )
             )
-          ),
-          orderBy: [asc(clubChatMessages.createdAt), asc(clubChatMessages.id)],
-          limit: afterLimit,
-          with: { user: true }
-        })
+          ))
+          .orderBy(asc(clubChatMessages.createdAt), asc(clubChatMessages.id))
+          .limit(afterLimit)
       : Promise.resolve([])
   ]);
 
+  const beforeMessages = beforeRows.map((row) => ({
+    ...row.message,
+    preciseCreatedAt: row.preciseCreatedAt,
+    user: row.user
+  }));
+  const afterMessages = afterRows.map((row) => ({
+    ...row.message,
+    preciseCreatedAt: row.preciseCreatedAt,
+    user: row.user
+  }));
+
   return {
     targetMessageId: target.id,
-    messages: [...beforeRows.reverse(), target, ...afterRows]
+    messages: [...beforeMessages.reverse(), target, ...afterMessages]
   };
 }
 

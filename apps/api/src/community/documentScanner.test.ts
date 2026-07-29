@@ -72,6 +72,33 @@ describe("community document quarantine scanner", () => {
     ]);
   });
 
+  it("keeps document promotion, reserve mirroring, and the ready commit inside one publication handshake", async () => {
+    const events: string[] = [];
+    await processCommunityDocumentScan({
+      id: "a1",
+      objectKey: "community/quarantine/u/d/t-guide.pdf",
+      contentType: "application/pdf"
+    }, {
+      scan: async () => "clean",
+      publishReady: async () => {
+        events.push("publication:ready");
+        return "community/final/u/d/t-guide.pdf";
+      },
+      promoteToFinal: async () => {
+        events.push("legacy:promote");
+        return "community/final/u/d/t-guide.pdf";
+      },
+      mirrorToReserve: async () => { events.push("legacy:mirror"); },
+      deleteCopies: async (key) => { events.push(`delete:${key}`); },
+      updateStatus: async (_id, status) => { events.push(`legacy:status:${status}`); }
+    });
+
+    expect(events).toEqual([
+      "publication:ready",
+      "delete:community/quarantine/u/d/t-guide.pdf"
+    ]);
+  });
+
   it("deletes infected objects and marks them rejected", async () => {
     const events: string[] = [];
     await processCommunityDocumentScan({ id: "a1", objectKey: "community/pending/u/d/t-guide.pdf", contentType: "application/pdf" }, {

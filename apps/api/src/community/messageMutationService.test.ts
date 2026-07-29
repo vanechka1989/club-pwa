@@ -69,6 +69,47 @@ function createFixture() {
   const mentions = new Map<string, Array<{ userId: string; start: number; end: number }>>();
   let serverNow = new Date("2026-07-29T10:00:00.000Z");
   let insertCalls = 0;
+  let transactionActive = false;
+
+  const enqueueNotifications = vi.fn(async (
+    input: Parameters<MessageMutationStore["enqueueNotifications"]>[0]
+  ) => {
+    const candidates = [
+      { user: users[1]!, mode: "mentions" as const },
+      { user: users[2]!, mode: "mentions" as const },
+      { user: users[3]!, mode: "all" as const },
+      { user: users[4]!, mode: "off" as const },
+      { user: users[0]!, mode: "all" as const }
+    ];
+    for (const candidate of candidates) {
+      const replied = candidate.user.id === input.replyUserId;
+      const mentioned = input.mentionUserIds.includes(candidate.user.id);
+      if (candidate.user.id === input.senderUserId || candidate.mode === "off") continue;
+      if (candidate.mode !== "all" && !replied && !mentioned) continue;
+      if (!(await canUserAccessTopic(candidate.user, topic))) continue;
+      const reason = replied ? "reply" : mentioned ? "mention" : "all";
+      const title = reason === "reply"
+        ? `Ответ в чате: ${input.topicTitle}`
+        : reason === "mention"
+          ? `Вас упомянули: ${input.topicTitle}`
+          : `Новое сообщение: ${input.topicTitle}`;
+      const body = reason === "reply"
+        ? `Новый ответ в чате "${input.topicTitle}". Автор: ${input.senderName}.`
+        : reason === "mention"
+          ? `Новое упоминание в чате "${input.topicTitle}". Автор: ${input.senderName}.`
+          : `Новое сообщение в чате "${input.topicTitle}". Автор: ${input.senderName}.`;
+      await createNotification({
+        userId: candidate.user.id,
+        kind: "client",
+        title,
+        body,
+        source: `community_${reason}`,
+        sourceId: input.messageId,
+        pushUrl: `/community/topics/${input.topicId}?message=${input.messageId}`,
+        deduplicate: true
+      }, { activeCommunityMessageId: input.messageId });
+    }
+  });
 
   const store: MessageMutationStore = {
     getServerNow: vi.fn(async () => new Date(serverNow)),
@@ -103,6 +144,7 @@ function createFixture() {
     insertMentions: vi.fn(async (messageId: string, values: StoredMention[]) => {
       mentions.set(messageId, values.map((value) => ({ ...value })));
     }),
+    enqueueNotifications,
     replaceMentions: vi.fn(async (messageId: string, values: StoredMention[]) => {
       mentions.set(messageId, values.map((value) => ({ ...value })));
     }),
@@ -124,49 +166,24 @@ function createFixture() {
   };
 
   const repository: MessageMutationRepository = {
-    transaction: async (work) => work(store),
-    listParticipantCandidates: vi.fn(async () => users),
-    listNotificationCandidates: vi.fn(async () => [
-      { user: users[1]!, mode: "mentions" as const },
-      { user: users[2]!, mode: "mentions" as const },
-      { user: users[3]!, mode: "all" as const },
-      { user: users[4]!, mode: "off" as const },
-      { user: users[0]!, mode: "all" as const }
-    ]),
-    enqueueNotifications: vi.fn(async (input) => {
-      const candidates = await repository.listNotificationCandidates(input.topicId, [
-        ...(input.replyUserId ? [input.replyUserId] : []),
-        ...input.mentionUserIds
-      ]);
-      for (const candidate of candidates) {
-        const replied = candidate.user.id === input.replyUserId;
-        const mentioned = input.mentionUserIds.includes(candidate.user.id);
-        if (candidate.user.id === input.senderUserId || candidate.mode === "off") continue;
-        if (candidate.mode !== "all" && !replied && !mentioned) continue;
-        if (!(await canUserAccessTopic(candidate.user, topic))) continue;
-        const reason = replied ? "reply" : mentioned ? "mention" : "all";
-        const title = reason === "reply"
-          ? `Ответ в чате: ${input.topicTitle}`
-          : reason === "mention"
-            ? `Вас упомянули: ${input.topicTitle}`
-            : `Новое сообщение: ${input.topicTitle}`;
-        const body = reason === "reply"
-          ? `Новый ответ в чате "${input.topicTitle}". Автор: ${input.senderName}.`
-          : reason === "mention"
-            ? `Новое упоминание в чате "${input.topicTitle}". Автор: ${input.senderName}.`
-            : `Новое сообщение в чате "${input.topicTitle}". Автор: ${input.senderName}.`;
-        await createNotification({
-          userId: candidate.user.id,
-          kind: "client",
-          title,
-          body,
-          source: `community_${reason}`,
-          sourceId: input.messageId,
-          pushUrl: `/community/topics/${input.topicId}?message=${input.messageId}`,
-          deduplicate: true
-        }, { activeCommunityMessageId: input.messageId });
+    transaction: async (work) => {
+      transactionActive = true;
+      const messageSnapshot = messages.map((item) => ({ ...item }));
+      const mentionSnapshot = new Map(
+        [...mentions].map(([id, values]) => [id, values.map((value) => ({ ...value }))])
+      );
+      try {
+        return await work(store);
+      } catch (error) {
+        messages.splice(0, messages.length, ...messageSnapshot);
+        mentions.clear();
+        for (const [id, values] of mentionSnapshot) mentions.set(id, values);
+        throw error;
+      } finally {
+        transactionActive = false;
       }
-    })
+    },
+    listParticipantCandidates: vi.fn(async () => users),
   };
   const createNotification = vi.fn<(
     input: CreateAppNotificationInput,
@@ -194,6 +211,7 @@ function createFixture() {
     createNotification,
     publishChange,
     canUserAccessTopic,
+    get transactionActive() { return transactionActive; },
     get insertCalls() { return insertCalls; },
     setServerNow(value: string) { serverNow = new Date(value); }
   };
@@ -231,14 +249,25 @@ describe("message mutation service", () => {
     expect(fixture.publishChange).toHaveBeenCalledWith(topicId);
   });
 
-  it("lets a retry resume deduplicated notification fanout after the message commit", async () => {
+  it("commits the notification outbox intent in the message transaction", async () => {
+    const fixture = createFixture();
+    fixture.store.enqueueNotifications = vi.fn(async () => {
+      expect(fixture.transactionActive).toBe(true);
+    });
+
+    await fixture.service.createText(createInput());
+
+    expect(fixture.store.enqueueNotifications).toHaveBeenCalledOnce();
+  });
+
+  it("rolls back the message when its notification intent cannot be committed", async () => {
     const fixture = createFixture();
     fixture.createNotification.mockRejectedValueOnce(new Error("notification database unavailable"));
 
     await expect(fixture.service.createText(createInput())).rejects.toThrow("notification database unavailable");
-    await expect(fixture.service.createText(createInput())).resolves.toMatchObject({ created: false });
+    await expect(fixture.service.createText(createInput())).resolves.toMatchObject({ created: true });
 
-    expect(fixture.insertCalls).toBe(1);
+    expect(fixture.insertCalls).toBe(2);
     expect(fixture.createNotification).toHaveBeenCalledTimes(2);
     expect(fixture.publishChange).toHaveBeenCalledTimes(1);
   });

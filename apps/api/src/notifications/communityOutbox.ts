@@ -9,6 +9,11 @@ export const communityNotificationOutboxBatchSize = 100;
 export const communityNotificationOutboxConcurrency = 8;
 export const communityNotificationOutboxIntervalMs = 5_000;
 const outboxClaimStaleMs = 5 * 60_000;
+export const genericCommunityPushPayload = {
+  title: "Новое уведомление",
+  body: "Откройте приложение, чтобы проверить обновления.",
+  url: "/notifications"
+} as const;
 
 export type CommunityNotificationReason = "reply" | "mention" | "all";
 export type CommunityNotificationOutboxCandidate = {
@@ -19,9 +24,6 @@ export type CommunityNotificationOutboxCandidate = {
   messageId: string;
   accessVersion: number;
   reason: CommunityNotificationReason;
-  title: string;
-  body: string;
-  pushUrl: string;
 };
 
 export type CommunityNotificationEnqueueInput = {
@@ -148,7 +150,7 @@ export async function enqueueCommunityNotificationsWithDependencies(
              when 'mention' then ${`Новое упоминание в чате "${input.topicTitle}". Автор: ${input.senderName}.`}
              else ${`Новое сообщение в чате "${input.topicTitle}". Автор: ${input.senderName}.`}
            end,
-           ${`/community/topics/${input.topicId}?message=${input.messageId}`},
+           '/notifications',
            'pending', clock_timestamp(), clock_timestamp()
     from eligible
     on conflict (user_id, message_id, reason) do nothing
@@ -167,10 +169,10 @@ export async function enqueueCommunityNotifications(
 
 export interface CommunityNotificationOutboxRepository {
   claimBatch(input: { limit: number }): Promise<CommunityNotificationOutboxCandidate[]>;
-  persistIfAccessible(candidate: CommunityNotificationOutboxCandidate): Promise<{ notificationId: string } | null>;
-  isStillAccessible(candidate: CommunityNotificationOutboxCandidate): Promise<boolean>;
-  finalize(candidate: CommunityNotificationOutboxCandidate): Promise<boolean>;
-  revoke(candidate: CommunityNotificationOutboxCandidate): Promise<void>;
+  sealForDelivery(candidate: CommunityNotificationOutboxCandidate): Promise<
+    { status: "deliver"; notificationId: string } | { status: "suppressed" } | null
+  >;
+  recordPushFailure(candidate: CommunityNotificationOutboxCandidate, error: string): Promise<void>;
   release(candidate: CommunityNotificationOutboxCandidate, error: string): Promise<void>;
 }
 
@@ -207,12 +209,11 @@ export function createCommunityNotificationOutboxRepository(
         where outbox.id = candidates.id
         returning outbox.id, outbox.claim_id as "claimId", outbox.user_id as "userId",
                   outbox.topic_id as "topicId", outbox.message_id as "messageId",
-                  outbox.access_version as "accessVersion", outbox.reason,
-                  outbox.title, outbox.body, outbox.push_url as "pushUrl"
+                  outbox.access_version as "accessVersion", outbox.reason
       `)) as Iterable<CommunityNotificationOutboxCandidate>);
     },
 
-    async persistIfAccessible(candidate) {
+    async sealForDelivery(candidate) {
       const ownerTelegramId = await loadOwnerTelegramId();
       return database.transaction(async (transaction) => {
         const rows = Array.from((await transaction.execute(sql`
@@ -255,55 +256,53 @@ export function createCommunityNotificationOutboxRepository(
               community_access_version = excluded.community_access_version
             returning id
           )
-          select id as "notificationId" from persisted limit 1
-        `)) as Iterable<{ notificationId: string }>);
-        return rows[0] ?? null;
-      });
-    },
+          select exists(select 1 from claimed) as "claimed",
+                 exists(select 1 from eligible) as "accessible",
+                 (select id from persisted limit 1) as "notificationId"
+        `)) as Iterable<{ claimed: boolean; accessible: boolean; notificationId: string | null }>);
+        const decision = rows[0];
+        if (!decision?.claimed) return null;
 
-    async isStillAccessible(candidate) {
-      const ownerTelegramId = await loadOwnerTelegramId();
-      const rows = Array.from((await database.execute(sql`
-        select outbox.id
-        from community_notification_outbox outbox
-        join users recipient on recipient.id = outbox.user_id
-        join club_chat_topics topic on topic.id = outbox.topic_id
-        join club_chat_messages message
-          on message.id = outbox.message_id and message.topic_id = topic.id
-        where outbox.id = ${candidate.id}
-          and outbox.status = 'claimed'
-          and outbox.claim_id = ${candidate.claimId}
-          and recipient.community_access_version = outbox.access_version
-          and message.status = 'visible'
-          and message.deleted_by_user_at is null
-          and ${accessCondition(ownerTelegramId)}
-        limit 1
-      `)) as Iterable<{ id: string }>);
-      return rows.length === 1;
-    },
-
-    async finalize(candidate) {
-      const rows = Array.from((await database.execute(sql`
-        delete from community_notification_outbox
-        where id = ${candidate.id} and status = 'claimed' and claim_id = ${candidate.claimId}
-        returning id
-      `)) as Iterable<{ id: string }>);
-      return rows.length === 1;
-    },
-
-    async revoke(candidate) {
-      await database.transaction(async (transaction) => {
-        await transaction.execute(sql`
+        if (!decision.accessible || !decision.notificationId) {
+          await transaction.execute(sql`
           delete from app_notifications
           where user_id = ${candidate.userId}
             and source = ${sourceForReason(candidate.reason)}
             and source_id = ${candidate.messageId}
-        `);
-        await transaction.execute(sql`
-          delete from community_notification_outbox
-          where id = ${candidate.id} and claim_id = ${candidate.claimId}
-        `);
+          `);
+          const suppressed = Array.from((await transaction.execute(sql`
+            update community_notification_outbox
+            set status = 'suppressed', delivered_at = clock_timestamp(),
+                title = ${genericCommunityPushPayload.title}, body = ${genericCommunityPushPayload.body},
+                push_url = ${genericCommunityPushPayload.url}, updated_at = clock_timestamp()
+            where id = ${candidate.id} and status = 'claimed' and claim_id = ${candidate.claimId}
+            returning id
+          `)) as Iterable<{ id: string }>);
+          if (suppressed.length !== 1) return null;
+          return { status: "suppressed" as const };
+        }
+
+        const delivered = Array.from((await transaction.execute(sql`
+          update community_notification_outbox
+          set status = 'delivered', delivered_at = clock_timestamp(),
+              title = ${genericCommunityPushPayload.title}, body = ${genericCommunityPushPayload.body},
+              push_url = ${genericCommunityPushPayload.url}, updated_at = clock_timestamp()
+          where id = ${candidate.id} and status = 'claimed' and claim_id = ${candidate.claimId}
+          returning id
+        `)) as Iterable<{ id: string }>);
+        if (delivered.length !== 1) return null;
+        return { status: "deliver" as const, notificationId: decision.notificationId };
       });
+    },
+
+    async recordPushFailure(candidate, error) {
+      await database.execute(sql`
+        update community_notification_outbox
+        set last_error = ${error.slice(0, 500)}, updated_at = clock_timestamp()
+        where id = ${candidate.id}
+          and status = 'delivered'
+          and claim_id = ${candidate.claimId}
+      `);
     },
 
     async release(candidate, error) {
@@ -313,7 +312,7 @@ export function createCommunityNotificationOutboxRepository(
             last_error = ${error.slice(0, 500)},
             next_attempt_at = clock_timestamp() + least(interval '30 minutes', attempt_count * interval '10 seconds'),
             updated_at = clock_timestamp()
-        where id = ${candidate.id} and claim_id = ${candidate.claimId}
+        where id = ${candidate.id} and status = 'claimed' and claim_id = ${candidate.claimId}
       `);
     }
   };
@@ -332,25 +331,23 @@ export function createCommunityNotificationOutboxWorker(dependencies: WorkerDepe
     for (let offset = 0; offset < candidates.length; offset += communityNotificationOutboxConcurrency) {
       const chunk = candidates.slice(offset, offset + communityNotificationOutboxConcurrency);
       await Promise.all(chunk.map(async (candidate) => {
+        let sealedForDelivery = false;
         try {
-          const persisted = await dependencies.repository.persistIfAccessible(candidate);
-          if (!persisted || !(await dependencies.repository.isStillAccessible(candidate))) {
-            await dependencies.repository.revoke(candidate);
+          const decision = await dependencies.repository.sealForDelivery(candidate);
+          if (!decision) throw new Error("notification_outbox_claim_lost");
+          if (decision.status === "suppressed") {
             totals.revoked += 1;
             return;
           }
-          await dependencies.sendPush(candidate.userId, {
-            title: candidate.title,
-            body: candidate.body,
-            url: candidate.pushUrl
-          });
-          if (!(await dependencies.repository.finalize(candidate))) {
-            throw new Error("notification_outbox_claim_lost");
-          }
+          sealedForDelivery = true;
+          await dependencies.sendPush(candidate.userId, genericCommunityPushPayload);
           totals.pushed += 1;
         } catch (error) {
           const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
-          await dependencies.repository.release(candidate, message).catch((releaseError) => {
+          const persistFailure = sealedForDelivery
+            ? dependencies.repository.recordPushFailure(candidate, message)
+            : dependencies.repository.release(candidate, message);
+          await persistFailure.catch((releaseError) => {
             dependencies.logger.warn({ error: releaseError, outboxId: candidate.id }, "community notification release failed");
           });
           dependencies.logger.warn({ error, outboxId: candidate.id }, "community notification delivery failed");

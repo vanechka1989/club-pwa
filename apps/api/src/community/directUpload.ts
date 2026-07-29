@@ -1,5 +1,6 @@
 import type { CommunityUploadIntent, CommunityUploadedObject } from "@club/shared";
 import { createHash, randomUUID } from "node:crypto";
+import type { CommunityObjectPublicationClaim } from "./objectPublication";
 
 export const communityDirectPutMaxBytes = 25 * 1024 * 1024;
 export const communityMultipartPartSizeBytes = 8 * 1024 * 1024;
@@ -341,7 +342,7 @@ type CommunityUploadServiceDependencies = {
     result: CommunityUploadResult;
     status: "processing" | "pending" | "ready";
     expiresAt: Date;
-  }) => Promise<"finished" | "cancelled">;
+  }, publicationScope?: unknown) => Promise<"finished" | "cancelled">;
   fail: (record: { userId: string; uploadToken: string; fingerprint: string }, error: string) => Promise<void>;
   recordPromotion: (record: {
     userId: string;
@@ -349,7 +350,14 @@ type CommunityUploadServiceDependencies = {
     fingerprint: string;
     destinationKey: string;
     destination: "final" | "quarantine";
-  }) => Promise<"recorded" | "cancelled">;
+  }) => Promise<
+    | { status: "recorded"; publication: CommunityObjectPublicationClaim }
+    | { status: "cancelled" }
+  >;
+  withPromotionPublication: <T>(
+    publication: CommunityObjectPublicationClaim,
+    work: (publicationScope: unknown) => Promise<T>
+  ) => Promise<T>;
   markCleanupPending: (
     record: { userId: string; uploadToken: string; fingerprint: string },
     error: string
@@ -456,7 +464,8 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
       if (intent.stagingObjectKey !== uploaded.objectKey) throw new Error("intent_mismatch");
       const metadata = await dependencies.getMetadata(intent.stagingObjectKey);
       if (!metadata.etag) throw new Error("metadata_mismatch");
-      const leadingBytes = await dependencies.getLeadingBytes(intent.stagingObjectKey, communitySignaturePrefixBytes, metadata.etag);
+      const sourceETag = metadata.etag;
+      const leadingBytes = await dependencies.getLeadingBytes(intent.stagingObjectKey, communitySignaturePrefixBytes, sourceETag);
       const validation = validateCommunityObject({
         uploaded,
         userId,
@@ -485,36 +494,38 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
         destinationKey,
         destination: uploaded.kind === "video" ? "final" : "quarantine"
       });
-      if (promotionRecord === "cancelled") {
+      if (promotionRecord.status === "cancelled") {
         ownershipLost = true;
         throw new Error("object_already_consumed");
       }
-      await dependencies.promoteObject({
-        sourceKey: intent.stagingObjectKey,
-        destinationKey,
-        expectedETag: metadata.etag,
-        contentType: uploaded.contentType
-      });
-      promotionCompleted = true;
-      const promoted = await dependencies.getMetadata(destinationKey);
-      if (promoted.key !== destinationKey || promoted.contentType !== uploaded.contentType || promoted.sizeBytes !== uploaded.sizeBytes) {
-        throw new Error("promotion_mismatch");
-      }
       const status = uploaded.kind === "video" ? "ready" : uploaded.kind === "document" ? "pending" : "processing";
       const result = { ...validation.value, objectKey: destinationKey, scanStatus: status } as CommunityUploadResult;
-      if (status === "ready") await dependencies.mirrorToReserve(destinationKey, uploaded.contentType);
-      finishAttempted = true;
-      const finishState = await dependencies.finish({
-        userId,
-        uploadToken: uploaded.uploadToken,
-        fingerprint,
-        result,
-        status,
-        expiresAt: new Date(now.getTime() + communityCompletedUploadAttachmentGraceMs)
+      await dependencies.withPromotionPublication(promotionRecord.publication, async (publicationScope) => {
+        await dependencies.promoteObject({
+          sourceKey: intent.stagingObjectKey,
+          destinationKey,
+          expectedETag: sourceETag,
+          contentType: uploaded.contentType
+        });
+        promotionCompleted = true;
+        const promoted = await dependencies.getMetadata(destinationKey);
+        if (promoted.key !== destinationKey || promoted.contentType !== uploaded.contentType || promoted.sizeBytes !== uploaded.sizeBytes) {
+          throw new Error("promotion_mismatch");
+        }
+        if (status === "ready") await dependencies.mirrorToReserve(destinationKey, uploaded.contentType);
+        finishAttempted = true;
+        const finishState = await dependencies.finish({
+          userId,
+          uploadToken: uploaded.uploadToken,
+          fingerprint,
+          result,
+          status,
+          expiresAt: new Date(now.getTime() + communityCompletedUploadAttachmentGraceMs)
+        }, publicationScope);
+        if (finishState === "cancelled") {
+          throw new Error("object_already_consumed");
+        }
       });
-      if (finishState === "cancelled") {
-        throw new Error("object_already_consumed");
-      }
       await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
       return result;
     } catch (error) {

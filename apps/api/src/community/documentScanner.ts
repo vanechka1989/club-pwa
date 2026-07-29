@@ -1,4 +1,8 @@
 import { createConnection } from "node:net";
+import {
+  beginCommunityObjectPublication,
+  withCommunityObjectPublication
+} from "./objectPublication";
 
 export type ClamAvScanResult = "clean" | "infected" | "unavailable";
 const immediatelyRetryableDocumentScanStatuses = ["pending", "failed", "cleanup_pending"] as const;
@@ -165,6 +169,7 @@ type ScanStatus = "ready" | "rejected" | "failed" | "cleanup_pending";
 
 type DocumentScanDependencies = {
   scan: (objectKey: string) => Promise<ClamAvScanResult>;
+  publishReady?: (attachment: DocumentAttachment) => Promise<string>;
   promoteToFinal: (objectKey: string, contentType: string) => Promise<string>;
   mirrorToReserve: (objectKey: string, contentType: string) => Promise<void>;
   deleteCopies: (objectKey: string) => Promise<void>;
@@ -205,11 +210,15 @@ export async function processCommunityDocumentScan(
   let statusAttempted = false;
   let promotedFinalObjectKey: string | null = null;
   try {
-    const finalObjectKey = await dependencies.promoteToFinal(attachment.objectKey, attachment.contentType);
+    const finalObjectKey = dependencies.publishReady
+      ? await dependencies.publishReady(attachment)
+      : await dependencies.promoteToFinal(attachment.objectKey, attachment.contentType);
     promotedFinalObjectKey = finalObjectKey;
-    await dependencies.mirrorToReserve(finalObjectKey, attachment.contentType);
-    statusAttempted = true;
-    await dependencies.updateStatus(attachment.id, "ready", null, finalObjectKey);
+    if (!dependencies.publishReady) {
+      await dependencies.mirrorToReserve(finalObjectKey, attachment.contentType);
+      statusAttempted = true;
+      await dependencies.updateStatus(attachment.id, "ready", null, finalObjectKey);
+    }
     await dependencies.deleteCopies(attachment.objectKey).catch(() => undefined);
     return "clean" as const;
   } catch {
@@ -290,6 +299,68 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
     fileName: manifest.fileName
   }] : []);
   const claimStates = new Map<string, { status: string; updatedAt: Date }>();
+
+  const updatePersistedStatus = async (
+    database: typeof db,
+    manifest: DocumentAttachment,
+    manifestId: string,
+    status: ScanStatus,
+    scanError: string | null,
+    finalObjectKey?: string
+  ) => {
+    const expectedClaim = claimStates.get(manifestId);
+    if (!expectedClaim) throw new Error("scanner_claim_lost");
+    const current = await database.query.communityUploadManifests.findFirst({
+      where: eq(communityUploadManifests.id, manifestId)
+    });
+    const updatedAt = new Date();
+    const [updated] = await database.update(communityUploadManifests)
+      .set({
+        status,
+        errorCode: scanError,
+        finalObjectKey: status === "ready" ? finalObjectKey : undefined,
+        quarantineObjectKey: status === "ready" ? null : undefined,
+        result: current?.result && typeof current.result === "object"
+          ? {
+              ...current.result,
+              scanStatus: status === "cleanup_pending" ? "failed" : status,
+              objectKey: status === "ready" ? finalObjectKey : manifest.objectKey
+            }
+          : current?.result,
+        updatedAt
+      })
+      .where(and(
+        eq(communityUploadManifests.id, manifestId),
+        eq(communityUploadManifests.status, expectedClaim.status),
+        eq(communityUploadManifests.updatedAt, expectedClaim.updatedAt),
+        isNull(communityUploadManifests.terminalCleanupAt)
+      ))
+      .returning({ attachmentId: communityUploadManifests.attachmentId, updatedAt: communityUploadManifests.updatedAt });
+    if (!updated) throw new Error("scanner_claim_lost");
+    claimStates.set(manifestId, { status, updatedAt: updated.updatedAt });
+    if (updated.attachmentId) {
+      const [attachment] = await database.update(clubMessageAttachments)
+        .set({
+          scanStatus: status === "cleanup_pending" ? "failed" : status,
+          scanError,
+          scannedAt: new Date(),
+          objectKey: status === "ready" ? finalObjectKey : undefined
+        })
+        .where(and(
+          eq(clubMessageAttachments.id, updated.attachmentId),
+          isNull(clubMessageAttachments.deletedAt),
+          isNull(clubMessageAttachments.terminalCleanupAt),
+          sql`exists (
+            select 1 from club_chat_messages message
+            where message.id = ${clubMessageAttachments.messageId}
+              and message.terminal_cleanup_at is null
+          )`
+        ))
+        .returning({ id: clubMessageAttachments.id });
+      if (!attachment) throw new Error("scanner_terminal_fence");
+    }
+  };
+
   await runDocumentScannerBatch(candidates, {
     claim: async (manifestId) => {
       const claimedAt = new Date();
@@ -310,6 +381,71 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
     },
     process: async (manifest) => processCommunityDocumentScan(manifest, {
       scan: scanCommunityDocumentObject,
+      publishReady: async (attachment) => {
+        if (!attachment.userId || !attachment.uploadToken || !attachment.fileName) throw new Error("invalid_document_manifest");
+        const { buildCommunityFinalObjectKey } = await import("./directUpload");
+        const finalObjectKey = buildCommunityFinalObjectKey({
+          userId: attachment.userId,
+          uploadToken: attachment.uploadToken,
+          fileName: attachment.fileName
+        });
+        const publication = await db.transaction(async (transaction) => {
+          const database = transaction as unknown as typeof db;
+          const expectedClaim = claimStates.get(attachment.id);
+          if (!expectedClaim) throw new Error("scanner_claim_lost");
+          const reservedAt = new Date();
+          const [reserved] = await database.update(communityUploadManifests).set({
+            finalObjectKey,
+            updatedAt: reservedAt
+          }).where(and(
+            eq(communityUploadManifests.id, attachment.id),
+            eq(communityUploadManifests.status, expectedClaim.status),
+            eq(communityUploadManifests.updatedAt, expectedClaim.updatedAt),
+            isNull(communityUploadManifests.terminalCleanupAt)
+          )).returning({ updatedAt: communityUploadManifests.updatedAt });
+          if (!reserved) throw new Error("scanner_claim_lost");
+          claimStates.set(attachment.id, { status: expectedClaim.status, updatedAt: reserved.updatedAt });
+          return beginCommunityObjectPublication({
+            sourceType: "manifest",
+            sourceId: attachment.id,
+            objectKey: finalObjectKey
+          }, database);
+        });
+
+        return withCommunityObjectPublication(publication, async (database) => {
+          const expectedClaim = claimStates.get(attachment.id);
+          if (!expectedClaim) throw new Error("scanner_claim_lost");
+          const publishable = Array.from((await database.execute(sql`
+            select manifest.id
+            from community_upload_manifests manifest
+            join club_message_attachments attachment on attachment.id = manifest.attachment_id
+            join club_chat_messages message on message.id = attachment.message_id
+            where manifest.id = ${attachment.id}
+              and manifest.status = ${expectedClaim.status}
+              and manifest.updated_at = ${expectedClaim.updatedAt}
+              and manifest.terminal_cleanup_at is null
+              and attachment.deleted_at is null and attachment.terminal_cleanup_at is null
+              and message.terminal_cleanup_at is null
+            for share of manifest, attachment, message
+          `)) as Iterable<{ id: string }>);
+          if (!publishable.length) throw new Error("scanner_terminal_fence");
+          const metadata = await storage.getObjectMetadata(attachment.objectKey);
+          if (!metadata.etag || metadata.contentType !== attachment.contentType) throw new Error("document_promotion_mismatch");
+          await storage.promoteObjectVersion({
+            sourceKey: attachment.objectKey,
+            destinationKey: finalObjectKey,
+            expectedETag: metadata.etag,
+            contentType: attachment.contentType
+          });
+          const promoted = await storage.getObjectMetadata(finalObjectKey);
+          if (promoted.sizeBytes !== metadata.sizeBytes || promoted.contentType !== attachment.contentType) {
+            throw new Error("document_promotion_mismatch");
+          }
+          await storage.mirrorObjectToReserve(finalObjectKey, attachment.contentType);
+          await updatePersistedStatus(database, attachment, attachment.id, "ready", null, finalObjectKey);
+          return finalObjectKey;
+        }, db);
+      },
       promoteToFinal: async (sourceKey, contentType) => {
         if (!manifest.userId || !manifest.uploadToken || !manifest.fileName) throw new Error("invalid_document_manifest");
         const { buildCommunityFinalObjectKey } = await import("./directUpload");
@@ -344,57 +480,7 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
       updateStatus: async (manifestId, status, scanError, finalObjectKey) => {
         await db.transaction(async (transaction) => {
           const database = transaction as unknown as typeof db;
-          const expectedClaim = claimStates.get(manifestId);
-          if (!expectedClaim) throw new Error("scanner_claim_lost");
-          const current = await database.query.communityUploadManifests.findFirst({
-            where: eq(communityUploadManifests.id, manifestId)
-          });
-          const updatedAt = new Date();
-          const [updated] = await database.update(communityUploadManifests)
-            .set({
-              status,
-              errorCode: scanError,
-              finalObjectKey: status === "ready" ? finalObjectKey : undefined,
-              quarantineObjectKey: status === "ready" ? null : undefined,
-              result: current?.result && typeof current.result === "object"
-                ? {
-                    ...current.result,
-                    scanStatus: status === "cleanup_pending" ? "failed" : status,
-                    objectKey: status === "ready" ? finalObjectKey : manifest.objectKey
-                  }
-                : current?.result,
-              updatedAt
-            })
-            .where(and(
-              eq(communityUploadManifests.id, manifestId),
-              eq(communityUploadManifests.status, expectedClaim.status),
-              eq(communityUploadManifests.updatedAt, expectedClaim.updatedAt),
-              isNull(communityUploadManifests.terminalCleanupAt)
-            ))
-            .returning({ attachmentId: communityUploadManifests.attachmentId, updatedAt: communityUploadManifests.updatedAt });
-          if (!updated) throw new Error("scanner_claim_lost");
-          claimStates.set(manifestId, { status, updatedAt: updated.updatedAt });
-          if (updated?.attachmentId) {
-            const [attachment] = await database.update(clubMessageAttachments)
-              .set({
-                scanStatus: status === "cleanup_pending" ? "failed" : status,
-                scanError,
-                scannedAt: new Date(),
-                objectKey: status === "ready" ? finalObjectKey : undefined
-              })
-              .where(and(
-                eq(clubMessageAttachments.id, updated.attachmentId),
-                isNull(clubMessageAttachments.deletedAt),
-                isNull(clubMessageAttachments.terminalCleanupAt),
-                sql`exists (
-                  select 1 from club_chat_messages message
-                  where message.id = ${clubMessageAttachments.messageId}
-                    and message.terminal_cleanup_at is null
-                )`
-              ))
-              .returning({ id: clubMessageAttachments.id });
-            if (!attachment) throw new Error("scanner_terminal_fence");
-          }
+          await updatePersistedStatus(database, manifest, manifestId, status, scanError, finalObjectKey);
         });
       }
     })

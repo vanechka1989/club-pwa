@@ -53,7 +53,16 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         avatar_position_y integer not null default 50, avatar_scale integer not null default 100,
         telegram_bot_status varchar(16) not null default 'unknown', telegram_bot_blocked_at timestamptz,
         telegram_bot_unblocked_at timestamptz, device_snapshot jsonb, device_snapshot_at timestamptz,
+        community_access_version integer not null default 1,
         created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+      );
+      create table admin_users (
+        id uuid primary key default gen_random_uuid(), telegram_id text not null unique,
+        is_active boolean not null default true, permissions jsonb not null default '[]'::jsonb
+      );
+      create table subscriptions (
+        id uuid primary key default gen_random_uuid(), user_id uuid not null,
+        status text not null, expires_at timestamptz, created_at timestamptz not null default now()
       );
       create table club_chat_topics (
         id uuid primary key, chat_id uuid not null, title varchar(180) not null, description text,
@@ -98,17 +107,23 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         created_at timestamptz not null default now()
       );
       create table community_notification_outbox (
-        id uuid primary key default gen_random_uuid(), message_id uuid not null
+        id uuid primary key default gen_random_uuid(), user_id uuid not null,
+        topic_id uuid not null, message_id uuid not null, access_version integer not null,
+        reason varchar(16) not null, title varchar(180) not null, body text not null, push_url text not null,
+        status varchar(16) not null default 'pending', claim_id uuid, claimed_at timestamptz,
+        delivered_at timestamptz, attempt_count integer not null default 0,
+        next_attempt_at timestamptz not null default now(), last_error varchar(500),
+        created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+        unique (user_id, message_id, reason)
       );
     `);
 
     const makeService = (client: Sql) => {
-      const base = createRepository(drizzle(client, { schema: schemaDefinition }));
-      const repository: MessageMutationRepository = {
-        ...base,
-        listNotificationCandidates: async () => [],
-        enqueueNotifications: async () => undefined
-      };
+      const base = createRepository(
+        drizzle(client, { schema: schemaDefinition }),
+        async () => "owner@example.test"
+      );
+      const repository: MessageMutationRepository = base;
       return createService({
         repository,
         createNotification: async () => null,
@@ -121,7 +136,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
   }, 30_000);
 
   beforeEach(async () => {
-    await clientA.unsafe("truncate community_notification_outbox, app_notifications, community_topic_notification_settings, club_message_attachments, club_message_mentions, club_chat_messages, club_chat_topics, users");
+    await clientA.unsafe("truncate community_notification_outbox, app_notifications, community_topic_notification_settings, subscriptions, admin_users, club_message_attachments, club_message_mentions, club_chat_messages, club_chat_topics, users");
     await clientA`
       insert into users (id, telegram_id, first_name, display_name)
       values (${userId}, 'web:user', 'Иван', 'Иван')
@@ -151,6 +166,49 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
       mentions: []
     };
   }
+
+  it("commits the message and notification outbox intent atomically", async () => {
+    const recipientId = "00000000-0000-4000-8000-000000000002";
+    await clientA`
+      insert into users (id, telegram_id, first_name, display_name)
+      values (${recipientId}, 'recipient', 'Анна', 'Анна')
+    `;
+    await clientA`
+      insert into subscriptions (user_id, status, expires_at)
+      values (${recipientId}, 'active', clock_timestamp() + interval '1 day')
+    `;
+    await clientA`
+      insert into community_topic_notification_settings (user_id, topic_id, mode)
+      values (${recipientId}, ${topicId}, 'all')
+    `;
+    await clientA.unsafe(`
+      create function reject_notification_intent() returns trigger language plpgsql as $$
+      begin
+        raise exception 'outbox unavailable';
+      end $$;
+      create trigger reject_notification_intent_trigger
+        before insert on community_notification_outbox
+        for each row execute function reject_notification_intent();
+    `);
+
+    await expect(serviceA.createText(input())).rejects.toThrow(/outbox unavailable/i);
+    const [rolledBack] = await clientA<{ messages: number; outbox: number }[]>`
+      select (select count(*)::int from club_chat_messages) messages,
+             (select count(*)::int from community_notification_outbox) outbox
+    `;
+    expect(rolledBack).toEqual({ messages: 0, outbox: 0 });
+
+    await clientA.unsafe(`
+      drop trigger reject_notification_intent_trigger on community_notification_outbox;
+      drop function reject_notification_intent();
+    `);
+    await expect(serviceA.createText(input())).resolves.toMatchObject({ created: true });
+    const [committed] = await clientA<{ messages: number; outbox: number }[]>`
+      select (select count(*)::int from club_chat_messages) messages,
+             (select count(*)::int from community_notification_outbox) outbox
+    `;
+    expect(committed).toEqual({ messages: 1, outbox: 1 });
+  });
 
   it("returns one server-created row to simultaneous identical requests", async () => {
     const beforeRows = await clientA<{ now: Date }[]>`select clock_timestamp() as now`;

@@ -27,11 +27,16 @@ import {
   enqueueCommunityMessageDeletion,
   enqueueCommunityMessageDeletionBatch
 } from "../community/objectDeletionLedger";
+import {
+  beginCommunityObjectPublication,
+  withCommunityObjectPublication
+} from "../community/objectPublication";
 import { createCommunityUploadService, type CommunityUploadResult } from "../community/directUpload";
 import { validateCommunityOoxml } from "../community/ooxmlValidation";
 import { buildMessageAuthor, getAuthorMutationView, getMessageContentView, resolveReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { MessageMutationError, messageMutationService } from "../community/messageMutationService";
 import { decodeSearchCursor, encodeSearchCursor, loadMessageContext, searchCommunityMessages } from "../community/messageSearch";
+import { preciseCommunityMessageCreatedAtExtra } from "../community/messageTimestamp";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { loadCommunityTopicAggregates } from "../community/topicAggregates";
@@ -261,8 +266,9 @@ const communityUploadService = createCommunityUploadService({
         }
       : { ok: false as const, error: "object_already_consumed" as const };
   },
-  finish: async (record) => {
-    const [finished] = await db.update(communityUploadManifests)
+  finish: async (record, publicationScope) => {
+    const database = (publicationScope ?? db) as typeof db;
+    const [finished] = await database.update(communityUploadManifests)
       .set({
         status: record.status,
         quarantineObjectKey: record.status === "ready" ? null : record.result.objectKey,
@@ -277,11 +283,12 @@ const communityUploadService = createCommunityUploadService({
         eq(communityUploadManifests.userId, record.userId),
         eq(communityUploadManifests.uploadToken, record.uploadToken),
         eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-        eq(communityUploadManifests.status, "completing")
+        eq(communityUploadManifests.status, "completing"),
+        sql`${communityUploadManifests.terminalCleanupAt} is null`
       ))
       .returning({ id: communityUploadManifests.id });
     if (finished) return "finished" as const;
-    const current = await db.query.communityUploadManifests.findFirst({
+    const current = await database.query.communityUploadManifests.findFirst({
       where: and(
         eq(communityUploadManifests.userId, record.userId),
         eq(communityUploadManifests.uploadToken, record.uploadToken),
@@ -301,30 +308,55 @@ const communityUploadService = createCommunityUploadService({
         eq(communityUploadManifests.status, "completing")
       ));
   },
-  recordPromotion: async (record) => {
+  recordPromotion: async (record) => db.transaction(async (transaction) => {
+    const database = transaction as unknown as typeof db;
     const destination = record.destination === "final"
       ? { finalObjectKey: record.destinationKey }
       : { quarantineObjectKey: record.destinationKey };
-    const [recorded] = await db.update(communityUploadManifests)
+    const [recorded] = await database.update(communityUploadManifests)
       .set({ ...destination, updatedAt: new Date() })
       .where(and(
         eq(communityUploadManifests.userId, record.userId),
         eq(communityUploadManifests.uploadToken, record.uploadToken),
         eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-        eq(communityUploadManifests.status, "completing")
+        eq(communityUploadManifests.status, "completing"),
+        sql`${communityUploadManifests.terminalCleanupAt} is null`
       ))
       .returning({ id: communityUploadManifests.id });
-    if (recorded) return "recorded" as const;
-    const current = await db.query.communityUploadManifests.findFirst({
+    if (recorded) {
+      const publication = await beginCommunityObjectPublication({
+        sourceType: "manifest",
+        sourceId: recorded.id,
+        objectKey: record.destinationKey
+      }, database);
+      return { status: "recorded" as const, publication };
+    }
+    const current = await database.query.communityUploadManifests.findFirst({
       where: and(
         eq(communityUploadManifests.userId, record.userId),
         eq(communityUploadManifests.uploadToken, record.uploadToken),
         eq(communityUploadManifests.requestFingerprint, record.fingerprint)
       )
     });
-    if (current && ["aborting", "aborted", "cleanup_pending"].includes(current.status)) return "cancelled" as const;
+    if (current && ["aborting", "aborted", "cleanup_pending"].includes(current.status)) {
+      return { status: "cancelled" as const };
+    }
     throw new Error("manifest_promotion_conflict");
-  },
+  }),
+  withPromotionPublication: (publication, work) => withCommunityObjectPublication(publication, async (database) => {
+    const publishable = Array.from((await database.execute(sql`
+      select manifest.id
+      from community_upload_manifests manifest
+      where manifest.id = ${publication.sourceId}
+        and manifest.status = 'completing'
+        and manifest.terminal_cleanup_at is null
+        and (manifest.final_object_key = ${publication.objectKey}
+          or manifest.quarantine_object_key = ${publication.objectKey})
+      for share of manifest
+    `)) as Iterable<{ id: string }>);
+    if (!publishable.length) throw new Error("manifest_promotion_terminal");
+    return work(database);
+  }, db),
   markCleanupPending: async (record, error) => {
     const now = new Date();
     const [pending] = await db.update(communityUploadManifests)
@@ -885,6 +917,9 @@ async function serializeMessage(
 async function findMessageWithUser(id: string) {
   return db.query.clubChatMessages.findFirst({
     where: eq(clubChatMessages.id, id),
+    extras: {
+      preciseCreatedAt: preciseCommunityMessageCreatedAtExtra()
+    },
     with: {
       user: true
     }
@@ -1715,10 +1750,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
       limit: query.data.limit + 1,
       extras: {
-        preciseCreatedAt: sql<string>`to_char(
-          ${clubChatMessages.createdAt} at time zone 'UTC',
-          'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
-        )`.as("precise_created_at")
+        preciseCreatedAt: preciseCommunityMessageCreatedAtExtra()
       },
       with: {
         user: true
@@ -2129,6 +2161,9 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         .where(eq(clubChatMessages.id, current.id));
       const updated = await database.query.clubChatMessages.findFirst({
         where: eq(clubChatMessages.id, current.id),
+        extras: {
+          preciseCreatedAt: preciseCommunityMessageCreatedAtExtra()
+        },
         with: { user: true }
       });
       return updated ? { message: updated } : { error: "Message not found", status: 404 as const };

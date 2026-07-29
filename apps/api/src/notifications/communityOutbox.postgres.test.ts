@@ -23,12 +23,14 @@ integrationDescribe("community notification revocation fencing with PostgreSQL",
   let admin: Sql;
   let client: Sql;
   let createCommunityNotificationOutboxRepository: CommunityOutboxModule["createCommunityNotificationOutboxRepository"];
+  let createCommunityNotificationOutboxWorker: CommunityOutboxModule["createCommunityNotificationOutboxWorker"];
   let enqueueCommunityNotificationsWithDependencies: CommunityOutboxModule["enqueueCommunityNotificationsWithDependencies"];
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl!;
     ({
       createCommunityNotificationOutboxRepository,
+      createCommunityNotificationOutboxWorker,
       enqueueCommunityNotificationsWithDependencies
     } = await import("./communityOutbox"));
     admin = postgres(databaseUrl!, { max: 1, onnotice: () => undefined });
@@ -65,6 +67,7 @@ integrationDescribe("community notification revocation fencing with PostgreSQL",
         topic_id uuid not null, message_id uuid not null, access_version integer not null,
         reason text not null, title text not null, body text not null, push_url text not null,
         status text not null default 'pending', claim_id uuid, claimed_at timestamptz,
+        delivered_at timestamptz,
         attempt_count integer not null default 0, next_attempt_at timestamptz not null default now(),
         last_error text, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
         unique (user_id, message_id, reason)
@@ -117,24 +120,22 @@ integrationDescribe("community notification revocation fencing with PostgreSQL",
     return { repository, candidate: candidate! };
   }
 
-  it("retracts a persisted notification when membership expires before push", async () => {
+  it("suppresses a notification when membership expires before the durable delivery seal", async () => {
     await client`
       insert into subscriptions (user_id, status, expires_at)
       values (${recipientId}, 'active', clock_timestamp() + interval '1 day')
     `;
     const { repository, candidate } = await enqueueAndClaim();
-    await expect(repository.persistIfAccessible(candidate)).resolves.toMatchObject({ notificationId: expect.any(String) });
-
     await client`update subscriptions set status = 'expired' where user_id = ${recipientId}`;
     await client`update users set community_access_version = community_access_version + 1 where id = ${recipientId}`;
 
-    await expect(repository.isStillAccessible(candidate)).resolves.toBe(false);
-    await repository.revoke(candidate);
-    const [counts] = await client<{ notifications: number; outbox: number }[]>`
+    await expect(repository.sealForDelivery(candidate)).resolves.toEqual({ status: "suppressed" });
+    const [counts] = await client<{ notifications: number; outbox: number; status: string }[]>`
       select (select count(*)::int from app_notifications) notifications,
-             (select count(*)::int from community_notification_outbox) outbox
+             (select count(*)::int from community_notification_outbox) outbox,
+             (select status from community_notification_outbox limit 1) status
     `;
-    expect(counts).toEqual({ notifications: 0, outbox: 0 });
+    expect(counts).toEqual({ notifications: 0, outbox: 1, status: "suppressed" });
   });
 
   it("rejects an admin-only notification after community permission revocation", async () => {
@@ -144,11 +145,54 @@ integrationDescribe("community notification revocation fencing with PostgreSQL",
       values ('member@example.test', '["community"]'::jsonb)
     `;
     const { repository, candidate } = await enqueueAndClaim();
-    await expect(repository.persistIfAccessible(candidate)).resolves.toBeTruthy();
-
     await client`update admin_users set permissions = '[]'::jsonb where telegram_id = 'member@example.test'`;
     await client`update users set community_access_version = community_access_version + 1 where id = ${recipientId}`;
-    await expect(repository.isStillAccessible(candidate)).resolves.toBe(false);
+    await expect(repository.sealForDelivery(candidate)).resolves.toEqual({ status: "suppressed" });
+  });
+
+  it("keeps a revocation-after-seal push generic and never replays an ambiguous delivery", async () => {
+    await client`
+      insert into subscriptions (user_id, status, expires_at)
+      values (${recipientId}, 'active', clock_timestamp() + interval '1 day')
+    `;
+    const database = drizzle(client);
+    await enqueueCommunityNotificationsWithDependencies({
+      messageId,
+      topicId,
+      topicTitle: "Секретная тема",
+      senderUserId: senderId,
+      senderName: "Секретный автор",
+      replyUserId: null,
+      mentionUserIds: [recipientId]
+    }, { database: database as never, ownerTelegramId: "owner@example.test" });
+    const repository = createCommunityNotificationOutboxRepository(database as never, async () => "owner@example.test");
+    const pushes: Array<{ title: string; body: string; url: string }> = [];
+    const worker = createCommunityNotificationOutboxWorker({
+      repository,
+      sendPush: async (_userId, payload) => {
+        await client`update subscriptions set status = 'expired' where user_id = ${recipientId}`;
+        await client`update users set community_access_version = community_access_version + 1 where id = ${recipientId}`;
+        pushes.push(payload);
+        throw new Error("ambiguous_push_timeout");
+      },
+      logger: { info: () => undefined, warn: () => undefined }
+    });
+
+    await expect(worker()).resolves.toMatchObject({ failed: 1, pushed: 0 });
+    await expect(worker()).resolves.toMatchObject({ failed: 0, pushed: 0 });
+    expect(pushes).toEqual([{
+      title: "Новое уведомление",
+      body: "Откройте приложение, чтобы проверить обновления.",
+      url: "/notifications"
+    }]);
+    expect(JSON.stringify(pushes)).not.toContain(topicId);
+    expect(JSON.stringify(pushes)).not.toContain(messageId);
+    expect(JSON.stringify(pushes)).not.toContain("Секрет");
+    const [outbox] = await client<{ status: string; attempts: number; error: string }[]>`
+      select status, attempt_count as attempts, last_error as error
+      from community_notification_outbox
+    `;
+    expect(outbox).toEqual({ status: "delivered", attempts: 1, error: "ambiguous_push_timeout" });
   });
 
   it("cascades pending outbox rows on account deletion", async () => {

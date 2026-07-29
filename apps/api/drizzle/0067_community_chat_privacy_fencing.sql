@@ -91,15 +91,32 @@ CREATE TABLE "community_object_deletion_entries" (
 );--> statement-breakpoint
 CREATE INDEX "community_object_deletion_entries_job_idx"
   ON "community_object_deletion_entries" ("job_id");--> statement-breakpoint
+CREATE TABLE "community_object_publications" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "source_type" varchar(32) NOT NULL,
+  "source_id" uuid NOT NULL,
+  "object_key" text NOT NULL,
+  "publication_token" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "state" varchar(16) NOT NULL DEFAULT 'publishing',
+  "quiesced_at" timestamptz,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT "community_object_publications_source_key_unique" UNIQUE ("source_type", "source_id", "object_key"),
+  CONSTRAINT "community_object_publications_state_check" CHECK ("state" IN ('publishing','quiescing'))
+);--> statement-breakpoint
+CREATE INDEX "community_object_publications_object_state_idx"
+  ON "community_object_publications" ("object_key", "state", "quiesced_at");--> statement-breakpoint
 CREATE TABLE "community_message_purge_requests" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-  "request_key" varchar(160) NOT NULL UNIQUE,
+  "request_key" varchar(160) NOT NULL,
   "topic_id" uuid NOT NULL,
   "user_id" uuid,
   "include_system" boolean NOT NULL DEFAULT false,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );--> statement-breakpoint
+CREATE UNIQUE INDEX "community_message_purge_requests_key_idx"
+  ON "community_message_purge_requests" ("request_key");--> statement-breakpoint
 CREATE INDEX "community_message_purge_requests_created_idx"
   ON "community_message_purge_requests" ("created_at", "id");--> statement-breakpoint
 
@@ -409,17 +426,37 @@ CREATE TABLE "community_notification_outbox" (
   "status" varchar(16) NOT NULL DEFAULT 'pending',
   "claim_id" uuid,
   "claimed_at" timestamptz,
+  "delivered_at" timestamptz,
   "attempt_count" integer NOT NULL DEFAULT 0,
   "next_attempt_at" timestamptz NOT NULL DEFAULT now(),
   "last_error" varchar(500),
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT "community_notification_outbox_status_check" CHECK ("status" IN ('pending','claimed')),
+  CONSTRAINT "community_notification_outbox_status_check" CHECK ("status" IN ('pending','claimed','delivered','suppressed')),
   CONSTRAINT "community_notification_outbox_reason_check" CHECK ("reason" IN ('reply','mention','all')),
   CONSTRAINT "community_notification_outbox_delivery_unique" UNIQUE ("user_id", "message_id", "reason")
 );--> statement-breakpoint
 CREATE INDEX "community_notification_outbox_claim_idx"
   ON "community_notification_outbox" ("status", "next_attempt_at", "claimed_at");--> statement-breakpoint
+INSERT INTO "community_notification_outbox" (
+  "user_id", "topic_id", "message_id", "access_version", "reason",
+  "title", "body", "push_url", "status", "delivered_at", "created_at", "updated_at"
+)
+SELECT notification."user_id", notification."community_topic_id", notification."source_id",
+       notification."community_access_version",
+       CASE notification."source"
+         WHEN 'community_reply' THEN 'reply'
+         WHEN 'community_mention' THEN 'mention'
+         ELSE 'all'
+       END,
+       'Новое уведомление', 'Откройте приложение, чтобы проверить обновления.',
+       '/notifications', 'delivered',
+       notification."created_at", notification."created_at", clock_timestamp()
+FROM "app_notifications" notification
+WHERE notification."source" IN ('community_reply','community_mention','community_all')
+  AND notification."community_topic_id" IS NOT NULL
+  AND notification."community_access_version" IS NOT NULL
+ON CONFLICT ("user_id", "message_id", "reason") DO NOTHING;--> statement-breakpoint
 
 CREATE OR REPLACE FUNCTION bump_community_access_version_for_user(target_user_id uuid) RETURNS void LANGUAGE sql AS $$
   UPDATE users

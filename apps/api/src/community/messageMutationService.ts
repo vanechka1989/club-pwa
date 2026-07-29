@@ -2,7 +2,6 @@ import { and, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   resolveDisplayName,
   type CommunityMention,
-  type CommunityNotificationMode,
   type UserRole
 } from "@club/shared";
 import { getUserRole, hasAdminPermission } from "../admin/roles";
@@ -12,7 +11,6 @@ import {
   clubChatTopics,
   clubMessageAttachments,
   clubMessageMentions,
-  communityTopicNotificationSettings,
   communityNotificationOutbox,
   appNotifications,
   users
@@ -84,19 +82,6 @@ export interface MessageMutationStore {
     createRequestFingerprint: string;
   }): Promise<MutationMessage | null>;
   insertMentions(messageId: string, mentions: StoredMention[]): Promise<void>;
-  replaceMentions(messageId: string, mentions: StoredMention[]): Promise<void>;
-  updateText(messageId: string, body: string, editedAt: Date): Promise<MutationMessage>;
-  markDeletedByAuthor(messageId: string, deletedAt: Date, expiresAt: Date): Promise<MutationMessage>;
-  deleteMessageNotifications(messageId: string): Promise<void>;
-}
-
-export interface MessageMutationRepository {
-  transaction<T>(work: (store: MessageMutationStore) => Promise<T>): Promise<T>;
-  listParticipantCandidates(query: string, limit: number): Promise<MutationUser[]>;
-  listNotificationCandidates(
-    topicId: string,
-    explicitUserIds: string[]
-  ): Promise<Array<{ user: MutationUser; mode: CommunityNotificationMode }>>;
   enqueueNotifications(input: {
     messageId: string;
     topicId: string;
@@ -106,6 +91,15 @@ export interface MessageMutationRepository {
     replyUserId: string | null;
     mentionUserIds: string[];
   }): Promise<void>;
+  replaceMentions(messageId: string, mentions: StoredMention[]): Promise<void>;
+  updateText(messageId: string, body: string, editedAt: Date): Promise<MutationMessage>;
+  markDeletedByAuthor(messageId: string, deletedAt: Date, expiresAt: Date): Promise<MutationMessage>;
+  deleteMessageNotifications(messageId: string): Promise<void>;
+}
+
+export interface MessageMutationRepository {
+  transaction<T>(work: (store: MessageMutationStore) => Promise<T>): Promise<T>;
+  listParticipantCandidates(query: string, limit: number): Promise<MutationUser[]>;
 }
 
 export class MessageMutationError extends Error {
@@ -248,14 +242,14 @@ async function defaultCanUserAccessTopic(user: MutationUser, topic: MutationTopi
 export function createMessageMutationService(dependencies: MessageMutationDependencies) {
   const { repository, canUserAccessTopic, publishChange } = dependencies;
 
-  async function notifyCreatedMessage(input: {
+  async function notifyCreatedMessage(store: MessageMutationStore, input: {
     message: MutationMessage;
     topic: MutationTopic;
     sender: MutationUser;
     replyUserId: string | null;
     mentionUserIds: string[];
   }) {
-    await repository.enqueueNotifications({
+    await store.enqueueNotifications({
       messageId: input.message.id,
       topicId: input.topic.id,
       topicTitle: input.topic.title,
@@ -281,6 +275,15 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
           const reply = prior.replyToMessageId
             ? await store.findReplyForMutation(prior.replyToMessageId, prior.topicId)
             : null;
+          if (prior.status === "visible" && !prior.deletedByUserAt) {
+            await notifyCreatedMessage(store, {
+              message: prior,
+              topic,
+              sender,
+              replyUserId: reply?.userId ?? null,
+              mentionUserIds: mentions.map((mention) => mention.userId)
+            });
+          }
           return { message: prior, created: false as const, topic, sender, replyUserId: reply?.userId ?? null };
         }
 
@@ -308,6 +311,15 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
           const winner = await store.findMessageByOperation(normalizedInput.userId, normalizedInput.clientOperationId);
           if (!winner) throw new Error("Idempotent message insert did not return its winner");
           assertSameOperation(winner, createRequestFingerprint);
+          if (winner.status === "visible" && !winner.deletedByUserAt) {
+            await notifyCreatedMessage(store, {
+              message: winner,
+              topic,
+              sender,
+              replyUserId: reply?.userId ?? null,
+              mentionUserIds: mentions.map((mention) => mention.userId)
+            });
+          }
           return {
             message: winner,
             created: false as const,
@@ -318,6 +330,13 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
         }
 
         await store.insertMentions(inserted.id, mentions);
+        await notifyCreatedMessage(store, {
+          message: inserted,
+          topic,
+          sender,
+          replyUserId: reply?.userId ?? null,
+          mentionUserIds: mentions.map((mention) => mention.userId)
+        });
         return {
           message: inserted,
           created: true as const,
@@ -328,15 +347,6 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
       });
 
       if (result.created) publishChange(result.message.topicId);
-      if (result.message.status === "visible" && !result.message.deletedByUserAt) {
-        await notifyCreatedMessage({
-          message: result.message,
-          topic: result.topic,
-          sender: result.sender,
-          replyUserId: result.replyUserId,
-          mentionUserIds: mentions.map((mention) => mention.userId)
-        });
-      }
 
       return { message: result.message, created: result.created };
     },
@@ -415,7 +425,10 @@ function toMutationMessage(message: typeof clubChatMessages.$inferSelect): Mutat
   return message;
 }
 
-function createDrizzleStore(database: typeof db): MessageMutationStore {
+function createDrizzleStore(
+  database: typeof db,
+  loadOwnerTelegramId: () => Promise<string>
+): MessageMutationStore {
   return {
     async getServerNow() {
       const rows = Array.from((await database.execute(sql`select clock_timestamp() as "now"`)) as Iterable<{ now: Date }>);
@@ -475,6 +488,13 @@ function createDrizzleStore(database: typeof db): MessageMutationStore {
         }))
       );
     },
+    async enqueueNotifications(input) {
+      const { enqueueCommunityNotificationsWithDependencies } = await import("../notifications/communityOutbox");
+      await enqueueCommunityNotificationsWithDependencies(input, {
+        database,
+        ownerTelegramId: await loadOwnerTelegramId()
+      });
+    },
     async replaceMentions(messageId, mentions) {
       await database.delete(clubMessageMentions).where(eq(clubMessageMentions.messageId, messageId));
       if (mentions.length) {
@@ -517,7 +537,14 @@ function createDrizzleStore(database: typeof db): MessageMutationStore {
       return toMutationMessage(updated);
     },
     async deleteMessageNotifications(messageId) {
-      await database.delete(communityNotificationOutbox).where(eq(communityNotificationOutbox.messageId, messageId));
+      await database.update(communityNotificationOutbox).set({
+        status: "suppressed",
+        deliveredAt: new Date(),
+        updatedAt: new Date()
+      }).where(and(
+        eq(communityNotificationOutbox.messageId, messageId),
+        inArray(communityNotificationOutbox.status, ["pending", "claimed"])
+      ));
       await database.delete(appNotifications).where(and(
         eq(appNotifications.sourceId, messageId),
         inArray(appNotifications.source, ["community_reply", "community_mention", "community_all"])
@@ -526,10 +553,14 @@ function createDrizzleStore(database: typeof db): MessageMutationStore {
   };
 }
 
-export function createMessageMutationRepository(database: typeof db = db): MessageMutationRepository {
+export function createMessageMutationRepository(
+  database: typeof db = db,
+  loadOwnerTelegramId: () => Promise<string> = async () =>
+    (await import("../admin/roles")).getOwnerTelegramId()
+): MessageMutationRepository {
   return {
     transaction: (work) => database.transaction((transaction) =>
-      work(createDrizzleStore(transaction as unknown as typeof db))),
+      work(createDrizzleStore(transaction as unknown as typeof db, loadOwnerTelegramId))),
     async listParticipantCandidates(query, limit) {
       const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
       return database.query.users.findMany({
@@ -542,28 +573,6 @@ export function createMessageMutationRepository(database: typeof db = db): Messa
         limit
       });
     },
-    async listNotificationCandidates(topicId, explicitUserIds) {
-      const explicitCondition = explicitUserIds.length ? inArray(users.id, explicitUserIds) : undefined;
-      const rows = await database
-        .select({ user: users, mode: communityTopicNotificationSettings.mode })
-        .from(users)
-        .leftJoin(
-          communityTopicNotificationSettings,
-          and(
-            eq(communityTopicNotificationSettings.userId, users.id),
-            eq(communityTopicNotificationSettings.topicId, topicId)
-          )
-        )
-        .where(or(explicitCondition, eq(communityTopicNotificationSettings.mode, "all")));
-      return rows.map((row) => ({
-        user: row.user,
-        mode: (row.mode ?? "mentions") as CommunityNotificationMode
-      }));
-    },
-    async enqueueNotifications(input) {
-      const { enqueueCommunityNotifications } = await import("../notifications/communityOutbox");
-      await enqueueCommunityNotifications(input, database);
-    }
   };
 }
 

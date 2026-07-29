@@ -199,6 +199,32 @@ integrationDescribe("community message search with PostgreSQL", () => {
     })).resolves.toBeNull();
   });
 
+  it("preserves microseconds in search results and every context message", async () => {
+    const olderId = "00000000-0000-4000-8000-000000000421";
+    const newerId = "00000000-0000-4000-8000-000000000422";
+    const olderTimestamp = "2026-07-28T12:00:00.123456Z";
+    const newerTimestamp = "2026-07-28T12:00:00.123789Z";
+    await insertMessage({ id: olderId, createdAt: olderTimestamp });
+    await insertMessage({ id: newerId, createdAt: newerTimestamp });
+
+    const search = await repository.search({ query: "needle", limit: 10, role: "member" });
+    expect(search.results.map((result) => [result.messageId, result.createdAt])).toEqual([
+      [newerId, newerTimestamp],
+      [olderId, olderTimestamp]
+    ]);
+
+    const context = await repository.loadContext({
+      topicId: publicTopicId,
+      messageId: olderId,
+      before: 0,
+      after: 1
+    });
+    expect(context?.messages.map((message) => [message.id, message.preciseCreatedAt])).toEqual([
+      [olderId, olderTimestamp],
+      [newerId, newerTimestamp]
+    ]);
+  });
+
   it("loads reply previews only from safe messages in the same topic", async () => {
     const visibleId = "00000000-0000-4000-8000-000000000501";
     const hiddenId = "00000000-0000-4000-8000-000000000502";

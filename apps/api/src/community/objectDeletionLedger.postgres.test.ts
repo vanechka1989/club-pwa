@@ -1,13 +1,16 @@
 import { readFileSync } from "node:fs";
+import { CopyObjectCommand, DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schemaDefinition from "../db/schema";
-import { resolveMessageMutationTestDatabaseUrl } from "./postgresTestGate";
+import { resolveCommunityIntegrationTestConfig, resolveMessageMutationTestDatabaseUrl } from "./postgresTestGate";
 
 type ObjectDeletionModule = typeof import("./objectDeletionLedger");
+type ObjectPublicationModule = typeof import("./objectPublication");
 
 const databaseUrl = resolveMessageMutationTestDatabaseUrl();
+const s3Config = resolveCommunityIntegrationTestConfig()?.s3;
 const integrationDescribe = databaseUrl ? describe : describe.skip;
 const privacyFencingMigration = readFileSync(
   new URL("../../drizzle/0067_community_chat_privacy_fencing.sql", import.meta.url),
@@ -30,6 +33,9 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
   let createRepository: ObjectDeletionModule["createCommunityObjectDeletionRepository"];
   let createCleanup: ObjectDeletionModule["createCommunityObjectDeletionCleanup"];
   let enqueueDeletionBatch: ObjectDeletionModule["enqueueCommunityMessageDeletionBatch"];
+  let beginPublication: ObjectPublicationModule["beginCommunityObjectPublication"];
+  let withPublication: ObjectPublicationModule["withCommunityObjectPublication"];
+  let s3: S3Client;
 
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl!;
@@ -38,6 +44,19 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       createCommunityObjectDeletionCleanup: createCleanup,
       enqueueCommunityMessageDeletionBatch: enqueueDeletionBatch
     } = await import("./objectDeletionLedger"));
+    ({
+      beginCommunityObjectPublication: beginPublication,
+      withCommunityObjectPublication: withPublication
+    } = await import("./objectPublication"));
+    s3 = new S3Client({
+      endpoint: s3Config!.endpoint,
+      region: s3Config!.region,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: s3Config!.accessKeyId,
+        secretAccessKey: s3Config!.secretAccessKey
+      }
+    });
     admin = postgres(databaseUrl!, { max: 1, onnotice: () => undefined });
     await admin.unsafe(`create schema "${schemaName}"`);
     const url = schemaConnectionUrl(databaseUrl!, schemaName);
@@ -143,6 +162,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
   }, 30_000);
 
   afterAll(async () => {
+    s3?.destroy();
     await Promise.allSettled([clientA?.end({ timeout: 1 }), clientB?.end({ timeout: 1 })]);
     if (admin) {
       await admin.unsafe(`drop schema if exists "${schemaName}" cascade`);
@@ -153,6 +173,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
   async function resetData() {
     await clientA.unsafe(`
       truncate table
+        community_object_publications,
         community_object_deletion_entries,
         community_object_deletion_jobs,
         community_message_purge_requests,
@@ -239,6 +260,50 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
     expect(counts).toEqual({ messages: 0, jobs: 0, entries: 0 });
   });
 
+  it("materializes the named constraints and indexes declared by Drizzle metadata", async () => {
+    const constraints = await clientA<{ name: string }[]>`
+      select constraint_name as name
+      from information_schema.table_constraints
+      where table_schema = current_schema()
+        and constraint_name in (
+          'community_object_deletion_jobs_source_action_unique',
+          'community_object_deletion_entries_job_key_unique',
+          'community_object_publications_source_key_unique',
+          'community_notification_outbox_delivery_unique'
+        )
+      order by constraint_name
+    `;
+    expect(constraints.map((row) => row.name)).toEqual([
+      "community_notification_outbox_delivery_unique",
+      "community_object_deletion_entries_job_key_unique",
+      "community_object_deletion_jobs_source_action_unique",
+      "community_object_publications_source_key_unique"
+    ]);
+
+    const indexes = await clientA<{ name: string }[]>`
+      select indexname as name
+      from pg_indexes
+      where schemaname = current_schema()
+        and indexname in (
+          'app_notifications_community_access_idx',
+          'app_notifications_community_delivery_idx',
+          'club_chat_messages_terminal_cleanup_idx',
+          'club_message_attachments_terminal_cleanup_idx',
+          'community_message_purge_requests_key_idx',
+          'community_object_publications_object_state_idx'
+        )
+      order by indexname
+    `;
+    expect(indexes.map((row) => row.name)).toEqual([
+      "app_notifications_community_access_idx",
+      "app_notifications_community_delivery_idx",
+      "club_chat_messages_terminal_cleanup_idx",
+      "club_message_attachments_terminal_cleanup_idx",
+      "community_message_purge_requests_key_idx",
+      "community_object_publications_object_state_idx"
+    ]);
+  });
+
   it("captures every attachment, manifest, and candidate key before an account cascade", async () => {
     await resetData();
     const userId = "00000000-0000-4000-8000-000000000910";
@@ -310,6 +375,215 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
              (select count(*)::int from community_object_deletion_entries) entries
     `;
     expect(ledger).toEqual({ jobs: 0, entries: 0 });
+  });
+
+  it("serializes deletion behind an in-flight durable publication", async () => {
+    await resetData();
+    const userId = "00000000-0000-4000-8000-000000000930";
+    const topicId = "00000000-0000-4000-8000-000000000931";
+    const publicationMessageId = "00000000-0000-4000-8000-000000000932";
+    const publicationJobId = "00000000-0000-4000-8000-000000000933";
+    const sourceId = "00000000-0000-4000-8000-000000000934";
+    const objectKey = `integration/community/final/${schemaName}/publication-race.webp`;
+    const stagingKey = `integration/community/candidates/${schemaName}/publication-race.webp`;
+    await s3.send(new PutObjectCommand({
+      Bucket: s3Config!.bucket,
+      Key: stagingKey,
+      Body: new TextEncoder().encode("durable-publication-race"),
+      ContentType: "image/webp"
+    }));
+    await clientA`insert into users (id, telegram_id) values (${userId}, 'publication@example.test')`;
+    await clientA`insert into club_chat_topics (id) values (${topicId})`;
+    await clientA`
+      insert into club_chat_messages (id, topic_id, user_id, lifecycle_version, terminal_cleanup_at)
+      values (${publicationMessageId}, ${topicId}, ${userId}, 1, clock_timestamp())
+    `;
+    await clientA`
+      insert into community_object_deletion_jobs (
+        id, source_type, source_id, action, expected_lifecycle_version
+      ) values (${publicationJobId}, 'message', ${publicationMessageId}, 'delete_message', 1)
+    `;
+    await clientA`
+      insert into community_object_deletion_entries (job_id, object_key)
+      values (${publicationJobId}, ${objectKey})
+    `;
+
+    const databaseA = drizzle(clientA, { schema: schemaDefinition });
+    const databaseB = drizzle(clientB, { schema: schemaDefinition });
+    const publication = await beginPublication({
+      sourceType: "candidate",
+      sourceId,
+      objectKey
+    }, databaseA as never);
+    let publicationLocked!: () => void;
+    let releasePublication!: () => void;
+    const locked = new Promise<void>((resolve) => { publicationLocked = resolve; });
+    const release = new Promise<void>((resolve) => { releasePublication = resolve; });
+    const events: string[] = [];
+    const publishing = withPublication(publication, async () => {
+      events.push("publisher:locked");
+      publicationLocked();
+      await release;
+      await s3.send(new CopyObjectCommand({
+        Bucket: s3Config!.bucket,
+        Key: objectKey,
+        CopySource: `${s3Config!.bucket}/${stagingKey}`,
+        ContentType: "image/webp",
+        MetadataDirective: "REPLACE"
+      }));
+      events.push("publisher:copied");
+    }, databaseA as never).then(() => { events.push("publisher:committed"); });
+    await locked;
+
+    const cleanup = createCleanup({
+      repository: createRepository(databaseB as never),
+      deleteObjectCopies: async (key) => {
+        await s3.send(new DeleteObjectCommand({ Bucket: s3Config!.bucket, Key: key }));
+        events.push("deletion:object");
+      },
+      logger: { info: () => undefined, warn: () => undefined }
+    });
+    const deleting = cleanup();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(events).toEqual(["publisher:locked"]);
+    releasePublication();
+    const [cleanupResult] = await Promise.all([deleting, publishing]);
+
+    expect(cleanupResult.completedJobIds).toEqual([publicationJobId]);
+    expect(events).toEqual([
+      "publisher:locked",
+      "publisher:copied",
+      "publisher:committed",
+      "deletion:object"
+    ]);
+    await expect(s3.send(new HeadObjectCommand({
+      Bucket: s3Config!.bucket,
+      Key: objectKey
+    }))).rejects.toBeDefined();
+
+    const quiescing = await beginPublication({
+      sourceType: "candidate",
+      sourceId,
+      objectKey
+    }, databaseA as never);
+    await clientA`
+      update community_object_publications
+      set state = 'quiescing', quiesced_at = clock_timestamp()
+      where id = ${quiescing.id}
+    `;
+    await expect(beginPublication({
+      sourceType: "candidate",
+      sourceId,
+      objectKey
+    }, databaseA as never)).rejects.toThrow("object_publication_not_reserved");
+    await Promise.allSettled([
+      s3.send(new DeleteObjectCommand({ Bucket: s3Config!.bucket, Key: stagingKey })),
+      s3.send(new DeleteObjectCommand({ Bucket: s3Config!.bucket, Key: objectKey }))
+    ]);
+  });
+
+  it("waits for a delayed candidate upload and reserve mirror before terminal cleanup removes both copies", async () => {
+    await resetData();
+    const userId = "00000000-0000-4000-8000-000000000940";
+    const topicId = "00000000-0000-4000-8000-000000000941";
+    const messageId = "00000000-0000-4000-8000-000000000942";
+    const jobId = "00000000-0000-4000-8000-000000000943";
+    const candidateId = "00000000-0000-4000-8000-000000000944";
+    const candidateKey = `integration/community/candidates/${schemaName}/delayed-candidate.webp`;
+    const reserveKey = `integration/community/reserve/${schemaName}/delayed-candidate.webp`;
+    await clientA`insert into users (id, telegram_id) values (${userId}, 'candidate-race@example.test')`;
+    await clientA`insert into club_chat_topics (id) values (${topicId})`;
+    await clientA`
+      insert into club_chat_messages (id, topic_id, user_id, lifecycle_version, terminal_cleanup_at)
+      values (${messageId}, ${topicId}, ${userId}, 1, clock_timestamp())
+    `;
+    await clientA`
+      insert into community_object_deletion_jobs (
+        id, source_type, source_id, action, expected_lifecycle_version
+      ) values (${jobId}, 'message', ${messageId}, 'delete_message', 1)
+    `;
+    await clientA`
+      insert into community_object_deletion_entries (job_id, object_key)
+      values (${jobId}, ${candidateKey})
+    `;
+
+    const databaseA = drizzle(clientA, { schema: schemaDefinition });
+    const databaseB = drizzle(clientB, { schema: schemaDefinition });
+    const publication = await beginPublication({
+      sourceType: "candidate",
+      sourceId: candidateId,
+      objectKey: candidateKey
+    }, databaseA as never);
+    let candidateLocked!: () => void;
+    let releaseCandidateWrite!: () => void;
+    const locked = new Promise<void>((resolve) => { candidateLocked = resolve; });
+    const release = new Promise<void>((resolve) => { releaseCandidateWrite = resolve; });
+    const events: string[] = [];
+    let publishing: Promise<void> | null = null;
+
+    try {
+      publishing = withPublication(publication, async () => {
+        events.push("candidate:locked");
+        candidateLocked();
+        await release;
+        await s3.send(new PutObjectCommand({
+          Bucket: s3Config!.bucket,
+          Key: candidateKey,
+          Body: new TextEncoder().encode("delayed-candidate-primary"),
+          ContentType: "image/webp"
+        }));
+        events.push("candidate:uploaded");
+        await s3.send(new PutObjectCommand({
+          Bucket: s3Config!.bucket,
+          Key: reserveKey,
+          Body: new TextEncoder().encode("delayed-candidate-reserve"),
+          ContentType: "image/webp"
+        }));
+        events.push("candidate:mirrored");
+      }, databaseA as never).then(() => { events.push("candidate:committed"); });
+      await locked;
+
+      const cleanup = createCleanup({
+        repository: createRepository(databaseB as never),
+        deleteObjectCopies: async (key) => {
+          await Promise.all([
+            s3.send(new DeleteObjectCommand({ Bucket: s3Config!.bucket, Key: key })),
+            s3.send(new DeleteObjectCommand({ Bucket: s3Config!.bucket, Key: reserveKey }))
+          ]);
+          events.push("deletion:copies");
+        },
+        logger: { info: () => undefined, warn: () => undefined }
+      });
+      const deleting = cleanup();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(events).toEqual(["candidate:locked"]);
+
+      releaseCandidateWrite();
+      const [cleanupResult] = await Promise.all([deleting, publishing]);
+      expect(cleanupResult.completedJobIds).toEqual([jobId]);
+      expect(events).toEqual([
+        "candidate:locked",
+        "candidate:uploaded",
+        "candidate:mirrored",
+        "candidate:committed",
+        "deletion:copies"
+      ]);
+      await expect(s3.send(new HeadObjectCommand({
+        Bucket: s3Config!.bucket,
+        Key: candidateKey
+      }))).rejects.toBeDefined();
+      await expect(s3.send(new HeadObjectCommand({
+        Bucket: s3Config!.bucket,
+        Key: reserveKey
+      }))).rejects.toBeDefined();
+    } finally {
+      releaseCandidateWrite();
+      if (publishing) await Promise.allSettled([publishing]);
+      await Promise.allSettled([
+        s3.send(new DeleteObjectCommand({ Bucket: s3Config!.bucket, Key: candidateKey })),
+        s3.send(new DeleteObjectCommand({ Bucket: s3Config!.bucket, Key: reserveKey }))
+      ]);
+    }
   });
 
   it("turns an owner bulk deletion into bounded jobs plus a durable continuation intent", async () => {

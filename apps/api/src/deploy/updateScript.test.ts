@@ -84,7 +84,7 @@ describe("deploy update script", () => {
     expect(updateWorker).not.toContain("caddy reload --force --config /etc/caddy/Caddyfile");
   });
 
-  it("restores previous application images when the new containers fail health verification", () => {
+  it("restores only schema-compatible images when the new containers fail health verification", () => {
     expect(updateWorker).toContain("rollback_services() {");
     expect(updateWorker).toContain("candidate_images_built");
     expect(updateWorker).toContain("reconciliation_started");
@@ -95,6 +95,10 @@ describe("deploy update script", () => {
     expect(updateWorker).toContain('club-pwa-web:rollback-$DEPLOY_RUN_ID');
     expect(updateWorker).toContain('club-pwa-api:rollback-$DEPLOY_RUN_ID');
     expect(updateWorker).toContain("cleanup_previous_images");
+    expect(updateWorker).toContain("privacy_migration_barrier_crossed");
+    expect(updateWorker).toContain("quiesce_application_for_privacy_migration");
+    expect(updateWorker).toContain("compose stop -t 90 api worker");
+    expect(updateWorker).toContain("Keeping the privacy-compatible candidate API image after the migration barrier.");
     expect(updateWorker.indexOf("write_status success complete")).toBeLessThan(updateWorker.indexOf("cleanup_previous_images", updateWorker.indexOf("main()")));
   });
 
@@ -197,6 +201,7 @@ describe("deploy update script", () => {
     for (const deployment of [apiDeploy, fullDeploy]) {
       expect(deployment.indexOf("run_pre_migration_backup")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
       expect(deployment.indexOf("verify_community_s3_lifecycle")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
+      expect(deployment.indexOf("quiesce_application_for_privacy_migration")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
       expect(deployment.indexOf("run_community_cleanup_dry_run")).toBeGreaterThan(deployment.indexOf("compose run --rm migrate"));
     }
   });

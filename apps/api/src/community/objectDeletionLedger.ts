@@ -16,6 +16,7 @@ import { deleteObjectCopies } from "../storage/s3";
 export const communityObjectDeletionBatchSize = 100;
 export const communityObjectDeletionIntervalMs = 60_000;
 export const communityObjectDeletionClaimStaleMs = 15 * 60_000;
+export const communityObjectPublicationQuiesceMs = 5 * 60_000;
 
 export type CommunityObjectDeletionAction =
   | "objects_only"
@@ -37,6 +38,7 @@ export type CommunityObjectDeletionCandidate = {
 export interface CommunityObjectDeletionRepository {
   enqueueDue(input: { limit: number }): Promise<void>;
   claimBatch(input: { limit: number }): Promise<CommunityObjectDeletionCandidate[]>;
+  quiescePublishers(candidate: CommunityObjectDeletionCandidate): Promise<boolean>;
   finalize(candidate: CommunityObjectDeletionCandidate): Promise<boolean>;
   release(candidate: CommunityObjectDeletionCandidate, error: string): Promise<void>;
 }
@@ -56,10 +58,15 @@ export function createCommunityObjectDeletionCleanup(dependencies: CleanupDepend
     await dependencies.repository.enqueueDue({ limit: communityObjectDeletionBatchSize });
     const jobs = await dependencies.repository.claimBatch({ limit: communityObjectDeletionBatchSize });
     const completedJobIds: string[] = [];
+    const deferredJobIds: string[] = [];
     const failedJobIds: string[] = [];
 
     for (const job of jobs) {
       try {
+        if (!(await dependencies.repository.quiescePublishers(job))) {
+          deferredJobIds.push(job.id);
+          continue;
+        }
         for (const key of job.objectKeys) {
           await dependencies.deleteObjectCopies(key);
         }
@@ -80,7 +87,7 @@ export function createCommunityObjectDeletionCleanup(dependencies: CleanupDepend
     if (completedJobIds.length) {
       dependencies.logger.info({ completedJobIds, count: completedJobIds.length }, "community object cleanup completed");
     }
-    return { completedJobIds, failedJobIds };
+    return { completedJobIds, deferredJobIds, failedJobIds };
   };
 }
 
@@ -239,6 +246,59 @@ export function createCommunityObjectDeletionRepository(database: CleanupDatabas
         action: job.action as CommunityObjectDeletionAction,
         objectKeys: entries.filter((entry) => entry.jobId === job.id).map((entry) => entry.objectKey).sort()
       }));
+    },
+
+    async quiescePublishers(candidate) {
+      return database.transaction(async (transaction) => {
+        const databaseInTransaction = transaction as unknown as CleanupDatabase;
+        const claims = Array.from((await databaseInTransaction.execute(sql`
+          select id
+          from community_object_deletion_jobs
+          where id = ${candidate.id} and status = 'claimed' and claim_id = ${candidate.claimId}
+          for update
+        `)) as Iterable<{ id: string }>);
+        if (!claims.length) return false;
+
+        const publications = Array.from((await databaseInTransaction.execute(sql`
+          select publication.id,
+                 publication.state = 'quiescing'
+                   and publication.quiesced_at <= clock_timestamp()
+                     - (${communityObjectPublicationQuiesceMs} * interval '1 millisecond') as ready
+          from community_object_publications publication
+          where exists (
+            select 1
+            from community_object_deletion_entries entry
+            where entry.job_id = ${candidate.id}
+              and entry.object_key = publication.object_key
+          )
+          for update of publication
+        `)) as Iterable<{ id: string; ready: boolean }>);
+        if (!publications.length) return true;
+
+        const ready = publications.every((publication) => publication.ready);
+        if (ready) {
+          await databaseInTransaction.execute(sql`
+            delete from community_object_publications
+            where id in (${sql.join(publications.map((publication) => sql`${publication.id}`), sql`, `)})
+          `);
+          return true;
+        }
+
+        await databaseInTransaction.execute(sql`
+          update community_object_publications publication
+          set state = 'quiescing', quiesced_at = coalesce(publication.quiesced_at, clock_timestamp()),
+              updated_at = clock_timestamp()
+          where publication.id in (${sql.join(publications.map((publication) => sql`${publication.id}`), sql`, `)})
+        `);
+        await databaseInTransaction.execute(sql`
+          update community_object_deletion_jobs
+          set status = 'pending', claim_id = null, claimed_at = null,
+              not_before = clock_timestamp() + (${communityObjectPublicationQuiesceMs} * interval '1 millisecond'),
+              last_error = 'publisher_quiescing', updated_at = clock_timestamp()
+          where id = ${candidate.id} and claim_id = ${candidate.claimId}
+        `);
+        return false;
+      });
     },
 
     async finalize(candidate) {

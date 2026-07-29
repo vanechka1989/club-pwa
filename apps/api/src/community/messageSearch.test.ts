@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSearchExcerpt,
   buildSearchTokens,
+  createMessageSearchRepository,
   decodeSearchCursor,
   encodeSearchCursor,
   isMessageDiscoverable,
@@ -57,5 +58,45 @@ describe("community message search", () => {
     expect(excerpt).toContain("【привет】");
     expect(excerpt).not.toContain("<script>");
     expect(excerpt).not.toMatch(/<\/?(?:mark|b)>/i);
+  });
+
+  it("returns the exact PostgreSQL timestamp selected for the cursor", async () => {
+    const cursorCreatedAt = "2026-07-28T12:00:00.123456Z";
+    const rows = [{
+      message: {
+        id: "00000000-0000-4000-8000-000000000102",
+        topicId: "00000000-0000-4000-8000-000000000103",
+        body: "needle",
+        status: "visible",
+        deletedByUserAt: null,
+        createdAt: new Date("2026-07-28T12:00:00.123Z")
+      },
+      cursorCreatedAt,
+      topic: { title: "Общение", isAdminOnly: false, isPublished: true },
+      user: {
+        id: "00000000-0000-4000-8000-000000000104",
+        telegramId: "author@example.test",
+        firstName: "Автор",
+        username: null,
+        displayName: null,
+        photoUrl: null,
+        avatarPositionX: 50,
+        avatarPositionY: 50,
+        avatarScale: 100
+      },
+      hasQuarantinedAttachment: false
+    }];
+    const query = {
+      from: () => query,
+      innerJoin: () => query,
+      where: () => query,
+      orderBy: () => query,
+      limit: async () => rows
+    };
+    const repository = createMessageSearchRepository({ select: () => query } as never);
+
+    const result = await repository.search({ query: "needle", limit: 10, role: "member" });
+
+    expect(result.results[0]?.createdAt).toBe(cursorCreatedAt);
   });
 });

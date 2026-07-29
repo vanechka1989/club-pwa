@@ -75,6 +75,9 @@ write_status() { printf 'status:%s:%s\\n' "$1" "$2"; }
 docker() { printf 'docker:%s\\n' "$*"; }
 reconcile_failure_pending=1
 compose() {
+  if [[ "$*" == "ps --status running --quiet api worker" ]]; then
+    return 0
+  fi
   printf 'compose:%s\\n' "$*"
   if [[ "$*" == "up -d postgres redis clamav api worker web caddy" && $reconcile_failure_pending -eq 1 ]]; then
     reconcile_failure_pending=0
@@ -96,7 +99,7 @@ deploy_full
 `);
 
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain("docker:tag club-pwa-api:rollback-test club-pwa-api:latest");
+    expect(result.stdout).not.toContain("docker:tag club-pwa-api:rollback-test club-pwa-api:latest");
     expect(result.stdout).toContain("docker:tag club-pwa-web:rollback-test club-pwa-web:latest");
     expect(result.stdout).not.toContain("docker:image rm");
     expect(result.stdout).toContain("compose:up -d --no-deps --force-recreate api worker");
@@ -194,5 +197,45 @@ deploy_api
     expect(result.stdout).not.toContain("compose:up -d --no-deps --force-recreate");
     expect(result.stdout).not.toContain("docker:image rm");
     expect(result.stdout).toContain("status:failed:s3-lifecycle");
+  }, 15_000);
+
+  it("quiesces the legacy API and worker before migration and never rolls them back after the privacy barrier", () => {
+    const result = runWorkerShell(`
+write_status() { printf 'status:%s:%s\n' "$1" "$2"; }
+docker() { printf 'docker:%s\n' "$*"; }
+reconcile_failure_pending=1
+compose() {
+  if [[ "$*" == "ps --status running --quiet api worker" ]]; then
+    return 0
+  fi
+  printf 'compose:%s\n' "$*"
+  if [[ "$*" == "up -d postgres redis clamav api worker web caddy" && $reconcile_failure_pending -eq 1 ]]; then
+    reconcile_failure_pending=0
+    return 1
+  fi
+}
+recreate_caddy() { printf 'caddy:recreated\n'; }
+wait_for_release_dependencies() { printf 'dependencies:healthy\n'; }
+wait_for_health() { printf 'application:healthy\n'; }
+verify_community_s3_lifecycle() { :; }
+run_pre_migration_backup() { :; }
+run_community_cleanup_dry_run() { :; }
+api_changed=1
+web_changed=1
+previous_api_image="club-pwa-api:unsafe-rollback"
+previous_web_image="club-pwa-web:rollback-test"
+trap fail_status EXIT
+deploy_full
+`);
+
+    expect(result.status).toBe(1);
+    const stopIndex = result.stdout.indexOf("compose:stop -t 90 api worker");
+    const migrationIndex = result.stdout.indexOf("compose:run --rm migrate");
+    expect(stopIndex).toBeGreaterThan(-1);
+    expect(migrationIndex).toBeGreaterThan(stopIndex);
+    expect(result.stdout).not.toContain("docker:tag club-pwa-api:unsafe-rollback club-pwa-api:latest");
+    expect(result.stdout).toContain("compose:up -d --no-deps --force-recreate api worker");
+    expect(result.stdout).toContain("docker:tag club-pwa-web:rollback-test club-pwa-web:latest");
+    expect(result.stdout).toContain("status:failed:reconcile");
   }, 15_000);
 });

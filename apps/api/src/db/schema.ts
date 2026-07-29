@@ -1,5 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import { boolean, check, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
 export const contentKind = pgEnum("content_kind", ["text", "photo", "video", "audio"]);
@@ -925,6 +925,10 @@ export const clubChatMessages = pgTable(
     deletedCleanupIdx: index("club_chat_messages_deleted_cleanup_idx").on(
       table.deletedContentExpiresAt,
       table.deletedCleanupClaimedAt
+    ),
+    terminalCleanupIdx: index("club_chat_messages_terminal_cleanup_idx").on(
+      table.terminalCleanupAt,
+      table.purgeAt
     )
   })
 );
@@ -956,6 +960,11 @@ export const clubMessageAttachments = pgTable(
     messageSortIdx: index("club_message_attachments_message_sort_idx").on(table.messageId, table.sortOrder),
     objectKeyIdx: uniqueIndex("club_message_attachments_object_key_idx").on(table.objectKey),
     expiryIdx: index("club_message_attachments_expiry_idx").on(table.expiresAt, table.deletedAt),
+    terminalCleanupIdx: index("club_message_attachments_terminal_cleanup_idx").on(
+      table.terminalCleanupAt,
+      table.expiresAt,
+      table.deletedAt
+    ),
     scanStatusCheck: check(
       "club_message_attachments_scan_status_check",
       sql`${table.scanStatus} in ('pending', 'scanning', 'ready', 'rejected', 'failed', 'deleted')`
@@ -1060,7 +1069,7 @@ export const communityObjectDeletionJobs = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    sourceActionIdx: uniqueIndex("community_object_deletion_jobs_source_action_idx")
+    sourceActionUnique: unique("community_object_deletion_jobs_source_action_unique")
       .on(table.sourceType, table.sourceId, table.action),
     claimIdx: index("community_object_deletion_jobs_claim_idx").on(table.status, table.notBefore, table.claimedAt),
     statusCheck: check(
@@ -1083,8 +1092,33 @@ export const communityObjectDeletionEntries = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    jobKeyIdx: uniqueIndex("community_object_deletion_entries_job_key_idx").on(table.jobId, table.objectKey),
+    jobKeyUnique: unique("community_object_deletion_entries_job_key_unique").on(table.jobId, table.objectKey),
     jobIdx: index("community_object_deletion_entries_job_idx").on(table.jobId)
+  })
+);
+
+export const communityObjectPublications = pgTable(
+  "community_object_publications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceType: varchar("source_type", { length: 32 }).notNull(),
+    sourceId: uuid("source_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    publicationToken: uuid("publication_token").notNull().defaultRandom(),
+    state: varchar("state", { length: 16 }).notNull().default("publishing"),
+    quiescedAt: timestamp("quiesced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    sourceKeyUnique: unique("community_object_publications_source_key_unique")
+      .on(table.sourceType, table.sourceId, table.objectKey),
+    objectStateIdx: index("community_object_publications_object_state_idx")
+      .on(table.objectKey, table.state, table.quiescedAt),
+    stateCheck: check(
+      "community_object_publications_state_check",
+      sql`${table.state} in ('publishing','quiescing')`
+    )
   })
 );
 
@@ -1120,6 +1154,7 @@ export const communityNotificationOutbox = pgTable(
     status: varchar("status", { length: 16 }).notNull().default("pending"),
     claimId: uuid("claim_id"),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     attemptCount: integer("attempt_count").notNull().default(0),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
     lastError: varchar("last_error", { length: 500 }),
@@ -1127,12 +1162,12 @@ export const communityNotificationOutbox = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
-    deliveryIdx: uniqueIndex("community_notification_outbox_delivery_idx")
+    deliveryUnique: unique("community_notification_outbox_delivery_unique")
       .on(table.userId, table.messageId, table.reason),
     claimIdx: index("community_notification_outbox_claim_idx").on(table.status, table.nextAttemptAt, table.claimedAt),
     statusCheck: check(
       "community_notification_outbox_status_check",
-      sql`${table.status} in ('pending','claimed')`
+      sql`${table.status} in ('pending','claimed','delivered','suppressed')`
     ),
     reasonCheck: check(
       "community_notification_outbox_reason_check",
@@ -1327,7 +1362,13 @@ export const appNotifications = pgTable(
   },
   (table) => ({
     userReadCreatedIdx: index("app_notifications_user_read_created_idx").on(table.userId, table.readAt, table.createdAt),
-    sourceIdx: index("app_notifications_source_idx").on(table.source, table.sourceId)
+    sourceIdx: index("app_notifications_source_idx").on(table.source, table.sourceId),
+    communityAccessIdx: index("app_notifications_community_access_idx")
+      .on(table.userId, table.communityTopicId, table.communityAccessVersion)
+      .where(sql`${table.communityTopicId} is not null`),
+    communityDeliveryIdx: uniqueIndex("app_notifications_community_delivery_idx")
+      .on(table.userId, table.source, table.sourceId)
+      .where(sql`${table.source} in ('community_reply','community_mention','community_all')`)
   })
 );
 
