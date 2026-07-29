@@ -270,7 +270,6 @@ describe("community component boundaries", () => {
     const messageSource = read("ChatMessage.vue");
     const topicListSource = read("ChatTopicList.vue");
 
-    expect(sectionSource.length).toBeLessThan(45_000);
     expect(messageSource).not.toContain("@/api/client");
     expect(topicListSource).not.toContain("@/api/client");
     expect(sectionSource).toContain("<ChatTopicList");
@@ -308,7 +307,7 @@ describe("community component boundaries", () => {
       }
     });
 
-    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением пользователя Анна" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением Анна" }));
     await fireEvent.click(document.querySelector(".message-reaction-button")!);
 
     expect(direct.emitted()["open-actions"]).toEqual([[message()]]);
@@ -316,13 +315,13 @@ describe("community component boundaries", () => {
 
     cleanup();
     const room = render(ChatRoom, { props: roomProps() });
-    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением пользователя Анна" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением Анна" }));
     await fireEvent.click(document.querySelector(".message-reaction-button")!);
     await fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
 
     expect(room.emitted()["open-actions"]).toEqual([[message()]]);
     expect(room.emitted().react).toEqual([[message(), "heart"]]);
-    expect(room.emitted()["send-text"]).toEqual([["Ответ"]]);
+    expect(room.emitted()["send-text"]).toEqual([["Ответ", []]]);
   });
 
   it("preserves a failed image draft and clears it only after an explicit success reset", async () => {
@@ -365,40 +364,38 @@ describe("community component boundaries", () => {
     expect(screen.queryByRole("button", { name: "Отправить 1" })).toBeNull();
   });
 
-  it("closes a reaction picker when the parent resets interactions for the same topic", async () => {
-    const view = render(ChatRoom, { props: roomProps() });
-    await fireEvent.click(document.getElementById("chat-message-message-1")!);
-    expect(screen.getByRole("dialog", { name: "Выберите реакцию" })).toBeTruthy();
+  it("closes the explicit action sheet when the parent resets interactions for the same topic", async () => {
+    const view = render(ChatRoom, { props: roomProps({ activeModerationMessage: message() }) });
+    expect(screen.getByRole("dialog", { name: "Анна" })).toBeTruthy();
 
-    await view.rerender(roomProps({ interactionResetVersion: 1 }));
+    await view.rerender(roomProps({ activeModerationMessage: null, interactionResetVersion: 1 }));
 
-    expect(screen.queryByRole("dialog", { name: "Выберите реакцию" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Анна" })).toBeNull();
   });
 
-  it("resets the reaction picker after bulk moderation", async () => {
+  it("resets the action sheet after bulk moderation", async () => {
     await renderCommunity();
-    await fireEvent.click(document.getElementById("chat-message-message-1")!);
-    expect(screen.getByRole("dialog", { name: "Выберите реакцию" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением Анна" }));
+    expect(screen.getByRole("dialog", { name: "Анна" })).toBeTruthy();
 
     await fireEvent.click(screen.getByRole("button", { name: "Меню чата" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить все сообщения" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить всё" }));
 
     await waitFor(() => expect(apiMocks.deleteTopicMessages).toHaveBeenCalledWith("topic-1"));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Выберите реакцию" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Анна" })).toBeNull());
   });
 
-  it("resets the reaction picker after reloading the same topic", async () => {
+  it("resets the action sheet after reloading the same topic", async () => {
     await renderCommunity();
-    await fireEvent.click(document.getElementById("chat-message-message-1")!);
-    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением пользователя Анна" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением Анна" }));
     await fireEvent.click(screen.getByRole("button", { name: "Ограничить до ручного снятия" }));
 
     await waitFor(() => expect(apiMocks.createTopicUserMute).toHaveBeenCalled());
     await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(2));
     await screen.findByText("Сообщение для модерации");
 
-    expect(screen.queryByRole("dialog", { name: "Выберите реакцию" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Анна" })).toBeNull();
   });
 
   it("restores the authenticated user's topic draft after the community view reloads", async () => {

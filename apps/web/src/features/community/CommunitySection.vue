@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import "./community.css";
 import "./communityRoute.css";
-import type { ClubMessage, ClubTopic, CommunityMessageSearchResult, CommunityNotificationMode } from "@club/shared";
+import type {
+  ClubMessage,
+  ClubTopic,
+  CommunityMessageSearchResult,
+  CommunityNotificationMode
+} from "@club/shared";
 import { Lock, Plus, Search } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
@@ -37,19 +42,19 @@ import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatRoom from "./ChatRoom.vue";
 import ChatSearchPanel from "./ChatSearchPanel.vue";
 import ChatTopicList from "./ChatTopicList.vue";
-import { configureCommunityDrafts, loadDraft, resetCommunityDrafts, saveDraft } from "./communityDrafts";
+import { configureCommunityDrafts, loadDraft, resetCommunityDrafts } from "./communityDrafts";
 import {
   configureCommunityOutbox,
   flushQueuedMessages,
   getQueuedTextMessages,
   mergeConfirmedCommunityMessages,
-  queueTextMessage,
   reconcileQueuedMessages,
   resetCommunityOutbox,
   type QueuedTextMessage
 } from "./communityOutbox";
 import { authorName, communityErrorStatus, headChanged, communityMessagesSignature, communityMuteComposerText, communityOptimisticMessage, getOrCreateCommunityDeviceId, needsUnreadHistory, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
 import { useCommunityTopicState } from "./useCommunityTopicState";
+import { useCommunityTextMutations } from "./useCommunityTextMutations";
 import { captureCommunityViewport, restoreCommunityViewport } from "./communityViewport";
 const { t } = useI18n();
 const session = useSessionStore();
@@ -73,6 +78,8 @@ const newTopicTitle = ref("");
 const newTopicAdminOnly = ref(false);
 const showCreateTopic = ref(false);
 const replyToMessage = ref<ClubMessage | null>(null);
+const editMessage = ref<ClubMessage | null>(null);
+const draftBeforeEdit = ref("");
 const activeModerationMessageId = ref<string | null>(null);
 const messageSaving = ref(false);
 const topicSaving = ref(false);
@@ -225,12 +232,55 @@ function configurePersistedCommunityState(userId: string) {
     userId,
     deviceId: communityDeviceId,
     send: async (input) => createClubMessage(input.topicId, input.body, input.replyToMessageId, {
-      clientOperationId: input.clientOperationId
+      clientOperationId: input.clientOperationId,
+      mentions: input.mentions
     }),
     onChange: syncQueuedMessages,
     onConfirmed: appendConfirmedTextMessage
   });
 }
+
+const {
+  sendText: handleSendMessage,
+  changeDraft: handleDraftChange,
+  startEdit: startEditMessage,
+  cancelEdit: cancelEditMessage,
+  saveEdit: handleSaveEdit,
+  deleteOwn: handleDeleteOwnMessage,
+  retry: handleRetryMessage
+} = useCommunityTextMutations({
+  messages,
+  queuedMessages: queuedTextMessages,
+  draft: newMessage,
+  reply: replyToMessage,
+  editing: editMessage,
+  draftBeforeEdit,
+  activeActionId: activeModerationMessageId,
+  saving: messageSaving,
+  composerResetVersion,
+  selectedTopicId: () => selectedTopic.value?.id ?? null,
+  captureSendRoom: () => {
+    const owner = captureAccountOwner();
+    const topicId = selectedTopic.value?.id;
+    const generation = topicGeneration;
+    return owner && topicId
+      ? { topicId, isCurrent: () => isCurrentRoom(owner, topicId, generation) }
+      : null;
+  },
+  confirmDelete: () => appDialogs.confirm({
+    title: "Удалить сообщение?",
+    description: "В чате останется отметка об удалённом сообщении.",
+    confirmLabel: "Удалить",
+    tone: "danger"
+  }),
+  clearError: clearCommunityError,
+  showError: showCommunityError,
+  applyMute: (state) => {
+    mutedUntil.value = state.mutedUntil ?? null;
+    mutedPermanently.value = Boolean(state.mutedPermanently);
+    showMuteAlert();
+  }
+});
 
 async function refreshReadObservation(owner: AccountRequestOwner, topicId: string, expectedTopicGeneration: number) {
   if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
@@ -551,6 +601,8 @@ async function openTopic(topic: ClubTopic) {
   messagesNextCursor.value = null;
   hasLoadedOlderMessages.value = false;
   activeModerationMessageId.value = null;
+  editMessage.value = null;
+  draftBeforeEdit.value = "";
   composerResetVersion.value += 1;
   interactionResetVersion.value += 1;
   clearCommunityError();
@@ -584,7 +636,12 @@ async function closeMessageSearch() {
   searchTrigger?.focus();
   searchTrigger = null;
 }
-function closeTopic() { searchJumpGeneration += 1; selectedTopic.value = null; }
+function closeTopic() {
+  searchJumpGeneration += 1;
+  editMessage.value = null;
+  draftBeforeEdit.value = "";
+  selectedTopic.value = null;
+}
 async function handleNotificationMode(mode: CommunityNotificationMode) {
   const topicId = selectedTopic.value?.id;
   const owner = captureAccountOwner();
@@ -628,6 +685,8 @@ async function openSearchResult(result: CommunityMessageSearchResult) {
   mutedUntil.value = targetRoomState.mutedUntil;
   mutedPermanently.value = targetRoomState.mutedPermanently;
   activeModerationMessageId.value = null;
+  editMessage.value = null;
+  draftBeforeEdit.value = "";
   interactionResetVersion.value += 1;
   newMessage.value = loadDraft(targetTopic.id);
   clearCommunityError();
@@ -739,64 +798,6 @@ async function handleDeleteAuthorMessages(message: ClubMessage) {
   interactionResetVersion.value += 1;
   await refreshSelectedTopic({ keepScroll: true });
   await loadTopics();
-}
-
-async function handleSendMessage(body: string) {
-  if (!selectedTopic.value || !body.trim()) {
-    return;
-  }
-
-  messageSaving.value = true;
-  clearCommunityError();
-  const owner = captureAccountOwner();
-  const topicId = selectedTopic.value.id;
-  const expectedTopicGeneration = topicGeneration;
-  try {
-    const result = await queueTextMessage<ClubMessage>({
-      topicId,
-      body,
-      replyToMessageId: replyToMessage.value?.id ?? null
-    });
-    if (result.delivered || result.retryable) {
-      saveDraft(topicId, "");
-      if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
-        newMessage.value = "";
-        replyToMessage.value = null;
-      }
-    }
-    if (!result.delivered && result.retryable) {
-      if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
-        showCommunityError("Сообщение сохранено и будет отправлено при восстановлении связи.");
-      }
-    } else if (!result.delivered) {
-      saveDraft(topicId, body);
-      if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
-      newMessage.value = body;
-      const data =
-        typeof result.error === "object" && result.error && "data" in result.error
-          ? (result.error.data as { mutedUntil?: string | null; mutedPermanently?: boolean } | undefined)
-          : undefined;
-      if (data?.mutedUntil || data?.mutedPermanently) {
-        mutedUntil.value = data.mutedUntil ?? null;
-        mutedPermanently.value = Boolean(data.mutedPermanently);
-        showMuteAlert();
-      }
-      showCommunityError("Не удалось отправить сообщение.");
-    }
-  } catch {
-    saveDraft(topicId, body);
-    if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
-      newMessage.value = body;
-      showCommunityError("Не удалось подготовить сообщение к отправке.");
-    }
-  } finally {
-    if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) messageSaving.value = false;
-  }
-}
-
-function handleDraftChange(text: string) {
-  newMessage.value = text;
-  if (selectedTopic.value) saveDraft(selectedTopic.value.id, text);
 }
 
 function handleCommunityOnline() {
@@ -931,6 +932,7 @@ async function handleReaction(message: ClubMessage, reaction: VisibleMessageReac
   const response = await reactToClubMessage(message.id, nextReaction);
   messages.value = messages.value.map((item) => (item.id === message.id ? response.message : item));
   reactionCompletedVersion.value += 1;
+  activeModerationMessageId.value = null;
 }
 
 function resetCommunityUiState() {
@@ -949,6 +951,8 @@ function resetCommunityUiState() {
   muteAlertShown.value = false;
   newMessage.value = "";
   replyToMessage.value = null;
+  editMessage.value = null;
+  draftBeforeEdit.value = "";
   activeModerationMessageId.value = null;
   messageSaving.value = false;
   topicSaving.value = false;
@@ -1138,6 +1142,7 @@ onBeforeUnmount(() => {
       ref="chatRoom"
       :topic="selectedTopic"
       :messages="messages"
+      :queued-messages="queuedTextMessages"
       :initial-unread-count="initialUnreadCount"
       :messages-next-cursor="messagesNextCursor"
       :loading-older-messages="loadingOlderMessages"
@@ -1151,6 +1156,7 @@ onBeforeUnmount(() => {
       :mute-composer-text="muteComposerText"
       :unavailable-composer-text="unavailableComposerText"
       :reply-to-message="replyToMessage"
+      :edit-message="editMessage"
       :draft="newMessage"
       :composer-reset-version="composerResetVersion"
       :reaction-completed-version="reactionCompletedVersion"
@@ -1169,6 +1175,11 @@ onBeforeUnmount(() => {
       @poll-vote="handlePollVote"
       @poll-close="handleClosePoll"
       @send-text="handleSendMessage"
+      @save-edit="handleSaveEdit"
+      @cancel-edit="cancelEditMessage"
+      @retry="handleRetryMessage"
+      @edit="startEditMessage"
+      @delete-self="handleDeleteOwnMessage"
       @send-voice="handleSendVoice"
       @send-files="handleSendImages"
       @create-poll="handleCreatePoll"

@@ -1,4 +1,4 @@
-import { resolveDisplayName, type ClubMessage, type ClubUser, type MessageReaction } from "@club/shared";
+import { resolveDisplayName, type ClubMessage, type ClubUser, type CommunityMention, type MessageReaction } from "@club/shared";
 import type { QueuedTextMessage } from "./communityOutbox";
 
 export type VisibleMessageReaction = Exclude<MessageReaction, "like" | "dislike">;
@@ -10,7 +10,7 @@ export type ChatMessageEventMap = {
   "jump-reply": [messageId: string];
   "poll-vote": [message: ClubMessage, optionIds: string[]];
   "poll-close": [message: ClubMessage];
-  "toggle-reactions": [message: ClubMessage];
+  retry: [message: ClubMessage];
 };
 
 export interface CommunityViewer {
@@ -55,7 +55,7 @@ export function communityOptimisticMessage(entry: QueuedTextMessage, viewer: Clu
     editedAt: null,
     deletedByUserAt: null,
     clientOperationId: entry.deliveryKey,
-    mentions: [],
+    mentions: entry.mentions,
     createdAt: new Date(entry.createdAt).toISOString()
   };
 }
@@ -69,12 +69,14 @@ export interface ChatPollDraft {
 }
 
 export type ChatComposerEventMap = {
-  "send-text": [body: string];
+  "send-text": [body: string, mentions: CommunityMention[]];
+  "save-edit": [message: ClubMessage, body: string, mentions: CommunityMention[]];
   "send-voice": [blob: Blob, durationSeconds: number];
   "send-files": [files: File[]];
   "create-poll": [payload: ChatPollDraft];
   "draft-change": [body: string];
   "cancel-reply": [];
+  "cancel-edit": [];
 };
 
 export const quickEmoji = ["👍", "🔥", "❤️", "😂", "👏", "💩"] as const;
@@ -184,6 +186,88 @@ export function visibleReactionCounts(message: ClubMessage) {
   );
 }
 
+export type CommunityMessageDeliveryState = "sending" | "failed" | "sent";
+
+export function communityMessageDeliveryState(
+  message: ClubMessage,
+  queuedMessages: QueuedTextMessage[]
+): CommunityMessageDeliveryState {
+  if (!message.id.startsWith("local:")) return "sent";
+  const queued = queuedMessages.find((entry) => entry.deliveryKey === message.clientOperationId);
+  return queued?.status === "failed" ? "failed" : "sending";
+}
+
+export function canEditOwnCommunityMessage(
+  message: ClubMessage,
+  viewer: CommunityViewer | null,
+  now = Date.now()
+) {
+  if (
+    message.isSystem
+    || message.kind !== "text"
+    || message.status !== "visible"
+    || message.deletedByUserAt
+    || message.id.startsWith("local:")
+    || !isOwnMessage(message, viewer)
+  ) {
+    return false;
+  }
+  const elapsed = now - Date.parse(message.createdAt);
+  return elapsed >= 0 && elapsed <= 15 * 60 * 1_000;
+}
+
+export function isCommunityMemberTombstone(message: ClubMessage, isModerator: boolean) {
+  return !isModerator
+    && message.kind === "text"
+    && message.body === "Сообщение удалено"
+    && !message.replyTo
+    && !message.mentions.length;
+}
+
+function localDayKey(value: string) {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+export function canGroupCommunityMessages(previous: ClubMessage | undefined, current: ClubMessage | undefined) {
+  if (!previous || !current || previous.isSystem || current.isSystem) return false;
+  const elapsed = Date.parse(current.createdAt) - Date.parse(previous.createdAt);
+  return previous.author.id === current.author.id
+    && localDayKey(previous.createdAt) === localDayKey(current.createdAt)
+    && elapsed >= 0
+    && elapsed <= 5 * 60 * 1_000;
+}
+
+export function isCommunityDayStart(previous: ClubMessage | undefined, current: ClubMessage) {
+  return !previous || localDayKey(previous.createdAt) !== localDayKey(current.createdAt);
+}
+
+export function formatCommunityMessageDay(value: string) {
+  return new Date(value).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+}
+
+export function communityMessageTextSegments(message: ClubMessage) {
+  const mentions = [...message.mentions]
+    .sort((left, right) => left.start - right.start)
+    .filter((mention, index, sorted) =>
+      message.body.slice(mention.start, mention.end) === `@${mention.displayName}`
+      && (index === 0 || mention.start >= sorted[index - 1]!.end)
+    );
+  const segments: Array<{ text: string; mention: boolean }> = [];
+  let offset = 0;
+  for (const mention of mentions) {
+    if (mention.start > offset) segments.push({ text: message.body.slice(offset, mention.start), mention: false });
+    segments.push({ text: message.body.slice(mention.start, mention.end), mention: true });
+    offset = mention.end;
+  }
+  if (offset < message.body.length) segments.push({ text: message.body.slice(offset), mention: false });
+  return segments.length ? segments : [{ text: message.body, mention: false }];
+}
+
 export function formatMessageTime(value: string) {
   return new Date(value).toLocaleString("ru-RU", {
     day: "2-digit",
@@ -229,7 +313,11 @@ export function communityMessageSignature(message: ClubMessage) {
     message.authorMute?.expiresAt ?? "",
     message.replyTo?.id ?? "",
     message.replyTo?.body ?? "",
-    message.pinnedAt ?? ""
+    message.pinnedAt ?? "",
+    message.editedAt ?? "",
+    message.deletedByUserAt ?? "",
+    message.clientOperationId ?? "",
+    message.mentions.map((mention) => `${mention.userId}:${mention.start}:${mention.end}:${mention.displayName}`).join("|")
   ].join("\u001f");
 }
 

@@ -1,3 +1,5 @@
+import type { CommunityMention } from "@club/shared";
+
 export type QueuedTextMessage = {
   userId: string;
   deviceId: string;
@@ -5,6 +7,7 @@ export type QueuedTextMessage = {
   localId: string;
   deliveryKey: string;
   body: string;
+  mentions: CommunityMention[];
   replyToMessageId: string | null;
   createdAt: number;
   sequence: number;
@@ -16,6 +19,7 @@ export type QueuedTextMessage = {
 export type QueueTextMessageInput = {
   topicId: string;
   body: string;
+  mentions?: CommunityMention[];
   replyToMessageId?: string | null;
   localId?: string;
 };
@@ -23,6 +27,7 @@ export type QueueTextMessageInput = {
 export type CommunityTextSendInput = {
   topicId: string;
   body: string;
+  mentions: CommunityMention[];
   replyToMessageId: string | null;
   clientOperationId: string;
 };
@@ -101,6 +106,42 @@ function isRetryableFailure(reason: unknown) {
   return status === null || status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
+function normalizeMentions(body: string, value: unknown): CommunityMention[] {
+  if (!Array.isArray(value)) return [];
+  const mentions: CommunityMention[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const candidate = raw as Partial<CommunityMention>;
+    const start = candidate.start;
+    const end = candidate.end;
+    if (
+      typeof candidate.userId !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate.userId)
+      || typeof candidate.displayName !== "string"
+      || !candidate.displayName.trim()
+      || candidate.displayName.length > 160
+      || typeof start !== "number"
+      || typeof end !== "number"
+      || !Number.isInteger(start)
+      || !Number.isInteger(end)
+      || start < 0
+      || end <= start
+      || body.slice(start, end) !== `@${candidate.displayName}`
+    ) {
+      continue;
+    }
+    mentions.push({
+      userId: candidate.userId,
+      displayName: candidate.displayName,
+      start,
+      end
+    });
+  }
+  return mentions
+    .sort((left, right) => left.start - right.start || left.end - right.end)
+    .filter((mention, index, sorted) => index === 0 || mention.start >= sorted[index - 1]!.end);
+}
+
 function normalizeQueuedMessage(value: unknown, fallbackSequence: number): QueuedTextMessage | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Partial<QueuedTextMessage>;
@@ -124,6 +165,7 @@ function normalizeQueuedMessage(value: unknown, fallbackSequence: number): Queue
     localId: candidate.localId,
     deliveryKey: candidate.deliveryKey,
     body: candidate.body,
+    mentions: normalizeMentions(candidate.body, candidate.mentions),
     replyToMessageId: candidate.replyToMessageId,
     createdAt: candidate.createdAt,
     sequence: typeof candidate.sequence === "number" && Number.isSafeInteger(candidate.sequence) && candidate.sequence >= 0
@@ -339,6 +381,7 @@ async function deliverEntry(
       const { message } = await current.send({
         topicId: sending.topicId,
         body: sending.body,
+        mentions: sending.mentions,
         replyToMessageId: sending.replyToMessageId,
         clientOperationId: sending.deliveryKey
       });
@@ -449,6 +492,7 @@ export async function queueTextMessage<TMessage extends ConfirmedMessage = Confi
     localId,
     deliveryKey: createDeliveryKey(current.deviceId, localId),
     body,
+    mentions: normalizeMentions(body, input.mentions),
     replyToMessageId: input.replyToMessageId ?? null,
     createdAt: current.now(),
     sequence: Math.max(0, ...existingScope.map((candidate) => candidate.sequence)) + 1,

@@ -6,11 +6,16 @@ import { useI18n } from "@/features/app/i18n";
 import ChatComposer from "./ChatComposer.vue";
 import ChatMessage from "./ChatMessage.vue";
 import ChatModerationMenu from "./ChatModerationMenu.vue";
+import type { QueuedTextMessage } from "./communityOutbox";
 import {
   authorName,
+  canEditOwnCommunityMessage,
+  canGroupCommunityMessages,
+  communityMessageDeliveryState,
+  formatCommunityMessageDay,
   formatMessageTime,
+  isCommunityDayStart,
   isUnreadCandidate,
-  reactionOptions,
   type ChatComposerEventMap,
   type ChatMessageEventMap,
   type CommunityViewer,
@@ -36,7 +41,10 @@ const props = defineProps<{
   composerResetVersion: number;
   reactionCompletedVersion: number;
   interactionResetVersion: number;
-  activeModerationMessage: ClubMessage | null;
+  activeModerationMessage?: ClubMessage | null;
+  activeActionMessage?: ClubMessage | null;
+  queuedMessages?: QueuedTextMessage[];
+  editMessage?: ClubMessage | null;
   backgroundInert?: boolean;
 }>();
 
@@ -58,6 +66,11 @@ const emit = defineEmits<{
   "create-poll": ChatComposerEventMap["create-poll"];
   "draft-change": ChatComposerEventMap["draft-change"];
   "cancel-reply": ChatComposerEventMap["cancel-reply"];
+  "save-edit": ChatComposerEventMap["save-edit"];
+  "cancel-edit": ChatComposerEventMap["cancel-edit"];
+  retry: ChatMessageEventMap["retry"];
+  edit: [message: ClubMessage];
+  "delete-self": [message: ClubMessage];
   "close-actions": [];
   "toggle-pin": [message: ClubMessage];
   "toggle-status": [message: ClubMessage, status: "visible" | "hidden" | "deleted"];
@@ -71,18 +84,24 @@ const messagesList = ref<HTMLElement | null>(null);
 const messagesEnd = ref<HTMLElement | null>(null);
 const showTopicAdminMenu = ref(false);
 const showPinnedMessages = ref(false);
-const activeReactionMessageId = ref<string | null>(null);
 const highlightedMessageId = ref<string | null>(null);
+const mutationClock = ref(Date.now());
 let messageHighlightTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+let mutationExpiryTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+let actionTrigger: HTMLElement | null = null;
 
 const orderedMessages = computed(() => [...props.messages].reverse());
 const pinnedMessages = computed(() =>
   orderedMessages.value.filter((message) => Boolean(message.pinnedAt) && message.status === "visible" && !message.isSystem)
 );
 const latestPinnedMessage = computed(() => pinnedMessages.value.at(-1) ?? null);
-const activeReactionMessage = computed(
-  () => orderedMessages.value.find((message) => message.id === activeReactionMessageId.value) ?? null
-);
+const activeSheetMessage = computed(() => props.activeActionMessage ?? props.activeModerationMessage);
+const canMutateActiveMessage = computed(() => {
+  void props.interactionResetVersion;
+  return activeSheetMessage.value
+    ? canEditOwnCommunityMessage(activeSheetMessage.value, props.viewer, Math.max(mutationClock.value, Date.now()))
+    : false;
+});
 const firstUnreadMessageId = computed(() => {
   const eligibleMessages = orderedMessages.value.filter((message) => isUnreadCandidate(message, props.viewer));
   if (props.messagesNextCursor && (props.initialUnreadCount ?? 0) > eligibleMessages.length) return null;
@@ -154,17 +173,35 @@ function scrollToMessage(messageId: string, behavior: ScrollBehavior = "smooth")
   }, 1_800);
 }
 
-function toggleReactionPicker(message: ClubMessage) {
-  activeReactionMessageId.value = activeReactionMessageId.value === message.id ? null : message.id;
-}
-
 function handleReaction(message: ClubMessage, reaction: ChatMessageEventMap["react"][1]) {
   emit("react", message, reaction);
+  emit("close-actions");
 }
 
 function handleReply(message: ClubMessage) {
-  activeReactionMessageId.value = null;
+  emit("close-actions");
   emit("reply", message);
+}
+
+function handleOpenActions(message: ClubMessage) {
+  const activeElement = document.activeElement;
+  const messageElement = document.getElementById(`chat-message-${message.id}`);
+  actionTrigger = activeElement instanceof HTMLElement && messageElement?.contains(activeElement)
+    ? activeElement
+    : messageElement?.querySelector<HTMLElement>(".chat-message-moderation-trigger") ?? null;
+  emit("open-actions", message);
+}
+
+function groupedWithPrevious(index: number) {
+  return canGroupCommunityMessages(orderedMessages.value[index - 1], orderedMessages.value[index]);
+}
+
+function groupedWithNext(index: number) {
+  return canGroupCommunityMessages(orderedMessages.value[index], orderedMessages.value[index + 1]);
+}
+
+function deliveryState(message: ClubMessage) {
+  return communityMessageDeliveryState(message, props.queuedMessages ?? []);
 }
 
 function handleTopicLock() {
@@ -184,7 +221,6 @@ function openSearch(event: MouseEvent) {
 function resetLocalInteractions() {
   showTopicAdminMenu.value = false;
   showPinnedMessages.value = false;
-  activeReactionMessageId.value = null;
   highlightedMessageId.value = null;
 }
 
@@ -233,11 +269,30 @@ watch(
 );
 watch(() => props.interactionResetVersion, resetLocalInteractions);
 watch(() => props.reactionCompletedVersion, () => {
-  activeReactionMessageId.value = null;
+  emit("close-actions");
 });
+watch(activeSheetMessage, (message, previousMessage) => {
+  if (mutationExpiryTimer) globalThis.clearTimeout(mutationExpiryTimer);
+  mutationClock.value = Date.now();
+  if (!message) {
+    if (previousMessage && actionTrigger) {
+      const trigger = actionTrigger;
+      actionTrigger = null;
+      void nextTick(() => trigger.isConnected && trigger.focus());
+    }
+    return;
+  }
+  const delay = Date.parse(message.createdAt) + 15 * 60 * 1_000 - mutationClock.value + 1;
+  if (delay <= 0) return;
+  mutationExpiryTimer = globalThis.setTimeout(() => {
+    mutationClock.value = Date.now();
+    mutationExpiryTimer = null;
+  }, delay);
+}, { immediate: true });
 
 onBeforeUnmount(() => {
   if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
+  if (mutationExpiryTimer) globalThis.clearTimeout(mutationExpiryTimer);
 });
 
 defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
@@ -346,7 +401,15 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
         {{ loadingOlderMessages ? "Загрузка…" : "Показать предыдущие сообщения" }}
       </button>
       <p v-if="!messages.length" class="py-6 text-center text-xs text-[var(--muted)]">{{ t("messagesEmpty") }}</p>
-      <template v-for="message in orderedMessages" :key="message.id">
+      <template v-for="(message, index) in orderedMessages" :key="message.id">
+        <div
+          v-if="isCommunityDayStart(orderedMessages[index - 1], message)"
+          class="chat-date-divider"
+          role="separator"
+          :aria-label="formatCommunityMessageDay(message.createdAt)"
+        >
+          <span>{{ formatCommunityMessageDay(message.createdAt) }}</span>
+        </div>
         <div v-if="message.id === firstUnreadMessageId" class="chat-new-messages-divider" role="separator">
           <span>Новые сообщения</span>
         </div>
@@ -356,13 +419,16 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
           :is-moderator="isModerator"
           :message-saving="messageSaving"
           :highlighted="highlightedMessageId === message.id"
+          :grouped-with-previous="groupedWithPrevious(index)"
+          :grouped-with-next="groupedWithNext(index)"
+          :delivery-state="deliveryState(message)"
           @reply="handleReply"
           @react="handleReaction"
-          @open-actions="$emit('open-actions', $event)"
+          @open-actions="handleOpenActions"
           @jump-reply="scrollToMessage"
           @poll-vote="(message, optionIds) => $emit('poll-vote', message, optionIds)"
           @poll-close="$emit('poll-close', $event)"
-          @toggle-reactions="toggleReactionPicker"
+          @retry="$emit('retry', $event)"
         />
       </template>
       <div ref="messagesEnd"></div>
@@ -386,43 +452,31 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
       :unavailable-composer-text="unavailableComposerText"
       :message-saving="messageSaving"
       :reply-to-message="replyToMessage"
+      :edit-message="editMessage ?? null"
       :draft="draft"
       :reset-version="composerResetVersion"
-      @send-text="$emit('send-text', $event)"
+      @send-text="(body, mentions) => $emit('send-text', body, mentions)"
+      @save-edit="(message, body, mentions) => $emit('save-edit', message, body, mentions)"
       @send-voice="(blob, durationSeconds) => $emit('send-voice', blob, durationSeconds)"
       @send-files="$emit('send-files', $event)"
       @create-poll="$emit('create-poll', $event)"
       @draft-change="$emit('draft-change', $event)"
       @cancel-reply="$emit('cancel-reply')"
+      @cancel-edit="$emit('cancel-edit')"
     />
   </div>
 
-  <Teleport to="body">
-    <div
-      v-if="activeReactionMessage"
-      class="reaction-popover community-reaction-popover"
-      role="dialog"
-      aria-label="Выберите реакцию"
-      @click.stop
-    >
-      <button
-        v-for="option in reactionOptions"
-        :key="option.value"
-        class="reaction-popover-button"
-        :class="{ 'message-reaction-active': activeReactionMessage.myReaction === option.value }"
-        type="button"
-        :aria-label="`Поставить реакцию ${option.label}`"
-        @click="handleReaction(activeReactionMessage, option.value)"
-      >
-        {{ option.label }}
-      </button>
-    </div>
-  </Teleport>
-
   <ChatModerationMenu
-    v-if="isModerator && activeModerationMessage"
-    :message="activeModerationMessage"
+    v-if="activeSheetMessage"
+    :message="activeSheetMessage"
+    :is-moderator="isModerator"
+    :can-edit="canMutateActiveMessage"
+    :can-delete="canMutateActiveMessage"
     @close="$emit('close-actions')"
+    @reply="handleReply"
+    @react="handleReaction"
+    @edit="$emit('edit', $event)"
+    @delete-self="$emit('delete-self', $event)"
     @toggle-pin="$emit('toggle-pin', $event)"
     @toggle-status="(message, status) => $emit('toggle-status', message, status)"
     @mute="$emit('mute', $event)"

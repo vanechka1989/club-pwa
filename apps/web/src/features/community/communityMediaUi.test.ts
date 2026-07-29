@@ -62,13 +62,13 @@ describe("community rich message UI", () => {
   });
 
   it("keeps message reactions in a compact viewport-safe palette", () => {
-    const room = read("ChatRoom.vue");
+    const actions = read("ChatModerationMenu.vue");
     const styles = read("community.css");
-    expect(room).toContain('<Teleport to="body">');
-    expect(room).toContain('v-if="activeReactionMessage"');
-    expect(room).toContain('role="dialog"');
-    expect(styles).toMatch(/\.community-reaction-popover\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*2100;[^}]*left:\s*50%;[^}]*max-width:\s*calc\(100vw - 24px\)/s);
-    expect(styles).toMatch(/\.community-reaction-popover \.reaction-popover-button\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;/s);
+    expect(actions).toContain('<Teleport to="body">');
+    expect(actions).toContain('class="message-action-reactions"');
+    expect(actions).toContain('aria-label="Реакции"');
+    expect(styles).toMatch(/\.message-action-reactions\s*\{[^}]*grid-template-columns:\s*repeat\(6, minmax\(44px, 1fr\)\)/s);
+    expect(styles).toMatch(/\.message-action-reactions button\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
   });
 
   it("anchors circular reactions on the lower-right corner without increasing bubble size", () => {
@@ -109,7 +109,7 @@ describe("community rich message UI", () => {
     const composer = read("ChatComposer.vue");
     const styles = read("community.css");
     expect(composer).toContain("chat-composer-shell");
-    expect(composer).toContain('v-if="draft.trim()"');
+    expect(composer).toContain('v-if="draftValue.trim()"');
     expect(composer).toContain('v-else-if="voiceRecorder.supported.value"');
     expect(styles).toMatch(/\.community-chat-open \.chat-composer-shell\s*\{[^}]*grid-template-columns:\s*var\(--icon-button-size\) var\(--icon-button-size\) minmax\(0, 1fr\) var\(--icon-button-size\)/s);
   });

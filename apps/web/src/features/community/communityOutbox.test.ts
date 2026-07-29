@@ -85,11 +85,49 @@ describe("community text outbox", () => {
     expect(send).toHaveBeenNthCalledWith(1, {
       topicId: "topic-1",
       body: "Сообщение",
+      mentions: [],
       replyToMessageId: null,
       clientOperationId: "device-1:local-1"
     });
     expect(send).toHaveBeenNthCalledWith(2, expect.objectContaining({ clientOperationId: "device-1:local-1" }));
     expect(getQueuedTextMessages()).toEqual([]);
+  });
+
+  it("persists selected mention identities and reuses them on every retry", async () => {
+    const mentions = [{
+      userId: "00000000-0000-4000-8000-000000000002",
+      displayName: "Анна",
+      start: 0,
+      end: 5
+    }];
+    const send = vi.fn()
+      .mockRejectedValueOnce(new Error("connection_lost"))
+      .mockResolvedValueOnce({ message: { id: "server-mention", clientOperationId: "device-1:mention" } });
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      send,
+      isOnline: () => true
+    });
+
+    await queueTextMessage({
+      topicId: "topic-1",
+      localId: "mention",
+      body: "@Анна привет",
+      mentions
+    });
+    expect(getQueuedTextMessages()).toMatchObject([{ mentions }]);
+    await retryQueuedMessage("mention");
+
+    expect(send).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      clientOperationId: "device-1:mention",
+      mentions
+    }));
+    expect(send).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      clientOperationId: "device-1:mention",
+      mentions
+    }));
   });
 
   it("does not retain a terminal authorization failure for automatic retry", async () => {

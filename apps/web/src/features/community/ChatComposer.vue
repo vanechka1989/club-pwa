@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ClubMessage } from "@club/shared";
+import { resolveDisplayName, type ClubMessage, type CommunityMention, type CommunityParticipantSuggestionsResponse } from "@club/shared";
 import {
   BarChart3,
   Camera,
@@ -15,8 +15,9 @@ import {
   Trash2,
   X
 } from "lucide-vue-next";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "@/features/app/i18n";
+import ChatMentionPicker from "./ChatMentionPicker.vue";
 import ChatPollComposer from "./ChatPollComposer.vue";
 import ChatVoiceWaveform from "./ChatVoiceWaveform.vue";
 import { authorName, quickEmoji, type ChatComposerEventMap } from "./communityViewModel";
@@ -33,6 +34,7 @@ const props = defineProps<{
   replyToMessage: ClubMessage | null;
   draft: string;
   resetVersion: number;
+  editMessage?: ClubMessage | null;
 }>();
 
 const emit = defineEmits<ChatComposerEventMap>();
@@ -49,11 +51,96 @@ const voicePreviewAudio = ref<HTMLAudioElement | null>(null);
 const voicePreviewPlaying = ref(false);
 const voicePreviewCurrentTime = ref(0);
 const voicePreviewDuration = ref(0);
+const textInput = ref<HTMLInputElement | null>(null);
+const mentionPicker = ref<{ handleKey: (key: string) => boolean } | null>(null);
+const draftValue = ref(props.draft);
+const selectedMentions = ref<CommunityMention[]>([]);
+const mentionToken = ref<{ start: number; end: number; query: string } | null>(null);
 
 const draftModel = computed({
-  get: () => props.draft,
-  set: (value: string) => emit("draft-change", value)
+  get: () => draftValue.value,
+  set: (value: string) => updateDraft(value)
 });
+
+type Participant = CommunityParticipantSuggestionsResponse["participants"][number];
+
+function rebaseMentions(previous: string, next: string, mentions: CommunityMention[]) {
+  let prefix = 0;
+  while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix += 1;
+  let suffix = 0;
+  while (
+    suffix < previous.length - prefix
+    && suffix < next.length - prefix
+    && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]
+  ) {
+    suffix += 1;
+  }
+  const oldChangeEnd = previous.length - suffix;
+  const delta = next.length - previous.length;
+  return mentions.flatMap((mention) => {
+    const rebased = mention.end <= prefix
+      ? mention
+      : mention.start >= oldChangeEnd
+        ? { ...mention, start: mention.start + delta, end: mention.end + delta }
+        : null;
+    return rebased && next.slice(rebased.start, rebased.end) === `@${rebased.displayName}` ? [rebased] : [];
+  });
+}
+
+function updateDraft(value: string) {
+  selectedMentions.value = rebaseMentions(draftValue.value, value, selectedMentions.value);
+  draftValue.value = value;
+  emit("draft-change", value);
+}
+
+function updateMentionToken() {
+  const input = textInput.value;
+  if (!input) return;
+  const caret = input.selectionStart ?? draftValue.value.length;
+  const beforeCaret = draftValue.value.slice(0, caret);
+  const match = beforeCaret.match(/(?:^|\s)@([^\s@]*)$/u);
+  if (!match) {
+    mentionToken.value = null;
+    return;
+  }
+  const atOffset = beforeCaret.lastIndexOf("@");
+  mentionToken.value = {
+    start: atOffset,
+    end: caret,
+    query: match[1] ?? ""
+  };
+}
+
+function selectMention(participant: Participant) {
+  const token = mentionToken.value;
+  if (!token) return;
+  const displayName = resolveDisplayName(participant);
+  const replacement = `@${displayName}`;
+  const value = `${draftValue.value.slice(0, token.start)}${replacement} ${draftValue.value.slice(token.end)}`;
+  selectedMentions.value = [
+    ...selectedMentions.value.filter((mention) => mention.end <= token.start || mention.start >= token.end),
+    {
+      userId: participant.id,
+      displayName,
+      start: token.start,
+      end: token.start + replacement.length
+    }
+  ].sort((left, right) => left.start - right.start);
+  draftValue.value = value;
+  emit("draft-change", value);
+  mentionToken.value = null;
+  void nextTick(() => {
+    const caret = token.start + replacement.length + 1;
+    textInput.value?.focus();
+    textInput.value?.setSelectionRange(caret, caret);
+  });
+}
+
+function handleComposerKeydown(event: KeyboardEvent) {
+  if (!mentionToken.value || !mentionPicker.value?.handleKey(event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
 
 function resetVoicePreviewPlayback() {
   voicePreviewAudio.value?.pause();
@@ -92,7 +179,7 @@ function resetLocalDrafts() {
 }
 
 function appendEmoji(emoji: string) {
-  emit("draft-change", `${props.draft}${emoji}`);
+  updateDraft(`${draftValue.value}${emoji}`);
   showEmojiPicker.value = false;
 }
 
@@ -104,12 +191,33 @@ function handleImageSelection(event: Event) {
 }
 
 function submitText() {
-  const body = props.draft.trim();
-  if (body) emit("send-text", body);
+  const leadingWhitespace = draftValue.value.length - draftValue.value.trimStart().length;
+  const body = draftValue.value.trim();
+  const mentions = selectedMentions.value.flatMap((mention) => {
+    const shifted = { ...mention, start: mention.start - leadingWhitespace, end: mention.end - leadingWhitespace };
+    return shifted.start >= 0 && body.slice(shifted.start, shifted.end) === `@${shifted.displayName}` ? [shifted] : [];
+  });
+  if (!body) return;
+  if (props.editMessage) emit("save-edit", props.editMessage, body, mentions);
+  else emit("send-text", body, mentions);
 }
 
 watch(() => voiceRecorder.previewUrl.value, resetVoicePreviewPlayback);
-watch(() => props.resetVersion, resetLocalDrafts);
+watch(() => props.draft, (draft) => {
+  if (draft !== draftValue.value) {
+    draftValue.value = draft;
+    if (!draft) selectedMentions.value = [];
+  }
+});
+watch(() => props.editMessage, (message) => {
+  selectedMentions.value = message ? [...message.mentions] : [];
+  mentionToken.value = null;
+});
+watch(() => props.resetVersion, () => {
+  selectedMentions.value = props.editMessage ? [...props.editMessage.mentions] : [];
+  mentionToken.value = null;
+  resetLocalDrafts();
+});
 onBeforeUnmount(resetLocalDrafts);
 </script>
 
@@ -122,6 +230,15 @@ onBeforeUnmount(resetLocalDrafts);
           <span>{{ replyToMessage.body }}</span>
         </div>
         <button type="button" aria-label="Убрать ответ" @click="$emit('cancel-reply')">
+          <X class="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+      <div v-if="editMessage" class="compose-reply compose-edit">
+        <div class="min-w-0">
+          <p>Редактирование сообщения</p>
+          <span>Изменения доступны в течение 15 минут после отправки</span>
+        </div>
+        <button type="button" aria-label="Отменить редактирование" @click="$emit('cancel-edit')">
           <X class="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
@@ -251,15 +368,30 @@ onBeforeUnmount(resetLocalDrafts);
           </div>
         </div>
         <div v-if="isMuted" class="mute-compose-notice">{{ muteComposerText }}</div>
-        <input
-          v-else
-          v-model.trim="draftModel"
-          class="text-input"
-          :placeholder="t('messagePlaceholder')"
-          :disabled="!canWrite || messageSaving"
-        />
+        <div v-else class="chat-text-composer-field">
+          <input
+            ref="textInput"
+            v-model="draftModel"
+            class="text-input"
+            :placeholder="t('messagePlaceholder')"
+            :disabled="!canWrite || messageSaving"
+            :aria-expanded="Boolean(mentionToken?.query)"
+            aria-autocomplete="list"
+            @input="updateMentionToken"
+            @click="updateMentionToken"
+            @keyup="updateMentionToken"
+            @keydown="handleComposerKeydown"
+          />
+          <ChatMentionPicker
+            v-if="mentionToken?.query"
+            ref="mentionPicker"
+            :query="mentionToken.query"
+            @select="selectMention"
+            @close="mentionToken = null"
+          />
+        </div>
         <button
-          v-if="draft.trim()"
+          v-if="draftValue.trim()"
           class="icon-button ui-icon-button chat-composer-primary-action"
           type="submit"
           aria-label="Отправить"
