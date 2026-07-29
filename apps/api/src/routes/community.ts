@@ -295,6 +295,67 @@ const communityUploadService = createCommunityUploadService({
         eq(communityUploadManifests.status, "completing")
       ));
   },
+  recordPromotion: async (record) => {
+    const destination = record.destination === "final"
+      ? { finalObjectKey: record.destinationKey }
+      : { quarantineObjectKey: record.destinationKey };
+    const [recorded] = await db.update(communityUploadManifests)
+      .set({ ...destination, updatedAt: new Date() })
+      .where(and(
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
+        eq(communityUploadManifests.status, "completing")
+      ))
+      .returning({ id: communityUploadManifests.id });
+    if (recorded) return "recorded" as const;
+    const current = await db.query.communityUploadManifests.findFirst({
+      where: and(
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
+      )
+    });
+    if (current && ["aborting", "aborted", "cleanup_pending"].includes(current.status)) return "cancelled" as const;
+    throw new Error("manifest_promotion_conflict");
+  },
+  markCleanupPending: async (record, error) => {
+    const now = new Date();
+    const [pending] = await db.update(communityUploadManifests)
+      .set({ status: "cleanup_pending", errorCode: error.slice(0, 160), expiresAt: now, updatedAt: now })
+      .where(and(
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
+        inArray(communityUploadManifests.status, ["completing", "aborting", "aborted", "cleanup_pending"]),
+        sql`${communityUploadManifests.consumedAt} is null`,
+        sql`${communityUploadManifests.attachmentId} is null`
+      ))
+      .returning({ id: communityUploadManifests.id });
+    if (!pending) throw new Error("manifest_cleanup_record_conflict");
+  },
+  completeCancelledCleanup: async (record) => {
+    const [completed] = await db.update(communityUploadManifests)
+      .set({ status: "aborted", errorCode: null, updatedAt: new Date() })
+      .where(and(
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
+        eq(communityUploadManifests.status, "aborting"),
+        sql`${communityUploadManifests.consumedAt} is null`,
+        sql`${communityUploadManifests.attachmentId} is null`
+      ))
+      .returning({ id: communityUploadManifests.id });
+    if (completed) return;
+    const current = await db.query.communityUploadManifests.findFirst({
+      where: and(
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
+      )
+    });
+    if (current?.status !== "aborted") throw new Error("manifest_cleanup_finish_conflict");
+  },
   createPutUrl: (input) => createObjectUploadUrl(input),
   createMultipart: (input) => createMultipartUpload(input),
   createPartUrl: (input) => createMultipartPartUploadUrl(input),
@@ -347,16 +408,27 @@ const communityUploadSessionService = createCommunityUploadSessionService({
         sql`${communityUploadManifests.attachmentId} is null`
       ))
       .returning();
+    const hasPromotionLedger = Boolean(
+      manifest.quarantineObjectKey
+      || manifest.finalObjectKey
+      || candidates.some((candidate) => candidate.candidateObjectKey || candidate.finalObjectKey)
+    );
+    const promotionMayStillComplete = ["completing", "processing", "normalizing", "publishing", "aborting"].includes(manifest.status);
     return claimed ? {
       ...claimed,
       uploadType: claimed.uploadType as "put" | "multipart",
-      abortCleanupMode: manifest.status === "uploading" || manifest.status === "aborting" ? "staging" as const : "copies" as const,
+      abortCleanupMode: manifest.status === "uploading" ? "staging" as const : "copies" as const,
+      deferAbortCompletion: hasPromotionLedger && promotionMayStillComplete,
       candidateObjectKeys: candidates.flatMap((candidate) => [candidate.candidateObjectKey, candidate.finalObjectKey])
     } : { alreadyAborted: true as const };
   }),
   markAborted: async (manifestId) => {
     await db.update(communityUploadManifests).set({ status: "aborted", errorCode: null, updatedAt: new Date() })
-      .where(eq(communityUploadManifests.id, manifestId));
+      .where(and(
+        eq(communityUploadManifests.id, manifestId),
+        eq(communityUploadManifests.status, "aborting"),
+        sql`${communityUploadManifests.consumedAt} is null`
+      ));
   },
   listParts: listMultipartUploadParts,
   createPartUrl: createMultipartPartUploadUrl,

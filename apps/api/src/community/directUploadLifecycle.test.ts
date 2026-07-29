@@ -5,7 +5,7 @@ import {
   createCommunityUploadService,
   validateListedMultipartParts
 } from "./directUpload";
-import { createCommunityUploadSessionService } from "./uploadSessions";
+import { cleanupUnattachedCommunityUpload, createCommunityUploadSessionService } from "./uploadSessions";
 
 const MiB = 1024 * 1024;
 const userId = "11111111-1111-4111-8111-111111111111";
@@ -48,10 +48,13 @@ function serviceDependencies(overrides: Record<string, unknown> = {}) {
     getMetadata: async (key: string) => ({ key, contentType: "video/mp4", sizeBytes: 1024, etag: '"clean-etag"' }),
     getLeadingBytes: async () => new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]),
     validateOoxml: async () => true,
+    recordPromotion: async () => "recorded" as const,
     promoteObject: async () => undefined,
     mirrorToReserve: async () => undefined,
     deleteCopies: async () => undefined,
     deleteStaging: async () => undefined,
+    markCleanupPending: async () => undefined,
+    completeCancelledCleanup: async () => undefined,
     ...overrides
   } as any;
 }
@@ -109,11 +112,18 @@ describe("community direct upload immutable lifecycle", () => {
     expect(metadata).not.toHaveBeenCalled();
   });
 
-  it("preserves promoted and staging objects when durable completion has an uncertain outcome", async () => {
+  it("ledgers the promoted destination before an uncertain durable finish so abort can reclaim it", async () => {
+    let finalObjectKey: string | null = null;
+    const objects = new Set([stagingKey]);
     const deleteCopies = vi.fn(async () => undefined);
     const deleteStaging = vi.fn(async () => undefined);
     const fail = vi.fn(async () => undefined);
     const service = createCommunityUploadService(serviceDependencies({
+      recordPromotion: async ({ destinationKey }: { destinationKey: string }) => {
+        finalObjectKey = destinationKey;
+        return "recorded" as const;
+      },
+      promoteObject: async ({ destinationKey }: { destinationKey: string }) => { objects.add(destinationKey); },
       finish: async () => { throw new Error("database_timeout"); },
       deleteCopies,
       deleteStaging,
@@ -121,22 +131,45 @@ describe("community direct upload immutable lifecycle", () => {
     }));
 
     await expect(service.completePut({ userId, uploaded: uploaded() })).rejects.toThrow("database_timeout");
+    expect(finalObjectKey).toMatch(/^community\/final\//);
+    await cleanupUnattachedCommunityUpload({
+      id: "manifest-1",
+      userId,
+      uploadToken,
+      stagingObjectKey: stagingKey,
+      uploadType: "put",
+      multipartUploadId: null,
+      expectedPartCount: null,
+      partSizeBytes: null,
+      expiresAt: new Date("2026-07-29T12:10:00.000Z"),
+      status: "completing",
+      finalObjectKey
+    }, {
+      abortMultipart: async () => undefined,
+      deleteCopies: async (key) => { objects.delete(key); },
+      markAborted: async () => undefined
+    });
+    expect(objects).toEqual(new Set());
     expect(deleteCopies).not.toHaveBeenCalled();
     expect(deleteStaging).not.toHaveBeenCalled();
     expect(fail).not.toHaveBeenCalled();
   });
 
-  it("compensates a promoted object when abort wins before durable completion", async () => {
+  it("keeps failed post-abort compensation durable and retries every copy", async () => {
     let releasePromotion!: () => void;
     let promotionFinished!: () => void;
     const promotionGate = new Promise<void>((resolve) => { releasePromotion = resolve; });
     const promoted = new Promise<void>((resolve) => { promotionFinished = resolve; });
-    let state: "completing" | "aborting" | "aborted" = "completing";
+    let state: "completing" | "aborting" | "aborted" | "cleanup_pending" = "completing";
+    let finalObjectKey: string | null = null;
+    const objects = new Set([stagingKey]);
+    let failCompensationOnce = true;
     const deletedCopies: string[] = [];
     const deletedStaging: string[] = [];
     const abortService = createCommunityUploadSessionService({
       loadOwned: async () => null,
       claimAbort: async () => {
+        const previousState = state;
         state = "aborting";
         return {
           id: "manifest-1",
@@ -149,7 +182,9 @@ describe("community direct upload immutable lifecycle", () => {
           partSizeBytes: null,
           expiresAt: new Date("2026-07-29T12:10:00.000Z"),
           status: "aborting",
-          abortCleanupMode: "copies" as const
+          abortCleanupMode: "copies" as const,
+          deferAbortCompletion: previousState === "completing" || previousState === "aborting",
+          finalObjectKey
         };
       },
       markAborted: async () => { state = "aborted"; },
@@ -157,16 +192,32 @@ describe("community direct upload immutable lifecycle", () => {
       createPartUrl: async () => "",
       abortMultipart: async () => undefined,
       deleteStaging: async (key) => { deletedStaging.push(key); },
-      deleteCopies: async (key) => { deletedCopies.push(key); }
+      deleteCopies: async (key) => {
+        deletedCopies.push(key);
+        objects.delete(key);
+      }
     });
     const service = createCommunityUploadService(serviceDependencies({
+      recordPromotion: async ({ destinationKey }: { destinationKey: string }) => {
+        finalObjectKey = destinationKey;
+        return "recorded" as const;
+      },
       promoteObject: async () => {
         promotionFinished();
         await promotionGate;
+        objects.add(finalObjectKey!);
       },
       finish: async () => state === "completing" ? "finished" as const : "cancelled" as const,
-      deleteCopies: async (key: string) => { deletedCopies.push(key); },
-      deleteStaging: async (key: string) => { deletedStaging.push(key); }
+      deleteCopies: async (key: string) => {
+        deletedCopies.push(key);
+        if (failCompensationOnce) {
+          failCompensationOnce = false;
+          throw new Error("reserve_delete_timeout");
+        }
+        objects.delete(key);
+      },
+      deleteStaging: async (key: string) => { deletedStaging.push(key); objects.delete(key); },
+      markCleanupPending: async () => { state = "cleanup_pending"; }
     }));
 
     const completion = service.completePut({
@@ -176,14 +227,30 @@ describe("community direct upload immutable lifecycle", () => {
     });
     await promoted;
     await abortService.abort({ userId, uploadToken });
+    expect(state).toBe("aborting");
     releasePromotion();
 
     await expect(completion).rejects.toThrow("object_already_consumed");
-    expect(deletedCopies).toEqual([
-      stagingKey,
-      buildCommunityFinalObjectKey({ userId, uploadToken, fileName: "clip.mp4", now: new Date("2026-07-29T12:05:00.000Z") })
-    ]);
-    expect(deletedStaging).toEqual([stagingKey]);
+    expect(state).toBe("cleanup_pending");
+    expect(objects).toEqual(new Set([finalObjectKey!]));
+
+    await abortService.abort({ userId, uploadToken });
+    expect(objects).toEqual(new Set());
+    expect(state).toBe("aborted");
+  });
+
+  it("marks a deferred abort terminal only after promoted-copy compensation succeeds", async () => {
+    let state: "aborting" | "aborted" = "aborting";
+    const events: string[] = [];
+    const service = createCommunityUploadService(serviceDependencies({
+      finish: async () => "cancelled" as const,
+      deleteCopies: async () => { events.push("copies-deleted"); },
+      deleteStaging: async () => { events.push("staging-deleted"); },
+      completeCancelledCleanup: async () => { events.push("terminal"); state = "aborted"; }
+    }));
+
+    await expect(service.completePut({ userId, uploaded: uploaded() })).rejects.toThrow("object_already_consumed");
+    expect(events).toEqual(["copies-deleted", "staging-deleted", "terminal"]);
     expect(state).toBe("aborted");
   });
 

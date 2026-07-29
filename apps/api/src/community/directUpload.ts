@@ -343,6 +343,18 @@ type CommunityUploadServiceDependencies = {
     expiresAt: Date;
   }) => Promise<"finished" | "cancelled">;
   fail: (record: { userId: string; uploadToken: string; fingerprint: string }, error: string) => Promise<void>;
+  recordPromotion: (record: {
+    userId: string;
+    uploadToken: string;
+    fingerprint: string;
+    destinationKey: string;
+    destination: "final" | "quarantine";
+  }) => Promise<"recorded" | "cancelled">;
+  markCleanupPending: (
+    record: { userId: string; uploadToken: string; fingerprint: string },
+    error: string
+  ) => Promise<void>;
+  completeCancelledCleanup: (record: { userId: string; uploadToken: string; fingerprint: string }) => Promise<void>;
   createPutUrl: (input: { key: string; contentType: string; sizeBytes: number; expiresInSeconds: number }) => Promise<{
     key: string;
     uploadUrl: string;
@@ -436,6 +448,7 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
     let failureRecorded = false;
     let finishAttempted = false;
     let promotionCompleted = false;
+    let ownershipLost = false;
     const destinationKey = uploaded.kind === "video"
       ? buildCommunityFinalObjectKey({ userId, uploadToken: uploaded.uploadToken, fileName: uploaded.fileName, now })
       : buildCommunityQuarantineObjectKey({ userId, uploadToken: uploaded.uploadToken, fileName: uploaded.fileName, now });
@@ -464,6 +477,17 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
         await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "invalid_ooxml");
         failureRecorded = true;
         throw new Error("invalid_ooxml");
+      }
+      const promotionRecord = await dependencies.recordPromotion({
+        userId,
+        uploadToken: uploaded.uploadToken,
+        fingerprint,
+        destinationKey,
+        destination: uploaded.kind === "video" ? "final" : "quarantine"
+      });
+      if (promotionRecord === "cancelled") {
+        ownershipLost = true;
+        throw new Error("object_already_consumed");
       }
       await dependencies.promoteObject({
         sourceKey: intent.stagingObjectKey,
@@ -494,13 +518,27 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
       await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
       return result;
     } catch (error) {
+      if (ownershipLost) throw error;
       if (!failureRecorded && !finishAttempted) {
         await dependencies.deleteCopies(destinationKey).catch(() => undefined);
         await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
         await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "storage_verification_failed").catch(() => undefined);
       } else if (!failureRecorded && finishAttempted && promotionCompleted && error instanceof Error && error.message === "object_already_consumed") {
-        await dependencies.deleteCopies(destinationKey).catch(() => undefined);
-        await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
+        const cleanupFailures: unknown[] = [];
+        await dependencies.deleteCopies(destinationKey).catch((cleanupError) => { cleanupFailures.push(cleanupError); });
+        await dependencies.deleteStaging(intent.stagingObjectKey).catch((cleanupError) => { cleanupFailures.push(cleanupError); });
+        if (cleanupFailures.length) {
+          try {
+            await dependencies.markCleanupPending(
+              { userId, uploadToken: uploaded.uploadToken, fingerprint },
+              "abort_compensation_failed"
+            );
+          } catch (ledgerError) {
+            throw new AggregateError([...cleanupFailures, ledgerError], "Unable to persist community upload cleanup retry");
+          }
+        } else {
+          await dependencies.completeCancelledCleanup({ userId, uploadToken: uploaded.uploadToken, fingerprint });
+        }
       }
       throw error;
     }

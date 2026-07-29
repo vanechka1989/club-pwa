@@ -13,6 +13,7 @@ type UploadSessionRecord = {
   finalObjectKey?: string | null;
   candidateObjectKeys?: string[];
   abortCleanupMode?: "staging" | "copies";
+  deferAbortCompletion?: boolean;
   consumedAt?: Date | null;
   updatedAt?: Date;
 };
@@ -62,7 +63,7 @@ export function createCommunityUploadSessionService(dependencies: SessionDepende
       if (!claimed) throw new Error("foreign_object");
       if ("alreadyAborted" in claimed) return { ok: true as const };
       const cleanupMode = claimed.abortCleanupMode
-        ?? (["uploading", "aborting"].includes(claimed.status) ? "staging" : "copies");
+        ?? (claimed.status === "uploading" ? "staging" : "copies");
       if (cleanupMode === "staging") {
         await cleanupExpiredCommunityUpload(claimed, {
           abortMultipart: dependencies.abortMultipart,
@@ -73,7 +74,7 @@ export function createCommunityUploadSessionService(dependencies: SessionDepende
         await cleanupUnattachedCommunityUpload(claimed, {
           abortMultipart: dependencies.abortMultipart,
           deleteCopies: dependencies.deleteCopies,
-          markAborted: dependencies.markAborted
+          markAborted: claimed.deferAbortCompletion ? async () => undefined : dependencies.markAborted
         });
       }
       return { ok: true as const };

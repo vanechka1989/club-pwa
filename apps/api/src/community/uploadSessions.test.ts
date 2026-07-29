@@ -193,6 +193,46 @@ describe("community upload session recovery and cleanup", () => {
     expect(deleted.filter((key) => key === record.stagingObjectKey)).toHaveLength(2);
   });
 
+  it("retries an aborting manifest with the full copy ledger instead of downgrading to staging cleanup", async () => {
+    const attempts: string[] = [];
+    let state = "aborting";
+    let failFinalOnce = true;
+    const service = createCommunityUploadSessionService({
+      loadOwned: async () => null,
+      claimAbort: async () => ({
+        ...record,
+        status: state,
+        uploadType: "put" as const,
+        multipartUploadId: null,
+        quarantineObjectKey: "community/quarantine/u/file.bin",
+        finalObjectKey: "community/final/u/file.bin",
+        candidateObjectKeys: ["community/candidates/u/file.bin"]
+      }),
+      markAborted: async () => { state = "aborted"; },
+      listParts: async () => [],
+      createPartUrl: async () => "unused",
+      abortMultipart: async () => undefined,
+      deleteStaging: async (key) => { attempts.push(`staging:${key}`); },
+      deleteCopies: async (key) => {
+        attempts.push(`copies:${key}`);
+        if (key.includes("/final/") && failFinalOnce) {
+          failFinalOnce = false;
+          throw new Error("reserve_delete_timeout");
+        }
+      }
+    });
+
+    await expect(service.abort({ userId: record.userId, uploadToken: record.uploadToken })).rejects.toThrow("reserve_delete_timeout");
+    expect(state).toBe("aborting");
+    await expect(service.abort({ userId: record.userId, uploadToken: record.uploadToken })).resolves.toEqual({ ok: true });
+
+    expect(attempts).not.toContain(`staging:${record.stagingObjectKey}`);
+    expect(attempts.filter((entry) => entry === "copies:community/final/u/file.bin")).toHaveLength(2);
+    expect(attempts).toContain("copies:community/quarantine/u/file.bin");
+    expect(attempts).toContain("copies:community/candidates/u/file.bin");
+    expect(state).toBe("aborted");
+  });
+
   it("claims expired unattached terminal/queued rows immediately and active work only when stale", () => {
     const now = new Date("2026-07-29T12:00:00.000Z");
     const fresh = new Date("2026-07-29T11:59:00.000Z");
