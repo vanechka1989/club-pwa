@@ -215,6 +215,18 @@ function invalidateTopicRequests() {
   notificationSaving.value = false;
 }
 
+function settleGenerationOwnedUiState() {
+  invalidateTopicRequests();
+  messageRequestGeneration += 1;
+  topicsRequestGeneration += 1;
+  refreshRequests.clear();
+  topicListRequests.clear();
+  loading.value = false;
+  messageSaving.value = false;
+  topicSaving.value = false;
+  deleteTopicMessagesBusy.value = false;
+}
+
 const topicState = useCommunityTopicState({
   markRead: async (topicId, messageId) => {
     const owner = captureAccountOwner();
@@ -1125,9 +1137,34 @@ watch(
   { immediate: true }
 );
 
-watch(authorizationFingerprint, () => {
-  permissionGeneration += 1;
-}, { flush: "sync" });
+watch(
+  () => ({
+    userId: session.user?.id ?? null,
+    fingerprint: authorizationFingerprint.value,
+    moderator: isModerator.value,
+    hasAccess: hasCommunityAccess.value
+  }),
+  (authorization, previousAuthorization) => {
+    if (
+      authorization.userId !== previousAuthorization.userId
+      || authorization.fingerprint === previousAuthorization.fingerprint
+    ) return;
+
+    permissionGeneration += 1;
+    settleGenerationOwnedUiState();
+
+    const accessWatcherOwnsLifecycle = authorization.hasAccess !== previousAuthorization.hasAccess;
+    const downgradeWatcherOwnsLifecycle = previousAuthorization.moderator
+      && !authorization.moderator
+      && authorization.hasAccess;
+    if (!componentMounted || accessWatcherOwnsLifecycle || downgradeWatcherOwnsLifecycle) return;
+
+    stopCommunityRealtime();
+    stopRealtimeFallback();
+    if (authorization.hasAccess) startCommunityRealtime();
+  },
+  { flush: "sync" }
+);
 
 watch(
   isModerator,

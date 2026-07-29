@@ -27,7 +27,8 @@ const apiMocks = vi.hoisted(() => ({
   getCommunityTopics: vi.fn(),
   markCommunityTopicRead: vi.fn(),
   reactToClubMessage: vi.fn(),
-  searchCommunityMessages: vi.fn()
+  searchCommunityMessages: vi.fn(),
+  updateCommunityTopicNotificationSettings: vi.fn()
 }));
 
 vi.mock("@/api/client", async (importOriginal) => {
@@ -46,7 +47,8 @@ vi.mock("@/api/client", async (importOriginal) => {
     getCommunityTopics: apiMocks.getCommunityTopics,
     markCommunityTopicRead: apiMocks.markCommunityTopicRead,
     reactToClubMessage: apiMocks.reactToClubMessage,
-    searchCommunityMessages: apiMocks.searchCommunityMessages
+    searchCommunityMessages: apiMocks.searchCommunityMessages,
+    updateCommunityTopicNotificationSettings: apiMocks.updateCommunityTopicNotificationSettings
   };
 });
 
@@ -266,6 +268,8 @@ const originalIntersectionObserver = globalThis.IntersectionObserver;
 const originalCreateObjectUrl = URL.createObjectURL;
 const originalRevokeObjectUrl = URL.revokeObjectURL;
 const originalGetClientRects = HTMLElement.prototype.getClientRects;
+const originalEventSource = globalThis.EventSource;
+const originalVisibilityState = Object.getOwnPropertyDescriptor(document, "visibilityState");
 
 beforeEach(() => {
   localStorage.clear();
@@ -309,6 +313,11 @@ beforeEach(() => {
     }],
     nextCursor: null
   });
+  apiMocks.updateCommunityTopicNotificationSettings.mockReset().mockResolvedValue({
+    unreadCount: 0,
+    lastReadMessageId: null,
+    notificationMode: "all"
+  });
   apiMocks.markCommunityTopicRead.mockReset().mockResolvedValue({
     unreadCount: 0,
     lastReadMessageId: "00000000-0000-4000-8000-000000000100",
@@ -346,6 +355,16 @@ afterEach(() => {
     configurable: true,
     value: originalGetClientRects
   });
+  if (originalEventSource) {
+    Object.defineProperty(globalThis, "EventSource", { configurable: true, value: originalEventSource });
+  } else {
+    delete (globalThis as Partial<typeof globalThis>).EventSource;
+  }
+  if (originalVisibilityState) {
+    Object.defineProperty(document, "visibilityState", originalVisibilityState);
+  } else {
+    delete (document as unknown as { visibilityState?: DocumentVisibilityState }).visibilityState;
+  }
 });
 
 describe("community component boundaries", () => {
@@ -937,6 +956,131 @@ describe("community component boundaries", () => {
 
     expect(screen.queryByText("Секретный опрос")).toBeNull();
     expect(screen.getByText("Сообщение удалено")).toBeTruthy();
+  });
+
+  it("rebinds the SSE owner when same-account permissions change without changing moderator or access state", async () => {
+    const streams: Array<{
+      closed: boolean;
+      dispatch: (type: string, event: Event) => void;
+    }> = [];
+    class FakeEventSource {
+      closed = false;
+      onopen: ((event: Event) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      private readonly listeners = new Map<string, Array<(event: Event) => void>>();
+
+      constructor(..._args: unknown[]) {
+        streams.push(this);
+      }
+
+      addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+        const callback = typeof listener === "function" ? listener : (event: Event) => listener.handleEvent(event);
+        this.listeners.set(type, [...(this.listeners.get(type) ?? []), callback]);
+      }
+
+      dispatch(type: string, event: Event) {
+        for (const listener of this.listeners.get(type) ?? []) listener(event);
+      }
+
+      close() {
+        this.closed = true;
+      }
+    }
+    Object.defineProperty(globalThis, "EventSource", { configurable: true, value: FakeEventSource });
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await screen.findByText("Сообщение для модерации");
+    expect(streams).toHaveLength(1);
+
+    session.user = { ...adminUser(), adminPermissions: ["community", "users"] };
+    await nextTick();
+
+    expect(streams).toHaveLength(2);
+    expect(streams[0]?.closed).toBe(true);
+    streams[1]?.dispatch("community.changed", new MessageEvent("community.changed", {
+      data: JSON.stringify({ topicId: topic.id })
+    }));
+    await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(2));
+  });
+
+  it("rebinds the polling fallback owner after a same-account permission fingerprint change", async () => {
+    Object.defineProperty(globalThis, "EventSource", { configurable: true, value: undefined });
+    const callbacks: Array<() => void> = [];
+    const intervalSpy = vi.spyOn(globalThis, "setInterval").mockImplementation((handler: TimerHandler, delay?: number) => {
+      if (delay === 5000 && typeof handler === "function") callbacks.push(handler as () => void);
+      return 1 as unknown as ReturnType<typeof globalThis.setInterval>;
+    });
+    try {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const session = useSessionStore(pinia);
+      session.user = adminUser();
+      render(CommunitySection, { global: { plugins: [pinia] } });
+      await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+      await screen.findByText("Сообщение для модерации");
+      const previousOwnerCallback = callbacks.at(-1)!;
+
+      session.user = { ...adminUser(), adminPermissions: ["community", "users"] };
+      await nextTick();
+      const reboundOwnerCallback = callbacks.at(-1)!;
+      expect(reboundOwnerCallback).not.toBe(previousOwnerCallback);
+      previousOwnerCallback();
+      await nextTick();
+      expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(1);
+
+      reboundOwnerCallback();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(2);
+    } finally {
+      intervalSpy.mockRestore();
+    }
+  });
+
+  it("settles pending generation-owned busy states after a same-account permission fingerprint change", async () => {
+    const imagePending = deferred<{ message: ClubMessage }>();
+    const notificationPending = deferred<{
+      unreadCount: number;
+      lastReadMessageId: null;
+      notificationMode: "all";
+    }>();
+    apiMocks.createClubImageMessage.mockReturnValueOnce(imagePending.promise);
+    apiMocks.updateCommunityTopicNotificationSettings.mockReturnValueOnce(notificationPending.promise);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await screen.findByText("Сообщение для модерации");
+
+    const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
+    const file = new File(["image"], "pending.png", { type: "image/png" });
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:pending-image") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1" }));
+    await waitFor(() => expect(apiMocks.createClubImageMessage).toHaveBeenCalledTimes(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Меню чата" }));
+    const allNotifications = screen.getByRole("radio", { name: "Все сообщения" }) as HTMLInputElement;
+    await fireEvent.click(allNotifications);
+    await waitFor(() => expect(apiMocks.updateCommunityTopicNotificationSettings).toHaveBeenCalledTimes(1));
+    expect((screen.getByText("Отправка…").closest("button") as HTMLButtonElement).disabled).toBe(true);
+    const notificationSettings = allNotifications.closest("fieldset") as HTMLFieldSetElement;
+    expect(notificationSettings.disabled).toBe(true);
+
+    session.user = { ...adminUser(), adminPermissions: ["community", "users"] };
+    await nextTick();
+
+    expect((screen.getByRole("button", { name: "Отправить 1" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(notificationSettings.disabled).toBe(false);
   });
 
   it("purges moderator-only content before refetching after a same-user permission downgrade", async () => {
