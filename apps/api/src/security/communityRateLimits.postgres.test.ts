@@ -117,4 +117,21 @@ integrationDescribe("community persistent rate limits with PostgreSQL", () => {
     `;
     expect(row?.attemptCount).toBe(40);
   });
+
+  it("increments the community-write key atomically under concurrency", async () => {
+    const results = await Promise.all(Array.from({ length: 70 }, () =>
+      consumePersistentWriteAllowance("community", userA, 60, 60_000, {
+        database,
+        now: windowStartedAt
+      })));
+
+    expect(results.filter((result) => result.allowed)).toHaveLength(60);
+    expect(results.filter((result) => !result.allowed)).toHaveLength(10);
+    const [row] = await client<{ attemptCount: number }[]>`
+      select attempt_count as "attemptCount"
+      from auth_email_login_attempt_limits
+      where scope = 'write_community'
+    `;
+    expect(row?.attemptCount).toBe(70);
+  });
 });
