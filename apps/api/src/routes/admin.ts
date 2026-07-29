@@ -40,6 +40,7 @@ import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
 import {
   createAdminCommunityViewer,
+  projectAdminCommunityPollContent,
   projectAdminCommunityModerationMessage,
   sortAdminTimelineNewestFirst,
   type AdminCommunityViewer
@@ -103,7 +104,6 @@ import {
   invalidateS3RuntimeCache,
   listObjects,
   mirrorObjectToReserve,
-  testS3Connection,
   uploadMultipartPart,
   uploadObject
 } from "../storage/s3";
@@ -125,8 +125,10 @@ import {
   getS3ConfigFromSetting,
   normalizeS3PublicBaseUrl,
   storageSettingKey,
+  verifyS3LiveConfigurationUpdate,
   type StoredS3Config
 } from "../storage/s3Config";
+import { verifyS3Configuration } from "../storage/s3TargetVerifier";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { enqueueCommunityMessageDeletion } from "../community/objectDeletionLedger";
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
@@ -2136,12 +2138,16 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     try {
-      await testS3Connection(nextConfig);
-      if (nextConfig.reserve) {
-        await testS3Connection({ ...nextConfig.reserve, signedUrlTtlSeconds: nextConfig.signedUrlTtlSeconds, reserve: null });
+      await verifyS3LiveConfigurationUpdate(currentConfig, nextConfig, verifyS3Configuration);
+    } catch (error) {
+      if (error instanceof Error && error.message === "s3_physical_generation_change_requires_offline_migration") {
+        return c.json({
+          error: "S3 endpoint, region, bucket, and reserve topology can only be changed by the offline storage migration runbook",
+          code: error.message
+        }, 409);
       }
-    } catch {
-      return c.json({ error: "Unable to connect to S3 bucket" }, 400);
+      logger.warn({ error }, "S3 credential rotation verification failed");
+      return c.json({ error: "Unable to verify S3 lifecycle, versioning, and deletion permissions" }, 400);
     }
 
     const now = new Date();
@@ -2288,9 +2294,36 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
   })
   .get("/stats", async (c) => {
+    const [clock] = Array.from((await db.execute(sql`
+      select clock_timestamp() as now
+    `)) as Iterable<{ now: Date }>);
+    if (!clock?.now) throw new Error("database_clock_unavailable");
+    const now = clock.now;
     const totalItems = await getPublishedItemsCount();
-    const now = new Date();
     const adminAccess = await getAdminSurfaceAccess(c);
+    const retainedPollParentCondition = and(
+      isNull(clubChatMessages.terminalCleanupAt),
+      or(
+        isNull(clubChatMessages.deletedByUserAt),
+        and(
+          isNotNull(clubChatMessages.deletedContentExpiresAt),
+          gt(clubChatMessages.deletedContentExpiresAt, now)
+        )
+      )
+    );
+    const retainedPollParentExists = sql<boolean>`exists (
+      select 1
+      from club_chat_messages retained_message
+      where retained_message.id = ${clubPolls.messageId}
+        and retained_message.terminal_cleanup_at is null
+        and (
+          retained_message.deleted_by_user_at is null
+          or (
+            retained_message.deleted_content_expires_at is not null
+            and retained_message.deleted_content_expires_at > ${now}
+          )
+        )
+    )`;
     const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], recentUsers] = await Promise.all([
       db.select({ value: count(users.id) }).from(users),
       db
@@ -2308,12 +2341,24 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     ]);
     const communityStats = adminAccess.community.allowed
       ? await Promise.all([
-          db.select({ value: count(clubPolls.id) }).from(clubPolls),
+          db.select({ value: count(clubPolls.id) })
+            .from(clubPolls)
+            .innerJoin(clubChatMessages, eq(clubChatMessages.id, clubPolls.messageId))
+            .where(retainedPollParentCondition),
           db
             .select({ value: count(clubPolls.id) })
             .from(clubPolls)
-            .where(and(isNull(clubPolls.closedAt), or(isNull(clubPolls.closesAt), gt(clubPolls.closesAt, now)))),
-          db.select({ totalVotes: count(clubPollVotes.id), uniqueParticipants: countDistinct(clubPollVotes.userId) }).from(clubPollVotes),
+            .innerJoin(clubChatMessages, eq(clubChatMessages.id, clubPolls.messageId))
+            .where(and(
+              retainedPollParentCondition,
+              isNull(clubPolls.closedAt),
+              or(isNull(clubPolls.closesAt), gt(clubPolls.closesAt, now))
+            )),
+          db.select({ totalVotes: count(clubPollVotes.id), uniqueParticipants: countDistinct(clubPollVotes.userId) })
+            .from(clubPollVotes)
+            .innerJoin(clubPolls, eq(clubPolls.id, clubPollVotes.pollId))
+            .innerJoin(clubChatMessages, eq(clubChatMessages.id, clubPolls.messageId))
+            .where(retainedPollParentCondition),
           db.query.clubChatMessages.findMany({
             where: isNull(clubChatMessages.terminalCleanupAt),
             orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
@@ -2322,6 +2367,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
             with: { user: true, topic: true }
           }),
           db.query.clubPolls.findMany({
+            where: retainedPollParentExists,
             orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
             limit: 500,
             with: { message: { with: { topic: true, user: true } }, options: true, votes: true }
@@ -2356,11 +2402,13 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       users: statsUsers,
       pollStats: {
         ...pollSummary,
-        polls: pollRecords.map((poll) => {
+        polls: pollRecords.flatMap((poll) => {
+          const projected = projectAdminCommunityPollContent(poll, adminAccess.community, now);
+          if (!projected) return [];
           const voterIds = new Set(poll.votes.map((vote) => vote.userId));
-          return {
+          return [{
             id: poll.id,
-            question: poll.question,
+            question: projected.question,
             topicTitle: poll.message.topic.title,
             isAnonymous: poll.isAnonymous,
             closed: Boolean(poll.closedAt || (poll.closesAt && poll.closesAt <= now)),
@@ -2368,11 +2416,11 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
             startedAt: poll.createdAt.toISOString(),
             endedAt: resolvePollEndedAt(poll),
             totalVoters: voterIds.size,
-            options: [...poll.options].sort((a, b) => a.sortOrder - b.sortOrder).map((option) => {
+            options: projected.options.map((option) => {
               const votesCount = poll.votes.filter((vote) => vote.optionId === option.id).length;
               return { id: option.id, text: option.text, votesCount, percent: voterIds.size ? Math.round((votesCount / voterIds.size) * 100) : 0 };
             })
-          };
+          }];
         })
       },
       communityMessages: communityMessages.flatMap((message) => {

@@ -128,7 +128,8 @@ describe("community direct upload policy", () => {
           publicationToken: "00000000-0000-4000-8000-000000000002",
           sourceType: "manifest" as const,
           sourceId: "00000000-0000-4000-8000-000000000003",
-          objectKey: "community/final/user/video.mp4"
+          objectKey: "community/final/user/video.mp4",
+          targets: ["primary" as const]
         }
       }),
       publishPromotion: async (_publication, work) => {
@@ -200,7 +201,8 @@ describe("community direct upload policy", () => {
             publicationToken: "00000000-0000-4000-8000-000000000002",
             sourceType: "manifest" as const,
             sourceId: "00000000-0000-4000-8000-000000000003",
-            objectKey: "community/final/user/video.mp4"
+            objectKey: "community/final/user/video.mp4",
+            targets: ["primary" as const]
           }
         };
       },
@@ -263,7 +265,8 @@ describe("community direct upload policy", () => {
           publicationToken: "00000000-0000-4000-8000-000000000002",
           sourceType: "manifest" as const,
           sourceId: "00000000-0000-4000-8000-000000000003",
-          objectKey: "community/final/user/video.mp4"
+          objectKey: "community/final/user/video.mp4",
+          targets: ["primary" as const]
         }
       }),
       publishPromotion: async (_publication, work) => {

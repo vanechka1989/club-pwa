@@ -197,13 +197,25 @@ detect_privacy_schema_state() {
               where table_schema = current_schema()
                 and table_name = 'community_object_lifecycles' and column_name = 'publication_token'
             ) as lifecycle_token_column,
+            exists (
+              select 1 from information_schema.columns
+              where table_schema = current_schema()
+                and table_name = 'community_object_lifecycles' and column_name = 'hot_until'
+            ) as lifecycle_hot_until_column,
+            exists (
+              select 1 from information_schema.columns
+              where table_schema = current_schema()
+                and table_name = 'community_object_lifecycles' and column_name = 'cold_at'
+            ) as lifecycle_cold_at_column,
             (select coalesce(max(created_at), 0) from drizzle.__drizzle_migrations) as migration_revision
         )
         select case
           when publications and outbox and lifecycles and enqueue_function and terminal_column
-            and lifecycle_token_column and migration_revision >= 1785456000000 then 'current'
+            and lifecycle_token_column and lifecycle_hot_until_column and lifecycle_cold_at_column
+            and migration_revision >= 1785459600000 then 'current'
           when not publications and not outbox and not lifecycles and not enqueue_function and not terminal_column
-            and not lifecycle_token_column and migration_revision < 1785452400000 then 'legacy'
+            and not lifecycle_token_column and not lifecycle_hot_until_column and not lifecycle_cold_at_column
+            and migration_revision < 1785452400000 then 'legacy'
           else 'unknown'
         end
         from capability;

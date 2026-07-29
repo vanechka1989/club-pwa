@@ -26,6 +26,7 @@ import { startBackgroundJobs } from "./backgroundJobs";
 import { checkApplicationReadiness } from "./readiness";
 import { requestMetrics } from "./requestMetrics";
 import { getCommunityRealtimeSubscriberCount } from "./community/realtime";
+import { communityObjectTombstoneMetrics } from "./community/objectLifecycle";
 import { hasObservabilityAccess } from "./observability";
 import { sessionAuth } from "./middleware/auth";
 import { resolveOptionalSessionUserId } from "./middleware/auth";
@@ -105,6 +106,7 @@ app.get("/metrics", (c) => {
   return c.json({
     request: requestMetrics.snapshot(),
     realtimeSubscribers: getCommunityRealtimeSubscriberCount(),
+    communityObjectTombstones: communityObjectTombstoneMetrics.snapshot(),
     memoryRssBytes: process.memoryUsage().rss,
     uptimeSeconds: Math.round(process.uptime())
   });

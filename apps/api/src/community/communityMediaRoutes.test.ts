@@ -33,6 +33,8 @@ describe("community media routes", () => {
     expect(route.match(/sourceType: "attachment"/g)?.length).toBeGreaterThanOrEqual(2);
     expect(route).toContain("uploadObjectStream({");
     expect(route).toContain("mirrorObjectToReserve(plan.key");
+    expect(route).toContain("publishCommunityObjectGroup({");
+    expect(route).toContain("if (attachments.length !== plans.length) throw new Error(\"attachment_publish_terminal\")");
     expect(route).not.toContain("await uploadObject({ key");
   });
 });

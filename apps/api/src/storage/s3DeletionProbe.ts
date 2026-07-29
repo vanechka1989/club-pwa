@@ -25,6 +25,8 @@ type S3DeletionProbeDependencies = {
 export function createS3AllVersionDeletionProbe(dependencies: S3DeletionProbeDependencies) {
   return async function probeAllVersionDeletion(key: string) {
     let created = false;
+    let result: { versions: number; deleteMarkers: number } | undefined;
+    let probeFailure: unknown;
     try {
       created = true;
       await dependencies.put(key, new TextEncoder().encode("community-deletion-probe-v1"));
@@ -41,13 +43,35 @@ export function createS3AllVersionDeletionProbe(dependencies: S3DeletionProbeDep
         throw new Error("S3 deletion probe left object versions or delete markers behind");
       }
       created = false;
-      return { versions: versions.length, deleteMarkers: deleteMarkers.length };
-    } finally {
-      if (created) {
-        const remaining = await dependencies.list(key).catch(() => []);
-        if (remaining.length) await dependencies.deleteVersions(remaining).catch(() => undefined);
+      result = { versions: versions.length, deleteMarkers: deleteMarkers.length };
+    } catch (error) {
+      probeFailure = error;
+    }
+
+    if (created) {
+      try {
+        const remaining = await dependencies.list(key);
+        if (remaining.length) {
+          await dependencies.deleteVersions(remaining);
+          if ((await dependencies.list(key)).length) {
+            throw new Error("S3 deletion probe cleanup left object versions or delete markers behind");
+          }
+        }
+      } catch (cleanupFailure) {
+        if (probeFailure) {
+          const probeMessage = probeFailure instanceof Error ? probeFailure.message : String(probeFailure);
+          const cleanupMessage = cleanupFailure instanceof Error ? cleanupFailure.message : String(cleanupFailure);
+          throw new AggregateError(
+            [probeFailure, cleanupFailure],
+            `S3 deletion probe failed: ${probeMessage}; cleanup failed: ${cleanupMessage}`
+          );
+        }
+        throw cleanupFailure;
       }
     }
+
+    if (probeFailure) throw probeFailure;
+    return result!;
   };
 }
 

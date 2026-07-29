@@ -1,3 +1,5 @@
+import type { StoredS3Config } from "./s3Config";
+
 export type S3LifecycleRule = {
   ID?: string;
   Status?: string;
@@ -91,4 +93,45 @@ export function validateCommunityLifecycleRules(rules: S3LifecycleRule[]): Lifec
   }
 
   return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
+}
+
+export async function verifyS3TargetCapabilities(input: {
+  target: "primary" | "reserve";
+  bucket: string;
+  lifecycleRules: S3LifecycleRule[];
+  versioning: string;
+  probe: () => Promise<{ versions: number; deleteMarkers: number }>;
+}) {
+  const lifecycle = validateCommunityLifecycleRules(input.lifecycleRules);
+  if (!lifecycle.ok) {
+    throw new Error(`${input.target} bucket ${input.bucket}: ${lifecycle.errors.join("; ")}`);
+  }
+  if (input.versioning !== "Enabled") {
+    throw new Error(`${input.target} bucket ${input.bucket}: versioning must be Enabled for convergent privacy deletion`);
+  }
+  const deletionProbe = await input.probe();
+  return {
+    target: input.target,
+    bucket: input.bucket,
+    lifecycle: "verified" as const,
+    versioning: input.versioning,
+    deletion: "all-versions-and-delete-markers" as const,
+    deletionProbe
+  };
+}
+
+export function createS3ConfigurationVerifier<Result>(
+  verifyTarget: (target: "primary" | "reserve", config: StoredS3Config) => Promise<Result>
+) {
+  return async function verifyS3Configuration(config: StoredS3Config) {
+    const targets = [await verifyTarget("primary", config)];
+    if (config.reserve) {
+      targets.push(await verifyTarget("reserve", {
+        ...config.reserve,
+        signedUrlTtlSeconds: config.signedUrlTtlSeconds,
+        reserve: null
+      }));
+    }
+    return targets;
+  };
 }

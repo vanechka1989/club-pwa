@@ -1,4 +1,7 @@
 import { readFileSync } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
+import { fileURLToPath } from "node:url";
 import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
@@ -6,6 +9,7 @@ import {
   PutObjectCommand,
   S3Client
 } from "@aws-sdk/client-s3";
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -27,6 +31,10 @@ const objectConvergenceMigration = readFileSync(
   new URL("../../drizzle/0068_community_object_convergence.sql", import.meta.url),
   "utf8"
 );
+const objectHotQueueMigration = readFileSync(
+  new URL("../../drizzle/0069_community_object_hot_queue.sql", import.meta.url),
+  "utf8"
+);
 
 function schemaConnectionUrl(url: string, schema: string) {
   const parsed = new URL(url);
@@ -41,6 +49,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
   let admin: Sql;
   let clientA: Sql;
   let clientB: Sql;
+  let schemaDatabaseUrl: string;
   let createRepository: ObjectDeletionModule["createCommunityObjectDeletionRepository"];
   let createCleanup: ObjectDeletionModule["createCommunityObjectDeletionCleanup"];
   let enqueueDeletionBatch: ObjectDeletionModule["enqueueCommunityMessageDeletionBatch"];
@@ -48,6 +57,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
   let createPublicationCoordinator: ObjectPublicationModule["createCommunityObjectPublicationCoordinator"];
   let assertPublication: ObjectPublicationModule["assertCommunityObjectPublicationActive"];
   let commitPublication: ObjectPublicationModule["commitCommunityObjectPublication"];
+  let commitPublications: ObjectPublicationModule["commitCommunityObjectPublications"];
   let s3: S3Client;
 
   beforeAll(async () => {
@@ -61,7 +71,8 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       beginCommunityObjectPublication: beginPublication,
       createCommunityObjectPublicationCoordinator: createPublicationCoordinator,
       assertCommunityObjectPublicationActive: assertPublication,
-      commitCommunityObjectPublication: commitPublication
+      commitCommunityObjectPublication: commitPublication,
+      commitCommunityObjectPublications: commitPublications
     } = await import("./objectPublication"));
     s3 = new S3Client({
       endpoint: s3Config!.endpoint,
@@ -74,9 +85,9 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
     });
     admin = postgres(databaseUrl!, { max: 1, onnotice: () => undefined });
     await admin.unsafe(`create schema "${schemaName}"`);
-    const url = schemaConnectionUrl(databaseUrl!, schemaName);
-    clientA = postgres(url, { max: 1, onnotice: () => undefined });
-    clientB = postgres(url, { max: 1, onnotice: () => undefined });
+    schemaDatabaseUrl = schemaConnectionUrl(databaseUrl!, schemaName);
+    clientA = postgres(schemaDatabaseUrl, { max: 1, onnotice: () => undefined });
+    clientB = postgres(schemaDatabaseUrl, { max: 1, onnotice: () => undefined });
     await clientA.unsafe(`
       create table users (
         id uuid primary key, telegram_id text not null unique,
@@ -217,6 +228,9 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
     for (const statement of objectConvergenceMigration.split("--> statement-breakpoint").map((part) => part.trim()).filter(Boolean)) {
       await clientA.unsafe(statement);
     }
+    for (const statement of objectHotQueueMigration.split("--> statement-breakpoint").map((part) => part.trim()).filter(Boolean)) {
+      await clientA.unsafe(statement);
+    }
   }, 30_000);
 
   afterAll(async () => {
@@ -281,6 +295,73 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: objects } }));
     }
     throw new Error("versioned_test_deletion_did_not_converge");
+  }
+
+  function spawnKilledAttachmentPublisher(input: {
+    stage: "db-plan-before-write" | "write-before-commit" | "partial-gallery";
+    messageId: string;
+    topicId: string;
+    userId: string;
+    attachments: Array<{ id: string; key: string }>;
+  }) {
+    return spawn(process.execPath, [
+      fileURLToPath(new URL("./fixtures/killedAttachmentPublisher.mjs", import.meta.url))
+    ], {
+      env: {
+        ...process.env,
+        KILLED_PUBLISHER_STAGE: input.stage,
+        KILLED_PUBLISHER_DATABASE_URL: schemaDatabaseUrl,
+        KILLED_PUBLISHER_MESSAGE_ID: input.messageId,
+        KILLED_PUBLISHER_TOPIC_ID: input.topicId,
+        KILLED_PUBLISHER_USER_ID: input.userId,
+        KILLED_PUBLISHER_ATTACHMENTS: JSON.stringify(input.attachments),
+        KILLED_PUBLISHER_TARGETS: JSON.stringify(["primary", "reserve"]),
+        KILLED_PUBLISHER_S3_ENDPOINT: s3Config!.endpoint,
+        KILLED_PUBLISHER_S3_REGION: s3Config!.region,
+        KILLED_PUBLISHER_S3_ACCESS_KEY_ID: s3Config!.accessKeyId,
+        KILLED_PUBLISHER_S3_SECRET_ACCESS_KEY: s3Config!.secretAccessKey,
+        KILLED_PUBLISHER_PRIMARY_BUCKET: s3Config!.bucket,
+        KILLED_PUBLISHER_RESERVE_BUCKET: s3Config!.reserveBucket
+      },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  }
+
+  async function waitForPublisherStage(child: ChildProcess, expectedStage: string) {
+    let stdout = "";
+    let stderr = "";
+    const timeout = setTimeout(() => child.kill("SIGKILL"), 30_000);
+    timeout.unref?.();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        child.stderr?.on("data", (chunk) => { stderr += String(chunk); });
+        child.stdout?.on("data", (chunk) => {
+          stdout += String(chunk);
+          const lines = stdout.split(/\r?\n/);
+          stdout = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              if (JSON.parse(line).stage === expectedStage) resolve();
+            } catch {
+              // A malformed child line is reported if the child exits early.
+            }
+          }
+        });
+        child.once("error", reject);
+        child.once("exit", (code, signal) => reject(new Error(
+          `killed publisher exited before ${expectedStage}: code=${code} signal=${signal} stderr=${stderr}`
+        )));
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function killPublisher(child: ChildProcess) {
+    const exited = once(child, "exit");
+    if (!child.kill("SIGKILL")) throw new Error("unable_to_kill_publisher");
+    await exited;
   }
 
   it("applies the corrective migration, preserves legacy reads, deduplicates notifications, and fences finalization", async () => {
@@ -400,6 +481,8 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
           'club_chat_messages_terminal_cleanup_idx',
           'club_message_attachments_terminal_cleanup_idx',
           'community_message_purge_requests_key_idx',
+          'community_object_lifecycles_hot_due_idx',
+          'community_object_publications_attachment_stale_idx',
           'community_object_publications_object_state_idx'
         )
       order by indexname
@@ -410,6 +493,8 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       "club_chat_messages_terminal_cleanup_idx",
       "club_message_attachments_terminal_cleanup_idx",
       "community_message_purge_requests_key_idx",
+      "community_object_lifecycles_hot_due_idx",
+      "community_object_publications_attachment_stale_idx",
       "community_object_publications_object_state_idx"
     ]);
   });
@@ -705,6 +790,243 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       { target: "primary", generation: 5, state: "deleted", absenceCount: 0 },
       { target: "reserve", generation: 5, state: "deleted", absenceCount: 0 }
     ]);
+  });
+
+  it("commits every gallery attachment and publication in one PostgreSQL transaction", async () => {
+    await resetData();
+    const userId = "00000000-0000-4000-8000-000000000941";
+    const topicId = "00000000-0000-4000-8000-000000000942";
+    const galleryMessageId = "00000000-0000-4000-8000-000000000943";
+    const attachments = [
+      { id: "00000000-0000-4000-8000-000000000944", key: "community/images/atomic-1.webp" },
+      { id: "00000000-0000-4000-8000-000000000945", key: "community/images/atomic-2.webp" }
+    ];
+    await clientA`insert into users (id, telegram_id) values (${userId}, 'gallery-atomic@example.test')`;
+    await clientA`insert into club_chat_topics (id) values (${topicId})`;
+    await clientA`
+      insert into club_chat_messages (id, topic_id, user_id)
+      values (${galleryMessageId}, ${topicId}, ${userId})
+    `;
+    for (const attachment of attachments) {
+      await clientA`
+        insert into club_message_attachments (id, message_id, object_key, scan_status)
+        values (${attachment.id}, ${galleryMessageId}, ${attachment.key}, 'pending')
+      `;
+    }
+    const database = drizzle(clientA, { schema: schemaDefinition });
+    const claims = await Promise.all(attachments.map((attachment) => beginPublication({
+      sourceType: "attachment",
+      sourceId: attachment.id,
+      objectKey: attachment.key,
+      targets: ["primary", "reserve"]
+    }, database as never)));
+
+    await expect(commitPublications(claims, async (transaction) => {
+      await transaction.execute(sql`
+        update club_message_attachments set scan_status = 'ready' where id = ${attachments[0]!.id}
+      `);
+      throw new Error("gallery_commit_interrupted");
+    }, database as never)).rejects.toThrow("gallery_commit_interrupted");
+    const afterRollback = await clientA<{ status: string }[]>`
+      select scan_status as status from club_message_attachments
+      where message_id = ${galleryMessageId} order by id
+    `;
+    expect(afterRollback).toEqual([{ status: "pending" }, { status: "pending" }]);
+
+    await commitPublications(claims, async (transaction) => {
+      const ready = Array.from((await transaction.execute(sql`
+        update club_message_attachments set scan_status = 'ready'
+        where message_id = ${galleryMessageId} and scan_status = 'pending'
+        returning id
+      `)) as Iterable<{ id: string }>);
+      expect(ready).toHaveLength(2);
+    }, database as never);
+    const [committed] = await clientA<{ ready: number; publications: number; presentTargets: number }[]>`
+      select (select count(*)::int from club_message_attachments
+                where message_id = ${galleryMessageId} and scan_status = 'ready') ready,
+             (select count(*)::int from community_object_publications
+                where source_type = 'attachment' and source_id = any(${attachments.map((item) => item.id)})) publications,
+             (select count(*)::int from community_object_lifecycles
+                where object_key = any(${attachments.map((item) => item.key)}) and state = 'present') as "presentTargets"
+    `;
+    expect(committed).toEqual({ ready: 2, publications: 0, presentTargets: 4 });
+  });
+
+  it("recovers SIGKILLed legacy voice and gallery publishers at every durable boundary", async () => {
+    const uuid = (suffix: number) => `00000000-0000-4000-8000-${suffix.toString(16).padStart(12, "0")}`;
+    const stages = [
+      { stage: "db-plan-before-write" as const, ready: "db-plan-ready", attachmentCount: 1, extension: "m4a" },
+      { stage: "write-before-commit" as const, ready: "provider-write-ready", attachmentCount: 1, extension: "m4a" },
+      { stage: "partial-gallery" as const, ready: "partial-gallery-ready", attachmentCount: 3, extension: "webp" }
+    ];
+    const recovery = await import("./attachmentPublicationRecovery");
+    const lifecycle = await import("./objectLifecycle");
+
+    for (const [stageIndex, stage] of stages.entries()) {
+      await resetData();
+      const userId = uuid(0x960 + stageIndex * 0x20);
+      const topicId = uuid(0x961 + stageIndex * 0x20);
+      const killedMessageId = uuid(0x962 + stageIndex * 0x20);
+      const attachments = Array.from({ length: stage.attachmentCount }, (_value, index) => ({
+        id: uuid(0x970 + stageIndex * 0x20 + index),
+        key: `integration/community/${stage.stage}/${schemaName}/${index}.${stage.extension}`
+      }));
+      for (const attachment of attachments) {
+        await Promise.all([
+          removeEveryObjectVersion(s3Config!.bucket, attachment.key),
+          removeEveryObjectVersion(s3Config!.reserveBucket, attachment.key)
+        ]);
+      }
+      await clientA`insert into users (id, telegram_id) values (${userId}, ${`${stage.stage}@example.test`})`;
+      await clientA`insert into club_chat_topics (id) values (${topicId})`;
+
+      const child = spawnKilledAttachmentPublisher({
+        stage: stage.stage,
+        messageId: killedMessageId,
+        topicId,
+        userId,
+        attachments
+      });
+      await waitForPublisherStage(child, stage.ready);
+      await killPublisher(child);
+
+      await clientA`
+        update community_object_publications
+        set updated_at = clock_timestamp() - interval '10 minutes'
+        where source_type = 'attachment'
+          and source_id = any(${attachments.map((attachment) => attachment.id)})
+      `;
+      const database = drizzle(clientA, { schema: schemaDefinition });
+      const recovered = await recovery.recoverStaleAttachmentPublicationsInDatabase({
+        limit: 20,
+        staleMs: recovery.communityAttachmentPublicationStaleMs,
+        targets: ["primary", "reserve"]
+      }, database as never);
+      expect(recovered).toEqual([{
+        messageId: killedMessageId,
+        objectKeys: attachments.map((attachment) => attachment.key).sort()
+      }]);
+
+      const [fence] = await clientA<{
+        status: string;
+        terminal: boolean;
+        attachmentFences: number;
+        publications: number;
+        deletionEntries: number;
+        tombstones: number;
+      }[]>`
+        select message.status,
+               message.terminal_cleanup_at is not null as terminal,
+               (select count(*)::int from club_message_attachments attachment
+                 where attachment.message_id = message.id and attachment.terminal_cleanup_at is not null) as "attachmentFences",
+               (select count(*)::int from community_object_publications publication
+                 where publication.source_type = 'attachment'
+                   and publication.source_id = any(${attachments.map((attachment) => attachment.id)})) as publications,
+               (select count(*)::int from community_object_deletion_entries entry
+                 join community_object_deletion_jobs job on job.id = entry.job_id
+                 where job.source_type = 'message' and job.source_id = message.id) as "deletionEntries",
+               (select count(*)::int from community_object_lifecycles lifecycle
+                 where lifecycle.object_key = any(${attachments.map((attachment) => attachment.key)})
+                   and lifecycle.state = 'deleted') as tombstones
+        from club_chat_messages message
+        where message.id = ${killedMessageId}
+      `;
+      expect(fence).toEqual({
+        status: "deleted",
+        terminal: true,
+        attachmentFences: attachments.length,
+        publications: 0,
+        deletionEntries: attachments.length,
+        tombstones: attachments.length * 2
+      });
+      await expect(beginPublication({
+        sourceType: "attachment",
+        sourceId: attachments[0]!.id,
+        objectKey: attachments[0]!.key,
+        targets: ["primary", "reserve"]
+      }, database as never)).rejects.toThrow("object_publication_tombstoned");
+
+      const cleanup = createCleanup({
+        repository: createRepository(database as never, async () => ["primary", "reserve"]),
+        deleteObjectCopies: async (key) => Promise.all([
+          removeEveryObjectVersion(s3Config!.bucket, key),
+          removeEveryObjectVersion(s3Config!.reserveBucket, key)
+        ]),
+        logger: { info: () => undefined, warn: () => undefined }
+      });
+      const cleanupResult = await cleanup();
+      expect(cleanupResult.completedJobIds).toHaveLength(1);
+      for (const attachment of attachments) {
+        expect(await listObjectVersions(s3Config!.bucket, attachment.key)).toEqual([]);
+        expect(await listObjectVersions(s3Config!.reserveBucket, attachment.key)).toEqual([]);
+      }
+      const [terminalCounts] = await clientA<{ messages: number; jobs: number; hotTombstones: number }[]>`
+        select (select count(*)::int from club_chat_messages where id = ${killedMessageId}) messages,
+               (select count(*)::int from community_object_deletion_jobs where source_id = ${killedMessageId}) jobs,
+               (select count(*)::int from community_object_lifecycles
+                 where object_key = any(${attachments.map((attachment) => attachment.key)})
+                   and state = 'deleted' and cold_at is null) as "hotTombstones"
+      `;
+      expect(terminalCounts).toEqual({ messages: 0, jobs: 0, hotTombstones: attachments.length * 2 });
+      await lifecycle.ensureCommunityObjectTombstoneTargetsInDatabase(
+        ["primary", "reserve"], database as never
+      );
+    }
+  }, 120_000);
+
+  it("moves proven-absent hot tombstones to a cold fence that is never scanned and still blocks resurrection", async () => {
+    await resetData();
+    const objectKey = `integration/community/final/${schemaName}/cold-fence.webp`;
+    const sourceId = "00000000-0000-4000-8000-000000000940";
+    const lifecycle = await import("./objectLifecycle");
+    const database = drizzle(clientA, { schema: schemaDefinition });
+    await database.transaction(async (transaction) => {
+      await lifecycle.tombstoneCommunityObjectKeysInDatabase(
+        [objectKey],
+        ["primary", "reserve"],
+        transaction as never
+      );
+    });
+    await clientA`
+      update community_object_lifecycles
+      set hot_until = clock_timestamp() - interval '1 second',
+          next_reconcile_at = clock_timestamp()
+      where object_key = ${objectKey}
+    `;
+    const repository = lifecycle.createCommunityObjectTombstoneRepository(database as never);
+    const reconciler = lifecycle.createCommunityObjectTombstoneReconciler({
+      repository,
+      deleteTarget: async () => undefined
+    });
+
+    await expect(reconciler({ limit: 2, objectKeys: [objectKey] })).resolves.toMatchObject({
+      stableKeys: [], pendingKeys: [objectKey]
+    });
+    await clientA`
+      update community_object_lifecycles
+      set verified_at = clock_timestamp() - interval '2 seconds',
+          next_reconcile_at = clock_timestamp()
+      where object_key = ${objectKey}
+    `;
+    await expect(reconciler({ limit: 2, objectKeys: [objectKey] })).resolves.toMatchObject({
+      stableKeys: [objectKey], pendingKeys: []
+    });
+
+    const coldRows = await clientA<{ target: string; coldAt: Date | null }[]>`
+      select target, cold_at as "coldAt"
+      from community_object_lifecycles
+      where object_key = ${objectKey}
+      order by target
+    `;
+    expect(coldRows).toHaveLength(2);
+    expect(coldRows.every((row) => row.coldAt instanceof Date)).toBe(true);
+    await expect(repository.claimBatch({ limit: 2, objectKeys: [objectKey] })).resolves.toEqual([]);
+    await expect(beginPublication({
+      sourceType: "candidate",
+      sourceId,
+      objectKey,
+      targets: ["primary", "reserve"]
+    }, database as never)).rejects.toThrow("object_publication_tombstoned");
   });
 
   it("preserves PostgreSQL microseconds and deterministic created_at/id ordering for admin message surfaces", async () => {

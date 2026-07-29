@@ -47,10 +47,20 @@ export async function checkApplicationReadiness() {
             where table_schema = current_schema()
               and table_name = 'community_object_lifecycles' and column_name = 'publication_token'
           )
+          and exists (
+            select 1 from information_schema.columns
+            where table_schema = current_schema()
+              and table_name = 'community_object_lifecycles' and column_name = 'hot_until'
+          )
+          and exists (
+            select 1 from information_schema.columns
+            where table_schema = current_schema()
+              and table_name = 'community_object_lifecycles' and column_name = 'cold_at'
+          )
           and (
             select coalesce(max(created_at), 0)
             from drizzle.__drizzle_migrations
-          ) >= 1785456000000
+          ) >= 1785459600000
         ) as ready
       `;
       return rows[0]?.ready === true;

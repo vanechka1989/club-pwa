@@ -100,8 +100,10 @@ describe("deploy update script", () => {
     expect(updateWorker).toContain("compose stop -t 90 api worker");
     expect(updateWorker).toContain("Keeping the privacy-compatible candidate API image for the current schema.");
     expect(updateWorker).toContain("drizzle.__drizzle_migrations");
-    expect(updateWorker).toContain("1785456000000");
+    expect(updateWorker).toContain("1785459600000");
     expect(updateWorker).toContain("publication_token");
+    expect(updateWorker).toContain("hot_until");
+    expect(updateWorker).toContain("cold_at");
     expect(updateWorker).toContain("api_recovery_allowed");
     expect(updateWorker.indexOf("write_status success complete")).toBeLessThan(updateWorker.indexOf("cleanup_previous_images", updateWorker.indexOf("main()")));
   });

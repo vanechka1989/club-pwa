@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { getTableName } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
@@ -27,6 +27,7 @@ const uploadManifestMigration = readFileSync(new URL("../../drizzle/0065_communi
 const mediaCandidateMigration = readFileSync(new URL("../../drizzle/0066_community_media_candidates.sql", import.meta.url), "utf8");
 const privacyFencingMigration = readFileSync(new URL("../../drizzle/0067_community_chat_privacy_fencing.sql", import.meta.url), "utf8");
 const convergentDeletionMigration = readFileSync(new URL("../../drizzle/0068_community_object_convergence.sql", import.meta.url), "utf8");
+const hotQueueMigrationUrl = new URL("../../drizzle/0069_community_object_hot_queue.sql", import.meta.url);
 
 const foreignKeys = (table: Parameters<typeof getTableConfig>[0]) =>
   getTableConfig(table).foreignKeys.map((key) => {
@@ -142,6 +143,9 @@ describe("reliable community chat Drizzle metadata", () => {
     expect(publicationConfig.indexes.map((item) => item.config.name)).toContain(
       "community_object_publications_object_state_idx"
     );
+    expect(publicationConfig.indexes.map((item) => item.config.name)).toContain(
+      "community_object_publications_attachment_stale_idx"
+    );
     const lifecycleConfig = getTableConfig(communityObjectLifecycles);
     expect(lifecycleConfig.primaryKeys[0]?.columns.map((column) => column.name)).toEqual(["object_key", "target"]);
     expect(lifecycleConfig.checks.map((item) => item.name)).toEqual(expect.arrayContaining([
@@ -150,6 +154,11 @@ describe("reliable community chat Drizzle metadata", () => {
     ]));
     expect(lifecycleConfig.indexes.map((item) => item.config.name)).toContain(
       "community_object_lifecycles_reconcile_idx"
+    );
+    expect(communityObjectLifecycles.hotUntil.dataType).toBe("date");
+    expect(communityObjectLifecycles.coldAt.dataType).toBe("date");
+    expect(lifecycleConfig.indexes.map((item) => item.config.name)).toContain(
+      "community_object_lifecycles_hot_due_idx"
     );
   });
 
@@ -274,5 +283,18 @@ describe("reliable community chat migration", () => {
     expect(convergentDeletionMigration).toContain("publication.\"state\" = 'quiescing'");
     expect(convergentDeletionMigration).toContain('DELETE FROM "community_object_publications" publication');
     expect(migrationJournal.entries.find((entry) => entry.tag === "0068_community_object_convergence")).toMatchObject({ idx: 68 });
+  });
+
+  it("adds a finite hot queue and retains cold tombstones in forward migration 69", () => {
+    expect(existsSync(hotQueueMigrationUrl)).toBe(true);
+    if (!existsSync(hotQueueMigrationUrl)) return;
+    const hotQueueMigration = readFileSync(hotQueueMigrationUrl, "utf8");
+    expect(hotQueueMigration).toContain('ADD COLUMN "hot_until" timestamptz');
+    expect(hotQueueMigration).toContain('ADD COLUMN "cold_at" timestamptz');
+    expect(hotQueueMigration).toContain('"community_object_lifecycles_hot_due_idx"');
+    expect(hotQueueMigration).toContain('"community_object_publications_attachment_stale_idx"');
+    expect(hotQueueMigration).toContain("WHERE \"state\" = 'deleted' AND \"cold_at\" IS NULL");
+    expect(hotQueueMigration).toContain('SET "hot_until" = clock_timestamp()');
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0069_community_object_hot_queue")).toMatchObject({ idx: 69 });
   });
 });

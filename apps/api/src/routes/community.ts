@@ -29,7 +29,8 @@ import {
 } from "../community/objectDeletionLedger";
 import {
   beginCommunityObjectPublication,
-  publishCommunityObject
+  publishCommunityObject,
+  publishCommunityObjectGroup
 } from "../community/objectPublication";
 import { createCommunityUploadService, type CommunityUploadResult } from "../community/directUpload";
 import { validateCommunityOoxml } from "../community/ooxmlValidation";
@@ -2056,10 +2057,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const { message, plans } = imageInsert;
 
     try {
-      for (const plan of plans) {
-        await publishCommunityObject({
+      await publishCommunityObjectGroup({
+        publications: plans.map((plan) => ({
           claim: plan.publication,
-          write: async (signal) => {
+          write: async (signal: AbortSignal) => {
             await uploadObjectStream({
               key: plan.key,
               body: plan.image.body,
@@ -2068,29 +2069,29 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
               signal
             });
             await mirrorObjectToReserve(plan.key, plan.image.contentType, signal);
-          },
-          commit: async (database) => {
-            const [attachment] = await database.update(clubMessageAttachments).set({
-              scanStatus: "ready",
-              scannedAt: new Date(),
-              scanError: null
-            }).where(and(
-              eq(clubMessageAttachments.id, plan.attachmentId),
-              eq(clubMessageAttachments.objectKey, plan.key),
-              eq(clubMessageAttachments.scanStatus, "pending"),
-              isNull(clubMessageAttachments.deletedAt),
-              isNull(clubMessageAttachments.terminalCleanupAt),
-              sql`exists (
-                select 1 from club_chat_messages message
-                where message.id = ${clubMessageAttachments.messageId}
-                  and message.terminal_cleanup_at is null
-              )`
-            )).returning({ id: clubMessageAttachments.id });
-            if (!attachment) throw new Error("attachment_publish_terminal");
-            return attachment;
           }
-        });
-      }
+        })),
+        commit: async (database) => {
+          const attachments = await database.update(clubMessageAttachments).set({
+            scanStatus: "ready",
+            scannedAt: new Date(),
+            scanError: null
+          }).where(and(
+            inArray(clubMessageAttachments.id, plans.map((plan) => plan.attachmentId)),
+            inArray(clubMessageAttachments.objectKey, plans.map((plan) => plan.key)),
+            eq(clubMessageAttachments.scanStatus, "pending"),
+            isNull(clubMessageAttachments.deletedAt),
+            isNull(clubMessageAttachments.terminalCleanupAt),
+            sql`exists (
+              select 1 from club_chat_messages message
+              where message.id = ${clubMessageAttachments.messageId}
+                and message.terminal_cleanup_at is null
+            )`
+          )).returning({ id: clubMessageAttachments.id });
+          if (attachments.length !== plans.length) throw new Error("attachment_publish_terminal");
+          return attachments;
+        }
+      });
     } catch (error) {
       await deleteCommunityObjectKeysConvergently(plans.map((plan) => plan.key)).catch(() => undefined);
       await db.update(clubChatMessages).set({ status: "deleted", purgeAt: new Date(), updatedAt: new Date() })

@@ -6,8 +6,182 @@ export const communityObjectAbsenceStableMs = 1_000;
 export const communityObjectTombstoneAuditMs = 5 * 60_000;
 export const communityObjectTombstoneClaimStaleMs = 5 * 60_000;
 export const communityObjectTombstoneBatchSize = 100;
+export const communityObjectProviderUncertaintyMs = 30 * 60_000;
+export const communityObjectTombstoneWorstCaseSlaMs = 15 * 60_000;
+export const communityObjectTombstoneDeleteTimeoutMs = 15_000;
+export const communityObjectTombstoneDeleteConcurrency = 64;
+export const communityObjectTombstoneShardCount = 16;
+export const communityObjectTombstoneCapacityTargets = 1_344;
+export const communityObjectTombstoneWorkerTickMs = 60_000;
 
 export type CommunityObjectStorageTarget = "primary" | "reserve";
+
+export type CommunityObjectTombstonePressure = {
+  hotTargetCount: number;
+  dueTargetCount: number;
+  dueByShard: number[];
+  oldestDueAt: Date | null;
+};
+
+export class CommunityObjectReconciliationBackpressureError extends Error {
+  constructor() {
+    super("community_object_reconciliation_backpressure");
+    this.name = "CommunityObjectReconciliationBackpressureError";
+  }
+}
+
+export function createCommunityObjectPublicationCapacityGate(
+  loadPressure: () => Promise<CommunityObjectTombstonePressure>
+) {
+  return async function assertCommunityObjectPublicationCapacity() {
+    const pressure = await loadPressure();
+    if (pressure.hotTargetCount > communityObjectTombstoneCapacityTargets) {
+      throw new CommunityObjectReconciliationBackpressureError();
+    }
+  };
+}
+
+export function calculateCommunityObjectTombstoneSweepPlan(
+  pressure: CommunityObjectTombstonePressure & { now: Date }
+) {
+  const dueByShard = Array.from(
+    { length: communityObjectTombstoneShardCount },
+    (_value, shard) => Math.max(0, Math.trunc(pressure.dueByShard[shard] ?? 0))
+  );
+  const targetLimit = Math.min(
+    communityObjectTombstoneCapacityTargets,
+    Math.max(0, Math.trunc(pressure.dueTargetCount)),
+    dueByShard.reduce((sum, value) => sum + value, 0)
+  );
+  const shardLimits = Array(communityObjectTombstoneShardCount).fill(0) as number[];
+  let remaining = targetLimit;
+  while (remaining > 0) {
+    let allocated = false;
+    for (let shard = 0; shard < communityObjectTombstoneShardCount && remaining > 0; shard += 1) {
+      if (shardLimits[shard]! >= dueByShard[shard]!) continue;
+      shardLimits[shard] = shardLimits[shard]! + 1;
+      remaining -= 1;
+      allocated = true;
+    }
+    if (!allocated) break;
+  }
+  const processingMs = shardLimits.reduce(
+    (sum, limit) => sum + Math.ceil(limit / communityObjectTombstoneDeleteConcurrency)
+      * communityObjectTombstoneDeleteTimeoutMs,
+    0
+  );
+  const worstCaseLateWriteMs = communityObjectTombstoneAuditMs
+    + communityObjectTombstoneWorkerTickMs
+    + processingMs;
+  const oldestDueAgeMs = pressure.oldestDueAt
+    ? Math.max(0, pressure.now.getTime() - pressure.oldestDueAt.getTime())
+    : 0;
+  const overloaded = pressure.hotTargetCount > communityObjectTombstoneCapacityTargets
+    || pressure.dueTargetCount > communityObjectTombstoneCapacityTargets;
+  return {
+    shardLimits,
+    targetLimit,
+    processingMs,
+    worstCaseLateWriteMs,
+    overloaded,
+    backpressure: pressure.hotTargetCount > communityObjectTombstoneCapacityTargets,
+    slaAtRisk: overloaded || oldestDueAgeMs + processingMs > communityObjectTombstoneWorstCaseSlaMs,
+    oldestDueAgeMs
+  };
+}
+
+type CommunityObjectTombstoneSweepPlan = ReturnType<typeof calculateCommunityObjectTombstoneSweepPlan>;
+
+export function createCommunityObjectTombstoneMetrics(options: { now?: () => Date } = {}) {
+  const now = options.now ?? (() => new Date());
+  let hotTargetCount = 0;
+  let dueTargetCount = 0;
+  let oldestDueAt: string | null = null;
+  let lastSweepAt: string | null = null;
+  let estimatedProcessingMs = 0;
+  let slaAtRisk = false;
+  let backpressure = false;
+  let backpressureEvents = 0;
+  return {
+    recordSweep(pressure: CommunityObjectTombstonePressure, plan: CommunityObjectTombstoneSweepPlan) {
+      hotTargetCount = pressure.hotTargetCount;
+      dueTargetCount = pressure.dueTargetCount;
+      oldestDueAt = pressure.oldestDueAt?.toISOString() ?? null;
+      estimatedProcessingMs = plan.processingMs;
+      slaAtRisk = plan.slaAtRisk;
+      backpressure = plan.backpressure;
+      lastSweepAt = now().toISOString();
+    },
+    recordBackpressure() {
+      backpressureEvents += 1;
+      backpressure = true;
+    },
+    snapshot() {
+      return {
+        hotTargetCount,
+        dueTargetCount,
+        oldestDueAt,
+        lastSweepAt,
+        estimatedProcessingMs,
+        slaAtRisk,
+        backpressure,
+        backpressureEvents,
+        capacityTargets: communityObjectTombstoneCapacityTargets,
+        worstCaseSlaMs: communityObjectTombstoneWorstCaseSlaMs,
+        providerUncertaintyMs: communityObjectProviderUncertaintyMs
+      };
+    }
+  };
+}
+
+export const communityObjectTombstoneMetrics = createCommunityObjectTombstoneMetrics();
+
+type CommunityObjectTombstoneSweepResult = {
+  stableKeys: string[];
+  pendingKeys: string[];
+  failedTargets: Array<unknown>;
+};
+
+export function createCommunityObjectTombstoneSweep(dependencies: {
+  loadPressure: () => Promise<CommunityObjectTombstonePressure>;
+  reconcileShard: (input: { shard: number; shardCount: number; limit: number }) => Promise<CommunityObjectTombstoneSweepResult>;
+  now?: () => Date;
+  logger: { warn: (fields: Record<string, unknown>, message: string) => void };
+}) {
+  const now = dependencies.now ?? (() => new Date());
+  return async function sweepCommunityObjectTombstones() {
+    const pressure = await dependencies.loadPressure();
+    const plan = calculateCommunityObjectTombstoneSweepPlan({ ...pressure, now: now() });
+    if (plan.overloaded || plan.slaAtRisk) {
+      dependencies.logger.warn({
+        hotTargetCount: pressure.hotTargetCount,
+        dueTargetCount: pressure.dueTargetCount,
+        oldestDueAt: pressure.oldestDueAt?.toISOString() ?? null,
+        capacityTargets: communityObjectTombstoneCapacityTargets,
+        slaMs: communityObjectTombstoneWorstCaseSlaMs,
+        estimatedProcessingMs: plan.processingMs,
+        backpressure: plan.backpressure,
+        slaAtRisk: plan.slaAtRisk
+      }, "community object tombstone capacity alert");
+    }
+    const results: CommunityObjectTombstoneSweepResult[] = [];
+    for (const [shard, limit] of plan.shardLimits.entries()) {
+      if (limit > 0) {
+        results.push(await dependencies.reconcileShard({
+          shard,
+          shardCount: communityObjectTombstoneShardCount,
+          limit
+        }));
+      }
+    }
+    return {
+      stableKeys: [...new Set(results.flatMap((result) => result.stableKeys))].sort(),
+      pendingKeys: [...new Set(results.flatMap((result) => result.pendingKeys))].sort(),
+      failedTargets: results.flatMap((result) => result.failedTargets),
+      pressure: plan
+    };
+  };
+}
 
 export class CommunityObjectIoTimeoutError extends Error {
   constructor() {
@@ -97,6 +271,10 @@ export function createCommunityObjectIoGate({
 }
 
 export const communityObjectIoGate = createCommunityObjectIoGate();
+export const communityObjectTombstoneIoGate = createCommunityObjectIoGate({
+  maxConcurrency: communityObjectTombstoneDeleteConcurrency,
+  timeoutMs: communityObjectTombstoneDeleteTimeoutMs
+});
 
 export type CommunityObjectTombstoneCandidate = {
   objectKey: string;
@@ -108,7 +286,12 @@ export type CommunityObjectTombstoneCandidate = {
 };
 
 export interface CommunityObjectTombstoneRepository {
-  claimBatch(input: { limit: number; objectKeys?: string[] }): Promise<CommunityObjectTombstoneCandidate[]>;
+  claimBatch(input: {
+    limit: number;
+    objectKeys?: string[];
+    shard?: number;
+    shardCount?: number;
+  }): Promise<CommunityObjectTombstoneCandidate[]>;
   markAbsent(candidate: CommunityObjectTombstoneCandidate): Promise<{ stable: boolean }>;
   release(candidate: CommunityObjectTombstoneCandidate, error: string): Promise<void>;
 }
@@ -122,14 +305,20 @@ type TombstoneReconcilerDependencies = {
 export function createCommunityObjectTombstoneReconciler(dependencies: TombstoneReconcilerDependencies) {
   return async function reconcileCommunityObjectTombstones({
     limit,
-    objectKeys
+    objectKeys,
+    shard,
+    shardCount
   }: {
     limit: number;
     objectKeys?: string[];
+    shard?: number;
+    shardCount?: number;
   }) {
     const candidates = await dependencies.repository.claimBatch({
       limit: Math.max(1, Math.trunc(limit)),
-      ...(objectKeys?.length ? { objectKeys } : {})
+      ...(objectKeys?.length ? { objectKeys } : {}),
+      ...(shard === undefined ? {} : { shard }),
+      ...(shardCount === undefined ? {} : { shardCount })
     });
     const outcomes = new Map<string, Array<{ stable: boolean; failed: boolean }>>();
     const failedTargets: Array<{ objectKey: string; target: CommunityObjectStorageTarget; error: string }> = [];
@@ -180,6 +369,50 @@ export function createCommunityObjectTombstoneReconciler(dependencies: Tombstone
 
 type ObjectLifecycleDatabase = (typeof import("../db/client"))["db"];
 
+export async function getCommunityObjectTombstonePressure(
+  database: ObjectLifecycleDatabase
+): Promise<CommunityObjectTombstonePressure> {
+  const totals = Array.from((await database.execute(sql`
+    select count(*)::integer as "hotTargetCount",
+           count(*) filter (where next_reconcile_at <= clock_timestamp())::integer as "dueTargetCount",
+           min(next_reconcile_at) filter (where next_reconcile_at <= clock_timestamp()) as "oldestDueAt"
+    from community_object_lifecycles
+    where state = 'deleted' and cold_at is null
+  `)) as Iterable<{ hotTargetCount: number; dueTargetCount: number; oldestDueAt: Date | null }>);
+  const shards = Array.from((await database.execute(sql`
+    select mod(hashtext(object_key)::bigint + 2147483648, ${communityObjectTombstoneShardCount})::integer as shard,
+           count(*)::integer as count
+    from community_object_lifecycles
+    where state = 'deleted' and cold_at is null
+      and next_reconcile_at <= clock_timestamp()
+    group by shard
+  `)) as Iterable<{ shard: number; count: number }>);
+  const dueByShard = Array(communityObjectTombstoneShardCount).fill(0) as number[];
+  for (const shard of shards) {
+    if (shard.shard >= 0 && shard.shard < communityObjectTombstoneShardCount) {
+      dueByShard[shard.shard] = shard.count;
+    }
+  }
+  return {
+    hotTargetCount: totals[0]?.hotTargetCount ?? 0,
+    dueTargetCount: totals[0]?.dueTargetCount ?? 0,
+    dueByShard,
+    oldestDueAt: totals[0]?.oldestDueAt ?? null
+  };
+}
+
+export async function assertCommunityObjectPublicationCapacity(database: ObjectLifecycleDatabase) {
+  const gate = createCommunityObjectPublicationCapacityGate(() => getCommunityObjectTombstonePressure(database));
+  try {
+    await gate();
+  } catch (error) {
+    if (error instanceof CommunityObjectReconciliationBackpressureError) {
+      communityObjectTombstoneMetrics.recordBackpressure();
+    }
+    throw error;
+  }
+}
+
 function uniqueObjectKeys(objectKeys: string[]) {
   return [...new Set(objectKeys.filter(Boolean))].sort();
 }
@@ -197,11 +430,11 @@ export async function ensureCommunityObjectTombstoneTargetsInDatabase(
   await database.execute(sql`
     insert into community_object_lifecycles (
       object_key, target, generation, state, publication_token, tombstoned_at,
-      absence_count, absent_since, verified_at, next_reconcile_at,
+      hot_until, cold_at, absence_count, absent_since, verified_at, next_reconcile_at,
       claim_id, claimed_at, last_error, created_at, updated_at
     )
     select tombstone.object_key, configured.target, tombstone.generation, 'deleted', null,
-           tombstone.tombstoned_at, 0, null, null, clock_timestamp(),
+           tombstone.tombstoned_at, clock_timestamp(), null, 0, null, null, clock_timestamp(),
            null, null, null, clock_timestamp(), clock_timestamp()
     from (
       select object_key, max(generation) as generation, min(tombstoned_at) as tombstoned_at
@@ -256,6 +489,9 @@ export async function tombstoneCommunityObjectKeysInDatabase(
     set generation = lifecycle.generation + 1,
         state = 'deleted', publication_token = null,
         tombstoned_at = coalesce(lifecycle.tombstoned_at, clock_timestamp()),
+        hot_until = greatest(coalesce(lifecycle.hot_until, clock_timestamp()),
+          clock_timestamp() + (${communityObjectProviderUncertaintyMs} * interval '1 millisecond')),
+        cold_at = null,
         absence_count = 0, absent_since = null, verified_at = null,
         next_reconcile_at = least(lifecycle.next_reconcile_at, clock_timestamp()),
         claim_id = null, claimed_at = null, last_error = null, updated_at = clock_timestamp()
@@ -268,15 +504,19 @@ export async function tombstoneCommunityObjectKeysInDatabase(
     await database.execute(sql`
       insert into community_object_lifecycles (
         object_key, target, generation, state, publication_token, tombstoned_at,
-        absence_count, next_reconcile_at, updated_at
+        hot_until, cold_at, absence_count, next_reconcile_at, updated_at
       ) values ${sql.join(pairs.map((pair) => sql`(
         ${pair.objectKey}, ${pair.target}, 1, 'deleted', null, clock_timestamp(),
-        0, clock_timestamp(), clock_timestamp()
+        clock_timestamp() + (${communityObjectProviderUncertaintyMs} * interval '1 millisecond'),
+        null, 0, clock_timestamp(), clock_timestamp()
       )`), sql`, `)}
       on conflict (object_key, target) do update
       set generation = community_object_lifecycles.generation + 1,
           state = 'deleted', publication_token = null,
           tombstoned_at = coalesce(community_object_lifecycles.tombstoned_at, clock_timestamp()),
+          hot_until = greatest(coalesce(community_object_lifecycles.hot_until, clock_timestamp()),
+            clock_timestamp() + (${communityObjectProviderUncertaintyMs} * interval '1 millisecond')),
+          cold_at = null,
           absence_count = 0, absent_since = null, verified_at = null,
           next_reconcile_at = least(community_object_lifecycles.next_reconcile_at, clock_timestamp()),
           claim_id = null, claimed_at = null, last_error = null, updated_at = clock_timestamp()
@@ -314,17 +554,23 @@ export function createCommunityObjectTombstoneRepository(
   database: ObjectLifecycleDatabase
 ): CommunityObjectTombstoneRepository {
   return {
-    async claimBatch({ limit, objectKeys }) {
-      const boundedLimit = Math.min(Math.max(1, Math.trunc(limit)), communityObjectTombstoneBatchSize * 2);
+    async claimBatch({ limit, objectKeys, shard, shardCount }) {
+      const boundedLimit = Math.min(Math.max(1, Math.trunc(limit)), communityObjectTombstoneCapacityTargets);
       const keys = uniqueObjectKeys(objectKeys ?? []);
+      const boundedShardCount = Math.max(1, Math.trunc(shardCount ?? communityObjectTombstoneShardCount));
+      const boundedShard = Math.min(Math.max(0, Math.trunc(shard ?? 0)), boundedShardCount - 1);
       return Array.from((await database.execute(sql`
         with candidates as (
           select object_key, target
           from community_object_lifecycles
           where state = 'deleted'
+            and cold_at is null
             and (${keys.length
               ? sql`object_key in (${sql.join(keys.map((key) => sql`${key}`), sql`, `)})`
               : sql`next_reconcile_at <= clock_timestamp()`})
+            and (${shard === undefined
+              ? sql`true`
+              : sql`mod(hashtext(object_key)::bigint + 2147483648, ${boundedShardCount}) = ${boundedShard}`})
             and (claim_id is null or claimed_at <= clock_timestamp()
               - (${communityObjectTombstoneClaimStaleMs} * interval '1 millisecond'))
           order by next_reconcile_at, object_key, target
@@ -341,7 +587,7 @@ export function createCommunityObjectTombstoneRepository(
                   (select count(*)::integer
                    from community_object_lifecycles expected
                    where expected.object_key = lifecycle.object_key
-                     and expected.state = 'deleted') as "expectedTargetCount"
+                     and expected.state = 'deleted' and expected.cold_at is null) as "expectedTargetCount"
       `)) as Iterable<CommunityObjectTombstoneCandidate>);
     },
 
@@ -380,12 +626,24 @@ export function createCommunityObjectTombstoneRepository(
           returning lifecycle.absence_count
         )
         update community_object_lifecycles lifecycle
-        set next_reconcile_at = clock_timestamp() + (
-              case when updated.absence_count >= 2
-                then ${communityObjectTombstoneAuditMs}
-                else ${communityObjectAbsenceStableMs}
-              end * interval '1 millisecond'
-            )
+        set cold_at = case
+              when updated.absence_count >= 2
+                and coalesce(lifecycle.hot_until, clock_timestamp()) <= clock_timestamp()
+              then clock_timestamp()
+              else null
+            end,
+            next_reconcile_at = case
+              when updated.absence_count >= 2
+                and coalesce(lifecycle.hot_until, clock_timestamp()) <= clock_timestamp()
+              then clock_timestamp()
+              when updated.absence_count < 2
+              then clock_timestamp() + (${communityObjectAbsenceStableMs} * interval '1 millisecond')
+              else least(
+                clock_timestamp() + (${communityObjectTombstoneAuditMs} * interval '1 millisecond'),
+                coalesce(lifecycle.hot_until,
+                  clock_timestamp() + (${communityObjectTombstoneAuditMs} * interval '1 millisecond'))
+              )
+            end
         from updated
         where lifecycle.object_key = ${candidate.objectKey}
           and lifecycle.target = ${candidate.target}
@@ -399,7 +657,10 @@ export function createCommunityObjectTombstoneRepository(
       await database.execute(sql`
         update community_object_lifecycles
         set claim_id = null, claimed_at = null, absence_count = 0, absent_since = null,
-            verified_at = null, last_error = ${error.slice(0, 500)},
+            verified_at = null, cold_at = null,
+            hot_until = coalesce(hot_until,
+              clock_timestamp() + (${communityObjectProviderUncertaintyMs} * interval '1 millisecond')),
+            last_error = ${error.slice(0, 500)},
             next_reconcile_at = clock_timestamp() + (${communityObjectAbsenceStableMs} * interval '1 millisecond'),
             updated_at = clock_timestamp()
         where object_key = ${candidate.objectKey} and target = ${candidate.target}
@@ -450,6 +711,8 @@ export function createCommunityObjectConvergentDeletion(dependencies: {
 export async function reconcileCommunityObjectTombstones(input: {
   limit?: number;
   objectKeys?: string[];
+  shard?: number;
+  shardCount?: number;
 } = {}) {
   const [{ db }, storage] = await Promise.all([
     import("../db/client"),
@@ -463,13 +726,15 @@ export async function reconcileCommunityObjectTombstones(input: {
       if (!(await storage.isS3TargetConfigured(target))) {
         throw new Error(`${target === "reserve" ? "Reserve" : "Primary"} S3 storage is not configured`);
       }
-      await communityObjectIoGate.run((signal) => storage.deleteObject(objectKey, target, signal));
+      await communityObjectTombstoneIoGate.run((signal) => storage.deleteObject(objectKey, target, signal));
     },
-    concurrency: communityObjectIoConcurrency
+    concurrency: communityObjectTombstoneDeleteConcurrency
   });
   return reconciler({
     limit: input.limit ?? communityObjectTombstoneBatchSize * 2,
-    ...(input.objectKeys?.length ? { objectKeys: uniqueObjectKeys(input.objectKeys) } : {})
+    ...(input.objectKeys?.length ? { objectKeys: uniqueObjectKeys(input.objectKeys) } : {}),
+    ...(input.shard === undefined ? {} : { shard: input.shard }),
+    ...(input.shardCount === undefined ? {} : { shardCount: input.shardCount })
   });
 }
 
@@ -485,6 +750,22 @@ export async function deleteCommunityObjectCopiesConvergently(objectKey: string)
   return deleteCommunityObjectKeysConvergently([objectKey]);
 }
 
-export async function runCommunityObjectTombstoneSweepBatch(limit = communityObjectTombstoneBatchSize) {
-  return reconcileCommunityObjectTombstones({ limit: Math.max(1, Math.trunc(limit)) * 2 });
+export async function runCommunityObjectTombstoneSweepBatch() {
+  const [{ db }, storage, { logger }] = await Promise.all([
+    import("../db/client"),
+    import("../storage/s3"),
+    import("../logger")
+  ]);
+  await ensureConfiguredCommunityObjectTombstoneTargets(await storage.getConfiguredS3Targets(), db);
+  const result = await createCommunityObjectTombstoneSweep({
+    loadPressure: () => getCommunityObjectTombstonePressure(db),
+    reconcileShard: ({ shard, shardCount, limit }) => reconcileCommunityObjectTombstones({
+      shard,
+      shardCount,
+      limit
+    }),
+    logger
+  })();
+  communityObjectTombstoneMetrics.recordSweep(await getCommunityObjectTombstonePressure(db), result.pressure);
+  return result;
 }

@@ -12,7 +12,7 @@
     "test:e2e:full": "playwright test -c playwright.full.config.ts",
     "test:e2e:release": "playwright test -c playwright.release.config.ts",
     "test:e2e:devices": "playwright test -c playwright.device.config.ts",
-    "test:release": "pnpm --filter @club/shared test && pnpm --filter @club/api test -- src/community/cleanupAudit.test.ts src/db/reliableCommunityChatSchema.test.ts src/deploy/backupInfrastructure.test.ts src/deploy/pwaQuality.test.ts src/deploy/securityConfig.test.ts src/deploy/updateScript.test.ts src/deploy/updateWorker.behavior.test.ts src/storage/s3Lifecycle.test.ts && pnpm --filter @club/web test -- src/features/app/releaseNotes.test.ts src/features/app/pwa.test.ts",
+    "test:release": "pnpm --filter @club/shared test && pnpm --filter @club/api test -- src/admin/adminPollStatsRetention.test.ts src/admin/communityMessageView.test.ts src/community/attachmentPublicationRecovery.test.ts src/community/cleanupAudit.test.ts src/community/communityMediaRoutes.test.ts src/community/objectDeletionLedger.test.ts src/community/objectLifecycle.test.ts src/community/objectPublication.test.ts src/db/reliableCommunityChatSchema.test.ts src/deploy/backupInfrastructure.test.ts src/deploy/pwaQuality.test.ts src/deploy/securityConfig.test.ts src/deploy/updateScript.test.ts src/deploy/updateWorker.behavior.test.ts src/requestMetricsRoute.test.ts src/storage/s3Config.test.ts src/storage/s3DeletionProbe.test.ts src/storage/s3Lifecycle.test.ts && pnpm --filter @club/web test -- src/features/app/releaseNotes.test.ts src/features/app/pwa.test.ts",
     "db:generate": "pnpm --filter @club/api db:generate",
     "db:migrate": "pnpm --filter @club/api db:migrate",
     "db:seed": "pnpm --filter @club/api db:seed"

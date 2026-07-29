@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { validateCommunityLifecycleRules, type S3LifecycleRule } from "./s3Lifecycle";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createS3ConfigurationVerifier,
+  validateCommunityLifecycleRules,
+  verifyS3TargetCapabilities,
+  type S3LifecycleRule
+} from "./s3Lifecycle";
+import type { StoredS3Config } from "./s3Config";
 
 describe("community S3 lifecycle release gate", () => {
   const validRules: S3LifecycleRule[] = [
@@ -124,5 +130,79 @@ describe("community S3 lifecycle release gate", () => {
         ? { ...rule, Filter: { Tag: { Key: "temporary", Value: "true" } } }
         : rule
     ))).toMatchObject({ ok: false });
+  });
+
+  it("uses the same lifecycle, versioning, and all-version IAM gate for a runtime credential rotation", async () => {
+    const probe = vi.fn(async () => ({ versions: 2, deleteMarkers: 1 }));
+
+    await expect(verifyS3TargetCapabilities({
+      target: "primary",
+      bucket: "club-bucket",
+      lifecycleRules: validRules,
+      versioning: "Enabled",
+      probe
+    })).resolves.toEqual({
+      target: "primary",
+      bucket: "club-bucket",
+      lifecycle: "verified",
+      versioning: "Enabled",
+      deletion: "all-versions-and-delete-markers",
+      deletionProbe: { versions: 2, deleteMarkers: 1 }
+    });
+    expect(probe).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed before the destructive IAM probe when lifecycle or versioning is unsafe", async () => {
+    const probe = vi.fn(async () => ({ versions: 2, deleteMarkers: 1 }));
+
+    await expect(verifyS3TargetCapabilities({
+      target: "primary",
+      bucket: "club-bucket",
+      lifecycleRules: validRules,
+      versioning: "Suspended",
+      probe
+    })).rejects.toThrow("versioning must be Enabled");
+    await expect(verifyS3TargetCapabilities({
+      target: "reserve",
+      bucket: "reserve-bucket",
+      lifecycleRules: [],
+      versioning: "Enabled",
+      probe
+    })).rejects.toThrow("expected exactly one");
+    expect(probe).not.toHaveBeenCalled();
+  });
+
+  it("verifies primary and reserve with the exact candidate credentials", async () => {
+    const config: StoredS3Config = {
+      endpoint: "https://primary.example.com",
+      region: "us-east-1",
+      bucket: "primary",
+      accessKeyId: "primary-access",
+      secretAccessKey: "primary-secret",
+      publicBaseUrl: null,
+      signedUrlTtlSeconds: 3600,
+      reserve: {
+        endpoint: "https://reserve.example.com",
+        region: "us-east-2",
+        bucket: "reserve",
+        accessKeyId: "reserve-access",
+        secretAccessKey: "reserve-secret",
+        publicBaseUrl: null
+      }
+    };
+    const verifyTarget = vi.fn(async (target: "primary" | "reserve", targetConfig: StoredS3Config) => ({
+      target,
+      bucket: targetConfig.bucket
+    }));
+    const verify = createS3ConfigurationVerifier(verifyTarget);
+
+    await expect(verify(config)).resolves.toEqual([
+      { target: "primary", bucket: "primary" },
+      { target: "reserve", bucket: "reserve" }
+    ]);
+    expect(verifyTarget.mock.calls).toEqual([
+      ["primary", config],
+      ["reserve", { ...config.reserve, signedUrlTtlSeconds: 3600, reserve: null }]
+    ]);
   });
 });

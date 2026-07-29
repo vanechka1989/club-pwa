@@ -18,6 +18,7 @@ import {
   tombstoneCommunityObjectKeysInDatabase,
   type CommunityObjectStorageTarget
 } from "./objectLifecycle";
+import { recoverStaleAttachmentPublications } from "./attachmentPublicationRecovery";
 
 export const communityObjectDeletionBatchSize = 100;
 export const communityObjectDeletionIntervalMs = 60_000;
@@ -378,6 +379,9 @@ const cleanupCommunityObjectDeletionJobs = createCommunityObjectDeletionCleanup(
 });
 
 export async function cleanupCommunityObjectDeletionLedger() {
+  await recoverStaleAttachmentPublications().catch((error) => {
+    logger.warn({ error }, "stale attachment publication recovery failed");
+  });
   await runCommunityObjectTombstoneSweepBatch().catch((error) => {
     logger.warn({ error }, "community object tombstone sweep failed");
   });

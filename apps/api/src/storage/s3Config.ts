@@ -51,6 +51,39 @@ export function normalizeS3PublicBaseUrl(value: string | null | undefined) {
   return trimmed ? trimmed.replace(/\/+$/, "") : null;
 }
 
+function canonicalS3Endpoint(value: string) {
+  const endpoint = new URL(value);
+  endpoint.hash = "";
+  endpoint.pathname = endpoint.pathname.replace(/\/+$/, "") || "/";
+  return endpoint.toString();
+}
+
+function samePhysicalTarget(
+  current: Pick<StoredS3Config, "endpoint" | "region" | "bucket">,
+  next: Pick<StoredS3Config, "endpoint" | "region" | "bucket">
+) {
+  return canonicalS3Endpoint(current.endpoint) === canonicalS3Endpoint(next.endpoint)
+    && current.region === next.region
+    && current.bucket === next.bucket;
+}
+
+export function isSameS3PhysicalGeneration(current: StoredS3Config, next: StoredS3Config) {
+  if (!samePhysicalTarget(current, next)) return false;
+  if (Boolean(current.reserve) !== Boolean(next.reserve)) return false;
+  return !current.reserve || !next.reserve || samePhysicalTarget(current.reserve, next.reserve);
+}
+
+export async function verifyS3LiveConfigurationUpdate(
+  current: StoredS3Config | null,
+  next: StoredS3Config,
+  verify: (config: StoredS3Config) => Promise<unknown>
+) {
+  if (current && !isSameS3PhysicalGeneration(current, next)) {
+    throw new Error("s3_physical_generation_change_requires_offline_migration");
+  }
+  await verify(next);
+}
+
 export function normalizeStoredS3Config(input: unknown): StoredS3Config | null {
   const parsed = storedS3ConfigSchema
     .extend({

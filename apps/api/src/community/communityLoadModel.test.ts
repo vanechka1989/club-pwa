@@ -42,7 +42,8 @@ function voiceDependencies(transcodeVoiceFile: () => Promise<void>) {
       publicationToken: "00000000-0000-4000-8000-000000000002",
       sourceType: "candidate" as const,
       sourceId: "00000000-0000-4000-8000-000000000003",
-      objectKey: "community/candidates/load-model.m4a"
+      objectKey: "community/candidates/load-model.m4a",
+      targets: ["primary" as const]
     }),
     publishCandidate: async <T>(_publication: unknown, work: (signal: AbortSignal) => Promise<T>) =>
       work(new AbortController().signal),

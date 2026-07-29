@@ -1115,6 +1115,9 @@ export const communityObjectPublications = pgTable(
       .on(table.sourceType, table.sourceId, table.objectKey),
     objectStateIdx: index("community_object_publications_object_state_idx")
       .on(table.objectKey, table.state, table.quiescedAt),
+    attachmentStaleIdx: index("community_object_publications_attachment_stale_idx")
+      .on(table.updatedAt, table.sourceId)
+      .where(sql`${table.sourceType} = 'attachment' and ${table.state} = 'publishing'`),
     stateCheck: check(
       "community_object_publications_state_check",
       sql`${table.state} in ('publishing','quiescing')`
@@ -1131,6 +1134,8 @@ export const communityObjectLifecycles = pgTable(
     state: varchar("state", { length: 16 }).notNull().default("publishing"),
     publicationToken: uuid("publication_token"),
     tombstonedAt: timestamp("tombstoned_at", { withTimezone: true }),
+    hotUntil: timestamp("hot_until", { withTimezone: true }),
+    coldAt: timestamp("cold_at", { withTimezone: true }),
     absenceCount: integer("absence_count").notNull().default(0),
     absentSince: timestamp("absent_since", { withTimezone: true }),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
@@ -1145,6 +1150,9 @@ export const communityObjectLifecycles = pgTable(
     pk: primaryKey({ columns: [table.objectKey, table.target] }),
     reconcileIdx: index("community_object_lifecycles_reconcile_idx")
       .on(table.state, table.nextReconcileAt, table.claimedAt),
+    hotDueIdx: index("community_object_lifecycles_hot_due_idx")
+      .on(table.nextReconcileAt, table.objectKey, table.target)
+      .where(sql`${table.state} = 'deleted' and ${table.coldAt} is null`),
     targetCheck: check(
       "community_object_lifecycles_target_check",
       sql`${table.target} in ('primary','reserve')`

@@ -484,6 +484,13 @@
       "when": 1785456000000,
       "tag": "0068_community_object_convergence",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1785459600000,
+      "tag": "0069_community_object_hot_queue",
+      "breakpoints": true
     }
   ]
 }

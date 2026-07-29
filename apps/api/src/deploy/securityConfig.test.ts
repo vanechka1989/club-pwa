@@ -208,6 +208,7 @@ describe("production security config", () => {
     expect(backupOperations).toContain("backup-before-migration");
     expect(backupOperations).toContain("backup-after-quiesce");
     expect(communityReleaseRunbook).toContain("0068_community_object_convergence");
+    expect(communityReleaseRunbook).toContain("0069_community_object_hot_queue");
     expect(communityReleaseRunbook).toContain("disposable all-version deletion probe");
   });
 

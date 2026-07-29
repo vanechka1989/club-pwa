@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createAdminCommunityViewer,
+  projectAdminCommunityPollContent,
   projectAdminCommunityModerationMessage,
   sortAdminTimelineNewestFirst
 } from "./communityMessageView";
@@ -58,6 +59,60 @@ describe("admin community message projection", () => {
       createdAt: "2026-07-30T10:00:00.123456Z"
     });
     expect(projected?.body).not.toContain("private moderation evidence");
+  });
+
+  it.each([
+    { terminalCleanupAt: null, deletedContentExpiresAt: new Date("2026-07-30T09:30:00Z") },
+    { terminalCleanupAt: new Date("2026-07-30T09:45:00Z"), deletedContentExpiresAt: new Date("2026-07-30T11:00:00Z") }
+  ])("never projects raw poll fields after the parent retention fence", (parentFence) => {
+    const viewer = createAdminCommunityViewer({
+      isOwner: false,
+      isActive: true,
+      permissions: ["community"],
+      role: "admin"
+    });
+    const projected = projectAdminCommunityPollContent({
+      question: "secret poll question",
+      options: [
+        { id: "option-2", text: "secret second option", sortOrder: 2 },
+        { id: "option-1", text: "secret first option", sortOrder: 1 }
+      ],
+      message: {
+        ...message,
+        deletedByUserAt: new Date("2026-07-30T09:00:00Z"),
+        ...parentFence
+      }
+    }, viewer, new Date("2026-07-30T10:00:00Z"));
+    expect(projected).toBeNull();
+    expect(JSON.stringify(projected)).not.toContain("secret");
+  });
+
+  it("projects poll fields only while the parent content is retained", () => {
+    const viewer = createAdminCommunityViewer({
+      isOwner: true,
+      isActive: true,
+      permissions: [],
+      role: "owner"
+    });
+    expect(projectAdminCommunityPollContent({
+      question: "retained question",
+      options: [
+        { id: "b", text: "Second", sortOrder: 2 },
+        { id: "a", text: "First", sortOrder: 1 }
+      ],
+      message: {
+        ...message,
+        deletedByUserAt: new Date("2026-07-30T09:00:00Z"),
+        deletedContentExpiresAt: new Date("2026-07-30T10:30:00Z"),
+        terminalCleanupAt: null
+      }
+    }, viewer, new Date("2026-07-30T10:00:00Z"))).toEqual({
+      question: "retained question",
+      options: [
+        { id: "a", text: "First", sortOrder: 1 },
+        { id: "b", text: "Second", sortOrder: 2 }
+      ]
+    });
   });
 
   it("orders mixed millisecond and microsecond timestamps chronologically, then by id", () => {
