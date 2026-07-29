@@ -426,6 +426,61 @@ describe("community text outbox", () => {
     expect(send.mock.calls[2]?.[0]).toMatchObject({ body: "Второе" });
   });
 
+  it("schedules a migrated failed backlog from each topic FIFO head", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    localStorage.setItem("club-community-text-outbox-v1", JSON.stringify([
+      {
+        userId: "user-1",
+        deviceId: "device-1",
+        topicId: "topic-1",
+        localId: "first",
+        deliveryKey: "device-1:first",
+        body: "Первое",
+        replyToMessageId: null,
+        createdAt: 1,
+        sequence: 1,
+        status: "failed",
+        attempts: 1,
+        nextAttemptAt: 100
+      },
+      {
+        userId: "user-1",
+        deviceId: "device-1",
+        topicId: "topic-1",
+        localId: "second",
+        deliveryKey: "device-1:second",
+        body: "Второе",
+        replyToMessageId: null,
+        createdAt: 2,
+        sequence: 2,
+        status: "failed",
+        attempts: 1,
+        nextAttemptAt: 0
+      }
+    ]));
+    const send = vi.fn(({ body, clientOperationId }: { body: string; clientOperationId: string }) =>
+      Promise.resolve({ message: { id: `server-${body}`, clientOperationId } })
+    );
+
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => true,
+      retryJitter: () => 0,
+      send
+    });
+
+    await vi.advanceTimersByTimeAsync(99);
+    expect(send).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+
+    expect(send.mock.calls.map(([input]) => input.body)).toEqual(["Первое", "Второе"]);
+    expect(getQueuedTextMessages()).toEqual([]);
+  });
+
   it("limits cross-topic delivery concurrency while allowing different topics to progress", async () => {
     const resolvers: Array<(value: { message: { id: string; clientOperationId: string } }) => void> = [];
     let active = 0;

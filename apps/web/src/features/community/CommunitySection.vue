@@ -266,9 +266,7 @@ function syncQueuedMessages(entries = getQueuedTextMessages()) {
 
 function appendConfirmedTextMessage(message: ClubMessage) {
   if (selectedTopic.value?.id !== message.topicId) {
-    topics.value = topics.value.map((topic) => topic.id === message.topicId
-      ? { ...topic, messagesCount: topic.messagesCount + 1 }
-      : topic);
+    void loadTopics();
     return;
   }
   const serverMessages = messages.value.filter((item) => !isOptimisticMessage(item));

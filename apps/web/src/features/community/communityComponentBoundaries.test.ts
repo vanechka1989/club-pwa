@@ -469,6 +469,49 @@ describe("community component boundaries", () => {
     expect(await screen.findAllByText("Очередь первой темы")).toHaveLength(1);
   });
 
+  it("keeps a background topic snapshot authoritative when it resolves before send confirmation", async () => {
+    const deviceId = "00000000-0000-4000-8000-000000000001";
+    localStorage.setItem("club-community-device-id-v1", deviceId);
+    localStorage.setItem("club-community-text-outbox-v1", JSON.stringify([
+      {
+        userId: "admin-1",
+        deviceId,
+        topicId: "topic-2",
+        localId: "local-b",
+        deliveryKey: `${deviceId}:local-b`,
+        body: "Фоновое сообщение",
+        replyToMessageId: null,
+        createdAt: 1,
+        sequence: 1,
+        status: "queued",
+        attempts: 0,
+        nextAttemptAt: 0
+      }
+    ]));
+    let resolveSend!: (value: { message: ClubMessage }) => void;
+    apiMocks.createClubMessage.mockImplementation(() => new Promise((resolve) => {
+      resolveSend = resolve;
+    }));
+    apiMocks.getCommunityTopics.mockResolvedValue({
+      topics: [topic, { ...secondTopic, messagesCount: 2 }]
+    });
+
+    await renderCommunity();
+    await waitFor(() => expect(apiMocks.createClubMessage).toHaveBeenCalledTimes(1));
+    resolveSend({
+      message: message({
+        id: "confirmed-b",
+        topicId: "topic-2",
+        body: "Фоновое сообщение",
+        clientOperationId: `${deviceId}:local-b`
+      })
+    });
+    await waitFor(() => expect(localStorage.getItem("club-community-text-outbox-v1")).toBeNull());
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+
+    expect((await screen.findByRole("button", { name: /Вторая тема/ })).textContent).toContain("2 сообщений");
+  });
+
   it("does not insert a send confirmation into a different room opened before the request resolves", async () => {
     let resolveSend!: (value: { message: ClubMessage }) => void;
     apiMocks.getCommunityTopics.mockResolvedValue({ topics: [topic, secondTopic] });

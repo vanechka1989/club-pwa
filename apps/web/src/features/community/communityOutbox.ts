@@ -147,7 +147,7 @@ function normalizeOutbox(values: unknown[]) {
     if (!previous || entry.createdAt >= previous.createdAt) unique.set(key, entry);
   }
   const namespaceCounts = new Map<string, number>();
-  return [...unique.values()]
+  const bounded = [...unique.values()]
     .sort((left, right) => right.createdAt - left.createdAt || right.sequence - left.sequence)
     .filter((entry) => {
       const namespace = `${entry.userId}\u001f${entry.deviceId}`;
@@ -158,6 +158,19 @@ function normalizeOutbox(values: unknown[]) {
     })
     .slice(0, maximumStoredMessages)
     .sort((left, right) => left.createdAt - right.createdAt || left.sequence - right.sequence);
+  const topicHeads = new Map<string, QueuedTextMessage>();
+  return bounded.map((entry) => {
+    const topicKey = `${entry.userId}\u001f${entry.deviceId}\u001f${entry.topicId}`;
+    const head = topicHeads.get(topicKey);
+    if (!head) {
+      topicHeads.set(topicKey, entry);
+      return entry;
+    }
+    if (head.status === "failed" && entry.status === "failed" && entry.nextAttemptAt < head.nextAttemptAt) {
+      return { ...entry, nextAttemptAt: head.nextAttemptAt };
+    }
+    return entry;
+  });
 }
 
 function removeStorageKey(storage: Storage) {
@@ -252,7 +265,11 @@ function retryDelay(current: Required<CommunityOutboxContext>, attempts: number)
 function scheduleRetry(current: Required<CommunityOutboxContext>) {
   if (activeContext !== current || !current.isOnline()) return;
   clearRetryTimer(current);
-  const next = scopedEntries(current)
+  const topicHeads = new Map<string, QueuedTextMessage>();
+  for (const entry of scopedEntries(current)) {
+    if (!topicHeads.has(entry.topicId)) topicHeads.set(entry.topicId, entry);
+  }
+  const next = [...topicHeads.values()]
     .filter((entry) => entry.status === "failed")
     .sort((left, right) => left.nextAttemptAt - right.nextAttemptAt)[0];
   if (!next) return;
