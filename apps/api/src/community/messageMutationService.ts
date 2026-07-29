@@ -10,14 +10,15 @@ import { db } from "../db/client";
 import {
   clubChatMessages,
   clubChatTopics,
+  clubMessageAttachments,
   clubMessageMentions,
   communityTopicNotificationSettings,
+  communityNotificationOutbox,
   appNotifications,
   users
 } from "../db/schema";
 import { getMembership } from "../membership/getMembership";
 import {
-  createAppNotification,
   type CreateAppNotificationInput,
   type CreateAppNotificationOptions
 } from "../notifications/create";
@@ -25,7 +26,6 @@ import { createRequestFingerprint } from "../idempotency/operation";
 import { buildMessageAuthor } from "./messageMetadata";
 import { canAuthorMutateMessage, getDeletedContentExpiry } from "./messageLifecycle";
 import { validateMentionRanges, type ValidatedMentionRange } from "./mentions";
-import { shouldNotifyCommunityUser } from "./notificationPolicy";
 import { publishCommunityChange } from "./realtime";
 import { isTopicAccessibleForRole } from "./topicAccess";
 
@@ -97,6 +97,15 @@ export interface MessageMutationRepository {
     topicId: string,
     explicitUserIds: string[]
   ): Promise<Array<{ user: MutationUser; mode: CommunityNotificationMode }>>;
+  enqueueNotifications(input: {
+    messageId: string;
+    topicId: string;
+    topicTitle: string;
+    senderUserId: string;
+    senderName: string;
+    replyUserId: string | null;
+    mentionUserIds: string[];
+  }): Promise<void>;
 }
 
 export class MessageMutationError extends Error {
@@ -136,7 +145,7 @@ type DeleteMessageInput = {
 
 type MessageMutationDependencies = {
   repository: MessageMutationRepository;
-  createNotification: (
+  createNotification?: (
     input: CreateAppNotificationInput,
     options?: CreateAppNotificationOptions
   ) => Promise<unknown>;
@@ -236,24 +245,8 @@ async function defaultCanUserAccessTopic(user: MutationUser, topic: MutationTopi
   return (await getMembership(user.id)).isActive;
 }
 
-function notificationTitle(reason: "reply" | "mention" | "all", topicTitle: string) {
-  if (reason === "reply") return `Ответ в чате: ${topicTitle}`;
-  if (reason === "mention") return `Вас упомянули: ${topicTitle}`;
-  return `Новое сообщение: ${topicTitle}`;
-}
-
-function notificationBody(
-  reason: "reply" | "mention" | "all",
-  senderName: string,
-  topicTitle: string
-) {
-  if (reason === "reply") return `Новый ответ в чате "${topicTitle}". Автор: ${senderName}.`;
-  if (reason === "mention") return `Новое упоминание в чате "${topicTitle}". Автор: ${senderName}.`;
-  return `Новое сообщение в чате "${topicTitle}". Автор: ${senderName}.`;
-}
-
 export function createMessageMutationService(dependencies: MessageMutationDependencies) {
-  const { repository, createNotification, canUserAccessTopic, publishChange } = dependencies;
+  const { repository, canUserAccessTopic, publishChange } = dependencies;
 
   async function notifyCreatedMessage(input: {
     message: MutationMessage;
@@ -262,40 +255,15 @@ export function createMessageMutationService(dependencies: MessageMutationDepend
     replyUserId: string | null;
     mentionUserIds: string[];
   }) {
-    const explicitIds = Array.from(new Set([
-      ...(input.replyUserId ? [input.replyUserId] : []),
-      ...input.mentionUserIds
-    ]));
-    const candidates = await repository.listNotificationCandidates(input.topic.id, explicitIds);
-    const mentionedIds = new Set(input.mentionUserIds);
-
-    for (const candidate of candidates) {
-      const replied = candidate.user.id === input.replyUserId;
-      const mentioned = mentionedIds.has(candidate.user.id);
-      if (!shouldNotifyCommunityUser({
-        mode: candidate.mode,
-        mentioned,
-        replied,
-        senderUserId: input.sender.id,
-        recipientUserId: candidate.user.id
-      })) continue;
-      if (!(await canUserAccessTopic(candidate.user, input.topic))) continue;
-
-      const reason = replied ? "reply" : mentioned ? "mention" : "all";
-      const senderName = resolveDisplayName(input.sender);
-      await createNotification({
-        userId: candidate.user.id,
-        kind: "client",
-        title: notificationTitle(reason, input.topic.title),
-        body: notificationBody(reason, senderName, input.topic.title),
-        source: `community_${reason}`,
-        sourceId: input.message.id,
-        pushUrl: `/community/topics/${input.topic.id}?message=${input.message.id}`,
-        deduplicate: true
-      }, {
-        activeCommunityMessageId: input.message.id
-      });
-    }
+    await repository.enqueueNotifications({
+      messageId: input.message.id,
+      topicId: input.topic.id,
+      topicTitle: input.topic.title,
+      senderUserId: input.sender.id,
+      senderName: resolveDisplayName(input.sender),
+      replyUserId: input.replyUserId,
+      mentionUserIds: input.mentionUserIds
+    });
   }
 
   return {
@@ -530,6 +498,10 @@ function createDrizzleStore(database: typeof db): MessageMutationStore {
       return toMutationMessage(updated);
     },
     async markDeletedByAuthor(messageId, deletedAt, expiresAt) {
+      await database
+        .update(clubMessageAttachments)
+        .set({ expiresAt })
+        .where(eq(clubMessageAttachments.messageId, messageId));
       const [updated] = await database
         .update(clubChatMessages)
         .set({
@@ -545,6 +517,7 @@ function createDrizzleStore(database: typeof db): MessageMutationStore {
       return toMutationMessage(updated);
     },
     async deleteMessageNotifications(messageId) {
+      await database.delete(communityNotificationOutbox).where(eq(communityNotificationOutbox.messageId, messageId));
       await database.delete(appNotifications).where(and(
         eq(appNotifications.sourceId, messageId),
         inArray(appNotifications.source, ["community_reply", "community_mention", "community_all"])
@@ -586,6 +559,10 @@ export function createMessageMutationRepository(database: typeof db = db): Messa
         user: row.user,
         mode: (row.mode ?? "mentions") as CommunityNotificationMode
       }));
+    },
+    async enqueueNotifications(input) {
+      const { enqueueCommunityNotifications } = await import("../notifications/communityOutbox");
+      await enqueueCommunityNotifications(input, database);
     }
   };
 }
@@ -594,7 +571,6 @@ export const messageMutationRepository = createMessageMutationRepository();
 
 export const messageMutationService = createMessageMutationService({
   repository: messageMutationRepository,
-  createNotification: createAppNotification,
   canUserAccessTopic: defaultCanUserAccessTopic,
   publishChange: publishCommunityChange
 });

@@ -9,7 +9,10 @@ vi.mock("./realtimeRedis", () => ({
   publishCommunityRealtimeEnvelope: vi.fn(),
   subscribeToCommunityRealtimeEnvelopes: vi.fn()
 }));
-import { createDeletedMessageCleanup, deletedMessageCleanupBatchSize } from "./deletedMessageCleanup";
+import {
+  createCommunityObjectDeletionCleanup,
+  communityObjectDeletionBatchSize
+} from "./objectDeletionLedger";
 import { loadCommunityDocumentScannerCandidates } from "./documentScanner";
 import {
   loadCommunityMediaProcessorCandidates,
@@ -55,8 +58,9 @@ describe("bounded community load model", () => {
     expect(observed).toEqual([50, 4, 50, 25]);
 
     let claimedLimit = 0;
-    const cleanup = createDeletedMessageCleanup({
+    const cleanup = createCommunityObjectDeletionCleanup({
       repository: {
+        enqueueDue: async () => undefined,
         claimBatch: async ({ limit }) => { claimedLimit = limit; return []; },
         finalize: async () => true,
         release: async () => undefined
@@ -65,8 +69,8 @@ describe("bounded community load model", () => {
       logger: { info: () => undefined, warn: () => undefined }
     });
     await cleanup();
-    expect(claimedLimit).toBe(deletedMessageCleanupBatchSize);
-    expect(deletedMessageCleanupBatchSize).toBeLessThanOrEqual(100);
+    expect(claimedLimit).toBe(communityObjectDeletionBatchSize);
+    expect(communityObjectDeletionBatchSize).toBeLessThanOrEqual(100);
   });
 
   it.each([1, 100])("loads aggregates for %i topics with three set-based repository calls", async (topicCount) => {

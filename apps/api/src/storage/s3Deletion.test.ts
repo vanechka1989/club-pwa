@@ -4,7 +4,7 @@ import type { StoredS3Config } from "./s3Config";
 vi.mock("../db/client", () => ({ db: {} }));
 vi.mock("../env", () => ({ env: {} }));
 vi.mock("../logger", () => ({ logger: { warn: vi.fn() } }));
-import { createDeleteObjectCopies } from "./s3";
+import { createDeleteObjectCompletely, createDeleteObjectCopies } from "./s3";
 
 const primary: StoredS3Config = {
   endpoint: "https://primary.example.com",
@@ -27,6 +27,45 @@ const reserve = {
 };
 
 describe("deleteObjectCopies", () => {
+  it("enumerates and permanently deletes every version and delete marker", async () => {
+    const deleted: Array<{ key: string; versionId: string }> = [];
+    let listing = 0;
+    const remove = createDeleteObjectCompletely({
+      getVersioning: async () => "Enabled",
+      listVersions: async () => listing++ === 0
+        ? {
+            versions: [
+              { key: "community/final/private.webp", versionId: "v2" },
+              { key: "community/final/private.webp", versionId: "v1" },
+              { key: "community/final/private.webp-neighbor", versionId: "other" }
+            ],
+            deleteMarkers: [{ key: "community/final/private.webp", versionId: "marker" }],
+            next: null
+          }
+        : { versions: [], deleteMarkers: [], next: null },
+      deleteVersions: async (_config, objects) => { deleted.push(...objects); },
+      deleteCurrent: vi.fn(async () => undefined)
+    });
+
+    await remove(primary, "community/final/private.webp");
+
+    expect(deleted).toEqual([
+      { key: "community/final/private.webp", versionId: "v2" },
+      { key: "community/final/private.webp", versionId: "v1" },
+      { key: "community/final/private.webp", versionId: "marker" }
+    ]);
+  });
+
+  it("fails closed when bucket versioning state is unknown", async () => {
+    const remove = createDeleteObjectCompletely({
+      getVersioning: async () => "Unknown" as never,
+      listVersions: vi.fn(),
+      deleteVersions: vi.fn(),
+      deleteCurrent: vi.fn()
+    });
+    await expect(remove(primary, "community/final/private.webp")).rejects.toThrow("Unsupported S3 versioning state");
+  });
+
   it("deletes the primary copy when reserve storage is not configured", async () => {
     const deleteFromConfig = vi.fn(async () => undefined);
     const remove = createDeleteObjectCopies({

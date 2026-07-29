@@ -1,4 +1,4 @@
-import { GetBucketLifecycleConfigurationCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetBucketLifecycleConfigurationCommand, GetBucketVersioningCommand, S3Client } from "@aws-sdk/client-s3";
 import { eq } from "drizzle-orm";
 import { db, postgresClient } from "../db/client";
 import { clubSettings } from "../db/schema";
@@ -26,12 +26,25 @@ function createClient(config: StoredS3Config) {
 async function verifyTarget(label: string, config: StoredS3Config) {
   const client = createClient(config);
   try {
-    const response = await client.send(new GetBucketLifecycleConfigurationCommand({ Bucket: config.bucket }));
+    const [response, versioningResponse] = await Promise.all([
+      client.send(new GetBucketLifecycleConfigurationCommand({ Bucket: config.bucket })),
+      client.send(new GetBucketVersioningCommand({ Bucket: config.bucket }))
+    ]);
     const result = validateCommunityLifecycleRules((response.Rules ?? []) as S3LifecycleRule[]);
     if (!result.ok) {
       throw new Error(`${label} bucket ${config.bucket}: ${result.errors.join("; ")}`);
     }
-    return { target: label, bucket: config.bucket, lifecycle: "verified" };
+    const versioning = versioningResponse.Status ?? "Unversioned";
+    if (!(["Unversioned", "Enabled", "Suspended"] as const).includes(versioning)) {
+      throw new Error(`${label} bucket ${config.bucket}: unsupported versioning state ${String(versioning)}`);
+    }
+    return {
+      target: label,
+      bucket: config.bucket,
+      lifecycle: "verified",
+      versioning,
+      deletion: versioning === "Unversioned" ? "current-object" : "all-versions-and-delete-markers"
+    };
   } finally {
     client.destroy();
   }

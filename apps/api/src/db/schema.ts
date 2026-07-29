@@ -30,6 +30,7 @@ export const users = pgTable(
     avatarPositionX: integer("avatar_position_x").notNull().default(50),
     avatarPositionY: integer("avatar_position_y").notNull().default(50),
     avatarScale: integer("avatar_scale").notNull().default(100),
+    communityAccessVersion: integer("community_access_version").notNull().default(1),
     telegramBotStatus: varchar("telegram_bot_status", { length: 16 }).notNull().default("unknown"),
     telegramBotBlockedAt: timestamp("telegram_bot_blocked_at", { withTimezone: true }),
     telegramBotUnblockedAt: timestamp("telegram_bot_unblocked_at", { withTimezone: true }),
@@ -899,6 +900,8 @@ export const clubChatMessages = pgTable(
     deletedContentExpiresAt: timestamp("deleted_content_expires_at", { withTimezone: true }),
     deletedCleanupClaimId: uuid("deleted_cleanup_claim_id"),
     deletedCleanupClaimedAt: timestamp("deleted_cleanup_claimed_at", { withTimezone: true }),
+    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
+    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -945,6 +948,8 @@ export const clubMessageAttachments = pgTable(
     scanStatus: varchar("scan_status", { length: 16 }).notNull().default("ready"),
     scannedAt: timestamp("scanned_at", { withTimezone: true }),
     scanError: varchar("scan_error", { length: 160 }),
+    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
+    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
@@ -986,6 +991,8 @@ export const communityUploadManifests = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
+    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -1018,6 +1025,8 @@ export const communityMediaCandidates = pgTable(
     result: jsonb("result").$type<Record<string, unknown>>().notNull(),
     status: varchar("status", { length: 32 }).notNull().default("staged"),
     errorCode: varchar("error_code", { length: 160 }),
+    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
+    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -1033,12 +1042,112 @@ export const communityMediaCandidates = pgTable(
   })
 );
 
+export const communityObjectDeletionJobs = pgTable(
+  "community_object_deletion_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceType: varchar("source_type", { length: 32 }).notNull(),
+    sourceId: uuid("source_id").notNull(),
+    action: varchar("action", { length: 32 }).notNull(),
+    expectedLifecycleVersion: integer("expected_lifecycle_version"),
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    claimId: uuid("claim_id"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    notBefore: timestamp("not_before", { withTimezone: true }).notNull().defaultNow(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: varchar("last_error", { length: 500 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    sourceActionIdx: uniqueIndex("community_object_deletion_jobs_source_action_idx")
+      .on(table.sourceType, table.sourceId, table.action),
+    claimIdx: index("community_object_deletion_jobs_claim_idx").on(table.status, table.notBefore, table.claimedAt),
+    statusCheck: check(
+      "community_object_deletion_jobs_status_check",
+      sql`${table.status} in ('pending','claimed')`
+    ),
+    actionCheck: check(
+      "community_object_deletion_jobs_action_check",
+      sql`${table.action} in ('objects_only','redact_message','delete_message','delete_attachment','delete_manifest')`
+    )
+  })
+);
+
+export const communityObjectDeletionEntries = pgTable(
+  "community_object_deletion_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id").notNull().references(() => communityObjectDeletionJobs.id, { onDelete: "cascade" }),
+    objectKey: text("object_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    jobKeyIdx: uniqueIndex("community_object_deletion_entries_job_key_idx").on(table.jobId, table.objectKey),
+    jobIdx: index("community_object_deletion_entries_job_idx").on(table.jobId)
+  })
+);
+
+export const communityMessagePurgeRequests = pgTable(
+  "community_message_purge_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestKey: varchar("request_key", { length: 160 }).notNull(),
+    topicId: uuid("topic_id").notNull(),
+    userId: uuid("user_id"),
+    includeSystem: boolean("include_system").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    requestKeyIdx: uniqueIndex("community_message_purge_requests_key_idx").on(table.requestKey),
+    createdIdx: index("community_message_purge_requests_created_idx").on(table.createdAt, table.id)
+  })
+);
+
+export const communityNotificationOutbox = pgTable(
+  "community_notification_outbox",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id").notNull(),
+    messageId: uuid("message_id").notNull(),
+    accessVersion: integer("access_version").notNull(),
+    reason: varchar("reason", { length: 16 }).notNull(),
+    title: varchar("title", { length: 180 }).notNull(),
+    body: text("body").notNull(),
+    pushUrl: text("push_url").notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("pending"),
+    claimId: uuid("claim_id"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    lastError: varchar("last_error", { length: 500 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    deliveryIdx: uniqueIndex("community_notification_outbox_delivery_idx")
+      .on(table.userId, table.messageId, table.reason),
+    claimIdx: index("community_notification_outbox_claim_idx").on(table.status, table.nextAttemptAt, table.claimedAt),
+    statusCheck: check(
+      "community_notification_outbox_status_check",
+      sql`${table.status} in ('pending','claimed')`
+    ),
+    reasonCheck: check(
+      "community_notification_outbox_reason_check",
+      sql`${table.reason} in ('reply','mention','all')`
+    )
+  })
+);
+
 export const communityTopicReads = pgTable(
   "community_topic_reads",
   {
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     topicId: uuid("topic_id").notNull().references(() => clubChatTopics.id, { onDelete: "cascade" }),
-    lastReadMessageId: uuid("last_read_message_id").references(() => clubChatMessages.id, { onDelete: "set null" }),
+    lastReadMessageId: uuid("last_read_message_id").notNull(),
+    lastReadCreatedAt: timestamp("last_read_created_at", { withTimezone: true }).notNull(),
     lastReadAt: timestamp("last_read_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
@@ -1206,6 +1315,8 @@ export const appNotifications = pgTable(
     bodyHtml: text("body_html"),
     source: varchar("source", { length: 64 }),
     sourceId: uuid("source_id"),
+    communityTopicId: uuid("community_topic_id"),
+    communityAccessVersion: integer("community_access_version"),
     attachmentKind: varchar("attachment_kind", { length: 16 }),
     attachmentFileName: varchar("attachment_file_name", { length: 255 }),
     attachmentObjectKey: text("attachment_object_key"),

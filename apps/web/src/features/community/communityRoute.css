@@ -864,6 +864,13 @@ body.club-mobile-device .app-root.desktop-mobile-preview.community-chat-open {
   transform: translateX(-50%);
 }
 
+.community-message-read-end {
+  width: 1px;
+  height: 1px;
+  align-self: flex-end;
+  pointer-events: none;
+}
+
 body.club-mobile-device .app-root.desktop-mobile-preview .chat-search-layer.task-screen-route-layer {
   width: 100%;
   max-width: 100%;

@@ -436,7 +436,7 @@ onBeforeUnmount(resetLocalDrafts);
             @keydown="handleComposerKeydown"
           />
           <ChatMentionPicker
-            v-if="mentionToken?.query"
+            v-if="mentionToken"
             ref="mentionPicker"
             :query="mentionToken.query"
             :listbox-id="mentionListboxId"

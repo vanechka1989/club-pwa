@@ -7,6 +7,7 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import {
   communityMentionSchema,
+  communityMessageSearchCursorSchema,
   communityMessageEditRequestSchema,
   communityMessageSearchQuerySchema,
   communityParticipantSuggestionsQuerySchema,
@@ -22,11 +23,15 @@ import {
 } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
+import {
+  enqueueCommunityMessageDeletion,
+  enqueueCommunityMessageDeletionBatch
+} from "../community/objectDeletionLedger";
 import { createCommunityUploadService, type CommunityUploadResult } from "../community/directUpload";
 import { validateCommunityOoxml } from "../community/ooxmlValidation";
-import { buildMessageAuthor, buildReplyPreview, getAuthorMutationView, getMessageContentView, summarizeReactions } from "../community/messageMetadata";
+import { buildMessageAuthor, getAuthorMutationView, getMessageContentView, resolveReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { MessageMutationError, messageMutationService } from "../community/messageMutationService";
-import { decodeSearchCursor, loadMessageContext, loadSafeReplyMessage, searchCommunityMessages } from "../community/messageSearch";
+import { decodeSearchCursor, encodeSearchCursor, loadMessageContext, searchCommunityMessages } from "../community/messageSearch";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { getArchiveExpirationDate } from "../community/topicArchive";
 import { loadCommunityTopicAggregates } from "../community/topicAggregates";
@@ -70,7 +75,7 @@ const chatPayloadSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional()
 });
 const messagePageQuerySchema = z.object({
-  before: z.string().datetime({ offset: true }).optional(),
+  before: communityMessageSearchCursorSchema.optional(),
   limit: z.coerce.number().int().min(20).transform((value) => Math.min(value, 100)).default(50)
 });
 const messageContextQuerySchema = z.object({
@@ -651,6 +656,7 @@ async function getDatabaseServerNow() {
 
 async function serializeMessage(
   message: typeof clubChatMessages.$inferSelect & {
+    preciseCreatedAt?: string;
     user: {
       id: string;
       telegramId: string;
@@ -664,7 +670,6 @@ async function serializeMessage(
   },
   currentUserId: string,
   role: UserRole,
-  safeReplyPreview = false,
   lifecycle?: {
     topic: Pick<typeof clubChatTopics.$inferSelect, "isLocked" | "isPublished">;
     serverNow: Date;
@@ -684,12 +689,16 @@ async function serializeMessage(
     : [];
   const replyTo = !content.revealContent || !message.replyToMessageId
     ? null
-    : safeReplyPreview
-      ? await loadSafeReplyMessage({ topicId: message.topicId, messageId: message.replyToMessageId })
-      : await db.query.clubChatMessages.findFirst({
-          where: eq(clubChatMessages.id, message.replyToMessageId),
+    : await resolveReplyPreview({
+        topicId: message.topicId,
+        replyToMessageId: message.replyToMessageId,
+        role,
+        now: serverNow,
+        loadReply: async ({ topicId, messageId }) => (await db.query.clubChatMessages.findFirst({
+          where: and(eq(clubChatMessages.id, messageId), eq(clubChatMessages.topicId, topicId)),
           with: { user: true }
-        });
+        })) ?? null
+      });
   const reactionSummary = summarizeReactions(reactions, currentUserId);
   const authorMute = await getActiveMute(message.user.id);
   const attachments = content.revealContent
@@ -750,8 +759,6 @@ async function serializeMessage(
         with: { user: true }
       })
     : [];
-  const replyContent = replyTo ? getMessageContentView(replyTo, role) : null;
-
   return {
     id: message.id,
     topicId: message.topicId,
@@ -842,7 +849,7 @@ async function serializeMessage(
     isSystem: message.isSystem,
     status: message.status,
     author: buildMessageAuthor(message.user),
-    replyTo: buildReplyPreview(replyTo ?? null, replyContent?.body),
+    replyTo,
     likesCount: reactionSummary.likesCount,
     dislikesCount: reactionSummary.dislikesCount,
     reactionCounts: reactionSummary.reactionCounts,
@@ -871,7 +878,7 @@ async function serializeMessage(
       start: mention.startOffset,
       end: mention.endOffset
     })),
-    createdAt: message.createdAt.toISOString()
+    createdAt: message.preciseCreatedAt ?? message.createdAt.toISOString()
   };
 }
 
@@ -987,12 +994,6 @@ async function canReceiveCommunityEvent(
   });
 
   return Boolean(topic && isTopicAccessibleForRole(topic, role));
-}
-
-async function purgeExpiredDeletedMessages(now = new Date()) {
-  await db
-    .delete(clubChatMessages)
-    .where(and(eq(clubChatMessages.status, "deleted"), lte(clubChatMessages.purgeAt, now)));
 }
 
 function mutationErrorResponse(c: Context, error: unknown) {
@@ -1619,7 +1620,6 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid message search cursor" }, 400);
     }
 
-    await purgeExpiredDeletedMessages();
     if (query.data.topicId) {
       const topic = await getAccessibleTopic(query.data.topicId, role);
       if (!topic) {
@@ -1653,7 +1653,6 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid message context" }, 400);
     }
 
-    await purgeExpiredDeletedMessages();
     const topic = await getAccessibleTopic(path.data.topicId, role);
     if (!topic) {
       return c.json({ error: "Topic not found" }, 404);
@@ -1676,7 +1675,6 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         message,
         c.get("userId"),
         role,
-        true,
         { topic, serverNow }
       ))),
       serverTime: serverNow.toISOString()
@@ -1689,8 +1687,6 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return accessError;
     }
 
-    await purgeExpiredDeletedMessages();
-
     const topic = await getAccessibleTopic(c.req.param("id"), role);
 
     if (!topic) {
@@ -1699,15 +1695,31 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     const query = messagePageQuerySchema.safeParse(c.req.query());
     if (!query.success) return c.json({ error: "Invalid message page" }, 400);
+    const before = query.data.before ? decodeSearchCursor(query.data.before) : undefined;
+    if (query.data.before && !before) return c.json({ error: "Invalid message page" }, 400);
     const visibilityWhere = role === "member" ? eq(clubChatMessages.status, "visible") : undefined;
     const messages = await db.query.clubChatMessages.findMany({
       where: and(
         eq(clubChatMessages.topicId, topic.id),
         visibilityWhere,
-        query.data.before ? lt(clubChatMessages.createdAt, new Date(query.data.before)) : undefined
+        before
+          ? or(
+              sql`${clubChatMessages.createdAt} < ${before.createdAt}::timestamptz`,
+              and(
+                sql`${clubChatMessages.createdAt} = ${before.createdAt}::timestamptz`,
+                lt(clubChatMessages.id, before.messageId)
+              )
+            )
+          : undefined
       ),
-      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
       limit: query.data.limit + 1,
+      extras: {
+        preciseCreatedAt: sql<string>`to_char(
+          ${clubChatMessages.createdAt} at time zone 'UTC',
+          'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+        )`.as("precise_created_at")
+      },
       with: {
         user: true
       }
@@ -1722,10 +1734,14 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         message,
         c.get("userId"),
         role,
-        false,
         { topic, serverNow }
       ))),
-      nextCursor: hasMore ? pageMessages.at(-1)?.createdAt.toISOString() ?? null : null,
+      nextCursor: hasMore && pageMessages.at(-1)
+        ? encodeSearchCursor({
+            createdAt: pageMessages.at(-1)!.preciseCreatedAt,
+            messageId: pageMessages.at(-1)!.id
+          })
+        : null,
       ...serializeMute(mute),
       serverTime: serverNow.toISOString()
     });
@@ -1868,8 +1884,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         expiresAt: getCommunityMediaExpiry(role)
       });
     } catch (error) {
-      await deleteObject(key).catch(() => undefined);
-      await db.delete(clubChatMessages).where(eq(clubChatMessages.id, message.id));
+      await deleteObjectCopies(key).catch(() => undefined);
+      await db.update(clubChatMessages).set({ status: "deleted", purgeAt: new Date(), updatedAt: new Date() })
+        .where(eq(clubChatMessages.id, message.id));
+      await enqueueCommunityMessageDeletion(message.id).catch(() => undefined);
       logger.warn({ error, messageId: message.id }, "voice message upload failed");
       return c.json({ error: "Unable to upload voice message" }, 500);
     }
@@ -1944,8 +1962,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         });
       }
     } catch (error) {
-      for (const key of uploadedKeys) await deleteObject(key).catch(() => undefined);
-      await db.delete(clubChatMessages).where(eq(clubChatMessages.id, message.id));
+      for (const key of uploadedKeys) await deleteObjectCopies(key).catch(() => undefined);
+      await db.update(clubChatMessages).set({ status: "deleted", purgeAt: new Date(), updatedAt: new Date() })
+        .where(eq(clubChatMessages.id, message.id));
+      await enqueueCommunityMessageDeletion(message.id).catch(() => undefined);
       logger.warn({ error, messageId: message.id }, "image message upload failed");
       return c.json({ error: "Unable to upload images" }, 500);
     }
@@ -2130,10 +2150,8 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Topic not found" }, 404);
     }
 
-    await purgeExpiredDeletedMessages();
-
     if (shouldHardDeleteMessages(role)) {
-      await db.delete(clubChatMessages).where(eq(clubChatMessages.topicId, topic.id));
+      await enqueueCommunityMessageDeletionBatch({ topicId: topic.id, includeSystem: true });
     } else {
       const now = new Date();
       await db
@@ -2178,8 +2196,6 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "User not found" }, 404);
     }
 
-    await purgeExpiredDeletedMessages();
-
     const filter = and(
       eq(clubChatMessages.topicId, topic.id),
       eq(clubChatMessages.userId, targetUser.id),
@@ -2187,7 +2203,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     );
 
     if (shouldHardDeleteMessages(role)) {
-      await db.delete(clubChatMessages).where(filter);
+      await enqueueCommunityMessageDeletionBatch({ topicId: topic.id, userId: targetUser.id });
     } else {
       const now = new Date();
       await db

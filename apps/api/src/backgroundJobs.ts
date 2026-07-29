@@ -8,11 +8,11 @@ export async function startBackgroundJobs() {
   const [
     { startExpiredPendingPaymentOrderCleanup },
     { startMailingDispatcher, stopMailingDispatcher },
-    { startCommunityMediaCleanupJob },
+    { startCommunityObjectDeletionCleanupJob },
     { startCommunityMediaProcessorJob },
     { startCommunityUploadExpiryCleanupJob },
     { startCommunityDocumentScannerJob },
-    { startDeletedMessageCleanupJob },
+    { startCommunityNotificationOutboxJob },
     { startPaymentReconciliationJob },
     { startMembershipExpiryReminderJob },
     { startErrorTrackerCleanupJob }
@@ -20,11 +20,11 @@ export async function startBackgroundJobs() {
     await Promise.all([
       import("./payments/orderCleanupJob"),
       import("./routes/mailings"),
-      import("./community/mediaCleanup"),
+      import("./community/objectDeletionLedger"),
       import("./community/mediaProcessor"),
       import("./community/uploadSessions"),
       import("./community/documentScanner"),
-      import("./community/deletedMessageCleanup"),
+      import("./notifications/communityOutbox"),
       import("./payments/paymentReconciliation"),
       import("./membership/expiryReminderJob"),
       import("./errorTracker/cleanupJob")
@@ -32,24 +32,24 @@ export async function startBackgroundJobs() {
 
   const orderCleanupTimer = startExpiredPendingPaymentOrderCleanup();
   startMailingDispatcher();
-  const mediaCleanupTimer = startCommunityMediaCleanupJob();
+  const communityObjectDeletionJob = startCommunityObjectDeletionCleanupJob();
   const communityMediaProcessorJob = startCommunityMediaProcessorJob();
   const communityUploadExpiryCleanupJob = startCommunityUploadExpiryCleanupJob();
   const communityDocumentScannerJob = startCommunityDocumentScannerJob();
-  const deletedMessageCleanupJob = startDeletedMessageCleanupJob();
+  const communityNotificationOutboxJob = startCommunityNotificationOutboxJob();
   const paymentReconciliationTimer = startPaymentReconciliationJob();
   const membershipExpiryReminderTimer = startMembershipExpiryReminderJob();
   const errorTrackerCleanupTimer = startErrorTrackerCleanupJob();
   return async () => {
     clearInterval(orderCleanupTimer);
     stopMailingDispatcher();
-    clearInterval(mediaCleanupTimer);
     clearInterval(paymentReconciliationTimer);
     clearInterval(membershipExpiryReminderTimer);
     clearInterval(errorTrackerCleanupTimer);
     await communityMediaProcessorJob.stop();
     await communityUploadExpiryCleanupJob.stop();
     await communityDocumentScannerJob.stop();
-    await deletedMessageCleanupJob.stop();
+    await communityNotificationOutboxJob.stop();
+    await communityObjectDeletionJob.stop();
   };
 }

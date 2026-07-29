@@ -153,6 +153,9 @@ describe("authoritative community topic state", () => {
     for (const item of messages) {
       const element = document.createElement("article");
       element.id = `chat-message-${item.id}`;
+      const sentinel = document.createElement("span");
+      sentinel.dataset.communityReadEnd = item.id;
+      element.append(sentinel);
       container.append(element);
     }
 
@@ -165,6 +168,43 @@ describe("authoritative community topic state", () => {
       observed.map((target) => ({ target, isIntersecting: true, intersectionRatio: 1 })) as IntersectionObserverEntry[],
       {} as IntersectionObserver
     );
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(markRead).toHaveBeenCalledWith(topicId, newerId);
+    state.dispose();
+  });
+
+  it("marks a message taller than two viewports read when its end sentinel appears", async () => {
+    vi.useFakeTimers();
+    let observerCallback: IntersectionObserverCallback | null = null;
+    const observed: Element[] = [];
+    const markRead = vi.fn().mockResolvedValue({
+      unreadCount: 0,
+      lastReadMessageId: newerId,
+      notificationMode: "mentions"
+    });
+    const state = useCommunityTopicState({
+      markRead,
+      createObserver: (callback) => {
+        observerCallback = callback;
+        return { observe: (element) => observed.push(element), disconnect: vi.fn() };
+      }
+    });
+    const container = document.createElement("div");
+    const tallMessage = document.createElement("article");
+    tallMessage.id = `chat-message-${newerId}`;
+    Object.defineProperty(tallMessage, "scrollHeight", { value: 2_400 });
+    const sentinel = document.createElement("span");
+    sentinel.dataset.communityReadEnd = newerId;
+    tallMessage.append(sentinel);
+    container.append(tallMessage);
+
+    state.selectTopic(topicId, [messages[0]!]);
+    state.observeVisibleMessages(container);
+    expect(observed).toEqual([sentinel]);
+    observerCallback!([
+      { target: sentinel, isIntersecting: true, intersectionRatio: 0.01 } as unknown as IntersectionObserverEntry
+    ], {} as IntersectionObserver);
     await vi.advanceTimersByTimeAsync(400);
 
     expect(markRead).toHaveBeenCalledWith(topicId, newerId);

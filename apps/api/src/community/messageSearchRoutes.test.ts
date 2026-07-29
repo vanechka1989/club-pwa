@@ -31,6 +31,9 @@ const mocks = vi.hoisted(() => ({
   search: vi.fn(),
   loadContext: vi.fn(),
   topicFindFirst: vi.fn(),
+  messageFindFirst: vi.fn(),
+  messageFindMany: vi.fn(),
+  muteFindFirst: vi.fn(),
   purgeWhere: vi.fn(),
   execute: vi.fn()
 }));
@@ -42,9 +45,11 @@ vi.mock("../db/client", () => ({
     query: {
       clubChatTopics: { findFirst: mocks.topicFindFirst },
       clubMessageReactions: { findMany: vi.fn(async () => []) },
-      clubChatMessages: { findFirst: vi.fn(async () => null) },
+      clubChatMessages: { findFirst: mocks.messageFindFirst, findMany: mocks.messageFindMany },
       clubMessageAttachments: { findMany: vi.fn(async () => []) },
-      clubPolls: { findFirst: vi.fn(async () => null) }
+      clubMessageMentions: { findMany: vi.fn(async () => []) },
+      clubPolls: { findFirst: vi.fn(async () => null) },
+      userMutes: { findFirst: mocks.muteFindFirst }
     }
   }
 }));
@@ -131,6 +136,9 @@ describe("secure community message search routes", () => {
     mocks.purgeWhere.mockResolvedValue(undefined);
     mocks.search.mockResolvedValue({ results: [], nextCursor: null });
     mocks.loadContext.mockResolvedValue(null);
+    mocks.messageFindMany.mockResolvedValue([]);
+    mocks.messageFindFirst.mockResolvedValue(null);
+    mocks.muteFindFirst.mockResolvedValue(null);
     mocks.execute.mockResolvedValue([{ now: new Date("2026-07-28T12:00:00.000Z") }]);
   });
 
@@ -151,6 +159,88 @@ describe("secure community message search routes", () => {
     });
     expect(mocks.readRateCalls).toEqual(["search"]);
   });
+
+  it("accepts the exact opaque tuple cursor for ordinary topic history", async () => {
+    const cursor = encodeSearchCursor({ createdAt, messageId });
+
+    const response = await communityRoute.request(
+      `/topics/${topicId}/messages?before=${encodeURIComponent(cursor)}&limit=20`
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ messages: [], nextCursor: null });
+  });
+
+  it.each(["hidden", "deleted"] as const)(
+    "never exposes a moderation-%s reply target to members but keeps moderator policy explicit",
+    async (status) => {
+      const replyTargetId = "00000000-0000-4000-8000-000000000100";
+      const secret = "секретный текст модерации";
+      const user = {
+        id: "00000000-0000-4000-8000-000000000002",
+        telegramId: "author@example.test",
+        firstName: "Автор",
+        username: null,
+        displayName: null,
+        photoUrl: null,
+        avatarPositionX: 50,
+        avatarPositionY: 50,
+        avatarScale: 100
+      };
+      const base = {
+        id: messageId,
+        topicId,
+        userId: user.id,
+        replyToMessageId: replyTargetId,
+        body: "Ответ",
+        kind: "text",
+        isSystem: false,
+        status: "visible" as const,
+        moderatedByUserId: null,
+        moderatedAt: null,
+        moderationReason: null,
+        pinnedAt: null,
+        pinnedByUserId: null,
+        purgeAt: null,
+        clientOperationId: null,
+        createRequestFingerprint: null,
+        editedAt: null,
+        deletedByUserAt: null,
+        deletedContentExpiresAt: null,
+        deletedCleanupClaimId: null,
+        deletedCleanupClaimedAt: null,
+        lifecycleVersion: 0,
+        terminalCleanupAt: null,
+        createdAt: new Date("2026-07-28T12:00:00.123Z"),
+        preciseCreatedAt: createdAt,
+        updatedAt: new Date("2026-07-28T12:00:00.123Z"),
+        user
+      };
+      mocks.messageFindMany.mockResolvedValue([base]);
+      mocks.messageFindFirst.mockResolvedValue({
+        ...base,
+        id: replyTargetId,
+        replyToMessageId: null,
+        body: secret,
+        status
+      });
+
+      const memberResponse = await communityRoute.request(`/topics/${topicId}/messages?limit=20`);
+      const memberJson = await memberResponse.json() as { messages: Array<{ replyTo: unknown }> };
+      expect(memberResponse.status).toBe(200);
+      expect(memberJson.messages[0]?.replyTo).toEqual({
+        id: replyTargetId,
+        body: "Сообщение удалено",
+        author: null
+      });
+      expect(JSON.stringify(memberJson)).not.toContain(secret);
+
+      mocks.role = "admin";
+      const moderatorResponse = await communityRoute.request(`/topics/${topicId}/messages?limit=20`);
+      const moderatorJson = await moderatorResponse.json() as { messages: Array<{ replyTo: { body: string } }> };
+      expect(moderatorJson.messages[0]?.replyTo.body).toBe(secret);
+    }
+  );
 
   it("returns a controlled 400 for a semantically malformed opaque cursor", async () => {
     const malformed = Buffer.from(`not-a-date|${messageId}`).toString("base64url");

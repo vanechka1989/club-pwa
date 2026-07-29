@@ -4,9 +4,9 @@ This runbook is a blocking checklist for the first production release of the rel
 
 ## Before pushing the release SHA
 
-1. Run `pnpm test:release`, `pnpm check`, `pnpm test`, `pnpm build`, and `pnpm test:e2e:release` separately. The external community gate must execute 31 tests with zero skips on the GitHub runner.
+1. Run `pnpm test:release`, `pnpm check`, `pnpm test`, `pnpm build`, and `pnpm test:e2e:release` separately. The external community gate must execute 39 tests with zero skips on the GitHub runner.
 2. Confirm the production host has at least **8 GiB** of physical RAM and at least **1 GiB MemAvailable** immediately before deployment. Swap does not replace either requirement. The persistent Compose hard limits total **6.5 GiB**: PostgreSQL 512 MiB, API 512 MiB, worker 1 GiB, web 128 MiB, Caddy 128 MiB, Redis 256 MiB, and ClamAV 4 GiB. Migration and upload-permission containers are bounded transient work in addition to this total.
-3. Apply and read back the required S3 lifecycle configuration on the primary bucket and, when configured, the reserve bucket. The automated `s3-lifecycle` phase requires exactly one unconditional pending-expiry rule at one day, one candidate-expiry rule at seven days, and one multipart-abort rule at one day. It fails closed for missing, disabled, duplicate, conditional, broader, additional, or wrong-delay community rules.
+3. Apply and read back the required S3 lifecycle configuration on the primary bucket and, when configured, the reserve bucket. The automated `s3-lifecycle` phase requires exactly one unconditional pending-expiry rule at one day, one candidate-expiry rule at seven days, and one multipart-abort rule at one day. It also records each bucket's versioning state and the corresponding complete-deletion mode. It fails closed for missing, disabled, duplicate, conditional, broader, additional, or wrong-delay community rules, or when versioning cannot be read.
 4. Confirm ClamAV can load signatures with its persistent volume and becomes healthy. API readiness intentionally remains independent, but this deployment gate requires PostgreSQL, Redis, and ClamAV to be healthy before and after reconciliation.
 
 Useful host checks:
@@ -34,16 +34,17 @@ dependency health, public `/api/health`, public `/api/ready`, and rendered PWA h
 
 The `backup-before-migration` phase creates a custom-format PostgreSQL dump, uploads it below `system/database-backups/`, and validates the uploaded object size. Any failure stops deployment before `drizzle-kit migrate` runs. Retain the backup key from the log and confirm the most recent isolated restore verification is successful.
 
-Migrations `0063_reliable_community_chat` through `0066_community_media_candidates` are forward-only and old-client compatible:
+Migrations `0063_reliable_community_chat` through `0067_community_chat_privacy_fencing` are forward-only and old-client compatible:
 
-- `0063` adds read/notification/mention tables, nullable message lifecycle columns, attachment scan columns with safe defaults, and indexes;
-- `0064` adds nullable idempotency and cleanup-claim columns plus an index;
-- `0065` adds the upload manifest table and extends only its new status constraint;
-- `0066` adds the media candidate ledger and indexes.
+- `0063_reliable_community_chat` adds read/notification/mention tables, nullable message lifecycle columns, attachment scan columns with safe defaults, and indexes;
+- `0064_community_message_reliability` adds nullable idempotency and cleanup-claim columns plus an index;
+- `0065_community_upload_manifests` adds the upload manifest table and extends only its new status constraint;
+- `0066_community_media_candidates` adds the media candidate ledger and indexes;
+- `0067_community_chat_privacy_fencing` backfills durable read tuples, keeps transitional old-image read writes synchronized with a trigger, removes the deleting read-pointer foreign key, adds lifecycle fences, a source-independent object-deletion ledger, bounded purge intents, access versions, and the community notification outbox. It removes only unrecoverable legacy community notifications during backfill and deduplicates existing community deliveries before creating their unique index.
 
-They do not drop or rename application tables/columns, truncate rows, or delete data. Rolling back application images leaves these additions in place; do not attempt to reverse the schema during an incident. Before the release window, separately check that existing `club_message_attachments.object_key` values are unique because `0063` creates a unique index.
+The first four migrations do not drop or rename application tables/columns, truncate rows, or delete data. Migration `0067` intentionally drops only the `last_read_message_id` foreign-key constraint (the column remains), and may delete legacy community notification rows that cannot be tied to a live topic/access version or duplicate another delivery. Rolling back application images leaves these schema changes in place; do not attempt to reverse the schema during an incident. Before the release window, separately check that existing `club_message_attachments.object_key` values are unique because `0063` creates a unique index.
 
-The `community-cleanup-dry-run` phase executes five separately capped, read-only counts after migration: immediately reclaimable expired/unconsumed manifests; expired/unconsumed completing, processing, normalizing, publishing, or scanning manifests stale for 15 minutes; retryable cleanup media candidates stale for 30 seconds; staged/publishing media candidates stale for two minutes; and quarantined documents. Each query is capped at 1001 rows and the summary reports `deletesPerformed: 0`. Review the JSON in deployment logs; non-zero counts are handled by the bounded worker and are not themselves proof of data loss.
+The `community-cleanup-dry-run` phase executes separately capped, read-only counts after migration for immediately reclaimable and stale manifests, retryable and stale media candidates, quarantined documents, due/stale object-deletion jobs, and pending bulk purge intents. Each query is capped at 1001 rows and the summary reports `deletesPerformed: 0`. Review the JSON in deployment logs; non-zero counts are handled by bounded workers and are not themselves proof of data loss. The staging gate must also list `community/quarantine/` and `community/final/` in primary and reserve storage and prove that every retained key has a live source row or durable deletion-ledger entry.
 
 Once candidate images are built, every later failure restores the previous `latest` tags. If reconciliation has started, the worker force-recreates the changed API/worker and web services, recreates Caddy, and verifies dependency, liveness, readiness, and PWA health against the restored release. Rollback image tags are retained after every failed deployment, including a verified automatic rollback, and are removed only after the new release is verified and its commit is recorded as successful.
 

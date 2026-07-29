@@ -203,14 +203,19 @@ export async function processCommunityDocumentScan(
   }
 
   let statusAttempted = false;
+  let promotedFinalObjectKey: string | null = null;
   try {
     const finalObjectKey = await dependencies.promoteToFinal(attachment.objectKey, attachment.contentType);
+    promotedFinalObjectKey = finalObjectKey;
     await dependencies.mirrorToReserve(finalObjectKey, attachment.contentType);
     statusAttempted = true;
     await dependencies.updateStatus(attachment.id, "ready", null, finalObjectKey);
     await dependencies.deleteCopies(attachment.objectKey).catch(() => undefined);
     return "clean" as const;
   } catch {
+    if (promotedFinalObjectKey) {
+      await dependencies.deleteCopies(promotedFinalObjectKey).catch(() => undefined);
+    }
     if (statusAttempted) throw new Error("scanner_status_reconciliation_required");
     await dependencies.updateStatus(attachment.id, "failed", "storage_copy_failed");
     return "unavailable" as const;
@@ -255,7 +260,7 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
     import("../db/schema"),
     import("../storage/s3")
   ]);
-  const { and, asc, eq, inArray, isNotNull, lte, or } = drizzle;
+  const { and, asc, eq, inArray, isNotNull, isNull, lte, or, sql } = drizzle;
   const now = new Date();
   const staleScanAt = new Date(now.getTime() - documentScanLeaseMs);
   const manifests = await loadCommunityDocumentScannerCandidates(limit, (boundedLimit) =>
@@ -263,6 +268,7 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
       where: and(
         eq(communityUploadManifests.kind, "document"),
         isNotNull(communityUploadManifests.attachmentId),
+        isNull(communityUploadManifests.terminalCleanupAt),
         or(
           inArray(communityUploadManifests.status, [...immediatelyRetryableDocumentScanStatuses]),
           and(eq(communityUploadManifests.status, "scanning"), lte(communityUploadManifests.updatedAt, staleScanAt))
@@ -292,6 +298,7 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
         .where(and(
           eq(communityUploadManifests.id, manifestId),
           isNotNull(communityUploadManifests.attachmentId),
+          isNull(communityUploadManifests.terminalCleanupAt),
           or(
             inArray(communityUploadManifests.status, [...immediatelyRetryableDocumentScanStatuses]),
             and(eq(communityUploadManifests.status, "scanning"), lte(communityUploadManifests.updatedAt, staleScanAt))
@@ -311,6 +318,20 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
           uploadToken: manifest.uploadToken,
           fileName: manifest.fileName
         });
+        const expectedClaim = claimStates.get(manifest.id);
+        if (!expectedClaim) throw new Error("scanner_claim_lost");
+        const reservedAt = new Date();
+        const [reserved] = await db.update(communityUploadManifests).set({
+          finalObjectKey,
+          updatedAt: reservedAt
+        }).where(and(
+          eq(communityUploadManifests.id, manifest.id),
+          eq(communityUploadManifests.status, expectedClaim.status),
+          eq(communityUploadManifests.updatedAt, expectedClaim.updatedAt),
+          isNull(communityUploadManifests.terminalCleanupAt)
+        )).returning({ updatedAt: communityUploadManifests.updatedAt });
+        if (!reserved) throw new Error("scanner_claim_lost");
+        claimStates.set(manifest.id, { status: expectedClaim.status, updatedAt: reserved.updatedAt });
         const metadata = await storage.getObjectMetadata(sourceKey);
         if (!metadata.etag || metadata.contentType !== contentType) throw new Error("document_promotion_mismatch");
         await storage.promoteObjectVersion({ sourceKey, destinationKey: finalObjectKey, expectedETag: metadata.etag, contentType });
@@ -347,20 +368,32 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
             .where(and(
               eq(communityUploadManifests.id, manifestId),
               eq(communityUploadManifests.status, expectedClaim.status),
-              eq(communityUploadManifests.updatedAt, expectedClaim.updatedAt)
+              eq(communityUploadManifests.updatedAt, expectedClaim.updatedAt),
+              isNull(communityUploadManifests.terminalCleanupAt)
             ))
             .returning({ attachmentId: communityUploadManifests.attachmentId, updatedAt: communityUploadManifests.updatedAt });
           if (!updated) throw new Error("scanner_claim_lost");
           claimStates.set(manifestId, { status, updatedAt: updated.updatedAt });
           if (updated?.attachmentId) {
-            await database.update(clubMessageAttachments)
+            const [attachment] = await database.update(clubMessageAttachments)
               .set({
                 scanStatus: status === "cleanup_pending" ? "failed" : status,
                 scanError,
                 scannedAt: new Date(),
                 objectKey: status === "ready" ? finalObjectKey : undefined
               })
-              .where(eq(clubMessageAttachments.id, updated.attachmentId));
+              .where(and(
+                eq(clubMessageAttachments.id, updated.attachmentId),
+                isNull(clubMessageAttachments.deletedAt),
+                isNull(clubMessageAttachments.terminalCleanupAt),
+                sql`exists (
+                  select 1 from club_chat_messages message
+                  where message.id = ${clubMessageAttachments.messageId}
+                    and message.terminal_cleanup_at is null
+                )`
+              ))
+              .returning({ id: clubMessageAttachments.id });
+            if (!attachment) throw new Error("scanner_terminal_fence");
           }
         });
       }

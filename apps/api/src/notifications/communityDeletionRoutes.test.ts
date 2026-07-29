@@ -28,6 +28,8 @@ vi.mock("../middleware/auth", () => ({
 }));
 vi.mock("../storage/s3", () => ({ getObjectReadUrl: vi.fn() }));
 vi.mock("../mailings/notificationTracking", () => ({ recordUnreadMailingNotificationsOpened: vi.fn() }));
+vi.mock("../admin/roles", () => ({ getOwnerTelegramId: vi.fn(async () => "owner@example.test") }));
+vi.mock("../logger", () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
 
 import { notificationsRoute } from "../routes/notifications";
 

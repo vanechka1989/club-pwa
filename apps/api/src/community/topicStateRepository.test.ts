@@ -44,9 +44,10 @@ describe("topic state repository", () => {
     await expect(repository.getReadMessageId(userId, topicId)).resolves.toBe(newerId);
 
     const upsertQuery = dialect.sqlToQuery(execute.mock.calls[1]![0]).sql;
-    expect(upsertQuery).toContain("candidate.created_at > current_message.created_at");
-    expect(upsertQuery).toContain("candidate.created_at = current_message.created_at");
-    expect(upsertQuery).toContain("candidate.id > current_message.id");
+    expect(upsertQuery).toContain("last_read_created_at");
+    expect(upsertQuery).toContain("excluded.last_read_created_at > community_topic_reads.last_read_created_at");
+    expect(upsertQuery).toContain("excluded.last_read_created_at = community_topic_reads.last_read_created_at");
+    expect(upsertQuery).toContain("excluded.last_read_message_id > community_topic_reads.last_read_message_id");
   });
 
   it("rejects a candidate that does not belong to the topic", async () => {
@@ -86,6 +87,8 @@ describe("topic state repository", () => {
 
     expect(execute).toHaveBeenCalledTimes(1);
     const unreadQuery = dialect.sqlToQuery(execute.mock.calls[0]![0]).sql;
+    expect(unreadQuery).toContain("topic_read.last_read_created_at");
+    expect(unreadQuery).not.toContain("left join club_chat_messages read_message");
     expect(unreadQuery).toContain("group by topic_state.topic_id");
     expect(unreadQuery).toContain("candidate.user_id <>");
     expect(unreadQuery).toContain("candidate.is_system = false");

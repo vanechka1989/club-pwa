@@ -11,7 +11,8 @@ describe("community media routes", () => {
     expect(route).toContain("getCommunityMediaExpiry(role");
     expect(route).toContain("validateCommunityImageFiles(files)");
     expect(route).toContain("durationSeconds > 300");
-    expect(route).toContain("await deleteObject(key)");
+    expect(route).toContain("await deleteObjectCopies(key)");
+    expect(route).toContain("enqueueCommunityMessageDeletion(message.id)");
   });
 
   it("creates and consumes direct-upload media through the canonical topic message route", () => {

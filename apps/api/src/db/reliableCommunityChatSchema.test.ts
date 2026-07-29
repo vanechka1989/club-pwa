@@ -4,19 +4,26 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import migrationJournal from "../../drizzle/meta/_journal.json";
 import {
+  appNotifications,
   clubChatMessages,
   clubMessageAttachments,
   clubMessageMentions,
   communityMediaCandidates,
+  communityMessagePurgeRequests,
+  communityNotificationOutbox,
+  communityObjectDeletionEntries,
+  communityObjectDeletionJobs,
   communityUploadManifests,
   communityTopicNotificationSettings,
-  communityTopicReads
+  communityTopicReads,
+  users
 } from "./schema";
 
 const migration = readFileSync(new URL("../../drizzle/0063_reliable_community_chat.sql", import.meta.url), "utf8");
 const reliabilityMigration = readFileSync(new URL("../../drizzle/0064_community_message_reliability.sql", import.meta.url), "utf8");
 const uploadManifestMigration = readFileSync(new URL("../../drizzle/0065_community_upload_manifests.sql", import.meta.url), "utf8");
 const mediaCandidateMigration = readFileSync(new URL("../../drizzle/0066_community_media_candidates.sql", import.meta.url), "utf8");
+const privacyFencingMigration = readFileSync(new URL("../../drizzle/0067_community_chat_privacy_fencing.sql", import.meta.url), "utf8");
 
 const foreignKeys = (table: Parameters<typeof getTableConfig>[0]) =>
   getTableConfig(table).foreignKeys.map((key) => {
@@ -30,23 +37,17 @@ const foreignKeys = (table: Parameters<typeof getTableConfig>[0]) =>
   });
 
 describe("reliable community chat Drizzle metadata", () => {
-  it("models per-user read positions with a composite key and deleting foreign keys", () => {
+  it("keeps an immutable read tuple after the referenced message is hard-deleted", () => {
     const config = getTableConfig(communityTopicReads);
 
     expect(config.name).toBe("community_topic_reads");
     expect(config.primaryKeys[0]?.columns.map((column) => column.name)).toEqual(["user_id", "topic_id"]);
-    expect(foreignKeys(communityTopicReads)).toEqual(
-      expect.arrayContaining([
-        { columns: ["user_id"], foreignTable: "users", foreignColumns: ["id"], onDelete: "cascade" },
-        { columns: ["topic_id"], foreignTable: "club_chat_topics", foreignColumns: ["id"], onDelete: "cascade" },
-        {
-          columns: ["last_read_message_id"],
-          foreignTable: "club_chat_messages",
-          foreignColumns: ["id"],
-          onDelete: "set null"
-        }
-      ])
-    );
+    expect(foreignKeys(communityTopicReads)).toEqual([
+      { columns: ["user_id"], foreignTable: "users", foreignColumns: ["id"], onDelete: "cascade" },
+      { columns: ["topic_id"], foreignTable: "club_chat_topics", foreignColumns: ["id"], onDelete: "cascade" }
+    ]);
+    expect(communityTopicReads.lastReadMessageId.notNull).toBe(true);
+    expect(communityTopicReads.lastReadCreatedAt.notNull).toBe(true);
     expect(communityTopicReads.lastReadAt.notNull).toBe(true);
     expect(communityTopicReads.lastReadAt.hasDefault).toBe(true);
   });
@@ -108,6 +109,40 @@ describe("reliable community chat Drizzle metadata", () => {
     expect(config.indexes.find((item) => item.config.name === "community_media_candidates_final_key_idx")?.config.unique).toBe(true);
     expect(config.checks.map((item) => item.name)).toContain("community_media_candidates_status_check");
   });
+
+  it("models source-independent object deletion jobs and bounded purge intents", () => {
+    const jobConfig = getTableConfig(communityObjectDeletionJobs);
+    const entryConfig = getTableConfig(communityObjectDeletionEntries);
+    const requestConfig = getTableConfig(communityMessagePurgeRequests);
+
+    expect(jobConfig.checks.map((item) => item.name)).toEqual(expect.arrayContaining([
+      "community_object_deletion_jobs_status_check",
+      "community_object_deletion_jobs_action_check"
+    ]));
+    expect(jobConfig.indexes.find((item) => item.config.name === "community_object_deletion_jobs_source_action_idx")?.config.unique).toBe(true);
+    expect(entryConfig.indexes.find((item) => item.config.name === "community_object_deletion_entries_job_key_idx")?.config.unique).toBe(true);
+    expect(foreignKeys(communityObjectDeletionEntries)).toContainEqual({
+      columns: ["job_id"],
+      foreignTable: "community_object_deletion_jobs",
+      foreignColumns: ["id"],
+      onDelete: "cascade"
+    });
+    expect(requestConfig.indexes.find((item) => item.config.name === "community_message_purge_requests_key_idx")?.config.unique).toBe(true);
+  });
+
+  it("versions community access and persists revocation-aware notification delivery", () => {
+    const outboxConfig = getTableConfig(communityNotificationOutbox);
+
+    expect(users.communityAccessVersion.notNull).toBe(true);
+    expect(users.communityAccessVersion.default).toBe(1);
+    expect(appNotifications.communityTopicId.dataType).toBe("string");
+    expect(appNotifications.communityAccessVersion.dataType).toBe("number");
+    expect(outboxConfig.indexes.find((item) => item.config.name === "community_notification_outbox_delivery_idx")?.config.unique).toBe(true);
+    expect(outboxConfig.checks.map((item) => item.name)).toEqual(expect.arrayContaining([
+      "community_notification_outbox_status_check",
+      "community_notification_outbox_reason_check"
+    ]));
+  });
 });
 
 describe("reliable community chat migration", () => {
@@ -162,5 +197,25 @@ describe("reliable community chat migration", () => {
     expect(mediaCandidateMigration).toContain('"final_object_key" text NOT NULL');
     expect(mediaCandidateMigration).toContain("'published_cleanup_pending'");
     expect(migrationJournal.entries.find((entry) => entry.tag === "0066_community_media_candidates")).toMatchObject({ idx: 66 });
+  });
+
+  it("adds durable privacy fencing, read tuples, and notification outbox in migration 67", () => {
+    expect(privacyFencingMigration).toContain('CREATE TABLE "community_object_deletion_jobs"');
+    expect(privacyFencingMigration).toContain('CREATE TABLE "community_object_deletion_entries"');
+    expect(privacyFencingMigration).toContain('CREATE TABLE "community_message_purge_requests"');
+    expect(privacyFencingMigration).toContain('CREATE TABLE "community_notification_outbox"');
+    expect(privacyFencingMigration).toContain('ADD COLUMN "last_read_created_at" timestamptz');
+    expect(privacyFencingMigration).toContain('ALTER COLUMN "last_read_message_id" SET NOT NULL');
+    expect(privacyFencingMigration).toContain("ffffffff-ffff-ffff-ffff-ffffffffffff");
+    expect(privacyFencingMigration).not.toMatch(/DELETE FROM "community_topic_reads"/i);
+    expect(privacyFencingMigration).toContain("DROP CONSTRAINT %I");
+    expect(privacyFencingMigration).toContain("community_enqueue_message_cleanup");
+    expect(privacyFencingMigration).toContain("community_sync_topic_read_tuple_trigger");
+    expect(privacyFencingMigration).toContain("community_capture_attachment_delete_trigger");
+    expect(privacyFencingMigration).toContain("DELETE FROM community_media_candidates WHERE manifest_id = OLD.id");
+    expect(privacyFencingMigration).toContain("row_number() OVER");
+    expect(privacyFencingMigration).toContain("subscriptions_community_access_version_trigger");
+    expect(privacyFencingMigration).toContain("admin_users_community_access_version_trigger");
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0067_community_chat_privacy_fencing")).toMatchObject({ idx: 67 });
   });
 });

@@ -4,7 +4,7 @@ import { createReadStream } from "node:fs";
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
-import { and, asc, eq, inArray, isNotNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { communityMediaCleanupPolicy } from "./cleanupPolicy";
 import { buildCommunityCandidateObjectKey, buildCommunityFinalObjectKey } from "./directUpload";
@@ -74,8 +74,16 @@ type MediaProcessorDependencies = {
   fail: (manifestId: string, errorCode: string) => Promise<boolean | void>;
 };
 
-export function shouldProcessCommunityMediaManifest(manifest: { status: string; attachmentId: string | null }) {
-  return Boolean(manifest.attachmentId && ["processing", "normalizing"].includes(manifest.status));
+export function shouldProcessCommunityMediaManifest(manifest: {
+  status: string;
+  attachmentId: string | null;
+  terminalCleanupAt?: Date | null;
+}) {
+  return Boolean(
+    manifest.attachmentId
+    && !manifest.terminalCleanupAt
+    && ["processing", "normalizing"].includes(manifest.status)
+  );
 }
 
 function safeStem(fileName: string) {
@@ -331,7 +339,8 @@ async function publishAndFinalizeCommunityMediaCandidateAttempt(manifest: {
     }).where(and(
       eq(communityMediaCandidates.manifestId, manifest.id),
       eq(communityMediaCandidates.candidateObjectKey, result.candidateObjectKey),
-      eq(communityMediaCandidates.status, "publishing")
+      eq(communityMediaCandidates.status, "publishing"),
+      isNull(communityMediaCandidates.terminalCleanupAt)
     )).returning({ id: communityMediaCandidates.id });
     if (!candidate) throw new Error("candidate_publish_lost");
 
@@ -355,10 +364,11 @@ async function publishAndFinalizeCommunityMediaCandidateAttempt(manifest: {
     }).where(and(
       eq(communityUploadManifests.id, manifest.id),
       eq(communityUploadManifests.status, "publishing"),
-      isNotNull(communityUploadManifests.attachmentId)
+      isNotNull(communityUploadManifests.attachmentId),
+      isNull(communityUploadManifests.terminalCleanupAt)
     )).returning({ attachmentId: communityUploadManifests.attachmentId });
     if (!completed?.attachmentId) throw new Error("candidate_publish_lost");
-    await database.update(clubMessageAttachments).set({
+    const [attachment] = await database.update(clubMessageAttachments).set({
       objectKey: result.finalObjectKey,
       fileName: result.fileName,
       contentType: result.contentType,
@@ -369,7 +379,17 @@ async function publishAndFinalizeCommunityMediaCandidateAttempt(manifest: {
       scanStatus: "ready",
       scanError: null,
       scannedAt: completedAt
-    }).where(eq(clubMessageAttachments.id, completed.attachmentId));
+    }).where(and(
+      eq(clubMessageAttachments.id, completed.attachmentId),
+      isNull(clubMessageAttachments.deletedAt),
+      isNull(clubMessageAttachments.terminalCleanupAt),
+      sql`exists (
+        select 1 from club_chat_messages message
+        where message.id = ${clubMessageAttachments.messageId}
+          and message.terminal_cleanup_at is null
+      )`
+    )).returning({ id: clubMessageAttachments.id });
+    if (!attachment) throw new Error("candidate_publish_terminal");
   });
 
   try {
@@ -405,7 +425,7 @@ async function reconcileCommunityMediaCandidateAfterPublishFailure(manifestId: s
     }),
     db.query.communityUploadManifests.findFirst({
       where: eq(communityUploadManifests.id, manifestId),
-      columns: { status: true, finalObjectKey: true, attachmentId: true }
+      columns: { status: true, finalObjectKey: true, attachmentId: true, terminalCleanupAt: true }
     })
   ]);
   if (!candidate) return;
@@ -417,7 +437,9 @@ async function reconcileCommunityMediaCandidateAfterPublishFailure(manifestId: s
     await requestCommunityMediaCandidateCleanup(manifestId, result.candidateObjectKey, false);
     return;
   }
-  const action = getCommunityMediaCandidateRecoveryAction({
+  const action = manifest?.terminalCleanupAt
+    ? "discard" as const
+    : getCommunityMediaCandidateRecoveryAction({
     finalObjectKey: candidate.finalObjectKey,
     status: candidate.status as CleanupCandidate["status"]
   }, manifest ?? null);
@@ -524,7 +546,8 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
       where: and(
         inArray(communityUploadManifests.kind, ["image", "voice"]),
         inArray(communityUploadManifests.status, ["processing", "normalizing"]),
-        isNotNull(communityUploadManifests.attachmentId)
+        isNotNull(communityUploadManifests.attachmentId),
+        isNull(communityUploadManifests.terminalCleanupAt)
       ),
       orderBy: [asc(communityUploadManifests.createdAt)],
       limit: boundedLimit
@@ -541,6 +564,7 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
       .where(and(
         eq(communityUploadManifests.id, manifest.id),
         isNotNull(communityUploadManifests.attachmentId),
+        isNull(communityUploadManifests.terminalCleanupAt),
         or(
           eq(communityUploadManifests.status, "processing"),
           and(eq(communityUploadManifests.status, "normalizing"), lte(communityUploadManifests.updatedAt, staleAt))
@@ -592,7 +616,8 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
             eq(communityUploadManifests.id, manifestId),
             eq(communityUploadManifests.status, "normalizing"),
             eq(communityUploadManifests.updatedAt, claimed.updatedAt),
-            isNotNull(communityUploadManifests.attachmentId)
+            isNotNull(communityUploadManifests.attachmentId),
+            isNull(communityUploadManifests.terminalCleanupAt)
           ))
             .returning({ id: communityUploadManifests.id });
           if (!publishing) throw new Error("manifest_lease_lost");
@@ -605,7 +630,8 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
             eq(communityMediaCandidates.manifestId, manifestId),
             eq(communityMediaCandidates.leaseToken, leaseToken),
             eq(communityMediaCandidates.candidateObjectKey, result.candidateObjectKey),
-            eq(communityMediaCandidates.status, "staged")
+            eq(communityMediaCandidates.status, "staged"),
+            isNull(communityMediaCandidates.terminalCleanupAt)
           )).returning({ id: communityMediaCandidates.id });
           if (!candidate) throw new Error("candidate_tracking_lost");
         });
@@ -623,13 +649,18 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
               eq(communityUploadManifests.id, manifestId),
               eq(communityUploadManifests.status, "normalizing"),
               eq(communityUploadManifests.updatedAt, claimed.updatedAt),
-              isNotNull(communityUploadManifests.attachmentId)
+              isNotNull(communityUploadManifests.attachmentId),
+              isNull(communityUploadManifests.terminalCleanupAt)
             ))
             .returning({ attachmentId: communityUploadManifests.attachmentId });
           if (!failed?.attachmentId) return false;
           if (failed?.attachmentId) {
             await database.update(clubMessageAttachments).set({ scanStatus: "failed", scanError: errorCode, scannedAt: new Date() })
-              .where(eq(clubMessageAttachments.id, failed.attachmentId));
+              .where(and(
+                eq(clubMessageAttachments.id, failed.attachmentId),
+                isNull(clubMessageAttachments.deletedAt),
+                isNull(clubMessageAttachments.terminalCleanupAt)
+              ));
           }
           return true;
         });
@@ -649,14 +680,17 @@ export async function runCommunityMediaCandidateSweepBatch(limit = 20) {
   const staleAt = new Date(Date.now() - communityMediaCleanupPolicy.staleAfterMs);
   const candidates = await loadCommunityMediaSweepCandidates(limit, (boundedLimit) =>
     db.query.communityMediaCandidates.findMany({
-      where: or(
-        and(
-          inArray(communityMediaCandidates.status, [...communityMediaCleanupPolicy.retryStatuses]),
-          lte(communityMediaCandidates.updatedAt, retryAt)
-        ),
-        and(
-          inArray(communityMediaCandidates.status, [...communityMediaCleanupPolicy.staleStatuses]),
-          lte(communityMediaCandidates.updatedAt, staleAt)
+      where: and(
+        isNull(communityMediaCandidates.terminalCleanupAt),
+        or(
+          and(
+            inArray(communityMediaCandidates.status, [...communityMediaCleanupPolicy.retryStatuses]),
+            lte(communityMediaCandidates.updatedAt, retryAt)
+          ),
+          and(
+            inArray(communityMediaCandidates.status, [...communityMediaCleanupPolicy.staleStatuses]),
+            lte(communityMediaCandidates.updatedAt, staleAt)
+          )
         )
       ),
       orderBy: [asc(communityMediaCandidates.updatedAt)],

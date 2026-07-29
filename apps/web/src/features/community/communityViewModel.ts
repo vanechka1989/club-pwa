@@ -161,7 +161,7 @@ export function getOrCreateCommunityDeviceId(storageKey: string) {
 }
 
 export function isReplyToViewer(message: ClubMessage, viewer: CommunityViewer | null) {
-  return message.replyTo?.author.id === viewer?.id && !isOwnMessage(message, viewer);
+  return message.replyTo?.author?.id === viewer?.id && !isOwnMessage(message, viewer);
 }
 
 export function messageAuthorPhotoUrl(message: ClubMessage, viewer: CommunityViewer | null) {
@@ -198,6 +198,29 @@ export function visibleReactionCounts(message: ClubMessage) {
 
 export type CommunityMessageDeliveryState = "sending" | "failed" | "sent";
 
+function compareOrdinal(left: string, right: string) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+function normalizeCommunityTimestamp(value: string) {
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?Z$/.exec(value);
+  if (!match) return value;
+  return `${match[1]}.${(match[2] ?? "").padEnd(6, "0")}Z`;
+}
+
+export function compareCommunityMessageTupleAscending(
+  left: Pick<ClubMessage, "createdAt" | "id">,
+  right: Pick<ClubMessage, "createdAt" | "id">
+) {
+  const createdDifference = compareOrdinal(
+    normalizeCommunityTimestamp(left.createdAt),
+    normalizeCommunityTimestamp(right.createdAt)
+  );
+  return createdDifference || compareOrdinal(left.id, right.id);
+}
+
 export function communityMessageDeliveryState(
   message: ClubMessage,
   queuedMessages: QueuedTextMessage[]
@@ -214,7 +237,10 @@ export function sortCommunityMessagesNewestFirst(
   return messages
     .map((message, index) => ({ message, index }))
     .sort((left, right) => {
-      const createdDifference = Date.parse(right.message.createdAt) - Date.parse(left.message.createdAt);
+      const createdDifference = compareOrdinal(
+        normalizeCommunityTimestamp(right.message.createdAt),
+        normalizeCommunityTimestamp(left.message.createdAt)
+      );
       if (createdDifference) return createdDifference;
       const leftSequence = left.message.clientOperationId
         ? deliverySequence.get(left.message.clientOperationId)
@@ -225,6 +251,8 @@ export function sortCommunityMessagesNewestFirst(
       if (leftSequence !== undefined && rightSequence !== undefined && leftSequence !== rightSequence) {
         return rightSequence - leftSequence;
       }
+      const idDifference = compareOrdinal(right.message.id, left.message.id);
+      if (idDifference) return idDifference;
       return left.index - right.index;
     })
     .map(({ message }) => message);

@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as messageMetadata from "./messageMetadata";
 import {
   buildReplyPreview,
   getAuthorMutationView,
   getMessageContentView,
   summarizeReactions
 } from "./messageMetadata";
+
+type ReplyResolver = (input: {
+  topicId: string;
+  replyToMessageId: string;
+  role: "member" | "admin" | "owner";
+  now: Date;
+  loadReply: (input: { topicId: string; messageId: string }) => Promise<unknown>;
+}) => Promise<unknown>;
+
+function replyResolver() {
+  return Reflect.get(messageMetadata, "resolveReplyPreview") as ReplyResolver | undefined;
+}
 
 describe("messageMetadata", () => {
   it("summarizes emoji reactions and the current user's reaction", () => {
@@ -89,6 +102,81 @@ describe("messageMetadata", () => {
       purged: true,
       contentRedacted: true
     });
+  });
+
+  it.each(["hidden", "deleted"] as const)(
+    "turns a moderation-%s target into a metadata-free member reply tombstone",
+    async (status) => {
+      const secret = "закрытый исходный текст";
+      const loadReply = vi.fn(async () => ({
+        id: "reply-1",
+        topicId: "topic-1",
+        body: secret,
+        status,
+        deletedByUserAt: null,
+        deletedContentExpiresAt: null,
+        user: {
+          id: "secret-author",
+          telegramId: "secret@example.test",
+          firstName: "Скрытый автор",
+          username: "secret",
+          displayName: "Скрытый",
+          photoUrl: "https://example.test/secret.jpg"
+        }
+      }));
+
+      const resolveReplyPreview = replyResolver();
+      expect(resolveReplyPreview).toBeTypeOf("function");
+      if (!resolveReplyPreview) return;
+      const preview = await resolveReplyPreview({
+        topicId: "topic-1",
+        replyToMessageId: "reply-1",
+        role: "member",
+        now: new Date("2026-07-29T12:00:00.000Z"),
+        loadReply
+      });
+      expect(preview).toEqual({ id: "reply-1", body: "Сообщение удалено", author: null });
+      expect(JSON.stringify(preview)).not.toContain(secret);
+      expect(JSON.stringify(preview)).not.toContain("secret-author");
+    }
+  );
+
+  it("keeps the moderator reply policy status-aware and rejects cross-topic loader results", async () => {
+    const target = {
+      id: "reply-1",
+      topicId: "topic-1",
+      body: "moderation evidence",
+      status: "hidden" as const,
+      deletedByUserAt: null,
+      deletedContentExpiresAt: null,
+      user: {
+        id: "author-1",
+        telegramId: "author@example.test",
+        firstName: "Автор",
+        username: null,
+        displayName: null,
+        photoUrl: null
+      }
+    };
+    const loadReply = vi.fn(async () => target);
+    const resolveReplyPreview = replyResolver();
+    expect(resolveReplyPreview).toBeTypeOf("function");
+    if (!resolveReplyPreview) return;
+
+    await expect(resolveReplyPreview({
+      topicId: "topic-1",
+      replyToMessageId: "reply-1",
+      role: "admin",
+      now: new Date("2026-07-29T12:00:00.000Z"),
+      loadReply
+    })).resolves.toMatchObject({ body: "moderation evidence", author: { id: "author-1" } });
+    await expect(resolveReplyPreview({
+      topicId: "other-topic",
+      replyToMessageId: "reply-1",
+      role: "admin",
+      now: new Date("2026-07-29T12:00:00.000Z"),
+      loadReply
+    })).resolves.toBeNull();
   });
 
   it.each([

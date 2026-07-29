@@ -149,8 +149,27 @@ describe("community document quarantine scanner", () => {
       updateStatus
     });
 
-    expect(deleteCopies).not.toHaveBeenCalled();
+    expect(deleteCopies).toHaveBeenCalledWith("community/final/u/d/t-guide.pdf");
     expect(updateStatus).toHaveBeenCalledWith("a1", "failed", "storage_copy_failed");
+  });
+
+  it("deletes every promoted final copy when terminal cleanup wins before database finalization", async () => {
+    const deleteCopies = vi.fn(async () => undefined);
+    await expect(processCommunityDocumentScan({
+      id: "a1",
+      objectKey: "community/quarantine/u/d/t-guide.pdf",
+      contentType: "application/pdf"
+    }, {
+      scan: async () => "clean",
+      promoteToFinal: async () => "community/final/u/d/t-guide.pdf",
+      mirrorToReserve: async () => undefined,
+      deleteCopies,
+      updateStatus: async (_id, status) => {
+        if (status === "ready") throw new Error("scanner_terminal_fence");
+      }
+    })).rejects.toThrow("scanner_status_reconciliation_required");
+
+    expect(deleteCopies).toHaveBeenCalledWith("community/final/u/d/t-guide.pdf");
   });
 
   it("claims each document by id and never scans an unclaimed row", async () => {

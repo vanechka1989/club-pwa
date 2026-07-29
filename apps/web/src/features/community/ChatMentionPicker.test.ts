@@ -55,6 +55,19 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("community mention picker", () => {
+  it("opens a bounded accessible picker for a bare at-sign", async () => {
+    render(ChatComposer, { props: props() });
+    const input = screen.getByRole("combobox", { name: "Сообщение" }) as HTMLInputElement;
+
+    await fireEvent.update(input, "@");
+    input.setSelectionRange(1, 1);
+    await fireEvent.input(input);
+
+    expect(await screen.findByRole("option", { name: /Анна/ })).toBeTruthy();
+    expect(apiMocks.getCommunityParticipants).toHaveBeenCalledWith("", 10);
+    expect(input.getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("selects a suggestion from the keyboard and sends the chosen identity with exact ranges", async () => {
     const view = render(ChatComposer, { props: props() });
     const input = screen.getByPlaceholderText("Сообщение") as HTMLInputElement;

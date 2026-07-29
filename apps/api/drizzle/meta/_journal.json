@@ -470,6 +470,13 @@
       "when": 1785366000000,
       "tag": "0066_community_media_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1785452400000,
+      "tag": "0067_community_chat_privacy_fencing",
+      "breakpoints": true
     }
   ]
 }

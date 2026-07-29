@@ -40,7 +40,11 @@ describe("community cleanup audit contract", () => {
     expect(query).toContain("expired_unconsumed_stale_work_manifests");
     expect(query).toContain("retryable_media_candidates");
     expect(query).toContain("stale_media_candidates");
-    expect(query.match(/LIMIT 1001/g)).toHaveLength(5);
+    expect(query).toContain("due_object_deletion_jobs");
+    expect(query).toContain("pending_message_purge_requests");
+    expect(query).toContain("status = 'pending'");
+    expect(query).toContain("status = 'claimed'");
+    expect(query.match(/LIMIT 1001/g)).toHaveLength(7);
     expect(query).not.toMatch(/\b(?:DELETE|UPDATE|TRUNCATE)\b/i);
   });
 });

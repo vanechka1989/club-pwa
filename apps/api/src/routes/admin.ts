@@ -121,6 +121,7 @@ import {
   type StoredS3Config
 } from "../storage/s3Config";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
+import { enqueueCommunityMessageDeletion } from "../community/objectDeletionLedger";
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
 import {
   getArchivedCategoryItemValues,
@@ -3858,7 +3859,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
       const role = await getUserRole(c.get("telegramUser").id);
       if (body.data.status === "deleted" && shouldHardDeleteMessages(role)) {
-        await db.delete(clubChatMessages).where(eq(clubChatMessages.id, id));
+        await db.update(clubChatMessages).set({
+          status: "deleted",
+          moderatedByUserId: c.get("userId"),
+          moderatedAt: values.moderatedAt,
+          moderationReason: body.data.reason ?? null,
+          purgeAt: values.moderatedAt,
+          pinnedAt: null,
+          pinnedByUserId: null,
+          updatedAt: values.moderatedAt
+        }).where(eq(clubChatMessages.id, id));
+        await enqueueCommunityMessageDeletion(id);
         await recordAdminAction(c, {
           action: "moderation.chat_message.deleted",
           entityType: "chat_message",

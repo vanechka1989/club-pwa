@@ -37,27 +37,29 @@ export function createTopicStateRepository(database: TopicStateDatabase = db) {
               and candidate.topic_id = ${input.topicId}
           ),
           upserted as (
-            insert into community_topic_reads (user_id, topic_id, last_read_message_id, last_read_at)
-            select ${input.userId}, ${input.topicId}, candidate.id, now()
+            insert into community_topic_reads (
+              user_id, topic_id, last_read_message_id, last_read_created_at, last_read_at
+            )
+            select ${input.userId}, ${input.topicId}, candidate.id, candidate.created_at, now()
             from candidate
             on conflict (user_id, topic_id) do update
             set last_read_message_id = case
                   when community_topic_reads.last_read_message_id is null then excluded.last_read_message_id
-                  when exists (
-                    select 1
-                    from club_chat_messages current_message
-                    inner join club_chat_messages candidate
-                      on candidate.id = excluded.last_read_message_id
-                    where current_message.id = community_topic_reads.last_read_message_id
-                      and (
-                        candidate.created_at > current_message.created_at
-                        or (
-                          candidate.created_at = current_message.created_at
-                          and candidate.id > current_message.id
-                        )
-                      )
-                  ) then excluded.last_read_message_id
+                  when excluded.last_read_created_at > community_topic_reads.last_read_created_at
+                    or (
+                      excluded.last_read_created_at = community_topic_reads.last_read_created_at
+                      and excluded.last_read_message_id > community_topic_reads.last_read_message_id
+                    ) then excluded.last_read_message_id
                   else community_topic_reads.last_read_message_id
+                end,
+                last_read_created_at = case
+                  when community_topic_reads.last_read_message_id is null then excluded.last_read_created_at
+                  when excluded.last_read_created_at > community_topic_reads.last_read_created_at
+                    or (
+                      excluded.last_read_created_at = community_topic_reads.last_read_created_at
+                      and excluded.last_read_message_id > community_topic_reads.last_read_message_id
+                    ) then excluded.last_read_created_at
+                  else community_topic_reads.last_read_created_at
                 end,
                 last_read_at = now()
             returning last_read_message_id as "lastReadMessageId"
@@ -117,14 +119,12 @@ export function createTopicStateRepository(database: TopicStateDatabase = db) {
           topic_state as materialized (
             select requested.topic_id,
                    topic_read.last_read_message_id,
-                   read_message.created_at as last_read_created_at,
+                   topic_read.last_read_created_at,
                    coalesce(notification.mode, 'mentions') as notification_mode
             from requested
             left join community_topic_reads topic_read
               on topic_read.user_id = ${userId}
              and topic_read.topic_id = requested.topic_id
-            left join club_chat_messages read_message
-              on read_message.id = topic_read.last_read_message_id
             left join community_topic_notification_settings notification
               on notification.user_id = ${userId}
              and notification.topic_id = requested.topic_id

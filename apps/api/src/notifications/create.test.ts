@@ -134,7 +134,7 @@ describe("createAppNotification", () => {
     expect(mocks.sendWebPushToUser).not.toHaveBeenCalled();
   });
 
-  it("finishes guarded push delivery before releasing the message transaction", async () => {
+  it("releases the guarded message transaction before starting network push delivery", async () => {
     let insideTransaction = false;
     let pushObservedInsideTransaction = false;
     const execute = vi.fn()
@@ -167,7 +167,7 @@ describe("createAppNotification", () => {
       activeCommunityMessageId: "00000000-0000-4000-8000-000000000100"
     });
 
-    expect(pushObservedInsideTransaction).toBe(true);
+    expect(pushObservedInsideTransaction).toBe(false);
     expect(execute).toHaveBeenCalledTimes(2);
   });
 });

@@ -10,7 +10,11 @@ export type MessageReactionRow = {
 
 export type ReplySourceMessage = {
   id: string;
+  topicId?: string;
   body: string;
+  status?: "visible" | "hidden" | "deleted";
+  deletedByUserAt?: Date | null;
+  deletedContentExpiresAt?: Date | null;
   user: {
     id: string;
     telegramId: string;
@@ -28,6 +32,7 @@ export type MessageAuthorSource = ReplySourceMessage["user"];
 
 type DeletedMessageSource = {
   body: string;
+  status?: "visible" | "hidden" | "deleted";
   deletedByUserAt: Date | null;
   deletedContentExpiresAt: Date | null;
 };
@@ -87,6 +92,11 @@ export function summarizeReactions(reactions: MessageReactionRow[], currentUserI
 }
 
 export function getMessageContentView(message: DeletedMessageSource, role: UserRole, now = new Date()) {
+  const moderationRedacted = role === "member" && message.status !== undefined && message.status !== "visible";
+  if (moderationRedacted) {
+    return { body: "Сообщение удалено", revealContent: false, purged: false, contentRedacted: true };
+  }
+
   if (!message.deletedByUserAt) {
     return { body: message.body, revealContent: true, purged: false, contentRedacted: false };
   }
@@ -119,7 +129,11 @@ export function getAuthorMutationView(message: AuthorMutationSource, context: Au
   };
 }
 
-export function buildReplyPreview(message: ReplySourceMessage | null, visibleBody = message?.body ?? "") {
+export function buildReplyPreview(
+  message: ReplySourceMessage | null,
+  visibleBody = message?.body ?? "",
+  includeAuthor = true
+) {
   if (!message) {
     return null;
   }
@@ -131,6 +145,28 @@ export function buildReplyPreview(message: ReplySourceMessage | null, visibleBod
   return {
     id: message.id,
     body,
-    author: buildMessageAuthor(message.user)
+    author: includeAuthor ? buildMessageAuthor(message.user) : null
   };
+}
+
+export async function resolveReplyPreview(input: {
+  topicId: string;
+  replyToMessageId: string | null;
+  role: UserRole;
+  now: Date;
+  loadReply: (input: { topicId: string; messageId: string }) => Promise<ReplySourceMessage | null>;
+}) {
+  if (!input.replyToMessageId) return null;
+
+  const reply = await input.loadReply({ topicId: input.topicId, messageId: input.replyToMessageId });
+  if (!reply || (reply.topicId !== undefined && reply.topicId !== input.topicId)) return null;
+
+  const content = getMessageContentView({
+    body: reply.body,
+    ...(reply.status === undefined ? {} : { status: reply.status }),
+    deletedByUserAt: reply.deletedByUserAt ?? null,
+    deletedContentExpiresAt: reply.deletedContentExpiresAt ?? null
+  }, input.role, input.now);
+
+  return buildReplyPreview(reply, content.body, content.revealContent);
 }

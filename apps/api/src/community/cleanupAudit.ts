@@ -38,6 +38,19 @@ export function buildCommunityCleanupAuditQuery() {
         SELECT 1 FROM club_message_attachments
           WHERE scan_status IN ('pending','scanning','failed')
           LIMIT 1001
-      ) AS bounded_documents) AS quarantined_documents
+      ) AS bounded_documents) AS quarantined_documents,
+      (SELECT count(*)::int FROM (
+        SELECT 1 FROM community_object_deletion_jobs
+          WHERE not_before <= now()
+            AND (
+              status = 'pending'
+              OR (status = 'claimed' AND claimed_at <= now() - interval '15 minutes')
+            )
+          LIMIT 1001
+      ) AS bounded_object_deletions) AS due_object_deletion_jobs,
+      (SELECT count(*)::int FROM (
+        SELECT 1 FROM community_message_purge_requests
+          LIMIT 1001
+      ) AS bounded_purge_requests) AS pending_message_purge_requests
   `;
 }

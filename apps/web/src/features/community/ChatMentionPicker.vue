@@ -39,10 +39,6 @@ watch(
     activeIndex.value = 0;
     loading.value = true;
     participants.value = [];
-    if (!query.trim()) {
-      loading.value = false;
-      return;
-    }
     try {
       const response = await getCommunityParticipants(query.trim(), 10);
       if (version === requestVersion) participants.value = response.participants;

@@ -1,5 +1,6 @@
 import type { ClubMessage, ClubTopic, CommunityTopicState } from "@club/shared";
 import { ref } from "vue";
+import { compareCommunityMessageTupleAscending } from "./communityViewModel";
 
 type ObserverLike = {
   observe: (element: Element) => void;
@@ -146,7 +147,7 @@ export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
     positions.clear();
     activeTopicId = topicId;
     [...messages]
-      .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt))
+      .sort(compareCommunityMessageTupleAscending)
       .forEach((message, index) => positions.set(message.id, index));
     const lastReadMessageId = topicStates.value[topicId]?.lastReadMessageId;
     const lastReadPosition = lastReadMessageId ? positions.get(lastReadMessageId) : undefined;
@@ -188,16 +189,16 @@ export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
     const createObserver = options.createObserver
       ?? ((callback: IntersectionObserverCallback) => new IntersectionObserver(callback, {
         root: container,
-        threshold: 0.6
+        threshold: 0.01
       }));
     if (typeof IntersectionObserver === "undefined" && !options.createObserver) return;
     observer = createObserver((entries) => {
       for (const entry of entries) {
-        const id = entry.target.id.startsWith("chat-message-")
-          ? entry.target.id.slice("chat-message-".length)
+        const id = entry.target instanceof HTMLElement
+          ? entry.target.dataset.communityReadEnd ?? ""
           : "";
         if (!positions.has(id)) continue;
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) visibleIds.add(id);
+        if (entry.isIntersecting) visibleIds.add(id);
         else visibleIds.delete(id);
       }
       let newestId: string | null = null;
@@ -211,8 +212,8 @@ export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
       }
       if (newestId) markVisibleMessageRead(newestId);
     });
-    for (const element of container.querySelectorAll<HTMLElement>("[id^='chat-message-']")) {
-      const id = element.id.slice("chat-message-".length);
+    for (const element of container.querySelectorAll<HTMLElement>("[data-community-read-end]")) {
+      const id = element.dataset.communityReadEnd ?? "";
       if (positions.has(id)) observer.observe(element);
     }
   }

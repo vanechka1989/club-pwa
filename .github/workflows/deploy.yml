@@ -127,7 +127,9 @@ jobs:
             src/community/messageMutationService.postgres.test.ts \
             src/community/topicStateRepository.postgres.test.ts \
             src/community/messageSearch.postgres.test.ts \
-            src/community/deletedMessageCleanup.postgres.test.ts \
+            src/community/messageHistory.postgres.test.ts \
+            src/community/objectDeletionLedger.postgres.test.ts \
+            src/notifications/communityOutbox.postgres.test.ts \
             src/storage/s3ImmutablePromotion.integration.test.ts \
             src/community/communitySecurityIntegration.test.ts
       - name: Scan production dependencies

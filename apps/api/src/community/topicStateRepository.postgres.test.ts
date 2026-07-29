@@ -80,7 +80,8 @@ integrationDescribe("topic state repository with PostgreSQL", () => {
       create table community_topic_reads (
         user_id uuid not null,
         topic_id uuid not null,
-        last_read_message_id uuid,
+        last_read_message_id uuid not null,
+        last_read_created_at timestamptz not null,
         last_read_at timestamptz not null default now(),
         primary key (user_id, topic_id)
       );
@@ -182,6 +183,21 @@ integrationDescribe("topic state repository with PostgreSQL", () => {
     );
   });
 
+  it("keeps the durable tuple boundary after the referenced message is hard-deleted", async () => {
+    await insertMessage({ id: oldMessageId, createdAt: "2026-07-28T11:59:00.000Z" });
+    await insertMessage({ id: higherTieMessageId, createdAt: "2026-07-28T12:00:00.000Z" });
+    await insertMessage({ id: newerMessageId, createdAt: "2026-07-28T12:01:00.000Z" });
+    await repositoryA.markRead({ userId: currentUserId, topicId, messageId: higherTieMessageId });
+
+    await clientA`delete from club_chat_messages where id = ${higherTieMessageId}`;
+
+    await expect(repositoryA.getState(currentUserId, topicId)).resolves.toEqual({
+      unreadCount: 1,
+      lastReadMessageId: higherTieMessageId,
+      notificationMode: "mentions"
+    });
+  });
+
   async function runFirstWriteRace(firstMessageId: string, secondMessageId: string) {
     const firstInserted = deferred<string | null>();
     const releaseFirst = deferred();
@@ -270,7 +286,9 @@ integrationDescribe("topic state repository with PostgreSQL", () => {
     await clientB.begin(async (transaction) => {
       await transaction`
         update community_topic_reads
-        set last_read_message_id = ${newerMessageId}, last_read_at = now()
+        set last_read_message_id = ${newerMessageId},
+            last_read_created_at = '2026-07-28T12:01:00.000Z',
+            last_read_at = now()
         where user_id = ${currentUserId} and topic_id = ${topicId}
       `;
       await transaction`

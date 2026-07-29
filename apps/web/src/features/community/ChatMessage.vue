@@ -224,12 +224,12 @@ onBeforeUnmount(cancelLongPress);
           class="reply-preview"
           role="button"
           tabindex="0"
-          :aria-label="`Перейти к сообщению ${resolveDisplayName(message.replyTo.author)}`"
+          :aria-label="`Перейти к сообщению ${message.replyTo.author ? resolveDisplayName(message.replyTo.author) : 'удалённого автора'}`"
           @click.stop="jumpToReply"
           @keydown.enter.stop.prevent="jumpToReply"
           @keydown.space.stop.prevent="jumpToReply"
         >
-          <span>{{ resolveDisplayName(message.replyTo.author) }}</span>
+          <span>{{ message.replyTo.author ? resolveDisplayName(message.replyTo.author) : "Сообщение" }}</span>
           <span>{{ message.replyTo.body }}</span>
         </div>
         <p v-if="memberTombstone" class="chat-message-body chat-message-tombstone">Сообщение удалено</p>
@@ -321,5 +321,10 @@ onBeforeUnmount(cancelLongPress);
       <span>{{ message.body }}</span>
       <time>{{ formatMessageTime(message.createdAt) }}</time>
     </p>
+    <span
+      class="community-message-read-end"
+      :data-community-read-end="message.id"
+      aria-hidden="true"
+    />
   </article>
 </template>

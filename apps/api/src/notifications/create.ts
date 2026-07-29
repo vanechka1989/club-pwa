@@ -73,8 +73,7 @@ export function createAppNotificationService(dependencies: CreateAppNotification
 
   const deliverPush = async (
     input: CreateAppNotificationInput,
-    options: CreateAppNotificationOptions,
-    holdMessageLock: boolean
+    options: CreateAppNotificationOptions
   ) => {
     const delivery = dependencies.sendWebPushToUser(input.userId, {
       title: input.title,
@@ -83,12 +82,6 @@ export function createAppNotificationService(dependencies: CreateAppNotification
     });
     if (options.waitForPush) {
       await delivery;
-      return;
-    }
-    if (holdMessageLock) {
-      await delivery.catch((error) => {
-        dependencies.logger.warn({ error, userId: input.userId }, "app notification push failed");
-      });
       return;
     }
     void delivery.catch((error) => {
@@ -101,7 +94,7 @@ export function createAppNotificationService(dependencies: CreateAppNotification
     options: CreateAppNotificationOptions = {}
   ) {
     if (options.activeCommunityMessageId) {
-      return dependencies.database.transaction(async (transaction) => {
+      const persisted = await dependencies.database.transaction(async (transaction) => {
         const database = transaction as unknown as typeof db;
         const activeRows = Array.from((await database.execute(sql`
           select id
@@ -114,11 +107,12 @@ export function createAppNotificationService(dependencies: CreateAppNotification
         if (!activeRows.length) return null;
 
         const persisted = await persistNotification(database, input);
-        if (persisted.notification && persisted.created) {
-          await deliverPush(input, options, true);
-        }
-        return persisted.notification;
+        return persisted;
       });
+      if (persisted?.notification && persisted.created) {
+        await deliverPush(input, options);
+      }
+      return persisted?.notification ?? null;
     }
 
     const persisted = input.deduplicate && input.source && input.sourceId
@@ -127,7 +121,7 @@ export function createAppNotificationService(dependencies: CreateAppNotification
       : await persistNotification(dependencies.database, input);
 
     if (persisted.notification && persisted.created) {
-      await deliverPush(input, options, false);
+      await deliverPush(input, options);
     }
     return persisted.notification;
   };

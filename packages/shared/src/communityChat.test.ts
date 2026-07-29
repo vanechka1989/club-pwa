@@ -138,6 +138,37 @@ describe("reliable community chat state", () => {
 });
 
 describe("read, notification, and search contracts", () => {
+  it("accepts an empty bounded participant query for the bare-at picker", () => {
+    expect(shared.communityParticipantSuggestionsQuerySchema.parse({ q: "", limit: "10" }))
+      .toEqual({ q: "", limit: 10 });
+  });
+
+  it("uses the same opaque exact tuple cursor for history as search", () => {
+    const response = shared.clubMessagesResponseSchema.parse({
+      messages: [{ ...messageFixture, createdAt: "2026-07-28T00:00:00.123456Z" }],
+      nextCursor: searchCursor,
+      mutedUntil: null,
+      mutedPermanently: false,
+      serverTime: "2026-07-28T00:01:00.000000Z"
+    });
+
+    expect(response.nextCursor).toBe(searchCursor);
+    expect(response.messages[0]?.createdAt).toBe("2026-07-28T00:00:00.123456Z");
+    expect(shared.clubMessagesResponseSchema.safeParse({
+      ...response,
+      nextCursor: "2026-07-28T00:00:00.123Z"
+    }).success).toBe(false);
+  });
+
+  it("permits a metadata-free reply tombstone", () => {
+    const parsed = shared.clubMessageSchema.parse({
+      ...messageFixture,
+      replyTo: { id: "reply-hidden", body: "Сообщение удалено", author: null }
+    });
+
+    expect(parsed.replyTo).toEqual({ id: "reply-hidden", body: "Сообщение удалено", author: null });
+  });
+
   it("accepts a read messageId and returns authoritative topic state from both mutations", () => {
     const readRequest = contract<{ messageId: string }>("communityTopicReadPositionRequestSchema");
     const readResponse = contract<Record<string, unknown>>("communityTopicReadPositionResponseSchema");

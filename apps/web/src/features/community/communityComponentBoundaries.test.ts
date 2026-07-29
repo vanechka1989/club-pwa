@@ -1605,7 +1605,9 @@ describe("community component boundaries", () => {
       configurable: true,
       value: class {
         constructor() { observerCreated(); }
-        observe(element: Element) { observedIds.push(element.id); }
+        observe(element: Element) {
+          observedIds.push((element as HTMLElement).dataset.communityReadEnd ?? element.id);
+        }
         disconnect() {}
       }
     });
@@ -1637,7 +1639,7 @@ describe("community component boundaries", () => {
     await screen.findByText("Самое раннее непрочитанное");
 
     await waitFor(() => expect(observerCreated).toHaveBeenCalledTimes(1));
-    expect(observedIds).toContain("chat-message-first-unread");
+    expect(observedIds).toContain("first-unread");
     const divider = screen.getByText("Новые сообщения");
     expect(divider.compareDocumentPosition(document.getElementById("chat-message-first-unread")!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });

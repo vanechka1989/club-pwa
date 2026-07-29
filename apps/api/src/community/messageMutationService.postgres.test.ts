@@ -80,6 +80,10 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         message_id uuid not null, user_id uuid not null, start_offset integer not null, end_offset integer not null,
         primary key (message_id, user_id)
       );
+      create table club_message_attachments (
+        id uuid primary key default gen_random_uuid(), message_id uuid not null,
+        expires_at timestamptz, deleted_at timestamptz
+      );
       create table community_topic_notification_settings (
         user_id uuid not null, topic_id uuid not null, mode varchar(16) not null default 'mentions',
         updated_at timestamptz not null default now(), primary key (user_id, topic_id)
@@ -93,13 +97,17 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         attachment_size_bytes integer, read_at timestamptz,
         created_at timestamptz not null default now()
       );
+      create table community_notification_outbox (
+        id uuid primary key default gen_random_uuid(), message_id uuid not null
+      );
     `);
 
     const makeService = (client: Sql) => {
       const base = createRepository(drizzle(client, { schema: schemaDefinition }));
       const repository: MessageMutationRepository = {
         ...base,
-        listNotificationCandidates: async () => []
+        listNotificationCandidates: async () => [],
+        enqueueNotifications: async () => undefined
       };
       return createService({
         repository,
@@ -113,7 +121,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
   }, 30_000);
 
   beforeEach(async () => {
-    await clientA.unsafe("truncate app_notifications, community_topic_notification_settings, club_message_mentions, club_chat_messages, club_chat_topics, users");
+    await clientA.unsafe("truncate community_notification_outbox, app_notifications, community_topic_notification_settings, club_message_attachments, club_message_mentions, club_chat_messages, club_chat_topics, users");
     await clientA`
       insert into users (id, telegram_id, first_name, display_name)
       values (${userId}, 'web:user', 'Иван', 'Иван')
@@ -202,7 +210,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
     });
   });
 
-  it("serializes guarded notification delivery before author deletion and rejects late fanout", async () => {
+  it("never holds the message lock while guarded push network delivery is active", async () => {
     const created = await serviceA.createText(input());
     const events: string[] = [];
     let releasePush!: () => void;
@@ -241,11 +249,12 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
       return result;
     });
     await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(events).toEqual(["push-started"]);
+    await deletion;
+    expect(events).toEqual(["push-started", "deletion-committed"]);
 
     releasePush();
-    await Promise.all([notification, deletion]);
-    expect(events).toEqual(["push-started", "push-finished", "deletion-committed"]);
+    await notification;
+    expect(events).toEqual(["push-started", "deletion-committed", "push-finished"]);
 
     await expect(notificationService(notificationInput, {
       activeCommunityMessageId: created.message.id
@@ -254,8 +263,27 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
       select count(*)::int as count from app_notifications where source_id = ${created.message.id}
     `;
     expect(remaining?.count).toBe(0);
-    expect(events).toEqual(["push-started", "push-finished", "deletion-committed"]);
+    expect(events).toEqual(["push-started", "deletion-committed", "push-finished"]);
   }, 10_000);
+
+  it("starts attachment retention at author deletion instead of media creation", async () => {
+    const created = await serviceA.createText(input());
+    await clientA`
+      insert into club_message_attachments (message_id, expires_at)
+      values (${created.message.id}, clock_timestamp() + interval '29 days')
+    `;
+
+    const deleted = await serviceA.deleteMessage({
+      messageId: created.message.id,
+      userId,
+      role: "member"
+    });
+    const [attachment] = await clientA<{ expiresAt: Date }[]>`
+      select expires_at as "expiresAt" from club_message_attachments where message_id = ${created.message.id}
+    `;
+
+    expect(attachment?.expiresAt.getTime()).toBe(deleted.message.deletedContentExpiresAt?.getTime());
+  });
 
   it("releases the message lock after an aborting push failure so author deletion can commit", async () => {
     const created = await serviceA.createText(input());

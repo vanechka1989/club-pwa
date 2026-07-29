@@ -994,7 +994,7 @@ export const clubMessageSchema = z.object({
     .object({
       id: z.string(),
       body: z.string(),
-      author: commentAuthorSchema
+      author: commentAuthorSchema.nullable()
     })
     .nullable(),
   likesCount: z.number().int().nonnegative(),
@@ -1104,7 +1104,7 @@ export const communityMessageDeleteResponseSchema = z.object({
 export type CommunityMessageDeleteResponse = z.infer<typeof communityMessageDeleteResponseSchema>;
 
 export const communityParticipantSuggestionsQuerySchema = z.object({
-  q: z.string().trim().min(1).max(120),
+  q: z.string().trim().max(120),
   limit: z.coerce.number().int().min(1).max(20).default(10)
 });
 export type CommunityParticipantSuggestionsQuery = z.infer<typeof communityParticipantSuggestionsQuerySchema>;
@@ -1262,7 +1262,7 @@ export type ClubTopicsResponse = z.infer<typeof clubTopicsResponseSchema>;
 
 export const clubMessagesResponseSchema = z.object({
   messages: z.array(clubMessageSchema),
-  nextCursor: z.string().datetime().nullable(),
+  nextCursor: communityMessageSearchCursorSchema.nullable(),
   mutedUntil: z.string().datetime().nullable(),
   mutedPermanently: z.boolean(),
   serverTime: z.string().datetime()

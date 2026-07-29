@@ -1,9 +1,12 @@
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
+  GetBucketVersioningCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
+  ListObjectVersionsCommand,
   PutObjectCommand,
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -38,6 +41,20 @@ export type S3StorageTarget = "primary" | "reserve";
 type DeleteObjectCopiesDependencies = {
   loadConfig: () => Promise<StoredS3Config>;
   deleteFromConfig: (config: StoredS3Config, key: string) => Promise<void>;
+};
+
+type S3VersioningState = "Enabled" | "Suspended" | undefined;
+type VersionCursor = { keyMarker?: string; versionIdMarker?: string } | null;
+type ListedObjectVersion = { key: string; versionId: string };
+type DeleteObjectCompletelyDependencies = {
+  getVersioning: (config: StoredS3Config) => Promise<S3VersioningState>;
+  listVersions: (config: StoredS3Config, key: string, cursor: VersionCursor) => Promise<{
+    versions: ListedObjectVersion[];
+    deleteMarkers: ListedObjectVersion[];
+    next: VersionCursor;
+  }>;
+  deleteVersions: (config: StoredS3Config, objects: ListedObjectVersion[]) => Promise<void>;
+  deleteCurrent: (config: StoredS3Config, key: string) => Promise<void>;
 };
 
 async function loadS3Config() {
@@ -639,16 +656,93 @@ export async function getObjectReadUrl(
   }
 }
 
-async function deleteObjectFromConfig(config: StoredS3Config, key: string) {
-  const client = createS3Client(config);
-  const normalizedKey = normalizeS3ObjectKey(key);
+export function createDeleteObjectCompletely(dependencies: DeleteObjectCompletelyDependencies) {
+  return async function deleteObjectCompletely(config: StoredS3Config, key: string) {
+    const normalizedKey = normalizeS3ObjectKey(key);
+    const versioning = await dependencies.getVersioning(config);
+    if (versioning === undefined) {
+      await dependencies.deleteCurrent(config, normalizedKey);
+      return;
+    }
+    if (versioning !== "Enabled" && versioning !== "Suspended") {
+      throw new Error(`Unsupported S3 versioning state: ${String(versioning)}`);
+    }
 
-  await client.send(
-    new DeleteObjectCommand({
+    for (let verificationPass = 0; verificationPass < 4; verificationPass += 1) {
+      const objects: ListedObjectVersion[] = [];
+      let cursor: VersionCursor = null;
+      let pageCount = 0;
+      do {
+        const page = await dependencies.listVersions(config, normalizedKey, cursor);
+        objects.push(...[...page.versions, ...page.deleteMarkers].filter((entry) => entry.key === normalizedKey));
+        cursor = page.next;
+        pageCount += 1;
+        if (pageCount > 10_000) throw new Error("S3 object version listing did not converge");
+      } while (cursor);
+
+      if (!objects.length) return;
+      for (let offset = 0; offset < objects.length; offset += 1_000) {
+        await dependencies.deleteVersions(config, objects.slice(offset, offset + 1_000));
+      }
+    }
+    throw new Error("S3 object versions kept changing during permanent deletion");
+  };
+}
+
+const deleteObjectCompletely = createDeleteObjectCompletely({
+  async getVersioning(config) {
+    const response = await createS3Client(config).send(new GetBucketVersioningCommand({ Bucket: config.bucket }));
+    return response.Status;
+  },
+  async listVersions(config, key, cursor) {
+    const response = await createS3Client(config).send(new ListObjectVersionsCommand({
       Bucket: config.bucket,
-      Key: normalizedKey
-    })
-  );
+      Prefix: key,
+      MaxKeys: 1_000,
+      ...(cursor?.keyMarker ? { KeyMarker: cursor.keyMarker } : {}),
+      ...(cursor?.versionIdMarker ? { VersionIdMarker: cursor.versionIdMarker } : {})
+    }));
+    const readEntries = (entries: Array<{ Key?: string | undefined; VersionId?: string | undefined }> | undefined) =>
+      (entries ?? []).map((entry) => {
+        if (!entry.Key || entry.VersionId === undefined) {
+          throw new Error("S3 returned an object version without a key or VersionId");
+        }
+        return { key: entry.Key, versionId: entry.VersionId };
+      });
+    return {
+      versions: readEntries(response.Versions),
+      deleteMarkers: readEntries(response.DeleteMarkers),
+      next: response.IsTruncated
+        ? {
+            ...(response.NextKeyMarker ? { keyMarker: response.NextKeyMarker } : {}),
+            ...(response.NextVersionIdMarker ? { versionIdMarker: response.NextVersionIdMarker } : {})
+          }
+        : null
+    };
+  },
+  async deleteVersions(config, objects) {
+    const response = await createS3Client(config).send(new DeleteObjectsCommand({
+      Bucket: config.bucket,
+      Delete: {
+        Quiet: false,
+        Objects: objects.map((object) => ({ Key: object.key, VersionId: object.versionId }))
+      }
+    }));
+    if (response.Errors?.length) {
+      throw new AggregateError(
+        response.Errors.map((error) => new Error(`${error.Code ?? "S3DeleteError"}: ${error.Message ?? "unknown"}`)),
+        "Unable to delete every S3 object version"
+      );
+    }
+  },
+  async deleteCurrent(config, key) {
+    await createS3Client(config).send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
+  }
+});
+
+async function deleteObjectFromConfig(config: StoredS3Config, key: string) {
+  const normalizedKey = normalizeS3ObjectKey(key);
+  await deleteObjectCompletely(config, normalizedKey);
 }
 
 export function createDeleteObjectCopies(dependencies: DeleteObjectCopiesDependencies) {

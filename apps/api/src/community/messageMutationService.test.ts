@@ -132,7 +132,41 @@ function createFixture() {
       { user: users[3]!, mode: "all" as const },
       { user: users[4]!, mode: "off" as const },
       { user: users[0]!, mode: "all" as const }
-    ])
+    ]),
+    enqueueNotifications: vi.fn(async (input) => {
+      const candidates = await repository.listNotificationCandidates(input.topicId, [
+        ...(input.replyUserId ? [input.replyUserId] : []),
+        ...input.mentionUserIds
+      ]);
+      for (const candidate of candidates) {
+        const replied = candidate.user.id === input.replyUserId;
+        const mentioned = input.mentionUserIds.includes(candidate.user.id);
+        if (candidate.user.id === input.senderUserId || candidate.mode === "off") continue;
+        if (candidate.mode !== "all" && !replied && !mentioned) continue;
+        if (!(await canUserAccessTopic(candidate.user, topic))) continue;
+        const reason = replied ? "reply" : mentioned ? "mention" : "all";
+        const title = reason === "reply"
+          ? `Ответ в чате: ${input.topicTitle}`
+          : reason === "mention"
+            ? `Вас упомянули: ${input.topicTitle}`
+            : `Новое сообщение: ${input.topicTitle}`;
+        const body = reason === "reply"
+          ? `Новый ответ в чате "${input.topicTitle}". Автор: ${input.senderName}.`
+          : reason === "mention"
+            ? `Новое упоминание в чате "${input.topicTitle}". Автор: ${input.senderName}.`
+            : `Новое сообщение в чате "${input.topicTitle}". Автор: ${input.senderName}.`;
+        await createNotification({
+          userId: candidate.user.id,
+          kind: "client",
+          title,
+          body,
+          source: `community_${reason}`,
+          sourceId: input.messageId,
+          pushUrl: `/community/topics/${input.topicId}?message=${input.messageId}`,
+          deduplicate: true
+        }, { activeCommunityMessageId: input.messageId });
+      }
+    })
   };
   const createNotification = vi.fn<(
     input: CreateAppNotificationInput,
