@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearCommunityOutboxForUser,
   configureCommunityOutbox,
   createDeliveryKey,
+  flushQueuedMessages,
   getQueuedTextMessages,
   mergeConfirmedCommunityMessages,
   queueTextMessage,
@@ -23,6 +24,10 @@ describe("community text outbox", () => {
   beforeEach(() => {
     localStorage.clear();
     resetCommunityOutbox();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("uses a stable device and local operation id as the delivery key", () => {
@@ -121,7 +126,7 @@ describe("community text outbox", () => {
 
   it("shares one in-flight retry and does not issue duplicate concurrent sends", async () => {
     let resolveSend!: (value: { message: { id: string; clientOperationId: string } }) => void;
-    const send = vi.fn(() => new Promise<{ message: { id: string; clientOperationId: string } }>((resolve) => {
+    const send = vi.fn((_input: { body: string }) => new Promise<{ message: { id: string; clientOperationId: string } }>((resolve) => {
       resolveSend = resolve;
     }));
     configureCommunityOutbox({
@@ -297,5 +302,275 @@ describe("community text outbox", () => {
 
     expect(getQueuedTextMessages()).toEqual([]);
     expect(localStorage.getItem("club-community-text-outbox-v1")).toBeNull();
+  });
+
+  it("keeps FIFO order within a topic even when flush is triggered twice", async () => {
+    const resolvers: Array<(value: { message: { id: string; clientOperationId: string } }) => void> = [];
+    const send = vi.fn((_input: { body: string }) => new Promise<{ message: { id: string; clientOperationId: string } }>((resolve) => {
+      resolvers.push(resolve);
+    }));
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => false,
+      send
+    });
+    await queueTextMessage({ ...baseInput, localId: "first", body: "Первое" });
+    await queueTextMessage({ ...baseInput, localId: "second", body: "Второе" });
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => true,
+      send
+    });
+
+    const firstFlush = flushQueuedMessages();
+    const duplicateFlush = flushQueuedMessages();
+    expect(duplicateFlush).toBe(firstFlush);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0]?.[0]).toMatchObject({ body: "Первое" });
+
+    resolvers[0]!({ message: { id: "server-first", clientOperationId: "device-1:first" } });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1]?.[0]).toMatchObject({ body: "Второе" });
+    resolvers[1]!({ message: { id: "server-second", clientOperationId: "device-1:second" } });
+    await firstFlush;
+  });
+
+  it("retries retryable failures after capped backoff without another online event", async () => {
+    vi.useFakeTimers();
+    const send = vi.fn()
+      .mockRejectedValueOnce(new Error("gateway_unavailable"))
+      .mockResolvedValueOnce({ message: { id: "server-1", clientOperationId: "device-1:local-1" } });
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => true,
+      retryBaseMs: 100,
+      retryJitter: () => 0,
+      send
+    });
+
+    const first = await queueTextMessage(baseInput);
+    expect(first.retryable).toBe(true);
+    await vi.advanceTimersByTimeAsync(99);
+    expect(send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(getQueuedTextMessages()).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it("caps retry delay after jitter is applied", async () => {
+    vi.useFakeTimers();
+    const send = vi.fn()
+      .mockRejectedValueOnce(new Error("temporary"))
+      .mockResolvedValueOnce({ message: { id: "server-1", clientOperationId: "device-1:local-1" } });
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => true,
+      retryBaseMs: 100,
+      retryMaximumMs: 150,
+      retryJitter: () => 1,
+      send
+    });
+
+    await queueTextMessage(baseInput);
+    await vi.advanceTimersByTimeAsync(149);
+    expect(send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(send).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("does not send a later same-topic message while the FIFO head is waiting for retry", async () => {
+    vi.useFakeTimers();
+    const send = vi.fn()
+      .mockRejectedValueOnce(new Error("temporary"))
+      .mockResolvedValueOnce({ message: { id: "server-first", clientOperationId: "device-1:first" } })
+      .mockResolvedValueOnce({ message: { id: "server-second", clientOperationId: "device-1:second" } });
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => false,
+      retryBaseMs: 100,
+      retryJitter: () => 0,
+      send
+    });
+    await queueTextMessage({ ...baseInput, localId: "first", body: "Первое" });
+    await queueTextMessage({ ...baseInput, localId: "second", body: "Второе" });
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => true,
+      retryBaseMs: 100,
+      retryJitter: () => 0,
+      send
+    });
+
+    await flushQueuedMessages();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0]).toMatchObject({ body: "Первое" });
+    await vi.advanceTimersByTimeAsync(99);
+    expect(send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+    expect(send.mock.calls[1]?.[0]).toMatchObject({ body: "Первое" });
+    expect(send.mock.calls[2]?.[0]).toMatchObject({ body: "Второе" });
+  });
+
+  it("limits cross-topic delivery concurrency while allowing different topics to progress", async () => {
+    const resolvers: Array<(value: { message: { id: string; clientOperationId: string } }) => void> = [];
+    let active = 0;
+    let peak = 0;
+    const send = vi.fn(() => new Promise<{ message: { id: string; clientOperationId: string } }>((resolve) => {
+      active += 1;
+      peak = Math.max(peak, active);
+      resolvers.push((value) => {
+        active -= 1;
+        resolve(value);
+      });
+    }));
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => false,
+      send
+    });
+    for (let index = 0; index < 5; index += 1) {
+      await queueTextMessage({ ...baseInput, topicId: `topic-${index}`, localId: `local-${index}` });
+    }
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => true,
+      send
+    });
+
+    const flush = flushQueuedMessages();
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(peak).toBe(3);
+    for (let index = 0; index < 5; index += 1) {
+      await vi.waitFor(() => expect(resolvers[index]).toBeTypeOf("function"));
+      resolvers[index]!({ message: { id: `server-${index}`, clientOperationId: `device-1:local-${index}` } });
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+    await flush;
+    expect(peak).toBe(3);
+  });
+
+  it("caps and persists each namespace independently and normalizes a preseeded backlog", async () => {
+    const entry = (userId: string, index: number) => ({
+      userId,
+      deviceId: "device-1",
+      topicId: "topic-1",
+      localId: `${userId}-${index}`,
+      deliveryKey: `device-1:${userId}-${index}`,
+      body: `message-${index}`,
+      replyToMessageId: null,
+      createdAt: index,
+      status: "queued",
+      attempts: 0
+    });
+    localStorage.setItem("club-community-text-outbox-v1", JSON.stringify([
+      ...Array.from({ length: 101 }, (_, index) => entry("user-1", index)),
+      ...Array.from({ length: 100 }, (_, index) => entry("user-2", index))
+    ]));
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => false,
+      send: vi.fn()
+    });
+
+    expect(getQueuedTextMessages()).toHaveLength(100);
+    expect(getQueuedTextMessages().some((item) => item.localId === "user-1-0")).toBe(false);
+    const all = JSON.parse(localStorage.getItem("club-community-text-outbox-v1") ?? "[]") as Array<{ userId: string }>;
+    expect(all.filter((item) => item.userId === "user-2")).toHaveLength(100);
+    expect(all).toHaveLength(200);
+  });
+
+  it("drops an oversized persisted body without discarding other valid queued text", () => {
+    const entry = (localId: string, body: string) => ({
+      userId: "user-1",
+      deviceId: "device-1",
+      topicId: "topic-1",
+      localId,
+      deliveryKey: `device-1:${localId}`,
+      body,
+      replyToMessageId: null,
+      createdAt: 1,
+      status: "queued",
+      attempts: 0
+    });
+    localStorage.setItem("club-community-text-outbox-v1", JSON.stringify([
+      entry("valid", "Сохранить"),
+      entry("oversized", "я".repeat(3_001))
+    ]));
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      isOnline: () => false,
+      send: vi.fn()
+    });
+
+    expect(getQueuedTextMessages()).toMatchObject([{ localId: "valid", body: "Сохранить" }]);
+    expect(localStorage.getItem("club-community-text-outbox-v1")).not.toContain("oversized");
+  });
+
+  it("settles an old account worker backlog when account ownership is cancelled", async () => {
+    const deviceId = "device-1";
+    localStorage.setItem("club-community-text-outbox-v1", JSON.stringify(
+      Array.from({ length: 10 }, (_, index) => ({
+        userId: "user-1",
+        deviceId,
+        topicId: `topic-${index}`,
+        localId: `local-${index}`,
+        deliveryKey: `${deviceId}:local-${index}`,
+        body: `message-${index}`,
+        replyToMessageId: null,
+        createdAt: index,
+        status: "queued",
+        attempts: 0
+      }))
+    ));
+    const resolvers: Array<(value: { message: { id: string; clientOperationId: string } }) => void> = [];
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId,
+      storage: localStorage,
+      isOnline: () => true,
+      send: () => new Promise<{ message: { id: string; clientOperationId: string } }>((resolve) => resolvers.push(resolve))
+    });
+    let settled = false;
+    const oldFlush = flushQueuedMessages().finally(() => { settled = true; });
+    await vi.waitFor(() => expect(resolvers).toHaveLength(3));
+
+    configureCommunityOutbox({
+      userId: "user-2",
+      deviceId,
+      storage: localStorage,
+      isOnline: () => false,
+      send: vi.fn()
+    });
+    resolvers.forEach((resolve, index) => resolve({
+      message: { id: `server-${index}`, clientOperationId: `${deviceId}:local-${index}` }
+    }));
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+
+    expect(settled).toBe(true);
+    await oldFlush;
   });
 });

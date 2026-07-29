@@ -103,6 +103,13 @@ const topic: ClubTopic = {
   createdAt: "2026-07-28T10:00:00.000Z"
 };
 
+const secondTopic: ClubTopic = {
+  ...topic,
+  id: "topic-2",
+  title: "Вторая тема",
+  messagesCount: 1
+};
+
 function adminUser(): ClubUser {
   return {
     id: "admin-1",
@@ -125,6 +132,10 @@ function adminUser(): ClubUser {
     avatarScale: 1,
     avatarRefreshedAt: null
   };
+}
+
+function secondAdminUser(): ClubUser {
+  return { ...adminUser(), id: "admin-2", telegramId: "admin-2@example.com", email: "admin-2@example.com" };
 }
 
 function roomProps(overrides: Record<string, unknown> = {}) {
@@ -407,5 +418,189 @@ describe("community component boundaries", () => {
 
     await waitFor(() => expect(localStorage.getItem("club-community-text-outbox-v1")).toBeNull());
     expect(composer.value).toBe("Сообщение во время мута");
+  });
+
+  it("does not render delayed out-of-order confirmations from another topic in the open room", async () => {
+    const deviceId = "00000000-0000-4000-8000-000000000001";
+    localStorage.setItem("club-community-device-id-v1", deviceId);
+    localStorage.setItem("club-community-text-outbox-v1", JSON.stringify([
+      {
+        userId: "admin-1",
+        deviceId,
+        topicId: "topic-1",
+        localId: "local-a",
+        deliveryKey: `${deviceId}:local-a`,
+        body: "Очередь первой темы",
+        replyToMessageId: null,
+        createdAt: 1,
+        status: "queued",
+        attempts: 0
+      },
+      {
+        userId: "admin-1",
+        deviceId,
+        topicId: "topic-2",
+        localId: "local-b",
+        deliveryKey: `${deviceId}:local-b`,
+        body: "Очередь второй темы",
+        replyToMessageId: null,
+        createdAt: 2,
+        status: "queued",
+        attempts: 0
+      }
+    ]));
+    const deliveries = new Map<string, (value: { message: ClubMessage }) => void>();
+    apiMocks.createClubMessage.mockImplementation((topicId: string) => new Promise((resolve) => {
+      deliveries.set(topicId, resolve);
+    }));
+    apiMocks.getCommunityTopics.mockResolvedValue({ topics: [topic, secondTopic] });
+
+    await renderCommunity();
+    await waitFor(() => expect(deliveries.size).toBe(2));
+    deliveries.get("topic-2")!({
+      message: message({ id: "confirmed-b", topicId: "topic-2", body: "Очередь второй темы", clientOperationId: `${deviceId}:local-b` })
+    });
+    await waitFor(() => expect(localStorage.getItem("club-community-text-outbox-v1") ?? "").not.toContain("local-b"));
+
+    expect(screen.queryByText("Очередь второй темы")).toBeNull();
+    deliveries.get("topic-1")!({
+      message: message({ id: "confirmed-a", topicId: "topic-1", body: "Очередь первой темы", clientOperationId: `${deviceId}:local-a` })
+    });
+    expect(await screen.findAllByText("Очередь первой темы")).toHaveLength(1);
+  });
+
+  it("does not insert a send confirmation into a different room opened before the request resolves", async () => {
+    let resolveSend!: (value: { message: ClubMessage }) => void;
+    apiMocks.getCommunityTopics.mockResolvedValue({ topics: [topic, secondTopic] });
+    apiMocks.createClubMessage.mockImplementation(() => new Promise((resolve) => {
+      resolveSend = resolve;
+    }));
+    await renderCommunity();
+    await fireEvent.update(screen.getByPlaceholderText("Сообщение"), "Отправка из первой темы");
+    await fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    await fireEvent.click(await screen.findByRole("button", { name: /Вторая тема/ }));
+
+    resolveSend({ message: message({ id: "late-send-a", body: "Отправка из первой темы" }) });
+    await waitFor(() => expect(localStorage.getItem("club-community-text-outbox-v1")).toBeNull());
+
+    expect(screen.queryByText("Отправка из первой темы")).toBeNull();
+  });
+
+  it("discards a room refresh that resolves after the user opens another topic", async () => {
+    let resolveFirst!: (value: ReturnType<typeof roomResponse>) => void;
+    let resolveSecond!: (value: ReturnType<typeof roomResponse>) => void;
+    const roomResponse = (item: ClubMessage) => ({
+      messages: [item],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false
+    });
+    apiMocks.getCommunityTopics.mockResolvedValue({ topics: [topic, secondTopic] });
+    apiMocks.getClubMessages.mockImplementation((topicId: string) => new Promise((resolve) => {
+      if (topicId === "topic-1") resolveFirst = resolve;
+      else resolveSecond = resolve;
+    }));
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useSessionStore(pinia).user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    await fireEvent.click(await screen.findByRole("button", { name: /Вторая тема/ }));
+    resolveFirst(roomResponse(message({ id: "late-a", body: "Поздний ответ первой темы" })));
+    await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledWith("topic-2"));
+
+    expect(screen.queryByText("Поздний ответ первой темы")).toBeNull();
+    resolveSecond(roomResponse(message({ id: "current-b", topicId: "topic-2", body: "Ответ второй темы" })));
+    await screen.findByText("Ответ второй темы");
+  });
+
+  it("discards an older-history page that resolves after a topic switch", async () => {
+    let resolveOlder!: (value: ReturnType<typeof roomResponse>) => void;
+    const roomResponse = (item: ClubMessage, nextCursor: string | null = null) => ({
+      messages: [item],
+      nextCursor,
+      mutedUntil: null,
+      mutedPermanently: false
+    });
+    apiMocks.getCommunityTopics.mockResolvedValue({ topics: [topic, secondTopic] });
+    apiMocks.getClubMessages.mockImplementation((topicId: string, cursor?: string) => {
+      if (topicId === "topic-1" && cursor === "older-a") {
+        return new Promise((resolve) => {
+          resolveOlder = resolve;
+        });
+      }
+      if (topicId === "topic-1") return Promise.resolve(roomResponse(message(), "older-a"));
+      return Promise.resolve(roomResponse(message({ id: "current-b", topicId: "topic-2", body: "Ответ второй темы" })));
+    });
+
+    await renderCommunity();
+    await fireEvent.click(screen.getByRole("button", { name: "Показать предыдущие сообщения" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    await fireEvent.click(await screen.findByRole("button", { name: /Вторая тема/ }));
+    await screen.findByText("Ответ второй темы");
+    resolveOlder(roomResponse(message({ id: "older-a", body: "Старая страница первой темы" })));
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+
+    expect(screen.queryByText("Старая страница первой темы")).toBeNull();
+  });
+
+  it("reloads account-owned topics on a direct authenticated account switch and ignores the old response", async () => {
+    let resolveFirst!: (value: { topics: ClubTopic[] }) => void;
+    let resolveSecond!: (value: { topics: ClubTopic[] }) => void;
+    apiMocks.getCommunityTopics
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await waitFor(() => expect(apiMocks.getCommunityTopics).toHaveBeenCalledTimes(1));
+
+    session.user = secondAdminUser();
+    await nextTick();
+
+    expect(apiMocks.getCommunityTopics).toHaveBeenCalledTimes(2);
+    resolveSecond({ topics: [secondTopic] });
+    expect(await screen.findByRole("button", { name: /Вторая тема/ })).toBeTruthy();
+    resolveFirst({ topics: [topic] });
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+    expect(screen.queryByRole("button", { name: /Общий чат/ })).toBeNull();
+  });
+
+  it("replays a same-room invalidation received while its refresh is still in flight", async () => {
+    await renderCommunity();
+    let resolveRefresh!: (value: {
+      messages: ClubMessage[];
+      nextCursor: null;
+      mutedUntil: null;
+      mutedPermanently: false;
+    }) => void;
+    apiMocks.getClubMessages
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve; }))
+      .mockResolvedValueOnce({
+        messages: [message({ id: "latest", body: "Последнее обновление" })],
+        nextCursor: null,
+        mutedUntil: null,
+        mutedPermanently: false
+      });
+
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(2));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 100));
+    expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(2);
+
+    resolveRefresh({
+      messages: [message({ id: "intermediate", body: "Промежуточное обновление" })],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false
+    });
+    await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(3));
+    await screen.findByText("Последнее обновление");
   });
 });

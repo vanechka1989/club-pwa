@@ -280,4 +280,121 @@ describe("authoritative community topic state", () => {
     expect(markRead).toHaveBeenCalledWith(topicId, olderId);
     state.dispose();
   });
+
+  it("does not let a delayed room close clear the newly selected room observer state", async () => {
+    vi.useFakeTimers();
+    const secondTopicId = "00000000-0000-4000-8000-000000000020";
+    let resolveFirst!: (state: CommunityTopicState) => void;
+    const markRead = vi.fn()
+      .mockImplementationOnce(() => new Promise<CommunityTopicState>((resolve) => {
+        resolveFirst = resolve;
+      }))
+      .mockResolvedValueOnce({
+        unreadCount: 0,
+        lastReadMessageId: newerId,
+        notificationMode: "mentions"
+      });
+    const state = useCommunityTopicState({ markRead });
+    state.selectTopic(topicId, messages);
+    state.markVisibleMessageRead(olderId);
+    const closing = state.closeTopic();
+
+    state.selectTopic(secondTopicId, messages.map((item) => ({ ...item, topicId: secondTopicId })));
+    resolveFirst({ unreadCount: 0, lastReadMessageId: olderId, notificationMode: "mentions" });
+    await closing;
+    state.markVisibleMessageRead(newerId);
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(markRead).toHaveBeenCalledWith(secondTopicId, newerId);
+    state.dispose();
+  });
+
+  it("retries a transient read failure after bounded backoff", async () => {
+    vi.useFakeTimers();
+    const markRead = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        unreadCount: 0,
+        lastReadMessageId: olderId,
+        notificationMode: "mentions"
+      });
+    const state = useCommunityTopicState({ markRead, retryBaseMs: 100, retryMaximumMs: 1_000 });
+    state.selectTopic(topicId, messages);
+    state.markVisibleMessageRead(olderId);
+
+    await vi.advanceTimersByTimeAsync(400);
+    expect(markRead).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(99);
+    expect(markRead).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(markRead).toHaveBeenCalledTimes(2);
+    expect(state.topicStates.value[topicId]?.lastReadMessageId).toBe(olderId);
+    state.dispose();
+  });
+
+  it("retries a retained read immediately when connectivity returns", async () => {
+    vi.useFakeTimers();
+    const windowTarget = new EventTarget() as Window;
+    const markRead = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        unreadCount: 0,
+        lastReadMessageId: olderId,
+        notificationMode: "mentions"
+      });
+    const state = useCommunityTopicState({ markRead, windowTarget, retryBaseMs: 10_000 });
+    state.selectTopic(topicId, messages);
+    state.markVisibleMessageRead(olderId);
+    await vi.advanceTimersByTimeAsync(400);
+
+    windowTarget.dispatchEvent(new Event("online"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(markRead).toHaveBeenCalledTimes(2);
+    state.dispose();
+  });
+
+  it("retains a failed close read and retries it when the same topic is reopened", async () => {
+    vi.useFakeTimers();
+    const markRead = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        unreadCount: 0,
+        lastReadMessageId: olderId,
+        notificationMode: "mentions"
+      });
+    const state = useCommunityTopicState({ markRead, retryBaseMs: 10_000 });
+    state.selectTopic(topicId, messages);
+    state.markVisibleMessageRead(olderId);
+    await state.closeTopic();
+
+    state.selectTopic(topicId, messages);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(markRead).toHaveBeenCalledTimes(2);
+    state.dispose();
+  });
+
+  it("ignores an authoritative read response from a reset account generation", async () => {
+    vi.useFakeTimers();
+    let resolveRead!: (state: CommunityTopicState) => void;
+    const state = useCommunityTopicState({
+      markRead: () => new Promise<CommunityTopicState>((resolve) => {
+        resolveRead = resolve;
+      })
+    });
+    state.selectTopic(topicId, messages);
+    state.markVisibleMessageRead(olderId);
+    await vi.advanceTimersByTimeAsync(400);
+
+    state.reset();
+    resolveRead({ unreadCount: 0, lastReadMessageId: olderId, notificationMode: "mentions" });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(state.topicStates.value).toEqual({});
+    state.dispose();
+  });
 });

@@ -91,9 +91,14 @@ let realtimeFallbackTimer: ReturnType<typeof globalThis.setInterval> | null = nu
 let realtimeSyncTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let communityEventSource: EventSource | null = null;
 let realtimeConnected = false;
-let refreshInFlight = false;
-let refreshSelectedTopicQueued = false;
-let topicsRefreshInFlight = false;
+let componentMounted = false;
+let accountGeneration = 0;
+let topicGeneration = 0;
+let messageRequestGeneration = 0;
+let historyRequestGeneration = 0;
+let topicsRequestGeneration = 0;
+const refreshRequests = new Map<string, { queued: boolean; promise: Promise<void> }>();
+const topicListRequests = new Map<string, Promise<void>>();
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
 const communityDeviceStorageKey = "club-community-device-id-v1";
 const isModerator = computed(() =>
@@ -167,10 +172,34 @@ function applyAuthoritativeTopicState(
   }
 }
 
+type AccountRequestOwner = { userId: string; generation: number };
+
+function captureAccountOwner(): AccountRequestOwner | null {
+  const userId = session.user?.id;
+  return userId ? { userId, generation: accountGeneration } : null;
+}
+
+function isCurrentAccount(owner: AccountRequestOwner | null) {
+  return Boolean(owner && owner.generation === accountGeneration && session.user?.id === owner.userId);
+}
+
+function isCurrentRoom(owner: AccountRequestOwner | null, expectedTopicId: string, expectedTopicGeneration: number) {
+  return isCurrentAccount(owner)
+    && topicGeneration === expectedTopicGeneration
+    && selectedTopic.value?.id === expectedTopicId;
+}
+
+function invalidateTopicRequests() {
+  topicGeneration += 1;
+  historyRequestGeneration += 1;
+  loadingOlderMessages.value = false;
+}
+
 const topicState = useCommunityTopicState({
   markRead: async (topicId, messageId) => {
+    const owner = captureAccountOwner();
     const state = await markCommunityTopicRead(topicId, messageId);
-    applyAuthoritativeTopicState(topicId, state);
+    if (isCurrentAccount(owner)) applyAuthoritativeTopicState(topicId, state);
     return state;
   }
 });
@@ -236,13 +265,19 @@ function syncQueuedMessages(entries = getQueuedTextMessages()) {
 }
 
 function appendConfirmedTextMessage(message: ClubMessage) {
+  if (selectedTopic.value?.id !== message.topicId) {
+    topics.value = topics.value.map((topic) => topic.id === message.topicId
+      ? { ...topic, messagesCount: topic.messagesCount + 1 }
+      : topic);
+    return;
+  }
   const serverMessages = messages.value.filter((item) => !isOptimisticMessage(item));
   const isNewConfirmation = !serverMessages.some((item) =>
     item.id === message.id
     || Boolean(item.clientOperationId && item.clientOperationId === message.clientOperationId)
   );
   messages.value = mergeOptimisticMessages(mergeConfirmedCommunityMessages(serverMessages, [message]));
-  if (isNewConfirmation && selectedTopic.value?.id === message.topicId) {
+  if (isNewConfirmation) {
     selectedTopic.value = { ...selectedTopic.value, messagesCount: selectedTopic.value.messagesCount + 1 };
     topics.value = topics.value.map((topic) => topic.id === message.topicId ? selectedTopic.value! : topic);
   }
@@ -262,11 +297,12 @@ function configurePersistedCommunityState(userId: string) {
   });
 }
 
-async function refreshReadObservation() {
-  if (!selectedTopic.value) return;
+async function refreshReadObservation(owner: AccountRequestOwner, topicId: string, expectedTopicGeneration: number) {
+  if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
   const serverMessages = messages.value.filter((message) => !isOptimisticMessage(message));
-  topicState.selectTopic(selectedTopic.value.id, serverMessages);
+  topicState.selectTopic(topicId, serverMessages);
   await nextTick();
+  if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
   const element = chatRoom.value?.getMessagesElement();
   if (element) topicState.observeVisibleMessages(element);
 }
@@ -378,107 +414,128 @@ function messagesSignature(nextMessages: ClubMessage[]) {
   return nextMessages.map(messageSignature).join("\u001e");
 }
 
-async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
-  if (!hasCommunityAccess.value || !selectedTopic.value) {
-    return;
+function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
+  const owner = captureAccountOwner();
+  const topicId = selectedTopic.value?.id;
+  const expectedTopicGeneration = topicGeneration;
+  if (!owner || !hasCommunityAccess.value || !topicId) return Promise.resolve();
+  const requestKey = `${owner.generation}\u001f${expectedTopicGeneration}\u001f${topicId}`;
+  const active = refreshRequests.get(requestKey);
+  if (active) {
+    active.queued = true;
+    return active.promise;
   }
-  if (refreshInFlight) {
-    refreshSelectedTopicQueued = true;
-    return;
-  }
+  const requestGeneration = ++messageRequestGeneration;
+  const requestState = { queued: false, promise: Promise.resolve() };
+  requestState.promise = Promise.resolve().then(async () => {
+    const scrollElement = chatRoom.value?.getMessagesElement();
+    const previousScrollTop = scrollElement?.scrollTop ?? 0;
+    const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
+    const shouldScroll = !keepScroll || isNearBottom();
+    try {
+      const response = await getClubMessages(topicId);
+      if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== messageRequestGeneration) return;
+      const retainedOlderMessages = hasLoadedOlderMessages.value
+        ? messages.value.filter((message) => !response.messages.some((recent) => recent.id === message.id))
+        : [];
+      const confirmedMessages = reconcileQueuedMessages(response.messages);
+      const nextMessages = mergeOptimisticMessages([...confirmedMessages, ...retainedOlderMessages]);
+      const messagesChanged = messagesSignature(messages.value) !== messagesSignature(nextMessages);
+      if (messagesChanged) messages.value = nextMessages;
+      if (!messagePageInitialized.value) {
+        messagesNextCursor.value = response.nextCursor ?? null;
+        messagePageInitialized.value = true;
+      }
+      mutedUntil.value = response.mutedUntil;
+      mutedPermanently.value = response.mutedPermanently;
 
-  refreshInFlight = true;
-  const scrollElement = chatRoom.value?.getMessagesElement();
-  const previousScrollTop = scrollElement?.scrollTop ?? 0;
-  const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
-  const shouldScroll = !keepScroll || isNearBottom();
-  try {
-    const response = await getClubMessages(selectedTopic.value.id);
-    const retainedOlderMessages = hasLoadedOlderMessages.value
-      ? messages.value.filter((message) => !response.messages.some((recent) => recent.id === message.id))
-      : [];
-    const confirmedMessages = reconcileQueuedMessages(response.messages);
-    const nextMessages = mergeOptimisticMessages([...confirmedMessages, ...retainedOlderMessages]);
-    const messagesChanged = messagesSignature(messages.value) !== messagesSignature(nextMessages);
-    if (messagesChanged) {
-      messages.value = nextMessages;
+      if (!messagesChanged) {
+        await refreshReadObservation(owner, topicId, expectedTopicGeneration);
+        return;
+      }
+      if (shouldScroll) {
+        await scrollToBottom();
+      } else if (scrollElement) {
+        await nextTick();
+        if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
+        scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
+      }
+      await refreshReadObservation(owner, topicId, expectedTopicGeneration);
+    } catch {
+      if (!silent && isCurrentRoom(owner, topicId, expectedTopicGeneration)) showCommunityError("Не удалось обновить чат.");
+    } finally {
+      if (refreshRequests.get(requestKey) !== requestState) return;
+      refreshRequests.delete(requestKey);
+      if (requestState.queued && isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
+        void refreshSelectedTopic({ keepScroll: true, silent: true });
+      }
     }
-    if (!messagePageInitialized.value) {
-      messagesNextCursor.value = response.nextCursor ?? null;
-      messagePageInitialized.value = true;
-    }
-    mutedUntil.value = response.mutedUntil;
-    mutedPermanently.value = response.mutedPermanently;
-
-    if (!messagesChanged) {
-      await refreshReadObservation();
-      return;
-    }
-
-    if (shouldScroll) {
-      await scrollToBottom();
-    } else if (scrollElement) {
-      await nextTick();
-      scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
-    }
-    await refreshReadObservation();
-  } catch {
-    if (!silent) {
-      showCommunityError("Не удалось обновить чат.");
-    }
-  } finally {
-    refreshInFlight = false;
-    if (refreshSelectedTopicQueued) {
-      refreshSelectedTopicQueued = false;
-      void refreshSelectedTopic({ keepScroll: true, silent: true });
-    }
-  }
+  });
+  refreshRequests.set(requestKey, requestState);
+  return requestState.promise;
 }
 
 async function loadOlderMessages() {
   if (!selectedTopic.value || !messagesNextCursor.value || loadingOlderMessages.value) return;
+  const owner = captureAccountOwner();
+  const topicId = selectedTopic.value.id;
+  const cursor = messagesNextCursor.value;
+  const expectedTopicGeneration = topicGeneration;
+  const requestGeneration = ++historyRequestGeneration;
+  if (!owner) return;
   loadingOlderMessages.value = true;
   try {
-    const response = await getClubMessages(selectedTopic.value.id, messagesNextCursor.value);
+    const response = await getClubMessages(topicId, cursor);
+    if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== historyRequestGeneration) return;
     hasLoadedOlderMessages.value = true;
     const existingIds = new Set(messages.value.map((message) => message.id));
     messages.value = [...messages.value, ...response.messages.filter((message) => !existingIds.has(message.id))];
     messagesNextCursor.value = response.nextCursor ?? null;
   } catch {
-    showCommunityError("Не удалось загрузить предыдущие сообщения.");
+    if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) showCommunityError("Не удалось загрузить предыдущие сообщения.");
   } finally {
-    loadingOlderMessages.value = false;
+    if (isCurrentRoom(owner, topicId, expectedTopicGeneration) && requestGeneration === historyRequestGeneration) {
+      loadingOlderMessages.value = false;
+    }
   }
 }
 
-async function loadTopics({ showLoading = false } = {}) {
-  if (!hasCommunityAccess.value || topicsRefreshInFlight) {
-    return;
-  }
-
-  topicsRefreshInFlight = true;
-  loading.value = showLoading;
+function loadTopics({ showLoading = false } = {}) {
+  const owner = captureAccountOwner();
+  if (!owner || !hasCommunityAccess.value) return Promise.resolve();
+  const requestKey = `${owner.generation}\u001f${owner.userId}`;
+  const active = topicListRequests.get(requestKey);
+  if (active) return active;
+  const requestGeneration = ++topicsRequestGeneration;
+  if (showLoading) loading.value = true;
   clearCommunityError();
-  try {
-    const response = await getCommunityTopics();
-    topics.value = response.topics;
-    topicState.syncTopics(response.topics);
-    if (selectedTopic.value) {
-      selectedTopic.value = response.topics.find((topic) => topic.id === selectedTopic.value?.id) ?? selectedTopic.value;
+  let request!: Promise<void>;
+  request = Promise.resolve().then(async () => {
+    try {
+      const response = await getCommunityTopics();
+      if (!isCurrentAccount(owner) || requestGeneration !== topicsRequestGeneration) return;
+      topics.value = response.topics;
+      topicState.syncTopics(response.topics);
+      if (selectedTopic.value) {
+        selectedTopic.value = response.topics.find((topic) => topic.id === selectedTopic.value?.id) ?? selectedTopic.value;
+      }
+    } catch (reason) {
+      if (!isCurrentAccount(owner)) return;
+      if (getErrorStatus(reason) === 403) {
+        invalidateTopicRequests();
+        topics.value = [];
+        selectedTopic.value = null;
+        clearCommunityError();
+        return;
+      }
+      showCommunityError("Не удалось загрузить общение.");
+    } finally {
+      if (topicListRequests.get(requestKey) === request) topicListRequests.delete(requestKey);
+      if (isCurrentAccount(owner)) loading.value = false;
     }
-  } catch (reason) {
-    if (getErrorStatus(reason) === 403) {
-      topics.value = [];
-      selectedTopic.value = null;
-      clearCommunityError();
-      return;
-    }
-
-    showCommunityError("Не удалось загрузить общение.");
-  } finally {
-    loading.value = false;
-    topicsRefreshInFlight = false;
-  }
+  });
+  topicListRequests.set(requestKey, request);
+  return request;
 }
 
 function stopRealtimeFallback() {
@@ -490,8 +547,9 @@ function stopRealtimeFallback() {
 
 function startRealtimeFallback() {
   stopRealtimeFallback();
+  const owner = captureAccountOwner();
   realtimeFallbackTimer = globalThis.setInterval(() => {
-    if (document.visibilityState !== "visible") {
+    if (!isCurrentAccount(owner) || document.visibilityState !== "visible") {
       return;
     }
     if (selectedTopic.value) {
@@ -518,11 +576,13 @@ function scheduleRealtimeSync() {
   if (!hasCommunityAccess.value || document.visibilityState !== "visible") {
     return;
   }
+  const owner = captureAccountOwner();
   if (realtimeSyncTimer) {
     globalThis.clearTimeout(realtimeSyncTimer);
   }
   realtimeSyncTimer = globalThis.setTimeout(() => {
     realtimeSyncTimer = null;
+    if (!isCurrentAccount(owner)) return;
     if (selectedTopic.value) {
       void refreshSelectedTopic({ silent: true });
       return;
@@ -539,17 +599,21 @@ function startCommunityRealtime() {
   }
 
   const eventSource = createCommunityEventSource();
+  const owner = captureAccountOwner();
   communityEventSource = eventSource;
   eventSource.onopen = () => {
+    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     realtimeConnected = true;
     stopRealtimeFallback();
   };
   eventSource.addEventListener("ready", () => {
+    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     realtimeConnected = true;
     stopRealtimeFallback();
     scheduleRealtimeSync();
   });
   eventSource.addEventListener("community.changed", (rawEvent) => {
+    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     if (selectedTopic.value && rawEvent instanceof MessageEvent) {
       try {
         const event = JSON.parse(rawEvent.data) as { topicId?: string | null };
@@ -563,6 +627,7 @@ function startCommunityRealtime() {
     scheduleRealtimeSync();
   });
   eventSource.onerror = () => {
+    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     realtimeConnected = false;
     startRealtimeFallback();
   };
@@ -579,7 +644,10 @@ async function openTopic(topic: ClubTopic) {
     return;
   }
 
+  void topicState.closeTopic();
+  invalidateTopicRequests();
   selectedTopic.value = topic;
+  messageSaving.value = false;
   messages.value = [];
   messagesNextCursor.value = null;
   messagePageInitialized.value = false;
@@ -703,7 +771,9 @@ async function handleSendMessage(body: string) {
 
   messageSaving.value = true;
   clearCommunityError();
+  const owner = captureAccountOwner();
   const topicId = selectedTopic.value.id;
+  const expectedTopicGeneration = topicGeneration;
   try {
     const result = await queueTextMessage<ClubMessage>({
       topicId,
@@ -711,15 +781,20 @@ async function handleSendMessage(body: string) {
       replyToMessageId: replyToMessage.value?.id ?? null
     });
     if (result.delivered || result.retryable) {
-      newMessage.value = "";
       saveDraft(topicId, "");
-      replyToMessage.value = null;
+      if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
+        newMessage.value = "";
+        replyToMessage.value = null;
+      }
     }
     if (!result.delivered && result.retryable) {
-      showCommunityError("Сообщение сохранено и будет отправлено при восстановлении связи.");
+      if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
+        showCommunityError("Сообщение сохранено и будет отправлено при восстановлении связи.");
+      }
     } else if (!result.delivered) {
-      newMessage.value = body;
       saveDraft(topicId, body);
+      if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
+      newMessage.value = body;
       const data =
         typeof result.error === "object" && result.error && "data" in result.error
           ? (result.error.data as { mutedUntil?: string | null; mutedPermanently?: boolean } | undefined)
@@ -732,11 +807,13 @@ async function handleSendMessage(body: string) {
       showCommunityError("Не удалось отправить сообщение.");
     }
   } catch {
-    newMessage.value = body;
     saveDraft(topicId, body);
-    showCommunityError("Не удалось подготовить сообщение к отправке.");
+    if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
+      newMessage.value = body;
+      showCommunityError("Не удалось подготовить сообщение к отправке.");
+    }
   } finally {
-    messageSaving.value = false;
+    if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) messageSaving.value = false;
   }
 }
 
@@ -750,6 +827,12 @@ function handleCommunityOnline() {
 }
 
 function appendCreatedMessage(message: ClubMessage) {
+  if (selectedTopic.value?.id !== message.topicId) {
+    topics.value = topics.value.map((topic) => topic.id === message.topicId
+      ? { ...topic, messagesCount: topic.messagesCount + 1 }
+      : topic);
+    return;
+  }
   messages.value = [message, ...messages.value];
   if (selectedTopic.value) {
     selectedTopic.value = { ...selectedTopic.value, messagesCount: selectedTopic.value.messagesCount + 1 };
@@ -873,7 +956,46 @@ async function handleReaction(message: ClubMessage, reaction: VisibleMessageReac
   reactionCompletedVersion.value += 1;
 }
 
+function resetCommunityUiState() {
+  selectedTopic.value = null;
+  topics.value = [];
+  messages.value = [];
+  queuedTextMessages.value = [];
+  messagesNextCursor.value = null;
+  loading.value = false;
+  loadingOlderMessages.value = false;
+  messagePageInitialized.value = false;
+  hasLoadedOlderMessages.value = false;
+  mutedUntil.value = null;
+  mutedPermanently.value = false;
+  muteAlertShown.value = false;
+  newMessage.value = "";
+  replyToMessage.value = null;
+  activeModerationMessageId.value = null;
+  messageSaving.value = false;
+  topicSaving.value = false;
+  showCreateTopic.value = false;
+  showDeleteTopicMessagesConfirm.value = false;
+  deleteTopicMessagesBusy.value = false;
+  clearCommunityError();
+}
+
+function beginAccountGeneration() {
+  accountGeneration += 1;
+  invalidateTopicRequests();
+  messageRequestGeneration += 1;
+  topicsRequestGeneration += 1;
+  refreshRequests.clear();
+  topicListRequests.clear();
+  stopCommunityRealtime();
+  stopRealtimeFallback();
+  resetCommunityOutbox();
+  topicState.reset();
+  resetCommunityUiState();
+}
+
 onMounted(() => {
+  componentMounted = true;
   document.addEventListener("visibilitychange", handleCommunityVisibilityChange);
   window.addEventListener("online", handleCommunityOnline);
   void flushQueuedMessages();
@@ -884,10 +1006,14 @@ onMounted(() => {
 });
 
 watch(
-  () => Boolean(selectedTopic.value),
-  (isOpen) => {
-    emit("chatOpenChange", isOpen);
-    if (isOpen) {
+  () => selectedTopic.value?.id ?? null,
+  (topicId, previousTopicId) => {
+    emit("chatOpenChange", Boolean(topicId));
+    if (topicId) {
+      if (previousTopicId && previousTopicId !== topicId) {
+        invalidateTopicRequests();
+        void topicState.closeTopic();
+      }
       if (realtimeConnected) {
         stopRealtimeFallback();
       } else {
@@ -896,13 +1022,16 @@ watch(
       return;
     }
 
-    void topicState.closeTopic();
-    if (!realtimeConnected) {
+    if (previousTopicId) {
+      invalidateTopicRequests();
+      void topicState.closeTopic();
+    }
+    if (componentMounted && !realtimeConnected) {
       startRealtimeFallback();
     }
     activeModerationMessageId.value = null;
     composerResetVersion.value += 1;
-    void loadTopics();
+    if (componentMounted && hasCommunityAccess.value) void loadTopics();
   },
   { immediate: true }
 );
@@ -910,20 +1039,18 @@ watch(
 watch(
   () => session.user?.id ?? null,
   (userId, previousUserId) => {
-    if (previousUserId !== userId) topicState.reset();
+    if (previousUserId === userId) return;
+    beginAccountGeneration();
+    resetCommunityDrafts();
     if (!userId) {
-      resetCommunityDrafts();
-      resetCommunityOutbox();
-      queuedTextMessages.value = [];
       return;
-    }
-    if (previousUserId && previousUserId !== userId) {
-      selectedTopic.value = null;
-      messages.value = [];
-      newMessage.value = "";
     }
     configurePersistedCommunityState(userId);
     void flushQueuedMessages();
+    if (componentMounted && hasCommunityAccess.value) {
+      void loadTopics({ showLoading: true });
+      startCommunityRealtime();
+    }
   },
   { immediate: true }
 );
@@ -932,28 +1059,26 @@ watch(
   hasCommunityAccess,
   (hasAccess) => {
     if (!hasAccess) {
-      selectedTopic.value = null;
-      topics.value = [];
-      messages.value = [];
-      messagesNextCursor.value = null;
-      messagePageInitialized.value = false;
-      hasLoadedOlderMessages.value = false;
-      clearCommunityError();
-      stopCommunityRealtime();
-      stopRealtimeFallback();
+      beginAccountGeneration();
       return;
     }
 
+    const userId = session.user?.id;
+    if (userId) configurePersistedCommunityState(userId);
     void loadTopics({ showLoading: true });
     startCommunityRealtime();
   }
 );
 
 onBeforeUnmount(() => {
+  componentMounted = false;
+  accountGeneration += 1;
+  invalidateTopicRequests();
   void topicState.closeTopic();
   topicState.dispose();
   stopCommunityRealtime();
   stopRealtimeFallback();
+  resetCommunityOutbox();
   document.removeEventListener("visibilitychange", handleCommunityVisibilityChange);
   window.removeEventListener("online", handleCommunityOnline);
   emit("chatOpenChange", false);

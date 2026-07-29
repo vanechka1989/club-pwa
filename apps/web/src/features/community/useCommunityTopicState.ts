@@ -9,24 +9,40 @@ type ObserverLike = {
 type UseCommunityTopicStateOptions = {
   markRead: (topicId: string, messageId: string) => Promise<CommunityTopicState>;
   debounceMs?: number;
+  retryBaseMs?: number;
+  retryMaximumMs?: number;
   createObserver?: (callback: IntersectionObserverCallback) => ObserverLike;
   documentTarget?: Document;
+  windowTarget?: Window;
+  now?: () => number;
+};
+
+type PendingRead = {
+  messageId: string;
+  attempts: number;
+  nextAttemptAt: number;
+  generation: number;
 };
 
 export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
   const topicStates = ref<Record<string, CommunityTopicState>>({});
   const debounceMs = options.debounceMs ?? 400;
+  const retryBaseMs = options.retryBaseMs ?? 1_000;
+  const retryMaximumMs = options.retryMaximumMs ?? 30_000;
+  const now = options.now ?? Date.now;
   const documentTarget = options.documentTarget ?? (typeof document === "undefined" ? null : document);
+  const windowTarget = options.windowTarget ?? (typeof window === "undefined" ? null : window);
   let activeTopicId: string | null = null;
   let observer: ObserverLike | null = null;
   let debounceTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
-  let pendingMessageId: string | null = null;
-  let inFlightMessageId: string | null = null;
-  let delivery: Promise<void> | null = null;
+  let retryTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
   let generation = 0;
   const positions = new Map<string, number>();
   const visibleIds = new Set<string>();
   const advancedPositions = new Map<string, number>();
+  const pendingReads = new Map<string, PendingRead>();
+  const inFlightReads = new Map<string, string>();
+  const deliveries = new Map<string, Promise<void>>();
 
   function syncTopics(topics: ClubTopic[]) {
     const next: Record<string, CommunityTopicState> = {};
@@ -42,13 +58,90 @@ export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
 
   function syncAuthoritativeState(topicId: string, state: CommunityTopicState) {
     topicStates.value = { ...topicStates.value, [topicId]: state };
+    if (topicId !== activeTopicId) return;
     const position = state.lastReadMessageId ? positions.get(state.lastReadMessageId) : undefined;
-    if (position !== undefined) advancedPositions.set(topicId, Math.max(advancedPositions.get(topicId) ?? -1, position));
+    if (position !== undefined) {
+      advancedPositions.set(topicId, Math.max(advancedPositions.get(topicId) ?? -1, position));
+      const pending = pendingReads.get(topicId);
+      const pendingPosition = pending ? positions.get(pending.messageId) : undefined;
+      if (pendingPosition !== undefined && position >= pendingPosition) pendingReads.delete(topicId);
+    }
+  }
+
+  function clearDebounce() {
+    if (!debounceTimer) return;
+    globalThis.clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+
+  function clearRetryTimer() {
+    if (!retryTimer) return;
+    globalThis.clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+
+  function retryDelay(attempts: number) {
+    return Math.min(retryMaximumMs, retryBaseMs * (2 ** Math.max(0, attempts - 1)));
+  }
+
+  function scheduleRetry() {
+    clearRetryTimer();
+    const next = [...pendingReads.entries()]
+      .filter(([, pending]) => pending.generation === generation)
+      .sort((left, right) => left[1].nextAttemptAt - right[1].nextAttemptAt)[0];
+    if (!next) return;
+    retryTimer = globalThis.setTimeout(() => {
+      retryTimer = null;
+      void attemptRead(next[0], false);
+    }, Math.max(0, next[1].nextAttemptAt - now()));
+  }
+
+  async function attemptRead(topicId: string, force: boolean) {
+    const existing = deliveries.get(topicId);
+    if (existing) {
+      await existing;
+      return;
+    }
+    const pending = pendingReads.get(topicId);
+    if (!pending || pending.generation !== generation) return;
+    if (!force && pending.nextAttemptAt > now()) {
+      scheduleRetry();
+      return;
+    }
+    const deliveryGeneration = generation;
+    const messageId = pending.messageId;
+    inFlightReads.set(topicId, messageId);
+    const delivery = options.markRead(topicId, messageId)
+      .then((state) => {
+        if (generation !== deliveryGeneration) return;
+        syncAuthoritativeState(topicId, state);
+        const current = pendingReads.get(topicId);
+        if (current?.messageId === messageId) pendingReads.delete(topicId);
+      })
+      .catch(() => {
+        if (generation !== deliveryGeneration) return;
+        const current = pendingReads.get(topicId);
+        if (!current || current.messageId !== messageId) return;
+        const attempts = current.attempts + 1;
+        pendingReads.set(topicId, {
+          ...current,
+          attempts,
+          nextAttemptAt: now() + retryDelay(attempts)
+        });
+      })
+      .finally(() => {
+        if (deliveries.get(topicId) === delivery) deliveries.delete(topicId);
+        if (inFlightReads.get(topicId) === messageId) inFlightReads.delete(topicId);
+        if (generation === deliveryGeneration) scheduleRetry();
+      });
+    deliveries.set(topicId, delivery);
+    await delivery;
   }
 
   function selectTopic(topicId: string, messages: ClubMessage[]) {
     observer?.disconnect();
     observer = null;
+    clearDebounce();
     visibleIds.clear();
     positions.clear();
     activeTopicId = topicId;
@@ -58,62 +151,34 @@ export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
     const lastReadMessageId = topicStates.value[topicId]?.lastReadMessageId;
     const lastReadPosition = lastReadMessageId ? positions.get(lastReadMessageId) : undefined;
     if (lastReadPosition !== undefined) advancedPositions.set(topicId, lastReadPosition);
-  }
-
-  function clearDebounce() {
-    if (!debounceTimer) return;
-    globalThis.clearTimeout(debounceTimer);
-    debounceTimer = null;
+    const retained = pendingReads.get(topicId);
+    if (retained?.generation === generation) {
+      retained.nextAttemptAt = 0;
+      void attemptRead(topicId, true);
+    }
   }
 
   async function flushRead() {
     clearDebounce();
-    if (delivery) {
-      await delivery;
-      if (pendingMessageId) return flushRead();
-      return;
-    }
     const topicId = activeTopicId;
-    const messageId = pendingMessageId;
-    if (!topicId || !messageId) return;
-    pendingMessageId = null;
-    inFlightMessageId = messageId;
-    const deliveryGeneration = generation;
-    delivery = options.markRead(topicId, messageId)
-      .then((state) => {
-        if (generation === deliveryGeneration) syncAuthoritativeState(topicId, state);
-      })
-      .catch(() => {
-        if (generation === deliveryGeneration && activeTopicId === topicId && !pendingMessageId) {
-          pendingMessageId = messageId;
-        }
-      })
-      .finally(() => {
-        inFlightMessageId = null;
-        delivery = null;
-      });
-    await delivery;
-    if (pendingMessageId && pendingMessageId !== messageId) {
-      debounceTimer = globalThis.setTimeout(() => {
-        debounceTimer = null;
-        void flushRead();
-      }, debounceMs);
-    }
+    if (topicId) await attemptRead(topicId, true);
   }
 
   function markVisibleMessageRead(messageId: string) {
     const topicId = activeTopicId;
     const position = positions.get(messageId);
     if (!topicId || position === undefined) return;
-    const pendingPosition = pendingMessageId ? positions.get(pendingMessageId) ?? -1 : -1;
-    const inFlightPosition = inFlightMessageId ? positions.get(inFlightMessageId) ?? -1 : -1;
+    const pending = pendingReads.get(topicId);
+    const pendingPosition = pending ? positions.get(pending.messageId) ?? -1 : -1;
+    const inFlightId = inFlightReads.get(topicId);
+    const inFlightPosition = inFlightId ? positions.get(inFlightId) ?? -1 : -1;
     const furthest = Math.max(advancedPositions.get(topicId) ?? -1, pendingPosition, inFlightPosition);
     if (position <= furthest) return;
-    pendingMessageId = messageId;
+    pendingReads.set(topicId, { messageId, attempts: 0, nextAttemptAt: 0, generation });
     clearDebounce();
     debounceTimer = globalThis.setTimeout(() => {
       debounceTimer = null;
-      void flushRead();
+      void attemptRead(topicId, true);
     }, debounceMs);
   }
 
@@ -152,18 +217,26 @@ export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
     }
   }
 
-  async function closeTopic() {
+  function closeTopic() {
+    const closingTopicId = activeTopicId;
     observer?.disconnect();
     observer = null;
+    clearDebounce();
     visibleIds.clear();
-    await flushRead();
-    pendingMessageId = null;
     activeTopicId = null;
     positions.clear();
+    return closingTopicId ? attemptRead(closingTopicId, true) : Promise.resolve();
+  }
+
+  function retryPendingReads() {
+    clearRetryTimer();
+    for (const pending of pendingReads.values()) pending.nextAttemptAt = 0;
+    for (const topicId of pendingReads.keys()) void attemptRead(topicId, true);
   }
 
   function handleVisibilityChange() {
     if (documentTarget?.visibilityState === "hidden") void flushRead();
+    else if (documentTarget?.visibilityState === "visible") retryPendingReads();
   }
 
   function reset() {
@@ -171,21 +244,25 @@ export function useCommunityTopicState(options: UseCommunityTopicStateOptions) {
     observer?.disconnect();
     observer = null;
     clearDebounce();
+    clearRetryTimer();
     activeTopicId = null;
-    pendingMessageId = null;
-    inFlightMessageId = null;
     positions.clear();
     visibleIds.clear();
     advancedPositions.clear();
+    pendingReads.clear();
+    inFlightReads.clear();
+    deliveries.clear();
     topicStates.value = {};
   }
 
   function dispose() {
     reset();
     documentTarget?.removeEventListener("visibilitychange", handleVisibilityChange);
+    windowTarget?.removeEventListener("online", retryPendingReads);
   }
 
   documentTarget?.addEventListener("visibilitychange", handleVisibilityChange);
+  windowTarget?.addEventListener("online", retryPendingReads);
 
   return {
     topicStates,

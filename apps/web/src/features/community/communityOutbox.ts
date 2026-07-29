@@ -7,8 +7,10 @@ export type QueuedTextMessage = {
   body: string;
   replyToMessageId: string | null;
   createdAt: number;
+  sequence: number;
   status: "queued" | "sending" | "failed";
   attempts: number;
+  nextAttemptAt: number;
 };
 
 export type QueueTextMessageInput = {
@@ -40,6 +42,10 @@ type CommunityOutboxContext<TMessage extends ConfirmedMessage = ConfirmedMessage
   createLocalId?: () => string;
   onChange?: (messages: QueuedTextMessage[]) => void;
   onConfirmed?: (message: TMessage) => void;
+  retryBaseMs?: number;
+  retryMaximumMs?: number;
+  retryJitter?: () => number;
+  maximumConcurrency?: number;
 };
 
 export type QueuedTextDeliveryResult<TMessage extends ConfirmedMessage = ConfirmedMessage> = {
@@ -52,9 +58,16 @@ export type QueuedTextDeliveryResult<TMessage extends ConfirmedMessage = Confirm
 
 const storageKey = "club-community-text-outbox-v1";
 const maximumMessages = 100;
+const maximumStoredMessages = 1_000;
 const maximumBodyLength = 3_000;
+const maximumPersistedAttempts = 16;
 let activeContext: Required<CommunityOutboxContext> | null = null;
 const inFlight = new Map<string, Promise<QueuedTextDeliveryResult>>();
+const topicTails = new Map<string, Promise<unknown>>();
+const flushes = new WeakMap<Required<CommunityOutboxContext>, Promise<PromiseSettledResult<QueuedTextDeliveryResult>[]>>();
+const retryTimers = new Map<string, ReturnType<typeof globalThis.setTimeout>>();
+const deliveryCounts = new WeakMap<Required<CommunityOutboxContext>, number>();
+const deliveryWaiters = new WeakMap<Required<CommunityOutboxContext>, Array<() => void>>();
 
 function defaultIsOnline() {
   return typeof navigator === "undefined" || navigator.onLine;
@@ -62,6 +75,14 @@ function defaultIsOnline() {
 
 function defaultLocalId() {
   return crypto.randomUUID();
+}
+
+function scopeKey(current: Pick<Required<CommunityOutboxContext>, "userId" | "deviceId">) {
+  return `${current.userId}\u001f${current.deviceId}`;
+}
+
+function entryKey(current: Required<CommunityOutboxContext>, localId: string) {
+  return `${scopeKey(current)}\u001f${localId}`;
 }
 
 function getFailureStatus(reason: unknown) {
@@ -80,29 +101,63 @@ function isRetryableFailure(reason: unknown) {
   return status === null || status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
-function isQueuedMessage(value: unknown): value is QueuedTextMessage {
-  if (!value || typeof value !== "object") return false;
+function normalizeQueuedMessage(value: unknown, fallbackSequence: number): QueuedTextMessage | null {
+  if (!value || typeof value !== "object") return null;
   const candidate = value as Partial<QueuedTextMessage>;
-  return typeof candidate.userId === "string"
-    && candidate.userId.length > 0
-    && typeof candidate.deviceId === "string"
-    && candidate.deviceId.length > 0
-    && typeof candidate.topicId === "string"
-    && candidate.topicId.length > 0
-    && typeof candidate.localId === "string"
-    && candidate.localId.length > 0
+  if (!(typeof candidate.userId === "string" && candidate.userId.length > 0
+    && typeof candidate.deviceId === "string" && candidate.deviceId.length > 0
+    && typeof candidate.topicId === "string" && candidate.topicId.length > 0
+    && typeof candidate.localId === "string" && candidate.localId.length > 0
     && typeof candidate.deliveryKey === "string"
     && candidate.deliveryKey === createDeliveryKey(candidate.deviceId, candidate.localId)
-    && typeof candidate.body === "string"
-    && candidate.body.length > 0
-    && candidate.body.length <= maximumBodyLength
+    && typeof candidate.body === "string" && candidate.body.length > 0 && candidate.body.length <= maximumBodyLength
     && (candidate.replyToMessageId === null || typeof candidate.replyToMessageId === "string")
-    && typeof candidate.createdAt === "number"
-    && Number.isFinite(candidate.createdAt)
+    && typeof candidate.createdAt === "number" && Number.isFinite(candidate.createdAt)
     && (candidate.status === "queued" || candidate.status === "sending" || candidate.status === "failed")
-    && typeof candidate.attempts === "number"
-    && Number.isInteger(candidate.attempts)
-    && candidate.attempts >= 0;
+    && typeof candidate.attempts === "number" && Number.isInteger(candidate.attempts) && candidate.attempts >= 0)) {
+    return null;
+  }
+  return {
+    userId: candidate.userId,
+    deviceId: candidate.deviceId,
+    topicId: candidate.topicId,
+    localId: candidate.localId,
+    deliveryKey: candidate.deliveryKey,
+    body: candidate.body,
+    replyToMessageId: candidate.replyToMessageId,
+    createdAt: candidate.createdAt,
+    sequence: typeof candidate.sequence === "number" && Number.isSafeInteger(candidate.sequence) && candidate.sequence >= 0
+      ? candidate.sequence
+      : fallbackSequence,
+    status: candidate.status === "sending" ? "queued" : candidate.status,
+    attempts: Math.min(candidate.attempts, maximumPersistedAttempts),
+    nextAttemptAt: typeof candidate.nextAttemptAt === "number" && Number.isFinite(candidate.nextAttemptAt)
+      ? Math.max(0, candidate.nextAttemptAt)
+      : 0
+  };
+}
+
+function normalizeOutbox(values: unknown[]) {
+  const unique = new Map<string, QueuedTextMessage>();
+  for (const [index, value] of values.entries()) {
+    const entry = normalizeQueuedMessage(value, values.length - index);
+    if (!entry) continue;
+    const key = `${entry.userId}\u001f${entry.deviceId}\u001f${entry.localId}`;
+    const previous = unique.get(key);
+    if (!previous || entry.createdAt >= previous.createdAt) unique.set(key, entry);
+  }
+  const namespaceCounts = new Map<string, number>();
+  return [...unique.values()]
+    .sort((left, right) => right.createdAt - left.createdAt || right.sequence - left.sequence)
+    .filter((entry) => {
+      const namespace = `${entry.userId}\u001f${entry.deviceId}`;
+      const count = namespaceCounts.get(namespace) ?? 0;
+      if (count >= maximumMessages) return false;
+      namespaceCounts.set(namespace, count + 1);
+      return true;
+    })
+    .slice(0, maximumStoredMessages)
+    .sort((left, right) => left.createdAt - right.createdAt || left.sequence - right.sequence);
 }
 
 function removeStorageKey(storage: Storage) {
@@ -113,28 +168,30 @@ function removeStorageKey(storage: Storage) {
   }
 }
 
-function readOutbox(storage: Storage) {
-  try {
-    const raw = storage.getItem(storageKey);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed) || !parsed.every(isQueuedMessage)) {
-      removeStorageKey(storage);
-      return [];
-    }
-    return parsed.map((entry) => entry.status === "sending" ? { ...entry, status: "queued" as const } : entry);
-  } catch {
-    removeStorageKey(storage);
-    return [];
-  }
-}
-
 function writeOutbox(storage: Storage, entries: QueuedTextMessage[]) {
   try {
     if (entries.length) storage.setItem(storageKey, JSON.stringify(entries));
     else storage.removeItem(storageKey);
   } catch {
     // The caller keeps the composer draft when durable queue persistence is unavailable.
+  }
+}
+
+function readOutbox(storage: Storage) {
+  try {
+    const raw = storage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      removeStorageKey(storage);
+      return [];
+    }
+    const normalized = normalizeOutbox(parsed);
+    if (JSON.stringify(normalized) !== raw) writeOutbox(storage, normalized);
+    return normalized;
+  } catch {
+    removeStorageKey(storage);
+    return [];
   }
 }
 
@@ -163,7 +220,7 @@ function replaceEntry(
       ? update(entry)
       : entry
   );
-  writeOutbox(current.storage, entries);
+  writeOutbox(current.storage, normalizeOutbox(entries));
   notifyChange(current);
   return entries.find((entry) =>
     entry.userId === current.userId && entry.deviceId === current.deviceId && entry.localId === localId
@@ -180,12 +237,141 @@ function removeEntry(current: Required<CommunityOutboxContext>, localId: string)
   notifyChange(current);
 }
 
+function clearRetryTimer(current: Required<CommunityOutboxContext>) {
+  const key = scopeKey(current);
+  const timer = retryTimers.get(key);
+  if (timer) globalThis.clearTimeout(timer);
+  retryTimers.delete(key);
+}
+
+function retryDelay(current: Required<CommunityOutboxContext>, attempts: number) {
+  const exponential = Math.min(current.retryMaximumMs, current.retryBaseMs * (2 ** Math.max(0, attempts - 1)));
+  return Math.max(0, Math.min(current.retryMaximumMs, Math.round(exponential * (1 + Math.max(0, current.retryJitter())))));
+}
+
+function scheduleRetry(current: Required<CommunityOutboxContext>) {
+  if (activeContext !== current || !current.isOnline()) return;
+  clearRetryTimer(current);
+  const next = scopedEntries(current)
+    .filter((entry) => entry.status === "failed")
+    .sort((left, right) => left.nextAttemptAt - right.nextAttemptAt)[0];
+  if (!next) return;
+  const key = scopeKey(current);
+  retryTimers.set(key, globalThis.setTimeout(() => {
+    retryTimers.delete(key);
+    if (activeContext === current) void flushQueuedMessages();
+  }, Math.max(0, next.nextAttemptAt - current.now())));
+}
+
+function acquireSlot(current: Required<CommunityOutboxContext>): Promise<void> | null {
+  const activeDeliveries = deliveryCounts.get(current) ?? 0;
+  if (activeDeliveries < current.maximumConcurrency) {
+    deliveryCounts.set(current, activeDeliveries + 1);
+    return null;
+  }
+  return new Promise<void>((resolve, reject) => {
+    const waiters = deliveryWaiters.get(current) ?? [];
+    waiters.push(() => {
+      if (activeContext !== current) {
+        reject(new Error("community_outbox_context_changed"));
+        return;
+      }
+      deliveryCounts.set(current, (deliveryCounts.get(current) ?? 0) + 1);
+      resolve();
+    });
+    deliveryWaiters.set(current, waiters);
+  });
+}
+
+function releaseSlot(current: Required<CommunityOutboxContext>) {
+  deliveryCounts.set(current, Math.max(0, (deliveryCounts.get(current) ?? 1) - 1));
+  deliveryWaiters.get(current)?.shift()?.();
+}
+
+function cancelDeliveryWaiters(current: Required<CommunityOutboxContext>) {
+  const waiters = deliveryWaiters.get(current) ?? [];
+  deliveryWaiters.delete(current);
+  for (const cancel of waiters) cancel();
+}
+
+async function deliverEntry(
+  current: Required<CommunityOutboxContext>,
+  localId: string
+): Promise<QueuedTextDeliveryResult> {
+  const original = scopedEntries(current).find((entry) => entry.localId === localId);
+  if (!original) throw new Error("queued_community_message_not_found");
+  if (activeContext !== current) {
+    return { delivered: false, retryable: true, entry: original, message: null, error: null };
+  }
+  if (!current.isOnline()) {
+    return { delivered: false, retryable: true, entry: original, message: null, error: null };
+  }
+  const slot = acquireSlot(current);
+  if (slot) await slot;
+  try {
+    if (activeContext !== current) {
+      return { delivered: false, retryable: true, entry: original, message: null, error: null };
+    }
+    const sending = replaceEntry(current, localId, (entry) => ({
+      ...entry,
+      status: "sending",
+      attempts: Math.min(maximumPersistedAttempts, entry.attempts + 1),
+      nextAttemptAt: 0
+    })) ?? original;
+    try {
+      const { message } = await current.send({
+        topicId: sending.topicId,
+        body: sending.body,
+        replyToMessageId: sending.replyToMessageId,
+        clientOperationId: sending.deliveryKey
+      });
+      removeEntry(current, localId);
+      if (activeContext === current) current.onConfirmed(message);
+      return { delivered: true, retryable: false, entry: sending, message, error: null };
+    } catch (error) {
+      if (!isRetryableFailure(error)) {
+        removeEntry(current, localId);
+        return { delivered: false, retryable: false, entry: sending, message: null, error };
+      }
+      const failed = replaceEntry(current, localId, (entry) => ({
+        ...entry,
+        status: "failed",
+        nextAttemptAt: current.now() + retryDelay(current, entry.attempts)
+      })) ?? sending;
+      scheduleRetry(current);
+      return { delivered: false, retryable: true, entry: failed, message: null, error };
+    }
+  } finally {
+    releaseSlot(current);
+  }
+}
+
+function scheduleEntry(current: Required<CommunityOutboxContext>, entry: QueuedTextMessage) {
+  const key = entryKey(current, entry.localId);
+  const existing = inFlight.get(key);
+  if (existing) return existing;
+  const topicKey = `${scopeKey(current)}\u001f${entry.topicId}`;
+  const previous = topicTails.get(topicKey);
+  const delivery = previous
+    ? previous.catch(() => undefined).then(() => deliverEntry(current, entry.localId))
+    : deliverEntry(current, entry.localId);
+  topicTails.set(topicKey, delivery);
+  inFlight.set(key, delivery);
+  void delivery.finally(() => {
+    inFlight.delete(key);
+    if (topicTails.get(topicKey) === delivery) topicTails.delete(topicKey);
+  }).catch(() => undefined);
+  return delivery;
+}
+
 export function createDeliveryKey(deviceId: string, localId: string) {
   return `${deviceId}:${localId}`;
 }
 
 export function configureCommunityOutbox<TMessage extends ConfirmedMessage>(input: CommunityOutboxContext<TMessage>) {
-  activeContext = {
+  const previousContext = activeContext;
+  if (previousContext) clearRetryTimer(previousContext);
+  const nextContext: Required<CommunityOutboxContext> = {
     userId: input.userId,
     deviceId: input.deviceId,
     storage: input.storage ?? localStorage,
@@ -197,14 +383,25 @@ export function configureCommunityOutbox<TMessage extends ConfirmedMessage>(inpu
     now: input.now ?? Date.now,
     createLocalId: input.createLocalId ?? defaultLocalId,
     onChange: input.onChange ?? (() => undefined),
-    onConfirmed: (message) => input.onConfirmed?.(message as TMessage)
+    onConfirmed: (message) => input.onConfirmed?.(message as TMessage),
+    retryBaseMs: input.retryBaseMs ?? 1_000,
+    retryMaximumMs: input.retryMaximumMs ?? 30_000,
+    retryJitter: input.retryJitter ?? Math.random,
+    maximumConcurrency: Math.max(1, Math.min(4, input.maximumConcurrency ?? 3))
   };
+  activeContext = nextContext;
+  if (previousContext) cancelDeliveryWaiters(previousContext);
   notifyChange(activeContext);
+  scheduleRetry(activeContext);
 }
 
 export function resetCommunityOutbox() {
+  const previousContext = activeContext;
+  if (previousContext) clearRetryTimer(previousContext);
   activeContext = null;
+  if (previousContext) cancelDeliveryWaiters(previousContext);
   inFlight.clear();
+  topicTails.clear();
 }
 
 export function getQueuedTextMessages(topicId?: string) {
@@ -212,7 +409,7 @@ export function getQueuedTextMessages(topicId?: string) {
   if (!current) return [];
   return scopedEntries(current)
     .filter((entry) => !topicId || entry.topicId === topicId)
-    .sort((left, right) => left.createdAt - right.createdAt);
+    .sort((left, right) => left.createdAt - right.createdAt || left.sequence - right.sequence);
 }
 
 export async function queueTextMessage<TMessage extends ConfirmedMessage = ConfirmedMessage>(
@@ -221,11 +418,13 @@ export async function queueTextMessage<TMessage extends ConfirmedMessage = Confi
   const current = currentContext();
   if (!current) throw new Error("community_outbox_not_configured");
   const body = input.body.trim();
-  if (!body || body.length > maximumBodyLength || !input.topicId) {
-    throw new Error("invalid_community_text_message");
-  }
+  if (!body || body.length > maximumBodyLength || !input.topicId) throw new Error("invalid_community_text_message");
   const localId = input.localId ?? current.createLocalId();
-  const existing = scopedEntries(current).find((entry) => entry.localId === localId);
+  const allEntries = readOutbox(current.storage);
+  const existingScope = allEntries.filter((candidate) =>
+    candidate.userId === current.userId && candidate.deviceId === current.deviceId
+  );
+  const existing = existingScope.find((entry) => entry.localId === localId);
   const entry: QueuedTextMessage = existing ?? {
     userId: current.userId,
     deviceId: current.deviceId,
@@ -235,15 +434,25 @@ export async function queueTextMessage<TMessage extends ConfirmedMessage = Confi
     body,
     replyToMessageId: input.replyToMessageId ?? null,
     createdAt: current.now(),
+    sequence: Math.max(0, ...existingScope.map((candidate) => candidate.sequence)) + 1,
     status: "queued",
-    attempts: 0
+    attempts: 0,
+    nextAttemptAt: 0
   };
   if (!existing) {
-    const entries = [entry, ...readOutbox(current.storage)]
-      .sort((left, right) => right.createdAt - left.createdAt)
+    const otherScopes = allEntries.filter((candidate) =>
+      candidate.userId !== current.userId || candidate.deviceId !== current.deviceId
+    );
+    const currentScope = [entry, ...existingScope]
+      .sort((left, right) => right.createdAt - left.createdAt || right.sequence - left.sequence)
       .slice(0, maximumMessages);
-    writeOutbox(current.storage, entries);
-    notifyChange(current);
+    const normalized = normalizeOutbox([...currentScope, ...otherScopes]);
+    writeOutbox(current.storage, normalized);
+    if (activeContext === current) {
+      current.onChange(normalized.filter((candidate) =>
+        candidate.userId === current.userId && candidate.deviceId === current.deviceId
+      ));
+    }
   }
   return retryQueuedMessage(localId) as Promise<QueuedTextDeliveryResult<TMessage>>;
 }
@@ -253,42 +462,29 @@ export function retryQueuedMessage<TMessage extends ConfirmedMessage = Confirmed
 ): Promise<QueuedTextDeliveryResult<TMessage>> {
   const current = currentContext();
   if (!current) return Promise.reject(new Error("community_outbox_not_configured"));
-  const scopeKey = `${current.userId}\u001f${current.deviceId}\u001f${localId}`;
-  const active = inFlight.get(scopeKey);
-  if (active) return active as Promise<QueuedTextDeliveryResult<TMessage>>;
-  const entry = scopedEntries(current).find((candidate) => candidate.localId === localId);
-  if (!entry) return Promise.reject(new Error("queued_community_message_not_found"));
-  if (!current.isOnline()) {
-    const queued = replaceEntry(current, localId, (candidate) => ({ ...candidate, status: "queued" })) ?? entry;
-    return Promise.resolve({ delivered: false, retryable: true, entry: queued, message: null, error: null });
+  const entries = scopedEntries(current).sort((left, right) => left.createdAt - right.createdAt || left.sequence - right.sequence);
+  const target = entries.find((entry) => entry.localId === localId);
+  if (!target) return Promise.reject(new Error("queued_community_message_not_found"));
+  const predecessors = entries.filter((entry) =>
+    entry.topicId === target.topicId
+    && (entry.createdAt < target.createdAt || (entry.createdAt === target.createdAt && entry.sequence <= target.sequence))
+  );
+  if (predecessors.length === 1) {
+    return scheduleEntry(current, target) as Promise<QueuedTextDeliveryResult<TMessage>>;
   }
-
-  const sending = replaceEntry(current, localId, (candidate) => ({
-    ...candidate,
-    status: "sending",
-    attempts: candidate.attempts + 1
-  })) ?? entry;
-  const delivery = current.send({
-    topicId: sending.topicId,
-    body: sending.body,
-    replyToMessageId: sending.replyToMessageId,
-    clientOperationId: sending.deliveryKey
-  }).then(({ message }) => {
-    removeEntry(current, localId);
-    if (activeContext === current) current.onConfirmed(message);
-    return { delivered: true, retryable: false, entry: sending, message, error: null };
-  }).catch((error: unknown) => {
-    if (!isRetryableFailure(error)) {
-      removeEntry(current, localId);
-      return { delivered: false, retryable: false, entry: sending, message: null, error };
+  return (async () => {
+    for (const entry of predecessors) {
+      if (entry.localId !== target.localId && entry.status === "failed" && entry.nextAttemptAt > current.now()) {
+        return { delivered: false, retryable: true, entry: target, message: null, error: null };
+      }
+      const result = await scheduleEntry(current, entry);
+      if (entry.localId === target.localId) return result;
+      if (!result.delivered && result.retryable) {
+        return { delivered: false, retryable: true, entry: target, message: null, error: result.error };
+      }
     }
-    const failed = replaceEntry(current, localId, (candidate) => ({ ...candidate, status: "failed" })) ?? sending;
-    return { delivered: false, retryable: true, entry: failed, message: null, error };
-  }).finally(() => {
-    inFlight.delete(scopeKey);
-  });
-  inFlight.set(scopeKey, delivery);
-  return delivery as Promise<QueuedTextDeliveryResult<TMessage>>;
+    return { delivered: false, retryable: true, entry: target, message: null, error: null };
+  })() as Promise<QueuedTextDeliveryResult<TMessage>>;
 }
 
 export function removeQueuedMessage(localId: string) {
@@ -296,9 +492,39 @@ export function removeQueuedMessage(localId: string) {
   if (current) removeEntry(current, localId);
 }
 
-export async function flushQueuedMessages() {
-  const entries = getQueuedTextMessages();
-  return Promise.allSettled(entries.map((entry) => retryQueuedMessage(entry.localId)));
+export function flushQueuedMessages() {
+  const current = currentContext();
+  if (!current) return Promise.resolve([] as PromiseSettledResult<QueuedTextDeliveryResult>[]);
+  const active = flushes.get(current);
+  if (active) return active;
+  clearRetryTimer(current);
+  const topics = new Map<string, QueuedTextMessage[]>();
+  for (const entry of getQueuedTextMessages()) {
+    const topicEntries = topics.get(entry.topicId) ?? [];
+    topicEntries.push(entry);
+    topics.set(entry.topicId, topicEntries);
+  }
+  const topicWorkers = [...topics.values()].map(async (entries) => {
+    const results: PromiseSettledResult<QueuedTextDeliveryResult>[] = [];
+    for (const entry of entries) {
+      if (entry.status === "failed" && entry.nextAttemptAt > current.now()) break;
+      try {
+        const result = await scheduleEntry(current, entry);
+        results.push({ status: "fulfilled", value: result });
+        if (!result.delivered && result.retryable) break;
+      } catch (reason) {
+        results.push({ status: "rejected", reason });
+        if (activeContext !== current) break;
+      }
+    }
+    return results;
+  });
+  const flush = Promise.all(topicWorkers).then((results) => results.flat()).finally(() => {
+    if (flushes.get(current) === flush) flushes.delete(current);
+    scheduleRetry(current);
+  });
+  flushes.set(current, flush);
+  return flush;
 }
 
 export function clearCommunityOutboxForUser(userId: string, storage: Storage = localStorage) {

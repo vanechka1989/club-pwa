@@ -75,4 +75,43 @@ describe("community topic drafts", () => {
     configureCommunityDrafts({ userId: "user-2", deviceId: "device-1", storage: localStorage });
     expect(loadDraft("topic-a")).toBe("Второй");
   });
+
+  it("applies the 50-draft cap independently to each user and device namespace", () => {
+    let now = 0;
+    configureCommunityDrafts({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      now: () => ++now
+    });
+    for (let index = 0; index < 50; index += 1) saveDraft(`user-1-topic-${index}`, `first-${index}`);
+
+    configureCommunityDrafts({
+      userId: "user-2",
+      deviceId: "device-1",
+      storage: localStorage,
+      now: () => ++now
+    });
+    for (let index = 0; index < 50; index += 1) saveDraft(`user-2-topic-${index}`, `second-${index}`);
+
+    configureCommunityDrafts({ userId: "user-1", deviceId: "device-1", storage: localStorage });
+    expect(loadDraft("user-1-topic-0")).toBe("first-0");
+    expect(JSON.parse(localStorage.getItem("club-community-drafts-v1") ?? "[]")).toHaveLength(100);
+  });
+
+  it("normalizes oversized valid persisted drafts before exposing them", () => {
+    const persisted = Array.from({ length: 52 }, (_, index) => ({
+      userId: "user-1",
+      deviceId: "device-1",
+      topicId: `topic-${index}`,
+      text: index === 51 ? "я".repeat(20_001) : `draft-${index}`,
+      updatedAt: index
+    }));
+    localStorage.setItem("club-community-drafts-v1", JSON.stringify(persisted));
+    configureCommunityDrafts({ userId: "user-1", deviceId: "device-1", storage: localStorage });
+
+    expect(loadDraft("topic-51")).toHaveLength(20_000);
+    expect(loadDraft("topic-0")).toBe("");
+    expect(JSON.parse(localStorage.getItem("club-community-drafts-v1") ?? "[]")).toHaveLength(50);
+  });
 });

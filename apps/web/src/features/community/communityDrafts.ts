@@ -15,10 +15,11 @@ type StoredCommunityDraft = {
 
 const storageKey = "club-community-drafts-v1";
 const maximumDrafts = 50;
+const maximumStoredDrafts = 500;
 const maximumDraftLength = 20_000;
 let activeContext: Required<CommunityDraftContext> | null = null;
 
-function isStoredDraft(value: unknown): value is StoredCommunityDraft {
+function isStoredDraftShape(value: unknown): value is StoredCommunityDraft {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<StoredCommunityDraft>;
   return typeof candidate.userId === "string"
@@ -28,9 +29,26 @@ function isStoredDraft(value: unknown): value is StoredCommunityDraft {
     && typeof candidate.topicId === "string"
     && candidate.topicId.length > 0
     && typeof candidate.text === "string"
-    && candidate.text.length <= maximumDraftLength
     && typeof candidate.updatedAt === "number"
     && Number.isFinite(candidate.updatedAt);
+}
+
+function normalizeDrafts(drafts: StoredCommunityDraft[]) {
+  const unique = new Map<string, StoredCommunityDraft>();
+  for (const draft of [...drafts].sort((left, right) => right.updatedAt - left.updatedAt)) {
+    const key = `${draft.userId}\u001f${draft.deviceId}\u001f${draft.topicId}`;
+    if (!unique.has(key)) unique.set(key, { ...draft, text: draft.text.slice(0, maximumDraftLength) });
+  }
+  const namespaceCounts = new Map<string, number>();
+  return [...unique.values()]
+    .filter((draft) => {
+      const namespace = `${draft.userId}\u001f${draft.deviceId}`;
+      const count = namespaceCounts.get(namespace) ?? 0;
+      if (count >= maximumDrafts) return false;
+      namespaceCounts.set(namespace, count + 1);
+      return Boolean(draft.text);
+    })
+    .slice(0, maximumStoredDrafts);
 }
 
 function removeStorageKey(storage: Storage) {
@@ -46,11 +64,13 @@ function readDrafts(storage: Storage) {
     const raw = storage.getItem(storageKey);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed) || !parsed.every(isStoredDraft)) {
+    if (!Array.isArray(parsed) || !parsed.every(isStoredDraftShape)) {
       removeStorageKey(storage);
       return [];
     }
-    return parsed;
+    const normalized = normalizeDrafts(parsed);
+    if (JSON.stringify(normalized) !== raw) writeDrafts(storage, normalized);
+    return normalized;
   } catch {
     removeStorageKey(storage);
     return [];
@@ -111,10 +131,7 @@ export function saveDraft(topicId: string, text: string) {
       updatedAt: current.now()
     });
   }
-  writeDrafts(
-    current.storage,
-    drafts.sort((left, right) => right.updatedAt - left.updatedAt).slice(0, maximumDrafts)
-  );
+  writeDrafts(current.storage, normalizeDrafts(drafts));
 }
 
 export function clearCommunityDraftsForUser(userId: string, storage: Storage = localStorage) {
