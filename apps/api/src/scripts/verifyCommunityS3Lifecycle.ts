@@ -1,4 +1,5 @@
 import { GetBucketLifecycleConfigurationCommand, GetBucketVersioningCommand, S3Client } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { eq } from "drizzle-orm";
 import { db, postgresClient } from "../db/client";
 import { clubSettings } from "../db/schema";
@@ -10,6 +11,7 @@ import {
   type StoredS3Config
 } from "../storage/s3Config";
 import { validateCommunityLifecycleRules, type S3LifecycleRule } from "../storage/s3Lifecycle";
+import { probeS3AllVersionDeletion } from "../storage/s3DeletionProbe";
 
 function createClient(config: StoredS3Config) {
   return new S3Client({
@@ -19,11 +21,13 @@ function createClient(config: StoredS3Config) {
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey
-    }
+    },
+    maxAttempts: 2,
+    requestHandler: new NodeHttpHandler({ connectionTimeout: 5_000, socketTimeout: 120_000 })
   });
 }
 
-async function verifyTarget(label: string, config: StoredS3Config) {
+async function verifyTarget(label: "primary" | "reserve", config: StoredS3Config) {
   const client = createClient(config);
   try {
     const [response, versioningResponse] = await Promise.all([
@@ -35,15 +39,17 @@ async function verifyTarget(label: string, config: StoredS3Config) {
       throw new Error(`${label} bucket ${config.bucket}: ${result.errors.join("; ")}`);
     }
     const versioning = versioningResponse.Status ?? "Unversioned";
-    if (!(["Unversioned", "Enabled", "Suspended"] as const).includes(versioning)) {
-      throw new Error(`${label} bucket ${config.bucket}: unsupported versioning state ${String(versioning)}`);
+    if (versioning !== "Enabled") {
+      throw new Error(`${label} bucket ${config.bucket}: versioning must be Enabled for convergent privacy deletion`);
     }
+    const deletionProbe = await probeS3AllVersionDeletion(label, config);
     return {
       target: label,
       bucket: config.bucket,
       lifecycle: "verified",
       versioning,
-      deletion: versioning === "Unversioned" ? "current-object" : "all-versions-and-delete-markers"
+      deletion: "all-versions-and-delete-markers",
+      deletionProbe
     };
   } finally {
     client.destroy();

@@ -1122,6 +1122,44 @@ export const communityObjectPublications = pgTable(
   })
 );
 
+export const communityObjectLifecycles = pgTable(
+  "community_object_lifecycles",
+  {
+    objectKey: text("object_key").notNull(),
+    target: varchar("target", { length: 16 }).notNull(),
+    generation: integer("generation").notNull().default(1),
+    state: varchar("state", { length: 16 }).notNull().default("publishing"),
+    publicationToken: uuid("publication_token"),
+    tombstonedAt: timestamp("tombstoned_at", { withTimezone: true }),
+    absenceCount: integer("absence_count").notNull().default(0),
+    absentSince: timestamp("absent_since", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    nextReconcileAt: timestamp("next_reconcile_at", { withTimezone: true }).notNull().defaultNow(),
+    claimId: uuid("claim_id"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    lastError: varchar("last_error", { length: 500 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.objectKey, table.target] }),
+    reconcileIdx: index("community_object_lifecycles_reconcile_idx")
+      .on(table.state, table.nextReconcileAt, table.claimedAt),
+    targetCheck: check(
+      "community_object_lifecycles_target_check",
+      sql`${table.target} in ('primary','reserve')`
+    ),
+    stateCheck: check(
+      "community_object_lifecycles_state_check",
+      sql`${table.state} in ('publishing','present','deleted')`
+    ),
+    absenceCheck: check(
+      "community_object_lifecycles_absence_check",
+      sql`${table.absenceCount} >= 0`
+    )
+  })
+);
+
 export const communityMessagePurgeRequests = pgTable(
   "community_message_purge_requests",
   {

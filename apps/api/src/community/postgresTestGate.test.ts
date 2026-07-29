@@ -10,6 +10,7 @@ const completeEnvironment = {
   COMMUNITY_MESSAGE_SEARCH_TEST_DATABASE_URL: "postgres://club:club@localhost:5432/club",
   COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT: "http://127.0.0.1:9000",
   COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET: "community-release-gate",
+  COMMUNITY_UPLOAD_S3_INTEGRATION_RESERVE_BUCKET: "community-release-gate-reserve",
   COMMUNITY_UPLOAD_S3_INTEGRATION_ACCESS_KEY_ID: "community-ci",
   COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY: "community-ci-secret",
   COMMUNITY_UPLOAD_S3_INTEGRATION_REGION: "us-east-1",
@@ -41,6 +42,7 @@ describe("message mutation PostgreSQL test gate", () => {
       s3: {
         endpoint: completeEnvironment.COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT,
         bucket: completeEnvironment.COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET,
+        reserveBucket: completeEnvironment.COMMUNITY_UPLOAD_S3_INTEGRATION_RESERVE_BUCKET,
         accessKeyId: completeEnvironment.COMMUNITY_UPLOAD_S3_INTEGRATION_ACCESS_KEY_ID,
         secretAccessKey: completeEnvironment.COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY,
         region: completeEnvironment.COMMUNITY_UPLOAD_S3_INTEGRATION_REGION

@@ -206,6 +206,9 @@ describe("production security config", () => {
     expect(communityReleaseRunbook).toContain("Публикация образов шаблонного клуба");
     expect(communityUploadOperations).toContain("put-bucket-lifecycle-configuration");
     expect(backupOperations).toContain("backup-before-migration");
+    expect(backupOperations).toContain("backup-after-quiesce");
+    expect(communityReleaseRunbook).toContain("0068_community_object_convergence");
+    expect(communityReleaseRunbook).toContain("disposable all-version deletion probe");
   });
 
   it("isolates bounded media jobs from externally served API processes", () => {

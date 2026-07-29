@@ -1,4 +1,5 @@
 import { communityUploadCleanupPolicy } from "./cleanupPolicy";
+import { deleteCommunityObjectCopiesConvergently } from "./objectLifecycle";
 
 type UploadSessionRecord = {
   id: string;
@@ -217,7 +218,7 @@ export async function runCommunityUploadExpiryCleanupBatch(limit = 25) {
       candidateObjectKeys: claim.candidates.flatMap((candidate) => [candidate.candidateObjectKey, candidate.finalObjectKey])
     }, {
       abortMultipart: storage.abortMultipartUpload,
-      deleteCopies: storage.deleteObjectCopies,
+      deleteCopies: deleteCommunityObjectCopiesConvergently,
       markAborted: async (manifestId) => {
         await db.transaction(async (transaction) => {
           const database = transaction as unknown as typeof db;

@@ -32,14 +32,21 @@ import {
 } from "@club/shared";
 import { getAcquisitionDashboard, getAcquisitionDayDetail, getUserAcquisition, listAcquisitionLinks } from "../acquisition/acquisitionAnalytics";
 import { createAcquisitionLink, setAcquisitionLinkActive } from "../acquisition/acquisitionStore";
-import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
+import { getAdminAccessProfile, getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
 import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } from "../admin/s3DeletionAudit";
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
+import {
+  createAdminCommunityViewer,
+  projectAdminCommunityModerationMessage,
+  sortAdminTimelineNewestFirst,
+  type AdminCommunityViewer
+} from "../admin/communityMessageView";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildMessageAuthor } from "../community/messageMetadata";
+import { preciseCommunityMessageCreatedAtExtra } from "../community/messageTimestamp";
 import { pingClamAv, summarizeCommunityDocumentScannerHealth } from "../community/documentScanner";
 import { resolvePollEndedAt } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
@@ -866,6 +873,15 @@ async function rejectIfMissingAnyPermission(c: Context<{ Variables: AuthVariable
   return c.json({ error: "Admin permission required" }, 403);
 }
 
+async function getAdminSurfaceAccess(c: Context<{ Variables: AuthVariables }>) {
+  const profile = await getAdminAccessProfile(c.get("telegramUser").id);
+  const role = profile.isOwner ? "owner" as const : profile.isActive ? "admin" as const : "member" as const;
+  return {
+    community: createAdminCommunityViewer({ ...profile, role }),
+    materials: profile.isOwner || profile.isActive && profile.permissions.includes("materials")
+  };
+}
+
 function requireAdminPermission(permission: AdminPermission) {
   return async (c: Context<{ Variables: AuthVariables }>, next: () => Promise<void>) => {
     const errorResponse = await rejectIfNotOwner(c, permission);
@@ -1242,7 +1258,10 @@ function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect
   });
 }
 
-async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
+async function buildUserDetail(
+  user: typeof users.$inferSelect,
+  communityViewer: AdminCommunityViewer
+): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
   const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory, learningEngagementRows] = await Promise.all([
     buildStatsUser(user, totalItems),
@@ -1264,14 +1283,19 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
         item: true
       }
     }),
-    db.query.clubChatMessages.findMany({
-      where: and(eq(clubChatMessages.userId, user.id), ne(clubChatMessages.status, "visible")),
-      orderBy: [desc(clubChatMessages.createdAt)],
-      limit: 50,
-      with: {
-        topic: true
-      }
-    }),
+    communityViewer.allowed
+      ? db.query.clubChatMessages.findMany({
+          where: and(
+            eq(clubChatMessages.userId, user.id),
+            ne(clubChatMessages.status, "visible"),
+            isNull(clubChatMessages.terminalCleanupAt)
+          ),
+          orderBy: [desc(clubChatMessages.createdAt), desc(clubChatMessages.id)],
+          limit: 50,
+          extras: { preciseCreatedAt: preciseCommunityMessageCreatedAtExtra() },
+          with: { topic: true }
+        })
+      : Promise.resolve([]),
     getAdminUserReferrals(user.id),
     db.query.userDevices.findMany({
       where: eq(userDevices.userId, user.id),
@@ -1351,16 +1375,15 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
       createdAt: comment.createdAt.toISOString(),
       resolvedAt: comment.moderatedAt?.toISOString() ?? null
     })),
-    ...messages.map((message) => ({
-      id: message.id,
-      kind: "chat_message" as const,
-      status: message.status,
-      body: message.body,
-      sourceTitle: message.topic.title,
-      createdAt: message.createdAt.toISOString(),
-      resolvedAt: message.moderatedAt?.toISOString() ?? null
-    }))
-  ].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+    ...messages.flatMap((message) => {
+      const projected = projectAdminCommunityModerationMessage(message, communityViewer);
+      return projected ? [{
+        ...projected,
+        kind: "chat_message" as const,
+        resolvedAt: message.moderatedAt?.toISOString() ?? null
+      }] : [];
+    })
+  ].sort(sortAdminTimelineNewestFirst);
 
   const devices = userDeviceHistory.flatMap((entry) => {
     const diagnostics = deviceDiagnosticsSchema.safeParse(entry.diagnostics);
@@ -2267,7 +2290,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .get("/stats", async (c) => {
     const totalItems = await getPublishedItemsCount();
     const now = new Date();
-    const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], [pollCountRow], [activePollCountRow], [pollVoteStatsRow], recentUsers, communityMessages, pollRecords] = await Promise.all([
+    const adminAccess = await getAdminSurfaceAccess(c);
+    const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], recentUsers] = await Promise.all([
       db.select({ value: count(users.id) }).from(users),
       db
         .select({ value: countDistinct(subscriptions.userId) })
@@ -2277,27 +2301,38 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         .select({ value: count(userContentProgress.id) })
         .from(userContentProgress)
         .where(isNotNull(userContentProgress.completedAt)),
-      db.select({ value: count(clubPolls.id) }).from(clubPolls),
-      db
-        .select({ value: count(clubPolls.id) })
-        .from(clubPolls)
-        .where(and(isNull(clubPolls.closedAt), or(isNull(clubPolls.closesAt), gt(clubPolls.closesAt, now)))),
-      db.select({ totalVotes: count(clubPollVotes.id), uniqueParticipants: countDistinct(clubPollVotes.userId) }).from(clubPollVotes),
       db.query.users.findMany({
         orderBy: (table, { desc }) => [desc(table.updatedAt)],
         limit: 200
-      }),
-      db.query.clubChatMessages.findMany({
-        orderBy: (table, { desc }) => [desc(table.createdAt)],
-        limit: 2000,
-        with: { user: true, topic: true }
-      }),
-      db.query.clubPolls.findMany({
-        orderBy: (table, { desc }) => [desc(table.createdAt)],
-        limit: 500,
-        with: { message: { with: { topic: true, user: true } }, options: true, votes: true }
       })
     ]);
+    const communityStats = adminAccess.community.allowed
+      ? await Promise.all([
+          db.select({ value: count(clubPolls.id) }).from(clubPolls),
+          db
+            .select({ value: count(clubPolls.id) })
+            .from(clubPolls)
+            .where(and(isNull(clubPolls.closedAt), or(isNull(clubPolls.closesAt), gt(clubPolls.closesAt, now)))),
+          db.select({ totalVotes: count(clubPollVotes.id), uniqueParticipants: countDistinct(clubPollVotes.userId) }).from(clubPollVotes),
+          db.query.clubChatMessages.findMany({
+            where: isNull(clubChatMessages.terminalCleanupAt),
+            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
+            limit: 2000,
+            extras: { preciseCreatedAt: preciseCommunityMessageCreatedAtExtra() },
+            with: { user: true, topic: true }
+          }),
+          db.query.clubPolls.findMany({
+            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
+            limit: 500,
+            with: { message: { with: { topic: true, user: true } }, options: true, votes: true }
+          })
+        ])
+      : null;
+    const pollCountRow = communityStats?.[0][0];
+    const activePollCountRow = communityStats?.[1][0];
+    const pollVoteStatsRow = communityStats?.[2][0];
+    const communityMessages = communityStats?.[3] ?? [];
+    const pollRecords = communityStats?.[4] ?? [];
     const totalPolls = pollCountRow?.value ?? 0;
     const activePolls = activePollCountRow?.value ?? 0;
     const uniqueParticipants = pollVoteStatsRow?.uniqueParticipants ?? 0;
@@ -2340,15 +2375,18 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           };
         })
       },
-      communityMessages: communityMessages.map((message) => ({
-        id: message.id,
-        topicId: message.topicId,
-        topicTitle: message.topic.title,
-        isSystem: message.isSystem,
-        status: message.status,
-        author: buildMessageAuthor(message.user),
-        createdAt: message.createdAt.toISOString()
-      }))
+      communityMessages: communityMessages.flatMap((message) => {
+        const projected = projectAdminCommunityModerationMessage(message, adminAccess.community, now);
+        return projected ? [{
+          id: message.id,
+          topicId: message.topicId,
+          topicTitle: projected.sourceTitle,
+          isSystem: message.isSystem,
+          status: message.status,
+          author: buildMessageAuthor(message.user),
+          createdAt: projected.createdAt
+        }] : [];
+      })
     });
   })
   .get("/stats/users/:telegramId", async (c) => {
@@ -2371,7 +2409,8 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "User not found" }, 404);
     }
 
-    return c.json(await buildUserDetail(user));
+    const adminAccess = await getAdminSurfaceAccess(c);
+    return c.json(await buildUserDetail(user, adminAccess.community));
   })
   .patch("/stats/users/:telegramId/display-name", async (c) => {
     const permissionError = await rejectIfNotOwner(c, "users");
@@ -2472,22 +2511,25 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/moderation", async (c) => {
-    const comments = await db.query.lessonComments.findMany({
-      orderBy: (table, { desc }) => [desc(table.createdAt)],
-      limit: 25,
-      with: {
-        user: true,
-        item: true
-      }
-    });
-    const messages = await db.query.clubChatMessages.findMany({
-      orderBy: (table, { desc }) => [desc(table.createdAt)],
-      limit: 25,
-      with: {
-        user: true,
-        topic: true
-      }
-    });
+    const adminAccess = await getAdminSurfaceAccess(c);
+    const [comments, messages] = await Promise.all([
+      adminAccess.materials
+        ? db.query.lessonComments.findMany({
+            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
+            limit: 25,
+            with: { user: true, item: true }
+          })
+        : Promise.resolve([]),
+      adminAccess.community.allowed
+        ? db.query.clubChatMessages.findMany({
+            where: isNull(clubChatMessages.terminalCleanupAt),
+            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
+            limit: 25,
+            extras: { preciseCreatedAt: preciseCommunityMessageCreatedAtExtra() },
+            with: { user: true, topic: true }
+          })
+        : Promise.resolve([])
+    ]);
 
     const items = [
       ...comments.map((comment) => ({
@@ -2499,17 +2541,16 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         sourceTitle: comment.item.title,
         createdAt: comment.createdAt.toISOString()
       })),
-      ...messages.map((message) => ({
-        id: message.id,
-        kind: "chat_message" as const,
-        body: message.body,
-        status: message.status,
-        author: buildMessageAuthor(message.user),
-        sourceTitle: message.topic.title,
-        createdAt: message.createdAt.toISOString()
-      }))
+      ...messages.flatMap((message) => {
+        const projected = projectAdminCommunityModerationMessage(message, adminAccess.community);
+        return projected ? [{
+          ...projected,
+          kind: "chat_message" as const,
+          author: buildMessageAuthor(message.user)
+        }] : [];
+      })
     ]
-      .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+      .sort(sortAdminTimelineNewestFirst)
       .slice(0, 50);
 
     return c.json({ items });
@@ -3807,6 +3848,13 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     const kind = c.req.param("kind");
     const id = c.req.param("id");
+    const adminAccess = await getAdminSurfaceAccess(c);
+    if (kind === "lesson_comment" && !adminAccess.materials) {
+      return c.json({ error: "Admin permission required" }, 403);
+    }
+    if (kind === "chat_message" && !adminAccess.community.allowed) {
+      return c.json({ error: "Admin permission required" }, 403);
+    }
     const values = {
       status: body.data.status,
       moderatedByUserId: c.get("userId"),

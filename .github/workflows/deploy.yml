@@ -20,6 +20,7 @@ jobs:
       COMMUNITY_MESSAGE_SEARCH_TEST_DATABASE_URL: postgres://club:club@localhost:5432/club
       COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT: http://127.0.0.1:9000
       COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET: community-release-gate
+      COMMUNITY_UPLOAD_S3_INTEGRATION_RESERVE_BUCKET: community-release-gate-reserve
       COMMUNITY_UPLOAD_S3_INTEGRATION_ACCESS_KEY_ID: community-ci
       COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY: community-ci-secret
       COMMUNITY_UPLOAD_S3_INTEGRATION_REGION: us-east-1
@@ -104,7 +105,7 @@ jobs:
           done
 
           pnpm --filter @club/api exec node --input-type=module <<'NODE'
-          import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
+          import { CreateBucketCommand, PutBucketVersioningCommand, S3Client } from "@aws-sdk/client-s3";
           const client = new S3Client({
             endpoint: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT,
             region: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_REGION,
@@ -114,9 +115,16 @@ jobs:
               secretAccessKey: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY
             }
           });
-          await client.send(new CreateBucketCommand({
-            Bucket: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET
-          }));
+          for (const bucket of [
+            process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET,
+            process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_RESERVE_BUCKET
+          ]) {
+            await client.send(new CreateBucketCommand({ Bucket: bucket }));
+            await client.send(new PutBucketVersioningCommand({
+              Bucket: bucket,
+              VersioningConfiguration: { Status: "Enabled" }
+            }));
+          }
           client.destroy();
           NODE
       - name: Run community external integration gate

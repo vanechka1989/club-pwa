@@ -89,7 +89,9 @@ wait_for_release_dependencies() { printf 'dependencies:healthy\\n'; }
 wait_for_health() { printf 'application:healthy\\n'; }
 verify_community_s3_lifecycle() { :; }
 run_pre_migration_backup() { :; }
+run_post_quiesce_backup() { :; }
 run_community_cleanup_dry_run() { :; }
+detect_privacy_schema_state() { printf 'current\n'; }
 api_changed=1
 web_changed=1
 previous_api_image="club-pwa-api:rollback-test"
@@ -219,7 +221,9 @@ wait_for_release_dependencies() { printf 'dependencies:healthy\n'; }
 wait_for_health() { printf 'application:healthy\n'; }
 verify_community_s3_lifecycle() { :; }
 run_pre_migration_backup() { :; }
+run_post_quiesce_backup() { :; }
 run_community_cleanup_dry_run() { :; }
+detect_privacy_schema_state() { printf 'current\n'; }
 api_changed=1
 web_changed=1
 previous_api_image="club-pwa-api:unsafe-rollback"
@@ -237,5 +241,138 @@ deploy_full
     expect(result.stdout).toContain("compose:up -d --no-deps --force-recreate api worker");
     expect(result.stdout).toContain("docker:tag club-pwa-web:rollback-test club-pwa-web:latest");
     expect(result.stdout).toContain("status:failed:reconcile");
+  }, 15_000);
+
+  it("fails closed when Compose cannot verify that API and worker stopped", () => {
+    const result = runWorkerShell(`
+write_status() { :; }
+compose() {
+  if [[ "$*" == "stop -t 90 api worker" ]]; then return 0; fi
+  if [[ "$*" == "ps --status running --quiet api worker" ]]; then return 42; fi
+}
+if quiesce_application_for_privacy_migration; then
+  exit 9
+fi
+printf 'compose-ps-failed-closed\n'
+`);
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("compose-ps-failed-closed");
+    expect(result.stderr).toContain("Unable to verify");
+  }, 15_000);
+
+  it.each(["pre-DDL failure", "transactional migration rollback"])(
+    "restores the legacy image after %s leaves a legacy schema",
+    () => {
+      const result = runWorkerShell(`
+write_status() { printf 'status:%s:%s\n' "$1" "$2"; }
+docker() { printf 'docker:%s\n' "$*"; }
+compose() {
+  if [[ "$*" == "ps --status running --quiet api worker" ]]; then return 0; fi
+  printf 'compose:%s\n' "$*"
+  if [[ "$*" == "run --rm migrate" ]]; then return 1; fi
+}
+wait_for_release_dependencies() { :; }
+wait_for_health() { printf 'application:healthy\n'; }
+verify_community_s3_lifecycle() { :; }
+run_pre_migration_backup() { :; }
+run_post_quiesce_backup() { :; }
+detect_privacy_schema_state() { printf 'legacy\n'; }
+recreate_caddy() { :; }
+api_changed=1
+previous_api_image="club-pwa-api:legacy"
+trap fail_status EXIT
+deploy_api
+`);
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("docker:tag club-pwa-api:legacy club-pwa-api:latest");
+      expect(result.stdout).toContain("compose:up -d --no-deps --force-recreate api worker");
+      expect(result.stdout).toContain("application:healthy");
+      expect(result.stdout).toContain("status:failed:migrate");
+    },
+    15_000
+  );
+
+  it("keeps the candidate image after migration succeeds but a later command fails", () => {
+    const result = runWorkerShell(`
+write_status() { printf 'status:%s:%s\n' "$1" "$2"; }
+docker() { printf 'docker:%s\n' "$*"; }
+compose() {
+  if [[ "$*" == "ps --status running --quiet api worker" ]]; then return 0; fi
+  printf 'compose:%s\n' "$*"
+}
+wait_for_release_dependencies() { :; }
+wait_for_health() { printf 'application:healthy\n'; }
+verify_community_s3_lifecycle() { :; }
+run_pre_migration_backup() { :; }
+run_post_quiesce_backup() { :; }
+run_community_cleanup_dry_run() { return 1; }
+detect_privacy_schema_state() { printf 'current\n'; }
+recreate_caddy() { :; }
+api_changed=1
+previous_api_image="club-pwa-api:legacy"
+trap fail_status EXIT
+deploy_api
+`);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toContain("docker:tag club-pwa-api:legacy club-pwa-api:latest");
+    expect(result.stdout).toContain("compose:up -d --no-deps --force-recreate api worker");
+    expect(result.stdout).toContain("application:healthy");
+  }, 15_000);
+
+  it.each(["partial", "unknown"])("leaves API and worker stopped for a %s schema", (schemaState) => {
+    const result = runWorkerShell(`
+write_status() { printf 'status:%s:%s\n' "$1" "$2"; }
+docker() { printf 'docker:%s\n' "$*"; }
+compose() {
+  if [[ "$*" == "ps --status running --quiet api worker" ]]; then return 0; fi
+  printf 'compose:%s\n' "$*"
+  if [[ "$*" == "run --rm migrate" ]]; then return 1; fi
+}
+wait_for_release_dependencies() { :; }
+wait_for_health() { printf 'unexpected-health\n'; }
+verify_community_s3_lifecycle() { :; }
+run_pre_migration_backup() { :; }
+run_post_quiesce_backup() { :; }
+detect_privacy_schema_state() { printf '${schemaState === "partial" ? "unknown" : "unknown"}\n'; }
+recreate_caddy() { :; }
+api_changed=1
+previous_api_image="club-pwa-api:legacy"
+trap fail_status EXIT
+deploy_api
+`);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("compose:stop -t 90 api worker");
+    expect(result.stdout).not.toContain("compose:up -d --no-deps --force-recreate api worker");
+    expect(result.stdout).not.toContain("unexpected-health");
+    expect(result.stderr).toContain("unknown or partial");
+  }, 15_000);
+
+  it("creates a verified post-quiesce restore point before DDL", () => {
+    const result = runWorkerShell(`
+write_status() { :; }
+compose() {
+  if [[ "$*" == "ps --status running --quiet api worker" ]]; then return 0; fi
+  printf 'compose:%s\n' "$*"
+}
+wait_for_release_dependencies() { :; }
+verify_community_s3_lifecycle() { :; }
+run_pre_migration_backup() { printf 'backup:pre\n'; }
+run_post_quiesce_backup() { printf 'backup:post-quiesce\n'; }
+run_community_cleanup_dry_run() { :; }
+api_changed=1
+deploy_api
+`);
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    const stop = result.stdout.indexOf("compose:stop -t 90 api worker");
+    const backup = result.stdout.indexOf("backup:post-quiesce");
+    const migrate = result.stdout.indexOf("compose:run --rm migrate");
+    expect(stop).toBeGreaterThan(-1);
+    expect(backup).toBeGreaterThan(stop);
+    expect(migrate).toBeGreaterThan(backup);
   }, 15_000);
 });

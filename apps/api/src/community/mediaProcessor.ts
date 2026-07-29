@@ -10,9 +10,10 @@ import { communityMediaCleanupPolicy } from "./cleanupPolicy";
 import { buildCommunityCandidateObjectKey, buildCommunityFinalObjectKey } from "./directUpload";
 import {
   beginCommunityObjectPublication,
-  withCommunityObjectPublication,
+  publishCommunityObject,
   type CommunityObjectPublicationClaim
 } from "./objectPublication";
+import { deleteCommunityObjectCopiesConvergently } from "./objectLifecycle";
 
 const execFileAsync = promisify(execFile);
 export const communityVoiceDurationToleranceSeconds = 0.5;
@@ -70,13 +71,13 @@ type MediaProcessorDependencies = {
   }>;
   probeDuration: (path: string) => Promise<number>;
   transcodeVoiceFile: (inputPath: string, outputPath: string) => Promise<void>;
-  uploadFile: (input: { key: string; path: string; contentType: string }) => Promise<{ sizeBytes: number } | void>;
-  mirrorToReserve: (key: string, contentType: string) => Promise<void>;
+  uploadFile: (input: { key: string; path: string; contentType: string }, signal?: AbortSignal) => Promise<{ sizeBytes: number } | void>;
+  mirrorToReserve: (key: string, contentType: string, signal?: AbortSignal) => Promise<void>;
   deleteCopies: (key: string) => Promise<void>;
   registerCandidate: (manifestId: string, result: MediaCandidateResult) => Promise<CommunityObjectPublicationClaim>;
-  withCandidatePublication: <T>(
+  publishCandidate: <T>(
     publication: CommunityObjectPublicationClaim,
-    work: () => Promise<T>
+    work: (signal: AbortSignal) => Promise<T>
   ) => Promise<T>;
   cleanupCandidate: (manifestId: string, candidateObjectKey: string) => Promise<void>;
   complete: (manifestId: string, result: MediaCandidateResult) => Promise<void>;
@@ -193,9 +194,9 @@ export async function processCommunityMediaManifest(manifest: MediaManifest, dep
         };
         const publication = await dependencies.registerCandidate(manifest.id, result);
         candidateRegistered = true;
-        const upload = await dependencies.withCandidatePublication(publication, async () => {
-          const published = await dependencies.uploadFile({ key: candidateObjectKey!, path: outputPath, contentType: "audio/mp4" });
-          await dependencies.mirrorToReserve(candidateObjectKey!, "audio/mp4");
+        const upload = await dependencies.publishCandidate(publication, async (signal) => {
+          const published = await dependencies.uploadFile({ key: candidateObjectKey!, path: outputPath, contentType: "audio/mp4" }, signal);
+          await dependencies.mirrorToReserve(candidateObjectKey!, "audio/mp4", signal);
           return published;
         });
         result.sizeBytes = upload?.sizeBytes ?? manifest.sizeBytes;
@@ -219,9 +220,9 @@ export async function processCommunityMediaManifest(manifest: MediaManifest, dep
       };
       const publication = await dependencies.registerCandidate(manifest.id, result);
       candidateRegistered = true;
-      const upload = await dependencies.withCandidatePublication(publication, async () => {
-        const published = await dependencies.uploadFile({ key: candidateObjectKey!, path: outputPath, contentType: normalized.contentType });
-        await dependencies.mirrorToReserve(candidateObjectKey!, normalized.contentType);
+      const upload = await dependencies.publishCandidate(publication, async (signal) => {
+        const published = await dependencies.uploadFile({ key: candidateObjectKey!, path: outputPath, contentType: normalized.contentType }, signal);
+        await dependencies.mirrorToReserve(candidateObjectKey!, normalized.contentType, signal);
         return published;
       });
       result.sizeBytes = upload?.sizeBytes ?? normalized.sizeBytes;
@@ -334,95 +335,101 @@ async function publishAndFinalizeCommunityMediaCandidateAttempt(manifest: {
     import("../db/schema"),
     import("../storage/s3")
   ]);
-  const metadata = await storage.getObjectMetadata(result.candidateObjectKey);
-  const candidateETag = metadata.etag;
-  if (!candidateETag) throw new Error("candidate_etag_missing");
-  await withCommunityObjectPublication(publication, async (database) => {
-    const publishable = Array.from((await database.execute(sql`
-      select candidate.id
-      from community_media_candidates candidate
-      join community_upload_manifests manifest on manifest.id = candidate.manifest_id
-      join club_message_attachments attachment on attachment.id = manifest.attachment_id
-      join club_chat_messages message on message.id = attachment.message_id
-      where candidate.id = ${publication.sourceId}
-        and candidate.status = 'publishing' and candidate.terminal_cleanup_at is null
-        and manifest.status = 'publishing' and manifest.terminal_cleanup_at is null
-        and attachment.deleted_at is null and attachment.terminal_cleanup_at is null
-        and message.terminal_cleanup_at is null
-      for share of candidate, manifest, attachment, message
-    `)) as Iterable<{ id: string }>);
-    if (!publishable.length) throw new Error("candidate_publish_terminal");
-    await storage.promoteObjectVersion({
-      sourceKey: result.candidateObjectKey,
-      destinationKey: result.finalObjectKey,
-      expectedETag: candidateETag,
-      contentType: result.contentType
-    });
-    await storage.mirrorObjectToReserve(result.finalObjectKey, result.contentType);
+  await publishCommunityObject({
+    claim: publication,
+    write: async (signal) => {
+      const metadata = await storage.getObjectMetadata(result.candidateObjectKey, "primary", signal);
+      const candidateETag = metadata.etag;
+      if (!candidateETag) throw new Error("candidate_etag_missing");
+      await storage.promoteObjectVersion({
+        sourceKey: result.candidateObjectKey,
+        destinationKey: result.finalObjectKey,
+        expectedETag: candidateETag,
+        contentType: result.contentType,
+        signal
+      });
+      await storage.mirrorObjectToReserve(result.finalObjectKey, result.contentType, signal);
+    },
+    commit: async (database) => {
+      const publishable = Array.from((await database.execute(sql`
+        select candidate.id
+        from community_media_candidates candidate
+        join community_upload_manifests manifest on manifest.id = candidate.manifest_id
+        join club_message_attachments attachment on attachment.id = manifest.attachment_id
+        join club_chat_messages message on message.id = attachment.message_id
+        where candidate.id = ${publication.sourceId}
+          and candidate.status = 'publishing' and candidate.terminal_cleanup_at is null
+          and manifest.status = 'publishing' and manifest.terminal_cleanup_at is null
+          and attachment.deleted_at is null and attachment.terminal_cleanup_at is null
+          and message.terminal_cleanup_at is null
+        for share of candidate, manifest, attachment, message
+      `)) as Iterable<{ id: string }>);
+      if (!publishable.length) throw new Error("candidate_publish_terminal");
 
-    const completedAt = new Date();
-    const [candidate] = await database.update(communityMediaCandidates).set({
-      status: "published_cleanup_pending",
-      errorCode: null,
-      updatedAt: completedAt
-    }).where(and(
-      eq(communityMediaCandidates.manifestId, manifest.id),
-      eq(communityMediaCandidates.candidateObjectKey, result.candidateObjectKey),
-      eq(communityMediaCandidates.status, "publishing"),
-      isNull(communityMediaCandidates.terminalCleanupAt)
-    )).returning({ id: communityMediaCandidates.id });
-    if (!candidate) throw new Error("candidate_publish_lost");
+      const completedAt = new Date();
+      const [candidate] = await database.update(communityMediaCandidates).set({
+        status: "published_cleanup_pending",
+        errorCode: null,
+        updatedAt: completedAt
+      }).where(and(
+        eq(communityMediaCandidates.manifestId, manifest.id),
+        eq(communityMediaCandidates.candidateObjectKey, result.candidateObjectKey),
+        eq(communityMediaCandidates.status, "publishing"),
+        isNull(communityMediaCandidates.terminalCleanupAt)
+      )).returning({ id: communityMediaCandidates.id });
+      if (!candidate) throw new Error("candidate_publish_lost");
 
-    const [completed] = await database.update(communityUploadManifests).set({
-      finalObjectKey: result.finalObjectKey,
-      quarantineObjectKey: null,
-      result: {
-        kind: manifest.kind,
+      const [completed] = await database.update(communityUploadManifests).set({
+        finalObjectKey: result.finalObjectKey,
+        quarantineObjectKey: null,
+        result: {
+          kind: manifest.kind,
+          fileName: result.fileName,
+          contentType: result.contentType,
+          sizeBytes: result.sizeBytes,
+          ...(manifest.kind === "voice" ? { durationSeconds: result.durationSeconds } : {}),
+          ...(manifest.kind === "image" ? { width: result.width, height: result.height } : {}),
+          uploadToken: manifest.uploadToken,
+          objectKey: result.finalObjectKey,
+          scanStatus: "ready"
+        },
+        status: "ready",
+        errorCode: null,
+        updatedAt: completedAt
+      }).where(and(
+        eq(communityUploadManifests.id, manifest.id),
+        eq(communityUploadManifests.status, "publishing"),
+        isNotNull(communityUploadManifests.attachmentId),
+        isNull(communityUploadManifests.terminalCleanupAt)
+      )).returning({ attachmentId: communityUploadManifests.attachmentId });
+      if (!completed?.attachmentId) throw new Error("candidate_publish_lost");
+      const [attachment] = await database.update(clubMessageAttachments).set({
+        objectKey: result.finalObjectKey,
         fileName: result.fileName,
         contentType: result.contentType,
         sizeBytes: result.sizeBytes,
-        ...(manifest.kind === "voice" ? { durationSeconds: result.durationSeconds } : {}),
-        ...(manifest.kind === "image" ? { width: result.width, height: result.height } : {}),
-        uploadToken: manifest.uploadToken,
-        objectKey: result.finalObjectKey,
-        scanStatus: "ready"
-      },
-      status: "ready",
-      errorCode: null,
-      updatedAt: completedAt
-    }).where(and(
-      eq(communityUploadManifests.id, manifest.id),
-      eq(communityUploadManifests.status, "publishing"),
-      isNotNull(communityUploadManifests.attachmentId),
-      isNull(communityUploadManifests.terminalCleanupAt)
-    )).returning({ attachmentId: communityUploadManifests.attachmentId });
-    if (!completed?.attachmentId) throw new Error("candidate_publish_lost");
-    const [attachment] = await database.update(clubMessageAttachments).set({
-      objectKey: result.finalObjectKey,
-      fileName: result.fileName,
-      contentType: result.contentType,
-      sizeBytes: result.sizeBytes,
-      durationSeconds: result.durationSeconds,
-      width: result.width,
-      height: result.height,
-      scanStatus: "ready",
-      scanError: null,
-      scannedAt: completedAt
-    }).where(and(
-      eq(clubMessageAttachments.id, completed.attachmentId),
-      isNull(clubMessageAttachments.deletedAt),
-      isNull(clubMessageAttachments.terminalCleanupAt),
-      sql`exists (
-        select 1 from club_chat_messages message
-        where message.id = ${clubMessageAttachments.messageId}
-          and message.terminal_cleanup_at is null
-      )`
-    )).returning({ id: clubMessageAttachments.id });
-    if (!attachment) throw new Error("candidate_publish_terminal");
-  }, db);
+        durationSeconds: result.durationSeconds,
+        width: result.width,
+        height: result.height,
+        scanStatus: "ready",
+        scanError: null,
+        scannedAt: completedAt
+      }).where(and(
+        eq(clubMessageAttachments.id, completed.attachmentId),
+        isNull(clubMessageAttachments.deletedAt),
+        isNull(clubMessageAttachments.terminalCleanupAt),
+        sql`exists (
+          select 1 from club_chat_messages message
+          where message.id = ${clubMessageAttachments.messageId}
+            and message.terminal_cleanup_at is null
+        )`
+      )).returning({ id: clubMessageAttachments.id });
+      if (!attachment) throw new Error("candidate_publish_terminal");
+    }
+  });
 
   try {
-    await storage.deleteObjectCopies(result.candidateObjectKey);
+    await deleteCommunityObjectCopiesConvergently(result.candidateObjectKey);
     await db.update(communityMediaCandidates).set({ status: "published", errorCode: null, updatedAt: new Date() })
       .where(and(
         eq(communityMediaCandidates.manifestId, manifest.id),
@@ -482,7 +489,8 @@ async function publishAndFinalizeCommunityMediaCandidate(manifest: {
   uploadToken: string;
 }, result: MediaCandidateResult, publication?: CommunityObjectPublicationClaim) {
   try {
-    const { db } = await import("../db/client");
+    const [{ db }, storage] = await Promise.all([import("../db/client"), import("../storage/s3")]);
+    const targets = await storage.getConfiguredS3Targets();
     const activePublication = publication ?? await db.transaction(async (transaction) => {
       const database = transaction as unknown as typeof db;
       const rows = Array.from((await database.execute(sql`
@@ -500,7 +508,8 @@ async function publishAndFinalizeCommunityMediaCandidate(manifest: {
       return beginCommunityObjectPublication({
         sourceType: "candidate",
         sourceId: candidate.id,
-        objectKey: result.finalObjectKey
+        objectKey: result.finalObjectKey,
+        targets
       }, database);
     });
     await publishAndFinalizeCommunityMediaCandidateAttempt(manifest, result, activePublication);
@@ -511,10 +520,9 @@ async function publishAndFinalizeCommunityMediaCandidate(manifest: {
 }
 
 async function cleanupPersistedCommunityMediaCandidate(candidate: CleanupCandidate) {
-  const [{ db }, { communityMediaCandidates }, storage] = await Promise.all([
+  const [{ db }, { communityMediaCandidates }] = await Promise.all([
     import("../db/client"),
-    import("../db/schema"),
-    import("../storage/s3")
+    import("../db/schema")
   ]);
   return cleanupCommunityMediaCandidate(candidate, {
     claim: async (current) => {
@@ -525,7 +533,7 @@ async function cleanupPersistedCommunityMediaCandidate(candidate: CleanupCandida
       )).returning({ id: communityMediaCandidates.id });
       return Boolean(claimed);
     },
-    deleteCopies: storage.deleteObjectCopies,
+    deleteCopies: deleteCommunityObjectCopiesConvergently,
     markComplete: (id, status) => db.update(communityMediaCandidates).set({ status, errorCode: null, updatedAt: new Date() })
       .where(eq(communityMediaCandidates.id, id)),
     markRetry: (id, errorCode) => db.update(communityMediaCandidates).set({ errorCode, updatedAt: new Date() })
@@ -603,6 +611,7 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
       limit: boundedLimit
     })
   );
+  const publicationTargets = await storage.getConfiguredS3Targets();
   let processed = 0;
   for (const manifest of manifests) {
     if (!manifest.quarantineObjectKey || (manifest.kind !== "image" && manifest.kind !== "voice")) continue;
@@ -633,13 +642,13 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
       normalizeImageFile,
       probeDuration: probeCommunityMediaDuration,
       transcodeVoiceFile,
-      uploadFile: async ({ key, path, contentType }) => {
+      uploadFile: async ({ key, path, contentType }, signal) => {
         const file = await stat(path);
-        await storage.uploadObjectStream({ key, body: createReadStream(path), contentType, sizeBytes: file.size });
+        await storage.uploadObjectStream({ key, body: createReadStream(path), contentType, sizeBytes: file.size, ...(signal ? { signal } : {}) });
         return { sizeBytes: file.size };
       },
       mirrorToReserve: storage.mirrorObjectToReserve,
-      deleteCopies: storage.deleteObjectCopies,
+      deleteCopies: deleteCommunityObjectCopiesConvergently,
       registerCandidate: async (manifestId, result) => db.transaction(async (transaction) => {
         const database = transaction as unknown as typeof db;
         const publishable = Array.from((await database.execute(sql`
@@ -671,29 +680,34 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
         return beginCommunityObjectPublication({
           sourceType: "candidate",
           sourceId: candidate.id,
-          objectKey: result.candidateObjectKey
+          objectKey: result.candidateObjectKey,
+          targets: publicationTargets
         }, database);
       }),
-      withCandidatePublication: (publication, work) => withCommunityObjectPublication(publication, async (database) => {
-        const publishable = Array.from((await database.execute(sql`
-          select candidate.id
-          from community_media_candidates candidate
-          join community_upload_manifests manifest on manifest.id = candidate.manifest_id
-          join club_message_attachments attachment on attachment.id = manifest.attachment_id
-          join club_chat_messages message on message.id = attachment.message_id
-          where candidate.id = ${publication.sourceId}
-            and candidate.candidate_object_key = ${publication.objectKey}
-            and candidate.status = 'staged' and candidate.terminal_cleanup_at is null
-            and manifest.status = 'normalizing'
-            and manifest.updated_at = ${claimed.updatedAt}
-            and manifest.terminal_cleanup_at is null
-            and attachment.deleted_at is null and attachment.terminal_cleanup_at is null
-            and message.terminal_cleanup_at is null
-          for share of candidate, manifest, attachment, message
-        `)) as Iterable<{ id: string }>);
-        if (!publishable.length) throw new Error("candidate_publish_terminal");
-        return work();
-      }, db),
+      publishCandidate: (publication, work) => publishCommunityObject({
+        claim: publication,
+        write: work,
+        commit: async (database, written) => {
+          const publishable = Array.from((await database.execute(sql`
+            select candidate.id
+            from community_media_candidates candidate
+            join community_upload_manifests manifest on manifest.id = candidate.manifest_id
+            join club_message_attachments attachment on attachment.id = manifest.attachment_id
+            join club_chat_messages message on message.id = attachment.message_id
+            where candidate.id = ${publication.sourceId}
+              and candidate.candidate_object_key = ${publication.objectKey}
+              and candidate.status = 'staged' and candidate.terminal_cleanup_at is null
+              and manifest.status = 'normalizing'
+              and manifest.updated_at = ${claimed.updatedAt}
+              and manifest.terminal_cleanup_at is null
+              and attachment.deleted_at is null and attachment.terminal_cleanup_at is null
+              and message.terminal_cleanup_at is null
+            for share of candidate, manifest, attachment, message
+          `)) as Iterable<{ id: string }>);
+          if (!publishable.length) throw new Error("candidate_publish_terminal");
+          return written;
+        }
+      }),
       cleanupCandidate: requestCommunityMediaCandidateCleanup,
       complete: async (manifestId, result) => {
         const publication = await db.transaction(async (transaction) => {
@@ -728,7 +742,8 @@ export async function runCommunityMediaProcessorBatch(limit = 4) {
           return beginCommunityObjectPublication({
             sourceType: "candidate",
             sourceId: candidate.id,
-            objectKey: result.finalObjectKey
+            objectKey: result.finalObjectKey,
+            targets: publicationTargets
           }, database);
         });
         await publishAndFinalizeCommunityMediaCandidate({

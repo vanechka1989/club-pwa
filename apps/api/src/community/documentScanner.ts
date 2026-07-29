@@ -1,8 +1,9 @@
 import { createConnection } from "node:net";
 import {
   beginCommunityObjectPublication,
-  withCommunityObjectPublication
+  publishCommunityObject
 } from "./objectPublication";
+import { deleteCommunityObjectCopiesConvergently } from "./objectLifecycle";
 
 export type ClamAvScanResult = "clean" | "infected" | "unavailable";
 const immediatelyRetryableDocumentScanStatuses = ["pending", "failed", "cleanup_pending"] as const;
@@ -270,6 +271,7 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
     import("../storage/s3")
   ]);
   const { and, asc, eq, inArray, isNotNull, isNull, lte, or, sql } = drizzle;
+  const publicationTargets = await storage.getConfiguredS3Targets();
   const now = new Date();
   const staleScanAt = new Date(now.getTime() - documentScanLeaseMs);
   const manifests = await loadCommunityDocumentScannerCandidates(limit, (boundedLimit) =>
@@ -408,43 +410,51 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
           return beginCommunityObjectPublication({
             sourceType: "manifest",
             sourceId: attachment.id,
-            objectKey: finalObjectKey
+            objectKey: finalObjectKey,
+            targets: publicationTargets
           }, database);
         });
 
-        return withCommunityObjectPublication(publication, async (database) => {
-          const expectedClaim = claimStates.get(attachment.id);
-          if (!expectedClaim) throw new Error("scanner_claim_lost");
-          const publishable = Array.from((await database.execute(sql`
-            select manifest.id
-            from community_upload_manifests manifest
-            join club_message_attachments attachment on attachment.id = manifest.attachment_id
-            join club_chat_messages message on message.id = attachment.message_id
-            where manifest.id = ${attachment.id}
-              and manifest.status = ${expectedClaim.status}
-              and manifest.updated_at = ${expectedClaim.updatedAt}
-              and manifest.terminal_cleanup_at is null
-              and attachment.deleted_at is null and attachment.terminal_cleanup_at is null
-              and message.terminal_cleanup_at is null
-            for share of manifest, attachment, message
-          `)) as Iterable<{ id: string }>);
-          if (!publishable.length) throw new Error("scanner_terminal_fence");
-          const metadata = await storage.getObjectMetadata(attachment.objectKey);
-          if (!metadata.etag || metadata.contentType !== attachment.contentType) throw new Error("document_promotion_mismatch");
-          await storage.promoteObjectVersion({
-            sourceKey: attachment.objectKey,
-            destinationKey: finalObjectKey,
-            expectedETag: metadata.etag,
-            contentType: attachment.contentType
-          });
-          const promoted = await storage.getObjectMetadata(finalObjectKey);
-          if (promoted.sizeBytes !== metadata.sizeBytes || promoted.contentType !== attachment.contentType) {
-            throw new Error("document_promotion_mismatch");
+        return publishCommunityObject({
+          claim: publication,
+          write: async (signal) => {
+            const metadata = await storage.getObjectMetadata(attachment.objectKey, "primary", signal);
+            if (!metadata.etag || metadata.contentType !== attachment.contentType) throw new Error("document_promotion_mismatch");
+            await storage.promoteObjectVersion({
+              sourceKey: attachment.objectKey,
+              destinationKey: finalObjectKey,
+              expectedETag: metadata.etag,
+              contentType: attachment.contentType,
+              signal
+            });
+            const promoted = await storage.getObjectMetadata(finalObjectKey, "primary", signal);
+            if (promoted.sizeBytes !== metadata.sizeBytes || promoted.contentType !== attachment.contentType) {
+              throw new Error("document_promotion_mismatch");
+            }
+            await storage.mirrorObjectToReserve(finalObjectKey, attachment.contentType, signal);
+            return finalObjectKey;
+          },
+          commit: async (database, publishedKey) => {
+            const expectedClaim = claimStates.get(attachment.id);
+            if (!expectedClaim) throw new Error("scanner_claim_lost");
+            const publishable = Array.from((await database.execute(sql`
+              select manifest.id
+              from community_upload_manifests manifest
+              join club_message_attachments attachment on attachment.id = manifest.attachment_id
+              join club_chat_messages message on message.id = attachment.message_id
+              where manifest.id = ${attachment.id}
+                and manifest.status = ${expectedClaim.status}
+                and manifest.updated_at = ${expectedClaim.updatedAt}
+                and manifest.terminal_cleanup_at is null
+                and attachment.deleted_at is null and attachment.terminal_cleanup_at is null
+                and message.terminal_cleanup_at is null
+              for share of manifest, attachment, message
+            `)) as Iterable<{ id: string }>);
+            if (!publishable.length) throw new Error("scanner_terminal_fence");
+            await updatePersistedStatus(database, attachment, attachment.id, "ready", null, publishedKey);
+            return publishedKey;
           }
-          await storage.mirrorObjectToReserve(finalObjectKey, attachment.contentType);
-          await updatePersistedStatus(database, attachment, attachment.id, "ready", null, finalObjectKey);
-          return finalObjectKey;
-        }, db);
+        });
       },
       promoteToFinal: async (sourceKey, contentType) => {
         if (!manifest.userId || !manifest.uploadToken || !manifest.fileName) throw new Error("invalid_document_manifest");
@@ -476,7 +486,7 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
         return finalObjectKey;
       },
       mirrorToReserve: storage.mirrorObjectToReserve,
-      deleteCopies: storage.deleteObjectCopies,
+      deleteCopies: deleteCommunityObjectCopiesConvergently,
       updateStatus: async (manifestId, status, scanError, finalObjectKey) => {
         await db.transaction(async (transaction) => {
           const database = transaction as unknown as typeof db;

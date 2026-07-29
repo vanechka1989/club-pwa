@@ -25,6 +25,8 @@ previous_api_image=""
 candidate_images_built=0
 reconciliation_started=0
 privacy_migration_barrier_crossed=0
+recovery_schema_state=""
+api_recovery_allowed=1
 
 sanitize_status_value() {
   printf '%s' "$1" | tr '\r\n=' '   '
@@ -139,6 +141,13 @@ run_pre_migration_backup() {
     /usr/bin/env bash "$DEPLOY_DIR/scripts/backup-postgres-s3.sh"
 }
 
+run_post_quiesce_backup() {
+  current_phase="backup-after-quiesce"
+  write_status running "$current_phase"
+  BACKUP_STATE_DIR="${BACKUP_STATE_DIR:-/var/lib/club-pwa-backup}" \
+    /usr/bin/env bash "$DEPLOY_DIR/scripts/backup-postgres-s3.sh"
+}
+
 run_community_cleanup_dry_run() {
   current_phase="community-cleanup-dry-run"
   write_status running "$current_phase"
@@ -146,16 +155,67 @@ run_community_cleanup_dry_run() {
 }
 
 quiesce_application_for_privacy_migration() {
+  local running_services
   current_phase="quiesce-api-worker"
   write_status running "$current_phase"
   reconciliation_started=1
   compose stop -t 90 api worker
-  if compose ps --status running --quiet api worker | grep -q .; then
+  if ! running_services="$(compose ps --status running --quiet api worker)"; then
+    echo "Unable to verify that API and worker stopped after the privacy migration quiesce." >&2
+    return 1
+  fi
+  if [[ -n "${running_services//[[:space:]]/}" ]]; then
     echo "API or worker remained active after the privacy migration quiesce window." >&2
     return 1
   fi
   privacy_migration_barrier_crossed=1
   echo "API and worker are quiesced; pre-privacy images are no longer valid rollback targets."
+}
+
+detect_privacy_schema_state() {
+  local postgres_user postgres_database schema_output
+  postgres_user="$(read_env_value POSTGRES_USER)"
+  postgres_database="$(read_env_value POSTGRES_DB)"
+  postgres_user="${postgres_user:-club}"
+  postgres_database="${postgres_database:-club}"
+  if ! schema_output="$(compose exec -T postgres psql \
+      --username "$postgres_user" --dbname "$postgres_database" \
+      --tuples-only --no-align --set ON_ERROR_STOP=1 --command "
+        with capability as (
+          select
+            to_regclass('community_object_publications') is not null as publications,
+            to_regclass('community_notification_outbox') is not null as outbox,
+            to_regclass('community_object_lifecycles') is not null as lifecycles,
+            to_regprocedure('community_enqueue_message_cleanup(uuid,text)') is not null as enqueue_function,
+            exists (
+              select 1 from information_schema.columns
+              where table_schema = current_schema()
+                and table_name = 'club_chat_messages' and column_name = 'terminal_cleanup_at'
+            ) as terminal_column,
+            exists (
+              select 1 from information_schema.columns
+              where table_schema = current_schema()
+                and table_name = 'community_object_lifecycles' and column_name = 'publication_token'
+            ) as lifecycle_token_column,
+            (select coalesce(max(created_at), 0) from drizzle.__drizzle_migrations) as migration_revision
+        )
+        select case
+          when publications and outbox and lifecycles and enqueue_function and terminal_column
+            and lifecycle_token_column and migration_revision >= 1785456000000 then 'current'
+          when not publications and not outbox and not lifecycles and not enqueue_function and not terminal_column
+            and not lifecycle_token_column and migration_revision < 1785452400000 then 'legacy'
+          else 'unknown'
+        end
+        from capability;
+      " 2>/dev/null)"; then
+    printf 'unknown\n'
+    return 0
+  fi
+  schema_output="$(printf '%s\n' "$schema_output" | tail -n 1 | tr -d '[:space:]')"
+  case "$schema_output" in
+    legacy|current) printf '%s\n' "$schema_output" ;;
+    *) printf 'unknown\n' ;;
+  esac
 }
 
 read_env_value() {
@@ -366,7 +426,27 @@ restore_previous_image_tags() {
   local failed=0
   if [[ $api_changed -eq 1 ]]; then
     if [[ $privacy_migration_barrier_crossed -eq 1 ]]; then
-      echo "Keeping the privacy-compatible candidate API image after the migration barrier."
+      recovery_schema_state="$(detect_privacy_schema_state)"
+      case "$recovery_schema_state" in
+        legacy)
+          if [[ -z "$previous_api_image" ]]; then
+            echo "No previous API image is available for legacy-schema recovery." >&2
+            api_recovery_allowed=0
+            failed=1
+          elif ! docker tag "$previous_api_image" club-pwa-api:latest; then
+            api_recovery_allowed=0
+            failed=1
+          fi
+          ;;
+        current)
+          echo "Keeping the privacy-compatible candidate API image for the current schema."
+          ;;
+        *)
+          api_recovery_allowed=0
+          echo "Database schema is unknown or partial; API and worker will remain stopped for roll-forward." >&2
+          failed=1
+          ;;
+      esac
     elif [[ -z "$previous_api_image" ]]; then
       echo "No previous API image is available for rollback." >&2
       failed=1
@@ -410,6 +490,7 @@ deploy_api() {
   write_status running "$current_phase"
   compose run --rm uploads-permissions
   quiesce_application_for_privacy_migration
+  run_post_quiesce_backup
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
@@ -434,6 +515,7 @@ deploy_full() {
   write_status running "$current_phase"
   compose run --rm uploads-permissions
   quiesce_application_for_privacy_migration
+  run_post_quiesce_backup
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
@@ -468,7 +550,9 @@ rollback_services() {
   if ! restore_previous_image_tags; then
     failed=1
   fi
-  if [[ $api_changed -eq 1 && ( $privacy_migration_barrier_crossed -eq 1 || -n "$previous_api_image" ) ]]; then
+  if [[ $api_changed -eq 1 && $api_recovery_allowed -eq 0 ]]; then
+    compose stop -t 90 api worker || true
+  elif [[ $api_changed -eq 1 && ( $privacy_migration_barrier_crossed -eq 1 || -n "$previous_api_image" ) ]]; then
     if ! compose up -d --no-deps --force-recreate api worker; then
       failed=1
     fi
@@ -481,8 +565,17 @@ rollback_services() {
   if ! recreate_caddy; then
     failed=1
   fi
-  if ! wait_for_release_dependencies || ! wait_for_health; then
+  if ! wait_for_release_dependencies; then
     failed=1
+  fi
+  if [[ $api_recovery_allowed -eq 1 ]] && ! wait_for_health; then
+    failed=1
+  fi
+  if [[ $api_recovery_allowed -eq 1 && -n "$recovery_schema_state" ]]; then
+    if [[ "$(detect_privacy_schema_state)" != "$recovery_schema_state" ]]; then
+      echo "Database schema capability changed during recovery verification." >&2
+      failed=1
+    fi
   fi
   return "$failed"
 }

@@ -58,7 +58,13 @@ function serviceDependencies(overrides: Record<string, unknown> = {}) {
         objectKey: destinationKey
       }
     }),
-    withPromotionPublication: async (_publication: unknown, work: (scope: unknown) => Promise<unknown>) => work(undefined),
+    publishPromotion: async (_publication: unknown, work: {
+      write: (signal: AbortSignal) => Promise<unknown>;
+      commit: (scope: unknown, written: unknown) => Promise<unknown>;
+    }) => {
+      const written = await work.write(new AbortController().signal);
+      return work.commit(undefined, written);
+    },
     promoteObject: async () => undefined,
     mirrorToReserve: async () => undefined,
     deleteCopies: async () => undefined,

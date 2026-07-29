@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray, lt, lte, max, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, isNull, lt, lte, max, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -29,7 +29,7 @@ import {
 } from "../community/objectDeletionLedger";
 import {
   beginCommunityObjectPublication,
-  withCommunityObjectPublication
+  publishCommunityObject
 } from "../community/objectPublication";
 import { createCommunityUploadService, type CommunityUploadResult } from "../community/directUpload";
 import { validateCommunityOoxml } from "../community/ooxmlValidation";
@@ -44,6 +44,10 @@ import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { topicStateRepository } from "../community/topicStateRepository";
 import { deriveCommunityUploadMessage, isExactCommunityUploadReplayBatch, validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
 import { createCommunityUploadSessionService } from "../community/uploadSessions";
+import {
+  deleteCommunityObjectCopiesConvergently,
+  deleteCommunityObjectKeysConvergently
+} from "../community/objectLifecycle";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, prepareCommunityVoice, validateCommunityImageFiles } from "../community/mediaUpload";
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
@@ -63,16 +67,15 @@ import {
   createMultipartPartUploadUrl,
   createMultipartUpload,
   createObjectUploadUrl,
-  deleteObject,
-  deleteObjectCopies,
   downloadObjectPrefix,
   downloadObjectRange,
+  getConfiguredS3Targets,
   getObjectMetadata,
   getObjectReadUrl,
   listMultipartUploadParts,
   mirrorObjectToReserve,
   promoteObjectVersion,
-  uploadObject,
+  uploadObjectStream,
 } from "../storage/s3";
 
 const chatPayloadSchema = z.object({
@@ -308,55 +311,63 @@ const communityUploadService = createCommunityUploadService({
         eq(communityUploadManifests.status, "completing")
       ));
   },
-  recordPromotion: async (record) => db.transaction(async (transaction) => {
-    const database = transaction as unknown as typeof db;
-    const destination = record.destination === "final"
-      ? { finalObjectKey: record.destinationKey }
-      : { quarantineObjectKey: record.destinationKey };
-    const [recorded] = await database.update(communityUploadManifests)
-      .set({ ...destination, updatedAt: new Date() })
-      .where(and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-        eq(communityUploadManifests.status, "completing"),
-        sql`${communityUploadManifests.terminalCleanupAt} is null`
-      ))
-      .returning({ id: communityUploadManifests.id });
-    if (recorded) {
-      const publication = await beginCommunityObjectPublication({
-        sourceType: "manifest",
-        sourceId: recorded.id,
-        objectKey: record.destinationKey
-      }, database);
-      return { status: "recorded" as const, publication };
-    }
-    const current = await database.query.communityUploadManifests.findFirst({
-      where: and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
-      )
+  recordPromotion: async (record) => {
+    const targets = await getConfiguredS3Targets();
+    return db.transaction(async (transaction) => {
+      const database = transaction as unknown as typeof db;
+      const destination = record.destination === "final"
+        ? { finalObjectKey: record.destinationKey }
+        : { quarantineObjectKey: record.destinationKey };
+      const [recorded] = await database.update(communityUploadManifests)
+        .set({ ...destination, updatedAt: new Date() })
+        .where(and(
+          eq(communityUploadManifests.userId, record.userId),
+          eq(communityUploadManifests.uploadToken, record.uploadToken),
+          eq(communityUploadManifests.requestFingerprint, record.fingerprint),
+          eq(communityUploadManifests.status, "completing"),
+          sql`${communityUploadManifests.terminalCleanupAt} is null`
+        ))
+        .returning({ id: communityUploadManifests.id });
+      if (recorded) {
+        const publication = await beginCommunityObjectPublication({
+          sourceType: "manifest",
+          sourceId: recorded.id,
+          objectKey: record.destinationKey,
+          targets
+        }, database);
+        return { status: "recorded" as const, publication };
+      }
+      const current = await database.query.communityUploadManifests.findFirst({
+        where: and(
+          eq(communityUploadManifests.userId, record.userId),
+          eq(communityUploadManifests.uploadToken, record.uploadToken),
+          eq(communityUploadManifests.requestFingerprint, record.fingerprint)
+        )
+      });
+      if (current && ["aborting", "aborted", "cleanup_pending"].includes(current.status)) {
+        return { status: "cancelled" as const };
+      }
+      throw new Error("manifest_promotion_conflict");
     });
-    if (current && ["aborting", "aborted", "cleanup_pending"].includes(current.status)) {
-      return { status: "cancelled" as const };
+  },
+  publishPromotion: (publication, work) => publishCommunityObject({
+    claim: publication,
+    write: work.write,
+    commit: async (database, written) => {
+      const publishable = Array.from((await database.execute(sql`
+        select manifest.id
+        from community_upload_manifests manifest
+        where manifest.id = ${publication.sourceId}
+          and manifest.status = 'completing'
+          and manifest.terminal_cleanup_at is null
+          and (manifest.final_object_key = ${publication.objectKey}
+            or manifest.quarantine_object_key = ${publication.objectKey})
+        for share of manifest
+      `)) as Iterable<{ id: string }>);
+      if (!publishable.length) throw new Error("manifest_promotion_terminal");
+      return work.commit(database, written);
     }
-    throw new Error("manifest_promotion_conflict");
   }),
-  withPromotionPublication: (publication, work) => withCommunityObjectPublication(publication, async (database) => {
-    const publishable = Array.from((await database.execute(sql`
-      select manifest.id
-      from community_upload_manifests manifest
-      where manifest.id = ${publication.sourceId}
-        and manifest.status = 'completing'
-        and manifest.terminal_cleanup_at is null
-        and (manifest.final_object_key = ${publication.objectKey}
-          or manifest.quarantine_object_key = ${publication.objectKey})
-      for share of manifest
-    `)) as Iterable<{ id: string }>);
-    if (!publishable.length) throw new Error("manifest_promotion_terminal");
-    return work(database);
-  }, db),
   markCleanupPending: async (record, error) => {
     const now = new Date();
     const [pending] = await db.update(communityUploadManifests)
@@ -400,16 +411,16 @@ const communityUploadService = createCommunityUploadService({
   completeMultipart: (input) => completeMultipartUpload(input),
   abortMultipart: (input) => abortMultipartUpload(input),
   listParts: (input) => listMultipartUploadParts(input),
-  getMetadata: (key) => getObjectMetadata(key),
+  getMetadata: (key, signal) => getObjectMetadata(key, "primary", signal),
   getLeadingBytes: (key, maxBytes, expectedETag) => downloadObjectPrefix(key, maxBytes, "primary", expectedETag),
   validateOoxml: (input, metadata) => validateCommunityOoxml(input.contentType, {
     sizeBytes: metadata.sizeBytes ?? 0,
     readRange: (start, end) => downloadObjectRange(input.objectKey, start, end, "primary", metadata.etag ?? undefined)
   }),
-  promoteObject: (input) => promoteObjectVersion(input).then(() => undefined),
-  mirrorToReserve: (key, contentType) => mirrorObjectToReserve(key, contentType),
-  deleteCopies: (key) => deleteObjectCopies(key),
-  deleteStaging: (key) => deleteObject(key)
+  promoteObject: (input, signal) => promoteObjectVersion({ ...input, ...(signal ? { signal } : {}) }).then(() => undefined),
+  mirrorToReserve: (key, contentType, signal) => mirrorObjectToReserve(key, contentType, signal),
+  deleteCopies: deleteCommunityObjectCopiesConvergently,
+  deleteStaging: deleteCommunityObjectCopiesConvergently
 });
 
 const communityUploadSessionService = createCommunityUploadSessionService({
@@ -471,8 +482,8 @@ const communityUploadSessionService = createCommunityUploadSessionService({
   listParts: listMultipartUploadParts,
   createPartUrl: createMultipartPartUploadUrl,
   abortMultipart: abortMultipartUpload,
-  deleteStaging: deleteObject,
-  deleteCopies: deleteObjectCopies
+  deleteStaging: deleteCommunityObjectCopiesConvergently,
+  deleteCopies: deleteCommunityObjectCopiesConvergently
 });
 
 async function loadOwnedCommunityUpload(userId: string, uploadToken: string) {
@@ -1883,6 +1894,9 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to prepare voice message" }, 422);
     }
 
+    const publicationTargets = await getConfiguredS3Targets();
+    const attachmentId = randomUUID();
+    const expiresAt = getCommunityMediaExpiry(role);
     const voiceInsert = await db.transaction(async (transaction) => {
       const database = transaction as unknown as typeof db;
       const replyError = await validateLockedReply(database, replyToMessageId, topic.id);
@@ -1894,18 +1908,9 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         body: "Голосовое сообщение",
         kind: "voice"
       }).returning();
-      return message
-        ? { message }
-        : { error: "Unable to create message", status: 500 as const };
-    });
-    if ("error" in voiceInsert) return c.json({ error: voiceInsert.error }, voiceInsert.status);
-    const { message } = voiceInsert;
-
-    const attachmentId = randomUUID();
-    const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, preparedVoice.fileName);
-    try {
-      await uploadObject({ key, body: preparedVoice.body, contentType: preparedVoice.contentType });
-      await db.insert(clubMessageAttachments).values({
+      if (!message) return { error: "Unable to create message", status: 500 as const };
+      const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, preparedVoice.fileName);
+      await database.insert(clubMessageAttachments).values({
         id: attachmentId,
         messageId: message.id,
         kind: "voice",
@@ -1913,10 +1918,56 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         contentType: preparedVoice.contentType,
         sizeBytes: preparedVoice.body.byteLength,
         durationSeconds: Math.round(durationSeconds),
-        expiresAt: getCommunityMediaExpiry(role)
+        expiresAt,
+        scanStatus: "pending"
+      });
+      const publication = await beginCommunityObjectPublication({
+        sourceType: "attachment",
+        sourceId: attachmentId,
+        objectKey: key,
+        targets: publicationTargets
+      }, database);
+      return { message, plan: { attachmentId, key, publication } };
+    });
+    if ("error" in voiceInsert) return c.json({ error: voiceInsert.error }, voiceInsert.status);
+    const { message, plan } = voiceInsert;
+
+    try {
+      await publishCommunityObject({
+        claim: plan.publication,
+        write: async (signal) => {
+          await uploadObjectStream({
+            key: plan.key,
+            body: preparedVoice.body,
+            contentType: preparedVoice.contentType,
+            sizeBytes: preparedVoice.body.byteLength,
+            signal
+          });
+          await mirrorObjectToReserve(plan.key, preparedVoice.contentType, signal);
+        },
+        commit: async (database) => {
+          const [attachment] = await database.update(clubMessageAttachments).set({
+            scanStatus: "ready",
+            scannedAt: new Date(),
+            scanError: null
+          }).where(and(
+            eq(clubMessageAttachments.id, plan.attachmentId),
+            eq(clubMessageAttachments.objectKey, plan.key),
+            eq(clubMessageAttachments.scanStatus, "pending"),
+            isNull(clubMessageAttachments.deletedAt),
+            isNull(clubMessageAttachments.terminalCleanupAt),
+            sql`exists (
+              select 1 from club_chat_messages message
+              where message.id = ${clubMessageAttachments.messageId}
+                and message.terminal_cleanup_at is null
+            )`
+          )).returning({ id: clubMessageAttachments.id });
+          if (!attachment) throw new Error("attachment_publish_terminal");
+          return attachment;
+        }
       });
     } catch (error) {
-      await deleteObjectCopies(key).catch(() => undefined);
+      await deleteCommunityObjectCopiesConvergently(plan.key).catch(() => undefined);
       await db.update(clubChatMessages).set({ status: "deleted", purgeAt: new Date(), updatedAt: new Date() })
         .where(eq(clubChatMessages.id, message.id));
       await enqueueCommunityMessageDeletion(message.id).catch(() => undefined);
@@ -1955,6 +2006,8 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось обработать изображение." }, 415);
     }
 
+    const publicationTargets = await getConfiguredS3Targets();
+    const expiresAt = getCommunityMediaExpiry(role);
     const imageInsert = await db.transaction(async (transaction) => {
       const database = transaction as unknown as typeof db;
       const replyError = await validateLockedReply(database, replyToMessageId, topic.id);
@@ -1966,21 +2019,17 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         body: files.length === 1 ? "Изображение" : `${files.length} изображений`,
         kind: "images"
       }).returning();
-      return message
-        ? { message }
-        : { error: "Unable to create message", status: 500 as const };
-    });
-    if ("error" in imageInsert) return c.json({ error: imageInsert.error }, imageInsert.status);
-    const { message } = imageInsert;
-
-    const uploadedKeys: string[] = [];
-    try {
+      if (!message) return { error: "Unable to create message", status: 500 as const };
+      const plans: Array<{
+        attachmentId: string;
+        image: (typeof prepared)[number];
+        key: string;
+        publication: Awaited<ReturnType<typeof beginCommunityObjectPublication>>;
+      }> = [];
       for (const [index, image] of prepared.entries()) {
         const attachmentId = randomUUID();
         const key = buildCommunityMediaObjectKey("image", message.id, attachmentId, image.fileName);
-        await uploadObject({ key, body: image.body, contentType: image.contentType });
-        uploadedKeys.push(key);
-        await db.insert(clubMessageAttachments).values({
+        await database.insert(clubMessageAttachments).values({
           id: attachmentId,
           messageId: message.id,
           kind: "image",
@@ -1990,11 +2039,60 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           width: image.width,
           height: image.height,
           sortOrder: index,
-          expiresAt: getCommunityMediaExpiry(role)
+          expiresAt,
+          scanStatus: "pending"
+        });
+        const publication = await beginCommunityObjectPublication({
+          sourceType: "attachment",
+          sourceId: attachmentId,
+          objectKey: key,
+          targets: publicationTargets
+        }, database);
+        plans.push({ attachmentId, image, key, publication });
+      }
+      return { message, plans };
+    });
+    if ("error" in imageInsert) return c.json({ error: imageInsert.error }, imageInsert.status);
+    const { message, plans } = imageInsert;
+
+    try {
+      for (const plan of plans) {
+        await publishCommunityObject({
+          claim: plan.publication,
+          write: async (signal) => {
+            await uploadObjectStream({
+              key: plan.key,
+              body: plan.image.body,
+              contentType: plan.image.contentType,
+              sizeBytes: plan.image.sizeBytes,
+              signal
+            });
+            await mirrorObjectToReserve(plan.key, plan.image.contentType, signal);
+          },
+          commit: async (database) => {
+            const [attachment] = await database.update(clubMessageAttachments).set({
+              scanStatus: "ready",
+              scannedAt: new Date(),
+              scanError: null
+            }).where(and(
+              eq(clubMessageAttachments.id, plan.attachmentId),
+              eq(clubMessageAttachments.objectKey, plan.key),
+              eq(clubMessageAttachments.scanStatus, "pending"),
+              isNull(clubMessageAttachments.deletedAt),
+              isNull(clubMessageAttachments.terminalCleanupAt),
+              sql`exists (
+                select 1 from club_chat_messages message
+                where message.id = ${clubMessageAttachments.messageId}
+                  and message.terminal_cleanup_at is null
+              )`
+            )).returning({ id: clubMessageAttachments.id });
+            if (!attachment) throw new Error("attachment_publish_terminal");
+            return attachment;
+          }
         });
       }
     } catch (error) {
-      for (const key of uploadedKeys) await deleteObjectCopies(key).catch(() => undefined);
+      await deleteCommunityObjectKeysConvergently(plans.map((plan) => plan.key)).catch(() => undefined);
       await db.update(clubChatMessages).set({ status: "deleted", purgeAt: new Date(), updatedAt: new Date() })
         .where(eq(clubChatMessages.id, message.id));
       await enqueueCommunityMessageDeletion(message.id).catch(() => undefined);

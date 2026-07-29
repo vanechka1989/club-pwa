@@ -44,7 +44,8 @@ function voiceDependencies(transcodeVoiceFile: () => Promise<void>) {
       sourceId: "00000000-0000-4000-8000-000000000003",
       objectKey: "community/candidates/load-model.m4a"
     }),
-    withCandidatePublication: async <T>(_publication: unknown, work: () => Promise<T>) => work(),
+    publishCandidate: async <T>(_publication: unknown, work: (signal: AbortSignal) => Promise<T>) =>
+      work(new AbortController().signal),
     cleanupCandidate: async () => undefined,
     complete: async () => undefined,
     fail: async () => undefined

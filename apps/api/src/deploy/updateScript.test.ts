@@ -98,7 +98,11 @@ describe("deploy update script", () => {
     expect(updateWorker).toContain("privacy_migration_barrier_crossed");
     expect(updateWorker).toContain("quiesce_application_for_privacy_migration");
     expect(updateWorker).toContain("compose stop -t 90 api worker");
-    expect(updateWorker).toContain("Keeping the privacy-compatible candidate API image after the migration barrier.");
+    expect(updateWorker).toContain("Keeping the privacy-compatible candidate API image for the current schema.");
+    expect(updateWorker).toContain("drizzle.__drizzle_migrations");
+    expect(updateWorker).toContain("1785456000000");
+    expect(updateWorker).toContain("publication_token");
+    expect(updateWorker).toContain("api_recovery_allowed");
     expect(updateWorker.indexOf("write_status success complete")).toBeLessThan(updateWorker.indexOf("cleanup_previous_images", updateWorker.indexOf("main()")));
   });
 
@@ -197,9 +201,12 @@ describe("deploy update script", () => {
     expect(updateWorker).toContain("require_release_resources");
     expect(updateWorker).toContain("verify_community_s3_lifecycle");
     expect(updateWorker).toContain("run_pre_migration_backup");
+    expect(updateWorker).toContain("run_post_quiesce_backup");
     expect(updateWorker).toContain("run_community_cleanup_dry_run");
     for (const deployment of [apiDeploy, fullDeploy]) {
       expect(deployment.indexOf("run_pre_migration_backup")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
+      expect(deployment.indexOf("run_post_quiesce_backup")).toBeGreaterThan(deployment.indexOf("quiesce_application_for_privacy_migration"));
+      expect(deployment.indexOf("run_post_quiesce_backup")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
       expect(deployment.indexOf("verify_community_s3_lifecycle")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
       expect(deployment.indexOf("quiesce_application_for_privacy_migration")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
       expect(deployment.indexOf("run_community_cleanup_dry_run")).toBeGreaterThan(deployment.indexOf("compose run --rm migrate"));

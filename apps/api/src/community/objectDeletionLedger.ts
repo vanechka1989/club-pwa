@@ -11,12 +11,17 @@ import {
   communityUploadManifests
 } from "../db/schema";
 import { logger } from "../logger";
-import { deleteObjectCopies } from "../storage/s3";
+import {
+  deleteCommunityObjectCopiesConvergently,
+  deleteCommunityObjectKeysConvergently,
+  runCommunityObjectTombstoneSweepBatch,
+  tombstoneCommunityObjectKeysInDatabase,
+  type CommunityObjectStorageTarget
+} from "./objectLifecycle";
 
 export const communityObjectDeletionBatchSize = 100;
 export const communityObjectDeletionIntervalMs = 60_000;
 export const communityObjectDeletionClaimStaleMs = 15 * 60_000;
-export const communityObjectPublicationQuiesceMs = 5 * 60_000;
 
 export type CommunityObjectDeletionAction =
   | "objects_only"
@@ -46,6 +51,7 @@ export interface CommunityObjectDeletionRepository {
 type CleanupDependencies = {
   repository: CommunityObjectDeletionRepository;
   deleteObjectCopies: (key: string) => Promise<unknown>;
+  deleteObjectKeys?: (keys: string[]) => Promise<unknown>;
   logger: Pick<typeof logger, "info" | "warn">;
 };
 
@@ -67,9 +73,8 @@ export function createCommunityObjectDeletionCleanup(dependencies: CleanupDepend
           deferredJobIds.push(job.id);
           continue;
         }
-        for (const key of job.objectKeys) {
-          await dependencies.deleteObjectCopies(key);
-        }
+        if (dependencies.deleteObjectKeys) await dependencies.deleteObjectKeys(job.objectKeys);
+        else for (const key of job.objectKeys) await dependencies.deleteObjectCopies(key);
         if (!(await dependencies.repository.finalize(job))) {
           throw new Error("Community object cleanup fencing claim was lost");
         }
@@ -208,7 +213,11 @@ async function sourceStillMatches(
   return rows.length > 0;
 }
 
-export function createCommunityObjectDeletionRepository(database: CleanupDatabase = db): CommunityObjectDeletionRepository {
+export function createCommunityObjectDeletionRepository(
+  database: CleanupDatabase = db,
+  loadTargets: () => Promise<CommunityObjectStorageTarget[]> = async () =>
+    (await import("../storage/s3")).getConfiguredS3Targets()
+): CommunityObjectDeletionRepository {
   return {
     enqueueDue: ({ limit }) => enqueueDueWithDatabase(database, limit),
 
@@ -249,6 +258,7 @@ export function createCommunityObjectDeletionRepository(database: CleanupDatabas
     },
 
     async quiescePublishers(candidate) {
+      const targets = await loadTargets();
       return database.transaction(async (transaction) => {
         const databaseInTransaction = transaction as unknown as CleanupDatabase;
         const claims = Array.from((await databaseInTransaction.execute(sql`
@@ -258,46 +268,8 @@ export function createCommunityObjectDeletionRepository(database: CleanupDatabas
           for update
         `)) as Iterable<{ id: string }>);
         if (!claims.length) return false;
-
-        const publications = Array.from((await databaseInTransaction.execute(sql`
-          select publication.id,
-                 publication.state = 'quiescing'
-                   and publication.quiesced_at <= clock_timestamp()
-                     - (${communityObjectPublicationQuiesceMs} * interval '1 millisecond') as ready
-          from community_object_publications publication
-          where exists (
-            select 1
-            from community_object_deletion_entries entry
-            where entry.job_id = ${candidate.id}
-              and entry.object_key = publication.object_key
-          )
-          for update of publication
-        `)) as Iterable<{ id: string; ready: boolean }>);
-        if (!publications.length) return true;
-
-        const ready = publications.every((publication) => publication.ready);
-        if (ready) {
-          await databaseInTransaction.execute(sql`
-            delete from community_object_publications
-            where id in (${sql.join(publications.map((publication) => sql`${publication.id}`), sql`, `)})
-          `);
-          return true;
-        }
-
-        await databaseInTransaction.execute(sql`
-          update community_object_publications publication
-          set state = 'quiescing', quiesced_at = coalesce(publication.quiesced_at, clock_timestamp()),
-              updated_at = clock_timestamp()
-          where publication.id in (${sql.join(publications.map((publication) => sql`${publication.id}`), sql`, `)})
-        `);
-        await databaseInTransaction.execute(sql`
-          update community_object_deletion_jobs
-          set status = 'pending', claim_id = null, claimed_at = null,
-              not_before = clock_timestamp() + (${communityObjectPublicationQuiesceMs} * interval '1 millisecond'),
-              last_error = 'publisher_quiescing', updated_at = clock_timestamp()
-          where id = ${candidate.id} and claim_id = ${candidate.claimId}
-        `);
-        return false;
+        await tombstoneCommunityObjectKeysInDatabase(candidate.objectKeys, targets, databaseInTransaction);
+        return true;
       });
     },
 
@@ -398,11 +370,19 @@ export function createCommunityObjectDeletionRepository(database: CleanupDatabas
 }
 
 export const communityObjectDeletionRepository = createCommunityObjectDeletionRepository();
-export const cleanupCommunityObjectDeletionLedger = createCommunityObjectDeletionCleanup({
+const cleanupCommunityObjectDeletionJobs = createCommunityObjectDeletionCleanup({
   repository: communityObjectDeletionRepository,
-  deleteObjectCopies,
+  deleteObjectCopies: deleteCommunityObjectCopiesConvergently,
+  deleteObjectKeys: deleteCommunityObjectKeysConvergently,
   logger
 });
+
+export async function cleanupCommunityObjectDeletionLedger() {
+  await runCommunityObjectTombstoneSweepBatch().catch((error) => {
+    logger.warn({ error }, "community object tombstone sweep failed");
+  });
+  return cleanupCommunityObjectDeletionJobs();
+}
 
 export async function enqueueCommunityMessageDeletionBatch(input: {
   topicId: string;

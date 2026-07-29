@@ -131,7 +131,10 @@ describe("community direct upload policy", () => {
           objectKey: "community/final/user/video.mp4"
         }
       }),
-      withPromotionPublication: async (_publication, work) => work(undefined),
+      publishPromotion: async (_publication, work) => {
+        const written = await work.write(new AbortController().signal);
+        return work.commit(undefined, written);
+      },
       markCleanupPending: async () => undefined,
       completeCancelledCleanup: async () => undefined,
       promoteObject: async () => undefined,
@@ -201,9 +204,11 @@ describe("community direct upload policy", () => {
           }
         };
       },
-      withPromotionPublication: async (_publication, work) => {
-        events.push("publication:locked");
-        const result = await work(undefined);
+      publishPromotion: async (_publication, work) => {
+        events.push("publication:io");
+        const written = await work.write(new AbortController().signal);
+        events.push("publication:commit");
+        const result = await work.commit(undefined, written);
         events.push("publication:committed");
         return result;
       },
@@ -223,8 +228,9 @@ describe("community direct upload policy", () => {
     expect(events).toEqual([
       "claim",
       "ledger",
-      "publication:locked",
+      "publication:io",
       "mirror",
+      "publication:commit",
       "finish",
       "publication:committed",
       "delete-staging"
@@ -260,7 +266,10 @@ describe("community direct upload policy", () => {
           objectKey: "community/final/user/video.mp4"
         }
       }),
-      withPromotionPublication: async (_publication, work) => work(undefined),
+      publishPromotion: async (_publication, work) => {
+        const written = await work.write(new AbortController().signal);
+        return work.commit(undefined, written);
+      },
       markCleanupPending: async () => undefined,
       completeCancelledCleanup: async () => undefined,
       promoteObject: async () => undefined,

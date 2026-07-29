@@ -477,6 +477,13 @@
       "when": 1785452400000,
       "tag": "0067_community_chat_privacy_fencing",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1785456000000,
+      "tag": "0068_community_object_convergence",
+      "breakpoints": true
     }
   ]
 }

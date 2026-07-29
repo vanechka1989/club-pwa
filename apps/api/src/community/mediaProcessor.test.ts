@@ -29,7 +29,8 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     mirrorToReserve: async () => undefined,
     deleteCopies: async () => undefined,
     registerCandidate: async () => ({ id: "publication-1" }),
-    withCandidatePublication: async (_publication: unknown, work: () => Promise<unknown>) => work(),
+    publishCandidate: async (_publication: unknown, work: (signal: AbortSignal) => Promise<unknown>) =>
+      work(new AbortController().signal),
     cleanupCandidate: async () => undefined,
     complete: async () => undefined,
     fail: async () => undefined,
@@ -141,7 +142,7 @@ describe("bounded community media processor", () => {
     expect(cleanupCandidate).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the delayed candidate upload and reserve mirror inside the durable publication fence", async () => {
+  it("writes the delayed candidate outside a DB transaction before committing the durable fence", async () => {
     const events: string[] = [];
     const publication = { id: "publication-1" };
 
@@ -150,10 +151,11 @@ describe("bounded community media processor", () => {
         events.push("publication:reserved");
         return publication;
       },
-      withCandidatePublication: async (claim: unknown, work: () => Promise<unknown>) => {
+      publishCandidate: async (claim: unknown, work: (signal: AbortSignal) => Promise<unknown>) => {
         expect(claim).toBe(publication);
-        events.push("publication:locked");
-        const result = await work();
+        events.push("publication:io");
+        const result = await work(new AbortController().signal);
+        events.push("publication:commit");
         events.push("publication:committed");
         return result;
       },
@@ -166,11 +168,12 @@ describe("bounded community media processor", () => {
       deleteCopies: async (key: string) => { events.push(`delete:${key}`); }
     }))).resolves.toBe("ready");
 
-    expect(events.slice(0, 6)).toEqual([
+    expect(events.slice(0, 7)).toEqual([
       "publication:reserved",
-      "publication:locked",
+      "publication:io",
       "candidate:uploaded",
       "candidate:mirrored",
+      "publication:commit",
       "publication:committed",
       "final:published"
     ]);

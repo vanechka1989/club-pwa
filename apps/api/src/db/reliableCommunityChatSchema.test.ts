@@ -13,6 +13,7 @@ import {
   communityNotificationOutbox,
   communityObjectDeletionEntries,
   communityObjectDeletionJobs,
+  communityObjectLifecycles,
   communityObjectPublications,
   communityUploadManifests,
   communityTopicNotificationSettings,
@@ -25,6 +26,7 @@ const reliabilityMigration = readFileSync(new URL("../../drizzle/0064_community_
 const uploadManifestMigration = readFileSync(new URL("../../drizzle/0065_community_upload_manifests.sql", import.meta.url), "utf8");
 const mediaCandidateMigration = readFileSync(new URL("../../drizzle/0066_community_media_candidates.sql", import.meta.url), "utf8");
 const privacyFencingMigration = readFileSync(new URL("../../drizzle/0067_community_chat_privacy_fencing.sql", import.meta.url), "utf8");
+const convergentDeletionMigration = readFileSync(new URL("../../drizzle/0068_community_object_convergence.sql", import.meta.url), "utf8");
 
 const foreignKeys = (table: Parameters<typeof getTableConfig>[0]) =>
   getTableConfig(table).foreignKeys.map((key) => {
@@ -140,6 +142,15 @@ describe("reliable community chat Drizzle metadata", () => {
     expect(publicationConfig.indexes.map((item) => item.config.name)).toContain(
       "community_object_publications_object_state_idx"
     );
+    const lifecycleConfig = getTableConfig(communityObjectLifecycles);
+    expect(lifecycleConfig.primaryKeys[0]?.columns.map((column) => column.name)).toEqual(["object_key", "target"]);
+    expect(lifecycleConfig.checks.map((item) => item.name)).toEqual(expect.arrayContaining([
+      "community_object_lifecycles_target_check",
+      "community_object_lifecycles_state_check"
+    ]));
+    expect(lifecycleConfig.indexes.map((item) => item.config.name)).toContain(
+      "community_object_lifecycles_reconcile_idx"
+    );
   });
 
   it("versions community access and persists revocation-aware notification delivery", () => {
@@ -249,5 +260,19 @@ describe("reliable community chat migration", () => {
     expect(privacyFencingMigration).toContain("subscriptions_community_access_version_trigger");
     expect(privacyFencingMigration).toContain("admin_users_community_access_version_trigger");
     expect(migrationJournal.entries.find((entry) => entry.tag === "0067_community_chat_privacy_fencing")).toMatchObject({ idx: 67 });
+  });
+
+  it("adds persistent per-target generations without rewriting migration 67", () => {
+    expect(convergentDeletionMigration).toContain('CREATE TABLE "community_object_lifecycles"');
+    expect(convergentDeletionMigration).toContain('PRIMARY KEY ("object_key", "target")');
+    expect(convergentDeletionMigration).toContain('"generation" integer NOT NULL DEFAULT 1');
+    expect(convergentDeletionMigration).toContain("CHECK (\"target\" IN ('primary','reserve'))");
+    expect(convergentDeletionMigration).toContain("CHECK (\"state\" IN ('publishing','present','deleted'))");
+    expect(convergentDeletionMigration).toContain("manifest.\"status\" IN ('aborted','cleanup_pending','rejected')");
+    expect(convergentDeletionMigration).toContain("candidate.\"status\" IN ('cleanup_pending','cleaned')");
+    expect(convergentDeletionMigration).toContain("candidate.\"status\" IN ('published_cleanup_pending','published')");
+    expect(convergentDeletionMigration).toContain("publication.\"state\" = 'quiescing'");
+    expect(convergentDeletionMigration).toContain('DELETE FROM "community_object_publications" publication');
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0068_community_object_convergence")).toMatchObject({ idx: 68 });
   });
 });

@@ -42,6 +42,9 @@ importers:
       '@club/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@smithy/node-http-handler':
+        specifier: ^4.8.2
+        version: 4.8.2
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1

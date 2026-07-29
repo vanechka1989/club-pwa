@@ -11,7 +11,7 @@ describe("community media routes", () => {
     expect(route).toContain("getCommunityMediaExpiry(role");
     expect(route).toContain("validateCommunityImageFiles(files)");
     expect(route).toContain("durationSeconds > 300");
-    expect(route).toContain("await deleteObjectCopies(key)");
+    expect(route).toContain("await deleteCommunityObjectCopiesConvergently(plan.key)");
     expect(route).toContain("enqueueCommunityMessageDeletion(message.id)");
   });
 
@@ -27,5 +27,12 @@ describe("community media routes", () => {
     expect(endpoint).toContain("deriveCommunityUploadMessage");
     expect(endpoint).toContain("serializeMessage");
     expect(endpoint).toContain("database.transaction");
+  });
+
+  it("publishes legacy voice and image bodies through the same per-target attachment fence", () => {
+    expect(route.match(/sourceType: "attachment"/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(route).toContain("uploadObjectStream({");
+    expect(route).toContain("mirrorObjectToReserve(plan.key");
+    expect(route).not.toContain("await uploadObject({ key");
   });
 });
