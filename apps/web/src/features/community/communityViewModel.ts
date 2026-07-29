@@ -1,4 +1,5 @@
-import { resolveDisplayName, type ClubMessage, type MessageReaction } from "@club/shared";
+import { resolveDisplayName, type ClubMessage, type ClubUser, type MessageReaction } from "@club/shared";
+import type { QueuedTextMessage } from "./communityOutbox";
 
 export type VisibleMessageReaction = Exclude<MessageReaction, "like" | "dislike">;
 
@@ -18,6 +19,45 @@ export interface CommunityViewer {
   avatarPositionX?: number | null;
   avatarPositionY?: number | null;
   avatarScale?: number | null;
+}
+
+export function communityOptimisticMessage(entry: QueuedTextMessage, viewer: ClubUser): ClubMessage {
+  return {
+    id: `local:${entry.deliveryKey}`,
+    topicId: entry.topicId,
+    body: entry.body,
+    kind: "text",
+    voice: null,
+    images: [],
+    video: null,
+    document: null,
+    poll: null,
+    isSystem: false,
+    status: "visible",
+    author: {
+      id: viewer.id,
+      telegramId: viewer.telegramId,
+      firstName: viewer.firstName,
+      username: viewer.username,
+      displayName: viewer.displayName,
+      photoUrl: viewer.photoUrl,
+      avatarPositionX: viewer.avatarPositionX,
+      avatarPositionY: viewer.avatarPositionY,
+      avatarScale: viewer.avatarScale
+    },
+    replyTo: null,
+    likesCount: 0,
+    dislikesCount: 0,
+    reactionCounts: [],
+    myReaction: null,
+    authorMute: null,
+    pinnedAt: null,
+    editedAt: null,
+    deletedByUserAt: null,
+    clientOperationId: entry.deliveryKey,
+    mentions: [],
+    createdAt: new Date(entry.createdAt).toISOString()
+  };
 }
 
 export interface ChatPollDraft {

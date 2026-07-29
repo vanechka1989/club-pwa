@@ -69,6 +69,10 @@ async function runSearch(before?: CommunityMessageSearchCursor) {
 function scheduleSearch() {
   clearDebounce();
   requestGeneration += 1;
+  results.value = [];
+  nextCursor.value = null;
+  loading.value = false;
+  statusMessage.value = "";
   debounceTimer = globalThis.setTimeout(() => {
     debounceTimer = null;
     void runSearch();
@@ -145,7 +149,8 @@ onBeforeUnmount(() => {
         <input
           ref="searchInput"
           v-model="query"
-          type="search"
+          type="text"
+          role="searchbox"
           inputmode="search"
           aria-label="Поиск сообщений"
           autocomplete="off"

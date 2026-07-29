@@ -37,13 +37,14 @@ const props = defineProps<{
   reactionCompletedVersion: number;
   interactionResetVersion: number;
   activeModerationMessage: ClubMessage | null;
+  backgroundInert?: boolean;
 }>();
 
 const emit = defineEmits<{
   back: [];
   "toggle-topic-lock": [];
   "delete-topic-messages": [];
-  "open-search": [];
+  "open-search": [trigger: HTMLElement];
   "update-notification-mode": [mode: CommunityNotificationMode];
   "load-older-messages": [];
   reply: ChatMessageEventMap["reply"];
@@ -176,6 +177,10 @@ function handleDeleteTopicMessages() {
   emit("delete-topic-messages");
 }
 
+function openSearch(event: MouseEvent) {
+  emit("open-search", event.currentTarget as HTMLElement);
+}
+
 function resetLocalInteractions() {
   showTopicAdminMenu.value = false;
   showPinnedMessages.value = false;
@@ -239,7 +244,7 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
 </script>
 
 <template>
-  <div class="chat-room">
+  <div class="chat-room" :inert="backgroundInert || undefined" :aria-hidden="backgroundInert ? 'true' : undefined">
     <header class="chat-room-header">
       <button class="icon-button ui-icon-button" type="button" aria-label="Назад" @click="$emit('back')">
         <ArrowLeft class="h-4 w-4" aria-hidden="true" />
@@ -250,7 +255,7 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
           {{ topic.isAdminOnly ? t("communityAdminOnlyRoom") : topic.isLocked ? "Тема закрыта" : "Открытый чат" }}
         </p>
       </div>
-      <button class="icon-button ui-icon-button" type="button" aria-label="Поиск сообщений" @click="$emit('open-search')">
+      <button class="icon-button ui-icon-button" type="button" aria-label="Поиск сообщений" @click="openSearch">
         <Search class="h-4 w-4" aria-hidden="true" />
       </button>
       <div class="chat-room-admin">

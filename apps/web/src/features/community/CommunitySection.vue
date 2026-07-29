@@ -48,8 +48,9 @@ import {
   resetCommunityOutbox,
   type QueuedTextMessage
 } from "./communityOutbox";
-import { authorName, communityErrorStatus, communityMessagesSignature, communityMuteComposerText, getOrCreateCommunityDeviceId, needsUnreadHistory, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
+import { authorName, communityErrorStatus, communityMessagesSignature, communityMuteComposerText, communityOptimisticMessage, getOrCreateCommunityDeviceId, needsUnreadHistory, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
 import { useCommunityTopicState } from "./useCommunityTopicState";
+import { captureCommunityViewport, restoreCommunityViewport } from "./communityViewport";
 const { t } = useI18n();
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -60,7 +61,6 @@ const messages = ref<ClubMessage[]>([]);
 const queuedTextMessages = ref<QueuedTextMessage[]>([]);
 const messagesNextCursor = ref<string | null>(null);
 const loadingOlderMessages = ref(false);
-const messagePageInitialized = ref(false);
 const hasLoadedOlderMessages = ref(false);
 const selectedTopic = ref<ClubTopic | null>(null);
 const initialUnreadCount = ref(0);
@@ -98,9 +98,11 @@ let accountGeneration = 0;
 let topicGeneration = 0;
 let messageRequestGeneration = 0;
 let historyRequestGeneration = 0;
+let historyCursorGeneration = 0;
 let topicsRequestGeneration = 0;
 let notificationRequestGeneration = 0;
 let searchJumpGeneration = 0;
+let searchTrigger: HTMLElement | null = null;
 const refreshRequests = new Map<string, { queued: boolean; promise: Promise<void> }>();
 const topicListRequests = new Map<string, Promise<void>>();
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
@@ -164,6 +166,7 @@ function isCurrentRoom(owner: AccountRequestOwner | null, expectedTopicId: strin
 function invalidateTopicRequests() {
   topicGeneration += 1;
   historyRequestGeneration += 1;
+  historyCursorGeneration += 1;
   notificationRequestGeneration += 1;
   loadingOlderMessages.value = false;
   notificationSaving.value = false;
@@ -182,52 +185,12 @@ function isOptimisticMessage(message: ClubMessage) {
   return message.id.startsWith("local:");
 }
 
-function optimisticMessage(entry: QueuedTextMessage): ClubMessage | null {
-  const viewer = session.user;
-  if (!viewer) return null;
-  return {
-    id: `local:${entry.deliveryKey}`,
-    topicId: entry.topicId,
-    body: entry.body,
-    kind: "text",
-    voice: null,
-    images: [],
-    video: null,
-    document: null,
-    poll: null,
-    isSystem: false,
-    status: "visible",
-    author: {
-      id: viewer.id,
-      telegramId: viewer.telegramId,
-      firstName: viewer.firstName,
-      username: viewer.username,
-      displayName: viewer.displayName,
-      photoUrl: viewer.photoUrl,
-      avatarPositionX: viewer.avatarPositionX,
-      avatarPositionY: viewer.avatarPositionY,
-      avatarScale: viewer.avatarScale
-    },
-    replyTo: null,
-    likesCount: 0,
-    dislikesCount: 0,
-    reactionCounts: [],
-    myReaction: null,
-    authorMute: null,
-    pinnedAt: null,
-    editedAt: null,
-    deletedByUserAt: null,
-    clientOperationId: entry.deliveryKey,
-    mentions: [],
-    createdAt: new Date(entry.createdAt).toISOString()
-  };
-}
-
 function mergeOptimisticMessages(serverMessages: ClubMessage[]) {
+  const viewer = session.user;
+  if (!viewer) return serverMessages;
   const optimistic = queuedTextMessages.value
     .filter((entry) => entry.topicId === selectedTopic.value?.id)
-    .map(optimisticMessage)
-    .filter((message): message is ClubMessage => Boolean(message));
+    .map((entry) => communityOptimisticMessage(entry, viewer));
   return mergeConfirmedCommunityMessages([], [...optimistic, ...serverMessages]);
 }
 
@@ -346,13 +309,13 @@ function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition
   const requestGeneration = ++messageRequestGeneration;
   const requestState = { queued: false, promise: Promise.resolve() };
   requestState.promise = Promise.resolve().then(async () => {
-    const scrollElement = chatRoom.value?.getMessagesElement();
-    const previousScrollTop = scrollElement?.scrollTop ?? 0;
-    const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
-    const shouldScroll = !keepScroll || isNearBottom();
     try {
       const response = await getClubMessages(topicId);
       if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== messageRequestGeneration) return;
+      const scrollElement = chatRoom.value?.getMessagesElement();
+      const viewportAnchor = captureCommunityViewport(scrollElement ?? null);
+      const previousScrollTop = scrollElement?.scrollTop ?? 0;
+      const shouldScroll = !keepScroll || isNearBottom();
       const retainedOlderMessages = hasLoadedOlderMessages.value
         ? messages.value.filter((message) => !response.messages.some((recent) => recent.id === message.id))
         : [];
@@ -360,9 +323,14 @@ function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition
       const nextMessages = mergeOptimisticMessages([...confirmedMessages, ...retainedOlderMessages]);
       const messagesChanged = communityMessagesSignature(messages.value) !== communityMessagesSignature(nextMessages);
       if (messagesChanged) messages.value = nextMessages;
-      if (!messagePageInitialized.value) {
-        messagesNextCursor.value = response.nextCursor ?? null;
-        messagePageInitialized.value = true;
+      if (!hasLoadedOlderMessages.value) {
+        const nextCursor = response.nextCursor ?? null;
+        if (messagesChanged || messagesNextCursor.value !== nextCursor) {
+          historyCursorGeneration += 1;
+          historyRequestGeneration += 1;
+          loadingOlderMessages.value = false;
+        }
+        messagesNextCursor.value = nextCursor;
       }
       mutedUntil.value = response.mutedUntil;
       mutedPermanently.value = response.mutedPermanently;
@@ -376,7 +344,7 @@ function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition
       } else if (scrollElement) {
         await nextTick();
         if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
-        scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
+        restoreCommunityViewport(scrollElement, viewportAnchor, previousScrollTop);
       }
       if (!deferPosition) await refreshReadObservation(owner, topicId, expectedTopicGeneration);
     } catch {
@@ -399,23 +367,26 @@ async function loadOlderMessages() {
   const topicId = selectedTopic.value.id;
   const cursor = messagesNextCursor.value;
   const expectedTopicGeneration = topicGeneration;
+  const expectedCursorGeneration = historyCursorGeneration;
   const requestGeneration = ++historyRequestGeneration;
-  const scrollElement = chatRoom.value?.getMessagesElement();
-  const previousScrollTop = scrollElement?.scrollTop ?? 0;
-  const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
   if (!owner) return;
   loadingOlderMessages.value = true;
   try {
     const response = await getClubMessages(topicId, cursor);
-    if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== historyRequestGeneration) return;
+    if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== historyRequestGeneration || expectedCursorGeneration !== historyCursorGeneration) return;
+    const scrollElement = chatRoom.value?.getMessagesElement();
+    const viewportAnchor = captureCommunityViewport(scrollElement ?? null);
+    const previousScrollTop = scrollElement?.scrollTop ?? 0;
+    const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
     hasLoadedOlderMessages.value = true;
     const existingIds = new Set(messages.value.map((message) => message.id));
     messages.value = [...messages.value, ...response.messages.filter((message) => !existingIds.has(message.id))];
     messagesNextCursor.value = response.nextCursor ?? null;
+    historyCursorGeneration += 1;
     if (scrollElement) {
       await nextTick();
       if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== historyRequestGeneration) return;
-      scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
+      restoreCommunityViewport(scrollElement, viewportAnchor, previousScrollTop, previousScrollHeight);
     }
   } catch {
     if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) showCommunityError("Не удалось загрузить предыдущие сообщения.");
@@ -577,7 +548,6 @@ async function openTopic(topic: ClubTopic) {
   messageSaving.value = false;
   messages.value = [];
   messagesNextCursor.value = null;
-  messagePageInitialized.value = false;
   hasLoadedOlderMessages.value = false;
   activeModerationMessageId.value = null;
   composerResetVersion.value += 1;
@@ -601,7 +571,18 @@ async function openTopic(topic: ClubTopic) {
     showMuteAlert();
   }
 }
-function closeMessageSearch() { searchJumpGeneration += 1; showMessageSearch.value = false; }
+function openMessageSearch(event?: Event | HTMLElement) {
+  const candidate = event instanceof HTMLElement ? event : event?.currentTarget ?? document.activeElement;
+  searchTrigger = candidate instanceof HTMLElement ? candidate : null;
+  showMessageSearch.value = true;
+}
+async function closeMessageSearch() {
+  searchJumpGeneration += 1;
+  showMessageSearch.value = false;
+  await nextTick();
+  searchTrigger?.focus();
+  searchTrigger = null;
+}
 function closeTopic() { searchJumpGeneration += 1; selectedTopic.value = null; }
 async function handleNotificationMode(mode: CommunityNotificationMode) {
   const topicId = selectedTopic.value?.id;
@@ -640,9 +621,8 @@ async function openSearchResult(result: CommunityMessageSearchResult) {
   invalidateTopicRequests();
   selectedTopic.value = targetTopic;
   initialUnreadCount.value = 0;
-  messages.value = response.messages;
+  messages.value = [...response.messages].reverse();
   messagesNextCursor.value = null;
-  messagePageInitialized.value = true;
   hasLoadedOlderMessages.value = false;
   mutedUntil.value = targetRoomState.mutedUntil;
   mutedPermanently.value = targetRoomState.mutedPermanently;
@@ -654,7 +634,7 @@ async function openSearchResult(result: CommunityMessageSearchResult) {
   if (!isCurrentAccount(owner) || selectedTopic.value?.id !== result.topicId || requestGeneration !== searchJumpGeneration) {
     throw new Error("stale search navigation");
   }
-  topicState.selectTopic(result.topicId, response.messages);
+  topicState.selectTopic(result.topicId, messages.value);
   chatRoom.value?.scrollToMessage(response.targetMessageId, "auto");
   const element = chatRoom.value?.getMessagesElement();
   if (element) topicState.observeVisibleMessages(element);
@@ -962,7 +942,6 @@ function resetCommunityUiState() {
   messagesNextCursor.value = null;
   loading.value = false;
   loadingOlderMessages.value = false;
-  messagePageInitialized.value = false;
   hasLoadedOlderMessages.value = false;
   mutedUntil.value = null;
   mutedPermanently.value = false;
@@ -1088,7 +1067,12 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="community-chat-shell ui-page-section">
-    <div v-if="!selectedTopic" class="community-section-content">
+    <div
+      v-if="!selectedTopic"
+      class="community-section-content"
+      :inert="showMessageSearch || undefined"
+      :aria-hidden="showMessageSearch ? 'true' : undefined"
+    >
       <UiPageHeader :title="t('communitySectionTitle')" :subtitle="t('communitySectionSubtitle')">
         <template #actions>
           <div class="community-topline-actions">
@@ -1097,7 +1081,7 @@ onBeforeUnmount(() => {
               class="icon-button ui-icon-button"
               type="button"
               aria-label="Поиск сообщений"
-              @click="showMessageSearch = true"
+              @click="openMessageSearch"
             >
               <Search class="h-4 w-4" aria-hidden="true" />
             </button>
@@ -1176,10 +1160,11 @@ onBeforeUnmount(() => {
       :reaction-completed-version="reactionCompletedVersion"
       :interaction-reset-version="interactionResetVersion"
       :active-moderation-message="activeModerationMessage"
+      :background-inert="showMessageSearch"
       @back="closeTopic"
       @toggle-topic-lock="handleToggleTopicLock"
       @delete-topic-messages="handleDeleteTopicMessages"
-      @open-search="showMessageSearch = true"
+      @open-search="openMessageSearch"
       @update-notification-mode="handleNotificationMode"
       @load-older-messages="loadOlderMessages"
       @reply="startReply"
