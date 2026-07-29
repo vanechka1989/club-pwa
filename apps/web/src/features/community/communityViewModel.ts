@@ -55,6 +55,11 @@ export function communityOptimisticMessage(entry: QueuedTextMessage, viewer: Clu
     editedAt: null,
     deletedByUserAt: null,
     contentRedacted: false,
+    authorMutation: {
+      canEdit: false,
+      canDelete: false,
+      allowedUntil: null
+    },
     clientOperationId: entry.deliveryKey,
     mentions: entry.mentions,
     createdAt: new Date(entry.createdAt).toISOString()
@@ -252,14 +257,14 @@ export function communityAuthorMutationActions(
 ) {
   const capability = message.authorMutation;
   const serverNow = currentCommunityServerTime(clock, nowMonotonicMs);
-  const allowedUntil = capability?.allowedUntil ? Date.parse(capability.allowedUntil) : null;
+  const allowedUntil = capability.allowedUntil ? Date.parse(capability.allowedUntil) : null;
   const withinWindow = serverNow !== null
     && allowedUntil !== null
     && Number.isFinite(allowedUntil)
     && serverNow <= allowedUntil;
   return {
-    canEdit: Boolean(capability?.canEdit && withinWindow),
-    canDelete: Boolean(capability?.canDelete && withinWindow)
+    canEdit: Boolean(capability.canEdit && withinWindow),
+    canDelete: Boolean(capability.canDelete && withinWindow)
   };
 }
 
@@ -361,9 +366,9 @@ export function communityMessageSignature(message: ClubMessage) {
     message.editedAt ?? "",
     message.deletedByUserAt ?? "",
     message.contentRedacted ? "redacted" : "",
-    message.authorMutation?.canEdit ? "edit" : "",
-    message.authorMutation?.canDelete ? "delete" : "",
-    message.authorMutation?.allowedUntil ?? "",
+    message.authorMutation.canEdit ? "edit" : "",
+    message.authorMutation.canDelete ? "delete" : "",
+    message.authorMutation.allowedUntil ?? "",
     message.clientOperationId ?? "",
     message.mentions.map((mention) => `${mention.userId}:${mention.start}:${mention.end}:${mention.displayName}`).join("|")
   ].join("\u001f");

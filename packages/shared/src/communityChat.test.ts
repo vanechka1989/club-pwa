@@ -48,6 +48,8 @@ const messageFixture = {
   myReaction: null,
   authorMute: null,
   pinnedAt: null,
+  contentRedacted: false,
+  authorMutation: { canEdit: false, canDelete: false, allowedUntil: null },
   createdAt: "2026-07-28T00:00:00.000Z"
 };
 

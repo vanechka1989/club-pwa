@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { communityMessageContextResponseSchema } from "@club/shared";
 
 const topicId = "00000000-0000-4000-8000-000000000010";
 const messageId = "00000000-0000-4000-8000-000000000101";
@@ -237,7 +238,8 @@ describe("secure community message search routes", () => {
     const response = await communityRoute.request(`/topics/${topicId}/messages/${messageId}/context`);
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    const payload = communityMessageContextResponseSchema.parse(await response.json());
+    expect(payload).toEqual({
       targetMessageId: messageId,
       messages: [],
       serverTime: "2026-07-28T12:00:00.000Z"

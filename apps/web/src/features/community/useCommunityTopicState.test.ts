@@ -38,6 +38,8 @@ function message(id: string, createdAt: string): ClubMessage {
     pinnedAt: null,
     editedAt: null,
     deletedByUserAt: null,
+    contentRedacted: false,
+    authorMutation: { canEdit: false, canDelete: false, allowedUntil: null },
     clientOperationId: null,
     mentions: [],
     createdAt

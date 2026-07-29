@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clubMessagesResponseSchema } from "@club/shared";
 
 const topicId = "00000000-0000-4000-8000-000000000010";
 const messageId = "00000000-0000-4000-8000-000000000100";
@@ -290,10 +291,7 @@ describe("community message mutation routes", () => {
   it("returns a content-free tombstone to members while moderators retain content before expiry", async () => {
     mocks.deleted = true;
     const memberResponse = await communityRoute.request(`/topics/${topicId}/messages`);
-    const memberPayload = await memberResponse.json() as {
-      messages: Array<Record<string, unknown>>;
-      serverTime: string;
-    };
+    const memberPayload = clubMessagesResponseSchema.parse(await memberResponse.json());
 
     expect(memberPayload.messages[0]).toMatchObject({
       body: "Сообщение удалено",
@@ -309,7 +307,7 @@ describe("community message mutation routes", () => {
 
     mocks.role = "admin";
     const moderatorResponse = await communityRoute.request(`/topics/${topicId}/messages`);
-    const moderatorPayload = await moderatorResponse.json() as { messages: Array<Record<string, unknown>> };
+    const moderatorPayload = clubMessagesResponseSchema.parse(await moderatorResponse.json());
     expect(moderatorPayload.messages[0]).toMatchObject({
       body: "original secret",
       deletedByUserAt: "2026-07-29T10:05:00.000Z",

@@ -60,6 +60,8 @@ function message(index: number, overrides: Partial<ClubMessage> = {}): ClubMessa
     pinnedAt: null,
     editedAt: null,
     deletedByUserAt: null,
+    contentRedacted: false,
+    authorMutation: { canEdit: false, canDelete: false, allowedUntil: null },
     clientOperationId: null,
     mentions: [],
     createdAt: `2026-07-28T10:0${index}:00.000Z`,

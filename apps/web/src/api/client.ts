@@ -35,6 +35,7 @@ import type {
   ClubMessageMutationResponse,
   ClubMessageReactionMutationResponse,
   ClubMessagesResponse,
+  CommunityMessageContextResponse,
   ClubTopicMutationResponse,
   ClubTopicsResponse,
   AdminMutationResponse,
@@ -313,7 +314,7 @@ export function getCommunityMessageContext(
   messageId: string,
   options: { before?: number; after?: number } = {}
 ) {
-  return api<{ targetMessageId: string; messages: ClubMessage[]; serverTime?: string }>(
+  return api<CommunityMessageContextResponse>(
     `/community/topics/${encodeURIComponent(topicId)}/messages/${encodeURIComponent(messageId)}/context`,
     { query: options }
   );

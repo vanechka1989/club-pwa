@@ -103,6 +103,7 @@ let communityEventSource: EventSource | null = null;
 let realtimeConnected = false;
 let componentMounted = false;
 let accountGeneration = 0;
+let permissionGeneration = 0;
 let topicGeneration = 0;
 let messageRequestGeneration = 0;
 let historyRequestGeneration = 0;
@@ -120,6 +121,18 @@ const isModerator = computed(() =>
 );
 const isOwner = computed(() => session.user?.role === "owner");
 const hasCommunityAccess = computed(() => isModerator.value || session.user?.membershipStatus === "active");
+const authorizationFingerprint = computed(() => {
+  const user = session.user;
+  return user
+    ? [
+        user.id,
+        user.role,
+        user.realRole,
+        user.membershipStatus,
+        [...(user.adminPermissions ?? [])].sort().join(",")
+      ].join("\u001f")
+    : "";
+});
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
 const activeModerationMessage = computed(
   () => messages.value.find((message) => message.id === activeModerationMessageId.value) ?? null
@@ -156,20 +169,41 @@ function applyAuthoritativeTopicState(
   }
 }
 
-type AccountRequestOwner = { userId: string; generation: number };
+type AccountRequestOwner = { userId: string; generation: number; permissionGeneration: number };
 function captureAccountOwner(): AccountRequestOwner | null {
   const userId = session.user?.id;
-  return userId ? { userId, generation: accountGeneration } : null;
+  return userId ? { userId, generation: accountGeneration, permissionGeneration } : null;
 }
 
 function isCurrentAccount(owner: AccountRequestOwner | null) {
-  return Boolean(owner && owner.generation === accountGeneration && session.user?.id === owner.userId);
+  return Boolean(
+    owner
+    && owner.generation === accountGeneration
+    && owner.permissionGeneration === permissionGeneration
+    && session.user?.id === owner.userId
+  );
 }
 
 function isCurrentRoom(owner: AccountRequestOwner | null, expectedTopicId: string, expectedTopicGeneration: number) {
   return isCurrentAccount(owner)
     && topicGeneration === expectedTopicGeneration
     && selectedTopic.value?.id === expectedTopicId;
+}
+
+type RoomRequestOwner = {
+  account: AccountRequestOwner;
+  topicId: string;
+  generation: number;
+};
+
+function captureRoomRequestOwner(): RoomRequestOwner | null {
+  const account = captureAccountOwner();
+  const topicId = selectedTopic.value?.id;
+  return account && topicId ? { account, topicId, generation: topicGeneration } : null;
+}
+
+function isCurrentRoomRequest(owner: RoomRequestOwner | null) {
+  return Boolean(owner && isCurrentRoom(owner.account, owner.topicId, owner.generation));
 }
 
 function invalidateTopicRequests() {
@@ -340,11 +374,15 @@ function isNearBottom() {
 }
 
 async function handleTogglePin(message: ClubMessage) {
+  const room = captureRoomRequestOwner();
+  if (!room) return;
   try {
     const response = await setClubMessagePinned(message.id, !message.pinnedAt);
+    if (!isCurrentRoomRequest(room)) return;
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
     activeModerationMessageId.value = null;
   } catch (error) {
+    if (!isCurrentRoomRequest(room)) return;
     if (communityErrorStatus(error) === 409) {
       activeModerationMessageId.value = null;
       notifications.showInfo("Можно закрепить не больше 5 сообщений.");
@@ -371,7 +409,7 @@ function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition
     try {
       const response = await getClubMessages(topicId);
       if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== messageRequestGeneration) return;
-      if (response.serverTime) serverClock.value = captureCommunityServerClock(response.serverTime);
+      serverClock.value = captureCommunityServerClock(response.serverTime);
       const scrollElement = chatRoom.value?.getMessagesElement();
       const viewportAnchor = captureCommunityViewport(scrollElement ?? null);
       const previousScrollTop = scrollElement?.scrollTop ?? 0;
@@ -687,6 +725,7 @@ async function openSearchResult(result: CommunityMessageSearchResult) {
 
   void topicState.closeTopic();
   invalidateTopicRequests();
+  serverClock.value = captureCommunityServerClock(response.serverTime);
   selectedTopic.value = targetTopic;
   initialUnreadCount.value = 0;
   messages.value = [...response.messages].reverse();
@@ -714,6 +753,8 @@ async function createTopic() {
   if (!newTopicTitle.value.trim()) {
     return;
   }
+  const owner = captureAccountOwner();
+  if (!owner) return;
 
   topicSaving.value = true;
   clearCommunityError();
@@ -723,29 +764,33 @@ async function createTopic() {
       description: null,
       isAdminOnly: newTopicAdminOnly.value
     });
+    if (!isCurrentAccount(owner)) return;
     topics.value = [response.topic, ...topics.value];
     newTopicTitle.value = "";
     newTopicAdminOnly.value = false;
     showCreateTopic.value = false;
   } catch {
-    showCommunityError("Не удалось создать тему.");
+    if (isCurrentAccount(owner)) showCommunityError("Не удалось создать тему.");
   } finally {
-    topicSaving.value = false;
+    if (isCurrentAccount(owner)) topicSaving.value = false;
   }
 }
 
 async function restoreTopic(topic: ClubTopic) {
+  const owner = captureAccountOwner();
+  if (!owner) return;
   const response = await updateClubTopicSettings(topic.id, { isPublished: true });
+  if (!isCurrentAccount(owner)) return;
   topics.value = topics.value.map((item) => (item.id === topic.id ? response.topic : item));
 }
 
 async function handleToggleTopicLock() {
-  if (!selectedTopic.value) {
-    return;
-  }
+  const room = captureRoomRequestOwner();
+  if (!room || !selectedTopic.value) return;
 
   const nextLocked = !selectedTopic.value.isLocked;
-  const response = await updateClubTopicSettings(selectedTopic.value.id, { isLocked: nextLocked });
+  const response = await updateClubTopicSettings(room.topicId, { isLocked: nextLocked });
+  if (!isCurrentRoomRequest(room)) return;
   selectedTopic.value = response.topic;
   topics.value = topics.value.map((topic) => (topic.id === response.topic.id ? response.topic : topic));
 }
@@ -767,30 +812,32 @@ function cancelDeleteTopicMessages() {
 }
 
 async function confirmDeleteTopicMessages() {
-  if (!selectedTopic.value || deleteTopicMessagesBusy.value) {
-    return;
-  }
+  const room = captureRoomRequestOwner();
+  if (!room || deleteTopicMessagesBusy.value) return;
 
   deleteTopicMessagesBusy.value = true;
   clearCommunityError();
   try {
-    await deleteTopicMessages(selectedTopic.value.id);
+    await deleteTopicMessages(room.topicId);
+    if (!isCurrentRoomRequest(room)) return;
     activeModerationMessageId.value = null;
     interactionResetVersion.value += 1;
     await refreshSelectedTopic({ keepScroll: false });
+    if (!isCurrentRoomRequest(room)) return;
     await loadTopics();
   } catch {
-    showCommunityError("Не удалось удалить сообщения чата.");
+    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось удалить сообщения чата.");
   } finally {
-    deleteTopicMessagesBusy.value = false;
-    showDeleteTopicMessagesConfirm.value = false;
+    if (isCurrentRoomRequest(room)) {
+      deleteTopicMessagesBusy.value = false;
+      showDeleteTopicMessagesConfirm.value = false;
+    }
   }
 }
 
 async function handleDeleteAuthorMessages(message: ClubMessage) {
-  if (!selectedTopic.value) {
-    return;
-  }
+  const room = captureRoomRequestOwner();
+  if (!room) return;
 
   const confirmed = await appDialogs.confirm({
     title: `Удалить сообщения ${authorName(message)}?`,
@@ -799,14 +846,17 @@ async function handleDeleteAuthorMessages(message: ClubMessage) {
     tone: "danger"
   });
   if (!confirmed) {
-    activeModerationMessageId.value = null;
+    if (isCurrentRoomRequest(room)) activeModerationMessageId.value = null;
     return;
   }
+  if (!isCurrentRoomRequest(room)) return;
 
-  await deleteTopicAuthorMessages(selectedTopic.value.id, message.author.telegramId);
+  await deleteTopicAuthorMessages(room.topicId, message.author.telegramId);
+  if (!isCurrentRoomRequest(room)) return;
   activeModerationMessageId.value = null;
   interactionResetVersion.value += 1;
   await refreshSelectedTopic({ keepScroll: true });
+  if (!isCurrentRoomRequest(room)) return;
   await loadTopics();
 }
 
@@ -830,81 +880,97 @@ function appendCreatedMessage(message: ClubMessage) {
 }
 
 async function handleSendImages(files: File[]) {
-  if (!selectedTopic.value || !files.length) return;
+  const room = captureRoomRequestOwner();
+  if (!room || !files.length) return;
+  const replyToMessageId = replyToMessage.value?.id ?? null;
   messageSaving.value = true;
   try {
-    const response = await createClubImageMessage(selectedTopic.value.id, files, replyToMessage.value?.id ?? null);
+    const response = await createClubImageMessage(room.topicId, files, replyToMessageId);
+    if (!isCurrentRoomRequest(room)) return;
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
     composerResetVersion.value += 1;
   } catch {
-    showCommunityError("Не удалось отправить изображения. Можно повторить отправку.");
+    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось отправить изображения. Можно повторить отправку.");
   } finally {
-    messageSaving.value = false;
+    if (isCurrentRoomRequest(room)) messageSaving.value = false;
   }
 }
 
 async function handleSendVoice(blob: Blob, durationSeconds: number) {
-  if (!selectedTopic.value) return;
+  const room = captureRoomRequestOwner();
+  if (!room) return;
+  const replyToMessageId = replyToMessage.value?.id ?? null;
   messageSaving.value = true;
   try {
-    const response = await createClubVoiceMessage(selectedTopic.value.id, blob, durationSeconds, replyToMessage.value?.id ?? null);
+    const response = await createClubVoiceMessage(room.topicId, blob, durationSeconds, replyToMessageId);
+    if (!isCurrentRoomRequest(room)) return;
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
     composerResetVersion.value += 1;
   } catch {
-    showCommunityError("Не удалось отправить голосовое. Запись сохранена для повторной отправки.");
+    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось отправить голосовое. Запись сохранена для повторной отправки.");
   } finally {
-    messageSaving.value = false;
+    if (isCurrentRoomRequest(room)) messageSaving.value = false;
   }
 }
 
 async function handleCreatePoll(payload: ChatPollDraft) {
-  if (!selectedTopic.value) return;
+  const room = captureRoomRequestOwner();
+  if (!room) return;
+  const replyToMessageId = replyToMessage.value?.id ?? null;
   messageSaving.value = true;
   try {
-    const response = await createClubPoll(selectedTopic.value.id, { ...payload, replyToMessageId: replyToMessage.value?.id ?? null });
+    const response = await createClubPoll(room.topicId, { ...payload, replyToMessageId });
+    if (!isCurrentRoomRequest(room)) return;
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
     composerResetVersion.value += 1;
   } catch {
-    showCommunityError("Не удалось создать опрос.");
+    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось создать опрос.");
   } finally {
-    messageSaving.value = false;
+    if (isCurrentRoomRequest(room)) messageSaving.value = false;
   }
 }
 
 async function handlePollVote(message: ClubMessage, optionIds: string[]) {
-  if (!message.poll) return;
+  const room = captureRoomRequestOwner();
+  if (!room || !message.poll) return;
   try {
     const response = await voteInClubPoll(message.poll.id, optionIds);
+    if (!isCurrentRoomRequest(room)) return;
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
   } catch {
+    if (!isCurrentRoomRequest(room)) return;
     showCommunityError("Не удалось сохранить голос.");
     await refreshSelectedTopic({ keepScroll: true });
   }
 }
 
 async function handleClosePoll(message: ClubMessage) {
-  if (!message.poll) return;
+  const room = captureRoomRequestOwner();
+  if (!room || !message.poll) return;
   try {
     const response = await closeClubPoll(message.poll.id);
+    if (!isCurrentRoomRequest(room)) return;
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
   } catch {
-    showCommunityError("Не удалось завершить опрос.");
+    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось завершить опрос.");
   }
 }
 
 async function handleMessageStatus(message: ClubMessage, status: "visible" | "hidden" | "deleted") {
+  const room = captureRoomRequestOwner();
+  if (!room) return;
   await updateModerationStatus("chat_message", message.id, status);
+  if (!isCurrentRoomRequest(room)) return;
   messages.value = messages.value.map((item) => (item.id === message.id ? { ...item, status } : item));
   activeModerationMessageId.value = null;
 }
 
 async function handleMute(message: ClubMessage) {
-  if (!selectedTopic.value) {
-    return;
-  }
+  const room = captureRoomRequestOwner();
+  if (!room) return;
   if (message.authorMute) {
     showCommunityError("У клиента уже есть активный мут.");
     activeModerationMessageId.value = null;
@@ -912,34 +978,41 @@ async function handleMute(message: ClubMessage) {
   }
 
   try {
-    const response = await createTopicUserMute(selectedTopic.value.id, {
+    const response = await createTopicUserMute(room.topicId, {
       telegramId: message.author.telegramId,
       kind: "permanent",
       reason: "Модерация сообщения в чате",
       expiresAt: null
     });
+    if (!isCurrentRoomRequest(room)) return;
     messages.value = [response.message, ...messages.value];
     activeModerationMessageId.value = null;
-    await openTopic(selectedTopic.value);
+    await openTopic(selectedTopic.value!);
+    if (!isCurrentRoomRequest(room)) return;
     await scrollToBottom();
   } catch (reason) {
-    showCommunityError(communityErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.");
+    if (isCurrentRoomRequest(room)) {
+      showCommunityError(communityErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.");
+    }
   }
 }
 
 async function handleRevokeMute(message: ClubMessage) {
-  if (!selectedTopic.value || !message.authorMute) {
-    return;
-  }
+  const room = captureRoomRequestOwner();
+  if (!room || !message.authorMute) return;
 
-  await revokeTopicUserMute(selectedTopic.value.id, message.authorMute.id);
+  await revokeTopicUserMute(room.topicId, message.authorMute.id);
+  if (!isCurrentRoomRequest(room)) return;
   activeModerationMessageId.value = null;
-  await openTopic(selectedTopic.value);
+  await openTopic(selectedTopic.value!);
 }
 
 async function handleReaction(message: ClubMessage, reaction: VisibleMessageReaction) {
+  const room = captureRoomRequestOwner();
+  if (!room) return;
   const nextReaction = message.myReaction === reaction ? null : reaction;
   const response = await reactToClubMessage(message.id, nextReaction);
+  if (!isCurrentRoomRequest(room)) return;
   messages.value = messages.value.map((item) => (item.id === message.id ? response.message : item));
   reactionCompletedVersion.value += 1;
   activeModerationMessageId.value = null;
@@ -1051,6 +1124,10 @@ watch(
   },
   { immediate: true }
 );
+
+watch(authorizationFingerprint, () => {
+  permissionGeneration += 1;
+}, { flush: "sync" });
 
 watch(
   isModerator,

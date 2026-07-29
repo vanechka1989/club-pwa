@@ -1016,12 +1016,12 @@ export const clubMessageSchema = z.object({
   pinnedAt: z.string().datetime().nullable().optional(),
   editedAt: z.string().datetime().nullable().default(null),
   deletedByUserAt: z.string().datetime().nullable().default(null),
-  contentRedacted: z.boolean().optional(),
+  contentRedacted: z.boolean(),
   authorMutation: z.object({
     canEdit: z.boolean(),
     canDelete: z.boolean(),
     allowedUntil: z.string().datetime().nullable()
-  }).optional(),
+  }),
   clientOperationId: z.string().trim().min(1).max(96).nullable().default(null),
   mentions: z.array(communityMentionSchema).default([]),
   createdAt: z.string().datetime()
@@ -1077,6 +1077,13 @@ export const communityMessageSearchResponseSchema = z.object({
   nextCursor: communityMessageSearchCursorSchema.nullable()
 });
 export type CommunityMessageSearchResponse = z.infer<typeof communityMessageSearchResponseSchema>;
+
+export const communityMessageContextResponseSchema = z.object({
+  targetMessageId: z.string(),
+  messages: z.array(clubMessageSchema),
+  serverTime: z.string().datetime()
+});
+export type CommunityMessageContextResponse = z.infer<typeof communityMessageContextResponseSchema>;
 
 export const communityMessageEditRequestSchema = z.object({
   body: z.string().trim().min(1).max(3000),
@@ -1258,7 +1265,7 @@ export const clubMessagesResponseSchema = z.object({
   nextCursor: z.string().datetime().nullable(),
   mutedUntil: z.string().datetime().nullable(),
   mutedPermanently: z.boolean(),
-  serverTime: z.string().datetime().optional()
+  serverTime: z.string().datetime()
 });
 export type ClubMessagesResponse = z.infer<typeof clubMessagesResponseSchema>;
 

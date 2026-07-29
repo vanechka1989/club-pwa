@@ -287,7 +287,7 @@ watch([activeSheetMessage, () => props.serverClock], ([message], [previousMessag
     return;
   }
   const serverNow = currentCommunityServerTime(props.serverClock, mutationClock.value);
-  const allowedUntil = message.authorMutation?.allowedUntil
+  const allowedUntil = message.authorMutation.allowedUntil
     ? Date.parse(message.authorMutation.allowedUntil)
     : Number.NaN;
   const delay = serverNow === null || !Number.isFinite(allowedUntil)
