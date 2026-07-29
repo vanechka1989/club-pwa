@@ -153,7 +153,13 @@ async function headObject(config: StoredS3Config, key: string) {
   );
 }
 
-async function buildObjectReadUrl(config: StoredS3Config, key: string, verifyReadable: boolean, allowPublic: boolean) {
+async function buildObjectReadUrl(
+  config: StoredS3Config,
+  key: string,
+  verifyReadable: boolean,
+  allowPublic: boolean,
+  expiresInSeconds?: number
+) {
   if (verifyReadable) {
     await assertObjectReadable(config, key);
   }
@@ -169,7 +175,7 @@ async function buildObjectReadUrl(config: StoredS3Config, key: string, verifyRea
       Bucket: config.bucket,
       Key: key
     }),
-    { expiresIn: config.signedUrlTtlSeconds }
+    { expiresIn: Math.min(config.signedUrlTtlSeconds, expiresInSeconds ?? config.signedUrlTtlSeconds) }
   );
 }
 
@@ -600,19 +606,23 @@ export async function mirrorObjectToReserve(key: string, contentType: string) {
 export async function getObjectReadUrl(
   key: string,
   target: S3StorageTarget = "primary",
-  options: { verifyReadable?: boolean; allowPublic?: boolean } = {}
+  options: { verifyReadable?: boolean; allowPublic?: boolean; expiresInSeconds?: number } = {}
 ) {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
   const verifyReadable = options.verifyReadable ?? false;
   const allowPublic = options.allowPublic ?? false;
+  const expiresInSeconds = options.expiresInSeconds;
+  if (expiresInSeconds !== undefined && (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1)) {
+    throw new Error("Invalid signed URL expiration");
+  }
 
   if (target === "reserve") {
-    return buildObjectReadUrl(resolveS3TargetConfig(config, "reserve"), normalizedKey, verifyReadable, allowPublic);
+    return buildObjectReadUrl(resolveS3TargetConfig(config, "reserve"), normalizedKey, verifyReadable, allowPublic, expiresInSeconds);
   }
 
   try {
-    return await buildObjectReadUrl(config, normalizedKey, verifyReadable, allowPublic);
+    return await buildObjectReadUrl(config, normalizedKey, verifyReadable, allowPublic, expiresInSeconds);
   } catch (error) {
     if (!config.reserve) {
       throw error;
@@ -623,7 +633,8 @@ export async function getObjectReadUrl(
       { ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null },
       normalizedKey,
       verifyReadable,
-      allowPublic
+      allowPublic,
+      expiresInSeconds
     );
   }
 }

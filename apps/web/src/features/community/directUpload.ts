@@ -147,6 +147,88 @@ type StoredMultipartSession = {
 
 let liveUploadTokens = new WeakMap<File, { userId: string; uploadToken: string }>();
 let liveMultipartSessions = new WeakMap<File, StoredMultipartSession>();
+type UploadCleanupCapability = {
+  file: File;
+  userId: string;
+  uploadToken: string;
+  abortUpload: UploadDependencies["abortUpload"];
+  storage: UploadDependencies["storage"];
+  retryTimer: ReturnType<typeof setTimeout> | null;
+  inFlight: Promise<void> | null;
+};
+const cleanupCapabilities = new Map<string, UploadCleanupCapability>();
+const cleanupRetryDelayMs = 1_000;
+
+function registerCleanupCapability(
+  file: File,
+  userId: string,
+  uploadToken: string,
+  dependencies: Pick<UploadDependencies, "abortUpload" | "storage">
+) {
+  const existing = cleanupCapabilities.get(uploadToken);
+  if (existing) {
+    existing.file = file;
+    existing.userId = userId;
+    existing.abortUpload = dependencies.abortUpload;
+    existing.storage = dependencies.storage;
+    return;
+  }
+  cleanupCapabilities.set(uploadToken, {
+    file,
+    userId,
+    uploadToken,
+    abortUpload: dependencies.abortUpload,
+    storage: dependencies.storage,
+    retryTimer: null,
+    inFlight: null
+  });
+}
+
+function forgetCleanupCapability(capability: UploadCleanupCapability) {
+  if (capability.retryTimer) clearTimeout(capability.retryTimer);
+  if (cleanupCapabilities.get(capability.uploadToken) === capability) cleanupCapabilities.delete(capability.uploadToken);
+  liveUploadTokens.delete(capability.file);
+  liveMultipartSessions.delete(capability.file);
+  removeSession(capability.storage, capability.uploadToken);
+}
+
+function scheduleCleanupRetry(capability: UploadCleanupCapability) {
+  if (capability.retryTimer || cleanupCapabilities.get(capability.uploadToken) !== capability) return;
+  capability.retryTimer = setTimeout(() => {
+    capability.retryTimer = null;
+    void attemptCleanup(capability).catch(() => undefined);
+  }, cleanupRetryDelayMs);
+}
+
+async function attemptCleanup(capability: UploadCleanupCapability) {
+  if (cleanupCapabilities.get(capability.uploadToken) !== capability) return;
+  if (capability.inFlight) return capability.inFlight;
+  const work = capability.abortUpload(capability.uploadToken)
+    .then(() => { forgetCleanupCapability(capability); })
+    .catch((error) => {
+      scheduleCleanupRetry(capability);
+      throw error;
+    })
+    .finally(() => {
+      if (capability.inFlight === work) capability.inFlight = null;
+    });
+  capability.inFlight = work;
+  return work;
+}
+
+async function abortKnownUpload(
+  file: File,
+  userId: string,
+  uploadToken: string,
+  dependencies: Pick<UploadDependencies, "abortUpload" | "storage">
+) {
+  let capability = cleanupCapabilities.get(uploadToken);
+  if (!capability) {
+    registerCleanupCapability(file, userId, uploadToken, dependencies);
+    capability = cleanupCapabilities.get(uploadToken)!;
+  }
+  return attemptCleanup(capability);
+}
 
 function readSessions(storage: UploadDependencies["storage"]): StoredMultipartSession[] {
   try {
@@ -261,11 +343,47 @@ const productionDependencies: UploadDependencies = {
 };
 
 export function clearCommunityUploadSessions(storage: UploadDependencies["storage"] = localStorage, userId?: string) {
-  void userId;
   readSessions(storage);
   writeSessions(storage, []);
+  for (const capability of cleanupCapabilities.values()) {
+    if (!userId || capability.userId === userId) {
+      if (capability.retryTimer) clearTimeout(capability.retryTimer);
+      cleanupCapabilities.delete(capability.uploadToken);
+    }
+  }
   liveUploadTokens = new WeakMap<File, { userId: string; uploadToken: string }>();
   liveMultipartSessions = new WeakMap<File, StoredMultipartSession>();
+}
+
+export async function drainCommunityUploadCleanupForUser(userId: string) {
+  const owned = [...cleanupCapabilities.values()].filter((capability) => capability.userId === userId);
+  for (const capability of owned) {
+    if (capability.retryTimer) {
+      clearTimeout(capability.retryTimer);
+      capability.retryTimer = null;
+    }
+    for (let attempt = 0; attempt < 3 && cleanupCapabilities.has(capability.uploadToken); attempt += 1) {
+      await attemptCleanup(capability).catch(() => undefined);
+    }
+  }
+}
+
+export function releaseCommunityFileUpload(file: File, userId: string) {
+  const live = liveUploadTokens.get(file);
+  if (!live || live.userId !== userId) return;
+  const capability = cleanupCapabilities.get(live.uploadToken);
+  if (capability) forgetCleanupCapability(capability);
+  else {
+    liveUploadTokens.delete(file);
+    liveMultipartSessions.delete(file);
+  }
+}
+
+export function releaseCommunityUploadTokens(userId: string, uploadTokens: readonly string[]) {
+  for (const uploadToken of uploadTokens) {
+    const capability = cleanupCapabilities.get(uploadToken);
+    if (capability?.userId === userId) forgetCleanupCapability(capability);
+  }
 }
 
 export async function uploadCommunityFile(
@@ -290,7 +408,7 @@ export async function uploadCommunityFile(
       liveMultipartSessions.delete(file);
       liveUploadTokens.delete(file);
       removeSession(dependencies.storage, poisonedToken);
-      await dependencies.abortUpload(poisonedToken).catch(() => undefined);
+      await abortKnownUpload(file, options.userId, poisonedToken, dependencies).catch(() => undefined);
       resumable = null;
     }
   }
@@ -298,6 +416,7 @@ export async function uploadCommunityFile(
 
   if (initialIntent?.uploadType === "put") {
     liveUploadTokens.set(file, { userId: options.userId, uploadToken: initialIntent.uploadToken });
+    registerCleanupCapability(file, options.userId, initialIntent.uploadToken, dependencies);
     try {
       await dependencies.putObject(initialIntent.uploadUrl, file, initialIntent.contentType, undefined, {
         ...(options.signal ? { signal: options.signal } : {}),
@@ -309,8 +428,7 @@ export async function uploadCommunityFile(
       return completed;
     } catch (error) {
       if (isAbortError(error) || isUnrecoverableUploadError(error)) {
-        await dependencies.abortUpload(initialIntent.uploadToken).catch(() => undefined);
-        liveUploadTokens.delete(file);
+        await abortKnownUpload(file, options.userId, initialIntent.uploadToken, dependencies).catch(() => undefined);
       }
       throw error;
     }
@@ -328,6 +446,7 @@ export async function uploadCommunityFile(
     completedParts: []
   };
   liveUploadTokens.set(file, { userId: options.userId, uploadToken: session.uploadToken });
+  registerCleanupCapability(file, options.userId, session.uploadToken, dependencies);
   if (resumable && refreshed) {
     session.uploadId = refreshed.uploadId;
     session.partSizeBytes = refreshed.partSizeBytes;
@@ -384,10 +503,7 @@ export async function uploadCommunityFile(
     return completed;
   } catch (error) {
     if (isAbortError(error) || isUnrecoverableUploadError(error)) {
-      await dependencies.abortUpload(session.uploadToken).catch(() => undefined);
-      removeSession(dependencies.storage, session.uploadToken);
-      liveUploadTokens.delete(file);
-      liveMultipartSessions.delete(file);
+      await abortKnownUpload(file, options.userId, session.uploadToken, dependencies).catch(() => undefined);
     }
     throw error;
   }
@@ -400,9 +516,12 @@ export async function cancelCommunityFileUpload(
 ) {
   const live = liveUploadTokens.get(file);
   if (!live || live.userId !== userId) return { ok: true as const };
-  liveUploadTokens.delete(file);
-  liveMultipartSessions.delete(file);
+  const capability = cleanupCapabilities.get(live.uploadToken);
+  if (capability) {
+    capability.abortUpload = dependencies.abortUpload;
+    capability.storage = dependencies.storage;
+  }
   removeSession(dependencies.storage, live.uploadToken);
-  await dependencies.abortUpload(live.uploadToken);
+  await abortKnownUpload(file, userId, live.uploadToken, dependencies);
   return { ok: true as const };
 }

@@ -5,6 +5,7 @@ import {
   createCommunityUploadService,
   validateListedMultipartParts
 } from "./directUpload";
+import { createCommunityUploadSessionService } from "./uploadSessions";
 
 const MiB = 1024 * 1024;
 const userId = "11111111-1111-4111-8111-111111111111";
@@ -36,7 +37,7 @@ function serviceDependencies(overrides: Record<string, unknown> = {}) {
         partSizeBytes: null
       }
     }),
-    finish: async () => undefined,
+    finish: async () => "finished" as const,
     fail: async () => undefined,
     createPutUrl: async ({ key }: { key: string }) => ({ key, uploadUrl: "https://s3.test/put", expiresAt: new Date("2026-07-29T12:10:00.000Z") }),
     createMultipart: async () => { throw new Error("unused"); },
@@ -59,7 +60,7 @@ describe("community direct upload immutable lifecycle", () => {
   it("promotes the verified ETag to a different immutable key and never returns the reusable staging key", async () => {
     const promoted = new Map<string, string>();
     let stagingBytes = "verified-video";
-    const finish = vi.fn(async () => undefined);
+    const finish = vi.fn(async () => "finished" as const);
     const service = createCommunityUploadService(serviceDependencies({
       promoteObject: async ({ destinationKey, expectedETag }: { destinationKey: string; expectedETag: string }) => {
         expect(expectedETag).toBe('"clean-etag"');
@@ -79,7 +80,7 @@ describe("community direct upload immutable lifecycle", () => {
   });
 
   it("uses a private quarantine key for documents and queues durable scanning state", async () => {
-    const finish = vi.fn(async () => undefined);
+    const finish = vi.fn(async () => "finished" as const);
     const service = createCommunityUploadService(serviceDependencies({
       getMetadata: async (key: string) => ({ key, contentType: "application/pdf", sizeBytes: 8, etag: '"pdf-etag"' }),
       getLeadingBytes: async () => new TextEncoder().encode("%PDF-1.7"),
@@ -123,6 +124,67 @@ describe("community direct upload immutable lifecycle", () => {
     expect(deleteCopies).not.toHaveBeenCalled();
     expect(deleteStaging).not.toHaveBeenCalled();
     expect(fail).not.toHaveBeenCalled();
+  });
+
+  it("compensates a promoted object when abort wins before durable completion", async () => {
+    let releasePromotion!: () => void;
+    let promotionFinished!: () => void;
+    const promotionGate = new Promise<void>((resolve) => { releasePromotion = resolve; });
+    const promoted = new Promise<void>((resolve) => { promotionFinished = resolve; });
+    let state: "completing" | "aborting" | "aborted" = "completing";
+    const deletedCopies: string[] = [];
+    const deletedStaging: string[] = [];
+    const abortService = createCommunityUploadSessionService({
+      loadOwned: async () => null,
+      claimAbort: async () => {
+        state = "aborting";
+        return {
+          id: "manifest-1",
+          userId,
+          uploadToken,
+          stagingObjectKey: stagingKey,
+          uploadType: "put" as const,
+          multipartUploadId: null,
+          expectedPartCount: null,
+          partSizeBytes: null,
+          expiresAt: new Date("2026-07-29T12:10:00.000Z"),
+          status: "aborting",
+          abortCleanupMode: "copies" as const
+        };
+      },
+      markAborted: async () => { state = "aborted"; },
+      listParts: async () => [],
+      createPartUrl: async () => "",
+      abortMultipart: async () => undefined,
+      deleteStaging: async (key) => { deletedStaging.push(key); },
+      deleteCopies: async (key) => { deletedCopies.push(key); }
+    });
+    const service = createCommunityUploadService(serviceDependencies({
+      promoteObject: async () => {
+        promotionFinished();
+        await promotionGate;
+      },
+      finish: async () => state === "completing" ? "finished" as const : "cancelled" as const,
+      deleteCopies: async (key: string) => { deletedCopies.push(key); },
+      deleteStaging: async (key: string) => { deletedStaging.push(key); }
+    }));
+
+    const completion = service.completePut({
+      userId,
+      uploaded: uploaded(),
+      now: new Date("2026-07-29T12:05:00.000Z")
+    });
+    await promoted;
+    await abortService.abort({ userId, uploadToken });
+    releasePromotion();
+
+    await expect(completion).rejects.toThrow("object_already_consumed");
+    expect(deletedCopies).toEqual([
+      stagingKey,
+      buildCommunityFinalObjectKey({ userId, uploadToken, fileName: "clip.mp4", now: new Date("2026-07-29T12:05:00.000Z") })
+    ]);
+    expect(deletedStaging).toEqual([stagingKey]);
+    expect(state).toBe("aborted");
   });
 
   it("verifies S3-listed multipart ETags and exact actual sizes", () => {

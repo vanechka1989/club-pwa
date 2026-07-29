@@ -341,7 +341,7 @@ type CommunityUploadServiceDependencies = {
     result: CommunityUploadResult;
     status: "processing" | "pending" | "ready";
     expiresAt: Date;
-  }) => Promise<void>;
+  }) => Promise<"finished" | "cancelled">;
   fail: (record: { userId: string; uploadToken: string; fingerprint: string }, error: string) => Promise<void>;
   createPutUrl: (input: { key: string; contentType: string; sizeBytes: number; expiresInSeconds: number }) => Promise<{
     key: string;
@@ -435,6 +435,7 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
   ) {
     let failureRecorded = false;
     let finishAttempted = false;
+    let promotionCompleted = false;
     const destinationKey = uploaded.kind === "video"
       ? buildCommunityFinalObjectKey({ userId, uploadToken: uploaded.uploadToken, fileName: uploaded.fileName, now })
       : buildCommunityQuarantineObjectKey({ userId, uploadToken: uploaded.uploadToken, fileName: uploaded.fileName, now });
@@ -470,6 +471,7 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
         expectedETag: metadata.etag,
         contentType: uploaded.contentType
       });
+      promotionCompleted = true;
       const promoted = await dependencies.getMetadata(destinationKey);
       if (promoted.key !== destinationKey || promoted.contentType !== uploaded.contentType || promoted.sizeBytes !== uploaded.sizeBytes) {
         throw new Error("promotion_mismatch");
@@ -478,7 +480,7 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
       const result = { ...validation.value, objectKey: destinationKey, scanStatus: status } as CommunityUploadResult;
       if (status === "ready") await dependencies.mirrorToReserve(destinationKey, uploaded.contentType);
       finishAttempted = true;
-      await dependencies.finish({
+      const finishState = await dependencies.finish({
         userId,
         uploadToken: uploaded.uploadToken,
         fingerprint,
@@ -486,6 +488,9 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
         status,
         expiresAt: new Date(now.getTime() + communityCompletedUploadAttachmentGraceMs)
       });
+      if (finishState === "cancelled") {
+        throw new Error("object_already_consumed");
+      }
       await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
       return result;
     } catch (error) {
@@ -493,6 +498,9 @@ export function createCommunityUploadService(dependencies: CommunityUploadServic
         await dependencies.deleteCopies(destinationKey).catch(() => undefined);
         await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
         await dependencies.fail({ userId, uploadToken: uploaded.uploadToken, fingerprint }, "storage_verification_failed").catch(() => undefined);
+      } else if (!failureRecorded && finishAttempted && promotionCompleted && error instanceof Error && error.message === "object_already_consumed") {
+        await dependencies.deleteCopies(destinationKey).catch(() => undefined);
+        await dependencies.deleteStaging(intent.stagingObjectKey).catch(() => undefined);
       }
       throw error;
     }

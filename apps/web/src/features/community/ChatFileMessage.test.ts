@@ -40,6 +40,12 @@ function videoAttachment(overrides: Partial<CommunityVideoAttachment> = {}): Com
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
@@ -145,6 +151,55 @@ describe("community file message", () => {
     expect(video?.hasAttribute("playsinline")).toBe(true);
     expect(video?.getAttribute("src")).toBe("https://objects.example.test/fresh-video");
     expect(refreshUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not open a refreshed document URL when retention expires during refresh", async () => {
+    const refresh = deferred<string | null>();
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const view = render(ChatFileMessage, {
+      props: {
+        kind: "document",
+        attachment: documentAttachment({ scanStatus: "ready", url: "https://objects.example.test/stale" }),
+        refreshUrl: () => refresh.promise
+      }
+    });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Скачать guide.pdf" }));
+    await view.rerender({
+      kind: "document",
+      attachment: documentAttachment({
+        scanStatus: "ready",
+        url: "https://objects.example.test/stale",
+        expiresAt: "2000-01-01T00:00:00.000Z"
+      }),
+      refreshUrl: () => refresh.promise
+    });
+    refresh.resolve("https://objects.example.test/fresh");
+    await nextTick();
+
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.getByText("Файл удалён по сроку хранения")).toBeTruthy();
+  });
+
+  it("clears an activated video when a later scan state rejects it", async () => {
+    const view = render(ChatFileMessage, {
+      props: {
+        kind: "video",
+        attachment: videoAttachment(),
+        refreshUrl: vi.fn().mockResolvedValue("https://objects.example.test/fresh-video")
+      }
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "Воспроизвести clip.mp4" }));
+    await waitFor(() => expect(view.container.querySelector("video")).not.toBeNull());
+
+    await view.rerender({
+      kind: "video",
+      attachment: videoAttachment({ scanStatus: "rejected", url: null }),
+      refreshUrl: vi.fn()
+    });
+
+    expect(view.container.querySelector("video")).toBeNull();
+    expect(screen.getByText("Файл заблокирован: обнаружена угроза")).toBeTruthy();
   });
 
   it("reactively hides an attachment when retention expires while the message stays mounted", async () => {

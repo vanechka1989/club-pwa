@@ -274,7 +274,16 @@ const communityUploadService = createCommunityUploadService({
         eq(communityUploadManifests.status, "completing")
       ))
       .returning({ id: communityUploadManifests.id });
-    if (!finished) throw new Error("manifest_finish_conflict");
+    if (finished) return "finished" as const;
+    const current = await db.query.communityUploadManifests.findFirst({
+      where: and(
+        eq(communityUploadManifests.userId, record.userId),
+        eq(communityUploadManifests.uploadToken, record.uploadToken),
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
+      )
+    });
+    if (current?.status === "aborting" || current?.status === "aborted") return "cancelled" as const;
+    throw new Error("manifest_finish_conflict");
   },
   fail: async (record, error) => {
     await db.update(communityUploadManifests)
@@ -282,7 +291,8 @@ const communityUploadService = createCommunityUploadService({
       .where(and(
         eq(communityUploadManifests.userId, record.userId),
         eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
+        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
+        eq(communityUploadManifests.status, "completing")
       ));
   },
   createPutUrl: (input) => createObjectUploadUrl(input),
@@ -312,6 +322,13 @@ const communityUploadSessionService = createCommunityUploadSessionService({
   },
   claimAbort: async ({ userId, uploadToken }) => db.transaction(async (transaction) => {
     const database = transaction as unknown as typeof db;
+    await database.execute(sql`
+      select ${communityUploadManifests.id}
+      from ${communityUploadManifests}
+      where ${communityUploadManifests.userId} = ${userId}
+        and ${communityUploadManifests.uploadToken} = ${uploadToken}
+      for update
+    `);
     const manifest = await database.query.communityUploadManifests.findFirst({
       where: and(eq(communityUploadManifests.userId, userId), eq(communityUploadManifests.uploadToken, uploadToken))
     });
@@ -623,10 +640,20 @@ async function serializeMessage(
         : attachmentStatuses.has(persistedStatus)
           ? persistedStatus
           : "failed";
+      const remainingRetentionSeconds = attachment.expiresAt
+        ? Math.floor((attachment.expiresAt.getTime() - serverNow.getTime()) / 1000)
+        : null;
+      const readable = scanStatus === "ready"
+        && !attachment.deletedAt
+        && (remainingRetentionSeconds === null || remainingRetentionSeconds >= 1);
       return {
         ...attachment,
         scanStatus,
-        url: scanStatus === "ready" ? await getObjectReadUrl(attachment.objectKey) : null
+        url: readable
+          ? remainingRetentionSeconds === null
+            ? await getObjectReadUrl(attachment.objectKey)
+            : await getObjectReadUrl(attachment.objectKey, "primary", { expiresInSeconds: remainingRetentionSeconds })
+          : null
       };
     })
   );

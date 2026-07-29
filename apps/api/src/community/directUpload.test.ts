@@ -110,7 +110,7 @@ describe("community direct upload policy", () => {
     const service = createCommunityUploadService({
       issue: async (record) => { issued.push(record); },
       claim: async () => ({ ok: true, intent: { stagingObjectKey: "unused", uploadType: "put", multipartUploadId: null, expectedPartCount: null, partSizeBytes: null } }),
-      finish: async () => undefined,
+      finish: async () => "finished" as const,
       fail: async () => undefined,
       createPutUrl: async ({ key }) => ({ key, uploadUrl: "https://s3.test/put", expiresAt: new Date("2026-07-29T12:10:00.000Z") }),
       createMultipart: async ({ key, partsCount }) => ({ key, uploadId: "multipart-1", parts: Array.from({ length: partsCount }, (_, index) => ({ partNumber: index + 1 })), expiresAt: new Date("2026-07-29T12:10:00.000Z") }),
@@ -164,7 +164,7 @@ describe("community direct upload policy", () => {
     const service = createCommunityUploadService({
       issue: async () => undefined,
       claim: async () => { events.push("claim"); return { ok: true, intent: { stagingObjectKey: object.objectKey, uploadType: "put", multipartUploadId: null, expectedPartCount: null, partSizeBytes: null } }; },
-      finish: async (record) => { events.push("finish"); attachmentDeadline = record.expiresAt.toISOString(); },
+      finish: async (record) => { events.push("finish"); attachmentDeadline = record.expiresAt.toISOString(); return "finished" as const; },
       fail: async () => { events.push("fail"); },
       createPutUrl: async () => { throw new Error("unused"); },
       createMultipart: async () => { throw new Error("unused"); },
@@ -197,7 +197,7 @@ describe("community direct upload policy", () => {
     const service = createCommunityUploadService({
       issue: async () => undefined,
       claim: async () => ({ ok: true, intent: { stagingObjectKey: object.objectKey, uploadType: "multipart", multipartUploadId: "multipart-1", expectedPartCount: 4, partSizeBytes: 8 * MiB } }),
-      finish: async () => { events.push("finish"); },
+      finish: async () => { events.push("finish"); return "finished" as const; },
       fail: async (_record, error) => { events.push(`fail:${error}`); },
       createPutUrl: async () => { throw new Error("unused"); },
       createMultipart: async () => { throw new Error("unused"); },

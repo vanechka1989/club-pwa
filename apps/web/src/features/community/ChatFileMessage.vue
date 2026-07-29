@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CommunityDocumentAttachment, CommunityVideoAttachment } from "@club/shared";
 import { FileText, ShieldAlert, ShieldCheck, ShieldEllipsis, Video } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { formatCommunityFileSize } from "@/stores/communityUploads";
 import { useReactiveRetention } from "./useReactiveRetention";
 
@@ -15,6 +15,7 @@ const retention = useReactiveRetention(() => [props.attachment.expiresAt]);
 const activatedUrl = ref<string | null>(null);
 const activating = ref(false);
 const activationFailed = ref(false);
+let activationGeneration = 0;
 
 const displayName = computed(() => {
   const value = props.attachment.fileName || (props.kind === "video" ? "Видео" : "Документ");
@@ -36,6 +37,20 @@ function safeHttpUrl(value: string | null | undefined) {
   }
 }
 const ready = computed(() => !removed.value && status.value === "ready" && Boolean(safeHttpUrl(props.attachment.url)));
+watch(
+  [
+    () => props.attachment.id,
+    () => props.attachment.scanStatus,
+    () => props.attachment.deletedAt,
+    () => props.attachment.expiresAt,
+    ready
+  ],
+  () => {
+    activationGeneration += 1;
+    activatedUrl.value = null;
+    activationFailed.value = false;
+  }
+);
 const stateCopy = computed(() => {
   if (removed.value) return "Файл удалён по сроку хранения";
   if (status.value === "pending" || status.value === "scanning") return "Проверяем файл на вирусы";
@@ -49,8 +64,11 @@ async function activate() {
   if (!ready.value || activating.value || !props.refreshUrl) return;
   activating.value = true;
   activationFailed.value = false;
+  const generation = activationGeneration;
+  const attachmentId = props.attachment.id;
   try {
     const refreshed = safeHttpUrl(await props.refreshUrl());
+    if (generation !== activationGeneration || attachmentId !== props.attachment.id || !ready.value) return;
     if (!refreshed) {
       activationFailed.value = true;
       return;
@@ -71,7 +89,7 @@ async function activate() {
 <template>
   <div class="chat-file-message" :data-status="removed ? 'deleted' : status">
     <video
-      v-if="kind === 'video' && activatedUrl && !removed"
+      v-if="kind === 'video' && activatedUrl && ready"
       class="chat-file-video"
       :src="activatedUrl"
       controls

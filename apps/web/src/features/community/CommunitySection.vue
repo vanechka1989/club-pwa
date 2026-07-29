@@ -39,6 +39,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { useCommunityUploadsStore } from "@/stores/communityUploads";
+import { releaseCommunityUploadTokens } from "./directUpload";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatRoom from "./ChatRoom.vue";
 import ChatSearchPanel from "./ChatSearchPanel.vue";
@@ -967,6 +968,7 @@ async function handleSendUploads(draftIds: string[]) {
   messageSaving.value = true;
   try {
     const response = await createCommunityUploadMessage(room.topicId, tokens, replyToMessageId);
+    releaseCommunityUploadTokens(userId, tokens);
     communityUploads.consumeDraftsForScope(draftIds, userId, room.topicId);
     if (!isCurrentRoomRequest(room)) return;
     replyToMessage.value = null;
@@ -974,6 +976,7 @@ async function handleSendUploads(draftIds: string[]) {
     composerResetVersion.value += 1;
   } catch (error) {
     if (uploadSubmissionErrorCode(error) === "upload_already_attached") {
+      releaseCommunityUploadTokens(userId, tokens);
       communityUploads.consumeDraftsForScope(draftIds, userId, room.topicId);
       if (isCurrentRoomRequest(room)) await refreshSelectedTopic({ keepScroll: true, silent: true });
     } else if (isCurrentRoomRequest(room)) {

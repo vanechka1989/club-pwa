@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   deleteReplyOnSecondRead: false,
   messageReadCount: 0,
   pollFound: false,
+  attachmentExpiresAt: null as Date | null,
+  attachmentDeletedAt: null as Date | null,
   createText: vi.fn(),
   editText: vi.fn(),
   deleteMessage: vi.fn(),
@@ -121,8 +123,8 @@ vi.mock("../db/client", () => {
           width: 100,
           height: 100,
           sortOrder: 0,
-          expiresAt: null,
-          deletedAt: null,
+          expiresAt: mocks.attachmentExpiresAt,
+          deletedAt: mocks.attachmentDeletedAt,
           scanStatus: "ready",
           scannedAt: null,
           scanError: null,
@@ -217,6 +219,8 @@ describe("community message mutation routes", () => {
     mocks.deleteReplyOnSecondRead = false;
     mocks.messageReadCount = 0;
     mocks.pollFound = false;
+    mocks.attachmentExpiresAt = null;
+    mocks.attachmentDeletedAt = null;
     mocks.createText.mockImplementation(async () => {
       if (mocks.created) mocks.publish(topicId);
       return { message: dbMessage(), created: mocks.created };
@@ -230,6 +234,32 @@ describe("community message mutation routes", () => {
       return { message: dbMessage() };
     });
     mocks.findParticipants.mockResolvedValue([dbMessage().user]);
+  });
+
+  it("refuses to sign a ready attachment after its retention deadline", async () => {
+    mocks.attachmentExpiresAt = new Date(serverNow.getTime());
+
+    const response = await communityRoute.request(`/topics/${topicId}/messages`);
+    const payload = clubMessagesResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(200);
+    expect(payload.messages[0]?.images[0]?.url).toBeNull();
+    expect(mocks.getObjectReadUrl).not.toHaveBeenCalled();
+  });
+
+  it("caps a fresh signed URL to the remaining retention window", async () => {
+    mocks.attachmentExpiresAt = new Date(serverNow.getTime() + 65_500);
+
+    const response = await communityRoute.request(`/topics/${topicId}/messages`);
+    const payload = clubMessagesResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(200);
+    expect(payload.messages[0]?.images[0]?.url).toBe("https://private.test/secret.webp");
+    expect(mocks.getObjectReadUrl).toHaveBeenCalledWith(
+      "community/images/secret.webp",
+      "primary",
+      { expiresInSeconds: 65 }
+    );
   });
 
   it("passes the idempotency key and selected mentions to the transaction service", async () => {

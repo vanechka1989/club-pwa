@@ -1,7 +1,7 @@
 import type { CommunityUploadKind, CommunityUploadedObject } from "@club/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { cancelCommunityFileUpload, getCommunityFileError, uploadCommunityFile } from "@/features/community/directUpload";
+import { cancelCommunityFileUpload, getCommunityFileError, releaseCommunityFileUpload, uploadCommunityFile } from "@/features/community/directUpload";
 
 const storageKey = "club-community-upload-drafts-v1";
 const maximumPersistedDrafts = 100;
@@ -409,7 +409,10 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
   function consumeDraftsForScope(ids: string[], userId: string, topicId: string) {
     const idSet = new Set(ids);
     if (currentUserId.value === userId && currentTopicId.value === topicId) {
-      for (const draft of drafts.value.filter((item) => idSet.has(item.id))) releasePreview(draft);
+      for (const draft of drafts.value.filter((item) => idSet.has(item.id))) {
+        releasePreview(draft);
+        if (draft.file) releaseCommunityFileUpload(draft.file, draft.userId);
+      }
       drafts.value = drafts.value.filter((item) => !idSet.has(item.id));
       save();
       return;

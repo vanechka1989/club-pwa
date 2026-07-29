@@ -233,7 +233,7 @@ describe("direct learning S3 uploads", () => {
   });
 
   it("keeps learning read URLs fast by skipping S3 HEAD checks by default", () => {
-    expect(s3Storage).toContain("options: { verifyReadable?: boolean; allowPublic?: boolean } = {}");
+    expect(s3Storage).toContain("options: { verifyReadable?: boolean; allowPublic?: boolean; expiresInSeconds?: number } = {}");
     expect(s3Storage).toContain("const verifyReadable = options.verifyReadable ?? false");
     expect(s3Storage).toContain("const allowPublic = options.allowPublic ?? false");
     expect(s3Storage).toContain("if (verifyReadable) {");

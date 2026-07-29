@@ -1,7 +1,8 @@
 import type { CommunityUploadIntentResponse } from "@club/shared";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cancelCommunityFileUpload,
+  clearCommunityUploadSessions,
   describeCommunityFile,
   getCommunityFileError,
   uploadCommunityFile
@@ -23,7 +24,11 @@ function fakeFile(size: number, name = "clip.mp4", type = "video/mp4") {
 }
 
 describe("community browser direct upload", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    clearCommunityUploadSessions(localStorage);
+  });
+  afterEach(() => vi.useRealTimers());
 
   it("describes supported files and enforces exact limits before requesting an intent", () => {
     expect(describeCommunityFile(fakeFile(15 * MiB, "photo.jpg", "image/jpeg"))).toEqual({
@@ -57,6 +62,37 @@ describe("community browser direct upload", () => {
 
     expect(calls).toEqual(["put:https://s3.test/put:10:image/png", "complete"]);
     expect(completed).toMatchObject({ kind: "image", fileName: "photo.png", uploadToken });
+  });
+
+  it("retains a failed abort capability in memory and retries it without persisting the token", async () => {
+    vi.useFakeTimers();
+    const file = fakeFile(10, "photo.png", "image/png");
+    const abortUpload = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ ok: true });
+    await uploadCommunityFile(file, {
+      createIntent: async (input) => ({
+        ...input,
+        uploadType: "put",
+        uploadToken,
+        objectKey,
+        uploadUrl: "https://s3.test/put",
+        expiresAt: "2099-07-29T12:10:00.000Z"
+      }),
+      putObject: async () => undefined,
+      completePut: async () => ({ ...describeCommunityFile(file), objectKey, uploadToken }),
+      completeMultipart: async () => { throw new Error("unused"); },
+      refreshMultipart: async () => { throw new Error("unused"); },
+      abortUpload,
+      storage: localStorage
+    }, { userId });
+
+    await expect(cancelCommunityFileUpload(file, userId, { abortUpload, storage: localStorage })).rejects.toThrow("offline");
+    expect(localStorage.getItem("club-community-multipart-sessions") ?? "").not.toContain(uploadToken);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(abortUpload).toHaveBeenCalledTimes(2);
+    await expect(cancelCommunityFileUpload(file, userId, { abortUpload, storage: localStorage })).resolves.toEqual({ ok: true });
   });
 
   it("forwards byte progress and aborts the server intent when the caller cancels", async () => {

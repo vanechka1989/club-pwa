@@ -119,13 +119,13 @@ describe("community archive labels", () => {
 
   it("anchors the open chat to the iOS visual viewport while the keyboard is visible", () => {
     expect(communityStyles).toMatch(
-      /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[^}]*top:\s*var\(--club-visible-viewport-top, 0px\);[^}]*height:\s*var\(--club-visible-viewport-height, 100dvh\);/s
+      /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[^}]*top:\s*var\(--club-visible-viewport-top, 0px\);[^}]*height:\s*min\(var\(--club-visible-viewport-height, 100dvh\), 100dvh\);/s
     );
     expect(communityStyles).toMatch(
       /html\.club-keyboard-open:has\(\.app-root\.community-chat-open\),[\s\S]*body\.club-text-field-focused:has\(\.app-root\.community-chat-open\)\s*\{[^}]*overflow:\s*hidden;/s
     );
     expect(communityStyles).toMatch(
-      /body\.club-ios:has\(\.community-chat-open \.chat-compose \.text-input:focus\) \.app-root\.community-chat-open\s*\{[^}]*height:\s*var\(--club-visible-viewport-height, 100dvh\);/s
+      /body\.club-ios:has\(\.community-chat-open \.chat-compose \.text-input:focus\) \.app-root\.community-chat-open\s*\{[^}]*height:\s*min\(var\(--club-visible-viewport-height, 100dvh\), 100dvh\);/s
     );
     expect(communityStyles).toMatch(
       /body\.club-ios:has\(\.community-chat-open \.chat-compose \.text-input:focus\) \.community-chat-open \.chat-compose\s*\{[^}]*padding-bottom:\s*8px;/s
