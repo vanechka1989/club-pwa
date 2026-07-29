@@ -143,7 +143,7 @@ describe("community browser direct upload", () => {
     }));
   });
 
-  it("persists only resumable session metadata and reuses it while the same File remains selected", async () => {
+  it("keeps resumable capabilities in memory only and reuses them while the same File remains selected", async () => {
     const file = fakeFile(26 * MiB);
     const session: CommunityUploadIntentResponse = {
       ...describeCommunityFile(file),
@@ -179,16 +179,96 @@ describe("community browser direct upload", () => {
 
     await expect(uploadCommunityFile(file, dependencies, { userId })).rejects.toThrow("offline");
     const persisted = localStorage.getItem("club-community-multipart-sessions") ?? "";
-    expect(persisted).toContain("multipart-1");
+    expect(persisted).not.toContain("multipart-1");
+    expect(persisted).not.toContain(uploadToken);
+    expect(persisted).not.toContain("uploadToken");
     expect(persisted).not.toContain("Uint8Array");
     expect(persisted).not.toContain("blob");
     expect(persisted).not.toContain("https://");
-    expect(persisted).toContain(userId);
+    expect(persisted).not.toContain(userId);
 
     fail = false;
     await uploadCommunityFile(file, dependencies, { userId });
     expect(createIntent).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem("club-community-multipart-sessions")).toBe("[]");
+  });
+
+  it.each([
+    ["expired_intent", 410],
+    ["object_already_consumed", 409]
+  ] as const)("discards a terminal %s refresh and creates a fresh intent", async (errorCode, status) => {
+    const file = fakeFile(26 * MiB);
+    const freshToken = "99999999-9999-4999-8999-999999999999";
+    let intentCount = 0;
+    let failFirst = true;
+    const createIntent = vi.fn(async () => {
+      intentCount += 1;
+      const token = intentCount === 1 ? uploadToken : freshToken;
+      return {
+        ...describeCommunityFile(file),
+        uploadType: "multipart" as const,
+        uploadToken: token,
+        objectKey: objectKey.replace(uploadToken, token),
+        uploadId: `multipart-${intentCount}`,
+        partSizeBytes: 8 * MiB,
+        parts: Array.from({ length: 4 }, (_, index) => ({ partNumber: index + 1, uploadUrl: `https://s3.test/${intentCount}/part-${index + 1}` })),
+        expiresAt: "2099-07-29T12:10:00.000Z"
+      };
+    });
+    const abortUpload = vi.fn(async () => undefined);
+    const dependencies = {
+      createIntent,
+      putObject: async (_url: string, _blob: Blob, _type: string, partNumber?: number) => {
+        if (failFirst && partNumber === 3) throw new Error("offline");
+        return `etag-${partNumber}`;
+      },
+      completePut: async () => { throw new Error("unused"); },
+      completeMultipart: async ({ uploadToken: completedToken }: { uploadToken: string }) => ({
+        ...describeCommunityFile(file), objectKey, uploadToken: completedToken
+      }),
+      refreshMultipart: async () => { throw { status, data: { error: errorCode } }; },
+      abortUpload,
+      storage: localStorage
+    };
+
+    await expect(uploadCommunityFile(file, dependencies, { userId })).rejects.toThrow("offline");
+    failFirst = false;
+    await expect(uploadCommunityFile(file, dependencies, { userId })).resolves.toMatchObject({ uploadToken: freshToken });
+
+    expect(abortUpload).toHaveBeenCalledWith(uploadToken);
+    expect(createIntent).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem("club-community-multipart-sessions") ?? "").not.toContain(uploadToken);
+  });
+
+  it("trusts a server-refreshed multipart session despite a skewed local clock", async () => {
+    const file = fakeFile(26 * MiB);
+    let fail = true;
+    const createIntent = vi.fn(async () => ({
+      ...describeCommunityFile(file), uploadType: "multipart" as const, uploadToken, objectKey,
+      uploadId: "multipart-1", partSizeBytes: 8 * MiB,
+      parts: Array.from({ length: 4 }, (_, index) => ({ partNumber: index + 1, uploadUrl: `https://s3.test/part-${index + 1}` })),
+      expiresAt: "2099-01-01T00:00:00.000Z"
+    }));
+    const dependencies = {
+      createIntent,
+      putObject: async (_url: string, _blob: Blob, _type: string, partNumber?: number) => {
+        if (fail && partNumber === 2) throw new Error("offline");
+        return `etag-${partNumber}`;
+      },
+      completePut: async () => { throw new Error("unused"); },
+      completeMultipart: async () => ({ ...describeCommunityFile(file), objectKey, uploadToken }),
+      refreshMultipart: async () => ({
+        uploadToken, uploadId: "multipart-1", partSizeBytes: 8 * MiB,
+        parts: Array.from({ length: 4 }, (_, index) => ({ partNumber: index + 1, uploadUrl: `https://s3.test/fresh-${index + 1}` })),
+        completedParts: [], expiresAt: "2000-01-01T00:00:00.000Z"
+      }),
+      abortUpload: async () => undefined,
+      storage: localStorage
+    };
+    await expect(uploadCommunityFile(file, dependencies, { userId })).rejects.toThrow("offline");
+    fail = false;
+    await expect(uploadCommunityFile(file, dependencies, { userId })).resolves.toMatchObject({ uploadToken });
+    expect(createIntent).toHaveBeenCalledTimes(1);
   });
 
   it("waits for in-flight parts to settle before exposing a multipart failure for retry", async () => {

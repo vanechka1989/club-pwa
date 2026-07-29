@@ -32,6 +32,7 @@ const props = defineProps<{
   groupedWithPrevious?: boolean;
   groupedWithNext?: boolean;
   deliveryState?: CommunityMessageDeliveryState;
+  refreshAttachmentUrl?: ((messageId: string, attachmentId: string) => Promise<string | null>) | undefined;
 }>();
 
 const emit = defineEmits<ChatMessageEventMap>();
@@ -48,6 +49,10 @@ const photoUrl = computed(() => messageAuthorPhotoUrl(props.message, props.viewe
 const avatarStyle = computed(() => messageAuthorAvatarStyle(props.message, props.viewer));
 const reactions = computed(() => visibleReactionCounts(props.message));
 const textSegments = computed(() => communityMessageTextSegments(props.message));
+
+function refreshMessageAttachment(attachmentId: string) {
+  return props.refreshAttachmentUrl?.(props.message.id, attachmentId) ?? Promise.resolve(null);
+}
 const memberTombstone = computed(() => isCommunityMemberTombstone(props.message, props.isModerator));
 
 function cancelLongPress() {
@@ -237,8 +242,8 @@ onBeforeUnmount(cancelLongPress);
         </p>
         <ChatVoiceMessage v-else-if="message.kind === 'voice' && message.voice" :voice="message.voice" />
         <ChatImageGallery v-else-if="message.kind === 'images'" :images="message.images" />
-        <ChatFileMessage v-else-if="message.kind === 'video' && message.video" kind="video" :attachment="message.video" />
-        <ChatFileMessage v-else-if="message.kind === 'document' && message.document" kind="document" :attachment="message.document" />
+        <ChatFileMessage v-else-if="message.kind === 'video' && message.video" kind="video" :attachment="message.video" :refresh-url="() => refreshMessageAttachment(message.video!.id)" />
+        <ChatFileMessage v-else-if="message.kind === 'document' && message.document" kind="document" :attachment="message.document" :refresh-url="() => refreshMessageAttachment(message.document!.id)" />
         <ChatPollMessage
           v-else-if="message.kind === 'poll' && message.poll"
           :poll="message.poll"

@@ -55,10 +55,31 @@ describe("community attachment draft", () => {
     const recovered = render(ChatAttachmentDraft, {
       props: { draft: draft({ status: "needs_file", file: null, previewUrl: null, progress: 0 }) }
     });
-    const input = screen.getByLabelText("Выбрать photo.jpg для продолжения") as HTMLInputElement;
+    const picker = screen.getByRole("button", { name: "Выбрать photo.jpg для продолжения" });
+    picker.focus();
+    expect(document.activeElement).toBe(picker);
+    expect(picker.classList.contains("chat-attachment-primary")).toBe(true);
+    await fireEvent.click(picker);
+    const input = screen.getByLabelText("Исходный файл photo.jpg") as HTMLInputElement;
     const selected = new File(["photo"], "photo.jpg", { type: "image/jpeg", lastModified: 123 });
     await fireEvent.change(input, { target: { files: [selected] } });
     expect(recovered.emitted().reattach).toEqual([["draft-1", selected]]);
+  });
+
+  it("locks every mutating draft control while its token batch is being submitted", () => {
+    const failed = render(ChatAttachmentDraft, {
+      props: { draft: draft({ status: "failed" }), locked: true }
+    });
+    expect((screen.getByRole("button", { name: "Повторить загрузку photo.jpg" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Удалить вложение photo.jpg" }) as HTMLButtonElement).disabled).toBe(true);
+    failed.unmount();
+    cleanup();
+
+    render(ChatAttachmentDraft, {
+      props: { draft: draft({ status: "needs_file", file: null }), locked: true }
+    });
+    expect((screen.getByRole("button", { name: "Выбрать photo.jpg для продолжения" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Исходный файл photo.jpg") as HTMLInputElement).disabled).toBe(true);
   });
 
   it("never embeds arbitrary HTML or SVG previews", () => {
@@ -114,6 +135,14 @@ describe("community attachment draft", () => {
     })] });
     await fireEvent.click(screen.getByRole("button", { name: "Отправить 1 вложение" }));
     expect(view.emitted()["send-uploads"]).toEqual([[['draft-1']]]);
+
+    await view.rerender({ ...props, submittingDraftIds: ["draft-1"], attachmentDrafts: [draft({
+      status: "uploaded",
+      progress: 100,
+      uploadToken: "33333333-3333-4333-8333-333333333333"
+    })] });
+    expect((screen.getByRole("button", { name: "Удалить вложение photo.jpg" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Вложения" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("keeps upload controls touch-safe above the keyboard and disables nonessential motion", () => {
@@ -123,5 +152,6 @@ describe("community attachment draft", () => {
     expect(styles).toMatch(/@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*\.chat-attachment-draft/);
     expect(styles).toContain("var(--color-surface)");
     expect(styles).toContain("var(--color-focus");
+    expect(styles).toMatch(/\.chat-attachment-primary:focus-visible[\s\S]*outline:/);
   });
 });

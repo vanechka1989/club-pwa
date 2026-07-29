@@ -12,6 +12,7 @@ type UploadSessionRecord = {
   quarantineObjectKey?: string | null;
   finalObjectKey?: string | null;
   candidateObjectKeys?: string[];
+  abortCleanupMode?: "staging" | "copies";
   consumedAt?: Date | null;
   updatedAt?: Date;
 };
@@ -24,6 +25,7 @@ type SessionDependencies = {
   createPartUrl: (input: { key: string; uploadId: string; partNumber: number; expiresInSeconds: number }) => Promise<string>;
   abortMultipart: (input: { key: string; uploadId: string }) => Promise<void>;
   deleteStaging: (key: string) => Promise<void>;
+  deleteCopies: (key: string) => Promise<void>;
 };
 
 export function createCommunityUploadSessionService(dependencies: SessionDependencies) {
@@ -59,11 +61,21 @@ export function createCommunityUploadSessionService(dependencies: SessionDepende
       const claimed = await dependencies.claimAbort({ userId, uploadToken });
       if (!claimed) throw new Error("foreign_object");
       if ("alreadyAborted" in claimed) return { ok: true as const };
-      await cleanupExpiredCommunityUpload(claimed, {
-        abortMultipart: dependencies.abortMultipart,
-        deleteStaging: dependencies.deleteStaging,
-        markAborted: dependencies.markAborted
-      });
+      const cleanupMode = claimed.abortCleanupMode
+        ?? (["uploading", "aborting"].includes(claimed.status) ? "staging" : "copies");
+      if (cleanupMode === "staging") {
+        await cleanupExpiredCommunityUpload(claimed, {
+          abortMultipart: dependencies.abortMultipart,
+          deleteStaging: dependencies.deleteStaging,
+          markAborted: dependencies.markAborted
+        });
+      } else {
+        await cleanupUnattachedCommunityUpload(claimed, {
+          abortMultipart: dependencies.abortMultipart,
+          deleteCopies: dependencies.deleteCopies,
+          markAborted: dependencies.markAborted
+        });
+      }
       return { ok: true as const };
     }
   };

@@ -1,6 +1,7 @@
 import type { ClubMessage, CommunityDocumentAttachment, CommunityVideoAttachment } from "@club/shared";
-import { cleanup, render, screen } from "@testing-library/vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
+import { nextTick } from "vue";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import ChatFileMessage from "./ChatFileMessage.vue";
 import ChatMessage from "./ChatMessage.vue";
 
@@ -39,7 +40,11 @@ function videoAttachment(overrides: Partial<CommunityVideoAttachment> = {}): Com
   };
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("community file message", () => {
   it("is used by document chat messages without nesting another card", () => {
@@ -98,49 +103,61 @@ describe("community file message", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("opens only a ready server-issued HTTP(S) read URL", () => {
-    const ready = render(ChatFileMessage, {
+  it("refreshes a ready document URL when the user activates the download", async () => {
+    const refreshUrl = vi.fn().mockResolvedValue("https://objects.example.test/fresh-document?signature=new");
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(ChatFileMessage, {
       props: {
         kind: "document",
         attachment: documentAttachment({
           scanStatus: "ready",
-          url: "https://objects.example.test/signed-document?signature=private",
+          url: "https://objects.example.test/stale-document?signature=old",
           scannedAt: "2026-07-29T00:00:00.000Z"
-        })
-      }
-    });
-    const link = screen.getByRole("link", { name: "Скачать guide.pdf" });
-    expect(link.getAttribute("href")).toBe("https://objects.example.test/signed-document?signature=private");
-    expect(link.getAttribute("rel")).toContain("noopener");
-    ready.unmount();
-    cleanup();
-
-    render(ChatFileMessage, {
-      props: {
-        kind: "document",
-        attachment: documentAttachment({ scanStatus: "ready", url: "javascript:alert(1)" })
+        }),
+        refreshUrl
       }
     });
     expect(screen.queryByRole("link")).toBeNull();
-    expect(screen.getByText("Ссылка на файл недоступна")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Скачать guide.pdf" }));
+    await waitFor(() => expect(refreshUrl).toHaveBeenCalledTimes(1));
+    expect(open).toHaveBeenCalledWith("https://objects.example.test/fresh-document?signature=new", "_blank", "noopener,noreferrer");
   });
 
-  it("renders a ready video with playsinline but hides expired and deleted objects", () => {
-    const ready = render(ChatFileMessage, { props: { kind: "video", attachment: videoAttachment() } });
-    const video = ready.container.querySelector("video");
-    expect(video?.hasAttribute("playsinline")).toBe(true);
-    expect(video?.getAttribute("src")).toBe("https://objects.example.test/signed-video");
-    ready.unmount();
-    cleanup();
-
+  it("rejects unsafe refreshed document URLs", async () => {
     render(ChatFileMessage, {
       props: {
-        kind: "video",
-        attachment: videoAttachment({ expiresAt: "2020-01-01T00:00:00.000Z" })
+        kind: "document",
+        attachment: documentAttachment({ scanStatus: "ready", url: "https://objects.example.test/stale" }),
+        refreshUrl: vi.fn().mockResolvedValue("javascript:alert(1)")
       }
     });
+    await fireEvent.click(screen.getByRole("button", { name: "Скачать guide.pdf" }));
+    expect(await screen.findByText("Ссылка на файл недоступна")).toBeTruthy();
+  });
+
+  it("refreshes a ready video URL on activation instead of loading the stale signed URL", async () => {
+    const refreshUrl = vi.fn().mockResolvedValue("https://objects.example.test/fresh-video");
+    const ready = render(ChatFileMessage, { props: { kind: "video", attachment: videoAttachment(), refreshUrl } });
+    expect(ready.container.querySelector("video")).toBeNull();
+    await fireEvent.click(screen.getByRole("button", { name: "Воспроизвести clip.mp4" }));
+    await waitFor(() => expect(ready.container.querySelector("video")).not.toBeNull());
+    const video = ready.container.querySelector("video");
+    expect(video?.hasAttribute("playsinline")).toBe(true);
+    expect(video?.getAttribute("src")).toBe("https://objects.example.test/fresh-video");
+    expect(refreshUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("reactively hides an attachment when retention expires while the message stays mounted", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T12:00:00.000Z"));
+    render(ChatFileMessage, {
+      props: { kind: "video", attachment: videoAttachment({ expiresAt: "2026-07-29T12:00:01.000Z" }), refreshUrl: vi.fn() }
+    });
+    expect(screen.getByRole("button", { name: "Воспроизвести clip.mp4" })).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(1001);
+    await nextTick();
     expect(screen.getByText("Файл удалён по сроку хранения")).toBeTruthy();
-    expect(document.querySelector("video")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Воспроизвести clip.mp4" })).toBeNull();
   });
 
   it("never renders document HTML, SVG, iframe, object, or embed content", () => {

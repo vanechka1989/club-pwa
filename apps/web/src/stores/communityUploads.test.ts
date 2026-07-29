@@ -104,7 +104,7 @@ describe("community upload drafts", () => {
     });
   });
 
-  it("persists recovery metadata and completed tokens without file bytes, object keys, or signed URLs", async () => {
+  it("persists only recovery metadata and requires exact reattachment after the server grace period", async () => {
     const selected = file("guide.pdf", "application/pdf");
     const upload = vi.fn(async () => ({
       ...uploaded(selected, "document"),
@@ -117,21 +117,109 @@ describe("community upload drafts", () => {
 
     const persisted = localStorage.getItem("club-community-upload-drafts-v1") ?? "";
     expect(persisted).toContain(selected.name);
-    expect(persisted).toContain("33333333-3333-4333-8333-333333333333");
+    expect(persisted).not.toContain("33333333-3333-4333-8333-333333333333");
+    expect(persisted).not.toContain("uploadToken");
     expect(persisted).not.toContain("community/quarantine");
     expect(persisted).not.toContain("https://");
     expect(persisted).not.toContain("blob:");
     expect(persisted).not.toContain("Uint8Array");
 
     setActivePinia(createPinia());
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.now() + 16 * 60 * 1000));
     const restored = useCommunityUploadsStore();
     restored.configure({ userId, topicId, storage: localStorage, upload });
     expect(restored.drafts[0]).toMatchObject({
       file: null,
       fileName: "guide.pdf",
-      status: "uploaded",
-      uploadToken: "33333333-3333-4333-8333-333333333333"
+      status: "needs_file",
+      uploadToken: null
     });
+    vi.useRealTimers();
+  });
+
+  it.each(["uploaded", "failed"] as const)("aborts the inactive server session before removing an %s draft", async (outcome) => {
+    const selected = file();
+    const cancel = vi.fn(async () => ({ ok: true as const }));
+    const store = useCommunityUploadsStore();
+    store.configure({
+      userId,
+      topicId,
+      storage: localStorage,
+      cancel,
+      upload: outcome === "uploaded"
+        ? async () => uploaded(selected)
+        : async () => { throw new Error("offline"); }
+    });
+    const [draft] = store.addFiles([selected], { kind: "image" });
+    await store.uploadDraft(draft!.id);
+
+    await store.removeDraft(draft!.id);
+
+    expect(cancel).toHaveBeenCalledWith(selected, userId);
+    expect(store.drafts).toEqual([]);
+  });
+
+  it("performs idempotent server cancellation before removing a cancelled draft", async () => {
+    const selected = file();
+    const cancel = vi.fn(async () => ({ ok: true as const }));
+    const store = useCommunityUploadsStore();
+    store.configure({
+      userId,
+      topicId,
+      storage: localStorage,
+      cancel,
+      upload: (_file, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      })
+    });
+    const [draft] = store.addFiles([selected], { kind: "image" });
+    const work = store.uploadDraft(draft!.id);
+    store.cancelDraft(draft!.id);
+    await work;
+
+    await store.removeDraft(draft!.id);
+
+    expect(cancel).toHaveBeenCalledWith(selected, userId);
+    expect(store.drafts).toEqual([]);
+  });
+
+  it("waits for an in-flight completion race and then aborts the unattached server session", async () => {
+    let resolve!: (value: CommunityUploadedObject) => void;
+    const pending = new Promise<CommunityUploadedObject>((done) => { resolve = done; });
+    const selected = file();
+    const cancel = vi.fn(async () => ({ ok: true as const }));
+    const store = useCommunityUploadsStore();
+    store.configure({ userId, topicId, storage: localStorage, upload: () => pending, cancel });
+    const [draft] = store.addFiles([selected], { kind: "image" });
+    const uploadWork = store.uploadDraft(draft!.id);
+
+    const removal = store.removeDraft(draft!.id);
+    resolve(uploaded(selected));
+    await Promise.all([uploadWork, removal]);
+
+    expect(cancel).toHaveBeenCalledWith(selected, userId);
+    expect(store.drafts).toEqual([]);
+  });
+
+  it.each(["topic", "account", "logout"] as const)("aborts inactive server sessions on %s scope release", async (transition) => {
+    const selected = file(`${transition}.jpg`);
+    const cancel = vi.fn(async () => ({ ok: true as const }));
+    const store = useCommunityUploadsStore();
+    store.configure({ userId, topicId, storage: localStorage, upload: async () => uploaded(selected), cancel });
+    const [draft] = store.addFiles([selected], { kind: "image" });
+    await store.uploadDraft(draft!.id);
+
+    if (transition === "topic") {
+      store.configure({ userId, topicId: "other-topic", storage: localStorage, upload: vi.fn(), cancel: vi.fn() });
+    } else if (transition === "account") {
+      store.configure({ userId: "other-user", topicId, storage: localStorage, upload: vi.fn(), cancel: vi.fn() });
+    } else {
+      store.suspend();
+    }
+
+    expect(cancel).toHaveBeenCalledWith(selected, userId);
+    expect(store.drafts).toEqual([]);
   });
 
   it("restores interrupted metadata as requiring the original file and validates reattachment", () => {
@@ -173,7 +261,7 @@ describe("community upload drafts", () => {
     await store.uploadDraft(draft!.id);
 
     store.configure({ userId, topicId: "other-topic", storage: localStorage, upload: vi.fn() });
-    store.removeDraftsForScope([draft!.id], userId, topicId);
+    store.consumeDraftsForScope([draft!.id], userId, topicId);
     store.configure({ userId, topicId, storage: localStorage, upload: vi.fn() });
 
     expect(store.drafts).toEqual([]);

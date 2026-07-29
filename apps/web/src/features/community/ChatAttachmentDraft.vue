@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { FileText, LoaderCircle, RefreshCw, ShieldCheck, Video, X } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { CommunityUploadDraft } from "@/stores/communityUploads";
 import { formatCommunityFileSize } from "@/stores/communityUploads";
 
-const props = defineProps<{ draft: CommunityUploadDraft }>();
+const props = defineProps<{ draft: CommunityUploadDraft; locked?: boolean }>();
 const emit = defineEmits<{
   cancel: [id: string];
   retry: [id: string];
@@ -14,6 +14,7 @@ const emit = defineEmits<{
 
 const safeImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 const safeVideoTypes = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+const reattachInput = ref<HTMLInputElement | null>(null);
 const displayName = computed(() => /[<>\u0000-\u001f]/u.test(props.draft.fileName) ? "Файл" : props.draft.fileName);
 const imagePreview = computed(() =>
   props.draft.kind === "image"
@@ -65,6 +66,7 @@ function handleReattach(event: Event) {
       v-if="draft.status === 'uploading'"
       class="chat-attachment-primary"
       type="button"
+      :disabled="locked"
       :aria-label="`Отменить загрузку ${displayName}`"
       @click="emit('cancel', draft.id)"
     >
@@ -74,18 +76,37 @@ function handleReattach(event: Event) {
       v-else-if="draft.status === 'failed' || draft.status === 'cancelled' || draft.status === 'queued'"
       class="chat-attachment-primary"
       type="button"
+      :disabled="locked"
       :aria-label="`${draft.status === 'queued' ? 'Загрузить' : 'Повторить загрузку'} ${displayName}`"
       @click="emit('retry', draft.id)"
     >
       <RefreshCw aria-hidden="true" /><span>{{ draft.status === "queued" ? "Загрузить" : "Повторить" }}</span>
     </button>
-    <label v-else-if="draft.status === 'needs_file'" class="chat-attachment-primary">
+    <button
+      v-else-if="draft.status === 'needs_file'"
+      class="chat-attachment-primary"
+      type="button"
+      :disabled="locked"
+      :aria-label="`Выбрать ${displayName} для продолжения`"
+      @click="reattachInput?.click()"
+    >
       <LoaderCircle aria-hidden="true" /><span>Выбрать файл</span>
-      <input class="sr-only" type="file" :accept="draft.contentType" :aria-label="`Выбрать ${displayName} для продолжения`" @change="handleReattach" />
-    </label>
+    </button>
+    <input
+      v-if="draft.status === 'needs_file'"
+      ref="reattachInput"
+      class="sr-only"
+      type="file"
+      tabindex="-1"
+      :disabled="locked"
+      :accept="draft.contentType"
+      :aria-label="`Исходный файл ${displayName}`"
+      @change="handleReattach"
+    />
     <button
       class="chat-attachment-remove"
       type="button"
+      :disabled="locked"
       :aria-label="`Удалить вложение ${displayName}`"
       @click="emit('remove', draft.id)"
     >

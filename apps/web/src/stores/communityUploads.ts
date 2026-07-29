@@ -1,7 +1,7 @@
 import type { CommunityUploadKind, CommunityUploadedObject } from "@club/shared";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { getCommunityFileError, uploadCommunityFile } from "@/features/community/directUpload";
+import { cancelCommunityFileUpload, getCommunityFileError, uploadCommunityFile } from "@/features/community/directUpload";
 
 const storageKey = "club-community-upload-drafts-v1";
 const maximumPersistedDrafts = 100;
@@ -32,7 +32,7 @@ export type CommunityUploadDraft = {
   uploadToken: string | null;
 };
 
-type PersistedCommunityUploadDraft = Omit<CommunityUploadDraft, "file" | "previewUrl">;
+type PersistedCommunityUploadDraft = Omit<CommunityUploadDraft, "file" | "previewUrl" | "uploadToken">;
 
 export type CommunityUploadRunner = (
   file: File,
@@ -45,15 +45,23 @@ export type CommunityUploadRunner = (
   }
 ) => Promise<CommunityUploadedObject>;
 
+export type CommunityUploadCanceller = (file: File, userId: string) => Promise<{ ok: true }>;
+
 type ConfigureCommunityUploads = {
   userId: string;
   topicId: string;
   storage?: Storage;
   upload?: CommunityUploadRunner;
+  cancel?: CommunityUploadCanceller;
+  preserveServerDraftIds?: readonly string[];
 };
 
 function defaultUpload(file: File, options: Parameters<CommunityUploadRunner>[1]) {
   return uploadCommunityFile(file, undefined, options);
+}
+
+function defaultCancel(file: File, userId: string) {
+  return cancelCommunityFileUpload(file, userId);
 }
 
 function createDraftId() {
@@ -94,10 +102,9 @@ function normalizePersistedDraft(value: unknown): PersistedCommunityUploadDraft 
     || typeof candidate.lastModified !== "number"
     || !Number.isFinite(candidate.lastModified)
     || !(candidate.durationSeconds === null || (typeof candidate.durationSeconds === "number" && Number.isFinite(candidate.durationSeconds)))
-    || !(candidate.uploadToken === null || typeof candidate.uploadToken === "string")
   ) return null;
 
-  const restoredStatus = status === "uploaded" && candidate.uploadToken ? "uploaded" : "needs_file";
+  const restoredStatus = "needs_file" as const;
   return {
     id: candidate.id,
     userId: candidate.userId,
@@ -109,9 +116,8 @@ function normalizePersistedDraft(value: unknown): PersistedCommunityUploadDraft 
     lastModified: candidate.lastModified,
     durationSeconds: candidate.durationSeconds,
     status: restoredStatus,
-    progress: restoredStatus === "uploaded" ? 100 : 0,
-    error: null,
-    uploadToken: restoredStatus === "uploaded" ? candidate.uploadToken : null
+    progress: 0,
+    error: null
   };
 }
 
@@ -138,7 +144,7 @@ function writePersisted(storage: Storage, drafts: PersistedCommunityUploadDraft[
 }
 
 function persistedDraft(draft: CommunityUploadDraft): PersistedCommunityUploadDraft {
-  const { file: _file, previewUrl: _previewUrl, ...safe } = draft;
+  const { file: _file, previewUrl: _previewUrl, uploadToken: _uploadToken, ...safe } = draft;
   return safe;
 }
 
@@ -194,8 +200,10 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
   const currentUserId = ref<string | null>(null);
   const currentTopicId = ref<string | null>(null);
   const controllers = new Map<string, AbortController>();
+  const operationSettled = new Map<string, Promise<void>>();
   let storage: Storage | null = null;
   let runner: CommunityUploadRunner = defaultUpload;
+  let canceller: CommunityUploadCanceller = defaultCancel;
   let generation = 0;
 
   const uploadedTokens = computed(() => drafts.value.flatMap((draft) =>
@@ -217,23 +225,28 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
     controllers.clear();
   }
 
-  function releaseDrafts() {
-    drafts.value.forEach(releasePreview);
+  function releaseDrafts(preserveServerDraftIds: readonly string[] = []) {
+    const preserved = new Set(preserveServerDraftIds);
+    drafts.value.forEach((draft) => {
+      releasePreview(draft);
+      if (draft.file && !preserved.has(draft.id)) void canceller(draft.file, draft.userId).catch(() => undefined);
+    });
     drafts.value = [];
   }
 
   function configure(input: ConfigureCommunityUploads) {
     generation += 1;
     abortActive();
-    releaseDrafts();
+    releaseDrafts(input.preserveServerDraftIds);
     scopeError.value = null;
     currentUserId.value = input.userId;
     currentTopicId.value = input.topicId;
     storage = input.storage ?? localStorage;
     runner = input.upload ?? defaultUpload;
+    canceller = input.cancel ?? defaultCancel;
     drafts.value = readPersisted(storage)
       .filter((draft) => draft.userId === input.userId && draft.topicId === input.topicId)
-      .map((draft) => ({ ...draft, file: null, previewUrl: null }));
+      .map((draft) => ({ ...draft, file: null, previewUrl: null, uploadToken: null }));
     save();
   }
 
@@ -293,7 +306,10 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
     if (!draft || !draft.file || draft.status === "uploading" || draft.status === "uploaded") return null;
     const owner = { generation, userId: draft.userId, topicId: draft.topicId, file: draft.file };
     const controller = new AbortController();
+    let markSettled!: () => void;
+    const settled = new Promise<void>((resolve) => { markSettled = resolve; });
     controllers.set(id, controller);
+    operationSettled.set(id, settled);
     draft.status = "uploading";
     draft.error = null;
     save();
@@ -333,6 +349,8 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
       return null;
     } finally {
       if (controllers.get(id) === controller) controllers.delete(id);
+      if (operationSettled.get(id) === settled) operationSettled.delete(id);
+      markSettled();
     }
   }
 
@@ -369,23 +387,31 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
     return true;
   }
 
-  function removeDraft(id: string) {
+  async function removeDraft(id: string) {
     const draft = drafts.value.find((item) => item.id === id);
     if (!draft) return;
-    controllers.get(id)?.abort();
+    const active = controllers.get(id);
+    if (active) {
+      const settled = operationSettled.get(id);
+      active.abort();
+      await settled;
+    }
+    if (draft.file) await canceller(draft.file, draft.userId).catch(() => undefined);
     releasePreview(draft);
     drafts.value = drafts.value.filter((item) => item.id !== id);
     save();
   }
 
-  function removeDrafts(ids: string[]) {
-    ids.forEach(removeDraft);
+  async function removeDrafts(ids: string[]) {
+    await Promise.all(ids.map(removeDraft));
   }
 
-  function removeDraftsForScope(ids: string[], userId: string, topicId: string) {
+  function consumeDraftsForScope(ids: string[], userId: string, topicId: string) {
     const idSet = new Set(ids);
     if (currentUserId.value === userId && currentTopicId.value === topicId) {
-      removeDrafts(ids);
+      for (const draft of drafts.value.filter((item) => idSet.has(item.id))) releasePreview(draft);
+      drafts.value = drafts.value.filter((item) => !idSet.has(item.id));
+      save();
       return;
     }
     const targetStorage = storage ?? localStorage;
@@ -402,10 +428,10 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
     save();
   }
 
-  function suspend() {
+  function suspend(preserveServerDraftIds: readonly string[] = []) {
     generation += 1;
     abortActive();
-    releaseDrafts();
+    releaseDrafts(preserveServerDraftIds);
     scopeError.value = null;
     currentUserId.value = null;
     currentTopicId.value = null;
@@ -427,7 +453,7 @@ export const useCommunityUploadsStore = defineStore("communityUploads", () => {
     reattachFile,
     removeDraft,
     removeDrafts,
-    removeDraftsForScope,
+    consumeDraftsForScope,
     clearScope,
     suspend
   };

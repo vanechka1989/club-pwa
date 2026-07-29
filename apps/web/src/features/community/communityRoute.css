@@ -37,7 +37,7 @@
 }
 
 body.club-keyboard-open .community-chat-open .app-shell {
-  height: var(--club-visible-viewport-height, var(--app-viewport-height));
+  height: min(var(--club-visible-viewport-height, var(--app-viewport-height)), 100dvh);
   padding-bottom: 0;
 }
 

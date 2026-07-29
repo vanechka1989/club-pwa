@@ -41,6 +41,7 @@ const props = defineProps<{
   editMessage?: ClubMessage | null;
   attachmentDrafts?: CommunityUploadDraft[];
   attachmentError?: string | null;
+  submittingDraftIds?: string[];
 }>();
 
 const emit = defineEmits<ChatComposerEventMap>();
@@ -69,6 +70,8 @@ const mentionPickerState = ref<{ expanded: boolean; activeOptionId: string | nul
   activeOptionId: null
 });
 const attachmentDrafts = computed(() => props.attachmentDrafts ?? []);
+const submittingDraftIdSet = computed(() => new Set(props.submittingDraftIds ?? []));
+const attachmentSubmissionLocked = computed(() => attachmentDrafts.value.some((draft) => submittingDraftIdSet.value.has(draft.id)));
 const attachmentsReady = computed(() =>
   attachmentDrafts.value.length > 0 && attachmentDrafts.value.every((draft) => draft.status === "uploaded")
 );
@@ -357,6 +360,7 @@ onBeforeUnmount(resetLocalDrafts);
           v-for="attachment in attachmentDrafts"
           :key="attachment.id"
           :draft="attachment"
+          :locked="submittingDraftIdSet.has(attachment.id)"
           @cancel="$emit('cancel-upload', $event)"
           @retry="$emit('retry-upload', $event)"
           @remove="$emit('remove-upload', $event)"
@@ -367,7 +371,7 @@ onBeforeUnmount(resetLocalDrafts);
           class="chat-draft-send"
           :class="{ 'chat-draft-send-loading': messageSaving }"
           type="button"
-          :disabled="messageSaving"
+          :disabled="messageSaving || attachmentSubmissionLocked"
           :aria-busy="messageSaving"
           :aria-label="`Отправить ${attachmentDrafts.length} ${attachmentDrafts.length === 1 ? 'вложение' : 'вложения'}`"
           @click="$emit('send-uploads', attachmentDrafts.map((attachment) => attachment.id))"
@@ -385,22 +389,22 @@ onBeforeUnmount(resetLocalDrafts);
             class="icon-button ui-icon-button"
             type="button"
             aria-label="Вложения"
-            :disabled="!canWrite"
+            :disabled="!canWrite || attachmentSubmissionLocked"
             @click="showAttachmentMenu = !showAttachmentMenu"
           >
             <Paperclip />
           </button>
           <div v-if="showAttachmentMenu" class="composer-attachment-menu">
-            <button type="button" @click="imageInput?.click()"><ImageIcon /> Из галереи</button>
-            <button type="button" @click="cameraInput?.click()"><Camera /> Сделать фото</button>
-            <button type="button" @click="videoInput?.click()"><Video /> Видео</button>
-            <button type="button" @click="documentInput?.click()"><FileText /> Документ</button>
-            <button type="button" @click="showPollComposer = true; showAttachmentMenu = false"><BarChart3 /> Опрос</button>
+            <button type="button" :disabled="attachmentSubmissionLocked" @click="imageInput?.click()"><ImageIcon /> Из галереи</button>
+            <button type="button" :disabled="attachmentSubmissionLocked" @click="cameraInput?.click()"><Camera /> Сделать фото</button>
+            <button type="button" :disabled="attachmentSubmissionLocked" @click="videoInput?.click()"><Video /> Видео</button>
+            <button type="button" :disabled="attachmentSubmissionLocked" @click="documentInput?.click()"><FileText /> Документ</button>
+            <button type="button" :disabled="attachmentSubmissionLocked" @click="showPollComposer = true; showAttachmentMenu = false"><BarChart3 /> Опрос</button>
           </div>
-          <input ref="imageInput" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple aria-label="Выбрать изображения из галереи" @change="handleFileSelection($event, 'image')" />
-          <input ref="cameraInput" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" aria-label="Сделать фото" @change="handleFileSelection($event, 'image')" />
-          <input ref="videoInput" class="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm" aria-label="Выбрать видео" @change="handleFileSelection($event, 'video')" />
-          <input ref="documentInput" class="sr-only" type="file" accept=".pdf,.docx,.xlsx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation" aria-label="Выбрать документ" @change="handleFileSelection($event, 'document')" />
+          <input ref="imageInput" class="sr-only" type="file" :disabled="attachmentSubmissionLocked" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple aria-label="Выбрать изображения из галереи" @change="handleFileSelection($event, 'image')" />
+          <input ref="cameraInput" class="sr-only" type="file" :disabled="attachmentSubmissionLocked" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" aria-label="Сделать фото" @change="handleFileSelection($event, 'image')" />
+          <input ref="videoInput" class="sr-only" type="file" :disabled="attachmentSubmissionLocked" accept="video/mp4,video/quicktime,video/webm" aria-label="Выбрать видео" @change="handleFileSelection($event, 'video')" />
+          <input ref="documentInput" class="sr-only" type="file" :disabled="attachmentSubmissionLocked" accept=".pdf,.docx,.xlsx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation" aria-label="Выбрать документ" @change="handleFileSelection($event, 'document')" />
         </div>
         <div class="composer-emoji-wrap">
           <button class="icon-button ui-icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">

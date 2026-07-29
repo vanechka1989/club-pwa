@@ -5,6 +5,7 @@ import { Pause, Play, RotateCcw } from "lucide-vue-next";
 import { useStableMediaUrl } from "./useStableMediaUrl";
 import ChatVoiceWaveform from "./ChatVoiceWaveform.vue";
 import { formatVoiceTime } from "./voiceWaveform";
+import { useReactiveRetention } from "./useReactiveRetention";
 
 const props = defineProps<{ voice: NonNullable<ClubMessage["voice"]> }>();
 const audio = ref<HTMLAudioElement | null>(null);
@@ -15,7 +16,22 @@ const playbackFailed = ref(false);
 const loading = ref(false);
 const retrying = ref(false);
 const mediaUrl = useStableMediaUrl(props.voice.url ?? "");
+const retention = useReactiveRetention(() => [props.voice.expiresAt]);
 const duration = computed(() => mediaDuration.value || props.voice.durationSeconds || 0);
+const removed = computed(() => Boolean(
+  props.voice.deletedAt
+  || props.voice.scanStatus === "deleted"
+  || retention.isExpired(props.voice.expiresAt)
+));
+const ready = computed(() => !removed.value && props.voice.scanStatus === "ready" && Boolean(props.voice.url));
+const stateCopy = computed(() => {
+  if (removed.value) return "Голосовое удалено по сроку хранения";
+  if (props.voice.scanStatus === "pending" || props.voice.scanStatus === "scanning") return "Голосовое обрабатывается";
+  if (props.voice.scanStatus === "failed") return "Не удалось обработать голосовое";
+  if (props.voice.scanStatus === "rejected") return "Голосовое заблокировано";
+  if (props.voice.scanStatus === "ready" && !props.voice.url) return "Голосовое временно недоступно";
+  return null;
+});
 const waveform = [0.38, 0.58, 0.82, 0.48, 0.72, 0.96, 0.54, 0.78, 0.44, 0.68, 0.9, 0.52, 0.74, 0.42, 0.62, 0.86, 0.5, 0.7];
 
 watch(() => props.voice.url, (url) => mediaUrl.observe(url ?? ""));
@@ -71,8 +87,8 @@ function seek(next: number) {
 
 <template>
   <div class="chat-voice-message">
-    <p v-if="voice.deletedAt || !voice.url" class="chat-media-expired">Голосовое удалено по сроку хранения</p>
-    <div v-else class="chat-voice-player" :class="{ 'chat-voice-player-error': playbackFailed }">
+    <p v-if="stateCopy" :class="removed ? 'chat-media-expired' : 'chat-media-state'" role="status">{{ stateCopy }}</p>
+    <div v-if="ready" class="chat-voice-player" :class="{ 'chat-voice-player-error': playbackFailed }">
       <audio
         ref="audio"
         :src="mediaUrl.currentUrl.value"

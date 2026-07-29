@@ -146,45 +146,13 @@ type StoredMultipartSession = {
 };
 
 let liveUploadTokens = new WeakMap<File, { userId: string; uploadToken: string }>();
+let liveMultipartSessions = new WeakMap<File, StoredMultipartSession>();
 
 function readSessions(storage: UploadDependencies["storage"]): StoredMultipartSession[] {
   try {
-    const value = JSON.parse(storage.getItem(storageKey) ?? "[]") as unknown;
-    if (!Array.isArray(value)) return [];
-    return value.flatMap((entry): StoredMultipartSession[] => {
-      if (!entry || typeof entry !== "object") return [];
-      const candidate = entry as Record<string, unknown>;
-      const file = candidate.file as Record<string, unknown> | undefined;
-      const completedParts = candidate.completedParts;
-      if (
-        typeof candidate.userId !== "string" ||
-        typeof candidate.uploadToken !== "string" ||
-        typeof candidate.uploadId !== "string" ||
-        typeof candidate.partSizeBytes !== "number" ||
-        typeof candidate.expiresAt !== "string" ||
-        !file ||
-        typeof file.name !== "string" ||
-        typeof file.type !== "string" ||
-        typeof file.size !== "number" ||
-        typeof file.lastModified !== "number" ||
-        !Array.isArray(completedParts) ||
-        !completedParts.every((part) => part && typeof part === "object" &&
-          Number.isInteger((part as Record<string, unknown>).partNumber) &&
-          typeof (part as Record<string, unknown>).etag === "string")
-      ) return [];
-      return [{
-        userId: candidate.userId,
-        file: { name: file.name, type: file.type, size: file.size, lastModified: file.lastModified },
-        uploadToken: candidate.uploadToken,
-        uploadId: candidate.uploadId,
-        partSizeBytes: candidate.partSizeBytes,
-        expiresAt: candidate.expiresAt,
-        completedParts: completedParts.map((part) => ({
-          partNumber: (part as { partNumber: number }).partNumber,
-          etag: (part as { etag: string }).etag
-        }))
-      }];
-    });
+    const value = storage.getItem(storageKey);
+    if (value && value !== "[]") storage.setItem(storageKey, "[]");
+    return [];
   } catch {
     return [];
   }
@@ -194,17 +162,9 @@ function writeSessions(storage: UploadDependencies["storage"], sessions: StoredM
   storage.setItem(storageKey, JSON.stringify(sessions.slice(-10)));
 }
 
-function sameLiveFile(session: StoredMultipartSession, file: File, userId: string) {
-  const live = liveUploadTokens.get(file);
-  return session.userId === userId && live?.userId === userId && live.uploadToken === session.uploadToken;
-}
-
-function persistSession(storage: UploadDependencies["storage"], session: StoredMultipartSession) {
-  writeSessions(storage, [...readSessions(storage).filter((item) => item.uploadToken !== session.uploadToken), session]);
-}
-
 function removeSession(storage: UploadDependencies["storage"], uploadToken: string) {
-  writeSessions(storage, readSessions(storage).filter((item) => item.uploadToken !== uploadToken));
+  void uploadToken;
+  writeSessions(storage, []);
 }
 
 async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
@@ -230,11 +190,19 @@ async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T
 }
 
 function isUnrecoverableUploadError(error: unknown) {
-  const code = error instanceof Error ? error.message : "";
-  if (["invalid_part_size", "missing_part_etag", "intent_mismatch", "foreign_object", "expired_intent"].includes(code)) return true;
+  const code = communityUploadErrorCode(error);
+  if (["invalid_part_size", "missing_part_etag", "intent_mismatch", "foreign_object", "expired_intent", "object_already_consumed"].includes(code)) return true;
   const status = (error as { response?: { status?: number }; status?: number } | null)?.response?.status ??
     (error as { status?: number } | null)?.status;
-  return typeof status === "number" && [400, 403, 404, 410, 422].includes(status);
+  return typeof status === "number" && [400, 403, 404, 409, 410, 422].includes(status);
+}
+
+function communityUploadErrorCode(error: unknown) {
+  if (error && typeof error === "object" && "data" in error) {
+    const data = (error as { data?: { error?: unknown } }).data;
+    if (typeof data?.error === "string") return data.error;
+  }
+  return error instanceof Error ? error.message : "";
 }
 
 function isAbortError(error: unknown) {
@@ -293,8 +261,11 @@ const productionDependencies: UploadDependencies = {
 };
 
 export function clearCommunityUploadSessions(storage: UploadDependencies["storage"] = localStorage, userId?: string) {
-  writeSessions(storage, userId ? readSessions(storage).filter((session) => session.userId !== userId) : []);
+  void userId;
+  readSessions(storage);
+  writeSessions(storage, []);
   liveUploadTokens = new WeakMap<File, { userId: string; uploadToken: string }>();
+  liveMultipartSessions = new WeakMap<File, StoredMultipartSession>();
 }
 
 export async function uploadCommunityFile(
@@ -306,8 +277,23 @@ export async function uploadCommunityFile(
   const policyError = getCommunityFileError(file, options);
   if (policyError) throw new Error(policyError);
   const description = describeCommunityFile(file, options);
-  const sessions = readSessions(dependencies.storage);
-  const resumable = sessions.find((session) => sameLiveFile(session, file, options.userId) && Date.parse(session.expiresAt) > Date.now());
+  readSessions(dependencies.storage);
+  let resumable = liveMultipartSessions.get(file) ?? null;
+  if (resumable?.userId !== options.userId) resumable = null;
+  let refreshed: MultipartRefresh | null = null;
+  if (resumable) {
+    try {
+      refreshed = await dependencies.refreshMultipart(resumable.uploadToken);
+    } catch (error) {
+      if (!isUnrecoverableUploadError(error)) throw error;
+      const poisonedToken = resumable.uploadToken;
+      liveMultipartSessions.delete(file);
+      liveUploadTokens.delete(file);
+      removeSession(dependencies.storage, poisonedToken);
+      await dependencies.abortUpload(poisonedToken).catch(() => undefined);
+      resumable = null;
+    }
+  }
   const initialIntent = resumable ? null : await dependencies.createIntent(description);
 
   if (initialIntent?.uploadType === "put") {
@@ -320,7 +306,6 @@ export async function uploadCommunityFile(
       if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
       const completed = await dependencies.completePut({ uploadToken: initialIntent.uploadToken });
       options.onProgress?.(100);
-      liveUploadTokens.delete(file);
       return completed;
     } catch (error) {
       if (isAbortError(error) || isUnrecoverableUploadError(error)) {
@@ -331,7 +316,6 @@ export async function uploadCommunityFile(
     }
   }
 
-  const refreshed = resumable ? await dependencies.refreshMultipart(resumable.uploadToken) : null;
   const multipart: MultipartRefresh | Extract<CommunityUploadIntentResponse, { uploadType: "multipart" }> =
     refreshed ?? initialIntent as Extract<CommunityUploadIntentResponse, { uploadType: "multipart" }>;
   const session: StoredMultipartSession = resumable ?? {
@@ -344,8 +328,14 @@ export async function uploadCommunityFile(
     completedParts: []
   };
   liveUploadTokens.set(file, { userId: options.userId, uploadToken: session.uploadToken });
-  if (resumable && refreshed) session.completedParts = refreshed.completedParts;
-  persistSession(dependencies.storage, session);
+  if (resumable && refreshed) {
+    session.uploadId = refreshed.uploadId;
+    session.partSizeBytes = refreshed.partSizeBytes;
+    session.expiresAt = refreshed.expiresAt;
+    session.completedParts = refreshed.completedParts;
+  }
+  liveMultipartSessions.set(file, session);
+  writeSessions(dependencies.storage, []);
   const completedByNumber = new Map(session.completedParts.map((part) => [part.partNumber, part]));
   const pendingParts = multipart.parts.filter((part) => !completedByNumber.has(part.partNumber));
   const partLoaded = new Map<number, number>();
@@ -379,7 +369,7 @@ export async function uploadCommunityFile(
       partLoaded.delete(part.partNumber);
       completedByNumber.set(part.partNumber, { partNumber: part.partNumber, etag });
       session.completedParts = [...completedByNumber.values()].sort((left, right) => left.partNumber - right.partNumber);
-      persistSession(dependencies.storage, session);
+      liveMultipartSessions.set(file, session);
       reportMultipartProgress();
     });
 
@@ -389,7 +379,7 @@ export async function uploadCommunityFile(
       parts: [...completedByNumber.values()].sort((left, right) => left.partNumber - right.partNumber)
     });
     removeSession(dependencies.storage, session.uploadToken);
-    liveUploadTokens.delete(file);
+    liveMultipartSessions.delete(file);
     options.onProgress?.(100);
     return completed;
   } catch (error) {
@@ -397,6 +387,7 @@ export async function uploadCommunityFile(
       await dependencies.abortUpload(session.uploadToken).catch(() => undefined);
       removeSession(dependencies.storage, session.uploadToken);
       liveUploadTokens.delete(file);
+      liveMultipartSessions.delete(file);
     }
     throw error;
   }
@@ -409,8 +400,9 @@ export async function cancelCommunityFileUpload(
 ) {
   const live = liveUploadTokens.get(file);
   if (!live || live.userId !== userId) return { ok: true as const };
-  await dependencies.abortUpload(live.uploadToken);
-  removeSession(dependencies.storage, live.uploadToken);
   liveUploadTokens.delete(file);
+  liveMultipartSessions.delete(file);
+  removeSession(dependencies.storage, live.uploadToken);
+  await dependencies.abortUpload(live.uploadToken);
   return { ok: true as const };
 }

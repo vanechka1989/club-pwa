@@ -85,6 +85,7 @@ const editMessage = ref<ClubMessage | null>(null);
 const draftBeforeEdit = ref("");
 const activeModerationMessageId = ref<string | null>(null);
 const messageSaving = ref(false);
+const submittingDraftIds = ref<string[]>([]);
 const topicSaving = ref(false);
 const notificationSaving = ref(false);
 const communityError = ref<string | null>(null);
@@ -893,26 +894,66 @@ function appendCreatedMessage(message: ClubMessage) {
   void scrollToBottom();
 }
 
+async function handleRefreshAttachmentUrl(messageId: string, attachmentId: string) {
+  const room = captureRoomRequestOwner();
+  if (!room) return null;
+  try {
+    const response = await getCommunityMessageContext(room.topicId, messageId, { before: 0, after: 0 });
+    if (!isCurrentRoomRequest(room)) return null;
+    const refreshed = response.messages.find((message) => message.id === messageId);
+    if (!refreshed) return null;
+    messages.value = messages.value.map((message) => message.id === refreshed.id ? refreshed : message);
+    const attachment = refreshed.video?.id === attachmentId
+      ? refreshed.video
+      : refreshed.document?.id === attachmentId
+        ? refreshed.document
+        : null;
+    return attachment?.scanStatus === "ready" ? attachment.url : null;
+  } catch {
+    return null;
+  }
+}
+
 function handleStageFiles(files: File[], kind: CommunityUploadKind, durationSeconds?: number) {
   const room = captureRoomRequestOwner();
-  if (!room || !files.length) return;
+  if (!room || !files.length || communityUploads.drafts.some((draft) => submittingDraftIds.value.includes(draft.id))) return;
   const drafts = communityUploads.addFiles(files, { kind, ...(durationSeconds === undefined ? {} : { durationSeconds }) });
   if (!isCurrentRoomRequest(room) || !drafts.length) return;
   void communityUploads.uploadDrafts(drafts.map((draft) => draft.id));
 }
 
 function handleRetryUpload(draftId: string) {
+  if (submittingDraftIds.value.includes(draftId)) return;
   void communityUploads.retryDraft(draftId);
 }
 
 function handleReattachUpload(draftId: string, file: File) {
+  if (submittingDraftIds.value.includes(draftId)) return;
   if (communityUploads.reattachFile(draftId, file)) void communityUploads.uploadDraft(draftId);
+}
+
+function handleCancelUpload(draftId: string) {
+  if (submittingDraftIds.value.includes(draftId)) return;
+  communityUploads.cancelDraft(draftId);
+}
+
+function handleRemoveUpload(draftId: string) {
+  if (submittingDraftIds.value.includes(draftId)) return;
+  void communityUploads.removeDraft(draftId);
+}
+
+function uploadSubmissionErrorCode(error: unknown) {
+  if (!error || typeof error !== "object" || !("data" in error)) return null;
+  const data = (error as { data?: unknown }).data;
+  if (!data || typeof data !== "object" || !("error" in data)) return null;
+  const code = (data as { error?: unknown }).error;
+  return typeof code === "string" ? code : null;
 }
 
 async function handleSendUploads(draftIds: string[]) {
   const room = captureRoomRequestOwner();
   const userId = session.user?.id;
-  if (!room || !userId || !draftIds.length || messageSaving.value) return;
+  if (!room || !userId || !draftIds.length || draftIds.some((id) => submittingDraftIds.value.includes(id))) return;
   const selected = draftIds.map((id) => communityUploads.drafts.find((draft) => draft.id === id));
   if (selected.some((draft) => !draft)
     || selected.some((draft) => draft?.userId !== userId || draft.topicId !== room.topicId)
@@ -922,17 +963,25 @@ async function handleSendUploads(draftIds: string[]) {
   }
   const tokens = selected.flatMap((draft) => draft?.uploadToken ? [draft.uploadToken] : []);
   const replyToMessageId = replyToMessage.value?.id ?? null;
+  submittingDraftIds.value = [...new Set([...submittingDraftIds.value, ...draftIds])];
   messageSaving.value = true;
   try {
     const response = await createCommunityUploadMessage(room.topicId, tokens, replyToMessageId);
-    communityUploads.removeDraftsForScope(draftIds, userId, room.topicId);
+    communityUploads.consumeDraftsForScope(draftIds, userId, room.topicId);
     if (!isCurrentRoomRequest(room)) return;
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
     composerResetVersion.value += 1;
-  } catch {
-    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось отправить вложения. Они сохранены для повторной отправки.");
+  } catch (error) {
+    if (uploadSubmissionErrorCode(error) === "upload_already_attached") {
+      communityUploads.consumeDraftsForScope(draftIds, userId, room.topicId);
+      if (isCurrentRoomRequest(room)) await refreshSelectedTopic({ keepScroll: true, silent: true });
+    } else if (isCurrentRoomRequest(room)) {
+      showCommunityError("Не удалось отправить вложения. Они сохранены для повторной отправки.");
+    }
   } finally {
+    const settledIds = new Set(draftIds);
+    submittingDraftIds.value = submittingDraftIds.value.filter((id) => !settledIds.has(id));
     if (isCurrentRoomRequest(room)) messageSaving.value = false;
   }
 }
@@ -1071,7 +1120,7 @@ function resetCommunityUiState() {
 
 function beginAccountGeneration() {
   accountGeneration += 1;
-  communityUploads.suspend();
+  communityUploads.suspend(submittingDraftIds.value);
   invalidateTopicRequests();
   messageRequestGeneration += 1;
   topicsRequestGeneration += 1;
@@ -1105,7 +1154,7 @@ watch(
     if (topicId) {
       const userId = session.user?.id;
       if (userId && (communityUploads.currentUserId !== userId || communityUploads.currentTopicId !== topicId)) {
-        communityUploads.configure({ userId, topicId });
+        communityUploads.configure({ userId, topicId, preserveServerDraftIds: submittingDraftIds.value });
       }
       if (previousTopicId && previousTopicId !== topicId) {
         invalidateTopicRequests();
@@ -1119,7 +1168,7 @@ watch(
       return;
     }
 
-    communityUploads.suspend();
+    communityUploads.suspend(submittingDraftIds.value);
 
     if (previousTopicId) {
       invalidateTopicRequests();
@@ -1227,7 +1276,7 @@ onBeforeUnmount(() => {
   stopCommunityRealtime();
   stopRealtimeFallback();
   resetCommunityOutbox();
-  communityUploads.suspend();
+  communityUploads.suspend(submittingDraftIds.value);
   document.removeEventListener("visibilitychange", handleCommunityVisibilityChange);
   window.removeEventListener("online", handleCommunityOnline);
   emit("chatOpenChange", false);
@@ -1330,6 +1379,8 @@ onBeforeUnmount(() => {
       :background-inert="showMessageSearch"
       :attachment-drafts="communityUploads.drafts"
       :attachment-error="communityUploads.scopeError"
+      :submitting-draft-ids="submittingDraftIds"
+      :refresh-attachment-url="handleRefreshAttachmentUrl"
       @back="closeTopic"
       @toggle-topic-lock="handleToggleTopicLock"
       @delete-topic-messages="handleDeleteTopicMessages"
@@ -1350,8 +1401,8 @@ onBeforeUnmount(() => {
       @stage-files="handleStageFiles"
       @send-uploads="handleSendUploads"
       @retry-upload="handleRetryUpload"
-      @cancel-upload="communityUploads.cancelDraft"
-      @remove-upload="communityUploads.removeDraft"
+      @cancel-upload="handleCancelUpload"
+      @remove-upload="handleRemoveUpload"
       @reattach-upload="handleReattachUpload"
       @create-poll="handleCreatePoll"
       @draft-change="handleDraftChange"

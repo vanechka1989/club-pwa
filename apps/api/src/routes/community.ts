@@ -38,7 +38,7 @@ import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoice
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
 import { publishCommunityChange, subscribeToCommunityChanges } from "../community/realtime";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, communityUploadManifests, userMutes, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, communityMediaCandidates, communityUploadManifests, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
@@ -316,15 +316,26 @@ const communityUploadSessionService = createCommunityUploadSessionService({
       where: and(eq(communityUploadManifests.userId, userId), eq(communityUploadManifests.uploadToken, uploadToken))
     });
     if (!manifest) return null;
-    if (!["uploading", "aborting"].includes(manifest.status)) return { alreadyAborted: true as const };
+    if (manifest.consumedAt || manifest.attachmentId || manifest.status === "aborted") return { alreadyAborted: true as const };
+    const abortableStatuses = ["uploading", "completing", "processing", "normalizing", "publishing", "pending", "scanning", "ready", "failed", "cleanup_pending", "rejected", "aborting"];
+    const candidates = await database.query.communityMediaCandidates.findMany({
+      where: eq(communityMediaCandidates.manifestId, manifest.id)
+    });
     const [claimed] = await database.update(communityUploadManifests)
       .set({ status: "aborting", updatedAt: new Date() })
       .where(and(
         eq(communityUploadManifests.id, manifest.id),
-        inArray(communityUploadManifests.status, ["uploading", "aborting"])
+        inArray(communityUploadManifests.status, abortableStatuses),
+        sql`${communityUploadManifests.consumedAt} is null`,
+        sql`${communityUploadManifests.attachmentId} is null`
       ))
       .returning();
-    return claimed ? { ...claimed, uploadType: claimed.uploadType as "put" | "multipart" } : { alreadyAborted: true as const };
+    return claimed ? {
+      ...claimed,
+      uploadType: claimed.uploadType as "put" | "multipart",
+      abortCleanupMode: manifest.status === "uploading" || manifest.status === "aborting" ? "staging" as const : "copies" as const,
+      candidateObjectKeys: candidates.flatMap((candidate) => [candidate.candidateObjectKey, candidate.finalObjectKey])
+    } : { alreadyAborted: true as const };
   }),
   markAborted: async (manifestId) => {
     await db.update(communityUploadManifests).set({ status: "aborted", errorCode: null, updatedAt: new Date() })
@@ -333,7 +344,8 @@ const communityUploadSessionService = createCommunityUploadSessionService({
   listParts: listMultipartUploadParts,
   createPartUrl: createMultipartPartUploadUrl,
   abortMultipart: abortMultipartUpload,
-  deleteStaging: deleteObject
+  deleteStaging: deleteObject,
+  deleteCopies: deleteObjectCopies
 });
 
 async function loadOwnedCommunityUpload(userId: string, uploadToken: string) {

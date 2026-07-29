@@ -900,7 +900,6 @@ describe("community component boundaries", () => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
     await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1 вложение" }));
     await waitFor(() => expect(apiMocks.createCommunityUploadMessage).toHaveBeenCalledTimes(1));
-
     session.user = secondAdminUser();
     await nextTick();
     await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
@@ -911,6 +910,125 @@ describe("community component boundaries", () => {
     expect(screen.queryByText("Позднее изображение аккаунта A")).toBeNull();
     expect(screen.getByText("Комната аккаунта B")).toBeTruthy();
     expect(localStorage.getItem("club-community-upload-drafts-v1") ?? "").not.toContain("33333333-3333-4333-8333-333333333333");
+  });
+
+  it("reconciles a two-tab upload attachment conflict from the canonical room", async () => {
+    apiMocks.createCommunityUploadMessage.mockRejectedValueOnce({
+      status: 409,
+      data: { error: "upload_already_attached" }
+    });
+    apiMocks.getClubMessages
+      .mockResolvedValueOnce({
+        messages: [message()],
+        nextCursor: null,
+        mutedUntil: null,
+        mutedPermanently: false,
+        serverTime: "2026-07-28T12:05:00.000Z"
+      })
+      .mockResolvedValueOnce({
+        messages: [message({ id: "canonical-upload", body: "Вложение уже отправлено в другой вкладке" })],
+        nextCursor: null,
+        mutedUntil: null,
+        mutedPermanently: false,
+        serverTime: "2026-07-28T12:06:00.000Z"
+      });
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
+    const file = new File(["image"], "two-tab.png", { type: "image/png" });
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:two-tab") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1 вложение" }));
+
+    expect(await screen.findByText("Вложение уже отправлено в другой вкладке")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Удалить вложение two-tab.png" })).toBeNull();
+    expect(screen.queryByText("Не удалось отправить вложения. Они сохранены для повторной отправки.")).toBeNull();
+  });
+
+  it("renders the canonical pending image response as processing rather than deleted", async () => {
+    apiMocks.createCommunityUploadMessage.mockResolvedValueOnce({
+      message: message({
+        id: "pending-image-message",
+        kind: "images",
+        body: "",
+        images: [{
+          id: "pending-image",
+          url: null,
+          contentType: "image/png",
+          sizeBytes: 5,
+          width: null,
+          height: null,
+          expiresAt: "2099-07-30T00:00:00.000Z",
+          deletedAt: null,
+          fileName: "pending.png",
+          scanStatus: "pending",
+          scannedAt: null,
+          scanError: null
+        }]
+      })
+    });
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
+    const file = new File(["image"], "pending-canonical.png", { type: "image/png" });
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:pending-canonical") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1 вложение" }));
+
+    expect(await screen.findByText("Изображение обрабатывается")).toBeTruthy();
+    expect(screen.queryByText("Изображения удалены по сроку хранения")).toBeNull();
+  });
+
+  it("refreshes a document read URL from authenticated message context on activation", async () => {
+    const document = {
+      id: "document-1",
+      url: "https://objects.example.test/stale-document",
+      fileName: "rules.pdf",
+      contentType: "application/pdf",
+      sizeBytes: 128,
+      expiresAt: "2099-07-30T00:00:00.000Z",
+      deletedAt: null,
+      scanStatus: "ready" as const,
+      scannedAt: "2026-07-29T00:00:00.000Z",
+      scanError: null
+    };
+    const documentMessage = message({ kind: "document", body: "Правила", document });
+    apiMocks.getClubMessages.mockResolvedValueOnce({
+      messages: [documentMessage],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false,
+      serverTime: "2026-07-28T12:05:00.000Z"
+    });
+    apiMocks.getCommunityMessageContext.mockResolvedValueOnce({
+      targetMessageId: documentMessage.id,
+      messages: [{ ...documentMessage, document: { ...document, url: "https://objects.example.test/fresh-document" } }],
+      serverTime: "2026-07-28T12:05:01.000Z"
+    });
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Скачать rules.pdf" }));
+
+    await waitFor(() => expect(open).toHaveBeenCalledWith("https://objects.example.test/fresh-document", "_blank", "noopener,noreferrer"));
+    expect(apiMocks.getCommunityMessageContext).toHaveBeenCalledWith(topic.id, documentMessage.id, { before: 0, after: 0 });
+    open.mockRestore();
   });
 
   it("does not restore a moderator-only deleted poll after the member refetch wins the downgrade race", async () => {
@@ -1094,6 +1212,8 @@ describe("community component boundaries", () => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
     await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1 вложение" }));
     await waitFor(() => expect(apiMocks.createCommunityUploadMessage).toHaveBeenCalledTimes(1));
+    const removePendingUpload = screen.getByRole("button", { name: "Удалить вложение pending.png" }) as HTMLButtonElement;
+    expect(removePendingUpload.disabled).toBe(true);
 
     await fireEvent.click(screen.getByRole("button", { name: "Меню чата" }));
     const allNotifications = screen.getByRole("radio", { name: "Все сообщения" }) as HTMLInputElement;
@@ -1106,8 +1226,12 @@ describe("community component boundaries", () => {
     session.user = { ...adminUser(), adminPermissions: ["community", "users"] };
     await nextTick();
 
-    expect((screen.getByRole("button", { name: "Отправить 1 вложение" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Отправить 1 вложение" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(removePendingUpload.disabled).toBe(true);
     expect(notificationSettings.disabled).toBe(false);
+
+    imagePending.resolve({ message: message({ id: "settled-upload", body: "Вложение принято" }) });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Удалить вложение pending.png" })).toBeNull());
   });
 
   it("purges moderator-only content before refetching after a same-user permission downgrade", async () => {

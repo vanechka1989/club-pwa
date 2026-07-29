@@ -52,6 +52,8 @@ const props = defineProps<{
   backgroundInert?: boolean;
   attachmentDrafts?: CommunityUploadDraft[];
   attachmentError?: string | null;
+  submittingDraftIds?: string[];
+  refreshAttachmentUrl?: ((messageId: string, attachmentId: string) => Promise<string | null>) | undefined;
 }>();
 
 const emit = defineEmits<{
@@ -439,6 +441,7 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
           :grouped-with-previous="groupedWithPrevious(index)"
           :grouped-with-next="groupedWithNext(index)"
           :delivery-state="deliveryState(message)"
+          :refresh-attachment-url="refreshAttachmentUrl"
           @reply="handleReply"
           @react="handleReaction"
           @open-actions="handleOpenActions"
@@ -474,6 +477,7 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
       :reset-version="composerResetVersion"
       :attachment-drafts="attachmentDrafts ?? []"
       :attachment-error="attachmentError ?? null"
+      :submitting-draft-ids="submittingDraftIds ?? []"
       @send-text="(body, mentions) => $emit('send-text', body, mentions)"
       @save-edit="(message, body, mentions) => $emit('save-edit', message, body, mentions)"
       @stage-files="(files, kind, durationSeconds) => $emit('stage-files', files, kind, durationSeconds)"

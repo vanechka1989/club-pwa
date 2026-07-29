@@ -28,7 +28,8 @@ describe("community upload session recovery and cleanup", () => {
       listParts: async () => [{ partNumber: 1, etag: '"etag-1"', sizeBytes: 8 * 1024 * 1024 }],
       createPartUrl: async ({ partNumber }: { partNumber: number }) => `https://s3.test/fresh-${partNumber}`,
       abortMultipart: async () => undefined,
-      deleteStaging: async () => undefined
+      deleteStaging: async () => undefined,
+      deleteCopies: async () => undefined
     });
 
     await expect(service.refresh({ userId: record.userId, uploadToken: record.uploadToken })).resolves.toMatchObject({
@@ -55,7 +56,8 @@ describe("community upload session recovery and cleanup", () => {
       listParts: async () => [],
       createPartUrl: async () => "unused",
       abortMultipart,
-      deleteStaging
+      deleteStaging,
+      deleteCopies: async () => undefined
     });
 
     await expect(service.abort({ userId: "other", uploadToken: record.uploadToken })).rejects.toThrow("foreign_object");
@@ -63,6 +65,38 @@ describe("community upload session recovery and cleanup", () => {
     await expect(service.abort({ userId: record.userId, uploadToken: record.uploadToken })).resolves.toEqual({ ok: true });
     expect(abortMultipart).toHaveBeenCalledTimes(1);
     expect(deleteStaging).toHaveBeenCalledTimes(1);
+  });
+
+  it("reclaims every copy of a completed unattached upload when the owner removes its draft", async () => {
+    const deleted: string[] = [];
+    const markAborted = vi.fn(async () => undefined);
+    const service = createCommunityUploadSessionService({
+      loadOwned: async () => null,
+      claimAbort: async () => ({
+        ...record,
+        status: "aborting",
+        abortCleanupMode: "copies" as const,
+        multipartUploadId: null,
+        uploadType: "put" as const,
+        quarantineObjectKey: "community/quarantine/u/file.bin",
+        finalObjectKey: "community/final/u/file.bin",
+        consumedAt: null
+      }),
+      markAborted,
+      listParts: async () => [],
+      createPartUrl: async () => "unused",
+      abortMultipart: async () => undefined,
+      deleteStaging: async () => undefined,
+      deleteCopies: async (key) => { deleted.push(key); }
+    });
+
+    await expect(service.abort({ userId: record.userId, uploadToken: record.uploadToken })).resolves.toEqual({ ok: true });
+    expect(deleted).toEqual([
+      record.stagingObjectKey,
+      "community/quarantine/u/file.bin",
+      "community/final/u/file.bin"
+    ]);
+    expect(markAborted).toHaveBeenCalledWith(record.id);
   });
 
   it("aborts and deletes expired multipart staging idempotently", async () => {
