@@ -1498,7 +1498,6 @@ body.club-text-field-focused .community-chat-open .chat-attachment-drafts {
     padding-inline: 6px;
   }
 
-  .community-chat-open .chat-attachment-primary span { display: none; }
   .community-chat-open .chat-attachment-remove {
     grid-row: 1 / span 2;
     grid-column: 3;

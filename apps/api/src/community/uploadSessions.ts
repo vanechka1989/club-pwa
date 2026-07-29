@@ -1,3 +1,5 @@
+import { communityUploadCleanupPolicy } from "./cleanupPolicy";
+
 type UploadSessionRecord = {
   id: string;
   userId: string;
@@ -109,8 +111,8 @@ function isMissingMultipartUpload(error: unknown) {
     || typeof candidate.message === "string" && /NoSuchUpload/i.test(candidate.message);
 }
 
-const activeCleanupStatuses = new Set(["completing", "processing", "normalizing", "publishing", "scanning"]);
-const cleanupStaleMs = 15 * 60 * 1000;
+const activeCleanupStatuses = new Set<string>(communityUploadCleanupPolicy.staleStatuses);
+const cleanupStaleMs = communityUploadCleanupPolicy.staleAfterMs;
 
 export function isCommunityUploadCleanupCandidate(
   record: Pick<UploadSessionRecord, "status" | "consumedAt" | "expiresAt" | "updatedAt">,
@@ -165,8 +167,8 @@ export async function runCommunityUploadExpiryCleanupBatch(limit = 25) {
   ]);
   const now = new Date();
   const staleWorkAt = new Date(now.getTime() - cleanupStaleMs);
-  const immediatelyReclaimable = ["uploading", "aborting", "pending", "ready", "failed", "cleanup_pending", "rejected"];
-  const staleWork = ["completing", "processing", "normalizing", "publishing", "scanning"];
+  const immediatelyReclaimable = [...communityUploadCleanupPolicy.immediatelyReclaimableStatuses];
+  const staleWork = [...communityUploadCleanupPolicy.staleStatuses];
   const manifests = await loadCommunityUploadExpiryCandidates(limit, (boundedLimit) =>
     db.query.communityUploadManifests.findMany({
       where: and(

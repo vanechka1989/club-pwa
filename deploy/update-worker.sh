@@ -22,6 +22,8 @@ caddy_changed=0
 full_reconcile=0
 previous_web_image=""
 previous_api_image=""
+candidate_images_built=0
+reconciliation_started=0
 
 sanitize_status_value() {
   printf '%s' "$1" | tr '\r\n=' '   '
@@ -48,16 +50,28 @@ write_status() {
 
 fail_status() {
   local exit_code=$?
+  local failed_phase="$current_phase"
   trap - EXIT
   if [[ $exit_code -ne 0 ]]; then
-    write_status failed "$current_phase" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    echo "Deployment failed in phase '$current_phase' with exit code $exit_code" >&2
+    echo "Deployment failed in phase '$failed_phase' with exit code $exit_code" >&2
+    if [[ $candidate_images_built -eq 1 ]]; then
+      if [[ $reconciliation_started -eq 1 ]]; then
+        current_phase="rollback"
+        write_status running "$current_phase" || true
+        if rollback_services; then
+          echo "Previous application images were restored and verified." >&2
+        else
+          echo "Automatic rollback did not reach verified health; rollback tags were preserved." >&2
+        fi
+      elif ! restore_previous_image_tags; then
+        echo "Candidate image tags could not be fully restored; rollback tags were preserved." >&2
+      fi
+    fi
+    current_phase="$failed_phase"
+    write_status failed "$current_phase" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
   fi
-  cleanup_previous_images
   exit "$exit_code"
 }
-
-trap fail_status EXIT
 
 compose() {
   docker compose -f "$COMPOSE_FILE" "$@"
@@ -174,6 +188,25 @@ resolve_health_url() {
   fi
 }
 
+resolve_ready_url() {
+  if [[ -n "${DEPLOY_READY_URL:-}" ]]; then
+    printf '%s' "$DEPLOY_READY_URL"
+    return
+  fi
+
+  local web_origin public_domain
+  web_origin="$(read_env_value WEB_ORIGIN)"
+  if [[ -n "$web_origin" ]]; then
+    printf '%s/api/ready' "${web_origin%/}"
+    return
+  fi
+
+  public_domain="$(read_env_value PUBLIC_DOMAIN)"
+  if [[ -n "$public_domain" ]]; then
+    printf 'https://%s/api/ready' "$public_domain"
+  fi
+}
+
 resolve_web_url() {
   if [[ -n "${DEPLOY_WEB_URL:-}" ]]; then
     printf '%s' "$DEPLOY_WEB_URL"
@@ -194,24 +227,26 @@ resolve_web_url() {
 }
 
 wait_for_health() {
-  local health_url web_url
+  local health_url ready_url web_url
   health_url="$(resolve_health_url)"
+  ready_url="$(resolve_ready_url)"
   web_url="$(resolve_web_url)"
-  if [[ -z "$health_url" || -z "$web_url" ]]; then
-    echo "API health URL or web URL is not configured" >&2
+  if [[ -z "$health_url" || -z "$ready_url" || -z "$web_url" ]]; then
+    echo "API health URL, API readiness URL or web URL is not configured" >&2
     return 1
   fi
 
   for _ in {1..30}; do
     if curl --fail --silent --show-error --max-time 5 "$health_url" | grep -q '"ok":true' \
+      && curl --fail --silent --show-error --max-time 5 "$ready_url" | grep -q '"ok":true' \
       && curl --fail --silent --show-error --max-time 5 "$web_url" | grep -q '<div id="app"'; then
-      echo "Application checks passed: API $health_url; PWA $web_url"
+      echo "Application checks passed: liveness $health_url; readiness $ready_url; PWA $web_url"
       return 0
     fi
     sleep 2
   done
 
-  echo "Application checks failed: API $health_url; PWA $web_url" >&2
+  echo "Application checks failed: liveness $health_url; readiness $ready_url; PWA $web_url" >&2
   return 1
 }
 
@@ -313,18 +348,42 @@ cleanup_previous_images() {
   fi
 }
 
+restore_previous_image_tags() {
+  local failed=0
+  if [[ $api_changed -eq 1 ]]; then
+    if [[ -z "$previous_api_image" ]]; then
+      echo "No previous API image is available for rollback." >&2
+      failed=1
+    elif ! docker tag "$previous_api_image" club-pwa-api:latest; then
+      failed=1
+    fi
+  fi
+  if [[ $web_changed -eq 1 ]]; then
+    if [[ -z "$previous_web_image" ]]; then
+      echo "No previous web image is available for rollback." >&2
+      failed=1
+    elif ! docker tag "$previous_web_image" club-pwa-web:latest; then
+      failed=1
+    fi
+  fi
+  return "$failed"
+}
+
 deploy_web() {
   current_phase="build-web"
   write_status running "$current_phase"
+  candidate_images_built=1
   compose build "${build_args[@]}" web
   current_phase="restart-web"
   write_status running "$current_phase"
+  reconciliation_started=1
   compose up -d --no-deps web
 }
 
 deploy_api() {
   current_phase="build-api"
   write_status running "$current_phase"
+  candidate_images_built=1
   compose build "${build_args[@]}" api
   current_phase="release-dependencies"
   write_status running "$current_phase"
@@ -340,12 +399,14 @@ deploy_api() {
   run_community_cleanup_dry_run
   current_phase="restart-api"
   write_status running "$current_phase"
+  reconciliation_started=1
   compose up -d --no-deps api worker
 }
 
 deploy_full() {
   current_phase="build-all"
   write_status running "$current_phase"
+  candidate_images_built=1
   compose build "${build_args[@]}" api web
   current_phase="release-dependencies"
   write_status running "$current_phase"
@@ -361,6 +422,7 @@ deploy_full() {
   run_community_cleanup_dry_run
   current_phase="reconcile"
   write_status running "$current_phase"
+  reconciliation_started=1
   compose up -d postgres redis clamav api worker web caddy
 }
 
@@ -383,19 +445,32 @@ install_operational_timers() {
 }
 
 rollback_services() {
-  echo "Health verification failed; attempting container rollback." >&2
+  local failed=0
+  echo "Deployment failed after reconciliation; attempting container rollback." >&2
+  if ! restore_previous_image_tags; then
+    failed=1
+  fi
   if [[ $api_changed -eq 1 && -n "$previous_api_image" ]]; then
-    docker tag "$previous_api_image" club-pwa-api:latest
-    compose up -d --no-deps --force-recreate api worker || true
+    if ! compose up -d --no-deps --force-recreate api worker; then
+      failed=1
+    fi
   fi
   if [[ $web_changed -eq 1 && -n "$previous_web_image" ]]; then
-    docker tag "$previous_web_image" club-pwa-web:latest
-    compose up -d --no-deps --force-recreate web || true
+    if ! compose up -d --no-deps --force-recreate web; then
+      failed=1
+    fi
   fi
-  recreate_caddy || true
-  wait_for_health || true
-  cleanup_previous_images
+  if ! recreate_caddy; then
+    failed=1
+  fi
+  if ! wait_for_release_dependencies || ! wait_for_health; then
+    failed=1
+  fi
+  return "$failed"
 }
+
+main() {
+trap fail_status EXIT
 
 if [[ "$DEPLOY_WORKER_LOCK_HELD" != "1" ]]; then
   exec 9>"$LOCK_FILE"
@@ -466,18 +541,7 @@ install_operational_timers
 current_phase="health"
 write_status running "$current_phase"
 if ! wait_for_release_dependencies || ! wait_for_health; then
-  current_phase="rollback"
-  write_status running "$current_phase"
-  rollback_services
   exit 1
-fi
-
-current_phase="cleanup"
-write_status running "$current_phase"
-cleanup_previous_images
-docker image prune -f --filter "until=72h" >/dev/null || true
-if docker buildx version >/dev/null 2>&1; then
-  docker buildx prune -f --filter "until=168h" >/dev/null || true
 fi
 
 current_phase="release-notification"
@@ -487,7 +551,18 @@ if ! compose exec -T -w /app/apps/api api bun src/deploy/notifyRelease.ts; then
 fi
 
 current_phase="record-success"
-write_deployed_commit
 write_status success complete "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+write_deployed_commit
+current_phase="cleanup"
+cleanup_previous_images
+docker image prune -f --filter "until=72h" >/dev/null || true
+if docker buildx version >/dev/null 2>&1; then
+  docker buildx prune -f --filter "until=168h" >/dev/null || true
+fi
 trap - EXIT
 echo "Deployment completed and verified: $current_target"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

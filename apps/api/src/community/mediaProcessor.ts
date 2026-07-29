@@ -6,6 +6,7 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { and, asc, eq, inArray, isNotNull, lte, or } from "drizzle-orm";
 import sharp from "sharp";
+import { communityMediaCleanupPolicy } from "./cleanupPolicy";
 import { buildCommunityCandidateObjectKey, buildCommunityFinalObjectKey } from "./directUpload";
 
 const execFileAsync = promisify(execFile);
@@ -644,17 +645,17 @@ export async function runCommunityMediaCandidateSweepBatch(limit = 20) {
     import("../db/client"),
     import("../db/schema")
   ]);
-  const retryAt = new Date(Date.now() - 30_000);
-  const staleAt = new Date(Date.now() - 2 * 60_000);
+  const retryAt = new Date(Date.now() - communityMediaCleanupPolicy.retryAfterMs);
+  const staleAt = new Date(Date.now() - communityMediaCleanupPolicy.staleAfterMs);
   const candidates = await loadCommunityMediaSweepCandidates(limit, (boundedLimit) =>
     db.query.communityMediaCandidates.findMany({
       where: or(
         and(
-          inArray(communityMediaCandidates.status, ["cleanup_pending", "published_cleanup_pending"]),
+          inArray(communityMediaCandidates.status, [...communityMediaCleanupPolicy.retryStatuses]),
           lte(communityMediaCandidates.updatedAt, retryAt)
         ),
         and(
-          inArray(communityMediaCandidates.status, ["staged", "publishing"]),
+          inArray(communityMediaCandidates.status, [...communityMediaCleanupPolicy.staleStatuses]),
           lte(communityMediaCandidates.updatedAt, staleAt)
         )
       ),

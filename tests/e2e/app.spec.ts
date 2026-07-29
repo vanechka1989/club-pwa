@@ -4367,6 +4367,10 @@ test("reliable community chat release visual audit covers every theme, mode, vie
   test.setTimeout(300_000);
 
   const state = createCommunityReleaseState();
+  state.sessionUser = {
+    ...state.sessionUser,
+    photoUrl: "/icons/icon-512.png"
+  };
   for (let index = 0; index < 45; index += 1) {
     state.messages.push(communityReleaseMessage({
       id: `message-visual-history-${index}`,
@@ -4425,7 +4429,11 @@ test("reliable community chat release visual audit covers every theme, mode, vie
     const capture = async (prefix: string, stateName: string) => {
       const viewportWidth = app.page.viewportSize()?.width ?? 0;
       const documentWidth = await app.page.evaluate(() => document.documentElement.scrollWidth);
+      const brokenImages = await app.page.locator("img:visible").evaluateAll((images) => images
+        .filter((image) => !(image as HTMLImageElement).complete || (image as HTMLImageElement).naturalWidth === 0)
+        .map((image) => ({ alt: image.getAttribute("alt"), src: (image as HTMLImageElement).src })));
       expect(documentWidth).toBeLessThanOrEqual(viewportWidth + 2);
+      expect(brokenImages, `${prefix}-${stateName}`).toEqual([]);
       await app.page.screenshot({
         path: `${artifactDir}/${prefix}-${stateName}.png`,
         fullPage: false,
@@ -4484,6 +4492,20 @@ test("reliable community chat release visual audit covers every theme, mode, vie
           const progress = app.page.getByRole("progressbar", { name: "Загрузка release-audit.pdf" });
           await expect(progress).toBeVisible();
           await progress.scrollIntoViewIfNeeded();
+          if (viewport.width === 320) {
+            const cancelUpload = app.page.getByRole("button", { name: "Отменить загрузку release-audit.pdf" });
+            const removeUpload = app.page.getByRole("button", { name: "Удалить вложение release-audit.pdf" });
+            await expect(cancelUpload.getByText("Отменить", { exact: true })).toBeVisible();
+            const cancelBounds = await cancelUpload.boundingBox();
+            const removeBounds = await removeUpload.boundingBox();
+            expect(cancelBounds).not.toBeNull();
+            expect(removeBounds).not.toBeNull();
+            expect(cancelBounds!.width).toBeGreaterThanOrEqual(44);
+            expect(cancelBounds!.height).toBeGreaterThanOrEqual(44);
+            expect(removeBounds!.width).toBeGreaterThanOrEqual(44);
+            expect(removeBounds!.height).toBeGreaterThanOrEqual(44);
+            expect(cancelBounds!.x + cancelBounds!.width).toBeLessThanOrEqual(removeBounds!.x);
+          }
           await capture(prefix, "media-progress");
 
           await app.page.evaluate(() => {

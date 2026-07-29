@@ -37,7 +37,7 @@ aws --endpoint-url "$S3_ENDPOINT" s3api put-bucket-lifecycle-configuration \
 aws --endpoint-url "$S3_ENDPOINT" s3api get-bucket-lifecycle-configuration --bucket "$S3_BUCKET"
 ```
 
-The deploy worker reads back and validates all configured buckets before migration. An unavailable lifecycle API, a disabled rule, a delay above the stated bound, or a broad pending/candidate expiration blocks the release.
+The deploy worker reads back and validates all configured buckets before migration. It requires exactly one enabled, unconditional rule for each documented prefix and exact delay: pending expiration at one day, candidate expiration at seven days, and multipart abort at one day. Missing, disabled, duplicate, additional, date-based, tagged, object-size-conditional, wrong-delay, or broader overlapping community rules block the release.
 
 After successful completion, an upload has a 15-minute attachment grace period. If no message transaction consumes the manifest in that window, the expiry worker claims it (waiting for stale leases when a processor or scanner was interrupted), atomically moves any media candidate ledger rows to cleanup, deletes staging, quarantine, candidate, and uncommitted final keys from both primary and reserve storage idempotently, and retains the manifest as `aborted` with the `expired_unattached` audit code. Attached manifests are excluded from this cleanup. A publishing-row sweep resumes a still-owned publish, removes both candidate and uncommitted final copies after abort, and removes only the candidate source when the final key is already committed as the ready winner.
 

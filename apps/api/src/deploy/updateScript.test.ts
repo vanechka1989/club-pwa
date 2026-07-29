@@ -59,8 +59,11 @@ describe("deploy update script", () => {
     expect(classifyIndex).toBeGreaterThan(restartIndex);
   });
 
-  it("verifies both the API and the rendered PWA before accepting a deployment", () => {
+  it("verifies API liveness, API readiness and the rendered PWA before accepting a deployment", () => {
+    expect(updateWorker).toContain("resolve_health_url");
+    expect(updateWorker).toContain("resolve_ready_url");
     expect(updateWorker).toContain("resolve_web_url");
+    expect(updateWorker).toContain('curl --fail --silent --show-error --max-time 5 "$ready_url"');
     expect(updateWorker).toContain('curl --fail --silent --show-error --max-time 5 "$web_url"');
     expect(updateWorker).toContain("grep -q '<div id=\"app\"'");
     expect(updateWorker).toContain("Application checks passed");
@@ -76,19 +79,23 @@ describe("deploy update script", () => {
     const deploymentBlock = updateWorker.slice(deployIndex, healthIndex);
 
     expect(deploymentBlock).toContain("recreate_caddy");
-    expect(updateWorker).toContain("recreate_caddy || true");
+    expect(updateWorker).toContain("if ! recreate_caddy; then");
     expect(updateWorker).toContain("compose up -d --no-deps --force-recreate caddy");
     expect(updateWorker).not.toContain("caddy reload --force --config /etc/caddy/Caddyfile");
   });
 
   it("restores previous application images when the new containers fail health verification", () => {
     expect(updateWorker).toContain("rollback_services() {");
+    expect(updateWorker).toContain("candidate_images_built");
+    expect(updateWorker).toContain("reconciliation_started");
+    expect(updateWorker).toContain("restore_previous_image_tags");
     expect(updateWorker).toContain("if ! wait_for_release_dependencies || ! wait_for_health; then");
     expect(updateWorker).toContain("rollback_services");
     expect(updateWorker).toContain("--force-recreate");
     expect(updateWorker).toContain('club-pwa-web:rollback-$DEPLOY_RUN_ID');
     expect(updateWorker).toContain('club-pwa-api:rollback-$DEPLOY_RUN_ID');
     expect(updateWorker).toContain("cleanup_previous_images");
+    expect(updateWorker.indexOf("write_status success complete")).toBeLessThan(updateWorker.indexOf("cleanup_previous_images", updateWorker.indexOf("main()")));
   });
 
   it("updates web and api independently without restarting dependencies", () => {

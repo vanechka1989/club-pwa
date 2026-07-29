@@ -6,7 +6,7 @@ This runbook is a blocking checklist for the first production release of the rel
 
 1. Run `pnpm test:release`, `pnpm check`, `pnpm test`, `pnpm build`, and `pnpm test:e2e:release` separately. The external community gate must execute 31 tests with zero skips on the GitHub runner.
 2. Confirm the production host has at least **8 GiB** of physical RAM and at least **1 GiB MemAvailable** immediately before deployment. Swap does not replace either requirement. The persistent Compose hard limits total **6.5 GiB**: PostgreSQL 512 MiB, API 512 MiB, worker 1 GiB, web 128 MiB, Caddy 128 MiB, Redis 256 MiB, and ClamAV 4 GiB. Migration and upload-permission containers are bounded transient work in addition to this total.
-3. Apply and read back the required S3 lifecycle configuration on the primary bucket and, when configured, the reserve bucket. The automated `s3-lifecycle` phase fails closed when a bucket is unavailable or a required rule is absent.
+3. Apply and read back the required S3 lifecycle configuration on the primary bucket and, when configured, the reserve bucket. The automated `s3-lifecycle` phase requires exactly one unconditional pending-expiry rule at one day, one candidate-expiry rule at seven days, and one multipart-abort rule at one day. It fails closed for missing, disabled, duplicate, conditional, broader, additional, or wrong-delay community rules.
 4. Confirm ClamAV can load signatures with its persistent volume and becomes healthy. API readiness intentionally remains independent, but this deployment gate requires PostgreSQL, Redis, and ClamAV to be healthy before and after reconciliation.
 
 Useful host checks:
@@ -29,7 +29,7 @@ backup-before-migration
 migrate
 community-cleanup-dry-run
 restart/reconcile
-dependency and application health
+dependency health, public `/api/health`, public `/api/ready`, and rendered PWA health
 ```
 
 The `backup-before-migration` phase creates a custom-format PostgreSQL dump, uploads it below `system/database-backups/`, and validates the uploaded object size. Any failure stops deployment before `drizzle-kit migrate` runs. Retain the backup key from the log and confirm the most recent isolated restore verification is successful.
@@ -43,7 +43,9 @@ Migrations `0063_reliable_community_chat` through `0066_community_media_candidat
 
 They do not drop or rename application tables/columns, truncate rows, or delete data. Rolling back application images leaves these additions in place; do not attempt to reverse the schema during an incident. Before the release window, separately check that existing `club_message_attachments.object_key` values are unique because `0063` creates a unique index.
 
-The `community-cleanup-dry-run` phase executes bounded read-only counts after migration. It reports expired unattached manifests, retryable media candidates, and quarantined documents with `deletesPerformed: 0`. Review the JSON in deployment logs; the phase must complete successfully, but non-zero counts are handled by the bounded worker and are not themselves proof of data loss.
+The `community-cleanup-dry-run` phase executes five separately capped, read-only counts after migration: immediately reclaimable expired/unconsumed manifests; expired/unconsumed completing, processing, normalizing, publishing, or scanning manifests stale for 15 minutes; retryable cleanup media candidates stale for 30 seconds; staged/publishing media candidates stale for two minutes; and quarantined documents. Each query is capped at 1001 rows and the summary reports `deletesPerformed: 0`. Review the JSON in deployment logs; non-zero counts are handled by the bounded worker and are not themselves proof of data loss.
+
+Once candidate images are built, every later failure restores the previous `latest` tags. If reconciliation has started, the worker force-recreates the changed API/worker and web services, recreates Caddy, and verifies dependency, liveness, readiness, and PWA health against the restored release. Rollback image tags are retained after every failed deployment, including a verified automatic rollback, and are removed only after the new release is verified and its commit is recorded as successful.
 
 ## Workflow and production acceptance
 
