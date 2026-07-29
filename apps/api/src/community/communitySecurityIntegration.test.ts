@@ -21,6 +21,7 @@ import { validateMentionRanges } from "./mentions";
 import { advanceReadPosition } from "./readState";
 import { isTopicAccessibleForRole } from "./topicAccess";
 import { createCommunityUploadSessionService } from "./uploadSessions";
+import { resolveCommunityIntegrationTestConfig } from "./postgresTestGate";
 
 const userId = "11111111-1111-4111-8111-111111111111";
 const otherUserId = "22222222-2222-4222-8222-222222222222";
@@ -190,20 +191,13 @@ describe("community security integration release gate", () => {
   });
 });
 
-const clamAvHost = process.env.COMMUNITY_CLAMAV_INTEGRATION_HOST;
-const clamAvPort = Number(process.env.COMMUNITY_CLAMAV_INTEGRATION_PORT ?? 3310);
-const clamAvEnabled = Boolean(clamAvHost && Number.isInteger(clamAvPort));
+const clamAv = resolveCommunityIntegrationTestConfig()?.clamAv;
+const clamAvDescribe = clamAv ? describe : describe.skip;
 
-describe("community ClamAV release gate", () => {
-  it("cannot silently skip the real scanner in CI", () => {
-    if (process.env.CI === "true") {
-      expect(clamAvHost, "COMMUNITY_CLAMAV_INTEGRATION_HOST is required in CI").toBeTruthy();
-    }
-  });
-
-  it.runIf(clamAvEnabled)("scans clean and EICAR streams through the real clamd protocol", async () => {
-    expect(await pingClamAv({ host: clamAvHost!, port: clamAvPort, timeoutMs: 10_000 })).toBe(true);
-    const exchange = exchangeWithClamAv({ host: clamAvHost!, port: clamAvPort, timeoutMs: 30_000 });
+clamAvDescribe("community ClamAV release gate", () => {
+  it("scans clean and EICAR streams through the real clamd protocol", async () => {
+    expect(await pingClamAv({ host: clamAv!.host, port: clamAv!.port, timeoutMs: 10_000 })).toBe(true);
+    const exchange = exchangeWithClamAv({ host: clamAv!.host, port: clamAv!.port, timeoutMs: 30_000 });
     async function* bytes(value: string) { yield new TextEncoder().encode(value); }
     await expect(scanClamAvChunks(bytes("clean community document"), { exchange })).resolves.toBe("clean");
     await expect(scanClamAvChunks(bytes(

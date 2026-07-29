@@ -4,8 +4,9 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import postgres, { type Sql, type TransactionSql } from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { createTopicStateRepository as CreateTopicStateRepository } from "./topicStateRepository";
+import { resolveCommunityIntegrationTestConfig } from "./postgresTestGate";
 
-const databaseUrl = process.env.COMMUNITY_TOPIC_STATE_TEST_DATABASE_URL;
+const databaseUrl = resolveCommunityIntegrationTestConfig()?.postgres.topicStateDatabaseUrl;
 const integrationDescribe = databaseUrl ? describe : describe.skip;
 
 const currentUserId = "00000000-0000-0000-0000-000000000001";

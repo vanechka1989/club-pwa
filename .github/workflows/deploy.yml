@@ -49,6 +49,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Preflight community integration resources
+        run: |
+          set -euo pipefail
+          available_memory_kib="$(awk '/MemAvailable:/ { print $2 }' /proc/meminfo)"
+          required_memory_kib="$((6 * 1024 * 1024))"
+          available_disk_kib="$(df --output=avail -k . | tail -n 1 | tr -d ' ')"
+          required_disk_kib="$((12 * 1024 * 1024))"
+          free -h
+          df -h .
+          if [ "$available_memory_kib" -lt "$required_memory_kib" ]; then
+            echo "ClamAV release gate requires at least 6 GiB of available memory." >&2
+            exit 1
+          fi
+          if [ "$available_disk_kib" -lt "$required_disk_kib" ]; then
+            echo "Community release gate requires at least 12 GiB of available disk." >&2
+            exit 1
+          fi
       - name: Start community S3 and ClamAV release services
         run: |
           set -euo pipefail
@@ -100,6 +117,17 @@ jobs:
           }));
           client.destroy();
           NODE
+      - name: Run community external integration gate
+        run: |
+          pnpm --filter @club/api test -- \
+            src/community/communityBola.postgres.test.ts \
+            src/security/communityRateLimits.postgres.test.ts \
+            src/community/messageMutationService.postgres.test.ts \
+            src/community/topicStateRepository.postgres.test.ts \
+            src/community/messageSearch.postgres.test.ts \
+            src/community/deletedMessageCleanup.postgres.test.ts \
+            src/storage/s3ImmutablePromotion.integration.test.ts \
+            src/community/communitySecurityIntegration.test.ts
       - name: Scan production dependencies
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

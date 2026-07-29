@@ -241,6 +241,13 @@ export async function runDocumentScannerBatch(
   return processed;
 }
 
+export function loadCommunityDocumentScannerCandidates<T>(
+  requestedLimit: number,
+  list: (boundedLimit: number) => Promise<T[]>
+) {
+  return list(Math.min(Math.max(requestedLimit, 1), 25));
+}
+
 export async function runCommunityDocumentScannerBatch(limit = 10) {
   const [drizzle, { db }, { clubMessageAttachments, communityUploadManifests }, storage] = await Promise.all([
     import("drizzle-orm"),
@@ -251,18 +258,20 @@ export async function runCommunityDocumentScannerBatch(limit = 10) {
   const { and, asc, eq, inArray, isNotNull, lte, or } = drizzle;
   const now = new Date();
   const staleScanAt = new Date(now.getTime() - documentScanLeaseMs);
-  const manifests = await db.query.communityUploadManifests.findMany({
-    where: and(
-      eq(communityUploadManifests.kind, "document"),
-      isNotNull(communityUploadManifests.attachmentId),
-      or(
-        inArray(communityUploadManifests.status, [...immediatelyRetryableDocumentScanStatuses]),
-        and(eq(communityUploadManifests.status, "scanning"), lte(communityUploadManifests.updatedAt, staleScanAt))
-      )
-    ),
-    orderBy: [asc(communityUploadManifests.createdAt)],
-    limit: Math.min(Math.max(limit, 1), 25)
-  });
+  const manifests = await loadCommunityDocumentScannerCandidates(limit, (boundedLimit) =>
+    db.query.communityUploadManifests.findMany({
+      where: and(
+        eq(communityUploadManifests.kind, "document"),
+        isNotNull(communityUploadManifests.attachmentId),
+        or(
+          inArray(communityUploadManifests.status, [...immediatelyRetryableDocumentScanStatuses]),
+          and(eq(communityUploadManifests.status, "scanning"), lte(communityUploadManifests.updatedAt, staleScanAt))
+        )
+      ),
+      orderBy: [asc(communityUploadManifests.createdAt)],
+      limit: boundedLimit
+    })
+  );
 
   const candidates = manifests.flatMap((manifest) => manifest.quarantineObjectKey ? [{
     id: manifest.id,

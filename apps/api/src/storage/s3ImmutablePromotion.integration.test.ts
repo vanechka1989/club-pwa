@@ -8,22 +8,21 @@ vi.mock("../db/client", () => ({ db: { query: { clubSettings: { findFirst: vi.fn
 vi.mock("../logger", () => ({ logger: { warn: vi.fn() } }));
 
 import { promoteObjectVersionWithClient } from "./s3";
+import { resolveCommunityIntegrationTestConfig } from "../community/postgresTestGate";
 
-const endpoint = process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT;
-const bucket = process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET;
-const accessKeyId = process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_ACCESS_KEY_ID;
-const secretAccessKey = process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY;
-const enabled = Boolean(endpoint && bucket && accessKeyId && secretAccessKey);
-const client = enabled ? new S3Client({
-  endpoint: endpoint!,
-  region: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_REGION ?? "us-east-1",
+const integrationConfig = resolveCommunityIntegrationTestConfig();
+const s3 = integrationConfig?.s3;
+const integrationDescribe = s3 ? describe : describe.skip;
+const client = s3 ? new S3Client({
+  endpoint: s3.endpoint,
+  region: s3.region,
   forcePathStyle: true,
-  credentials: { accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! }
+  credentials: { accessKeyId: s3.accessKeyId, secretAccessKey: s3.secretAccessKey }
 }) : null;
 
 afterAll(() => client?.destroy());
 
-describe.runIf(enabled)("community immutable promotion against S3-compatible storage", () => {
+integrationDescribe("community immutable promotion against S3-compatible storage", () => {
   it("keeps the promoted bytes unchanged after the same presigned PUT URL is reused", async () => {
     const suffix = randomUUID();
     const stagingKey = `integration/community/pending/${suffix}.pdf`;
@@ -33,7 +32,7 @@ describe.runIf(enabled)("community immutable promotion against S3-compatible sto
     expect(replacement.byteLength).toBe(clean.byteLength);
     try {
       const uploadUrl = await getSignedUrl(client!, new PutObjectCommand({
-        Bucket: bucket!,
+        Bucket: s3!.bucket,
         Key: stagingKey,
         ContentType: "application/pdf",
         ContentLength: clean.byteLength
@@ -44,12 +43,12 @@ describe.runIf(enabled)("community immutable promotion against S3-compatible sto
         body: clean
       });
       expect(firstPut.ok).toBe(true);
-      const head = await client!.send(new HeadObjectCommand({ Bucket: bucket!, Key: stagingKey }));
+      const head = await client!.send(new HeadObjectCommand({ Bucket: s3!.bucket, Key: stagingKey }));
       expect(head.ETag).toBeTruthy();
 
       await promoteObjectVersionWithClient({
         client: client!,
-        bucket: bucket!,
+        bucket: s3!.bucket,
         sourceKey: stagingKey,
         destinationKey: finalKey,
         expectedETag: head.ETag!,
@@ -62,12 +61,12 @@ describe.runIf(enabled)("community immutable promotion against S3-compatible sto
         body: replacement
       });
       expect(secondPut.ok).toBe(true);
-      const final = await client!.send(new GetObjectCommand({ Bucket: bucket!, Key: finalKey }));
+      const final = await client!.send(new GetObjectCommand({ Bucket: s3!.bucket, Key: finalKey }));
       await expect(final.Body?.transformToByteArray()).resolves.toEqual(clean);
     } finally {
       await Promise.allSettled([
-        client!.send(new DeleteObjectCommand({ Bucket: bucket!, Key: stagingKey })),
-        client!.send(new DeleteObjectCommand({ Bucket: bucket!, Key: finalKey }))
+        client!.send(new DeleteObjectCommand({ Bucket: s3!.bucket, Key: stagingKey })),
+        client!.send(new DeleteObjectCommand({ Bucket: s3!.bucket, Key: finalKey }))
       ]);
     }
   });

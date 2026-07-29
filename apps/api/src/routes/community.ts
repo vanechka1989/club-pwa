@@ -29,6 +29,7 @@ import { MessageMutationError, messageMutationService } from "../community/messa
 import { decodeSearchCursor, loadMessageContext, loadSafeReplyMessage, searchCommunityMessages } from "../community/messageSearch";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
 import { getArchiveExpirationDate } from "../community/topicArchive";
+import { loadCommunityTopicAggregates } from "../community/topicAggregates";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
 import { topicStateRepository } from "../community/topicStateRepository";
 import { deriveCommunityUploadMessage, isExactCommunityUploadReplayBatch, validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
@@ -70,7 +71,7 @@ const chatPayloadSchema = z.object({
 });
 const messagePageQuerySchema = z.object({
   before: z.string().datetime({ offset: true }).optional(),
-  limit: z.coerce.number().int().min(20).max(100).default(50)
+  limit: z.coerce.number().int().min(20).transform((value) => Math.min(value, 100)).default(50)
 });
 const messageContextQuerySchema = z.object({
   before: z.coerce.number().int().min(0).max(50).default(20),
@@ -592,29 +593,31 @@ async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>
 
   const topicIds = topics.map((topic) => topic.id);
   const originalMessage = alias(clubChatMessages, "original_message");
-  const [messageCounts, latestReplies, topicStates] = await Promise.all([
-    db
-      .select({ topicId: clubChatMessages.topicId, value: count(clubChatMessages.id) })
-      .from(clubChatMessages)
-      .where(and(inArray(clubChatMessages.topicId, topicIds), eq(clubChatMessages.status, "visible")))
-      .groupBy(clubChatMessages.topicId),
-    db
-      .select({ topicId: clubChatMessages.topicId, createdAt: max(clubChatMessages.createdAt) })
-      .from(clubChatMessages)
-      .innerJoin(originalMessage, eq(clubChatMessages.replyToMessageId, originalMessage.id))
-      .where(
-        and(
-          inArray(clubChatMessages.topicId, topicIds),
-          eq(clubChatMessages.status, "visible"),
-          eq(originalMessage.userId, currentUserId),
-          ne(clubChatMessages.userId, currentUserId)
+  const { countsByTopic, repliesByTopic, topicStates } = await loadCommunityTopicAggregates(
+    topicIds,
+    currentUserId,
+    {
+      loadMessageCounts: (ids) => db
+        .select({ topicId: clubChatMessages.topicId, value: count(clubChatMessages.id) })
+        .from(clubChatMessages)
+        .where(and(inArray(clubChatMessages.topicId, ids), eq(clubChatMessages.status, "visible")))
+        .groupBy(clubChatMessages.topicId),
+      loadLatestReplies: (ids, userId) => db
+        .select({ topicId: clubChatMessages.topicId, createdAt: max(clubChatMessages.createdAt) })
+        .from(clubChatMessages)
+        .innerJoin(originalMessage, eq(clubChatMessages.replyToMessageId, originalMessage.id))
+        .where(
+          and(
+            inArray(clubChatMessages.topicId, ids),
+            eq(clubChatMessages.status, "visible"),
+            eq(originalMessage.userId, userId),
+            ne(clubChatMessages.userId, userId)
+          )
         )
-      )
-      .groupBy(clubChatMessages.topicId),
-    topicStateRepository.getStates(currentUserId, topicIds)
-  ]);
-  const countsByTopic = new Map(messageCounts.map((row) => [row.topicId, row.value]));
-  const repliesByTopic = new Map(latestReplies.map((row) => [row.topicId, row.createdAt]));
+        .groupBy(clubChatMessages.topicId),
+      loadTopicStates: (userId, ids) => topicStateRepository.getStates(userId, ids)
+    }
+  );
 
   return topics.map((topic) => ({
     id: topic.id,

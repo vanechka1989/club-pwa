@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
-import { db } from "../db/client";
+import type { db as defaultDatabase } from "../db/client";
 import { authEmailLoginAttemptLimits } from "../db/schema";
 import type { AuthVariables } from "../middleware/auth";
 import { getWriteRateLimitPolicy } from "./writeRateLimitPolicy";
@@ -10,11 +10,21 @@ function createScopeKey(scope: string, userId: string) {
   return createHash("sha256").update(`product-write:${scope}:${userId}`).digest("hex");
 }
 
-async function consume(scope: string, userId: string, limit: number, windowMs: number, now = new Date()) {
+type RateLimitDatabase = Pick<typeof defaultDatabase, "insert">;
+
+export async function consumePersistentWriteAllowance(
+  scope: string,
+  userId: string,
+  limit: number,
+  windowMs: number,
+  options: { database?: RateLimitDatabase; now?: Date } = {}
+) {
+  const database = options.database ?? (await import("../db/client")).db;
+  const now = options.now ?? new Date();
   const scopeKey = createScopeKey(scope, userId);
   const expiredBefore = new Date(now.getTime() - windowMs).toISOString();
   const nowSql = now.toISOString();
-  const [record] = await db
+  const [record] = await database
     .insert(authEmailLoginAttemptLimits)
     .values({ scopeKey, scope: `write_${scope}`, attemptCount: 1, windowStartedAt: now, updatedAt: now })
     .onConflictDoUpdate({
@@ -36,7 +46,7 @@ async function consume(scope: string, userId: string, limit: number, windowMs: n
 export const persistentWriteRateLimit: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
   const policy = getWriteRateLimitPolicy(c.req.method, c.req.path);
   if (!policy) return next();
-  const result = await consume(policy.scope, c.get("userId"), policy.limit, policy.windowMs);
+  const result = await consumePersistentWriteAllowance(policy.scope, c.get("userId"), policy.limit, policy.windowMs);
   if (!result.allowed) {
     c.header("Retry-After", String(result.retryAfterSeconds));
     return c.json({ error: "Too many requests", retryAfterSeconds: result.retryAfterSeconds }, 429);

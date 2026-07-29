@@ -498,21 +498,37 @@ async function requestCommunityMediaCandidateCleanup(
   });
 }
 
+export function loadCommunityMediaProcessorCandidates<T>(
+  requestedLimit: number,
+  list: (boundedLimit: number) => Promise<T[]>
+) {
+  return list(Math.min(Math.max(1, requestedLimit), 4));
+}
+
+export function loadCommunityMediaSweepCandidates<T>(
+  requestedLimit: number,
+  list: (boundedLimit: number) => Promise<T[]>
+) {
+  return list(Math.min(Math.max(1, requestedLimit), 50));
+}
+
 export async function runCommunityMediaProcessorBatch(limit = 4) {
   const [{ db }, { clubMessageAttachments, communityMediaCandidates, communityUploadManifests }, storage] = await Promise.all([
     import("../db/client"),
     import("../db/schema"),
     import("../storage/s3")
   ]);
-  const manifests = await db.query.communityUploadManifests.findMany({
-    where: and(
-      inArray(communityUploadManifests.kind, ["image", "voice"]),
-      inArray(communityUploadManifests.status, ["processing", "normalizing"]),
-      isNotNull(communityUploadManifests.attachmentId)
-    ),
-    orderBy: [asc(communityUploadManifests.createdAt)],
-    limit: Math.min(Math.max(1, limit), 4)
-  });
+  const manifests = await loadCommunityMediaProcessorCandidates(limit, (boundedLimit) =>
+    db.query.communityUploadManifests.findMany({
+      where: and(
+        inArray(communityUploadManifests.kind, ["image", "voice"]),
+        inArray(communityUploadManifests.status, ["processing", "normalizing"]),
+        isNotNull(communityUploadManifests.attachmentId)
+      ),
+      orderBy: [asc(communityUploadManifests.createdAt)],
+      limit: boundedLimit
+    })
+  );
   let processed = 0;
   for (const manifest of manifests) {
     if (!manifest.quarantineObjectKey || (manifest.kind !== "image" && manifest.kind !== "voice")) continue;
@@ -630,20 +646,22 @@ export async function runCommunityMediaCandidateSweepBatch(limit = 20) {
   ]);
   const retryAt = new Date(Date.now() - 30_000);
   const staleAt = new Date(Date.now() - 2 * 60_000);
-  const candidates = await db.query.communityMediaCandidates.findMany({
-    where: or(
-      and(
-        inArray(communityMediaCandidates.status, ["cleanup_pending", "published_cleanup_pending"]),
-        lte(communityMediaCandidates.updatedAt, retryAt)
+  const candidates = await loadCommunityMediaSweepCandidates(limit, (boundedLimit) =>
+    db.query.communityMediaCandidates.findMany({
+      where: or(
+        and(
+          inArray(communityMediaCandidates.status, ["cleanup_pending", "published_cleanup_pending"]),
+          lte(communityMediaCandidates.updatedAt, retryAt)
+        ),
+        and(
+          inArray(communityMediaCandidates.status, ["staged", "publishing"]),
+          lte(communityMediaCandidates.updatedAt, staleAt)
+        )
       ),
-      and(
-        inArray(communityMediaCandidates.status, ["staged", "publishing"]),
-        lte(communityMediaCandidates.updatedAt, staleAt)
-      )
-    ),
-    orderBy: [asc(communityMediaCandidates.updatedAt)],
-    limit: Math.min(Math.max(1, limit), 50)
-  });
+      orderBy: [asc(communityMediaCandidates.updatedAt)],
+      limit: boundedLimit
+    })
+  );
   let processed = 0;
   for (const candidate of candidates) {
     const manifest = await db.query.communityUploadManifests.findFirst({

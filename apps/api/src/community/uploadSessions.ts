@@ -144,6 +144,13 @@ export async function cleanupUnattachedCommunityUpload(
   await dependencies.markAborted(record.id);
 }
 
+export function loadCommunityUploadExpiryCandidates<T>(
+  requestedLimit: number,
+  list: (boundedLimit: number) => Promise<T[]>
+) {
+  return list(Math.min(Math.max(1, requestedLimit), 50));
+}
+
 export async function runCommunityUploadExpiryCleanupBatch(limit = 25) {
   const [
     { and, asc, eq, inArray, isNull, lte, or },
@@ -160,18 +167,20 @@ export async function runCommunityUploadExpiryCleanupBatch(limit = 25) {
   const staleWorkAt = new Date(now.getTime() - cleanupStaleMs);
   const immediatelyReclaimable = ["uploading", "aborting", "pending", "ready", "failed", "cleanup_pending", "rejected"];
   const staleWork = ["completing", "processing", "normalizing", "publishing", "scanning"];
-  const manifests = await db.query.communityUploadManifests.findMany({
-    where: and(
-      lte(communityUploadManifests.expiresAt, now),
-      isNull(communityUploadManifests.consumedAt),
-      or(
-        inArray(communityUploadManifests.status, immediatelyReclaimable),
-        and(inArray(communityUploadManifests.status, staleWork), lte(communityUploadManifests.updatedAt, staleWorkAt))
-      )
-    ),
-    orderBy: [asc(communityUploadManifests.expiresAt)],
-    limit: Math.min(Math.max(1, limit), 50)
-  });
+  const manifests = await loadCommunityUploadExpiryCandidates(limit, (boundedLimit) =>
+    db.query.communityUploadManifests.findMany({
+      where: and(
+        lte(communityUploadManifests.expiresAt, now),
+        isNull(communityUploadManifests.consumedAt),
+        or(
+          inArray(communityUploadManifests.status, immediatelyReclaimable),
+          and(inArray(communityUploadManifests.status, staleWork), lte(communityUploadManifests.updatedAt, staleWorkAt))
+        )
+      ),
+      orderBy: [asc(communityUploadManifests.expiresAt)],
+      limit: boundedLimit
+    })
+  );
   let cleaned = 0;
   for (const manifest of manifests) {
     const claim = await db.transaction(async (transaction) => {

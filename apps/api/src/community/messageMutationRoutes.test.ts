@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   createText: vi.fn(),
   editText: vi.fn(),
   deleteMessage: vi.fn(),
+  findMessages: vi.fn(),
   findParticipants: vi.fn(),
   publish: vi.fn(),
   transaction: vi.fn(),
@@ -88,7 +89,7 @@ vi.mock("../db/client", () => {
           mocks.messageReadCount += 1;
           return dbMessage(mocks.deleted || (mocks.deleteReplyOnSecondRead && mocks.messageReadCount >= 2));
         }),
-        findMany: vi.fn(async () => [dbMessage()])
+        findMany: mocks.findMessages
       },
       clubMessageReactions: { findMany: vi.fn(async () => []) },
       clubMessageMentions: {
@@ -234,6 +235,18 @@ describe("community message mutation routes", () => {
       return { message: dbMessage() };
     });
     mocks.findParticipants.mockResolvedValue([dbMessage().user]);
+    mocks.findMessages.mockImplementation(async () => [dbMessage()]);
+  });
+
+  it("clamps an oversized message page request before executing the repository query", async () => {
+    mocks.findMessages.mockResolvedValue(Array.from({ length: 101 }, () => dbMessage()));
+
+    const response = await communityRoute.request(`/topics/${topicId}/messages?limit=10000`);
+    const payload = clubMessagesResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(200);
+    expect(payload.messages).toHaveLength(100);
+    expect(mocks.findMessages).toHaveBeenCalledWith(expect.objectContaining({ limit: 101 }));
   });
 
   it("refuses to sign a ready attachment after its retention deadline", async () => {

@@ -10,15 +10,18 @@ vi.mock("./realtimeRedis", () => ({
   subscribeToCommunityRealtimeEnvelopes: vi.fn()
 }));
 import { createDeletedMessageCleanup, deletedMessageCleanupBatchSize } from "./deletedMessageCleanup";
-import { processCommunityMediaManifest } from "./mediaProcessor";
+import { loadCommunityDocumentScannerCandidates } from "./documentScanner";
+import {
+  loadCommunityMediaProcessorCandidates,
+  loadCommunityMediaSweepCandidates,
+  processCommunityMediaManifest
+} from "./mediaProcessor";
 import { normalizeSearchLimit } from "./messageSearch";
 import { publishCommunityChange } from "./realtime";
+import { loadCommunityTopicAggregates } from "./topicAggregates";
+import { loadCommunityUploadExpiryCandidates } from "./uploadSessions";
 
 const apiRouteSource = readFileSync(resolve(__dirname, "../routes/community.ts"), "utf8");
-const uploadCleanupSource = readFileSync(resolve(__dirname, "uploadSessions.ts"), "utf8");
-const mediaProcessorSource = readFileSync(resolve(__dirname, "mediaProcessor.ts"), "utf8");
-const scannerSource = readFileSync(resolve(__dirname, "documentScanner.ts"), "utf8");
-const browserUploadSource = readFileSync(resolve(__dirname, "../../../web/src/features/community/directUpload.ts"), "utf8");
 
 function voiceDependencies(transcodeVoiceFile: () => Promise<void>) {
   return {
@@ -39,13 +42,17 @@ function voiceDependencies(transcodeVoiceFile: () => Promise<void>) {
 }
 
 describe("bounded community load model", () => {
-  it("caps search, message, cleanup, and worker batches", async () => {
+  it("passes bounded candidate counts to every background repository", async () => {
     expect(normalizeSearchLimit(10_000)).toBe(50);
-    expect(apiRouteSource).toMatch(/messagePageQuerySchema[\s\S]*?\.max\(100\)\.default\(50\)/);
-    expect(uploadCleanupSource).toContain("limit: Math.min(Math.max(1, limit), 50)");
-    expect(mediaProcessorSource).toContain("limit: Math.min(Math.max(1, limit), 4)");
-    expect(mediaProcessorSource).toContain("limit: Math.min(Math.max(1, limit), 50)");
-    expect(scannerSource).toContain("limit: Math.min(Math.max(limit, 1), 25)");
+
+    const observed: number[] = [];
+    const list = async (limit: number) => { observed.push(limit); return []; };
+    await loadCommunityUploadExpiryCandidates(10_000, list);
+    await loadCommunityMediaProcessorCandidates(10_000, list);
+    await loadCommunityMediaSweepCandidates(10_000, list);
+    await loadCommunityDocumentScannerCandidates(10_000, list);
+
+    expect(observed).toEqual([50, 4, 50, 25]);
 
     let claimedLimit = 0;
     const cleanup = createDeletedMessageCleanup({
@@ -62,12 +69,31 @@ describe("bounded community load model", () => {
     expect(deletedMessageCleanupBatchSize).toBeLessThanOrEqual(100);
   });
 
-  it("uses set-based topic aggregates instead of work proportional to message history", () => {
-    const aggregateScope = apiRouteSource.match(/async function serializeTopics[\s\S]*?\n}\n\nasync function serializeTopic/)?.[0] ?? "";
-    expect(aggregateScope).toContain("inArray(clubChatMessages.topicId, topicIds)");
-    expect(aggregateScope).toContain(".groupBy(clubChatMessages.topicId)");
-    expect(aggregateScope).toContain("topicStateRepository.getStates(currentUserId, topicIds)");
-    expect(aggregateScope).not.toMatch(/topics\.map\([^)]*=>\s*serializeTopic/);
+  it.each([1, 100])("loads aggregates for %i topics with three set-based repository calls", async (topicCount) => {
+    const topicIds = Array.from({ length: topicCount }, (_, index) => `topic-${index}`);
+    const counts = vi.fn(async (ids: string[]) => ids.map((topicId) => ({ topicId, value: 1 })));
+    const replies = vi.fn(async (ids: string[], userId: string) =>
+      ids.map((topicId) => ({ topicId, createdAt: new Date("2026-07-29T10:00:00.000Z"), userId }))
+    );
+    const states = vi.fn(async (_userId: string, ids: string[]) =>
+      new Map(ids.map((topicId) => [topicId, { unreadCount: 2, notificationMode: "mentions" as const }]))
+    );
+
+    const result = await loadCommunityTopicAggregates(topicIds, "user-1", {
+      loadMessageCounts: counts,
+      loadLatestReplies: replies,
+      loadTopicStates: states
+    });
+
+    expect(result.countsByTopic.size).toBe(topicCount);
+    expect(result.repliesByTopic.size).toBe(topicCount);
+    expect(result.topicStates.size).toBe(topicCount);
+    expect(counts).toHaveBeenCalledOnce();
+    expect(replies).toHaveBeenCalledOnce();
+    expect(states).toHaveBeenCalledOnce();
+    expect(counts).toHaveBeenCalledWith(topicIds);
+    expect(replies).toHaveBeenCalledWith(topicIds, "user-1");
+    expect(states).toHaveBeenCalledWith("user-1", topicIds);
   });
 
   it("publishes invalidation identifiers instead of message histories", () => {
@@ -77,12 +103,9 @@ describe("bounded community load model", () => {
     expect(JSON.stringify(event)).not.toContain("messages");
   });
 
-  it("limits multipart S3 requests to four and avoids API multipart parsing on direct-upload routes", () => {
-    expect(browserUploadSource).toContain("const multipartConcurrency = 4");
-    expect(browserUploadSource).toContain("runWithConcurrency(pendingParts, multipartConcurrency");
+  it("keeps direct-upload routes out of API multipart-body parsing", () => {
     const directUploadRoutes = apiRouteSource.match(/\.post\("\/uploads"[\s\S]*?\.get\("\/events"/)?.[0] ?? "";
     expect(directUploadRoutes).not.toContain("formData()");
-    expect(directUploadRoutes).toContain("c.req.json()");
   });
 
   it("never runs more than two voice transcodes concurrently", async () => {

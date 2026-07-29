@@ -3,9 +3,9 @@ import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import * as schemaDefinition from "../db/schema";
 import { createMessageSearchRepository, decodeSearchCursor } from "./messageSearch";
+import { resolveCommunityIntegrationTestConfig } from "./postgresTestGate";
 
-const databaseUrl = process.env.COMMUNITY_MESSAGE_SEARCH_TEST_DATABASE_URL
-  ?? process.env.COMMUNITY_TOPIC_STATE_TEST_DATABASE_URL;
+const databaseUrl = resolveCommunityIntegrationTestConfig()?.postgres.messageSearchDatabaseUrl;
 const integrationDescribe = databaseUrl ? describe : describe.skip;
 
 const userId = "00000000-0000-4000-8000-000000000001";

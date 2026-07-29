@@ -879,11 +879,17 @@ type CommunityReleaseState = {
   unreadCount: number;
   notificationMode: "all" | "mentions" | "off";
   failCreates: boolean;
+  failedCreateStarted: Promise<void>;
+  markFailedCreateStarted: () => void;
+  failedCreateReleased: Promise<void>;
+  releaseFailedCreate: () => void;
   createAttempts: string[];
   createdByOperation: Map<string, CommunityReleaseMessage>;
 };
 
 function createCommunityReleaseState(): CommunityReleaseState {
+  let markFailedCreateStarted!: () => void;
+  let releaseFailedCreate!: () => void;
   return {
     sessionUser: currentUser,
     messages: [
@@ -906,8 +912,12 @@ function createCommunityReleaseState(): CommunityReleaseState {
       })
     ],
     unreadCount: 1,
-    notificationMode: "mentions",
+    notificationMode: "all",
     failCreates: false,
+    failedCreateStarted: new Promise<void>((resolve) => { markFailedCreateStarted = resolve; }),
+    markFailedCreateStarted: () => markFailedCreateStarted(),
+    failedCreateReleased: new Promise<void>((resolve) => { releaseFailedCreate = resolve; }),
+    releaseFailedCreate: () => releaseFailedCreate(),
     createAttempts: [],
     createdByOperation: new Map()
   };
@@ -1008,6 +1018,8 @@ async function mockCommunityReleaseApi(page: Page, state: CommunityReleaseState)
       const payload = request.postDataJSON() as { body: string; clientOperationId: string };
       state.createAttempts.push(payload.clientOperationId);
       if (state.failCreates) {
+        state.markFailedCreateStarted();
+        await state.failedCreateReleased;
         await route.fulfill({ status: 503, ...json({ error: "storage_unavailable" }) });
         return;
       }
@@ -1108,10 +1120,18 @@ async function mockCommunityReleaseApi(page: Page, state: CommunityReleaseState)
 async function openCommunityReleasePage(
   browser: Browser,
   testInfo: TestInfo,
-  state: CommunityReleaseState
+  state: CommunityReleaseState,
+  initialOnline = true
 ) {
   const context = await browser.newContext();
   const page = await context.newPage();
+  await page.addInitScript((online) => {
+    Object.assign(window, { __communityReleaseOnline: online });
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => Boolean((window as unknown as { __communityReleaseOnline: boolean }).__communityReleaseOnline)
+    });
+  }, initialOnline);
   await page.addInitScript(() => localStorage.setItem("club-push-onboarding-dismissed-v1", "1"));
   await installCommunityReleaseEventSource(page);
   await mockInstalledPwa(page, testInfo);
@@ -4224,9 +4244,12 @@ test("reliable community chat release synchronizes unread, search, settings, edi
     await expect(second.page.getByRole("status", { name: /непрочитан/ })).toBeHidden();
 
     await first.page.getByRole("button", { name: "Меню чата" }).click();
-    await first.page.getByRole("radio", { name: "Все сообщения" }).check();
-    await expect.poll(() => state.notificationMode).toBe("all");
-    await expect(first.page.getByRole("radio", { name: "Все сообщения" })).toBeChecked();
+    await first.page.getByRole("radio", { name: "Только упоминания" }).check();
+    await expect.poll(() => state.notificationMode).toBe("mentions");
+    await first.page.reload();
+    await first.page.getByRole("button", { name: /Фиксики/ }).click();
+    await first.page.getByRole("button", { name: "Меню чата" }).click();
+    await expect(first.page.getByRole("radio", { name: "Только упоминания" })).toBeChecked();
 
     await first.page.getByRole("button", { name: "Поиск сообщений" }).click();
     await first.page.getByRole("searchbox", { name: "Поиск сообщений" }).fill("старое");
@@ -4259,21 +4282,31 @@ test("reliable community chat release synchronizes unread, search, settings, edi
 test("reliable community chat release retries offline without duplicates and keeps 320px menus stable", async ({ browser }, testInfo) => {
   test.setTimeout(90_000);
   const state = createCommunityReleaseState();
-  const app = await openCommunityReleasePage(browser, testInfo, state);
+  const app = await openCommunityReleasePage(browser, testInfo, state, false);
   try {
     await app.page.setViewportSize({ width: 320, height: 720 });
     await app.page.getByRole("button", { name: /Фиксики/ }).click();
-    state.failCreates = true;
     const composer = app.page.getByRole("combobox", { name: "Сообщение" });
     await composer.fill("Офлайн сообщение без дубля");
     await app.page.getByRole("button", { name: "Отправить" }).click();
-    await expect(app.page.getByText("Не отправлено")).toBeVisible();
+    await expect(app.page.getByText("Офлайн сообщение без дубля")).toBeVisible();
+    expect(state.createAttempts).toEqual([]);
 
     await app.page.reload();
     await app.page.getByRole("button", { name: /Фиксики/ }).click();
     await expect(app.page.getByText("Офлайн сообщение без дубля")).toBeVisible();
+    expect(state.createAttempts).toEqual([]);
+    state.failCreates = true;
+    await app.page.evaluate(() => {
+      Object.assign(window, { __communityReleaseOnline: true });
+      window.dispatchEvent(new Event("online"));
+    });
+    await state.failedCreateStarted;
+    await app.page.evaluate(() => Object.assign(window, { __communityReleaseOnline: false }));
+    state.releaseFailedCreate();
     await expect(app.page.getByText("Не отправлено")).toBeVisible();
     state.failCreates = false;
+    await app.page.evaluate(() => Object.assign(window, { __communityReleaseOnline: true }));
     await app.page.getByRole("button", { name: "Повторить отправку" }).click();
     await expect(app.page.getByText("Не отправлено")).toBeHidden();
     await expect(app.page.getByText("Офлайн сообщение без дубля")).toHaveCount(1);
@@ -4309,10 +4342,10 @@ test("reliable community chat release retries offline without duplicates and kee
     expect(Math.abs(secondScrollTop - firstScrollTop)).toBeLessThanOrEqual(1);
     await expectNoHorizontalOverflow(app.page, ".community-chat-shell");
 
-    state.failCreates = true;
+    await app.page.evaluate(() => Object.assign(window, { __communityReleaseOnline: false }));
     await activeComposer.fill("Черновик только первого аккаунта");
     await app.page.getByRole("button", { name: "Отправить" }).click();
-    await expect(app.page.getByText("Не отправлено")).toBeVisible();
+    await expect(app.page.getByText("Черновик только первого аккаунта")).toBeVisible();
     state.sessionUser = {
       ...currentUser,
       id: "user-second-account",

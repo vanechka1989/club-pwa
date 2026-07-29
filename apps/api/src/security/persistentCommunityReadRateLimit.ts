@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import { authEmailLoginAttemptLimits } from "../db/schema";
 import type { AuthVariables } from "../middleware/auth";
+import type { db as defaultDatabase } from "../db/client";
 
 type CommunityReadScope = "search" | "context";
 type ConsumeResult = { allowed: boolean; retryAfterSeconds: number };
@@ -33,17 +34,20 @@ function createScopeKey(scope: CommunityReadScope, userId: string) {
   return createHash("sha256").update(`community-read:${scope}:${userId}`).digest("hex");
 }
 
-async function consumePersistentCommunityReadAllowance(
+type RateLimitDatabase = Pick<typeof defaultDatabase, "insert">;
+
+export async function consumePersistentCommunityReadAllowance(
   scope: CommunityReadScope,
   userId: string,
   limit: number,
   windowMs: number,
-  now = new Date()
+  options: { database?: RateLimitDatabase; now?: Date } = {}
 ): Promise<ConsumeResult> {
-  const { db } = await import("../db/client");
+  const database = options.database ?? (await import("../db/client")).db;
+  const now = options.now ?? new Date();
   const expiredBefore = new Date(now.getTime() - windowMs).toISOString();
   const nowSql = now.toISOString();
-  const [record] = await db
+  const [record] = await database
     .insert(authEmailLoginAttemptLimits)
     .values({
       scopeKey: createScopeKey(scope, userId),
