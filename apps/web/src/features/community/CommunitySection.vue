@@ -48,7 +48,7 @@ import {
   resetCommunityOutbox,
   type QueuedTextMessage
 } from "./communityOutbox";
-import { authorName, communityErrorStatus, communityMessagesSignature, communityMuteComposerText, communityOptimisticMessage, getOrCreateCommunityDeviceId, needsUnreadHistory, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
+import { authorName, communityErrorStatus, headChanged, communityMessagesSignature, communityMuteComposerText, communityOptimisticMessage, getOrCreateCommunityDeviceId, needsUnreadHistory, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
 import { useCommunityTopicState } from "./useCommunityTopicState";
 import { captureCommunityViewport, restoreCommunityViewport } from "./communityViewport";
 const { t } = useI18n();
@@ -321,16 +321,17 @@ function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition
         : [];
       const confirmedMessages = reconcileQueuedMessages(response.messages);
       const nextMessages = mergeOptimisticMessages([...confirmedMessages, ...retainedOlderMessages]);
+      const cursor = response.nextCursor ?? null;
+      const headShifted = headChanged(messages.value, messagesNextCursor.value, nextMessages, cursor);
       const messagesChanged = communityMessagesSignature(messages.value) !== communityMessagesSignature(nextMessages);
       if (messagesChanged) messages.value = nextMessages;
       if (!hasLoadedOlderMessages.value) {
-        const nextCursor = response.nextCursor ?? null;
-        if (messagesChanged || messagesNextCursor.value !== nextCursor) {
+        if (headShifted) {
           historyCursorGeneration += 1;
           historyRequestGeneration += 1;
           loadingOlderMessages.value = false;
         }
-        messagesNextCursor.value = nextCursor;
+        messagesNextCursor.value = cursor;
       }
       mutedUntil.value = response.mutedUntil;
       mutedPermanently.value = response.mutedPermanently;
@@ -1067,12 +1068,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="community-chat-shell ui-page-section">
-    <div
-      v-if="!selectedTopic"
-      class="community-section-content"
-      :inert="showMessageSearch || undefined"
-      :aria-hidden="showMessageSearch ? 'true' : undefined"
-    >
+    <div v-if="!selectedTopic" class="community-section-content" :inert="showMessageSearch || undefined" :aria-hidden="showMessageSearch ? 'true' : undefined">
       <UiPageHeader :title="t('communitySectionTitle')" :subtitle="t('communitySectionSubtitle')">
         <template #actions>
           <div class="community-topline-actions">

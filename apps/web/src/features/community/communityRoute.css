@@ -436,14 +436,24 @@ body:has(.chat-search-layer) .bottom-nav {
 }
 
 .chat-search-topic-filter select {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   min-height: 2.75rem;
   border: 1px solid var(--border);
   border-radius: 12px;
   outline: none;
   background: var(--panel-strong);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) calc(50% - 0.125rem),
+    calc(100% - 0.75rem) calc(50% - 0.125rem);
+  background-repeat: no-repeat;
+  background-size: 0.25rem 0.25rem;
   color: var(--text);
-  padding-inline: 0.75rem;
+  padding-inline: 0.75rem 2.5rem;
   font-size: 1rem;
 }
 

@@ -1613,6 +1613,57 @@ test.beforeEach(async ({ page }, testInfo) => {
   await openApp(page, testInfo);
 });
 
+for (const theme of [
+  { design: "dark-soft-touch", mode: "dark" },
+  { design: "dark-soft-touch", mode: "light" },
+  { design: "graphite-electric-blue", mode: "dark" },
+  { design: "graphite-electric-blue", mode: "light" }
+]) {
+  test(`renders one accessible custom topic-select ring for ${theme.design} ${theme.mode}`, async ({ page }, testInfo) => {
+    test.skip(!["viewport-390-844", "ios-safari-webkit"].includes(testInfo.project.name));
+    test.setTimeout(120_000);
+    await page.evaluate(({ design, mode }) => {
+      localStorage.setItem("club-design-theme", design);
+      localStorage.setItem("club-theme", mode);
+    }, theme);
+    await page.reload();
+    for (const viewport of [
+      { width: 320, height: 720 },
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+      { width: 1024, height: 768 },
+      { width: 1440, height: 900 }
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/community");
+      await page.getByRole("button", { name: "Поиск сообщений" }).click();
+      const select = page.getByRole("combobox", { name: "Искать в теме" });
+      await select.focus();
+      const styles = await select.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          appearance: style.appearance,
+          webkitAppearance: style.getPropertyValue("-webkit-appearance"),
+          backgroundImage: style.backgroundImage,
+          outlineStyle: style.outlineStyle,
+          boxShadow: style.boxShadow
+        };
+      });
+      expect(styles.appearance).toBe("none");
+      expect(styles.webkitAppearance).toBe("none");
+      expect(styles.backgroundImage).not.toBe("none");
+      expect(styles.outlineStyle).toBe("none");
+      expect(styles.boxShadow).not.toBe("none");
+      await expectNoHorizontalOverflow(page, ".chat-search-layer");
+      await page.screenshot({
+        path: testInfo.outputPath(`community-topic-select-${theme.design}-${theme.mode}-${viewport.width}x${viewport.height}.png`),
+        animations: "disabled",
+        caret: "hide"
+      });
+    }
+  });
+}
+
 const responsiveRouteAuditProjects = new Set([
   "android-compact-320",
   "oneplus-mt2111",

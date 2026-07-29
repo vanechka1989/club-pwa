@@ -751,6 +751,49 @@ describe("community component boundaries", () => {
     expect(ids).toEqual(Array.from({ length: 102 }, (_, index) => String(index + 1)));
   });
 
+  it("keeps automatic unread history paging alive across a same-cursor metadata refresh", async () => {
+    const recentHead = Array.from({ length: 50 }, (_, index) => ({
+      ...sequenceMessage(51 - index),
+      reactionCounts: []
+    }));
+    const refreshedHead = recentHead.map((item, index) => index === 0
+      ? { ...item, reactionCounts: [{ reaction: "heart" as const, count: 1 }] }
+      : item);
+    const firstUnread = sequenceMessage(1);
+    let resolveHistory!: (value: {
+      messages: ClubMessage[];
+      nextCursor: null;
+      mutedUntil: null;
+      mutedPermanently: false;
+    }) => void;
+    let headRequests = 0;
+    apiMocks.getCommunityTopics.mockResolvedValue({ topics: [{ ...topic, unreadCount: 51, messagesCount: 51 }] });
+    apiMocks.getClubMessages.mockImplementation((_topicId: string, cursor?: string) => {
+      if (cursor === "cursor-older") {
+        return new Promise((resolve) => { resolveHistory = resolve; });
+      }
+      headRequests += 1;
+      return Promise.resolve({
+        messages: headRequests === 1 ? recentHead : refreshedHead,
+        nextCursor: "cursor-older",
+        mutedUntil: null,
+        mutedPermanently: false
+      });
+    });
+
+    await renderCommunity("Последовательность 51");
+    await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledWith("topic-1", "cursor-older"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(document.querySelector(".message-reaction-button small")?.textContent).toBe("1"));
+    resolveHistory({ messages: [firstUnread], nextCursor: null, mutedUntil: null, mutedPermanently: false });
+
+    await screen.findByText("Последовательность 1");
+    const historyCalls = apiMocks.getClubMessages.mock.calls.filter(([, cursor]) => cursor === "cursor-older");
+    expect(historyCalls).toHaveLength(1);
+    const divider = screen.getByText("Новые сообщения");
+    expect(divider.compareDocumentPosition(document.getElementById("chat-message-sequence-1")!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("keeps the visible message anchored when realtime appends below a reader who is scrolled up", async () => {
     await renderCommunity();
     const container = document.querySelector<HTMLElement>(".chat-messages")!;

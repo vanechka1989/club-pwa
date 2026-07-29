@@ -237,6 +237,23 @@ export function communityMessagesSignature(messages: ClubMessage[]) {
   return messages.map(communityMessageSignature).join("\u001e");
 }
 
+function headPaginationIdentity(messages: ClubMessage[], cursor: string | null) {
+  const messageIds = messages
+    .filter((message) => !message.id.startsWith("local:"))
+    .map((message) => message.id)
+    .join("\u001f");
+  return `${messageIds}\u001e${cursor ?? ""}`;
+}
+
+export function headChanged(
+  currentMessages: ClubMessage[],
+  currentCursor: string | null,
+  nextMessages: ClubMessage[],
+  nextCursor: string | null
+) {
+  return headPaginationIdentity(currentMessages, currentCursor) !== headPaginationIdentity(nextMessages, nextCursor);
+}
+
 export function communityErrorStatus(reason: unknown) {
   if (!reason || typeof reason !== "object") return null;
   if ("status" in reason && typeof reason.status === "number") return reason.status;
