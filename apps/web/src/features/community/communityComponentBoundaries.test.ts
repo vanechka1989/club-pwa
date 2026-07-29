@@ -16,7 +16,7 @@ import { resetCommunityOutbox } from "./communityOutbox";
 
 const apiMocks = vi.hoisted(() => ({
   closeClubPoll: vi.fn(),
-  createClubImageMessage: vi.fn(),
+  createCommunityUploadMessage: vi.fn(),
   createClubMessage: vi.fn(),
   createTopicUserMute: vi.fn(),
   deleteCommunityMessage: vi.fn(),
@@ -31,12 +31,19 @@ const apiMocks = vi.hoisted(() => ({
   updateCommunityTopicNotificationSettings: vi.fn()
 }));
 
+const uploadMocks = vi.hoisted(() => ({ uploadCommunityFile: vi.fn() }));
+
+vi.mock("./directUpload", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./directUpload")>();
+  return { ...actual, uploadCommunityFile: uploadMocks.uploadCommunityFile };
+});
+
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
   return {
     ...actual,
     closeClubPoll: apiMocks.closeClubPoll,
-    createClubImageMessage: apiMocks.createClubImageMessage,
+    createCommunityUploadMessage: apiMocks.createCommunityUploadMessage,
     createClubMessage: apiMocks.createClubMessage,
     createTopicUserMute: apiMocks.createTopicUserMute,
     deleteCommunityMessage: apiMocks.deleteCommunityMessage,
@@ -281,7 +288,18 @@ beforeEach(() => {
   });
   apiMocks.createTopicUserMute.mockReset().mockResolvedValue({ message: message({ id: "mute-system", isSystem: true }) });
   apiMocks.closeClubPoll.mockReset().mockResolvedValue({ message: pollMessage({ poll: { ...pollMessage().poll!, closedAt: "2026-07-28T12:06:00.000Z" } }) });
-  apiMocks.createClubImageMessage.mockReset().mockResolvedValue({ message: message({ id: "sent-image", body: "Изображение отправлено" }) });
+  apiMocks.createCommunityUploadMessage.mockReset().mockResolvedValue({ message: message({ id: "sent-image", body: "Изображение отправлено" }) });
+  uploadMocks.uploadCommunityFile.mockReset().mockImplementation(async (file: File, _dependencies: unknown, options: { kind?: string; onProgress?: (value: number) => void }) => {
+    options.onProgress?.(100);
+    return {
+      kind: options.kind ?? "image",
+      fileName: file.name,
+      contentType: file.type,
+      sizeBytes: file.size,
+      objectKey: "community/final/private-object",
+      uploadToken: "33333333-3333-4333-8333-333333333333"
+    };
+  });
   apiMocks.createClubMessage.mockReset().mockResolvedValue({
     message: message({ id: "sent-message", body: "Отправлено" })
   });
@@ -427,7 +445,7 @@ describe("community component boundaries", () => {
     expect(room.emitted()["send-text"]).toEqual([["Ответ", []]]);
   });
 
-  it("preserves a failed image draft and clears it only after an explicit success reset", async () => {
+  it("preserves a failed direct-upload draft until the parent confirms message creation", async () => {
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
       value: vi.fn(() => "blob:preview")
@@ -444,27 +462,35 @@ describe("community component boundaries", () => {
       messageSaving: false,
       replyToMessage: null,
       draft: "",
-      resetVersion: 0
+      resetVersion: 0,
+      attachmentDrafts: [{
+        id: "draft-1",
+        userId: "user-1",
+        topicId: "topic-1",
+        kind: "image" as const,
+        file: new File(["image"], "photo.png", { type: "image/png" }),
+        fileName: "photo.png",
+        contentType: "image/png",
+        sizeBytes: 5,
+        lastModified: 0,
+        durationSeconds: null,
+        previewUrl: "blob:preview",
+        status: "failed" as const,
+        progress: 20,
+        error: "Нет соединения",
+        uploadToken: null
+      }]
     };
     const view = render(ChatComposer, { props });
-    const file = new File(["image"], "photo.png", { type: "image/png" });
-    const input = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
-
-    Object.defineProperty(input, "files", {
-      configurable: true,
-      value: [file]
-    });
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-    await nextTick();
-    await fireEvent.click(screen.getByRole("button", { name: "Отправить 1" }));
-    expect(view.emitted()["send-files"]).toEqual([[[file]]]);
+    await fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку photo.png" }));
+    expect(view.emitted()["retry-upload"]).toEqual([["draft-1"]]);
 
     await view.rerender({ ...props, messageSaving: true });
     await view.rerender({ ...props, messageSaving: false });
-    expect(screen.getByRole("button", { name: "Отправить 1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Повторить загрузку photo.png" })).toBeTruthy();
 
-    await view.rerender({ ...props, resetVersion: 1 });
-    expect(screen.queryByRole("button", { name: "Отправить 1" })).toBeNull();
+    await view.rerender({ ...props, resetVersion: 1, attachmentDrafts: [] });
+    expect(screen.queryByRole("button", { name: "Повторить загрузку photo.png" })).toBeNull();
   });
 
   it("closes the explicit action sheet when the parent resets interactions for the same topic", async () => {
@@ -841,9 +867,9 @@ describe("community component boundaries", () => {
     expect(screen.getByText("Сообщение аккаунта B")).toBeTruthy();
   });
 
-  it("does not append a delayed image response from account A into account B's room", async () => {
+  it("does not append a delayed upload-message response from account A into account B's room", async () => {
     const pending = deferred<{ message: ClubMessage }>();
-    apiMocks.createClubImageMessage.mockReturnValueOnce(pending.promise);
+    apiMocks.createCommunityUploadMessage.mockReturnValueOnce(pending.promise);
     apiMocks.getClubMessages
       .mockResolvedValueOnce({
         messages: [message({ body: "Комната аккаунта A" })],
@@ -872,8 +898,8 @@ describe("community component boundaries", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
     Object.defineProperty(input, "files", { configurable: true, value: [file] });
     input.dispatchEvent(new Event("change", { bubbles: true }));
-    await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1" }));
-    await waitFor(() => expect(apiMocks.createClubImageMessage).toHaveBeenCalledTimes(1));
+    await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1 вложение" }));
+    await waitFor(() => expect(apiMocks.createCommunityUploadMessage).toHaveBeenCalledTimes(1));
 
     session.user = secondAdminUser();
     await nextTick();
@@ -884,6 +910,7 @@ describe("community component boundaries", () => {
 
     expect(screen.queryByText("Позднее изображение аккаунта A")).toBeNull();
     expect(screen.getByText("Комната аккаунта B")).toBeTruthy();
+    expect(localStorage.getItem("club-community-upload-drafts-v1") ?? "").not.toContain("33333333-3333-4333-8333-333333333333");
   });
 
   it("does not restore a moderator-only deleted poll after the member refetch wins the downgrade race", async () => {
@@ -1049,7 +1076,7 @@ describe("community component boundaries", () => {
       lastReadMessageId: null;
       notificationMode: "all";
     }>();
-    apiMocks.createClubImageMessage.mockReturnValueOnce(imagePending.promise);
+    apiMocks.createCommunityUploadMessage.mockReturnValueOnce(imagePending.promise);
     apiMocks.updateCommunityTopicNotificationSettings.mockReturnValueOnce(notificationPending.promise);
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -1065,8 +1092,8 @@ describe("community component boundaries", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
     Object.defineProperty(input, "files", { configurable: true, value: [file] });
     input.dispatchEvent(new Event("change", { bubbles: true }));
-    await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1" }));
-    await waitFor(() => expect(apiMocks.createClubImageMessage).toHaveBeenCalledTimes(1));
+    await fireEvent.click(await screen.findByRole("button", { name: "Отправить 1 вложение" }));
+    await waitFor(() => expect(apiMocks.createCommunityUploadMessage).toHaveBeenCalledTimes(1));
 
     await fireEvent.click(screen.getByRole("button", { name: "Меню чата" }));
     const allNotifications = screen.getByRole("radio", { name: "Все сообщения" }) as HTMLInputElement;
@@ -1079,7 +1106,7 @@ describe("community component boundaries", () => {
     session.user = { ...adminUser(), adminPermissions: ["community", "users"] };
     await nextTick();
 
-    expect((screen.getByRole("button", { name: "Отправить 1" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Отправить 1 вложение" }) as HTMLButtonElement).disabled).toBe(false);
     expect(notificationSettings.disabled).toBe(false);
   });
 

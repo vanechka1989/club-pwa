@@ -14,7 +14,6 @@ import {
 import { getAcquisitionVisitorId } from "@/features/app/acquisitionTracking";
 import { clearCommunityDraftsForUser } from "@/features/community/communityDrafts";
 import { clearCommunityOutboxForUser } from "@/features/community/communityOutbox";
-import { clearCommunityUploadSessions } from "@/features/community/directUpload";
 
 type AuthRequestError = Error & {
   retryAfterSeconds?: number;
@@ -272,13 +271,24 @@ export const useSessionStore = defineStore("session", () => {
   async function logout() {
     const communityUserId = user.value?.id;
     await logoutSession();
-    clearCommunityUploadSessions();
     if (communityUserId) {
       clearCommunityDraftsForUser(communityUserId);
       clearCommunityOutboxForUser(communityUserId);
     }
     user.value = null;
     resetEmailAuth();
+    try {
+      const [{ clearCommunityUploadSessions }, { clearCommunityUploadDraftsForUser }] = await Promise.all([
+        import("@/features/community/directUpload"),
+        import("@/stores/communityUploads")
+      ]);
+      clearCommunityUploadSessions();
+      if (communityUserId) clearCommunityUploadDraftsForUser(communityUserId);
+    } catch {
+      // A deployment race must not leave private upload recovery data behind after logout.
+      localStorage.removeItem("club-community-multipart-sessions");
+      localStorage.removeItem("club-community-upload-drafts-v1");
+    }
   }
 
   return {

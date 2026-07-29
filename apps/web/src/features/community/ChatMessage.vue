@@ -2,6 +2,7 @@
 import { resolveDisplayName, type ClubMessage } from "@club/shared";
 import { CheckCheck, Clock3, MoreVertical, Pin, RefreshCw } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref } from "vue";
+import ChatFileMessage from "./ChatFileMessage.vue";
 import ChatImageGallery from "./ChatImageGallery.vue";
 import ChatPollMessage from "./ChatPollMessage.vue";
 import ChatVoiceMessage from "./ChatVoiceMessage.vue";
@@ -236,6 +237,8 @@ onBeforeUnmount(cancelLongPress);
         </p>
         <ChatVoiceMessage v-else-if="message.kind === 'voice' && message.voice" :voice="message.voice" />
         <ChatImageGallery v-else-if="message.kind === 'images'" :images="message.images" />
+        <ChatFileMessage v-else-if="message.kind === 'video' && message.video" kind="video" :attachment="message.video" />
+        <ChatFileMessage v-else-if="message.kind === 'document' && message.document" kind="document" :attachment="message.document" />
         <ChatPollMessage
           v-else-if="message.kind === 'poll' && message.poll"
           :poll="message.poll"

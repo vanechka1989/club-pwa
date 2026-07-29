@@ -5,15 +5,15 @@ import type {
   ClubMessage,
   ClubTopic,
   CommunityMessageSearchResult,
-  CommunityNotificationMode
+  CommunityNotificationMode,
+  CommunityUploadKind
 } from "@club/shared";
 import { Lock, Plus, Search } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
-  createClubVoiceMessage,
-  createClubImageMessage,
   createClubPoll,
+  createCommunityUploadMessage,
   voteInClubPoll,
   closeClubPoll,
   createCommunityEventSource,
@@ -38,6 +38,7 @@ import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
+import { useCommunityUploadsStore } from "@/stores/communityUploads";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatRoom from "./ChatRoom.vue";
 import ChatSearchPanel from "./ChatSearchPanel.vue";
@@ -60,6 +61,7 @@ const { t } = useI18n();
 const session = useSessionStore();
 const notifications = useNotificationsStore();
 const appDialogs = useAppDialogsStore();
+const communityUploads = useCommunityUploadsStore();
 const emit = defineEmits<{ chatOpenChange: [isOpen: boolean] }>();
 const topics = ref<ClubTopic[]>([]);
 const messages = ref<ClubMessage[]>([]);
@@ -891,37 +893,45 @@ function appendCreatedMessage(message: ClubMessage) {
   void scrollToBottom();
 }
 
-async function handleSendImages(files: File[]) {
+function handleStageFiles(files: File[], kind: CommunityUploadKind, durationSeconds?: number) {
   const room = captureRoomRequestOwner();
   if (!room || !files.length) return;
-  const replyToMessageId = replyToMessage.value?.id ?? null;
-  messageSaving.value = true;
-  try {
-    const response = await createClubImageMessage(room.topicId, files, replyToMessageId);
-    if (!isCurrentRoomRequest(room)) return;
-    replyToMessage.value = null;
-    appendCreatedMessage(response.message);
-    composerResetVersion.value += 1;
-  } catch {
-    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось отправить изображения. Можно повторить отправку.");
-  } finally {
-    if (isCurrentRoomRequest(room)) messageSaving.value = false;
-  }
+  const drafts = communityUploads.addFiles(files, { kind, ...(durationSeconds === undefined ? {} : { durationSeconds }) });
+  if (!isCurrentRoomRequest(room) || !drafts.length) return;
+  void communityUploads.uploadDrafts(drafts.map((draft) => draft.id));
 }
 
-async function handleSendVoice(blob: Blob, durationSeconds: number) {
+function handleRetryUpload(draftId: string) {
+  void communityUploads.retryDraft(draftId);
+}
+
+function handleReattachUpload(draftId: string, file: File) {
+  if (communityUploads.reattachFile(draftId, file)) void communityUploads.uploadDraft(draftId);
+}
+
+async function handleSendUploads(draftIds: string[]) {
   const room = captureRoomRequestOwner();
-  if (!room) return;
+  const userId = session.user?.id;
+  if (!room || !userId || !draftIds.length || messageSaving.value) return;
+  const selected = draftIds.map((id) => communityUploads.drafts.find((draft) => draft.id === id));
+  if (selected.some((draft) => !draft)
+    || selected.some((draft) => draft?.userId !== userId || draft.topicId !== room.topicId)
+    || selected.some((draft) => draft?.status !== "uploaded" || !draft.uploadToken)) {
+    showCommunityError("Не все вложения готовы к отправке.");
+    return;
+  }
+  const tokens = selected.flatMap((draft) => draft?.uploadToken ? [draft.uploadToken] : []);
   const replyToMessageId = replyToMessage.value?.id ?? null;
   messageSaving.value = true;
   try {
-    const response = await createClubVoiceMessage(room.topicId, blob, durationSeconds, replyToMessageId);
+    const response = await createCommunityUploadMessage(room.topicId, tokens, replyToMessageId);
+    communityUploads.removeDraftsForScope(draftIds, userId, room.topicId);
     if (!isCurrentRoomRequest(room)) return;
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
     composerResetVersion.value += 1;
   } catch {
-    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось отправить голосовое. Запись сохранена для повторной отправки.");
+    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось отправить вложения. Они сохранены для повторной отправки.");
   } finally {
     if (isCurrentRoomRequest(room)) messageSaving.value = false;
   }
@@ -1061,6 +1071,7 @@ function resetCommunityUiState() {
 
 function beginAccountGeneration() {
   accountGeneration += 1;
+  communityUploads.suspend();
   invalidateTopicRequests();
   messageRequestGeneration += 1;
   topicsRequestGeneration += 1;
@@ -1092,6 +1103,10 @@ watch(
   (topicId, previousTopicId) => {
     emit("chatOpenChange", Boolean(topicId));
     if (topicId) {
+      const userId = session.user?.id;
+      if (userId && (communityUploads.currentUserId !== userId || communityUploads.currentTopicId !== topicId)) {
+        communityUploads.configure({ userId, topicId });
+      }
       if (previousTopicId && previousTopicId !== topicId) {
         invalidateTopicRequests();
         void topicState.closeTopic();
@@ -1103,6 +1118,8 @@ watch(
       }
       return;
     }
+
+    communityUploads.suspend();
 
     if (previousTopicId) {
       invalidateTopicRequests();
@@ -1210,6 +1227,7 @@ onBeforeUnmount(() => {
   stopCommunityRealtime();
   stopRealtimeFallback();
   resetCommunityOutbox();
+  communityUploads.suspend();
   document.removeEventListener("visibilitychange", handleCommunityVisibilityChange);
   window.removeEventListener("online", handleCommunityOnline);
   emit("chatOpenChange", false);
@@ -1310,6 +1328,8 @@ onBeforeUnmount(() => {
       :interaction-reset-version="interactionResetVersion"
       :active-moderation-message="activeModerationMessage"
       :background-inert="showMessageSearch"
+      :attachment-drafts="communityUploads.drafts"
+      :attachment-error="communityUploads.scopeError"
       @back="closeTopic"
       @toggle-topic-lock="handleToggleTopicLock"
       @delete-topic-messages="handleDeleteTopicMessages"
@@ -1327,8 +1347,12 @@ onBeforeUnmount(() => {
       @retry="handleRetryMessage"
       @edit="startEditMessage"
       @delete-self="handleDeleteOwnMessage"
-      @send-voice="handleSendVoice"
-      @send-files="handleSendImages"
+      @stage-files="handleStageFiles"
+      @send-uploads="handleSendUploads"
+      @retry-upload="handleRetryUpload"
+      @cancel-upload="communityUploads.cancelDraft"
+      @remove-upload="communityUploads.removeDraft"
+      @reattach-upload="handleReattachUpload"
       @create-poll="handleCreatePoll"
       @draft-change="handleDraftChange"
       @cancel-reply="replyToMessage = null"

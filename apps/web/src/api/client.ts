@@ -367,6 +367,7 @@ export function getCommunityParticipants(q: string, limit = 20) {
   });
 }
 
+/** @deprecated New clients use createCommunityUploadIntent + createCommunityUploadMessage. */
 export function createClubVoiceMessage(topicId: string, file: Blob, durationSeconds: number, replyToMessageId?: string | null) {
   const form = new FormData();
   form.set("voice", file, file instanceof File && file.name ? file.name : getCommunityVoiceUploadFileName(file.type));
@@ -375,6 +376,7 @@ export function createClubVoiceMessage(topicId: string, file: Blob, durationSeco
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages/voice`, { method: "POST", body: form });
 }
 
+/** @deprecated New clients use createCommunityUploadIntent + createCommunityUploadMessage. */
 export function createClubImageMessage(topicId: string, files: File[], replyToMessageId?: string | null) {
   const form = new FormData();
   files.forEach((file) => form.append("images", file, file.name));

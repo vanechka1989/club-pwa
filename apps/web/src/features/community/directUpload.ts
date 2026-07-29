@@ -106,9 +106,28 @@ type MultipartRefresh = {
   expiresAt: string;
 };
 
+type UploadTransportRuntime = {
+  signal?: AbortSignal;
+  onProgress?: (loadedBytes: number) => void;
+};
+
+export type CommunityUploadRuntimeOptions = {
+  userId: string;
+  kind?: CommunityUploadIntent["kind"];
+  durationSeconds?: number;
+  signal?: AbortSignal;
+  onProgress?: (progress: number) => void;
+};
+
 type UploadDependencies = {
   createIntent: (input: CommunityUploadIntent) => Promise<CommunityUploadIntentResponse>;
-  putObject: (url: string, body: Blob, contentType: string, partNumber?: number) => Promise<string | void>;
+  putObject: (
+    url: string,
+    body: Blob,
+    contentType: string,
+    partNumber?: number,
+    runtime?: UploadTransportRuntime
+  ) => Promise<string | void>;
   completePut: (input: { uploadToken: string }) => Promise<CommunityUploadedObject>;
   completeMultipart: (input: MultipartCompleteInput) => Promise<CommunityUploadedObject>;
   refreshMultipart: (uploadToken: string) => Promise<MultipartRefresh>;
@@ -126,7 +145,7 @@ type StoredMultipartSession = {
   completedParts: Array<{ partNumber: number; etag: string }>;
 };
 
-let liveUploadTokens = new WeakMap<File, string>();
+let liveUploadTokens = new WeakMap<File, { userId: string; uploadToken: string }>();
 
 function readSessions(storage: UploadDependencies["storage"]): StoredMultipartSession[] {
   try {
@@ -176,7 +195,8 @@ function writeSessions(storage: UploadDependencies["storage"], sessions: StoredM
 }
 
 function sameLiveFile(session: StoredMultipartSession, file: File, userId: string) {
-  return session.userId === userId && liveUploadTokens.get(file) === session.uploadToken;
+  const live = liveUploadTokens.get(file);
+  return session.userId === userId && live?.userId === userId && live.uploadToken === session.uploadToken;
 }
 
 function persistSession(storage: UploadDependencies["storage"], session: StoredMultipartSession) {
@@ -217,10 +237,49 @@ function isUnrecoverableUploadError(error: unknown) {
   return typeof status === "number" && [400, 403, 404, 410, 422].includes(status);
 }
 
-export async function putCommunityObject(url: string, body: Blob, contentType: string) {
-  const response = await fetch(url, { method: "PUT", headers: { "Content-Type": contentType }, body });
-  if (!response.ok) throw new Error("community_s3_upload_failed");
-  return response.headers.get("ETag") ?? undefined;
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+function safeUploadPercent(loadedBytes: number, totalBytes: number) {
+  if (!Number.isFinite(loadedBytes) || !Number.isFinite(totalBytes) || totalBytes <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((loadedBytes / totalBytes) * 100)));
+}
+
+export function putCommunityObject(
+  url: string,
+  body: Blob,
+  contentType: string,
+  _partNumber?: number,
+  runtime: UploadTransportRuntime = {}
+) {
+  return new Promise<string | void>((resolve, reject) => {
+    if (runtime.signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const request = new XMLHttpRequest();
+    const abort = () => request.abort();
+    const cleanup = () => runtime.signal?.removeEventListener("abort", abort);
+    request.open("PUT", url);
+    request.setRequestHeader("Content-Type", contentType);
+    request.upload.addEventListener("progress", (event) => runtime.onProgress?.(Math.min(body.size, event.loaded)));
+    request.addEventListener("load", () => {
+      cleanup();
+      if (request.status >= 200 && request.status < 300) resolve(request.getResponseHeader("ETag") ?? undefined);
+      else reject(new Error("community_s3_upload_failed"));
+    });
+    request.addEventListener("error", () => {
+      cleanup();
+      reject(new Error("community_s3_upload_failed"));
+    });
+    request.addEventListener("abort", () => {
+      cleanup();
+      reject(new DOMException("Aborted", "AbortError"));
+    });
+    runtime.signal?.addEventListener("abort", abort, { once: true });
+    request.send(body);
+  });
 }
 
 const productionDependencies: UploadDependencies = {
@@ -235,14 +294,15 @@ const productionDependencies: UploadDependencies = {
 
 export function clearCommunityUploadSessions(storage: UploadDependencies["storage"] = localStorage, userId?: string) {
   writeSessions(storage, userId ? readSessions(storage).filter((session) => session.userId !== userId) : []);
-  liveUploadTokens = new WeakMap<File, string>();
+  liveUploadTokens = new WeakMap<File, { userId: string; uploadToken: string }>();
 }
 
 export async function uploadCommunityFile(
   file: File,
   dependencies: UploadDependencies = productionDependencies,
-  options: { userId: string; kind?: CommunityUploadIntent["kind"]; durationSeconds?: number }
+  options: CommunityUploadRuntimeOptions
 ): Promise<CommunityUploadedObject> {
+  if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const policyError = getCommunityFileError(file, options);
   if (policyError) throw new Error(policyError);
   const description = describeCommunityFile(file, options);
@@ -251,12 +311,21 @@ export async function uploadCommunityFile(
   const initialIntent = resumable ? null : await dependencies.createIntent(description);
 
   if (initialIntent?.uploadType === "put") {
+    liveUploadTokens.set(file, { userId: options.userId, uploadToken: initialIntent.uploadToken });
     try {
-      await dependencies.putObject(initialIntent.uploadUrl, file, initialIntent.contentType);
-      return await dependencies.completePut({ uploadToken: initialIntent.uploadToken });
+      await dependencies.putObject(initialIntent.uploadUrl, file, initialIntent.contentType, undefined, {
+        ...(options.signal ? { signal: options.signal } : {}),
+        onProgress: (loadedBytes) => options.onProgress?.(safeUploadPercent(loadedBytes, file.size))
+      });
+      if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      const completed = await dependencies.completePut({ uploadToken: initialIntent.uploadToken });
+      options.onProgress?.(100);
+      liveUploadTokens.delete(file);
+      return completed;
     } catch (error) {
-      if (isUnrecoverableUploadError(error)) {
+      if (isAbortError(error) || isUnrecoverableUploadError(error)) {
         await dependencies.abortUpload(initialIntent.uploadToken).catch(() => undefined);
+        liveUploadTokens.delete(file);
       }
       throw error;
     }
@@ -274,32 +343,57 @@ export async function uploadCommunityFile(
     expiresAt: multipart.expiresAt,
     completedParts: []
   };
-  liveUploadTokens.set(file, session.uploadToken);
+  liveUploadTokens.set(file, { userId: options.userId, uploadToken: session.uploadToken });
   if (resumable && refreshed) session.completedParts = refreshed.completedParts;
   persistSession(dependencies.storage, session);
   const completedByNumber = new Map(session.completedParts.map((part) => [part.partNumber, part]));
   const pendingParts = multipart.parts.filter((part) => !completedByNumber.has(part.partNumber));
+  const partLoaded = new Map<number, number>();
+  const partByteSize = (partNumber: number) => {
+    const start = (partNumber - 1) * multipart.partSizeBytes;
+    return Math.max(0, Math.min(multipart.partSizeBytes, file.size - start));
+  };
+  const reportMultipartProgress = () => {
+    const completedBytes = [...completedByNumber.keys()].reduce((total, partNumber) => total + partByteSize(partNumber), 0);
+    const inFlightBytes = [...partLoaded.entries()]
+      .filter(([partNumber]) => !completedByNumber.has(partNumber))
+      .reduce((total, [, loaded]) => total + loaded, 0);
+    options.onProgress?.(safeUploadPercent(completedBytes + inFlightBytes, file.size));
+  };
+  reportMultipartProgress();
   try {
     await runWithConcurrency(pendingParts, multipartConcurrency, async (part) => {
+      if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
       const start = (part.partNumber - 1) * multipart.partSizeBytes;
       const end = Math.min(start + multipart.partSizeBytes, file.size);
       const chunk = file.slice(start, end, description.contentType);
       if (chunk.size < 1 || chunk.size > multipart.partSizeBytes) throw new Error("invalid_part_size");
-      const etag = await dependencies.putObject(part.uploadUrl, chunk, description.contentType, part.partNumber);
+      const etag = await dependencies.putObject(part.uploadUrl, chunk, description.contentType, part.partNumber, {
+        ...(options.signal ? { signal: options.signal } : {}),
+        onProgress: (loadedBytes) => {
+          partLoaded.set(part.partNumber, Math.min(chunk.size, loadedBytes));
+          reportMultipartProgress();
+        }
+      });
       if (!etag) throw new Error("missing_part_etag");
+      partLoaded.delete(part.partNumber);
       completedByNumber.set(part.partNumber, { partNumber: part.partNumber, etag });
       session.completedParts = [...completedByNumber.values()].sort((left, right) => left.partNumber - right.partNumber);
       persistSession(dependencies.storage, session);
+      reportMultipartProgress();
     });
 
+    if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const completed = await dependencies.completeMultipart({
       uploadToken: session.uploadToken,
       parts: [...completedByNumber.values()].sort((left, right) => left.partNumber - right.partNumber)
     });
     removeSession(dependencies.storage, session.uploadToken);
+    liveUploadTokens.delete(file);
+    options.onProgress?.(100);
     return completed;
   } catch (error) {
-    if (isUnrecoverableUploadError(error)) {
+    if (isAbortError(error) || isUnrecoverableUploadError(error)) {
       await dependencies.abortUpload(session.uploadToken).catch(() => undefined);
       removeSession(dependencies.storage, session.uploadToken);
       liveUploadTokens.delete(file);
@@ -313,11 +407,10 @@ export async function cancelCommunityFileUpload(
   userId: string,
   dependencies: Pick<UploadDependencies, "abortUpload" | "storage"> = productionDependencies
 ) {
-  const token = liveUploadTokens.get(file);
-  const session = token ? readSessions(dependencies.storage).find((item) => item.userId === userId && item.uploadToken === token) : null;
-  if (!session) return { ok: true as const };
-  await dependencies.abortUpload(session.uploadToken);
-  removeSession(dependencies.storage, session.uploadToken);
+  const live = liveUploadTokens.get(file);
+  if (!live || live.userId !== userId) return { ok: true as const };
+  await dependencies.abortUpload(live.uploadToken);
+  removeSession(dependencies.storage, live.uploadToken);
   liveUploadTokens.delete(file);
   return { ok: true as const };
 }

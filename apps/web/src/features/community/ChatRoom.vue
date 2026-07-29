@@ -7,6 +7,7 @@ import ChatComposer from "./ChatComposer.vue";
 import ChatMessage from "./ChatMessage.vue";
 import ChatModerationMenu from "./ChatModerationMenu.vue";
 import type { QueuedTextMessage } from "./communityOutbox";
+import type { CommunityUploadDraft } from "@/stores/communityUploads";
 import {
   authorName,
   canGroupCommunityMessages,
@@ -49,6 +50,8 @@ const props = defineProps<{
   editMessage?: ClubMessage | null;
   serverClock?: CommunityServerClock | null;
   backgroundInert?: boolean;
+  attachmentDrafts?: CommunityUploadDraft[];
+  attachmentError?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -64,8 +67,12 @@ const emit = defineEmits<{
   "poll-vote": ChatMessageEventMap["poll-vote"];
   "poll-close": ChatMessageEventMap["poll-close"];
   "send-text": ChatComposerEventMap["send-text"];
-  "send-voice": ChatComposerEventMap["send-voice"];
-  "send-files": ChatComposerEventMap["send-files"];
+  "stage-files": ChatComposerEventMap["stage-files"];
+  "send-uploads": ChatComposerEventMap["send-uploads"];
+  "retry-upload": ChatComposerEventMap["retry-upload"];
+  "cancel-upload": ChatComposerEventMap["cancel-upload"];
+  "remove-upload": ChatComposerEventMap["remove-upload"];
+  "reattach-upload": ChatComposerEventMap["reattach-upload"];
   "create-poll": ChatComposerEventMap["create-poll"];
   "draft-change": ChatComposerEventMap["draft-change"];
   "cancel-reply": ChatComposerEventMap["cancel-reply"];
@@ -465,10 +472,16 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
       :edit-message="editMessage ?? null"
       :draft="draft"
       :reset-version="composerResetVersion"
+      :attachment-drafts="attachmentDrafts ?? []"
+      :attachment-error="attachmentError ?? null"
       @send-text="(body, mentions) => $emit('send-text', body, mentions)"
       @save-edit="(message, body, mentions) => $emit('save-edit', message, body, mentions)"
-      @send-voice="(blob, durationSeconds) => $emit('send-voice', blob, durationSeconds)"
-      @send-files="$emit('send-files', $event)"
+      @stage-files="(files, kind, durationSeconds) => $emit('stage-files', files, kind, durationSeconds)"
+      @send-uploads="$emit('send-uploads', $event)"
+      @retry-upload="$emit('retry-upload', $event)"
+      @cancel-upload="$emit('cancel-upload', $event)"
+      @remove-upload="$emit('remove-upload', $event)"
+      @reattach-upload="(id, file) => $emit('reattach-upload', id, file)"
       @create-poll="$emit('create-poll', $event)"
       @draft-change="$emit('draft-change', $event)"
       @cancel-reply="$emit('cancel-reply')"

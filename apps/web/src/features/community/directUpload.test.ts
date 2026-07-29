@@ -1,6 +1,7 @@
 import type { CommunityUploadIntentResponse } from "@club/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  cancelCommunityFileUpload,
   describeCommunityFile,
   getCommunityFileError,
   uploadCommunityFile
@@ -56,6 +57,45 @@ describe("community browser direct upload", () => {
 
     expect(calls).toEqual(["put:https://s3.test/put:10:image/png", "complete"]);
     expect(completed).toMatchObject({ kind: "image", fileName: "photo.png", uploadToken });
+  });
+
+  it("forwards byte progress and aborts the server intent when the caller cancels", async () => {
+    const file = fakeFile(10, "photo.png", "image/png");
+    const progress: number[] = [];
+    const abortUpload = vi.fn(async () => undefined);
+    const controller = new AbortController();
+    let started!: () => void;
+    const transportStarted = new Promise<void>((resolve) => { started = resolve; });
+    const work = uploadCommunityFile(file, {
+      createIntent: async (input) => ({
+        ...input,
+        uploadType: "put",
+        uploadToken,
+        objectKey: objectKey.replace("clip.mp4", "photo.png"),
+        uploadUrl: "https://s3.test/private-signature",
+        expiresAt: "2099-07-29T12:10:00.000Z"
+      }),
+      putObject: async (_url, body, _contentType, _partNumber, runtime) => {
+        runtime?.onProgress?.(body.size / 2);
+        started();
+        return new Promise<void>((_resolve, reject) => {
+          runtime?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        });
+      },
+      completePut: async () => { throw new Error("must_not_complete"); },
+      completeMultipart: async () => { throw new Error("unused"); },
+      refreshMultipart: async () => { throw new Error("unused"); },
+      abortUpload,
+      storage: localStorage
+    }, { userId, signal: controller.signal, onProgress: (value) => progress.push(value) });
+
+    await transportStarted;
+    expect(progress).toContain(50);
+    controller.abort();
+    await expect(work).rejects.toMatchObject({ name: "AbortError" });
+    expect(abortUpload).toHaveBeenCalledWith(uploadToken);
+    await expect(cancelCommunityFileUpload(file, userId, { abortUpload, storage: localStorage })).resolves.toEqual({ ok: true });
+    expect(abortUpload).toHaveBeenCalledTimes(1);
   });
 
   it("uploads 8-MiB multipart chunks with at most four concurrent S3 requests", async () => {

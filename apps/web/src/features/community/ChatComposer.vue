@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { resolveDisplayName, type ClubMessage, type CommunityMention, type CommunityParticipantSuggestionsResponse } from "@club/shared";
+import { resolveDisplayName, type ClubMessage, type CommunityMention, type CommunityParticipantSuggestionsResponse, type CommunityUploadKind } from "@club/shared";
 import {
   BarChart3,
   Camera,
+  FileText,
   Image as ImageIcon,
   LoaderCircle,
   Mic,
@@ -13,17 +14,20 @@ import {
   Smile,
   Square,
   Trash2,
+  Video,
   X
 } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "@/features/app/i18n";
 import ChatMentionPicker from "./ChatMentionPicker.vue";
+import ChatAttachmentDraft from "./ChatAttachmentDraft.vue";
 import ChatPollComposer from "./ChatPollComposer.vue";
 import ChatVoiceWaveform from "./ChatVoiceWaveform.vue";
 import { authorName, quickEmoji, type ChatComposerEventMap } from "./communityViewModel";
-import { useImageDraft } from "./useImageDraft";
 import { useVoiceRecorder } from "./useVoiceRecorder";
+import { getCommunityVoiceUploadFileName } from "./voiceUpload";
 import { formatVoiceTime } from "./voiceWaveform";
+import type { CommunityUploadDraft } from "@/stores/communityUploads";
 
 const props = defineProps<{
   canWrite: boolean;
@@ -35,6 +39,8 @@ const props = defineProps<{
   draft: string;
   resetVersion: number;
   editMessage?: ClubMessage | null;
+  attachmentDrafts?: CommunityUploadDraft[];
+  attachmentError?: string | null;
 }>();
 
 const emit = defineEmits<ChatComposerEventMap>();
@@ -45,8 +51,9 @@ const showAttachmentMenu = ref(false);
 const showPollComposer = ref(false);
 const imageInput = ref<HTMLInputElement | null>(null);
 const cameraInput = ref<HTMLInputElement | null>(null);
+const videoInput = ref<HTMLInputElement | null>(null);
+const documentInput = ref<HTMLInputElement | null>(null);
 const voiceRecorder = useVoiceRecorder();
-const imageDraft = useImageDraft();
 const voicePreviewAudio = ref<HTMLAudioElement | null>(null);
 const voicePreviewPlaying = ref(false);
 const voicePreviewCurrentTime = ref(0);
@@ -61,6 +68,10 @@ const mentionPickerState = ref<{ expanded: boolean; activeOptionId: string | nul
   expanded: false,
   activeOptionId: null
 });
+const attachmentDrafts = computed(() => props.attachmentDrafts ?? []);
+const attachmentsReady = computed(() =>
+  attachmentDrafts.value.length > 0 && attachmentDrafts.value.every((draft) => draft.status === "uploaded")
+);
 
 const draftModel = computed({
   get: () => draftValue.value,
@@ -194,7 +205,6 @@ function cancelVoiceDraft() {
 
 function resetLocalDrafts() {
   cancelVoiceDraft();
-  imageDraft.clear();
   showAttachmentMenu.value = false;
   showEmojiPicker.value = false;
   showPollComposer.value = false;
@@ -205,11 +215,21 @@ function appendEmoji(emoji: string) {
   showEmojiPicker.value = false;
 }
 
-function handleImageSelection(event: Event) {
+function handleFileSelection(event: Event, kind: CommunityUploadKind) {
   const input = event.target as HTMLInputElement;
-  imageDraft.add(Array.from(input.files ?? []));
+  const files = Array.from(input.files ?? []);
+  if (files.length) emit("stage-files", files, kind, undefined);
   input.value = "";
   showAttachmentMenu.value = false;
+}
+
+function stageVoiceDraft() {
+  const blob = voiceRecorder.blob.value;
+  if (!blob) return;
+  const contentType = blob.type.toLowerCase().split(";")[0]?.trim() || "audio/webm";
+  const file = new File([blob], getCommunityVoiceUploadFileName(contentType), { type: contentType });
+  emit("stage-files", [file], "voice", voiceRecorder.durationSeconds.value);
+  cancelVoiceDraft();
 }
 
 function submitText() {
@@ -326,39 +346,38 @@ onBeforeUnmount(resetLocalDrafts);
           :disabled="messageSaving"
           :aria-busy="messageSaving"
           aria-label="Отправить голосовое сообщение"
-          @click="$emit('send-voice', voiceRecorder.blob.value!, voiceRecorder.durationSeconds.value)"
+          @click="stageVoiceDraft"
         >
           <LoaderCircle v-if="messageSaving" aria-hidden="true" />
           <Send v-else aria-hidden="true" />
         </button>
       </div>
-      <div v-if="imageDraft.hasImages.value" class="chat-image-draft">
-        <div>
-          <button
-            v-for="(url, index) in imageDraft.previews.value"
-            :key="url"
-            type="button"
-            :aria-label="`Удалить изображение ${index + 1}`"
-            @click="imageDraft.remove(index)"
-          >
-            <img :src="url" alt="" /><X />
-          </button>
-        </div>
-        <button type="button" @click="imageDraft.clear">Отмена</button>
+      <div v-if="attachmentDrafts.length" class="chat-attachment-drafts" aria-label="Выбранные вложения">
+        <ChatAttachmentDraft
+          v-for="attachment in attachmentDrafts"
+          :key="attachment.id"
+          :draft="attachment"
+          @cancel="$emit('cancel-upload', $event)"
+          @retry="$emit('retry-upload', $event)"
+          @remove="$emit('remove-upload', $event)"
+          @reattach="(id, file) => $emit('reattach-upload', id, file)"
+        />
         <button
+          v-if="attachmentsReady"
           class="chat-draft-send"
           :class="{ 'chat-draft-send-loading': messageSaving }"
           type="button"
           :disabled="messageSaving"
           :aria-busy="messageSaving"
-          @click="$emit('send-files', [...imageDraft.files.value])"
+          :aria-label="`Отправить ${attachmentDrafts.length} ${attachmentDrafts.length === 1 ? 'вложение' : 'вложения'}`"
+          @click="$emit('send-uploads', attachmentDrafts.map((attachment) => attachment.id))"
         >
           <LoaderCircle v-if="messageSaving" aria-hidden="true" />
-          <span>{{ messageSaving ? "Отправка…" : `Отправить ${imageDraft.files.value.length}` }}</span>
+          <span>{{ messageSaving ? "Отправка…" : `Отправить ${attachmentDrafts.length}` }}</span>
         </button>
       </div>
-      <p v-if="voiceRecorder.error.value || imageDraft.error.value" class="chat-media-draft-error">
-        {{ voiceRecorder.error.value || imageDraft.error.value }}
+      <p v-if="voiceRecorder.error.value || attachmentError" class="chat-media-draft-error" role="alert">
+        {{ voiceRecorder.error.value || attachmentError }}
       </p>
       <div class="chat-input-row chat-composer-shell">
         <div class="composer-attachment-wrap">
@@ -374,10 +393,14 @@ onBeforeUnmount(resetLocalDrafts);
           <div v-if="showAttachmentMenu" class="composer-attachment-menu">
             <button type="button" @click="imageInput?.click()"><ImageIcon /> Из галереи</button>
             <button type="button" @click="cameraInput?.click()"><Camera /> Сделать фото</button>
+            <button type="button" @click="videoInput?.click()"><Video /> Видео</button>
+            <button type="button" @click="documentInput?.click()"><FileText /> Документ</button>
             <button type="button" @click="showPollComposer = true; showAttachmentMenu = false"><BarChart3 /> Опрос</button>
           </div>
-          <input ref="imageInput" class="sr-only" type="file" accept="image/*" multiple @change="handleImageSelection" />
-          <input ref="cameraInput" class="sr-only" type="file" accept="image/*" capture="environment" @change="handleImageSelection" />
+          <input ref="imageInput" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple aria-label="Выбрать изображения из галереи" @change="handleFileSelection($event, 'image')" />
+          <input ref="cameraInput" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" aria-label="Сделать фото" @change="handleFileSelection($event, 'image')" />
+          <input ref="videoInput" class="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm" aria-label="Выбрать видео" @change="handleFileSelection($event, 'video')" />
+          <input ref="documentInput" class="sr-only" type="file" accept=".pdf,.docx,.xlsx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation" aria-label="Выбрать документ" @change="handleFileSelection($event, 'document')" />
         </div>
         <div class="composer-emoji-wrap">
           <button class="icon-button ui-icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">

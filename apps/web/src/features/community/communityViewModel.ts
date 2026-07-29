@@ -1,4 +1,4 @@
-import { resolveDisplayName, type ClubMessage, type ClubUser, type CommunityMention, type MessageReaction } from "@club/shared";
+import { resolveDisplayName, type ClubMessage, type ClubUser, type CommunityMention, type CommunityUploadKind, type MessageReaction } from "@club/shared";
 import type { QueuedTextMessage } from "./communityOutbox";
 
 export type VisibleMessageReaction = Exclude<MessageReaction, "like" | "dislike">;
@@ -77,8 +77,12 @@ export interface ChatPollDraft {
 export type ChatComposerEventMap = {
   "send-text": [body: string, mentions: CommunityMention[]];
   "save-edit": [message: ClubMessage, body: string, mentions: CommunityMention[]];
-  "send-voice": [blob: Blob, durationSeconds: number];
-  "send-files": [files: File[]];
+  "stage-files": [files: File[], kind: CommunityUploadKind, durationSeconds?: number];
+  "send-uploads": [draftIds: string[]];
+  "retry-upload": [draftId: string];
+  "cancel-upload": [draftId: string];
+  "remove-upload": [draftId: string];
+  "reattach-upload": [draftId: string, file: File];
   "create-poll": [payload: ChatPollDraft];
   "draft-change": [body: string];
   "cancel-reply": [];
@@ -347,6 +351,8 @@ export function communityMessageSignature(message: ClubMessage) {
     message.voice?.url ?? "",
     message.voice?.deletedAt ?? "",
     message.images.map((image) => `${image.id}:${image.url ?? ""}:${image.deletedAt ?? ""}`).join("|"),
+    message.video ? `${message.video.id}:${message.video.url ?? ""}:${message.video.scanStatus}:${message.video.deletedAt ?? ""}` : "",
+    message.document ? `${message.document.id}:${message.document.url ?? ""}:${message.document.scanStatus}:${message.document.deletedAt ?? ""}` : "",
     message.poll ? `${message.poll.id}:${message.poll.closedAt ?? ""}:${message.poll.options.map((option) => `${option.id}:${option.votesCount}:${option.selected}`).join("|")}` : "",
     message.createdAt,
     message.author.photoUrl ?? "",
