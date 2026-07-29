@@ -403,6 +403,20 @@ body.club-mobile-app-scaled .community-chat-open .chat-input-row .text-input {
   .chat-message-jump-highlight .chat-bubble { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 42%, transparent); }
 }
 
+.community-chat-open .chat-jump-new-button {
+  right: max(var(--page-padding), calc(var(--club-safe-right) + var(--page-padding)));
+  bottom: calc(var(--icon-button-size) + var(--page-padding) * 2);
+}
+
+.community-chat-open .chat-new-messages-divider {
+  scroll-margin-top: 18svh;
+}
+
+:root[data-theme="light"] .chat-search-layer,
+:root[data-theme="light"] .chat-search-task {
+  background: var(--color-bg);
+}
+
 .community-chat-open .chat-avatar {
   width: 32px;
   height: 32px;

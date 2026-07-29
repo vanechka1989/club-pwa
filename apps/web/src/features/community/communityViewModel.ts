@@ -72,6 +72,42 @@ export function isOwnMessage(message: ClubMessage, viewer: CommunityViewer | nul
   return message.author.id === viewer?.id;
 }
 
+export function isUnreadCandidate(message: ClubMessage, viewer: CommunityViewer | null) {
+  return message.status === "visible"
+    && !message.isSystem
+    && !message.deletedByUserAt
+    && !isOwnMessage(message, viewer);
+}
+
+export function needsUnreadHistory(
+  messages: ClubMessage[],
+  viewer: CommunityViewer | null,
+  unreadCount: number
+) {
+  return messages.filter((message) => isUnreadCandidate(message, viewer)).length < unreadCount;
+}
+
+export function communityMuteComposerText(mutedPermanently: boolean, mutedUntil: string | null) {
+  if (mutedPermanently) return "Бессрочный мут. Вы пока не можете писать в чат.";
+  return mutedUntil
+    ? `Мут до ${new Date(mutedUntil).toLocaleString("ru-RU")}. Вы пока не можете писать в чат.`
+    : "";
+}
+
+export function getOrCreateCommunityDeviceId(storageKey: string) {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stored)) {
+      return stored;
+    }
+    const created = crypto.randomUUID();
+    localStorage.setItem(storageKey, created);
+    return created;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
 export function isReplyToViewer(message: ClubMessage, viewer: CommunityViewer | null) {
   return message.replyTo?.author.id === viewer?.id && !isOwnMessage(message, viewer);
 }
@@ -127,4 +163,46 @@ export function formatMuteLabel(message: ClubMessage) {
   }
 
   return `Мут до ${message.authorMute.expiresAt ? new Date(message.authorMute.expiresAt).toLocaleString("ru-RU") : ""}`;
+}
+
+export function communityMessageSignature(message: ClubMessage) {
+  return [
+    message.id,
+    message.status,
+    message.body,
+    message.kind,
+    message.voice?.url ?? "",
+    message.voice?.deletedAt ?? "",
+    message.images.map((image) => `${image.id}:${image.url ?? ""}:${image.deletedAt ?? ""}`).join("|"),
+    message.poll ? `${message.poll.id}:${message.poll.closedAt ?? ""}:${message.poll.options.map((option) => `${option.id}:${option.votesCount}:${option.selected}`).join("|")}` : "",
+    message.createdAt,
+    message.author.photoUrl ?? "",
+    message.author.avatarPositionX ?? "",
+    message.author.avatarPositionY ?? "",
+    message.author.avatarScale ?? "",
+    message.likesCount,
+    message.dislikesCount,
+    message.reactionCounts.map((reaction) => `${reaction.reaction}:${reaction.count}`).join(","),
+    message.myReaction ?? "",
+    message.authorMute?.id ?? "",
+    message.authorMute?.kind ?? "",
+    message.authorMute?.expiresAt ?? "",
+    message.replyTo?.id ?? "",
+    message.replyTo?.body ?? "",
+    message.pinnedAt ?? ""
+  ].join("\u001f");
+}
+
+export function communityMessagesSignature(messages: ClubMessage[]) {
+  return messages.map(communityMessageSignature).join("\u001e");
+}
+
+export function communityErrorStatus(reason: unknown) {
+  if (!reason || typeof reason !== "object") return null;
+  if ("status" in reason && typeof reason.status === "number") return reason.status;
+  if ("statusCode" in reason && typeof reason.statusCode === "number") return reason.statusCode;
+  if ("response" in reason && reason.response && typeof reason.response === "object" && "status" in reason.response) {
+    return typeof reason.response.status === "number" ? reason.response.status : null;
+  }
+  return null;
 }

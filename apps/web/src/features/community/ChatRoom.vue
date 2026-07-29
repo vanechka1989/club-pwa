@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ClubMessage, ClubTopic } from "@club/shared";
-import { ArrowLeft, ChevronDown, MoreVertical, Pin } from "lucide-vue-next";
+import type { ClubMessage, ClubTopic, CommunityNotificationMode } from "@club/shared";
+import { ArrowDown, ArrowLeft, ChevronDown, MoreVertical, Pin, Search } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "@/features/app/i18n";
 import ChatComposer from "./ChatComposer.vue";
@@ -9,6 +9,7 @@ import ChatModerationMenu from "./ChatModerationMenu.vue";
 import {
   authorName,
   formatMessageTime,
+  isUnreadCandidate,
   reactionOptions,
   type ChatComposerEventMap,
   type ChatMessageEventMap,
@@ -18,9 +19,11 @@ import {
 const props = defineProps<{
   topic: ClubTopic;
   messages: ClubMessage[];
+  initialUnreadCount?: number;
   messagesNextCursor: string | null;
   loadingOlderMessages: boolean;
   messageSaving: boolean;
+  notificationSaving?: boolean;
   communityError: string | null;
   isModerator: boolean;
   viewer: CommunityViewer | null;
@@ -40,6 +43,8 @@ const emit = defineEmits<{
   back: [];
   "toggle-topic-lock": [];
   "delete-topic-messages": [];
+  "open-search": [];
+  "update-notification-mode": [mode: CommunityNotificationMode];
   "load-older-messages": [];
   reply: ChatMessageEventMap["reply"];
   react: ChatMessageEventMap["react"];
@@ -77,21 +82,71 @@ const latestPinnedMessage = computed(() => pinnedMessages.value.at(-1) ?? null);
 const activeReactionMessage = computed(
   () => orderedMessages.value.find((message) => message.id === activeReactionMessageId.value) ?? null
 );
+const firstUnreadMessageId = computed(() => {
+  const eligibleMessages = orderedMessages.value.filter((message) => isUnreadCandidate(message, props.viewer));
+  if (props.messagesNextCursor && (props.initialUnreadCount ?? 0) > eligibleMessages.length) return null;
+  const count = Math.min(props.initialUnreadCount ?? 0, eligibleMessages.length);
+  return count > 0 ? eligibleMessages[eligibleMessages.length - count]?.id ?? null : null;
+});
+const pendingIncomingMessageIds = ref<string[]>([]);
+const isAwayFromBottom = ref(false);
+const jumpMessageId = computed(() =>
+  orderedMessages.value.find((message) => pendingIncomingMessageIds.value.includes(message.id))?.id ?? null
+);
+const showJumpButton = computed(() => Boolean(jumpMessageId.value) || isAwayFromBottom.value);
+let unreadPositionedTopicId: string | null = null;
+let observedTopicId = props.topic.id;
+let knownMessageIds = new Set(props.messages.map((message) => message.id));
+let latestKnownMessageKey = props.messages.reduce((latest, message) => {
+  const key = `${message.createdAt}\u001f${message.id}`;
+  return key > latest ? key : latest;
+}, "");
+
+function isNearMessagesBottom() {
+  const element = messagesList.value;
+  return !element || element.scrollHeight - element.scrollTop - element.clientHeight < 96;
+}
+
+function handleMessagesScroll() {
+  isAwayFromBottom.value = !isNearMessagesBottom();
+  const targetId = jumpMessageId.value;
+  const element = messagesList.value;
+  if (!targetId || !element) return;
+  const target = document.getElementById(`chat-message-${targetId}`);
+  if (isNearMessagesBottom() || (target && target.getBoundingClientRect().top <= element.getBoundingClientRect().bottom)) {
+    pendingIncomingMessageIds.value = [];
+  }
+}
+
+function jumpToIncomingMessages() {
+  const targetId = jumpMessageId.value;
+  if (!targetId) {
+    void scrollToBottom();
+    return;
+  }
+  pendingIncomingMessageIds.value = [];
+  scrollToMessage(targetId);
+}
 
 async function scrollToBottom() {
   await nextTick();
   messagesEnd.value?.scrollIntoView({ block: "end" });
+  isAwayFromBottom.value = false;
 }
 
 function getMessagesElement() {
   return messagesList.value;
 }
 
-function scrollToMessage(messageId: string) {
+function scrollToMessage(messageId: string, behavior: ScrollBehavior = "smooth") {
   showPinnedMessages.value = false;
   highlightedMessageId.value = messageId;
+  isAwayFromBottom.value = messageId !== orderedMessages.value.at(-1)?.id;
   if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
-  nextTick(() => document.getElementById(`chat-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  const resolvedBehavior = behavior === "smooth" && globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : behavior;
+  nextTick(() => document.getElementById(`chat-message-${messageId}`)?.scrollIntoView?.({ behavior: resolvedBehavior, block: "center" }));
   messageHighlightTimer = globalThis.setTimeout(() => {
     if (highlightedMessageId.value === messageId) highlightedMessageId.value = null;
     messageHighlightTimer = null;
@@ -129,6 +184,48 @@ function resetLocalInteractions() {
 }
 
 watch(() => props.topic.id, resetLocalInteractions);
+watch(
+  () => `${props.topic.id}\u001e${props.messages.map((message) => message.id).join("\u001f")}`,
+  () => {
+    if (props.topic.id !== observedTopicId) {
+      observedTopicId = props.topic.id;
+      knownMessageIds = new Set(props.messages.map((message) => message.id));
+      latestKnownMessageKey = props.messages.reduce((latest, message) => {
+        const key = `${message.createdAt}\u001f${message.id}`;
+        return key > latest ? key : latest;
+      }, "");
+      pendingIncomingMessageIds.value = [];
+      return;
+    }
+
+    const additions = props.messages.filter((message) => !knownMessageIds.has(message.id));
+    const incoming = additions.filter((message) => {
+      const key = `${message.createdAt}\u001f${message.id}`;
+      return key > latestKnownMessageKey && isUnreadCandidate(message, props.viewer);
+    });
+    knownMessageIds = new Set(props.messages.map((message) => message.id));
+    for (const message of additions) {
+      const key = `${message.createdAt}\u001f${message.id}`;
+      if (key > latestKnownMessageKey) latestKnownMessageKey = key;
+    }
+    if (!incoming.length || isNearMessagesBottom()) return;
+    pendingIncomingMessageIds.value = [...new Set([
+      ...pendingIncomingMessageIds.value,
+      ...incoming.map((message) => message.id)
+    ])];
+    isAwayFromBottom.value = true;
+  }
+);
+watch(
+  [() => props.topic.id, firstUnreadMessageId],
+  async ([topicId, messageId]) => {
+    if (!messageId || unreadPositionedTopicId === topicId) return;
+    unreadPositionedTopicId = topicId;
+    await nextTick();
+    scrollToMessage(messageId, "auto");
+  },
+  { immediate: true }
+);
 watch(() => props.interactionResetVersion, resetLocalInteractions);
 watch(() => props.reactionCompletedVersion, () => {
   activeReactionMessageId.value = null;
@@ -138,7 +235,7 @@ onBeforeUnmount(() => {
   if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
 });
 
-defineExpose({ getMessagesElement, scrollToBottom });
+defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
 </script>
 
 <template>
@@ -153,7 +250,10 @@ defineExpose({ getMessagesElement, scrollToBottom });
           {{ topic.isAdminOnly ? t("communityAdminOnlyRoom") : topic.isLocked ? "Тема закрыта" : "Открытый чат" }}
         </p>
       </div>
-      <div v-if="isModerator" class="chat-room-admin">
+      <button class="icon-button ui-icon-button" type="button" aria-label="Поиск сообщений" @click="$emit('open-search')">
+        <Search class="h-4 w-4" aria-hidden="true" />
+      </button>
+      <div class="chat-room-admin">
         <button
           class="icon-button ui-icon-button"
           type="button"
@@ -163,10 +263,25 @@ defineExpose({ getMessagesElement, scrollToBottom });
           <MoreVertical class="h-4 w-4" aria-hidden="true" />
         </button>
         <div v-if="showTopicAdminMenu" class="chat-admin-menu">
-          <button class="mini-action" type="button" @click="handleTopicLock">
+          <fieldset class="chat-notification-settings" :disabled="notificationSaving">
+            <legend>Уведомления</legend>
+            <label>
+              <input type="radio" name="chat-notification-mode" value="all" :checked="topic.notificationMode === 'all'" @change="$emit('update-notification-mode', 'all')" />
+              <span>Все сообщения</span>
+            </label>
+            <label>
+              <input type="radio" name="chat-notification-mode" value="mentions" :checked="topic.notificationMode === 'mentions'" @change="$emit('update-notification-mode', 'mentions')" />
+              <span>Только упоминания</span>
+            </label>
+            <label>
+              <input type="radio" name="chat-notification-mode" value="off" :checked="topic.notificationMode === 'off'" @change="$emit('update-notification-mode', 'off')" />
+              <span>Выключены</span>
+            </label>
+          </fieldset>
+          <button v-if="isModerator" class="mini-action" type="button" @click="handleTopicLock">
             {{ topic.isLocked ? "Открыть чат" : "Закрыть чат" }}
           </button>
-          <button class="mini-action danger-action" type="button" @click="handleDeleteTopicMessages">
+          <button v-if="isModerator" class="mini-action danger-action" type="button" @click="handleDeleteTopicMessages">
             Удалить все сообщения
           </button>
         </div>
@@ -215,7 +330,7 @@ defineExpose({ getMessagesElement, scrollToBottom });
       <p v-if="communityError" class="px-1 text-xs text-[var(--danger)]">{{ communityError }}</p>
     </div>
 
-    <div ref="messagesList" class="chat-messages">
+    <div ref="messagesList" class="chat-messages" @scroll.passive="handleMessagesScroll">
       <button
         v-if="messagesNextCursor"
         class="mx-auto mb-3 min-h-10 rounded-full border border-[var(--line)] px-4 text-xs font-semibold text-[var(--muted)]"
@@ -226,24 +341,38 @@ defineExpose({ getMessagesElement, scrollToBottom });
         {{ loadingOlderMessages ? "Загрузка…" : "Показать предыдущие сообщения" }}
       </button>
       <p v-if="!messages.length" class="py-6 text-center text-xs text-[var(--muted)]">{{ t("messagesEmpty") }}</p>
-      <ChatMessage
-        v-for="message in orderedMessages"
-        :key="message.id"
-        :message="message"
-        :viewer="viewer"
-        :is-moderator="isModerator"
-        :message-saving="messageSaving"
-        :highlighted="highlightedMessageId === message.id"
-        @reply="handleReply"
-        @react="handleReaction"
-        @open-actions="$emit('open-actions', $event)"
-        @jump-reply="scrollToMessage"
-        @poll-vote="(message, optionIds) => $emit('poll-vote', message, optionIds)"
-        @poll-close="$emit('poll-close', $event)"
-        @toggle-reactions="toggleReactionPicker"
-      />
+      <template v-for="message in orderedMessages" :key="message.id">
+        <div v-if="message.id === firstUnreadMessageId" class="chat-new-messages-divider" role="separator">
+          <span>Новые сообщения</span>
+        </div>
+        <ChatMessage
+          :message="message"
+          :viewer="viewer"
+          :is-moderator="isModerator"
+          :message-saving="messageSaving"
+          :highlighted="highlightedMessageId === message.id"
+          @reply="handleReply"
+          @react="handleReaction"
+          @open-actions="$emit('open-actions', $event)"
+          @jump-reply="scrollToMessage"
+          @poll-vote="(message, optionIds) => $emit('poll-vote', message, optionIds)"
+          @poll-close="$emit('poll-close', $event)"
+          @toggle-reactions="toggleReactionPicker"
+        />
+      </template>
       <div ref="messagesEnd"></div>
     </div>
+
+    <button
+      v-if="showJumpButton"
+      class="chat-jump-new-button"
+      type="button"
+      aria-label="Перейти к новым сообщениям"
+      @click="jumpToIncomingMessages"
+    >
+      <ArrowDown class="h-4 w-4" aria-hidden="true" />
+      <span v-if="pendingIncomingMessageIds.length">{{ pendingIncomingMessageIds.length }}</span>
+    </button>
 
     <ChatComposer
       :can-write="canWrite"

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import "./community.css";
 import "./communityRoute.css";
-import type { ClubMessage, ClubTopic } from "@club/shared";
-import { Lock, Plus } from "lucide-vue-next";
+import type { ClubMessage, ClubTopic, CommunityMessageSearchResult, CommunityNotificationMode } from "@club/shared";
+import { Lock, Plus, Search } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
@@ -17,11 +17,13 @@ import {
   deleteTopicAuthorMessages,
   deleteTopicMessages,
   getClubMessages,
+  getCommunityMessageContext,
   getCommunityTopics,
   markCommunityTopicRead,
   reactToClubMessage,
   setClubMessagePinned,
   revokeTopicUserMute,
+  updateCommunityTopicNotificationSettings,
   updateClubTopicSettings,
   updateModerationStatus
 } from "@/api/client";
@@ -33,6 +35,7 @@ import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatRoom from "./ChatRoom.vue";
+import ChatSearchPanel from "./ChatSearchPanel.vue";
 import ChatTopicList from "./ChatTopicList.vue";
 import { configureCommunityDrafts, loadDraft, resetCommunityDrafts, saveDraft } from "./communityDrafts";
 import {
@@ -45,18 +48,13 @@ import {
   resetCommunityOutbox,
   type QueuedTextMessage
 } from "./communityOutbox";
-import { authorName, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
+import { authorName, communityErrorStatus, communityMessagesSignature, communityMuteComposerText, getOrCreateCommunityDeviceId, needsUnreadHistory, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
 import { useCommunityTopicState } from "./useCommunityTopicState";
-
 const { t } = useI18n();
 const session = useSessionStore();
 const notifications = useNotificationsStore();
 const appDialogs = useAppDialogsStore();
-
-const emit = defineEmits<{
-  chatOpenChange: [isOpen: boolean];
-}>();
-
+const emit = defineEmits<{ chatOpenChange: [isOpen: boolean] }>();
 const topics = ref<ClubTopic[]>([]);
 const messages = ref<ClubMessage[]>([]);
 const queuedTextMessages = ref<QueuedTextMessage[]>([]);
@@ -65,6 +63,8 @@ const loadingOlderMessages = ref(false);
 const messagePageInitialized = ref(false);
 const hasLoadedOlderMessages = ref(false);
 const selectedTopic = ref<ClubTopic | null>(null);
+const initialUnreadCount = ref(0);
+const showMessageSearch = ref(false);
 const loading = ref(false);
 const mutedUntil = ref<string | null>(null);
 const mutedPermanently = ref(false);
@@ -76,6 +76,7 @@ const replyToMessage = ref<ClubMessage | null>(null);
 const activeModerationMessageId = ref<string | null>(null);
 const messageSaving = ref(false);
 const topicSaving = ref(false);
+const notificationSaving = ref(false);
 const communityError = ref<string | null>(null);
 const showDeleteTopicMessagesConfirm = ref(false);
 const deleteTopicMessagesBusy = ref(false);
@@ -85,6 +86,7 @@ const interactionResetVersion = ref(0);
 const chatRoom = ref<{
   getMessagesElement: () => HTMLElement | null;
   scrollToBottom: () => Promise<void>;
+  scrollToMessage: (messageId: string, behavior?: ScrollBehavior) => void;
 } | null>(null);
 const muteAlertShown = ref(false);
 let realtimeFallbackTimer: ReturnType<typeof globalThis.setInterval> | null = null;
@@ -97,10 +99,11 @@ let topicGeneration = 0;
 let messageRequestGeneration = 0;
 let historyRequestGeneration = 0;
 let topicsRequestGeneration = 0;
+let notificationRequestGeneration = 0;
+let searchJumpGeneration = 0;
 const refreshRequests = new Map<string, { queued: boolean; promise: Promise<void> }>();
 const topicListRequests = new Map<string, Promise<void>>();
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
-const communityDeviceStorageKey = "club-community-device-id-v1";
 const isModerator = computed(() =>
   hasAdminCapability(session.user?.role, session.user?.adminPermissions, "community")
 );
@@ -120,17 +123,7 @@ const canWrite = computed(
     selectedTopic.value.isPublished &&
     !isMuted.value
 );
-const muteComposerText = computed(() => {
-  if (mutedPermanently.value) {
-    return "Бессрочный мут. Вы пока не можете писать в чат.";
-  }
-
-  if (mutedUntil.value) {
-    return `Мут до ${new Date(mutedUntil.value).toLocaleString("ru-RU")}. Вы пока не можете писать в чат.`;
-  }
-
-  return "";
-});
+const muteComposerText = computed(() => communityMuteComposerText(mutedPermanently.value, mutedUntil.value));
 const unavailableComposerText = computed(() => {
   if (isMuted.value) return muteComposerText.value;
   if (selectedTopic.value?.isLocked && !isModerator.value) {
@@ -138,29 +131,9 @@ const unavailableComposerText = computed(() => {
   }
   return "Отправка сообщений сейчас недоступна.";
 });
-function closeModerationSheet() {
-  activeModerationMessageId.value = null;
-}
-
-function getCommunityDeviceId() {
-  try {
-    const stored = localStorage.getItem(communityDeviceStorageKey);
-    if (stored && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stored)) {
-      return stored;
-    }
-    const created = crypto.randomUUID();
-    localStorage.setItem(communityDeviceStorageKey, created);
-    return created;
-  } catch {
-    return crypto.randomUUID();
-  }
-}
-
-const communityDeviceId = getCommunityDeviceId();
-
-function hasNewReplyToMe(topic: ClubTopic) {
-  return Boolean(topic.latestReplyToMeAt && topic.unreadCount > 0);
-}
+function closeModerationSheet() { activeModerationMessageId.value = null; }
+const communityDeviceId = getOrCreateCommunityDeviceId("club-community-device-id-v1");
+function hasNewReplyToMe(topic: ClubTopic) { return Boolean(topic.latestReplyToMeAt && topic.unreadCount > 0); }
 
 function applyAuthoritativeTopicState(
   topicId: string,
@@ -173,7 +146,6 @@ function applyAuthoritativeTopicState(
 }
 
 type AccountRequestOwner = { userId: string; generation: number };
-
 function captureAccountOwner(): AccountRequestOwner | null {
   const userId = session.user?.id;
   return userId ? { userId, generation: accountGeneration } : null;
@@ -192,7 +164,9 @@ function isCurrentRoom(owner: AccountRequestOwner | null, expectedTopicId: strin
 function invalidateTopicRequests() {
   topicGeneration += 1;
   historyRequestGeneration += 1;
+  notificationRequestGeneration += 1;
   loadingOlderMessages.value = false;
+  notificationSaving.value = false;
 }
 
 const topicState = useCommunityTopicState({
@@ -305,29 +279,7 @@ async function refreshReadObservation(owner: AccountRequestOwner, topicId: strin
   if (element) topicState.observeVisibleMessages(element);
 }
 
-function getErrorStatus(reason: unknown) {
-  if (typeof reason !== "object" || !reason) {
-    return null;
-  }
-
-  if ("status" in reason && typeof reason.status === "number") {
-    return reason.status;
-  }
-
-  if ("statusCode" in reason && typeof reason.statusCode === "number") {
-    return reason.statusCode;
-  }
-
-  if ("response" in reason && typeof reason.response === "object" && reason.response && "status" in reason.response) {
-    return typeof reason.response.status === "number" ? reason.response.status : null;
-  }
-
-  return null;
-}
-
-function clearCommunityError() {
-  communityError.value = null;
-}
+function clearCommunityError() { communityError.value = null; }
 
 function showCommunityError(text: string) {
   communityError.value = text;
@@ -365,41 +317,13 @@ function isNearBottom() {
   return element.scrollHeight - element.scrollTop - element.clientHeight < 96;
 }
 
-function messageSignature(message: ClubMessage) {
-  return [
-    message.id,
-    message.status,
-    message.body,
-    message.kind,
-    message.voice?.url ?? "",
-    message.voice?.deletedAt ?? "",
-    message.images.map((image) => `${image.id}:${image.url ?? ""}:${image.deletedAt ?? ""}`).join("|"),
-    message.poll ? `${message.poll.id}:${message.poll.closedAt ?? ""}:${message.poll.options.map((option) => `${option.id}:${option.votesCount}:${option.selected}`).join("|")}` : "",
-    message.createdAt,
-    message.author.photoUrl ?? "",
-    message.author.avatarPositionX ?? "",
-    message.author.avatarPositionY ?? "",
-    message.author.avatarScale ?? "",
-    message.likesCount,
-    message.dislikesCount,
-    message.reactionCounts.map((reaction) => `${reaction.reaction}:${reaction.count}`).join(","),
-    message.myReaction ?? "",
-    message.authorMute?.id ?? "",
-    message.authorMute?.kind ?? "",
-    message.authorMute?.expiresAt ?? "",
-    message.replyTo?.id ?? "",
-    message.replyTo?.body ?? "",
-    message.pinnedAt ?? ""
-  ].join("\u001f");
-}
-
 async function handleTogglePin(message: ClubMessage) {
   try {
     const response = await setClubMessagePinned(message.id, !message.pinnedAt);
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
     activeModerationMessageId.value = null;
   } catch (error) {
-    if (getErrorStatus(error) === 409) {
+    if (communityErrorStatus(error) === 409) {
       activeModerationMessageId.value = null;
       notifications.showInfo("Можно закрепить не больше 5 сообщений.");
       return;
@@ -408,11 +332,7 @@ async function handleTogglePin(message: ClubMessage) {
   }
 }
 
-function messagesSignature(nextMessages: ClubMessage[]) {
-  return nextMessages.map(messageSignature).join("\u001e");
-}
-
-function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
+function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition = false } = {}) {
   const owner = captureAccountOwner();
   const topicId = selectedTopic.value?.id;
   const expectedTopicGeneration = topicGeneration;
@@ -438,7 +358,7 @@ function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
         : [];
       const confirmedMessages = reconcileQueuedMessages(response.messages);
       const nextMessages = mergeOptimisticMessages([...confirmedMessages, ...retainedOlderMessages]);
-      const messagesChanged = messagesSignature(messages.value) !== messagesSignature(nextMessages);
+      const messagesChanged = communityMessagesSignature(messages.value) !== communityMessagesSignature(nextMessages);
       if (messagesChanged) messages.value = nextMessages;
       if (!messagePageInitialized.value) {
         messagesNextCursor.value = response.nextCursor ?? null;
@@ -448,24 +368,24 @@ function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
       mutedPermanently.value = response.mutedPermanently;
 
       if (!messagesChanged) {
-        await refreshReadObservation(owner, topicId, expectedTopicGeneration);
+        if (!deferPosition) await refreshReadObservation(owner, topicId, expectedTopicGeneration);
         return;
       }
-      if (shouldScroll) {
+      if (shouldScroll && !deferPosition) {
         await scrollToBottom();
       } else if (scrollElement) {
         await nextTick();
         if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
         scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
       }
-      await refreshReadObservation(owner, topicId, expectedTopicGeneration);
+      if (!deferPosition) await refreshReadObservation(owner, topicId, expectedTopicGeneration);
     } catch {
       if (!silent && isCurrentRoom(owner, topicId, expectedTopicGeneration)) showCommunityError("Не удалось обновить чат.");
     } finally {
       if (refreshRequests.get(requestKey) !== requestState) return;
       refreshRequests.delete(requestKey);
       if (requestState.queued && isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
-        void refreshSelectedTopic({ keepScroll: true, silent: true });
+        await refreshSelectedTopic({ keepScroll: true, silent: true, deferPosition });
       }
     }
   });
@@ -480,6 +400,9 @@ async function loadOlderMessages() {
   const cursor = messagesNextCursor.value;
   const expectedTopicGeneration = topicGeneration;
   const requestGeneration = ++historyRequestGeneration;
+  const scrollElement = chatRoom.value?.getMessagesElement();
+  const previousScrollTop = scrollElement?.scrollTop ?? 0;
+  const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
   if (!owner) return;
   loadingOlderMessages.value = true;
   try {
@@ -489,6 +412,11 @@ async function loadOlderMessages() {
     const existingIds = new Set(messages.value.map((message) => message.id));
     messages.value = [...messages.value, ...response.messages.filter((message) => !existingIds.has(message.id))];
     messagesNextCursor.value = response.nextCursor ?? null;
+    if (scrollElement) {
+      await nextTick();
+      if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== historyRequestGeneration) return;
+      scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
+    }
   } catch {
     if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) showCommunityError("Не удалось загрузить предыдущие сообщения.");
   } finally {
@@ -519,7 +447,7 @@ function loadTopics({ showLoading = false } = {}) {
       }
     } catch (reason) {
       if (!isCurrentAccount(owner)) return;
-      if (getErrorStatus(reason) === 403) {
+      if (communityErrorStatus(reason) === 403) {
         invalidateTopicRequests();
         topics.value = [];
         selectedTopic.value = null;
@@ -641,10 +569,11 @@ async function openTopic(topic: ClubTopic) {
   if (!hasCommunityAccess.value) {
     return;
   }
-
+  searchJumpGeneration += 1;
   void topicState.closeTopic();
   invalidateTopicRequests();
   selectedTopic.value = topic;
+  initialUnreadCount.value = topic.unreadCount;
   messageSaving.value = false;
   messages.value = [];
   messagesNextCursor.value = null;
@@ -655,11 +584,80 @@ async function openTopic(topic: ClubTopic) {
   interactionResetVersion.value += 1;
   clearCommunityError();
   newMessage.value = loadDraft(topic.id);
-  await refreshSelectedTopic({ keepScroll: false });
+  await refreshSelectedTopic({ keepScroll: false, deferPosition: true });
+  while (selectedTopic.value?.id === topic.id && messagesNextCursor.value && needsUnreadHistory(messages.value, session.user, initialUnreadCount.value)) {
+    const previousCursor = messagesNextCursor.value;
+    await loadOlderMessages();
+    if (messagesNextCursor.value === previousCursor) break;
+  }
+  if (selectedTopic.value?.id === topic.id) {
+    if (initialUnreadCount.value) { await nextTick(); await nextTick(); }
+    else await scrollToBottom();
+    const owner = captureAccountOwner();
+    if (owner) await refreshReadObservation(owner, topic.id, topicGeneration);
+  }
   if ((mutedUntil.value || mutedPermanently.value) && !muteAlertShown.value) {
     muteAlertShown.value = true;
     showMuteAlert();
   }
+}
+function closeMessageSearch() { searchJumpGeneration += 1; showMessageSearch.value = false; }
+function closeTopic() { searchJumpGeneration += 1; selectedTopic.value = null; }
+async function handleNotificationMode(mode: CommunityNotificationMode) {
+  const topicId = selectedTopic.value?.id;
+  const owner = captureAccountOwner();
+  const expectedTopicGeneration = topicGeneration;
+  if (!topicId || !owner || notificationSaving.value || selectedTopic.value?.notificationMode === mode) return;
+  const requestGeneration = ++notificationRequestGeneration;
+  notificationSaving.value = true;
+  try {
+    const state = await updateCommunityTopicNotificationSettings(topicId, mode);
+    if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== notificationRequestGeneration) return;
+    applyAuthoritativeTopicState(topicId, state);
+    topicState.syncAuthoritativeState(topicId, state);
+  } catch {
+    if (isCurrentRoom(owner, topicId, expectedTopicGeneration) && requestGeneration === notificationRequestGeneration) {
+      showCommunityError("Не удалось изменить настройки уведомлений.");
+    }
+  } finally {
+    if (isCurrentRoom(owner, topicId, expectedTopicGeneration) && requestGeneration === notificationRequestGeneration) {
+      notificationSaving.value = false;
+    }
+  }
+}
+async function openSearchResult(result: CommunityMessageSearchResult) {
+  const owner = captureAccountOwner();
+  const targetTopic = topics.value.find((topic) => topic.id === result.topicId);
+  if (!owner || !targetTopic) throw Object.assign(new Error("search target unavailable"), { status: 404 });
+  const requestGeneration = ++searchJumpGeneration;
+  const [response, targetRoomState] = await Promise.all([
+    getCommunityMessageContext(result.topicId, result.messageId, { before: 20, after: 20 }),
+    getClubMessages(result.topicId)
+  ]);
+  if (!isCurrentAccount(owner) || requestGeneration !== searchJumpGeneration) throw new Error("stale search navigation");
+
+  void topicState.closeTopic();
+  invalidateTopicRequests();
+  selectedTopic.value = targetTopic;
+  initialUnreadCount.value = 0;
+  messages.value = response.messages;
+  messagesNextCursor.value = null;
+  messagePageInitialized.value = true;
+  hasLoadedOlderMessages.value = false;
+  mutedUntil.value = targetRoomState.mutedUntil;
+  mutedPermanently.value = targetRoomState.mutedPermanently;
+  activeModerationMessageId.value = null;
+  interactionResetVersion.value += 1;
+  newMessage.value = loadDraft(targetTopic.id);
+  clearCommunityError();
+  await nextTick();
+  if (!isCurrentAccount(owner) || selectedTopic.value?.id !== result.topicId || requestGeneration !== searchJumpGeneration) {
+    throw new Error("stale search navigation");
+  }
+  topicState.selectTopic(result.topicId, response.messages);
+  chatRoom.value?.scrollToMessage(response.targetMessageId, "auto");
+  const element = chatRoom.value?.getMessagesElement();
+  if (element) topicState.observeVisibleMessages(element);
 }
 
 async function createTopic() {
@@ -933,7 +931,7 @@ async function handleMute(message: ClubMessage) {
     await openTopic(selectedTopic.value);
     await scrollToBottom();
   } catch (reason) {
-    showCommunityError(getErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.");
+    showCommunityError(communityErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.");
   }
 }
 
@@ -956,6 +954,8 @@ async function handleReaction(message: ClubMessage, reaction: VisibleMessageReac
 
 function resetCommunityUiState() {
   selectedTopic.value = null;
+  initialUnreadCount.value = 0;
+  showMessageSearch.value = false;
   topics.value = [];
   messages.value = [];
   queuedTextMessages.value = [];
@@ -972,6 +972,7 @@ function resetCommunityUiState() {
   activeModerationMessageId.value = null;
   messageSaving.value = false;
   topicSaving.value = false;
+  notificationSaving.value = false;
   showCreateTopic.value = false;
   showDeleteTopicMessagesConfirm.value = false;
   deleteTopicMessagesBusy.value = false;
@@ -983,6 +984,8 @@ function beginAccountGeneration() {
   invalidateTopicRequests();
   messageRequestGeneration += 1;
   topicsRequestGeneration += 1;
+  notificationRequestGeneration += 1;
+  searchJumpGeneration += 1;
   refreshRequests.clear();
   topicListRequests.clear();
   stopCommunityRealtime();
@@ -1090,6 +1093,15 @@ onBeforeUnmount(() => {
         <template #actions>
           <div class="community-topline-actions">
             <button
+              v-if="hasCommunityAccess"
+              class="icon-button ui-icon-button"
+              type="button"
+              aria-label="Поиск сообщений"
+              @click="showMessageSearch = true"
+            >
+              <Search class="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
               v-if="isModerator"
               class="icon-button ui-icon-button"
               type="button"
@@ -1146,9 +1158,11 @@ onBeforeUnmount(() => {
       ref="chatRoom"
       :topic="selectedTopic"
       :messages="messages"
+      :initial-unread-count="initialUnreadCount"
       :messages-next-cursor="messagesNextCursor"
       :loading-older-messages="loadingOlderMessages"
       :message-saving="messageSaving"
+      :notification-saving="notificationSaving"
       :community-error="communityError"
       :is-moderator="isModerator"
       :viewer="session.user"
@@ -1162,9 +1176,11 @@ onBeforeUnmount(() => {
       :reaction-completed-version="reactionCompletedVersion"
       :interaction-reset-version="interactionResetVersion"
       :active-moderation-message="activeModerationMessage"
-      @back="selectedTopic = null"
+      @back="closeTopic"
       @toggle-topic-lock="handleToggleTopicLock"
       @delete-topic-messages="handleDeleteTopicMessages"
+      @open-search="showMessageSearch = true"
+      @update-notification-mode="handleNotificationMode"
       @load-older-messages="loadOlderMessages"
       @reply="startReply"
       @react="handleReaction"
@@ -1183,6 +1199,13 @@ onBeforeUnmount(() => {
       @mute="handleMute"
       @revoke-mute="handleRevokeMute"
       @delete-author-messages="handleDeleteAuthorMessages"
+    />
+    <ChatSearchPanel
+      v-if="hasCommunityAccess && showMessageSearch"
+      :topics="topics"
+      :initial-topic-id="selectedTopic?.id ?? null"
+      :open-result="openSearchResult"
+      @close="closeMessageSearch"
     />
     <ConfirmDialog
       :open="showDeleteTopicMessagesConfirm"

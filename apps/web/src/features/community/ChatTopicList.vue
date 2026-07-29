@@ -17,6 +17,15 @@ defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+function unreadLabel(count: number) {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} непрочитанных сообщений`;
+  if (last === 1) return `${count} непрочитанное сообщение`;
+  if (last >= 2 && last <= 4) return `${count} непрочитанных сообщения`;
+  return `${count} непрочитанных сообщений`;
+}
 </script>
 
 <template>
@@ -44,6 +53,12 @@ const { t } = useI18n();
           <span v-if="topic.isLocked"> · закрыта</span>
         </span>
       </span>
+      <span
+        v-if="topic.unreadCount > 0"
+        class="chat-topic-unread-badge"
+        role="status"
+        :aria-label="unreadLabel(topic.unreadCount)"
+      >{{ topic.unreadCount }}</span>
       <span v-if="hasNewReplyToMe(topic)" class="reply-topic-badge">Вам ответили</span>
     </button>
   </div>

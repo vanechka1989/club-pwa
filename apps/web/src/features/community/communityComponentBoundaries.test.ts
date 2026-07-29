@@ -18,8 +18,10 @@ const apiMocks = vi.hoisted(() => ({
   createTopicUserMute: vi.fn(),
   deleteTopicMessages: vi.fn(),
   getClubMessages: vi.fn(),
+  getCommunityMessageContext: vi.fn(),
   getCommunityTopics: vi.fn(),
-  markCommunityTopicRead: vi.fn()
+  markCommunityTopicRead: vi.fn(),
+  searchCommunityMessages: vi.fn()
 }));
 
 vi.mock("@/api/client", async (importOriginal) => {
@@ -30,8 +32,10 @@ vi.mock("@/api/client", async (importOriginal) => {
     createTopicUserMute: apiMocks.createTopicUserMute,
     deleteTopicMessages: apiMocks.deleteTopicMessages,
     getClubMessages: apiMocks.getClubMessages,
+    getCommunityMessageContext: apiMocks.getCommunityMessageContext,
     getCommunityTopics: apiMocks.getCommunityTopics,
-    markCommunityTopicRead: apiMocks.markCommunityTopicRead
+    markCommunityTopicRead: apiMocks.markCommunityTopicRead,
+    searchCommunityMessages: apiMocks.searchCommunityMessages
   };
 });
 
@@ -173,6 +177,7 @@ async function renderCommunity(expectedMessage = "Сообщение для мо
 }
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+const originalIntersectionObserver = globalThis.IntersectionObserver;
 const originalCreateObjectUrl = URL.createObjectURL;
 const originalRevokeObjectUrl = URL.revokeObjectURL;
 
@@ -196,6 +201,21 @@ beforeEach(() => {
     mutedPermanently: false
   });
   apiMocks.getCommunityTopics.mockReset().mockResolvedValue({ topics: [topic] });
+  apiMocks.getCommunityMessageContext.mockReset().mockResolvedValue({
+    targetMessageId: "message-1",
+    messages: [message()]
+  });
+  apiMocks.searchCommunityMessages.mockReset().mockResolvedValue({
+    results: [{
+      messageId: "message-1",
+      topicId: topic.id,
+      topicTitle: topic.title,
+      author,
+      excerpt: "Сообщение для модерации",
+      createdAt: "2026-07-28T12:00:00.000Z"
+    }],
+    nextCursor: null
+  });
   apiMocks.markCommunityTopicRead.mockReset().mockResolvedValue({
     unreadCount: 0,
     lastReadMessageId: "00000000-0000-4000-8000-000000000100",
@@ -213,6 +233,11 @@ afterEach(() => {
     });
   } else {
     delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+  }
+  if (originalIntersectionObserver) {
+    Object.defineProperty(globalThis, "IntersectionObserver", { configurable: true, value: originalIntersectionObserver });
+  } else {
+    delete (globalThis as Partial<typeof globalThis>).IntersectionObserver;
   }
   if (originalCreateObjectUrl) {
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: originalCreateObjectUrl });
@@ -237,6 +262,12 @@ describe("community component boundaries", () => {
     expect(topicListSource).not.toContain("@/api/client");
     expect(sectionSource).toContain("<ChatTopicList");
     expect(sectionSource).toContain("<ChatRoom");
+  });
+
+  it("keeps deferred initial positioning across a queued room refresh", () => {
+    expect(read("CommunitySection.vue")).toContain(
+      "await refreshSelectedTopic({ keepScroll: true, silent: true, deferPosition });"
+    );
   });
 
   it("makes reply navigation keyboard-focusable and emits the referenced message id", async () => {
@@ -645,5 +676,81 @@ describe("community component boundaries", () => {
     });
     await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(3));
     await screen.findByText("Последнее обновление");
+  });
+
+  it("loads enough history to position the divider at the true first unread message", async () => {
+    const recentMessages = Array.from({ length: 50 }, (_, index) => message({
+      id: `recent-${index}`,
+      body: `Новое ${index}`,
+      createdAt: new Date(Date.UTC(2026, 6, 28, 12, index)).toISOString()
+    })).reverse();
+    const firstUnread = message({
+      id: "first-unread",
+      body: "Самое раннее непрочитанное",
+      createdAt: "2026-07-28T11:59:00.000Z"
+    });
+    const observedIds: string[] = [];
+    const observerCreated = vi.fn();
+    Object.defineProperty(globalThis, "IntersectionObserver", {
+      configurable: true,
+      value: class {
+        constructor() { observerCreated(); }
+        observe(element: Element) { observedIds.push(element.id); }
+        disconnect() {}
+      }
+    });
+    let resolveOlder!: (value: {
+      messages: ClubMessage[];
+      nextCursor: null;
+      mutedUntil: null;
+      mutedPermanently: false;
+    }) => void;
+    apiMocks.getCommunityTopics.mockResolvedValue({ topics: [{ ...topic, unreadCount: 51, messagesCount: 51 }] });
+    apiMocks.getClubMessages
+      .mockResolvedValueOnce({
+        messages: recentMessages,
+        nextCursor: "2026-07-28T11:59:00.000Z",
+        mutedUntil: null,
+        mutedPermanently: false
+      })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveOlder = resolve; }));
+
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useSessionStore(pinia).user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(2));
+    expect(observerCreated).not.toHaveBeenCalled();
+    resolveOlder({ messages: [firstUnread], nextCursor: null, mutedUntil: null, mutedPermanently: false });
+
+    await screen.findByText("Самое раннее непрочитанное");
+
+    await waitFor(() => expect(observerCreated).toHaveBeenCalledTimes(1));
+    expect(observedIds).toContain("chat-message-first-unread");
+    const divider = screen.getByText("Новые сообщения");
+    expect(divider.compareDocumentPosition(document.getElementById("chat-message-first-unread")!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("loads authoritative mute state before opening a message from search", async () => {
+    apiMocks.getClubMessages.mockResolvedValueOnce({
+      messages: [message()],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: true
+    });
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useSessionStore(pinia).user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await waitFor(() => expect(apiMocks.getCommunityTopics).toHaveBeenCalledTimes(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Поиск сообщений" }));
+    await fireEvent.update(screen.getByRole("searchbox", { name: "Поиск сообщений" }), "сообщение");
+    await waitFor(() => expect(apiMocks.searchCommunityMessages).toHaveBeenCalledTimes(1));
+    await fireEvent.click(await screen.findByRole("button", { name: /Сообщение для модерации/ }));
+
+    expect(await screen.findByText(/Бессрочный мут/)).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Сообщение")).toBeNull();
   });
 });
