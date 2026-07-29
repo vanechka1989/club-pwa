@@ -1,30 +1,46 @@
 <script setup lang="ts">
 import { resolveDisplayName, type CommunityParticipantSuggestionsResponse } from "@club/shared";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { getCommunityParticipants } from "@/api/client";
 
 type Participant = CommunityParticipantSuggestionsResponse["participants"][number];
 
 const props = defineProps<{
   query: string;
+  listboxId: string;
 }>();
 
 const emit = defineEmits<{
   select: [participant: Participant];
   close: [];
+  "state-change": [state: { expanded: boolean; activeOptionId: string | null }];
 }>();
 
 const participants = ref<Participant[]>([]);
 const activeIndex = ref(0);
+const loading = ref(false);
+const activeOptionId = computed(() => {
+  const participant = participants.value[activeIndex.value];
+  return !loading.value && participant ? `chat-mention-option-${participant.id}` : null;
+});
 let requestVersion = 0;
+
+watch([participants, activeIndex, loading], () => {
+  emit("state-change", {
+    expanded: !loading.value && participants.value.length > 0,
+    activeOptionId: activeOptionId.value
+  });
+}, { immediate: true });
 
 watch(
   () => props.query,
   async (query) => {
     const version = ++requestVersion;
     activeIndex.value = 0;
+    loading.value = true;
+    participants.value = [];
     if (!query.trim()) {
-      participants.value = [];
+      loading.value = false;
       return;
     }
     try {
@@ -32,6 +48,8 @@ watch(
       if (version === requestVersion) participants.value = response.participants;
     } catch {
       if (version === requestVersion) participants.value = [];
+    } finally {
+      if (version === requestVersion) loading.value = false;
     }
   },
   { immediate: true }
@@ -67,7 +85,8 @@ defineExpose({ handleKey });
 
 <template>
   <div
-    v-if="participants.length"
+    v-if="!loading && participants.length"
+    :id="listboxId"
     class="chat-mention-picker"
     role="listbox"
     aria-label="Участники чата"

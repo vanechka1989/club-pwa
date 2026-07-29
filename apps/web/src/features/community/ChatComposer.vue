@@ -56,6 +56,11 @@ const mentionPicker = ref<{ handleKey: (key: string) => boolean } | null>(null);
 const draftValue = ref(props.draft);
 const selectedMentions = ref<CommunityMention[]>([]);
 const mentionToken = ref<{ start: number; end: number; query: string } | null>(null);
+const mentionListboxId = "chat-mention-listbox";
+const mentionPickerState = ref<{ expanded: boolean; activeOptionId: string | null }>({
+  expanded: false,
+  activeOptionId: null
+});
 
 const draftModel = computed({
   get: () => draftValue.value,
@@ -63,6 +68,17 @@ const draftModel = computed({
 });
 
 type Participant = CommunityParticipantSuggestionsResponse["participants"][number];
+
+function uniqueMentionIdentities(mentions: CommunityMention[]) {
+  const userIds = new Set<string>();
+  return [...mentions]
+    .sort((left, right) => left.start - right.start)
+    .filter((mention) => {
+      if (userIds.has(mention.userId)) return false;
+      userIds.add(mention.userId);
+      return true;
+    });
+}
 
 function rebaseMentions(previous: string, next: string, mentions: CommunityMention[]) {
   let prefix = 0;
@@ -100,7 +116,7 @@ function updateMentionToken() {
   const beforeCaret = draftValue.value.slice(0, caret);
   const match = beforeCaret.match(/(?:^|\s)@([^\s@]*)$/u);
   if (!match) {
-    mentionToken.value = null;
+    closeMentionPicker();
     return;
   }
   const atOffset = beforeCaret.lastIndexOf("@");
@@ -111,24 +127,30 @@ function updateMentionToken() {
   };
 }
 
+function closeMentionPicker() {
+  mentionToken.value = null;
+  mentionPickerState.value = { expanded: false, activeOptionId: null };
+}
+
 function selectMention(participant: Participant) {
   const token = mentionToken.value;
   if (!token) return;
   const displayName = resolveDisplayName(participant);
   const replacement = `@${displayName}`;
   const value = `${draftValue.value.slice(0, token.start)}${replacement} ${draftValue.value.slice(token.end)}`;
-  selectedMentions.value = [
-    ...selectedMentions.value.filter((mention) => mention.end <= token.start || mention.start >= token.end),
-    {
+  const retained = selectedMentions.value.filter((mention) => mention.end <= token.start || mention.start >= token.end);
+  selectedMentions.value = uniqueMentionIdentities([
+    ...retained,
+    ...(retained.some((mention) => mention.userId === participant.id) ? [] : [{
       userId: participant.id,
       displayName,
       start: token.start,
       end: token.start + replacement.length
-    }
-  ].sort((left, right) => left.start - right.start);
+    }])
+  ]);
   draftValue.value = value;
   emit("draft-change", value);
-  mentionToken.value = null;
+  closeMentionPicker();
   void nextTick(() => {
     const caret = token.start + replacement.length + 1;
     textInput.value?.focus();
@@ -193,7 +215,7 @@ function handleImageSelection(event: Event) {
 function submitText() {
   const leadingWhitespace = draftValue.value.length - draftValue.value.trimStart().length;
   const body = draftValue.value.trim();
-  const mentions = selectedMentions.value.flatMap((mention) => {
+  const mentions = uniqueMentionIdentities(selectedMentions.value).flatMap((mention) => {
     const shifted = { ...mention, start: mention.start - leadingWhitespace, end: mention.end - leadingWhitespace };
     return shifted.start >= 0 && body.slice(shifted.start, shifted.end) === `@${shifted.displayName}` ? [shifted] : [];
   });
@@ -210,12 +232,12 @@ watch(() => props.draft, (draft) => {
   }
 });
 watch(() => props.editMessage, (message) => {
-  selectedMentions.value = message ? [...message.mentions] : [];
-  mentionToken.value = null;
+  selectedMentions.value = message ? uniqueMentionIdentities(message.mentions) : [];
+  closeMentionPicker();
 });
 watch(() => props.resetVersion, () => {
-  selectedMentions.value = props.editMessage ? [...props.editMessage.mentions] : [];
-  mentionToken.value = null;
+  selectedMentions.value = props.editMessage ? uniqueMentionIdentities(props.editMessage.mentions) : [];
+  closeMentionPicker();
   resetLocalDrafts();
 });
 onBeforeUnmount(resetLocalDrafts);
@@ -374,8 +396,12 @@ onBeforeUnmount(resetLocalDrafts);
             v-model="draftModel"
             class="text-input"
             :placeholder="t('messagePlaceholder')"
+            role="combobox"
+            :aria-label="t('messagePlaceholder')"
             :disabled="!canWrite || messageSaving"
-            :aria-expanded="Boolean(mentionToken?.query)"
+            :aria-expanded="mentionPickerState.expanded"
+            :aria-controls="mentionListboxId"
+            :aria-activedescendant="mentionPickerState.activeOptionId ?? undefined"
             aria-autocomplete="list"
             @input="updateMentionToken"
             @click="updateMentionToken"
@@ -386,8 +412,10 @@ onBeforeUnmount(resetLocalDrafts);
             v-if="mentionToken?.query"
             ref="mentionPicker"
             :query="mentionToken.query"
+            :listbox-id="mentionListboxId"
             @select="selectMention"
-            @close="mentionToken = null"
+            @close="closeMentionPicker"
+            @state-change="mentionPickerState = $event"
           />
         </div>
         <button

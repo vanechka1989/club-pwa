@@ -1,15 +1,16 @@
 import type { ClubMessage, CommunityMention } from "@club/shared";
 import type { Ref } from "vue";
 import { deleteCommunityMessage, editCommunityMessage } from "@/api/client";
-import { saveDraft } from "./communityDrafts";
+import { saveDraftForScope, type CommunityDraftScope } from "./communityDrafts";
 import {
   queueTextMessage,
   retryQueuedMessage,
   type QueuedTextMessage
 } from "./communityOutbox";
 
-type SendRoom = {
+type MutationRoom = {
   topicId: string;
+  draftScope: CommunityDraftScope;
   isCurrent: () => boolean;
 };
 
@@ -23,8 +24,7 @@ type TextMutationState = {
   activeActionId: Ref<string | null>;
   saving: Ref<boolean>;
   composerResetVersion: Ref<number>;
-  selectedTopicId: () => string | null;
-  captureSendRoom: () => SendRoom | null;
+  captureMutationRoom: () => MutationRoom | null;
   confirmDelete: () => Promise<boolean>;
   clearError: () => void;
   showError: (message: string) => void;
@@ -33,7 +33,7 @@ type TextMutationState = {
 
 export function useCommunityTextMutations(state: TextMutationState) {
   async function sendText(body: string, mentions: CommunityMention[]) {
-    const room = state.captureSendRoom();
+    const room = state.captureMutationRoom();
     if (!room || !body.trim()) return;
     state.saving.value = true;
     state.clearError();
@@ -45,8 +45,8 @@ export function useCommunityTextMutations(state: TextMutationState) {
         replyToMessageId: state.reply.value?.id ?? null
       });
       if (result.delivered || result.retryable) {
-        saveDraft(room.topicId, "");
         if (room.isCurrent()) {
+          saveDraftForScope(room.draftScope, room.topicId, "");
           state.draft.value = "";
           state.reply.value = null;
         }
@@ -54,8 +54,8 @@ export function useCommunityTextMutations(state: TextMutationState) {
       if (!result.delivered && result.retryable) {
         if (room.isCurrent()) state.showError("Сообщение сохранено и будет отправлено при восстановлении связи.");
       } else if (!result.delivered) {
-        saveDraft(room.topicId, body);
         if (!room.isCurrent()) return;
+        saveDraftForScope(room.draftScope, room.topicId, body);
         state.draft.value = body;
         const data =
           typeof result.error === "object" && result.error && "data" in result.error
@@ -65,8 +65,8 @@ export function useCommunityTextMutations(state: TextMutationState) {
         state.showError("Не удалось отправить сообщение.");
       }
     } catch {
-      saveDraft(room.topicId, body);
       if (room.isCurrent()) {
+        saveDraftForScope(room.draftScope, room.topicId, body);
         state.draft.value = body;
         state.showError("Не удалось подготовить сообщение к отправке.");
       }
@@ -76,13 +76,14 @@ export function useCommunityTextMutations(state: TextMutationState) {
   }
 
   function changeDraft(text: string) {
+    const room = state.captureMutationRoom();
+    if (!room) return;
     state.draft.value = text;
-    const topicId = state.selectedTopicId();
-    if (topicId && !state.editing.value) saveDraft(topicId, text);
+    if (!state.editing.value) saveDraftForScope(room.draftScope, room.topicId, text);
   }
 
   function startEdit(message: ClubMessage) {
-    if (!state.selectedTopicId()) return;
+    if (!state.captureMutationRoom()) return;
     state.draftBeforeEdit.value = state.draft.value;
     state.editing.value = message;
     state.reply.value = null;
@@ -91,63 +92,78 @@ export function useCommunityTextMutations(state: TextMutationState) {
     state.composerResetVersion.value += 1;
   }
 
-  function cancelEdit() {
+  function finishEdit(room: MutationRoom) {
+    if (!room.isCurrent()) return;
     const previousDraft = state.draftBeforeEdit.value;
     state.editing.value = null;
     state.draftBeforeEdit.value = "";
     state.draft.value = previousDraft;
-    const topicId = state.selectedTopicId();
-    if (topicId) saveDraft(topicId, previousDraft);
+    saveDraftForScope(room.draftScope, room.topicId, previousDraft);
     state.composerResetVersion.value += 1;
   }
 
+  function cancelEdit() {
+    const room = state.captureMutationRoom();
+    if (room) finishEdit(room);
+  }
+
   async function saveEdit(message: ClubMessage, body: string, mentions: CommunityMention[]) {
-    if (state.editing.value?.id !== message.id || state.saving.value) return;
+    const room = state.captureMutationRoom();
+    if (!room || state.editing.value?.id !== message.id || state.saving.value) return;
     state.saving.value = true;
     state.clearError();
     try {
       const response = await editCommunityMessage(message.id, { body, mentions });
+      if (!room.isCurrent()) return;
       state.messages.value = state.messages.value.map((item) =>
         item.id === response.message.id ? response.message : item
       );
-      cancelEdit();
+      finishEdit(room);
     } catch {
-      state.showError("Не удалось сохранить изменения. Текст оставлен в редакторе.");
+      if (room.isCurrent()) state.showError("Не удалось сохранить изменения. Текст оставлен в редакторе.");
     } finally {
-      state.saving.value = false;
+      if (room.isCurrent()) state.saving.value = false;
     }
   }
 
   async function deleteOwn(message: ClubMessage) {
+    const room = state.captureMutationRoom();
+    if (!room) return;
     if (!await state.confirmDelete()) {
+      if (!room.isCurrent()) return;
       state.activeActionId.value = null;
       return;
     }
+    if (!room.isCurrent()) return;
     try {
       const response = await deleteCommunityMessage(message.id);
+      if (!room.isCurrent()) return;
       state.messages.value = state.messages.value.map((item) =>
         item.id === response.message.id ? response.message : item
       );
       state.activeActionId.value = null;
-      if (state.editing.value?.id === message.id) cancelEdit();
+      if (state.editing.value?.id === message.id) finishEdit(room);
     } catch {
-      state.showError("Не удалось удалить сообщение.");
+      if (room.isCurrent()) state.showError("Не удалось удалить сообщение.");
     }
   }
 
   async function retry(message: ClubMessage) {
+    const room = state.captureMutationRoom();
+    if (!room) return;
     const entry = state.queuedMessages.value.find((item) => item.deliveryKey === message.clientOperationId);
     if (!entry) return;
     state.clearError();
     try {
       const result = await retryQueuedMessage<ClubMessage>(entry.localId);
+      if (!room.isCurrent()) return;
       if (!result.delivered && result.retryable) {
         state.showError("Сообщение пока не отправлено. Можно повторить позже.");
       } else if (!result.delivered) {
         state.showError("Не удалось отправить сообщение.");
       }
     } catch {
-      state.showError("Не удалось повторить отправку.");
+      if (room.isCurrent()) state.showError("Не удалось повторить отправку.");
     }
   }
 

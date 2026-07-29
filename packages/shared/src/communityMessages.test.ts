@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clubMessageSchema, clubTopicSchema } from "./index";
+import { clubMessageSchema, clubMessagesResponseSchema, clubTopicSchema } from "./index";
 
 const base = {
   id: "message-1",
@@ -48,6 +48,34 @@ describe("club message media contracts", () => {
         poll: { id: "p1", question: "Выбор?", allowsMultiple: false, isAnonymous: true, closesAt: null, closedAt: null, totalVoters: 0, options: [{ id: "o1", text: "Да", votesCount: 0, percent: 0, selected: false }], voterDetails: null }
       }).poll?.question
     ).toBe("Выбор?");
+  });
+
+  it("preserves explicit redaction and server-derived author mutation capabilities", () => {
+    const parsed = clubMessageSchema.parse({
+      ...base,
+      body: "Сообщение удалено",
+      contentRedacted: false,
+      authorMutation: {
+        canEdit: true,
+        canDelete: true,
+        allowedUntil: "2026-07-29T10:15:00.000Z"
+      }
+    });
+    const response = clubMessagesResponseSchema.parse({
+      messages: [parsed],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false,
+      serverTime: "2026-07-29T10:14:59.999Z"
+    });
+
+    expect(parsed.contentRedacted).toBe(false);
+    expect(parsed.authorMutation).toEqual({
+      canEdit: true,
+      canDelete: true,
+      allowedUntil: "2026-07-29T10:15:00.000Z"
+    });
+    expect(response.serverTime).toBe("2026-07-29T10:14:59.999Z");
   });
 });
 

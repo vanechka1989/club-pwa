@@ -137,9 +137,15 @@ function normalizeMentions(body: string, value: unknown): CommunityMention[] {
       end
     });
   }
+  const userIds = new Set<string>();
   return mentions
     .sort((left, right) => left.start - right.start || left.end - right.end)
-    .filter((mention, index, sorted) => index === 0 || mention.start >= sorted[index - 1]!.end);
+    .filter((mention, index, sorted) => {
+      if (index > 0 && mention.start < sorted[index - 1]!.end) return false;
+      if (userIds.has(mention.userId)) return false;
+      userIds.add(mention.userId);
+      return true;
+    });
 }
 
 function normalizeQueuedMessage(value: unknown, fallbackSequence: number): QueuedTextMessage | null {

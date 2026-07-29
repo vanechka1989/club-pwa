@@ -9,15 +9,17 @@ import ChatModerationMenu from "./ChatModerationMenu.vue";
 import type { QueuedTextMessage } from "./communityOutbox";
 import {
   authorName,
-  canEditOwnCommunityMessage,
   canGroupCommunityMessages,
+  communityAuthorMutationActions,
   communityMessageDeliveryState,
+  currentCommunityServerTime,
   formatCommunityMessageDay,
   formatMessageTime,
   isCommunityDayStart,
   isUnreadCandidate,
   type ChatComposerEventMap,
   type ChatMessageEventMap,
+  type CommunityServerClock,
   type CommunityViewer,
 } from "./communityViewModel";
 
@@ -45,6 +47,7 @@ const props = defineProps<{
   activeActionMessage?: ClubMessage | null;
   queuedMessages?: QueuedTextMessage[];
   editMessage?: ClubMessage | null;
+  serverClock?: CommunityServerClock | null;
   backgroundInert?: boolean;
 }>();
 
@@ -85,7 +88,7 @@ const messagesEnd = ref<HTMLElement | null>(null);
 const showTopicAdminMenu = ref(false);
 const showPinnedMessages = ref(false);
 const highlightedMessageId = ref<string | null>(null);
-const mutationClock = ref(Date.now());
+const mutationClock = ref(globalThis.performance?.now() ?? 0);
 let messageHighlightTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let mutationExpiryTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let actionTrigger: HTMLElement | null = null;
@@ -96,11 +99,12 @@ const pinnedMessages = computed(() =>
 );
 const latestPinnedMessage = computed(() => pinnedMessages.value.at(-1) ?? null);
 const activeSheetMessage = computed(() => props.activeActionMessage ?? props.activeModerationMessage);
-const canMutateActiveMessage = computed(() => {
+const chatBackgroundInert = computed(() => Boolean(props.backgroundInert || activeSheetMessage.value));
+const activeAuthorActions = computed(() => {
   void props.interactionResetVersion;
   return activeSheetMessage.value
-    ? canEditOwnCommunityMessage(activeSheetMessage.value, props.viewer, Math.max(mutationClock.value, Date.now()))
-    : false;
+    ? communityAuthorMutationActions(activeSheetMessage.value, props.serverClock, mutationClock.value)
+    : { canEdit: false, canDelete: false };
 });
 const firstUnreadMessageId = computed(() => {
   const eligibleMessages = orderedMessages.value.filter((message) => isUnreadCandidate(message, props.viewer));
@@ -271,9 +275,9 @@ watch(() => props.interactionResetVersion, resetLocalInteractions);
 watch(() => props.reactionCompletedVersion, () => {
   emit("close-actions");
 });
-watch(activeSheetMessage, (message, previousMessage) => {
+watch([activeSheetMessage, () => props.serverClock], ([message], [previousMessage]) => {
   if (mutationExpiryTimer) globalThis.clearTimeout(mutationExpiryTimer);
-  mutationClock.value = Date.now();
+  mutationClock.value = globalThis.performance?.now() ?? 0;
   if (!message) {
     if (previousMessage && actionTrigger) {
       const trigger = actionTrigger;
@@ -282,10 +286,16 @@ watch(activeSheetMessage, (message, previousMessage) => {
     }
     return;
   }
-  const delay = Date.parse(message.createdAt) + 15 * 60 * 1_000 - mutationClock.value + 1;
+  const serverNow = currentCommunityServerTime(props.serverClock, mutationClock.value);
+  const allowedUntil = message.authorMutation?.allowedUntil
+    ? Date.parse(message.authorMutation.allowedUntil)
+    : Number.NaN;
+  const delay = serverNow === null || !Number.isFinite(allowedUntil)
+    ? 0
+    : allowedUntil - serverNow + 1;
   if (delay <= 0) return;
   mutationExpiryTimer = globalThis.setTimeout(() => {
-    mutationClock.value = Date.now();
+    mutationClock.value = globalThis.performance?.now() ?? 0;
     mutationExpiryTimer = null;
   }, delay);
 }, { immediate: true });
@@ -299,7 +309,7 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
 </script>
 
 <template>
-  <div class="chat-room" :inert="backgroundInert || undefined" :aria-hidden="backgroundInert ? 'true' : undefined">
+  <div class="chat-room" :inert="chatBackgroundInert || undefined" :aria-hidden="chatBackgroundInert ? 'true' : undefined">
     <header class="chat-room-header">
       <button class="icon-button ui-icon-button" type="button" aria-label="Назад" @click="$emit('back')">
         <ArrowLeft class="h-4 w-4" aria-hidden="true" />
@@ -470,8 +480,8 @@ defineExpose({ getMessagesElement, scrollToBottom, scrollToMessage });
     v-if="activeSheetMessage"
     :message="activeSheetMessage"
     :is-moderator="isModerator"
-    :can-edit="canMutateActiveMessage"
-    :can-delete="canMutateActiveMessage"
+    :can-edit="activeAuthorActions.canEdit"
+    :can-delete="activeAuthorActions.canDelete"
     @close="$emit('close-actions')"
     @reply="handleReply"
     @react="handleReaction"

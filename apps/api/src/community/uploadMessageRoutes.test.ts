@@ -153,6 +153,7 @@ describe("canonical direct-upload media message route", () => {
       errorCode: null
     };
     mocks.transaction.mockImplementation(async (work: (tx: typeof mocks.database) => Promise<unknown>) => work(mocks.database));
+    mocks.execute.mockResolvedValue([{ now: new Date("2026-07-29T12:00:00.000Z") }]);
   });
 
   it("atomically creates the exact media message, consumes its manifest, and returns canonical serialization", async () => {

@@ -1,4 +1,5 @@
 import type { MessageReaction, UserRole } from "@club/shared";
+import { authorMutationWindowMs, canAuthorMutateMessage } from "./messageLifecycle";
 
 type ReactionValue = MessageReaction;
 
@@ -29,6 +30,22 @@ type DeletedMessageSource = {
   body: string;
   deletedByUserAt: Date | null;
   deletedContentExpiresAt: Date | null;
+};
+
+type AuthorMutationSource = {
+  userId: string;
+  kind: string;
+  isSystem: boolean;
+  status: "visible" | "hidden" | "deleted";
+  createdAt: Date;
+  deletedByUserAt: Date | null;
+};
+
+type AuthorMutationContext = {
+  currentUserId: string;
+  role: UserRole;
+  topic: { isLocked: boolean; isPublished: boolean };
+  serverNow: Date;
 };
 
 function normalizeAvatarScale(value: number | null | undefined) {
@@ -71,7 +88,7 @@ export function summarizeReactions(reactions: MessageReactionRow[], currentUserI
 
 export function getMessageContentView(message: DeletedMessageSource, role: UserRole, now = new Date()) {
   if (!message.deletedByUserAt) {
-    return { body: message.body, revealContent: true, purged: false };
+    return { body: message.body, revealContent: true, purged: false, contentRedacted: false };
   }
 
   const purged = !message.deletedContentExpiresAt || message.deletedContentExpiresAt <= now;
@@ -79,7 +96,26 @@ export function getMessageContentView(message: DeletedMessageSource, role: UserR
   return {
     body: revealContent ? message.body : "Сообщение удалено",
     revealContent,
-    purged
+    purged,
+    contentRedacted: !revealContent
+  };
+}
+
+export function getAuthorMutationView(message: AuthorMutationSource, context: AuthorMutationContext) {
+  const topicWritable = context.topic.isPublished && (!context.topic.isLocked || context.role !== "member");
+  const candidate = topicWritable
+    && message.userId === context.currentUserId
+    && !message.isSystem
+    && message.status === "visible"
+    && !message.deletedByUserAt;
+  const allowed = candidate && canAuthorMutateMessage(message, context.currentUserId, context.serverNow);
+
+  return {
+    canEdit: allowed && message.kind === "text",
+    canDelete: allowed,
+    allowedUntil: candidate
+      ? new Date(message.createdAt.getTime() + authorMutationWindowMs).toISOString()
+      : null
   };
 }
 

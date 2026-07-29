@@ -54,6 +54,7 @@ export function communityOptimisticMessage(entry: QueuedTextMessage, viewer: Clu
     pinnedAt: null,
     editedAt: null,
     deletedByUserAt: null,
+    contentRedacted: false,
     clientOperationId: entry.deliveryKey,
     mentions: entry.mentions,
     createdAt: new Date(entry.createdAt).toISOString()
@@ -197,31 +198,74 @@ export function communityMessageDeliveryState(
   return queued?.status === "failed" ? "failed" : "sending";
 }
 
-export function canEditOwnCommunityMessage(
-  message: ClubMessage,
-  viewer: CommunityViewer | null,
-  now = Date.now()
+export function sortCommunityMessagesNewestFirst(
+  messages: ClubMessage[],
+  deliverySequence: ReadonlyMap<string, number> = new Map()
 ) {
-  if (
-    message.isSystem
-    || message.kind !== "text"
-    || message.status !== "visible"
-    || message.deletedByUserAt
-    || message.id.startsWith("local:")
-    || !isOwnMessage(message, viewer)
-  ) {
-    return false;
-  }
-  const elapsed = now - Date.parse(message.createdAt);
-  return elapsed >= 0 && elapsed <= 15 * 60 * 1_000;
+  return messages
+    .map((message, index) => ({ message, index }))
+    .sort((left, right) => {
+      const createdDifference = Date.parse(right.message.createdAt) - Date.parse(left.message.createdAt);
+      if (createdDifference) return createdDifference;
+      const leftSequence = left.message.clientOperationId
+        ? deliverySequence.get(left.message.clientOperationId)
+        : undefined;
+      const rightSequence = right.message.clientOperationId
+        ? deliverySequence.get(right.message.clientOperationId)
+        : undefined;
+      if (leftSequence !== undefined && rightSequence !== undefined && leftSequence !== rightSequence) {
+        return rightSequence - leftSequence;
+      }
+      return left.index - right.index;
+    })
+    .map(({ message }) => message);
+}
+
+export type CommunityServerClock = {
+  serverTimeMs: number;
+  monotonicAtMs: number;
+};
+
+function monotonicNow() {
+  return globalThis.performance?.now() ?? 0;
+}
+
+export function captureCommunityServerClock(
+  serverTime: string,
+  receivedAtMonotonicMs = monotonicNow()
+): CommunityServerClock | null {
+  const serverTimeMs = Date.parse(serverTime);
+  return Number.isFinite(serverTimeMs) ? { serverTimeMs, monotonicAtMs: receivedAtMonotonicMs } : null;
+}
+
+export function currentCommunityServerTime(
+  clock: CommunityServerClock | null | undefined,
+  nowMonotonicMs = monotonicNow()
+) {
+  return clock ? clock.serverTimeMs + Math.max(0, nowMonotonicMs - clock.monotonicAtMs) : null;
+}
+
+export function communityAuthorMutationActions(
+  message: ClubMessage,
+  clock: CommunityServerClock | null | undefined,
+  nowMonotonicMs = monotonicNow()
+) {
+  const capability = message.authorMutation;
+  const serverNow = currentCommunityServerTime(clock, nowMonotonicMs);
+  const allowedUntil = capability?.allowedUntil ? Date.parse(capability.allowedUntil) : null;
+  const withinWindow = serverNow !== null
+    && allowedUntil !== null
+    && Number.isFinite(allowedUntil)
+    && serverNow <= allowedUntil;
+  return {
+    canEdit: Boolean(capability?.canEdit && withinWindow),
+    canDelete: Boolean(capability?.canDelete && withinWindow)
+  };
 }
 
 export function isCommunityMemberTombstone(message: ClubMessage, isModerator: boolean) {
-  return !isModerator
-    && message.kind === "text"
-    && message.body === "Сообщение удалено"
-    && !message.replyTo
-    && !message.mentions.length;
+  void isModerator;
+  return Boolean(message.contentRedacted);
 }
 
 function localDayKey(value: string) {
@@ -316,6 +360,10 @@ export function communityMessageSignature(message: ClubMessage) {
     message.pinnedAt ?? "",
     message.editedAt ?? "",
     message.deletedByUserAt ?? "",
+    message.contentRedacted ? "redacted" : "",
+    message.authorMutation?.canEdit ? "edit" : "",
+    message.authorMutation?.canDelete ? "delete" : "",
+    message.authorMutation?.allowedUntil ?? "",
     message.clientOperationId ?? "",
     message.mentions.map((mention) => `${mention.userId}:${mention.start}:${mention.end}:${mention.displayName}`).join("|")
   ].join("\u001f");

@@ -24,7 +24,7 @@ import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/rol
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { createCommunityUploadService, type CommunityUploadResult } from "../community/directUpload";
 import { validateCommunityOoxml } from "../community/ooxmlValidation";
-import { buildMessageAuthor, buildReplyPreview, getMessageContentView, summarizeReactions } from "../community/messageMetadata";
+import { buildMessageAuthor, buildReplyPreview, getAuthorMutationView, getMessageContentView, summarizeReactions } from "../community/messageMetadata";
 import { MessageMutationError, messageMutationService } from "../community/messageMutationService";
 import { decodeSearchCursor, loadMessageContext, loadSafeReplyMessage, searchCommunityMessages } from "../community/messageSearch";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
@@ -538,6 +538,13 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, current
   return serialized!;
 }
 
+async function getDatabaseServerNow() {
+  const rows = Array.from((await db.execute(sql`select clock_timestamp() as "now"`)) as Iterable<{ now: Date }>);
+  const now = rows[0]?.now;
+  if (!(now instanceof Date)) throw new Error("Database clock is unavailable");
+  return now;
+}
+
 async function serializeMessage(
   message: typeof clubChatMessages.$inferSelect & {
     user: {
@@ -553,9 +560,19 @@ async function serializeMessage(
   },
   currentUserId: string,
   role: UserRole,
-  safeReplyPreview = false
+  safeReplyPreview = false,
+  lifecycle?: {
+    topic: Pick<typeof clubChatTopics.$inferSelect, "isLocked" | "isPublished">;
+    serverNow: Date;
+  }
 ): Promise<ClubMessage> {
-  const content = getMessageContentView(message, role);
+  const [mutationTopic, serverNow] = lifecycle
+    ? [lifecycle.topic, lifecycle.serverNow] as const
+    : await Promise.all([
+        db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, message.topicId) }),
+        getDatabaseServerNow()
+      ]);
+  const content = getMessageContentView(message, role, serverNow);
   const reactions = content.revealContent
     ? await db.query.clubMessageReactions.findMany({
         where: eq(clubMessageReactions.messageId, message.id)
@@ -726,6 +743,13 @@ async function serializeMessage(
     pinnedAt: message.pinnedAt?.toISOString() ?? null,
     editedAt: content.revealContent ? message.editedAt?.toISOString() ?? null : null,
     deletedByUserAt: content.revealContent ? message.deletedByUserAt?.toISOString() ?? null : null,
+    contentRedacted: content.contentRedacted,
+    authorMutation: getAuthorMutationView(message, {
+      currentUserId,
+      role,
+      topic: mutationTopic ?? { isLocked: true, isPublished: false },
+      serverNow
+    }),
     clientOperationId: content.revealContent ? message.clientOperationId : null,
     mentions: mentionRows.map((mention) => ({
       userId: mention.userId,
@@ -1530,10 +1554,18 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (!context) {
       return c.json({ error: "Message not found" }, 404);
     }
+    const serverNow = await getDatabaseServerNow();
 
     return c.json({
       targetMessageId: context.targetMessageId,
-      messages: await Promise.all(context.messages.map((message) => serializeMessage(message, c.get("userId"), role, true)))
+      messages: await Promise.all(context.messages.map((message) => serializeMessage(
+        message,
+        c.get("userId"),
+        role,
+        true,
+        { topic, serverNow }
+      ))),
+      serverTime: serverNow.toISOString()
     });
   })
   .get("/topics/:id/messages", async (c) => {
@@ -1569,11 +1601,19 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const hasMore = messages.length > query.data.limit;
     const pageMessages = messages.slice(0, query.data.limit);
     const mute = await getActiveMute(c.get("userId"));
+    const serverNow = await getDatabaseServerNow();
 
     return c.json({
-      messages: await Promise.all(pageMessages.map((message) => serializeMessage(message, c.get("userId"), role))),
+      messages: await Promise.all(pageMessages.map((message) => serializeMessage(
+        message,
+        c.get("userId"),
+        role,
+        false,
+        { topic, serverNow }
+      ))),
       nextCursor: hasMore ? pageMessages.at(-1)?.createdAt.toISOString() ?? null : null,
-      ...serializeMute(mute)
+      ...serializeMute(mute),
+      serverTime: serverNow.toISOString()
     });
   })
   .post("/topics/:id/messages", async (c) => {

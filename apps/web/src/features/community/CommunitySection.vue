@@ -42,7 +42,7 @@ import { hasAdminCapability } from "@/features/admin/adminCapabilities";
 import ChatRoom from "./ChatRoom.vue";
 import ChatSearchPanel from "./ChatSearchPanel.vue";
 import ChatTopicList from "./ChatTopicList.vue";
-import { configureCommunityDrafts, loadDraft, resetCommunityDrafts } from "./communityDrafts";
+import { configureCommunityDrafts, createCommunityDraftScope, loadDraft, resetCommunityDrafts } from "./communityDrafts";
 import {
   configureCommunityOutbox,
   flushQueuedMessages,
@@ -52,7 +52,7 @@ import {
   resetCommunityOutbox,
   type QueuedTextMessage
 } from "./communityOutbox";
-import { authorName, communityErrorStatus, headChanged, communityMessagesSignature, communityMuteComposerText, communityOptimisticMessage, getOrCreateCommunityDeviceId, needsUnreadHistory, type ChatPollDraft, type VisibleMessageReaction } from "./communityViewModel";
+import { authorName, captureCommunityServerClock, communityErrorStatus, headChanged, communityMessagesSignature, communityMuteComposerText, communityOptimisticMessage, getOrCreateCommunityDeviceId, needsUnreadHistory, sortCommunityMessagesNewestFirst, type ChatPollDraft, type CommunityServerClock, type VisibleMessageReaction } from "./communityViewModel";
 import { useCommunityTopicState } from "./useCommunityTopicState";
 import { useCommunityTextMutations } from "./useCommunityTextMutations";
 import { captureCommunityViewport, restoreCommunityViewport } from "./communityViewport";
@@ -64,6 +64,7 @@ const emit = defineEmits<{ chatOpenChange: [isOpen: boolean] }>();
 const topics = ref<ClubTopic[]>([]);
 const messages = ref<ClubMessage[]>([]);
 const queuedTextMessages = ref<QueuedTextMessage[]>([]);
+const serverClock = ref<CommunityServerClock | null>(null);
 const messagesNextCursor = ref<string | null>(null);
 const loadingOlderMessages = ref(false);
 const hasLoadedOlderMessages = ref(false);
@@ -112,6 +113,7 @@ let searchJumpGeneration = 0;
 let searchTrigger: HTMLElement | null = null;
 const refreshRequests = new Map<string, { queued: boolean; promise: Promise<void> }>();
 const topicListRequests = new Map<string, Promise<void>>();
+const deliverySequenceByKey = new Map<string, number>();
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
 const isModerator = computed(() =>
   hasAdminCapability(session.user?.role, session.user?.adminPermissions, "community")
@@ -198,10 +200,14 @@ function mergeOptimisticMessages(serverMessages: ClubMessage[]) {
   const optimistic = queuedTextMessages.value
     .filter((entry) => entry.topicId === selectedTopic.value?.id)
     .map((entry) => communityOptimisticMessage(entry, viewer));
-  return mergeConfirmedCommunityMessages([], [...optimistic, ...serverMessages]);
+  return sortCommunityMessagesNewestFirst(
+    mergeConfirmedCommunityMessages([], [...optimistic, ...serverMessages]),
+    deliverySequenceByKey
+  );
 }
 
 function syncQueuedMessages(entries = getQueuedTextMessages()) {
+  for (const entry of entries) deliverySequenceByKey.set(entry.deliveryKey, entry.sequence);
   queuedTextMessages.value = entries;
   if (selectedTopic.value) {
     messages.value = mergeOptimisticMessages(messages.value.filter((message) => !isOptimisticMessage(message)));
@@ -258,13 +264,16 @@ const {
   activeActionId: activeModerationMessageId,
   saving: messageSaving,
   composerResetVersion,
-  selectedTopicId: () => selectedTopic.value?.id ?? null,
-  captureSendRoom: () => {
+  captureMutationRoom: () => {
     const owner = captureAccountOwner();
     const topicId = selectedTopic.value?.id;
     const generation = topicGeneration;
     return owner && topicId
-      ? { topicId, isCurrent: () => isCurrentRoom(owner, topicId, generation) }
+      ? {
+          topicId,
+          draftScope: createCommunityDraftScope({ userId: owner.userId, deviceId: communityDeviceId }),
+          isCurrent: () => isCurrentRoom(owner, topicId, generation)
+        }
       : null;
   },
   confirmDelete: () => appDialogs.confirm({
@@ -362,6 +371,7 @@ function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition
     try {
       const response = await getClubMessages(topicId);
       if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== messageRequestGeneration) return;
+      if (response.serverTime) serverClock.value = captureCommunityServerClock(response.serverTime);
       const scrollElement = chatRoom.value?.getMessagesElement();
       const viewportAnchor = captureCommunityViewport(scrollElement ?? null);
       const previousScrollTop = scrollElement?.scrollTop ?? 0;
@@ -942,6 +952,7 @@ function resetCommunityUiState() {
   topics.value = [];
   messages.value = [];
   queuedTextMessages.value = [];
+  serverClock.value = null;
   messagesNextCursor.value = null;
   loading.value = false;
   loadingOlderMessages.value = false;
@@ -975,6 +986,7 @@ function beginAccountGeneration() {
   stopCommunityRealtime();
   stopRealtimeFallback();
   resetCommunityOutbox();
+  deliverySequenceByKey.clear();
   topicState.reset();
   resetCommunityUiState();
 }
@@ -1038,6 +1050,26 @@ watch(
     }
   },
   { immediate: true }
+);
+
+watch(
+  isModerator,
+  (moderator, previousModerator) => {
+    const userId = session.user?.id;
+    if (!componentMounted || !previousModerator || moderator || !userId || !hasCommunityAccess.value) return;
+    const topicId = selectedTopic.value?.id ?? null;
+    beginAccountGeneration();
+    configurePersistedCommunityState(userId);
+    const generation = accountGeneration;
+    void (async () => {
+      await loadTopics({ showLoading: true });
+      if (generation !== accountGeneration || session.user?.id !== userId) return;
+      const safeTopic = topicId ? topics.value.find((item) => item.id === topicId) : null;
+      if (safeTopic) await openTopic(safeTopic);
+      if (generation === accountGeneration && session.user?.id === userId) startCommunityRealtime();
+    })();
+  },
+  { flush: "sync" }
 );
 
 watch(
@@ -1143,6 +1175,7 @@ onBeforeUnmount(() => {
       :topic="selectedTopic"
       :messages="messages"
       :queued-messages="queuedTextMessages"
+      :server-clock="serverClock"
       :initial-unread-count="initialUnreadCount"
       :messages-next-cursor="messagesNextCursor"
       :loading-older-messages="loadingOlderMessages"

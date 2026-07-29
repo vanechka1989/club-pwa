@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClubMessage, ClubTopic, ClubUser } from "@club/shared";
+import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
 import ChatComposer from "./ChatComposer.vue";
 import ChatMessage from "./ChatMessage.vue";
@@ -16,7 +17,9 @@ import { resetCommunityOutbox } from "./communityOutbox";
 const apiMocks = vi.hoisted(() => ({
   createClubMessage: vi.fn(),
   createTopicUserMute: vi.fn(),
+  deleteCommunityMessage: vi.fn(),
   deleteTopicMessages: vi.fn(),
+  editCommunityMessage: vi.fn(),
   getClubMessages: vi.fn(),
   getCommunityMessageContext: vi.fn(),
   getCommunityTopics: vi.fn(),
@@ -30,7 +33,9 @@ vi.mock("@/api/client", async (importOriginal) => {
     ...actual,
     createClubMessage: apiMocks.createClubMessage,
     createTopicUserMute: apiMocks.createTopicUserMute,
+    deleteCommunityMessage: apiMocks.deleteCommunityMessage,
     deleteTopicMessages: apiMocks.deleteTopicMessages,
+    editCommunityMessage: apiMocks.editCommunityMessage,
     getClubMessages: apiMocks.getClubMessages,
     getCommunityMessageContext: apiMocks.getCommunityMessageContext,
     getCommunityTopics: apiMocks.getCommunityTopics,
@@ -83,6 +88,12 @@ function message(overrides: Partial<ClubMessage> = {}): ClubMessage {
     pinnedAt: null,
     editedAt: null,
     deletedByUserAt: null,
+    contentRedacted: false,
+    authorMutation: {
+      canEdit: false,
+      canDelete: false,
+      allowedUntil: null
+    },
     clientOperationId: null,
     mentions: [],
     createdAt: "2026-07-28T12:00:00.000Z",
@@ -150,6 +161,48 @@ function secondAdminUser(): ClubUser {
   return { ...adminUser(), id: "admin-2", telegramId: "admin-2@example.com", email: "admin-2@example.com" };
 }
 
+function ownMessage(overrides: Partial<ClubMessage> = {}) {
+  const user = adminUser();
+  return message({
+    author: {
+      id: user.id,
+      telegramId: user.telegramId,
+      firstName: user.firstName,
+      username: user.username,
+      displayName: user.firstName,
+      photoUrl: user.photoUrl,
+      avatarPositionX: user.avatarPositionX,
+      avatarPositionY: user.avatarPositionY,
+      avatarScale: user.avatarScale
+    },
+    authorMutation: {
+      canEdit: true,
+      canDelete: true,
+      allowedUntil: "2026-07-28T12:15:00.000Z"
+    },
+    ...overrides
+  });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function persistedDraft(userId: string, topicId: string) {
+  const entries = JSON.parse(localStorage.getItem("club-community-drafts-v1") ?? "[]") as Array<{
+    userId: string;
+    topicId: string;
+    text: string;
+  }>;
+  return entries.find((entry) => entry.userId === userId && entry.topicId === topicId)?.text ?? "";
+}
+
 function roomProps(overrides: Record<string, unknown> = {}) {
   return {
     topic,
@@ -203,11 +256,14 @@ beforeEach(() => {
     message: message({ id: "sent-message", body: "Отправлено" })
   });
   apiMocks.deleteTopicMessages.mockReset().mockResolvedValue({ ok: true });
+  apiMocks.deleteCommunityMessage.mockReset().mockResolvedValue({ ok: true, message: message({ contentRedacted: true }) });
+  apiMocks.editCommunityMessage.mockReset().mockResolvedValue({ ok: true, message: message({ body: "Исправлено" }) });
   apiMocks.getClubMessages.mockReset().mockResolvedValue({
     messages: [message()],
     nextCursor: null,
     mutedUntil: null,
-    mutedPermanently: false
+    mutedPermanently: false,
+    serverTime: "2026-07-28T12:05:00.000Z"
   });
   apiMocks.getCommunityTopics.mockReset().mockResolvedValue({ topics: [topic] });
   apiMocks.getCommunityMessageContext.mockReset().mockResolvedValue({
@@ -378,6 +434,8 @@ describe("community component boundaries", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением Анна" }));
     expect(screen.getByRole("dialog", { name: "Анна" })).toBeTruthy();
 
+    await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Анна" })).toBeNull());
     await fireEvent.click(screen.getByRole("button", { name: "Меню чата" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить все сообщения" }));
     await fireEvent.click(screen.getByRole("button", { name: "Удалить всё" }));
@@ -563,6 +621,207 @@ describe("community component boundaries", () => {
     await waitFor(() => expect(localStorage.getItem("club-community-text-outbox-v1")).toBeNull());
 
     expect(screen.queryByText("Отправка из первой темы")).toBeNull();
+  });
+
+  it("does not let a delayed terminal send from account A overwrite account B's draft", async () => {
+    const pending = deferred<{ message: ClubMessage }>();
+    apiMocks.createClubMessage.mockImplementation(() => pending.promise);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await screen.findByText("Сообщение для модерации");
+    await fireEvent.update(screen.getByPlaceholderText("Сообщение"), "Черновик аккаунта A");
+    await fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    await waitFor(() => expect(apiMocks.createClubMessage).toHaveBeenCalledTimes(1));
+
+    session.user = secondAdminUser();
+    await nextTick();
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await fireEvent.update(screen.getByPlaceholderText("Сообщение"), "Черновик аккаунта B");
+    pending.reject({ status: 400 });
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+
+    expect((screen.getByPlaceholderText("Сообщение") as HTMLInputElement).value).toBe("Черновик аккаунта B");
+    expect(persistedDraft("admin-1", topic.id)).toBe("Черновик аккаунта A");
+    expect(persistedDraft("admin-2", topic.id)).toBe("Черновик аккаунта B");
+  });
+
+  it("does not let a delayed edit completion restore a draft into another topic", async () => {
+    const pending = deferred<{ ok: true; message: ClubMessage }>();
+    apiMocks.editCommunityMessage.mockImplementation(() => pending.promise);
+    apiMocks.getCommunityTopics.mockResolvedValue({ topics: [topic, secondTopic] });
+    apiMocks.getClubMessages.mockImplementation((topicId: string) => Promise.resolve({
+      messages: [topicId === topic.id
+        ? ownMessage()
+        : ownMessage({ id: "second-message", topicId: secondTopic.id, body: "Вторая тема" })],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false,
+      serverTime: "2026-07-28T12:05:00.000Z"
+    }));
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useSessionStore(pinia).user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await screen.findByText("Сообщение для модерации");
+    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением Админ" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Редактировать сообщение" }));
+    await fireEvent.update(screen.getByPlaceholderText("Сообщение"), "Исправление первой темы");
+    await fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    await waitFor(() => expect(apiMocks.editCommunityMessage).toHaveBeenCalledTimes(1));
+
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    await fireEvent.click(await screen.findByRole("button", { name: /Вторая тема/ }));
+    await fireEvent.update(screen.getByPlaceholderText("Сообщение"), "Черновик второй темы");
+    pending.resolve({ ok: true, message: ownMessage({ body: "Исправление первой темы" }) });
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+
+    expect((screen.getByPlaceholderText("Сообщение") as HTMLInputElement).value).toBe("Черновик второй темы");
+    expect(persistedDraft("admin-1", secondTopic.id)).toBe("Черновик второй темы");
+  });
+
+  it("does not surface a delayed delete failure after logout and replacement login", async () => {
+    const pending = deferred<{ ok: true; message: ClubMessage }>();
+    apiMocks.deleteCommunityMessage.mockImplementation(() => pending.promise);
+    apiMocks.getClubMessages.mockResolvedValue({
+      messages: [ownMessage()],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false,
+      serverTime: "2026-07-28T12:05:00.000Z"
+    });
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    const dialogs = useAppDialogsStore(pinia);
+    vi.spyOn(dialogs, "confirm").mockResolvedValue(true);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await screen.findByText("Сообщение для модерации");
+    await fireEvent.click(screen.getByRole("button", { name: "Действия с сообщением Админ" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Удалить своё сообщение" }));
+    await waitFor(() => expect(apiMocks.deleteCommunityMessage).toHaveBeenCalledTimes(1));
+
+    session.user = null;
+    await nextTick();
+    session.user = secondAdminUser();
+    await nextTick();
+    pending.reject(new Error("late delete"));
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+
+    expect(screen.queryByText("Не удалось удалить сообщение.")).toBeNull();
+  });
+
+  it("does not surface a delayed retry failure in a replacement account", async () => {
+    const deviceId = "00000000-0000-4000-8000-000000000001";
+    localStorage.setItem("club-community-device-id-v1", deviceId);
+    localStorage.setItem("club-community-text-outbox-v1", JSON.stringify([{
+      userId: "admin-1",
+      deviceId,
+      topicId: topic.id,
+      localId: "retry-a",
+      deliveryKey: `${deviceId}:retry-a`,
+      body: "Повтор аккаунта A",
+      mentions: [],
+      replyToMessageId: null,
+      createdAt: Date.now(),
+      sequence: 1,
+      status: "failed",
+      attempts: 1,
+      nextAttemptAt: Date.now() + 60_000
+    }]));
+    const pending = deferred<{ message: ClubMessage }>();
+    apiMocks.createClubMessage.mockImplementation(() => pending.promise);
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await screen.findByText("Повтор аккаунта A");
+    await fireEvent.click(screen.getByRole("button", { name: "Повторить отправку" }));
+    await waitFor(() => expect(apiMocks.createClubMessage).toHaveBeenCalledTimes(1));
+
+    session.user = secondAdminUser();
+    await nextTick();
+    pending.reject(new Error("offline"));
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+
+    expect(screen.queryByText("Сообщение пока не отправлено. Можно повторить позже.")).toBeNull();
+  });
+
+  it("purges moderator-only content before refetching after a same-user permission downgrade", async () => {
+    const privileged = message({
+      id: "privileged-deleted",
+      body: "Секрет модератора",
+      deletedByUserAt: "2026-07-28T11:59:00.000Z",
+      contentRedacted: false,
+      kind: "text",
+      images: [{
+        id: "secret-image",
+        url: "https://example.test/secret.jpg",
+        contentType: "image/jpeg",
+        sizeBytes: 128,
+        width: 32,
+        height: 32,
+        expiresAt: null,
+        deletedAt: null,
+        fileName: null,
+        scanStatus: "ready",
+        scannedAt: null,
+        scanError: null
+      }],
+      pinnedAt: "2026-07-28T12:00:00.000Z"
+    });
+    const response = (item: ClubMessage) => ({
+      messages: [item],
+      nextCursor: null,
+      mutedUntil: null,
+      mutedPermanently: false,
+      serverTime: "2026-07-28T12:00:00.000Z"
+    });
+    const safeResponse = deferred<ReturnType<typeof response>>();
+    apiMocks.getClubMessages
+      .mockResolvedValueOnce(response(privileged))
+      .mockImplementationOnce(() => safeResponse.promise);
+
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const session = useSessionStore(pinia);
+    session.user = adminUser();
+    render(CommunitySection, { global: { plugins: [pinia] } });
+    await fireEvent.click(await screen.findByRole("button", { name: /Общий чат/ }));
+    await screen.findAllByText("Секрет модератора");
+
+    session.user = {
+      ...adminUser(),
+      role: "member",
+      realRole: "member",
+      adminPermissions: [],
+      membershipStatus: "active"
+    };
+    await nextTick();
+
+    expect(screen.queryByText("Секрет модератора")).toBeNull();
+    expect(document.querySelector('img[src="https://example.test/secret.jpg"]')).toBeNull();
+    await waitFor(() => expect(apiMocks.getClubMessages).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("Секрет модератора")).toBeNull();
+
+    safeResponse.resolve(response(message({
+      id: privileged.id,
+      body: "Сообщение удалено",
+      deletedByUserAt: privileged.deletedByUserAt,
+      contentRedacted: true,
+      kind: "text",
+      images: []
+    })));
+    await screen.findByText("Сообщение удалено");
+    expect(screen.queryByText("Секрет модератора")).toBeNull();
   });
 
   it("discards a room refresh that resolves after the user opens another topic", async () => {

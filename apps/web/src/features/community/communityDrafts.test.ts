@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   clearCommunityDraftsForUser,
   configureCommunityDrafts,
+  createCommunityDraftScope,
+  loadDraftForScope,
   loadDraft,
   resetCommunityDrafts,
+  saveDraftForScope,
   saveDraft
 } from "./communityDrafts";
 
@@ -32,6 +35,19 @@ describe("community topic drafts", () => {
 
     configureCommunityDrafts({ userId: "user-1", deviceId: "device-2", storage: localStorage });
     expect(loadDraft("topic-a")).toBe("");
+  });
+
+  it("keeps an immutable scope bound to its account after the active context is rebound", () => {
+    const first = createCommunityDraftScope({ userId: "user-1", deviceId: "device-1", storage: localStorage });
+    const second = createCommunityDraftScope({ userId: "user-2", deviceId: "device-1", storage: localStorage });
+    configureCommunityDrafts(second);
+
+    saveDraftForScope(first, "shared-topic", "Черновик первого");
+    saveDraftForScope(second, "shared-topic", "Черновик второго");
+
+    expect(loadDraftForScope(first, "shared-topic")).toBe("Черновик первого");
+    expect(loadDraftForScope(second, "shared-topic")).toBe("Черновик второго");
+    expect(loadDraft("shared-topic")).toBe("Черновик второго");
   });
 
   it("fails closed and removes corrupt persisted state", () => {

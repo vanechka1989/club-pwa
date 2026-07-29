@@ -313,7 +313,7 @@ export function getCommunityMessageContext(
   messageId: string,
   options: { before?: number; after?: number } = {}
 ) {
-  return api<{ targetMessageId: string; messages: ClubMessage[] }>(
+  return api<{ targetMessageId: string; messages: ClubMessage[]; serverTime?: string }>(
     `/community/topics/${encodeURIComponent(topicId)}/messages/${encodeURIComponent(messageId)}/context`,
     { query: options }
   );

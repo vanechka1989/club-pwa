@@ -1016,6 +1016,12 @@ export const clubMessageSchema = z.object({
   pinnedAt: z.string().datetime().nullable().optional(),
   editedAt: z.string().datetime().nullable().default(null),
   deletedByUserAt: z.string().datetime().nullable().default(null),
+  contentRedacted: z.boolean().optional(),
+  authorMutation: z.object({
+    canEdit: z.boolean(),
+    canDelete: z.boolean(),
+    allowedUntil: z.string().datetime().nullable()
+  }).optional(),
   clientOperationId: z.string().trim().min(1).max(96).nullable().default(null),
   mentions: z.array(communityMentionSchema).default([]),
   createdAt: z.string().datetime()
@@ -1251,7 +1257,8 @@ export const clubMessagesResponseSchema = z.object({
   messages: z.array(clubMessageSchema),
   nextCursor: z.string().datetime().nullable(),
   mutedUntil: z.string().datetime().nullable(),
-  mutedPermanently: z.boolean()
+  mutedPermanently: z.boolean(),
+  serverTime: z.string().datetime().optional()
 });
 export type ClubMessagesResponse = z.infer<typeof clubMessagesResponseSchema>;
 

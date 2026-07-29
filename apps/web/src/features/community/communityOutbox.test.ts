@@ -130,6 +130,29 @@ describe("community text outbox", () => {
     }));
   });
 
+  it("normalizes duplicate participant identities before persistence and delivery", async () => {
+    const first = { userId: "00000000-0000-4000-8000-000000000002", displayName: "Анна", start: 0, end: 5 };
+    const duplicate = { ...first, start: 8, end: 13 };
+    const send = vi.fn().mockRejectedValue(new Error("offline"));
+    configureCommunityOutbox({
+      userId: "user-1",
+      deviceId: "device-1",
+      storage: localStorage,
+      send,
+      isOnline: () => true
+    });
+
+    await queueTextMessage({
+      topicId: "topic-1",
+      localId: "duplicate-mention",
+      body: "@Анна и @Анна",
+      mentions: [first, duplicate]
+    });
+
+    expect(getQueuedTextMessages()).toMatchObject([{ mentions: [first] }]);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ mentions: [first] }));
+  });
+
   it("does not retain a terminal authorization failure for automatic retry", async () => {
     const failure = { status: 403, data: { mutedPermanently: true } };
     configureCommunityOutbox({

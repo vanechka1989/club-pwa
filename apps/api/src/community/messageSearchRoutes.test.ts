@@ -30,11 +30,13 @@ const mocks = vi.hoisted(() => ({
   search: vi.fn(),
   loadContext: vi.fn(),
   topicFindFirst: vi.fn(),
-  purgeWhere: vi.fn()
+  purgeWhere: vi.fn(),
+  execute: vi.fn()
 }));
 
 vi.mock("../db/client", () => ({
   db: {
+    execute: mocks.execute,
     delete: vi.fn(() => ({ where: mocks.purgeWhere })),
     query: {
       clubChatTopics: { findFirst: mocks.topicFindFirst },
@@ -128,6 +130,7 @@ describe("secure community message search routes", () => {
     mocks.purgeWhere.mockResolvedValue(undefined);
     mocks.search.mockResolvedValue({ results: [], nextCursor: null });
     mocks.loadContext.mockResolvedValue(null);
+    mocks.execute.mockResolvedValue([{ now: new Date("2026-07-28T12:00:00.000Z") }]);
   });
 
   it("decodes a composite cursor and forwards special-character search safely", async () => {
@@ -234,7 +237,11 @@ describe("secure community message search routes", () => {
     const response = await communityRoute.request(`/topics/${topicId}/messages/${messageId}/context`);
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ targetMessageId: messageId, messages: [] });
+    await expect(response.json()).resolves.toEqual({
+      targetMessageId: messageId,
+      messages: [],
+      serverTime: "2026-07-28T12:00:00.000Z"
+    });
     expect(mocks.readRateCalls).toEqual(["context"]);
   });
 

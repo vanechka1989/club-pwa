@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   getObjectReadUrl: vi.fn(async () => "https://private.test/secret.webp")
 }));
 
+const serverNow = new Date("2026-07-29T10:10:00.000Z");
+
 const topic = {
   id: topicId,
   chatId: "00000000-0000-4000-8000-000000000011",
@@ -74,7 +76,7 @@ function dbMessage(deleted = mocks.deleted) {
 
 vi.mock("../db/client", () => {
   const database = {
-    execute: vi.fn(async () => []),
+    execute: vi.fn(async () => [{ now: serverNow }]),
     delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
     query: {
       clubChatTopics: { findFirst: vi.fn(async () => topic) },
@@ -288,14 +290,20 @@ describe("community message mutation routes", () => {
   it("returns a content-free tombstone to members while moderators retain content before expiry", async () => {
     mocks.deleted = true;
     const memberResponse = await communityRoute.request(`/topics/${topicId}/messages`);
-    const memberPayload = await memberResponse.json() as { messages: Array<Record<string, unknown>> };
+    const memberPayload = await memberResponse.json() as {
+      messages: Array<Record<string, unknown>>;
+      serverTime: string;
+    };
 
     expect(memberPayload.messages[0]).toMatchObject({
       body: "Сообщение удалено",
       images: [],
       mentions: [],
-      deletedByUserAt: null
+      deletedByUserAt: null,
+      contentRedacted: true,
+      authorMutation: { canEdit: false, canDelete: false, allowedUntil: null }
     });
+    expect(memberPayload.serverTime).toBe(serverNow.toISOString());
     expect(JSON.stringify(memberPayload)).not.toContain("original secret");
     expect(JSON.stringify(memberPayload)).not.toContain("secret.webp");
 
@@ -304,9 +312,25 @@ describe("community message mutation routes", () => {
     const moderatorPayload = await moderatorResponse.json() as { messages: Array<Record<string, unknown>> };
     expect(moderatorPayload.messages[0]).toMatchObject({
       body: "original secret",
-      deletedByUserAt: "2026-07-29T10:05:00.000Z"
+      deletedByUserAt: "2026-07-29T10:05:00.000Z",
+      contentRedacted: false
     });
     expect(moderatorPayload.messages[0]?.images).toHaveLength(1);
+  });
+
+  it("returns server-derived delete capability for an own media message", async () => {
+    const response = await communityRoute.request(`/topics/${topicId}/messages`);
+    const payload = await response.json() as {
+      serverTime: string;
+      messages: Array<{ authorMutation: unknown }>;
+    };
+
+    expect(payload.serverTime).toBe(serverNow.toISOString());
+    expect(payload.messages[0]?.authorMutation).toEqual({
+      canEdit: false,
+      canDelete: true,
+      allowedUntil: "2026-07-29T10:15:00.000Z"
+    });
   });
 
   it("rejects replies to author-deleted messages for non-text message kinds too", async () => {

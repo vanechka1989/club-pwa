@@ -5,6 +5,8 @@ export type CommunityDraftContext = {
   now?: () => number;
 };
 
+export type CommunityDraftScope = Required<CommunityDraftContext>;
+
 type StoredCommunityDraft = {
   userId: string;
   deviceId: string;
@@ -17,7 +19,7 @@ const storageKey = "club-community-drafts-v1";
 const maximumDrafts = 50;
 const maximumStoredDrafts = 500;
 const maximumDraftLength = 20_000;
-let activeContext: Required<CommunityDraftContext> | null = null;
+let activeContext: CommunityDraftScope | null = null;
 
 function isStoredDraftShape(value: unknown): value is StoredCommunityDraft {
   if (!value || typeof value !== "object") return false;
@@ -91,7 +93,11 @@ function context() {
 }
 
 export function configureCommunityDrafts(input: CommunityDraftContext) {
-  activeContext = {
+  activeContext = createCommunityDraftScope(input);
+}
+
+export function createCommunityDraftScope(input: CommunityDraftContext): CommunityDraftScope {
+  return {
     userId: input.userId,
     deviceId: input.deviceId,
     storage: input.storage ?? localStorage,
@@ -103,8 +109,7 @@ export function resetCommunityDrafts() {
   activeContext = null;
 }
 
-export function loadDraft(topicId: string) {
-  const current = context();
+export function loadDraftForScope(current: CommunityDraftScope, topicId: string) {
   if (!current || !topicId) return "";
   return readDrafts(current.storage).find((draft) =>
     draft.userId === current.userId
@@ -113,8 +118,12 @@ export function loadDraft(topicId: string) {
   )?.text ?? "";
 }
 
-export function saveDraft(topicId: string, text: string) {
+export function loadDraft(topicId: string) {
   const current = context();
+  return current ? loadDraftForScope(current, topicId) : "";
+}
+
+export function saveDraftForScope(current: CommunityDraftScope, topicId: string, text: string) {
   if (!current || !topicId) return;
   const drafts = readDrafts(current.storage).filter((draft) =>
     draft.userId !== current.userId
@@ -132,6 +141,11 @@ export function saveDraft(topicId: string, text: string) {
     });
   }
   writeDrafts(current.storage, normalizeDrafts(drafts));
+}
+
+export function saveDraft(topicId: string, text: string) {
+  const current = context();
+  if (current) saveDraftForScope(current, topicId, text);
 }
 
 export function clearCommunityDraftsForUser(userId: string, storage: Storage = localStorage) {

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClubMessage, ClubTopic } from "@club/shared";
 import ChatMessage from "./ChatMessage.vue";
 import ChatRoom from "./ChatRoom.vue";
+import { sortCommunityMessagesNewestFirst } from "./communityViewModel";
 
 const author = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -39,6 +40,12 @@ function message(overrides: Partial<ClubMessage> = {}): ClubMessage {
     pinnedAt: null,
     editedAt: null,
     deletedByUserAt: null,
+    contentRedacted: false,
+    authorMutation: {
+      canEdit: true,
+      canDelete: true,
+      allowedUntil: "2026-07-29T10:15:00.000Z"
+    },
     clientOperationId: null,
     mentions: [{
       userId: "00000000-0000-4000-8000-000000000002",
@@ -90,6 +97,10 @@ function roomProps(messages: ClubMessage[], overrides: Record<string, unknown> =
     reactionCompletedVersion: 0,
     interactionResetVersion: 0,
     activeActionMessage: null,
+    serverClock: {
+      serverTimeMs: Date.parse("2026-07-29T10:10:00.000Z"),
+      monotonicAtMs: 1_000
+    },
     ...overrides
   };
 }
@@ -97,6 +108,7 @@ function roomProps(messages: ClubMessage[], overrides: Record<string, unknown> =
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("community message interactions", () => {
@@ -154,6 +166,8 @@ describe("community message interactions", () => {
   it("marks edited content and never leaks a deleted member message through rich content", () => {
     const deletedMember = message({
       body: "Сообщение удалено",
+      contentRedacted: true,
+      authorMutation: { canEdit: false, canDelete: false, allowedUntil: null },
       mentions: [],
       reactionCounts: [],
       deletedByUserAt: null,
@@ -174,6 +188,21 @@ describe("community message interactions", () => {
     expect(screen.getByText("Сообщение удалено").classList.contains("chat-message-tombstone")).toBe(true);
     expect(document.querySelector(".message-reactions")).toBeNull();
     member.unmount();
+    cleanup();
+
+    render(ChatMessage, {
+      props: {
+        message: message({ body: "Сообщение удалено", contentRedacted: false }),
+        viewer: { ...author, id: "viewer-2" },
+        isModerator: false,
+        messageSaving: false,
+        highlighted: false,
+        groupedWithPrevious: false,
+        groupedWithNext: false,
+        deliveryState: "sent"
+      }
+    });
+    expect(screen.getByText("Сообщение удалено").classList.contains("chat-message-tombstone")).toBe(false);
     cleanup();
 
     render(ChatMessage, {
@@ -215,24 +244,105 @@ describe("community message interactions", () => {
     expect(document.querySelectorAll(".chat-date-divider")).toHaveLength(2);
   });
 
-  it("shows own edit/delete only through the exact client-side fifteen-minute boundary", async () => {
+  it("keeps optimistic FIFO DOM order and grouping when the first message is confirmed", async () => {
+    const sequence = new Map([["device:first", 1], ["device:second", 2]]);
+    const first = message({
+      id: "local:device:first",
+      body: "Первое локальное",
+      clientOperationId: "device:first",
+      createdAt: "2026-07-29T10:00:00.000Z"
+    });
+    const second = message({
+      id: "local:device:second",
+      body: "Второе локальное",
+      clientOperationId: "device:second",
+      createdAt: "2026-07-29T10:00:00.000Z"
+    });
+    const view = render(ChatRoom, {
+      props: roomProps([], { messages: sortCommunityMessagesNewestFirst([first, second], sequence) })
+    });
+    expect([...document.querySelectorAll(".chat-message-body")].map((node) => node.textContent)).toEqual([
+      "Первое локальное",
+      "Второе локальное"
+    ]);
+    expect(document.getElementById(`chat-message-${first.id}`)?.classList.contains("chat-message-grouped-next")).toBe(true);
+
+    const confirmedFirst = message({
+      ...first,
+      id: "server:first",
+      body: "Первое подтверждено"
+    });
+    await view.rerender(roomProps([], {
+      messages: sortCommunityMessagesNewestFirst([second, confirmedFirst], sequence)
+    }));
+
+    expect([...document.querySelectorAll(".chat-message-body")].map((node) => node.textContent)).toEqual([
+      "Первое подтверждено",
+      "Второе локальное"
+    ]);
+    expect(document.getElementById(`chat-message-${confirmedFirst.id}`)?.classList.contains("chat-message-grouped-next")).toBe(true);
+    expect(document.querySelectorAll(".chat-date-divider")).toHaveLength(1);
+  });
+
+  it.each([
+    "1999-01-01T00:00:00.000Z",
+    "2050-01-01T00:00:00.000Z"
+  ])("uses the monotonic server clock through the exact boundary despite device time %s", async (deviceTime) => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-29T10:15:00.000Z"));
+    vi.setSystemTime(new Date(deviceTime));
+    const performanceNow = vi.spyOn(performance, "now").mockReturnValue(1_000);
     const own = message();
     const view = render(ChatRoom, {
-      props: roomProps([own], { activeActionMessage: own })
+      props: roomProps([own], {
+        activeActionMessage: own,
+        serverClock: {
+          serverTimeMs: Date.parse("2026-07-29T10:14:59.999Z"),
+          monotonicAtMs: 1_000
+        }
+      })
     });
 
     expect(screen.getByRole("button", { name: "Редактировать сообщение" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Удалить своё сообщение" })).toBeTruthy();
 
-    vi.setSystemTime(new Date("2026-07-29T10:15:00.001Z"));
-    await view.rerender(roomProps([own], { activeActionMessage: own, interactionResetVersion: 1 }));
+    performanceNow.mockReturnValue(1_002);
+    await view.rerender(roomProps([own], {
+      activeActionMessage: own,
+      interactionResetVersion: 1,
+      serverClock: {
+        serverTimeMs: Date.parse("2026-07-29T10:14:59.999Z"),
+        monotonicAtMs: 1_000
+      }
+    }));
     expect(screen.queryByRole("button", { name: "Редактировать сообщение" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Удалить своё сообщение" })).toBeNull();
   });
 
-  it("restores focus to the explicit message menu after the action sheet closes", async () => {
+  it.each(["voice", "images", "video", "document", "poll"] as const)(
+    "offers deletion without editing for an own %s message when the server allows it",
+    (kind) => {
+      vi.spyOn(performance, "now").mockReturnValue(1_000);
+      const own = message({
+        kind,
+        authorMutation: { canEdit: false, canDelete: true, allowedUntil: "2026-07-29T10:15:00.000Z" }
+      });
+      render(ChatRoom, { props: roomProps([own], { activeActionMessage: own }) });
+
+      expect(screen.queryByRole("button", { name: "Редактировать сообщение" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Удалить своё сообщение" })).toBeTruthy();
+    }
+  );
+
+  it("hides author actions when the server denies the current topic capability", () => {
+    vi.spyOn(performance, "now").mockReturnValue(1_000);
+    const own = message({ authorMutation: { canEdit: false, canDelete: false, allowedUntil: null } });
+    render(ChatRoom, { props: roomProps([own], { activeActionMessage: own }) });
+
+    expect(screen.queryByRole("button", { name: "Редактировать сообщение" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Удалить своё сообщение" })).toBeNull();
+  });
+
+  it("makes background controls inert and restores focus after the action sheet closes", async () => {
     const own = message();
     const view = render(ChatRoom, { props: roomProps([own]) });
     const trigger = screen.getByRole("button", { name: "Действия с сообщением Анна" });
@@ -240,10 +350,17 @@ describe("community message interactions", () => {
     await fireEvent.click(trigger);
     await view.rerender(roomProps([own], { activeActionMessage: own }));
     expect(screen.getByRole("dialog", { name: "Анна" })).toBeTruthy();
+    const room = document.querySelector(".chat-room")!;
+    expect(room.hasAttribute("inert")).toBe(true);
+    expect(room.getAttribute("aria-hidden")).toBe("true");
+    expect(room.contains(trigger)).toBe(true);
+    expect(room.contains(screen.getByRole("dialog", { name: "Анна" }))).toBe(false);
 
     await fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
     await view.rerender(roomProps([own], { activeActionMessage: null }));
 
+    expect(room.hasAttribute("inert")).toBe(false);
+    expect(room.getAttribute("aria-hidden")).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 });
