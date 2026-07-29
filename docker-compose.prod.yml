@@ -39,6 +39,9 @@ services:
     cap_add:
       - CHOWN
     read_only: true
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
     logging: *default-logging
 
   clamav:
@@ -62,6 +65,27 @@ services:
     mem_reservation: 3g
     cpus: "0.75"
     pids_limit: 256
+    logging: *default-logging
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /data
+    mem_limit: 256m
+    cpus: "0.25"
+    pids_limit: 128
     logging: *default-logging
 
   api: &api-service
@@ -104,7 +128,7 @@ services:
       S3_SIGNED_URL_TTL_SECONDS: ${S3_SIGNED_URL_TTL_SECONDS:-3600}
       CLAMAV_HOST: clamav
       CLAMAV_PORT: 3310
-      REDIS_URL: ${REDIS_URL:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       RUN_BACKGROUND_JOBS: false
       UPLOADS_DIR: /app/uploads
     depends_on:
@@ -112,6 +136,8 @@ services:
         condition: service_healthy
       uploads-permissions:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     volumes:
       - api-uploads:/app/uploads
       - /var/lib/club-pwa-maintenance:/app/host-maintenance:ro

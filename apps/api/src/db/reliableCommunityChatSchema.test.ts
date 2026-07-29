@@ -111,6 +111,18 @@ describe("reliable community chat Drizzle metadata", () => {
 });
 
 describe("reliable community chat migration", () => {
+  it("keeps release migrations additive and compatible with the previous web client", () => {
+    const releaseMigrations = [migration, reliabilityMigration, uploadManifestMigration, mediaCandidateMigration];
+
+    for (const sql of releaseMigrations) {
+      expect(sql).not.toMatch(/DROP\s+(?:TABLE|COLUMN)\b/i);
+      expect(sql).not.toMatch(/TRUNCATE\b|DELETE\s+FROM\b|ALTER\s+COLUMN\b|RENAME\s+(?:TABLE|COLUMN)\b/i);
+    }
+    expect(migration).toContain('ADD COLUMN "client_operation_id" varchar(96)');
+    expect(uploadManifestMigration).toContain('CREATE TABLE "community_upload_manifests"');
+    expect(mediaCandidateMigration).toContain('CREATE TABLE "community_media_candidates"');
+  });
+
   it("contains the matching scan-state check and search expression", () => {
     expect(migration).toContain('CONSTRAINT "club_message_attachments_scan_status_check"');
     expect(migration).toContain("CHECK (\"scan_status\" IN ('pending','scanning','ready','rejected','failed','deleted'))");

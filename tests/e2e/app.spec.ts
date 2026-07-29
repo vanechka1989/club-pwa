@@ -4362,6 +4362,164 @@ test("reliable community chat release retries offline without duplicates and kee
   }
 });
 
+test("reliable community chat release visual audit covers every theme, mode, viewport and critical state", async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== "release-desktop");
+  test.setTimeout(300_000);
+
+  const state = createCommunityReleaseState();
+  for (let index = 0; index < 45; index += 1) {
+    state.messages.push(communityReleaseMessage({
+      id: `message-visual-history-${index}`,
+      body: `Сообщение длинной истории ${index + 1}: проверяем читаемость, группировку и устойчивую прокрутку.`,
+      author: index % 2 === 0 ? memberAuthor : ownAuthor,
+      createdAt: `2026-05-${String(28 - (index % 28)).padStart(2, "0")}T09:${String(index % 60).padStart(2, "0")}:00.000Z`
+    }));
+  }
+
+  const app = await openCommunityReleasePage(browser, testInfo, state);
+  let releaseVisualUpload = () => undefined;
+  const visualUploadBlocked = new Promise<void>((resolve) => { releaseVisualUpload = resolve; });
+  try {
+    await app.page.route("**/api/community/uploads", async (route) => {
+      const payload = route.request().postDataJSON() as {
+        kind: "document";
+        contentType: string;
+        sizeBytes: number;
+      };
+      await route.fulfill(json({
+        kind: payload.kind,
+        contentType: payload.contentType,
+        sizeBytes: payload.sizeBytes,
+        uploadType: "put",
+        uploadToken: "33333333-3333-4333-8333-333333333333",
+        objectKey: "community/pending/user-owner/release-audit.pdf",
+        uploadUrl: "http://127.0.0.1:5173/community-visual-upload",
+        expiresAt: "2099-07-29T12:10:00.000Z"
+      }));
+    });
+    await app.page.route("**/community-visual-upload", async (route) => {
+      await visualUploadBlocked;
+      await route.fulfill({ status: 200, headers: { ETag: "visual-audit-etag" }, body: "" });
+    });
+
+    await app.page.getByRole("button", { name: /Фиксики/ }).click();
+    state.failCreates = true;
+    const composer = app.page.getByRole("combobox", { name: "Сообщение" });
+    await composer.fill("Визуальная ошибка отправки");
+    await app.page.getByRole("button", { name: "Отправить" }).click();
+    await state.failedCreateStarted;
+    state.releaseFailedCreate();
+    await expect(app.page.getByText("Не отправлено")).toBeVisible();
+
+    const artifactDir = testInfo.outputPath("community-release-visual");
+    mkdirSync(artifactDir, { recursive: true });
+    const themes = ["dark-soft-touch", "graphite-electric-blue", "pine-teal", "warm-clay", "plum-rose"] as const;
+    const modes = ["dark", "light"] as const;
+    const viewports = [
+      { name: "320", width: 320, height: 720 },
+      { name: "390", width: 390, height: 844 },
+      { name: "768", width: 768, height: 1024 },
+      { name: "1024", width: 1024, height: 768 },
+      { name: "1440", width: 1440, height: 900 }
+    ] as const;
+    const capture = async (prefix: string, stateName: string) => {
+      const viewportWidth = app.page.viewportSize()?.width ?? 0;
+      const documentWidth = await app.page.evaluate(() => document.documentElement.scrollWidth);
+      expect(documentWidth).toBeLessThanOrEqual(viewportWidth + 2);
+      await app.page.screenshot({
+        path: `${artifactDir}/${prefix}-${stateName}.png`,
+        fullPage: false,
+        animations: "disabled",
+        caret: "hide"
+      });
+    };
+
+    for (const theme of themes) {
+      for (const mode of modes) {
+        for (const viewport of viewports) {
+          const prefix = `${theme}-${mode}-${viewport.name}`;
+          await app.page.setViewportSize({ width: viewport.width, height: viewport.height });
+          await app.page.evaluate(({ designTheme, colorMode }) => {
+            localStorage.setItem("club-design-theme", designTheme);
+            localStorage.setItem("club-theme", colorMode);
+            document.documentElement.dataset.designTheme = designTheme;
+            document.documentElement.dataset.theme = colorMode;
+          }, { designTheme: theme, colorMode: mode });
+
+          const back = app.page.getByRole("button", { name: "Назад" });
+          if (await back.isVisible().catch(() => false)) await back.click();
+          await expect(app.page.getByRole("heading", { name: "Общение" }).first()).toBeVisible();
+          await capture(prefix, "topic-list");
+
+          await app.page.getByRole("button", { name: /Фиксики/ }).click();
+          await app.page.locator(".chat-messages").evaluate((element) => { element.scrollTop = 0; });
+          await capture(prefix, "long-history");
+
+          await app.page.getByRole("button", { name: "Поиск сообщений" }).click();
+          await app.page.getByRole("searchbox", { name: "Поиск сообщений" }).fill("старое");
+          await expect(app.page.getByRole("button", { name: /Старое сообщение для поиска/ })).toBeVisible();
+          const searchLayerBounds = await app.page.locator(".chat-search-layer").boundingBox();
+          const appRootBounds = await app.page.locator(".app-root").boundingBox();
+          expect(searchLayerBounds).not.toBeNull();
+          expect(appRootBounds).not.toBeNull();
+          expect(searchLayerBounds!.x).toBeGreaterThanOrEqual(appRootBounds!.x - 2);
+          expect(searchLayerBounds!.x + searchLayerBounds!.width).toBeLessThanOrEqual(
+            appRootBounds!.x + appRootBounds!.width + 2
+          );
+          await capture(prefix, "search");
+          await app.page.getByRole("button", { name: "Закрыть поиск" }).click();
+
+          const failedMessage = app.page.getByText("Визуальная ошибка отправки");
+          await failedMessage.scrollIntoViewIfNeeded();
+          await expect(app.page.getByText("Не отправлено")).toBeVisible();
+          await capture(prefix, "failed-send");
+
+          const staleDraft = app.page.getByRole("button", { name: "Удалить вложение release-audit.pdf" });
+          if (await staleDraft.isVisible().catch(() => false)) await staleDraft.click();
+          await app.page.getByLabel("Выбрать документ").setInputFiles({
+            name: "release-audit.pdf",
+            mimeType: "application/pdf",
+            buffer: Buffer.alloc(256 * 1024, 1)
+          });
+          const progress = app.page.getByRole("progressbar", { name: "Загрузка release-audit.pdf" });
+          await expect(progress).toBeVisible();
+          await progress.scrollIntoViewIfNeeded();
+          await capture(prefix, "media-progress");
+
+          await app.page.evaluate(() => {
+            document.documentElement.classList.add("club-keyboard-open");
+            document.body.classList.add("club-keyboard-open");
+            document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+            document.body.style.setProperty("--club-visible-viewport-height", "420px");
+            document.documentElement.style.setProperty("--club-system-bottom", "300px");
+            document.body.style.setProperty("--club-system-bottom", "300px");
+          });
+          await app.page.getByRole("combobox", { name: "Сообщение" }).focus();
+          await capture(prefix, "composer-keyboard");
+          await app.page.evaluate(() => {
+            document.documentElement.classList.remove("club-keyboard-open");
+            document.body.classList.remove("club-keyboard-open");
+            for (const element of [document.documentElement, document.body]) {
+              element.style.removeProperty("--club-visible-viewport-height");
+              element.style.removeProperty("--club-system-bottom");
+            }
+          });
+
+          const ownMessage = app.page.locator("#chat-message-message-own-release");
+          await ownMessage.scrollIntoViewIfNeeded();
+          await ownMessage.getByRole("button", { name: /Действия с сообщением/ }).click();
+          await expect(app.page.locator(".moderation-action-sheet")).toBeVisible();
+          await capture(prefix, "moderation");
+          await app.page.getByRole("button", { name: "Закрыть" }).click();
+        }
+      }
+    }
+  } finally {
+    releaseVisualUpload();
+    await app.context.close();
+  }
+});
+
 test("keeps chat composer stable when typing", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "desktop-chrome");
 

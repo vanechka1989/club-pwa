@@ -93,4 +93,15 @@ describe("PWA browser regression workflow", () => {
       expect(gateCommand).toContain(suite);
     }
   });
+
+  it("runs the release preparation gate before the external integration and deployment jobs", () => {
+    const quality = deployWorkflow.jobs.quality!;
+    const releaseGate = stepIndex(quality.steps, "Run release preparation gate");
+    const externalGate = stepIndex(quality.steps, "Run community external integration gate");
+
+    expect(releaseGate).toBeGreaterThan(-1);
+    expect(quality.steps[releaseGate]?.run).toBe("pnpm test:release");
+    expect(releaseGate).toBeLessThan(externalGate);
+    expect(deployWorkflow.jobs.deploy).toBeDefined();
+  });
 });

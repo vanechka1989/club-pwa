@@ -13,12 +13,16 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes client activity cards as version 5.78", () => {
-    expect(appVersion).toBe("5.78");
-    expect(releaseNotes[0]?.title).toBe("Клиенты по последней активности");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/последн(ему|ий) вход/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Не входил/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/карточ/i);
+  it("publishes reliable community chat as version 5.79", () => {
+    expect(appVersion).toBe("5.79");
+    expect(releaseNotes[0]?.title).toBe("Надёжный и удобный клубный чат");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/синхрон.*непрочитан/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/надёжн.*сообщен/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/поиск/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/безопасн.*медиа/i);
+
+    const clientActivityRelease = releaseNotes.find((note) => note.version === "5.78");
+    expect(clientActivityRelease?.title).toBe("Клиенты по последней активности");
 
     const largeSupportRelease = releaseNotes.find((note) => note.version === "5.77");
     expect(largeSupportRelease?.title).toBe("Большие файлы в поддержке");
@@ -223,7 +227,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Clients by latest activity");
+    expect(englishNotes[0]?.title).toBe("Reliable and convenient community chat");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

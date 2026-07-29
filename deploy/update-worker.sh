@@ -63,6 +63,73 @@ compose() {
   docker compose -f "$COMPOSE_FILE" "$@"
 }
 
+require_release_resources() {
+  local total_memory_kib available_memory_kib minimum_total_kib minimum_available_kib
+  total_memory_kib="$(awk '/MemTotal:/ { print $2 }' /proc/meminfo)"
+  available_memory_kib="$(awk '/MemAvailable:/ { print $2 }' /proc/meminfo)"
+  minimum_total_kib="$((8 * 1024 * 1024))"
+  minimum_available_kib="$((1 * 1024 * 1024))"
+
+  if [[ ! "$total_memory_kib" =~ ^[0-9]+$ || ! "$available_memory_kib" =~ ^[0-9]+$ ]]; then
+    echo "Unable to read production memory capacity from /proc/meminfo." >&2
+    return 1
+  fi
+  if (( total_memory_kib < minimum_total_kib )); then
+    echo "Release requires at least 8 GiB of physical RAM for PostgreSQL, API, worker, web, Caddy, Redis and ClamAV." >&2
+    return 1
+  fi
+  if (( available_memory_kib < minimum_available_kib )); then
+    echo "Release requires at least 1 GiB MemAvailable before build and service reconciliation." >&2
+    return 1
+  fi
+
+  echo "Release memory gate passed: total=${total_memory_kib}KiB available=${available_memory_kib}KiB."
+}
+
+wait_for_release_dependencies() {
+  local postgres_user postgres_database
+  postgres_user="$(read_env_value POSTGRES_USER)"
+  postgres_database="$(read_env_value POSTGRES_DB)"
+  postgres_user="${postgres_user:-club}"
+  postgres_database="${postgres_database:-club}"
+
+  compose up -d postgres redis clamav
+  for attempt in {1..90}; do
+    if compose exec -T postgres pg_isready -U "$postgres_user" -d "$postgres_database" >/dev/null 2>&1 \
+      && [[ "$(compose exec -T redis redis-cli ping 2>/dev/null | tr -d '\r')" == "PONG" ]] \
+      && compose exec -T clamav clamdscan --ping 5 >/dev/null 2>&1; then
+      echo "PostgreSQL, Redis and ClamAV release dependencies are healthy."
+      return 0
+    fi
+    if [[ "$attempt" -eq 90 ]]; then
+      echo "PostgreSQL, Redis or ClamAV did not become healthy within the release window." >&2
+      compose ps postgres redis clamav || true
+      compose logs --tail=120 postgres redis clamav || true
+      return 1
+    fi
+    sleep 5
+  done
+}
+
+verify_community_s3_lifecycle() {
+  current_phase="s3-lifecycle"
+  write_status running "$current_phase"
+  compose run --rm --no-deps api bun apps/api/src/scripts/verifyCommunityS3Lifecycle.ts
+}
+
+run_pre_migration_backup() {
+  current_phase="backup-before-migration"
+  write_status running "$current_phase"
+  BACKUP_STATE_DIR="${BACKUP_STATE_DIR:-/var/lib/club-pwa-backup}" \
+    /usr/bin/env bash "$DEPLOY_DIR/scripts/backup-postgres-s3.sh"
+}
+
+run_community_cleanup_dry_run() {
+  current_phase="community-cleanup-dry-run"
+  write_status running "$current_phase"
+  compose run --rm --no-deps api bun apps/api/src/scripts/auditCommunityCleanup.ts
+}
+
 read_env_value() {
   local key="$1"
   [[ -f "$DEPLOY_DIR/.env" ]] || return 0
@@ -259,30 +326,42 @@ deploy_api() {
   current_phase="build-api"
   write_status running "$current_phase"
   compose build "${build_args[@]}" api
+  current_phase="release-dependencies"
+  write_status running "$current_phase"
+  wait_for_release_dependencies
+  verify_community_s3_lifecycle
+  run_pre_migration_backup
   current_phase="uploads-permissions"
   write_status running "$current_phase"
   compose run --rm uploads-permissions
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
+  run_community_cleanup_dry_run
   current_phase="restart-api"
   write_status running "$current_phase"
-  compose up -d --no-deps api
+  compose up -d --no-deps api worker
 }
 
 deploy_full() {
   current_phase="build-all"
   write_status running "$current_phase"
   compose build "${build_args[@]}" api web
+  current_phase="release-dependencies"
+  write_status running "$current_phase"
+  wait_for_release_dependencies
+  verify_community_s3_lifecycle
+  run_pre_migration_backup
   current_phase="uploads-permissions"
   write_status running "$current_phase"
   compose run --rm uploads-permissions
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
+  run_community_cleanup_dry_run
   current_phase="reconcile"
   write_status running "$current_phase"
-  compose up -d postgres api web caddy
+  compose up -d postgres redis clamav api worker web caddy
 }
 
 recreate_caddy() {
@@ -307,7 +386,7 @@ rollback_services() {
   echo "Health verification failed; attempting container rollback." >&2
   if [[ $api_changed -eq 1 && -n "$previous_api_image" ]]; then
     docker tag "$previous_api_image" club-pwa-api:latest
-    compose up -d --no-deps --force-recreate api || true
+    compose up -d --no-deps --force-recreate api worker || true
   fi
   if [[ $web_changed -eq 1 && -n "$previous_web_image" ]]; then
     docker tag "$previous_web_image" club-pwa-web:latest
@@ -368,6 +447,7 @@ ensure_payment_encryption_key
 set_service_summary
 write_status running classified
 echo "Target: $current_target; services: $current_services"
+require_release_resources
 remember_previous_images
 
 if [[ $full_reconcile -eq 1 ]]; then
@@ -385,7 +465,7 @@ install_operational_timers
 
 current_phase="health"
 write_status running "$current_phase"
-if ! wait_for_health; then
+if ! wait_for_release_dependencies || ! wait_for_health; then
   current_phase="rollback"
   write_status running "$current_phase"
   rollback_services

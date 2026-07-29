@@ -14,6 +14,9 @@ const productionCompose = readFileSync(resolve(__dirname, "../../../../docker-co
 const scaleCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.scale.yml"), "utf-8");
 const updateWorker = readFileSync(resolve(__dirname, "../../../../deploy/update-worker.sh"), "utf-8");
 const communityUploadOperations = readFileSync(resolve(__dirname, "../../../../docs/operations/community-uploads.md"), "utf-8");
+const backupOperations = readFileSync(resolve(__dirname, "../../../../docs/operations/backups.md"), "utf-8");
+const communityReleaseRunbook = readFileSync(resolve(__dirname, "../../../../docs/operations/reliable-community-chat-release.md"), "utf-8");
+const communityCleanupAudit = readFileSync(resolve(__dirname, "../scripts/auditCommunityCleanup.ts"), "utf-8");
 const apiPackage = JSON.parse(readFileSync(resolve(__dirname, "../../../../apps/api/package.json"), "utf-8")) as {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -190,6 +193,26 @@ describe("production security config", () => {
     expect(communityUploadOperations).toContain("community/pending/");
     expect(communityUploadOperations).toContain("community/quarantine/");
     expect(communityUploadOperations).toContain("community/final/");
+  });
+
+  it("documents every blocking production prerequisite for the reliable chat release", () => {
+    expect(communityReleaseRunbook).toContain("8 GiB");
+    expect(communityReleaseRunbook).toContain("1 GiB MemAvailable");
+    expect(communityReleaseRunbook).toContain("6.5 GiB");
+    expect(communityReleaseRunbook).toContain("0063_reliable_community_chat");
+    expect(communityReleaseRunbook).toContain("0066_community_media_candidates");
+    expect(communityReleaseRunbook).toContain("community-cleanup-dry-run");
+    expect(communityReleaseRunbook).toContain("Deploy to VPS");
+    expect(communityReleaseRunbook).toContain("PWA device regression");
+    expect(communityReleaseRunbook).toContain("Публикация образов шаблонного клуба");
+    expect(communityUploadOperations).toContain("put-bucket-lifecycle-configuration");
+    expect(backupOperations).toContain("backup-before-migration");
+  });
+
+  it("keeps the pre-release community cleanup audit read-only and query-bounded", () => {
+    expect(communityCleanupAudit.match(/LIMIT 1001/g)).toHaveLength(3);
+    expect(communityCleanupAudit).toContain("deletesPerformed: 0");
+    expect(communityCleanupAudit).not.toMatch(/\b(?:DELETE|UPDATE|TRUNCATE)\b/i);
   });
 
   it("isolates bounded media jobs from externally served API processes", () => {

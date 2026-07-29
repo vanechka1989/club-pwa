@@ -49,6 +49,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Run release preparation gate
+        run: pnpm test:release
       - name: Preflight community integration resources
         run: |
           set -euo pipefail

@@ -83,7 +83,7 @@ describe("deploy update script", () => {
 
   it("restores previous application images when the new containers fail health verification", () => {
     expect(updateWorker).toContain("rollback_services() {");
-    expect(updateWorker).toContain("if ! wait_for_health; then");
+    expect(updateWorker).toContain("if ! wait_for_release_dependencies || ! wait_for_health; then");
     expect(updateWorker).toContain("rollback_services");
     expect(updateWorker).toContain("--force-recreate");
     expect(updateWorker).toContain('club-pwa-web:rollback-$DEPLOY_RUN_ID');
@@ -111,9 +111,8 @@ describe("deploy update script", () => {
       updateWorker.indexOf("recreate_caddy() {")
     );
 
-    expect(fullDeployFunction).toContain("compose up -d postgres api web caddy");
+    expect(fullDeployFunction).toContain("compose up -d postgres redis clamav api worker web caddy");
     expect(fullDeployFunction).not.toContain("uptime-kuma");
-    expect(fullDeployFunction).not.toContain("postgres redis api");
   });
 
   it("lets the server update script own start notifications in GitHub Actions", () => {
@@ -172,6 +171,39 @@ describe("deploy update script", () => {
     expect(deployWorkflow).toContain("${{ github.sha }}");
     expect(updateScript).toContain('--setenv="DEPLOY_EXPECTED_COMMIT=${DEPLOY_EXPECTED_COMMIT:-}"');
     expect(updateWorker).toContain('current_target" != "$DEPLOY_EXPECTED_COMMIT');
+  });
+
+  it("blocks migrations until production release prerequisites and a verified backup pass", () => {
+    const apiDeploy = updateWorker.slice(
+      updateWorker.indexOf("deploy_api() {"),
+      updateWorker.indexOf("deploy_full() {")
+    );
+    const fullDeploy = updateWorker.slice(
+      updateWorker.indexOf("deploy_full() {"),
+      updateWorker.indexOf("recreate_caddy() {")
+    );
+
+    expect(updateWorker).toContain("require_release_resources");
+    expect(updateWorker).toContain("verify_community_s3_lifecycle");
+    expect(updateWorker).toContain("run_pre_migration_backup");
+    expect(updateWorker).toContain("run_community_cleanup_dry_run");
+    for (const deployment of [apiDeploy, fullDeploy]) {
+      expect(deployment.indexOf("run_pre_migration_backup")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
+      expect(deployment.indexOf("verify_community_s3_lifecycle")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
+      expect(deployment.indexOf("run_community_cleanup_dry_run")).toBeGreaterThan(deployment.indexOf("compose run --rm migrate"));
+    }
+  });
+
+  it("starts and health-checks every persistent release service, including Redis, ClamAV and the worker", () => {
+    expect(updateWorker).toContain("wait_for_release_dependencies");
+    expect(updateWorker).toContain('postgres_user="$(read_env_value POSTGRES_USER)"');
+    expect(updateWorker).toContain('postgres_database="$(read_env_value POSTGRES_DB)"');
+    expect(updateWorker).toContain("clamdscan --ping 5");
+    expect(updateWorker).toContain("redis-cli ping");
+    expect(updateWorker).toContain("compose up -d postgres redis clamav api worker web caddy");
+    expect(updateWorker).toContain("compose up -d --no-deps api worker");
+    expect(productionCompose).toContain("redis:");
+    expect(productionCompose).toContain("REDIS_URL: ${REDIS_URL:-redis://redis:6379}");
   });
 
   it("collects remote deployment diagnostics when the update command fails", () => {
