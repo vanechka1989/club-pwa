@@ -10,6 +10,23 @@ import { buildCommunityCandidateObjectKey, buildCommunityFinalObjectKey } from "
 
 const execFileAsync = promisify(execFile);
 export const communityVoiceDurationToleranceSeconds = 0.5;
+export const communityVoiceConversionConcurrency = 2;
+
+let activeVoiceConversions = 0;
+const pendingVoiceConversions: Array<() => void> = [];
+
+async function withVoiceConversionPermit<T>(work: () => Promise<T>) {
+  if (activeVoiceConversions >= communityVoiceConversionConcurrency) {
+    await new Promise<void>((resolvePermit) => pendingVoiceConversions.push(resolvePermit));
+  }
+  activeVoiceConversions += 1;
+  try {
+    return await work();
+  } finally {
+    activeVoiceConversions -= 1;
+    pendingVoiceConversions.shift()?.();
+  }
+}
 
 type MediaManifest = {
   id: string;
@@ -132,15 +149,18 @@ export async function processCommunityMediaManifest(manifest: MediaManifest, dep
     return await dependencies.withWorkspace(async ({ inputPath, outputPath }) => {
       await dependencies.downloadToFile(manifest.quarantineObjectKey, inputPath, manifest.sizeBytes);
       if (manifest.kind === "voice") {
-        const inputDuration = await dependencies.probeDuration(inputPath);
-        if (!Number.isFinite(inputDuration) || inputDuration <= 0 || inputDuration > 300 + communityVoiceDurationToleranceSeconds) {
-          throw new Error("voice_duration_exceeded");
-        }
-        await dependencies.transcodeVoiceFile(inputPath, outputPath);
-        const outputDuration = await dependencies.probeDuration(outputPath);
-        if (!Number.isFinite(outputDuration) || outputDuration <= 0 || outputDuration > 300 + communityVoiceDurationToleranceSeconds) {
-          throw new Error("voice_duration_exceeded");
-        }
+        const outputDuration = await withVoiceConversionPermit(async () => {
+          const inputDuration = await dependencies.probeDuration(inputPath);
+          if (!Number.isFinite(inputDuration) || inputDuration <= 0 || inputDuration > 300 + communityVoiceDurationToleranceSeconds) {
+            throw new Error("voice_duration_exceeded");
+          }
+          await dependencies.transcodeVoiceFile(inputPath, outputPath);
+          const measuredOutputDuration = await dependencies.probeDuration(outputPath);
+          if (!Number.isFinite(measuredOutputDuration) || measuredOutputDuration <= 0 || measuredOutputDuration > 300 + communityVoiceDurationToleranceSeconds) {
+            throw new Error("voice_duration_exceeded");
+          }
+          return measuredOutputDuration;
+        });
         const fileName = `${safeStem(manifest.fileName)}.m4a`;
         const objectKeys = buildLeaseUniqueObjectKeys(manifest, fileName);
         candidateObjectKey = objectKeys.candidateObjectKey;

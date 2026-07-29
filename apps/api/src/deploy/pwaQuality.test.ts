@@ -27,4 +27,14 @@ describe("PWA browser regression workflow", () => {
     expect(deployWorkflow).toContain("pnpm test:e2e:release");
     expect(releaseConfig).toContain("retries: process.env.CI ? 1 : 0");
   });
+
+  it("blocks release on real community PostgreSQL, S3, ClamAV, security, load, and multi-device gates", () => {
+    expect(deployWorkflow).toContain("COMMUNITY_TOPIC_STATE_TEST_DATABASE_URL");
+    expect(deployWorkflow).toContain("COMMUNITY_MESSAGE_SEARCH_TEST_DATABASE_URL");
+    expect(deployWorkflow).toContain("COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT");
+    expect(deployWorkflow).toContain("COMMUNITY_CLAMAV_INTEGRATION_HOST");
+    expect(deployWorkflow).toContain("minio/minio:");
+    expect(deployWorkflow).toContain("clamav/clamav:1.4");
+    expect(releaseConfig).toContain("reliable community chat release");
+  });
 });

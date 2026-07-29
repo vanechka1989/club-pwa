@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
-import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
+import { expect, test, type Browser, type Page, type Route, type TestInfo } from "@playwright/test";
 import { pwaUiScreenshotViewports } from "./pwa-ui-routes";
 
 const require = createRequire(import.meta.url);
@@ -827,6 +827,300 @@ async function mockApi(page: Page, sessionUser = currentUser) {
 
   await page.route(`${apiBaseUrl}/**`, handleApiRoute);
   await page.route(appApiUrlPattern, handleApiRoute);
+}
+
+function communityReleaseMessage(input: {
+  id: string;
+  body: string;
+  author?: typeof ownAuthor;
+  createdAt: string;
+  clientOperationId?: string | null;
+}) {
+  const author = input.author ?? ownAuthor;
+  const own = author.id === currentUser.id;
+  return {
+    id: input.id,
+    topicId: "topic-fix",
+    body: input.body,
+    kind: "text",
+    voice: null,
+    images: [],
+    video: null,
+    document: null,
+    poll: null,
+    isSystem: false,
+    status: "visible",
+    author,
+    replyTo: null,
+    likesCount: 0,
+    dislikesCount: 0,
+    reactionCounts: [],
+    myReaction: null,
+    authorMute: null,
+    pinnedAt: null,
+    editedAt: null as string | null,
+    deletedByUserAt: null as string | null,
+    contentRedacted: false,
+    authorMutation: {
+      canEdit: own,
+      canDelete: own,
+      allowedUntil: (own ? "2099-07-29T12:15:00.000Z" : null) as string | null
+    },
+    clientOperationId: (input.clientOperationId ?? null) as string | null,
+    mentions: [],
+    createdAt: input.createdAt
+  };
+}
+
+type CommunityReleaseMessage = ReturnType<typeof communityReleaseMessage>;
+type CommunityReleaseState = {
+  sessionUser: typeof currentUser;
+  messages: CommunityReleaseMessage[];
+  unreadCount: number;
+  notificationMode: "all" | "mentions" | "off";
+  failCreates: boolean;
+  createAttempts: string[];
+  createdByOperation: Map<string, CommunityReleaseMessage>;
+};
+
+function createCommunityReleaseState(): CommunityReleaseState {
+  return {
+    sessionUser: currentUser,
+    messages: [
+      communityReleaseMessage({
+        id: "message-own-release",
+        body: "Сообщение для редактирования",
+        createdAt: "2026-07-01T10:00:00.000Z"
+      }),
+      communityReleaseMessage({
+        id: "message-member-release",
+        body: "Новое сообщение второго устройства",
+        author: memberAuthor,
+        createdAt: "2026-07-01T09:00:00.000Z"
+      }),
+      communityReleaseMessage({
+        id: "message-older-release",
+        body: "Старое сообщение для поиска",
+        author: memberAuthor,
+        createdAt: "2026-06-01T09:00:00.000Z"
+      })
+    ],
+    unreadCount: 1,
+    notificationMode: "mentions",
+    failCreates: false,
+    createAttempts: [],
+    createdByOperation: new Map()
+  };
+}
+
+async function installCommunityReleaseEventSource(page: Page) {
+  await page.addInitScript(() => {
+    const sources = new Set<EventTarget>();
+    class ReleaseEventSource extends EventTarget {
+      static readonly CONNECTING = 0;
+      static readonly OPEN = 1;
+      static readonly CLOSED = 2;
+      readonly CONNECTING = 0;
+      readonly OPEN = 1;
+      readonly CLOSED = 2;
+      readyState = 1;
+      withCredentials = true;
+      onopen: ((event: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      constructor(readonly url: string | URL) {
+        super();
+        sources.add(this);
+        setTimeout(() => {
+          const event = new Event("open");
+          this.onopen?.(event);
+          this.dispatchEvent(new MessageEvent("ready", { data: JSON.stringify({ connectedAt: new Date().toISOString() }) }));
+        }, 0);
+      }
+      close() {
+        this.readyState = ReleaseEventSource.CLOSED;
+        sources.delete(this);
+      }
+    }
+    Object.defineProperty(window, "EventSource", { configurable: true, value: ReleaseEventSource });
+    Object.assign(window, {
+      __emitCommunityReleaseChange(topicId: string | null) {
+        for (const source of sources) {
+          source.dispatchEvent(new MessageEvent("community.changed", {
+            data: JSON.stringify({ id: crypto.randomUUID(), type: "community.changed", topicId })
+          }));
+        }
+      }
+    });
+  });
+}
+
+async function mockCommunityReleaseApi(page: Page, state: CommunityReleaseState) {
+  const handler = async (route: Route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.startsWith("/api/") ? url.pathname.slice(4) : url.pathname;
+
+    if (path === "/me") {
+      await route.fulfill(json({ user: state.sessionUser }));
+      return;
+    }
+    if (path === "/me/device") {
+      await route.fulfill(json({ ok: true, user: state.sessionUser }));
+      return;
+    }
+    if (path === "/community/events") {
+      await route.abort();
+      return;
+    }
+    if (path === "/community/topics") {
+      await route.fulfill(json({
+        topics: [{
+          id: "topic-fix",
+          chatId: "chat-main",
+          title: "Фиксики",
+          description: "Проверочный чат",
+          isPinned: false,
+          isLocked: false,
+          isPublished: true,
+          isAdminOnly: false,
+          archivedUntil: null,
+          messagesCount: state.messages.length,
+          latestReplyToMeAt: null,
+          unreadCount: state.unreadCount,
+          notificationMode: state.notificationMode,
+          createdAt: now
+        }]
+      }));
+      return;
+    }
+    if (path === "/community/topics/topic-fix/messages" && request.method() === "GET") {
+      await route.fulfill(json({
+        messages: state.messages,
+        nextCursor: null,
+        mutedUntil: null,
+        mutedPermanently: false,
+        serverTime: now
+      }));
+      return;
+    }
+    if (path === "/community/topics/topic-fix/messages" && request.method() === "POST") {
+      const payload = request.postDataJSON() as { body: string; clientOperationId: string };
+      state.createAttempts.push(payload.clientOperationId);
+      if (state.failCreates) {
+        await route.fulfill({ status: 503, ...json({ error: "storage_unavailable" }) });
+        return;
+      }
+      let created = state.createdByOperation.get(payload.clientOperationId);
+      if (!created) {
+        created = communityReleaseMessage({
+          id: `message-created-${state.createdByOperation.size + 1}`,
+          body: payload.body,
+          author: {
+            id: state.sessionUser.id,
+            telegramId: state.sessionUser.telegramId,
+            firstName: state.sessionUser.firstName,
+            username: state.sessionUser.username,
+            photoUrl: null
+          },
+          clientOperationId: payload.clientOperationId,
+          createdAt: "2026-07-01T10:05:00.000Z"
+        });
+        state.createdByOperation.set(payload.clientOperationId, created);
+        state.messages.unshift(created);
+      }
+      await route.fulfill(json({ ok: true, message: created }));
+      return;
+    }
+    if (path === "/community/topics/topic-fix/read" && request.method() === "POST") {
+      state.unreadCount = 0;
+      await route.fulfill(json({
+        unreadCount: 0,
+        lastReadMessageId: state.messages[0]?.id ?? null,
+        notificationMode: state.notificationMode
+      }));
+      return;
+    }
+    if (path === "/community/topics/topic-fix/notification-settings" && request.method() === "PUT") {
+      const payload = request.postDataJSON() as { mode: CommunityReleaseState["notificationMode"] };
+      state.notificationMode = payload.mode;
+      await route.fulfill(json({
+        unreadCount: state.unreadCount,
+        lastReadMessageId: state.messages[0]?.id ?? null,
+        notificationMode: state.notificationMode
+      }));
+      return;
+    }
+    if (path === "/community/messages/search") {
+      const target = state.messages.find((message) => message.id === "message-older-release")!;
+      await route.fulfill(json({
+        results: [{
+          messageId: target.id,
+          topicId: target.topicId,
+          topicTitle: "Фиксики",
+          author: target.author,
+          excerpt: "Старое сообщение для поиска",
+          createdAt: target.createdAt
+        }],
+        nextCursor: null
+      }));
+      return;
+    }
+    if (/^\/community\/topics\/topic-fix\/messages\/[^/]+\/context$/.test(path)) {
+      const targetId = path.split("/").at(-2)!;
+      await route.fulfill(json({
+        targetMessageId: targetId,
+        messages: [...state.messages].reverse(),
+        serverTime: now
+      }));
+      return;
+    }
+    if (/^\/community\/messages\/[^/]+$/.test(path) && request.method() === "PATCH") {
+      const id = path.split("/").at(-1)!;
+      const payload = request.postDataJSON() as { body: string };
+      const message = state.messages.find((item) => item.id === id)!;
+      message.body = payload.body;
+      message.editedAt = now;
+      await route.fulfill(json({ ok: true, message, serverTime: now }));
+      return;
+    }
+    if (/^\/community\/messages\/[^/]+$/.test(path) && request.method() === "DELETE") {
+      const id = path.split("/").at(-1)!;
+      const message = state.messages.find((item) => item.id === id)!;
+      message.deletedByUserAt = now;
+      message.authorMutation = { canEdit: false, canDelete: false, allowedUntil: null };
+      await route.fulfill(json({ ok: true, message, serverTime: now }));
+      return;
+    }
+    if (path === "/community/participants") {
+      await route.fulfill(json({ participants: [] }));
+      return;
+    }
+    await route.fallback();
+  };
+
+  await page.route(`${apiBaseUrl}/me`, handler);
+  await page.route(`${apiBaseUrl}/me/device`, handler);
+  await page.route(`${apiBaseUrl}/community/**`, handler);
+  await page.route(/^https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/api\/(?:me(?:\/device)?|community\/.*)/, handler);
+}
+
+async function openCommunityReleasePage(
+  browser: Browser,
+  testInfo: TestInfo,
+  state: CommunityReleaseState
+) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.addInitScript(() => localStorage.setItem("club-push-onboarding-dismissed-v1", "1"));
+  await installCommunityReleaseEventSource(page);
+  await mockInstalledPwa(page, testInfo);
+  await mockApi(page, state.sessionUser);
+  await mockCommunityReleaseApi(page, state);
+  page.setDefaultTimeout(7_000);
+  await page.goto("/community");
+  await expect(page.getByRole("heading", { name: "Общение" }).first()).toBeVisible();
+  return { context, page };
 }
 
 async function mockInstalledPwa(page: Page, testInfo: TestInfo) {
@@ -3910,6 +4204,128 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
 
   if (testInfo.project.name === "pixel-7") {
     await page.screenshot({ path: testInfo.outputPath("lesson-editor-task.png"), fullPage: false });
+  }
+});
+
+test("reliable community chat release synchronizes unread, search, settings, edit and delete across devices", async ({ browser }, testInfo) => {
+  test.setTimeout(90_000);
+  const state = createCommunityReleaseState();
+  const first = await openCommunityReleasePage(browser, testInfo, state);
+  const second = await openCommunityReleasePage(browser, testInfo, state);
+  try {
+    await expect(second.page.getByRole("status", { name: "1 непрочитанное сообщение" })).toBeVisible();
+    await first.page.getByRole("button", { name: /Фиксики/ }).click();
+    await expect.poll(() => state.unreadCount).toBe(0);
+
+    await second.page.evaluate(() => {
+      (window as unknown as { __emitCommunityReleaseChange: (topicId: string | null) => void })
+        .__emitCommunityReleaseChange("topic-fix");
+    });
+    await expect(second.page.getByRole("status", { name: /непрочитан/ })).toBeHidden();
+
+    await first.page.getByRole("button", { name: "Меню чата" }).click();
+    await first.page.getByRole("radio", { name: "Все сообщения" }).check();
+    await expect.poll(() => state.notificationMode).toBe("all");
+    await expect(first.page.getByRole("radio", { name: "Все сообщения" })).toBeChecked();
+
+    await first.page.getByRole("button", { name: "Поиск сообщений" }).click();
+    await first.page.getByRole("searchbox", { name: "Поиск сообщений" }).fill("старое");
+    const result = first.page.getByRole("button", { name: /Старое сообщение для поиска/ });
+    await expect(result).toBeVisible();
+    await result.click();
+    await expect(first.page.locator("#chat-message-message-older-release")).toHaveClass(/chat-message-jump-highlight/);
+
+    const ownMessage = first.page.locator("#chat-message-message-own-release");
+    const ownActions = ownMessage.getByRole("button", { name: /Действия с сообщением/ });
+    await ownActions.focus();
+    await ownActions.press("Enter");
+    await first.page.getByRole("button", { name: "Редактировать сообщение" }).click();
+    const composer = first.page.getByRole("combobox", { name: "Сообщение" });
+    await composer.fill("Отредактировано на первом устройстве");
+    await first.page.getByRole("button", { name: "Отправить" }).click();
+    await expect(ownMessage.getByText("Отредактировано на первом устройстве")).toBeVisible();
+    await expect(ownMessage.getByText("изменено")).toBeVisible();
+
+    await ownMessage.getByRole("button", { name: /Действия с сообщением/ }).click();
+    await first.page.getByRole("button", { name: "Удалить своё сообщение" }).click();
+    await first.page.getByRole("alertdialog", { name: "Удалить сообщение?" })
+      .getByRole("button", { name: "Удалить", exact: true }).click();
+    await expect(ownMessage.getByText("Удалено пользователем · оригинал виден модератору")).toBeVisible();
+  } finally {
+    await Promise.allSettled([first.context.close(), second.context.close()]);
+  }
+});
+
+test("reliable community chat release retries offline without duplicates and keeps 320px menus stable", async ({ browser }, testInfo) => {
+  test.setTimeout(90_000);
+  const state = createCommunityReleaseState();
+  const app = await openCommunityReleasePage(browser, testInfo, state);
+  try {
+    await app.page.setViewportSize({ width: 320, height: 720 });
+    await app.page.getByRole("button", { name: /Фиксики/ }).click();
+    state.failCreates = true;
+    const composer = app.page.getByRole("combobox", { name: "Сообщение" });
+    await composer.fill("Офлайн сообщение без дубля");
+    await app.page.getByRole("button", { name: "Отправить" }).click();
+    await expect(app.page.getByText("Не отправлено")).toBeVisible();
+
+    await app.page.reload();
+    await app.page.getByRole("button", { name: /Фиксики/ }).click();
+    await expect(app.page.getByText("Офлайн сообщение без дубля")).toBeVisible();
+    await expect(app.page.getByText("Не отправлено")).toBeVisible();
+    state.failCreates = false;
+    await app.page.getByRole("button", { name: "Повторить отправку" }).click();
+    await expect(app.page.getByText("Не отправлено")).toBeHidden();
+    await expect(app.page.getByText("Офлайн сообщение без дубля")).toHaveCount(1);
+    expect(new Set(state.createAttempts).size).toBe(1);
+    expect(state.createAttempts.length).toBeGreaterThanOrEqual(2);
+    expect(state.messages.filter((message) => message.body === "Офлайн сообщение без дубля")).toHaveLength(1);
+
+    const created = state.messages.find((message) => message.body === "Офлайн сообщение без дубля")!;
+    const createdMessage = app.page.locator(`#chat-message-${created.id}`);
+    await createdMessage.dispatchEvent("pointerdown", { pointerType: "touch", clientX: 120, clientY: 240 });
+    await expect(app.page.locator(".moderation-action-sheet")).toBeVisible();
+    await app.page.getByRole("button", { name: "Закрыть" }).click();
+
+    const menuTrigger = createdMessage.getByRole("button", { name: /Действия с сообщением/ });
+    await menuTrigger.focus();
+    await menuTrigger.press("Enter");
+    await expect(app.page.locator(".moderation-action-sheet")).toBeVisible();
+    await app.page.getByRole("button", { name: "Закрыть" }).click();
+
+    await app.page.evaluate(() => {
+      document.documentElement.classList.add("club-keyboard-open");
+      document.body.classList.add("club-keyboard-open");
+      document.documentElement.style.setProperty("--club-visible-viewport-height", "420px");
+      document.body.style.setProperty("--club-visible-viewport-height", "420px");
+      document.documentElement.style.setProperty("--club-system-bottom", "300px");
+      document.body.style.setProperty("--club-system-bottom", "300px");
+    });
+    const activeComposer = app.page.getByRole("combobox", { name: "Сообщение" });
+    await activeComposer.focus();
+    const firstScrollTop = await app.page.locator(".chat-messages").evaluate((element) => element.scrollTop);
+    await app.page.waitForTimeout(750);
+    const secondScrollTop = await app.page.locator(".chat-messages").evaluate((element) => element.scrollTop);
+    expect(Math.abs(secondScrollTop - firstScrollTop)).toBeLessThanOrEqual(1);
+    await expectNoHorizontalOverflow(app.page, ".community-chat-shell");
+
+    state.failCreates = true;
+    await activeComposer.fill("Черновик только первого аккаунта");
+    await app.page.getByRole("button", { name: "Отправить" }).click();
+    await expect(app.page.getByText("Не отправлено")).toBeVisible();
+    state.sessionUser = {
+      ...currentUser,
+      id: "user-second-account",
+      telegramId: "999999999",
+      firstName: "Другой",
+      displayName: "Другой аккаунт",
+      username: "other-account"
+    };
+    await app.page.reload();
+    await app.page.getByRole("button", { name: /Фиксики/ }).click();
+    await expect(app.page.getByText("Черновик только первого аккаунта")).toBeHidden();
+  } finally {
+    await app.context.close();
   }
 });
 

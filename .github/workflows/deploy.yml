@@ -13,9 +13,18 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       COMMUNITY_MESSAGE_MUTATION_TEST_DATABASE_URL: postgres://club:club@localhost:5432/club
+      COMMUNITY_TOPIC_STATE_TEST_DATABASE_URL: postgres://club:club@localhost:5432/club
+      COMMUNITY_MESSAGE_SEARCH_TEST_DATABASE_URL: postgres://club:club@localhost:5432/club
+      COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT: http://127.0.0.1:9000
+      COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET: community-release-gate
+      COMMUNITY_UPLOAD_S3_INTEGRATION_ACCESS_KEY_ID: community-ci
+      COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY: community-ci-secret
+      COMMUNITY_UPLOAD_S3_INTEGRATION_REGION: us-east-1
+      COMMUNITY_CLAMAV_INTEGRATION_HOST: 127.0.0.1
+      COMMUNITY_CLAMAV_INTEGRATION_PORT: 3310
     services:
       postgres:
         image: postgres:16-alpine
@@ -40,6 +49,57 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Start community S3 and ClamAV release services
+        run: |
+          set -euo pipefail
+          docker run --detach --name community-minio \
+            --publish 9000:9000 \
+            --env MINIO_ROOT_USER="$COMMUNITY_UPLOAD_S3_INTEGRATION_ACCESS_KEY_ID" \
+            --env MINIO_ROOT_PASSWORD="$COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY" \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z server /data
+          docker run --detach --name community-clamav \
+            --publish 3310:3310 \
+            --memory 4g \
+            --pids-limit 256 \
+            clamav/clamav:1.4
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              docker logs community-minio
+              exit 1
+            fi
+            sleep 2
+          done
+          for attempt in $(seq 1 90); do
+            if docker exec community-clamav clamdscan --ping 5 >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" -eq 90 ]; then
+              docker logs community-clamav
+              exit 1
+            fi
+            sleep 5
+          done
+
+          pnpm --filter @club/api exec node --input-type=module <<'NODE'
+          import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
+          const client = new S3Client({
+            endpoint: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_ENDPOINT,
+            region: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_REGION,
+            forcePathStyle: true,
+            credentials: {
+              accessKeyId: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_ACCESS_KEY_ID,
+              secretAccessKey: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_SECRET_ACCESS_KEY
+            }
+          });
+          await client.send(new CreateBucketCommand({
+            Bucket: process.env.COMMUNITY_UPLOAD_S3_INTEGRATION_BUCKET
+          }));
+          client.destroy();
+          NODE
       - name: Scan production dependencies
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

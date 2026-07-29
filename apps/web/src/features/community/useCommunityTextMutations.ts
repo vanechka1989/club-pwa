@@ -129,9 +129,8 @@ export function useCommunityTextMutations(state: TextMutationState) {
   async function deleteOwn(message: ClubMessage) {
     const room = state.captureMutationRoom();
     if (!room) return;
+    state.activeActionId.value = null;
     if (!await state.confirmDelete()) {
-      if (!room.isCurrent()) return;
-      state.activeActionId.value = null;
       return;
     }
     if (!room.isCurrent()) return;
