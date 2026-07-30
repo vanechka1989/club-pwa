@@ -38,8 +38,6 @@ const envSchema = z.object({
   S3_SECRET_ACCESS_KEY: optionalString,
   S3_PUBLIC_BASE_URL: optionalUrl,
   S3_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
-  CLAMAV_HOST: optionalString.default("clamav"),
-  CLAMAV_PORT: z.coerce.number().int().min(1).max(65_535).default(3310),
   UPLOADS_DIR: z.string().default("/app/uploads")
 });
 

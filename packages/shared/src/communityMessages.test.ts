@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  clubMessageSchema,
-  clubMessagesResponseSchema,
-  clubTopicSchema,
-  communityMessageContextResponseSchema
-} from "./index";
+import { clubMessageSchema, clubTopicSchema } from "./index";
 
 const base = {
   id: "message-1",
@@ -20,12 +15,6 @@ const base = {
   myReaction: null,
   authorMute: null,
   pinnedAt: null,
-  contentRedacted: false,
-  authorMutation: {
-    canEdit: false,
-    canDelete: false,
-    allowedUntil: null
-  },
   createdAt: new Date().toISOString()
 };
 
@@ -59,58 +48,6 @@ describe("club message media contracts", () => {
         poll: { id: "p1", question: "Выбор?", allowsMultiple: false, isAnonymous: true, closesAt: null, closedAt: null, totalVoters: 0, options: [{ id: "o1", text: "Да", votesCount: 0, percent: 0, selected: false }], voterDetails: null }
       }).poll?.question
     ).toBe("Выбор?");
-  });
-
-  it("preserves explicit redaction and server-derived author mutation capabilities", () => {
-    const parsed = clubMessageSchema.parse({
-      ...base,
-      body: "Сообщение удалено",
-      contentRedacted: false,
-      authorMutation: {
-        canEdit: true,
-        canDelete: true,
-        allowedUntil: "2026-07-29T10:15:00.000Z"
-      }
-    });
-    const response = clubMessagesResponseSchema.parse({
-      messages: [parsed],
-      nextCursor: null,
-      mutedUntil: null,
-      mutedPermanently: false,
-      serverTime: "2026-07-29T10:14:59.999Z"
-    });
-
-    expect(parsed.contentRedacted).toBe(false);
-    expect(parsed.authorMutation).toEqual({
-      canEdit: true,
-      canDelete: true,
-      allowedUntil: "2026-07-29T10:15:00.000Z"
-    });
-    expect(response.serverTime).toBe("2026-07-29T10:14:59.999Z");
-  });
-
-  it("rejects message pages that omit authoritative lifecycle fields or the server clock", () => {
-    const completeMessage = clubMessageSchema.parse({ ...base, kind: "text", voice: null, images: [], poll: null });
-    const { contentRedacted: _redaction, ...withoutRedaction } = completeMessage;
-    const { authorMutation: _mutation, ...withoutMutation } = completeMessage;
-
-    expect(clubMessageSchema.safeParse(withoutRedaction).success).toBe(false);
-    expect(clubMessageSchema.safeParse(withoutMutation).success).toBe(false);
-    expect(clubMessagesResponseSchema.safeParse({
-      messages: [completeMessage],
-      nextCursor: null,
-      mutedUntil: null,
-      mutedPermanently: false
-    }).success).toBe(false);
-    expect(communityMessageContextResponseSchema.safeParse({
-      targetMessageId: completeMessage.id,
-      messages: [completeMessage]
-    }).success).toBe(false);
-    expect(communityMessageContextResponseSchema.parse({
-      targetMessageId: completeMessage.id,
-      messages: [completeMessage],
-      serverTime: "2026-07-29T10:14:59.999Z"
-    }).serverTime).toBe("2026-07-29T10:14:59.999Z");
   });
 });
 

@@ -12,8 +12,6 @@ import {
   verifyEmailCode as verifyEmailCodeApi
 } from "@/api/startup";
 import { getAcquisitionVisitorId } from "@/features/app/acquisitionTracking";
-import { clearCommunityDraftsForUser } from "@/features/community/communityDrafts";
-import { clearCommunityOutboxForUser } from "@/features/community/communityOutbox";
 
 type AuthRequestError = Error & {
   retryAfterSeconds?: number;
@@ -269,32 +267,9 @@ export const useSessionStore = defineStore("session", () => {
   }
 
   async function logout() {
-    const communityUserId = user.value?.id;
-    let uploadCleanup: typeof import("@/features/community/directUpload") | null = null;
-    let logoutAttempted = false;
-    try {
-      const [directUpload, { clearCommunityUploadDraftsForUser }] = await Promise.all([
-        import("@/features/community/directUpload"),
-        import("@/stores/communityUploads")
-      ]);
-      uploadCleanup = directUpload;
-      if (communityUserId) await directUpload.drainCommunityUploadCleanupForUser(communityUserId);
-      logoutAttempted = true;
-      await logoutSession();
-      if (communityUserId) {
-        clearCommunityDraftsForUser(communityUserId);
-        clearCommunityOutboxForUser(communityUserId);
-      }
-      if (communityUserId) clearCommunityUploadDraftsForUser(communityUserId);
-    } catch {
-      if (!logoutAttempted) await logoutSession().catch(() => undefined);
-      localStorage.removeItem("club-community-multipart-sessions");
-      localStorage.removeItem("club-community-upload-drafts-v1");
-    } finally {
-      uploadCleanup?.clearCommunityUploadSessions(localStorage, communityUserId);
-      user.value = null;
-      resetEmailAuth();
-    }
+    await logoutSession();
+    user.value = null;
+    resetEmailAuth();
   }
 
   return {

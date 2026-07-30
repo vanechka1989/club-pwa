@@ -32,23 +32,14 @@ import {
 } from "@club/shared";
 import { getAcquisitionDashboard, getAcquisitionDayDetail, getUserAcquisition, listAcquisitionLinks } from "../acquisition/acquisitionAnalytics";
 import { createAcquisitionLink, setAcquisitionLinkActive } from "../acquisition/acquisitionStore";
-import { getAdminAccessProfile, getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
+import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
 import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } from "../admin/s3DeletionAudit";
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
-import {
-  createAdminCommunityViewer,
-  projectAdminCommunityPollContent,
-  projectAdminCommunityModerationMessage,
-  sortAdminTimelineNewestFirst,
-  type AdminCommunityViewer
-} from "../admin/communityMessageView";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildMessageAuthor } from "../community/messageMetadata";
-import { preciseCommunityMessageCreatedAtExtra } from "../community/messageTimestamp";
-import { pingClamAv, summarizeCommunityDocumentScannerHealth } from "../community/documentScanner";
 import { resolvePollEndedAt } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
@@ -63,7 +54,6 @@ import {
   appNotifications,
   clubSettings,
   clubMessageAttachments,
-  communityUploadManifests,
   clubChatMessages,
   clubPolls,
   clubPollVotes,
@@ -104,6 +94,7 @@ import {
   invalidateS3RuntimeCache,
   listObjects,
   mirrorObjectToReserve,
+  testS3Connection,
   uploadMultipartPart,
   uploadObject
 } from "../storage/s3";
@@ -125,13 +116,9 @@ import {
   getS3ConfigFromSetting,
   normalizeS3PublicBaseUrl,
   storageSettingKey,
-  verifyS3LiveConfigurationUpdate,
   type StoredS3Config
 } from "../storage/s3Config";
-import { commitVerifiedS3ConfigurationInDatabase } from "../storage/s3ConfigCommit";
-import { verifyS3Configuration } from "../storage/s3TargetVerifier";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
-import { enqueueCommunityMessageDeletion } from "../community/objectDeletionLedger";
 import { getRestoredContentArchiveValues } from "../learning/contentArchive";
 import {
   getArchivedCategoryItemValues,
@@ -876,15 +863,6 @@ async function rejectIfMissingAnyPermission(c: Context<{ Variables: AuthVariable
   return c.json({ error: "Admin permission required" }, 403);
 }
 
-async function getAdminSurfaceAccess(c: Context<{ Variables: AuthVariables }>) {
-  const profile = await getAdminAccessProfile(c.get("telegramUser").id);
-  const role = profile.isOwner ? "owner" as const : profile.isActive ? "admin" as const : "member" as const;
-  return {
-    community: createAdminCommunityViewer({ ...profile, role }),
-    materials: profile.isOwner || profile.isActive && profile.permissions.includes("materials")
-  };
-}
-
 function requireAdminPermission(permission: AdminPermission) {
   return async (c: Context<{ Variables: AuthVariables }>, next: () => Promise<void>) => {
     const errorResponse = await rejectIfNotOwner(c, permission);
@@ -1261,10 +1239,7 @@ function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect
   });
 }
 
-async function buildUserDetail(
-  user: typeof users.$inferSelect,
-  communityViewer: AdminCommunityViewer
-): Promise<AdminUserDetailResponse> {
+async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
   const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory, learningEngagementRows] = await Promise.all([
     buildStatsUser(user, totalItems),
@@ -1286,19 +1261,14 @@ async function buildUserDetail(
         item: true
       }
     }),
-    communityViewer.allowed
-      ? db.query.clubChatMessages.findMany({
-          where: and(
-            eq(clubChatMessages.userId, user.id),
-            ne(clubChatMessages.status, "visible"),
-            isNull(clubChatMessages.terminalCleanupAt)
-          ),
-          orderBy: [desc(clubChatMessages.createdAt), desc(clubChatMessages.id)],
-          limit: 50,
-          extras: { preciseCreatedAt: preciseCommunityMessageCreatedAtExtra() },
-          with: { topic: true }
-        })
-      : Promise.resolve([]),
+    db.query.clubChatMessages.findMany({
+      where: and(eq(clubChatMessages.userId, user.id), ne(clubChatMessages.status, "visible")),
+      orderBy: [desc(clubChatMessages.createdAt)],
+      limit: 50,
+      with: {
+        topic: true
+      }
+    }),
     getAdminUserReferrals(user.id),
     db.query.userDevices.findMany({
       where: eq(userDevices.userId, user.id),
@@ -1378,15 +1348,16 @@ async function buildUserDetail(
       createdAt: comment.createdAt.toISOString(),
       resolvedAt: comment.moderatedAt?.toISOString() ?? null
     })),
-    ...messages.flatMap((message) => {
-      const projected = projectAdminCommunityModerationMessage(message, communityViewer);
-      return projected ? [{
-        ...projected,
-        kind: "chat_message" as const,
-        resolvedAt: message.moderatedAt?.toISOString() ?? null
-      }] : [];
-    })
-  ].sort(sortAdminTimelineNewestFirst);
+    ...messages.map((message) => ({
+      id: message.id,
+      kind: "chat_message" as const,
+      status: message.status,
+      body: message.body,
+      sourceTitle: message.topic.title,
+      createdAt: message.createdAt.toISOString(),
+      resolvedAt: message.moderatedAt?.toISOString() ?? null
+    }))
+  ].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
   const devices = userDeviceHistory.flatMap((entry) => {
     const diagnostics = deviceDiagnosticsSchema.safeParse(entry.diagnostics);
@@ -1960,26 +1931,6 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       logger.error({ error }, "Admin integration health database check failed");
     }
 
-    try {
-      const [scannerAvailable, queue] = await Promise.all([
-        pingClamAv({ host: env.CLAMAV_HOST ?? "clamav", port: env.CLAMAV_PORT }),
-        db.select({
-          queued: sql<number>`count(*) filter (where ${communityUploadManifests.status} in ('pending','scanning'))`.mapWith(Number),
-          failed: sql<number>`count(*) filter (where ${communityUploadManifests.status} = 'failed')`.mapWith(Number),
-          cleanupPending: sql<number>`count(*) filter (where ${communityUploadManifests.status} = 'cleanup_pending')`.mapWith(Number)
-        }).from(communityUploadManifests).where(eq(communityUploadManifests.kind, "document"))
-      ]);
-      items.push(summarizeCommunityDocumentScannerHealth({
-        available: scannerAvailable,
-        queued: queue[0]?.queued ?? 0,
-        failed: queue[0]?.failed ?? 0,
-        cleanupPending: queue[0]?.cleanupPending ?? 0
-      }));
-    } catch (error) {
-      items.push(summarizeCommunityDocumentScannerHealth({ available: false, queued: 0, failed: 0, cleanupPending: 0 }));
-      logger.warn({ error }, "Admin community document scanner health check failed");
-    }
-
     return c.json({ checkedAt: new Date().toISOString(), items });
   })
   .post("/database/backup-link", async (c) => {
@@ -2139,35 +2090,32 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     try {
-      await verifyS3LiveConfigurationUpdate(currentConfig, nextConfig, verifyS3Configuration);
-    } catch (error) {
-      if (error instanceof Error && error.message === "s3_physical_generation_change_requires_offline_migration") {
-        return c.json({
-          error: "S3 endpoint, region, bucket, and reserve topology can only be changed by the offline storage migration runbook",
-          code: error.message
-        }, 409);
+      await testS3Connection(nextConfig);
+      if (nextConfig.reserve) {
+        await testS3Connection({ ...nextConfig.reserve, signedUrlTtlSeconds: nextConfig.signedUrlTtlSeconds, reserve: null });
       }
-      logger.warn({ error }, "S3 credential rotation verification failed");
-      return c.json({ error: "Unable to verify S3 lifecycle, versioning, and deletion permissions" }, 400);
+    } catch {
+      return c.json({ error: "Unable to connect to S3 bucket" }, 400);
     }
 
-    let savedSetting: typeof clubSettings.$inferSelect | undefined;
-    try {
-      savedSetting = await commitVerifiedS3ConfigurationInDatabase({
-        database: db,
-        currentFallback: getS3ConfigFromEnv(env),
-        next: nextConfig,
-        updatedByUserId: c.get("userId")
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === "s3_physical_generation_change_requires_offline_migration") {
-        return c.json({
-          error: "S3 endpoint, region, bucket, and reserve topology can only be changed by the offline storage migration runbook",
-          code: error.message
-        }, 409);
-      }
-      throw error;
-    }
+    const now = new Date();
+    const [savedSetting] = await db
+      .insert(clubSettings)
+      .values({
+        key: storageSettingKey,
+        value: JSON.stringify(nextConfig),
+        updatedByUserId: c.get("userId"),
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: clubSettings.key,
+        set: {
+          value: JSON.stringify(nextConfig),
+          updatedByUserId: c.get("userId"),
+          updatedAt: now
+        }
+      })
+      .returning();
 
     invalidateS3RuntimeCache();
 
@@ -2294,37 +2242,9 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
   })
   .get("/stats", async (c) => {
-    const [clock] = Array.from((await db.execute(sql`
-      select clock_timestamp() as now
-    `)) as Iterable<{ now: Date }>);
-    if (!clock?.now) throw new Error("database_clock_unavailable");
-    const now = clock.now;
     const totalItems = await getPublishedItemsCount();
-    const adminAccess = await getAdminSurfaceAccess(c);
-    const retainedPollParentCondition = and(
-      isNull(clubChatMessages.terminalCleanupAt),
-      or(
-        isNull(clubChatMessages.deletedByUserAt),
-        and(
-          isNotNull(clubChatMessages.deletedContentExpiresAt),
-          gt(clubChatMessages.deletedContentExpiresAt, now)
-        )
-      )
-    );
-    const retainedPollParentExists = sql<boolean>`exists (
-      select 1
-      from club_chat_messages retained_message
-      where retained_message.id = ${clubPolls.messageId}
-        and retained_message.terminal_cleanup_at is null
-        and (
-          retained_message.deleted_by_user_at is null
-          or (
-            retained_message.deleted_content_expires_at is not null
-            and retained_message.deleted_content_expires_at > ${now}
-          )
-        )
-    )`;
-    const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], recentUsers] = await Promise.all([
+    const now = new Date();
+    const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], [pollCountRow], [activePollCountRow], [pollVoteStatsRow], recentUsers, communityMessages, pollRecords] = await Promise.all([
       db.select({ value: count(users.id) }).from(users),
       db
         .select({ value: countDistinct(subscriptions.userId) })
@@ -2334,51 +2254,27 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         .select({ value: count(userContentProgress.id) })
         .from(userContentProgress)
         .where(isNotNull(userContentProgress.completedAt)),
+      db.select({ value: count(clubPolls.id) }).from(clubPolls),
+      db
+        .select({ value: count(clubPolls.id) })
+        .from(clubPolls)
+        .where(and(isNull(clubPolls.closedAt), or(isNull(clubPolls.closesAt), gt(clubPolls.closesAt, now)))),
+      db.select({ totalVotes: count(clubPollVotes.id), uniqueParticipants: countDistinct(clubPollVotes.userId) }).from(clubPollVotes),
       db.query.users.findMany({
         orderBy: (table, { desc }) => [desc(table.updatedAt)],
         limit: 200
+      }),
+      db.query.clubChatMessages.findMany({
+        orderBy: (table, { desc }) => [desc(table.createdAt)],
+        limit: 2000,
+        with: { user: true, topic: true }
+      }),
+      db.query.clubPolls.findMany({
+        orderBy: (table, { desc }) => [desc(table.createdAt)],
+        limit: 500,
+        with: { message: { with: { topic: true, user: true } }, options: true, votes: true }
       })
     ]);
-    const communityStats = adminAccess.community.allowed
-      ? await Promise.all([
-          db.select({ value: count(clubPolls.id) })
-            .from(clubPolls)
-            .innerJoin(clubChatMessages, eq(clubChatMessages.id, clubPolls.messageId))
-            .where(retainedPollParentCondition),
-          db
-            .select({ value: count(clubPolls.id) })
-            .from(clubPolls)
-            .innerJoin(clubChatMessages, eq(clubChatMessages.id, clubPolls.messageId))
-            .where(and(
-              retainedPollParentCondition,
-              isNull(clubPolls.closedAt),
-              or(isNull(clubPolls.closesAt), gt(clubPolls.closesAt, now))
-            )),
-          db.select({ totalVotes: count(clubPollVotes.id), uniqueParticipants: countDistinct(clubPollVotes.userId) })
-            .from(clubPollVotes)
-            .innerJoin(clubPolls, eq(clubPolls.id, clubPollVotes.pollId))
-            .innerJoin(clubChatMessages, eq(clubChatMessages.id, clubPolls.messageId))
-            .where(retainedPollParentCondition),
-          db.query.clubChatMessages.findMany({
-            where: isNull(clubChatMessages.terminalCleanupAt),
-            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
-            limit: 2000,
-            extras: { preciseCreatedAt: preciseCommunityMessageCreatedAtExtra() },
-            with: { user: true, topic: true }
-          }),
-          db.query.clubPolls.findMany({
-            where: retainedPollParentExists,
-            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
-            limit: 500,
-            with: { message: { with: { topic: true, user: true } }, options: true, votes: true }
-          })
-        ])
-      : null;
-    const pollCountRow = communityStats?.[0][0];
-    const activePollCountRow = communityStats?.[1][0];
-    const pollVoteStatsRow = communityStats?.[2][0];
-    const communityMessages = communityStats?.[3] ?? [];
-    const pollRecords = communityStats?.[4] ?? [];
     const totalPolls = pollCountRow?.value ?? 0;
     const activePolls = activePollCountRow?.value ?? 0;
     const uniqueParticipants = pollVoteStatsRow?.uniqueParticipants ?? 0;
@@ -2402,13 +2298,11 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       users: statsUsers,
       pollStats: {
         ...pollSummary,
-        polls: pollRecords.flatMap((poll) => {
-          const projected = projectAdminCommunityPollContent(poll, adminAccess.community, now);
-          if (!projected) return [];
+        polls: pollRecords.map((poll) => {
           const voterIds = new Set(poll.votes.map((vote) => vote.userId));
-          return [{
+          return {
             id: poll.id,
-            question: projected.question,
+            question: poll.question,
             topicTitle: poll.message.topic.title,
             isAnonymous: poll.isAnonymous,
             closed: Boolean(poll.closedAt || (poll.closesAt && poll.closesAt <= now)),
@@ -2416,25 +2310,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
             startedAt: poll.createdAt.toISOString(),
             endedAt: resolvePollEndedAt(poll),
             totalVoters: voterIds.size,
-            options: projected.options.map((option) => {
+            options: [...poll.options].sort((a, b) => a.sortOrder - b.sortOrder).map((option) => {
               const votesCount = poll.votes.filter((vote) => vote.optionId === option.id).length;
               return { id: option.id, text: option.text, votesCount, percent: voterIds.size ? Math.round((votesCount / voterIds.size) * 100) : 0 };
             })
-          }];
+          };
         })
       },
-      communityMessages: communityMessages.flatMap((message) => {
-        const projected = projectAdminCommunityModerationMessage(message, adminAccess.community, now);
-        return projected ? [{
-          id: message.id,
-          topicId: message.topicId,
-          topicTitle: projected.sourceTitle,
-          isSystem: message.isSystem,
-          status: message.status,
-          author: buildMessageAuthor(message.user),
-          createdAt: projected.createdAt
-        }] : [];
-      })
+      communityMessages: communityMessages.map((message) => ({
+        id: message.id,
+        topicId: message.topicId,
+        topicTitle: message.topic.title,
+        isSystem: message.isSystem,
+        status: message.status,
+        author: buildMessageAuthor(message.user),
+        createdAt: message.createdAt.toISOString()
+      }))
     });
   })
   .get("/stats/users/:telegramId", async (c) => {
@@ -2457,8 +2348,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "User not found" }, 404);
     }
 
-    const adminAccess = await getAdminSurfaceAccess(c);
-    return c.json(await buildUserDetail(user, adminAccess.community));
+    return c.json(await buildUserDetail(user));
   })
   .patch("/stats/users/:telegramId/display-name", async (c) => {
     const permissionError = await rejectIfNotOwner(c, "users");
@@ -2559,25 +2449,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     });
   })
   .get("/moderation", async (c) => {
-    const adminAccess = await getAdminSurfaceAccess(c);
-    const [comments, messages] = await Promise.all([
-      adminAccess.materials
-        ? db.query.lessonComments.findMany({
-            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
-            limit: 25,
-            with: { user: true, item: true }
-          })
-        : Promise.resolve([]),
-      adminAccess.community.allowed
-        ? db.query.clubChatMessages.findMany({
-            where: isNull(clubChatMessages.terminalCleanupAt),
-            orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
-            limit: 25,
-            extras: { preciseCreatedAt: preciseCommunityMessageCreatedAtExtra() },
-            with: { user: true, topic: true }
-          })
-        : Promise.resolve([])
-    ]);
+    const comments = await db.query.lessonComments.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 25,
+      with: {
+        user: true,
+        item: true
+      }
+    });
+    const messages = await db.query.clubChatMessages.findMany({
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
+      limit: 25,
+      with: {
+        user: true,
+        topic: true
+      }
+    });
 
     const items = [
       ...comments.map((comment) => ({
@@ -2589,16 +2476,17 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         sourceTitle: comment.item.title,
         createdAt: comment.createdAt.toISOString()
       })),
-      ...messages.flatMap((message) => {
-        const projected = projectAdminCommunityModerationMessage(message, adminAccess.community);
-        return projected ? [{
-          ...projected,
-          kind: "chat_message" as const,
-          author: buildMessageAuthor(message.user)
-        }] : [];
-      })
+      ...messages.map((message) => ({
+        id: message.id,
+        kind: "chat_message" as const,
+        body: message.body,
+        status: message.status,
+        author: buildMessageAuthor(message.user),
+        sourceTitle: message.topic.title,
+        createdAt: message.createdAt.toISOString()
+      }))
     ]
-      .sort(sortAdminTimelineNewestFirst)
+      .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
       .slice(0, 50);
 
     return c.json({ items });
@@ -3896,13 +3784,6 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     const kind = c.req.param("kind");
     const id = c.req.param("id");
-    const adminAccess = await getAdminSurfaceAccess(c);
-    if (kind === "lesson_comment" && !adminAccess.materials) {
-      return c.json({ error: "Admin permission required" }, 403);
-    }
-    if (kind === "chat_message" && !adminAccess.community.allowed) {
-      return c.json({ error: "Admin permission required" }, 403);
-    }
     const values = {
       status: body.data.status,
       moderatedByUserId: c.get("userId"),
@@ -3955,17 +3836,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
       const role = await getUserRole(c.get("telegramUser").id);
       if (body.data.status === "deleted" && shouldHardDeleteMessages(role)) {
-        await db.update(clubChatMessages).set({
-          status: "deleted",
-          moderatedByUserId: c.get("userId"),
-          moderatedAt: values.moderatedAt,
-          moderationReason: body.data.reason ?? null,
-          purgeAt: values.moderatedAt,
-          pinnedAt: null,
-          pinnedByUserId: null,
-          updatedAt: values.moderatedAt
-        }).where(eq(clubChatMessages.id, id));
-        await enqueueCommunityMessageDeletion(id);
+        await db.delete(clubChatMessages).where(eq(clubChatMessages.id, id));
         await recordAdminAction(c, {
           action: "moderation.chat_message.deleted",
           entityType: "chat_message",

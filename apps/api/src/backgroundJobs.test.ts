@@ -21,20 +21,5 @@ describe("background jobs runtime role", () => {
     const jobs = readFileSync(new URL("./backgroundJobs.ts", import.meta.url), "utf8");
     expect(jobs).toContain("startPaymentReconciliationJob");
     expect(jobs).toContain("clearInterval(paymentReconciliationTimer)");
-    expect(jobs).toContain("startCommunityObjectDeletionCleanupJob");
-    expect(jobs).toContain("await communityObjectDeletionJob.stop()");
-    expect(jobs).toContain("startCommunityNotificationOutboxJob");
-    expect(jobs).toContain("await communityNotificationOutboxJob.stop()");
-    expect(jobs).toContain("startCommunityDocumentScannerJob");
-    expect(jobs).toContain("await communityDocumentScannerJob.stop()");
-    expect(jobs).toContain("startCommunityMediaProcessorJob");
-    expect(jobs).toContain("await communityMediaProcessorJob.stop()");
-    expect(jobs).toContain("startCommunityUploadExpiryCleanupJob");
-    expect(jobs).toContain("await communityUploadExpiryCleanupJob.stop()");
-    expect(jobs.indexOf("clearInterval(paymentReconciliationTimer)")).toBeLessThan(
-      jobs.indexOf("await communityObjectDeletionJob.stop()")
-    );
-    expect(source).toContain("await stopBackgroundJobs?.()");
-    expect(source.indexOf("const forceTimer = setTimeout")).toBeLessThan(source.indexOf("await stopBackgroundJobs?.()"));
   });
 });

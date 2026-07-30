@@ -28,8 +28,6 @@ const deviceLayoutSource = readFileSync(resolve(__dirname, "features/app/deviceL
 const deviceModeNoticeSource = readFileSync(resolve(__dirname, "features/app/DeviceModeNotice.vue"), "utf-8");
 const profileSource = readFileSync(resolve(__dirname, "features/profile/ProfileSection.vue"), "utf-8");
 const communitySource = readFileSync(resolve(__dirname, "features/community/CommunitySection.vue"), "utf-8");
-const communityMessageSource = readFileSync(resolve(__dirname, "features/community/ChatMessage.vue"), "utf-8");
-const communityViewModelSource = readFileSync(resolve(__dirname, "features/community/communityViewModel.ts"), "utf-8");
 const uiStoreSource = readFileSync(resolve(__dirname, "stores/ui.ts"), "utf-8");
 const i18nSource = readFileSync(resolve(__dirname, "features/app/i18n.ts"), "utf-8");
 const foundationSource = readFileSync(resolve(__dirname, "features/ui/foundation.css"), "utf-8");
@@ -420,13 +418,11 @@ describe("App", () => {
     expect(uiSource).toContain("VisualScale");
     expect(uiSource).toContain("clampVisualScale");
     expect(uiSource).toContain("--club-user-font-root");
-    expect(communityViewModelSource).toContain("avatarImageStyle");
-    expect(communityViewModelSource).toContain("messageAuthorPhotoUrl");
-    expect(communitySource).toContain(':viewer="session.user"');
-    expect(communityViewModelSource).toContain("viewer?.photoUrl");
-    expect(communityViewModelSource).toContain("message.author.photoUrl");
-    expect(communityMessageSource).toContain("messageAuthorAvatarStyle(props.message, props.viewer)");
-    expect(communityMessageSource).toContain(':style="avatarStyle"');
+    expect(communitySource).toContain("avatarImageStyle");
+    expect(communitySource).toContain("messageAuthorPhotoUrl");
+    expect(communitySource).toContain("session.user?.photoUrl");
+    expect(communitySource).toContain("message.author.photoUrl");
+    expect(communitySource).toContain(":style=\"messageAuthorAvatarStyle(message)\"");
     expect(styles).toContain(".profile-avatar-editor-modal");
     expect(styles).toContain(".profile-avatar-gesture-stage");
     expect(styles).toContain("touch-action: none");
@@ -1101,13 +1097,13 @@ describe("App", () => {
     expect(appSource).toContain("!communityChatOpen");
     expect(appSource).toContain('v-if="showBottomNavigation"');
     expect(communityStyles).toMatch(
-      /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[\s\S]*height: min\(var\(--club-visible-viewport-height, 100dvh\), 100dvh\);/
+      /body\.club-keyboard-open \.app-root\.community-chat-open\s*\{[\s\S]*height: var\(--club-visible-viewport-height, 100dvh\);/
     );
     expect(communityStyles).toMatch(
       /\.app-root\.community-chat-open\s*\{[\s\S]*inset: 0;[\s\S]*height: auto;/
     );
     expect(communityStyles).toMatch(
-      /body\.club-text-field-focused \.app-root\.community-chat-open\s*\{[\s\S]*height: min\(var\(--club-visible-viewport-height, 100dvh\), 100dvh\);/
+      /body\.club-text-field-focused \.app-root\.community-chat-open\s*\{[\s\S]*height: var\(--club-visible-viewport-height, 100dvh\);/
     );
     expect(communityStyles).toMatch(
       /html\.club-text-field-focused:has\(\.app-root\.community-chat-open\),[\s\S]*overflow: hidden;/

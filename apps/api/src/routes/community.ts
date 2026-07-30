@@ -1,100 +1,41 @@
-import { and, count, desc, eq, gt, inArray, isNull, lt, lte, max, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray, lt, lte, max, ne, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { streamSSE, type SSEMessage } from "hono/streaming";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import {
-  communityMentionSchema,
-  communityMessageSearchCursorSchema,
-  communityMessageEditRequestSchema,
-  communityMessageSearchQuerySchema,
-  communityParticipantSuggestionsQuerySchema,
-  communityTopicNotificationSettingsRequestSchema,
-  communityTopicReadPositionRequestSchema,
-  communityUploadedObjectSchema,
-  communityUploadIntentSchema,
-  type ClubChat,
-  type ClubMessage,
-  type ClubTopic,
-  type CommunityAttachmentScanStatus,
-  type UserRole
-} from "@club/shared";
+import type { ClubChat, ClubMessage, ClubTopic, UserRole } from "@club/shared";
 import { getUserRole, hasAdminPermission, isOwnerTelegramId } from "../admin/roles";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
-import {
-  enqueueCommunityMessageDeletion,
-  enqueueCommunityMessageDeletionBatch
-} from "../community/objectDeletionLedger";
-import {
-  beginCommunityObjectPublication,
-  publishCommunityObject,
-  publishCommunityObjectGroup
-} from "../community/objectPublication";
-import { createCommunityUploadService, type CommunityUploadResult } from "../community/directUpload";
-import { validateCommunityOoxml } from "../community/ooxmlValidation";
-import { buildMessageAuthor, getAuthorMutationView, getMessageContentView, resolveReplyPreview, summarizeReactions } from "../community/messageMetadata";
-import { MessageMutationError, messageMutationService } from "../community/messageMutationService";
-import { decodeSearchCursor, encodeSearchCursor, loadMessageContext, searchCommunityMessages } from "../community/messageSearch";
-import { preciseCommunityMessageCreatedAtExtra } from "../community/messageTimestamp";
+import { buildMessageAuthor, buildReplyPreview, summarizeReactions } from "../community/messageMetadata";
 import { formatMuteDuration, formatMuteSystemMessage, formatUnmuteSystemMessage } from "../community/muteNotice";
+import { formatReplyNotificationText } from "../community/replyNotification";
 import { getArchiveExpirationDate } from "../community/topicArchive";
-import { loadCommunityTopicAggregates } from "../community/topicAggregates";
 import { isTopicAccessibleForRole } from "../community/topicAccess";
-import { topicStateRepository } from "../community/topicStateRepository";
-import { deriveCommunityUploadMessage, isExactCommunityUploadReplayBatch, validateCommunityUploadAttachmentBatch } from "../community/uploadAttachment";
-import { createCommunityUploadSessionService } from "../community/uploadSessions";
-import {
-  deleteCommunityObjectCopiesConvergently,
-  deleteCommunityObjectKeysConvergently
-} from "../community/objectLifecycle";
 import { getCommunityMediaExpiry } from "../community/mediaPolicy";
 import { buildCommunityMediaObjectKey, communityVoiceMaxBytes, getCommunityVoiceContentType, prepareCommunityImage, prepareCommunityVoice, validateCommunityImageFiles } from "../community/mediaUpload";
 import { normalizePollDraft, validatePollSelection } from "../community/polls";
 import { publishCommunityChange, subscribeToCommunityChanges } from "../community/realtime";
 import { db } from "../db/client";
-import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageMentions, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, communityMediaCandidates, communityUploadManifests, userMutes, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, clubChats, clubMessageAttachments, clubMessageReactions, clubPollOptions, clubPolls, clubPollVotes, userMutes, users } from "../db/schema";
 import { logger } from "../logger";
 import { getMembership } from "../membership/getMembership";
 import { getActiveMute } from "../moderation/mutes";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { persistentWriteRateLimit } from "../security/persistentWriteRateLimit";
-import { persistentCommunityReadRateLimit } from "../security/persistentCommunityReadRateLimit";
-import {
-  abortMultipartUpload,
-  completeMultipartUpload,
-  createMultipartPartUploadUrl,
-  createMultipartUpload,
-  createObjectUploadUrl,
-  downloadObjectPrefix,
-  downloadObjectRange,
-  getConfiguredS3Targets,
-  getObjectMetadata,
-  getObjectReadUrl,
-  listMultipartUploadParts,
-  mirrorObjectToReserve,
-  promoteObjectVersion,
-  uploadObjectStream,
-} from "../storage/s3";
+import { createAppNotification } from "../notifications/create";
+import { deleteObject, getObjectReadUrl, uploadObject } from "../storage/s3";
 
 const chatPayloadSchema = z.object({
   title: z.string().trim().min(2).max(160),
   description: z.string().trim().max(1000).nullable().optional()
 });
 const messagePageQuerySchema = z.object({
-  before: communityMessageSearchCursorSchema.optional(),
-  limit: z.coerce.number().int().min(20).transform((value) => Math.min(value, 100)).default(50)
+  before: z.string().datetime({ offset: true }).optional(),
+  limit: z.coerce.number().int().min(20).max(100).default(50)
 });
-const messageContextQuerySchema = z.object({
-  before: z.coerce.number().int().min(0).max(50).default(20),
-  after: z.coerce.number().int().min(0).max(50).default(20)
-});
-const messageContextPathSchema = z.object({
-  topicId: z.string().uuid(),
-  messageId: z.string().uuid()
-}).strict();
 
 const topicPayloadSchema = z.object({
   title: z.string().trim().min(2).max(180),
@@ -104,10 +45,8 @@ const topicPayloadSchema = z.object({
 
 const messagePayloadSchema = z.object({
   body: z.string().trim().min(1).max(3000),
-  replyToMessageId: z.string().uuid().nullable().default(null),
-  clientOperationId: z.string().trim().min(1).max(96),
-  mentions: z.array(communityMentionSchema).default([])
-}).strict();
+  replyToMessageId: z.string().uuid().nullable().optional()
+});
 
 const pollPayloadSchema = z.object({
   question: z.string().max(500),
@@ -135,32 +74,6 @@ const deleteAuthorMessagesPayloadSchema = z.object({
   telegramId: z.string().trim().min(3).max(320)
 });
 
-const communityPutCompleteSchema = z.object({
-  uploadToken: z.string().uuid()
-}).strict();
-
-const communityMultipartCompleteSchema = z.object({
-  uploadToken: z.string().uuid(),
-  parts: z.array(z.object({
-    partNumber: z.number().int().positive().max(100),
-    etag: z.string().trim().min(1).max(1024)
-  })).min(1).max(100)
-}).strict();
-
-const communityUploadAttachSchema = z.object({
-  uploadTokens: z.array(z.string().uuid()).min(1).max(10),
-  replyToMessageId: z.string().uuid().nullable().default(null)
-}).strict();
-
-const communityUploadResultSchema = z.intersection(
-  communityUploadedObjectSchema,
-  z.object({
-    scanStatus: z.enum(["processing", "pending", "ready", "failed", "rejected"]),
-    width: z.number().int().positive().optional(),
-    height: z.number().int().positive().optional()
-  })
-);
-
 const topicSettingsSchema = z.object({
   isLocked: z.boolean().optional(),
   isPublished: z.boolean().optional()
@@ -168,7 +81,6 @@ const topicSettingsSchema = z.object({
 
 const systemChatSlug = "club-community";
 const communityMutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const realtimeTopicHeader = "x-club-community-realtime-topic";
 const defaultTopics = [
   {
     title: "Новости клуба",
@@ -190,351 +102,6 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 
   return slug || `chat-${Date.now()}`;
-}
-
-const communityUploadService = createCommunityUploadService({
-  issue: async (record) => {
-    await db.insert(communityUploadManifests).values({
-      userId: record.userId,
-      uploadToken: record.uploadToken,
-      requestFingerprint: record.fingerprint,
-      kind: record.kind,
-      uploadType: record.uploadType,
-      stagingObjectKey: record.objectKey,
-      multipartUploadId: record.multipartUploadId,
-      expectedPartCount: record.expectedPartCount,
-      partSizeBytes: record.partSizeBytes,
-      fileName: record.fileName,
-      contentType: record.contentType,
-      sizeBytes: record.sizeBytes,
-      durationSeconds: record.durationSeconds,
-      status: "uploading",
-      expiresAt: record.expiresAt
-    });
-  },
-  claim: async (record) => {
-    const existing = await db.query.communityUploadManifests.findFirst({
-      where: and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken)
-      )
-    });
-    if (!existing) return { ok: false as const, error: "foreign_object" as const };
-    if (existing.requestFingerprint !== record.fingerprint) return { ok: false as const, error: "intent_mismatch" as const };
-    const replayKey = existing.finalObjectKey ?? existing.quarantineObjectKey;
-    if (replayKey && ["processing", "normalizing", "publishing", "pending", "scanning", "ready", "failed", "rejected", "cleanup_pending"].includes(existing.status)) {
-      if (existing.result && typeof existing.result === "object") {
-        return { ok: true as const, replay: existing.result as CommunityUploadResult };
-      }
-      const scanStatus = existing.status === "ready" || existing.status === "rejected" || existing.status === "failed"
-        ? existing.status
-        : existing.kind === "document" ? "pending" : "processing";
-      return {
-        ok: true as const,
-        replay: {
-          kind: existing.kind,
-          fileName: existing.fileName,
-          contentType: existing.contentType,
-          sizeBytes: existing.sizeBytes,
-          ...(existing.kind === "voice" ? { durationSeconds: existing.durationSeconds ?? 1 } : {}),
-          uploadToken: existing.uploadToken,
-          objectKey: replayKey,
-          scanStatus,
-          ...(existing.width ? { width: existing.width } : {}),
-          ...(existing.height ? { height: existing.height } : {})
-        } as CommunityUploadResult
-      };
-    }
-    if (existing.expiresAt <= record.now) return { ok: false as const, error: "expired_intent" as const };
-    const staleCompletingAt = new Date(record.now.getTime() - 2 * 60 * 1000);
-    const [claimed] = await db.update(communityUploadManifests)
-      .set({ status: "completing", updatedAt: record.now })
-      .where(and(
-        eq(communityUploadManifests.id, existing.id),
-        or(
-          eq(communityUploadManifests.status, "uploading"),
-          and(eq(communityUploadManifests.status, "completing"), lte(communityUploadManifests.updatedAt, staleCompletingAt))
-        )
-      ))
-      .returning({ id: communityUploadManifests.id });
-    return claimed
-      ? {
-          ok: true as const,
-          intent: {
-            stagingObjectKey: existing.stagingObjectKey,
-            uploadType: existing.uploadType as "put" | "multipart",
-            multipartUploadId: existing.multipartUploadId,
-            expectedPartCount: existing.expectedPartCount,
-            partSizeBytes: existing.partSizeBytes
-          }
-        }
-      : { ok: false as const, error: "object_already_consumed" as const };
-  },
-  finish: async (record, publicationScope) => {
-    const database = (publicationScope ?? db) as typeof db;
-    const [finished] = await database.update(communityUploadManifests)
-      .set({
-        status: record.status,
-        quarantineObjectKey: record.status === "ready" ? null : record.result.objectKey,
-        finalObjectKey: record.status === "ready" ? record.result.objectKey : null,
-        result: record.result,
-        errorCode: null,
-        expiresAt: record.expiresAt,
-        completedAt: new Date(),
-        updatedAt: new Date()
-      })
-      .where(and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-        eq(communityUploadManifests.status, "completing"),
-        sql`${communityUploadManifests.terminalCleanupAt} is null`
-      ))
-      .returning({ id: communityUploadManifests.id });
-    if (finished) return "finished" as const;
-    const current = await database.query.communityUploadManifests.findFirst({
-      where: and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
-      )
-    });
-    if (current?.status === "aborting" || current?.status === "aborted") return "cancelled" as const;
-    throw new Error("manifest_finish_conflict");
-  },
-  fail: async (record, error) => {
-    await db.update(communityUploadManifests)
-      .set({ status: "failed", errorCode: error.slice(0, 160), updatedAt: new Date() })
-      .where(and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-        eq(communityUploadManifests.status, "completing")
-      ));
-  },
-  recordPromotion: async (record) => {
-    const targets = await getConfiguredS3Targets();
-    return db.transaction(async (transaction) => {
-      const database = transaction as unknown as typeof db;
-      const destination = record.destination === "final"
-        ? { finalObjectKey: record.destinationKey }
-        : { quarantineObjectKey: record.destinationKey };
-      const [recorded] = await database.update(communityUploadManifests)
-        .set({ ...destination, updatedAt: new Date() })
-        .where(and(
-          eq(communityUploadManifests.userId, record.userId),
-          eq(communityUploadManifests.uploadToken, record.uploadToken),
-          eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-          eq(communityUploadManifests.status, "completing"),
-          sql`${communityUploadManifests.terminalCleanupAt} is null`
-        ))
-        .returning({ id: communityUploadManifests.id });
-      if (recorded) {
-        const publication = await beginCommunityObjectPublication({
-          sourceType: "manifest",
-          sourceId: recorded.id,
-          objectKey: record.destinationKey,
-          targets
-        }, database);
-        return { status: "recorded" as const, publication };
-      }
-      const current = await database.query.communityUploadManifests.findFirst({
-        where: and(
-          eq(communityUploadManifests.userId, record.userId),
-          eq(communityUploadManifests.uploadToken, record.uploadToken),
-          eq(communityUploadManifests.requestFingerprint, record.fingerprint)
-        )
-      });
-      if (current && ["aborting", "aborted", "cleanup_pending"].includes(current.status)) {
-        return { status: "cancelled" as const };
-      }
-      throw new Error("manifest_promotion_conflict");
-    });
-  },
-  publishPromotion: (publication, work) => publishCommunityObject({
-    claim: publication,
-    write: work.write,
-    commit: async (database, written) => {
-      const publishable = Array.from((await database.execute(sql`
-        select manifest.id
-        from community_upload_manifests manifest
-        where manifest.id = ${publication.sourceId}
-          and manifest.status = 'completing'
-          and manifest.terminal_cleanup_at is null
-          and (manifest.final_object_key = ${publication.objectKey}
-            or manifest.quarantine_object_key = ${publication.objectKey})
-        for share of manifest
-      `)) as Iterable<{ id: string }>);
-      if (!publishable.length) throw new Error("manifest_promotion_terminal");
-      return work.commit(database, written);
-    }
-  }),
-  markCleanupPending: async (record, error) => {
-    const now = new Date();
-    const [pending] = await db.update(communityUploadManifests)
-      .set({ status: "cleanup_pending", errorCode: error.slice(0, 160), expiresAt: now, updatedAt: now })
-      .where(and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-        inArray(communityUploadManifests.status, ["completing", "aborting", "aborted", "cleanup_pending"]),
-        sql`${communityUploadManifests.consumedAt} is null`,
-        sql`${communityUploadManifests.attachmentId} is null`
-      ))
-      .returning({ id: communityUploadManifests.id });
-    if (!pending) throw new Error("manifest_cleanup_record_conflict");
-  },
-  completeCancelledCleanup: async (record) => {
-    const [completed] = await db.update(communityUploadManifests)
-      .set({ status: "aborted", errorCode: null, updatedAt: new Date() })
-      .where(and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint),
-        eq(communityUploadManifests.status, "aborting"),
-        sql`${communityUploadManifests.consumedAt} is null`,
-        sql`${communityUploadManifests.attachmentId} is null`
-      ))
-      .returning({ id: communityUploadManifests.id });
-    if (completed) return;
-    const current = await db.query.communityUploadManifests.findFirst({
-      where: and(
-        eq(communityUploadManifests.userId, record.userId),
-        eq(communityUploadManifests.uploadToken, record.uploadToken),
-        eq(communityUploadManifests.requestFingerprint, record.fingerprint)
-      )
-    });
-    if (current?.status !== "aborted") throw new Error("manifest_cleanup_finish_conflict");
-  },
-  createPutUrl: (input) => createObjectUploadUrl(input),
-  createMultipart: (input) => createMultipartUpload(input),
-  createPartUrl: (input) => createMultipartPartUploadUrl(input),
-  completeMultipart: (input) => completeMultipartUpload(input),
-  abortMultipart: (input) => abortMultipartUpload(input),
-  listParts: (input) => listMultipartUploadParts(input),
-  getMetadata: (key, signal) => getObjectMetadata(key, "primary", signal),
-  getLeadingBytes: (key, maxBytes, expectedETag) => downloadObjectPrefix(key, maxBytes, "primary", expectedETag),
-  validateOoxml: (input, metadata) => validateCommunityOoxml(input.contentType, {
-    sizeBytes: metadata.sizeBytes ?? 0,
-    readRange: (start, end) => downloadObjectRange(input.objectKey, start, end, "primary", metadata.etag ?? undefined)
-  }),
-  promoteObject: (input, signal) => promoteObjectVersion({ ...input, ...(signal ? { signal } : {}) }).then(() => undefined),
-  mirrorToReserve: (key, contentType, signal) => mirrorObjectToReserve(key, contentType, signal),
-  deleteCopies: deleteCommunityObjectCopiesConvergently,
-  deleteStaging: deleteCommunityObjectCopiesConvergently
-});
-
-const communityUploadSessionService = createCommunityUploadSessionService({
-  loadOwned: async ({ userId, uploadToken }) => {
-    const manifest = await db.query.communityUploadManifests.findFirst({
-      where: and(eq(communityUploadManifests.userId, userId), eq(communityUploadManifests.uploadToken, uploadToken))
-    });
-    return manifest ? { ...manifest, uploadType: manifest.uploadType as "put" | "multipart" } : null;
-  },
-  claimAbort: async ({ userId, uploadToken }) => db.transaction(async (transaction) => {
-    const database = transaction as unknown as typeof db;
-    await database.execute(sql`
-      select ${communityUploadManifests.id}
-      from ${communityUploadManifests}
-      where ${communityUploadManifests.userId} = ${userId}
-        and ${communityUploadManifests.uploadToken} = ${uploadToken}
-      for update
-    `);
-    const manifest = await database.query.communityUploadManifests.findFirst({
-      where: and(eq(communityUploadManifests.userId, userId), eq(communityUploadManifests.uploadToken, uploadToken))
-    });
-    if (!manifest) return null;
-    if (manifest.consumedAt || manifest.attachmentId || manifest.status === "aborted") return { alreadyAborted: true as const };
-    const abortableStatuses = ["uploading", "completing", "processing", "normalizing", "publishing", "pending", "scanning", "ready", "failed", "cleanup_pending", "rejected", "aborting"];
-    const candidates = await database.query.communityMediaCandidates.findMany({
-      where: eq(communityMediaCandidates.manifestId, manifest.id)
-    });
-    const [claimed] = await database.update(communityUploadManifests)
-      .set({ status: "aborting", updatedAt: new Date() })
-      .where(and(
-        eq(communityUploadManifests.id, manifest.id),
-        inArray(communityUploadManifests.status, abortableStatuses),
-        sql`${communityUploadManifests.consumedAt} is null`,
-        sql`${communityUploadManifests.attachmentId} is null`
-      ))
-      .returning();
-    const hasPromotionLedger = Boolean(
-      manifest.quarantineObjectKey
-      || manifest.finalObjectKey
-      || candidates.some((candidate) => candidate.candidateObjectKey || candidate.finalObjectKey)
-    );
-    const promotionMayStillComplete = ["completing", "processing", "normalizing", "publishing", "aborting"].includes(manifest.status);
-    return claimed ? {
-      ...claimed,
-      uploadType: claimed.uploadType as "put" | "multipart",
-      abortCleanupMode: manifest.status === "uploading" ? "staging" as const : "copies" as const,
-      deferAbortCompletion: hasPromotionLedger && promotionMayStillComplete,
-      candidateObjectKeys: candidates.flatMap((candidate) => [candidate.candidateObjectKey, candidate.finalObjectKey])
-    } : { alreadyAborted: true as const };
-  }),
-  markAborted: async (manifestId) => {
-    await db.update(communityUploadManifests).set({ status: "aborted", errorCode: null, updatedAt: new Date() })
-      .where(and(
-        eq(communityUploadManifests.id, manifestId),
-        eq(communityUploadManifests.status, "aborting"),
-        sql`${communityUploadManifests.consumedAt} is null`
-      ));
-  },
-  listParts: listMultipartUploadParts,
-  createPartUrl: createMultipartPartUploadUrl,
-  abortMultipart: abortMultipartUpload,
-  deleteStaging: deleteCommunityObjectCopiesConvergently,
-  deleteCopies: deleteCommunityObjectCopiesConvergently
-});
-
-async function loadOwnedCommunityUpload(userId: string, uploadToken: string) {
-  const manifest = await db.query.communityUploadManifests.findFirst({
-    where: and(
-      eq(communityUploadManifests.userId, userId),
-      eq(communityUploadManifests.uploadToken, uploadToken)
-    )
-  });
-  if (!manifest) throw new Error("foreign_object");
-  const uploaded = communityUploadedObjectSchema.safeParse({
-    kind: manifest.kind,
-    fileName: manifest.fileName,
-    contentType: manifest.contentType,
-    sizeBytes: manifest.sizeBytes,
-    ...(manifest.kind === "voice" ? { durationSeconds: manifest.durationSeconds } : {}),
-    objectKey: manifest.stagingObjectKey,
-    uploadToken: manifest.uploadToken
-  });
-  if (!uploaded.success) throw new Error("intent_mismatch");
-  return { manifest, uploaded: uploaded.data };
-}
-
-function communityUploadFailure(c: Context, error: unknown) {
-  const code = error instanceof Error ? error.message : "upload_failed";
-  if (code === "foreign_object") return c.json({ error: code }, 403);
-  if (code === "expired_intent") return c.json({ error: code }, 410);
-  if (code === "object_already_consumed" || code === "intent_mismatch" || code === "manifest_finish_conflict") return c.json({ error: code }, 409);
-  if ([
-    "unsupported_type",
-    "type_extension_mismatch",
-    "file_too_large",
-    "invalid_duration",
-    "too_many_files",
-    "too_many_parts",
-    "missing_parts",
-    "duplicate_part",
-    "invalid_part",
-    "invalid_part_size",
-    "metadata_mismatch",
-    "signature_mismatch",
-    "invalid_ooxml",
-    "part_count_mismatch",
-    "part_size_mismatch",
-    "part_etag_mismatch",
-    "multipart_required",
-    "put_required"
-  ].includes(code)) return c.json({ error: code }, 400);
-  logger.warn({ error }, "community direct upload failed");
-  return c.json({ error: "storage_unavailable" }, 503);
 }
 
 async function serializeChat(chat: typeof clubChats.$inferSelect, role: UserRole): Promise<ClubChat> {
@@ -642,31 +209,28 @@ async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>
 
   const topicIds = topics.map((topic) => topic.id);
   const originalMessage = alias(clubChatMessages, "original_message");
-  const { countsByTopic, repliesByTopic, topicStates } = await loadCommunityTopicAggregates(
-    topicIds,
-    currentUserId,
-    {
-      loadMessageCounts: (ids) => db
-        .select({ topicId: clubChatMessages.topicId, value: count(clubChatMessages.id) })
-        .from(clubChatMessages)
-        .where(and(inArray(clubChatMessages.topicId, ids), eq(clubChatMessages.status, "visible")))
-        .groupBy(clubChatMessages.topicId),
-      loadLatestReplies: (ids, userId) => db
-        .select({ topicId: clubChatMessages.topicId, createdAt: max(clubChatMessages.createdAt) })
-        .from(clubChatMessages)
-        .innerJoin(originalMessage, eq(clubChatMessages.replyToMessageId, originalMessage.id))
-        .where(
-          and(
-            inArray(clubChatMessages.topicId, ids),
-            eq(clubChatMessages.status, "visible"),
-            eq(originalMessage.userId, userId),
-            ne(clubChatMessages.userId, userId)
-          )
+  const [messageCounts, latestReplies] = await Promise.all([
+    db
+      .select({ topicId: clubChatMessages.topicId, value: count(clubChatMessages.id) })
+      .from(clubChatMessages)
+      .where(and(inArray(clubChatMessages.topicId, topicIds), eq(clubChatMessages.status, "visible")))
+      .groupBy(clubChatMessages.topicId),
+    db
+      .select({ topicId: clubChatMessages.topicId, createdAt: max(clubChatMessages.createdAt) })
+      .from(clubChatMessages)
+      .innerJoin(originalMessage, eq(clubChatMessages.replyToMessageId, originalMessage.id))
+      .where(
+        and(
+          inArray(clubChatMessages.topicId, topicIds),
+          eq(clubChatMessages.status, "visible"),
+          eq(originalMessage.userId, currentUserId),
+          ne(clubChatMessages.userId, currentUserId)
         )
-        .groupBy(clubChatMessages.topicId),
-      loadTopicStates: (userId, ids) => topicStateRepository.getStates(userId, ids)
-    }
-  );
+      )
+      .groupBy(clubChatMessages.topicId)
+  ]);
+  const countsByTopic = new Map(messageCounts.map((row) => [row.topicId, row.value]));
+  const repliesByTopic = new Map(latestReplies.map((row) => [row.topicId, row.createdAt]));
 
   return topics.map((topic) => ({
     id: topic.id,
@@ -680,8 +244,6 @@ async function serializeTopics(topics: Array<typeof clubChatTopics.$inferSelect>
     archivedUntil: topic.archivedUntil?.toISOString() ?? null,
     messagesCount: countsByTopic.get(topic.id) ?? 0,
     latestReplyToMeAt: repliesByTopic.get(topic.id)?.toISOString() ?? null,
-    unreadCount: topicStates.get(topic.id)?.unreadCount ?? 0,
-    notificationMode: topicStates.get(topic.id)?.notificationMode ?? "mentions",
     createdAt: topic.createdAt.toISOString()
   }));
 }
@@ -691,16 +253,8 @@ async function serializeTopic(topic: typeof clubChatTopics.$inferSelect, current
   return serialized!;
 }
 
-async function getDatabaseServerNow() {
-  const rows = Array.from((await db.execute(sql`select clock_timestamp() as "now"`)) as Iterable<{ now: Date }>);
-  const now = rows[0]?.now;
-  if (!(now instanceof Date)) throw new Error("Database clock is unavailable");
-  return now;
-}
-
 async function serializeMessage(
   message: typeof clubChatMessages.$inferSelect & {
-    preciseCreatedAt?: string;
     user: {
       id: string;
       telegramId: string;
@@ -712,84 +266,35 @@ async function serializeMessage(
       avatarScale?: number | null;
     };
   },
-  currentUserId: string,
-  role: UserRole,
-  lifecycle?: {
-    topic: Pick<typeof clubChatTopics.$inferSelect, "isLocked" | "isPublished">;
-    serverNow: Date;
-  }
+  currentUserId: string
 ): Promise<ClubMessage> {
-  const [mutationTopic, serverNow] = lifecycle
-    ? [lifecycle.topic, lifecycle.serverNow] as const
-    : await Promise.all([
-        db.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, message.topicId) }),
-        getDatabaseServerNow()
-      ]);
-  const content = getMessageContentView(message, role, serverNow);
-  const reactions = content.revealContent
-    ? await db.query.clubMessageReactions.findMany({
-        where: eq(clubMessageReactions.messageId, message.id)
+  const reactions = await db.query.clubMessageReactions.findMany({
+    where: eq(clubMessageReactions.messageId, message.id)
+  });
+  const replyTo = message.replyToMessageId
+    ? await db.query.clubChatMessages.findFirst({
+        where: eq(clubChatMessages.id, message.replyToMessageId),
+        with: {
+          user: true
+        }
       })
-    : [];
-  const replyTo = !content.revealContent || !message.replyToMessageId
-    ? null
-    : await resolveReplyPreview({
-        topicId: message.topicId,
-        replyToMessageId: message.replyToMessageId,
-        role,
-        now: serverNow,
-        loadReply: async ({ topicId, messageId }) => (await db.query.clubChatMessages.findFirst({
-          where: and(eq(clubChatMessages.id, messageId), eq(clubChatMessages.topicId, topicId)),
-          with: { user: true }
-        })) ?? null
-      });
+    : null;
   const reactionSummary = summarizeReactions(reactions, currentUserId);
   const authorMute = await getActiveMute(message.user.id);
-  const attachments = content.revealContent
-    ? await db.query.clubMessageAttachments.findMany({
-        where: eq(clubMessageAttachments.messageId, message.id),
-        orderBy: (table, { asc }) => [asc(table.sortOrder)]
-      })
-    : [];
-  const kind = content.revealContent ? ((message.kind as ClubMessage["kind"]) ?? "text") : "text";
-  const attachmentStatuses = new Set<CommunityAttachmentScanStatus>([
-    "pending",
-    "scanning",
-    "ready",
-    "rejected",
-    "failed",
-    "deleted"
-  ]);
+  const attachments = await db.query.clubMessageAttachments.findMany({
+    where: eq(clubMessageAttachments.messageId, message.id),
+    orderBy: (table, { asc }) => [asc(table.sortOrder)]
+  });
+  const kind = (message.kind as ClubMessage["kind"]) ?? "text";
   const serializedAttachments = await Promise.all(
-    attachments.map(async (attachment) => {
-      const persistedStatus = attachment.scanStatus as CommunityAttachmentScanStatus;
-      const scanStatus: CommunityAttachmentScanStatus = attachment.deletedAt
-        ? "deleted"
-        : attachmentStatuses.has(persistedStatus)
-          ? persistedStatus
-          : "failed";
-      const remainingRetentionSeconds = attachment.expiresAt
-        ? Math.floor((attachment.expiresAt.getTime() - serverNow.getTime()) / 1000)
-        : null;
-      const readable = scanStatus === "ready"
-        && !attachment.deletedAt
-        && (remainingRetentionSeconds === null || remainingRetentionSeconds >= 1);
-      return {
-        ...attachment,
-        scanStatus,
-        url: readable
-          ? remainingRetentionSeconds === null
-            ? await getObjectReadUrl(attachment.objectKey)
-            : await getObjectReadUrl(attachment.objectKey, "primary", { expiresInSeconds: remainingRetentionSeconds })
-          : null
-      };
-    })
+    attachments.map(async (attachment) => ({
+      ...attachment,
+      url: attachment.deletedAt ? null : await getObjectReadUrl(attachment.objectKey)
+    }))
   );
   const voiceAttachment = kind === "voice" ? serializedAttachments[0] : undefined;
   const imageAttachments = kind === "images" ? serializedAttachments : [];
-  const videoAttachment = kind === "video" ? serializedAttachments[0] : undefined;
-  const documentAttachment = kind === "document" ? serializedAttachments[0] : undefined;
-  const pollRecord = content.revealContent && kind === "poll"
+  const pollRecord = kind === "poll"
     ? await db.query.clubPolls.findFirst({
         where: eq(clubPolls.messageId, message.id),
         with: { options: true, votes: true }
@@ -797,77 +302,32 @@ async function serializeMessage(
     : null;
   const pollVoterIds = new Set(pollRecord?.votes.map((vote) => vote.userId) ?? []);
 
-  const mentionRows = content.revealContent
-    ? await db.query.clubMessageMentions.findMany({
-        where: eq(clubMessageMentions.messageId, message.id),
-        with: { user: true }
-      })
-    : [];
   return {
     id: message.id,
     topicId: message.topicId,
-    body: content.body,
+    body: message.body,
     kind,
     voice: voiceAttachment
       ? {
           id: voiceAttachment.id,
           url: voiceAttachment.url,
-          fileName: voiceAttachment.fileName,
           contentType: voiceAttachment.contentType,
           sizeBytes: voiceAttachment.sizeBytes,
           durationSeconds: voiceAttachment.durationSeconds ?? 0,
           expiresAt: voiceAttachment.expiresAt?.toISOString() ?? null,
-          deletedAt: voiceAttachment.deletedAt?.toISOString() ?? null,
-          scanStatus: voiceAttachment.scanStatus,
-          scannedAt: voiceAttachment.scannedAt?.toISOString() ?? null,
-          scanError: voiceAttachment.scanError
+          deletedAt: voiceAttachment.deletedAt?.toISOString() ?? null
         }
       : null,
     images: imageAttachments.map((attachment) => ({
       id: attachment.id,
       url: attachment.url,
-      fileName: attachment.fileName,
       contentType: attachment.contentType,
       sizeBytes: attachment.sizeBytes,
       width: attachment.width ?? 1,
       height: attachment.height ?? 1,
       expiresAt: attachment.expiresAt?.toISOString() ?? null,
-      deletedAt: attachment.deletedAt?.toISOString() ?? null,
-      scanStatus: attachment.scanStatus,
-      scannedAt: attachment.scannedAt?.toISOString() ?? null,
-      scanError: attachment.scanError
+      deletedAt: attachment.deletedAt?.toISOString() ?? null
     })),
-    video: videoAttachment
-      ? {
-          id: videoAttachment.id,
-          url: videoAttachment.url,
-          fileName: videoAttachment.fileName,
-          contentType: videoAttachment.contentType,
-          sizeBytes: videoAttachment.sizeBytes,
-          width: videoAttachment.width ?? 1,
-          height: videoAttachment.height ?? 1,
-          durationSeconds: videoAttachment.durationSeconds ?? 0,
-          expiresAt: videoAttachment.expiresAt?.toISOString() ?? null,
-          deletedAt: videoAttachment.deletedAt?.toISOString() ?? null,
-          scanStatus: videoAttachment.scanStatus,
-          scannedAt: videoAttachment.scannedAt?.toISOString() ?? null,
-          scanError: videoAttachment.scanError
-        }
-      : null,
-    document: documentAttachment
-      ? {
-          id: documentAttachment.id,
-          url: documentAttachment.url,
-          fileName: documentAttachment.fileName ?? "document",
-          contentType: documentAttachment.contentType,
-          sizeBytes: documentAttachment.sizeBytes,
-          expiresAt: documentAttachment.expiresAt?.toISOString() ?? null,
-          deletedAt: documentAttachment.deletedAt?.toISOString() ?? null,
-          scanStatus: documentAttachment.scanStatus,
-          scannedAt: documentAttachment.scannedAt?.toISOString() ?? null,
-          scanError: documentAttachment.scanError
-        }
-      : null,
     poll: pollRecord
       ? {
           id: pollRecord.id,
@@ -893,7 +353,7 @@ async function serializeMessage(
     isSystem: message.isSystem,
     status: message.status,
     author: buildMessageAuthor(message.user),
-    replyTo,
+    replyTo: buildReplyPreview(replyTo ?? null),
     likesCount: reactionSummary.likesCount,
     dislikesCount: reactionSummary.dislikesCount,
     reactionCounts: reactionSummary.reactionCounts,
@@ -906,32 +366,13 @@ async function serializeMessage(
         }
       : null,
     pinnedAt: message.pinnedAt?.toISOString() ?? null,
-    editedAt: content.revealContent ? message.editedAt?.toISOString() ?? null : null,
-    deletedByUserAt: content.revealContent ? message.deletedByUserAt?.toISOString() ?? null : null,
-    contentRedacted: content.contentRedacted,
-    authorMutation: getAuthorMutationView(message, {
-      currentUserId,
-      role,
-      topic: mutationTopic ?? { isLocked: true, isPublished: false },
-      serverNow
-    }),
-    clientOperationId: content.revealContent ? message.clientOperationId : null,
-    mentions: mentionRows.map((mention) => ({
-      userId: mention.userId,
-      displayName: userName(mention.user),
-      start: mention.startOffset,
-      end: mention.endOffset
-    })),
-    createdAt: message.preciseCreatedAt ?? message.createdAt.toISOString()
+    createdAt: message.createdAt.toISOString()
   };
 }
 
 async function findMessageWithUser(id: string) {
   return db.query.clubChatMessages.findFirst({
     where: eq(clubChatMessages.id, id),
-    extras: {
-      preciseCreatedAt: preciseCommunityMessageCreatedAtExtra()
-    },
     with: {
       user: true
     }
@@ -963,8 +404,8 @@ async function findOrCreateUserByTelegramId(telegramId: string) {
   );
 }
 
-function userName(user: { telegramId: string; firstName: string | null; username: string | null; displayName?: string | null }) {
-  return user.displayName || user.firstName || user.username || `ID ${user.telegramId}`;
+function userName(user: { telegramId: string; firstName: string | null; username: string | null }) {
+  return user.firstName || user.username || `ID ${user.telegramId}`;
 }
 
 function serializeMute(mute: Awaited<ReturnType<typeof getActiveMute>>) {
@@ -1043,279 +484,70 @@ async function canReceiveCommunityEvent(
   return Boolean(topic && isTopicAccessibleForRole(topic, role));
 }
 
-function mutationErrorResponse(c: Context, error: unknown) {
-  if (error instanceof MessageMutationError) {
-    return c.json({ error: error.message, code: error.code }, error.status);
-  }
-  throw error;
+async function purgeExpiredDeletedMessages(now = new Date()) {
+  await db
+    .delete(clubChatMessages)
+    .where(and(eq(clubChatMessages.status, "deleted"), lte(clubChatMessages.purgeAt, now)));
 }
 
-async function validateLockedReply(
-  database: typeof db,
-  replyToMessageId: string | null,
-  topicId: string
-) {
-  if (!replyToMessageId) return null;
-  await database.execute(sql`
-    select id
-    from club_chat_messages
-    where id = ${replyToMessageId} and topic_id = ${topicId}
-    for share
-  `);
-  const reply = await database.query.clubChatMessages.findFirst({
-    where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topicId))
-  });
-  if (!reply) return { error: "Reply message not found", status: 404 as const };
-  if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
-    return { error: "Reply message is unavailable", status: 400 as const };
+async function notifyReplyRecipient({
+  topic,
+  replyToMessage,
+  sender,
+  body
+}: {
+  topic: typeof clubChatTopics.$inferSelect;
+  replyToMessage: typeof clubChatMessages.$inferSelect & {
+    user: {
+      id: string;
+      telegramId: string;
+      firstName: string | null;
+      username: string | null;
+      photoUrl: string | null;
+      avatarPositionX?: number | null;
+      avatarPositionY?: number | null;
+      avatarScale?: number | null;
+    };
+  };
+  sender: {
+    id: string;
+    telegramId: string;
+    firstName: string | null;
+    username: string | null;
+    photoUrl: string | null;
+    avatarPositionX?: number | null;
+    avatarPositionY?: number | null;
+    avatarScale?: number | null;
+  };
+  body: string;
+}) {
+  if (replyToMessage.userId === sender.id) {
+    return;
   }
-  return null;
+
+  await createAppNotification({
+    userId: replyToMessage.user.id,
+    kind: "client",
+    title: `Ответ в чате: ${topic.title}`,
+    body: formatReplyNotificationText({
+      senderName: userName(sender),
+      topicTitle: topic.title,
+      body
+    }),
+    source: "community_reply",
+    sourceId: topic.id
+  });
 }
 
 export const communityRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .use("*", persistentWriteRateLimit)
-  .use("/messages/search", async (c, next) => {
-    const query = communityMessageSearchQuerySchema.safeParse(c.req.query());
-    if (!query.success) {
-      return c.json({ error: "Invalid message search" }, 400);
-    }
-    if (query.data.before && !decodeSearchCursor(query.data.before)) {
-      return c.json({ error: "Invalid message search cursor" }, 400);
-    }
-    await next();
-  })
-  .use("/topics/:topicId/messages/:messageId/context", async (c, next) => {
-    if (!messageContextPathSchema.safeParse(c.req.param()).success) {
-      return c.json({ error: "Invalid message context path" }, 400);
-    }
-    if (!messageContextQuerySchema.safeParse(c.req.query()).success) {
-      return c.json({ error: "Invalid message context" }, 400);
-    }
-    await next();
-  })
-  .use("*", persistentCommunityReadRateLimit)
   .use("*", async (c, next) => {
     await next();
 
-    const explicitTopicId = c.res.headers.get(realtimeTopicHeader);
-    c.res.headers.delete(realtimeTopicHeader);
     if (communityMutationMethods.has(c.req.method) && c.res.status < 400) {
-      if (explicitTopicId === "skip") return;
       const topicMatch = c.req.path.match(/\/topics\/([^/]+)/);
-      publishCommunityChange(
-        explicitTopicId ?? (topicMatch?.[1] ? decodeURIComponent(topicMatch[1]) : null)
-      );
-    }
-  })
-  .post("/uploads", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const body = communityUploadIntentSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) return c.json({ error: "invalid_upload" }, 400);
-    try {
-      const intent = await communityUploadService.createIntent({ userId: c.get("userId"), input: body.data });
-      c.header(realtimeTopicHeader, "skip");
-      return c.json(intent);
-    } catch (error) {
-      return communityUploadFailure(c, error);
-    }
-  })
-  .post("/uploads/complete", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const body = communityPutCompleteSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) return c.json({ error: "invalid_upload" }, 400);
-    try {
-      const { manifest, uploaded } = await loadOwnedCommunityUpload(c.get("userId"), body.data.uploadToken);
-      if (manifest.uploadType !== "put") throw new Error("intent_mismatch");
-      const verified = await communityUploadService.completePut({ userId: c.get("userId"), uploaded });
-      c.header(realtimeTopicHeader, "skip");
-      return c.json(verified);
-    } catch (error) {
-      return communityUploadFailure(c, error);
-    }
-  })
-  .post("/uploads/multipart/complete", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const body = communityMultipartCompleteSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) return c.json({ error: "invalid_upload" }, 400);
-    try {
-      const { manifest, uploaded } = await loadOwnedCommunityUpload(c.get("userId"), body.data.uploadToken);
-      if (manifest.uploadType !== "multipart" || !manifest.multipartUploadId || !manifest.partSizeBytes) {
-        throw new Error("intent_mismatch");
-      }
-      const verified = await communityUploadService.completeMultipartUpload({
-        userId: c.get("userId"),
-        uploaded,
-        uploadId: manifest.multipartUploadId,
-        partSizeBytes: manifest.partSizeBytes,
-        parts: body.data.parts
-      });
-      c.header(realtimeTopicHeader, "skip");
-      return c.json(verified);
-    } catch (error) {
-      return communityUploadFailure(c, error);
-    }
-  })
-  .post("/uploads/:token/refresh", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const token = z.string().uuid().safeParse(c.req.param("token"));
-    if (!token.success) return c.json({ error: "invalid_upload" }, 400);
-    try {
-      c.header(realtimeTopicHeader, "skip");
-      return c.json(await communityUploadSessionService.refresh({ userId: c.get("userId"), uploadToken: token.data }));
-    } catch (error) {
-      return communityUploadFailure(c, error);
-    }
-  })
-  .delete("/uploads/:token", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const token = z.string().uuid().safeParse(c.req.param("token"));
-    if (!token.success) return c.json({ error: "invalid_upload" }, 400);
-    try {
-      c.header(realtimeTopicHeader, "skip");
-      return c.json(await communityUploadSessionService.abort({ userId: c.get("userId"), uploadToken: token.data }));
-    } catch (error) {
-      return communityUploadFailure(c, error);
-    }
-  })
-  .post("/topics/:id/messages/uploads", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const mute = await getActiveMute(c.get("userId"));
-    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
-    const body = communityUploadAttachSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success || new Set(body.data.uploadTokens).size !== body.data.uploadTokens.length) {
-      return c.json({ error: "invalid_uploads" }, 400);
-    }
-    try {
-      const database = db;
-      const result = await database.transaction(async (transaction) => {
-        const database = transaction as unknown as typeof db;
-        const topicId = c.req.param("id");
-        await database.execute(sql`select id from club_chat_topics where id = ${topicId} for share`);
-        const topic = await database.query.clubChatTopics.findFirst({ where: eq(clubChatTopics.id, topicId) });
-        if (!topic || !isTopicAccessibleForRole(topic, role)) return { error: "topic_not_found", status: 404 as const };
-        if (topic.isLocked && role === "member") return { error: "topic_locked", status: 403 as const };
-        const replyError = await validateLockedReply(database, body.data.replyToMessageId, topic.id);
-        if (replyError) return replyError;
-        for (const uploadToken of [...body.data.uploadTokens].sort()) {
-          await database.execute(sql`
-            select id from community_upload_manifests
-            where user_id = ${c.get("userId")} and upload_token = ${uploadToken}
-            for update
-          `);
-        }
-        const manifests = await database.query.communityUploadManifests.findMany({
-          where: and(
-            eq(communityUploadManifests.userId, c.get("userId")),
-            inArray(communityUploadManifests.uploadToken, body.data.uploadTokens)
-          )
-        });
-        if (manifests.length !== body.data.uploadTokens.length) return { error: "foreign_upload", status: 403 as const };
-        if (manifests.every((manifest) => manifest.attachmentId)) {
-          const attachments = await database.query.clubMessageAttachments.findMany({
-            where: inArray(clubMessageAttachments.id, manifests.map((manifest) => manifest.attachmentId!))
-          });
-          const messageIds = new Set(attachments.map((attachment) => attachment.messageId));
-          if (attachments.length !== manifests.length || messageIds.size !== 1) {
-            return { error: "upload_already_attached", status: 409 as const };
-          }
-          const message = await database.query.clubChatMessages.findFirst({ where: eq(clubChatMessages.id, [...messageIds][0]!) });
-          if (!message || message.userId !== c.get("userId") || message.topicId !== topic.id || message.status !== "visible" || message.deletedByUserAt) {
-            return { error: "upload_already_attached", status: 409 as const };
-          }
-          const messageAttachments = await database.query.clubMessageAttachments.findMany({
-            where: eq(clubMessageAttachments.messageId, message.id)
-          });
-          const derived = deriveCommunityUploadMessage(manifests);
-          if (!isExactCommunityUploadReplayBatch(manifests, messageAttachments)
-            || "error" in derived
-            || message.kind !== derived.kind
-            || message.replyToMessageId !== body.data.replyToMessageId) {
-            return { error: "upload_already_attached", status: 409 as const };
-          }
-          return { messageId: message.id };
-        }
-        if (manifests.some((manifest) => manifest.attachmentId || manifest.consumedAt)) {
-          return { error: "upload_already_attached", status: 409 as const };
-        }
-        if (manifests.some((manifest) => manifest.expiresAt <= new Date())) {
-          return { error: "expired_intent", status: 409 as const };
-        }
-        const policy = validateCommunityUploadAttachmentBatch({
-          userId: c.get("userId"),
-          existingImageCount: 0,
-          manifests
-        });
-        if (!policy.ok) return { error: policy.error, status: 409 as const };
-        const derived = deriveCommunityUploadMessage(manifests);
-        if ("error" in derived) return { error: derived.error, status: 409 as const };
-        const byToken = new Map(manifests.map((manifest) => [manifest.uploadToken, manifest]));
-        const prepared = [];
-        for (const token of body.data.uploadTokens) {
-          const manifest = byToken.get(token)!;
-          const objectKey = manifest.finalObjectKey ?? manifest.quarantineObjectKey;
-          const durableResult = communityUploadResultSchema.safeParse(manifest.result);
-          if (!objectKey || !durableResult.success || durableResult.data.objectKey !== objectKey || durableResult.data.kind !== manifest.kind) {
-            return { error: "upload_not_ready", status: 409 as const };
-          }
-          prepared.push({ manifest, objectKey, durableResult: durableResult.data });
-        }
-        const [message] = await database.insert(clubChatMessages).values({
-          topicId: topic.id,
-          userId: c.get("userId"),
-          replyToMessageId: body.data.replyToMessageId,
-          body: derived.body,
-          kind: derived.kind
-        }).returning();
-        if (!message) return { error: "Unable to create message", status: 500 as const };
-        const expiresAt = getCommunityMediaExpiry(role);
-        for (const [index, { manifest, objectKey, durableResult }] of prepared.entries()) {
-          const attachmentId = randomUUID();
-          const attachmentStatus = manifest.status === "cleanup_pending"
-            ? "failed"
-            : ["processing", "normalizing"].includes(manifest.status) ? "pending" : manifest.status;
-          await database.insert(clubMessageAttachments).values({
-            id: attachmentId,
-            messageId: message.id,
-            kind: manifest.kind,
-            objectKey,
-            fileName: durableResult.fileName,
-            contentType: durableResult.contentType,
-            sizeBytes: durableResult.sizeBytes,
-            durationSeconds: durableResult.kind === "voice" ? durableResult.durationSeconds : null,
-            width: durableResult.width,
-            height: durableResult.height,
-            sortOrder: index,
-            expiresAt,
-            scanStatus: attachmentStatus,
-            scanError: manifest.errorCode
-          });
-          const [consumed] = await database.update(communityUploadManifests)
-            .set({ attachmentId, consumedAt: new Date(), updatedAt: new Date() })
-            .where(and(eq(communityUploadManifests.id, manifest.id), sql`${communityUploadManifests.consumedAt} is null`))
-            .returning({ id: communityUploadManifests.id });
-          if (!consumed) throw new Error("object_already_consumed");
-        }
-        return { messageId: message.id };
-      });
-      if ("error" in result) return c.json({ error: result.error }, result.status);
-      const createdMessage = await findMessageWithUser(result.messageId);
-      if (!createdMessage) return c.json({ error: "Unable to load message" }, 500);
-      return c.json({ ok: true, message: await serializeMessage(createdMessage, c.get("userId"), role) });
-    } catch (error) {
-      return communityUploadFailure(c, error);
+      publishCommunityChange(topicMatch?.[1] ? decodeURIComponent(topicMatch[1]) : null);
     }
   })
   .get("/events", async (c) => {
@@ -1503,7 +735,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({
-      topics: await serializeTopics(topics, c.get("userId"))
+      topics: await Promise.all(topics.map((topic) => serializeTopic(topic, c.get("userId"))))
     });
   })
   .post("/chats/:id/topics", async (c) => {
@@ -1585,154 +817,14 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       topic: await serializeTopic(topic, c.get("userId"))
     });
   })
-  .post("/topics/:id/read", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) {
-      return accessError;
-    }
-
-    const topic = await getAccessibleTopic(c.req.param("id"), role);
-    if (!topic) {
-      return c.json({ error: "Topic not found" }, 404);
-    }
-
-    const body = communityTopicReadPositionRequestSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) {
-      return c.json({ error: "Invalid read position" }, 400);
-    }
-
-    const lastReadMessageId = await topicStateRepository.markRead({
-      userId: c.get("userId"),
-      topicId: topic.id,
-      messageId: body.data.messageId
-    });
-    if (!lastReadMessageId) {
-      return c.json({ error: "Message does not belong to topic" }, 400);
-    }
-
-    return c.json(await topicStateRepository.getState(c.get("userId"), topic.id));
-  })
-  .put("/topics/:id/notification-settings", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) {
-      return accessError;
-    }
-
-    const topic = await getAccessibleTopic(c.req.param("id"), role);
-    if (!topic) {
-      return c.json({ error: "Topic not found" }, 404);
-    }
-
-    const body = communityTopicNotificationSettingsRequestSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) {
-      return c.json({ error: "Invalid notification settings" }, 400);
-    }
-
-    await topicStateRepository.setNotificationMode({
-      userId: c.get("userId"),
-      topicId: topic.id,
-      mode: body.data.mode
-    });
-
-    return c.json(await topicStateRepository.getState(c.get("userId"), topic.id));
-  })
-  .get("/participants", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const query = communityParticipantSuggestionsQuerySchema.safeParse(c.req.query());
-    if (!query.success) return c.json({ error: "Invalid participant search" }, 400);
-    return c.json({
-      participants: await messageMutationService.findParticipants({
-        query: query.data.q,
-        limit: query.data.limit
-      })
-    });
-  })
-  .get("/messages/search", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) {
-      return accessError;
-    }
-
-    const query = communityMessageSearchQuerySchema.safeParse(c.req.query());
-    if (!query.success) {
-      return c.json({ error: "Invalid message search" }, 400);
-    }
-    const before = query.data.before ? decodeSearchCursor(query.data.before) : undefined;
-    if (query.data.before && !before) {
-      return c.json({ error: "Invalid message search cursor" }, 400);
-    }
-
-    if (query.data.topicId) {
-      const topic = await getAccessibleTopic(query.data.topicId, role);
-      if (!topic) {
-        return c.json({ error: "Topic not found" }, 404);
-      }
-    }
-
-    return c.json(
-      await searchCommunityMessages({
-        query: query.data.q,
-        limit: query.data.limit,
-        role,
-        ...(query.data.topicId ? { topicId: query.data.topicId } : {}),
-        ...(before ? { before } : {})
-      })
-    );
-  })
-  .get("/topics/:topicId/messages/:messageId/context", async (c) => {
-    const path = messageContextPathSchema.safeParse(c.req.param());
-    if (!path.success) {
-      return c.json({ error: "Invalid message context path" }, 400);
-    }
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) {
-      return accessError;
-    }
-
-    const query = messageContextQuerySchema.safeParse(c.req.query());
-    if (!query.success) {
-      return c.json({ error: "Invalid message context" }, 400);
-    }
-
-    const topic = await getAccessibleTopic(path.data.topicId, role);
-    if (!topic) {
-      return c.json({ error: "Topic not found" }, 404);
-    }
-
-    const context = await loadMessageContext({
-      topicId: topic.id,
-      messageId: path.data.messageId,
-      before: query.data.before,
-      after: query.data.after
-    });
-    if (!context) {
-      return c.json({ error: "Message not found" }, 404);
-    }
-    const serverNow = await getDatabaseServerNow();
-
-    return c.json({
-      targetMessageId: context.targetMessageId,
-      messages: await Promise.all(context.messages.map((message) => serializeMessage(
-        message,
-        c.get("userId"),
-        role,
-        { topic, serverNow }
-      ))),
-      serverTime: serverNow.toISOString()
-    });
-  })
   .get("/topics/:id/messages", async (c) => {
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
     if (accessError) {
       return accessError;
     }
+
+    await purgeExpiredDeletedMessages();
 
     const topic = await getAccessibleTopic(c.req.param("id"), role);
 
@@ -1742,28 +834,15 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     const query = messagePageQuerySchema.safeParse(c.req.query());
     if (!query.success) return c.json({ error: "Invalid message page" }, 400);
-    const before = query.data.before ? decodeSearchCursor(query.data.before) : undefined;
-    if (query.data.before && !before) return c.json({ error: "Invalid message page" }, 400);
     const visibilityWhere = role === "member" ? eq(clubChatMessages.status, "visible") : undefined;
     const messages = await db.query.clubChatMessages.findMany({
       where: and(
         eq(clubChatMessages.topicId, topic.id),
         visibilityWhere,
-        before
-          ? or(
-              sql`${clubChatMessages.createdAt} < ${before.createdAt}::timestamptz`,
-              and(
-                sql`${clubChatMessages.createdAt} = ${before.createdAt}::timestamptz`,
-                lt(clubChatMessages.id, before.messageId)
-              )
-            )
-          : undefined
+        query.data.before ? lt(clubChatMessages.createdAt, new Date(query.data.before)) : undefined
       ),
-      orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
+      orderBy: (table, { desc }) => [desc(table.createdAt)],
       limit: query.data.limit + 1,
-      extras: {
-        preciseCreatedAt: preciseCommunityMessageCreatedAtExtra()
-      },
       with: {
         user: true
       }
@@ -1771,94 +850,107 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const hasMore = messages.length > query.data.limit;
     const pageMessages = messages.slice(0, query.data.limit);
     const mute = await getActiveMute(c.get("userId"));
-    const serverNow = await getDatabaseServerNow();
 
     return c.json({
-      messages: await Promise.all(pageMessages.map((message) => serializeMessage(
-        message,
-        c.get("userId"),
-        role,
-        { topic, serverNow }
-      ))),
-      nextCursor: hasMore && pageMessages.at(-1)
-        ? encodeSearchCursor({
-            createdAt: pageMessages.at(-1)!.preciseCreatedAt,
-            messageId: pageMessages.at(-1)!.id
-          })
-        : null,
-      ...serializeMute(mute),
-      serverTime: serverNow.toISOString()
+      messages: await Promise.all(pageMessages.map((message) => serializeMessage(message, c.get("userId")))),
+      nextCursor: hasMore ? pageMessages.at(-1)?.createdAt.toISOString() ?? null : null,
+      ...serializeMute(mute)
     });
   })
   .post("/topics/:id/messages", async (c) => {
     const role = await getCommunityRole(c);
     const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const mute = await getActiveMute(c.get("userId"));
-    if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
-    const body = messagePayloadSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) return c.json({ error: "Invalid message" }, 400);
+    if (accessError) {
+      return accessError;
+    }
 
-    try {
-      const result = await messageMutationService.createText({
-        topicId: c.req.param("id"),
-        userId: c.get("userId"),
-        role,
-        body: body.data.body,
-        replyToMessageId: body.data.replyToMessageId,
-        clientOperationId: body.data.clientOperationId,
-        mentions: body.data.mentions
-      });
-      const createdMessage = await findMessageWithUser(result.message.id);
-      if (!createdMessage) return c.json({ error: "Unable to load message" }, 500);
-      c.header(realtimeTopicHeader, "skip");
-      return c.json({
-        ok: true,
-        message: await serializeMessage(createdMessage, c.get("userId"), role)
-      });
-    } catch (error) {
-      return mutationErrorResponse(c, error);
+    const mute = await getActiveMute(c.get("userId"));
+    if (mute) {
+      return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
     }
-  })
-  .patch("/messages/:id", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    const body = communityMessageEditRequestSchema.safeParse(await c.req.json().catch(() => null));
-    if (!body.success) return c.json({ error: "Invalid message edit" }, 400);
-    try {
-      const result = await messageMutationService.editText({
-        messageId: c.req.param("id"),
-        userId: c.get("userId"),
-        role,
-        body: body.data.body,
-        mentions: body.data.mentions
-      });
-      c.header(realtimeTopicHeader, "skip");
-      const updatedMessage = await findMessageWithUser(result.message.id);
-      if (!updatedMessage) return c.json({ error: "Unable to load message" }, 500);
-      return c.json({ ok: true, message: await serializeMessage(updatedMessage, c.get("userId"), role) });
-    } catch (error) {
-      return mutationErrorResponse(c, error);
+
+    const body = messagePayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: "Invalid message" }, 400);
     }
-  })
-  .delete("/messages/:id", async (c) => {
-    const role = await getCommunityRole(c);
-    const accessError = await ensureCommunityAccess(c, role);
-    if (accessError) return accessError;
-    try {
-      const result = await messageMutationService.deleteMessage({
-        messageId: c.req.param("id"),
-        userId: c.get("userId"),
-        role
-      });
-      c.header(realtimeTopicHeader, "skip");
-      const deletedMessage = await findMessageWithUser(result.message.id);
-      if (!deletedMessage) return c.json({ error: "Unable to load message" }, 500);
-      return c.json({ ok: true, message: await serializeMessage(deletedMessage, c.get("userId"), role) });
-    } catch (error) {
-      return mutationErrorResponse(c, error);
+
+    const topic = await getAccessibleTopic(c.req.param("id"), role);
+
+    if (!topic) {
+      return c.json({ error: "Topic not found" }, 404);
     }
+
+    if (topic.isLocked && role === "member") {
+      return c.json({ error: "Topic is locked" }, 403);
+    }
+
+    const replyToMessage = body.data.replyToMessageId
+      ? await db.query.clubChatMessages.findFirst({
+        where: and(eq(clubChatMessages.id, body.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id)),
+        with: {
+          user: true
+        }
+      })
+      : null;
+
+    if (body.data.replyToMessageId) {
+      if (!replyToMessage) {
+        return c.json({ error: "Reply message not found" }, 404);
+      }
+
+      if (replyToMessage.isSystem) {
+        return c.json({ error: "Cannot reply to system message" }, 400);
+      }
+    }
+
+    const sender = await db.query.users.findFirst({
+      where: eq(users.id, c.get("userId"))
+    });
+
+    if (!sender) {
+      return c.json({ error: "Unable to resolve sender" }, 500);
+    }
+
+    const [message] = await db
+      .insert(clubChatMessages)
+      .values({
+        topicId: topic.id,
+        userId: c.get("userId"),
+        replyToMessageId: body.data.replyToMessageId ?? null,
+        body: body.data.body
+      })
+      .returning();
+
+    if (!message) {
+      return c.json({ error: "Unable to create message" }, 500);
+    }
+
+    if (replyToMessage) {
+      notifyReplyRecipient({
+        topic,
+        replyToMessage,
+        sender,
+        body: body.data.body
+      }).catch((error: unknown) => {
+        logger.warn({ error, messageId: message.id }, "reply notification failed");
+      });
+    }
+
+    const createdMessage = await db.query.clubChatMessages.findFirst({
+      where: eq(clubChatMessages.id, message.id),
+      with: {
+        user: true
+      }
+    });
+
+    if (!createdMessage) {
+      return c.json({ error: "Unable to create message" }, 500);
+    }
+
+    return c.json({
+      ok: true,
+      message: await serializeMessage(createdMessage, c.get("userId"))
+    });
   })
   .post("/topics/:id/messages/voice", async (c) => {
     const role = await getCommunityRole(c);
@@ -1881,10 +973,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (!contentType) return c.json({ error: "Unsupported voice format" }, 415);
     if (replyToMessageId) {
       const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
-      if (!reply) return c.json({ error: "Reply message not found" }, 404);
-      if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
-        return c.json({ error: "Reply message is unavailable" }, 400);
-      }
+      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
     }
 
     let preparedVoice: Awaited<ReturnType<typeof prepareCommunityVoice>>;
@@ -1895,23 +984,20 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to prepare voice message" }, 422);
     }
 
-    const publicationTargets = await getConfiguredS3Targets();
+    const [message] = await db.insert(clubChatMessages).values({
+      topicId: topic.id,
+      userId: c.get("userId"),
+      replyToMessageId,
+      body: "Голосовое сообщение",
+      kind: "voice"
+    }).returning();
+    if (!message) return c.json({ error: "Unable to create message" }, 500);
+
     const attachmentId = randomUUID();
-    const expiresAt = getCommunityMediaExpiry(role);
-    const voiceInsert = await db.transaction(async (transaction) => {
-      const database = transaction as unknown as typeof db;
-      const replyError = await validateLockedReply(database, replyToMessageId, topic.id);
-      if (replyError) return replyError;
-      const [message] = await database.insert(clubChatMessages).values({
-        topicId: topic.id,
-        userId: c.get("userId"),
-        replyToMessageId,
-        body: "Голосовое сообщение",
-        kind: "voice"
-      }).returning();
-      if (!message) return { error: "Unable to create message", status: 500 as const };
-      const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, preparedVoice.fileName);
-      await database.insert(clubMessageAttachments).values({
+    const key = buildCommunityMediaObjectKey("voice", message.id, attachmentId, preparedVoice.fileName);
+    try {
+      await uploadObject({ key, body: preparedVoice.body, contentType: preparedVoice.contentType });
+      await db.insert(clubMessageAttachments).values({
         id: attachmentId,
         messageId: message.id,
         kind: "voice",
@@ -1919,64 +1005,16 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         contentType: preparedVoice.contentType,
         sizeBytes: preparedVoice.body.byteLength,
         durationSeconds: Math.round(durationSeconds),
-        expiresAt,
-        scanStatus: "pending"
-      });
-      const publication = await beginCommunityObjectPublication({
-        sourceType: "attachment",
-        sourceId: attachmentId,
-        objectKey: key,
-        targets: publicationTargets
-      }, database);
-      return { message, plan: { attachmentId, key, publication } };
-    });
-    if ("error" in voiceInsert) return c.json({ error: voiceInsert.error }, voiceInsert.status);
-    const { message, plan } = voiceInsert;
-
-    try {
-      await publishCommunityObject({
-        claim: plan.publication,
-        write: async (signal) => {
-          await uploadObjectStream({
-            key: plan.key,
-            body: preparedVoice.body,
-            contentType: preparedVoice.contentType,
-            sizeBytes: preparedVoice.body.byteLength,
-            signal
-          });
-          await mirrorObjectToReserve(plan.key, preparedVoice.contentType, signal);
-        },
-        commit: async (database) => {
-          const [attachment] = await database.update(clubMessageAttachments).set({
-            scanStatus: "ready",
-            scannedAt: new Date(),
-            scanError: null
-          }).where(and(
-            eq(clubMessageAttachments.id, plan.attachmentId),
-            eq(clubMessageAttachments.objectKey, plan.key),
-            eq(clubMessageAttachments.scanStatus, "pending"),
-            isNull(clubMessageAttachments.deletedAt),
-            isNull(clubMessageAttachments.terminalCleanupAt),
-            sql`exists (
-              select 1 from club_chat_messages message
-              where message.id = ${clubMessageAttachments.messageId}
-                and message.terminal_cleanup_at is null
-            )`
-          )).returning({ id: clubMessageAttachments.id });
-          if (!attachment) throw new Error("attachment_publish_terminal");
-          return attachment;
-        }
+        expiresAt: getCommunityMediaExpiry(role)
       });
     } catch (error) {
-      await deleteCommunityObjectCopiesConvergently(plan.key).catch(() => undefined);
-      await db.update(clubChatMessages).set({ status: "deleted", purgeAt: new Date(), updatedAt: new Date() })
-        .where(eq(clubChatMessages.id, message.id));
-      await enqueueCommunityMessageDeletion(message.id).catch(() => undefined);
+      await deleteObject(key).catch(() => undefined);
+      await db.delete(clubChatMessages).where(eq(clubChatMessages.id, message.id));
       logger.warn({ error, messageId: message.id }, "voice message upload failed");
       return c.json({ error: "Unable to upload voice message" }, 500);
     }
     const created = await findMessageWithUser(message.id);
-    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId"), role) });
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
   })
   .post("/topics/:id/messages/images", async (c) => {
     const role = await getCommunityRole(c);
@@ -1995,10 +1033,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (validationError) return c.json({ error: validationError }, 400);
     if (replyToMessageId) {
       const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
-      if (!reply) return c.json({ error: "Reply message not found" }, 404);
-      if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
-        return c.json({ error: "Reply message is unavailable" }, 400);
-      }
+      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
     }
     let prepared: Awaited<ReturnType<typeof prepareCommunityImage>>[];
     try {
@@ -2007,30 +1042,23 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Не удалось обработать изображение." }, 415);
     }
 
-    const publicationTargets = await getConfiguredS3Targets();
-    const expiresAt = getCommunityMediaExpiry(role);
-    const imageInsert = await db.transaction(async (transaction) => {
-      const database = transaction as unknown as typeof db;
-      const replyError = await validateLockedReply(database, replyToMessageId, topic.id);
-      if (replyError) return replyError;
-      const [message] = await database.insert(clubChatMessages).values({
-        topicId: topic.id,
-        userId: c.get("userId"),
-        replyToMessageId,
-        body: files.length === 1 ? "Изображение" : `${files.length} изображений`,
-        kind: "images"
-      }).returning();
-      if (!message) return { error: "Unable to create message", status: 500 as const };
-      const plans: Array<{
-        attachmentId: string;
-        image: (typeof prepared)[number];
-        key: string;
-        publication: Awaited<ReturnType<typeof beginCommunityObjectPublication>>;
-      }> = [];
+    const [message] = await db.insert(clubChatMessages).values({
+      topicId: topic.id,
+      userId: c.get("userId"),
+      replyToMessageId,
+      body: files.length === 1 ? "Изображение" : `${files.length} изображений`,
+      kind: "images"
+    }).returning();
+    if (!message) return c.json({ error: "Unable to create message" }, 500);
+
+    const uploadedKeys: string[] = [];
+    try {
       for (const [index, image] of prepared.entries()) {
         const attachmentId = randomUUID();
         const key = buildCommunityMediaObjectKey("image", message.id, attachmentId, image.fileName);
-        await database.insert(clubMessageAttachments).values({
+        await uploadObject({ key, body: image.body, contentType: image.contentType });
+        uploadedKeys.push(key);
+        await db.insert(clubMessageAttachments).values({
           id: attachmentId,
           messageId: message.id,
           kind: "image",
@@ -2040,68 +1068,17 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
           width: image.width,
           height: image.height,
           sortOrder: index,
-          expiresAt,
-          scanStatus: "pending"
+          expiresAt: getCommunityMediaExpiry(role)
         });
-        const publication = await beginCommunityObjectPublication({
-          sourceType: "attachment",
-          sourceId: attachmentId,
-          objectKey: key,
-          targets: publicationTargets
-        }, database);
-        plans.push({ attachmentId, image, key, publication });
       }
-      return { message, plans };
-    });
-    if ("error" in imageInsert) return c.json({ error: imageInsert.error }, imageInsert.status);
-    const { message, plans } = imageInsert;
-
-    try {
-      await publishCommunityObjectGroup({
-        publications: plans.map((plan) => ({
-          claim: plan.publication,
-          write: async (signal: AbortSignal) => {
-            await uploadObjectStream({
-              key: plan.key,
-              body: plan.image.body,
-              contentType: plan.image.contentType,
-              sizeBytes: plan.image.sizeBytes,
-              signal
-            });
-            await mirrorObjectToReserve(plan.key, plan.image.contentType, signal);
-          }
-        })),
-        commit: async (database) => {
-          const attachments = await database.update(clubMessageAttachments).set({
-            scanStatus: "ready",
-            scannedAt: new Date(),
-            scanError: null
-          }).where(and(
-            inArray(clubMessageAttachments.id, plans.map((plan) => plan.attachmentId)),
-            inArray(clubMessageAttachments.objectKey, plans.map((plan) => plan.key)),
-            eq(clubMessageAttachments.scanStatus, "pending"),
-            isNull(clubMessageAttachments.deletedAt),
-            isNull(clubMessageAttachments.terminalCleanupAt),
-            sql`exists (
-              select 1 from club_chat_messages message
-              where message.id = ${clubMessageAttachments.messageId}
-                and message.terminal_cleanup_at is null
-            )`
-          )).returning({ id: clubMessageAttachments.id });
-          if (attachments.length !== plans.length) throw new Error("attachment_publish_terminal");
-          return attachments;
-        }
-      });
     } catch (error) {
-      await deleteCommunityObjectKeysConvergently(plans.map((plan) => plan.key)).catch(() => undefined);
-      await db.update(clubChatMessages).set({ status: "deleted", purgeAt: new Date(), updatedAt: new Date() })
-        .where(eq(clubChatMessages.id, message.id));
-      await enqueueCommunityMessageDeletion(message.id).catch(() => undefined);
+      for (const key of uploadedKeys) await deleteObject(key).catch(() => undefined);
+      await db.delete(clubChatMessages).where(eq(clubChatMessages.id, message.id));
       logger.warn({ error, messageId: message.id }, "image message upload failed");
       return c.json({ error: "Unable to upload images" }, 500);
     }
     const created = await findMessageWithUser(message.id);
-    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId"), role) });
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
   })
   .post("/topics/:id/messages/poll", async (c) => {
     const role = await getCommunityRole(c);
@@ -2122,18 +1099,12 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     }
     if (parsed.data.replyToMessageId) {
       const reply = await db.query.clubChatMessages.findFirst({ where: and(eq(clubChatMessages.id, parsed.data.replyToMessageId), eq(clubChatMessages.topicId, topic.id)) });
-      if (!reply) return c.json({ error: "Reply message not found" }, 404);
-      if (reply.isSystem || reply.status !== "visible" || reply.deletedByUserAt) {
-        return c.json({ error: "Reply message is unavailable" }, 400);
-      }
+      if (!reply || reply.isSystem) return c.json({ error: "Reply message not found" }, 404);
     }
 
     const messageId = randomUUID();
-    const pollInsert = await db.transaction(async (transaction) => {
-      const database = transaction as unknown as typeof db;
-      const replyError = await validateLockedReply(database, parsed.data.replyToMessageId ?? null, topic.id);
-      if (replyError) return replyError;
-      await database.insert(clubChatMessages).values({
+    await db.transaction(async (tx) => {
+      await tx.insert(clubChatMessages).values({
         id: messageId,
         topicId: topic.id,
         userId: c.get("userId"),
@@ -2141,7 +1112,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         body: draft.question,
         kind: "poll"
       });
-      const [poll] = await database.insert(clubPolls).values({
+      const [poll] = await tx.insert(clubPolls).values({
         messageId,
         question: draft.question,
         allowsMultiple: draft.allowsMultiple,
@@ -2149,12 +1120,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
         closesAt: draft.closesAt
       }).returning();
       if (!poll) throw new Error("Unable to create poll");
-      await database.insert(clubPollOptions).values(draft.options.map((text, sortOrder) => ({ pollId: poll.id, text, sortOrder })));
-      return { messageId };
+      await tx.insert(clubPollOptions).values(draft.options.map((text, sortOrder) => ({ pollId: poll.id, text, sortOrder })));
     });
-    if ("error" in pollInsert) return c.json({ error: pollInsert.error }, pollInsert.status);
     const created = await findMessageWithUser(messageId);
-    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId"), role) });
+    return c.json({ ok: true, message: await serializeMessage(created!, c.get("userId")) });
   })
   .post("/polls/:id/votes", async (c) => {
     const role = await getCommunityRole(c);
@@ -2164,41 +1133,23 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     if (mute) return c.json({ error: "User is muted", ...serializeMute(mute) }, 403);
     const parsed = pollVotePayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "Invalid vote" }, 400);
-    const pollId = c.req.param("id");
-    const voteResult = await db.transaction(async (transaction) => {
-      const database = transaction as unknown as typeof db;
-      await database.execute(sql`
-        select message.id
-        from club_polls poll
-        join club_chat_messages message on message.id = poll.message_id
-        where poll.id = ${pollId}
-        for share of poll, message
-      `);
-      const poll = await database.query.clubPolls.findFirst({ where: eq(clubPolls.id, pollId), with: { options: true, message: { with: { topic: true } } } });
-      if (!poll) return { error: "Poll not found", status: 404 as const };
-      if (!isTopicAccessibleForRole(poll.message.topic, role)) return { error: "Poll not found", status: 404 as const };
-      if (poll.message.status !== "visible" || poll.message.deletedByUserAt) {
-        return { error: "Poll is unavailable", status: 409 as const };
-      }
-      if (role === "member" && (!poll.message.topic.isPublished || poll.message.topic.isLocked)) {
-        return { error: "Topic is unavailable", status: 403 as const };
-      }
-      if (poll.closedAt || (poll.closesAt && poll.closesAt <= new Date())) {
-        return { error: "Poll is closed", status: 409 as const };
-      }
-      let optionIds: string[];
-      try {
-        optionIds = validatePollSelection(parsed.data.optionIds, poll.options.map((option) => option.id), poll.allowsMultiple);
-      } catch (error) {
-        return { error: error instanceof Error ? error.message : "Invalid vote", status: 400 as const };
-      }
-      await database.delete(clubPollVotes).where(and(eq(clubPollVotes.pollId, poll.id), eq(clubPollVotes.userId, c.get("userId"))));
-      await database.insert(clubPollVotes).values(optionIds.map((optionId) => ({ pollId: poll.id, optionId, userId: c.get("userId") })));
-      return { messageId: poll.messageId };
+    const poll = await db.query.clubPolls.findFirst({ where: eq(clubPolls.id, c.req.param("id")), with: { options: true, message: { with: { topic: true } } } });
+    if (!poll) return c.json({ error: "Poll not found" }, 404);
+    if (!isTopicAccessibleForRole(poll.message.topic, role)) return c.json({ error: "Poll not found" }, 404);
+    if (role === "member" && (!poll.message.topic.isPublished || poll.message.topic.isLocked)) return c.json({ error: "Topic is unavailable" }, 403);
+    if (poll.closedAt || (poll.closesAt && poll.closesAt <= new Date())) return c.json({ error: "Poll is closed" }, 409);
+    let optionIds: string[];
+    try {
+      optionIds = validatePollSelection(parsed.data.optionIds, poll.options.map((option) => option.id), poll.allowsMultiple);
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Invalid vote" }, 400);
+    }
+    await db.transaction(async (tx) => {
+      await tx.delete(clubPollVotes).where(and(eq(clubPollVotes.pollId, poll.id), eq(clubPollVotes.userId, c.get("userId"))));
+      await tx.insert(clubPollVotes).values(optionIds.map((optionId) => ({ pollId: poll.id, optionId, userId: c.get("userId") })));
     });
-    if ("error" in voteResult) return c.json({ error: voteResult.error }, voteResult.status);
-    const message = await findMessageWithUser(voteResult.messageId);
-    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId"), role) });
+    const message = await findMessageWithUser(poll.messageId);
+    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId")) });
   })
   .post("/polls/:id/close", async (c) => {
     const role = await getCommunityRole(c);
@@ -2206,7 +1157,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     const [poll] = await db.update(clubPolls).set({ closedAt: new Date() }).where(eq(clubPolls.id, c.req.param("id"))).returning();
     if (!poll) return c.json({ error: "Poll not found" }, 404);
     const message = await findMessageWithUser(poll.messageId);
-    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId"), role) });
+    return c.json({ ok: true, message: await serializeMessage(message!, c.get("userId")) });
   })
   .post("/messages/:id/pin", async (c) => {
     const role = await getCommunityRole(c);
@@ -2219,56 +1170,51 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid pin state" }, 400);
     }
 
-    const messageId = c.req.param("id");
-    const pinResult = await db.transaction(async (transaction) => {
-      const database = transaction as unknown as typeof db;
-      await database.execute(sql`select id from club_chat_messages where id = ${messageId} for update`);
-      const current = await database.query.clubChatMessages.findFirst({
-        where: eq(clubChatMessages.id, messageId),
-        with: { user: true }
-      });
-      if (!current) return { error: "Message not found", status: 404 as const };
-      if (current.deletedByUserAt) return { error: "Message is unavailable", status: 409 as const };
-      if (current.status !== "visible" || current.isSystem) {
-        return { error: "Only visible user messages can be pinned", status: 400 as const };
-      }
-
-      if (payload.data.pinned && !current.pinnedAt) {
-        const [row] = await database
-          .select({ value: count(clubChatMessages.id) })
-          .from(clubChatMessages)
-          .where(
-            and(
-              eq(clubChatMessages.topicId, current.topicId),
-              eq(clubChatMessages.status, "visible"),
-              gt(clubChatMessages.pinnedAt, new Date(0))
-            )
-          );
-        if ((row?.value ?? 0) >= 5) {
-          return { error: "Pinned messages limit reached", status: 409 as const };
-        }
-      }
-
-      const now = new Date();
-      await database
-        .update(clubChatMessages)
-        .set({
-          pinnedAt: payload.data.pinned ? now : null,
-          pinnedByUserId: payload.data.pinned ? c.get("userId") : null,
-          updatedAt: now
-        })
-        .where(eq(clubChatMessages.id, current.id));
-      const updated = await database.query.clubChatMessages.findFirst({
-        where: eq(clubChatMessages.id, current.id),
-        extras: {
-          preciseCreatedAt: preciseCommunityMessageCreatedAtExtra()
-        },
-        with: { user: true }
-      });
-      return updated ? { message: updated } : { error: "Message not found", status: 404 as const };
+    const current = await db.query.clubChatMessages.findFirst({
+      where: eq(clubChatMessages.id, c.req.param("id")),
+      with: { user: true }
     });
-    if ("error" in pinResult) return c.json({ error: pinResult.error }, pinResult.status);
-    return c.json({ ok: true, message: await serializeMessage(pinResult.message, c.get("userId"), role) });
+    if (!current) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+    if (current.status !== "visible" || current.isSystem) {
+      return c.json({ error: "Only visible user messages can be pinned" }, 400);
+    }
+
+    if (payload.data.pinned && !current.pinnedAt) {
+      const [row] = await db
+        .select({ value: count(clubChatMessages.id) })
+        .from(clubChatMessages)
+        .where(
+          and(
+            eq(clubChatMessages.topicId, current.topicId),
+            eq(clubChatMessages.status, "visible"),
+            gt(clubChatMessages.pinnedAt, new Date(0))
+          )
+        );
+      if ((row?.value ?? 0) >= 5) {
+        return c.json({ error: "Pinned messages limit reached" }, 409);
+      }
+    }
+
+    await db
+      .update(clubChatMessages)
+      .set({
+        pinnedAt: payload.data.pinned ? new Date() : null,
+        pinnedByUserId: payload.data.pinned ? c.get("userId") : null,
+        updatedAt: new Date()
+      })
+      .where(eq(clubChatMessages.id, current.id));
+
+    const updated = await db.query.clubChatMessages.findFirst({
+      where: eq(clubChatMessages.id, current.id),
+      with: { user: true }
+    });
+    if (!updated) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    return c.json({ ok: true, message: await serializeMessage(updated, c.get("userId")) });
   })
   .post("/topics/:id/messages/delete-all", async (c) => {
     const role = await getCommunityRole(c);
@@ -2284,8 +1230,10 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Topic not found" }, 404);
     }
 
+    await purgeExpiredDeletedMessages();
+
     if (shouldHardDeleteMessages(role)) {
-      await enqueueCommunityMessageDeletionBatch({ topicId: topic.id, includeSystem: true });
+      await db.delete(clubChatMessages).where(eq(clubChatMessages.topicId, topic.id));
     } else {
       const now = new Date();
       await db
@@ -2330,6 +1278,8 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "User not found" }, 404);
     }
 
+    await purgeExpiredDeletedMessages();
+
     const filter = and(
       eq(clubChatMessages.topicId, topic.id),
       eq(clubChatMessages.userId, targetUser.id),
@@ -2337,7 +1287,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
     );
 
     if (shouldHardDeleteMessages(role)) {
-      await enqueueCommunityMessageDeletionBatch({ topicId: topic.id, userId: targetUser.id });
+      await db.delete(clubChatMessages).where(filter);
     } else {
       const now = new Date();
       await db
@@ -2424,7 +1374,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      message: await serializeMessage(createdMessage, c.get("userId"), role)
+      message: await serializeMessage(createdMessage, c.get("userId"))
     });
   })
   .delete("/topics/:topicId/mutes/:muteId", async (c) => {
@@ -2482,7 +1432,7 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      message: await serializeMessage(createdMessage, c.get("userId"), role)
+      message: await serializeMessage(createdMessage, c.get("userId"))
     });
   })
   .post("/messages/:id/reaction", async (c) => {
@@ -2497,54 +1447,49 @@ export const communityRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Invalid reaction" }, 400);
     }
 
-    const messageId = c.req.param("id");
-    const reactionResult = await db.transaction(async (transaction) => {
-      const database = transaction as unknown as typeof db;
-      await database.execute(sql`select id from club_chat_messages where id = ${messageId} for share`);
-      const message = await database.query.clubChatMessages.findFirst({
-        where: eq(clubChatMessages.id, messageId)
-      });
-      if (!message) return { error: "Message not found", status: 404 as const };
-      if (message.status !== "visible" || message.deletedByUserAt) {
-        return { error: "Message is unavailable", status: 409 as const };
-      }
-      const messageTopic = await database.query.clubChatTopics.findFirst({
-        where: eq(clubChatTopics.id, message.topicId)
-      });
-      if (!messageTopic || !isTopicAccessibleForRole(messageTopic, role)) {
-        return { error: "Message not found", status: 404 as const };
-      }
-
-      if (body.data.reaction === null) {
-        await database
-          .delete(clubMessageReactions)
-          .where(and(eq(clubMessageReactions.messageId, message.id), eq(clubMessageReactions.userId, c.get("userId"))));
-      } else {
-        await database
-          .insert(clubMessageReactions)
-          .values({
-            messageId: message.id,
-            userId: c.get("userId"),
-            reaction: body.data.reaction
-          })
-          .onConflictDoUpdate({
-            target: [clubMessageReactions.messageId, clubMessageReactions.userId],
-            set: {
-              reaction: body.data.reaction,
-              updatedAt: new Date()
-            }
-          });
-      }
-      return { messageId: message.id };
+    const message = await db.query.clubChatMessages.findFirst({
+      where: eq(clubChatMessages.id, c.req.param("id"))
     });
-    if ("error" in reactionResult) return c.json({ error: reactionResult.error }, reactionResult.status);
-    const updatedMessage = await findMessageWithUser(reactionResult.messageId);
+
+    if (!message) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    const messageTopic = await db.query.clubChatTopics.findFirst({
+      where: eq(clubChatTopics.id, message.topicId)
+    });
+    if (!messageTopic || !isTopicAccessibleForRole(messageTopic, role)) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    if (body.data.reaction === null) {
+      await db
+        .delete(clubMessageReactions)
+        .where(and(eq(clubMessageReactions.messageId, message.id), eq(clubMessageReactions.userId, c.get("userId"))));
+    } else {
+      await db
+        .insert(clubMessageReactions)
+        .values({
+          messageId: message.id,
+          userId: c.get("userId"),
+          reaction: body.data.reaction
+        })
+        .onConflictDoUpdate({
+          target: [clubMessageReactions.messageId, clubMessageReactions.userId],
+          set: {
+            reaction: body.data.reaction,
+            updatedAt: new Date()
+          }
+        });
+    }
+
+    const updatedMessage = await findMessageWithUser(message.id);
     if (!updatedMessage) {
       return c.json({ error: "Message not found" }, 404);
     }
 
     return c.json({
       ok: true,
-      message: await serializeMessage(updatedMessage, c.get("userId"), role)
+      message: await serializeMessage(updatedMessage, c.get("userId"))
     });
   });

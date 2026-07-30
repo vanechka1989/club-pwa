@@ -50,11 +50,10 @@ describe("community rich message UI", () => {
 
   it("uses a paperclip composer and keeps the moderator menu inside the viewport", () => {
     const section = read("CommunitySection.vue");
-    const composer = read("ChatComposer.vue");
     const styles = read("community.css");
-    expect(composer).toContain("Paperclip");
+    expect(section).toContain("Paperclip");
     expect(section).toMatch(/import \{[^}]*\bPlus\b[^}]*\} from "lucide-vue-next"/);
-    expect(composer).toContain("<Paperclip />");
+    expect(section).toContain("<Paperclip />");
     expect(styles).toMatch(/\.community-chat-open \.chat-input-row\s*\{[^}]*gap:\s*2px;/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-compose,[\s\S]*?padding:\s*8px max\(2px, var\(--club-safe-right\)\)/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-admin-menu\s*\{[^}]*max-width:\s*calc\(100vw - 24px\)/s);
@@ -62,21 +61,21 @@ describe("community rich message UI", () => {
   });
 
   it("keeps message reactions in a compact viewport-safe palette", () => {
-    const actions = read("ChatModerationMenu.vue");
+    const section = read("CommunitySection.vue");
     const styles = read("community.css");
-    expect(actions).toContain('<Teleport to="body">');
-    expect(actions).toContain('class="message-action-reactions"');
-    expect(actions).toContain('aria-label="Реакции"');
-    expect(styles).toMatch(/\.message-action-reactions\s*\{[^}]*grid-template-columns:\s*repeat\(6, minmax\(44px, 1fr\)\)/s);
-    expect(styles).toMatch(/\.message-action-reactions button\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
+    expect(section).toContain('<Teleport to="body">');
+    expect(section).toContain('v-if="activeReactionMessage"');
+    expect(section).toContain('role="dialog"');
+    expect(styles).toMatch(/\.community-reaction-popover\s*\{[^}]*position:\s*fixed;[^}]*z-index:\s*2100;[^}]*left:\s*50%;[^}]*max-width:\s*calc\(100vw - 24px\)/s);
+    expect(styles).toMatch(/\.community-reaction-popover \.reaction-popover-button\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;/s);
   });
 
   it("anchors circular reactions on the lower-right corner without increasing bubble size", () => {
-    const message = read("ChatMessage.vue");
+    const section = read("CommunitySection.vue");
     const styles = read("community.css");
     const globalStyles = read("../../styles.css");
-    expect(message).toContain('class="chat-message-content"');
-    expect(message).toMatch(/class="chat-message-content"[\s\S]*class="chat-bubble"[\s\S]*class="message-reactions"/s);
+    expect(section).toContain('class="chat-message-content"');
+    expect(section).toMatch(/class="chat-message-content"[\s\S]*class="chat-bubble"[\s\S]*class="message-reactions"/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-message-content\s*\{[^}]*position:\s*relative;/s);
     expect(styles).toMatch(/\.community-chat-open \.message-reactions\s*\{[^}]*position:\s*absolute;[^}]*right:\s*2px;[^}]*bottom:\s*2px;/s);
     expect(styles).toMatch(/\.community-chat-open \.chat-message-own \.message-reactions\s*\{[^}]*right:\s*2px;[^}]*left:\s*auto;/s);
@@ -106,21 +105,20 @@ describe("community rich message UI", () => {
   });
 
   it("uses one composer capsule and one contextual right action", () => {
-    const composer = read("ChatComposer.vue");
+    const section = read("CommunitySection.vue");
     const styles = read("community.css");
-    expect(composer).toContain("chat-composer-shell");
-    expect(composer).toContain('v-if="draftValue.trim()"');
-    expect(composer).toContain('v-else-if="voiceRecorder.supported.value"');
+    expect(section).toContain("chat-composer-shell");
+    expect(section).toContain('v-if="newMessage.trim()"');
+    expect(section).toContain('v-else-if="voiceRecorder.supported.value"');
     expect(styles).toMatch(/\.community-chat-open \.chat-composer-shell\s*\{[^}]*grid-template-columns:\s*var\(--icon-button-size\) var\(--icon-button-size\) minmax\(0, 1fr\) var\(--icon-button-size\)/s);
   });
 
   it("replaces a disabled composer with an explicit closed-topic notice", () => {
     const section = read("CommunitySection.vue");
-    const composer = read("ChatComposer.vue");
     const styles = read("community.css");
-    expect(composer).toContain('class="chat-compose-unavailable"');
+    expect(section).toContain('class="chat-compose-unavailable"');
     expect(section).toContain("Тема закрыта. Новые сообщения недоступны.");
-    expect(composer).toContain('v-if="canWrite"');
+    expect(section).toContain('v-if="canWrite"');
     expect(styles).toMatch(/\.community-chat-open \.chat-compose-unavailable\s*\{[^}]*min-height:\s*44px;/s);
   });
 
@@ -131,11 +129,11 @@ describe("community rich message UI", () => {
   });
 
   it("shows a pressed loading state while voice or images are uploading", () => {
-    const composer = read("ChatComposer.vue");
-    expect(composer).toContain(':aria-busy="messageSaving"');
-    expect(composer).toContain("LoaderCircle");
-    expect(composer).toContain("chat-draft-send-loading");
-    expect(composer).toContain('aria-label="Отправить голосовое сообщение"');
+    const section = read("CommunitySection.vue");
+    expect(section).toContain(':aria-busy="messageSaving"');
+    expect(section).toContain("LoaderCircle");
+    expect(section).toContain("chat-draft-send-loading");
+    expect(section).toContain('aria-label="Отправить голосовое сообщение"');
   });
 
   it("keeps draft media actions at least 44px tall", () => {
@@ -145,11 +143,11 @@ describe("community rich message UI", () => {
   });
 
   it("uses the same seekable waveform for recording previews and sent voice messages", () => {
-    const composer = read("ChatComposer.vue");
+    const section = read("CommunitySection.vue");
     const player = read("ChatVoiceMessage.vue");
     const recorder = read("useVoiceRecorder.ts");
-    expect(composer).toContain("ChatVoiceWaveform");
-    expect(composer).not.toContain(" controls></audio>");
+    expect(section).toContain("ChatVoiceWaveform");
+    expect(section).not.toContain(" controls></audio>");
     expect(player).toContain("ChatVoiceWaveform");
     expect(player).toContain('@seek="seek"');
     expect(recorder).toContain("startLevelAnalysis");

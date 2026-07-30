@@ -9,6 +9,5 @@ describe("request metrics route", () => {
     expect(source).toContain("return c.notFound()");
     expect(source).toContain("requestMetrics.snapshot()");
     expect(source).toContain("getCommunityRealtimeSubscriberCount()");
-    expect(source).toContain("communityObjectTombstoneMetrics.snapshot()");
   });
 });

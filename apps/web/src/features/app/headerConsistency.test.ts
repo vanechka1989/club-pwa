@@ -6,7 +6,7 @@ import { readAppStyles } from "@/test/appStyles";
 const foundation = readFileSync(resolve(__dirname, "../ui/foundation.css"), "utf8");
 const styles = readAppStyles();
 const community = readFileSync(resolve(__dirname, "../community/community.css"), "utf8");
-const communityRoomSource = readFileSync(resolve(__dirname, "../community/ChatRoom.vue"), "utf8");
+const communitySource = readFileSync(resolve(__dirname, "../community/CommunitySection.vue"), "utf8");
 
 describe("application page header consistency", () => {
   it("uses the profile header typography as the shared application header contract", () => {
@@ -45,8 +45,8 @@ describe("application page header consistency", () => {
   });
 
   it("uses the same semantic title and subtitle classes in the full-screen chat header", () => {
-    expect(communityRoomSource).toContain('class="chat-room-header-title"');
-    expect(communityRoomSource).toContain('class="chat-room-header-subtitle"');
+    expect(communitySource).toContain('class="chat-room-header-title"');
+    expect(communitySource).toContain('class="chat-room-header-subtitle"');
     expect(community).toMatch(/\.community-chat-open \.chat-room-header-title\s*\{[^}]*font-size:\s*var\(--app-header-title-size\);/s);
     expect(community).toMatch(/\.community-chat-open \.chat-room-header-subtitle\s*\{[^}]*font-size:\s*var\(--app-header-subtitle-size\);/s);
   });

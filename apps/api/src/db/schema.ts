@@ -1,5 +1,5 @@
-import { relations, sql } from "drizzle-orm";
-import { boolean, check, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
 export const contentKind = pgEnum("content_kind", ["text", "photo", "video", "audio"]);
@@ -30,7 +30,6 @@ export const users = pgTable(
     avatarPositionX: integer("avatar_position_x").notNull().default(50),
     avatarPositionY: integer("avatar_position_y").notNull().default(50),
     avatarScale: integer("avatar_scale").notNull().default(100),
-    communityAccessVersion: integer("community_access_version").notNull().default(1),
     telegramBotStatus: varchar("telegram_bot_status", { length: 16 }).notNull().default("unknown"),
     telegramBotBlockedAt: timestamp("telegram_bot_blocked_at", { withTimezone: true }),
     telegramBotUnblockedAt: timestamp("telegram_bot_unblocked_at", { withTimezone: true }),
@@ -893,15 +892,6 @@ export const clubChatMessages = pgTable(
     pinnedAt: timestamp("pinned_at", { withTimezone: true }),
     pinnedByUserId: uuid("pinned_by_user_id").references(() => users.id, { onDelete: "set null" }),
     purgeAt: timestamp("purge_at", { withTimezone: true }),
-    clientOperationId: varchar("client_operation_id", { length: 96 }),
-    createRequestFingerprint: varchar("create_request_fingerprint", { length: 64 }),
-    editedAt: timestamp("edited_at", { withTimezone: true }),
-    deletedByUserAt: timestamp("deleted_by_user_at", { withTimezone: true }),
-    deletedContentExpiresAt: timestamp("deleted_content_expires_at", { withTimezone: true }),
-    deletedCleanupClaimId: uuid("deleted_cleanup_claim_id"),
-    deletedCleanupClaimedAt: timestamp("deleted_cleanup_claimed_at", { withTimezone: true }),
-    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
-    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -913,23 +903,7 @@ export const clubChatMessages = pgTable(
     ),
     userCreatedIdx: index("club_chat_messages_user_created_idx").on(table.userId, table.createdAt),
     topicPinnedIdx: index("club_chat_messages_topic_pinned_idx").on(table.topicId, table.pinnedAt),
-    createdAtIdx: index("club_chat_messages_created_at_idx").on(table.createdAt),
-    userOperationIdx: uniqueIndex("club_chat_messages_user_operation_idx")
-      .on(table.userId, table.clientOperationId)
-      .where(sql`${table.clientOperationId} is not null`),
-    searchIdx: index("club_chat_messages_search_idx").using(
-      "gin",
-      sql`to_tsvector('simple', coalesce(${table.body}, ''))`
-    ),
-    deletedExpiryIdx: index("club_chat_messages_deleted_expiry_idx").on(table.deletedContentExpiresAt),
-    deletedCleanupIdx: index("club_chat_messages_deleted_cleanup_idx").on(
-      table.deletedContentExpiresAt,
-      table.deletedCleanupClaimedAt
-    ),
-    terminalCleanupIdx: index("club_chat_messages_terminal_cleanup_idx").on(
-      table.terminalCleanupAt,
-      table.purgeAt
-    )
+    createdAtIdx: index("club_chat_messages_created_at_idx").on(table.createdAt)
   })
 );
 
@@ -940,7 +914,6 @@ export const clubMessageAttachments = pgTable(
     messageId: uuid("message_id").notNull().references(() => clubChatMessages.id, { onDelete: "cascade" }),
     kind: varchar("kind", { length: 16 }).notNull(),
     objectKey: text("object_key").notNull(),
-    fileName: varchar("file_name", { length: 255 }),
     contentType: varchar("content_type", { length: 160 }).notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     durationSeconds: integer("duration_seconds"),
@@ -949,317 +922,11 @@ export const clubMessageAttachments = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    scanStatus: varchar("scan_status", { length: 16 }).notNull().default("ready"),
-    scannedAt: timestamp("scanned_at", { withTimezone: true }),
-    scanError: varchar("scan_error", { length: 160 }),
-    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
-    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
     messageSortIdx: index("club_message_attachments_message_sort_idx").on(table.messageId, table.sortOrder),
-    objectKeyIdx: uniqueIndex("club_message_attachments_object_key_idx").on(table.objectKey),
-    expiryIdx: index("club_message_attachments_expiry_idx").on(table.expiresAt, table.deletedAt),
-    terminalCleanupIdx: index("club_message_attachments_terminal_cleanup_idx").on(
-      table.terminalCleanupAt,
-      table.expiresAt,
-      table.deletedAt
-    ),
-    scanStatusCheck: check(
-      "club_message_attachments_scan_status_check",
-      sql`${table.scanStatus} in ('pending', 'scanning', 'ready', 'rejected', 'failed', 'deleted')`
-    )
-  })
-);
-
-export const communityUploadManifests = pgTable(
-  "community_upload_manifests",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    uploadToken: uuid("upload_token").notNull(),
-    requestFingerprint: varchar("request_fingerprint", { length: 64 }).notNull(),
-    kind: varchar("kind", { length: 16 }).notNull(),
-    uploadType: varchar("upload_type", { length: 16 }).notNull(),
-    stagingObjectKey: text("staging_object_key").notNull(),
-    quarantineObjectKey: text("quarantine_object_key"),
-    finalObjectKey: text("final_object_key"),
-    multipartUploadId: text("multipart_upload_id"),
-    expectedPartCount: integer("expected_part_count"),
-    partSizeBytes: integer("part_size_bytes"),
-    fileName: varchar("file_name", { length: 255 }).notNull(),
-    contentType: varchar("content_type", { length: 160 }).notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
-    durationSeconds: integer("duration_seconds"),
-    width: integer("width"),
-    height: integer("height"),
-    result: jsonb("result").$type<Record<string, unknown> | null>(),
-    status: varchar("status", { length: 24 }).notNull().default("uploading"),
-    errorCode: varchar("error_code", { length: 160 }),
-    attachmentId: uuid("attachment_id").references(() => clubMessageAttachments.id, { onDelete: "set null" }),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
-    consumedAt: timestamp("consumed_at", { withTimezone: true }),
-    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
-    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    tokenIdx: uniqueIndex("community_upload_manifests_token_idx").on(table.uploadToken),
-    stagingKeyIdx: uniqueIndex("community_upload_manifests_staging_key_idx").on(table.stagingObjectKey),
-    finalKeyIdx: uniqueIndex("community_upload_manifests_final_key_idx").on(table.finalObjectKey),
-    statusUpdatedIdx: index("community_upload_manifests_status_updated_idx").on(table.status, table.updatedAt),
-    expiryIdx: index("community_upload_manifests_expiry_idx").on(table.expiresAt, table.status),
-    statusCheck: check(
-      "community_upload_manifests_status_check",
-      sql`${table.status} in ('uploading','completing','processing','normalizing','publishing','pending','scanning','ready','failed','cleanup_pending','rejected','aborting','aborted')`
-    ),
-    uploadTypeCheck: check(
-      "community_upload_manifests_upload_type_check",
-      sql`${table.uploadType} in ('put','multipart')`
-    )
-  })
-);
-
-export const communityMediaCandidates = pgTable(
-  "community_media_candidates",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    manifestId: uuid("manifest_id").notNull(),
-    leaseToken: uuid("lease_token").notNull(),
-    leaseUpdatedAt: timestamp("lease_updated_at", { withTimezone: true }).notNull(),
-    candidateObjectKey: text("candidate_object_key").notNull(),
-    finalObjectKey: text("final_object_key").notNull(),
-    result: jsonb("result").$type<Record<string, unknown>>().notNull(),
-    status: varchar("status", { length: 32 }).notNull().default("staged"),
-    errorCode: varchar("error_code", { length: 160 }),
-    lifecycleVersion: integer("lifecycle_version").notNull().default(0),
-    terminalCleanupAt: timestamp("terminal_cleanup_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    manifestLeaseIdx: uniqueIndex("community_media_candidates_manifest_lease_idx").on(table.manifestId, table.leaseToken),
-    candidateKeyIdx: uniqueIndex("community_media_candidates_candidate_key_idx").on(table.candidateObjectKey),
-    finalKeyIdx: uniqueIndex("community_media_candidates_final_key_idx").on(table.finalObjectKey),
-    statusUpdatedIdx: index("community_media_candidates_status_updated_idx").on(table.status, table.updatedAt),
-    statusCheck: check(
-      "community_media_candidates_status_check",
-      sql`${table.status} in ('staged','publishing','cleanup_pending','published_cleanup_pending','published','cleaned')`
-    )
-  })
-);
-
-export const communityObjectDeletionJobs = pgTable(
-  "community_object_deletion_jobs",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    sourceType: varchar("source_type", { length: 32 }).notNull(),
-    sourceId: uuid("source_id").notNull(),
-    action: varchar("action", { length: 32 }).notNull(),
-    expectedLifecycleVersion: integer("expected_lifecycle_version"),
-    status: varchar("status", { length: 16 }).notNull().default("pending"),
-    claimId: uuid("claim_id"),
-    claimedAt: timestamp("claimed_at", { withTimezone: true }),
-    notBefore: timestamp("not_before", { withTimezone: true }).notNull().defaultNow(),
-    attempts: integer("attempts").notNull().default(0),
-    lastError: varchar("last_error", { length: 500 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    sourceActionUnique: unique("community_object_deletion_jobs_source_action_unique")
-      .on(table.sourceType, table.sourceId, table.action),
-    claimIdx: index("community_object_deletion_jobs_claim_idx").on(table.status, table.notBefore, table.claimedAt),
-    statusCheck: check(
-      "community_object_deletion_jobs_status_check",
-      sql`${table.status} in ('pending','claimed')`
-    ),
-    actionCheck: check(
-      "community_object_deletion_jobs_action_check",
-      sql`${table.action} in ('objects_only','redact_message','delete_message','delete_attachment','delete_manifest')`
-    )
-  })
-);
-
-export const communityObjectDeletionEntries = pgTable(
-  "community_object_deletion_entries",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    jobId: uuid("job_id").notNull().references(() => communityObjectDeletionJobs.id, { onDelete: "cascade" }),
-    objectKey: text("object_key").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    jobKeyUnique: unique("community_object_deletion_entries_job_key_unique").on(table.jobId, table.objectKey),
-    jobIdx: index("community_object_deletion_entries_job_idx").on(table.jobId)
-  })
-);
-
-export const communityObjectPublications = pgTable(
-  "community_object_publications",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    sourceType: varchar("source_type", { length: 32 }).notNull(),
-    sourceId: uuid("source_id").notNull(),
-    objectKey: text("object_key").notNull(),
-    publicationToken: uuid("publication_token").notNull().defaultRandom(),
-    state: varchar("state", { length: 16 }).notNull().default("publishing"),
-    quiescedAt: timestamp("quiesced_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    sourceKeyUnique: unique("community_object_publications_source_key_unique")
-      .on(table.sourceType, table.sourceId, table.objectKey),
-    objectStateIdx: index("community_object_publications_object_state_idx")
-      .on(table.objectKey, table.state, table.quiescedAt),
-    attachmentStaleIdx: index("community_object_publications_attachment_stale_idx")
-      .on(table.updatedAt, table.sourceId)
-      .where(sql`${table.sourceType} = 'attachment' and ${table.state} = 'publishing'`),
-    stateCheck: check(
-      "community_object_publications_state_check",
-      sql`${table.state} in ('publishing','quiescing')`
-    )
-  })
-);
-
-export const communityObjectLifecycles = pgTable(
-  "community_object_lifecycles",
-  {
-    objectKey: text("object_key").notNull(),
-    target: varchar("target", { length: 16 }).notNull(),
-    generation: integer("generation").notNull().default(1),
-    state: varchar("state", { length: 16 }).notNull().default("publishing"),
-    publicationToken: uuid("publication_token"),
-    tombstonedAt: timestamp("tombstoned_at", { withTimezone: true }),
-    hotUntil: timestamp("hot_until", { withTimezone: true }),
-    coldAt: timestamp("cold_at", { withTimezone: true }),
-    absenceCount: integer("absence_count").notNull().default(0),
-    absentSince: timestamp("absent_since", { withTimezone: true }),
-    verifiedAt: timestamp("verified_at", { withTimezone: true }),
-    nextReconcileAt: timestamp("next_reconcile_at", { withTimezone: true }).notNull().defaultNow(),
-    claimId: uuid("claim_id"),
-    claimedAt: timestamp("claimed_at", { withTimezone: true }),
-    lastError: varchar("last_error", { length: 500 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.objectKey, table.target] }),
-    reconcileIdx: index("community_object_lifecycles_reconcile_idx")
-      .on(table.state, table.nextReconcileAt, table.claimedAt),
-    hotDueIdx: index("community_object_lifecycles_hot_due_idx")
-      .on(table.nextReconcileAt, table.objectKey, table.target)
-      .where(sql`${table.state} = 'deleted' and ${table.coldAt} is null`),
-    targetCheck: check(
-      "community_object_lifecycles_target_check",
-      sql`${table.target} in ('primary','reserve')`
-    ),
-    stateCheck: check(
-      "community_object_lifecycles_state_check",
-      sql`${table.state} in ('publishing','present','deleted')`
-    ),
-    absenceCheck: check(
-      "community_object_lifecycles_absence_check",
-      sql`${table.absenceCount} >= 0`
-    )
-  })
-);
-
-export const communityMessagePurgeRequests = pgTable(
-  "community_message_purge_requests",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    requestKey: varchar("request_key", { length: 160 }).notNull(),
-    topicId: uuid("topic_id").notNull(),
-    userId: uuid("user_id"),
-    includeSystem: boolean("include_system").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    requestKeyIdx: uniqueIndex("community_message_purge_requests_key_idx").on(table.requestKey),
-    createdIdx: index("community_message_purge_requests_created_idx").on(table.createdAt, table.id)
-  })
-);
-
-export const communityNotificationOutbox = pgTable(
-  "community_notification_outbox",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    topicId: uuid("topic_id").notNull(),
-    messageId: uuid("message_id").notNull(),
-    accessVersion: integer("access_version").notNull(),
-    reason: varchar("reason", { length: 16 }).notNull(),
-    title: varchar("title", { length: 180 }).notNull(),
-    body: text("body").notNull(),
-    pushUrl: text("push_url").notNull(),
-    status: varchar("status", { length: 16 }).notNull().default("pending"),
-    claimId: uuid("claim_id"),
-    claimedAt: timestamp("claimed_at", { withTimezone: true }),
-    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
-    attemptCount: integer("attempt_count").notNull().default(0),
-    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
-    lastError: varchar("last_error", { length: 500 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    deliveryUnique: unique("community_notification_outbox_delivery_unique")
-      .on(table.userId, table.messageId, table.reason),
-    claimIdx: index("community_notification_outbox_claim_idx").on(table.status, table.nextAttemptAt, table.claimedAt),
-    statusCheck: check(
-      "community_notification_outbox_status_check",
-      sql`${table.status} in ('pending','claimed','delivered','suppressed')`
-    ),
-    reasonCheck: check(
-      "community_notification_outbox_reason_check",
-      sql`${table.reason} in ('reply','mention','all')`
-    )
-  })
-);
-
-export const communityTopicReads = pgTable(
-  "community_topic_reads",
-  {
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    topicId: uuid("topic_id").notNull().references(() => clubChatTopics.id, { onDelete: "cascade" }),
-    lastReadMessageId: uuid("last_read_message_id").notNull(),
-    lastReadCreatedAt: timestamp("last_read_created_at", { withTimezone: true }).notNull(),
-    lastReadAt: timestamp("last_read_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.topicId] })
-  })
-);
-
-export const communityTopicNotificationSettings = pgTable(
-  "community_topic_notification_settings",
-  {
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    topicId: uuid("topic_id").notNull().references(() => clubChatTopics.id, { onDelete: "cascade" }),
-    mode: varchar("mode", { length: 16 }).notNull().default("mentions"),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.topicId] }),
-    modeCheck: check("community_topic_notification_settings_mode_check", sql`${table.mode} in ('all', 'mentions', 'off')`)
-  })
-);
-
-export const clubMessageMentions = pgTable(
-  "club_message_mentions",
-  {
-    messageId: uuid("message_id").notNull().references(() => clubChatMessages.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    startOffset: integer("start_offset").notNull(),
-    endOffset: integer("end_offset").notNull()
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.messageId, table.userId] })
+    expiryIdx: index("club_message_attachments_expiry_idx").on(table.expiresAt, table.deletedAt)
   })
 );
 
@@ -1396,8 +1063,6 @@ export const appNotifications = pgTable(
     bodyHtml: text("body_html"),
     source: varchar("source", { length: 64 }),
     sourceId: uuid("source_id"),
-    communityTopicId: uuid("community_topic_id"),
-    communityAccessVersion: integer("community_access_version"),
     attachmentKind: varchar("attachment_kind", { length: 16 }),
     attachmentFileName: varchar("attachment_file_name", { length: 255 }),
     attachmentObjectKey: text("attachment_object_key"),
@@ -1408,13 +1073,7 @@ export const appNotifications = pgTable(
   },
   (table) => ({
     userReadCreatedIdx: index("app_notifications_user_read_created_idx").on(table.userId, table.readAt, table.createdAt),
-    sourceIdx: index("app_notifications_source_idx").on(table.source, table.sourceId),
-    communityAccessIdx: index("app_notifications_community_access_idx")
-      .on(table.userId, table.communityTopicId, table.communityAccessVersion)
-      .where(sql`${table.communityTopicId} is not null`),
-    communityDeliveryIdx: uniqueIndex("app_notifications_community_delivery_idx")
-      .on(table.userId, table.source, table.sourceId)
-      .where(sql`${table.source} in ('community_reply','community_mention','community_all')`)
+    sourceIdx: index("app_notifications_source_idx").on(table.source, table.sourceId)
   })
 );
 
@@ -1539,9 +1198,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   lessonComments: many(lessonComments),
   mutes: many(userMutes),
   chatMessages: many(clubChatMessages),
-  communityTopicReads: many(communityTopicReads),
-  communityTopicNotificationSettings: many(communityTopicNotificationSettings),
-  communityMessageMentions: many(clubMessageMentions),
   notifications: many(appNotifications),
   createdMailings: many(adminMailings),
   mailingRecipients: many(adminMailingRecipients)
@@ -1818,9 +1474,7 @@ export const clubChatTopicsRelations = relations(clubChatTopics, ({ one, many })
     fields: [clubChatTopics.createdByUserId],
     references: [users.id]
   }),
-  messages: many(clubChatMessages),
-  reads: many(communityTopicReads),
-  notificationSettings: many(communityTopicNotificationSettings)
+  messages: many(clubChatMessages)
 }));
 
 export const clubChatMessagesRelations = relations(clubChatMessages, ({ one, many }) => ({
@@ -1842,38 +1496,11 @@ export const clubChatMessagesRelations = relations(clubChatMessages, ({ one, man
     relationName: "message_replies"
   }),
   attachments: many(clubMessageAttachments),
-  mentions: many(clubMessageMentions),
-  readPositions: many(communityTopicReads),
   polls: many(clubPolls)
 }));
 
 export const clubMessageAttachmentsRelations = relations(clubMessageAttachments, ({ one }) => ({
   message: one(clubChatMessages, { fields: [clubMessageAttachments.messageId], references: [clubChatMessages.id] })
-}));
-
-export const communityTopicReadsRelations = relations(communityTopicReads, ({ one }) => ({
-  user: one(users, { fields: [communityTopicReads.userId], references: [users.id] }),
-  topic: one(clubChatTopics, { fields: [communityTopicReads.topicId], references: [clubChatTopics.id] }),
-  lastReadMessage: one(clubChatMessages, {
-    fields: [communityTopicReads.lastReadMessageId],
-    references: [clubChatMessages.id]
-  })
-}));
-
-export const communityTopicNotificationSettingsRelations = relations(
-  communityTopicNotificationSettings,
-  ({ one }) => ({
-    user: one(users, { fields: [communityTopicNotificationSettings.userId], references: [users.id] }),
-    topic: one(clubChatTopics, {
-      fields: [communityTopicNotificationSettings.topicId],
-      references: [clubChatTopics.id]
-    })
-  })
-);
-
-export const clubMessageMentionsRelations = relations(clubMessageMentions, ({ one }) => ({
-  message: one(clubChatMessages, { fields: [clubMessageMentions.messageId], references: [clubChatMessages.id] }),
-  user: one(users, { fields: [clubMessageMentions.userId], references: [users.id] })
 }));
 
 export const clubPollsRelations = relations(clubPolls, ({ one, many }) => ({
@@ -2014,10 +1641,6 @@ export type ClubChat = typeof clubChats.$inferSelect;
 export type ClubChatTopic = typeof clubChatTopics.$inferSelect;
 export type ClubChatMessage = typeof clubChatMessages.$inferSelect;
 export type ClubMessageAttachment = typeof clubMessageAttachments.$inferSelect;
-export type CommunityUploadManifest = typeof communityUploadManifests.$inferSelect;
-export type CommunityTopicRead = typeof communityTopicReads.$inferSelect;
-export type CommunityTopicNotificationSetting = typeof communityTopicNotificationSettings.$inferSelect;
-export type ClubMessageMention = typeof clubMessageMentions.$inferSelect;
 export type ClubPoll = typeof clubPolls.$inferSelect;
 export type ClubPollOption = typeof clubPollOptions.$inferSelect;
 export type ClubPollVote = typeof clubPollVotes.$inferSelect;

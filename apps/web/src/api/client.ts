@@ -31,11 +31,9 @@ import type {
   AdminLoginIpsResponse,
   ClubChatMutationResponse,
   ClubChatsResponse,
-  ClubMessage,
   ClubMessageMutationResponse,
   ClubMessageReactionMutationResponse,
   ClubMessagesResponse,
-  CommunityMessageContextResponse,
   ClubTopicMutationResponse,
   ClubTopicsResponse,
   AdminMutationResponse,
@@ -62,21 +60,6 @@ import type {
   LearningPlaybackMutationResponse,
   LearningProgressMutationResponse,
   MessageReaction,
-  CommunityNotificationMode,
-  CommunityMessageSearchCursor,
-  CommunityMessageSearchResponse,
-  CommunityMention,
-  CommunityMessageDeleteResponse,
-  CommunityMessageEditRequest,
-  CommunityMessageEditResponse,
-  CommunityParticipantSuggestionsResponse,
-  CommunityTopicNotificationSettingsRequest,
-  CommunityTopicNotificationSettingsResponse,
-  CommunityTopicReadPositionRequest,
-  CommunityTopicReadPositionResponse,
-  CommunityUploadIntent,
-  CommunityUploadIntentResponse,
-  CommunityUploadedObject,
   PaymentsResponse,
   PaymentOrderLogsResponse,
   PaymentProductMutationResponse,
@@ -242,82 +225,9 @@ export function updateClubTopicSettings(topicId: string, payload: { isLocked?: b
   });
 }
 
-export function markCommunityTopicRead(topicId: string, messageId: string) {
-  const body: CommunityTopicReadPositionRequest = { messageId };
-  return api<CommunityTopicReadPositionResponse>(`/community/topics/${topicId}/read`, {
-    method: "POST",
-    body
-  });
-}
-
-export function updateCommunityTopicNotificationSettings(topicId: string, mode: CommunityNotificationMode) {
-  const body: CommunityTopicNotificationSettingsRequest = { mode };
-  return api<CommunityTopicNotificationSettingsResponse>(`/community/topics/${topicId}/notification-settings`, {
-    method: "PUT",
-    body
-  });
-}
-
 export function getClubMessages(topicId: string, before?: string | null) {
   const query = before ? `?before=${encodeURIComponent(before)}` : "";
   return api<ClubMessagesResponse>(`/community/topics/${topicId}/messages${query}`);
-}
-
-export function createCommunityUploadIntent(payload: CommunityUploadIntent) {
-  return api<CommunityUploadIntentResponse>("/community/uploads", { method: "POST", body: payload });
-}
-
-export function completeCommunityPutUpload(payload: { uploadToken: string }) {
-  return api<CommunityUploadedObject>("/community/uploads/complete", { method: "POST", body: payload });
-}
-
-export function completeCommunityMultipartUpload(payload: {
-  uploadToken: string;
-  parts: Array<{ partNumber: number; etag: string }>;
-}) {
-  return api<CommunityUploadedObject>("/community/uploads/multipart/complete", { method: "POST", body: payload });
-}
-
-export function refreshCommunityMultipartUpload(uploadToken: string) {
-  return api<{
-    uploadToken: string;
-    uploadId: string;
-    partSizeBytes: number;
-    parts: Array<{ partNumber: number; uploadUrl: string }>;
-    completedParts: Array<{ partNumber: number; etag: string }>;
-    expiresAt: string;
-  }>(`/community/uploads/${uploadToken}/refresh`, { method: "POST" });
-}
-
-export function abortCommunityUpload(uploadToken: string) {
-  return api<{ ok: true }>(`/community/uploads/${uploadToken}`, { method: "DELETE" });
-}
-
-export function createCommunityUploadMessage(topicId: string, uploadTokens: string[], replyToMessageId: string | null = null) {
-  return api<{ ok: true; message: ClubMessage }>(`/community/topics/${topicId}/messages/uploads`, {
-    method: "POST",
-    body: { uploadTokens, replyToMessageId }
-  });
-}
-
-export function searchCommunityMessages(query: {
-  q: string;
-  topicId?: string;
-  before?: CommunityMessageSearchCursor;
-  limit?: number;
-}) {
-  return api<CommunityMessageSearchResponse>("/community/messages/search", { query });
-}
-
-export function getCommunityMessageContext(
-  topicId: string,
-  messageId: string,
-  options: { before?: number; after?: number } = {}
-) {
-  return api<CommunityMessageContextResponse>(
-    `/community/topics/${encodeURIComponent(topicId)}/messages/${encodeURIComponent(messageId)}/context`,
-    { query: options }
-  );
 }
 
 export function deleteTopicMessages(topicId: string) {
@@ -333,41 +243,13 @@ export function deleteTopicAuthorMessages(topicId: string, telegramId: string) {
   });
 }
 
-export function createClubMessage(
-  topicId: string,
-  body: string,
-  replyToMessageId?: string | null,
-  options: { clientOperationId?: string; mentions?: CommunityMention[] } = {}
-) {
+export function createClubMessage(topicId: string, body: string, replyToMessageId?: string | null) {
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages`, {
     method: "POST",
-    body: {
-      body,
-      replyToMessageId: replyToMessageId ?? null,
-      clientOperationId: options.clientOperationId ?? crypto.randomUUID(),
-      mentions: options.mentions ?? []
-    }
+    body: { body, replyToMessageId: replyToMessageId ?? null }
   });
 }
 
-export function editCommunityMessage(messageId: string, payload: CommunityMessageEditRequest) {
-  return api<CommunityMessageEditResponse>(`/community/messages/${messageId}`, {
-    method: "PATCH",
-    body: payload
-  });
-}
-
-export function deleteCommunityMessage(messageId: string) {
-  return api<CommunityMessageDeleteResponse>(`/community/messages/${messageId}`, { method: "DELETE" });
-}
-
-export function getCommunityParticipants(q: string, limit = 20) {
-  return api<CommunityParticipantSuggestionsResponse>("/community/participants", {
-    query: { q, limit }
-  });
-}
-
-/** @deprecated New clients use createCommunityUploadIntent + createCommunityUploadMessage. */
 export function createClubVoiceMessage(topicId: string, file: Blob, durationSeconds: number, replyToMessageId?: string | null) {
   const form = new FormData();
   form.set("voice", file, file instanceof File && file.name ? file.name : getCommunityVoiceUploadFileName(file.type));
@@ -376,7 +258,6 @@ export function createClubVoiceMessage(topicId: string, file: Blob, durationSeco
   return api<ClubMessageMutationResponse>(`/community/topics/${topicId}/messages/voice`, { method: "POST", body: form });
 }
 
-/** @deprecated New clients use createCommunityUploadIntent + createCommunityUploadMessage. */
 export function createClubImageMessage(topicId: string, files: File[], replyToMessageId?: string | null) {
   const form = new FormData();
   files.forEach((file) => form.append("images", file, file.name));

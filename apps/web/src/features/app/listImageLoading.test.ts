@@ -9,7 +9,7 @@ describe("long-list image loading", () => {
   });
 
   it("decodes chat avatars asynchronously", () => {
-    const source = readFileSync(resolve(__dirname, "../community/ChatMessage.vue"), "utf8");
+    const source = readFileSync(resolve(__dirname, "../community/CommunitySection.vue"), "utf8");
     expect(source.match(/loading="lazy"\s+decoding="async"/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 });

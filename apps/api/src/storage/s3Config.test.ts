@@ -1,12 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   buildS3SettingsResponse,
   getS3ConfigFromSetting,
-  isSameS3PhysicalGeneration,
   normalizeS3PublicBaseUrl,
   storageSettingKey,
-  verifyS3LiveConfigurationUpdate,
-  createSerializedS3ConfigurationCommit,
   type StoredS3Config
 } from "./s3Config";
 
@@ -95,111 +92,5 @@ describe("S3 storage config", () => {
     expect(response.reserveSecretKeyConfigured).toBe(true);
     expect(JSON.stringify(response)).not.toContain("RESERVE_ACCESS");
     expect(JSON.stringify(response)).not.toContain("RESERVE_SECRET");
-  });
-
-  it("allows live credential and presentation rotation only inside the same physical generation", () => {
-    const nextConfig: StoredS3Config = {
-      ...storedConfig,
-      endpoint: "https://S3.ru1.storage.beget.cloud/",
-      accessKeyId: "ROTATED_ACCESS",
-      secretAccessKey: "ROTATED_SECRET",
-      publicBaseUrl: "https://new-cdn.example.com/club",
-      signedUrlTtlSeconds: 1800
-    };
-
-    expect(isSameS3PhysicalGeneration(storedConfig, nextConfig)).toBe(true);
-  });
-
-  it.each([
-    ["endpoint", { endpoint: "https://new-s3.example.com" }],
-    ["bucket", { bucket: "new-club-bucket" }],
-    ["region", { region: "ru2" }]
-  ] as const)("rejects a live primary %s change", (_field, change) => {
-    expect(isSameS3PhysicalGeneration(storedConfig, { ...storedConfig, ...change })).toBe(false);
-  });
-
-  it("rejects adding, removing, or moving the reserve target live", () => {
-    const reserve = {
-      endpoint: "https://reserve-s3.example.com",
-      region: "ru2",
-      bucket: "club-reserve",
-      accessKeyId: "RESERVE_ACCESS",
-      secretAccessKey: "RESERVE_SECRET",
-      publicBaseUrl: null
-    };
-    const withReserve = { ...storedConfig, reserve };
-
-    expect(isSameS3PhysicalGeneration(storedConfig, withReserve)).toBe(false);
-    expect(isSameS3PhysicalGeneration(withReserve, storedConfig)).toBe(false);
-    expect(isSameS3PhysicalGeneration(withReserve, {
-      ...withReserve,
-      reserve: { ...reserve, bucket: "moved-reserve" }
-    })).toBe(false);
-    expect(isSameS3PhysicalGeneration(withReserve, {
-      ...withReserve,
-      reserve: { ...reserve, accessKeyId: "ROTATED", secretAccessKey: "ROTATED_SECRET" }
-    })).toBe(true);
-  });
-
-  it("runs the full verifier for initial setup and same-generation credential rotation", async () => {
-    const verify = vi.fn(async () => undefined);
-    const rotated = { ...storedConfig, accessKeyId: "ROTATED", secretAccessKey: "ROTATED_SECRET" };
-
-    await expect(verifyS3LiveConfigurationUpdate(null, storedConfig, verify)).resolves.toBeUndefined();
-    await expect(verifyS3LiveConfigurationUpdate(storedConfig, rotated, verify)).resolves.toBeUndefined();
-    expect(verify.mock.calls).toEqual([[storedConfig], [rotated]]);
-  });
-
-  it("fails closed before probing or persisting a physical-generation switch", async () => {
-    const verify = vi.fn(async () => undefined);
-
-    await expect(verifyS3LiveConfigurationUpdate(
-      storedConfig,
-      { ...storedConfig, bucket: "moved-bucket" },
-      verify
-    )).rejects.toThrow("s3_physical_generation_change_requires_offline_migration");
-    expect(verify).not.toHaveBeenCalled();
-  });
-
-  it("serializes verified initial commits so two physical targets cannot both win", async () => {
-    let stored: StoredS3Config | null = null;
-    let tail = Promise.resolve();
-    const commit = createSerializedS3ConfigurationCommit({
-      currentFallback: null,
-      runExclusive: async (work) => {
-        const previous = tail;
-        let release!: () => void;
-        tail = new Promise<void>((resolve) => { release = resolve; });
-        await previous;
-        try {
-          return await work(stored, async (next) => { stored = next; });
-        } finally {
-          release();
-        }
-      }
-    });
-    const bucketA = { ...storedConfig, bucket: "initial-a" };
-    const bucketB = { ...storedConfig, bucket: "initial-b" };
-
-    const results = await Promise.allSettled([commit(bucketA), commit(bucketB)]);
-
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
-    expect(results.find((result) => result.status === "rejected")).toMatchObject({
-      reason: expect.objectContaining({ message: "s3_physical_generation_change_requires_offline_migration" })
-    });
-    expect(stored).toEqual(bucketA);
-  });
-
-  it("still allows a serialized credential rotation for the same physical target", async () => {
-    let stored: StoredS3Config | null = storedConfig;
-    const commit = createSerializedS3ConfigurationCommit({
-      currentFallback: null,
-      runExclusive: async (work) => work(stored, async (next) => { stored = next; })
-    });
-    const rotated = { ...storedConfig, accessKeyId: "ROTATED", secretAccessKey: "ROTATED_SECRET" };
-
-    await expect(commit(rotated)).resolves.toBeUndefined();
-    expect(stored).toEqual(rotated);
   });
 });

@@ -26,7 +26,6 @@ import { startBackgroundJobs } from "./backgroundJobs";
 import { checkApplicationReadiness } from "./readiness";
 import { requestMetrics } from "./requestMetrics";
 import { getCommunityRealtimeSubscriberCount } from "./community/realtime";
-import { communityObjectTombstoneMetrics } from "./community/objectLifecycle";
 import { hasObservabilityAccess } from "./observability";
 import { sessionAuth } from "./middleware/auth";
 import { resolveOptionalSessionUserId } from "./middleware/auth";
@@ -106,7 +105,6 @@ app.get("/metrics", (c) => {
   return c.json({
     request: requestMetrics.snapshot(),
     realtimeSubscribers: getCommunityRealtimeSubscriberCount(),
-    communityObjectTombstones: communityObjectTombstoneMetrics.snapshot(),
     memoryRssBytes: process.memoryUsage().rss,
     uptimeSeconds: Math.round(process.uptime())
   });
@@ -189,12 +187,12 @@ const server = Bun.serve({
   fetch: app.fetch
 });
 
-let stopBackgroundJobs: (() => Promise<void>) | null = null;
+let stopBackgroundJobs: (() => void) | null = null;
 let shutdownRequested = false;
 void startBackgroundJobs()
-  .then(async (stop) => {
+  .then((stop) => {
     if (!stop) return;
-    if (shutdownRequested) await stop();
+    if (shutdownRequested) stop();
     else stopBackgroundJobs = stop;
   })
   .catch((error) => logger.error({ error }, "Unable to start background jobs"));
@@ -203,10 +201,10 @@ async function shutdown(signal: string) {
   if (shutdownRequested) return;
   shutdownRequested = true;
   logger.info({ signal }, "graceful shutdown started");
+  stopBackgroundJobs?.();
+  stopBackgroundJobs = null;
   const forceTimer = setTimeout(() => process.exit(1), 25_000);
   forceTimer.unref();
-  await stopBackgroundJobs?.();
-  stopBackgroundJobs = null;
   await server.stop(false);
   clearTimeout(forceTimer);
   process.exit(0);

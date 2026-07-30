@@ -1,5 +1,4 @@
-import type { MessageReaction, UserRole } from "@club/shared";
-import { authorMutationWindowMs, canAuthorMutateMessage } from "./messageLifecycle";
+import type { MessageReaction } from "@club/shared";
 
 type ReactionValue = MessageReaction;
 
@@ -10,11 +9,7 @@ export type MessageReactionRow = {
 
 export type ReplySourceMessage = {
   id: string;
-  topicId?: string;
   body: string;
-  status?: "visible" | "hidden" | "deleted";
-  deletedByUserAt?: Date | null;
-  deletedContentExpiresAt?: Date | null;
   user: {
     id: string;
     telegramId: string;
@@ -29,29 +24,6 @@ export type ReplySourceMessage = {
 };
 
 export type MessageAuthorSource = ReplySourceMessage["user"];
-
-type DeletedMessageSource = {
-  body: string;
-  status?: "visible" | "hidden" | "deleted";
-  deletedByUserAt: Date | null;
-  deletedContentExpiresAt: Date | null;
-};
-
-type AuthorMutationSource = {
-  userId: string;
-  kind: string;
-  isSystem: boolean;
-  status: "visible" | "hidden" | "deleted";
-  createdAt: Date;
-  deletedByUserAt: Date | null;
-};
-
-type AuthorMutationContext = {
-  currentUserId: string;
-  role: UserRole;
-  topic: { isLocked: boolean; isPublished: boolean };
-  serverNow: Date;
-};
 
 function normalizeAvatarScale(value: number | null | undefined) {
   const scale = value ?? 100;
@@ -91,82 +63,18 @@ export function summarizeReactions(reactions: MessageReactionRow[], currentUserI
   };
 }
 
-export function getMessageContentView(message: DeletedMessageSource, role: UserRole, now = new Date()) {
-  const moderationRedacted = role === "member" && message.status !== undefined && message.status !== "visible";
-  if (moderationRedacted) {
-    return { body: "Сообщение удалено", revealContent: false, purged: false, contentRedacted: true };
-  }
-
-  if (!message.deletedByUserAt) {
-    return { body: message.body, revealContent: true, purged: false, contentRedacted: false };
-  }
-
-  const purged = !message.deletedContentExpiresAt || message.deletedContentExpiresAt <= now;
-  const revealContent = role !== "member" && !purged;
-  return {
-    body: revealContent ? message.body : "Сообщение удалено",
-    revealContent,
-    purged,
-    contentRedacted: !revealContent
-  };
-}
-
-export function getAuthorMutationView(message: AuthorMutationSource, context: AuthorMutationContext) {
-  const topicWritable = context.topic.isPublished && (!context.topic.isLocked || context.role !== "member");
-  const candidate = topicWritable
-    && message.userId === context.currentUserId
-    && !message.isSystem
-    && message.status === "visible"
-    && !message.deletedByUserAt;
-  const allowed = candidate && canAuthorMutateMessage(message, context.currentUserId, context.serverNow);
-
-  return {
-    canEdit: allowed && message.kind === "text",
-    canDelete: allowed,
-    allowedUntil: candidate
-      ? new Date(message.createdAt.getTime() + authorMutationWindowMs).toISOString()
-      : null
-  };
-}
-
-export function buildReplyPreview(
-  message: ReplySourceMessage | null,
-  visibleBody = message?.body ?? "",
-  includeAuthor = true
-) {
+export function buildReplyPreview(message: ReplySourceMessage | null) {
   if (!message) {
     return null;
   }
 
-  const prefix = visibleBody.slice(0, 70);
+  const prefix = message.body.slice(0, 70);
   const trimmedPrefix = prefix.includes(" ") ? prefix.slice(0, prefix.lastIndexOf(" ")) : prefix;
-  const body = visibleBody.length > 73 ? `${trimmedPrefix}...` : visibleBody;
+  const body = message.body.length > 73 ? `${trimmedPrefix}...` : message.body;
 
   return {
     id: message.id,
     body,
-    author: includeAuthor ? buildMessageAuthor(message.user) : null
+    author: buildMessageAuthor(message.user)
   };
-}
-
-export async function resolveReplyPreview(input: {
-  topicId: string;
-  replyToMessageId: string | null;
-  role: UserRole;
-  now: Date;
-  loadReply: (input: { topicId: string; messageId: string }) => Promise<ReplySourceMessage | null>;
-}) {
-  if (!input.replyToMessageId) return null;
-
-  const reply = await input.loadReply({ topicId: input.topicId, messageId: input.replyToMessageId });
-  if (!reply || (reply.topicId !== undefined && reply.topicId !== input.topicId)) return null;
-
-  const content = getMessageContentView({
-    body: reply.body,
-    ...(reply.status === undefined ? {} : { status: reply.status }),
-    deletedByUserAt: reply.deletedByUserAt ?? null,
-    deletedContentExpiresAt: reply.deletedContentExpiresAt ?? null
-  }, input.role, input.now);
-
-  return buildReplyPreview(reply, content.body, content.revealContent);
 }

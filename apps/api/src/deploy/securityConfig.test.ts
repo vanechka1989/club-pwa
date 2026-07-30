@@ -13,9 +13,6 @@ const webDockerfile = readFileSync(resolve(__dirname, "../../../../apps/web/Dock
 const productionCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.prod.yml"), "utf-8");
 const scaleCompose = readFileSync(resolve(__dirname, "../../../../docker-compose.scale.yml"), "utf-8");
 const updateWorker = readFileSync(resolve(__dirname, "../../../../deploy/update-worker.sh"), "utf-8");
-const communityUploadOperations = readFileSync(resolve(__dirname, "../../../../docs/operations/community-uploads.md"), "utf-8");
-const backupOperations = readFileSync(resolve(__dirname, "../../../../docs/operations/backups.md"), "utf-8");
-const communityReleaseRunbook = readFileSync(resolve(__dirname, "../../../../docs/operations/reliable-community-chat-release.md"), "utf-8");
 const apiPackage = JSON.parse(readFileSync(resolve(__dirname, "../../../../apps/api/package.json"), "utf-8")) as {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
@@ -168,69 +165,8 @@ describe("production security config", () => {
     }
   });
 
-  it("runs ClamAV as a private, persistent, resource-bounded quarantine sidecar", () => {
-    for (const source of [productionCompose, scaleCompose]) {
-      const start = source.indexOf("  clamav:\n");
-      expect(start).toBeGreaterThan(-1);
-      const rest = source.slice(start + 2);
-      const next = rest.search(/\n  [a-z][a-z0-9-]*:\n/);
-      const block = next === -1 ? rest : rest.slice(0, next);
-      expect(block).toContain("image: clamav/clamav:1.4");
-      expect(block).toContain('expose:\n      - "3310"');
-      expect(block).toContain("healthcheck:");
-      expect(block).toContain("mem_limit: ${CLAMAV_MEMORY_LIMIT:-4g}");
-      expect(block).toContain("mem_reservation: 3g");
-      expect(block).not.toContain("mem_limit: 768m");
-      expect(block).toContain("pids_limit: 256");
-      expect(block).toContain("clamav-signatures:/var/lib/clamav");
-      expect(block).not.toContain("ports:");
-      expect(source).toContain("CLAMAV_HOST: clamav");
-      expect(source).toContain("CLAMAV_PORT: 3310");
-    }
-    expect(communityUploadOperations).toContain("AbortIncompleteMultipartUpload");
-    expect(communityUploadOperations).toContain("4 GiB");
-    expect(communityUploadOperations).toContain("community/pending/");
-    expect(communityUploadOperations).toContain("community/quarantine/");
-    expect(communityUploadOperations).toContain("community/final/");
-  });
-
-  it("documents every blocking production prerequisite for the reliable chat release", () => {
-    expect(communityReleaseRunbook).toContain("8 GiB");
-    expect(communityReleaseRunbook).toContain("1 GiB MemAvailable");
-    expect(communityReleaseRunbook).toContain("6.5 GiB");
-    expect(communityReleaseRunbook).toContain("0063_reliable_community_chat");
-    expect(communityReleaseRunbook).toContain("0066_community_media_candidates");
-    expect(communityReleaseRunbook).toContain("community-cleanup-dry-run");
-    expect(communityReleaseRunbook).toContain("Deploy to VPS");
-    expect(communityReleaseRunbook).toContain("PWA device regression");
-    expect(communityReleaseRunbook).toContain("Публикация образов шаблонного клуба");
-    expect(communityUploadOperations).toContain("put-bucket-lifecycle-configuration");
-    expect(backupOperations).toContain("backup-before-migration");
-    expect(backupOperations).toContain("backup-after-quiesce");
-    expect(communityReleaseRunbook).toContain("0068_community_object_convergence");
-    expect(communityReleaseRunbook).toContain("0069_community_object_hot_queue");
-    expect(communityReleaseRunbook).toContain("disposable all-version deletion probe");
-  });
-
-  it("isolates bounded media jobs from externally served API processes", () => {
-    for (const source of [productionCompose, scaleCompose]) {
-      const workerStart = source.indexOf("  worker:\n");
-      expect(workerStart).toBeGreaterThan(-1);
-      const workerBlock = source.slice(workerStart, source.indexOf("\n  migrate:\n", workerStart));
-      expect(workerBlock).toContain("RUN_BACKGROUND_JOBS: true");
-      expect(workerBlock).toContain("mem_limit: 1g");
-      expect(workerBlock).toContain('cpus: "1.00"');
-      expect(workerBlock).toContain("pids_limit: 256");
-    }
-    const productionApi = productionCompose.slice(productionCompose.indexOf("  api: &api-service\n"), productionCompose.indexOf("\n  worker:\n"));
-    expect(productionApi).toContain("RUN_BACKGROUND_JOBS: false");
-    expect(scaleCompose).toContain("api-1:");
-    expect(scaleCompose).toContain("api-2:");
-    expect(scaleCompose.match(/RUN_BACKGROUND_JOBS: false/g)).toHaveLength(3);
-  });
-
   it("allows the API time to drain requests during deployment", () => {
-    const apiStart = productionCompose.indexOf("  api: &api-service\n");
+    const apiStart = productionCompose.indexOf("  api:\n");
     const apiEnd = productionCompose.indexOf("\n  migrate:\n", apiStart);
     expect(productionCompose.slice(apiStart, apiEnd)).toContain("stop_grace_period: 30s");
   });

@@ -1,7 +1,7 @@
 export type IntegrationHealthStatus = "healthy" | "warning" | "disabled" | "error";
 
 export type IntegrationHealthCheck = {
-  id: "database" | "smtp" | "s3" | "payments" | "realtime" | "document_scanner";
+  id: "database" | "smtp" | "s3" | "payments" | "realtime";
   label: string;
   status: IntegrationHealthStatus;
   detail: string;

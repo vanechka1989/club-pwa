@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Reliable and convenient community chat",
+  title: "Clients by latest activity",
   items: [
-    "Unread messages and notification settings now stay synchronized across devices.",
-    "Reliable message delivery, fast contextual search, and server-timed actions protect chat history from duplicates and mistakes.",
-    "Safe direct media uploads support photos, voice messages, videos, and documents, which remain quarantined until verified."
+    "Clients are automatically sorted by latest login, with the most recently active shown first.",
+    "Cards highlight login time, access status, plan, and learning progress while remaining convenient on mobile.",
+    "Clients who have never signed in are marked as ‘Never signed in’ and placed at the end of the list."
   ]
 };
 

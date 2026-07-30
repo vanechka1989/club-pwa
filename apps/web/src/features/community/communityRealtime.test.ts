@@ -35,4 +35,9 @@ describe("community realtime client", () => {
     expect(componentSource).toMatch(/eventSource\.onopen[\s\S]{0,180}stopRealtimeFallback\(\)/);
   });
 
+  it("replays an invalidation received while messages are already refreshing", () => {
+    expect(componentSource).toContain("refreshSelectedTopicQueued");
+    expect(componentSource).toMatch(/if \(refreshInFlight\)[\s\S]{0,100}refreshSelectedTopicQueued = true/);
+    expect(componentSource).toMatch(/finally[\s\S]{0,180}refreshSelectedTopicQueued[\s\S]{0,180}refreshSelectedTopic/);
+  });
 });

@@ -7,23 +7,20 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { serializeAppNotification } from "../notifications/serialize";
 import { recordUnreadMailingNotificationsOpened } from "../mailings/notificationTracking";
-import { getOwnerTelegramId } from "../admin/roles";
-import { storedCommunityNotificationAccessCondition } from "../notifications/communityOutbox";
 
 export const notificationsRoute = new Hono<{ Variables: AuthVariables }>()
   .use("*", telegramAuth)
   .get("/", async (c) => {
     const userId = c.get("userId");
-    const accessCondition = storedCommunityNotificationAccessCondition(await getOwnerTelegramId());
     const rows = await db.query.appNotifications.findMany({
-      where: and(eq(appNotifications.userId, userId), accessCondition),
+      where: eq(appNotifications.userId, userId),
       orderBy: [desc(appNotifications.createdAt)],
       limit: 50
     });
     const [unreadRow] = await db
       .select({ value: count(appNotifications.id) })
       .from(appNotifications)
-      .where(and(eq(appNotifications.userId, userId), isNull(appNotifications.readAt), accessCondition));
+      .where(and(eq(appNotifications.userId, userId), isNull(appNotifications.readAt)));
 
     return c.json({
       notifications: await Promise.all(rows.map(serializeAppNotification)),
@@ -53,7 +50,6 @@ export const notificationsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const userId = c.get("userId");
-    const accessCondition = storedCommunityNotificationAccessCondition(await getOwnerTelegramId());
     await recordUnreadMailingNotificationsOpened(userId, [idResult.data]);
     await db
       .update(appNotifications)
@@ -62,7 +58,7 @@ export const notificationsRoute = new Hono<{ Variables: AuthVariables }>()
     const [unreadRow] = await db
       .select({ value: count(appNotifications.id) })
       .from(appNotifications)
-      .where(and(eq(appNotifications.userId, userId), isNull(appNotifications.readAt), accessCondition));
+      .where(and(eq(appNotifications.userId, userId), isNull(appNotifications.readAt)));
 
     return c.json({
       ok: true,

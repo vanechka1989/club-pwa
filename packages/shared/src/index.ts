@@ -833,109 +833,6 @@ export const clubChatSchema = z.object({
 });
 export type ClubChat = z.infer<typeof clubChatSchema>;
 
-export const communityNotificationModeSchema = z.enum(["all", "mentions", "off"]);
-export type CommunityNotificationMode = z.infer<typeof communityNotificationModeSchema>;
-
-export const communityMentionSchema = z.object({
-  userId: z.string().uuid(),
-  displayName: z.string().min(1).max(160),
-  start: z.number().int().nonnegative(),
-  end: z.number().int().positive()
-});
-export type CommunityMention = z.infer<typeof communityMentionSchema>;
-
-// pending/scanning stay quarantined; rejected means unsafe content, failed means the scanner could not decide.
-// Only ready attachments may expose a URL, while deleted is the terminal tombstone state.
-export const communityAttachmentScanStatusSchema = z.enum([
-  "pending",
-  "scanning",
-  "ready",
-  "rejected",
-  "failed",
-  "deleted"
-]);
-export type CommunityAttachmentScanStatus = z.infer<typeof communityAttachmentScanStatusSchema>;
-
-const communityAttachmentStateShape = {
-  fileName: z.string().trim().min(1).max(255).nullable().default(null),
-  scanStatus: communityAttachmentScanStatusSchema.default("ready"),
-  scannedAt: z.string().datetime().nullable().default(null),
-  scanError: z.string().max(160).nullable().default(null)
-};
-
-function failClosedAttachment<T extends z.AnyZodObject>(schema: T) {
-  return schema.superRefine((attachment, context) => {
-    if (attachment.scanStatus !== "ready" && attachment.url !== null) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["url"],
-        message: "community_attachment_not_ready"
-      });
-    }
-  });
-}
-
-export const communityVoiceAttachmentSchema = failClosedAttachment(
-  z.object({
-    id: z.string(),
-    url: z.string().url().nullable(),
-    contentType: z.string(),
-    sizeBytes: z.number().int().nonnegative(),
-    durationSeconds: z.number().int().nonnegative(),
-    expiresAt: z.string().datetime().nullable(),
-    deletedAt: z.string().datetime().nullable(),
-    ...communityAttachmentStateShape
-  })
-);
-export type CommunityVoiceAttachment = z.infer<typeof communityVoiceAttachmentSchema>;
-
-export const communityImageAttachmentSchema = failClosedAttachment(
-  z.object({
-    id: z.string(),
-    url: z.string().url().nullable(),
-    contentType: z.string(),
-    sizeBytes: z.number().int().nonnegative(),
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
-    expiresAt: z.string().datetime().nullable(),
-    deletedAt: z.string().datetime().nullable(),
-    ...communityAttachmentStateShape
-  })
-);
-export type CommunityImageAttachment = z.infer<typeof communityImageAttachmentSchema>;
-
-export const communityVideoAttachmentSchema = failClosedAttachment(
-  z.object({
-    id: z.string(),
-    url: z.string().url().nullable(),
-    contentType: z.string(),
-    sizeBytes: z.number().int().nonnegative(),
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
-    durationSeconds: z.number().int().nonnegative(),
-    expiresAt: z.string().datetime().nullable(),
-    deletedAt: z.string().datetime().nullable(),
-    ...communityAttachmentStateShape
-  })
-);
-export type CommunityVideoAttachment = z.infer<typeof communityVideoAttachmentSchema>;
-
-export const communityDocumentAttachmentSchema = failClosedAttachment(
-  z.object({
-    id: z.string(),
-    url: z.string().url().nullable(),
-    fileName: z.string().trim().min(1).max(255),
-    contentType: z.string(),
-    sizeBytes: z.number().int().nonnegative(),
-    expiresAt: z.string().datetime().nullable(),
-    deletedAt: z.string().datetime().nullable(),
-    scanStatus: communityAttachmentScanStatusSchema,
-    scannedAt: z.string().datetime().nullable(),
-    scanError: z.string().max(160).nullable()
-  })
-);
-export type CommunityDocumentAttachment = z.infer<typeof communityDocumentAttachmentSchema>;
-
 export const clubTopicSchema = z.object({
   id: z.string(),
   chatId: z.string(),
@@ -948,8 +845,6 @@ export const clubTopicSchema = z.object({
   archivedUntil: z.string().datetime().nullable(),
   messagesCount: z.number().int().nonnegative(),
   latestReplyToMeAt: z.string().datetime().nullable(),
-  unreadCount: z.number().int().nonnegative().default(0),
-  notificationMode: communityNotificationModeSchema.default("mentions"),
   createdAt: z.string().datetime()
 });
 export type ClubTopic = z.infer<typeof clubTopicSchema>;
@@ -958,11 +853,33 @@ export const clubMessageSchema = z.object({
   id: z.string(),
   topicId: z.string(),
   body: z.string(),
-  kind: z.enum(["text", "voice", "images", "video", "document", "poll"]).default("text"),
-  voice: communityVoiceAttachmentSchema.nullable().default(null),
-  images: z.array(communityImageAttachmentSchema).default([]),
-  video: communityVideoAttachmentSchema.nullable().default(null),
-  document: communityDocumentAttachmentSchema.nullable().default(null),
+  kind: z.enum(["text", "voice", "images", "poll"]).default("text"),
+  voice: z
+    .object({
+      id: z.string(),
+      url: z.string().url().nullable(),
+      contentType: z.string(),
+      sizeBytes: z.number().int().nonnegative(),
+      durationSeconds: z.number().int().nonnegative(),
+      expiresAt: z.string().datetime().nullable(),
+      deletedAt: z.string().datetime().nullable()
+    })
+    .nullable()
+    .default(null),
+  images: z
+    .array(
+      z.object({
+        id: z.string(),
+        url: z.string().url().nullable(),
+        contentType: z.string(),
+        sizeBytes: z.number().int().nonnegative(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+        expiresAt: z.string().datetime().nullable(),
+        deletedAt: z.string().datetime().nullable()
+      })
+    )
+    .default([]),
   poll: z
     .object({
       id: z.string(),
@@ -994,7 +911,7 @@ export const clubMessageSchema = z.object({
     .object({
       id: z.string(),
       body: z.string(),
-      author: commentAuthorSchema.nullable()
+      author: commentAuthorSchema
     })
     .nullable(),
   likesCount: z.number().int().nonnegative(),
@@ -1014,241 +931,9 @@ export const clubMessageSchema = z.object({
     })
     .nullable(),
   pinnedAt: z.string().datetime().nullable().optional(),
-  editedAt: z.string().datetime().nullable().default(null),
-  deletedByUserAt: z.string().datetime().nullable().default(null),
-  contentRedacted: z.boolean(),
-  authorMutation: z.object({
-    canEdit: z.boolean(),
-    canDelete: z.boolean(),
-    allowedUntil: z.string().datetime().nullable()
-  }),
-  clientOperationId: z.string().trim().min(1).max(96).nullable().default(null),
-  mentions: z.array(communityMentionSchema).default([]),
   createdAt: z.string().datetime()
 });
 export type ClubMessage = z.infer<typeof clubMessageSchema>;
-
-export const communityTopicReadPositionRequestSchema = z.object({
-  messageId: z.string().uuid()
-}).strict();
-export type CommunityTopicReadPositionRequest = z.infer<typeof communityTopicReadPositionRequestSchema>;
-
-export const communityTopicStateSchema = z.object({
-  unreadCount: z.number().int().nonnegative(),
-  lastReadMessageId: z.string().uuid().nullable(),
-  notificationMode: communityNotificationModeSchema
-});
-export type CommunityTopicState = z.infer<typeof communityTopicStateSchema>;
-
-export const communityTopicReadPositionResponseSchema = communityTopicStateSchema;
-export type CommunityTopicReadPositionResponse = z.infer<typeof communityTopicReadPositionResponseSchema>;
-
-export const communityTopicNotificationSettingsRequestSchema = z.object({
-  mode: communityNotificationModeSchema
-});
-export type CommunityTopicNotificationSettingsRequest = z.infer<typeof communityTopicNotificationSettingsRequestSchema>;
-
-export const communityTopicNotificationSettingsResponseSchema = communityTopicStateSchema;
-export type CommunityTopicNotificationSettingsResponse = z.infer<typeof communityTopicNotificationSettingsResponseSchema>;
-
-export const communityMessageSearchCursorSchema = z.string().trim().min(40).max(160).regex(/^[A-Za-z0-9_-]+$/);
-export type CommunityMessageSearchCursor = z.infer<typeof communityMessageSearchCursorSchema>;
-
-export const communityMessageSearchQuerySchema = z.object({
-  q: z.string().trim().min(2).max(120),
-  topicId: z.string().uuid().optional(),
-  before: communityMessageSearchCursorSchema.optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20)
-});
-export type CommunityMessageSearchQuery = z.infer<typeof communityMessageSearchQuerySchema>;
-
-export const communityMessageSearchResultSchema = z.object({
-  messageId: z.string().uuid(),
-  topicId: z.string().uuid(),
-  topicTitle: z.string().min(1).max(180),
-  author: commentAuthorSchema,
-  excerpt: z.string().max(500),
-  createdAt: z.string().datetime()
-});
-export type CommunityMessageSearchResult = z.infer<typeof communityMessageSearchResultSchema>;
-
-export const communityMessageSearchResponseSchema = z.object({
-  results: z.array(communityMessageSearchResultSchema),
-  nextCursor: communityMessageSearchCursorSchema.nullable()
-});
-export type CommunityMessageSearchResponse = z.infer<typeof communityMessageSearchResponseSchema>;
-
-export const communityMessageContextResponseSchema = z.object({
-  targetMessageId: z.string(),
-  messages: z.array(clubMessageSchema),
-  serverTime: z.string().datetime()
-});
-export type CommunityMessageContextResponse = z.infer<typeof communityMessageContextResponseSchema>;
-
-export const communityMessageEditRequestSchema = z.object({
-  body: z.string().trim().min(1).max(3000),
-  mentions: z.array(communityMentionSchema).default([])
-});
-export type CommunityMessageEditRequest = z.infer<typeof communityMessageEditRequestSchema>;
-
-export const communityMessageEditResponseSchema = z.object({
-  ok: z.boolean(),
-  message: clubMessageSchema
-});
-export type CommunityMessageEditResponse = z.infer<typeof communityMessageEditResponseSchema>;
-
-export const communityMessageDeleteResponseSchema = z.object({
-  ok: z.boolean(),
-  message: clubMessageSchema
-});
-export type CommunityMessageDeleteResponse = z.infer<typeof communityMessageDeleteResponseSchema>;
-
-export const communityParticipantSuggestionsQuerySchema = z.object({
-  q: z.string().trim().max(120),
-  limit: z.coerce.number().int().min(1).max(20).default(10)
-});
-export type CommunityParticipantSuggestionsQuery = z.infer<typeof communityParticipantSuggestionsQuerySchema>;
-
-export const communityParticipantSuggestionsResponseSchema = z.object({
-  participants: z.array(commentAuthorSchema)
-});
-export type CommunityParticipantSuggestionsResponse = z.infer<typeof communityParticipantSuggestionsResponseSchema>;
-
-export const communityUploadKindSchema = z.enum(["image", "voice", "video", "document"]);
-export type CommunityUploadKind = z.infer<typeof communityUploadKindSchema>;
-
-export const communityImageUploadContentTypeSchema = z.enum([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif"
-]);
-export const communityVoiceUploadContentTypeSchema = z.enum([
-  "audio/webm",
-  "audio/mp4",
-  "audio/ogg",
-  "audio/mpeg",
-  "audio/aac",
-  "audio/wav",
-  "audio/x-wav",
-  "video/mp4"
-]);
-export const communityVideoUploadContentTypeSchema = z.enum(["video/mp4", "video/quicktime", "video/webm"]);
-export const communityDocumentUploadContentTypeSchema = z.enum([
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-]);
-export const communityUploadContentTypeSchema = z.union([
-  communityImageUploadContentTypeSchema,
-  communityVoiceUploadContentTypeSchema,
-  communityVideoUploadContentTypeSchema,
-  communityDocumentUploadContentTypeSchema
-]);
-export type CommunityUploadContentType = z.infer<typeof communityUploadContentTypeSchema>;
-
-const communityUploadFileShape = {
-  fileName: z.string().trim().min(1).max(255),
-};
-
-export const communityImageUploadIntentSchema = z.object({
-  kind: z.literal("image"),
-  ...communityUploadFileShape,
-  contentType: communityImageUploadContentTypeSchema,
-  sizeBytes: z.number().int().positive().max(15 * 1024 * 1024)
-});
-export const communityVoiceUploadIntentSchema = z.object({
-  kind: z.literal("voice"),
-  ...communityUploadFileShape,
-  contentType: communityVoiceUploadContentTypeSchema,
-  sizeBytes: z.number().int().positive().max(30 * 1024 * 1024),
-  durationSeconds: z.number().int().positive().max(5 * 60)
-});
-export const communityVideoUploadIntentSchema = z.object({
-  kind: z.literal("video"),
-  ...communityUploadFileShape,
-  contentType: communityVideoUploadContentTypeSchema,
-  sizeBytes: z.number().int().positive().max(100 * 1024 * 1024)
-});
-export const communityDocumentUploadIntentSchema = z.object({
-  kind: z.literal("document"),
-  ...communityUploadFileShape,
-  contentType: communityDocumentUploadContentTypeSchema,
-  sizeBytes: z.number().int().positive().max(50 * 1024 * 1024)
-});
-
-export const communityUploadIntentSchema = z.discriminatedUnion("kind", [
-  communityImageUploadIntentSchema,
-  communityVoiceUploadIntentSchema,
-  communityVideoUploadIntentSchema,
-  communityDocumentUploadIntentSchema
-]);
-export type CommunityUploadIntent = z.infer<typeof communityUploadIntentSchema>;
-
-export const communityImageUploadBatchSchema = z.array(communityImageUploadIntentSchema).min(1).max(10);
-export type CommunityImageUploadBatch = z.infer<typeof communityImageUploadBatchSchema>;
-
-const communityUploadedObjectShape = {
-  objectKey: z.string().trim().min(1).max(512),
-  uploadToken: z.string().uuid()
-};
-export const communityUploadedObjectSchema = z.discriminatedUnion("kind", [
-  communityImageUploadIntentSchema.extend(communityUploadedObjectShape),
-  communityVoiceUploadIntentSchema.extend(communityUploadedObjectShape),
-  communityVideoUploadIntentSchema.extend(communityUploadedObjectShape),
-  communityDocumentUploadIntentSchema.extend(communityUploadedObjectShape)
-]);
-export type CommunityUploadedObject = z.infer<typeof communityUploadedObjectSchema>;
-
-const communityPutUploadSessionShape = {
-  uploadType: z.literal("put"),
-  objectKey: z.string().trim().min(1).max(512),
-  uploadToken: z.string().uuid(),
-  uploadUrl: z.string().trim().min(1),
-  expiresAt: z.string().datetime()
-};
-const communityMultipartUploadSessionShape = {
-  uploadType: z.literal("multipart"),
-  objectKey: z.string().trim().min(1).max(512),
-  uploadToken: z.string().uuid(),
-  uploadId: z.string().trim().min(1).max(512),
-  partSizeBytes: z.number().int().positive(),
-  parts: z
-    .array(z.object({ partNumber: z.number().int().positive(), uploadUrl: z.string().trim().min(1) }))
-    .min(1)
-    .max(100),
-  expiresAt: z.string().datetime()
-};
-
-const communityImageUploadMetadataSchema = communityImageUploadIntentSchema.omit({ fileName: true });
-const communityVoiceUploadMetadataSchema = communityVoiceUploadIntentSchema.omit({ fileName: true });
-const communityVideoUploadMetadataSchema = communityVideoUploadIntentSchema.omit({ fileName: true });
-const communityDocumentUploadMetadataSchema = communityDocumentUploadIntentSchema.omit({ fileName: true });
-
-export const communityPutUploadIntentResponseSchema = z.discriminatedUnion("kind", [
-  communityImageUploadMetadataSchema.extend(communityPutUploadSessionShape),
-  communityVoiceUploadMetadataSchema.extend(communityPutUploadSessionShape),
-  communityVideoUploadMetadataSchema.extend(communityPutUploadSessionShape),
-  communityDocumentUploadMetadataSchema.extend(communityPutUploadSessionShape)
-]);
-export const communityMultipartUploadIntentResponseSchema = z.discriminatedUnion("kind", [
-  communityImageUploadMetadataSchema.extend(communityMultipartUploadSessionShape),
-  communityVoiceUploadMetadataSchema.extend(communityMultipartUploadSessionShape),
-  communityVideoUploadMetadataSchema.extend(communityMultipartUploadSessionShape),
-  communityDocumentUploadMetadataSchema.extend(communityMultipartUploadSessionShape)
-]);
-export const communityUploadIntentResponseSchema = z.union([
-  communityPutUploadIntentResponseSchema,
-  communityMultipartUploadIntentResponseSchema
-]);
-export type CommunityUploadIntentResponse = z.infer<typeof communityUploadIntentResponseSchema>;
-
-export const communityReadPositionRequestSchema = communityTopicReadPositionRequestSchema;
-export const communityReadPositionResponseSchema = communityTopicReadPositionResponseSchema;
-export const communityNotificationSettingsRequestSchema = communityTopicNotificationSettingsRequestSchema;
-export const communityNotificationSettingsResponseSchema = communityTopicNotificationSettingsResponseSchema;
 
 export const clubChatsResponseSchema = z.object({
   chats: z.array(clubChatSchema)
@@ -1262,10 +947,9 @@ export type ClubTopicsResponse = z.infer<typeof clubTopicsResponseSchema>;
 
 export const clubMessagesResponseSchema = z.object({
   messages: z.array(clubMessageSchema),
-  nextCursor: communityMessageSearchCursorSchema.nullable(),
+  nextCursor: z.string().datetime().nullable(),
   mutedUntil: z.string().datetime().nullable(),
-  mutedPermanently: z.boolean(),
-  serverTime: z.string().datetime()
+  mutedPermanently: z.boolean()
 });
 export type ClubMessagesResponse = z.infer<typeof clubMessagesResponseSchema>;
 
@@ -1927,7 +1611,7 @@ export const adminServerStatusResponseSchema = z.object({
 export type AdminServerStatusResponse = z.infer<typeof adminServerStatusResponseSchema>;
 
 export const adminIntegrationHealthItemSchema = z.object({
-  id: z.enum(["database", "smtp", "s3", "payments", "realtime", "document_scanner"]),
+  id: z.enum(["database", "smtp", "s3", "payments", "realtime"]),
   label: z.string(),
   status: z.enum(["healthy", "warning", "disabled", "error"]),
   detail: z.string()

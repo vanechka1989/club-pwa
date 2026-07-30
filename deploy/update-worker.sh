@@ -22,11 +22,6 @@ caddy_changed=0
 full_reconcile=0
 previous_web_image=""
 previous_api_image=""
-candidate_images_built=0
-reconciliation_started=0
-privacy_migration_barrier_crossed=0
-recovery_schema_state=""
-api_recovery_allowed=1
 
 sanitize_status_value() {
   printf '%s' "$1" | tr '\r\n=' '   '
@@ -53,181 +48,19 @@ write_status() {
 
 fail_status() {
   local exit_code=$?
-  local failed_phase="$current_phase"
   trap - EXIT
   if [[ $exit_code -ne 0 ]]; then
-    echo "Deployment failed in phase '$failed_phase' with exit code $exit_code" >&2
-    if [[ $candidate_images_built -eq 1 ]]; then
-      if [[ $reconciliation_started -eq 1 ]]; then
-        current_phase="rollback"
-        write_status running "$current_phase" || true
-        if rollback_services; then
-          echo "A schema-compatible service set was restored and verified." >&2
-        else
-          echo "Automatic rollback did not reach verified health; rollback tags were preserved." >&2
-        fi
-      elif ! restore_previous_image_tags; then
-        echo "Candidate image tags could not be fully restored; rollback tags were preserved." >&2
-      fi
-    fi
-    current_phase="$failed_phase"
-    write_status failed "$current_phase" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
+    write_status failed "$current_phase" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "Deployment failed in phase '$current_phase' with exit code $exit_code" >&2
   fi
+  cleanup_previous_images
   exit "$exit_code"
 }
 
+trap fail_status EXIT
+
 compose() {
   docker compose -f "$COMPOSE_FILE" "$@"
-}
-
-require_release_resources() {
-  local total_memory_kib available_memory_kib minimum_total_kib minimum_available_kib
-  total_memory_kib="$(awk '/MemTotal:/ { print $2 }' /proc/meminfo)"
-  available_memory_kib="$(awk '/MemAvailable:/ { print $2 }' /proc/meminfo)"
-  minimum_total_kib="$((8 * 1024 * 1024))"
-  minimum_available_kib="$((1 * 1024 * 1024))"
-
-  if [[ ! "$total_memory_kib" =~ ^[0-9]+$ || ! "$available_memory_kib" =~ ^[0-9]+$ ]]; then
-    echo "Unable to read production memory capacity from /proc/meminfo." >&2
-    return 1
-  fi
-  if (( total_memory_kib < minimum_total_kib )); then
-    echo "Release requires at least 8 GiB of physical RAM for PostgreSQL, API, worker, web, Caddy, Redis and ClamAV." >&2
-    return 1
-  fi
-  if (( available_memory_kib < minimum_available_kib )); then
-    echo "Release requires at least 1 GiB MemAvailable before build and service reconciliation." >&2
-    return 1
-  fi
-
-  echo "Release memory gate passed: total=${total_memory_kib}KiB available=${available_memory_kib}KiB."
-}
-
-wait_for_release_dependencies() {
-  local postgres_user postgres_database
-  postgres_user="$(read_env_value POSTGRES_USER)"
-  postgres_database="$(read_env_value POSTGRES_DB)"
-  postgres_user="${postgres_user:-club}"
-  postgres_database="${postgres_database:-club}"
-
-  compose up -d postgres redis clamav
-  for attempt in {1..90}; do
-    if compose exec -T postgres pg_isready -U "$postgres_user" -d "$postgres_database" >/dev/null 2>&1 \
-      && [[ "$(compose exec -T redis redis-cli ping 2>/dev/null | tr -d '\r')" == "PONG" ]] \
-      && compose exec -T clamav clamdscan --ping 5 >/dev/null 2>&1; then
-      echo "PostgreSQL, Redis and ClamAV release dependencies are healthy."
-      return 0
-    fi
-    if [[ "$attempt" -eq 90 ]]; then
-      echo "PostgreSQL, Redis or ClamAV did not become healthy within the release window." >&2
-      compose ps postgres redis clamav || true
-      compose logs --tail=120 postgres redis clamav || true
-      return 1
-    fi
-    sleep 5
-  done
-}
-
-verify_community_s3_lifecycle() {
-  current_phase="s3-lifecycle"
-  write_status running "$current_phase"
-  compose run --rm --no-deps api bun apps/api/src/scripts/verifyCommunityS3Lifecycle.ts
-}
-
-run_pre_migration_backup() {
-  current_phase="backup-before-migration"
-  write_status running "$current_phase"
-  BACKUP_STATE_DIR="${BACKUP_STATE_DIR:-/var/lib/club-pwa-backup}" \
-    /usr/bin/env bash "$DEPLOY_DIR/scripts/backup-postgres-s3.sh"
-}
-
-run_post_quiesce_backup() {
-  current_phase="backup-after-quiesce"
-  write_status running "$current_phase"
-  BACKUP_STATE_DIR="${BACKUP_STATE_DIR:-/var/lib/club-pwa-backup}" \
-    /usr/bin/env bash "$DEPLOY_DIR/scripts/backup-postgres-s3.sh"
-}
-
-run_community_cleanup_dry_run() {
-  current_phase="community-cleanup-dry-run"
-  write_status running "$current_phase"
-  compose run --rm --no-deps api bun apps/api/src/scripts/auditCommunityCleanup.ts
-}
-
-quiesce_application_for_privacy_migration() {
-  local running_services
-  current_phase="quiesce-api-worker"
-  write_status running "$current_phase"
-  reconciliation_started=1
-  compose stop -t 90 api worker
-  if ! running_services="$(compose ps --status running --quiet api worker)"; then
-    echo "Unable to verify that API and worker stopped after the privacy migration quiesce." >&2
-    return 1
-  fi
-  if [[ -n "${running_services//[[:space:]]/}" ]]; then
-    echo "API or worker remained active after the privacy migration quiesce window." >&2
-    return 1
-  fi
-  privacy_migration_barrier_crossed=1
-  echo "API and worker are quiesced; pre-privacy images are no longer valid rollback targets."
-}
-
-detect_privacy_schema_state() {
-  local postgres_user postgres_database schema_output
-  postgres_user="$(read_env_value POSTGRES_USER)"
-  postgres_database="$(read_env_value POSTGRES_DB)"
-  postgres_user="${postgres_user:-club}"
-  postgres_database="${postgres_database:-club}"
-  if ! schema_output="$(compose exec -T postgres psql \
-      --username "$postgres_user" --dbname "$postgres_database" \
-      --tuples-only --no-align --set ON_ERROR_STOP=1 --command "
-        with capability as (
-          select
-            to_regclass('community_object_publications') is not null as publications,
-            to_regclass('community_notification_outbox') is not null as outbox,
-            to_regclass('community_object_lifecycles') is not null as lifecycles,
-            to_regprocedure('community_enqueue_message_cleanup(uuid,text)') is not null as enqueue_function,
-            exists (
-              select 1 from information_schema.columns
-              where table_schema = current_schema()
-                and table_name = 'club_chat_messages' and column_name = 'terminal_cleanup_at'
-            ) as terminal_column,
-            exists (
-              select 1 from information_schema.columns
-              where table_schema = current_schema()
-                and table_name = 'community_object_lifecycles' and column_name = 'publication_token'
-            ) as lifecycle_token_column,
-            exists (
-              select 1 from information_schema.columns
-              where table_schema = current_schema()
-                and table_name = 'community_object_lifecycles' and column_name = 'hot_until'
-            ) as lifecycle_hot_until_column,
-            exists (
-              select 1 from information_schema.columns
-              where table_schema = current_schema()
-                and table_name = 'community_object_lifecycles' and column_name = 'cold_at'
-            ) as lifecycle_cold_at_column,
-            (select coalesce(max(created_at), 0) from drizzle.__drizzle_migrations) as migration_revision
-        )
-        select case
-          when publications and outbox and lifecycles and enqueue_function and terminal_column
-            and lifecycle_token_column and lifecycle_hot_until_column and lifecycle_cold_at_column
-            and migration_revision >= 1785459600000 then 'current'
-          when not publications and not outbox and not lifecycles and not enqueue_function and not terminal_column
-            and not lifecycle_token_column and not lifecycle_hot_until_column and not lifecycle_cold_at_column
-            and migration_revision < 1785452400000 then 'legacy'
-          else 'unknown'
-        end
-        from capability;
-      " 2>/dev/null)"; then
-    printf 'unknown\n'
-    return 0
-  fi
-  schema_output="$(printf '%s\n' "$schema_output" | tail -n 1 | tr -d '[:space:]')"
-  case "$schema_output" in
-    legacy|current) printf '%s\n' "$schema_output" ;;
-    *) printf 'unknown\n' ;;
-  esac
 }
 
 read_env_value() {
@@ -274,25 +107,6 @@ resolve_health_url() {
   fi
 }
 
-resolve_ready_url() {
-  if [[ -n "${DEPLOY_READY_URL:-}" ]]; then
-    printf '%s' "$DEPLOY_READY_URL"
-    return
-  fi
-
-  local web_origin public_domain
-  web_origin="$(read_env_value WEB_ORIGIN)"
-  if [[ -n "$web_origin" ]]; then
-    printf '%s/api/ready' "${web_origin%/}"
-    return
-  fi
-
-  public_domain="$(read_env_value PUBLIC_DOMAIN)"
-  if [[ -n "$public_domain" ]]; then
-    printf 'https://%s/api/ready' "$public_domain"
-  fi
-}
-
 resolve_web_url() {
   if [[ -n "${DEPLOY_WEB_URL:-}" ]]; then
     printf '%s' "$DEPLOY_WEB_URL"
@@ -313,26 +127,24 @@ resolve_web_url() {
 }
 
 wait_for_health() {
-  local health_url ready_url web_url
+  local health_url web_url
   health_url="$(resolve_health_url)"
-  ready_url="$(resolve_ready_url)"
   web_url="$(resolve_web_url)"
-  if [[ -z "$health_url" || -z "$ready_url" || -z "$web_url" ]]; then
-    echo "API health URL, API readiness URL or web URL is not configured" >&2
+  if [[ -z "$health_url" || -z "$web_url" ]]; then
+    echo "API health URL or web URL is not configured" >&2
     return 1
   fi
 
   for _ in {1..30}; do
     if curl --fail --silent --show-error --max-time 5 "$health_url" | grep -q '"ok":true' \
-      && curl --fail --silent --show-error --max-time 5 "$ready_url" | grep -q '"ok":true' \
       && curl --fail --silent --show-error --max-time 5 "$web_url" | grep -q '<div id="app"'; then
-      echo "Application checks passed: liveness $health_url; readiness $ready_url; PWA $web_url"
+      echo "Application checks passed: API $health_url; PWA $web_url"
       return 0
     fi
     sleep 2
   done
 
-  echo "Application checks failed: liveness $health_url; readiness $ready_url; PWA $web_url" >&2
+  echo "Application checks failed: API $health_url; PWA $web_url" >&2
   return 1
 }
 
@@ -434,108 +246,43 @@ cleanup_previous_images() {
   fi
 }
 
-restore_previous_image_tags() {
-  local failed=0
-  if [[ $api_changed -eq 1 ]]; then
-    if [[ $privacy_migration_barrier_crossed -eq 1 ]]; then
-      recovery_schema_state="$(detect_privacy_schema_state)"
-      case "$recovery_schema_state" in
-        legacy)
-          if [[ -z "$previous_api_image" ]]; then
-            echo "No previous API image is available for legacy-schema recovery." >&2
-            api_recovery_allowed=0
-            failed=1
-          elif ! docker tag "$previous_api_image" club-pwa-api:latest; then
-            api_recovery_allowed=0
-            failed=1
-          fi
-          ;;
-        current)
-          echo "Keeping the privacy-compatible candidate API image for the current schema."
-          ;;
-        *)
-          api_recovery_allowed=0
-          echo "Database schema is unknown or partial; API and worker will remain stopped for roll-forward." >&2
-          failed=1
-          ;;
-      esac
-    elif [[ -z "$previous_api_image" ]]; then
-      echo "No previous API image is available for rollback." >&2
-      failed=1
-    elif ! docker tag "$previous_api_image" club-pwa-api:latest; then
-      failed=1
-    fi
-  fi
-  if [[ $web_changed -eq 1 ]]; then
-    if [[ -z "$previous_web_image" ]]; then
-      echo "No previous web image is available for rollback." >&2
-      failed=1
-    elif ! docker tag "$previous_web_image" club-pwa-web:latest; then
-      failed=1
-    fi
-  fi
-  return "$failed"
-}
-
 deploy_web() {
   current_phase="build-web"
   write_status running "$current_phase"
-  candidate_images_built=1
   compose build "${build_args[@]}" web
   current_phase="restart-web"
   write_status running "$current_phase"
-  reconciliation_started=1
   compose up -d --no-deps web
 }
 
 deploy_api() {
   current_phase="build-api"
   write_status running "$current_phase"
-  candidate_images_built=1
   compose build "${build_args[@]}" api
-  current_phase="release-dependencies"
-  write_status running "$current_phase"
-  wait_for_release_dependencies
-  verify_community_s3_lifecycle
-  run_pre_migration_backup
   current_phase="uploads-permissions"
   write_status running "$current_phase"
   compose run --rm uploads-permissions
-  quiesce_application_for_privacy_migration
-  run_post_quiesce_backup
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
-  run_community_cleanup_dry_run
   current_phase="restart-api"
   write_status running "$current_phase"
-  reconciliation_started=1
-  compose up -d --no-deps api worker
+  compose up -d --no-deps api
 }
 
 deploy_full() {
   current_phase="build-all"
   write_status running "$current_phase"
-  candidate_images_built=1
   compose build "${build_args[@]}" api web
-  current_phase="release-dependencies"
-  write_status running "$current_phase"
-  wait_for_release_dependencies
-  verify_community_s3_lifecycle
-  run_pre_migration_backup
   current_phase="uploads-permissions"
   write_status running "$current_phase"
   compose run --rm uploads-permissions
-  quiesce_application_for_privacy_migration
-  run_post_quiesce_backup
   current_phase="migrate"
   write_status running "$current_phase"
   compose run --rm migrate
-  run_community_cleanup_dry_run
   current_phase="reconcile"
   write_status running "$current_phase"
-  reconciliation_started=1
-  compose up -d postgres redis clamav api worker web caddy
+  compose up -d postgres api web caddy
 }
 
 recreate_caddy() {
@@ -557,43 +304,19 @@ install_operational_timers() {
 }
 
 rollback_services() {
-  local failed=0
-  echo "Deployment failed after reconciliation; attempting schema-compatible recovery." >&2
-  if ! restore_previous_image_tags; then
-    failed=1
-  fi
-  if [[ $api_changed -eq 1 && $api_recovery_allowed -eq 0 ]]; then
-    compose stop -t 90 api worker || true
-  elif [[ $api_changed -eq 1 && ( $privacy_migration_barrier_crossed -eq 1 || -n "$previous_api_image" ) ]]; then
-    if ! compose up -d --no-deps --force-recreate api worker; then
-      failed=1
-    fi
+  echo "Health verification failed; attempting container rollback." >&2
+  if [[ $api_changed -eq 1 && -n "$previous_api_image" ]]; then
+    docker tag "$previous_api_image" club-pwa-api:latest
+    compose up -d --no-deps --force-recreate api || true
   fi
   if [[ $web_changed -eq 1 && -n "$previous_web_image" ]]; then
-    if ! compose up -d --no-deps --force-recreate web; then
-      failed=1
-    fi
+    docker tag "$previous_web_image" club-pwa-web:latest
+    compose up -d --no-deps --force-recreate web || true
   fi
-  if ! recreate_caddy; then
-    failed=1
-  fi
-  if ! wait_for_release_dependencies; then
-    failed=1
-  fi
-  if [[ $api_recovery_allowed -eq 1 ]] && ! wait_for_health; then
-    failed=1
-  fi
-  if [[ $api_recovery_allowed -eq 1 && -n "$recovery_schema_state" ]]; then
-    if [[ "$(detect_privacy_schema_state)" != "$recovery_schema_state" ]]; then
-      echo "Database schema capability changed during recovery verification." >&2
-      failed=1
-    fi
-  fi
-  return "$failed"
+  recreate_caddy || true
+  wait_for_health || true
+  cleanup_previous_images
 }
-
-main() {
-trap fail_status EXIT
 
 if [[ "$DEPLOY_WORKER_LOCK_HELD" != "1" ]]; then
   exec 9>"$LOCK_FILE"
@@ -645,7 +368,6 @@ ensure_payment_encryption_key
 set_service_summary
 write_status running classified
 echo "Target: $current_target; services: $current_services"
-require_release_resources
 remember_previous_images
 
 if [[ $full_reconcile -eq 1 ]]; then
@@ -663,8 +385,19 @@ install_operational_timers
 
 current_phase="health"
 write_status running "$current_phase"
-if ! wait_for_release_dependencies || ! wait_for_health; then
+if ! wait_for_health; then
+  current_phase="rollback"
+  write_status running "$current_phase"
+  rollback_services
   exit 1
+fi
+
+current_phase="cleanup"
+write_status running "$current_phase"
+cleanup_previous_images
+docker image prune -f --filter "until=72h" >/dev/null || true
+if docker buildx version >/dev/null 2>&1; then
+  docker buildx prune -f --filter "until=168h" >/dev/null || true
 fi
 
 current_phase="release-notification"
@@ -674,18 +407,7 @@ if ! compose exec -T -w /app/apps/api api bun src/deploy/notifyRelease.ts; then
 fi
 
 current_phase="record-success"
-write_status success complete "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 write_deployed_commit
-current_phase="cleanup"
-cleanup_previous_images
-docker image prune -f --filter "until=72h" >/dev/null || true
-if docker buildx version >/dev/null 2>&1; then
-  docker buildx prune -f --filter "until=168h" >/dev/null || true
-fi
+write_status success complete "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 trap - EXIT
 echo "Deployment completed and verified: $current_target"
-}
-
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  main "$@"
-fi

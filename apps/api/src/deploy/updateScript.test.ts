@@ -59,11 +59,8 @@ describe("deploy update script", () => {
     expect(classifyIndex).toBeGreaterThan(restartIndex);
   });
 
-  it("verifies API liveness, API readiness and the rendered PWA before accepting a deployment", () => {
-    expect(updateWorker).toContain("resolve_health_url");
-    expect(updateWorker).toContain("resolve_ready_url");
+  it("verifies both the API and the rendered PWA before accepting a deployment", () => {
     expect(updateWorker).toContain("resolve_web_url");
-    expect(updateWorker).toContain('curl --fail --silent --show-error --max-time 5 "$ready_url"');
     expect(updateWorker).toContain('curl --fail --silent --show-error --max-time 5 "$web_url"');
     expect(updateWorker).toContain("grep -q '<div id=\"app\"'");
     expect(updateWorker).toContain("Application checks passed");
@@ -79,33 +76,19 @@ describe("deploy update script", () => {
     const deploymentBlock = updateWorker.slice(deployIndex, healthIndex);
 
     expect(deploymentBlock).toContain("recreate_caddy");
-    expect(updateWorker).toContain("if ! recreate_caddy; then");
+    expect(updateWorker).toContain("recreate_caddy || true");
     expect(updateWorker).toContain("compose up -d --no-deps --force-recreate caddy");
     expect(updateWorker).not.toContain("caddy reload --force --config /etc/caddy/Caddyfile");
   });
 
-  it("restores only schema-compatible images when the new containers fail health verification", () => {
+  it("restores previous application images when the new containers fail health verification", () => {
     expect(updateWorker).toContain("rollback_services() {");
-    expect(updateWorker).toContain("candidate_images_built");
-    expect(updateWorker).toContain("reconciliation_started");
-    expect(updateWorker).toContain("restore_previous_image_tags");
-    expect(updateWorker).toContain("if ! wait_for_release_dependencies || ! wait_for_health; then");
+    expect(updateWorker).toContain("if ! wait_for_health; then");
     expect(updateWorker).toContain("rollback_services");
     expect(updateWorker).toContain("--force-recreate");
     expect(updateWorker).toContain('club-pwa-web:rollback-$DEPLOY_RUN_ID');
     expect(updateWorker).toContain('club-pwa-api:rollback-$DEPLOY_RUN_ID');
     expect(updateWorker).toContain("cleanup_previous_images");
-    expect(updateWorker).toContain("privacy_migration_barrier_crossed");
-    expect(updateWorker).toContain("quiesce_application_for_privacy_migration");
-    expect(updateWorker).toContain("compose stop -t 90 api worker");
-    expect(updateWorker).toContain("Keeping the privacy-compatible candidate API image for the current schema.");
-    expect(updateWorker).toContain("drizzle.__drizzle_migrations");
-    expect(updateWorker).toContain("1785459600000");
-    expect(updateWorker).toContain("publication_token");
-    expect(updateWorker).toContain("hot_until");
-    expect(updateWorker).toContain("cold_at");
-    expect(updateWorker).toContain("api_recovery_allowed");
-    expect(updateWorker.indexOf("write_status success complete")).toBeLessThan(updateWorker.indexOf("cleanup_previous_images", updateWorker.indexOf("main()")));
   });
 
   it("updates web and api independently without restarting dependencies", () => {
@@ -128,8 +111,9 @@ describe("deploy update script", () => {
       updateWorker.indexOf("recreate_caddy() {")
     );
 
-    expect(fullDeployFunction).toContain("compose up -d postgres redis clamav api worker web caddy");
+    expect(fullDeployFunction).toContain("compose up -d postgres api web caddy");
     expect(fullDeployFunction).not.toContain("uptime-kuma");
+    expect(fullDeployFunction).not.toContain("postgres redis api");
   });
 
   it("lets the server update script own start notifications in GitHub Actions", () => {
@@ -188,43 +172,6 @@ describe("deploy update script", () => {
     expect(deployWorkflow).toContain("${{ github.sha }}");
     expect(updateScript).toContain('--setenv="DEPLOY_EXPECTED_COMMIT=${DEPLOY_EXPECTED_COMMIT:-}"');
     expect(updateWorker).toContain('current_target" != "$DEPLOY_EXPECTED_COMMIT');
-  });
-
-  it("blocks migrations until production release prerequisites and a verified backup pass", () => {
-    const apiDeploy = updateWorker.slice(
-      updateWorker.indexOf("deploy_api() {"),
-      updateWorker.indexOf("deploy_full() {")
-    );
-    const fullDeploy = updateWorker.slice(
-      updateWorker.indexOf("deploy_full() {"),
-      updateWorker.indexOf("recreate_caddy() {")
-    );
-
-    expect(updateWorker).toContain("require_release_resources");
-    expect(updateWorker).toContain("verify_community_s3_lifecycle");
-    expect(updateWorker).toContain("run_pre_migration_backup");
-    expect(updateWorker).toContain("run_post_quiesce_backup");
-    expect(updateWorker).toContain("run_community_cleanup_dry_run");
-    for (const deployment of [apiDeploy, fullDeploy]) {
-      expect(deployment.indexOf("run_pre_migration_backup")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
-      expect(deployment.indexOf("run_post_quiesce_backup")).toBeGreaterThan(deployment.indexOf("quiesce_application_for_privacy_migration"));
-      expect(deployment.indexOf("run_post_quiesce_backup")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
-      expect(deployment.indexOf("verify_community_s3_lifecycle")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
-      expect(deployment.indexOf("quiesce_application_for_privacy_migration")).toBeLessThan(deployment.indexOf("compose run --rm migrate"));
-      expect(deployment.indexOf("run_community_cleanup_dry_run")).toBeGreaterThan(deployment.indexOf("compose run --rm migrate"));
-    }
-  });
-
-  it("starts and health-checks every persistent release service, including Redis, ClamAV and the worker", () => {
-    expect(updateWorker).toContain("wait_for_release_dependencies");
-    expect(updateWorker).toContain('postgres_user="$(read_env_value POSTGRES_USER)"');
-    expect(updateWorker).toContain('postgres_database="$(read_env_value POSTGRES_DB)"');
-    expect(updateWorker).toContain("clamdscan --ping 5");
-    expect(updateWorker).toContain("redis-cli ping");
-    expect(updateWorker).toContain("compose up -d postgres redis clamav api worker web caddy");
-    expect(updateWorker).toContain("compose up -d --no-deps api worker");
-    expect(productionCompose).toContain("redis:");
-    expect(productionCompose).toContain("REDIS_URL: ${REDIS_URL:-redis://redis:6379}");
   });
 
   it("collects remote deployment diagnostics when the update command fails", () => {
@@ -286,18 +233,9 @@ describe("direct learning S3 uploads", () => {
   });
 
   it("keeps learning read URLs fast by skipping S3 HEAD checks by default", () => {
-    expect(s3Storage).toContain("options: { verifyReadable?: boolean; allowPublic?: boolean; expiresInSeconds?: number } = {}");
+    expect(s3Storage).toContain("options: { verifyReadable?: boolean; allowPublic?: boolean } = {}");
     expect(s3Storage).toContain("const verifyReadable = options.verifyReadable ?? false");
     expect(s3Storage).toContain("const allowPublic = options.allowPublic ?? false");
     expect(s3Storage).toContain("if (verifyReadable) {");
-  });
-});
-
-describe("direct community S3 uploads", () => {
-  it("presigns browser PUT and multipart parts while verifying bounded object prefixes", () => {
-    expect(s3Storage).toContain("createMultipartPartUploadUrl");
-    expect(s3Storage).toContain("downloadObjectPrefix");
-    expect(s3Storage).toContain("Range: `bytes=0-${maxBytes - 1}`");
-    expect(s3Storage).toContain("streamObjectBytes");
   });
 });

@@ -442,55 +442,6 @@
       "when": 1785186000000,
       "tag": "0062_support_attachment_object_key_unique",
       "breakpoints": true
-    },
-    {
-      "idx": 63,
-      "version": "7",
-      "when": 1785189600000,
-      "tag": "0063_reliable_community_chat",
-      "breakpoints": true
-    },
-    {
-      "idx": 64,
-      "version": "7",
-      "when": 1785276000000,
-      "tag": "0064_community_message_reliability",
-      "breakpoints": true
-    },
-    {
-      "idx": 65,
-      "version": "7",
-      "when": 1785362400000,
-      "tag": "0065_community_upload_manifests",
-      "breakpoints": true
-    },
-    {
-      "idx": 66,
-      "version": "7",
-      "when": 1785366000000,
-      "tag": "0066_community_media_candidates",
-      "breakpoints": true
-    },
-    {
-      "idx": 67,
-      "version": "7",
-      "when": 1785452400000,
-      "tag": "0067_community_chat_privacy_fencing",
-      "breakpoints": true
-    },
-    {
-      "idx": 68,
-      "version": "7",
-      "when": 1785456000000,
-      "tag": "0068_community_object_convergence",
-      "breakpoints": true
-    },
-    {
-      "idx": 69,
-      "version": "7",
-      "when": 1785459600000,
-      "tag": "0069_community_object_hot_queue",
-      "breakpoints": true
     }
   ]
 }

@@ -2,8 +2,6 @@
 
 Production creates a PostgreSQL custom-format dump every night and uploads it to the private configured S3 storage under `system/database-backups/`. The upload is verified by reading object metadata before old backups are removed. The default retention period is 30 days, and reserve S3 mirroring is used automatically when configured.
 
-Every API or full production deployment runs two blocking backups. `backup-before-migration` verifies the backup path before writers are interrupted. After API and worker quiescence is verified, `backup-after-quiesce` creates the authoritative restore point containing every commit accepted before the migration barrier. Both use the freshly built API image and verify the S3-backed custom-format dump before `drizzle-kit migrate`; a failed dump, upload, metadata verification, or S3 configuration stops deployment before schema changes. Keep both emitted backup keys with the deployment log and use the post-quiesce key for migration recovery.
-
 Install or refresh the timer after a successful deployment:
 
 ```bash

@@ -3,8 +3,6 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const component = readFileSync(resolve(__dirname, "CommunitySection.vue"), "utf8");
-const topicList = readFileSync(resolve(__dirname, "ChatTopicList.vue"), "utf8");
-const room = readFileSync(resolve(__dirname, "ChatRoom.vue"), "utf8");
 const styles = readFileSync(resolve(__dirname, "community.css"), "utf8");
 const client = readFileSync(resolve(__dirname, "../../api/client.ts"), "utf8");
 const i18n = readFileSync(resolve(__dirname, "../app/i18n.ts"), "utf8");
@@ -19,9 +17,9 @@ describe("admin-only community topic UI", () => {
   });
 
   it("marks private topics in the list and room header", () => {
-    expect(topicList).toContain('class="admin-only-topic-badge"');
-    expect(topicList).toContain('t("communityAdminOnlyBadge")');
-    expect(room).toContain('t("communityAdminOnlyRoom")');
+    expect(component).toContain('class="admin-only-topic-badge"');
+    expect(component).toContain('t("communityAdminOnlyBadge")');
+    expect(component).toContain('t("communityAdminOnlyRoom")');
     expect(i18n).toContain('communityAdminOnlyBadge: "Только админы"');
     expect(i18n).toContain('communityAdminOnlyBadge: "Admins only"');
   });

@@ -29,8 +29,6 @@ x-api-environment: &api-environment
   S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
   S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
   S3_SIGNED_URL_TTL_SECONDS: ${S3_SIGNED_URL_TTL_SECONDS:-3600}
-  CLAMAV_HOST: clamav
-  CLAMAV_PORT: 3310
   UPLOADS_DIR: /app/uploads
 
 x-api-service: &api-service
@@ -99,28 +97,6 @@ services:
       - CHOWN
     read_only: true
 
-  clamav:
-    image: clamav/clamav:1.4
-    restart: unless-stopped
-    expose:
-      - "3310"
-    volumes:
-      - clamav-signatures:/var/lib/clamav
-    healthcheck:
-      test: ["CMD-SHELL", "clamdscan --ping 1 >/dev/null 2>&1"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /tmp
-    mem_limit: ${CLAMAV_MEMORY_LIMIT:-4g}
-    mem_reservation: 3g
-    cpus: "0.75"
-    pids_limit: 256
-
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
@@ -171,9 +147,6 @@ services:
     environment:
       <<: *api-environment
       RUN_BACKGROUND_JOBS: true
-    mem_limit: 1g
-    cpus: "1.00"
-    pids_limit: 256
 
   migrate:
     image: club-pwa-api:latest
@@ -237,6 +210,5 @@ services:
 volumes:
   postgres-data:
   api-uploads:
-  clamav-signatures:
   caddy-data:
   caddy-config:

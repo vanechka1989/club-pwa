@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import "./community.css";
 import "./communityRoute.css";
-import type {
-  ClubMessage,
-  ClubTopic,
-  CommunityMessageSearchResult,
-  CommunityNotificationMode,
-  CommunityUploadKind
-} from "@club/shared";
-import { Lock, Plus, Search } from "lucide-vue-next";
+import { resolveDisplayName, type ClubMessage, type ClubTopic, type MessageReaction } from "@club/shared";
+import { ArrowLeft, Ban, BarChart3, Camera, ChevronDown, Image as ImageIcon, LoaderCircle, Lock, MessageCircle, Mic, MoreVertical, Paperclip, Pause, Pin, PinOff, Play, Plus, RotateCcw, Send, Smile, Square, Trash2, UserX, X } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createClubMessage,
+  createClubVoiceMessage,
+  createClubImageMessage,
   createClubPoll,
-  createCommunityUploadMessage,
   voteInClubPoll,
   closeClubPoll,
   createCommunityEventSource,
@@ -22,58 +17,46 @@ import {
   deleteTopicAuthorMessages,
   deleteTopicMessages,
   getClubMessages,
-  getCommunityMessageContext,
   getCommunityTopics,
-  markCommunityTopicRead,
   reactToClubMessage,
   setClubMessagePinned,
   revokeTopicUserMute,
-  updateCommunityTopicNotificationSettings,
   updateClubTopicSettings,
   updateModerationStatus
 } from "@/api/client";
+import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
 import { UiPageHeader } from "@/features/ui";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useSessionStore } from "@/stores/session";
-import { useCommunityUploadsStore } from "@/stores/communityUploads";
-import { releaseCommunityUploadTokens } from "./directUpload";
 import { hasAdminCapability } from "@/features/admin/adminCapabilities";
-import ChatRoom from "./ChatRoom.vue";
-import ChatSearchPanel from "./ChatSearchPanel.vue";
-import ChatTopicList from "./ChatTopicList.vue";
-import { configureCommunityDrafts, createCommunityDraftScope, loadDraft, resetCommunityDrafts } from "./communityDrafts";
-import {
-  configureCommunityOutbox,
-  flushQueuedMessages,
-  getQueuedTextMessages,
-  mergeConfirmedCommunityMessages,
-  reconcileQueuedMessages,
-  resetCommunityOutbox,
-  type QueuedTextMessage
-} from "./communityOutbox";
-import { authorName, captureCommunityServerClock, communityErrorStatus, headChanged, communityMessagesSignature, communityMuteComposerText, communityOptimisticMessage, getOrCreateCommunityDeviceId, needsUnreadHistory, sortCommunityMessagesNewestFirst, type ChatPollDraft, type CommunityServerClock, type VisibleMessageReaction } from "./communityViewModel";
-import { useCommunityTopicState } from "./useCommunityTopicState";
-import { useCommunityTextMutations } from "./useCommunityTextMutations";
-import { captureCommunityViewport, restoreCommunityViewport } from "./communityViewport";
+import ChatVoiceMessage from "./ChatVoiceMessage.vue";
+import ChatVoiceWaveform from "./ChatVoiceWaveform.vue";
+import ChatImageGallery from "./ChatImageGallery.vue";
+import ChatPollComposer from "./ChatPollComposer.vue";
+import ChatPollMessage from "./ChatPollMessage.vue";
+import { useVoiceRecorder } from "./useVoiceRecorder";
+import { useImageDraft } from "./useImageDraft";
+import { formatVoiceTime } from "./voiceWaveform";
+
 const { t } = useI18n();
 const session = useSessionStore();
 const notifications = useNotificationsStore();
 const appDialogs = useAppDialogsStore();
-const communityUploads = useCommunityUploadsStore();
-const emit = defineEmits<{ chatOpenChange: [isOpen: boolean] }>();
+
+const emit = defineEmits<{
+  chatOpenChange: [isOpen: boolean];
+}>();
+
 const topics = ref<ClubTopic[]>([]);
 const messages = ref<ClubMessage[]>([]);
-const queuedTextMessages = ref<QueuedTextMessage[]>([]);
-const serverClock = ref<CommunityServerClock | null>(null);
 const messagesNextCursor = ref<string | null>(null);
 const loadingOlderMessages = ref(false);
+const messagePageInitialized = ref(false);
 const hasLoadedOlderMessages = ref(false);
 const selectedTopic = ref<ClubTopic | null>(null);
-const initialUnreadCount = ref(0);
-const showMessageSearch = ref(false);
 const loading = ref(false);
 const mutedUntil = ref<string | null>(null);
 const mutedPermanently = ref(false);
@@ -81,65 +64,94 @@ const newMessage = ref("");
 const newTopicTitle = ref("");
 const newTopicAdminOnly = ref(false);
 const showCreateTopic = ref(false);
+const showTopicAdminMenu = ref(false);
+const showEmojiPicker = ref(false);
+const showPinnedMessages = ref(false);
 const replyToMessage = ref<ClubMessage | null>(null);
-const editMessage = ref<ClubMessage | null>(null);
-const draftBeforeEdit = ref("");
 const activeModerationMessageId = ref<string | null>(null);
+const activeReactionMessageId = ref<string | null>(null);
+const pointerStartX = ref<number | null>(null);
+const pointerStartY = ref<number | null>(null);
+const activeSwipeMessageId = ref<string | null>(null);
+const highlightedMessageId = ref<string | null>(null);
+const swipeOffset = ref(0);
+const suppressNextMessageClick = ref(false);
 const messageSaving = ref(false);
-const submittingDraftIds = ref<string[]>([]);
 const topicSaving = ref(false);
-const notificationSaving = ref(false);
 const communityError = ref<string | null>(null);
+const showAttachmentMenu = ref(false);
+const showPollComposer = ref(false);
 const showDeleteTopicMessagesConfirm = ref(false);
 const deleteTopicMessagesBusy = ref(false);
-const composerResetVersion = ref(0);
-const reactionCompletedVersion = ref(0);
-const interactionResetVersion = ref(0);
-const chatRoom = ref<{
-  getMessagesElement: () => HTMLElement | null;
-  scrollToBottom: () => Promise<void>;
-  scrollToMessage: (messageId: string, behavior?: ScrollBehavior) => void;
-} | null>(null);
+const imageInput = ref<HTMLInputElement | null>(null);
+const cameraInput = ref<HTMLInputElement | null>(null);
+const messagesEnd = ref<HTMLElement | null>(null);
+const messagesList = ref<HTMLElement | null>(null);
 const muteAlertShown = ref(false);
+const topicReadAt = ref<Record<string, string>>({});
 let realtimeFallbackTimer: ReturnType<typeof globalThis.setInterval> | null = null;
 let realtimeSyncTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 let communityEventSource: EventSource | null = null;
 let realtimeConnected = false;
-let componentMounted = false;
-let accountGeneration = 0;
-let permissionGeneration = 0;
-let topicGeneration = 0;
-let messageRequestGeneration = 0;
-let historyRequestGeneration = 0;
-let historyCursorGeneration = 0;
-let topicsRequestGeneration = 0;
-let notificationRequestGeneration = 0;
-let searchJumpGeneration = 0;
-let searchTrigger: HTMLElement | null = null;
-const refreshRequests = new Map<string, { queued: boolean; promise: Promise<void> }>();
-const topicListRequests = new Map<string, Promise<void>>();
-const deliverySequenceByKey = new Map<string, number>();
+let messageHighlightTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+let refreshInFlight = false;
+let refreshSelectedTopicQueued = false;
+let topicsRefreshInFlight = false;
 let lastCommunityErrorNotification: { text: string; shownAt: number } | null = null;
+const topicReadStorageKey = "club-community-topic-read-at";
+const voiceRecorder = useVoiceRecorder();
+const imageDraft = useImageDraft();
+const voicePreviewAudio = ref<HTMLAudioElement | null>(null);
+const voicePreviewPlaying = ref(false);
+const voicePreviewCurrentTime = ref(0);
+const voicePreviewDuration = ref(0);
+
+function resetVoicePreviewPlayback() {
+  voicePreviewAudio.value?.pause();
+  voicePreviewPlaying.value = false;
+  voicePreviewCurrentTime.value = 0;
+  voicePreviewDuration.value = 0;
+}
+
+async function toggleVoicePreviewPlayback() {
+  const audio = voicePreviewAudio.value;
+  if (!audio) return;
+  if (!audio.paused) {
+    audio.pause();
+    return;
+  }
+  await audio.play().catch(() => undefined);
+}
+
+function seekVoicePreview(value: number) {
+  if (!voicePreviewAudio.value) return;
+  voicePreviewAudio.value.currentTime = value;
+  voicePreviewCurrentTime.value = value;
+}
+
+function cancelVoiceDraft() {
+  resetVoicePreviewPlayback();
+  voiceRecorder.cancel();
+}
+
+watch(() => voiceRecorder.previewUrl.value, () => resetVoicePreviewPlayback());
+
 const isModerator = computed(() =>
   hasAdminCapability(session.user?.role, session.user?.adminPermissions, "community")
 );
 const isOwner = computed(() => session.user?.role === "owner");
 const hasCommunityAccess = computed(() => isModerator.value || session.user?.membershipStatus === "active");
-const authorizationFingerprint = computed(() => {
-  const user = session.user;
-  return user
-    ? [
-        user.id,
-        user.role,
-        user.realRole,
-        user.membershipStatus,
-        [...(user.adminPermissions ?? [])].sort().join(",")
-      ].join("\u001f")
-    : "";
-});
 const isMuted = computed(() => mutedPermanently.value || Boolean(mutedUntil.value));
+const orderedMessages = computed(() => [...messages.value].reverse());
+const pinnedMessages = computed(() =>
+  orderedMessages.value.filter((message) => Boolean(message.pinnedAt) && message.status === "visible" && !message.isSystem)
+);
+const latestPinnedMessage = computed(() => pinnedMessages.value.at(-1) ?? null);
+const activeReactionMessage = computed(
+  () => orderedMessages.value.find((message) => message.id === activeReactionMessageId.value) ?? null
+);
 const activeModerationMessage = computed(
-  () => messages.value.find((message) => message.id === activeModerationMessageId.value) ?? null
+  () => orderedMessages.value.find((message) => message.id === activeModerationMessageId.value) ?? null
 );
 const activeTopics = computed(() => topics.value.filter((topic) => topic.isPublished));
 const archivedTopics = computed(() => topics.value.filter((topic) => !topic.isPublished && topic.archivedUntil));
@@ -151,7 +163,17 @@ const canWrite = computed(
     selectedTopic.value.isPublished &&
     !isMuted.value
 );
-const muteComposerText = computed(() => communityMuteComposerText(mutedPermanently.value, mutedUntil.value));
+const muteComposerText = computed(() => {
+  if (mutedPermanently.value) {
+    return "Бессрочный мут. Вы пока не можете писать в чат.";
+  }
+
+  if (mutedUntil.value) {
+    return `Мут до ${new Date(mutedUntil.value).toLocaleString("ru-RU")}. Вы пока не можете писать в чат.`;
+  }
+
+  return "";
+});
 const unavailableComposerText = computed(() => {
   if (isMuted.value) return muteComposerText.value;
   if (selectedTopic.value?.isLocked && !isModerator.value) {
@@ -159,199 +181,155 @@ const unavailableComposerText = computed(() => {
   }
   return "Отправка сообщений сейчас недоступна.";
 });
-function closeModerationSheet() { activeModerationMessageId.value = null; }
-const communityDeviceId = getOrCreateCommunityDeviceId("club-community-device-id-v1");
-function hasNewReplyToMe(topic: ClubTopic) { return Boolean(topic.latestReplyToMeAt && topic.unreadCount > 0); }
+const quickEmoji = ["👍", "🔥", "❤️", "😂", "👏", "💩"];
+const reactionOptions: Array<{ value: Exclude<MessageReaction, "like" | "dislike">; label: string }> = [
+  { value: "thumbs_up", label: "👍" },
+  { value: "fire", label: "🔥" },
+  { value: "heart", label: "❤️" },
+  { value: "laugh", label: "😂" },
+  { value: "clap", label: "👏" },
+  { value: "poop", label: "💩" }
+];
 
-function applyAuthoritativeTopicState(
-  topicId: string,
-  state: { unreadCount: number; notificationMode: ClubTopic["notificationMode"] }
-) {
-  topics.value = topics.value.map((topic) => topic.id === topicId ? { ...topic, ...state } : topic);
-  if (selectedTopic.value?.id === topicId) {
-    selectedTopic.value = { ...selectedTopic.value, ...state };
+function authorName(message: ClubMessage) {
+  return resolveDisplayName(message.author);
+}
+
+function authorInitial(message: ClubMessage) {
+  return authorName(message).slice(0, 1).toUpperCase();
+}
+
+function closeModerationSheet() {
+  activeModerationMessageId.value = null;
+}
+
+function handleModerationSheetKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && activeModerationMessageId.value) {
+    closeModerationSheet();
   }
 }
 
-type AccountRequestOwner = { userId: string; generation: number; permissionGeneration: number };
-function captureAccountOwner(): AccountRequestOwner | null {
-  const userId = session.user?.id;
-  return userId ? { userId, generation: accountGeneration, permissionGeneration } : null;
+function avatarImageStyle(author: ClubMessage["author"]) {
+  const positionX = author.avatarPositionX ?? 50;
+  const positionY = author.avatarPositionY ?? 50;
+  const scale = author.avatarScale ?? 1;
+
+  return {
+    objectPosition: `${positionX}% ${positionY}%`,
+    transform: `scale(${scale})`,
+    transformOrigin: `${positionX}% ${positionY}%`
+  };
 }
 
-function isCurrentAccount(owner: AccountRequestOwner | null) {
-  return Boolean(
-    owner
-    && owner.generation === accountGeneration
-    && owner.permissionGeneration === permissionGeneration
-    && session.user?.id === owner.userId
-  );
+function messageAuthorPhotoUrl(message: ClubMessage) {
+  return isOwnMessage(message) ? (session.user?.photoUrl ?? message.author.photoUrl) : message.author.photoUrl;
 }
 
-function isCurrentRoom(owner: AccountRequestOwner | null, expectedTopicId: string, expectedTopicGeneration: number) {
-  return isCurrentAccount(owner)
-    && topicGeneration === expectedTopicGeneration
-    && selectedTopic.value?.id === expectedTopicId;
-}
-
-type RoomRequestOwner = {
-  account: AccountRequestOwner;
-  topicId: string;
-  generation: number;
-};
-
-function captureRoomRequestOwner(): RoomRequestOwner | null {
-  const account = captureAccountOwner();
-  const topicId = selectedTopic.value?.id;
-  return account && topicId ? { account, topicId, generation: topicGeneration } : null;
-}
-
-function isCurrentRoomRequest(owner: RoomRequestOwner | null) {
-  return Boolean(owner && isCurrentRoom(owner.account, owner.topicId, owner.generation));
-}
-
-function invalidateTopicRequests() {
-  topicGeneration += 1;
-  historyRequestGeneration += 1;
-  historyCursorGeneration += 1;
-  notificationRequestGeneration += 1;
-  loadingOlderMessages.value = false;
-  notificationSaving.value = false;
-}
-
-function settleGenerationOwnedUiState() {
-  invalidateTopicRequests();
-  messageRequestGeneration += 1;
-  topicsRequestGeneration += 1;
-  refreshRequests.clear();
-  topicListRequests.clear();
-  loading.value = false;
-  messageSaving.value = false;
-  topicSaving.value = false;
-  deleteTopicMessagesBusy.value = false;
-}
-
-const topicState = useCommunityTopicState({
-  markRead: async (topicId, messageId) => {
-    const owner = captureAccountOwner();
-    const state = await markCommunityTopicRead(topicId, messageId);
-    if (isCurrentAccount(owner)) applyAuthoritativeTopicState(topicId, state);
-    return state;
+function messageAuthorAvatarStyle(message: ClubMessage) {
+  if (!isOwnMessage(message) || !session.user) {
+    return avatarImageStyle(message.author);
   }
-});
 
-function isOptimisticMessage(message: ClubMessage) {
-  return message.id.startsWith("local:");
-}
-
-function mergeOptimisticMessages(serverMessages: ClubMessage[]) {
-  const viewer = session.user;
-  if (!viewer) return serverMessages;
-  const optimistic = queuedTextMessages.value
-    .filter((entry) => entry.topicId === selectedTopic.value?.id)
-    .map((entry) => communityOptimisticMessage(entry, viewer));
-  return sortCommunityMessagesNewestFirst(
-    mergeConfirmedCommunityMessages([], [...optimistic, ...serverMessages]),
-    deliverySequenceByKey
-  );
-}
-
-function syncQueuedMessages(entries = getQueuedTextMessages()) {
-  for (const entry of entries) deliverySequenceByKey.set(entry.deliveryKey, entry.sequence);
-  queuedTextMessages.value = entries;
-  if (selectedTopic.value) {
-    messages.value = mergeOptimisticMessages(messages.value.filter((message) => !isOptimisticMessage(message)));
-  }
-}
-
-function appendConfirmedTextMessage(message: ClubMessage) {
-  if (selectedTopic.value?.id !== message.topicId) {
-    void loadTopics();
-    return;
-  }
-  const serverMessages = messages.value.filter((item) => !isOptimisticMessage(item));
-  const isNewConfirmation = !serverMessages.some((item) =>
-    item.id === message.id
-    || Boolean(item.clientOperationId && item.clientOperationId === message.clientOperationId)
-  );
-  messages.value = mergeOptimisticMessages(mergeConfirmedCommunityMessages(serverMessages, [message]));
-  if (isNewConfirmation) {
-    selectedTopic.value = { ...selectedTopic.value, messagesCount: selectedTopic.value.messagesCount + 1 };
-    topics.value = topics.value.map((topic) => topic.id === message.topicId ? selectedTopic.value! : topic);
-  }
-  void scrollToBottom();
-}
-
-function configurePersistedCommunityState(userId: string) {
-  configureCommunityDrafts({ userId, deviceId: communityDeviceId });
-  configureCommunityOutbox<ClubMessage>({
-    userId,
-    deviceId: communityDeviceId,
-    send: async (input) => createClubMessage(input.topicId, input.body, input.replyToMessageId, {
-      clientOperationId: input.clientOperationId,
-      mentions: input.mentions
-    }),
-    onChange: syncQueuedMessages,
-    onConfirmed: appendConfirmedTextMessage
+  return avatarImageStyle({
+    ...message.author,
+    avatarPositionX: session.user.avatarPositionX,
+    avatarPositionY: session.user.avatarPositionY,
+    avatarScale: session.user.avatarScale
   });
 }
 
-const {
-  sendText: handleSendMessage,
-  changeDraft: handleDraftChange,
-  startEdit: startEditMessage,
-  cancelEdit: cancelEditMessage,
-  saveEdit: handleSaveEdit,
-  deleteOwn: handleDeleteOwnMessage,
-  retry: handleRetryMessage
-} = useCommunityTextMutations({
-  messages,
-  queuedMessages: queuedTextMessages,
-  draft: newMessage,
-  reply: replyToMessage,
-  editing: editMessage,
-  draftBeforeEdit,
-  activeActionId: activeModerationMessageId,
-  saving: messageSaving,
-  composerResetVersion,
-  captureMutationRoom: () => {
-    const owner = captureAccountOwner();
-    const topicId = selectedTopic.value?.id;
-    const generation = topicGeneration;
-    return owner && topicId
-      ? {
-          topicId,
-          draftScope: createCommunityDraftScope({ userId: owner.userId, deviceId: communityDeviceId }),
-          isCurrent: () => isCurrentRoom(owner, topicId, generation)
-        }
-      : null;
-  },
-  confirmDelete: () => appDialogs.confirm({
-    title: "Удалить сообщение?",
-    description: "В чате останется отметка об удалённом сообщении.",
-    confirmLabel: "Удалить",
-    tone: "danger"
-  }),
-  clearError: clearCommunityError,
-  showError: showCommunityError,
-  applyMute: (state) => {
-    mutedUntil.value = state.mutedUntil ?? null;
-    mutedPermanently.value = Boolean(state.mutedPermanently);
-    showMuteAlert();
-  }
-});
-
-async function refreshReadObservation(owner: AccountRequestOwner, topicId: string, expectedTopicGeneration: number) {
-  if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
-  const serverMessages = messages.value.filter((message) => !isOptimisticMessage(message));
-  topicState.selectTopic(topicId, serverMessages);
-  await nextTick();
-  if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
-  const element = chatRoom.value?.getMessagesElement();
-  if (element) topicState.observeVisibleMessages(element);
+function reactionLabel(reaction: MessageReaction) {
+  return reactionOptions.find((option) => option.value === reaction)?.label ?? "";
 }
 
-function clearCommunityError() { communityError.value = null; }
+function isVisibleReaction(reaction: MessageReaction): reaction is Exclude<MessageReaction, "like" | "dislike"> {
+  return reactionOptions.some((option) => option.value === reaction);
+}
+
+function visibleReactionCounts(message: ClubMessage) {
+  return message.reactionCounts.filter(
+    (reaction): reaction is { reaction: Exclude<MessageReaction, "like" | "dislike">; count: number } =>
+      isVisibleReaction(reaction.reaction)
+  );
+}
+
+function formatMessageTime(value: string) {
+  return new Date(value).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function formatMuteLabel(message: ClubMessage) {
+  if (!message.authorMute) {
+    return "";
+  }
+
+  if (message.authorMute.kind === "permanent") {
+    return "Мут бессрочно";
+  }
+
+  return `Мут до ${message.authorMute.expiresAt ? new Date(message.authorMute.expiresAt).toLocaleString("ru-RU") : ""}`;
+}
+
+function isOwnMessage(message: ClubMessage) {
+  return message.author.id === session.user?.id;
+}
+
+function isReplyToMe(message: ClubMessage) {
+  return message.replyTo?.author.id === session.user?.id && !isOwnMessage(message);
+}
+
+function loadTopicReadState() {
+  try {
+    topicReadAt.value = JSON.parse(localStorage.getItem(topicReadStorageKey) ?? "{}") as Record<string, string>;
+  } catch {
+    topicReadAt.value = {};
+  }
+}
+
+function markTopicRead(topicId: string) {
+  topicReadAt.value = {
+    ...topicReadAt.value,
+    [topicId]: new Date().toISOString()
+  };
+  localStorage.setItem(topicReadStorageKey, JSON.stringify(topicReadAt.value));
+}
+
+function hasNewReplyToMe(topic: ClubTopic) {
+  if (!topic.latestReplyToMeAt) {
+    return false;
+  }
+
+  const lastReadAt = topicReadAt.value[topic.id];
+  return !lastReadAt || new Date(topic.latestReplyToMeAt) > new Date(lastReadAt);
+}
+
+function getErrorStatus(reason: unknown) {
+  if (typeof reason !== "object" || !reason) {
+    return null;
+  }
+
+  if ("status" in reason && typeof reason.status === "number") {
+    return reason.status;
+  }
+
+  if ("statusCode" in reason && typeof reason.statusCode === "number") {
+    return reason.statusCode;
+  }
+
+  if ("response" in reason && typeof reason.response === "object" && reason.response && "status" in reason.response) {
+    return typeof reason.response.status === "number" ? reason.response.status : null;
+  }
+
+  return null;
+}
+
+function clearCommunityError() {
+  communityError.value = null;
+}
 
 function showCommunityError(text: string) {
   communityError.value = text;
@@ -370,18 +348,132 @@ function showMuteAlert() {
   notifications.showError(message);
 }
 
+function appendEmoji(emoji: string) {
+  newMessage.value = `${newMessage.value}${emoji}`;
+  showEmojiPicker.value = false;
+}
+
 function startReply(message: ClubMessage) {
   replyToMessage.value = message;
   newMessage.value = newMessage.value || "";
 }
 
+function resetSwipeTracking() {
+  pointerStartX.value = null;
+  pointerStartY.value = null;
+  activeSwipeMessageId.value = null;
+  swipeOffset.value = 0;
+}
+
+function startSwipeTracking(message: ClubMessage, clientX: number, clientY: number) {
+  if (message.isSystem) {
+    return;
+  }
+
+  pointerStartX.value = clientX;
+  pointerStartY.value = clientY;
+  activeSwipeMessageId.value = message.id;
+  swipeOffset.value = 0;
+}
+
+function updateSwipeTracking(clientX: number, clientY: number, message: ClubMessage) {
+  if (pointerStartX.value === null || pointerStartY.value === null || activeSwipeMessageId.value !== message.id) {
+    return;
+  }
+
+  const deltaX = clientX - pointerStartX.value;
+  const deltaY = Math.abs(clientY - pointerStartY.value);
+  if (deltaY > 56) {
+    swipeOffset.value = 0;
+    return;
+  }
+
+  swipeOffset.value = Math.max(-58, Math.min(58, deltaX));
+}
+
+function finishSwipeTracking(clientX: number, clientY: number, message: ClubMessage) {
+  if (pointerStartX.value === null || pointerStartY.value === null || activeSwipeMessageId.value !== message.id) {
+    resetSwipeTracking();
+    return false;
+  }
+
+  const deltaX = clientX - pointerStartX.value;
+  const deltaY = Math.abs(clientY - pointerStartY.value);
+  resetSwipeTracking();
+
+  if (Math.abs(deltaX) > 44 && deltaY < 46) {
+    startReply(message);
+    activeReactionMessageId.value = null;
+    suppressNextMessageClick.value = true;
+    window.setTimeout(() => {
+      suppressNextMessageClick.value = false;
+    }, 250);
+    return true;
+  }
+
+  return false;
+}
+
+function swipeStyle(message: ClubMessage) {
+  return activeSwipeMessageId.value === message.id
+    ? {
+        transform: `translateX(${swipeOffset.value}px)`
+      }
+    : undefined;
+}
+
+function swipeCueSide() {
+  return swipeOffset.value < 0 ? "left" : "right";
+}
+
+function handlePointerDown(event: PointerEvent, message: ClubMessage) {
+  startSwipeTracking(message, event.clientX, event.clientY);
+}
+
+function handlePointerMove(event: PointerEvent, message: ClubMessage) {
+  updateSwipeTracking(event.clientX, event.clientY, message);
+}
+
+function handlePointerUp(event: PointerEvent, message: ClubMessage) {
+  finishSwipeTracking(event.clientX, event.clientY, message);
+}
+
+function handleTouchStart(event: TouchEvent, message: ClubMessage) {
+  const touch = event.changedTouches[0];
+  if (touch) {
+    startSwipeTracking(message, touch.clientX, touch.clientY);
+  }
+}
+
+function handleTouchMove(event: TouchEvent, message: ClubMessage) {
+  const touch = event.changedTouches[0];
+  if (touch) {
+    updateSwipeTracking(touch.clientX, touch.clientY, message);
+  }
+}
+
+function handleTouchEnd(event: TouchEvent, message: ClubMessage) {
+  const touch = event.changedTouches[0];
+  if (touch) {
+    finishSwipeTracking(touch.clientX, touch.clientY, message);
+  }
+}
+
+function openReactionPicker(message: ClubMessage) {
+  if (message.isSystem || suppressNextMessageClick.value) {
+    return;
+  }
+
+  activeReactionMessageId.value = activeReactionMessageId.value === message.id ? null : message.id;
+}
+
 async function scrollToBottom() {
   await nextTick();
-  await chatRoom.value?.scrollToBottom();
+  messagesEnd.value?.scrollIntoView({ block: "end" });
 }
 
 function isNearBottom() {
-  const element = chatRoom.value?.getMessagesElement();
+  const element = messagesList.value;
   if (!element) {
     return true;
   }
@@ -389,17 +481,52 @@ function isNearBottom() {
   return element.scrollHeight - element.scrollTop - element.clientHeight < 96;
 }
 
+function messageSignature(message: ClubMessage) {
+  return [
+    message.id,
+    message.status,
+    message.body,
+    message.kind,
+    message.voice?.url ?? "",
+    message.voice?.deletedAt ?? "",
+    message.images.map((image) => `${image.id}:${image.url ?? ""}:${image.deletedAt ?? ""}`).join("|"),
+    message.poll ? `${message.poll.id}:${message.poll.closedAt ?? ""}:${message.poll.options.map((option) => `${option.id}:${option.votesCount}:${option.selected}`).join("|")}` : "",
+    message.createdAt,
+    message.author.photoUrl ?? "",
+    message.author.avatarPositionX ?? "",
+    message.author.avatarPositionY ?? "",
+    message.author.avatarScale ?? "",
+    message.likesCount,
+    message.dislikesCount,
+    message.reactionCounts.map((reaction) => `${reaction.reaction}:${reaction.count}`).join(","),
+    message.myReaction ?? "",
+    message.authorMute?.id ?? "",
+    message.authorMute?.kind ?? "",
+    message.authorMute?.expiresAt ?? "",
+    message.replyTo?.id ?? "",
+    message.replyTo?.body ?? "",
+    message.pinnedAt ?? ""
+  ].join("\u001f");
+}
+
+function scrollToMessage(messageId: string) {
+  showPinnedMessages.value = false;
+  highlightedMessageId.value = messageId;
+  if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
+  nextTick(() => document.getElementById(`chat-message-${messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  messageHighlightTimer = globalThis.setTimeout(() => {
+    if (highlightedMessageId.value === messageId) highlightedMessageId.value = null;
+    messageHighlightTimer = null;
+  }, 1_800);
+}
+
 async function handleTogglePin(message: ClubMessage) {
-  const room = captureRoomRequestOwner();
-  if (!room) return;
   try {
     const response = await setClubMessagePinned(message.id, !message.pinnedAt);
-    if (!isCurrentRoomRequest(room)) return;
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
     activeModerationMessageId.value = null;
   } catch (error) {
-    if (!isCurrentRoomRequest(room)) return;
-    if (communityErrorStatus(error) === 409) {
+    if (getErrorStatus(error) === 409) {
       activeModerationMessageId.value = null;
       notifications.showInfo("Можно закрепить не больше 5 сообщений.");
       return;
@@ -408,146 +535,108 @@ async function handleTogglePin(message: ClubMessage) {
   }
 }
 
-function refreshSelectedTopic({ keepScroll = true, silent = false, deferPosition = false } = {}) {
-  const owner = captureAccountOwner();
-  const topicId = selectedTopic.value?.id;
-  const expectedTopicGeneration = topicGeneration;
-  if (!owner || !hasCommunityAccess.value || !topicId) return Promise.resolve();
-  const requestKey = `${owner.generation}\u001f${expectedTopicGeneration}\u001f${topicId}`;
-  const active = refreshRequests.get(requestKey);
-  if (active) {
-    active.queued = true;
-    return active.promise;
-  }
-  const requestGeneration = ++messageRequestGeneration;
-  const requestState = { queued: false, promise: Promise.resolve() };
-  requestState.promise = Promise.resolve().then(async () => {
-    try {
-      const response = await getClubMessages(topicId);
-      if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== messageRequestGeneration) return;
-      serverClock.value = captureCommunityServerClock(response.serverTime);
-      const scrollElement = chatRoom.value?.getMessagesElement();
-      const viewportAnchor = captureCommunityViewport(scrollElement ?? null);
-      const previousScrollTop = scrollElement?.scrollTop ?? 0;
-      const shouldScroll = !keepScroll || isNearBottom();
-      const retainedOlderMessages = hasLoadedOlderMessages.value
-        ? messages.value.filter((message) => !response.messages.some((recent) => recent.id === message.id))
-        : [];
-      const confirmedMessages = reconcileQueuedMessages(response.messages);
-      const nextMessages = mergeOptimisticMessages([...confirmedMessages, ...retainedOlderMessages]);
-      const cursor = response.nextCursor ?? null;
-      const headShifted = headChanged(messages.value, messagesNextCursor.value, nextMessages, cursor);
-      const messagesChanged = communityMessagesSignature(messages.value) !== communityMessagesSignature(nextMessages);
-      if (messagesChanged) messages.value = nextMessages;
-      if (!hasLoadedOlderMessages.value) {
-        if (headShifted) {
-          historyCursorGeneration += 1;
-          historyRequestGeneration += 1;
-          loadingOlderMessages.value = false;
-        }
-        messagesNextCursor.value = cursor;
-      }
-      mutedUntil.value = response.mutedUntil;
-      mutedPermanently.value = response.mutedPermanently;
+function messagesSignature(nextMessages: ClubMessage[]) {
+  return nextMessages.map(messageSignature).join("\u001e");
+}
 
-      if (!messagesChanged) {
-        if (!deferPosition) await refreshReadObservation(owner, topicId, expectedTopicGeneration);
-        return;
-      }
-      if (shouldScroll && !deferPosition) {
-        await scrollToBottom();
-      } else if (scrollElement) {
-        await nextTick();
-        if (!isCurrentRoom(owner, topicId, expectedTopicGeneration)) return;
-        restoreCommunityViewport(scrollElement, viewportAnchor, previousScrollTop);
-      }
-      if (!deferPosition) await refreshReadObservation(owner, topicId, expectedTopicGeneration);
-    } catch {
-      if (!silent && isCurrentRoom(owner, topicId, expectedTopicGeneration)) showCommunityError("Не удалось обновить чат.");
-    } finally {
-      if (refreshRequests.get(requestKey) !== requestState) return;
-      refreshRequests.delete(requestKey);
-      if (requestState.queued && isCurrentRoom(owner, topicId, expectedTopicGeneration)) {
-        await refreshSelectedTopic({ keepScroll: true, silent: true, deferPosition });
-      }
+async function refreshSelectedTopic({ keepScroll = true, silent = false } = {}) {
+  if (!hasCommunityAccess.value || !selectedTopic.value) {
+    return;
+  }
+  if (refreshInFlight) {
+    refreshSelectedTopicQueued = true;
+    return;
+  }
+
+  refreshInFlight = true;
+  const scrollElement = messagesList.value;
+  const previousScrollTop = scrollElement?.scrollTop ?? 0;
+  const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
+  const shouldScroll = !keepScroll || isNearBottom();
+  try {
+    const response = await getClubMessages(selectedTopic.value.id);
+    const retainedOlderMessages = hasLoadedOlderMessages.value
+      ? messages.value.filter((message) => !response.messages.some((recent) => recent.id === message.id))
+      : [];
+    const nextMessages = [...response.messages, ...retainedOlderMessages];
+    const messagesChanged = messagesSignature(messages.value) !== messagesSignature(nextMessages);
+    if (messagesChanged) {
+      messages.value = nextMessages;
     }
-  });
-  refreshRequests.set(requestKey, requestState);
-  return requestState.promise;
+    if (!messagePageInitialized.value) {
+      messagesNextCursor.value = response.nextCursor ?? null;
+      messagePageInitialized.value = true;
+    }
+    mutedUntil.value = response.mutedUntil;
+    mutedPermanently.value = response.mutedPermanently;
+    markTopicRead(selectedTopic.value.id);
+
+    if (!messagesChanged) {
+      return;
+    }
+
+    if (shouldScroll) {
+      await scrollToBottom();
+    } else if (scrollElement) {
+      await nextTick();
+      scrollElement.scrollTop = previousScrollTop + (scrollElement.scrollHeight - previousScrollHeight);
+    }
+  } catch {
+    if (!silent) {
+      showCommunityError("Не удалось обновить чат.");
+    }
+  } finally {
+    refreshInFlight = false;
+    if (refreshSelectedTopicQueued) {
+      refreshSelectedTopicQueued = false;
+      void refreshSelectedTopic({ keepScroll: true, silent: true });
+    }
+  }
 }
 
 async function loadOlderMessages() {
   if (!selectedTopic.value || !messagesNextCursor.value || loadingOlderMessages.value) return;
-  const owner = captureAccountOwner();
-  const topicId = selectedTopic.value.id;
-  const cursor = messagesNextCursor.value;
-  const expectedTopicGeneration = topicGeneration;
-  const expectedCursorGeneration = historyCursorGeneration;
-  const requestGeneration = ++historyRequestGeneration;
-  if (!owner) return;
   loadingOlderMessages.value = true;
   try {
-    const response = await getClubMessages(topicId, cursor);
-    if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== historyRequestGeneration || expectedCursorGeneration !== historyCursorGeneration) return;
-    const scrollElement = chatRoom.value?.getMessagesElement();
-    const viewportAnchor = captureCommunityViewport(scrollElement ?? null);
-    const previousScrollTop = scrollElement?.scrollTop ?? 0;
-    const previousScrollHeight = scrollElement?.scrollHeight ?? 0;
+    const response = await getClubMessages(selectedTopic.value.id, messagesNextCursor.value);
     hasLoadedOlderMessages.value = true;
     const existingIds = new Set(messages.value.map((message) => message.id));
     messages.value = [...messages.value, ...response.messages.filter((message) => !existingIds.has(message.id))];
     messagesNextCursor.value = response.nextCursor ?? null;
-    historyCursorGeneration += 1;
-    if (scrollElement) {
-      await nextTick();
-      if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== historyRequestGeneration) return;
-      restoreCommunityViewport(scrollElement, viewportAnchor, previousScrollTop, previousScrollHeight);
-    }
   } catch {
-    if (isCurrentRoom(owner, topicId, expectedTopicGeneration)) showCommunityError("Не удалось загрузить предыдущие сообщения.");
+    showCommunityError("Не удалось загрузить предыдущие сообщения.");
   } finally {
-    if (isCurrentRoom(owner, topicId, expectedTopicGeneration) && requestGeneration === historyRequestGeneration) {
-      loadingOlderMessages.value = false;
-    }
+    loadingOlderMessages.value = false;
   }
 }
 
-function loadTopics({ showLoading = false } = {}) {
-  const owner = captureAccountOwner();
-  if (!owner || !hasCommunityAccess.value) return Promise.resolve();
-  const requestKey = `${owner.generation}\u001f${owner.userId}`;
-  const active = topicListRequests.get(requestKey);
-  if (active) return active;
-  const requestGeneration = ++topicsRequestGeneration;
-  if (showLoading) loading.value = true;
+async function loadTopics({ showLoading = false } = {}) {
+  if (!hasCommunityAccess.value || topicsRefreshInFlight) {
+    return;
+  }
+
+  topicsRefreshInFlight = true;
+  loading.value = showLoading;
   clearCommunityError();
-  let request!: Promise<void>;
-  request = Promise.resolve().then(async () => {
-    try {
-      const response = await getCommunityTopics();
-      if (!isCurrentAccount(owner) || requestGeneration !== topicsRequestGeneration) return;
-      topics.value = response.topics;
-      topicState.syncTopics(response.topics);
-      if (selectedTopic.value) {
-        selectedTopic.value = response.topics.find((topic) => topic.id === selectedTopic.value?.id) ?? selectedTopic.value;
-      }
-    } catch (reason) {
-      if (!isCurrentAccount(owner)) return;
-      if (communityErrorStatus(reason) === 403) {
-        invalidateTopicRequests();
-        topics.value = [];
-        selectedTopic.value = null;
-        clearCommunityError();
-        return;
-      }
-      showCommunityError("Не удалось загрузить общение.");
-    } finally {
-      if (topicListRequests.get(requestKey) === request) topicListRequests.delete(requestKey);
-      if (isCurrentAccount(owner)) loading.value = false;
+  try {
+    const response = await getCommunityTopics();
+    topics.value = response.topics;
+    if (selectedTopic.value) {
+      selectedTopic.value = response.topics.find((topic) => topic.id === selectedTopic.value?.id) ?? selectedTopic.value;
     }
-  });
-  topicListRequests.set(requestKey, request);
-  return request;
+  } catch (reason) {
+    if (getErrorStatus(reason) === 403) {
+      topics.value = [];
+      selectedTopic.value = null;
+      clearCommunityError();
+      return;
+    }
+
+    showCommunityError("Не удалось загрузить общение.");
+  } finally {
+    loading.value = false;
+    topicsRefreshInFlight = false;
+  }
 }
 
 function stopRealtimeFallback() {
@@ -559,9 +648,8 @@ function stopRealtimeFallback() {
 
 function startRealtimeFallback() {
   stopRealtimeFallback();
-  const owner = captureAccountOwner();
   realtimeFallbackTimer = globalThis.setInterval(() => {
-    if (!isCurrentAccount(owner) || document.visibilityState !== "visible") {
+    if (document.visibilityState !== "visible") {
       return;
     }
     if (selectedTopic.value) {
@@ -588,13 +676,11 @@ function scheduleRealtimeSync() {
   if (!hasCommunityAccess.value || document.visibilityState !== "visible") {
     return;
   }
-  const owner = captureAccountOwner();
   if (realtimeSyncTimer) {
     globalThis.clearTimeout(realtimeSyncTimer);
   }
   realtimeSyncTimer = globalThis.setTimeout(() => {
     realtimeSyncTimer = null;
-    if (!isCurrentAccount(owner)) return;
     if (selectedTopic.value) {
       void refreshSelectedTopic({ silent: true });
       return;
@@ -611,21 +697,17 @@ function startCommunityRealtime() {
   }
 
   const eventSource = createCommunityEventSource();
-  const owner = captureAccountOwner();
   communityEventSource = eventSource;
   eventSource.onopen = () => {
-    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     realtimeConnected = true;
     stopRealtimeFallback();
   };
   eventSource.addEventListener("ready", () => {
-    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     realtimeConnected = true;
     stopRealtimeFallback();
     scheduleRealtimeSync();
   });
   eventSource.addEventListener("community.changed", (rawEvent) => {
-    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     if (selectedTopic.value && rawEvent instanceof MessageEvent) {
       try {
         const event = JSON.parse(rawEvent.data) as { topicId?: string | null };
@@ -639,7 +721,6 @@ function startCommunityRealtime() {
     scheduleRealtimeSync();
   });
   eventSource.onerror = () => {
-    if (!isCurrentAccount(owner) || communityEventSource !== eventSource) return;
     realtimeConnected = false;
     startRealtimeFallback();
   };
@@ -655,122 +736,29 @@ async function openTopic(topic: ClubTopic) {
   if (!hasCommunityAccess.value) {
     return;
   }
-  searchJumpGeneration += 1;
-  void topicState.closeTopic();
-  invalidateTopicRequests();
+
+  cancelVoiceDraft();
   selectedTopic.value = topic;
-  initialUnreadCount.value = topic.unreadCount;
-  messageSaving.value = false;
   messages.value = [];
   messagesNextCursor.value = null;
+  messagePageInitialized.value = false;
   hasLoadedOlderMessages.value = false;
+  showTopicAdminMenu.value = false;
   activeModerationMessageId.value = null;
-  editMessage.value = null;
-  draftBeforeEdit.value = "";
-  composerResetVersion.value += 1;
-  interactionResetVersion.value += 1;
+  activeReactionMessageId.value = null;
   clearCommunityError();
-  newMessage.value = loadDraft(topic.id);
-  await refreshSelectedTopic({ keepScroll: false, deferPosition: true });
-  while (selectedTopic.value?.id === topic.id && messagesNextCursor.value && needsUnreadHistory(messages.value, session.user, initialUnreadCount.value)) {
-    const previousCursor = messagesNextCursor.value;
-    await loadOlderMessages();
-    if (messagesNextCursor.value === previousCursor) break;
-  }
-  if (selectedTopic.value?.id === topic.id) {
-    if (initialUnreadCount.value) { await nextTick(); await nextTick(); }
-    else await scrollToBottom();
-    const owner = captureAccountOwner();
-    if (owner) await refreshReadObservation(owner, topic.id, topicGeneration);
-  }
+  await refreshSelectedTopic({ keepScroll: false });
+  markTopicRead(topic.id);
   if ((mutedUntil.value || mutedPermanently.value) && !muteAlertShown.value) {
     muteAlertShown.value = true;
     showMuteAlert();
   }
-}
-function openMessageSearch(event?: Event | HTMLElement) {
-  const candidate = event instanceof HTMLElement ? event : event?.currentTarget ?? document.activeElement;
-  searchTrigger = candidate instanceof HTMLElement ? candidate : null;
-  showMessageSearch.value = true;
-}
-async function closeMessageSearch() {
-  searchJumpGeneration += 1;
-  showMessageSearch.value = false;
-  await nextTick();
-  searchTrigger?.focus();
-  searchTrigger = null;
-}
-function closeTopic() {
-  searchJumpGeneration += 1;
-  editMessage.value = null;
-  draftBeforeEdit.value = "";
-  selectedTopic.value = null;
-}
-async function handleNotificationMode(mode: CommunityNotificationMode) {
-  const topicId = selectedTopic.value?.id;
-  const owner = captureAccountOwner();
-  const expectedTopicGeneration = topicGeneration;
-  if (!topicId || !owner || notificationSaving.value || selectedTopic.value?.notificationMode === mode) return;
-  const requestGeneration = ++notificationRequestGeneration;
-  notificationSaving.value = true;
-  try {
-    const state = await updateCommunityTopicNotificationSettings(topicId, mode);
-    if (!isCurrentRoom(owner, topicId, expectedTopicGeneration) || requestGeneration !== notificationRequestGeneration) return;
-    applyAuthoritativeTopicState(topicId, state);
-    topicState.syncAuthoritativeState(topicId, state);
-  } catch {
-    if (isCurrentRoom(owner, topicId, expectedTopicGeneration) && requestGeneration === notificationRequestGeneration) {
-      showCommunityError("Не удалось изменить настройки уведомлений.");
-    }
-  } finally {
-    if (isCurrentRoom(owner, topicId, expectedTopicGeneration) && requestGeneration === notificationRequestGeneration) {
-      notificationSaving.value = false;
-    }
-  }
-}
-async function openSearchResult(result: CommunityMessageSearchResult) {
-  const owner = captureAccountOwner();
-  const targetTopic = topics.value.find((topic) => topic.id === result.topicId);
-  if (!owner || !targetTopic) throw Object.assign(new Error("search target unavailable"), { status: 404 });
-  const requestGeneration = ++searchJumpGeneration;
-  const [response, targetRoomState] = await Promise.all([
-    getCommunityMessageContext(result.topicId, result.messageId, { before: 20, after: 20 }),
-    getClubMessages(result.topicId)
-  ]);
-  if (!isCurrentAccount(owner) || requestGeneration !== searchJumpGeneration) throw new Error("stale search navigation");
-
-  void topicState.closeTopic();
-  invalidateTopicRequests();
-  serverClock.value = captureCommunityServerClock(response.serverTime);
-  selectedTopic.value = targetTopic;
-  initialUnreadCount.value = 0;
-  messages.value = [...response.messages].reverse();
-  messagesNextCursor.value = null;
-  hasLoadedOlderMessages.value = false;
-  mutedUntil.value = targetRoomState.mutedUntil;
-  mutedPermanently.value = targetRoomState.mutedPermanently;
-  activeModerationMessageId.value = null;
-  editMessage.value = null;
-  draftBeforeEdit.value = "";
-  interactionResetVersion.value += 1;
-  newMessage.value = loadDraft(targetTopic.id);
-  clearCommunityError();
-  await nextTick();
-  if (!isCurrentAccount(owner) || selectedTopic.value?.id !== result.topicId || requestGeneration !== searchJumpGeneration) {
-    throw new Error("stale search navigation");
-  }
-  topicState.selectTopic(result.topicId, messages.value);
-  chatRoom.value?.scrollToMessage(response.targetMessageId, "auto");
-  const element = chatRoom.value?.getMessagesElement();
-  if (element) topicState.observeVisibleMessages(element);
 }
 
 async function createTopic() {
   if (!newTopicTitle.value.trim()) {
     return;
   }
-  const owner = captureAccountOwner();
-  if (!owner) return;
 
   topicSaving.value = true;
   clearCommunityError();
@@ -780,35 +768,32 @@ async function createTopic() {
       description: null,
       isAdminOnly: newTopicAdminOnly.value
     });
-    if (!isCurrentAccount(owner)) return;
     topics.value = [response.topic, ...topics.value];
     newTopicTitle.value = "";
     newTopicAdminOnly.value = false;
     showCreateTopic.value = false;
   } catch {
-    if (isCurrentAccount(owner)) showCommunityError("Не удалось создать тему.");
+    showCommunityError("Не удалось создать тему.");
   } finally {
-    if (isCurrentAccount(owner)) topicSaving.value = false;
+    topicSaving.value = false;
   }
 }
 
 async function restoreTopic(topic: ClubTopic) {
-  const owner = captureAccountOwner();
-  if (!owner) return;
   const response = await updateClubTopicSettings(topic.id, { isPublished: true });
-  if (!isCurrentAccount(owner)) return;
   topics.value = topics.value.map((item) => (item.id === topic.id ? response.topic : item));
 }
 
 async function handleToggleTopicLock() {
-  const room = captureRoomRequestOwner();
-  if (!room || !selectedTopic.value) return;
+  if (!selectedTopic.value) {
+    return;
+  }
 
   const nextLocked = !selectedTopic.value.isLocked;
-  const response = await updateClubTopicSettings(room.topicId, { isLocked: nextLocked });
-  if (!isCurrentRoomRequest(room)) return;
+  const response = await updateClubTopicSettings(selectedTopic.value.id, { isLocked: nextLocked });
   selectedTopic.value = response.topic;
   topics.value = topics.value.map((topic) => (topic.id === response.topic.id ? response.topic : topic));
+  showTopicAdminMenu.value = false;
 }
 
 function handleDeleteTopicMessages() {
@@ -816,6 +801,7 @@ function handleDeleteTopicMessages() {
     return;
   }
 
+  showTopicAdminMenu.value = false;
   showDeleteTopicMessagesConfirm.value = true;
 }
 
@@ -828,32 +814,30 @@ function cancelDeleteTopicMessages() {
 }
 
 async function confirmDeleteTopicMessages() {
-  const room = captureRoomRequestOwner();
-  if (!room || deleteTopicMessagesBusy.value) return;
+  if (!selectedTopic.value || deleteTopicMessagesBusy.value) {
+    return;
+  }
 
   deleteTopicMessagesBusy.value = true;
   clearCommunityError();
   try {
-    await deleteTopicMessages(room.topicId);
-    if (!isCurrentRoomRequest(room)) return;
+    await deleteTopicMessages(selectedTopic.value.id);
     activeModerationMessageId.value = null;
-    interactionResetVersion.value += 1;
+    activeReactionMessageId.value = null;
     await refreshSelectedTopic({ keepScroll: false });
-    if (!isCurrentRoomRequest(room)) return;
     await loadTopics();
   } catch {
-    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось удалить сообщения чата.");
+    showCommunityError("Не удалось удалить сообщения чата.");
   } finally {
-    if (isCurrentRoomRequest(room)) {
-      deleteTopicMessagesBusy.value = false;
-      showDeleteTopicMessagesConfirm.value = false;
-    }
+    deleteTopicMessagesBusy.value = false;
+    showDeleteTopicMessagesConfirm.value = false;
   }
 }
 
 async function handleDeleteAuthorMessages(message: ClubMessage) {
-  const room = captureRoomRequestOwner();
-  if (!room) return;
+  if (!selectedTopic.value) {
+    return;
+  }
 
   const confirmed = await appDialogs.confirm({
     title: `Удалить сообщения ${authorName(message)}?`,
@@ -862,31 +846,52 @@ async function handleDeleteAuthorMessages(message: ClubMessage) {
     tone: "danger"
   });
   if (!confirmed) {
-    if (isCurrentRoomRequest(room)) activeModerationMessageId.value = null;
+    activeModerationMessageId.value = null;
     return;
   }
-  if (!isCurrentRoomRequest(room)) return;
 
-  await deleteTopicAuthorMessages(room.topicId, message.author.telegramId);
-  if (!isCurrentRoomRequest(room)) return;
+  await deleteTopicAuthorMessages(selectedTopic.value.id, message.author.telegramId);
   activeModerationMessageId.value = null;
-  interactionResetVersion.value += 1;
+  activeReactionMessageId.value = null;
   await refreshSelectedTopic({ keepScroll: true });
-  if (!isCurrentRoomRequest(room)) return;
   await loadTopics();
 }
 
-function handleCommunityOnline() {
-  void flushQueuedMessages();
+async function handleSendMessage() {
+  if (!selectedTopic.value || !newMessage.value.trim()) {
+    return;
+  }
+
+  messageSaving.value = true;
+  clearCommunityError();
+  try {
+    const response = await createClubMessage(selectedTopic.value.id, newMessage.value, replyToMessage.value?.id ?? null);
+    newMessage.value = "";
+    replyToMessage.value = null;
+    messages.value = [response.message, ...messages.value];
+    selectedTopic.value = {
+      ...selectedTopic.value,
+      messagesCount: selectedTopic.value.messagesCount + 1
+    };
+    topics.value = topics.value.map((topic) => (topic.id === selectedTopic.value?.id ? selectedTopic.value : topic));
+    await scrollToBottom();
+  } catch (reason) {
+    const data =
+      typeof reason === "object" && reason && "data" in reason
+        ? (reason.data as { mutedUntil?: string | null; mutedPermanently?: boolean } | undefined)
+        : undefined;
+    if (data?.mutedUntil || data?.mutedPermanently) {
+      mutedUntil.value = data.mutedUntil ?? null;
+      mutedPermanently.value = Boolean(data.mutedPermanently);
+      showMuteAlert();
+    }
+    showCommunityError("Не удалось отправить сообщение.");
+  } finally {
+    messageSaving.value = false;
+  }
 }
 
 function appendCreatedMessage(message: ClubMessage) {
-  if (selectedTopic.value?.id !== message.topicId) {
-    topics.value = topics.value.map((topic) => topic.id === message.topicId
-      ? { ...topic, messagesCount: topic.messagesCount + 1 }
-      : topic);
-    return;
-  }
   messages.value = [message, ...messages.value];
   if (selectedTopic.value) {
     selectedTopic.value = { ...selectedTopic.value, messagesCount: selectedTopic.value.messagesCount + 1 };
@@ -895,156 +900,92 @@ function appendCreatedMessage(message: ClubMessage) {
   void scrollToBottom();
 }
 
-async function handleRefreshAttachmentUrl(messageId: string, attachmentId: string) {
-  const room = captureRoomRequestOwner();
-  if (!room) return null;
-  try {
-    const response = await getCommunityMessageContext(room.topicId, messageId, { before: 0, after: 0 });
-    if (!isCurrentRoomRequest(room)) return null;
-    const refreshed = response.messages.find((message) => message.id === messageId);
-    if (!refreshed) return null;
-    messages.value = messages.value.map((message) => message.id === refreshed.id ? refreshed : message);
-    const attachment = refreshed.video?.id === attachmentId
-      ? refreshed.video
-      : refreshed.document?.id === attachmentId
-        ? refreshed.document
-        : null;
-    return attachment?.scanStatus === "ready" ? attachment.url : null;
-  } catch {
-    return null;
-  }
+function handleImageSelection(event: Event) {
+  const input = event.target as HTMLInputElement;
+  imageDraft.add(Array.from(input.files ?? []));
+  input.value = "";
+  showAttachmentMenu.value = false;
 }
 
-function handleStageFiles(files: File[], kind: CommunityUploadKind, durationSeconds?: number) {
-  const room = captureRoomRequestOwner();
-  if (!room || !files.length || communityUploads.drafts.some((draft) => submittingDraftIds.value.includes(draft.id))) return;
-  const drafts = communityUploads.addFiles(files, { kind, ...(durationSeconds === undefined ? {} : { durationSeconds }) });
-  if (!isCurrentRoomRequest(room) || !drafts.length) return;
-  void communityUploads.uploadDrafts(drafts.map((draft) => draft.id));
-}
-
-function handleRetryUpload(draftId: string) {
-  if (submittingDraftIds.value.includes(draftId)) return;
-  void communityUploads.retryDraft(draftId);
-}
-
-function handleReattachUpload(draftId: string, file: File) {
-  if (submittingDraftIds.value.includes(draftId)) return;
-  if (communityUploads.reattachFile(draftId, file)) void communityUploads.uploadDraft(draftId);
-}
-
-function handleCancelUpload(draftId: string) {
-  if (submittingDraftIds.value.includes(draftId)) return;
-  communityUploads.cancelDraft(draftId);
-}
-
-function handleRemoveUpload(draftId: string) {
-  if (submittingDraftIds.value.includes(draftId)) return;
-  void communityUploads.removeDraft(draftId);
-}
-
-function uploadSubmissionErrorCode(error: unknown) {
-  if (!error || typeof error !== "object" || !("data" in error)) return null;
-  const data = (error as { data?: unknown }).data;
-  if (!data || typeof data !== "object" || !("error" in data)) return null;
-  const code = (data as { error?: unknown }).error;
-  return typeof code === "string" ? code : null;
-}
-
-async function handleSendUploads(draftIds: string[]) {
-  const room = captureRoomRequestOwner();
-  const userId = session.user?.id;
-  if (!room || !userId || !draftIds.length || draftIds.some((id) => submittingDraftIds.value.includes(id))) return;
-  const selected = draftIds.map((id) => communityUploads.drafts.find((draft) => draft.id === id));
-  if (selected.some((draft) => !draft)
-    || selected.some((draft) => draft?.userId !== userId || draft.topicId !== room.topicId)
-    || selected.some((draft) => draft?.status !== "uploaded" || !draft.uploadToken)) {
-    showCommunityError("Не все вложения готовы к отправке.");
-    return;
-  }
-  const tokens = selected.flatMap((draft) => draft?.uploadToken ? [draft.uploadToken] : []);
-  const replyToMessageId = replyToMessage.value?.id ?? null;
-  submittingDraftIds.value = [...new Set([...submittingDraftIds.value, ...draftIds])];
+async function handleSendImages() {
+  if (!selectedTopic.value || !imageDraft.files.value.length) return;
   messageSaving.value = true;
   try {
-    const response = await createCommunityUploadMessage(room.topicId, tokens, replyToMessageId);
-    releaseCommunityUploadTokens(userId, tokens);
-    communityUploads.consumeDraftsForScope(draftIds, userId, room.topicId);
-    if (!isCurrentRoomRequest(room)) return;
+    const response = await createClubImageMessage(selectedTopic.value.id, imageDraft.files.value, replyToMessage.value?.id ?? null);
+    imageDraft.clear();
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
-    composerResetVersion.value += 1;
-  } catch (error) {
-    if (uploadSubmissionErrorCode(error) === "upload_already_attached") {
-      releaseCommunityUploadTokens(userId, tokens);
-      communityUploads.consumeDraftsForScope(draftIds, userId, room.topicId);
-      if (isCurrentRoomRequest(room)) await refreshSelectedTopic({ keepScroll: true, silent: true });
-    } else if (isCurrentRoomRequest(room)) {
-      showCommunityError("Не удалось отправить вложения. Они сохранены для повторной отправки.");
-    }
+  } catch {
+    showCommunityError("Не удалось отправить изображения. Можно повторить отправку.");
   } finally {
-    const settledIds = new Set(draftIds);
-    submittingDraftIds.value = submittingDraftIds.value.filter((id) => !settledIds.has(id));
-    if (isCurrentRoomRequest(room)) messageSaving.value = false;
+    messageSaving.value = false;
   }
 }
 
-async function handleCreatePoll(payload: ChatPollDraft) {
-  const room = captureRoomRequestOwner();
-  if (!room) return;
-  const replyToMessageId = replyToMessage.value?.id ?? null;
+async function handleSendVoice() {
+  if (!selectedTopic.value || !voiceRecorder.blob.value) return;
+  voiceRecorder.setUploading(true);
   messageSaving.value = true;
   try {
-    const response = await createClubPoll(room.topicId, { ...payload, replyToMessageId });
-    if (!isCurrentRoomRequest(room)) return;
+    const response = await createClubVoiceMessage(selectedTopic.value.id, voiceRecorder.blob.value, voiceRecorder.durationSeconds.value, replyToMessage.value?.id ?? null);
+    resetVoicePreviewPlayback();
+    voiceRecorder.complete();
     replyToMessage.value = null;
     appendCreatedMessage(response.message);
-    composerResetVersion.value += 1;
   } catch {
-    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось создать опрос.");
+    voiceRecorder.setUploading(false);
+    showCommunityError("Не удалось отправить голосовое. Запись сохранена для повторной отправки.");
   } finally {
-    if (isCurrentRoomRequest(room)) messageSaving.value = false;
+    messageSaving.value = false;
+  }
+}
+
+async function handleCreatePoll(payload: { question: string; options: string[]; allowsMultiple: boolean; isAnonymous: boolean; closesAt: string | null }) {
+  if (!selectedTopic.value) return;
+  messageSaving.value = true;
+  try {
+    const response = await createClubPoll(selectedTopic.value.id, { ...payload, replyToMessageId: replyToMessage.value?.id ?? null });
+    showPollComposer.value = false;
+    replyToMessage.value = null;
+    appendCreatedMessage(response.message);
+  } catch {
+    showCommunityError("Не удалось создать опрос.");
+  } finally {
+    messageSaving.value = false;
   }
 }
 
 async function handlePollVote(message: ClubMessage, optionIds: string[]) {
-  const room = captureRoomRequestOwner();
-  if (!room || !message.poll) return;
+  if (!message.poll) return;
   try {
     const response = await voteInClubPoll(message.poll.id, optionIds);
-    if (!isCurrentRoomRequest(room)) return;
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
   } catch {
-    if (!isCurrentRoomRequest(room)) return;
     showCommunityError("Не удалось сохранить голос.");
     await refreshSelectedTopic({ keepScroll: true });
   }
 }
 
 async function handleClosePoll(message: ClubMessage) {
-  const room = captureRoomRequestOwner();
-  if (!room || !message.poll) return;
+  if (!message.poll) return;
   try {
     const response = await closeClubPoll(message.poll.id);
-    if (!isCurrentRoomRequest(room)) return;
     messages.value = messages.value.map((item) => (item.id === response.message.id ? response.message : item));
   } catch {
-    if (isCurrentRoomRequest(room)) showCommunityError("Не удалось завершить опрос.");
+    showCommunityError("Не удалось завершить опрос.");
   }
 }
 
 async function handleMessageStatus(message: ClubMessage, status: "visible" | "hidden" | "deleted") {
-  const room = captureRoomRequestOwner();
-  if (!room) return;
   await updateModerationStatus("chat_message", message.id, status);
-  if (!isCurrentRoomRequest(room)) return;
   messages.value = messages.value.map((item) => (item.id === message.id ? { ...item, status } : item));
   activeModerationMessageId.value = null;
 }
 
 async function handleMute(message: ClubMessage) {
-  const room = captureRoomRequestOwner();
-  if (!room) return;
+  if (!selectedTopic.value) {
+    return;
+  }
   if (message.authorMute) {
     showCommunityError("У клиента уже есть активный мут.");
     activeModerationMessageId.value = null;
@@ -1052,98 +993,42 @@ async function handleMute(message: ClubMessage) {
   }
 
   try {
-    const response = await createTopicUserMute(room.topicId, {
+    const response = await createTopicUserMute(selectedTopic.value.id, {
       telegramId: message.author.telegramId,
       kind: "permanent",
       reason: "Модерация сообщения в чате",
       expiresAt: null
     });
-    if (!isCurrentRoomRequest(room)) return;
     messages.value = [response.message, ...messages.value];
     activeModerationMessageId.value = null;
-    await openTopic(selectedTopic.value!);
-    if (!isCurrentRoomRequest(room)) return;
+    await openTopic(selectedTopic.value);
     await scrollToBottom();
   } catch (reason) {
-    if (isCurrentRoomRequest(room)) {
-      showCommunityError(communityErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.");
-    }
+    showCommunityError(getErrorStatus(reason) === 409 ? "У клиента уже есть активный мут." : "Не удалось выдать мут.");
   }
 }
 
 async function handleRevokeMute(message: ClubMessage) {
-  const room = captureRoomRequestOwner();
-  if (!room || !message.authorMute) return;
+  if (!selectedTopic.value || !message.authorMute) {
+    return;
+  }
 
-  await revokeTopicUserMute(room.topicId, message.authorMute.id);
-  if (!isCurrentRoomRequest(room)) return;
+  await revokeTopicUserMute(selectedTopic.value.id, message.authorMute.id);
   activeModerationMessageId.value = null;
-  await openTopic(selectedTopic.value!);
+  await openTopic(selectedTopic.value);
 }
 
-async function handleReaction(message: ClubMessage, reaction: VisibleMessageReaction) {
-  const room = captureRoomRequestOwner();
-  if (!room) return;
+async function handleReaction(message: ClubMessage, reaction: Exclude<MessageReaction, "like" | "dislike">) {
   const nextReaction = message.myReaction === reaction ? null : reaction;
   const response = await reactToClubMessage(message.id, nextReaction);
-  if (!isCurrentRoomRequest(room)) return;
   messages.value = messages.value.map((item) => (item.id === message.id ? response.message : item));
-  reactionCompletedVersion.value += 1;
-  activeModerationMessageId.value = null;
-}
-
-function resetCommunityUiState() {
-  selectedTopic.value = null;
-  initialUnreadCount.value = 0;
-  showMessageSearch.value = false;
-  topics.value = [];
-  messages.value = [];
-  queuedTextMessages.value = [];
-  serverClock.value = null;
-  messagesNextCursor.value = null;
-  loading.value = false;
-  loadingOlderMessages.value = false;
-  hasLoadedOlderMessages.value = false;
-  mutedUntil.value = null;
-  mutedPermanently.value = false;
-  muteAlertShown.value = false;
-  newMessage.value = "";
-  replyToMessage.value = null;
-  editMessage.value = null;
-  draftBeforeEdit.value = "";
-  activeModerationMessageId.value = null;
-  messageSaving.value = false;
-  topicSaving.value = false;
-  notificationSaving.value = false;
-  showCreateTopic.value = false;
-  showDeleteTopicMessagesConfirm.value = false;
-  deleteTopicMessagesBusy.value = false;
-  clearCommunityError();
-}
-
-function beginAccountGeneration() {
-  accountGeneration += 1;
-  communityUploads.suspend(submittingDraftIds.value);
-  invalidateTopicRequests();
-  messageRequestGeneration += 1;
-  topicsRequestGeneration += 1;
-  notificationRequestGeneration += 1;
-  searchJumpGeneration += 1;
-  refreshRequests.clear();
-  topicListRequests.clear();
-  stopCommunityRealtime();
-  stopRealtimeFallback();
-  resetCommunityOutbox();
-  deliverySequenceByKey.clear();
-  topicState.reset();
-  resetCommunityUiState();
+  activeReactionMessageId.value = null;
 }
 
 onMounted(() => {
-  componentMounted = true;
+  document.addEventListener("keydown", handleModerationSheetKeydown);
   document.addEventListener("visibilitychange", handleCommunityVisibilityChange);
-  window.addEventListener("online", handleCommunityOnline);
-  void flushQueuedMessages();
+  loadTopicReadState();
   if (hasCommunityAccess.value) {
     void loadTopics({ showLoading: true });
     startCommunityRealtime();
@@ -1151,18 +1036,10 @@ onMounted(() => {
 });
 
 watch(
-  () => selectedTopic.value?.id ?? null,
-  (topicId, previousTopicId) => {
-    emit("chatOpenChange", Boolean(topicId));
-    if (topicId) {
-      const userId = session.user?.id;
-      if (userId && (communityUploads.currentUserId !== userId || communityUploads.currentTopicId !== topicId)) {
-        communityUploads.configure({ userId, topicId, preserveServerDraftIds: submittingDraftIds.value });
-      }
-      if (previousTopicId && previousTopicId !== topicId) {
-        invalidateTopicRequests();
-        void topicState.closeTopic();
-      }
+  () => Boolean(selectedTopic.value),
+  (isOpen) => {
+    emit("chatOpenChange", isOpen);
+    if (isOpen) {
       if (realtimeConnected) {
         stopRealtimeFallback();
       } else {
@@ -1171,136 +1048,55 @@ watch(
       return;
     }
 
-    communityUploads.suspend(submittingDraftIds.value);
-
-    if (previousTopicId) {
-      invalidateTopicRequests();
-      void topicState.closeTopic();
-    }
-    if (componentMounted && !realtimeConnected) {
+    if (!realtimeConnected) {
       startRealtimeFallback();
     }
+    showTopicAdminMenu.value = false;
     activeModerationMessageId.value = null;
-    composerResetVersion.value += 1;
-    if (componentMounted && hasCommunityAccess.value) void loadTopics();
+    activeReactionMessageId.value = null;
+    cancelVoiceDraft();
+    void loadTopics();
   },
   { immediate: true }
-);
-
-watch(
-  () => session.user?.id ?? null,
-  (userId, previousUserId) => {
-    if (previousUserId === userId) return;
-    beginAccountGeneration();
-    resetCommunityDrafts();
-    if (!userId) {
-      return;
-    }
-    configurePersistedCommunityState(userId);
-    void flushQueuedMessages();
-    if (componentMounted && hasCommunityAccess.value) {
-      void loadTopics({ showLoading: true });
-      startCommunityRealtime();
-    }
-  },
-  { immediate: true }
-);
-
-watch(
-  () => ({
-    userId: session.user?.id ?? null,
-    fingerprint: authorizationFingerprint.value,
-    moderator: isModerator.value,
-    hasAccess: hasCommunityAccess.value
-  }),
-  (authorization, previousAuthorization) => {
-    if (
-      authorization.userId !== previousAuthorization.userId
-      || authorization.fingerprint === previousAuthorization.fingerprint
-    ) return;
-
-    permissionGeneration += 1;
-    settleGenerationOwnedUiState();
-
-    const accessWatcherOwnsLifecycle = authorization.hasAccess !== previousAuthorization.hasAccess;
-    const downgradeWatcherOwnsLifecycle = previousAuthorization.moderator
-      && !authorization.moderator
-      && authorization.hasAccess;
-    if (!componentMounted || accessWatcherOwnsLifecycle || downgradeWatcherOwnsLifecycle) return;
-
-    stopCommunityRealtime();
-    stopRealtimeFallback();
-    if (authorization.hasAccess) startCommunityRealtime();
-  },
-  { flush: "sync" }
-);
-
-watch(
-  isModerator,
-  (moderator, previousModerator) => {
-    const userId = session.user?.id;
-    if (!componentMounted || !previousModerator || moderator || !userId || !hasCommunityAccess.value) return;
-    const topicId = selectedTopic.value?.id ?? null;
-    beginAccountGeneration();
-    configurePersistedCommunityState(userId);
-    const generation = accountGeneration;
-    void (async () => {
-      await loadTopics({ showLoading: true });
-      if (generation !== accountGeneration || session.user?.id !== userId) return;
-      const safeTopic = topicId ? topics.value.find((item) => item.id === topicId) : null;
-      if (safeTopic) await openTopic(safeTopic);
-      if (generation === accountGeneration && session.user?.id === userId) startCommunityRealtime();
-    })();
-  },
-  { flush: "sync" }
 );
 
 watch(
   hasCommunityAccess,
   (hasAccess) => {
     if (!hasAccess) {
-      beginAccountGeneration();
+      selectedTopic.value = null;
+      topics.value = [];
+      messages.value = [];
+      messagesNextCursor.value = null;
+      messagePageInitialized.value = false;
+      hasLoadedOlderMessages.value = false;
+      clearCommunityError();
+      stopCommunityRealtime();
+      stopRealtimeFallback();
       return;
     }
 
-    const userId = session.user?.id;
-    if (userId) configurePersistedCommunityState(userId);
     void loadTopics({ showLoading: true });
     startCommunityRealtime();
   }
 );
 
 onBeforeUnmount(() => {
-  componentMounted = false;
-  accountGeneration += 1;
-  invalidateTopicRequests();
-  void topicState.closeTopic();
-  topicState.dispose();
   stopCommunityRealtime();
   stopRealtimeFallback();
-  resetCommunityOutbox();
-  communityUploads.suspend(submittingDraftIds.value);
+  document.removeEventListener("keydown", handleModerationSheetKeydown);
   document.removeEventListener("visibilitychange", handleCommunityVisibilityChange);
-  window.removeEventListener("online", handleCommunityOnline);
+  if (messageHighlightTimer) globalThis.clearTimeout(messageHighlightTimer);
   emit("chatOpenChange", false);
 });
 </script>
 
 <template>
   <section class="community-chat-shell ui-page-section">
-    <div v-if="!selectedTopic" class="community-section-content" :inert="showMessageSearch || undefined" :aria-hidden="showMessageSearch ? 'true' : undefined">
+    <div v-if="!selectedTopic" class="community-section-content">
       <UiPageHeader :title="t('communitySectionTitle')" :subtitle="t('communitySectionSubtitle')">
         <template #actions>
           <div class="community-topline-actions">
-            <button
-              v-if="hasCommunityAccess"
-              class="icon-button ui-icon-button"
-              type="button"
-              aria-label="Поиск сообщений"
-              @click="openMessageSearch"
-            >
-              <Search class="h-4 w-4" aria-hidden="true" />
-            </button>
             <button
               v-if="isModerator"
               class="icon-button ui-icon-button"
@@ -1342,88 +1138,469 @@ onBeforeUnmount(() => {
         {{ t("communityEmpty") }}
       </div>
 
-      <ChatTopicList
-        v-if="hasCommunityAccess"
-        :active-topics="activeTopics"
-        :archived-topics="archivedTopics"
-        :is-moderator="isModerator"
-        :has-new-reply-to-me="hasNewReplyToMe"
-        @open-topic="openTopic"
-        @restore-topic="restoreTopic"
-      />
+      <div v-if="hasCommunityAccess" class="chat-topic-list">
+        <button
+          v-for="topic in activeTopics"
+          :key="topic.id"
+          class="chat-topic-card"
+          type="button"
+          @click="openTopic(topic)"
+        >
+          <span class="chat-topic-icon">
+            <MessageCircle class="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="chat-topic-title-row">
+              <span class="chat-topic-title">{{ topic.title }}</span>
+              <span v-if="topic.isAdminOnly" class="admin-only-topic-badge">
+                <Lock class="h-3 w-3" aria-hidden="true" />
+                {{ t("communityAdminOnlyBadge") }}
+              </span>
+            </span>
+            <span class="chat-topic-meta">
+              {{ topic.messagesCount }} сообщений
+              <span v-if="topic.isLocked"> · закрыта</span>
+            </span>
+          </span>
+          <span v-if="hasNewReplyToMe(topic)" class="reply-topic-badge">Вам ответили</span>
+        </button>
+      </div>
+
+      <div v-if="hasCommunityAccess && isModerator && archivedTopics.length" class="chat-archive-list">
+        <p class="section-eyebrow">Архив</p>
+        <article v-for="topic in archivedTopics" :key="topic.id" class="chat-topic-card chat-topic-card-archived">
+          <span class="chat-topic-icon">
+            <Trash2 class="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="chat-topic-title">{{ topic.title }}</span>
+            <span class="chat-topic-meta">{{ formatArchiveDeletionLabel(topic.archivedUntil) }}</span>
+          </span>
+          <button class="mini-action" type="button" @click="restoreTopic(topic)">Вернуть</button>
+        </article>
+      </div>
     </div>
 
-    <ChatRoom
-      v-else
-      ref="chatRoom"
-      :topic="selectedTopic"
-      :messages="messages"
-      :queued-messages="queuedTextMessages"
-      :server-clock="serverClock"
-      :initial-unread-count="initialUnreadCount"
-      :messages-next-cursor="messagesNextCursor"
-      :loading-older-messages="loadingOlderMessages"
-      :message-saving="messageSaving"
-      :notification-saving="notificationSaving"
-      :community-error="communityError"
-      :is-moderator="isModerator"
-      :viewer="session.user"
-      :can-write="Boolean(canWrite)"
-      :is-muted="isMuted"
-      :mute-composer-text="muteComposerText"
-      :unavailable-composer-text="unavailableComposerText"
-      :reply-to-message="replyToMessage"
-      :edit-message="editMessage"
-      :draft="newMessage"
-      :composer-reset-version="composerResetVersion"
-      :reaction-completed-version="reactionCompletedVersion"
-      :interaction-reset-version="interactionResetVersion"
-      :active-moderation-message="activeModerationMessage"
-      :background-inert="showMessageSearch"
-      :attachment-drafts="communityUploads.drafts"
-      :attachment-error="communityUploads.scopeError"
-      :submitting-draft-ids="submittingDraftIds"
-      :refresh-attachment-url="handleRefreshAttachmentUrl"
-      @back="closeTopic"
-      @toggle-topic-lock="handleToggleTopicLock"
-      @delete-topic-messages="handleDeleteTopicMessages"
-      @open-search="openMessageSearch"
-      @update-notification-mode="handleNotificationMode"
-      @load-older-messages="loadOlderMessages"
-      @reply="startReply"
-      @react="handleReaction"
-      @open-actions="activeModerationMessageId = $event.id"
-      @poll-vote="handlePollVote"
-      @poll-close="handleClosePoll"
-      @send-text="handleSendMessage"
-      @save-edit="handleSaveEdit"
-      @cancel-edit="cancelEditMessage"
-      @retry="handleRetryMessage"
-      @edit="startEditMessage"
-      @delete-self="handleDeleteOwnMessage"
-      @stage-files="handleStageFiles"
-      @send-uploads="handleSendUploads"
-      @retry-upload="handleRetryUpload"
-      @cancel-upload="handleCancelUpload"
-      @remove-upload="handleRemoveUpload"
-      @reattach-upload="handleReattachUpload"
-      @create-poll="handleCreatePoll"
-      @draft-change="handleDraftChange"
-      @cancel-reply="replyToMessage = null"
-      @close-actions="closeModerationSheet"
-      @toggle-pin="handleTogglePin"
-      @toggle-status="handleMessageStatus"
-      @mute="handleMute"
-      @revoke-mute="handleRevokeMute"
-      @delete-author-messages="handleDeleteAuthorMessages"
-    />
-    <ChatSearchPanel
-      v-if="hasCommunityAccess && showMessageSearch"
-      :topics="topics"
-      :initial-topic-id="selectedTopic?.id ?? null"
-      :open-result="openSearchResult"
-      @close="closeMessageSearch"
-    />
+    <div v-else class="chat-room">
+      <header class="chat-room-header">
+        <button class="icon-button ui-icon-button" type="button" aria-label="Назад" @click="selectedTopic = null">
+          <ArrowLeft class="h-4 w-4" aria-hidden="true" />
+        </button>
+        <div class="min-w-0 flex-1">
+          <h2 class="chat-room-header-title">{{ selectedTopic.title }}</h2>
+          <p class="chat-room-header-subtitle">
+            {{ selectedTopic.isAdminOnly ? t("communityAdminOnlyRoom") : selectedTopic.isLocked ? "Тема закрыта" : "Открытый чат" }}
+          </p>
+        </div>
+        <div v-if="isModerator" class="chat-room-admin">
+          <button
+            class="icon-button ui-icon-button"
+            type="button"
+            aria-label="Меню чата"
+            @click="showTopicAdminMenu = !showTopicAdminMenu"
+          >
+            <MoreVertical class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div v-if="showTopicAdminMenu" class="chat-admin-menu">
+            <button class="mini-action" type="button" @click="handleToggleTopicLock">
+              {{ selectedTopic.isLocked ? "Открыть чат" : "Закрыть чат" }}
+            </button>
+            <button class="mini-action danger-action" type="button" @click="handleDeleteTopicMessages">
+              Удалить все сообщения
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="chat-room-notices">
+        <div v-if="pinnedMessages.length" class="chat-pinned-bar">
+          <button
+            class="chat-pinned-toggle"
+            type="button"
+            :aria-expanded="showPinnedMessages"
+            aria-controls="chat-pinned-details"
+            aria-label="Показать или скрыть закреплённые сообщения"
+            @click="showPinnedMessages = !showPinnedMessages"
+          >
+            <Pin class="h-4 w-4" aria-hidden="true" />
+            <strong>Закреплено</strong>
+            <em>{{ pinnedMessages.length }}</em>
+            <ChevronDown class="chat-pinned-toggle-icon h-4 w-4" :class="{ 'chat-pinned-toggle-icon-open': showPinnedMessages }" aria-hidden="true" />
+          </button>
+          <div v-if="showPinnedMessages" id="chat-pinned-details" class="chat-pinned-details">
+            <button v-if="latestPinnedMessage" class="chat-pinned-current" type="button" @click="scrollToMessage(latestPinnedMessage.id)">
+              <Pin class="h-4 w-4" aria-hidden="true" />
+              <span>
+                <strong>{{ authorName(latestPinnedMessage) }}</strong>
+                <small>{{ latestPinnedMessage.body }}</small>
+                <time>{{ formatMessageTime(latestPinnedMessage.createdAt) }}</time>
+              </span>
+            </button>
+            <div class="chat-pinned-list">
+              <button v-for="message in pinnedMessages" :key="message.id" type="button" @click="scrollToMessage(message.id)">
+                <span class="chat-pinned-list-meta">
+                  <strong>{{ authorName(message) }}</strong>
+                  <time>{{ formatMessageTime(message.createdAt) }}</time>
+                </span>
+                <span>{{ message.body }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p v-if="communityError" class="px-1 text-xs text-[var(--danger)]">{{ communityError }}</p>
+      </div>
+
+      <div ref="messagesList" class="chat-messages">
+        <button
+          v-if="messagesNextCursor"
+          class="mx-auto mb-3 min-h-10 rounded-full border border-[var(--line)] px-4 text-xs font-semibold text-[var(--muted)]"
+          type="button"
+          :disabled="loadingOlderMessages"
+          @click="loadOlderMessages"
+        >
+          {{ loadingOlderMessages ? "Загрузка…" : "Показать предыдущие сообщения" }}
+        </button>
+        <p v-if="!messages.length" class="py-6 text-center text-xs text-[var(--muted)]">{{ t("messagesEmpty") }}</p>
+        <article
+          v-for="message in orderedMessages"
+          :key="message.id"
+          :id="`chat-message-${message.id}`"
+          class="chat-message"
+          :class="{
+            'opacity-55': message.status !== 'visible',
+            'chat-message-system': message.isSystem,
+            'chat-message-own': !message.isSystem && isOwnMessage(message),
+            'chat-message-reply-to-me': !message.isSystem && isReplyToMe(message),
+            'chat-message-swiping': activeSwipeMessageId === message.id,
+            'chat-message-jump-highlight': highlightedMessageId === message.id
+          }"
+          :style="swipeStyle(message)"
+          @pointerdown="handlePointerDown($event, message)"
+          @pointermove="handlePointerMove($event, message)"
+          @pointerup="handlePointerUp($event, message)"
+          @pointercancel="resetSwipeTracking"
+          @touchstart.passive="handleTouchStart($event, message)"
+          @touchmove.passive="handleTouchMove($event, message)"
+          @touchend.passive="handleTouchEnd($event, message)"
+          @touchcancel.passive="resetSwipeTracking"
+          @click="openReactionPicker(message)"
+        >
+          <span
+            v-if="!message.isSystem && activeSwipeMessageId === message.id && Math.abs(swipeOffset) > 10"
+            class="swipe-reply-cue"
+            :class="`swipe-reply-cue-${swipeCueSide()}`"
+          >
+            ↩
+          </span>
+          <div v-if="!message.isSystem && !isOwnMessage(message)" class="chat-avatar">
+            <img
+              v-if="messageAuthorPhotoUrl(message)"
+              :src="messageAuthorPhotoUrl(message) ?? ''"
+              :alt="authorName(message)"
+              :style="messageAuthorAvatarStyle(message)"
+              loading="lazy"
+              decoding="async"
+            />
+            <span v-else>{{ authorInitial(message) }}</span>
+          </div>
+          <div v-if="!message.isSystem" class="chat-message-content">
+            <div class="chat-bubble">
+              <div class="chat-message-head">
+              <span class="chat-message-author">{{ authorName(message) }}</span>
+              <span v-if="isModerator && message.authorMute" class="mute-inline-badge">Мут</span>
+              <time>{{ formatMessageTime(message.createdAt) }}</time>
+              <button
+                v-if="isModerator"
+                class="chat-message-moderation-trigger"
+                type="button"
+                :aria-label="`Действия с сообщением пользователя ${authorName(message)}`"
+                @click.stop="activeModerationMessageId = message.id"
+              >
+                <MoreVertical class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+              <div v-if="message.replyTo" class="reply-preview">
+                <span>{{ resolveDisplayName(message.replyTo.author) }}</span>
+                <span>{{ message.replyTo.body }}</span>
+              </div>
+              <p v-if="message.kind === 'text'" class="chat-message-body">{{ message.body }}</p>
+              <ChatVoiceMessage v-else-if="message.kind === 'voice' && message.voice" :voice="message.voice" />
+              <ChatImageGallery v-else-if="message.kind === 'images'" :images="message.images" />
+              <ChatPollMessage
+                v-else-if="message.kind === 'poll' && message.poll"
+                :poll="message.poll"
+                :moderator="isModerator"
+                :disabled="messageSaving"
+                @vote="handlePollVote(message, $event)"
+                @close="handleClosePoll(message)"
+              />
+              <span v-if="message.pinnedAt" class="chat-message-pinned"><Pin class="h-3 w-3" aria-hidden="true" /> Закреплено</span>
+              <p v-if="message.status !== 'visible'" class="mt-1 text-[0.68rem] text-[var(--danger)]">
+                {{ message.status === "deleted" ? "Удалено" : "Скрыто" }}
+              </p>
+            </div>
+            <div v-if="visibleReactionCounts(message).length" class="message-reactions">
+              <button
+                v-for="reaction in visibleReactionCounts(message)"
+                :key="reaction.reaction"
+                class="message-reaction-button"
+                :class="{ 'message-reaction-active': message.myReaction === reaction.reaction }"
+                type="button"
+                @click.stop="handleReaction(message, reaction.reaction)"
+              >
+                <span>{{ reactionLabel(reaction.reaction) }}</span>
+                <small>{{ reaction.count }}</small>
+              </button>
+            </div>
+          </div>
+          <div v-if="!message.isSystem && isOwnMessage(message)" class="chat-avatar">
+            <img
+              v-if="messageAuthorPhotoUrl(message)"
+              :src="messageAuthorPhotoUrl(message) ?? ''"
+              :alt="authorName(message)"
+              :style="messageAuthorAvatarStyle(message)"
+              loading="lazy"
+              decoding="async"
+            />
+            <span v-else>{{ authorInitial(message) }}</span>
+          </div>
+          <p v-if="message.isSystem" class="chat-system-body">
+            <span>{{ message.body }}</span>
+            <time>{{ formatMessageTime(message.createdAt) }}</time>
+          </p>
+        </article>
+        <div ref="messagesEnd"></div>
+      </div>
+
+      <form class="chat-compose" @submit.prevent="handleSendMessage">
+        <template v-if="canWrite">
+        <div v-if="replyToMessage" class="compose-reply">
+          <div class="min-w-0">
+            <p>Ответ {{ authorName(replyToMessage) }}</p>
+            <span>{{ replyToMessage.body }}</span>
+          </div>
+          <button type="button" aria-label="Убрать ответ" @click="replyToMessage = null">
+            <X class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div v-if="voiceRecorder.status.value === 'recording'" class="chat-voice-draft">
+          <button class="chat-voice-draft-action chat-voice-draft-delete" type="button" aria-label="Отменить запись" @click="cancelVoiceDraft"><Trash2 /></button>
+          <span class="chat-voice-recording-time"><i class="chat-recording-dot"></i>{{ formatVoiceTime(voiceRecorder.durationSeconds.value) }}</span>
+          <ChatVoiceWaveform
+            class="chat-voice-draft-wave"
+            :levels="voiceRecorder.levels.value"
+            :current-time="0"
+            :duration="0"
+          />
+          <button class="chat-voice-draft-action chat-voice-draft-stop" type="button" aria-label="Остановить запись" @click="voiceRecorder.stop"><Square /></button>
+        </div>
+        <div v-else-if="voiceRecorder.previewUrl.value" class="chat-voice-draft">
+          <audio
+            ref="voicePreviewAudio"
+            class="chat-voice-native-audio"
+            :src="voiceRecorder.previewUrl.value"
+            preload="metadata"
+            @loadedmetadata="voicePreviewDuration = voicePreviewAudio?.duration || voiceRecorder.durationSeconds.value"
+            @play="voicePreviewPlaying = true"
+            @pause="voicePreviewPlaying = false"
+            @timeupdate="voicePreviewCurrentTime = voicePreviewAudio?.currentTime ?? 0"
+            @ended="voicePreviewPlaying = false; voicePreviewCurrentTime = 0"
+          ></audio>
+          <button class="chat-voice-draft-action chat-voice-draft-play" type="button" :aria-label="voicePreviewPlaying ? 'Пауза' : 'Воспроизвести запись'" @click="toggleVoicePreviewPlayback">
+            <Pause v-if="voicePreviewPlaying" />
+            <Play v-else />
+          </button>
+          <div class="chat-voice-draft-preview-track">
+            <ChatVoiceWaveform
+              :levels="voiceRecorder.levels.value"
+              :current-time="voicePreviewCurrentTime"
+              :duration="voicePreviewDuration || voiceRecorder.durationSeconds.value"
+              interactive
+              aria-label="Перемотка записанного голосового сообщения"
+              @seek="seekVoicePreview"
+            />
+            <span>{{ formatVoiceTime(voicePreviewCurrentTime) }} / {{ formatVoiceTime(voicePreviewDuration || voiceRecorder.durationSeconds.value) }}</span>
+          </div>
+          <button class="chat-voice-draft-action chat-voice-draft-delete" type="button" aria-label="Удалить запись" @click="cancelVoiceDraft"><Trash2 /></button>
+          <button
+            class="chat-voice-draft-action chat-draft-send"
+            :class="{ 'chat-draft-send-loading': messageSaving }"
+            type="button"
+            :disabled="messageSaving"
+            :aria-busy="messageSaving"
+            aria-label="Отправить голосовое сообщение"
+            @click="handleSendVoice"
+          >
+            <LoaderCircle v-if="messageSaving" aria-hidden="true" />
+            <Send v-else aria-hidden="true" />
+          </button>
+        </div>
+        <div v-if="imageDraft.hasImages.value" class="chat-image-draft">
+          <div><button v-for="(url, index) in imageDraft.previews.value" :key="url" type="button" :aria-label="`Удалить изображение ${index + 1}`" @click="imageDraft.remove(index)"><img :src="url" alt="" /><X /></button></div>
+          <button type="button" @click="imageDraft.clear">Отмена</button>
+          <button
+            class="chat-draft-send"
+            :class="{ 'chat-draft-send-loading': messageSaving }"
+            type="button"
+            :disabled="messageSaving"
+            :aria-busy="messageSaving"
+            @click="handleSendImages"
+          >
+            <LoaderCircle v-if="messageSaving" aria-hidden="true" />
+            <span>{{ messageSaving ? "Отправка…" : `Отправить ${imageDraft.files.value.length}` }}</span>
+          </button>
+        </div>
+        <p v-if="voiceRecorder.error.value || imageDraft.error.value" class="chat-media-draft-error">{{ voiceRecorder.error.value || imageDraft.error.value }}</p>
+        <div class="chat-input-row chat-composer-shell">
+          <div class="composer-attachment-wrap">
+            <button class="icon-button ui-icon-button" type="button" aria-label="Вложения" :disabled="!canWrite" @click="showAttachmentMenu = !showAttachmentMenu"><Paperclip /></button>
+            <div v-if="showAttachmentMenu" class="composer-attachment-menu">
+              <button type="button" @click="imageInput?.click()"><ImageIcon /> Из галереи</button>
+              <button type="button" @click="cameraInput?.click()"><Camera /> Сделать фото</button>
+              <button type="button" @click="showPollComposer = true; showAttachmentMenu = false"><BarChart3 /> Опрос</button>
+            </div>
+            <input ref="imageInput" class="sr-only" type="file" accept="image/*" multiple @change="handleImageSelection" />
+            <input ref="cameraInput" class="sr-only" type="file" accept="image/*" capture="environment" @change="handleImageSelection" />
+          </div>
+          <div class="composer-emoji-wrap">
+            <button class="icon-button ui-icon-button" type="button" aria-label="Эмодзи" @click="showEmojiPicker = !showEmojiPicker">
+              <Smile class="h-4 w-4" aria-hidden="true" />
+            </button>
+            <div v-if="showEmojiPicker" class="composer-emoji-popover">
+              <button v-for="emoji in quickEmoji" :key="emoji" type="button" @click="appendEmoji(emoji)">
+                {{ emoji }}
+              </button>
+            </div>
+          </div>
+          <div v-if="isMuted" class="mute-compose-notice">{{ muteComposerText }}</div>
+          <input
+            v-else
+            v-model.trim="newMessage"
+            class="text-input"
+            :placeholder="t('messagePlaceholder')"
+            :disabled="!canWrite || messageSaving"
+          />
+          <button
+            v-if="newMessage.trim()"
+            class="icon-button ui-icon-button chat-composer-primary-action"
+            type="submit"
+            aria-label="Отправить"
+            :disabled="!canWrite || messageSaving || isMuted"
+          >
+            <Send class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            v-else-if="voiceRecorder.supported.value"
+            class="icon-button ui-icon-button"
+            type="button"
+            aria-label="Записать голосовое"
+            :disabled="!canWrite || messageSaving"
+            @click="voiceRecorder.start"
+          ><Mic /></button>
+          <button v-else class="icon-button ui-icon-button" type="submit" aria-label="Отправить" disabled>
+            <Send class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        </template>
+        <div v-else class="chat-compose-unavailable" role="status">{{ unavailableComposerText }}</div>
+      </form>
+      <ChatPollComposer v-if="showPollComposer" @close="showPollComposer = false" @submit="handleCreatePoll" />
+    </div>
+
+    <Teleport to="body">
+      <div
+        v-if="activeReactionMessage"
+        class="reaction-popover community-reaction-popover"
+        role="dialog"
+        aria-label="Выберите реакцию"
+        @click.stop
+      >
+        <button
+          v-for="option in reactionOptions"
+          :key="option.value"
+          class="reaction-popover-button"
+          :class="{ 'message-reaction-active': activeReactionMessage.myReaction === option.value }"
+          type="button"
+          :aria-label="`Поставить реакцию ${option.label}`"
+          @click="handleReaction(activeReactionMessage, option.value)"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div
+        v-if="isModerator && activeModerationMessage"
+        class="moderation-action-sheet-backdrop"
+        @click.self="closeModerationSheet"
+      >
+        <section
+          class="moderation-action-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="moderation-sheet-title"
+        >
+          <header class="moderation-action-sheet-header">
+            <div>
+              <p>Действия с сообщением</p>
+              <h3 id="moderation-sheet-title">{{ authorName(activeModerationMessage) }}</h3>
+              <span v-if="activeModerationMessage.authorMute">{{ formatMuteLabel(activeModerationMessage) }}</span>
+            </div>
+            <button type="button" aria-label="Закрыть" @click="closeModerationSheet">
+              <X class="h-5 w-5" aria-hidden="true" />
+            </button>
+          </header>
+
+          <div class="moderation-action-list">
+            <button class="moderation-action-row" type="button" @click="handleTogglePin(activeModerationMessage)">
+              <PinOff v-if="activeModerationMessage.pinnedAt" class="h-5 w-5" aria-hidden="true" />
+              <Pin v-else class="h-5 w-5" aria-hidden="true" />
+              <span>{{ activeModerationMessage.pinnedAt ? "Открепить сообщение" : "Закрепить сообщение" }}</span>
+            </button>
+            <button
+              class="moderation-action-row"
+              :class="{ 'moderation-action-danger': activeModerationMessage.status === 'visible' }"
+              type="button"
+              @click="handleMessageStatus(activeModerationMessage, activeModerationMessage.status === 'visible' ? 'deleted' : 'visible')"
+            >
+              <Trash2 v-if="activeModerationMessage.status === 'visible'" class="h-5 w-5" aria-hidden="true" />
+              <RotateCcw v-else class="h-5 w-5" aria-hidden="true" />
+              <span>{{ activeModerationMessage.status === "visible" ? "Удалить сообщение" : "Вернуть сообщение" }}</span>
+            </button>
+            <button
+              v-if="activeModerationMessage.authorMute"
+              class="moderation-action-row"
+              type="button"
+              @click="handleRevokeMute(activeModerationMessage)"
+            >
+              <RotateCcw class="h-5 w-5" aria-hidden="true" />
+              <span>Снять ограничение</span>
+            </button>
+            <button
+              v-else
+              class="moderation-action-row"
+              type="button"
+              @click="handleMute(activeModerationMessage)"
+            >
+              <Ban class="h-5 w-5" aria-hidden="true" />
+              <span>Ограничить до ручного снятия</span>
+            </button>
+            <button
+              class="moderation-action-row moderation-action-danger"
+              type="button"
+              @click="handleDeleteAuthorMessages(activeModerationMessage)"
+            >
+              <UserX class="h-5 w-5" aria-hidden="true" />
+              <span>Удалить все сообщения пользователя</span>
+            </button>
+          </div>
+
+          <button class="moderation-action-cancel" type="button" @click="closeModerationSheet">Отмена</button>
+        </section>
+      </div>
+    </Teleport>
+
     <ConfirmDialog
       :open="showDeleteTopicMessagesConfirm"
       title="Удалить все сообщения?"

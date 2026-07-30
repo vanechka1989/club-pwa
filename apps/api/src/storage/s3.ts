@@ -1,27 +1,18 @@
 import {
   DeleteObjectCommand,
-  DeleteObjectsCommand,
-  GetBucketVersioningCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
-  ListObjectVersionsCommand,
   PutObjectCommand,
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
-  CopyObjectCommand,
-  ListPartsCommand,
   UploadPartCommand,
   S3Client,
   type PutObjectCommandInput
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
-import { createWriteStream } from "node:fs";
-import { pipeline } from "node:stream/promises";
-import { Readable, Transform } from "node:stream";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { clubSettings } from "../db/schema";
@@ -38,28 +29,6 @@ export type UploadObjectInput = {
 };
 
 export type S3StorageTarget = "primary" | "reserve";
-
-type DeleteObjectCopiesDependencies = {
-  loadConfig: () => Promise<StoredS3Config>;
-  deleteFromConfig: (config: StoredS3Config, key: string) => Promise<void>;
-};
-
-type S3VersioningState = "Enabled" | "Suspended" | undefined;
-type VersionCursor = { keyMarker?: string; versionIdMarker?: string } | null;
-type ListedObjectVersion = { key: string; versionId: string };
-type DeleteObjectCompletelyDependencies = {
-  getVersioning: (config: StoredS3Config, signal?: AbortSignal) => Promise<S3VersioningState>;
-  listVersions: (config: StoredS3Config, key: string, cursor: VersionCursor, signal?: AbortSignal) => Promise<{
-    versions: ListedObjectVersion[];
-    deleteMarkers: ListedObjectVersion[];
-    next: VersionCursor;
-  }>;
-  deleteVersions: (config: StoredS3Config, objects: ListedObjectVersion[], signal?: AbortSignal) => Promise<void>;
-  deleteCurrent: (config: StoredS3Config, key: string, signal?: AbortSignal) => Promise<void>;
-};
-
-export const s3ConnectionTimeoutMs = 5_000;
-export const s3SocketTimeoutMs = 2 * 60_000;
 
 async function loadS3Config() {
   const setting = await db.query.clubSettings.findFirst({
@@ -95,16 +64,6 @@ async function requireS3Config() {
   return s3ConfigCache.get();
 }
 
-export async function getConfiguredS3Targets(): Promise<S3StorageTarget[]> {
-  const config = await requireS3Config();
-  return ["primary", ...(config.reserve ? ["reserve" as const] : [])];
-}
-
-export async function isS3TargetConfigured(target: S3StorageTarget) {
-  const config = await requireS3Config();
-  return target === "primary" || Boolean(config.reserve);
-}
-
 export function invalidateS3RuntimeCache() {
   s3ConfigCache.invalidate();
   for (const client of s3Clients.values()) {
@@ -127,12 +86,7 @@ function createS3Client(config: StoredS3Config) {
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey
-    },
-    maxAttempts: 2,
-    requestHandler: new NodeHttpHandler({
-      connectionTimeout: s3ConnectionTimeoutMs,
-      socketTimeout: s3SocketTimeoutMs
-    })
+    }
   });
   s3Clients.set(cacheKey, client);
   return client;
@@ -155,8 +109,7 @@ async function putObjectToConfig(
   key: string,
   body: UploadObjectInput["body"],
   contentType: string,
-  contentLength?: number,
-  signal?: AbortSignal
+  contentLength?: number
 ) {
   const client = createS3Client(config);
   await client.send(
@@ -166,8 +119,7 @@ async function putObjectToConfig(
       Body: body,
       ContentType: contentType,
       ContentLength: contentLength
-    }),
-    signal ? { abortSignal: signal } : undefined
+    })
   );
 }
 
@@ -181,24 +133,17 @@ async function assertObjectReadable(config: StoredS3Config, key: string) {
   );
 }
 
-async function headObject(config: StoredS3Config, key: string, signal?: AbortSignal) {
+async function headObject(config: StoredS3Config, key: string) {
   const client = createS3Client(config);
   return client.send(
     new HeadObjectCommand({
       Bucket: config.bucket,
       Key: key
-    }),
-    signal ? { abortSignal: signal } : undefined
+    })
   );
 }
 
-async function buildObjectReadUrl(
-  config: StoredS3Config,
-  key: string,
-  verifyReadable: boolean,
-  allowPublic: boolean,
-  expiresInSeconds?: number
-) {
+async function buildObjectReadUrl(config: StoredS3Config, key: string, verifyReadable: boolean, allowPublic: boolean) {
   if (verifyReadable) {
     await assertObjectReadable(config, key);
   }
@@ -214,7 +159,7 @@ async function buildObjectReadUrl(
       Bucket: config.bucket,
       Key: key
     }),
-    { expiresIn: Math.min(config.signedUrlTtlSeconds, expiresInSeconds ?? config.signedUrlTtlSeconds) }
+    { expiresIn: config.signedUrlTtlSeconds }
   );
 }
 
@@ -240,26 +185,15 @@ export async function uploadObjectStream({
   key,
   body,
   contentType,
-  sizeBytes,
-  signal
-}: UploadObjectInput & { sizeBytes: number; signal?: AbortSignal }) {
+  sizeBytes
+}: UploadObjectInput & { sizeBytes: number }) {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
-  await putObjectToConfig(config, normalizedKey, body, contentType, sizeBytes, signal);
+  await putObjectToConfig(config, normalizedKey, body, contentType, sizeBytes);
   return { key: normalizedKey, url: null };
 }
 
-export async function createObjectUploadUrl({
-  key,
-  contentType,
-  sizeBytes,
-  expiresInSeconds = 600
-}: {
-  key: string;
-  contentType: string;
-  sizeBytes?: number;
-  expiresInSeconds?: number;
-}) {
+export async function createObjectUploadUrl({ key, contentType, expiresInSeconds = 600 }: { key: string; contentType: string; expiresInSeconds?: number }) {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
   const client = createS3Client(config);
@@ -268,8 +202,7 @@ export async function createObjectUploadUrl({
     new PutObjectCommand({
       Bucket: config.bucket,
       Key: normalizedKey,
-      ContentType: contentType,
-      ContentLength: sizeBytes
+      ContentType: contentType
     }),
     { expiresIn: expiresInSeconds }
   );
@@ -279,35 +212,6 @@ export async function createObjectUploadUrl({
     key: normalizedKey,
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000)
   };
-}
-
-export async function createMultipartPartUploadUrl({
-  key,
-  uploadId,
-  partNumber,
-  expiresInSeconds = 600
-}: {
-  key: string;
-  uploadId: string;
-  partNumber: number;
-  expiresInSeconds?: number;
-}) {
-  const config = await requireS3Config();
-  const normalizedKey = normalizeS3ObjectKey(key);
-  if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 1000) {
-    throw new Error("Invalid multipart part number");
-  }
-  const uploadUrl = await getSignedUrl(
-    createS3Client(config),
-    new UploadPartCommand({
-      Bucket: config.bucket,
-      Key: normalizedKey,
-      UploadId: uploadId,
-      PartNumber: partNumber
-    }),
-    { expiresIn: expiresInSeconds }
-  );
-  return uploadUrl;
 }
 
 export async function createMultipartUpload({
@@ -425,21 +329,15 @@ export async function abortMultipartUpload({ key, uploadId }: { key: string; upl
   );
 }
 
-export async function getObjectMetadata(
-  key: string,
-  target: S3StorageTarget = "primary",
-  signal?: AbortSignal
-) {
+export async function getObjectMetadata(key: string, target: S3StorageTarget = "primary") {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
-  const response = await headObject(resolveS3TargetConfig(config, target), normalizedKey, signal);
+  const response = await headObject(resolveS3TargetConfig(config, target), normalizedKey);
 
   return {
     key: normalizedKey,
     contentType: response.ContentType ?? null,
-    sizeBytes: response.ContentLength ?? null,
-    etag: response.ETag ?? null,
-    versionId: response.VersionId ?? null
+    sizeBytes: response.ContentLength ?? null
   };
 }
 
@@ -456,179 +354,7 @@ export async function downloadObjectBytes(key: string, target: S3StorageTarget =
   return response.Body.transformToByteArray();
 }
 
-export async function downloadObjectPrefix(
-  key: string,
-  maxBytes: number,
-  target: S3StorageTarget = "primary",
-  expectedETag?: string
-) {
-  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024) {
-    throw new Error("Invalid S3 prefix byte limit");
-  }
-  const config = await requireS3Config();
-  const targetConfig = resolveS3TargetConfig(config, target);
-  const normalizedKey = normalizeS3ObjectKey(key);
-  const response = await createS3Client(targetConfig).send(
-    new GetObjectCommand({
-      Bucket: targetConfig.bucket,
-      Key: normalizedKey,
-      Range: `bytes=0-${maxBytes - 1}`,
-      IfMatch: expectedETag
-    })
-  );
-  if (!response.Body) throw new Error("S3 object body is empty");
-  const bytes = await response.Body.transformToByteArray();
-  return bytes.byteLength > maxBytes ? bytes.slice(0, maxBytes) : bytes;
-}
-
-export async function downloadObjectRange(
-  key: string,
-  start: number,
-  end: number,
-  target: S3StorageTarget = "primary",
-  expectedETag?: string
-) {
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end - start + 1 > 2 * 1024 * 1024) {
-    throw new Error("Invalid S3 byte range");
-  }
-  const config = await requireS3Config();
-  const targetConfig = resolveS3TargetConfig(config, target);
-  const normalizedKey = normalizeS3ObjectKey(key);
-  const response = await createS3Client(targetConfig).send(new GetObjectCommand({
-    Bucket: targetConfig.bucket,
-    Key: normalizedKey,
-    Range: `bytes=${start}-${end}`,
-    IfMatch: expectedETag
-  }));
-  if (!response.Body) throw new Error("S3 object body is empty");
-  const bytes = await response.Body.transformToByteArray();
-  const expectedLength = end - start + 1;
-  if (bytes.byteLength > expectedLength) return bytes.slice(0, expectedLength);
-  return bytes;
-}
-
-export async function promoteObjectVersion({
-  sourceKey,
-  destinationKey,
-  expectedETag,
-  contentType,
-  signal
-}: {
-  sourceKey: string;
-  destinationKey: string;
-  expectedETag: string;
-  contentType: string;
-  signal?: AbortSignal;
-}) {
-  const config = await requireS3Config();
-  return promoteObjectVersionWithClient({
-    client: createS3Client(config),
-    bucket: config.bucket,
-    sourceKey,
-    destinationKey,
-    expectedETag,
-    contentType,
-    ...(signal ? { signal } : {})
-  });
-}
-
-export async function promoteObjectVersionWithClient({
-  client,
-  bucket,
-  sourceKey,
-  destinationKey,
-  expectedETag,
-  contentType,
-  signal
-}: {
-  client: S3Client;
-  bucket: string;
-  sourceKey: string;
-  destinationKey: string;
-  expectedETag: string;
-  contentType: string;
-  signal?: AbortSignal;
-}) {
-  const normalizedSourceKey = normalizeS3ObjectKey(sourceKey);
-  const normalizedDestinationKey = normalizeS3ObjectKey(destinationKey);
-  await client.send(
-    new CopyObjectCommand({
-      Bucket: bucket,
-      Key: normalizedDestinationKey,
-      CopySource: `${bucket}/${encodeURIComponent(normalizedSourceKey).replace(/%2F/g, "/")}`,
-      CopySourceIfMatch: expectedETag,
-      MetadataDirective: "REPLACE",
-      ContentType: contentType
-    }),
-    signal ? { abortSignal: signal } : undefined
-  );
-  return { key: normalizedDestinationKey };
-}
-
-export async function listMultipartUploadParts({ key, uploadId }: { key: string; uploadId: string }) {
-  const config = await requireS3Config();
-  const normalizedKey = normalizeS3ObjectKey(key);
-  const client = createS3Client(config);
-  const parts: Array<{ partNumber: number; etag: string; sizeBytes: number }> = [];
-  let marker: string | undefined;
-  do {
-    const response = await client.send(new ListPartsCommand({
-      Bucket: config.bucket,
-      Key: normalizedKey,
-      UploadId: uploadId,
-      PartNumberMarker: marker,
-      MaxParts: 100
-    }));
-    for (const part of response.Parts ?? []) {
-      if (!part.PartNumber || !part.ETag || part.Size === undefined) throw new Error("Invalid S3 multipart part metadata");
-      parts.push({ partNumber: part.PartNumber, etag: part.ETag, sizeBytes: part.Size });
-      if (parts.length > 100) throw new Error("Too many S3 multipart parts");
-    }
-    marker = response.IsTruncated ? response.NextPartNumberMarker : undefined;
-    if (response.IsTruncated && !marker) throw new Error("Invalid S3 multipart pagination");
-  } while (marker);
-  return parts;
-}
-
-export async function* streamObjectBytes(key: string, target: S3StorageTarget = "primary"): AsyncGenerator<Uint8Array> {
-  const config = await requireS3Config();
-  const targetConfig = resolveS3TargetConfig(config, target);
-  const normalizedKey = normalizeS3ObjectKey(key);
-  const response = await createS3Client(targetConfig).send(
-    new GetObjectCommand({ Bucket: targetConfig.bucket, Key: normalizedKey })
-  );
-  if (!response.Body) throw new Error("S3 object body is empty");
-  const body = response.Body as unknown as AsyncIterable<Uint8Array>;
-  if (!body[Symbol.asyncIterator]) throw new Error("S3 object body is not streamable");
-  for await (const chunk of body) {
-    yield chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
-  }
-}
-
-export async function downloadObjectToFile(
-  key: string,
-  path: string,
-  maxBytes: number,
-  target: S3StorageTarget = "primary"
-) {
-  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 100 * 1024 * 1024) throw new Error("Invalid S3 download size limit");
-  const config = await requireS3Config();
-  const targetConfig = resolveS3TargetConfig(config, target);
-  const normalizedKey = normalizeS3ObjectKey(key);
-  const response = await createS3Client(targetConfig).send(new GetObjectCommand({ Bucket: targetConfig.bucket, Key: normalizedKey }));
-  if (!response.Body) throw new Error("S3 object body is empty");
-  let totalBytes = 0;
-  const limiter = new Transform({
-    transform(chunk: Buffer, _encoding, callback) {
-      totalBytes += chunk.byteLength;
-      callback(totalBytes > maxBytes ? new Error("S3 object exceeds download limit") : null, chunk);
-    }
-  });
-  await pipeline(Readable.from(response.Body as unknown as AsyncIterable<Uint8Array>), limiter, createWriteStream(path, { flags: "wx" }));
-  if (totalBytes < 1) throw new Error("S3 object body is empty");
-}
-
-export async function mirrorObjectToReserve(key: string, contentType: string, signal?: AbortSignal) {
+export async function mirrorObjectToReserve(key: string, contentType: string) {
   const config = await requireS3Config();
   if (!config.reserve) {
     return;
@@ -640,8 +366,7 @@ export async function mirrorObjectToReserve(key: string, contentType: string, si
     new GetObjectCommand({
       Bucket: config.bucket,
       Key: normalizedKey
-    }),
-    signal ? { abortSignal: signal } : undefined
+    })
   );
 
   if (!response.Body) {
@@ -652,32 +377,26 @@ export async function mirrorObjectToReserve(key: string, contentType: string, si
     { ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null },
     normalizedKey,
     response.Body,
-    contentType,
-    undefined,
-    signal
+    contentType
   );
 }
 
 export async function getObjectReadUrl(
   key: string,
   target: S3StorageTarget = "primary",
-  options: { verifyReadable?: boolean; allowPublic?: boolean; expiresInSeconds?: number } = {}
+  options: { verifyReadable?: boolean; allowPublic?: boolean } = {}
 ) {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
   const verifyReadable = options.verifyReadable ?? false;
   const allowPublic = options.allowPublic ?? false;
-  const expiresInSeconds = options.expiresInSeconds;
-  if (expiresInSeconds !== undefined && (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1)) {
-    throw new Error("Invalid signed URL expiration");
-  }
 
   if (target === "reserve") {
-    return buildObjectReadUrl(resolveS3TargetConfig(config, "reserve"), normalizedKey, verifyReadable, allowPublic, expiresInSeconds);
+    return buildObjectReadUrl(resolveS3TargetConfig(config, "reserve"), normalizedKey, verifyReadable, allowPublic);
   }
 
   try {
-    return await buildObjectReadUrl(config, normalizedKey, verifyReadable, allowPublic, expiresInSeconds);
+    return await buildObjectReadUrl(config, normalizedKey, verifyReadable, allowPublic);
   } catch (error) {
     if (!config.reserve) {
       throw error;
@@ -688,146 +407,23 @@ export async function getObjectReadUrl(
       { ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null },
       normalizedKey,
       verifyReadable,
-      allowPublic,
-      expiresInSeconds
+      allowPublic
     );
   }
 }
 
-export function createDeleteObjectCompletely(dependencies: DeleteObjectCompletelyDependencies) {
-  return async function deleteObjectCompletely(config: StoredS3Config, key: string, signal?: AbortSignal) {
-    const normalizedKey = normalizeS3ObjectKey(key);
-    const versioning = await dependencies.getVersioning(config, signal);
-    if (versioning === undefined) {
-      await dependencies.deleteCurrent(config, normalizedKey, signal);
-      return;
-    }
-    if (versioning !== "Enabled" && versioning !== "Suspended") {
-      throw new Error(`Unsupported S3 versioning state: ${String(versioning)}`);
-    }
-
-    for (let verificationPass = 0; verificationPass < 4; verificationPass += 1) {
-      const objects: ListedObjectVersion[] = [];
-      let cursor: VersionCursor = null;
-      let pageCount = 0;
-      do {
-        const page = await dependencies.listVersions(config, normalizedKey, cursor, signal);
-        objects.push(...[...page.versions, ...page.deleteMarkers].filter((entry) => entry.key === normalizedKey));
-        cursor = page.next;
-        pageCount += 1;
-        if (pageCount > 10_000) throw new Error("S3 object version listing did not converge");
-      } while (cursor);
-
-      if (!objects.length) return;
-      for (let offset = 0; offset < objects.length; offset += 1_000) {
-        await dependencies.deleteVersions(config, objects.slice(offset, offset + 1_000), signal);
-      }
-    }
-    throw new Error("S3 object versions kept changing during permanent deletion");
-  };
-}
-
-const deleteObjectCompletely = createDeleteObjectCompletely({
-  async getVersioning(config, signal) {
-    const response = await createS3Client(config).send(
-      new GetBucketVersioningCommand({ Bucket: config.bucket }),
-      signal ? { abortSignal: signal } : undefined
-    );
-    return response.Status;
-  },
-  async listVersions(config, key, cursor, signal) {
-    const response = await createS3Client(config).send(
-      new ListObjectVersionsCommand({
-        Bucket: config.bucket,
-        Prefix: key,
-        MaxKeys: 1_000,
-        ...(cursor?.keyMarker ? { KeyMarker: cursor.keyMarker } : {}),
-        ...(cursor?.versionIdMarker ? { VersionIdMarker: cursor.versionIdMarker } : {})
-      }),
-      signal ? { abortSignal: signal } : undefined
-    );
-    const readEntries = (entries: Array<{ Key?: string | undefined; VersionId?: string | undefined }> | undefined) =>
-      (entries ?? []).map((entry) => {
-        if (!entry.Key || entry.VersionId === undefined) {
-          throw new Error("S3 returned an object version without a key or VersionId");
-        }
-        return { key: entry.Key, versionId: entry.VersionId };
-      });
-    return {
-      versions: readEntries(response.Versions),
-      deleteMarkers: readEntries(response.DeleteMarkers),
-      next: response.IsTruncated
-        ? {
-            ...(response.NextKeyMarker ? { keyMarker: response.NextKeyMarker } : {}),
-            ...(response.NextVersionIdMarker ? { versionIdMarker: response.NextVersionIdMarker } : {})
-          }
-        : null
-    };
-  },
-  async deleteVersions(config, objects, signal) {
-    const response = await createS3Client(config).send(
-      new DeleteObjectsCommand({
-        Bucket: config.bucket,
-        Delete: {
-          Quiet: false,
-          Objects: objects.map((object) => ({ Key: object.key, VersionId: object.versionId }))
-        }
-      }),
-      signal ? { abortSignal: signal } : undefined
-    );
-    if (response.Errors?.length) {
-      throw new AggregateError(
-        response.Errors.map((error) => new Error(`${error.Code ?? "S3DeleteError"}: ${error.Message ?? "unknown"}`)),
-        "Unable to delete every S3 object version"
-      );
-    }
-  },
-  async deleteCurrent(config, key, signal) {
-    await createS3Client(config).send(
-      new DeleteObjectCommand({ Bucket: config.bucket, Key: key }),
-      signal ? { abortSignal: signal } : undefined
-    );
-  }
-});
-
-async function deleteObjectFromConfig(config: StoredS3Config, key: string, signal?: AbortSignal) {
-  const normalizedKey = normalizeS3ObjectKey(key);
-  await deleteObjectCompletely(config, normalizedKey, signal);
-}
-
-export function createDeleteObjectCopies(dependencies: DeleteObjectCopiesDependencies) {
-  return async function deleteObjectCopiesWithDependencies(key: string) {
-    const config = await dependencies.loadConfig();
-    const normalizedKey = normalizeS3ObjectKey(key);
-    const targets = [
-      config,
-      ...(config.reserve
-        ? [{ ...config.reserve, signedUrlTtlSeconds: config.signedUrlTtlSeconds, reserve: null }]
-        : [])
-    ];
-    const results = await Promise.allSettled(
-      targets.map((targetConfig) => dependencies.deleteFromConfig(targetConfig, normalizedKey))
-    );
-    const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
-    if (failures.length === 1) throw failures[0]!.reason;
-    if (failures.length > 1) {
-      throw new AggregateError(failures.map((failure) => failure.reason), "Unable to delete every S3 object copy");
-    }
-  };
-}
-
-export const deleteObjectCopies = createDeleteObjectCopies({
-  loadConfig: requireS3Config,
-  deleteFromConfig: deleteObjectFromConfig
-});
-
-export async function deleteObject(
-  key: string,
-  target: S3StorageTarget = "primary",
-  signal?: AbortSignal
-) {
+export async function deleteObject(key: string, target: S3StorageTarget = "primary") {
   const config = await requireS3Config();
-  await deleteObjectFromConfig(resolveS3TargetConfig(config, target), key, signal);
+  const targetConfig = resolveS3TargetConfig(config, target);
+  const client = createS3Client(targetConfig);
+  const normalizedKey = normalizeS3ObjectKey(key);
+
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: targetConfig.bucket,
+      Key: normalizedKey
+    })
+  );
 }
 
 export async function listObjects({
