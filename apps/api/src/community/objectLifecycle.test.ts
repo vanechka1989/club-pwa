@@ -15,11 +15,44 @@ import {
   createCommunityObjectPublicationCapacityGate,
   createCommunityObjectConvergentDeletion,
   createCommunityObjectIoGate,
+  createCommunityObjectTombstoneRepository,
   createCommunityObjectTombstoneReconciler,
+  getCommunityObjectTombstonePressure,
   type CommunityObjectTombstoneCandidate
 } from "./objectLifecycle";
 
 describe("community object lifecycle", () => {
+  it("normalizes raw PostgreSQL counters and timestamps before capacity decisions", async () => {
+    let query = 0;
+    const database = {
+      execute: vi.fn(async () => query++ === 0
+        ? [{ hotTargetCount: "7", dueTargetCount: "3", oldestDueAt: "2026-07-30T00:00:00.000Z" }]
+        : [{ shard: "2", count: "3" }])
+    };
+
+    await expect(getCommunityObjectTombstonePressure(database as never)).resolves.toEqual(expect.objectContaining({
+      hotTargetCount: 7,
+      dueTargetCount: 3,
+      oldestDueAt: new Date("2026-07-30T00:00:00.000Z")
+    }));
+  });
+
+  it("normalizes raw PostgreSQL lifecycle counters before stability checks", async () => {
+    const database = {
+      execute: vi.fn(async () => [{
+        objectKey: "community/final/example.webp",
+        target: "primary",
+        generation: "4",
+        claimId: "00000000-0000-4000-8000-000000000777",
+        absenceCount: "1",
+        expectedTargetCount: "2"
+      }])
+    };
+
+    await expect(createCommunityObjectTombstoneRepository(database as never).claimBatch({ limit: 1 }))
+      .resolves.toEqual([expect.objectContaining({ generation: 4, absenceCount: 1, expectedTargetCount: 2 })]);
+  });
+
   it("waits for two separated absence proofs before completing terminal cleanup", async () => {
     const events: string[] = [];
     let pass = 0;

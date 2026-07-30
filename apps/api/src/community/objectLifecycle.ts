@@ -410,7 +410,7 @@ export async function getCommunityObjectTombstonePressure(
            min(next_reconcile_at) filter (where next_reconcile_at <= clock_timestamp()) as "oldestDueAt"
     from community_object_lifecycles
     where state = 'deleted' and cold_at is null
-  `)) as Iterable<{ hotTargetCount: number; dueTargetCount: number; oldestDueAt: Date | null }>);
+  `)) as Iterable<{ hotTargetCount: number | string; dueTargetCount: number | string; oldestDueAt: Date | string | null }>);
   const shards = Array.from((await database.execute(sql`
     select mod(hashtext(object_key)::bigint + 2147483648, ${communityObjectTombstoneShardCount})::integer as shard,
            count(*)::integer as count
@@ -418,18 +418,23 @@ export async function getCommunityObjectTombstonePressure(
     where state = 'deleted' and cold_at is null
       and next_reconcile_at <= clock_timestamp()
     group by shard
-  `)) as Iterable<{ shard: number; count: number }>);
+  `)) as Iterable<{ shard: number | string; count: number | string }>);
   const dueByShard = Array(communityObjectTombstoneShardCount).fill(0) as number[];
   for (const shard of shards) {
-    if (shard.shard >= 0 && shard.shard < communityObjectTombstoneShardCount) {
-      dueByShard[shard.shard] = shard.count;
+    const shardIndex = Number(shard.shard);
+    if (shardIndex >= 0 && shardIndex < communityObjectTombstoneShardCount) {
+      dueByShard[shardIndex] = Number(shard.count);
     }
   }
+  const rawOldestDueAt = totals[0]?.oldestDueAt;
+  const oldestDueAt = rawOldestDueAt instanceof Date
+    ? rawOldestDueAt
+    : rawOldestDueAt ? new Date(rawOldestDueAt) : null;
   return {
-    hotTargetCount: totals[0]?.hotTargetCount ?? 0,
-    dueTargetCount: totals[0]?.dueTargetCount ?? 0,
+    hotTargetCount: Number(totals[0]?.hotTargetCount ?? 0),
+    dueTargetCount: Number(totals[0]?.dueTargetCount ?? 0),
     dueByShard,
-    oldestDueAt: totals[0]?.oldestDueAt ?? null
+    oldestDueAt: oldestDueAt && !Number.isNaN(oldestDueAt.getTime()) ? oldestDueAt : null
   };
 }
 
@@ -591,7 +596,7 @@ export function createCommunityObjectTombstoneRepository(
       const keys = uniqueObjectKeys(objectKeys ?? []);
       const boundedShardCount = Math.max(1, Math.trunc(shardCount ?? communityObjectTombstoneShardCount));
       const boundedShard = Math.min(Math.max(0, Math.trunc(shard ?? 0)), boundedShardCount - 1);
-      return Array.from((await database.execute(sql`
+      const rows = Array.from((await database.execute(sql`
         with candidates as (
           select object_key, target
           from community_object_lifecycles
@@ -621,6 +626,12 @@ export function createCommunityObjectTombstoneRepository(
                    where expected.object_key = lifecycle.object_key
                      and expected.state = 'deleted' and expected.cold_at is null) as "expectedTargetCount"
       `)) as Iterable<CommunityObjectTombstoneCandidate>);
+      return rows.map((row) => ({
+        ...row,
+        generation: Number(row.generation),
+        absenceCount: Number(row.absenceCount),
+        expectedTargetCount: Number(row.expectedTargetCount)
+      }));
     },
 
     async markAbsent(candidate) {

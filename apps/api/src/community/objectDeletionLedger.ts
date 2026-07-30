@@ -416,7 +416,7 @@ export async function enqueueCommunityMessageDeletionBatch(input: {
       limit ${limit}
       for update skip locked
     )
-    select id, community_enqueue_message_cleanup(id, 'delete_message') as job_id
+    select id, community_enqueue_message_cleanup(id, 'delete_message') as "jobId"
     from candidates
   `)) as Iterable<{ id: string; jobId: string | null }>);
   return rows.filter((row) => row.jobId).length;

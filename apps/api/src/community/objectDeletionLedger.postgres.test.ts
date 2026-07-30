@@ -111,8 +111,11 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
         id uuid primary key,
         topic_id uuid not null references club_chat_topics(id) on delete cascade,
         user_id uuid not null references users(id) on delete cascade,
+        reply_to_message_id uuid, body text not null default '', kind varchar(16) not null default 'text',
         is_system boolean not null default false, status text not null default 'visible',
-        purge_at timestamptz, body text not null default '',
+        moderated_by_user_id uuid, moderated_at timestamptz, moderation_reason text,
+        pinned_at timestamptz, pinned_by_user_id uuid, purge_at timestamptz,
+        client_operation_id varchar(96), create_request_fingerprint varchar(64), edited_at timestamptz,
         deleted_by_user_at timestamptz,
         deleted_content_expires_at timestamptz, deleted_cleanup_claim_id uuid,
         deleted_cleanup_claimed_at timestamptz,
@@ -1019,7 +1022,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       order by target
     `;
     expect(coldRows).toHaveLength(2);
-    expect(coldRows.every((row) => row.coldAt instanceof Date)).toBe(true);
+    expect(coldRows.every((row) => row.coldAt !== null && !Number.isNaN(new Date(row.coldAt).getTime()))).toBe(true);
     await expect(repository.claimBatch({ limit: 2, objectKeys: [objectKey] })).resolves.toEqual([]);
     await expect(beginPublication({
       sourceType: "candidate",
