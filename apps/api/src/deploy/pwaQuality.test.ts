@@ -82,6 +82,8 @@ describe("PWA browser regression workflow", () => {
     expect(preflightScript).toContain("MemAvailable");
     expect(preflightScript).toContain("df --output=avail");
     const gateCommand = quality.steps[externalGate]!.run ?? "";
+    expect(gateCommand).toContain("--no-file-parallelism");
+    expect(gateCommand).toContain("--maxWorkers=1");
     for (const suite of [
       "communityBola.postgres.test.ts",
       "communityRateLimits.postgres.test.ts",
