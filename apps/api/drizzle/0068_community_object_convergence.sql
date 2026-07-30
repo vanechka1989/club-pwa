@@ -32,7 +32,7 @@ INSERT INTO "community_object_lifecycles" (
   "object_key", "target", "generation", "state", "publication_token", "tombstoned_at",
   "absence_count", "next_reconcile_at", "updated_at"
 )
-SELECT DISTINCT entry."object_key", 'primary', 1, 'deleted', null, clock_timestamp(),
+SELECT DISTINCT entry."object_key", 'primary', 1, 'deleted', null::uuid, clock_timestamp(),
        0, clock_timestamp(), clock_timestamp()
 FROM "community_object_deletion_entries" entry
 ON CONFLICT ("object_key", "target") DO UPDATE
@@ -100,7 +100,7 @@ INSERT INTO "community_object_lifecycles" (
   "object_key", "target", "generation", "state", "publication_token", "tombstoned_at",
   "absence_count", "next_reconcile_at", "updated_at"
 )
-SELECT terminal."object_key", 'primary', 1, 'deleted', null, clock_timestamp(),
+SELECT terminal."object_key", 'primary', 1, 'deleted', null::uuid, clock_timestamp(),
        0, clock_timestamp(), clock_timestamp()
 FROM terminal_object_keys terminal
 ON CONFLICT ("object_key", "target") DO UPDATE

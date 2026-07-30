@@ -281,6 +281,7 @@ describe("reliable community chat migration", () => {
     expect(convergentDeletionMigration).toContain("candidate.\"status\" IN ('cleanup_pending','cleaned')");
     expect(convergentDeletionMigration).toContain("candidate.\"status\" IN ('published_cleanup_pending','published')");
     expect(convergentDeletionMigration).toContain("publication.\"state\" = 'quiescing'");
+    expect(convergentDeletionMigration.match(/null::uuid/g)).toHaveLength(2);
     expect(convergentDeletionMigration).toContain('DELETE FROM "community_object_publications" publication');
     expect(migrationJournal.entries.find((entry) => entry.tag === "0068_community_object_convergence")).toMatchObject({ idx: 68 });
   });
