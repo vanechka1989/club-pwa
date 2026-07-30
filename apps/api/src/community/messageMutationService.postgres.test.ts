@@ -80,6 +80,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         client_operation_id varchar(96), create_request_fingerprint varchar(64), edited_at timestamptz,
         deleted_by_user_at timestamptz, deleted_content_expires_at timestamptz,
         deleted_cleanup_claim_id uuid, deleted_cleanup_claimed_at timestamptz,
+        lifecycle_version integer not null default 0, terminal_cleanup_at timestamptz,
         created_at timestamptz not null default clock_timestamp(),
         updated_at timestamptz not null default clock_timestamp()
       );
@@ -91,7 +92,13 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
       );
       create table club_message_attachments (
         id uuid primary key default gen_random_uuid(), message_id uuid not null,
-        expires_at timestamptz, deleted_at timestamptz
+        kind varchar(16) not null default 'file', object_key text not null default '',
+        file_name varchar(255), content_type varchar(160) not null default 'application/octet-stream',
+        size_bytes integer not null default 0, duration_seconds integer, width integer, height integer,
+        sort_order integer not null default 0, expires_at timestamptz, deleted_at timestamptz,
+        scan_status varchar(16) not null default 'ready', scanned_at timestamptz, scan_error varchar(160),
+        lifecycle_version integer not null default 0, terminal_cleanup_at timestamptz,
+        created_at timestamptz not null default now()
       );
       create table community_topic_notification_settings (
         user_id uuid not null, topic_id uuid not null, mode varchar(16) not null default 'mentions',

@@ -38,6 +38,7 @@ integrationDescribe("community message search with PostgreSQL", () => {
         display_name_changed_by_user_at timestamptz, photo_url text, avatar_object_key text,
         avatar_refreshed_at timestamptz, avatar_position_x integer not null default 50,
         avatar_position_y integer not null default 50, avatar_scale integer not null default 100,
+        community_access_version integer not null default 1,
         telegram_bot_status varchar(16) not null default 'unknown', telegram_bot_blocked_at timestamptz,
         telegram_bot_unblocked_at timestamptz, device_snapshot jsonb, device_snapshot_at timestamptz,
         created_at timestamptz not null default now(), updated_at timestamptz not null default now()
@@ -54,8 +55,11 @@ integrationDescribe("community message search with PostgreSQL", () => {
         body text not null, kind varchar(16) not null default 'text', is_system boolean not null default false,
         status text not null default 'visible', moderated_by_user_id uuid, moderated_at timestamptz,
         moderation_reason text, pinned_at timestamptz, pinned_by_user_id uuid, purge_at timestamptz,
-        client_operation_id varchar(96), edited_at timestamptz, deleted_by_user_at timestamptz,
-        deleted_content_expires_at timestamptz, created_at timestamptz not null default now(),
+        client_operation_id varchar(96), create_request_fingerprint varchar(64), edited_at timestamptz,
+        deleted_by_user_at timestamptz, deleted_content_expires_at timestamptz,
+        deleted_cleanup_claim_id uuid, deleted_cleanup_claimed_at timestamptz,
+        lifecycle_version integer not null default 0, terminal_cleanup_at timestamptz,
+        created_at timestamptz not null default now(),
         updated_at timestamptz not null default now()
       );
       create table club_message_attachments (

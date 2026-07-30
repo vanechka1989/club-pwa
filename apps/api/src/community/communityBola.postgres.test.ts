@@ -89,6 +89,7 @@ integrationDescribe("community route BOLA enforcement with PostgreSQL", () => {
         display_name_changed_by_user_at timestamptz, photo_url text, avatar_object_key text,
         avatar_refreshed_at timestamptz, avatar_position_x integer not null default 50,
         avatar_position_y integer not null default 50, avatar_scale integer not null default 100,
+        community_access_version integer not null default 1,
         telegram_bot_status varchar(16) not null default 'unknown', telegram_bot_blocked_at timestamptz,
         telegram_bot_unblocked_at timestamptz, device_snapshot jsonb, device_snapshot_at timestamptz,
         created_at timestamptz not null default now(), updated_at timestamptz not null default now()
@@ -109,8 +110,19 @@ integrationDescribe("community route BOLA enforcement with PostgreSQL", () => {
         client_operation_id varchar(96), create_request_fingerprint varchar(64), edited_at timestamptz,
         deleted_by_user_at timestamptz, deleted_content_expires_at timestamptz,
         deleted_cleanup_claim_id uuid, deleted_cleanup_claimed_at timestamptz,
+        lifecycle_version integer not null default 0, terminal_cleanup_at timestamptz,
         created_at timestamptz not null default clock_timestamp(),
         updated_at timestamptz not null default clock_timestamp()
+      );
+      create table club_message_attachments (
+        id uuid primary key default gen_random_uuid(), message_id uuid not null,
+        kind varchar(16) not null default 'file', object_key text not null default '',
+        file_name varchar(255), content_type varchar(160) not null default 'application/octet-stream',
+        size_bytes integer not null default 0, duration_seconds integer, width integer, height integer,
+        sort_order integer not null default 0, expires_at timestamptz, deleted_at timestamptz,
+        scan_status varchar(16) not null default 'ready', scanned_at timestamptz, scan_error varchar(160),
+        lifecycle_version integer not null default 0, terminal_cleanup_at timestamptz,
+        created_at timestamptz not null default now()
       );
       create table club_message_mentions (
         message_id uuid not null, user_id uuid not null, start_offset integer not null, end_offset integer not null,
@@ -125,6 +137,7 @@ integrationDescribe("community route BOLA enforcement with PostgreSQL", () => {
         duration_seconds integer, width integer, height integer, result jsonb,
         status varchar(24) not null default 'uploading', error_code varchar(160), attachment_id uuid,
         expires_at timestamptz not null, completed_at timestamptz, consumed_at timestamptz,
+        lifecycle_version integer not null default 0, terminal_cleanup_at timestamptz,
         created_at timestamptz not null default now(), updated_at timestamptz not null default now()
       );
     `);
@@ -134,7 +147,7 @@ integrationDescribe("community route BOLA enforcement with PostgreSQL", () => {
 
   beforeEach(async () => {
     authState.userId = requesterId;
-    await client.unsafe("truncate community_upload_manifests, club_message_mentions, club_chat_messages, club_chat_topics, users");
+    await client.unsafe("truncate community_upload_manifests, club_message_attachments, club_message_mentions, club_chat_messages, club_chat_topics, users");
     await client`
       insert into users (id, telegram_id, first_name, display_name)
       values
