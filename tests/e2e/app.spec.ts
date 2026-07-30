@@ -3506,7 +3506,7 @@ test("opens support attachments above the routed ticket screen", async ({ page }
 
 test("opens the client message composer as a visible overlay", async ({ page }, testInfo) => {
   await page.goto("/admin/clients/593677751");
-  await page.getByRole("button", { name: "Написать клиенту" }).click();
+  await page.getByRole("button", { name: "Написать", exact: true }).click();
 
   const layer = page.locator(".admin-client-message-layer");
   await expect(layer).toBeVisible();

@@ -481,11 +481,13 @@
 
 .admin-client-primary-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .admin-client-primary-actions .admin-message-client-button {
-  min-height: 44px;
+  width: 100%;
+  min-height: 52px;
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   background: var(--accent);
   color: var(--accent-text);

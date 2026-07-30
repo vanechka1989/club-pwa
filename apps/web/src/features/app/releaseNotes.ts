@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Personal subscriptions for clients",
+  title: "Cleaner client card actions",
   items: [
-    "Admins can create personal one-time payments or recurring subscriptions through Prodamus and Lava.top.",
-    "Each link lasts 24 hours, belongs to one account, and closes after a successful payment.",
-    "The client receives an in-app notification and push, while the admin can review link history and statuses."
+    "Message and subscription actions now share one compact row instead of splitting the client card.",
+    "Both buttons have equal sizing, clear visual hierarchy, and comfortable mobile tap targets.",
+    "The layout stays on one line on narrow screens without horizontal overflow."
   ]
 };
 
