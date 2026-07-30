@@ -13,12 +13,15 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes compact client actions as version 5.80", () => {
-    expect(appVersion).toBe("5.80");
-    expect(releaseNotes[0]?.title).toBe("Удобные действия в карточке клиента");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/один аккуратный ряд/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/одинаковый размер/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/горизонтальную прокрутку/i);
+  it("publishes semantic client actions as version 5.81", () => {
+    expect(appVersion).toBe("5.81");
+    expect(releaseNotes[0]?.title).toBe("Понятные действия с клиентом");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/зелёным/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Запретить общение в чате/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/сиреневое/i);
+
+    const compactActionsRelease = releaseNotes.find((note) => note.version === "5.80");
+    expect(compactActionsRelease?.title).toBe("Удобные действия в карточке клиента");
 
     const personalSubscriptionsRelease = releaseNotes.find((note) => note.version === "5.79");
     expect(personalSubscriptionsRelease?.title).toBe("Персональные подписки для клиентов");
@@ -229,7 +232,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Cleaner client card actions");
+    expect(englishNotes[0]?.title).toBe("Clear client management actions");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Cleaner client card actions",
+  title: "Clear client management actions",
   items: [
-    "Message and subscription actions now share one compact row instead of splitting the client card.",
-    "Both buttons have equal sizing, clear visual hierarchy, and comfortable mobile tap targets.",
-    "The layout stays on one line on narrow screens without horizontal overflow."
+    "Opening access is green, closing it is red, and every important action now has a clear icon.",
+    "The indefinite mute action is renamed to clearly state that it blocks chat communication.",
+    "Messaging uses a gold treatment, while subscriptions use a dedicated purple treatment for faster scanning."
   ]
 };
 

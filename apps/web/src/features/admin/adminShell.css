@@ -486,12 +486,25 @@
 }
 
 .admin-client-primary-actions .admin-message-client-button {
+  --admin-client-action-color: #f59e0b;
   width: 100%;
   min-height: 52px;
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: var(--accent);
-  color: var(--accent-text);
+  gap: 8px;
+  border-color: color-mix(in srgb, var(--admin-client-action-color) 72%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--admin-client-action-color) 88%, #fef3c7),
+    #facc15
+  );
+  color: #2b1b00;
   font-size: 0.8rem;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--admin-client-action-color) 20%, transparent);
+}
+
+.admin-client-primary-actions .admin-message-client-button svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
 }
 
 .admin-client-workspace {
@@ -574,12 +587,42 @@
 .admin-client-workspace .admin-access-toggle button,
 .admin-client-workspace .admin-date-save,
 .admin-client-workspace .admin-client-mute-action {
-  min-height: 44px;
+  min-height: 52px;
+}
+
+.admin-client-workspace .admin-access-toggle button,
+.admin-client-workspace .admin-client-mute-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.admin-client-workspace .admin-access-toggle button svg,
+.admin-client-workspace .admin-client-mute-action svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.admin-client-workspace .admin-access-open {
+  border-color: color-mix(in srgb, var(--success) 76%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--success) 82%, #064e3b), var(--success));
+  color: #fff;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--success) 20%, transparent);
+}
+
+.admin-client-workspace .admin-access-close {
+  border-color: color-mix(in srgb, var(--danger) 74%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--danger) 78%, #7f1d1d), var(--danger));
+  color: #fff;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--danger) 18%, transparent);
 }
 
 .admin-client-workspace .admin-compact-date-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  align-items: stretch;
 }
 
 .admin-client-workspace .admin-compact-date-row .admin-date-action {
@@ -588,6 +631,7 @@
 
 .admin-client-workspace .admin-date-save,
 .admin-client-workspace .admin-client-mute-action {
+  height: 100%;
   width: 100%;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 12px;
@@ -599,8 +643,13 @@
 }
 
 .admin-client-workspace .admin-client-mute-action {
-  background: color-mix(in srgb, var(--danger) 10%, var(--panel));
-  color: color-mix(in srgb, var(--danger) 76%, var(--text));
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--danger) 20%, var(--panel)),
+    color-mix(in srgb, #f97316 18%, var(--panel))
+  );
+  color: color-mix(in srgb, var(--danger) 82%, var(--text));
 }
 
 .admin-client-workspace .admin-client-mute-action:disabled {

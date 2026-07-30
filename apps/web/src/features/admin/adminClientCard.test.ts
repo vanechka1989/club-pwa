@@ -85,6 +85,21 @@ describe("admin client card helpers", () => {
     expect(acquisition).toBeGreaterThan(message);
   });
 
+  it("distinguishes client actions by labels, icons and semantic colors", () => {
+    const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const styles = adminStyles;
+
+    expect(source).toContain("LockOpen");
+    expect(source).toContain("Lock");
+    expect(source).toContain("MessageCircleOff");
+    expect(source).toContain("MessageCircle");
+    expect(source).toContain("Запретить общение в чате");
+    expect(source).not.toContain("Мут до снятия");
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-access-open\s*\{[^}]*background:[^}]*var\(--success\)/s);
+    expect(styles).toMatch(/\.admin-client-primary-actions \.admin-message-client-button\s*\{[^}]*--admin-client-action-color:\s*#f59e0b/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-mute-action\s*\{[^}]*var\(--danger\)/s);
+  });
+
   it("opens the client message form in a dedicated overlay above the task screen", () => {
     const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
     const shell = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
