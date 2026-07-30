@@ -20,6 +20,20 @@ describe("browser error tracker capture", () => {
     expect(payload.displayMode).toBe("standalone");
   });
 
+  it("redacts personal payment tokens from captured routes", () => {
+    const payload = buildRuntimeErrorPayload(new Error("Failed"), "render", {
+      release: "5.79",
+      url: "https://club.example/payments/offers/AbCdEf0123456789_-AbCdEf0123456789_-AbCdEf",
+      displayMode: "standalone",
+      online: true,
+      installationId: null,
+      userAgent: "test",
+      platform: "test",
+      viewport: { width: 390, height: 844 }
+    });
+    expect(payload.route).toBe("/payments/offers/[redacted]");
+  });
+
   it("installs a Vue error handler that reports without rethrowing", async () => {
     const report = vi.fn().mockResolvedValue(undefined);
     const app = { config: {} as { errorHandler?: (error: unknown, instance: unknown, info: string) => void } };

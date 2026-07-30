@@ -79,6 +79,14 @@ describe("Lava webhook", () => {
     expect(event.externalSubscriptionId).toBe("7ea82675-4ded-4133-95a7-a6efbaf165cc");
   });
 
+  it("recovers the local merchant order id when the invoice response was lost", async () => {
+    const event = await parseLavaWebhook(lavaRequest("payment.success", "correct", {
+      clientUtm: { utm_content: "club-offer-11111111-1111-4111-8111-111111111111" }
+    }), "correct");
+
+    expect(event.merchantOrderId).toBe("club-offer-11111111-1111-4111-8111-111111111111");
+  });
+
   it("rejects an invalid content type and oversized body", async () => {
     const invalidType = new Request("https://club.example/webhook", {
       method: "POST",

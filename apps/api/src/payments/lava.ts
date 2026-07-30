@@ -31,6 +31,16 @@ const invoiceStatusResponseSchema = z.object({
   subscriptionStatus: z.enum(["ACTIVE", "CANCELLED", "FAILED"]).nullable().optional()
 }).passthrough();
 
+const invoiceLookupResponseSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().uuid(),
+    clientUtm: z.record(z.unknown()).nullable().optional()
+  }).passthrough()).default([]),
+  page: z.number().int().positive(),
+  size: z.number().int().positive(),
+  total: z.number().int().nonnegative()
+}).passthrough();
+
 const subscriptionStatusResponseSchema = z.object({
   id: z.string(),
   datetime: z.string(),
@@ -240,7 +250,8 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
               buyerLanguage: "RU",
               ...(lavaPeriodicity(input.product.kind, input.product.accessDays)
                 ? { periodicity: lavaPeriodicity(input.product.kind, input.product.accessDays) }
-                : {})
+                : {}),
+              clientUtm: { utm_content: input.orderId }
             })
           })
         : createLavaClient({ apiKey, fetch: fetchImpl }).createCheckout(input));
@@ -354,6 +365,42 @@ export function createLavaClient(options: LavaClientOptions): PaymentProviderAda
           subscriptionStatus: response.data.subscriptionStatus ?? null
         }
       };
+    },
+
+    async findExternalOrderId(input) {
+      const apiKey = configuredApiKey(input.credentials, options.apiKey);
+      if (apiKey !== options.apiKey) {
+        return await createLavaClient({ apiKey, fetch: fetchImpl }).findExternalOrderId?.(input) ?? null;
+      }
+      const query = new URLSearchParams({
+        beginDate: new Date(input.createdAt.getTime() - 60_000).toISOString(),
+        endDate: new Date().toISOString(),
+        page: "1",
+        size: "100"
+      });
+      if (input.buyerEmail) query.set("buyerEmail", input.buyerEmail);
+      for (const status of ["NEW", "IN_PROGRESS", "COMPLETED", "FAILED"]) {
+        query.append("invoiceStatuses", status);
+      }
+      const matches: Array<{ id: string }> = [];
+      for (let page = 1; page <= 20; page += 1) {
+        query.set("page", String(page));
+        const response = invoiceLookupResponseSchema.safeParse(await request(`/api/v2/invoices?${query.toString()}`));
+        if (!response.success) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+        if (response.data.page !== page) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+        if (response.data.size !== 100) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+        const expectedItems = Math.min(response.data.size, Math.max(0, response.data.total - (page - 1) * response.data.size));
+        if (response.data.items.length !== expectedItems) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+        matches.push(...response.data.items.filter((invoice) =>
+          invoice.clientUtm?.utm_content === input.merchantOrderId
+        ));
+        const total = response.data.total;
+        const size = response.data.size;
+        if (page * size >= total) break;
+        if (response.data.items.length === 0 || page === 20) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+      }
+      if (matches.length > 1) throw new LavaApiError("LAVA_INVALID_RESPONSE");
+      return matches[0]?.id ?? null;
     },
 
     async getSubscriptionEvents(input) {

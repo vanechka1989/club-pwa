@@ -1,5 +1,5 @@
 import { adminIndividualPaymentOfferPayloadSchema, type IndividualPaymentOffer } from "@club/shared";
-import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { recordAdminAction } from "../admin/actionLog";
 import { getUserRole, hasAdminPermission } from "../admin/roles";
@@ -22,6 +22,10 @@ import { mapPaymentProviderForAdmin } from "../payments/providerAdminService";
 import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
 
 const offerTtlMs = 24 * 60 * 60 * 1000;
+
+function databaseErrorCode(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error ? String(error.code) : null;
+}
 
 async function requireOfferAdmin(c: Context<{ Variables: AuthVariables }>) {
   const telegramId = c.get("telegramUser").id;
@@ -55,7 +59,7 @@ function serializeOffer(
   now = new Date()
 ): IndividualPaymentOffer {
   const order = [...offer.orders].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null;
-  const status: IndividualPaymentOffer["status"] = offer.status === "active" || offer.status === "checkout_pending"
+  const status: IndividualPaymentOffer["status"] = offer.status === "active" || (offer.status === "checkout_pending" && offer.provider === "prodamus")
     ? now.getTime() >= offer.expiresAt.getTime() ? "expired" : offer.status
     : offer.status as IndividualPaymentOffer["status"];
   return {
@@ -84,7 +88,10 @@ async function listOffers(userId: string) {
     .set({ status: "expired", updatedAt: new Date() })
     .where(and(
       eq(individualPaymentOffers.userId, userId),
-      inArray(individualPaymentOffers.status, ["active", "checkout_pending"]),
+      or(
+        eq(individualPaymentOffers.status, "active"),
+        and(eq(individualPaymentOffers.status, "checkout_pending"), eq(individualPaymentOffers.provider, "prodamus"))
+      ),
       lt(individualPaymentOffers.expiresAt, new Date())
     ));
   const offers = await db.query.individualPaymentOffers.findMany({
@@ -141,18 +148,6 @@ export const adminIndividualPaymentOffersRoute = new Hono<{ Variables: AuthVaria
     if (error || !target) return error!;
     const body = adminIndividualPaymentOfferPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-    if (body.data.provider === "prodamus" && body.data.kind === "recurrent") {
-      const [subscriptions, membership] = await Promise.all([
-        db.query.userRecurrentSubscriptions.findMany({ where: eq(userRecurrentSubscriptions.userId, target.id) }),
-        getMembership(target.id)
-      ]);
-      if (hasBlockingRecurrentSubscription(subscriptions, {
-        isActiveMembership: membership.isActive,
-        subscriptionProvider: membership.subscription?.provider ?? null
-      })) {
-        return c.json({ error: "У клиента уже есть активная или восстанавливаемая автоподписка." }, 409);
-      }
-    }
     const context = await loadCreationContext();
     let draft;
     try {
@@ -162,18 +157,54 @@ export const adminIndividualPaymentOffersRoute = new Hono<{ Variables: AuthVaria
       return c.json({ error: code }, code.includes("UNAVAILABLE") ? 409 : 400);
     }
     const now = new Date();
+    if (draft.kind === "recurrent") {
+      await db.update(individualPaymentOffers).set({ status: "expired", updatedAt: now }).where(and(
+        eq(individualPaymentOffers.userId, target.id),
+        eq(individualPaymentOffers.kind, "recurrent"),
+        or(
+          eq(individualPaymentOffers.status, "active"),
+          and(eq(individualPaymentOffers.status, "checkout_pending"), eq(individualPaymentOffers.provider, "prodamus"))
+        ),
+        lt(individualPaymentOffers.expiresAt, now)
+      ));
+      const [subscriptions, membership, openOffer] = await Promise.all([
+        db.query.userRecurrentSubscriptions.findMany({ where: eq(userRecurrentSubscriptions.userId, target.id) }),
+        getMembership(target.id),
+        db.query.individualPaymentOffers.findFirst({
+          where: and(
+            eq(individualPaymentOffers.userId, target.id),
+            eq(individualPaymentOffers.kind, "recurrent"),
+            inArray(individualPaymentOffers.status, ["active", "checkout_pending"])
+          )
+        })
+      ]);
+      if (openOffer || hasBlockingRecurrentSubscription(subscriptions, {
+        isActiveMembership: membership.isActive,
+        subscriptionProvider: membership.subscription?.provider ?? null
+      })) {
+        return c.json({ error: "У клиента уже есть активная, восстанавливаемая или ожидающая оплаты автоподписка." }, 409);
+      }
+    }
     const expiresAt = new Date(now.getTime() + offerTtlMs);
     const { token, tokenHash } = createIndividualOfferToken();
-    const [offer] = await db.insert(individualPaymentOffers).values({
-      userId: target.id,
-      createdByUserId: c.get("userId"),
-      ...draft,
-      tokenHash,
-      status: "active",
-      expiresAt,
-      createdAt: now,
-      updatedAt: now
-    }).returning();
+    let offer: typeof individualPaymentOffers.$inferSelect | undefined;
+    try {
+      [offer] = await db.insert(individualPaymentOffers).values({
+        userId: target.id,
+        createdByUserId: c.get("userId"),
+        ...draft,
+        tokenHash,
+        status: "active",
+        expiresAt,
+        createdAt: now,
+        updatedAt: now
+      }).returning();
+    } catch (cause) {
+      if (databaseErrorCode(cause) === "23505" && draft.kind === "recurrent") {
+        return c.json({ error: "Для клиента уже создана ожидающая оплаты автоподписка." }, 409);
+      }
+      throw cause;
+    }
     if (!offer) return c.json({ error: "Unable to create offer" }, 500);
     const appPath = `/payments/offers/${token}`;
     const notification = buildIndividualOfferNotification({

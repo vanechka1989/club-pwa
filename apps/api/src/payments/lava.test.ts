@@ -43,7 +43,8 @@ describe("Lava API client", () => {
       email: "buyer@example.com",
       offerId: "836b9fc5-7ae9-4a27-9642-592bc44072b7",
       currency: "RUB",
-      buyerLanguage: "RU"
+      buyerLanguage: "RU",
+      clientUtm: { utm_content: "club-order-1" }
     });
   });
 
@@ -77,6 +78,56 @@ describe("Lava API client", () => {
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toEqual(expect.objectContaining({ currency: "USD", amount: 19.99 }));
+  });
+
+  it("finds an ambiguously-created invoice by the stable merchant order id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      items: [{
+        id: "7ea82675-4ded-4133-95a7-a6efbaf165cc",
+        clientUtm: { utm_content: "club-offer-1" }
+      }],
+      page: 1,
+      size: 100,
+      total: 1
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = createLavaClient({ apiKey: "api-key", fetch: fetchMock });
+
+    await expect(client.findExternalOrderId?.({
+      credentials: { apiKey: "api-key" },
+      merchantOrderId: "club-offer-1",
+      createdAt: new Date("2026-07-30T08:00:00.000Z"),
+      buyerEmail: "buyer@example.com"
+    })).resolves.toBe("7ea82675-4ded-4133-95a7-a6efbaf165cc");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/api/v2/invoices?");
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("buyerEmail=buyer%40example.com");
+  });
+
+  it("fails closed when Lava omits pagination proof during invoice lookup", async () => {
+    const client = createLavaClient({
+      apiKey: "api-key",
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200 }))
+    });
+
+    await expect(client.findExternalOrderId?.({
+      credentials: { apiKey: "api-key" },
+      merchantOrderId: "club-offer-1",
+      createdAt: new Date("2026-07-30T08:00:00.000Z")
+    })).rejects.toEqual(new LavaApiError("LAVA_INVALID_RESPONSE"));
+  });
+
+  it("fails closed when Lava returns a different invoice page than requested", async () => {
+    const client = createLavaClient({
+      apiKey: "api-key",
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        items: [], page: 2, size: 100, total: 0
+      }), { status: 200 }))
+    });
+
+    await expect(client.findExternalOrderId?.({
+      credentials: { apiKey: "api-key" },
+      merchantOrderId: "club-offer-1",
+      createdAt: new Date("2026-07-30T08:00:00.000Z")
+    })).rejects.toEqual(new LavaApiError("LAVA_INVALID_RESPONSE"));
   });
 
   it("lets Lava resolve the selected fixed-currency price from the offer", async () => {

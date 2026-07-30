@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminIndividualPaymentOfferPayloadSchema, individualPaymentOfferSchema } from "./index";
+import { adminIndividualPaymentOfferPayloadSchema, individualPaymentOfferSchema, userRecurrentSubscriptionSchema } from "./index";
 
 describe("individual payment offer contracts", () => {
   it("accepts a one-time Prodamus offer with a positive RUB price", () => {
@@ -70,5 +70,17 @@ describe("individual payment offer contracts", () => {
 
     expect(parsed).not.toHaveProperty("token");
     expect(parsed).not.toHaveProperty("tokenHash");
+  });
+
+  it("supports recurrent subscriptions created from an individual offer without a catalog product", () => {
+    expect(userRecurrentSubscriptionSchema.parse({
+      id: "subscription-1",
+      productId: null,
+      title: "Персональная подписка",
+      provider: "lava",
+      status: "active",
+      cancelledAt: null,
+      createdAt: "2026-07-30T08:00:00.000Z"
+    }).productId).toBeNull();
   });
 });

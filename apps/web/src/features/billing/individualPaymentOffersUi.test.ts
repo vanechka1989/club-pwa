@@ -14,6 +14,7 @@ describe("individual payment offer UI", () => {
     expect(adminOffer).toContain("Созданные ссылки");
     expect(adminOffer).toContain("Ссылка действует 24 часа");
     expect(clientOffer).toContain("привязана к вашему аккаунту");
+    expect(clientOffer).toContain("watch(() => props.token, load, { immediate: true })");
     expect(navigation).toContain('"/payments/offers/:token"');
   });
 });

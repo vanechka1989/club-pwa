@@ -29,6 +29,7 @@ export type ProviderCheckoutInput = {
   };
   returnUrl: string;
   notificationUrl: string;
+  expiresAt?: Date;
 };
 
 export type ProviderCatalogItem = {
@@ -60,6 +61,13 @@ export type ProviderOrderStatusInput = {
   amountMinor: number;
 };
 
+export type ProviderOrderLookupInput = {
+  credentials: PaymentProviderCredentials;
+  merchantOrderId: string;
+  createdAt: Date;
+  buyerEmail?: string;
+};
+
 export type ProviderSubscriptionStatusInput = Omit<ProviderOrderStatusInput, "externalOrderId" | "currency" | "amountMinor"> & {
   externalSubscriptionId: string;
 };
@@ -74,6 +82,7 @@ export type NormalizedPaymentEvent = {
     | "renewal_failed"
     | "subscription_cancelled";
   externalOrderId: string;
+  merchantOrderId?: string | null;
   externalPaymentId: string;
   externalSubscriptionId: string | null;
   productId: string;
@@ -93,6 +102,7 @@ export interface PaymentProviderAdapter {
   checkConnection(credentials: PaymentProviderCredentials): Promise<void>;
   listCatalog(credentials: PaymentProviderCredentials): Promise<ProviderCatalogItem[]>;
   getOrderStatus?(input: ProviderOrderStatusInput): Promise<NormalizedPaymentEvent | null>;
+  findExternalOrderId?(input: ProviderOrderLookupInput): Promise<string | null>;
   getSubscriptionEvents?(input: ProviderSubscriptionStatusInput): Promise<NormalizedPaymentEvent[]>;
   cancelSubscription?(input: ProviderSubscriptionInput): Promise<void>;
 }

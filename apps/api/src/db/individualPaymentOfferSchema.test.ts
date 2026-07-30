@@ -18,7 +18,7 @@ describe("individual payment offer persistence", () => {
     ]));
     expect(orderColumns.productId.notNull).toBe(false);
     expect(Object.keys(orderColumns)).toEqual(expect.arrayContaining([
-      "individualOfferId", "productTitleSnapshot", "productKindSnapshot", "accessDaysSnapshot"
+      "individualOfferId", "productTitleSnapshot", "productKindSnapshot", "accessDaysSnapshot", "checkoutUrl"
     ]));
     expect(recurrentColumns.productId.notNull).toBe(false);
     expect(recurrentColumns.individualOfferId.notNull).toBe(false);
@@ -30,6 +30,7 @@ describe("individual payment offer persistence", () => {
     expect(migration).toContain('CREATE UNIQUE INDEX "payment_orders_offer_pending_unique"');
     expect(migration).toContain('WHERE "status" = \'pending\'');
     expect(migration).not.toContain('payment_orders_offer_paid_unique');
+    expect(migration).toContain('CREATE UNIQUE INDEX "individual_payment_offers_user_recurrent_open_unique"');
   });
 
   it("registers migration 0063", () => {

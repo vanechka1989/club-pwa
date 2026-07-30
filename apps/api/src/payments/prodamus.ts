@@ -158,6 +158,7 @@ export function buildProdamusPaymentUrl(input: {
   returnUrl: string;
   notificationUrl: string;
   subscriptionDateStart?: Date;
+  linkExpiresAt?: Date;
 }) {
   const products = [
     {
@@ -179,6 +180,7 @@ export function buildProdamusPaymentUrl(input: {
     urlSuccess: input.returnUrl,
     urlNotification: input.notificationUrl,
     callbackType: "json",
+    link_expired: input.linkExpiresAt ? formatProdamusDateTime(input.linkExpiresAt) : undefined,
     products,
     subscription: input.product.kind === "recurrent" ? input.product.prodamusSubscriptionId : undefined,
     subscription_date_start: subscriptionDateStart
@@ -197,6 +199,9 @@ export function buildProdamusPaymentUrl(input: {
   url.searchParams.set("urlSuccess", input.returnUrl);
   url.searchParams.set("urlNotification", input.notificationUrl);
   url.searchParams.set("callbackType", "json");
+  if (data.link_expired) {
+    url.searchParams.set("link_expired", String(data.link_expired));
+  }
   url.searchParams.set("products[0][name]", input.product.title);
   url.searchParams.set("products[0][price]", String(input.product.amountRub));
   url.searchParams.set("products[0][quantity]", "1");

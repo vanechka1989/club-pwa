@@ -577,6 +577,9 @@ export const individualPaymentOffers = pgTable(
     tokenHashIdx: uniqueIndex("individual_payment_offers_token_hash_unique").on(table.tokenHash),
     userCreatedIdx: index("individual_payment_offers_user_created_idx").on(table.userId, table.createdAt),
     statusExpiresIdx: index("individual_payment_offers_status_expires_idx").on(table.status, table.expiresAt),
+    userRecurrentOpenIdx: uniqueIndex("individual_payment_offers_user_recurrent_open_unique")
+      .on(table.userId)
+      .where(sql`${table.kind} = 'recurrent' and ${table.status} in ('active', 'checkout_pending')`),
     validStatus: check(
       "individual_payment_offers_status_check",
       sql`${table.status} in ('active', 'checkout_pending', 'paid', 'expired', 'cancelled')`
@@ -601,6 +604,7 @@ export const paymentOrders = pgTable(
     providerOrderId: varchar("provider_order_id", { length: 128 }).notNull(),
     providerPaymentId: varchar("provider_payment_id", { length: 128 }),
     externalOrderId: varchar("external_order_id", { length: 160 }),
+    checkoutUrl: text("checkout_url"),
     externalSubscriptionId: varchar("external_subscription_id", { length: 160 }),
     productTitleSnapshot: varchar("product_title_snapshot", { length: 180 }),
     productKindSnapshot: paymentProductKind("product_kind_snapshot"),

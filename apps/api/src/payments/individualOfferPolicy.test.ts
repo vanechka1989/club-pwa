@@ -11,7 +11,7 @@ const createdAt = new Date("2026-07-30T08:00:00.000Z");
 const expiresAt = new Date("2026-07-31T08:00:00.000Z");
 
 function offer(status: "active" | "checkout_pending" | "paid" | "expired" | "cancelled" = "active") {
-  return { userId: assignedUserId, status, createdAt, expiresAt };
+  return { userId: assignedUserId, provider: "prodamus" as const, status, createdAt, expiresAt };
 }
 
 describe("individual payment offer policy", () => {
@@ -44,5 +44,17 @@ describe("individual payment offer policy", () => {
 
   it("keeps a checkout-pending offer visible to its assigned client", () => {
     expect(resolveIndividualOfferAvailability(offer("checkout_pending"), assignedUserId, createdAt)).toBe("available");
+  });
+
+  it("keeps a Lava checkout reusable after the app-link deadline because the provider invoice cannot be revoked", () => {
+    expect(resolveIndividualOfferAvailability(
+      { ...offer("checkout_pending"), provider: "lava" },
+      assignedUserId,
+      expiresAt
+    )).toBe("available");
+  });
+
+  it("expires a Prodamus checkout at the provider-bound deadline", () => {
+    expect(resolveIndividualOfferAvailability(offer("checkout_pending"), assignedUserId, expiresAt)).toBe("expired");
   });
 });

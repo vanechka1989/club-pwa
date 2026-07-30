@@ -1,3 +1,5 @@
+import { redactSensitiveClientPath } from "@/utils/requestPath";
+
 export type RuntimeErrorContext = {
   release: string;
   url: string;
@@ -20,7 +22,7 @@ export function buildRuntimeErrorPayload(error: unknown, component: string, cont
   return {
     kind: "vue-error",
     message: resolved.message || "Неизвестная ошибка Vue",
-    route,
+    route: redactSensitiveClientPath(route),
     stack: resolved.stack ?? null,
     release: context.release,
     displayMode: context.displayMode,

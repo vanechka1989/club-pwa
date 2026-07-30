@@ -17,6 +17,7 @@ import { notificationsRoute } from "./routes/notifications";
 import { paymentsRoute } from "./routes/payments";
 import { individualPaymentOffersRoute } from "./routes/individualPaymentOffers";
 import { adminIndividualPaymentOffersRoute } from "./routes/adminIndividualPaymentOffers";
+import { redactSensitiveRequestPath } from "./security/requestPath";
 import { lavaPaymentsRoute } from "./routes/lavaPayments";
 import { pushRoute } from "./routes/push";
 import { subscriptionsRoute } from "./routes/subscriptions";
@@ -44,6 +45,7 @@ function getClientErrorRateLimitKey(c: Context) {
 
 app.use("*", async (c, next) => {
   const startedAt = performance.now();
+  const safeRequestPath = redactSensitiveRequestPath(c.req.path);
   let requestStatus = 500;
   try {
     await next();
@@ -56,7 +58,7 @@ app.use("*", async (c, next) => {
       message: error instanceof Error ? error.message : "Неизвестная ошибка сервера",
       stack: error instanceof Error ? error.stack ?? null : null,
       method: c.req.method,
-      route: c.req.path,
+      route: safeRequestPath,
       status: 500
     };
     const sanitized = sanitizeErrorEvent(trackedInput);
@@ -79,7 +81,7 @@ app.use("*", async (c, next) => {
     logger.info(
       {
         method: c.req.method,
-        path: c.req.path,
+        path: safeRequestPath,
         status: requestStatus,
         durationMs
       },
@@ -140,7 +142,9 @@ app.post("/client-errors", async (c) => {
     source: "client" as const,
     kind: body.data.kind,
     message: body.data.message,
-    route: body.data.route ?? body.data.url ?? null,
+    route: body.data.route || body.data.url
+      ? redactSensitiveRequestPath(body.data.route ?? body.data.url ?? "")
+      : null,
     stack: body.data.stack ?? null,
     detail: body.data.detail,
     release: body.data.release ?? null,

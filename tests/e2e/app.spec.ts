@@ -9,6 +9,7 @@ const apiBaseUrl = "http://localhost:3000";
 const appApiUrlPattern = /^https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/api\/.*/;
 const now = "2026-07-01T10:00:00.000Z";
 const activeUntil = "2026-08-30T00:00:00.000Z";
+const individualOfferToken = "AbCdEf0123456789_-AbCdEf0123456789_-AbCdEf";
 const errorTrackerGroup = {
   id: "506b24dd-1109-40e0-8933-1b96d0b1a619",
   fingerprint: "a".repeat(64),
@@ -452,6 +453,28 @@ async function mockApi(page: Page, sessionUser = currentUser) {
 
     if (path === "/payments/orders") {
       await route.fulfill(json({ orders: [adminPaymentOrder] }));
+      return;
+    }
+
+    if (path === `/payments/offers/${individualOfferToken}`) {
+      await route.fulfill(json({
+        offer: {
+          id: "22222222-2222-4222-8222-222222222222",
+          provider: "prodamus",
+          kind: "one_time",
+          title: "Персональный доступ к клубу",
+          currency: "RUB",
+          amountMinor: 149000,
+          accessDays: 45,
+          status: "active",
+          expiresAt: "2026-08-01T10:00:00.000Z",
+          createdAt: now,
+          firstOpenedAt: now,
+          checkoutStartedAt: null,
+          paidAt: null,
+          cancelledAt: null
+        }
+      }));
       return;
     }
 
@@ -1654,6 +1677,7 @@ const responsiveRouteAuditPaths = [
   { path: "/learning/lessons/lesson-admin-1/edit", selector: ".learning-task-screen .task-screen" },
   { path: "/community", selector: ".community-chat-shell" },
   { path: "/payments", selector: ".payment-product-list, .surface-card" },
+  { path: `/payments/offers/${individualOfferToken}`, selector: ".offer-card" },
   { path: "/payments/provider", selector: ".payment-task-screen .task-screen" },
   { path: "/payments/plans/new", selector: ".payment-task-screen .task-screen" },
   { path: "/payments/plans/product-30/edit", selector: ".payment-task-screen .task-screen" },
@@ -2455,6 +2479,17 @@ test("opens payment admin task screens when their URLs are loaded directly", asy
   await page.goto("/payments/plans/new");
   await expect(page).toHaveURL(/\/payments\/plans\/new$/);
   await expect(page.locator(".payment-task-screen .task-screen")).toBeVisible();
+});
+
+test("opens a personal payment offer without viewport overflow", async ({ page }, testInfo) => {
+  await page.goto(`/payments/offers/${individualOfferToken}`);
+  await expect(page.locator(".offer-card")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Персональный доступ к клубу" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Оплатить/ })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  if (testInfo.project.name === "release-android") {
+    await page.screenshot({ path: testInfo.outputPath("individual-payment-offer.png"), fullPage: false, animations: "disabled" });
+  }
 });
 
 test("keeps routed task screens full width in wide mobile PWA viewports", async ({ page }, testInfo) => {

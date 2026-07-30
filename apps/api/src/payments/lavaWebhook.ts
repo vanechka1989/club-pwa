@@ -94,6 +94,10 @@ export async function parseLavaWebhook(
     throw error;
   }
   const recurring = payload.eventType.startsWith("subscription.");
+  const merchantOrderId = typeof payload.clientUtm?.utm_content === "string"
+    && payload.clientUtm.utm_content.length <= 128
+    ? payload.clientUtm.utm_content
+    : null;
   const subscriptionId = recurring
     ? payload.parentContractId ?? payload.contractId
     : payload.status.toLowerCase().includes("subscription")
@@ -105,6 +109,7 @@ export async function parseLavaWebhook(
     provider: "lava",
     type: eventTypes[payload.eventType],
     externalOrderId: payload.parentContractId ?? payload.contractId,
+    merchantOrderId,
     externalPaymentId: payload.contractId,
     externalSubscriptionId: subscriptionId,
     productId: payload.product.id,

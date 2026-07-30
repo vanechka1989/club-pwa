@@ -548,7 +548,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }),
       db.query.userRecurrentSubscriptions.findMany({
         where: eq(userRecurrentSubscriptions.userId, userId),
-        with: { product: true, provider: true },
+        with: { product: true, individualOffer: true, provider: true },
         orderBy: [asc(userRecurrentSubscriptions.createdAt)]
       })
     ]);
@@ -566,7 +566,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       recurrentSubscriptions: recurrentSubscriptions.map((subscription) => ({
         id: subscription.id,
         productId: subscription.productId,
-        title: subscription.product?.title ?? "Подписка",
+        title: subscription.product?.title ?? subscription.individualOffer?.title ?? "Подписка",
         provider: subscription.provider?.provider === "lava" ? "lava" : "prodamus",
         status: subscription.status,
         cancelledAt: subscription.cancelledAt?.toISOString() ?? null,

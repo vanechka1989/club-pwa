@@ -1,6 +1,6 @@
-import { and, eq, gte, isNotNull, or } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "../db/client";
-import { paymentOrders, paymentProviders, userRecurrentSubscriptions } from "../db/schema";
+import { individualPaymentOffers, paymentOrders, paymentProviders, userRecurrentSubscriptions } from "../db/schema";
 import { logger } from "../logger";
 import { processPaymentEvent } from "./paymentEventProcessor";
 import { getPaymentProviderAdapter } from "./providerRegistry";
@@ -48,6 +48,81 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
   const adapter = getPaymentProviderAdapter("lava");
   if (!adapter.getOrderStatus) return { checked: 0, corrected: 0, failed: 0 };
 
+  const ambiguousBefore = new Date(now.getTime() - 15 * 60 * 1000);
+  const unresolvedOrders = adapter.findExternalOrderId
+    ? await db.query.paymentOrders.findMany({
+        where: and(
+          eq(paymentOrders.providerId, provider.id),
+          eq(paymentOrders.status, "pending"),
+          isNull(paymentOrders.externalOrderId),
+          isNotNull(paymentOrders.individualOfferId),
+          lt(paymentOrders.createdAt, ambiguousBefore),
+          gte(paymentOrders.createdAt, recentSince)
+        ),
+        with: { individualOffer: true, user: true },
+        limit: 100
+      })
+    : [];
+  const unresolvedSummary = await runBoundedReconciliation(unresolvedOrders, async (order) => {
+    const externalOrderId = await adapter.findExternalOrderId!({
+      credentials: { apiKey: decryptProviderSecret(provider.apiKey!) },
+      merchantOrderId: order.providerOrderId,
+      createdAt: order.createdAt,
+      ...(order.user.email ? { buyerEmail: order.user.email } : {})
+    });
+    if (externalOrderId) {
+      const [linked] = await db.update(paymentOrders).set({ externalOrderId, updatedAt: now }).where(and(
+        eq(paymentOrders.id, order.id),
+        eq(paymentOrders.status, "pending"),
+        isNull(paymentOrders.externalOrderId)
+      )).returning({ id: paymentOrders.id });
+      if (!linked) return "unchanged";
+      const event = await adapter.getOrderStatus!({
+        credentials: { apiKey: decryptProviderSecret(provider.apiKey!) },
+        externalOrderId,
+        productId: order.individualOfferId!,
+        buyerEmail: "",
+        currency: order.currency,
+        amountMinor: order.amountMinor
+      });
+      if (event) await processPaymentEvent(event, provider.id);
+      return "corrected";
+    }
+    const previousMissingAt = order.rawPayload
+      && typeof order.rawPayload === "object"
+      && "invoiceLookupMissingAt" in order.rawPayload
+      && typeof order.rawPayload.invoiceLookupMissingAt === "string"
+      ? new Date(order.rawPayload.invoiceLookupMissingAt)
+      : null;
+    if (!previousMissingAt || !Number.isFinite(previousMissingAt.getTime()) || now.getTime() - previousMissingAt.getTime() < 10 * 60 * 1000) {
+      await db.update(paymentOrders).set({
+        rawPayload: { invoiceLookupMissingAt: now.toISOString() },
+        updatedAt: now
+      }).where(and(
+        eq(paymentOrders.id, order.id),
+        eq(paymentOrders.status, "pending"),
+        isNull(paymentOrders.externalOrderId)
+      ));
+      return "unchanged";
+    }
+    return db.transaction(async (tx) => {
+      const [released] = await tx.update(paymentOrders).set({ status: "failed", updatedAt: now }).where(and(
+        eq(paymentOrders.id, order.id),
+        eq(paymentOrders.status, "pending"),
+        isNull(paymentOrders.externalOrderId)
+      )).returning({ id: paymentOrders.id });
+      if (!released || !order.individualOffer) return "unchanged";
+      await tx.update(individualPaymentOffers).set({
+        status: order.individualOffer.expiresAt.getTime() <= now.getTime() ? "expired" : "active",
+        updatedAt: now
+      }).where(and(
+        eq(individualPaymentOffers.id, order.individualOffer.id),
+        eq(individualPaymentOffers.status, "checkout_pending")
+      ));
+      return "corrected";
+    });
+  }, 4);
+
   const orderSummary = await reconcilePendingLavaOrders({
     providerId: provider.id,
     apiKey: decryptProviderSecret(provider.apiKey!),
@@ -89,9 +164,9 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
     return corrected ? "corrected" : "unchanged";
   }, 4);
   const summary = {
-    checked: orderSummary.checked + subscriptionSummary.checked,
-    corrected: orderSummary.corrected + subscriptionSummary.corrected,
-    failed: orderSummary.failed + subscriptionSummary.failed
+    checked: unresolvedSummary.checked + orderSummary.checked + subscriptionSummary.checked,
+    corrected: unresolvedSummary.corrected + orderSummary.corrected + subscriptionSummary.corrected,
+    failed: unresolvedSummary.failed + orderSummary.failed + subscriptionSummary.failed
   };
   if (summary.failed) {
     logger.warn({ checked: summary.checked, corrected: summary.corrected, failed: summary.failed }, "Lava reconciliation completed with safe failures");

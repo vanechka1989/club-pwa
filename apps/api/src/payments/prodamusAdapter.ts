@@ -42,7 +42,8 @@ export const prodamusAdapter: PaymentProviderAdapter = {
         prodamusSubscriptionId: input.product.externalProductId
       },
       returnUrl: input.returnUrl,
-      notificationUrl: input.notificationUrl
+      notificationUrl: input.notificationUrl,
+      ...(input.expiresAt ? { linkExpiresAt: input.expiresAt } : {})
     });
 
     return { checkoutUrl, externalOrderId: null };

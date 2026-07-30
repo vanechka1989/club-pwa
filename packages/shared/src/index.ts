@@ -578,7 +578,7 @@ export type PaymentCheckoutOptionsResponse = z.infer<typeof paymentCheckoutOptio
 
 export const userRecurrentSubscriptionSchema = z.object({
   id: z.string(),
-  productId: z.string(),
+  productId: z.string().nullable(),
   title: z.string(),
   provider: paymentProviderCodeSchema.default("prodamus"),
   status: z.enum(["active", "cancelled"]),

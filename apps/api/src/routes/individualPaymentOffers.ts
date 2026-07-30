@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { db } from "../db/client";
@@ -6,6 +6,7 @@ import {
   individualPaymentOffers,
   paymentOrders,
   paymentProviderCatalogItems,
+  userRecurrentSubscriptions,
   users,
   type PaymentProvider
 } from "../db/schema";
@@ -15,10 +16,15 @@ import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { isOwnerTelegramId } from "../admin/roles";
 import { getPaymentProviderAdapter } from "../payments/providerRegistry";
-import { decryptProviderSecret } from "../payments/providerSecrets";
+import { decryptProviderSecret, encryptProviderSecret } from "../payments/providerSecrets";
 import { resolveLavaCheckoutBuyerEmail } from "../payments/lavaCheckoutBuyer";
+import { LavaApiError } from "../payments/lava";
 import { isLavaCatalogPriceForProduct } from "../payments/lavaPeriodicity";
 import { hashIndividualOfferToken, resolveIndividualOfferAvailability } from "../payments/individualOfferPolicy";
+import { getMembership } from "../membership/getMembership";
+import { hasBlockingRecurrentSubscription } from "../payments/recurrentCheckoutGuard";
+
+const checkoutCreationLeaseMs = 2 * 60 * 1000;
 
 function providerCredentials(provider: PaymentProvider) {
   return {
@@ -73,10 +79,13 @@ export const individualPaymentOffersRoute = new Hono<{ Variables: AuthVariables 
     const offer = await findAssignedOffer(c.req.param("token"), c.get("userId"));
     if (!offer) return c.json({ error: "Предложение не найдено." }, 404);
     const now = new Date();
-    const availability = resolveIndividualOfferAvailability({ ...offer, status: offer.status as "active" | "checkout_pending" | "paid" | "expired" | "cancelled" }, c.get("userId"), now);
+    const availability = resolveIndividualOfferAvailability({ ...offer, provider: offer.provider as "prodamus" | "lava", status: offer.status as "active" | "checkout_pending" | "paid" | "expired" | "cancelled" }, c.get("userId"), now);
     if (availability === "expired" && offer.status !== "expired") {
       offer.status = "expired";
-      await db.update(individualPaymentOffers).set({ status: "expired", updatedAt: now }).where(eq(individualPaymentOffers.id, offer.id));
+      await db.update(individualPaymentOffers).set({ status: "expired", updatedAt: now }).where(and(
+        eq(individualPaymentOffers.id, offer.id),
+        inArray(individualPaymentOffers.status, ["active", "checkout_pending"])
+      ));
     }
     if (!offer.firstOpenedAt) {
       offer.firstOpenedAt = now;
@@ -89,16 +98,66 @@ export const individualPaymentOffersRoute = new Hono<{ Variables: AuthVariables 
     const offer = await findAssignedOffer(c.req.param("token"), userId);
     if (!offer) return c.json({ error: "Предложение не найдено." }, 404);
     const now = new Date();
-    const availability = resolveIndividualOfferAvailability({ ...offer, status: offer.status as "active" | "checkout_pending" | "paid" | "expired" | "cancelled" }, userId, now);
+    const availability = resolveIndividualOfferAvailability({ ...offer, provider: offer.provider as "prodamus" | "lava", status: offer.status as "active" | "checkout_pending" | "paid" | "expired" | "cancelled" }, userId, now);
     if (availability !== "available") {
       if (availability === "expired" && offer.status !== "expired") {
-        await db.update(individualPaymentOffers).set({ status: "expired", updatedAt: now }).where(eq(individualPaymentOffers.id, offer.id));
+        await db.update(individualPaymentOffers).set({ status: "expired", updatedAt: now }).where(and(
+          eq(individualPaymentOffers.id, offer.id),
+          inArray(individualPaymentOffers.status, ["active", "checkout_pending"])
+        ));
       }
       return c.json({ error: availability === "paid" ? "Предложение уже оплачено." : "Предложение больше недоступно." }, 409);
     }
     if (!offer.providerRecord?.isEnabled) return c.json({ error: "Платёжная система временно недоступна." }, 409);
-    if (offer.orders.some((order) => order.status === "pending")) {
-      return c.json({ error: "Оплата уже открыта. Завершите её или попробуйте позже." }, 409);
+    if (offer.kind === "recurrent") {
+      const [subscriptions, membership] = await Promise.all([
+        db.query.userRecurrentSubscriptions.findMany({ where: eq(userRecurrentSubscriptions.userId, userId) }),
+        getMembership(userId)
+      ]);
+      if (hasBlockingRecurrentSubscription(subscriptions, {
+        isActiveMembership: membership.isActive,
+        subscriptionProvider: membership.subscription?.provider ?? null
+      })) {
+        return c.json({ error: "У вас уже есть активная или восстанавливаемая автоподписка." }, 409);
+      }
+    }
+    const pendingOrder = offer.orders.find((order) => order.status === "pending");
+    if (pendingOrder?.checkoutUrl) {
+      return c.json({ checkoutUrl: decryptProviderSecret(pendingOrder.checkoutUrl), message: "Открываем ранее созданную платёжную страницу." });
+    }
+    if (pendingOrder) {
+      if (offer.provider === "lava") {
+        return c.json({ error: "Lava уже обрабатывает эту платёжную сессию. Не создавайте повторную оплату; результат поступит автоматически." }, 409);
+      }
+      const staleBefore = new Date(now.getTime() - checkoutCreationLeaseMs);
+      if (pendingOrder.updatedAt.getTime() >= staleBefore.getTime()) {
+        return c.json({ error: "Платёжная страница создаётся. Повторите через несколько секунд." }, 409);
+      }
+      const recovered = await db.transaction(async (tx) => {
+        const [releasedOrder] = await tx.update(paymentOrders).set({
+          status: "failed",
+          updatedAt: now
+        }).where(and(
+          eq(paymentOrders.id, pendingOrder.id),
+          eq(paymentOrders.status, "pending"),
+          isNull(paymentOrders.checkoutUrl),
+          lt(paymentOrders.updatedAt, staleBefore)
+        )).returning({ id: paymentOrders.id });
+        if (!releasedOrder) return false;
+        await tx.update(individualPaymentOffers).set({
+          status: "active",
+          updatedAt: now
+        }).where(and(
+          eq(individualPaymentOffers.id, offer.id),
+          eq(individualPaymentOffers.status, "checkout_pending")
+        ));
+        return true;
+      });
+      return c.json({
+        error: recovered
+          ? "Предыдущая попытка оплаты восстановлена после сбоя. Нажмите оплатить ещё раз."
+          : "Платёжная страница уже создаётся в другой сессии. Повторите через несколько секунд."
+      }, 409);
     }
     const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
     if (!user) return c.json({ error: "Пользователь не найден." }, 404);
@@ -135,6 +194,7 @@ export const individualPaymentOffersRoute = new Hono<{ Variables: AuthVariables 
     }
     const providerOrderId = `club-offer-${randomUUID()}`;
     let order: typeof paymentOrders.$inferSelect | null = null;
+    let lavaCreateAttempted = false;
     try {
       order = await db.transaction(async (tx) => {
         const [reserved] = await tx.update(individualPaymentOffers).set({
@@ -165,6 +225,7 @@ export const individualPaymentOffersRoute = new Hono<{ Variables: AuthVariables 
         if (!saved) throw new Error("INDIVIDUAL_OFFER_ORDER_NOT_CREATED");
         return saved;
       });
+      lavaCreateAttempted = providerCode === "lava";
       const checkout = await getPaymentProviderAdapter(providerCode).createCheckout({
         credentials: providerCredentials(offer.providerRecord),
         orderId: providerOrderId,
@@ -181,22 +242,46 @@ export const individualPaymentOffersRoute = new Hono<{ Variables: AuthVariables 
           externalOfferId: offer.externalOfferId
         },
         returnUrl: `${env.WEB_ORIGIN.replace(/\/$/, "")}/payments/offers/${c.req.param("token")}`,
-        notificationUrl: webhookUrl(providerCode)
+        notificationUrl: webhookUrl(providerCode),
+        expiresAt: offer.expiresAt
       });
-      if (checkout.externalOrderId) {
-        await db.update(paymentOrders).set({ externalOrderId: checkout.externalOrderId, updatedAt: new Date() }).where(eq(paymentOrders.id, order.id));
-      }
+      const [savedCheckout] = await db.update(paymentOrders).set({
+        checkoutUrl: encryptProviderSecret(checkout.checkoutUrl),
+        externalOrderId: checkout.externalOrderId ?? order.externalOrderId,
+        updatedAt: new Date()
+      }).where(and(
+        eq(paymentOrders.id, order.id),
+        eq(paymentOrders.status, "pending"),
+        isNull(paymentOrders.checkoutUrl)
+      )).returning({ id: paymentOrders.id });
+      if (!savedCheckout) throw new Error("INDIVIDUAL_OFFER_CHECKOUT_LEASE_LOST");
       return c.json({ checkoutUrl: checkout.checkoutUrl, message: "Платёжная страница готова." });
     } catch (error) {
       logger.warn({ error, offerId: offer.id, providerOrderId }, "individual offer checkout failed");
-      if (order) {
-        await db.update(paymentOrders).set({ status: "failed", updatedAt: new Date() }).where(eq(paymentOrders.id, order.id));
+      const definiteLavaFailure = error instanceof LavaApiError
+        && ["LAVA_UNAUTHORIZED", "LAVA_RATE_LIMITED", "LAVA_BUYER_EMAIL_REJECTED"].includes(error.code);
+      const ambiguousLavaResult = providerCode === "lava" && lavaCreateAttempted && !definiteLavaFailure;
+      let releasedOwnReservation = false;
+      if (order && !ambiguousLavaResult) {
+        const [releasedOrder] = await db.update(paymentOrders).set({ status: "failed", updatedAt: new Date() }).where(and(
+          eq(paymentOrders.id, order.id),
+          eq(paymentOrders.status, "pending")
+        )).returning({ id: paymentOrders.id });
+        releasedOwnReservation = Boolean(releasedOrder);
       }
-      await db.update(individualPaymentOffers).set({ status: "active", updatedAt: new Date() }).where(and(
-        eq(individualPaymentOffers.id, offer.id),
-        eq(individualPaymentOffers.status, "checkout_pending")
-      ));
+      if (!ambiguousLavaResult && (!order || releasedOwnReservation)) {
+        await db.update(individualPaymentOffers).set({ status: "active", updatedAt: new Date() }).where(and(
+          eq(individualPaymentOffers.id, offer.id),
+          eq(individualPaymentOffers.status, "checkout_pending")
+        ));
+      }
       const code = error instanceof Error ? error.message : "";
-      return c.json({ error: code === "INDIVIDUAL_OFFER_ALREADY_RESERVED" ? "Оплата уже открыта." : "Не удалось открыть оплату. Попробуйте ещё раз." }, code === "INDIVIDUAL_OFFER_ALREADY_RESERVED" ? 409 : 502);
+      return c.json({
+        error: code === "INDIVIDUAL_OFFER_ALREADY_RESERVED"
+          ? "Оплата уже открыта."
+          : ambiguousLavaResult
+            ? "Lava приняла запрос, но не подтвердила результат. Повторная оплата заблокирована; статус обновится автоматически."
+            : "Не удалось открыть оплату. Попробуйте ещё раз."
+      }, code === "INDIVIDUAL_OFFER_ALREADY_RESERVED" ? 409 : 502);
     }
   });

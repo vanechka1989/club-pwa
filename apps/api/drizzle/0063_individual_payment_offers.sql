@@ -43,6 +43,8 @@ ALTER TABLE "payment_orders" ADD COLUMN "product_kind_snapshot" "payment_product
 --> statement-breakpoint
 ALTER TABLE "payment_orders" ADD COLUMN "access_days_snapshot" integer;
 --> statement-breakpoint
+ALTER TABLE "payment_orders" ADD COLUMN "checkout_url" text;
+--> statement-breakpoint
 ALTER TABLE "payment_orders" ADD CONSTRAINT "payment_orders_individual_offer_id_individual_payment_offers_id_fk" FOREIGN KEY ("individual_offer_id") REFERENCES "public"."individual_payment_offers"("id") ON DELETE restrict ON UPDATE no action;
 --> statement-breakpoint
 ALTER TABLE "payment_orders" ADD CONSTRAINT "payment_orders_product_or_offer_check" CHECK (("product_id" IS NOT NULL AND "individual_offer_id" IS NULL) OR ("product_id" IS NULL AND "individual_offer_id" IS NOT NULL AND "product_title_snapshot" IS NOT NULL AND "product_kind_snapshot" IS NOT NULL AND "access_days_snapshot" IS NOT NULL));
@@ -50,6 +52,8 @@ ALTER TABLE "payment_orders" ADD CONSTRAINT "payment_orders_product_or_offer_che
 CREATE INDEX "individual_payment_offers_user_created_idx" ON "individual_payment_offers" USING btree ("user_id", "created_at");
 --> statement-breakpoint
 CREATE INDEX "individual_payment_offers_status_expires_idx" ON "individual_payment_offers" USING btree ("status", "expires_at");
+--> statement-breakpoint
+CREATE UNIQUE INDEX "individual_payment_offers_user_recurrent_open_unique" ON "individual_payment_offers" USING btree ("user_id") WHERE "kind" = 'recurrent' AND "status" IN ('active', 'checkout_pending');
 --> statement-breakpoint
 CREATE UNIQUE INDEX "payment_orders_offer_pending_unique" ON "payment_orders" USING btree ("individual_offer_id") WHERE "status" = 'pending';
 --> statement-breakpoint

@@ -67,7 +67,8 @@ export async function processPaymentEvent(
         eq(paymentOrders.providerId, providerId),
         or(
           eq(paymentOrders.externalOrderId, event.externalOrderId),
-          eq(paymentOrders.providerOrderId, event.externalOrderId)
+          eq(paymentOrders.providerOrderId, event.externalOrderId),
+          event.merchantOrderId ? eq(paymentOrders.providerOrderId, event.merchantOrderId) : undefined
         )
       ),
       with: { product: true, individualOffer: true, user: true }
