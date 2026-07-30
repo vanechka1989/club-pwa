@@ -125,11 +125,13 @@ describe("admin client card helpers", () => {
     expect(source).not.toContain("admin-client-message-inline");
     expect(source).toContain("Paperclip");
     expect(source).toContain("admin-client-file-button");
+    expect(source).not.toContain('<span v-if="clientMessage.files.length" class="support-file-count">');
     expect(shell).toContain("createAdminClientSupportTicket");
     expect(apiSource).toContain("/support/admin/users/${telegramId}/tickets");
     expect(styles).toContain(".admin-client-message-layer");
     expect(styles).toMatch(/\.admin-client-message-row\s*\{[^}]*position:\s*relative;[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s);
     expect(styles).toMatch(/\.admin-client-file-button\.ui-icon-button\s*\{[^}]*position:\s*absolute;[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+    expect(styles).toMatch(/\.admin-client-file-button input\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*width:\s*100%;[^}]*height:\s*100%;[^}]*opacity:\s*0;[^}]*font-size:\s*0;/s);
     expect(styles).toMatch(/\.admin-client-message-row textarea\s*\{[^}]*padding-left:\s*58px;/s);
   });
 

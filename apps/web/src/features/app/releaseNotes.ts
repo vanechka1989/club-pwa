@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Accurate recurring billing status",
+  title: "Paperclip-only attachment control",
   items: [
-    "Cancelled recurring payments are now explicitly marked in the admin client card.",
-    "Recurring billing status is separate from paid access, which remains valid until its existing expiration date.",
-    "The message attachment control now sits neatly inside the editor without breaking the mobile layout."
+    "Client messages now show only a clean paperclip without the native file picker label.",
+    "The paperclip keeps a phone-friendly tap target, while selected files appear in a separate list.",
+    "The PWA cache version was refreshed so the corrected styles load immediately."
   ]
 };
 

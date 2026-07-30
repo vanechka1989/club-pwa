@@ -13,12 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes cancelled autopay visibility as version 5.82", () => {
-    expect(appVersion).toBe("5.82");
-    expect(releaseNotes[0]?.title).toBe("Честный статус автосписания");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Автосписание отменено/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/доступ/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/вложения/i);
+  it("publishes the paperclip-only attachment control as version 5.83", () => {
+    expect(appVersion).toBe("5.83");
+    expect(releaseNotes[0]?.title).toBe("Только скрепка в сообщении");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/скрепк/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Выбрать файл/i);
+
+    const cancelledAutopayRelease = releaseNotes.find((note) => note.version === "5.82");
+    expect(cancelledAutopayRelease?.title).toBe("Честный статус автосписания");
 
     const semanticActionsRelease = releaseNotes.find((note) => note.version === "5.81");
     expect(semanticActionsRelease?.title).toBe("Понятные действия с клиентом");
@@ -235,7 +237,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Accurate recurring billing status");
+    expect(englishNotes[0]?.title).toBe("Paperclip-only attachment control");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
