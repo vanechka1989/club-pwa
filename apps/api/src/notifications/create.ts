@@ -54,7 +54,8 @@ export async function createAppNotification(
       url: input.pushUrl ?? "/"
     });
     if (options.waitForPush) {
-      await delivery;
+      const result = await delivery;
+      return { notification, pushDelivered: Boolean(result?.sent) };
     } else {
       void delivery.catch((error) => {
         logger.warn({ error, userId: input.userId }, "app notification push failed");
@@ -62,5 +63,5 @@ export async function createAppNotification(
     }
   }
 
-  return notification ?? null;
+  return { notification: notification ?? null, pushDelivered: false };
 }

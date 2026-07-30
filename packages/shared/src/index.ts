@@ -751,6 +751,11 @@ export const individualPaymentOfferSchema = z.object({
 });
 export type IndividualPaymentOffer = z.infer<typeof individualPaymentOfferSchema>;
 
+export const individualPaymentOffersResponseSchema = z.object({
+  offers: z.array(individualPaymentOfferSchema)
+});
+export type IndividualPaymentOffersResponse = z.infer<typeof individualPaymentOffersResponseSchema>;
+
 export const individualPaymentOfferOptionsResponseSchema = z.object({
   providers: z.array(paymentProviderSchema),
   lavaCatalog: z.array(paymentProviderCatalogItemSchema),

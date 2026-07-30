@@ -53,8 +53,6 @@ CREATE INDEX "individual_payment_offers_status_expires_idx" ON "individual_payme
 --> statement-breakpoint
 CREATE UNIQUE INDEX "payment_orders_offer_pending_unique" ON "payment_orders" USING btree ("individual_offer_id") WHERE "status" = 'pending';
 --> statement-breakpoint
-CREATE UNIQUE INDEX "payment_orders_offer_paid_unique" ON "payment_orders" USING btree ("individual_offer_id") WHERE "status" = 'paid';
---> statement-breakpoint
 ALTER TABLE "user_recurrent_subscriptions" ALTER COLUMN "product_id" DROP NOT NULL;
 --> statement-breakpoint
 ALTER TABLE "user_recurrent_subscriptions" ADD COLUMN "individual_offer_id" uuid;

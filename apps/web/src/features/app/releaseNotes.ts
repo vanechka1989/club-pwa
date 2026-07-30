@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clients by latest activity",
+  title: "Personal subscriptions for clients",
   items: [
-    "Clients are automatically sorted by latest login, with the most recently active shown first.",
-    "Cards highlight login time, access status, plan, and learning progress while remaining convenient on mobile.",
-    "Clients who have never signed in are marked as ‘Never signed in’ and placed at the end of the list."
+    "Admins can create personal one-time payments or recurring subscriptions through Prodamus and Lava.top.",
+    "Each link lasts 24 hours, belongs to one account, and closes after a successful payment.",
+    "The client receives an in-app notification and push, while the admin can review link history and statuses."
   ]
 };
 

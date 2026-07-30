@@ -68,6 +68,12 @@ import type {
   PaymentProviderCode,
   PaymentCurrency,
   PaymentProviderMutationResponse,
+  AdminIndividualPaymentOfferPayload,
+  AdminIndividualPaymentOfferCreateResponse,
+  IndividualPaymentOfferCheckoutResponse,
+  IndividualPaymentOfferDetailResponse,
+  IndividualPaymentOfferOptionsResponse,
+  IndividualPaymentOffersResponse,
   S3StorageObjectUrlResponse,
   S3StorageObjectsResponse,
   S3StorageSettingsMutationResponse,
@@ -118,6 +124,33 @@ export function createPaymentCheckout(productId: string, provider?: PaymentProvi
     method: "POST",
     body: { productId, ...(provider ? { provider } : {}), ...(currency ? { currency } : {}) }
   });
+}
+
+export function getIndividualPaymentOffer(token: string) {
+  return api<IndividualPaymentOfferDetailResponse>(`/payments/offers/${encodeURIComponent(token)}`);
+}
+
+export function createIndividualPaymentOfferCheckout(token: string) {
+  return api<IndividualPaymentOfferCheckoutResponse>(`/payments/offers/${encodeURIComponent(token)}/checkout`, { method: "POST" });
+}
+
+export function getAdminIndividualPaymentOfferOptions(telegramId: string) {
+  return api<IndividualPaymentOfferOptionsResponse>(`/admin/individual-payment-offers/users/${encodeURIComponent(telegramId)}/options`);
+}
+
+export function getAdminIndividualPaymentOffers(telegramId: string) {
+  return api<IndividualPaymentOffersResponse>(`/admin/individual-payment-offers/users/${encodeURIComponent(telegramId)}`);
+}
+
+export function createAdminIndividualPaymentOffer(telegramId: string, payload: AdminIndividualPaymentOfferPayload) {
+  return api<AdminIndividualPaymentOfferCreateResponse>(`/admin/individual-payment-offers/users/${encodeURIComponent(telegramId)}`, {
+    method: "POST",
+    body: payload
+  });
+}
+
+export function cancelAdminIndividualPaymentOffer(telegramId: string, offerId: string) {
+  return api<{ ok: true }>(`/admin/individual-payment-offers/users/${encodeURIComponent(telegramId)}/${encodeURIComponent(offerId)}/cancel`, { method: "POST" });
 }
 
 export function getLearningHome() {

@@ -14,6 +14,12 @@ describe("sanitizeHtml", () => {
     );
   });
 
+  it("keeps safe in-app payment links in the current window", () => {
+    expect(sanitizeHtml('<a href="/payments/offers/safe_token-123">Оплатить</a>')).toBe(
+      '<a href="/payments/offers/safe_token-123">Оплатить</a>'
+    );
+  });
+
   it("escapes plain fallback text", () => {
     expect(escapeHtmlText("<b>нет</b>")).toBe("&lt;b&gt;нет&lt;/b&gt;");
   });

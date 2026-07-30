@@ -618,9 +618,6 @@ export const paymentOrders = pgTable(
     offerPendingIdx: uniqueIndex("payment_orders_offer_pending_unique")
       .on(table.individualOfferId)
       .where(sql`${table.status} = 'pending'`),
-    offerPaidIdx: uniqueIndex("payment_orders_offer_paid_unique")
-      .on(table.individualOfferId)
-      .where(sql`${table.status} = 'paid'`),
     productOrOffer: check(
       "payment_orders_product_or_offer_check",
       sql`(${table.productId} is not null and ${table.individualOfferId} is null) or (${table.productId} is null and ${table.individualOfferId} is not null and ${table.productTitleSnapshot} is not null and ${table.productKindSnapshot} is not null and ${table.accessDaysSnapshot} is not null)`
@@ -1387,7 +1384,7 @@ export const individualPaymentOffersRelations = relations(individualPaymentOffer
     references: [users.id],
     relationName: "individual_offer_creator"
   }),
-  provider: one(paymentProviders, {
+  providerRecord: one(paymentProviders, {
     fields: [individualPaymentOffers.providerId],
     references: [paymentProviders.id]
   }),

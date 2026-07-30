@@ -71,4 +71,17 @@ describe("createAppNotification", () => {
       "app notification push failed"
     );
   });
+
+  it("reports whether a reliable push reached at least one device", async () => {
+    mocks.sendWebPushToUser.mockResolvedValue({ sent: 1, skipped: false });
+
+    const result = await createAppNotification({
+      userId: "client-id",
+      title: "Персональное предложение",
+      body: "Откройте оплату."
+    }, { waitForPush: true });
+
+    expect(result.pushDelivered).toBe(true);
+    expect(result.notification).toEqual({ id: "notification-id" });
+  });
 });

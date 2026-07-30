@@ -24,13 +24,12 @@ describe("individual payment offer persistence", () => {
     expect(recurrentColumns.individualOfferId.notNull).toBe(false);
   });
 
-  it("enforces token secrecy and one pending or paid order per offer in PostgreSQL", () => {
+  it("enforces token secrecy and one pending checkout per offer in PostgreSQL", () => {
     expect(migration).toContain('CONSTRAINT "individual_payment_offers_token_hash_unique" UNIQUE("token_hash")');
     expect(migration).toContain('CHECK ("status" IN (\'active\', \'checkout_pending\', \'paid\', \'expired\', \'cancelled\'))');
     expect(migration).toContain('CREATE UNIQUE INDEX "payment_orders_offer_pending_unique"');
     expect(migration).toContain('WHERE "status" = \'pending\'');
-    expect(migration).toContain('CREATE UNIQUE INDEX "payment_orders_offer_paid_unique"');
-    expect(migration).toContain('WHERE "status" = \'paid\'');
+    expect(migration).not.toContain('payment_orders_offer_paid_unique');
   });
 
   it("registers migration 0063", () => {

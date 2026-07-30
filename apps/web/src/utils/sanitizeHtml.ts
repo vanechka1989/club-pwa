@@ -26,6 +26,9 @@ export function escapeHtmlText(value: string) {
 }
 
 function isSafeHref(value: string) {
+  if (/^\/(?!\/)[A-Za-z0-9/_-]*(?:[?#][A-Za-z0-9%=&_+.-]*)?$/.test(value)) {
+    return true;
+  }
   try {
     const url = new URL(value, window.location.origin);
     return url.protocol === "http:" || url.protocol === "https:" || url.protocol === "mailto:";
@@ -56,8 +59,10 @@ function sanitizeNode(node: Node): Node | null {
   if (nextElement instanceof HTMLElement && tagName === "A") {
     if (safeLinkHref) {
       nextElement.setAttribute("href", safeLinkHref);
-      nextElement.setAttribute("target", "_blank");
-      nextElement.setAttribute("rel", "noopener noreferrer");
+      if (!safeLinkHref.startsWith("/")) {
+        nextElement.setAttribute("target", "_blank");
+        nextElement.setAttribute("rel", "noopener noreferrer");
+      }
     }
   }
 

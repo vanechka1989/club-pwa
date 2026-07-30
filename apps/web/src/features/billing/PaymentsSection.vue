@@ -59,6 +59,7 @@ import { buildLavaProviderForm } from "./lavaProviderForm";
 import { productCheckoutAction, productCurrencyOptions, serverCurrencyPickerAction } from "./paymentCheckout";
 import { startConfirmedCheckout, startCurrencyChoiceCheckout } from "./checkoutFlow";
 import { formatPaymentMoneyWithLegacyFallback } from "./paymentMoney";
+import IndividualPaymentOfferScreen from "./IndividualPaymentOfferScreen.vue";
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -140,6 +141,7 @@ const selectedLavaCatalogItem = computed(() => {
   const offerId = productForm.value.bindings.find((binding) => binding.provider === "lava" && binding.enabled)?.externalOfferId;
   return offerId ? lavaCatalog.value.find((item) => item.externalOfferId === offerId) ?? null : null;
 });
+const individualOfferToken = computed(() => route.path.match(/^\/payments\/offers\/([A-Za-z0-9_-]+)$/)?.[1] ?? null);
 const selectedLavaAccessDays = computed(() =>
   selectedLavaCatalogItem.value
     ? lavaCatalogPeriodOptions(selectedLavaCatalogItem.value)
@@ -843,6 +845,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
 
 <template>
   <section class="ui-page-section space-y-5">
+    <IndividualPaymentOfferScreen v-if="individualOfferToken" :token="individualOfferToken" @close="closePaymentTask" />
     <UiPageHeader :title="t('paymentsTitle')" :subtitle="t('paymentsSubtitle')">
       <template v-if="isOwner" #actions>
         <div class="payment-header-actions">

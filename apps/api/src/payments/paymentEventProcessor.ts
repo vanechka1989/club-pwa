@@ -122,7 +122,7 @@ export async function processPaymentEvent(
           updatedAt: event.occurredAt
         })
         .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, "paid")));
-      if (order.individualOfferId) {
+      if (order.individualOfferId && event.type === "payment_failed") {
         await tx
           .update(individualPaymentOffers)
           .set({ status: "active", updatedAt: event.occurredAt })
@@ -131,7 +131,8 @@ export async function processPaymentEvent(
       return "processed";
     }
 
-    if (order.individualOfferId) {
+    const isRenewal = event.type === "renewal_succeeded";
+    if (order.individualOfferId && !isRenewal) {
       const [claimedOffer] = await tx
         .update(individualPaymentOffers)
         .set({ status: "paid", paidAt: event.occurredAt, updatedAt: event.occurredAt })

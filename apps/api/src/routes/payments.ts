@@ -510,6 +510,16 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         .update(paymentOrders)
         .set({ status: "failed", rawPayload: payload, updatedAt: new Date() })
         .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, "paid")));
+      if (order.individualOfferId) {
+        await db
+          .update(individualPaymentOffers)
+          .set({ status: "active", updatedAt: new Date() })
+          .where(and(
+            eq(individualPaymentOffers.id, order.individualOfferId),
+            eq(individualPaymentOffers.status, "checkout_pending"),
+            gt(individualPaymentOffers.expiresAt, new Date())
+          ));
+      }
     }
 
     await cleanupExpiredPendingPaymentOrders();

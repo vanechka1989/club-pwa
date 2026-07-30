@@ -31,6 +31,7 @@ export const taskRoutePaths = [
   "/payments/provider",
   "/payments/plans/new",
   "/payments/plans/:planId/edit",
+  "/payments/offers/:token",
   "/learning/modules/new",
   "/learning/modules/:moduleId/edit",
   "/learning/lessons/new/:moduleId",
