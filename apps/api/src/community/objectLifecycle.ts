@@ -693,7 +693,9 @@ export function createCommunityObjectTombstoneRepository(
         returning updated.absence_count as "absenceCount"
       `)) as Iterable<{ absenceCount: number }>);
       if (!rows[0]) throw new Error("community_object_tombstone_claim_lost");
-      return { stable: rows[0].absenceCount >= 2 };
+      const absenceCount = Number(rows[0].absenceCount);
+      if (!Number.isFinite(absenceCount)) throw new Error("community_object_tombstone_invalid_absence_count");
+      return { stable: absenceCount >= 2 };
     },
 
     async release(candidate, error) {

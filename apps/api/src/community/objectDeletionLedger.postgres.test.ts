@@ -676,7 +676,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       )
     });
     await expect(reconciler({ limit: 2, objectKeys: [objectKey] })).resolves.toMatchObject({
-      stableKeys: [], pendingKeys: [objectKey]
+      stableKeys: [], pendingKeys: [objectKey], failedTargets: []
     });
     await clientA`
       update community_object_lifecycles
@@ -684,7 +684,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       where object_key = ${objectKey}
     `;
     await expect(reconciler({ limit: 2, objectKeys: [objectKey] })).resolves.toMatchObject({
-      stableKeys: [objectKey], pendingKeys: []
+      stableKeys: [objectKey], pendingKeys: [], failedTargets: []
     });
 
     expect(await listObjectVersions(s3Config!.bucket, objectKey)).toEqual([]);
@@ -739,7 +739,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       where object_key = any(${keys})
     `;
     await expect(reconciler({ limit: keys.length * 2, objectKeys: keys })).resolves.toMatchObject({
-      stableKeys: keys.slice().sort(), pendingKeys: []
+      stableKeys: keys.slice().sort(), pendingKeys: [], failedTargets: []
     });
 
     // Simulate detached provider work after the source/job/process is gone.
@@ -1012,7 +1012,7 @@ integrationDescribe("durable object deletion ledger with PostgreSQL", () => {
       where object_key = ${objectKey}
     `;
     await expect(reconciler({ limit: 2, objectKeys: [objectKey] })).resolves.toMatchObject({
-      stableKeys: [objectKey], pendingKeys: []
+      stableKeys: [objectKey], pendingKeys: [], failedTargets: []
     });
 
     const coldRows = await clientA<{ target: string; coldAt: Date | null }[]>`
