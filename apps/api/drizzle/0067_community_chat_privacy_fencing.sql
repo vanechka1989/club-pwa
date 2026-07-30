@@ -14,13 +14,6 @@ UPDATE "community_topic_reads" topic_read
 SET "last_read_created_at" = message."created_at"
 FROM "club_chat_messages" message
 WHERE message."id" = topic_read."last_read_message_id";--> statement-breakpoint
-UPDATE "community_topic_reads"
-SET "last_read_created_at" = "last_read_at",
-    "last_read_message_id" = COALESCE(
-      "last_read_message_id",
-      'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid
-    )
-WHERE "last_read_message_id" IS NULL OR "last_read_created_at" IS NULL;--> statement-breakpoint
 DO $$
 DECLARE constraint_name text;
 BEGIN
@@ -37,6 +30,13 @@ BEGIN
     EXECUTE format('ALTER TABLE community_topic_reads DROP CONSTRAINT %I', constraint_name);
   END IF;
 END $$;--> statement-breakpoint
+UPDATE "community_topic_reads"
+SET "last_read_created_at" = "last_read_at",
+    "last_read_message_id" = COALESCE(
+      "last_read_message_id",
+      'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid
+    )
+WHERE "last_read_message_id" IS NULL OR "last_read_created_at" IS NULL;--> statement-breakpoint
 ALTER TABLE "community_topic_reads" ALTER COLUMN "last_read_message_id" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "community_topic_reads" ALTER COLUMN "last_read_created_at" SET NOT NULL;--> statement-breakpoint
 CREATE OR REPLACE FUNCTION community_sync_topic_read_tuple() RETURNS trigger LANGUAGE plpgsql AS $$

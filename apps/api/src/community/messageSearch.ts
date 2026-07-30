@@ -1,6 +1,6 @@
 import type { ModerationStatus, UserRole } from "@club/shared";
 import { and, asc, desc, eq, gt, isNull, lt, not, or, sql } from "drizzle-orm";
-import { clubChatMessages, clubChatTopics, clubMessageAttachments, users } from "../db/schema";
+import { clubChatMessages, clubChatTopics, users } from "../db/schema";
 import { buildMessageAuthor } from "./messageMetadata";
 import { preciseCommunityMessageCreatedAt } from "./messageTimestamp";
 import { isTopicAccessibleForRole } from "./topicAccess";
@@ -133,9 +133,9 @@ export function isMessageDiscoverable(input: {
 
 const hasQuarantinedAttachment = sql<boolean>`exists (
   select 1
-  from ${clubMessageAttachments}
-  where ${clubMessageAttachments.messageId} = ${clubChatMessages.id}
-    and (${clubMessageAttachments.scanStatus} <> 'ready' or ${clubMessageAttachments.deletedAt} is not null)
+  from "club_message_attachments" attachment
+  where attachment."message_id" = ${clubChatMessages.id}
+    and (attachment."scan_status" <> 'ready' or attachment."deleted_at" is not null)
 )`;
 
 export function searchableMessageCondition() {

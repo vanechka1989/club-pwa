@@ -108,6 +108,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         id uuid primary key default gen_random_uuid(), user_id uuid not null,
         kind varchar(32) not null default 'system', title varchar(180) not null,
         body text not null, body_html text, source varchar(64), source_id uuid,
+        community_topic_id uuid, community_access_version integer,
         attachment_kind varchar(16), attachment_file_name varchar(255),
         attachment_object_key text, attachment_content_type varchar(160),
         attachment_size_bytes integer, read_at timestamptz,
@@ -219,10 +220,10 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
 
   it("returns one server-created row to simultaneous identical requests", async () => {
     const beforeRows = await clientA<{ now: Date }[]>`select clock_timestamp() as now`;
-    const before = beforeRows[0]!.now;
+    const before = new Date(beforeRows[0]!.now);
     const results = await Promise.all([serviceA.createText(input()), serviceB.createText(input())]);
     const afterRows = await clientA<{ now: Date }[]>`select clock_timestamp() as now`;
-    const after = afterRows[0]!.now;
+    const after = new Date(afterRows[0]!.now);
     const rows = await clientA<{ id: string; createdAt: Date }[]>`
       select id, created_at as "createdAt" from club_chat_messages
     `;
@@ -230,8 +231,9 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
     expect(results.map((result) => result.message.id)).toEqual([rows[0]!.id, rows[0]!.id]);
     expect(results.map((result) => result.created).sort()).toEqual([false, true]);
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.createdAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-    expect(rows[0]!.createdAt.getTime()).toBeLessThanOrEqual(after.getTime());
+    const createdAt = new Date(rows[0]!.createdAt);
+    expect(createdAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(createdAt.getTime()).toBeLessThanOrEqual(after.getTime());
   });
 
   it("keeps the winning payload and rejects a simultaneous conflicting reuse", async () => {

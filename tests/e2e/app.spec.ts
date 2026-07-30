@@ -4429,11 +4429,14 @@ test("reliable community chat release visual audit covers every theme, mode, vie
     const capture = async (prefix: string, stateName: string) => {
       const viewportWidth = app.page.viewportSize()?.width ?? 0;
       const documentWidth = await app.page.evaluate(() => document.documentElement.scrollWidth);
-      const brokenImages = await app.page.locator("img:visible").evaluateAll((images) => images
+      const visibleImageFailures = () => app.page.locator("img:visible").evaluateAll((images) => images
         .filter((image) => !(image as HTMLImageElement).complete || (image as HTMLImageElement).naturalWidth === 0)
         .map((image) => ({ alt: image.getAttribute("alt"), src: (image as HTMLImageElement).src })));
       expect(documentWidth).toBeLessThanOrEqual(viewportWidth + 2);
-      expect(brokenImages, `${prefix}-${stateName}`).toEqual([]);
+      await expect.poll(visibleImageFailures, {
+        message: `${prefix}-${stateName}`,
+        timeout: 5_000
+      }).toEqual([]);
       await app.page.screenshot({
         path: `${artifactDir}/${prefix}-${stateName}.png`,
         fullPage: false,

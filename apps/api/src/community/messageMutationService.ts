@@ -431,9 +431,10 @@ function createDrizzleStore(
 ): MessageMutationStore {
   return {
     async getServerNow() {
-      const rows = Array.from((await database.execute(sql`select clock_timestamp() as "now"`)) as Iterable<{ now: Date }>);
-      const now = rows[0]?.now;
-      if (!(now instanceof Date)) throw new Error("Database clock is unavailable");
+      const rows = Array.from((await database.execute(sql`select clock_timestamp() as "now"`)) as Iterable<{ now: Date | string }>);
+      const rawNow = rows[0]?.now;
+      const now = rawNow instanceof Date ? rawNow : new Date(rawNow ?? Number.NaN);
+      if (Number.isNaN(now.getTime())) throw new Error("Database clock is unavailable");
       return now;
     },
     async findTopicForMutation(topicId) {
