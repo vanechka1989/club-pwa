@@ -128,6 +128,7 @@ import {
   verifyS3LiveConfigurationUpdate,
   type StoredS3Config
 } from "../storage/s3Config";
+import { commitVerifiedS3ConfigurationInDatabase } from "../storage/s3ConfigCommit";
 import { verifyS3Configuration } from "../storage/s3TargetVerifier";
 import { getMessagePurgeAt, shouldHardDeleteMessages } from "../community/messageDeletion";
 import { enqueueCommunityMessageDeletion } from "../community/objectDeletionLedger";
@@ -2150,24 +2151,23 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "Unable to verify S3 lifecycle, versioning, and deletion permissions" }, 400);
     }
 
-    const now = new Date();
-    const [savedSetting] = await db
-      .insert(clubSettings)
-      .values({
-        key: storageSettingKey,
-        value: JSON.stringify(nextConfig),
-        updatedByUserId: c.get("userId"),
-        updatedAt: now
-      })
-      .onConflictDoUpdate({
-        target: clubSettings.key,
-        set: {
-          value: JSON.stringify(nextConfig),
-          updatedByUserId: c.get("userId"),
-          updatedAt: now
-        }
-      })
-      .returning();
+    let savedSetting: typeof clubSettings.$inferSelect | undefined;
+    try {
+      savedSetting = await commitVerifiedS3ConfigurationInDatabase({
+        database: db,
+        currentFallback: getS3ConfigFromEnv(env),
+        next: nextConfig,
+        updatedByUserId: c.get("userId")
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "s3_physical_generation_change_requires_offline_migration") {
+        return c.json({
+          error: "S3 endpoint, region, bucket, and reserve topology can only be changed by the offline storage migration runbook",
+          code: error.message
+        }, 409);
+      }
+      throw error;
+    }
 
     invalidateS3RuntimeCache();
 

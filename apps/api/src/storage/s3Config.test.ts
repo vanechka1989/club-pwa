@@ -6,6 +6,7 @@ import {
   normalizeS3PublicBaseUrl,
   storageSettingKey,
   verifyS3LiveConfigurationUpdate,
+  createSerializedS3ConfigurationCommit,
   type StoredS3Config
 } from "./s3Config";
 
@@ -158,5 +159,47 @@ describe("S3 storage config", () => {
       verify
     )).rejects.toThrow("s3_physical_generation_change_requires_offline_migration");
     expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("serializes verified initial commits so two physical targets cannot both win", async () => {
+    let stored: StoredS3Config | null = null;
+    let tail = Promise.resolve();
+    const commit = createSerializedS3ConfigurationCommit({
+      currentFallback: null,
+      runExclusive: async (work) => {
+        const previous = tail;
+        let release!: () => void;
+        tail = new Promise<void>((resolve) => { release = resolve; });
+        await previous;
+        try {
+          return await work(stored, async (next) => { stored = next; });
+        } finally {
+          release();
+        }
+      }
+    });
+    const bucketA = { ...storedConfig, bucket: "initial-a" };
+    const bucketB = { ...storedConfig, bucket: "initial-b" };
+
+    const results = await Promise.allSettled([commit(bucketA), commit(bucketB)]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({
+      reason: expect.objectContaining({ message: "s3_physical_generation_change_requires_offline_migration" })
+    });
+    expect(stored).toEqual(bucketA);
+  });
+
+  it("still allows a serialized credential rotation for the same physical target", async () => {
+    let stored: StoredS3Config | null = storedConfig;
+    const commit = createSerializedS3ConfigurationCommit({
+      currentFallback: null,
+      runExclusive: async (work) => work(stored, async (next) => { stored = next; })
+    });
+    const rotated = { ...storedConfig, accessKeyId: "ROTATED", secretAccessKey: "ROTATED_SECRET" };
+
+    await expect(commit(rotated)).resolves.toBeUndefined();
+    expect(stored).toEqual(rotated);
   });
 });

@@ -173,8 +173,9 @@ describe("community object lifecycle", () => {
       oldestDueAt: new Date("2026-07-30T10:00:00.000Z"),
       now: new Date("2026-07-30T10:00:30.000Z")
     });
-    expect(withinCapacity.shardLimits[0]).toBe(1_200);
-    expect(withinCapacity.shardLimits.reduce((sum, value) => sum + value, 0)).toBe(1_200);
+    expect(withinCapacity.shardLimits[0]).toBe(communityObjectTombstoneDeleteConcurrency);
+    expect(withinCapacity.shardLimits.reduce((sum, value) => sum + value, 0))
+      .toBe(communityObjectTombstoneDeleteConcurrency);
     expect(withinCapacity.overloaded).toBe(false);
     expect(withinCapacity.worstCaseLateWriteMs).toBeLessThanOrEqual(communityObjectTombstoneWorstCaseSlaMs);
 
@@ -188,7 +189,8 @@ describe("community object lifecycle", () => {
       oldestDueAt: new Date("2026-07-30T10:00:00.000Z"),
       now: new Date("2026-07-30T10:00:00.000Z")
     });
-    expect(maximallyFragmentedCapacity.worstCaseLateWriteMs).toBe(communityObjectTombstoneWorstCaseSlaMs);
+    expect(maximallyFragmentedCapacity.worstCaseLateWriteMs)
+      .toBeLessThanOrEqual(communityObjectTombstoneWorstCaseSlaMs);
     expect(maximallyFragmentedCapacity.slaAtRisk).toBe(false);
 
     const overloaded = calculateCommunityObjectTombstoneSweepPlan({
@@ -201,7 +203,8 @@ describe("community object lifecycle", () => {
       oldestDueAt: new Date("2026-07-30T09:30:00.000Z"),
       now: new Date("2026-07-30T10:00:00.000Z")
     });
-    expect(overloaded.shardLimits.reduce((sum, value) => sum + value, 0)).toBe(communityObjectTombstoneCapacityTargets);
+    expect(overloaded.shardLimits.reduce((sum, value) => sum + value, 0))
+      .toBe(communityObjectTombstoneDeleteConcurrency);
     expect(overloaded).toMatchObject({ overloaded: true, backpressure: true, slaAtRisk: true });
   });
 
@@ -221,7 +224,8 @@ describe("community object lifecycle", () => {
       }),
       reconcileShard,
       now: () => new Date("2026-07-30T10:00:00.000Z"),
-      logger: { warn }
+      logger: { warn },
+      maxRounds: 1
     });
 
     const result = await sweep();
@@ -229,7 +233,7 @@ describe("community object lifecycle", () => {
     expect(reconcileShard).toHaveBeenCalledWith({
       shard: 0,
       shardCount: communityObjectTombstoneShardCount,
-      limit: communityObjectTombstoneCapacityTargets
+      limit: communityObjectTombstoneDeleteConcurrency
     });
     expect(result.pressure).toMatchObject({ backpressure: true, slaAtRisk: true });
     expect(warn).toHaveBeenCalledWith(expect.objectContaining({
@@ -239,7 +243,7 @@ describe("community object lifecycle", () => {
     }), "community object tombstone capacity alert");
   });
 
-  it("dispatches shards serially so the global 64-operation deadline gate is never over-queued", async () => {
+  it("dispatches one bounded oldest-first lease round across shards without over-queuing the global gate", async () => {
     let activeShards = 0;
     let maximumActiveShards = 0;
     const sweep = createCommunityObjectTombstoneSweep({
@@ -256,11 +260,12 @@ describe("community object lifecycle", () => {
         activeShards -= 1;
         return { stableKeys: [], pendingKeys: [], failedTargets: [] };
       },
-      logger: { warn: vi.fn() }
+      logger: { warn: vi.fn() },
+      maxRounds: 1
     });
 
     await sweep();
-    expect(maximumActiveShards).toBe(1);
+    expect(maximumActiveShards).toBeGreaterThan(1);
   });
 
   it("publishes hot-queue pressure, SLA risk, and backpressure counters for monitoring", () => {
@@ -307,10 +312,10 @@ describe("community object lifecycle", () => {
     await expect(rejected()).rejects.toBeInstanceOf(CommunityObjectReconciliationBackpressureError);
   });
 
-  it("deletes more than 500 late-written keys on primary and reserve inside the stated worst-case SLA", async () => {
+  it("drains an above-capacity burst while new tombstones keep arriving without starving the oldest late write", async () => {
     vi.useFakeTimers();
     try {
-      const keyCount = 600;
+      const keyCount = 1_100;
       const rows: CommunityObjectTombstoneCandidate[] = Array.from({ length: keyCount }, (_value, index) =>
         (["primary", "reserve"] as const).map((target, targetIndex) => ({
           objectKey: `community/final/load-${index}.webp`,
@@ -328,33 +333,64 @@ describe("community object lifecycle", () => {
         maxConcurrency: communityObjectTombstoneDeleteConcurrency,
         timeoutMs: communityObjectTombstoneDeleteTimeoutMs
       });
-      const reconciler = createCommunityObjectTombstoneReconciler({
-        repository: {
-          claimBatch: async ({ limit }) => rows.slice(0, limit),
-          markAbsent: async () => ({ stable: true }),
-          release: async () => undefined
-        },
-        deleteTarget: (key, target) => providerGate.run(async () => {
-          active += 1;
-          maximumActive = Math.max(maximumActive, active);
-          await new Promise<void>((resolve) => setTimeout(resolve, communityObjectTombstoneDeleteTimeoutMs - 1));
-          deleted.add(`${key}:${target}`);
-          active -= 1;
-        }),
-        concurrency: communityObjectTombstoneDeleteConcurrency
-      });
+      let currentRows = rows;
+      let latestInitialDeletedAt: number | null = null;
       const startedAt = Date.now();
-      const run = reconciler({ limit: rows.length });
+      const sweep = createCommunityObjectTombstoneSweep({
+        loadPressure: async () => ({
+          hotTargetCount: currentRows.length,
+          dueTargetCount: currentRows.length,
+          dueByShard: Array.from({ length: communityObjectTombstoneShardCount }, (_value, shard) =>
+            currentRows.filter((row) => Number(row.objectKey.match(/(\d+)/)?.[1] ?? 0) % communityObjectTombstoneShardCount === shard).length),
+          oldestDueAt: currentRows.length ? new Date(startedAt) : null
+        }),
+        reconcileShard: async ({ shard, shardCount, limit }) => {
+          const claimed = currentRows
+            .filter((row) => Number(row.objectKey.match(/(\d+)/)?.[1] ?? 0) % shardCount === shard)
+            .slice(0, limit);
+          await Promise.all(claimed.map((row) => providerGate.run(async () => {
+            active += 1;
+            maximumActive = Math.max(maximumActive, active);
+            await new Promise<void>((resolve) => setTimeout(resolve, communityObjectTombstoneDeleteTimeoutMs - 1));
+            deleted.add(`${row.objectKey}:${row.target}`);
+            if (row.objectKey.startsWith("community/final/load-")) {
+              latestInitialDeletedAt = Math.max(latestInitialDeletedAt ?? 0, Date.now());
+            }
+            active -= 1;
+          })));
+          const claimedIds = new Set(claimed.map((row) => `${row.objectKey}:${row.target}`));
+          currentRows = currentRows.filter((row) => !claimedIds.has(`${row.objectKey}:${row.target}`));
+          // One shard injects 16 new targets per 15-second round (64/minute),
+          // while every shard continues to lease its oldest rows first.
+          if (shard === 0) {
+            const generation = deleted.size;
+            currentRows.push(...Array.from({ length: 16 }, (_value, index) => ({
+              objectKey: `community/final/continuous-${generation + index}.webp`,
+              target: (index % 2 ? "reserve" : "primary") as "primary" | "reserve",
+              generation: 4,
+              claimId: `continuous-${generation + index}`,
+              absenceCount: 1,
+              expectedTargetCount: 1
+            })));
+          }
+          return { stableKeys: [], pendingKeys: [], failedTargets: [] };
+        },
+        now: () => new Date(Date.now()),
+        logger: { warn: vi.fn() }
+      });
+      const run = sweep();
       await vi.runAllTimersAsync();
-      await run;
-      const providerProcessingMs = Date.now() - startedAt;
-      const maximumLateWriteDelayMs = communityObjectTombstoneAuditMs + 60_000 + providerProcessingMs;
+      const result = await run;
+      const maximumInitialLateWriteDelayMs = communityObjectTombstoneAuditMs
+        + 60_000
+        + (latestInitialDeletedAt! - startedAt);
 
-      expect(rows.length).toBeLessThanOrEqual(communityObjectTombstoneCapacityTargets);
-      expect(deleted.size).toBe(1_200);
+      expect(rows.length).toBeGreaterThan(communityObjectTombstoneCapacityTargets);
+      expect(rows.every((row) => deleted.has(`${row.objectKey}:${row.target}`))).toBe(true);
+      expect(deleted.size).toBeGreaterThan(rows.length);
       expect(maximumActive).toBe(communityObjectTombstoneDeleteConcurrency);
-      expect(providerProcessingMs).toBe(284_981);
-      expect(maximumLateWriteDelayMs).toBeLessThanOrEqual(communityObjectTombstoneWorstCaseSlaMs);
+      expect(maximumInitialLateWriteDelayMs).toBeLessThanOrEqual(communityObjectTombstoneWorstCaseSlaMs);
+      expect(result.pressure.serviceRateTargetsPerMinute).toBeGreaterThan(0);
       expect(communityObjectProviderUncertaintyMs).toBeGreaterThan(communityObjectTombstoneWorstCaseSlaMs);
     } finally {
       vi.useRealTimers();

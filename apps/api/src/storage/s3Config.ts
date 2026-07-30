@@ -84,6 +84,26 @@ export async function verifyS3LiveConfigurationUpdate(
   await verify(next);
 }
 
+type SerializedS3ConfigurationWork<T> = (
+  stored: StoredS3Config | null,
+  persist: (next: StoredS3Config) => Promise<void>
+) => Promise<T>;
+
+export function createSerializedS3ConfigurationCommit(dependencies: {
+  currentFallback: StoredS3Config | null;
+  runExclusive: <T>(work: SerializedS3ConfigurationWork<T>) => Promise<T>;
+}) {
+  return async function commitVerifiedS3Configuration(next: StoredS3Config) {
+    await dependencies.runExclusive(async (stored, persist) => {
+      const current = stored ?? dependencies.currentFallback;
+      if (current && !isSameS3PhysicalGeneration(current, next)) {
+        throw new Error("s3_physical_generation_change_requires_offline_migration");
+      }
+      await persist(next);
+    });
+  };
+}
+
 export function normalizeStoredS3Config(input: unknown): StoredS3Config | null {
   const parsed = storedS3ConfigSchema
     .extend({

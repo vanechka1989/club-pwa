@@ -1,24 +1,7 @@
 import type { StoredS3Config } from "./s3Config";
+import type { LifecycleRule } from "@aws-sdk/client-s3";
 
-export type S3LifecycleRule = {
-  ID?: string;
-  Status?: string;
-  Prefix?: string;
-  Filter?: {
-    Prefix?: string;
-    Tag?: unknown;
-    ObjectSizeGreaterThan?: number;
-    ObjectSizeLessThan?: number;
-    And?: {
-      Prefix?: string;
-      Tags?: unknown[];
-      ObjectSizeGreaterThan?: number;
-      ObjectSizeLessThan?: number;
-    };
-  };
-  Expiration?: { Days?: number; Date?: unknown };
-  AbortIncompleteMultipartUpload?: { DaysAfterInitiation?: number };
-};
+export type S3LifecycleRule = LifecycleRule;
 
 type LifecycleValidation = { ok: true; errors: [] } | { ok: false; errors: string[] };
 
@@ -58,8 +41,20 @@ export function validateCommunityLifecycleRules(rules: S3LifecycleRule[]): Lifec
   for (const rule of rules) {
     if (rule.Status !== "Enabled") continue;
     const filter = normalizeFilter(rule);
+    if (!overlapsCommunity(filter.prefix)) continue;
+    const structuralKeys = new Set(["ID", "Status", "Prefix", "Filter"]);
+    const actionKeys = Object.entries(rule)
+      .filter(([key, value]) => !structuralKeys.has(key) && value !== undefined)
+      .map(([key]) => key);
 
-    if (rule.Expiration && overlapsCommunity(filter.prefix)) {
+    const exactExpirationAction = actionKeys.length === 1 && actionKeys[0] === "Expiration";
+    const exactMultipartAction = actionKeys.length === 1 && actionKeys[0] === "AbortIncompleteMultipartUpload";
+    if (actionKeys.length > 0 && !exactExpirationAction && !exactMultipartAction) {
+      errors.push(`unsafe or unsupported community lifecycle action: ${rule.ID ?? "unnamed"}`);
+      continue;
+    }
+
+    if (rule.Expiration) {
       const days = rule.Expiration.Days;
       const hasDate = rule.Expiration.Date !== undefined;
       if (filter.unconditional && !hasDate && days === 1 && filter.prefix === "community/pending/") {
@@ -71,7 +66,7 @@ export function validateCommunityLifecycleRules(rules: S3LifecycleRule[]): Lifec
       }
     }
 
-    if (rule.AbortIncompleteMultipartUpload && overlapsCommunity(filter.prefix)) {
+    if (rule.AbortIncompleteMultipartUpload) {
       if (filter.unconditional
         && filter.prefix === "community/"
         && rule.AbortIncompleteMultipartUpload.DaysAfterInitiation === 1) {

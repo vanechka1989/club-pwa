@@ -115,6 +115,59 @@ describe("community S3 lifecycle release gate", () => {
     ))).toMatchObject({ ok: false });
   });
 
+  it.each([
+    ["current-version transition", { Transitions: [{ Days: 1, StorageClass: "GLACIER" }] }],
+    ["noncurrent transition", { NoncurrentVersionTransitions: [{ NoncurrentDays: 1, StorageClass: "GLACIER" }] }],
+    ["noncurrent expiration", { NoncurrentVersionExpiration: { NoncurrentDays: 1 } }],
+    ["expired delete markers", { Expiration: { ExpiredObjectDeleteMarker: true } }]
+  ])("rejects an enabled community-overlapping %s action", (_name, action) => {
+    expect(validateCommunityLifecycleRules([
+      ...validRules,
+      {
+        ID: "unsafe-extra-action",
+        Status: "Enabled",
+        Filter: { Prefix: "community/final/" },
+        ...action as Partial<S3LifecycleRule>
+      }
+    ])).toMatchObject({ ok: false });
+  });
+
+  it("rejects a required allowlisted action when the same rule contains any extra action", () => {
+    expect(validateCommunityLifecycleRules(validRules.map((rule) =>
+      rule.ID === "expire-community-pending"
+        ? {
+            ...rule,
+            Transitions: [{ Days: 2, StorageClass: "STANDARD_IA" as const }]
+          }
+        : rule
+    ))).toMatchObject({ ok: false });
+  });
+
+  it("fails closed for an enabled overlapping action unknown to the current SDK", () => {
+    expect(validateCommunityLifecycleRules([
+      ...validRules,
+      {
+        ID: "future-action",
+        Status: "Enabled",
+        Filter: { Prefix: "community/final/" },
+        FutureLifecycleAction: { Days: 1 }
+      } as unknown as S3LifecycleRule
+    ])).toMatchObject({ ok: false });
+  });
+
+  it("allows disabled additional community rules because they cannot affect stored objects", () => {
+    expect(validateCommunityLifecycleRules([
+      ...validRules,
+      {
+        ID: "disabled-future-policy",
+        Status: "Disabled",
+        Filter: { Prefix: "community/final/" },
+        Transitions: [{ Days: 1, StorageClass: "GLACIER" }],
+        NoncurrentVersionExpiration: { NoncurrentDays: 1 }
+      }
+    ])).toEqual({ ok: true, errors: [] });
+  });
+
   it("requires one exact unconditional multipart-abort rule", () => {
     expect(validateCommunityLifecycleRules(validRules.map((rule) =>
       rule.ID === "abort-community-multipart"

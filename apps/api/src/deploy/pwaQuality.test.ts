@@ -88,6 +88,7 @@ describe("PWA browser regression workflow", () => {
       "messageMutationService.postgres.test.ts",
       "topicStateRepository.postgres.test.ts",
       "messageSearch.postgres.test.ts",
+      "s3Config.postgres.test.ts",
       "s3ImmutablePromotion.integration.test.ts",
       "communitySecurityIntegration.test.ts"
     ]) {

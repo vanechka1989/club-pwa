@@ -11,8 +11,21 @@ export const communityObjectTombstoneWorstCaseSlaMs = 15 * 60_000;
 export const communityObjectTombstoneDeleteTimeoutMs = 15_000;
 export const communityObjectTombstoneDeleteConcurrency = 64;
 export const communityObjectTombstoneShardCount = 16;
-export const communityObjectTombstoneCapacityTargets = 1_344;
 export const communityObjectTombstoneWorkerTickMs = 60_000;
+export const communityObjectTombstoneLeaseRoundTargets = communityObjectTombstoneDeleteConcurrency;
+export const communityObjectTombstoneSweepOverheadReserveMs = 15_000;
+export const communityObjectTombstoneServiceRateTargetsPerMinute = Math.floor(
+  communityObjectTombstoneLeaseRoundTargets * 60_000 / communityObjectTombstoneDeleteTimeoutMs
+);
+export const communityObjectTombstoneMaxSweepRounds = Math.floor(
+  (communityObjectTombstoneWorstCaseSlaMs
+    - communityObjectTombstoneAuditMs
+    - communityObjectTombstoneWorkerTickMs
+    - communityObjectTombstoneSweepOverheadReserveMs)
+  / communityObjectTombstoneDeleteTimeoutMs
+);
+export const communityObjectTombstoneCapacityTargets =
+  communityObjectTombstoneLeaseRoundTargets * (communityObjectTombstoneMaxSweepRounds - 1);
 
 export type CommunityObjectStorageTarget = "primary" | "reserve";
 
@@ -35,7 +48,8 @@ export function createCommunityObjectPublicationCapacityGate(
 ) {
   return async function assertCommunityObjectPublicationCapacity() {
     const pressure = await loadPressure();
-    if (pressure.hotTargetCount > communityObjectTombstoneCapacityTargets) {
+    const plan = calculateCommunityObjectTombstoneSweepPlan({ ...pressure, now: new Date() });
+    if (plan.backpressure) {
       throw new CommunityObjectReconciliationBackpressureError();
     }
   };
@@ -49,7 +63,7 @@ export function calculateCommunityObjectTombstoneSweepPlan(
     (_value, shard) => Math.max(0, Math.trunc(pressure.dueByShard[shard] ?? 0))
   );
   const targetLimit = Math.min(
-    communityObjectTombstoneCapacityTargets,
+    communityObjectTombstoneLeaseRoundTargets,
     Math.max(0, Math.trunc(pressure.dueTargetCount)),
     dueByShard.reduce((sum, value) => sum + value, 0)
   );
@@ -65,28 +79,33 @@ export function calculateCommunityObjectTombstoneSweepPlan(
     }
     if (!allocated) break;
   }
-  const processingMs = shardLimits.reduce(
-    (sum, limit) => sum + Math.ceil(limit / communityObjectTombstoneDeleteConcurrency)
-      * communityObjectTombstoneDeleteTimeoutMs,
-    0
-  );
+  const processingMs = targetLimit > 0 ? communityObjectTombstoneDeleteTimeoutMs : 0;
+  const estimatedDrainMs = Math.ceil(
+    Math.max(0, pressure.dueTargetCount) / communityObjectTombstoneLeaseRoundTargets
+  ) * communityObjectTombstoneDeleteTimeoutMs;
   const worstCaseLateWriteMs = communityObjectTombstoneAuditMs
     + communityObjectTombstoneWorkerTickMs
-    + processingMs;
+    + estimatedDrainMs;
   const oldestDueAgeMs = pressure.oldestDueAt
     ? Math.max(0, pressure.now.getTime() - pressure.oldestDueAt.getTime())
     : 0;
   const overloaded = pressure.hotTargetCount > communityObjectTombstoneCapacityTargets
     || pressure.dueTargetCount > communityObjectTombstoneCapacityTargets;
+  const slaAtRisk = communityObjectTombstoneAuditMs
+    + communityObjectTombstoneWorkerTickMs
+    + oldestDueAgeMs
+    + estimatedDrainMs > communityObjectTombstoneWorstCaseSlaMs;
   return {
     shardLimits,
     targetLimit,
     processingMs,
+    estimatedDrainMs,
     worstCaseLateWriteMs,
     overloaded,
-    backpressure: pressure.hotTargetCount > communityObjectTombstoneCapacityTargets,
-    slaAtRisk: overloaded || oldestDueAgeMs + processingMs > communityObjectTombstoneWorstCaseSlaMs,
-    oldestDueAgeMs
+    backpressure: overloaded || slaAtRisk,
+    slaAtRisk,
+    oldestDueAgeMs,
+    serviceRateTargetsPerMinute: communityObjectTombstoneServiceRateTargetsPerMinute
   };
 }
 
@@ -107,7 +126,7 @@ export function createCommunityObjectTombstoneMetrics(options: { now?: () => Dat
       hotTargetCount = pressure.hotTargetCount;
       dueTargetCount = pressure.dueTargetCount;
       oldestDueAt = pressure.oldestDueAt?.toISOString() ?? null;
-      estimatedProcessingMs = plan.processingMs;
+      estimatedProcessingMs = plan.estimatedDrainMs;
       slaAtRisk = plan.slaAtRisk;
       backpressure = plan.backpressure;
       lastSweepAt = now().toISOString();
@@ -128,7 +147,9 @@ export function createCommunityObjectTombstoneMetrics(options: { now?: () => Dat
         backpressureEvents,
         capacityTargets: communityObjectTombstoneCapacityTargets,
         worstCaseSlaMs: communityObjectTombstoneWorstCaseSlaMs,
-        providerUncertaintyMs: communityObjectProviderUncertaintyMs
+        providerUncertaintyMs: communityObjectProviderUncertaintyMs,
+        serviceRateTargetsPerMinute: communityObjectTombstoneServiceRateTargetsPerMinute,
+        maxSweepRounds: communityObjectTombstoneMaxSweepRounds
       };
     }
   };
@@ -147,32 +168,43 @@ export function createCommunityObjectTombstoneSweep(dependencies: {
   reconcileShard: (input: { shard: number; shardCount: number; limit: number }) => Promise<CommunityObjectTombstoneSweepResult>;
   now?: () => Date;
   logger: { warn: (fields: Record<string, unknown>, message: string) => void };
+  maxRounds?: number;
 }) {
   const now = dependencies.now ?? (() => new Date());
   return async function sweepCommunityObjectTombstones() {
-    const pressure = await dependencies.loadPressure();
-    const plan = calculateCommunityObjectTombstoneSweepPlan({ ...pressure, now: now() });
-    if (plan.overloaded || plan.slaAtRisk) {
-      dependencies.logger.warn({
-        hotTargetCount: pressure.hotTargetCount,
-        dueTargetCount: pressure.dueTargetCount,
-        oldestDueAt: pressure.oldestDueAt?.toISOString() ?? null,
-        capacityTargets: communityObjectTombstoneCapacityTargets,
-        slaMs: communityObjectTombstoneWorstCaseSlaMs,
-        estimatedProcessingMs: plan.processingMs,
-        backpressure: plan.backpressure,
-        slaAtRisk: plan.slaAtRisk
-      }, "community object tombstone capacity alert");
-    }
     const results: CommunityObjectTombstoneSweepResult[] = [];
-    for (const [shard, limit] of plan.shardLimits.entries()) {
-      if (limit > 0) {
-        results.push(await dependencies.reconcileShard({
+    let pressure = await dependencies.loadPressure();
+    let plan = calculateCommunityObjectTombstoneSweepPlan({ ...pressure, now: now() });
+    let alerted = false;
+    const maxRounds = Math.max(1, Math.trunc(
+      dependencies.maxRounds ?? communityObjectTombstoneMaxSweepRounds
+    ));
+    for (let round = 0; round < maxRounds && plan.targetLimit > 0; round += 1) {
+      if (!alerted && (plan.overloaded || plan.slaAtRisk)) {
+        alerted = true;
+        dependencies.logger.warn({
+          hotTargetCount: pressure.hotTargetCount,
+          dueTargetCount: pressure.dueTargetCount,
+          oldestDueAt: pressure.oldestDueAt?.toISOString() ?? null,
+          capacityTargets: communityObjectTombstoneCapacityTargets,
+          slaMs: communityObjectTombstoneWorstCaseSlaMs,
+          estimatedProcessingMs: plan.estimatedDrainMs,
+          serviceRateTargetsPerMinute: plan.serviceRateTargetsPerMinute,
+          backpressure: plan.backpressure,
+          slaAtRisk: plan.slaAtRisk
+        }, "community object tombstone capacity alert");
+      }
+      const roundResults = await Promise.all(plan.shardLimits.map(async (limit, shard) => {
+        if (limit <= 0) return null;
+        return dependencies.reconcileShard({
           shard,
           shardCount: communityObjectTombstoneShardCount,
           limit
-        }));
-      }
+        });
+      }));
+      results.push(...roundResults.filter((result): result is CommunityObjectTombstoneSweepResult => result !== null));
+      pressure = await dependencies.loadPressure();
+      plan = calculateCommunityObjectTombstoneSweepPlan({ ...pressure, now: now() });
     }
     return {
       stableKeys: [...new Set(results.flatMap((result) => result.stableKeys))].sort(),
