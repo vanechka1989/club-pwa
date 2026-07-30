@@ -160,7 +160,7 @@ watch(accessDays, () => {
             <div v-if="createdLink" class="individual-offer-created"><span>Ссылка создана и записана в историю</span><button type="button" @click="copyLink"><Copy />Скопировать</button></div>
             <button class="primary-button ui-button individual-offer-submit" type="submit" :disabled="saving || !canSubmit">{{ saving ? 'Создаём…' : 'Создать и отправить' }}</button>
           </form>
-          <details class="individual-offer-history"><summary>Созданные ссылки <span>{{ offers.length }}</span></summary><div><p v-if="!offers.length" class="admin-empty">Ссылок пока нет.</p><article v-for="offer in offers" :key="offer.id"><div><strong>{{ offer.title }}</strong><small>{{ money(offer) }} · {{ offer.accessDays }} дн. · {{ new Date(offer.createdAt).toLocaleString('ru-RU') }}</small></div><span :class="`offer-status-${offer.status}`">{{ statusLabel(offer.status) }}</span><button v-if="offer.status === 'active' || offer.status === 'checkout_pending'" type="button" @click="cancel(offer)">Отменить</button></article></div></details>
+          <details class="individual-offer-history"><summary>Созданные ссылки <span>{{ offers.length }}</span></summary><div><p v-if="!offers.length" class="admin-empty">Ссылок пока нет.</p><article v-for="offer in offers" :key="offer.id"><div><strong>{{ offer.title }}</strong><small>{{ money(offer) }} · {{ offer.accessDays }} дн. · {{ new Date(offer.createdAt).toLocaleString('ru-RU') }}</small></div><span :class="`offer-status-${offer.status}`">{{ statusLabel(offer.status) }}</span><button v-if="offer.status === 'active'" type="button" @click="cancel(offer)">Отменить</button></article></div></details>
         </section>
       </div>
     </Teleport>

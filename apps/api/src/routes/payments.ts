@@ -331,7 +331,11 @@ async function grantPaidAccess(
         .set({ status: "paid", paidAt: now, updatedAt: now })
         .where(and(
           eq(individualPaymentOffers.id, order.individualOfferId),
-          or(eq(individualPaymentOffers.status, "active"), eq(individualPaymentOffers.status, "checkout_pending"))
+          or(
+            eq(individualPaymentOffers.status, "active"),
+            eq(individualPaymentOffers.status, "checkout_pending"),
+            eq(individualPaymentOffers.status, "expired")
+          )
         ))
         .returning({ id: individualPaymentOffers.id });
       if (!claimedOffer) return false;

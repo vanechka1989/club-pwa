@@ -18,4 +18,13 @@ describe("individual payment offer route security", () => {
     expect(source).not.toContain("metadata: { token");
     expect(source).not.toContain("token: token");
   });
+
+  it("does not cancel an opened checkout and still honors a payment settling after link expiry", () => {
+    const admin = readFileSync(resolve(__dirname, "adminIndividualPaymentOffers.ts"), "utf8");
+    const prodamus = readFileSync(resolve(__dirname, "payments.ts"), "utf8");
+    const processor = readFileSync(resolve(__dirname, "../payments/paymentEventProcessor.ts"), "utf8");
+    expect(admin).toContain('eq(individualPaymentOffers.status, "active")');
+    expect(prodamus).toContain('eq(individualPaymentOffers.status, "expired")');
+    expect(processor).toContain('eq(individualPaymentOffers.status, "expired")');
+  });
 });

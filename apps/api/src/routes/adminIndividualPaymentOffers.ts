@@ -236,9 +236,9 @@ export const adminIndividualPaymentOffersRoute = new Hono<{ Variables: AuthVaria
     }).where(and(
       eq(individualPaymentOffers.id, c.req.param("offerId")),
       eq(individualPaymentOffers.userId, target.id),
-      inArray(individualPaymentOffers.status, ["active", "checkout_pending"])
+      eq(individualPaymentOffers.status, "active")
     )).returning();
-    if (!offer) return c.json({ error: "Offer not found or already closed" }, 404);
+    if (!offer) return c.json({ error: "Активную оплату нельзя отменить: дождитесь результата или истечения платёжной сессии." }, 409);
     await recordAdminAction(c, {
       action: "client.payment_offer.cancelled",
       entityType: "individual_payment_offer",

@@ -138,7 +138,11 @@ export async function processPaymentEvent(
         .set({ status: "paid", paidAt: event.occurredAt, updatedAt: event.occurredAt })
         .where(and(
           eq(individualPaymentOffers.id, order.individualOfferId),
-          or(eq(individualPaymentOffers.status, "active"), eq(individualPaymentOffers.status, "checkout_pending"))
+          or(
+            eq(individualPaymentOffers.status, "active"),
+            eq(individualPaymentOffers.status, "checkout_pending"),
+            eq(individualPaymentOffers.status, "expired")
+          )
         ))
         .returning({ id: individualPaymentOffers.id });
       if (!claimedOffer) return "duplicate";
