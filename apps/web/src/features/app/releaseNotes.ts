@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Paperclip-only attachment control",
+  title: "Paid individual subscription action",
   items: [
-    "Client messages now show only a clean paperclip without the native file picker label.",
-    "The paperclip keeps a phone-friendly tap target, while selected files appear in a separate list.",
-    "The PWA cache version was refreshed so the corrected styles load immediately."
+    "The personal payment action is now labelled Individual subscription instead of looking like a free gift.",
+    "A banknote icon clearly communicates a paid offer without tying it to one currency.",
+    "The longer label wraps neatly inside the purple button on narrow phones."
   ]
 };
 

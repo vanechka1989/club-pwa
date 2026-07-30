@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the paperclip-only attachment control as version 5.83", () => {
-    expect(appVersion).toBe("5.83");
-    expect(releaseNotes[0]?.title).toBe("Только скрепка в сообщении");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/скрепк/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Выбрать файл/i);
+  it("publishes the paid individual subscription action as version 5.84", () => {
+    expect(appVersion).toBe("5.84");
+    expect(releaseNotes[0]?.title).toBe("Платная индивидуальная подписка");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Индивидуальная подписка/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/банкнот/i);
+
+    const paperclipRelease = releaseNotes.find((note) => note.version === "5.83");
+    expect(paperclipRelease?.title).toBe("Только скрепка в сообщении");
 
     const cancelledAutopayRelease = releaseNotes.find((note) => note.version === "5.82");
     expect(cancelledAutopayRelease?.title).toBe("Честный статус автосписания");
@@ -237,7 +240,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Paperclip-only attachment control");
+    expect(englishNotes[0]?.title).toBe("Paid individual subscription action");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
