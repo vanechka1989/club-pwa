@@ -636,50 +636,53 @@ export function createCommunityObjectTombstoneRepository(
 
     async markAbsent(candidate) {
       const rows = Array.from((await database.execute(sql`
-        with updated as (
-          update community_object_lifecycles lifecycle
-          set absence_count = case
-                when lifecycle.verified_at is null
-                  or lifecycle.verified_at <= clock_timestamp()
-                    - (${communityObjectAbsenceStableMs} * interval '1 millisecond')
-                then least(lifecycle.absence_count + 1, 2)
-                else lifecycle.absence_count
-              end,
-              absent_since = case
-                when lifecycle.verified_at is null
-                  or lifecycle.verified_at <= clock_timestamp()
-                    - (${communityObjectAbsenceStableMs} * interval '1 millisecond')
-                then coalesce(lifecycle.absent_since, clock_timestamp())
-                else lifecycle.absent_since
-              end,
-              verified_at = case
-                when lifecycle.verified_at is null
-                  or lifecycle.verified_at <= clock_timestamp()
-                    - (${communityObjectAbsenceStableMs} * interval '1 millisecond')
-                then clock_timestamp()
-                else lifecycle.verified_at
-              end,
-              claim_id = null, claimed_at = null, last_error = null,
-              updated_at = clock_timestamp()
+        with calculated as (
+          select lifecycle.object_key, lifecycle.target,
+                 case
+                   when lifecycle.verified_at is null
+                     or lifecycle.verified_at <= clock_timestamp()
+                       - (${communityObjectAbsenceStableMs} * interval '1 millisecond')
+                   then least(lifecycle.absence_count + 1, 2)
+                   else lifecycle.absence_count
+                 end as next_absence_count,
+                 case
+                   when lifecycle.verified_at is null
+                     or lifecycle.verified_at <= clock_timestamp()
+                       - (${communityObjectAbsenceStableMs} * interval '1 millisecond')
+                   then coalesce(lifecycle.absent_since, clock_timestamp())
+                   else lifecycle.absent_since
+                 end as next_absent_since,
+                 case
+                   when lifecycle.verified_at is null
+                     or lifecycle.verified_at <= clock_timestamp()
+                       - (${communityObjectAbsenceStableMs} * interval '1 millisecond')
+                   then clock_timestamp()
+                   else lifecycle.verified_at
+                 end as next_verified_at
+          from community_object_lifecycles lifecycle
           where lifecycle.object_key = ${candidate.objectKey}
             and lifecycle.target = ${candidate.target}
             and lifecycle.generation = ${candidate.generation}
             and lifecycle.state = 'deleted'
             and lifecycle.claim_id = ${candidate.claimId}
-          returning lifecycle.absence_count
         )
         update community_object_lifecycles lifecycle
-        set cold_at = case
-              when updated.absence_count >= 2
+        set absence_count = calculated.next_absence_count,
+            absent_since = calculated.next_absent_since,
+            verified_at = calculated.next_verified_at,
+            claim_id = null, claimed_at = null, last_error = null,
+            updated_at = clock_timestamp(),
+            cold_at = case
+              when calculated.next_absence_count >= 2
                 and coalesce(lifecycle.hot_until, clock_timestamp()) <= clock_timestamp()
               then clock_timestamp()
               else null
             end,
             next_reconcile_at = case
-              when updated.absence_count >= 2
+              when calculated.next_absence_count >= 2
                 and coalesce(lifecycle.hot_until, clock_timestamp()) <= clock_timestamp()
               then clock_timestamp()
-              when updated.absence_count < 2
+              when calculated.next_absence_count < 2
               then clock_timestamp() + (${communityObjectAbsenceStableMs} * interval '1 millisecond')
               else least(
                 clock_timestamp() + (${communityObjectTombstoneAuditMs} * interval '1 millisecond'),
@@ -687,10 +690,13 @@ export function createCommunityObjectTombstoneRepository(
                   clock_timestamp() + (${communityObjectTombstoneAuditMs} * interval '1 millisecond'))
               )
             end
-        from updated
-        where lifecycle.object_key = ${candidate.objectKey}
-          and lifecycle.target = ${candidate.target}
-        returning updated.absence_count as "absenceCount"
+        from calculated
+        where lifecycle.object_key = calculated.object_key
+          and lifecycle.target = calculated.target
+          and lifecycle.generation = ${candidate.generation}
+          and lifecycle.state = 'deleted'
+          and lifecycle.claim_id = ${candidate.claimId}
+        returning calculated.next_absence_count as "absenceCount"
       `)) as Iterable<{ absenceCount: number }>);
       if (!rows[0]) throw new Error("community_object_tombstone_claim_lost");
       const absenceCount = Number(rows[0].absenceCount);
