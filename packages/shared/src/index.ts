@@ -690,6 +690,93 @@ export const paymentProviderCatalogResponseSchema = z.object({
 });
 export type PaymentProviderCatalogResponse = z.infer<typeof paymentProviderCatalogResponseSchema>;
 
+export const individualPaymentOfferStatusSchema = z.enum([
+  "active",
+  "checkout_pending",
+  "paid",
+  "expired",
+  "cancelled"
+]);
+export type IndividualPaymentOfferStatus = z.infer<typeof individualPaymentOfferStatusSchema>;
+
+const individualProdamusOneTimePayloadSchema = z.object({
+  provider: z.literal("prodamus"),
+  kind: z.literal("one_time"),
+  title: z.string().trim().min(1).max(180),
+  amountRub: z.number().int().positive().max(10_000_000),
+  accessDays: z.number().int().positive().max(3650)
+});
+
+const individualProdamusRecurrentPayloadSchema = z.object({
+  provider: z.literal("prodamus"),
+  kind: z.literal("recurrent"),
+  title: z.string().trim().min(1).max(180),
+  amountRub: z.number().int().positive().max(10_000_000),
+  accessDays: z.number().int().positive().max(3650),
+  externalProductId: z.string().trim().min(1).max(64)
+});
+
+const individualLavaPayloadSchema = z.object({
+  provider: z.literal("lava"),
+  catalogItemId: z.string().uuid(),
+  currency: paymentCurrencySchema,
+  accessDays: z.number().int().positive().max(3650),
+  customAmountMinor: z.number().int().positive().max(1_000_000_000).optional()
+});
+
+export const adminIndividualPaymentOfferPayloadSchema = z.union([
+  individualProdamusOneTimePayloadSchema,
+  individualProdamusRecurrentPayloadSchema,
+  individualLavaPayloadSchema
+]);
+export type AdminIndividualPaymentOfferPayload = z.infer<typeof adminIndividualPaymentOfferPayloadSchema>;
+
+export const individualPaymentOfferSchema = z.object({
+  id: z.string().uuid(),
+  provider: paymentProviderCodeSchema,
+  kind: paymentProductKindSchema,
+  title: z.string(),
+  currency: paymentCurrencySchema,
+  amountMinor: z.number().int().positive(),
+  accessDays: z.number().int().positive(),
+  status: individualPaymentOfferStatusSchema,
+  expiresAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  firstOpenedAt: z.string().datetime().nullable(),
+  checkoutStartedAt: z.string().datetime().nullable(),
+  paidAt: z.string().datetime().nullable(),
+  cancelledAt: z.string().datetime().nullable(),
+  createdBy: z.string(),
+  orderId: z.string().uuid().nullable()
+});
+export type IndividualPaymentOffer = z.infer<typeof individualPaymentOfferSchema>;
+
+export const individualPaymentOfferOptionsResponseSchema = z.object({
+  providers: z.array(paymentProviderSchema),
+  lavaCatalog: z.array(paymentProviderCatalogItemSchema),
+  lavaCatalogSyncedAt: z.string().datetime().nullable()
+});
+export type IndividualPaymentOfferOptionsResponse = z.infer<typeof individualPaymentOfferOptionsResponseSchema>;
+
+export const adminIndividualPaymentOfferCreateResponseSchema = z.object({
+  ok: z.literal(true),
+  offer: individualPaymentOfferSchema,
+  link: z.string().url(),
+  pushDelivered: z.boolean()
+});
+export type AdminIndividualPaymentOfferCreateResponse = z.infer<typeof adminIndividualPaymentOfferCreateResponseSchema>;
+
+export const individualPaymentOfferDetailResponseSchema = z.object({
+  offer: individualPaymentOfferSchema.omit({ createdBy: true, orderId: true })
+});
+export type IndividualPaymentOfferDetailResponse = z.infer<typeof individualPaymentOfferDetailResponseSchema>;
+
+export const individualPaymentOfferCheckoutResponseSchema = z.object({
+  checkoutUrl: z.string().url(),
+  message: z.string()
+});
+export type IndividualPaymentOfferCheckoutResponse = z.infer<typeof individualPaymentOfferCheckoutResponseSchema>;
+
 export const paymentProviderMutationResponseSchema = z.object({
   ok: z.boolean(),
   provider: paymentProviderSchema
