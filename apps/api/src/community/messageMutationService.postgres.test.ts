@@ -199,7 +199,17 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
         for each row execute function reject_notification_intent();
     `);
 
-    await expect(serviceA.createText(input())).rejects.toThrow(/outbox unavailable/i);
+    let rejected: unknown;
+    try {
+      await serviceA.createText(input());
+    } catch (error) {
+      rejected = error;
+    }
+    const rejectionChain: string[] = [];
+    for (let current = rejected; current instanceof Error; current = current.cause) {
+      rejectionChain.push(current.message);
+    }
+    expect(rejectionChain.join("\n")).toMatch(/outbox unavailable/i);
     const [rolledBack] = await clientA<{ messages: number; outbox: number }[]>`
       select (select count(*)::int from club_chat_messages) messages,
              (select count(*)::int from community_notification_outbox) outbox
@@ -349,7 +359,7 @@ integrationDescribe("message mutation idempotency with PostgreSQL", () => {
       select expires_at as "expiresAt" from club_message_attachments where message_id = ${created.message.id}
     `;
 
-    expect(attachment?.expiresAt.getTime()).toBe(deleted.message.deletedContentExpiresAt?.getTime());
+    expect(new Date(attachment!.expiresAt).getTime()).toBe(deleted.message.deletedContentExpiresAt?.getTime());
   });
 
   it("releases the message lock after an aborting push failure so author deletion can commit", async () => {

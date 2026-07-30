@@ -17,13 +17,13 @@ WHERE message."id" = topic_read."last_read_message_id";--> statement-breakpoint
 DO $$
 DECLARE constraint_name text;
 BEGIN
-  SELECT constraint.conname INTO constraint_name
-  FROM pg_constraint constraint
+  SELECT fk_constraint.conname INTO constraint_name
+  FROM pg_constraint fk_constraint
   JOIN pg_attribute attribute
-    ON attribute.attrelid = constraint.conrelid
-   AND attribute.attnum = ANY (constraint.conkey)
-  WHERE constraint.conrelid = 'community_topic_reads'::regclass
-    AND constraint.contype = 'f'
+    ON attribute.attrelid = fk_constraint.conrelid
+   AND attribute.attnum = ANY (fk_constraint.conkey)
+  WHERE fk_constraint.conrelid = 'community_topic_reads'::regclass
+    AND fk_constraint.contype = 'f'
     AND attribute.attname = 'last_read_message_id'
   LIMIT 1;
   IF constraint_name IS NOT NULL THEN
