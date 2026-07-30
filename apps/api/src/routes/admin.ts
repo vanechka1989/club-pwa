@@ -65,6 +65,7 @@ import {
   learningEngagementSessions,
   subscriptions,
   supportTicketAttachments,
+  userRecurrentSubscriptions,
   userContentProgress,
   userAcquisitionAttributions,
   userDevices,
@@ -757,12 +758,32 @@ async function getClientAcquisitionSummaries(userIds: string[]) {
   }]));
 }
 
+async function getLatestRecurrentPaymentStatuses(userIds: string[]) {
+  if (!userIds.length) {
+    return new Map<string, AdminStatsUser["recurrentPaymentStatus"]>();
+  }
+
+  const recurrentSubscriptions = await db.query.userRecurrentSubscriptions.findMany({
+    where: inArray(userRecurrentSubscriptions.userId, userIds),
+    orderBy: [desc(userRecurrentSubscriptions.updatedAt)]
+  });
+  const recurrentPaymentStatusByUserId = new Map<string, AdminStatsUser["recurrentPaymentStatus"]>();
+  for (const subscription of recurrentSubscriptions) {
+    if (!recurrentPaymentStatusByUserId.has(subscription.userId)) {
+      recurrentPaymentStatusByUserId.set(subscription.userId, subscription.status);
+    }
+  }
+  return recurrentPaymentStatusByUserId;
+}
+
 async function buildStatsUser(
   user: typeof users.$inferSelect,
   totalItems: number,
-  acquisitionByUserId?: Map<string, ClientAcquisitionSummary>
+  acquisitionByUserId?: Map<string, ClientAcquisitionSummary>,
+  recurrentPaymentStatusByUserId?: Map<string, AdminStatsUser["recurrentPaymentStatus"]>
 ): Promise<AdminStatsUser> {
   const resolvedAcquisitionByUserId = acquisitionByUserId ?? await getClientAcquisitionSummaries([user.id]);
+  const resolvedRecurrentPaymentStatusByUserId = recurrentPaymentStatusByUserId ?? await getLatestRecurrentPaymentStatuses([user.id]);
   const membership = await getMembership(user.id);
   const role = await getUserRole(user.telegramId);
   const activeMute = await getActiveMute(user.id);
@@ -805,6 +826,7 @@ async function buildStatsUser(
     membershipStatus: membership.status,
     membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
     tariff: membership.subscription?.provider ?? null,
+    recurrentPaymentStatus: resolvedRecurrentPaymentStatusByUserId.get(user.id) ?? null,
     hasRestrictions: Boolean(activeMute),
     completedItems: completedRow?.value ?? 0,
     totalItems,
@@ -2287,8 +2309,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       totalVotes: pollVoteStatsRow?.totalVotes ?? 0,
       participationPercent: eligibleUsers ? Math.round((uniqueParticipants / eligibleUsers) * 100) : 0
     };
-    const acquisitionByUserId = await getClientAcquisitionSummaries(recentUsers.map((user) => user.id));
-    const statsUsers = await Promise.all(recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId)));
+    const recentUserIds = recentUsers.map((user) => user.id);
+    const [acquisitionByUserId, recurrentPaymentStatusByUserId] = await Promise.all([
+      getClientAcquisitionSummaries(recentUserIds),
+      getLatestRecurrentPaymentStatuses(recentUserIds)
+    ]);
+    const statsUsers = await Promise.all(
+      recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId, recurrentPaymentStatusByUserId))
+    );
 
     return c.json({
       totalUsers: usersCountRow?.value ?? statsUsers.length,

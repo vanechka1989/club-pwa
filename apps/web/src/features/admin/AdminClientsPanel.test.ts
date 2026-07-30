@@ -225,6 +225,21 @@ describe("AdminClientsPanel", () => {
     expect(screen.getByText("Последний вход: Не входил", { exact: true })).toBeTruthy();
   });
 
+  it("shows cancelled automatic billing while preserving the paid access date", () => {
+    const cancelledRecurrentClient: AdminStatsUser = {
+      ...client,
+      tariff: "prodamus_recurrent",
+      recurrentPaymentStatus: "cancelled",
+      membershipExpiresAt: "2026-09-06T00:00:00.000Z"
+    };
+    render(AdminClientsPanel, {
+      props: createProps({ filteredUsers: [cancelledRecurrentClient], selectedUser: cancelledRecurrentClient })
+    });
+
+    expect(screen.getAllByText("Автосписание отменено", { exact: true })).toHaveLength(2);
+    expect(screen.getAllByText("до 27.07", { exact: true }).length).toBeGreaterThan(0);
+  });
+
   it("emits client-card-close from a clientCardOnly card without owning router side effects", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);

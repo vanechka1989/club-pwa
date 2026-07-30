@@ -5,6 +5,7 @@ import { readAppStyles } from "@/test/appStyles";
 import {
   getAdminClientAccessState,
   getAdminClientDisplayName,
+  getAdminRecurrentPaymentBadge,
   getAccessSaveButtonText,
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
@@ -23,6 +24,18 @@ describe("admin client card helpers", () => {
     expect(getAdminClientAccessState({ membershipStatus: "active", hasRestrictions: false })).toEqual({ label: "Доступ открыт", tone: "open" });
     expect(getAdminClientAccessState({ membershipStatus: "inactive", hasRestrictions: false })).toEqual({ label: "Доступ закрыт", tone: "closed" });
     expect(getAdminClientAccessState({ membershipStatus: "active", hasRestrictions: true })).toEqual({ label: "Доступ ограничен", tone: "restricted" });
+  });
+
+  it("distinguishes active and cancelled recurrent billing from access", () => {
+    expect(getAdminRecurrentPaymentBadge({ tariff: "prodamus_recurrent", recurrentPaymentStatus: "active" })).toEqual({
+      label: "Автоподписка",
+      tone: "active"
+    });
+    expect(getAdminRecurrentPaymentBadge({ tariff: "lava_recurrent", recurrentPaymentStatus: "cancelled" })).toEqual({
+      label: "Автосписание отменено",
+      tone: "cancelled"
+    });
+    expect(getAdminRecurrentPaymentBadge({ tariff: "manual", recurrentPaymentStatus: null })).toBeNull();
   });
 
   it("shows an email opt-out marker in the client list and detail card", () => {
@@ -115,6 +128,9 @@ describe("admin client card helpers", () => {
     expect(shell).toContain("createAdminClientSupportTicket");
     expect(apiSource).toContain("/support/admin/users/${telegramId}/tickets");
     expect(styles).toContain(".admin-client-message-layer");
+    expect(styles).toMatch(/\.admin-client-message-row\s*\{[^}]*position:\s*relative;[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s);
+    expect(styles).toMatch(/\.admin-client-file-button\.ui-icon-button\s*\{[^}]*position:\s*absolute;[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+    expect(styles).toMatch(/\.admin-client-message-row textarea\s*\{[^}]*padding-left:\s*58px;/s);
   });
 
   it("keeps the client task screen scrollable above the phone bottom controls", () => {

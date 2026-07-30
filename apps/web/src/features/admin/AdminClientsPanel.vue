@@ -6,6 +6,7 @@ import TaskScreen from "@/features/app/TaskScreen.vue";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import {
   getAdminClientAccessState,
+  getAdminRecurrentPaymentBadge,
   getAdminSubscriptionActorLabel,
   getAdminSubscriptionSourceLabel,
   getAdminSubscriptionTitle,
@@ -17,6 +18,10 @@ import { formatAdminPaymentMoney } from "./adminPaymentMoney";
 import AdminIndividualOfferCard from "./AdminIndividualOfferCard.vue";
 
 const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));
+
+function getAdminTariffBadge(user: AdminStatsUser) {
+  return getAdminRecurrentPaymentBadge(user) ?? { label: getAdminTariffLabel(user.tariff), tone: "default" as const };
+}
 
 type ClientFilters = {
   query: string;
@@ -193,7 +198,7 @@ function updateClientMessageFiles(event: Event) {
           <span class="admin-client-list-name-line"><strong>{{ userTitle(user) }}</strong></span>
           <small v-if="getAdminClientContact(user)" class="admin-client-list-contact">{{ getAdminClientContact(user) }}</small>
           <span class="admin-client-list-metrics">
-            <span>{{ getAdminTariffLabel(user.tariff) }}</span>
+            <span>{{ getAdminTariffBadge(user).label }}</span>
             <span class="admin-list-item-progress">Уроки {{ user.completedItems }}/{{ user.totalItems }}</span>
           </span>
         </span>
@@ -209,7 +214,7 @@ function updateClientMessageFiles(event: Event) {
 
     <TaskScreen v-if="selectedUser" class="admin-task-screen admin-client-task-screen" :title="userTitle(selectedUser)" :subtitle="selectedUserMeta(selectedUser)" portal @back="emit('client-card-close')">
       <div class="admin-client-workspace">
-        <header class="admin-client-identity admin-detail ui-card"><div class="admin-client-card-head"><span class="admin-client-avatar"><img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" /><span v-else>{{ userInitial(selectedUser) }}</span></span><div class="admin-client-card-title"><div class="admin-client-title-row"><h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3></div><p>{{ selectedUserMeta(selectedUser) }}</p><span class="admin-client-last-login">Последний вход: {{ formatAdminClientLastLogin(selectedUser.lastLoginAt, formatAdminCompactDateTime) }}</span></div></div><div class="admin-client-status-row"><span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span><span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span><span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span><span class="admin-status-pill admin-status-pill-blue">{{ getAdminTariffLabel(selectedUser.tariff) }}</span></div></header>
+        <header class="admin-client-identity admin-detail ui-card"><div class="admin-client-card-head"><span class="admin-client-avatar"><img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" /><span v-else>{{ userInitial(selectedUser) }}</span></span><div class="admin-client-card-title"><div class="admin-client-title-row"><h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3></div><p>{{ selectedUserMeta(selectedUser) }}</p><span class="admin-client-last-login">Последний вход: {{ formatAdminClientLastLogin(selectedUser.lastLoginAt, formatAdminCompactDateTime) }}</span></div></div><div class="admin-client-status-row"><span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span><span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span><span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span><span class="admin-status-pill" :class="`admin-status-pill-${getAdminTariffBadge(selectedUser).tone}`">{{ getAdminTariffBadge(selectedUser).label }}</span></div></header>
 
         <section class="admin-client-kpi-grid" aria-label="Краткая сводка клиента"><article class="admin-client-kpi"><span>Доступ</span><strong>{{ selectedUser.membershipExpiresAt ? `до ${formatAdminShortDate(selectedUser.membershipExpiresAt)}` : formatMembershipStatus(selectedUser.membershipStatus) }}</strong></article><article class="admin-client-kpi"><span>Обучение</span><strong>{{ selectedUser.completedItems }} / {{ selectedUser.totalItems }}</strong></article><article class="admin-client-kpi"><span>Оплаты</span><strong>{{ selectedUserPaidTotal.toLocaleString('ru-RU') }} ₽</strong></article><article class="admin-client-kpi"><span>Последнее действие</span><strong>{{ selectedUser.lastOpenedItemTitle ?? 'Нет активности' }}</strong></article></section>
 

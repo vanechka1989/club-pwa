@@ -1146,6 +1146,7 @@ export const adminStatsUserSchema = z.object({
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
   tariff: z.string().nullable(),
+  recurrentPaymentStatus: z.enum(["active", "cancelled"]).nullable().optional(),
   hasRestrictions: z.boolean(),
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),

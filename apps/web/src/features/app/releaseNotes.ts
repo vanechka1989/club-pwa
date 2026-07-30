@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clear client management actions",
+  title: "Accurate recurring billing status",
   items: [
-    "Opening access is green, closing it is red, and every important action now has a clear icon.",
-    "The indefinite mute action is renamed to clearly state that it blocks chat communication.",
-    "Messaging uses a gold treatment, while subscriptions use a dedicated purple treatment for faster scanning."
+    "Cancelled recurring payments are now explicitly marked in the admin client card.",
+    "Recurring billing status is separate from paid access, which remains valid until its existing expiration date.",
+    "The message attachment control now sits neatly inside the editor without breaking the mobile layout."
   ]
 };
 

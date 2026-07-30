@@ -19,6 +19,11 @@ type AdminClientAccess = {
   hasRestrictions: boolean;
 };
 
+type AdminRecurrentPayment = {
+  tariff: string | null | undefined;
+  recurrentPaymentStatus?: "active" | "cancelled" | null | undefined;
+};
+
 export function getAdminClientDisplayName(user: AdminClientName) {
   return user.displayName || user.firstName || user.username || (user.telegramId ? `ID ${user.telegramId}` : "Пользователь");
 }
@@ -27,6 +32,18 @@ export function getAdminClientAccessState(user: AdminClientAccess) {
   if (user.hasRestrictions) return { label: "Доступ ограничен", tone: "restricted" } as const;
   if (user.membershipStatus === "active") return { label: "Доступ открыт", tone: "open" } as const;
   return { label: "Доступ закрыт", tone: "closed" } as const;
+}
+
+export function getAdminRecurrentPaymentBadge(user: AdminRecurrentPayment) {
+  if (user.tariff !== "prodamus_recurrent" && user.tariff !== "lava_recurrent") {
+    return null;
+  }
+
+  if (user.recurrentPaymentStatus === "cancelled") {
+    return { label: "Автосписание отменено", tone: "cancelled" } as const;
+  }
+
+  return { label: "Автоподписка", tone: "active" } as const;
 }
 
 function getManualActorId(providerPaymentId?: string | null) {
