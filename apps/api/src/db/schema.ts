@@ -1,5 +1,5 @@
-import { relations } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { boolean, check, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const membershipStatus = pgEnum("membership_status", ["inactive", "active", "expired"]);
 export const contentKind = pgEnum("content_kind", ["text", "photo", "video", "audio"]);
@@ -547,12 +547,52 @@ export const paymentProviderCatalogItemPrices = pgTable(
   })
 );
 
+export const individualPaymentOffers = pgTable(
+  "individual_payment_offers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "restrict" }),
+    provider: varchar("provider", { length: 16 }).notNull(),
+    kind: paymentProductKind("kind").notNull(),
+    title: varchar("title", { length: 180 }).notNull(),
+    currency: paymentCurrency("currency").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    accessDays: integer("access_days").notNull(),
+    externalProductId: varchar("external_product_id", { length: 160 }),
+    externalOfferId: varchar("external_offer_id", { length: 160 }),
+    catalogSnapshot: jsonb("catalog_snapshot").$type<Record<string, unknown> | null>(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("active"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    firstOpenedAt: timestamp("first_opened_at", { withTimezone: true }),
+    checkoutStartedAt: timestamp("checkout_started_at", { withTimezone: true }),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    tokenHashIdx: uniqueIndex("individual_payment_offers_token_hash_unique").on(table.tokenHash),
+    userCreatedIdx: index("individual_payment_offers_user_created_idx").on(table.userId, table.createdAt),
+    statusExpiresIdx: index("individual_payment_offers_status_expires_idx").on(table.status, table.expiresAt),
+    validStatus: check(
+      "individual_payment_offers_status_check",
+      sql`${table.status} in ('active', 'checkout_pending', 'paid', 'expired', 'cancelled')`
+    ),
+    positiveAmount: check("individual_payment_offers_amount_check", sql`${table.amountMinor} > 0`),
+    positiveAccess: check("individual_payment_offers_access_days_check", sql`${table.accessDays} between 1 and 3650`)
+  })
+);
+
 export const paymentOrders = pgTable(
   "payment_orders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").notNull().references(() => paymentProducts.id, { onDelete: "restrict" }),
+    productId: uuid("product_id").references(() => paymentProducts.id, { onDelete: "restrict" }),
+    individualOfferId: uuid("individual_offer_id").references(() => individualPaymentOffers.id, { onDelete: "restrict" }),
     providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "restrict" }),
     status: paymentOrderStatus("status").notNull().default("pending"),
     amountRub: integer("amount_rub"),
@@ -562,6 +602,9 @@ export const paymentOrders = pgTable(
     providerPaymentId: varchar("provider_payment_id", { length: 128 }),
     externalOrderId: varchar("external_order_id", { length: 160 }),
     externalSubscriptionId: varchar("external_subscription_id", { length: 160 }),
+    productTitleSnapshot: varchar("product_title_snapshot", { length: 180 }),
+    productKindSnapshot: paymentProductKind("product_kind_snapshot"),
+    accessDaysSnapshot: integer("access_days_snapshot"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     rawPayload: jsonb("raw_payload").$type<Record<string, unknown> | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -571,7 +614,17 @@ export const paymentOrders = pgTable(
     providerOrderIdx: uniqueIndex("payment_orders_provider_order_idx").on(table.providerOrderId),
     userStatusIdx: index("payment_orders_user_status_idx").on(table.userId, table.status),
     createdAtIdx: index("payment_orders_created_at_idx").on(table.createdAt),
-    statusCreatedAtIdx: index("payment_orders_status_created_at_idx").on(table.status, table.createdAt)
+    statusCreatedAtIdx: index("payment_orders_status_created_at_idx").on(table.status, table.createdAt),
+    offerPendingIdx: uniqueIndex("payment_orders_offer_pending_unique")
+      .on(table.individualOfferId)
+      .where(sql`${table.status} = 'pending'`),
+    offerPaidIdx: uniqueIndex("payment_orders_offer_paid_unique")
+      .on(table.individualOfferId)
+      .where(sql`${table.status} = 'paid'`),
+    productOrOffer: check(
+      "payment_orders_product_or_offer_check",
+      sql`(${table.productId} is not null and ${table.individualOfferId} is null) or (${table.productId} is null and ${table.individualOfferId} is not null and ${table.productTitleSnapshot} is not null and ${table.productKindSnapshot} is not null and ${table.accessDaysSnapshot} is not null)`
+    )
   })
 );
 
@@ -580,7 +633,8 @@ export const userRecurrentSubscriptions = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").notNull().references(() => paymentProducts.id, { onDelete: "restrict" }),
+    productId: uuid("product_id").references(() => paymentProducts.id, { onDelete: "restrict" }),
+    individualOfferId: uuid("individual_offer_id").references(() => individualPaymentOffers.id, { onDelete: "restrict" }),
     providerId: uuid("provider_id").notNull().references(() => paymentProviders.id, { onDelete: "restrict" }),
     status: recurrentSubscriptionStatus("status").notNull().default("active"),
     prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }),
@@ -591,7 +645,12 @@ export const userRecurrentSubscriptions = pgTable(
   },
   (table) => ({
     userProductIdx: uniqueIndex("user_recurrent_subscriptions_user_product_idx").on(table.userId, table.productId),
-    userStatusIdx: index("user_recurrent_subscriptions_user_status_idx").on(table.userId, table.status)
+    userOfferIdx: uniqueIndex("user_recurrent_subscriptions_user_offer_idx").on(table.userId, table.individualOfferId),
+    userStatusIdx: index("user_recurrent_subscriptions_user_status_idx").on(table.userId, table.status),
+    productOrOffer: check(
+      "user_recurrent_subscriptions_product_or_offer_check",
+      sql`(${table.productId} is not null and ${table.individualOfferId} is null) or (${table.productId} is null and ${table.individualOfferId} is not null)`
+    )
   })
 );
 
@@ -1182,6 +1241,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   pushSubscriptions: many(pushSubscriptions),
   subscriptions: many(subscriptions),
   paymentOrders: many(paymentOrders),
+  individualPaymentOffers: many(individualPaymentOffers, { relationName: "individual_offer_recipient" }),
+  createdIndividualPaymentOffers: many(individualPaymentOffers, { relationName: "individual_offer_creator" }),
   recurrentSubscriptions: many(userRecurrentSubscriptions),
   referralCodes: many(referralCodes),
   invitedReferrals: many(referrals, { relationName: "referral_inviter" }),
@@ -1266,7 +1327,9 @@ export const paymentProvidersRelations = relations(paymentProviders, ({ one, man
   products: many(paymentProducts),
   productBindings: many(paymentProductProviderBindings),
   catalogItems: many(paymentProviderCatalogItems),
-  orders: many(paymentOrders)
+  individualOffers: many(individualPaymentOffers),
+  orders: many(paymentOrders),
+  recurrentSubscriptions: many(userRecurrentSubscriptions)
 }));
 
 export const paymentProductsRelations = relations(paymentProducts, ({ one, many }) => ({
@@ -1313,6 +1376,25 @@ export const paymentProviderCatalogItemPricesRelations = relations(paymentProvid
   })
 }));
 
+export const individualPaymentOffersRelations = relations(individualPaymentOffers, ({ one, many }) => ({
+  user: one(users, {
+    fields: [individualPaymentOffers.userId],
+    references: [users.id],
+    relationName: "individual_offer_recipient"
+  }),
+  createdBy: one(users, {
+    fields: [individualPaymentOffers.createdByUserId],
+    references: [users.id],
+    relationName: "individual_offer_creator"
+  }),
+  provider: one(paymentProviders, {
+    fields: [individualPaymentOffers.providerId],
+    references: [paymentProviders.id]
+  }),
+  orders: many(paymentOrders),
+  recurrentSubscriptions: many(userRecurrentSubscriptions)
+}));
+
 export const paymentOrdersRelations = relations(paymentOrders, ({ one }) => ({
   user: one(users, {
     fields: [paymentOrders.userId],
@@ -1325,6 +1407,10 @@ export const paymentOrdersRelations = relations(paymentOrders, ({ one }) => ({
   provider: one(paymentProviders, {
     fields: [paymentOrders.providerId],
     references: [paymentProviders.id]
+  }),
+  individualOffer: one(individualPaymentOffers, {
+    fields: [paymentOrders.individualOfferId],
+    references: [individualPaymentOffers.id]
   })
 }));
 
@@ -1336,6 +1422,10 @@ export const userRecurrentSubscriptionsRelations = relations(userRecurrentSubscr
   product: one(paymentProducts, {
     fields: [userRecurrentSubscriptions.productId],
     references: [paymentProducts.id]
+  }),
+  individualOffer: one(individualPaymentOffers, {
+    fields: [userRecurrentSubscriptions.individualOfferId],
+    references: [individualPaymentOffers.id]
   }),
   provider: one(paymentProviders, {
     fields: [userRecurrentSubscriptions.providerId],
@@ -1626,6 +1716,7 @@ export type PaymentProvider = typeof paymentProviders.$inferSelect;
 export type PaymentProduct = typeof paymentProducts.$inferSelect;
 export type PaymentProductProviderPrice = typeof paymentProductProviderPrices.$inferSelect;
 export type PaymentProviderCatalogItemPrice = typeof paymentProviderCatalogItemPrices.$inferSelect;
+export type IndividualPaymentOffer = typeof individualPaymentOffers.$inferSelect;
 export type PaymentOrder = typeof paymentOrders.$inferSelect;
 export type UserRecurrentSubscription = typeof userRecurrentSubscriptions.$inferSelect;
 export type ReferralCode = typeof referralCodes.$inferSelect;

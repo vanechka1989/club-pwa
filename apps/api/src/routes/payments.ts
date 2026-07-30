@@ -8,6 +8,7 @@ import { getAdminAccessProfile, getUserRole, isOwnerTelegramId } from "../admin/
 import { db } from "../db/client";
 import {
   paymentOrders,
+  individualPaymentOffers,
   paymentProductProviderPrices,
   paymentProviderCatalogItemPrices,
   paymentProviderCatalogItems,
@@ -64,6 +65,7 @@ import { runCheckoutPreflight } from "../payments/checkoutOrchestration";
 import { checkoutCurrencyChoiceResponse, checkoutFailureResponse, checkoutPreflightChoiceResult } from "../payments/checkoutCurrencyResponse";
 import { isLavaCatalogPriceForProduct } from "../payments/lavaPeriodicity";
 import { resolveLavaCheckoutBuyerEmail } from "../payments/lavaCheckoutBuyer";
+import { resolvePaymentOrderSnapshot, type ResolvedPaymentOrderSnapshot } from "../payments/paymentOrderSnapshot";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -230,11 +232,12 @@ function getWebhookPaymentId(payload: Record<string, unknown>) {
 function mapPaymentOrderLog(
   order: typeof paymentOrders.$inferSelect & {
     user: typeof users.$inferSelect;
-    product: PaymentProduct;
+    product: PaymentProduct | null;
     provider: PaymentProvider;
   },
   webhook: typeof paymentWebhookEvents.$inferSelect | null
 ): PaymentOrderLog {
+  const product = resolvePaymentOrderSnapshot(order);
   const diagnostic = buildPaymentDiagnostic({
     status: order.status,
     createdAt: order.createdAt,
@@ -250,8 +253,8 @@ function mapPaymentOrderLog(
     amountMinor: order.amountMinor,
     providerOrderId: order.providerOrderId,
     providerPaymentId: order.providerPaymentId,
-    productTitle: order.product.title,
-    productKind: order.product.kind,
+    productTitle: product.title,
+    productKind: product.kind,
     customer: {
       id: order.user.id,
       telegramId: order.user.telegramId,
@@ -315,13 +318,32 @@ async function getPaymentOrderLogs(userId?: string, limit = 50) {
 
 async function grantPaidAccess(
   order: typeof paymentOrders.$inferSelect,
-  product: PaymentProduct,
+  product: ResolvedPaymentOrderSnapshot & { recurrentExternalProductId: string | null },
   user: typeof users.$inferSelect,
   payload: Record<string, unknown>
 ) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + product.accessDays * 24 * 60 * 60 * 1000);
   const applied = await db.transaction(async (tx) => {
+    if (order.individualOfferId) {
+      const [claimedOffer] = await tx
+        .update(individualPaymentOffers)
+        .set({ status: "paid", paidAt: now, updatedAt: now })
+        .where(and(
+          eq(individualPaymentOffers.id, order.individualOfferId),
+          or(eq(individualPaymentOffers.status, "active"), eq(individualPaymentOffers.status, "checkout_pending"))
+        ))
+        .returning({ id: individualPaymentOffers.id });
+      if (!claimedOffer) return false;
+      await tx
+        .update(paymentOrders)
+        .set({ status: "cancelled", updatedAt: now })
+        .where(and(
+          eq(paymentOrders.individualOfferId, order.individualOfferId),
+          ne(paymentOrders.id, order.id),
+          eq(paymentOrders.status, "pending")
+        ));
+    }
     const [claimedOrder] = await tx
       .update(paymentOrders)
       .set({
@@ -345,26 +367,29 @@ async function grantPaidAccess(
       updatedAt: now
     });
 
-    if (product.kind === "recurrent" && product.prodamusSubscriptionId) {
-      await tx
-        .insert(userRecurrentSubscriptions)
-        .values({
-          userId: order.userId,
-          productId: product.id,
-          providerId: order.providerId,
-          status: "active",
-          prodamusSubscriptionId: product.prodamusSubscriptionId,
-          createdAt: now,
-          updatedAt: now
-        })
-        .onConflictDoUpdate({
+    if (product.kind === "recurrent" && product.recurrentExternalProductId) {
+      const values = {
+        userId: order.userId,
+        productId: order.productId,
+        individualOfferId: order.individualOfferId,
+        providerId: order.providerId,
+        status: "active" as const,
+        prodamusSubscriptionId: product.recurrentExternalProductId,
+        createdAt: now,
+        updatedAt: now
+      };
+      const set = { status: "active" as const, cancelledAt: null, updatedAt: now };
+      if (order.productId) {
+        await tx.insert(userRecurrentSubscriptions).values(values).onConflictDoUpdate({
           target: [userRecurrentSubscriptions.userId, userRecurrentSubscriptions.productId],
-          set: {
-            status: "active",
-            cancelledAt: null,
-            updatedAt: now
-          }
+          set
         });
+      } else {
+        await tx.insert(userRecurrentSubscriptions).values(values).onConflictDoUpdate({
+          target: [userRecurrentSubscriptions.userId, userRecurrentSubscriptions.individualOfferId],
+          set
+        });
+      }
     }
 
     return true;
@@ -414,7 +439,8 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     const order = await db.query.paymentOrders.findFirst({
-      where: eq(paymentOrders.providerOrderId, orderId)
+      where: eq(paymentOrders.providerOrderId, orderId),
+      with: { product: true, individualOffer: true }
     });
     const webhookAction = decideProdamusWebhookAction({
       providerConfigured: Boolean(provider),
@@ -432,18 +458,16 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       return c.text(getProdamusWebhookSuccessResponse());
     }
 
-    const [product, user] = await Promise.all([
-      db.query.paymentProducts.findFirst({
-        where: eq(paymentProducts.id, order.productId)
-      }),
-      db.query.users.findFirst({
+    const user = await db.query.users.findFirst({
         where: eq(users.id, order.userId)
-      })
-    ]);
-    if (!product) {
+      });
+    if (!user) {
       return c.json({ ok: false }, 404);
     }
-    if (!user) {
+    let product: ResolvedPaymentOrderSnapshot;
+    try {
+      product = resolvePaymentOrderSnapshot(order);
+    } catch {
       return c.json({ ok: false }, 404);
     }
 
@@ -477,7 +501,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
 
     const paymentStatus = classifyProdamusWebhookPaymentStatus(payload);
     if (paymentStatus === "paid") {
-      await grantPaidAccess(order, product, user, payload);
+    await grantPaidAccess(order, {
+      ...product,
+      recurrentExternalProductId: order.product?.prodamusSubscriptionId ?? order.individualOffer?.externalProductId ?? null
+    }, user, payload);
     } else if (paymentStatus === "failed") {
       await db
         .update(paymentOrders)
@@ -773,6 +800,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       where: and(eq(userRecurrentSubscriptions.id, c.req.param("id")), eq(userRecurrentSubscriptions.userId, c.get("userId"))),
       with: {
         product: true,
+        individualOffer: true,
         provider: true,
         user: true
       }
@@ -783,7 +811,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     if (subscription.status !== "active") {
       return c.json({ ok: true });
     }
-    if (subscription.product.kind !== "recurrent") {
+    if ((subscription.product?.kind ?? subscription.individualOffer?.kind) !== "recurrent") {
       return c.json({ error: "Отмена доступна только для рекуррентной подписки." }, 400);
     }
 
@@ -823,7 +851,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     const latestPaidOrder = await db.query.paymentOrders.findFirst({
       where: and(
         eq(paymentOrders.userId, subscription.userId),
-        eq(paymentOrders.productId, subscription.productId),
+        or(
+          subscription.productId ? eq(paymentOrders.productId, subscription.productId) : undefined,
+          subscription.individualOfferId ? eq(paymentOrders.individualOfferId, subscription.individualOfferId) : undefined
+        ),
         eq(paymentOrders.providerId, subscription.providerId),
         eq(paymentOrders.status, "paid")
       ),
@@ -878,6 +909,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       where: and(eq(userRecurrentSubscriptions.id, c.req.param("id")), eq(userRecurrentSubscriptions.userId, c.get("userId"))),
       with: {
         product: true,
+        individualOffer: true,
         provider: true,
         user: true
       }
@@ -896,7 +928,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
       }, 409);
     }
     if (
-      subscription.product.kind !== "recurrent" ||
+      (subscription.product?.kind ?? subscription.individualOffer?.kind) !== "recurrent" ||
       subscription.provider.provider !== "prodamus" ||
       !subscription.prodamusSubscriptionId
     ) {
@@ -911,7 +943,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
     const latestPaidOrder = await db.query.paymentOrders.findFirst({
       where: and(
         eq(paymentOrders.userId, subscription.userId),
-        eq(paymentOrders.productId, subscription.productId),
+        or(
+          subscription.productId ? eq(paymentOrders.productId, subscription.productId) : undefined,
+          subscription.individualOfferId ? eq(paymentOrders.individualOfferId, subscription.individualOfferId) : undefined
+        ),
         eq(paymentOrders.providerId, subscription.providerId),
         eq(paymentOrders.status, "paid")
       ),

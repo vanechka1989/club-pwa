@@ -2,6 +2,7 @@ import { and, desc, eq, ne, or } from "drizzle-orm";
 import { db } from "../db/client";
 import {
   paymentOrders,
+  individualPaymentOffers,
   paymentWebhookEvents,
   subscriptions,
   userRecurrentSubscriptions,
@@ -12,6 +13,7 @@ import { notifyPaymentReceived } from "./paymentNotification";
 import type { NormalizedPaymentEvent } from "./providerAdapter";
 import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
 import { getCompatibleLegacyRubAmount, getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
+import { resolvePaymentOrderSnapshot } from "./paymentOrderSnapshot";
 
 export type PaymentEventProcessResult = "processed" | "duplicate" | "ignored";
 
@@ -68,11 +70,12 @@ export async function processPaymentEvent(
           eq(paymentOrders.providerOrderId, event.externalOrderId)
         )
       ),
-      with: { product: true, user: true }
+      with: { product: true, individualOffer: true, user: true }
     });
     if (!parentOrder) {
       throw new Error("PAYMENT_ORDER_NOT_READY");
     }
+    const productSnapshot = resolvePaymentOrderSnapshot(parentOrder);
     if (!isPaymentAmountValid(
       { currency: parentOrder.currency, amountMinor: parentOrder.amountMinor },
       { currency: event.currency, amountMinor: event.amountMinor }
@@ -87,6 +90,7 @@ export async function processPaymentEvent(
         .values({
           userId: parentOrder.userId,
           productId: parentOrder.productId,
+          individualOfferId: parentOrder.individualOfferId,
           providerId,
           status: "pending",
           amountRub: getCompatibleLegacyRubAmount(parentOrder),
@@ -95,13 +99,16 @@ export async function processPaymentEvent(
           providerOrderId: `${event.provider}-${event.externalPaymentId}`,
           externalOrderId: event.externalPaymentId,
           externalSubscriptionId: event.externalSubscriptionId,
+          productTitleSnapshot: parentOrder.productTitleSnapshot,
+          productKindSnapshot: parentOrder.productKindSnapshot,
+          accessDaysSnapshot: parentOrder.accessDaysSnapshot,
           createdAt: event.occurredAt,
           updatedAt: event.occurredAt
         })
         .onConflictDoNothing()
         .returning();
       if (!renewalOrder) return "duplicate";
-      order = { ...renewalOrder, product: parentOrder.product, user: parentOrder.user };
+      order = { ...renewalOrder, product: parentOrder.product, individualOffer: parentOrder.individualOffer, user: parentOrder.user };
     }
 
     if (event.type === "payment_failed" || event.type === "renewal_failed") {
@@ -115,7 +122,33 @@ export async function processPaymentEvent(
           updatedAt: event.occurredAt
         })
         .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, "paid")));
+      if (order.individualOfferId) {
+        await tx
+          .update(individualPaymentOffers)
+          .set({ status: "active", updatedAt: event.occurredAt })
+          .where(and(eq(individualPaymentOffers.id, order.individualOfferId), eq(individualPaymentOffers.status, "checkout_pending")));
+      }
       return "processed";
+    }
+
+    if (order.individualOfferId) {
+      const [claimedOffer] = await tx
+        .update(individualPaymentOffers)
+        .set({ status: "paid", paidAt: event.occurredAt, updatedAt: event.occurredAt })
+        .where(and(
+          eq(individualPaymentOffers.id, order.individualOfferId),
+          or(eq(individualPaymentOffers.status, "active"), eq(individualPaymentOffers.status, "checkout_pending"))
+        ))
+        .returning({ id: individualPaymentOffers.id });
+      if (!claimedOffer) return "duplicate";
+      await tx
+        .update(paymentOrders)
+        .set({ status: "cancelled", updatedAt: event.occurredAt })
+        .where(and(
+          eq(paymentOrders.individualOfferId, order.individualOfferId),
+          ne(paymentOrders.id, order.id),
+          eq(paymentOrders.status, "pending")
+        ));
     }
 
     const [claimedOrder] = await tx
@@ -137,45 +170,52 @@ export async function processPaymentEvent(
       where: eq(subscriptions.userId, order.userId),
       orderBy: [desc(subscriptions.expiresAt), desc(subscriptions.createdAt)]
     });
-    const expiresAt = getExtendedAccessExpiry(event.occurredAt, latestAccess?.expiresAt ?? null, parentOrder.product.accessDays);
+    const expiresAt = getExtendedAccessExpiry(event.occurredAt, latestAccess?.expiresAt ?? null, productSnapshot.accessDays);
     await tx.insert(subscriptions).values({
       userId: order.userId,
       status: "active",
-      provider: parentOrder.product.kind === "recurrent" ? `${event.provider}_recurrent` : event.provider,
+      provider: productSnapshot.kind === "recurrent" ? `${event.provider}_recurrent` : event.provider,
       providerPaymentId: event.externalPaymentId,
       expiresAt,
       createdAt: event.occurredAt,
       updatedAt: event.occurredAt
     });
 
-    if (parentOrder.product.kind === "recurrent" && event.externalSubscriptionId) {
-      await tx
-        .insert(userRecurrentSubscriptions)
-        .values({
-          userId: order.userId,
-          productId: parentOrder.productId,
-          providerId,
-          status: "active",
-          prodamusSubscriptionId: event.provider === "prodamus" ? event.externalSubscriptionId : null,
-          externalSubscriptionId: event.externalSubscriptionId,
-          createdAt: event.occurredAt,
-          updatedAt: event.occurredAt
-        })
-        .onConflictDoUpdate({
+    if (productSnapshot.kind === "recurrent" && event.externalSubscriptionId) {
+      const recurrentValues = {
+        userId: order.userId,
+        productId: parentOrder.productId,
+        individualOfferId: parentOrder.individualOfferId,
+        providerId,
+        status: "active" as const,
+        prodamusSubscriptionId: event.provider === "prodamus" ? event.externalSubscriptionId : null,
+        externalSubscriptionId: event.externalSubscriptionId,
+        createdAt: event.occurredAt,
+        updatedAt: event.occurredAt
+      };
+      const conflictSet = {
+        status: "active" as const,
+        prodamusSubscriptionId: event.provider === "prodamus" ? event.externalSubscriptionId : null,
+        externalSubscriptionId: event.externalSubscriptionId,
+        cancelledAt: null,
+        updatedAt: event.occurredAt
+      };
+      if (parentOrder.productId) {
+        await tx.insert(userRecurrentSubscriptions).values(recurrentValues).onConflictDoUpdate({
           target: [userRecurrentSubscriptions.userId, userRecurrentSubscriptions.productId],
-          set: {
-            status: "active",
-            prodamusSubscriptionId: event.provider === "prodamus" ? event.externalSubscriptionId : null,
-            externalSubscriptionId: event.externalSubscriptionId,
-            cancelledAt: null,
-            updatedAt: event.occurredAt
-          }
+          set: conflictSet
         });
+      } else {
+        await tx.insert(userRecurrentSubscriptions).values(recurrentValues).onConflictDoUpdate({
+          target: [userRecurrentSubscriptions.userId, userRecurrentSubscriptions.individualOfferId],
+          set: conflictSet
+        });
+      }
     }
 
     notification = {
       userId: order.userId,
-      productTitle: parentOrder.product.title,
+      productTitle: productSnapshot.title,
       currency: order.currency,
       amountMinor: order.amountMinor,
       expiresAt,

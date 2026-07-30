@@ -53,7 +53,7 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
     apiKey: decryptProviderSecret(provider.apiKey!),
     orders: orders.map((order) => ({
       externalOrderId: order.externalOrderId!,
-      productId: order.productId,
+      productId: order.productId ?? order.individualOfferId!,
       buyerEmail: order.user.email ?? "",
       currency: order.currency,
       amountMinor: order.amountMinor
@@ -71,7 +71,7 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
             gte(userRecurrentSubscriptions.updatedAt, recentSince)
           )
         ),
-        with: { user: true, product: true },
+        with: { user: true, product: true, individualOffer: true },
         limit: 100
       })
     : [];
@@ -79,7 +79,7 @@ export async function reconcileLavaPayments(now = new Date()): Promise<Reconcili
     const events = await adapter.getSubscriptionEvents!({
       credentials: { apiKey: decryptProviderSecret(provider.apiKey!) },
       externalSubscriptionId: subscription.externalSubscriptionId!,
-      productId: subscription.productId,
+      productId: subscription.productId ?? subscription.individualOfferId!,
       buyerEmail: subscription.user.email ?? ""
     });
     let corrected = false;
