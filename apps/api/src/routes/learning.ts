@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm"
 import { Hono } from "hono";
 import { z } from "zod";
 import { learningEngagementSnapshotSchema } from "@club/shared";
-import { contentCategories, contentItems, learningEngagementSessions, lessonComments, lessonMaterials, userContentProgress } from "../db/schema";
+import { contentCategories, contentItems, learningEngagementSessions, lessonComments, lessonMaterials, userContentProgress, userLearningFavorites } from "../db/schema";
 import { db } from "../db/client";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import type { AuthVariables } from "../middleware/auth";
@@ -158,6 +158,13 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
           .where(and(eq(userContentProgress.userId, userId), moduleContentWhere))
       : [];
     const serializedProgress = serializeLearningProgressRows(progressRows);
+    const favoriteRows = moduleContentWhere
+      ? await db
+          .select({ contentItemId: userLearningFavorites.contentItemId })
+          .from(userLearningFavorites)
+          .innerJoin(contentItems, eq(contentItems.id, userLearningFavorites.contentItemId))
+          .where(and(eq(userLearningFavorites.userId, userId), moduleContentWhere))
+      : [];
 
     const [lastOpenedRow] = moduleContentWhere
       ? await db
@@ -178,6 +185,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         totalItems: totalItemsRow?.value ?? 0,
         completedItems: serializedProgress.completedItemIds.length,
         ...serializedProgress,
+        favoriteItemIds: favoriteRows.map((row) => row.contentItemId),
         lastOpenedItem: lastOpenedItem ? await serializeContentItem(lastOpenedItem, true) : null,
         lastOpenedMaterialId: lastOpenedItem ? lastOpenedProgress?.lastOpenedMaterialId ?? null : null,
         lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null,
@@ -386,6 +394,33 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       completedAt: progress?.completedAt?.toISOString() ?? now.toISOString(),
       playbackPositionSeconds: progress?.playbackPositionSeconds ?? 0
     });
+  })
+  .put("/items/:id/favorite", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const item = await db.query.contentItems.findFirst({
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
+    });
+    if (!item) return c.json({ error: "Learning content not found" }, 404);
+
+    await db
+      .insert(userLearningFavorites)
+      .values({ userId, contentItemId: item.id })
+      .onConflictDoNothing();
+
+    return c.json({ ok: true, favorite: true });
+  })
+  .delete("/items/:id/favorite", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const item = await db.query.contentItems.findFirst({
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
+    });
+    if (!item) return c.json({ error: "Learning content not found" }, 404);
+
+    await db
+      .delete(userLearningFavorites)
+      .where(and(eq(userLearningFavorites.userId, userId), eq(userLearningFavorites.contentItemId, item.id)));
+
+    return c.json({ ok: true, favorite: false });
   })
   .get("/items/:id/comments", requireActiveMember, async (c) => {
     const userId = c.get("userId");

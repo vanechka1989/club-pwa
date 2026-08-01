@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningHomeResponseSchema, learningProgressSummarySchema } from "./index";
+import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningFavoriteMutationResponseSchema, learningHomeResponseSchema, learningProgressSummarySchema } from "./index";
 
 describe("learningContentSchema", () => {
   it("accepts all lesson cover modes while keeping old content compatible", () => {
@@ -56,6 +56,11 @@ describe("learningHomeResponseSchema", () => {
 
     expect(parsed.startedItemIds).toBeUndefined();
     expect(parsed.completedItemIds).toBeUndefined();
+    expect(parsed.favoriteItemIds).toEqual([]);
+  });
+
+  it("accepts favorite mutation responses", () => {
+    expect(learningFavoriteMutationResponseSchema.parse({ ok: true, favorite: true })).toEqual({ ok: true, favorite: true });
   });
   it("keeps playback position for the last opened item", () => {
     const parsed = learningHomeResponseSchema.parse({

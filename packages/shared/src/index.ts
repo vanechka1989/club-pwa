@@ -389,6 +389,7 @@ export const learningProgressSummarySchema = z.object({
   completedItems: z.number().int().nonnegative(),
   startedItemIds: z.array(z.string()).optional(),
   completedItemIds: z.array(z.string()).optional(),
+  favoriteItemIds: z.array(z.string()).default([]),
   lastOpenedItem: learningContentSchema.nullable(),
   lastOpenedMaterialId: z.string().nullable().optional(),
   lastOpenedAt: z.string().datetime().nullable(),
@@ -424,6 +425,12 @@ export const learningPlaybackMutationResponseSchema = z.object({
   playbackPositionSeconds: z.number().int().nonnegative()
 });
 export type LearningPlaybackMutationResponse = z.infer<typeof learningPlaybackMutationResponseSchema>;
+
+export const learningFavoriteMutationResponseSchema = z.object({
+  ok: z.boolean(),
+  favorite: z.boolean()
+});
+export type LearningFavoriteMutationResponse = z.infer<typeof learningFavoriteMutationResponseSchema>;
 
 export const moderationStatusSchema = z.enum(["visible", "hidden", "deleted"]);
 export type ModerationStatus = z.infer<typeof moderationStatusSchema>;

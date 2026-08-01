@@ -824,6 +824,20 @@ export const userContentProgress = pgTable(
   })
 );
 
+export const userLearningFavorites = pgTable(
+  "user_learning_favorites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userItemIdx: uniqueIndex("user_learning_favorites_user_item_unique").on(table.userId, table.contentItemId),
+    userCreatedIdx: index("user_learning_favorites_user_created_idx").on(table.userId, table.createdAt)
+  })
+);
+
 export const learningEngagementSessions = pgTable(
   "learning_engagement_sessions",
   {
@@ -1257,6 +1271,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   adminActionLogs: many(adminActionLogs, { relationName: "admin_action_actor" }),
   targetedAdminActionLogs: many(adminActionLogs, { relationName: "admin_action_target" }),
   contentProgress: many(userContentProgress),
+  learningFavorites: many(userLearningFavorites),
   lessonComments: many(lessonComments),
   mutes: many(userMutes),
   chatMessages: many(clubChatMessages),
@@ -1493,6 +1508,7 @@ export const contentItemsRelations = relations(contentItems, ({ one, many }) => 
     references: [contentCategories.id]
   }),
   comments: many(lessonComments),
+  favorites: many(userLearningFavorites),
   materials: many(lessonMaterials)
 }));
 
@@ -1515,6 +1531,17 @@ export const userContentProgressRelations = relations(userContentProgress, ({ on
   lastOpenedMaterial: one(lessonMaterials, {
     fields: [userContentProgress.lastOpenedMaterialId],
     references: [lessonMaterials.id]
+  })
+}));
+
+export const userLearningFavoritesRelations = relations(userLearningFavorites, ({ one }) => ({
+  user: one(users, {
+    fields: [userLearningFavorites.userId],
+    references: [users.id]
+  }),
+  item: one(contentItems, {
+    fields: [userLearningFavorites.contentItemId],
+    references: [contentItems.id]
   })
 }));
 

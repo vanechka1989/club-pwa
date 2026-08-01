@@ -449,6 +449,13 @@
       "when": 1785398400000,
       "tag": "0063_individual_payment_offers",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1785553200000,
+      "tag": "0064_learning_favorites",
+      "breakpoints": true
     }
   ]
 }
