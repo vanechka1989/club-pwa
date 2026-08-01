@@ -1,5 +1,5 @@
 import type { AdminCommunityMessage, AdminLearningMaterial, AdminStatsUser, ClubTopic, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
-import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
+import { isPaymentProblemOrder, type AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
 import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
 import { paymentRubMajor } from "./adminPaymentMoney";
 
@@ -215,6 +215,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
   const pendingOrders = periodOrders.filter((order) => order.status === "pending").length;
   const failedOrders = periodOrders.filter((order) => order.status === "failed").length;
   const failedWebhookOrders = periodOrders.filter((order) => order.webhook && !order.webhook.isValid).length;
+  const problemOrders = periodOrders.filter(isPaymentProblemOrder).length;
   const oneTimePaidOrders = paidOrders.filter((order) => order.productKind === "one_time").length;
   const recurrentPaidOrders = paidOrders.filter((order) => order.productKind === "recurrent").length;
   const revenueRub = paidOrders.reduce((sum, order) => sum + paymentRubMajor(order), 0);
@@ -252,6 +253,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       pendingOrders,
       failedOrders,
       failedWebhookOrders,
+      problemOrders,
       revenueRub,
       averagePaidOrderRub: paidOrders.length > 0 ? Math.round(revenueRub / paidOrders.length) : 0,
       oneTimePaidOrders,

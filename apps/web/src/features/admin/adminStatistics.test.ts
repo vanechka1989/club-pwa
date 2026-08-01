@@ -208,6 +208,13 @@ describe("admin statistics", () => {
             webhook: { isValid: false, createdAt: "2026-06-20T10:01:00.000Z" }
           }),
           payment({ id: "recent-pending", status: "pending", amountRub: 50, createdAt: "2026-06-25T12:00:00.000Z" }),
+          payment({
+            id: "recent-failed-with-bad-webhook",
+            status: "failed",
+            amountRub: 50,
+            createdAt: "2026-06-25T13:00:00.000Z",
+            webhook: { isValid: false, createdAt: "2026-06-25T13:01:00.000Z" }
+          }),
           payment({ id: "old-paid", status: "paid", amountRub: 1000, paidAt: "2026-05-01T10:00:00.000Z" })
         ],
         learningCategories: categories,
@@ -286,7 +293,9 @@ describe("admin statistics", () => {
     expect(stats.payments).toMatchObject({
       paidOrders: 2,
       pendingOrders: 1,
-      failedWebhookOrders: 1,
+      failedOrders: 1,
+      failedWebhookOrders: 2,
+      problemOrders: 2,
       revenueRub: 150,
       averagePaidOrderRub: 75,
       oneTimePaidOrders: 1,
@@ -301,8 +310,8 @@ describe("admin statistics", () => {
       ["Разовые", 1],
       ["Рекуррент", 1],
       ["Ожидают", 1],
-      ["Ошибки webhook", 1],
-      ["Ошибки оплат", 0]
+      ["Ошибки webhook", 2],
+      ["Ошибки оплат", 1]
     ]);
     expect(stats.payments.breakdown.map((item) => item.key)).toEqual([
       "paid",

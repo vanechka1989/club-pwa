@@ -49,7 +49,20 @@ describe("admin statistics navigation", () => {
     expect(styles).toContain(".admin-stat-overview-nav");
     expect(styles).toContain(".admin-stat-nav-row");
     expect(styles).toContain(".admin-stat-period-summary");
-    expect(styles).toContain(".admin-stat-alert-line");
+    expect(styles).toContain(".admin-stat-attention");
+  });
+
+  it("turns each attention metric into a direct accessible drilldown", () => {
+    expect(section).not.toContain('class="admin-stat-alert-line"');
+    expect(section).toContain('class="admin-stat-attention"');
+    expect(section).toContain('class="admin-stat-attention-action ui-button"');
+    expect(section).toContain('aria-label="Открыть клиентов с истекающим доступом"');
+    expect(section).toContain('aria-label="Открыть проблемные платежи"');
+    expect(section).toContain('@click="openExpiringAccessAttention"');
+    expect(section).toContain('@click="openPaymentAttention"');
+    expect(section).toContain("adminStatistics.payments.problemOrders");
+    expect(styles).toContain("min-height: 56px");
+    expect(styles).not.toContain(".admin-stat-attention {\n    grid-template-columns: repeat(2, minmax(0, 1fr));");
   });
 
   it("locks overview and detail arrows into dedicated aligned columns", () => {

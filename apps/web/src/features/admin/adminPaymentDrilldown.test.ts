@@ -37,7 +37,8 @@ describe("admin payment drilldown", () => {
     payment({ id: "paid-recurrent", status: "paid", productKind: "recurrent" }),
     payment({ id: "pending-recurrent", status: "pending", productKind: "recurrent" }),
     payment({ id: "failed-one-time", status: "failed", productKind: "one_time" }),
-    payment({ id: "bad-webhook", status: "paid", productKind: "one_time", webhook: { isValid: false, createdAt: "2026-06-25T10:01:00.000Z" } })
+    payment({ id: "bad-webhook", status: "paid", productKind: "one_time", webhook: { isValid: false, createdAt: "2026-06-25T10:01:00.000Z" } }),
+    payment({ id: "failed-and-bad-webhook", status: "failed", webhook: { isValid: false, createdAt: "2026-06-25T10:02:00.000Z" } })
   ];
 
   it("filters paid recurrent payments without mixing pending subscriptions", () => {
@@ -45,7 +46,18 @@ describe("admin payment drilldown", () => {
   });
 
   it("filters webhook signature errors independently from payment status", () => {
-    expect(filterPaymentOrdersByBreakdown("webhook_failed", orders).map((order) => order.id)).toEqual(["bad-webhook"]);
+    expect(filterPaymentOrdersByBreakdown("webhook_failed", orders).map((order) => order.id)).toEqual([
+      "bad-webhook",
+      "failed-and-bad-webhook"
+    ]);
+  });
+
+  it("returns every problem order once even when payment and webhook both failed", () => {
+    expect(filterPaymentOrdersByBreakdown("attention", orders).map((order) => order.id)).toEqual([
+      "failed-one-time",
+      "bad-webhook",
+      "failed-and-bad-webhook"
+    ]);
   });
 
   it("filters payments by custom date range", () => {
@@ -64,6 +76,7 @@ describe("admin payment drilldown", () => {
 
   it("keeps a valid direct drilldown route usable before statistics finish loading", () => {
     expect(resolvePaymentBreakdownItem("paid", [])).toEqual({ key: "paid", label: "Всего оплат", value: 0 });
+    expect(resolvePaymentBreakdownItem("attention", [])).toEqual({ key: "attention", label: "Проблемы с оплатой", value: 0 });
     expect(resolvePaymentBreakdownItem("unknown", [])).toBeNull();
   });
 });

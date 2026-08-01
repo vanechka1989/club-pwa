@@ -2423,6 +2423,79 @@ test("opens admin task screens when their URLs are loaded directly", async ({ pa
   await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
 });
 
+test("opens actionable admin attention items without double-counting", async ({ page }, testInfo) => {
+  test.skip(!["release-desktop", "release-android"].includes(testInfo.project.name));
+  const currentTimestamp = new Date().toISOString();
+  const expiresSoon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const failedOrder = {
+    ...adminPaymentOrder,
+    id: "payment-failed-and-bad-webhook",
+    status: "failed",
+    webhook: { isValid: false, createdAt: currentTimestamp },
+    paidAt: null,
+    createdAt: currentTimestamp,
+    updatedAt: currentTimestamp
+  };
+  const invalidWebhookOrder = {
+    ...adminPaymentOrder,
+    id: "payment-invalid-webhook",
+    webhook: { isValid: false, createdAt: currentTimestamp },
+    paidAt: currentTimestamp,
+    createdAt: currentTimestamp,
+    updatedAt: currentTimestamp
+  };
+
+  await page.route("**/api/admin/stats", async (route) => {
+    await route.fulfill(
+      json({
+        totalUsers: 3,
+        activeUsers: 1,
+        completedItems: 4,
+        totalItems: 18,
+        users: [{ ...adminStatsUser, membershipExpiresAt: expiresSoon }, inactiveStatsUser, closedStatsUser],
+        communityMessages: []
+      })
+    );
+  });
+  await page.route("**/api/payments/admin/orders", async (route) => {
+    await route.fulfill(json({ orders: [failedOrder, invalidWebhookOrder] }));
+  });
+
+  const viewports = testInfo.project.name === "release-android"
+    ? [
+        { name: "320", width: 320, height: 720 },
+        { name: "390", width: 390, height: 844 },
+        { name: "768", width: 768, height: 1024 }
+      ]
+    : [
+        { name: "1024", width: 1024, height: 768 },
+        { name: "1440", width: 1440, height: 900 }
+      ];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/admin");
+    const attention = page.locator(".admin-stat-attention");
+    await expect(attention).toBeVisible();
+    await expect(page.getByRole("button", { name: "Открыть клиентов с истекающим доступом" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Открыть проблемные платежи" })).toContainText("2");
+    await expectResponsiveLayoutIntegrity(page, "/admin");
+    await attention.screenshot({ path: testInfo.outputPath(`admin-attention-${viewport.name}.png`), animations: "disabled" });
+  }
+
+  await page.getByRole("button", { name: "Открыть клиентов с истекающим доступом" }).click();
+  await expect(page).toHaveURL(/\/admin\/statistics\/users\/access-expiring_soon$/);
+  await expect(page.getByRole("heading", { name: "Истекают скоро", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Назад" }).click();
+
+  await page.getByRole("button", { name: "Открыть проблемные платежи" }).click();
+  await expect(page).toHaveURL(/\/admin\/statistics\/payments\/attention$/);
+  await expect(page.getByRole("heading", { name: "Проблемы с оплатой", exact: true })).toBeVisible();
+  await expect(page.locator(".admin-payment-drilldown-card")).toHaveCount(2);
+  await expect(page.getByText("Оплата + уведомление", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ошибка уведомления", { exact: true })).toBeVisible();
+});
+
 test("keeps error tracker notification controls compact", async ({ page }, testInfo) => {
   test.skip(!["android-compact-320", "viewport-390-844"].includes(testInfo.project.name));
   await page.goto("/admin");

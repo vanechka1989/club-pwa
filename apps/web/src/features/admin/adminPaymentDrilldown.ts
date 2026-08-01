@@ -1,7 +1,7 @@
 import type { PaymentOrderLog } from "@club/shared";
 import type { AdminStatisticsDateRange, AdminStatisticsPeriod } from "./adminStatistics";
 
-export type AdminPaymentBreakdownKey = "paid" | "one_time" | "recurrent" | "pending" | "webhook_failed" | "failed";
+export type AdminPaymentBreakdownKey = "paid" | "one_time" | "recurrent" | "pending" | "webhook_failed" | "failed" | "attention";
 
 export type AdminPaymentBreakdownItem = {
   key: AdminPaymentBreakdownKey;
@@ -15,8 +15,13 @@ const paymentBreakdownLabels: Record<AdminPaymentBreakdownKey, string> = {
   recurrent: "Рекуррент",
   pending: "Ожидают",
   webhook_failed: "Ошибки webhook",
-  failed: "Ошибки оплат"
+  failed: "Ошибки оплат",
+  attention: "Проблемы с оплатой"
 };
+
+export function isPaymentProblemOrder(order: PaymentOrderLog) {
+  return order.status === "failed" || Boolean(order.webhook && !order.webhook.isValid);
+}
 
 export function resolvePaymentBreakdownItem(
   key: string,
@@ -101,5 +106,7 @@ export function filterPaymentOrdersByBreakdown(
       return periodOrders.filter((order) => Boolean(order.webhook && !order.webhook.isValid));
     case "failed":
       return periodOrders.filter((order) => order.status === "failed");
+    case "attention":
+      return periodOrders.filter(isPaymentProblemOrder);
   }
 }

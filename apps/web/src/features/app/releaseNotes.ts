@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Paid individual subscription action",
+  title: "Actionable admin alerts",
   items: [
-    "The personal payment action is now labelled Individual subscription instead of looking like a free gift.",
-    "A banknote icon clearly communicates a paid offer without tying it to one currency.",
-    "The longer label wraps neatly inside the purple button on narrow phones."
+    "Expiring access and payment problems are now separate actions that open the relevant records directly.",
+    "The payment problem list identifies a failed payment, an invalid notification, or both conditions.",
+    "An order is counted once even when its payment and notification both fail."
   ]
 };
 

@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the paid individual subscription action as version 5.84", () => {
-    expect(appVersion).toBe("5.84");
-    expect(releaseNotes[0]?.title).toBe("Платная индивидуальная подписка");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Индивидуальная подписка/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/банкнот/i);
+  it("publishes actionable admin alerts as version 5.85", () => {
+    expect(appVersion).toBe("5.85");
+    expect(releaseNotes[0]?.title).toBe("Понятный блок внимания");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/истекающ.*доступ/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/проблемн.*оплат/i);
+
+    const individualSubscriptionRelease = releaseNotes.find((note) => note.version === "5.84");
+    expect(individualSubscriptionRelease?.title).toBe("Платная индивидуальная подписка");
 
     const paperclipRelease = releaseNotes.find((note) => note.version === "5.83");
     expect(paperclipRelease?.title).toBe("Только скрепка в сообщении");
@@ -240,7 +243,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Paid individual subscription action");
+    expect(englishNotes[0]?.title).toBe("Actionable admin alerts");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

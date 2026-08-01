@@ -28,7 +28,9 @@ import {
 } from "@club/shared";
 import {
   BarChart3,
+  CalendarClock,
   ChevronRight,
+  CircleAlert,
   Cloud,
   CreditCard,
   Link2,
@@ -1344,6 +1346,22 @@ function openUserAccessDrilldown(item: AdminAccessBreakdownItem) {
   openAdminTask(`/admin/statistics/users/access-${item.key}`);
 }
 
+function openExpiringAccessAttention() {
+  openUserAccessDrilldown({
+    key: "expiring_soon",
+    label: "Истекает доступ",
+    value: adminStatistics.value.clients.expiringSoon
+  });
+}
+
+function openPaymentAttention() {
+  openPaymentDrilldown({
+    key: "attention",
+    label: "Проблемы с оплатой",
+    value: adminStatistics.value.payments.problemOrders
+  });
+}
+
 function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
   activeStatisticsDetail.value = null;
   selectedUserDrilldown.value = {
@@ -1465,6 +1483,26 @@ function paymentOrderStatusLabel(status: PaymentOrderLog["status"]) {
   }
 
   return "Ожидает";
+}
+
+function paymentAttentionReason(order: PaymentOrderLog) {
+  const paymentFailed = order.status === "failed";
+  const webhookFailed = Boolean(order.webhook && !order.webhook.isValid);
+
+  if (paymentFailed && webhookFailed) {
+    return "Оплата + уведомление";
+  }
+
+  return paymentFailed ? "Ошибка оплаты" : "Ошибка уведомления";
+}
+
+function russianCountLabel(value: number, one: string, few: string, many: string) {
+  const lastTwo = value % 100;
+  const last = value % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return many;
+  if (last === 1) return one;
+  if (last >= 2 && last <= 4) return few;
+  return many;
 }
 
 function paymentCustomerTitle(order: PaymentOrderLog) {
@@ -2629,7 +2667,9 @@ onUnmounted(() => {
                   {{ order.productKind === "recurrent" ? "Рекуррент" : "Разовый" }} · {{ order.provider === "lava" ? "Lava" : "Prodamus" }}
                 </em>
               </span>
-              <span :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</span>
+              <span :class="activePaymentBreakdown.key === 'attention' ? 'payment-status-failed' : `payment-status-${order.status}`">
+                {{ activePaymentBreakdown.key === "attention" ? paymentAttentionReason(order) : paymentOrderStatusLabel(order.status) }}
+              </span>
             </button>
             <p v-if="!paymentDrilldownOrders.length" class="admin-empty">Записей по этому показателю пока нет.</p>
           </div>
@@ -2730,9 +2770,42 @@ onUnmounted(() => {
         <article><span>Новые клиенты</span><strong>+{{ adminStatistics.clients.newInPeriod }}</strong><small>за выбранный период</small></article>
       </div>
 
-      <p v-if="adminStatistics.clients.expiringSoon || adminStatistics.payments.failedOrders || adminStatistics.payments.failedWebhookOrders" class="admin-stat-alert-line">
-        Требуют внимания: {{ adminStatistics.clients.expiringSoon }} доступов истекают, {{ adminStatistics.payments.failedOrders + adminStatistics.payments.failedWebhookOrders }} ошибок оплаты
-      </p>
+      <div
+        v-if="adminStatistics.clients.expiringSoon || adminStatistics.payments.problemOrders"
+        class="admin-stat-attention"
+        aria-label="Требуют внимания"
+      >
+        <button
+          v-if="adminStatistics.clients.expiringSoon"
+          class="admin-stat-attention-action ui-button"
+          type="button"
+          aria-label="Открыть клиентов с истекающим доступом"
+          @click="openExpiringAccessAttention"
+        >
+          <span class="admin-stat-attention-icon"><CalendarClock aria-hidden="true" /></span>
+          <span class="admin-stat-attention-copy"><strong>Истекает доступ</strong><small>в ближайшие 7 дней</small></span>
+          <span class="admin-stat-attention-value">
+            <b>{{ adminStatistics.clients.expiringSoon }}</b>
+            <small>{{ russianCountLabel(adminStatistics.clients.expiringSoon, "клиент", "клиента", "клиентов") }}</small>
+          </span>
+          <ChevronRight class="admin-stat-attention-chevron" aria-hidden="true" />
+        </button>
+        <button
+          v-if="adminStatistics.payments.problemOrders"
+          class="admin-stat-attention-action ui-button"
+          type="button"
+          aria-label="Открыть проблемные платежи"
+          @click="openPaymentAttention"
+        >
+          <span class="admin-stat-attention-icon"><CircleAlert aria-hidden="true" /></span>
+          <span class="admin-stat-attention-copy"><strong>Проблемы с оплатой</strong><small>за выбранный период</small></span>
+          <span class="admin-stat-attention-value">
+            <b>{{ adminStatistics.payments.problemOrders }}</b>
+            <small>{{ russianCountLabel(adminStatistics.payments.problemOrders, "операция", "операции", "операций") }}</small>
+          </span>
+          <ChevronRight class="admin-stat-attention-chevron" aria-hidden="true" />
+        </button>
+      </div>
 
       <div class="admin-stat-overview-nav">
         <button class="admin-stat-nav-row ui-button" type="button" @click="openStatisticsDetail('acquisition')">
