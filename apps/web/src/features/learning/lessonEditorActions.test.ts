@@ -16,6 +16,13 @@ describe("lesson editor actions", () => {
     expect(componentSource).not.toContain("<LessonAssessmentEditor");
   });
 
+  it("keeps saved assessment state separate from the editable draft", () => {
+    expect(componentSource).toContain("savedLessonAssessmentDraft");
+    expect(componentSource).toContain("assessmentLoadSequence");
+    expect(componentSource).toContain("lesson.assessment = toPublicAssessmentConfig(parsed.data)");
+    expect(componentSource).toContain("lessonAssessmentDraft.value = cloneAssessmentDraft(savedLessonAssessmentDraft.value)");
+  });
+
   it("keeps save and delete actions inside the scrolling form without a duplicate close button", () => {
     expect(componentSource).toContain(
       'class="admin-form-actions lesson-preview-actions lesson-preview-actions-edit lesson-editor-inline-actions"'

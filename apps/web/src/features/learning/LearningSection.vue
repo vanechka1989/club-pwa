@@ -16,6 +16,7 @@ import {
   type LearningProgressSummary,
   type LessonMaterial,
   type LessonCoverMode,
+  lessonAssessmentConfigSchema,
   lessonAssessmentDraftSchema,
   type LessonAssessmentConfig,
   type LessonAssessmentDraft,
@@ -259,10 +260,13 @@ const lessonPublished = ref(false);
 const lessonContent = ref("");
 const lessonMaterialDrafts = ref<LessonMaterialDraft[]>([]);
 const lessonAssessmentDraft = ref<LessonAssessmentDraft>({ mode: "none" });
+const savedLessonAssessmentDraft = ref<LessonAssessmentDraft>({ mode: "none" });
 const isLoadingLessonAssessment = ref(false);
 const assessmentSettingsMode = ref(false);
 const assessmentSettingsError = ref("");
 const assessmentSettingsRetryable = ref(false);
+let assessmentLoadSequence = 0;
+let assessmentLoadingLessonId: string | null = null;
 const lessonError = ref("");
 const isLoadingLessonContent = ref(false);
 const lessonViewerError = ref("");
@@ -453,9 +457,11 @@ const lessonCoverModeOptions: Array<{ value: LessonCoverMode; label: string }> =
 ];
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
-const assessmentModeLabel = computed(() => lessonAssessmentDraft.value.mode === "quiz"
+const assessmentModeLabel = computed(() => isLoadingLessonAssessment.value
+  ? "Загружаем…"
+  : savedLessonAssessmentDraft.value.mode === "quiz"
   ? "Тест"
-  : lessonAssessmentDraft.value.mode === "homework"
+  : savedLessonAssessmentDraft.value.mode === "homework"
     ? "Домашнее задание"
     : "Не добавлена");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
@@ -817,22 +823,40 @@ function stopLearningEngagement() {
 
 async function loadAdminLessonAssessment(lessonId: string) {
   if (!canManageModules.value || !modulesLoadedFromApi.value) return;
+  if (isLoadingLessonAssessment.value && assessmentLoadingLessonId === lessonId) return;
+  const requestSequence = ++assessmentLoadSequence;
+  assessmentLoadingLessonId = lessonId;
   isLoadingLessonAssessment.value = true;
   assessmentSettingsError.value = "";
   assessmentSettingsRetryable.value = false;
   try {
     const response = await getAdminLessonAssessment(lessonId);
-    if (selectedLesson.value?.lessonId === lessonId) {
-      lessonAssessmentDraft.value = JSON.parse(JSON.stringify(response.assessment)) as LessonAssessmentDraft;
+    if (requestSequence === assessmentLoadSequence && selectedLesson.value?.lessonId === lessonId) {
+      const loadedDraft = cloneAssessmentDraft(response.assessment);
+      lessonAssessmentDraft.value = loadedDraft;
+      savedLessonAssessmentDraft.value = cloneAssessmentDraft(loadedDraft);
+      if (selectedLessonItem.value) selectedLessonItem.value.assessment = toPublicAssessmentConfig(loadedDraft);
     }
   } catch {
-    if (selectedLesson.value?.lessonId === lessonId) {
+    if (requestSequence === assessmentLoadSequence && selectedLesson.value?.lessonId === lessonId) {
       assessmentSettingsError.value = "Не удалось загрузить настройки проверки знаний.";
       assessmentSettingsRetryable.value = true;
     }
   } finally {
-    if (selectedLesson.value?.lessonId === lessonId) isLoadingLessonAssessment.value = false;
+    if (requestSequence === assessmentLoadSequence && selectedLesson.value?.lessonId === lessonId) {
+      isLoadingLessonAssessment.value = false;
+      assessmentLoadingLessonId = null;
+    }
   }
+}
+
+function cloneAssessmentDraft(value: LessonAssessmentDraft): LessonAssessmentDraft {
+  return JSON.parse(JSON.stringify(value)) as LessonAssessmentDraft;
+}
+
+function toPublicAssessmentConfig(value: LessonAssessmentDraft): LessonAssessmentConfig {
+  const parsed = lessonAssessmentConfigSchema.safeParse(value);
+  return parsed.success ? parsed.data : { mode: "none" };
 }
 
 function normalizedAssessmentDraft(): LessonAssessmentDraft {
@@ -889,7 +913,8 @@ function openLessonModal(
   lessonContent.value = lesson.content;
   lessonPublished.value = lesson.isPublished ?? true;
   lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
-  lessonAssessmentDraft.value = lesson.assessment?.mode ? JSON.parse(JSON.stringify(lesson.assessment)) as LessonAssessmentDraft : { mode: "none" };
+  lessonAssessmentDraft.value = { mode: "none" };
+  savedLessonAssessmentDraft.value = cloneAssessmentDraft(lessonAssessmentDraft.value);
   lessonEditorMode.value = canManageModules.value && editorMode;
   assessmentSettingsMode.value = canManageModules.value && assessmentMode;
   assessmentSettingsError.value = "";
@@ -901,8 +926,8 @@ function openLessonModal(
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
   void loadLessonContentForMember(lesson);
+  if (lessonEditorMode.value && lesson.isPersisted) void loadAdminLessonAssessment(lesson.id);
   if (assessmentSettingsMode.value) {
-    void loadAdminLessonAssessment(lesson.id);
     openLearningTask(`/learning/lessons/${lesson.id}/assessment`);
   } else if (lessonEditorMode.value) {
     openLearningTask(`/learning/lessons/${lesson.id}/edit`);
@@ -929,7 +954,6 @@ function openAssessmentSettings() {
   assessmentSettingsMode.value = true;
   assessmentSettingsError.value = "";
   assessmentSettingsRetryable.value = false;
-  void loadAdminLessonAssessment(selectedLessonItem.value.id);
   openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/assessment`);
 }
 
@@ -939,6 +963,7 @@ function closeAssessmentSettings() {
   lessonEditorMode.value = true;
   assessmentSettingsError.value = "";
   assessmentSettingsRetryable.value = false;
+  lessonAssessmentDraft.value = cloneAssessmentDraft(savedLessonAssessmentDraft.value);
   openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/edit`);
 }
 
@@ -956,7 +981,9 @@ async function saveAssessmentSettings() {
   assessmentSettingsRetryable.value = false;
   try {
     await saveLessonAssessment(lesson.id, parsed.data);
-    lesson.assessment = JSON.parse(JSON.stringify(parsed.data)) as LessonAssessmentConfig;
+    savedLessonAssessmentDraft.value = cloneAssessmentDraft(parsed.data);
+    lessonAssessmentDraft.value = cloneAssessmentDraft(parsed.data);
+    lesson.assessment = toPublicAssessmentConfig(parsed.data);
     notifications.showSuccess("Проверка знаний сохранена.");
   } catch {
     assessmentSettingsError.value = "Не удалось сохранить проверку знаний.";
@@ -1033,6 +1060,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonContent.value = "";
   lessonMaterialDrafts.value = [];
   lessonAssessmentDraft.value = { mode: "none" };
+  savedLessonAssessmentDraft.value = { mode: "none" };
   lessonEditorMode.value = true;
   assessmentSettingsMode.value = false;
   clearLessonError();
@@ -1066,6 +1094,10 @@ function closeLessonModal() {
   lessonPublished.value = false;
   lessonMaterialDrafts.value = [];
   lessonAssessmentDraft.value = { mode: "none" };
+  savedLessonAssessmentDraft.value = { mode: "none" };
+  assessmentLoadSequence += 1;
+  assessmentLoadingLessonId = null;
+  isLoadingLessonAssessment.value = false;
   lessonEditorMode.value = false;
   assessmentSettingsMode.value = false;
   assessmentSettingsError.value = "";
@@ -2478,7 +2510,7 @@ function saveLessonLocally() {
     isPersisted: false,
     isPublished: lessonPublished.value,
     archivedUntil: null,
-    assessment: lessonAssessmentDraft.value.mode === "none" ? { mode: "none" } : lessonAssessmentDraft.value as LessonAssessmentConfig
+    assessment: toPublicAssessmentConfig(lessonAssessmentDraft.value)
   };
 
   if (selectedLessonItem.value) {
@@ -3045,6 +3077,7 @@ async function syncLearningTaskRoute() {
       }
       lessonEditorMode.value = canManageModules.value && wantsEditor;
       assessmentSettingsMode.value = false;
+      if (lessonEditorMode.value) void loadAdminLessonAssessment(lesson.id);
     }
     return;
   }

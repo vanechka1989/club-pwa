@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import LessonAssessmentEditor from "./LessonAssessmentEditor.vue";
 
@@ -32,5 +34,11 @@ describe("LessonAssessmentEditor", () => {
     });
 
     expect((screen.getByLabelText(/Срок сдачи/) as HTMLInputElement).value).toMatch(/^2026-08-10T/);
+  });
+
+  it("uses semantic theme colors instead of a forced dark-green surface", () => {
+    const source = readFileSync(resolve(__dirname, "LessonAssessmentEditor.vue"), "utf8");
+    expect(source).toContain("background:var(--surface-2)");
+    expect(source).not.toContain("rgba(6,54,45,.82)");
   });
 });
