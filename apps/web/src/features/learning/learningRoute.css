@@ -2517,3 +2517,56 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
   justify-content: flex-end;
   margin: -2px 0 4px;
 }
+
+.lesson-notes {
+  margin-top: 14px;
+  padding: 0;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+.lesson-notes-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 11px 14px;
+  border: 0;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--text);
+  text-align: left;
+}
+.lesson-notes-toggle span { display: flex; align-items: center; gap: 9px; }
+.lesson-notes-toggle span svg { width: 19px; color: var(--accent); }
+.lesson-notes-toggle > svg { width: 18px; color: var(--muted); transition: transform .2s ease; }
+.lesson-notes-toggle > svg.is-expanded { transform: rotate(180deg); }
+.lesson-notes-body { display: grid; gap: 11px; padding: 13px; border-top: 1px solid var(--border); }
+.lesson-notes-privacy { margin: 0; color: var(--muted); font-size: .72rem; line-height: 1.4; }
+.lesson-note-editor { display: grid; gap: 6px; color: var(--muted-strong); font-size: .76rem; font-weight: 800; }
+.lesson-note-editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  outline: 0;
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+}
+.lesson-note-editor textarea:focus { border-color: var(--accent); }
+.lesson-note-submit-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lesson-note-submit-row small { color: var(--muted); }
+.lesson-note-submit-row button { min-height: 44px; }
+.lesson-notes-state { margin: 0; padding: 8px 2px; color: var(--muted); text-align: center; }
+.lesson-notes-state.is-error { display: grid; justify-items: center; gap: 8px; color: var(--danger-text); }
+.lesson-notes-state.is-error p { margin: 0; }
+.lesson-notes-save-error { margin: 0; color: var(--danger-text); font-size: .76rem; }
+.lesson-notes-list { display: grid; gap: 8px; }
+.lesson-notes-list article { padding: 11px 12px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-soft); }
+.lesson-notes-list p { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lesson-notes-list time { color: var(--muted); font-size: .68rem; }

@@ -107,6 +107,7 @@ import LearningDiscoveryToolbar from "./LearningDiscoveryToolbar.vue";
 import { filterLearningModules, type LearningDiscoveryFilter } from "./learningDiscovery";
 import LearningFavoriteButton from "./LearningFavoriteButton.vue";
 import { useLearningFavorites } from "./useLearningFavorites";
+import LearningLessonNotes from "./LearningLessonNotes.vue";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -3576,6 +3577,11 @@ watch(
                   <p v-if="material.body">{{ material.body }}</p>
                 </div>
               </section>
+              <LearningLessonNotes
+                v-if="!canManageModules && selectedLessonItem.isPersisted"
+                :key="selectedLessonItem.id"
+                :lesson-id="selectedLessonItem.id"
+              />
               <nav v-if="!canManageModules" class="lesson-path-navigation" aria-label="Навигация по урокам">
                 <button v-if="selectedLessonNeighbors?.previous" class="secondary-button ui-button" type="button" @click="openAdjacentLesson('previous')">
                   <ArrowLeft class="h-4 w-4" aria-hidden="true" /> Предыдущий урок

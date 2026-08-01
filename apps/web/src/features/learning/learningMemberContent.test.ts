@@ -16,6 +16,8 @@ vi.mock("@/api/client", () => ({
   restoreAdminLearningMaterial: vi.fn(),
   saveLearningPlayback: vi.fn(),
   setLearningFavorite: vi.fn(),
+  getLessonComments: vi.fn(),
+  createLessonComment: vi.fn(),
   updateAdminLearningCategory: vi.fn(),
   updateAdminLearningMaterial: vi.fn()
 }));
