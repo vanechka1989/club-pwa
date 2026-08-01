@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes clearer learning progress and quiz review as version 5.92", () => {
-    expect(appVersion).toBe("5.92");
-    expect(releaseNotes[0]?.title).toBe("Понятный прогресс и результаты теста");
+  it("publishes unified learning and complete results as version 5.93", () => {
+    expect(appVersion).toBe("5.93");
+    expect(releaseNotes[0]?.title).toBe("Единое обучение и полные результаты");
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/результат/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/поиск/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/обучен/i);
+
+    const progressRelease = releaseNotes.find((note) => note.version === "5.92");
+    expect(progressRelease?.title).toBe("Понятный прогресс и результаты теста");
 
     const lessonEditorRelease = releaseNotes.find((note) => note.version === "5.90");
     expect(lessonEditorRelease?.title).toBe("Удобная карточка урока");
@@ -261,7 +264,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Clear learning progress and quiz results");
+    expect(englishNotes[0]?.title).toBe("Unified learning and complete results");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

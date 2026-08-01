@@ -121,6 +121,8 @@ import LessonAssessmentSettingsPage from "./LessonAssessmentSettingsPage.vue";
 import LessonAssessmentEntryCard from "./LessonAssessmentEntryCard.vue";
 import LessonAssessmentTaskPage from "./LessonAssessmentTaskPage.vue";
 import AdminAssessmentReviewQueue from "./AdminAssessmentReviewQueue.vue";
+import LearningProgressHero from "./LearningProgressHero.vue";
+import LearningModuleProgress from "./LearningModuleProgress.vue";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -343,7 +345,12 @@ const lastOpenedLessonModule = computed(() => {
   const lesson = lastOpenedLesson.value;
   return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? null : null;
 });
-const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
+const firstAvailableLessonModule = computed(() => moduleCards.value.find((module) => module.images.length) ?? null);
+const progressHeroLesson = computed(() => lastOpenedLesson.value ?? firstAvailableLessonModule.value?.images[0] ?? null);
+const progressHeroModule = computed(() => {
+  const lesson = progressHeroLesson.value;
+  return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? firstAvailableLessonModule.value : null;
+});
 const startedLessonIds = computed(() => new Set(learningProgress.value?.startedItemIds ?? []));
 const completedLessonIds = computed(() => new Set(learningProgress.value?.completedItemIds ?? []));
 const favoriteLessonIds = learningFavorites.favoriteIds;
@@ -364,7 +371,7 @@ const overallProgressPercent = computed(() => {
 });
 const overallProgressStateLabel = computed(() => overallProgressPercent.value === 100
   ? "Обучение завершено"
-  : overallProgressPercent.value > 0 ? "Продолжайте обучение" : "Начните с первого урока"
+  : overallProgressPercent.value > 0 || lastOpenedLesson.value ? "Продолжайте обучение" : "Начните с первого урока"
 );
 const selectedLessonNeighbors = computed(() => {
   const lessonId = selectedLesson.value?.lessonId;
@@ -427,18 +434,20 @@ function openAdjacentLesson(direction: "previous" | "next") {
   const lesson = module?.images.find((item) => item.id === target.id);
   if (module && lesson) openLessonModal(module, lesson);
 }
-const continueLessonTitle = computed(() => lastOpenedLessonModule.value?.title ?? "");
+
+function openProgressLesson() {
+  if (lastOpenedLesson.value) {
+    openLastLesson();
+    return;
+  }
+  const module = progressHeroModule.value;
+  const lesson = progressHeroLesson.value;
+  if (module && lesson) openLessonModal(module, lesson);
+}
 const continueLessonKind = computed(() => lastOpenedMaterial.value?.kind ?? lastOpenedLesson.value?.kind ?? "text");
 const continueLessonContext = computed(() => {
   return lastOpenedMaterial.value?.title ?? lastOpenedLesson.value?.title ?? "";
 });
-const continueLessonButtonLabel = computed(() =>
-  lastOpenedLesson.value ? `${t("modulesContinueLesson")} ${lastOpenedLesson.value.title}` : t("modulesContinueLesson")
-);
-const continueLessonCardClasses = computed(() => [
-  "continue-lesson-card",
-  lastOpenedLesson.value?.cardLayout === "horizontal" ? "continue-lesson-card-horizontal" : "continue-lesson-card-vertical"
-]);
 const continueLessonProgressLabel = computed(() => {
   const seconds = learningProgress.value?.lastOpenedPlaybackPositionSeconds ?? 0;
   if (isResumableMediaKind(continueLessonKind.value) && seconds > 0) {
@@ -3221,35 +3230,18 @@ watch(
 
     <AdminAssessmentReviewQueue v-if="canManageModules && modulesLoadedFromApi" />
 
-    <section
-      v-if="!canManageModules && learningProgress && learningProgress.totalItems > 0"
-      class="learning-overall-progress ui-card"
-      aria-label="Общий прогресс обучения"
-    >
-      <div class="learning-overall-progress__head">
-        <div><strong>Ваш прогресс</strong><span>{{ overallProgressStateLabel }}</span></div>
-        <strong class="learning-progress-percent">{{ overallProgressPercent }}%</strong>
-      </div>
-      <div class="learning-progress-caption"><span>Пройдено {{ learningProgress.completedItems }} из {{ learningProgress.totalItems }} уроков</span><span>{{ overallProgressPercent }}%</span></div>
-      <div class="learning-progress-track" role="progressbar" aria-label="Пройдено уроков" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="overallProgressPercent" :aria-valuetext="`Пройдено ${learningProgress.completedItems} из ${learningProgress.totalItems} уроков`">
-        <span :style="{ width: `${overallProgressPercent}%` }"></span>
-      </div>
-    </section>
-
-    <button
-      v-if="shouldShowContinueLesson && lastOpenedLesson && lastOpenedLessonModule"
-      :class="continueLessonCardClasses"
-      type="button"
-      :aria-label="continueLessonButtonLabel"
-      @click="openLastLesson"
-    >
-      <img :src="getContinueLessonImage(lastOpenedLessonModule, lastOpenedLesson)" :alt="continueLessonTitle" loading="lazy" />
-      <span class="continue-lesson-copy">
-        <strong>{{ continueLessonTitle }}</strong>
-        <em>{{ continueLessonContext }}</em>
-        <span class="continue-lesson-action">{{ continueLessonProgressLabel }}</span>
-      </span>
-    </button>
+    <LearningProgressHero
+      v-if="!canManageModules && learningProgress && learningProgress.totalItems > 0 && progressHeroLesson && progressHeroModule"
+      :percent="overallProgressPercent"
+      :completed="learningProgress.completedItems"
+      :total="learningProgress.totalItems"
+      :state="overallProgressStateLabel"
+      :title="progressHeroLesson.title"
+      :context="lastOpenedMaterial ? continueLessonContext : progressHeroModule.title"
+      :image-url="getContinueLessonImage(progressHeroModule, progressHeroLesson)"
+      :action-label="overallProgressPercent === 100 ? 'Повторить последний урок' : lastOpenedLesson ? continueLessonProgressLabel : 'Начать'"
+      @open="openProgressLesson"
+    />
 
     <section v-if="!canManageModules && learningDiscoveryActive && !visibleModuleCards.length" class="modules-state-card learning-discovery-empty ui-card">
       <strong>{{ learningFilter === "favorites" && !learningSearchQuery ? "В избранном пока ничего нет" : "Ничего не найдено" }}</strong>
@@ -3349,12 +3341,13 @@ watch(
             </button>
           </div>
         </div>
-        <div v-if="!canManageModules && module.images.length" class="module-learning-progress">
-          <div class="learning-progress-caption"><span>Пройдено {{ moduleProgress(module).completed }} из {{ moduleProgress(module).total }} уроков</span><strong>{{ moduleProgress(module).percent }}%</strong></div>
-          <div class="learning-progress-track" role="progressbar" :aria-label="`Прогресс модуля ${module.title}`" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="moduleProgress(module).percent" :aria-valuetext="`Пройдено ${moduleProgress(module).completed} из ${moduleProgress(module).total} уроков`">
-            <span :style="{ width: `${moduleProgress(module).percent}%` }"></span>
-          </div>
-        </div>
+        <LearningModuleProgress
+          v-if="!canManageModules && module.images.length"
+          :title="module.title"
+          :completed="moduleProgress(module).completed"
+          :total="moduleProgress(module).total"
+          :percent="moduleProgress(module).percent"
+        />
         <div v-if="!isModuleCollapsed(module.id)" class="admin-mockup-grid">
           <article
             v-for="(image, lessonIndex) in module.images"

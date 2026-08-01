@@ -2087,6 +2087,130 @@ body.club-mobile-device .module-name-modal {
   padding: 0 16px 14px;
 }
 
+.learning-progress-hero {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+  padding: 16px;
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background:
+    radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 40%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface) 96%, transparent), color-mix(in srgb, var(--panel-soft) 90%, transparent));
+  box-shadow: 0 14px 34px color-mix(in srgb, #001d16 26%, transparent);
+}
+
+.learning-progress-hero__summary {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.learning-progress-ring {
+  display: grid;
+  width: 76px;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--learning-progress), color-mix(in srgb, var(--border) 74%, transparent) 0);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent), 0 8px 18px rgba(0, 0, 0, .18);
+}
+
+.learning-progress-ring::before {
+  content: "";
+  grid-area: 1 / 1;
+  width: 60px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+.learning-progress-ring > span {
+  z-index: 1;
+  grid-area: 1 / 1;
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+
+.learning-progress-ring strong { color: var(--text); font-size: 1.03rem; }
+.learning-progress-ring small { margin-top: 3px; color: var(--text-muted); font-size: .61rem; font-weight: 750; }
+.learning-progress-hero__copy { display: grid; gap: 3px; min-width: 0; }
+.learning-progress-hero__copy span { color: var(--accent); font-size: .73rem; font-weight: 850; }
+.learning-progress-hero__copy strong { overflow-wrap: anywhere; font-size: .98rem; line-height: 1.2; }
+.learning-progress-hero__copy small { color: var(--text-muted); font-size: .7rem; line-height: 1.35; }
+.learning-progress-hero__state-icon { width: 22px; color: #55d9a8; }
+
+.learning-progress-hero__lesson {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 76px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel-soft) 88%, transparent);
+  color: var(--text);
+  text-align: left;
+}
+
+.learning-progress-hero__lesson > img { width: 64px; height: 58px; border-radius: 12px; object-fit: cover; }
+.learning-progress-hero__lesson > span { display: grid; gap: 3px; min-width: 0; }
+.learning-progress-hero__lesson small { color: var(--text-muted); font-size: .68rem; font-weight: 720; }
+.learning-progress-hero__lesson strong { overflow: hidden; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
+.learning-progress-hero__lesson em { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: .72rem; font-style: normal; font-weight: 850; }
+.learning-progress-hero__lesson em svg { width: 14px; }
+.learning-progress-hero__lesson > svg { width: 20px; color: var(--accent); }
+
+.learning-module-progress {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px 15px;
+}
+
+.learning-module-progress__meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: .72rem;
+}
+
+.learning-module-progress__state {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  color: var(--text-muted);
+  font-weight: 820;
+}
+
+.learning-module-progress--active .learning-module-progress__state { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.learning-module-progress--done .learning-module-progress__state { background: color-mix(in srgb, #55d9a8 15%, transparent); color: #55d9a8; }
+.learning-module-progress__meta strong { color: var(--text); font-size: .78rem; }
+.learning-module-progress__track { height: 8px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--border) 68%, transparent); box-shadow: inset 0 1px 2px rgba(0,0,0,.18); }
+.learning-module-progress__track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #55d9a8); }
+
+@media (max-width: 360px) {
+  .learning-progress-hero__summary { grid-template-columns: 68px minmax(0, 1fr); }
+  .learning-progress-ring { width: 68px; }
+  .learning-progress-ring::before { width: 54px; }
+  .learning-progress-hero__state-icon { display: none; }
+  .learning-progress-hero__lesson { grid-template-columns: 54px minmax(0, 1fr) 20px; gap: 9px; }
+  .learning-progress-hero__lesson > img { width: 54px; height: 52px; }
+  .learning-module-progress__meta { grid-template-columns: minmax(0, 1fr) auto; }
+  .learning-module-progress__meta > span:nth-child(2) { grid-row: 2; grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learning-progress-hero *, .learning-module-progress * { transition: none !important; }
+}
+
 .lesson-progress-status {
   display: inline-flex;
   align-items: center;

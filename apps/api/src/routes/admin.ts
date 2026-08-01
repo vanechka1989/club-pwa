@@ -41,6 +41,7 @@ import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } fro
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
+import { buildAdminHomeworkResult, buildAdminQuizResult, recordBelongsToUser, resetBelongsToAttempt } from "../admin/assessmentResult";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
@@ -1771,6 +1772,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .use("/analytics/learning-engagement", requireAdminPermission("statistics"))
   .use("/analytics/learning-engagement/*", requireAdminPermission("statistics"))
   .use("/users/:telegramId/acquisition", requireAdminPermission("statistics"))
+  .use("/users/:telegramId/learning/*", requireAdminPermission("materials"))
   .use("/access", requireAdminPermission("accesses"))
   .use("/learning", requireAdminPermission("materials"))
   .use("/learning/*", requireAdminPermission("materials"))
@@ -2809,6 +2811,87 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         submittedAt: entry.submittedAt?.toISOString() ?? null
       }))
     });
+  })
+  .get("/users/:telegramId/learning/quiz/:id", async (c) => {
+    const user = await db.query.users.findFirst({ where: eq(users.telegramId, c.req.param("telegramId")) });
+    if (!user) return c.json({ error: "Client not found" }, 404);
+    const attempt = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, c.req.param("id")) });
+    if (!attempt || !recordBelongsToUser(attempt, user.id)) return c.json({ error: "Quiz result not found" }, 404);
+    const nextAttempt = await db.query.quizAttempts.findFirst({
+      where: and(
+        eq(quizAttempts.userId, attempt.userId),
+        eq(quizAttempts.contentItemId, attempt.contentItemId),
+        gt(quizAttempts.attemptNumber, attempt.attemptNumber)
+      ),
+      orderBy: [asc(quizAttempts.attemptNumber)]
+    });
+    const resetWhere = nextAttempt
+      ? and(
+          eq(quizAttemptResets.userId, attempt.userId),
+          eq(quizAttemptResets.contentItemId, attempt.contentItemId),
+          gt(quizAttemptResets.createdAt, attempt.startedAt),
+          lt(quizAttemptResets.createdAt, nextAttempt.startedAt)
+        )
+      : and(
+          eq(quizAttemptResets.userId, attempt.userId),
+          eq(quizAttemptResets.contentItemId, attempt.contentItemId),
+          gt(quizAttemptResets.createdAt, attempt.startedAt)
+        );
+    const [lessonRows, revision, questions, answers, review, reset] = await Promise.all([
+      db.select({ title: contentItems.title, categoryTitle: contentCategories.title })
+        .from(contentItems)
+        .innerJoin(contentCategories, eq(contentCategories.id, contentItems.categoryId))
+        .where(eq(contentItems.id, attempt.contentItemId))
+        .limit(1),
+      db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, attempt.revisionId) }),
+      db.query.quizAttemptQuestions.findMany({ where: eq(quizAttemptQuestions.attemptId, attempt.id), orderBy: [asc(quizAttemptQuestions.sortOrder)] }),
+      db.query.quizAnswers.findMany({ where: eq(quizAnswers.attemptId, attempt.id) }),
+      db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.quizAttemptId, attempt.id) }),
+      db.query.quizAttemptResets.findFirst({
+        where: resetWhere,
+        orderBy: [desc(quizAttemptResets.createdAt)]
+      })
+    ]);
+    const lesson = lessonRows[0];
+    if (!lesson || !revision) return c.json({ error: "Quiz result not found" }, 404);
+    return c.json({ result: buildAdminQuizResult({
+      attempt,
+      lesson: { ...lesson, passingPercent: revision.passingPercent },
+      questions,
+      answers,
+      review: review ? { comment: review.comment } : null,
+      reset: reset && resetBelongsToAttempt(reset, attempt, nextAttempt) ? { reason: reset.reason, createdAt: reset.createdAt } : null
+    }) });
+  })
+  .get("/users/:telegramId/learning/homework/:id", async (c) => {
+    const user = await db.query.users.findFirst({ where: eq(users.telegramId, c.req.param("telegramId")) });
+    if (!user) return c.json({ error: "Client not found" }, 404);
+    const submission = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.id, c.req.param("id")) });
+    if (!submission || !recordBelongsToUser(submission, user.id)) return c.json({ error: "Homework result not found" }, 404);
+    const [lessonRows, revision, attachments, review] = await Promise.all([
+      db.select({ title: contentItems.title, categoryTitle: contentCategories.title })
+        .from(contentItems)
+        .innerJoin(contentCategories, eq(contentCategories.id, contentItems.categoryId))
+        .where(eq(contentItems.id, submission.contentItemId))
+        .limit(1),
+      db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, submission.revisionId) }),
+      db.query.homeworkAttachments.findMany({ where: eq(homeworkAttachments.submissionId, submission.id), orderBy: [asc(homeworkAttachments.createdAt)] }),
+      db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.homeworkSubmissionId, submission.id) })
+    ]);
+    const lesson = lessonRows[0];
+    if (!lesson || !revision) return c.json({ error: "Homework result not found" }, 404);
+    return c.json({ result: buildAdminHomeworkResult({
+      submission,
+      lesson: { ...lesson, prompt: revision.instructions },
+      attachments: await Promise.all(attachments.map(async (attachment) => ({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        contentType: attachment.contentType,
+        sizeBytes: attachment.sizeBytes,
+        url: await getObjectReadUrl(attachment.objectKey)
+      }))),
+      review: review ? { decision: review.decision, comment: review.comment, createdAt: review.createdAt } : null
+    }) });
   })
   .get("/learning/assessments/homework/:id", async (c) => {
     const submission = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.id, c.req.param("id")) });

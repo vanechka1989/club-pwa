@@ -711,9 +711,85 @@ async function mockApi(page: Page, sessionUser = currentUser) {
           ],
           moderationEvents: [],
           device: null,
-          referrals: { invitedBy: null, invited: [] }
+          referrals: { invitedBy: null, invited: [] },
+          learningEngagement: [
+            {
+              contentItemId: "lesson-admin-1",
+              title: "Видео для теста ютуба",
+              categoryTitle: "Модуль 1",
+              opens: 2,
+              totalActiveSeconds: 42,
+              videoSeconds: 35,
+              lastViewedAt: now
+            }
+          ],
+          learningAssessments: [
+            {
+              contentItemId: "lesson-admin-1",
+              title: "Видео для теста ютуба",
+              categoryTitle: "Модуль 1",
+              mode: "quiz",
+              recordId: "attempt-demo",
+              status: "failed",
+              version: null,
+              attemptNumber: 1,
+              earnedPoints: 0,
+              maxPoints: 1,
+              percent: 0,
+              submittedAt: now,
+              reviewedAt: null,
+              reviewComment: null,
+              resetAt: null,
+              resetReason: null,
+              canReset: true
+            }
+          ]
         })
       );
+      return;
+    }
+
+    if (path === "/admin/users/593677751/learning/quiz/attempt-demo") {
+      await route.fulfill(json({
+        result: {
+          mode: "quiz",
+          id: "attempt-demo",
+          contentItemId: "lesson-admin-1",
+          title: "Видео для теста ютуба",
+          categoryTitle: "Модуль 1",
+          status: "failed",
+          attemptNumber: 1,
+          earnedPoints: 0,
+          maxPoints: 1,
+          percent: 0,
+          passingPercent: 70,
+          startedAt: now,
+          submittedAt: now,
+          reviewedAt: null,
+          reviewComment: null,
+          resetAt: null,
+          resetReason: null,
+          questions: [
+            {
+              id: "question-demo",
+              type: "single_choice",
+              prompt: "Сколько будет 2 + 2?",
+              points: 1,
+              optionsSnapshot: [{ id: "three", text: "3" }, { id: "four", text: "4" }],
+              selectedOptionIds: ["three"],
+              text: null,
+              correctOptionIds: ["four"],
+              earnedPoints: 0,
+              isCorrect: false
+            }
+          ]
+        }
+      }));
+      return;
+    }
+
+    if (path === "/admin/login-ips/593677751") {
+      await route.fulfill(json({ loginIps: [] }));
       return;
     }
 
@@ -1699,9 +1775,11 @@ test("shows a clear learning path with progress and lesson navigation", async ({
   await page.reload();
   await page.getByRole("button", { name: "Модули" }).click();
 
-  await expect(page.getByText("Ваш прогресс")).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "Общий прогресс обучения" })).toHaveAttribute("aria-valuenow", "50");
   await expect(page.getByText("1 из 2 уроков").first()).toBeVisible();
-  await expect(page.locator(".continue-lesson-card")).toHaveCount(1);
+  await expect(page.locator(".learning-progress-hero")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Продолжить: Первый урок" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("learning-progress.png"), fullPage: false });
   await page.getByRole("button", { name: "Открыть поиск и фильтры" }).click();
   await page.getByRole("searchbox", { name: "Найти модуль или урок" }).fill("Первый");
   await expect(page.getByRole("button", { name: "Открыть урок Первый урок" })).toBeVisible();
@@ -1760,6 +1838,7 @@ const responsiveRouteAuditPaths = [
   { path: "/support/tickets/ticket-payment", selector: ".support-task-screen .task-screen" },
   { path: "/admin", selector: ".admin-shell" },
   { path: "/admin/clients/593677751", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/clients/593677751/learning/quiz/attempt-demo", selector: ".admin-assessment-result-task .task-screen" },
   { path: "/admin/statistics/payments/paid", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/statistics/users/access-inactive", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/statistics/users/tariff-manual", selector: ".admin-task-screen .task-screen" },
@@ -2234,7 +2313,7 @@ test("keeps system controls in English after changing the app language", async (
         const target = element as HTMLElement;
         const style = getComputedStyle(target);
         if (style.display === "none" || style.visibility === "hidden") return [];
-        const hasUserContent = Boolean(target.closest(".module-card-toggle, .lesson-card-button, .continue-lesson-card, .admin-client-list-row, .chat-message-body, .support-ticket-card, .payment-product-title, .payment-product-badge")) || target.matches(".admin-mailing-card > header strong, .admin-mailing-card > p, .admin-payment-card .admin-payment-main strong");
+        const hasUserContent = Boolean(target.closest(".module-card-toggle, .lesson-card-button, .learning-progress-hero, .admin-client-list-row, .chat-message-body, .support-ticket-card, .payment-product-title, .payment-product-badge")) || target.matches(".admin-mailing-card > header strong, .admin-mailing-card > p, .admin-payment-card .admin-payment-main strong");
         const values = [
           hasUserContent || target.children.length ? null : target.innerText,
           target.getAttribute("aria-label"),
@@ -3671,6 +3750,22 @@ test("opens the client message composer as a visible overlay", async ({ page }, 
   expect((modalBox?.y ?? 0) + (modalBox?.height ?? 0)).toBeGreaterThanOrEqual((viewport?.height ?? 0) - 1);
   await expect(page.locator(".admin-client-task-screen .task-screen-body .admin-client-message-modal")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("admin-client-message-overlay.png"), fullPage: false });
+});
+
+test("opens a client's complete quiz result from the unified learning section", async ({ page }) => {
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Клиенты", exact: true }).click();
+  await page.getByRole("button", { name: /Екатерина С Очень Длинной Фамилией/ }).click();
+  await expect(page).toHaveURL(/\/admin\/clients\/593677751$/);
+  await page.getByRole("button", { name: "Открыть результат: Видео для теста ютуба" }).click();
+
+  await expect(page).toHaveURL(/\/admin\/clients\/593677751\/learning\/quiz\/attempt-demo$/);
+  const resultTask = page.locator(".admin-assessment-result-task.task-screen-route-layer");
+  await expect(resultTask).toBeVisible();
+  await expect(resultTask.getByRole("heading", { name: "Результат теста" })).toBeVisible();
+  await expect(resultTask.getByText("Сколько будет 2 + 2?")).toBeVisible();
+  await expect(resultTask.getByText("Ответ клиента")).toBeVisible();
+  await expect(resultTask.getByText("Правильный ответ")).toBeVisible();
 });
 
 test("keeps support ticket composer anchored above keyboard in plain Samsung shells", async ({ page }, testInfo) => {

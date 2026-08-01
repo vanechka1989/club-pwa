@@ -143,10 +143,10 @@ describe("Learning section member content", () => {
     });
     renderAsMember();
 
-    expect(await screen.findByText("Ваш прогресс")).toBeTruthy();
+    expect(await screen.findByRole("progressbar", { name: "Общий прогресс обучения" })).toBeTruthy();
     expect(screen.getByText("Обучение завершено")).toBeTruthy();
     expect(screen.getAllByText("100%").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("Пройдено 1 из 1 уроков")).toHaveLength(2);
+    expect(screen.getAllByText("1 из 1 уроков").length).toBeGreaterThanOrEqual(1);
     await fireEvent.click(screen.getByRole("button", { name: "Развернуть Клиентский модуль" }));
     expect(await screen.findByText("Пройден")).toBeTruthy();
   });
@@ -166,7 +166,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /Урок с содержимым/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок Урок с содержимым" }));
 
     await waitFor(() => expect(getLearningContent).toHaveBeenCalledWith("lesson-1"));
     expect(screen.getByText("Полный текст урока для клиента.")).toBeTruthy();
@@ -176,7 +176,7 @@ describe("Learning section member content", () => {
   it("shows personal notes inside a persisted member lesson", async () => {
     renderAsMember();
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /Урок с содержимым/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок Урок с содержимым" }));
     expect(await screen.findByRole("button", { name: "Открыть мои заметки" })).toBeTruthy();
   });
 
@@ -238,7 +238,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /Фотоурок/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок Фотоурок" }));
 
     expect(document.querySelector(".lesson-viewer-media")?.getAttribute("src")).toBe("https://example.com/photo.jpg");
     expect(screen.queryByText("Содержимое урока пока не добавлено.")).toBeNull();
@@ -303,7 +303,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /YouTube как фото/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок YouTube как фото" }));
 
     await waitFor(() => expect(document.querySelector(".lesson-youtube-player")).toBeTruthy());
     expect(document.querySelector(".lesson-youtube-player")?.getAttribute("src")).toBe(
@@ -356,9 +356,9 @@ describe("Learning section member content", () => {
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
 
-    const lessonButton = screen.getByRole("button", { name: /YouTube урок/ });
+    const lessonButton = screen.getByRole("button", { name: "Открыть урок YouTube урок" });
 
-    expect(screen.getByAltText("YouTube урок").getAttribute("src")).toBe("https://img.youtube.com/vi/EVHs7jmRdXk/hqdefault.jpg");
+    expect(within(lessonButton).getByAltText("YouTube урок").getAttribute("src")).toBe("https://img.youtube.com/vi/EVHs7jmRdXk/hqdefault.jpg");
     expect(lessonButton.classList.contains("admin-mockup-thumb-youtube")).toBe(true);
   });
 
@@ -421,7 +421,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /YouTube урок/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок YouTube урок" }));
     const player = await waitFor(() => {
       const element = document.querySelector<HTMLIFrameElement>(".lesson-youtube-player");
       if (!element) {
@@ -499,7 +499,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /Видео урок/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок Видео урок" }));
     await waitFor(() => expect(document.querySelector(".lesson-video-player")).toBeTruthy());
     await fireEvent.click(screen.getByRole("button", { name: "Открыть видео во весь экран" }));
 
@@ -659,7 +659,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /Фотоурок/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок Фотоурок" }));
 
     await waitFor(() => expect(screen.getByText("Текст основного урока ниже фото.")).toBeTruthy());
     const lessonMedia = document.querySelector('.lesson-viewer-media[src="https://example.com/photo.jpg"]');
@@ -757,7 +757,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
-    await fireEvent.click(screen.getByRole("button", { name: /Урок с обложкой/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть урок Урок с обложкой" }));
 
     await waitFor(() => expect(screen.getByText("Материал открывается сразу.")).toBeTruthy());
     const dialog = screen.getByRole("dialog", { name: "Урок с обложкой" });
@@ -838,12 +838,11 @@ describe("Learning section member content", () => {
 
     renderAsMember();
 
-    const continueCard = await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" });
+    const continueCard = await screen.findByRole("button", { name: "Продолжить с 4:12: Голосовые практики" });
     expect(screen.getByText("Голосовые практики")).toBeTruthy();
     expect(screen.getAllByText("Видео модуль").length).toBeGreaterThan(0);
     expect(screen.getByText("Продолжить с 4:12")).toBeTruthy();
-    expect(continueCard.querySelector(".continue-lesson-copy small")).toBeNull();
-    expect(continueCard.querySelector(".continue-lesson-copy .continue-lesson-action")?.textContent).toBe("Продолжить с 4:12");
+    expect(continueCard.querySelector("em")?.textContent).toContain("Продолжить с 4:12");
 
     await fireEvent.click(continueCard);
 
@@ -930,7 +929,7 @@ describe("Learning section member content", () => {
 
     expect(await screen.findByText("Аудио дорожка")).toBeTruthy();
     expect(screen.getByText("Продолжить с 1:05")).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: "Продолжить урок Видео урок" }));
+    await fireEvent.click(within(screen.getByLabelText("Продолжение обучения")).getByRole("button"));
     await waitFor(() => expect(document.querySelector('audio[src="https://example.com/material-audio.mp3"]')).toBeTruthy());
 
     const audio = document.querySelector('audio[src="https://example.com/material-audio.mp3"]') as HTMLAudioElement;
@@ -999,7 +998,7 @@ describe("Learning section member content", () => {
     });
 
     renderAsMember();
-    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await fireEvent.click(within(await screen.findByLabelText("Продолжение обучения")).getByRole("button"));
     await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
 
     const video = document.querySelector("video") as HTMLVideoElement;
@@ -1063,7 +1062,7 @@ describe("Learning section member content", () => {
     });
 
     renderAsMember();
-    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await fireEvent.click(within(await screen.findByLabelText("Продолжение обучения")).getByRole("button"));
     await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
 
     const video = document.querySelector("video") as HTMLVideoElement;
@@ -1131,7 +1130,7 @@ describe("Learning section member content", () => {
     });
 
     renderAsMember();
-    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await fireEvent.click(within(await screen.findByLabelText("Продолжение обучения")).getByRole("button"));
     await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
 
     const video = document.querySelector("video") as HTMLVideoElement;
@@ -1202,7 +1201,7 @@ describe("Learning section member content", () => {
       });
 
     renderAsMember();
-    await fireEvent.click(await screen.findByRole("button", { name: "Продолжить урок Голосовые практики" }));
+    await fireEvent.click(within(await screen.findByLabelText("Продолжение обучения")).getByRole("button"));
     await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
 
     const video = document.querySelector("video") as HTMLVideoElement;
@@ -1271,7 +1270,7 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     expect(await screen.findByText("Продолжить с 1:05")).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: "Продолжить урок Голосовая практика" }));
+    await fireEvent.click(within(screen.getByLabelText("Продолжение обучения")).getByRole("button"));
     await waitFor(() => expect(document.querySelector("audio")).toBeTruthy());
 
     const audio = document.querySelector("audio") as HTMLAudioElement;

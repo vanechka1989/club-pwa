@@ -1096,6 +1096,65 @@ export function getQuizReview(id: string) {
   return api<{ attempt: { id: string; userId: string; contentItemId: string; status: string }; questions: Array<{ id: string; type: string; prompt: string; points: number; optionsSnapshot: Array<{ id: string; text: string }>; answer: { text: string | null; selectedOptionIds: string[] } | null }> }>(`/admin/learning/assessments/quiz/${id}`);
 }
 
+export type AdminQuizAssessmentResult = {
+  mode: "quiz";
+  id: string;
+  contentItemId: string;
+  title: string;
+  categoryTitle: string;
+  status: string;
+  attemptNumber: number;
+  earnedPoints: number | null;
+  maxPoints: number | null;
+  percent: number | null;
+  passingPercent: number | null;
+  startedAt: string;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewComment: string | null;
+  resetAt: string | null;
+  resetReason: string | null;
+  questions: Array<{
+    id: string;
+    type: "single_choice" | "multiple_choice" | "free_text";
+    prompt: string;
+    points: number;
+    optionsSnapshot: Array<{ id: string; text: string }>;
+    selectedOptionIds: string[];
+    text: string | null;
+    correctOptionIds: string[];
+    earnedPoints: number | null;
+    isCorrect: boolean | null;
+  }>;
+};
+
+export type AdminHomeworkAssessmentResult = {
+  mode: "homework";
+  id: string;
+  contentItemId: string;
+  title: string;
+  categoryTitle: string;
+  prompt: string | null;
+  status: string;
+  version: number;
+  text: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  acceptedAt: string | null;
+  reviewDecision: string | null;
+  reviewComment: string | null;
+  reviewCreatedAt: string | null;
+  resetAt: string | null;
+  resetReason: string | null;
+  attachments: Array<{ id: string; fileName: string; contentType: string; sizeBytes: number; url: string }>;
+};
+
+export type AdminAssessmentResult = AdminQuizAssessmentResult | AdminHomeworkAssessmentResult;
+
+export function getAdminAssessmentResult(telegramId: string, mode: "quiz" | "homework", recordId: string) {
+  return api<{ result: AdminAssessmentResult }>(`/admin/users/${encodeURIComponent(telegramId)}/learning/${mode}/${encodeURIComponent(recordId)}`);
+}
+
 export function reviewQuiz(id: string, payload: { questionPoints: Record<string, number>; comment: string | null; idempotencyKey: string }) {
   return api<{ ok: true; result: { status: string; percent: number | null } }>(`/admin/learning/assessments/quiz/${id}/review`, { method: "POST", body: payload });
 }

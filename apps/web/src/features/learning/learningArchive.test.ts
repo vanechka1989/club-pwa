@@ -166,12 +166,12 @@ describe("Learning section modules", () => {
     expect(rule).toMatch(/gap:\s*12px/);
   });
 
-  it("shows the module before the lesson title in the continue card", () => {
+  it("shows the module or resumed material as context in the unified progress card", () => {
     const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
 
-    expect(source).toContain('const continueLessonTitle = computed(() => lastOpenedLessonModule.value?.title ?? "")');
     expect(source).toContain("lastOpenedMaterial.value?.title ?? lastOpenedLesson.value?.title ?? \"\"");
-    expect(source).not.toContain('return lastOpenedLessonModule.value?.title ?? "";');
+    expect(source).toContain(':context="lastOpenedMaterial ? continueLessonContext : progressHeroModule.title"');
+    expect(source).toContain("<LearningProgressHero");
   });
 
   it("renders collapsed modules as compact summary rows with separate admin actions", () => {

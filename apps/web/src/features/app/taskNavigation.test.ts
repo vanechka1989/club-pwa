@@ -38,7 +38,9 @@ describe("task navigation", () => {
         .replace(":errorId", "error-1")
         .replace(":planId", "plan-1")
         .replace(":moduleId", "module-1")
-        .replace(":lessonId", "lesson-1");
+        .replace(":lessonId", "lesson-1")
+        .replace(":mode", "quiz")
+        .replace(":recordId", "attempt-1");
       expect(isTaskPath(concretePath), path).toBe(true);
     }
   });

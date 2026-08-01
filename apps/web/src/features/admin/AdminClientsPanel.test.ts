@@ -242,7 +242,7 @@ describe("AdminClientsPanel", () => {
     expect(screen.getAllByText("до 27.07", { exact: true }).length).toBeGreaterThan(0);
   });
 
-  it("shows a specific homework result and emits its reset id", async () => {
+  it("shows a specific homework result and opens its full result", async () => {
     const detail: AdminUserDetailResponse = {
       ...clientDetail,
       learningAssessments: [{
@@ -269,8 +269,8 @@ describe("AdminClientsPanel", () => {
 
     expect(screen.getByText("ДЗ принято", { exact: true })).toBeTruthy();
     expect(screen.getByText("Версия 2", { exact: true })).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: "Сбросить прохождение ДЗ" }));
-    expect(emitted()["reset-homework"]).toEqual([["submission-1"]]);
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть результат: Практика" }));
+    expect(emitted()["open-learning-result"]).toEqual([[{ mode: "homework", recordId: "submission-1" }]]);
   });
 
   it("emits client-card-close from a clientCardOnly card without owning router side effects", async () => {

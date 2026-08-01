@@ -16,6 +16,7 @@ import { allClientSourcesFilter, untaggedClientSourceFilter, type AdminClientUtm
 import { formatAdminClientLastLogin, getAdminClientContact } from "./adminClientList";
 import { formatAdminPaymentMoney } from "./adminPaymentMoney";
 import AdminIndividualOfferCard from "./AdminIndividualOfferCard.vue";
+import AdminClientLearningSection from "./AdminClientLearningSection.vue";
 
 const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));
 
@@ -48,26 +49,6 @@ type ClientMessageDraft = {
 
 type ClientAccessAction = "open" | "close" | "extend7" | "extend30" | "manual";
 type ClientDevice = AdminUserDetailResponse["devices"][number];
-type ClientAssessment = AdminUserDetailResponse["learningAssessments"][number];
-
-function assessmentStatusLabel(item: ClientAssessment) {
-  const labels: Record<string, string> = {
-    passed: "Тест пройден",
-    failed: "Тест не пройден",
-    pending_review: "Ждёт проверки",
-    accepted: "ДЗ принято",
-    needs_revision: item.resetAt ? "Прохождение сброшено" : "Нужна доработка",
-    in_progress: "В процессе",
-    draft: "Черновик"
-  };
-  return labels[item.status] ?? item.status;
-}
-
-function assessmentResultLabel(item: ClientAssessment) {
-  if (item.mode === "quiz") return `${item.percent ?? 0}% · ${item.earnedPoints ?? 0}/${item.maxPoints ?? 0} баллов · попытка ${item.attemptNumber ?? 1}`;
-  return `Версия ${item.version ?? 1}`;
-}
-
 const props = defineProps<{
   summary: ClientSummary;
   filters: Readonly<ClientFilters>;
@@ -132,6 +113,7 @@ const emit = defineEmits<{
   "submit-message": [];
   "revoke-mute": [id: string];
   "reset-homework": [id: string];
+  "open-learning-result": [value: { mode: "quiz" | "homework"; recordId: string }];
   "copy-device-info": [text: string];
 }>();
 
@@ -246,8 +228,14 @@ function updateClientMessageFiles(event: Event) {
         <AdminClientAcquisition :telegram-id="selectedUser.telegramId" />
 
         <details class="admin-client-section admin-client-compact-section admin-detail ui-card"><summary>Активность <span>последние события</span></summary><div class="admin-client-section-head admin-client-section-head-hidden"><h4>Активность</h4><small>последние события</small></div><div class="admin-client-timeline"><article v-if="selectedUser.lastOpenedItemTitle"><span class="admin-client-dot admin-client-dot-green"></span><strong>Открыл урок &quot;{{ selectedUser.lastOpenedItemTitle }}&quot;</strong><time>{{ selectedUser.lastOpenedAt ? formatAdminCompactDateTime(selectedUser.lastOpenedAt) : 'время не сохранено' }}</time></article><article v-if="selectedUserLastPayment"><span class="admin-client-dot admin-client-dot-blue"></span><strong>Оплата: {{ formatAdminPaymentMoney(selectedUserLastPayment) }}</strong><time>{{ paymentOrderDate(selectedUserLastPayment) }}</time></article><p v-if="!selectedUser.lastOpenedItemTitle && !selectedUserLastPayment" class="admin-empty">Последних событий пока нет.</p></div></details>
-        <details class="admin-client-section admin-client-compact-section admin-detail ui-card"><summary>Просмотры обучения <span>{{ selectedUserDetail?.learningEngagement.length ?? 0 }} карточек</span></summary><div class="admin-accordion-body"><p v-if="!selectedUserDetail?.learningEngagement.length" class="admin-empty">Данных об активном просмотре пока нет.</p><article v-for="item in selectedUserDetail?.learningEngagement ?? []" :key="item.contentItemId" class="admin-payment-card admin-payment-card-compact"><div class="admin-payment-main"><div><strong>{{ item.title }}</strong><small>{{ item.categoryTitle }}</small></div><em>{{ formatLearningEngagementDuration(item.totalActiveSeconds) }}</em></div><div class="admin-payment-meta"><span>{{ item.opens }} открытий</span><span v-if="item.videoSeconds">видео {{ formatLearningEngagementDuration(item.videoSeconds) }}</span><span>последний просмотр {{ formatAdminCompactDateTime(item.lastViewedAt) }}</span></div></article></div></details>
-        <details class="admin-client-section admin-client-compact-section admin-detail ui-card"><summary>Тесты и домашние задания <span>{{ selectedUserDetail?.learningAssessments.length ?? 0 }} результатов</span></summary><div class="admin-accordion-body"><p v-if="!selectedUserDetail?.learningAssessments.length" class="admin-empty">Клиент ещё не проходил тесты и не сдавал домашние задания.</p><article v-for="item in selectedUserDetail?.learningAssessments ?? []" :key="`${item.mode}-${item.recordId}`" class="admin-payment-card admin-payment-card-compact"><div class="admin-payment-main"><div><strong>{{ item.title }}</strong><small>{{ item.categoryTitle }} · {{ item.mode === 'quiz' ? 'Тест' : 'Домашнее задание' }}</small></div><em>{{ assessmentStatusLabel(item) }}</em></div><div class="admin-payment-meta"><span>{{ assessmentResultLabel(item) }}</span><span v-if="item.submittedAt">сдано {{ formatAdminCompactDateTime(item.submittedAt) }}</span><span v-if="item.reviewedAt">проверено {{ formatAdminCompactDateTime(item.reviewedAt) }}</span><span v-if="item.reviewComment">Комментарий: {{ item.reviewComment }}</span><span v-if="item.resetAt">сброшено {{ formatAdminCompactDateTime(item.resetAt) }}</span><span v-if="item.resetReason">Причина: {{ item.resetReason }}</span></div><button v-if="item.mode === 'homework' && item.canReset && canManageSelectedUser && canManageClientLearning" class="secondary-button ui-button mt-2" type="button" :disabled="saving" @click="emit('reset-homework', item.recordId)">Сбросить прохождение ДЗ</button></article></div></details>
+        <AdminClientLearningSection
+          :engagement="selectedUserDetail?.learningEngagement ?? []"
+          :assessments="selectedUserDetail?.learningAssessments ?? []"
+          :can-manage="canManageSelectedUser && canManageClientLearning"
+          :format-duration="formatLearningEngagementDuration"
+          :format-date="formatAdminCompactDateTime"
+          @open-result="emit('open-learning-result', $event)"
+        />
         <details class="admin-client-section admin-client-compact-section admin-detail ui-card"><summary>Подписки <span>{{ selectedUserDetail?.subscriptions.length ?? 0 }} записей</span></summary><div class="admin-accordion-body"><p v-if="!selectedUserDetail?.subscriptions.length" class="admin-empty">Истории подписок пока нет.</p><article v-for="subscription in selectedUserDetail?.subscriptions ?? []" :key="subscription.id" class="admin-payment-card admin-payment-card-compact"><div class="admin-payment-main"><div><strong>{{ getAdminSubscriptionTitle(subscription) }}</strong><small>{{ getAdminSubscriptionSourceLabel(subscription) }}</small></div><em :class="`membership-history-status-${subscription.status}`">{{ formatMembershipStatus(subscription.status) }}</em></div><div class="admin-payment-meta"><span>{{ new Date(subscription.createdAt).toLocaleDateString('ru-RU') }}</span><span v-if="subscription.expiresAt">до {{ new Date(subscription.expiresAt).toLocaleDateString('ru-RU') }}</span><span v-if="getAdminSubscriptionActorLabel(subscription)">{{ getAdminSubscriptionActorLabel(subscription) }}</span></div></article></div></details>
         <details class="admin-client-section admin-client-compact-section admin-detail ui-card"><summary>Оплаты клиента <span>{{ selectedUserPaymentOrders.length }} записей</span></summary><div class="admin-accordion-body"><p v-if="!selectedUserPaymentOrders.length" class="admin-empty">Оплат пока нет.</p><article v-for="order in selectedUserPaymentOrders" :key="order.id" class="admin-payment-card admin-payment-card-compact"><div class="admin-payment-main"><div><strong>{{ order.productTitle }}</strong><small>{{ paymentOrderDate(order) }} · {{ formatAdminPaymentMoney(order) }}</small></div><em :class="`payment-status-${order.status}`">{{ paymentOrderStatusLabel(order.status) }}</em></div><div class="admin-payment-ids"><span>order: {{ order.providerOrderId }}</span><span>Webhook: {{ order.webhook ? (order.webhook.isValid ? 'валидный' : 'ошибка подписи') : 'не пришёл' }}</span></div></article></div></details>
         <details class="admin-client-section admin-client-compact-section admin-detail ui-card"><summary>Рефералы <span>{{ selectedUserDetail?.referrals.invited.length ?? 0 }} приглашённых</span></summary><div class="admin-accordion-body"><article v-if="selectedUserDetail?.referrals.invitedBy" class="admin-payment-card admin-payment-card-compact"><div class="admin-payment-main"><div><strong>Пришёл по ссылке</strong><small>{{ referralUserTitle(selectedUserDetail.referrals.invitedBy.inviterUser) }}</small></div><em>{{ formatAdminDateTime(selectedUserDetail.referrals.invitedBy.invitedAt) }}</em></div><div class="admin-payment-meta"><span>ID {{ selectedUserDetail.referrals.invitedBy.inviterUser.telegramId }}</span><span v-if="selectedUserDetail.referrals.invitedBy.firstPaidAt">первая оплата {{ formatAdminDateTime(selectedUserDetail.referrals.invitedBy.firstPaidAt) }}</span><span v-else>первой оплаты ещё нет</span></div></article><p v-if="!selectedUserDetail?.referrals.invitedBy && !selectedUserDetail?.referrals.invited.length" class="admin-empty">Реферальных связей пока нет.</p><article v-for="referral in selectedUserDetail?.referrals.invited ?? []" :key="referral.id" class="admin-payment-card admin-payment-card-compact"><div class="admin-payment-main"><div><strong>{{ referralUserTitle(referral.invitedUser) }}</strong><small>приглашён {{ formatAdminDateTime(referral.invitedAt) }}</small></div><em>{{ referralRewardStatusLabel(referral.rewardStatus) }}</em></div><div class="admin-payment-meta"><span>ID {{ referral.invitedUser.telegramId }}</span><span>{{ referral.rewardDays }} дн. вознаграждения</span><span v-if="referral.firstPaidAt">первая оплата {{ formatAdminDateTime(referral.firstPaidAt) }}</span><span v-else>оплаты ещё нет</span></div></article></div></details>

@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Clear learning progress and quiz results",
+  title: "Unified learning and complete results",
   items: [
-    "Lesson search now opens from a compact action in the modules header while preserving all discovery filters.",
-    "Overall and module progress show percentages, completed lesson counts, and clear learning states.",
-    "Completed quizzes explain each answer, correct option, mistake, and awarded points without duplicating the passing threshold."
+    "Overall progress and the next learning step now share one clear card, while every module has an explicit status and percentage.",
+    "The client profile combines lesson activity, quizzes, and homework in one Learning section with filters and summary metrics.",
+    "Admins can open a complete quiz or homework breakdown with answers, correct options, points, files, reviews, and reset history."
   ]
 };
 

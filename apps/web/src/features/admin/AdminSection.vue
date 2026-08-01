@@ -77,6 +77,7 @@ import {
   retryFailedAdminMailing,
   revokeUserMute,
   resetHomeworkSubmission,
+  resetQuizAttempts,
   resumeAdminMailing,
   stopAdminMailing,
   testAdminMailing,
@@ -135,6 +136,7 @@ const AdminPermissionsPanel = defineAsyncComponent(() => import("./AdminPermissi
 const AdminProjectSettingsPanel = defineAsyncComponent(() => import("./AdminProjectSettingsPanel.vue"));
 const AdminServerPanel = defineAsyncComponent(() => import("./AdminServerPanel.vue"));
 const AdminReleaseNotesTask = defineAsyncComponent(() => import("./AdminReleaseNotesTask.vue"));
+const AdminAssessmentResultTask = defineAsyncComponent(() => import("./AdminAssessmentResultTask.vue"));
 
 const session = useSessionStore();
 const notifications = useNotificationsStore();
@@ -275,6 +277,7 @@ const communityMessages = ref<AdminCommunityMessage[]>([]);
 const pollStats = ref<AdminStatsResponse["pollStats"]>({ totalPolls: 0, activePolls: 0, closedPolls: 0, uniqueParticipants: 0, totalVotes: 0, participationPercent: 0, polls: [] });
 const selectedUser = ref<AdminStatsUser | null>(null);
 const selectedUserDetail = ref<AdminUserDetailResponse | null>(null);
+const selectedLearningResult = ref<{ mode: "quiz" | "homework"; recordId: string } | null>(null);
 const selectedUserDisplayName = ref("");
 const selectedUserDisplayNameError = ref<string | null>(null);
 const selectedUserLoginIps = ref<AdminLoginIp[]>([]);
@@ -1663,6 +1666,7 @@ function closeSelectedUser() {
   closeClientMessageModal();
   selectedUser.value = null;
   selectedUserDetail.value = null;
+  selectedLearningResult.value = null;
   selectedUserLoginIps.value = [];
   selectedUserLoginIpsError.value = false;
   emit("client-card-close");
@@ -1690,12 +1694,12 @@ async function loadSelectedUserLoginIps(telegramId: string) {
   }
 }
 
-async function selectUser(user: AdminStatsUser) {
+async function selectUser(user: AdminStatsUser, navigate = true) {
   resetAccessSaveState();
   applySelectedUser(user);
   selectedUserDisplayName.value = user.displayName || user.firstName || user.username || "";
   selectedUserDisplayNameError.value = null;
-  if (!props.clientCardOnly) {
+  if (!props.clientCardOnly && navigate) {
     openAdminTask(`/admin/clients/${user.telegramId}`);
   }
   try {
@@ -2300,6 +2304,43 @@ async function handleResetHomework(id: string) {
   }
 }
 
+function openLearningResult(value: { mode: "quiz" | "homework"; recordId: string }) {
+  if (!selectedUser.value) return;
+  selectedLearningResult.value = value;
+  openAdminTask(`/admin/clients/${encodeURIComponent(selectedUser.value.telegramId)}/learning/${value.mode}/${encodeURIComponent(value.recordId)}`);
+}
+
+function closeLearningResult() {
+  selectedLearningResult.value = null;
+  if (selectedUser.value) openAdminTask(`/admin/clients/${encodeURIComponent(selectedUser.value.telegramId)}`);
+}
+
+async function handleResetLearningResult(value: { mode: "quiz" | "homework"; recordId: string }) {
+  if (!selectedUser.value) return;
+  const kind = value.mode === "quiz" ? "теста" : "домашнего задания";
+  const confirmed = await appDialogs.confirm({
+    title: `Сбросить прохождение ${kind}?`,
+    description: "Результат останется в истории, а клиент сможет пройти задание заново.",
+    confirmLabel: "Сбросить",
+    cancelLabel: "Отмена",
+    tone: "danger"
+  });
+  if (!confirmed) return;
+  saving.value = true;
+  try {
+    if (value.mode === "quiz") await resetQuizAttempts(value.recordId);
+    else await resetHomeworkSubmission(value.recordId);
+    selectedUserDetail.value = await getAdminUserDetail(selectedUser.value.telegramId);
+    await loadAll();
+    setStatus(`Прохождение ${kind} сброшено.`);
+    closeLearningResult();
+  } catch {
+    setError(`Не удалось сбросить прохождение ${kind}.`);
+  } finally {
+    saving.value = false;
+  }
+}
+
 
 
 
@@ -2480,12 +2521,22 @@ async function syncAdminTaskRoute() {
     }
     return;
   }
+  const learningResultMatch = path.match(/^\/admin\/clients\/([^/]+)\/learning\/(quiz|homework)\/([^/]+)$/);
+  if (learningResultMatch) {
+    activePanel.value = "users";
+    const telegramId = decodeURIComponent(learningResultMatch[1]!);
+    const user = users.value.find((item) => item.telegramId === telegramId);
+    if (user && selectedUser.value?.telegramId !== telegramId) await selectUser(user, false);
+    if (user) selectedLearningResult.value = { mode: learningResultMatch[2] as "quiz" | "homework", recordId: decodeURIComponent(learningResultMatch[3]!) };
+    return;
+  }
   const clientMatch = path.match(/^\/admin\/clients\/([^/]+)$/);
   if (clientMatch) {
     activePanel.value = "users";
+    selectedLearningResult.value = null;
     const telegramId = decodeURIComponent(clientMatch[1]!);
     const user = users.value.find((item) => item.telegramId === telegramId);
-    if (user && selectedUser.value?.telegramId !== telegramId) await selectUser(user);
+    if (user && selectedUser.value?.telegramId !== telegramId) await selectUser(user, false);
     return;
   }
   if (path === "/admin/storage/files" || path === "/admin/storage") {
@@ -2896,6 +2947,18 @@ onUnmounted(() => {
       </TaskScreen>
     </section>
 
+    <AdminAssessmentResultTask
+      v-if="activePanel === 'users' && selectedUser && selectedLearningResult"
+      :telegram-id="selectedUser.telegramId"
+      :client-name="userTitle(selectedUser)"
+      :mode="selectedLearningResult.mode"
+      :record-id="selectedLearningResult.recordId"
+      :can-reset="canManageSelectedUser && canManageClientLearning"
+      :format-date="formatAdminCompactDateTime"
+      @back="closeLearningResult"
+      @reset="handleResetLearningResult"
+    />
+
     <AdminClientsPanel
       ref="clientsPanelRef"
       v-else-if="activePanel === 'users'"
@@ -2959,6 +3022,7 @@ onUnmounted(() => {
       @submit-message="submitClientMessage"
       @revoke-mute="handleRevokeMute"
       @reset-homework="handleResetHomework"
+      @open-learning-result="openLearningResult"
       @copy-device-info="copyTextToClipboard"
     />
 
