@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningHomeResponseSchema } from "./index";
+import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningHomeResponseSchema, learningProgressSummarySchema } from "./index";
 
 describe("learningContentSchema", () => {
   it("accepts all lesson cover modes while keeping old content compatible", () => {
@@ -45,6 +45,18 @@ describe("learningContentSchema", () => {
 });
 
 describe("learningHomeResponseSchema", () => {
+  it("keeps old progress responses compatible and exposes lesson status ids", () => {
+    const parsed = learningProgressSummarySchema.parse({
+      totalItems: 2,
+      completedItems: 0,
+      lastOpenedItem: null,
+      lastOpenedAt: null,
+      lastOpenedPlaybackPositionSeconds: 0
+    });
+
+    expect(parsed.startedItemIds).toBeUndefined();
+    expect(parsed.completedItemIds).toBeUndefined();
+  });
   it("keeps playback position for the last opened item", () => {
     const parsed = learningHomeResponseSchema.parse({
       categories: [],

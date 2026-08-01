@@ -2,12 +2,13 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { createPinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSessionStore } from "@/stores/session";
 import { useAppDialogsStore } from "@/stores/appDialogs";
 import { useUiStore } from "@/stores/ui";
 import LearningSection from "./LearningSection.vue";
 import { readAppStyles } from "@/test/appStyles";
+import { learningTestModules } from "./learningTestFixtures";
 
 function renderAsOwner() {
   const pinia = createPinia();
@@ -118,7 +119,12 @@ describe("Learning section modules", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    (globalThis as typeof globalThis & { __CLUB_LEARNING_TEST_MODULES__?: unknown }).__CLUB_LEARNING_TEST_MODULES__ = learningTestModules;
     cleanup();
+  });
+
+  afterEach(() => {
+    delete (globalThis as typeof globalThis & { __CLUB_LEARNING_TEST_MODULES__?: unknown }).__CLUB_LEARNING_TEST_MODULES__;
   });
 
   it("shows module cards in the mockups style", () => {

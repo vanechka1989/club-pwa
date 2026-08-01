@@ -1649,6 +1649,39 @@ const responsiveRouteAuditProjects = new Set([
 ]);
 const wideMobilePwaRouteAuditProjects = new Set(["android-wide-layout-980", "android-standalone-no-touch-980"]);
 
+test("shows a clear learning path with progress and lesson navigation", async ({ page }, testInfo) => {
+  const member = { ...currentUser, role: "member", realRole: "member", adminPermissions: [] };
+  const lessons = [
+    { ...adminLearningMaterial, id: "lesson-path-1", title: "Первый урок", categoryId: "module-path", kind: "text", mediaUrl: null, mediaSource: null, cardLayout: "vertical" },
+    { ...adminLearningMaterial, id: "lesson-path-2", title: "Второй урок", categoryId: "module-path", kind: "text", mediaUrl: null, mediaSource: null, cardLayout: "vertical" }
+  ];
+  await page.route("**/api/me", (route) => route.fulfill(json({ user: member })));
+  await page.route("**/api/learning", (route) => route.fulfill(json({
+    categories: [{ ...adminLearningCategory, id: "module-path", title: "Маршрут", itemsCount: 2 }],
+    featured: lessons,
+    progress: { totalItems: 2, completedItems: 1, startedItemIds: ["lesson-path-1", "lesson-path-2"], completedItemIds: ["lesson-path-1"], lastOpenedItem: null, lastOpenedMaterialId: null, lastOpenedAt: null, lastOpenedPlaybackPositionSeconds: 0 }
+  })));
+  await page.route("**/api/learning/items/*", async (route) => {
+    const id = new URL(route.request().url()).pathname.split("/").at(-1);
+    const item = lessons.find((lesson) => lesson.id === id) ?? lessons[0];
+    await route.fulfill(json({ item: { ...item, body: `Содержимое: ${item.title}` }, completedAt: item.id === "lesson-path-1" ? now : null, lastOpenedMaterialId: null, playbackPositionSeconds: 0 }));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Модули" }).click();
+
+  await expect(page.getByText("Ваш прогресс")).toBeVisible();
+  await expect(page.getByText("1 из 2 уроков").first()).toBeVisible();
+  await page.getByRole("button", { name: "Развернуть Маршрут" }).click();
+  await expect(page.getByText("Пройден")).toBeVisible();
+  await expect(page.getByText("В процессе")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("learning-path-overview.png"), fullPage: false });
+  await page.getByRole("button", { name: "Открыть урок Первый урок" }).click();
+  await page.getByRole("button", { name: "Следующий урок" }).click();
+  await expect(page.getByRole("heading", { name: "Второй урок" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("learning-path.png"), fullPage: false });
+});
+
 const exactMobileAuditViewports = [
   { name: "320x568", width: 320, height: 568 },
   { name: "360x640", width: 360, height: 640 },
@@ -2257,6 +2290,7 @@ test("separates profile header controls and module action levels", async ({ page
   await page.screenshot({ path: testInfo.outputPath("profile-unframed-controls.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Модули" }).click();
+  await page.getByRole("button", { name: "Редактировать модули" }).click();
   const moduleOne = page.locator(".admin-mockup-card").first();
   const moduleControls = moduleOne.locator(".module-level-sort-controls");
   await expect(moduleControls).toBeVisible();
@@ -2373,6 +2407,7 @@ test("separates profile header controls and module action levels", async ({ page
   await expect(page.locator("html")).toHaveAttribute("data-design-theme", "pine-teal");
   await expect(page.locator(".profile-page-header-controls")).toHaveCSS("border-top-width", "0px");
   await page.getByRole("button", { name: "Модули" }).click();
+  await page.getByRole("button", { name: "Редактировать модули" }).click();
   const darkModuleOne = page.locator(".admin-mockup-card").first();
   await expect(darkModuleOne.locator(".module-level-sort-controls")).toHaveCSS("border-top-width", "0px");
   await expect(darkModuleOne.locator(".module-level-sort-controls")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
@@ -3675,7 +3710,7 @@ test("keeps module creation modal usable with a compact keyboard viewport", asyn
   await page.getByRole("button", { name: "Модули" }).click();
   await page.getByRole("button", { name: "Добавить модуль" }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Новый модуль" });
+  const dialog = page.locator(".learning-task-screen .module-editor-content");
   await expect(dialog).toBeVisible();
   await expect(page.getByLabel("Название модуля")).toBeVisible();
   await expect(page.getByLabel("Описание модуля")).toBeVisible();

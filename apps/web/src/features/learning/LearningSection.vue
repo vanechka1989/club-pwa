@@ -24,6 +24,8 @@ import {
   ArrowRight,
   ArrowUp,
   Check,
+  CheckCircle2,
+  Circle,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -100,6 +102,7 @@ import { flushLearningCompletionOutbox, queueLearningCompletion } from "./learni
 import ChatVoiceWaveform from "@/features/community/ChatVoiceWaveform.vue";
 import { useVoiceRecorder } from "@/features/community/useVoiceRecorder";
 import { formatVoiceTime } from "@/features/community/voiceWaveform";
+import { getLessonProgressState, getModuleProgress, resolveLessonNeighbors } from "./learningPath";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -186,156 +189,14 @@ type LessonMaterialDraft = {
 
 const deletedContentModuleId = "deleted-content-module";
 
-const initialModuleCards: ModuleCard[] = [
-  {
-    id: "module-1",
-    title: "Модуль 1",
-    description: "Первый модуль клуба. Внутри будут уроки и материалы первого блока.",
-    defaultCardLayout: "vertical",
-    images: [
-      {
-        id: "module-1-lesson-1",
-        categoryId: "module-1",
-        kind: "text",
-        title: "Вариант 1. Плеер и очередь",
-        url: "/previews/learning-redesign-1.svg",
-        description: "Плеер, очередь просмотра и быстрый возврат к уроку.",
-        content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-        mediaUrl: null,
-        mediaSource: null,
-        thumbnailUrl: "/previews/learning-redesign-1.svg",
-        coverMode: "custom",
-        coverSourceUrl: null,
-        materials: [],
-        cardLayout: "vertical",
-        isPersisted: false,
-        archivedUntil: null
-      },
-      {
-        id: "module-1-lesson-2",
-        categoryId: "module-1",
-        kind: "text",
-        title: "Вариант 2. Модули и уроки",
-        url: "/previews/learning-redesign-2.svg",
-        description: "Модульная структура с уроками внутри каждого блока.",
-        content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-        mediaUrl: null,
-        mediaSource: null,
-        thumbnailUrl: "/previews/learning-redesign-2.svg",
-        coverMode: "custom",
-        coverSourceUrl: null,
-        materials: [],
-        cardLayout: "horizontal",
-        isPersisted: false,
-        archivedUntil: null
-      },
-      {
-        id: "module-1-lesson-3",
-        categoryId: "module-1",
-        kind: "text",
-        title: "Вариант 3. Библиотека",
-        url: "/previews/learning-redesign-3.svg",
-        description: "Библиотечный вид для быстрого поиска нужного урока.",
-        content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-        mediaUrl: null,
-        mediaSource: null,
-        thumbnailUrl: "/previews/learning-redesign-3.svg",
-        coverMode: "custom",
-        coverSourceUrl: null,
-        materials: [],
-        cardLayout: "vertical",
-        isPersisted: false,
-        archivedUntil: null
-      },
-      {
-        id: "module-1-lesson-4",
-        categoryId: "module-1",
-        kind: "text",
-        title: "Вариант 4. Маршрут обучения",
-        url: "/previews/learning-redesign-4.svg",
-        description: "Маршрут прохождения с понятными шагами.",
-        content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-        mediaUrl: null,
-        mediaSource: null,
-        thumbnailUrl: "/previews/learning-redesign-4.svg",
-        coverMode: "custom",
-        coverSourceUrl: null,
-        materials: [],
-        cardLayout: "vertical",
-        isPersisted: false,
-        archivedUntil: null
-      }
-    ],
-    meta: "Модуль клуба",
-    isPersisted: false
-  },
-  {
-    id: "module-2",
-    title: "Модуль 2",
-    description: "Второй модуль клуба. Внутри будут уроки следующего блока.",
-    defaultCardLayout: "vertical",
-    images: [
-      {
-        id: "module-2-lesson-1",
-        categoryId: "module-2",
-        kind: "text",
-        title: "Верх экрана",
-        url: "/previews/admin-stats-preview-1.png",
-        description: "Первый экран урока.",
-        content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-        mediaUrl: null,
-        mediaSource: null,
-        thumbnailUrl: "/previews/admin-stats-preview-1.png",
-        coverMode: "custom",
-        coverSourceUrl: null,
-        materials: [],
-        cardLayout: "vertical",
-        isPersisted: false,
-        archivedUntil: null
-      },
-      {
-        id: "module-2-lesson-2",
-        categoryId: "module-2",
-        kind: "text",
-        title: "Оплаты и контент",
-        url: "/previews/admin-stats-preview-2.png",
-        description: "Экран с данными по оплатам и контенту.",
-        content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-        mediaUrl: null,
-        mediaSource: null,
-        thumbnailUrl: "/previews/admin-stats-preview-2.png",
-        coverMode: "custom",
-        coverSourceUrl: null,
-        materials: [],
-        cardLayout: "vertical",
-        isPersisted: false,
-        archivedUntil: null
-      },
-      {
-        id: "module-2-lesson-3",
-        categoryId: "module-2",
-        kind: "text",
-        title: "Общение",
-        url: "/previews/admin-stats-preview-3.png",
-        description: "Экран с данными по общению.",
-        content: "Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.",
-        mediaUrl: null,
-        mediaSource: null,
-        thumbnailUrl: "/previews/admin-stats-preview-3.png",
-        coverMode: "custom",
-        coverSourceUrl: null,
-        materials: [],
-        cardLayout: "vertical",
-        isPersisted: false,
-        archivedUntil: null
-      }
-    ],
-    meta: "Модуль клуба",
-    isPersisted: false
-  }
-];
 
-const moduleCards = ref<ModuleCard[]>(initialModuleCards.map((module) => ({ ...module, images: module.images.map((lesson) => ({ ...lesson })) })));
+const injectedLearningTestModules = (globalThis as typeof globalThis & { __CLUB_LEARNING_TEST_MODULES__?: ModuleCard[] }).__CLUB_LEARNING_TEST_MODULES__;
+const useLearningTestFixtures = import.meta.env.MODE === "test" && Array.isArray(injectedLearningTestModules);
+const cloneLearningTestModules = () => (injectedLearningTestModules ?? []).map((module) => ({
+  ...module,
+  images: module.images.map((lesson) => ({ ...lesson }))
+})) as ModuleCard[];
+const moduleCards = ref<ModuleCard[]>(useLearningTestFixtures ? cloneLearningTestModules() : []);
 const deletedModules = ref<ModuleCard[]>([]);
 const deletedLessons = ref<ModuleLesson[]>([]);
 const learningProgress = ref<LearningProgressSummary | null>(null);
@@ -346,13 +207,14 @@ const notifications = useNotificationsStore();
 const lessonUploads = useLessonUploadsStore();
 const { t } = useI18n();
 const modulesLoadedFromApi = ref(false);
+const modulesLoadError = ref("");
 const isLoadingModules = ref(false);
 const isSaving = ref(false);
 const isSorting = ref(false);
 const isEditingModules = ref(false);
 const showModuleModal = ref(false);
 const editingModuleId = ref<string | null>(null);
-const collapsedModuleIds = ref<string[]>(initialModuleCards.map((module) => module.id));
+const collapsedModuleIds = ref<string[]>(useLearningTestFixtures ? moduleCards.value.map((module) => module.id) : []);
 const moduleCollapseTouched = ref(false);
 const moduleTitle = ref("");
 const moduleDescription = ref("");
@@ -449,6 +311,44 @@ const lastOpenedLessonModule = computed(() => {
   return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? null : null;
 });
 const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
+const startedLessonIds = computed(() => new Set(learningProgress.value?.startedItemIds ?? []));
+const completedLessonIds = computed(() => new Set(learningProgress.value?.completedItemIds ?? []));
+const overallProgressPercent = computed(() => {
+  const total = learningProgress.value?.totalItems ?? 0;
+  return total ? Math.round(((learningProgress.value?.completedItems ?? 0) / total) * 100) : 0;
+});
+const selectedLessonNeighbors = computed(() => {
+  const lessonId = selectedLesson.value?.lessonId;
+  if (!lessonId) return null;
+  return resolveLessonNeighbors(
+    moduleCards.value.map((module) => ({
+      id: module.id,
+      lessons: module.images.map((lesson) => ({ id: lesson.id, moduleId: module.id }))
+    })),
+    lessonId
+  );
+});
+
+function lessonProgressState(lessonId: string) {
+  return getLessonProgressState(lessonId, startedLessonIds.value, completedLessonIds.value);
+}
+
+function lessonProgressLabel(lessonId: string) {
+  const state = lessonProgressState(lessonId);
+  return state === "completed" ? "Пройден" : state === "in_progress" ? "В процессе" : "Не начат";
+}
+
+function moduleProgress(module: ModuleCard) {
+  return getModuleProgress(module.images.map((lesson) => lesson.id), completedLessonIds.value);
+}
+
+function openAdjacentLesson(direction: "previous" | "next") {
+  const target = selectedLessonNeighbors.value?.[direction];
+  if (!target) return;
+  const module = moduleCards.value.find((item) => item.id === target.moduleId);
+  const lesson = module?.images.find((item) => item.id === target.id);
+  if (module && lesson) openLessonModal(module, lesson);
+}
 const continueLessonTitle = computed(() => lastOpenedLessonModule.value?.title ?? "");
 const continueLessonKind = computed(() => lastOpenedMaterial.value?.kind ?? lastOpenedLesson.value?.kind ?? "text");
 const continueLessonContext = computed(() => {
@@ -1104,7 +1004,9 @@ function maybeAutoCompleteLesson() {
   if (learningProgress.value) {
     learningProgress.value = {
       ...learningProgress.value,
-      completedItems: Math.min(learningProgress.value.totalItems, learningProgress.value.completedItems + 1)
+      completedItems: Math.min(learningProgress.value.totalItems, learningProgress.value.completedItems + 1),
+      startedItemIds: [...new Set([...(learningProgress.value.startedItemIds ?? []), lesson.id])],
+      completedItemIds: [...new Set([...(learningProgress.value.completedItemIds ?? []), lesson.id])]
     };
   }
   void queueLearningCompletion(lesson.id).catch(() => undefined);
@@ -1529,10 +1431,6 @@ async function handleLessonVideoEnded() {
   isLessonVideoFullscreen.value = false;
 }
 
-function cloneInitialModules() {
-  return initialModuleCards.map((module) => ({ ...module, images: module.images.map((lesson) => ({ ...lesson })) }));
-}
-
 function materialPreviewUrl(item: AdminLearningMaterial | LearningContent) {
   const fallback = getDefaultLessonCover(ui.colorScheme, item.cardLayout);
   return resolveLessonCoverUrl(
@@ -1669,20 +1567,21 @@ function categoriesToModules(
 
 async function loadModules() {
   isLoadingModules.value = true;
+  modulesLoadError.value = "";
 
   try {
     if (canManageModules.value) {
       learningProgress.value = null;
       const response = await getAdminLearning();
       const modules = categoriesToModules(response.categories, response.materials);
-      moduleCards.value = modules.length ? modules : cloneInitialModules();
-      deletedModules.value = categoriesToModules(response.deletedCategories, [], "Удалённый модуль");
-      deletedLessons.value = response.deletedMaterials.map(materialToLesson);
+      moduleCards.value = modules;
+      deletedModules.value = categoriesToModules(response.deletedCategories ?? [], [], "Удалённый модуль");
+      deletedLessons.value = (response.deletedMaterials ?? []).map(materialToLesson);
     } else {
       const response = await getLearningHome();
       learningProgress.value = response.progress;
       const modules = categoriesToModules(response.categories, response.featured);
-      moduleCards.value = modules.length ? modules : cloneInitialModules();
+      moduleCards.value = modules;
       deletedModules.value = [];
       deletedLessons.value = [];
     }
@@ -1691,11 +1590,14 @@ async function loadModules() {
       collapseAllModules();
     }
   } catch {
-    moduleCards.value = moduleCards.value.length ? moduleCards.value : cloneInitialModules();
+    moduleCards.value = useLearningTestFixtures
+      ? (moduleCards.value.length ? moduleCards.value : cloneLearningTestModules())
+      : [];
     deletedModules.value = [];
     deletedLessons.value = [];
     learningProgress.value = null;
     modulesLoadedFromApi.value = false;
+    modulesLoadError.value = useLearningTestFixtures ? "" : "Не удалось загрузить модули. Проверьте соединение и попробуйте ещё раз.";
     if (!moduleCollapseTouched.value) {
       collapseAllModules();
     }
@@ -3013,6 +2915,27 @@ watch(
 
     <div class="modules-content">
     <p v-if="isLoadingModules" class="modules-edit-hint">{{ t("modulesLoading") }}</p>
+    <section v-else-if="modulesLoadError" class="modules-state-card ui-card" role="alert">
+      <strong>Модули не загрузились</strong>
+      <p>{{ modulesLoadError }}</p>
+      <button class="secondary-button ui-button" type="button" aria-label="Повторить загрузку модулей" @click="loadModules">Повторить</button>
+    </section>
+    <section v-else-if="modulesLoadedFromApi && !moduleCards.length" class="modules-state-card ui-card">
+      <strong>{{ canManageModules ? "Здесь пока нет модулей" : "Обучение пока не опубликовано" }}</strong>
+      <p>{{ canManageModules ? "Создайте первый модуль и добавьте в него уроки." : "Новые материалы появятся здесь после публикации." }}</p>
+      <button v-if="canManageModules" class="primary-button ui-button" type="button" @click="openModuleModal">Создать модуль</button>
+    </section>
+
+    <section
+      v-if="!canManageModules && learningProgress && learningProgress.totalItems > 0"
+      class="learning-overall-progress ui-card"
+      aria-label="Общий прогресс обучения"
+    >
+      <div><strong>Ваш прогресс</strong><span>{{ learningProgress.completedItems }} из {{ learningProgress.totalItems }} уроков</span></div>
+      <div class="learning-progress-track" role="progressbar" aria-label="Пройдено уроков" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="overallProgressPercent">
+        <span :style="{ width: `${overallProgressPercent}%` }"></span>
+      </div>
+    </section>
 
     <button
       v-if="shouldShowContinueLesson && lastOpenedLesson && lastOpenedLessonModule"
@@ -3121,6 +3044,12 @@ watch(
             </button>
           </div>
         </div>
+        <div v-if="!canManageModules && module.images.length" class="module-learning-progress">
+          <span>{{ moduleProgress(module).completed }} из {{ moduleProgress(module).total }} уроков</span>
+          <div class="learning-progress-track" role="progressbar" :aria-label="`Прогресс модуля ${module.title}`" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="moduleProgress(module).percent">
+            <span :style="{ width: `${moduleProgress(module).percent}%` }"></span>
+          </div>
+        </div>
         <div v-if="!isModuleCollapsed(module.id)" class="admin-mockup-grid">
           <article
             v-for="(image, lessonIndex) in module.images"
@@ -3186,15 +3115,29 @@ watch(
                   <em v-if="canManageModules" class="learning-publication-badge" :class="{ 'learning-publication-badge-draft': image.isPublished === false }">
                     {{ image.isPublished === false ? "Черновик" : "Опубликовано" }}
                   </em>
+                  <em v-else class="lesson-progress-status" :class="`lesson-progress-status-${lessonProgressState(image.id)}`">
+                    <CheckCircle2 v-if="lessonProgressState(image.id) === 'completed'" class="h-3.5 w-3.5" aria-hidden="true" />
+                    <Play v-else-if="lessonProgressState(image.id) === 'in_progress'" class="h-3.5 w-3.5" aria-hidden="true" />
+                    <Circle v-else class="h-3.5 w-3.5" aria-hidden="true" />
+                    {{ lessonProgressLabel(image.id) }}
+                  </em>
                 </span>
                 <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
               </template>
               <template v-else>
                 <span class="admin-mockup-thumb-label">
-                  {{ image.title }}
-                  <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                  <strong>
+                    {{ image.title }}
+                    <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />
+                  </strong>
                   <em v-if="canManageModules" class="learning-publication-badge" :class="{ 'learning-publication-badge-draft': image.isPublished === false }">
                     {{ image.isPublished === false ? "Черновик" : "Опубликовано" }}
+                  </em>
+                  <em v-else class="lesson-progress-status" :class="`lesson-progress-status-${lessonProgressState(image.id)}`">
+                    <CheckCircle2 v-if="lessonProgressState(image.id) === 'completed'" class="h-3.5 w-3.5" aria-hidden="true" />
+                    <Play v-else-if="lessonProgressState(image.id) === 'in_progress'" class="h-3.5 w-3.5" aria-hidden="true" />
+                    <Circle v-else class="h-3.5 w-3.5" aria-hidden="true" />
+                    {{ lessonProgressLabel(image.id) }}
                   </em>
                 </span>
                 <img :src="getModuleLessonImage(module, image)" :alt="image.title" loading="lazy" />
@@ -3554,6 +3497,15 @@ watch(
                   <p v-if="material.body">{{ material.body }}</p>
                 </div>
               </section>
+              <nav v-if="!canManageModules" class="lesson-path-navigation" aria-label="Навигация по урокам">
+                <button v-if="selectedLessonNeighbors?.previous" class="secondary-button ui-button" type="button" @click="openAdjacentLesson('previous')">
+                  <ArrowLeft class="h-4 w-4" aria-hidden="true" /> Предыдущий урок
+                </button>
+                <span v-else></span>
+                <button v-if="selectedLessonNeighbors?.next" class="primary-button ui-button" type="button" @click="openAdjacentLesson('next')">
+                  Следующий урок <ArrowRight class="h-4 w-4" aria-hidden="true" />
+                </button>
+              </nav>
             </article>
 
             <div v-if="isLessonEditorMode" class="admin-form lesson-editor-form">

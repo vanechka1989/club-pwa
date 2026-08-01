@@ -117,6 +117,34 @@ describe("Learning section member content", () => {
     });
   });
 
+  it("shows honest empty and retry states instead of demo lessons", async () => {
+    vi.mocked(getLearningHome).mockRejectedValueOnce(new Error("offline"));
+    renderAsMember();
+
+    expect(await screen.findByText("Модули не загрузились")).toBeTruthy();
+    expect(screen.queryByText("Вариант 1. Плеер и очередь")).toBeNull();
+
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      categories: [], featured: [],
+      progress: { totalItems: 0, completedItems: 0, startedItemIds: [], completedItemIds: [], lastOpenedItem: null, lastOpenedAt: null, lastOpenedPlaybackPositionSeconds: 0 }
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку модулей" }));
+    expect(await screen.findByText("Обучение пока не опубликовано")).toBeTruthy();
+  });
+
+  it("renders overall, module and lesson progress", async () => {
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      ...(await vi.mocked(getLearningHome)()),
+      progress: { totalItems: 1, completedItems: 1, startedItemIds: ["lesson-1"], completedItemIds: ["lesson-1"], lastOpenedItem: null, lastOpenedAt: null, lastOpenedPlaybackPositionSeconds: 0 }
+    });
+    renderAsMember();
+
+    expect(await screen.findByText("Ваш прогресс")).toBeTruthy();
+    expect(screen.getAllByText("1 из 1 уроков").length).toBeGreaterThan(0);
+    await fireEvent.click(screen.getByRole("button", { name: "Развернуть Клиентский модуль" }));
+    expect(await screen.findByText("Пройден")).toBeTruthy();
+  });
+
   it("loads full lesson content when a member opens a lesson card", async () => {
     renderAsMember();
 

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { learningEngagementSnapshotSchema } from "@club/shared";
@@ -12,6 +12,7 @@ import { getObjectReadUrl } from "../storage/s3";
 import { decodeModuleCategoryDefaultCardLayout, decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { mergeEngagementCounters } from "../learning/engagement";
+import { serializeLearningProgressRows } from "../learning/learningProgress";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -146,36 +147,37 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
           .where(moduleContentWhere)
       : [{ value: 0 }];
 
-    const [completedItemsRow] = moduleContentWhere
+    const progressRows = moduleContentWhere
       ? await db
           .select({
-            value: count(userContentProgress.id)
+            contentItemId: userContentProgress.contentItemId,
+            completedAt: userContentProgress.completedAt
           })
           .from(userContentProgress)
           .innerJoin(contentItems, eq(contentItems.id, userContentProgress.contentItemId))
-          .where(and(eq(userContentProgress.userId, userId), moduleContentWhere, isNotNull(userContentProgress.completedAt)))
-      : [{ value: 0 }];
+          .where(and(eq(userContentProgress.userId, userId), moduleContentWhere))
+      : [];
+    const serializedProgress = serializeLearningProgressRows(progressRows);
 
-    const lastOpenedProgress = await db.query.userContentProgress.findFirst({
-      where: eq(userContentProgress.userId, userId),
-      orderBy: [desc(userContentProgress.lastOpenedAt)],
-      with: {
-        item: true
-      }
-    });
-    const lastOpenedItem =
-      lastOpenedProgress?.item &&
-      lastOpenedProgress.item.isPublished &&
-      (!lastOpenedProgress.item.archivedUntil || lastOpenedProgress.item.archivedUntil > new Date())
-        ? lastOpenedProgress.item
-        : null;
+    const [lastOpenedRow] = moduleContentWhere
+      ? await db
+          .select({ progress: userContentProgress, item: contentItems })
+          .from(userContentProgress)
+          .innerJoin(contentItems, eq(contentItems.id, userContentProgress.contentItemId))
+          .where(and(eq(userContentProgress.userId, userId), moduleContentWhere))
+          .orderBy(desc(userContentProgress.lastOpenedAt))
+          .limit(1)
+      : [];
+    const lastOpenedProgress = lastOpenedRow?.progress ?? null;
+    const lastOpenedItem = lastOpenedRow?.item ?? null;
 
     return c.json({
       categories,
       featured: await Promise.all(featured.map((item) => serializeContentItem(item))),
       progress: {
         totalItems: totalItemsRow?.value ?? 0,
-        completedItems: completedItemsRow?.value ?? 0,
+        completedItems: serializedProgress.completedItemIds.length,
+        ...serializedProgress,
         lastOpenedItem: lastOpenedItem ? await serializeContentItem(lastOpenedItem, true) : null,
         lastOpenedMaterialId: lastOpenedItem ? lastOpenedProgress?.lastOpenedMaterialId ?? null : null,
         lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null,

@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Actionable admin alerts",
+  title: "A clearer learning path",
   items: [
-    "Expiring access and payment problems are now separate actions that open the relevant records directly.",
-    "The payment problem list identifies a failed payment, an invalid notification, or both conditions.",
-    "An order is counted once even when its payment and notification both fail."
+    "Modules now show overall progress, per-module progress, and clear lesson statuses.",
+    "Learners can move to the previous or next lesson across module boundaries.",
+    "Empty and failed loads now show honest states with a retry action instead of demo cards."
   ]
 };
 

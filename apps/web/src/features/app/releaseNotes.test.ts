@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes actionable admin alerts as version 5.85", () => {
-    expect(appVersion).toBe("5.85");
-    expect(releaseNotes[0]?.title).toBe("Понятный блок внимания");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/истекающ.*доступ/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/проблемн.*оплат/i);
+  it("publishes the learning path as version 5.86", () => {
+    expect(appVersion).toBe("5.86");
+    expect(releaseNotes[0]?.title).toBe("Понятный маршрут обучения");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/прогресс/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/следующ/i);
+
+    const actionableAlertsRelease = releaseNotes.find((note) => note.version === "5.85");
+    expect(actionableAlertsRelease?.title).toBe("Понятный блок внимания");
 
     const individualSubscriptionRelease = releaseNotes.find((note) => note.version === "5.84");
     expect(individualSubscriptionRelease?.title).toBe("Платная индивидуальная подписка");
@@ -243,7 +246,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Actionable admin alerts");
+    expect(englishNotes[0]?.title).toBe("A clearer learning path");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -2015,6 +2015,94 @@ body.club-mobile-device .module-name-modal {
   line-height: 1.2;
 }
 
+.modules-state-card,
+.learning-overall-progress {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.modules-state-card p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.modules-state-card .ui-button {
+  min-height: 44px;
+  justify-self: start;
+}
+
+.learning-overall-progress > div:first-child,
+.module-learning-progress > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.learning-overall-progress > div:first-child span,
+.module-learning-progress > span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.learning-progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.learning-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #56e4b4);
+  transition: width 220ms ease;
+}
+
+.module-learning-progress {
+  display: grid;
+  gap: 7px;
+  padding: 0 16px 14px;
+}
+
+.lesson-progress-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.modules-section .admin-mockup-thumb-label {
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lesson-progress-status-completed { color: #54d9aa; }
+.lesson-progress-status-in_progress { color: var(--accent); }
+
+.lesson-path-navigation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.lesson-path-navigation .ui-button {
+  min-height: 44px;
+  padding-inline: 12px;
+}
+
+@media (max-width: 380px) {
+  .lesson-path-navigation { grid-template-columns: 1fr; }
+  .lesson-path-navigation > span:empty { display: none; }
+}
+
 .module-sort-controls {
   gap: 4px;
   padding: 4px;
