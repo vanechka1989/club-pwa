@@ -722,6 +722,22 @@ async function mockApi(page: Page, sessionUser = currentUser) {
       return;
     }
 
+    if (path === "/admin/learning/materials/lesson-admin-1/assessment" && request.method() === "GET") {
+      await route.fulfill(json({
+        assessment: {
+          mode: "homework",
+          title: "Практическое задание",
+          instructions: "Опишите результат и приложите файл.",
+          dueAt: "2026-08-10T09:30:00.000Z",
+          allowText: true,
+          allowAttachments: true,
+          allowedFileKinds: ["image", "document"],
+          maxAttachments: 3
+        }
+      }));
+      return;
+    }
+
     if (path === "/payments/admin/orders") {
       await route.fulfill(json({ orders: [adminPaymentOrder] }));
       return;
@@ -1731,6 +1747,7 @@ const responsiveRouteAuditPaths = [
   { path: "/learning/lessons/new/module-main", selector: ".learning-task-screen .task-screen" },
   { path: "/learning/lessons/lesson-admin-1", selector: ".learning-task-screen .task-screen" },
   { path: "/learning/lessons/lesson-admin-1/edit", selector: ".learning-task-screen .task-screen" },
+  { path: "/learning/lessons/lesson-admin-1/assessment", selector: ".assessment-settings-page" },
   { path: "/community", selector: ".community-chat-shell" },
   { path: "/payments", selector: ".payment-product-list, .surface-card" },
   { path: `/payments/offers/${individualOfferToken}`, selector: ".offer-card" },
