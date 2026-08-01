@@ -34,6 +34,9 @@ describe("individual payment offer persistence", () => {
   });
 
   it("registers migration 0063", () => {
-    expect(migrationJournal.entries.at(-1)).toMatchObject({ idx: 63, tag: "0063_individual_payment_offers" });
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0063_individual_payment_offers")).toMatchObject({
+      idx: 63,
+      tag: "0063_individual_payment_offers"
+    });
   });
 });
