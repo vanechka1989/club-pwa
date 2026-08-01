@@ -2411,3 +2411,70 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 .deleted-module-card .deleted-lesson-preview {
   grid-template-columns: minmax(0, 1fr);
 }
+
+.learning-discovery-toolbar {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.learning-search-field {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 4px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.learning-search-field > svg { width: 19px; }
+.learning-search-field input {
+  min-width: 0;
+  height: 46px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+.learning-search-field button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.learning-search-field button svg { width: 18px; }
+
+.learning-filter-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.learning-filter-list button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 7px 5px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: clamp(.68rem, 2.8vw, .78rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+.learning-filter-list button.is-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--accent);
+}
+.learning-discovery-empty { text-align: center; }
+
+@media (max-width: 359px) {
+  .learning-filter-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

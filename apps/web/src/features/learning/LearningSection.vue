@@ -103,6 +103,8 @@ import ChatVoiceWaveform from "@/features/community/ChatVoiceWaveform.vue";
 import { useVoiceRecorder } from "@/features/community/useVoiceRecorder";
 import { formatVoiceTime } from "@/features/community/voiceWaveform";
 import { getLessonProgressState, getModuleProgress, resolveLessonNeighbors } from "./learningPath";
+import LearningDiscoveryToolbar from "./LearningDiscoveryToolbar.vue";
+import { filterLearningModules, type LearningDiscoveryFilter } from "./learningDiscovery";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -200,6 +202,8 @@ const moduleCards = ref<ModuleCard[]>(useLearningTestFixtures ? cloneLearningTes
 const deletedModules = ref<ModuleCard[]>([]);
 const deletedLessons = ref<ModuleLesson[]>([]);
 const learningProgress = ref<LearningProgressSummary | null>(null);
+const learningSearchQuery = ref("");
+const learningFilter = ref<LearningDiscoveryFilter>("all");
 const session = useSessionStore();
 const appDialogs = useAppDialogsStore();
 const ui = useUiStore();
@@ -313,6 +317,18 @@ const lastOpenedLessonModule = computed(() => {
 const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
 const startedLessonIds = computed(() => new Set(learningProgress.value?.startedItemIds ?? []));
 const completedLessonIds = computed(() => new Set(learningProgress.value?.completedItemIds ?? []));
+const favoriteLessonIds = computed(() => new Set<string>());
+const learningDiscoveryActive = computed(() => Boolean(learningSearchQuery.value.trim()) || learningFilter.value !== "all");
+const visibleModuleCards = computed(() => canManageModules.value
+  ? moduleCards.value
+  : filterLearningModules(moduleCards.value, {
+      query: learningSearchQuery.value,
+      filter: learningFilter.value,
+      startedIds: startedLessonIds.value,
+      completedIds: completedLessonIds.value,
+      favoriteIds: favoriteLessonIds.value
+    })
+);
 const overallProgressPercent = computed(() => {
   const total = learningProgress.value?.totalItems ?? 0;
   return total ? Math.round(((learningProgress.value?.completedItems ?? 0) / total) * 100) : 0;
@@ -340,6 +356,27 @@ function lessonProgressLabel(lessonId: string) {
 
 function moduleProgress(module: ModuleCard) {
   return getModuleProgress(module.images.map((lesson) => lesson.id), completedLessonIds.value);
+}
+
+async function revealVisibleLearningModules() {
+  await nextTick();
+  const visibleIds = new Set(visibleModuleCards.value.map((module) => module.id));
+  collapsedModuleIds.value = collapsedModuleIds.value.filter((id) => !visibleIds.has(id));
+}
+
+function updateLearningSearch(value: string) {
+  learningSearchQuery.value = value;
+  void revealVisibleLearningModules();
+}
+
+function updateLearningFilter(value: LearningDiscoveryFilter) {
+  learningFilter.value = value;
+  void revealVisibleLearningModules();
+}
+
+function resetLearningDiscovery() {
+  learningSearchQuery.value = "";
+  learningFilter.value = "all";
 }
 
 function openAdjacentLesson(direction: "previous" | "next") {
@@ -2952,9 +2989,24 @@ watch(
       </span>
     </button>
 
+    <LearningDiscoveryToolbar
+      v-if="!canManageModules && modulesLoadedFromApi && moduleCards.length"
+      :query="learningSearchQuery"
+      :filter="learningFilter"
+      @update:query="updateLearningSearch"
+      @update:filter="updateLearningFilter"
+      @reset="resetLearningDiscovery"
+    />
+
+    <section v-if="!canManageModules && learningDiscoveryActive && !visibleModuleCards.length" class="modules-state-card learning-discovery-empty ui-card">
+      <strong>{{ learningFilter === "favorites" && !learningSearchQuery ? "В избранном пока ничего нет" : "Ничего не найдено" }}</strong>
+      <p>Попробуйте другой запрос или вернитесь ко всем урокам.</p>
+      <button class="secondary-button ui-button" type="button" @click="resetLearningDiscovery">Сбросить поиск</button>
+    </section>
+
     <div class="admin-mockup-list">
       <article
-        v-for="(module, moduleIndex) in moduleCards"
+        v-for="(module, moduleIndex) in visibleModuleCards"
         :key="module.id"
       class="admin-mockup-card ui-card"
         :class="{ 'module-card-collapsed': isModuleCollapsed(module.id) }"
