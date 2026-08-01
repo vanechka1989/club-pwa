@@ -53,6 +53,7 @@ import type {
   LearningEngagementSnapshot,
   LearningEngagementResponse,
   LearningEngagementUsersResponse,
+  LearningFavoriteMutationResponse,
   LearningSaveOperationResponse,
   LessonCommentMutationResponse,
   LessonCommentsResponse,
@@ -191,6 +192,12 @@ export function saveLearningEngagement(id: string, snapshot: LearningEngagementS
 
 export function getLessonComments(id: string) {
   return api<LessonCommentsResponse>(`/learning/items/${id}/comments`);
+}
+
+export function setLearningFavorite(id: string, favorite: boolean) {
+  return api<LearningFavoriteMutationResponse>(`/learning/items/${id}/favorite`, {
+    method: favorite ? "PUT" : "DELETE"
+  });
 }
 
 export function createLessonComment(id: string, body: string) {

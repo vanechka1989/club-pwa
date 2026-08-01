@@ -56,7 +56,15 @@ describe("learningHomeResponseSchema", () => {
 
     expect(parsed.startedItemIds).toBeUndefined();
     expect(parsed.completedItemIds).toBeUndefined();
-    expect(parsed.favoriteItemIds).toEqual([]);
+    expect(parsed.favoriteItemIds).toBeUndefined();
+    expect(learningProgressSummarySchema.parse({
+      totalItems: 2,
+      completedItems: 0,
+      favoriteItemIds: ["lesson-a"],
+      lastOpenedItem: null,
+      lastOpenedAt: null,
+      lastOpenedPlaybackPositionSeconds: 0
+    }).favoriteItemIds).toEqual(["lesson-a"]);
   });
 
   it("accepts favorite mutation responses", () => {

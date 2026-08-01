@@ -105,6 +105,8 @@ import { formatVoiceTime } from "@/features/community/voiceWaveform";
 import { getLessonProgressState, getModuleProgress, resolveLessonNeighbors } from "./learningPath";
 import LearningDiscoveryToolbar from "./LearningDiscoveryToolbar.vue";
 import { filterLearningModules, type LearningDiscoveryFilter } from "./learningDiscovery";
+import LearningFavoriteButton from "./LearningFavoriteButton.vue";
+import { useLearningFavorites } from "./useLearningFavorites";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -202,6 +204,8 @@ const moduleCards = ref<ModuleCard[]>(useLearningTestFixtures ? cloneLearningTes
 const deletedModules = ref<ModuleCard[]>([]);
 const deletedLessons = ref<ModuleLesson[]>([]);
 const learningProgress = ref<LearningProgressSummary | null>(null);
+const learningFavoriteSourceIds = computed(() => learningProgress.value?.favoriteItemIds ?? []);
+const learningFavorites = useLearningFavorites(learningFavoriteSourceIds);
 const learningSearchQuery = ref("");
 const learningFilter = ref<LearningDiscoveryFilter>("all");
 const session = useSessionStore();
@@ -317,7 +321,7 @@ const lastOpenedLessonModule = computed(() => {
 const shouldShowContinueLesson = computed(() => Boolean(!canManageModules.value && lastOpenedLesson.value && lastOpenedLessonModule.value));
 const startedLessonIds = computed(() => new Set(learningProgress.value?.startedItemIds ?? []));
 const completedLessonIds = computed(() => new Set(learningProgress.value?.completedItemIds ?? []));
-const favoriteLessonIds = computed(() => new Set<string>());
+const favoriteLessonIds = learningFavorites.favoriteIds;
 const learningDiscoveryActive = computed(() => Boolean(learningSearchQuery.value.trim()) || learningFilter.value !== "all");
 const visibleModuleCards = computed(() => canManageModules.value
   ? moduleCards.value
@@ -377,6 +381,14 @@ function updateLearningFilter(value: LearningDiscoveryFilter) {
 function resetLearningDiscovery() {
   learningSearchQuery.value = "";
   learningFilter.value = "all";
+}
+
+async function toggleLessonFavorite(lessonId: string) {
+  try {
+    await learningFavorites.toggleFavorite(lessonId);
+  } catch {
+    notifications.showError("Не удалось изменить избранное. Попробуйте ещё раз.");
+  }
 }
 
 function openAdjacentLesson(direction: "previous" | "next") {
@@ -3147,6 +3159,14 @@ watch(
                 <ArrowRight v-else class="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
+            <LearningFavoriteButton
+              v-if="!canManageModules"
+              class="lesson-card-favorite"
+              compact
+              :active="learningFavorites.isFavorite(image.id)"
+              :pending="learningFavorites.isPending(image.id)"
+              @toggle="toggleLessonFavorite(image.id)"
+            />
             <button
               class="admin-mockup-thumb"
               :class="[
@@ -3371,6 +3391,13 @@ watch(
           <div class="lesson-preview-scroll" @scroll.passive="handleLessonViewerScroll">
             <article v-if="!isLessonEditorMode && selectedLessonItem" class="lesson-viewer-content">
               <span class="lesson-preview-kicker">Содержимое урока</span>
+              <div v-if="!canManageModules && selectedLessonItem.isPersisted" class="lesson-viewer-member-actions">
+                <LearningFavoriteButton
+                  :active="learningFavorites.isFavorite(selectedLessonItem.id)"
+                  :pending="learningFavorites.isPending(selectedLessonItem.id)"
+                  @toggle="toggleLessonFavorite(selectedLessonItem.id)"
+                />
+              </div>
               <p v-if="isLoadingLessonContent" class="lesson-viewer-empty">Загружаем содержимое урока...</p>
               <p v-else-if="lessonViewerError" class="lesson-viewer-empty">{{ lessonViewerError }}</p>
 

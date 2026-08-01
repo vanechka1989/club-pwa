@@ -389,7 +389,7 @@ export const learningProgressSummarySchema = z.object({
   completedItems: z.number().int().nonnegative(),
   startedItemIds: z.array(z.string()).optional(),
   completedItemIds: z.array(z.string()).optional(),
-  favoriteItemIds: z.array(z.string()).default([]),
+  favoriteItemIds: z.array(z.string()).optional(),
   lastOpenedItem: learningContentSchema.nullable(),
   lastOpenedMaterialId: z.string().nullable().optional(),
   lastOpenedAt: z.string().datetime().nullable(),
