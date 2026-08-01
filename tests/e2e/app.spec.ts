@@ -1702,6 +1702,7 @@ test("shows a clear learning path with progress and lesson navigation", async ({
   await expect(page.getByText("Ваш прогресс")).toBeVisible();
   await expect(page.getByText("1 из 2 уроков").first()).toBeVisible();
   await expect(page.locator(".continue-lesson-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Открыть поиск и фильтры" }).click();
   await page.getByRole("searchbox", { name: "Найти модуль или урок" }).fill("Первый");
   await expect(page.getByRole("button", { name: "Открыть урок Первый урок" })).toBeVisible();
   await page.locator('[data-lesson-id="lesson-path-1"]').getByRole("button", { name: "Добавить в избранное" }).click();
