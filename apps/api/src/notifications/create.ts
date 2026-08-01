@@ -23,13 +23,14 @@ export type CreateAppNotificationInput = {
 
 type CreateAppNotificationOptions = {
   waitForPush?: boolean;
+  deduplicate?: boolean;
 };
 
 export async function createAppNotification(
   input: CreateAppNotificationInput,
   options: CreateAppNotificationOptions = {}
 ) {
-  const [notification] = await db
+  const insert = db
     .insert(appNotifications)
     .values({
       userId: input.userId,
@@ -44,8 +45,10 @@ export async function createAppNotification(
       attachmentObjectKey: input.attachment?.objectKey ?? null,
       attachmentContentType: input.attachment?.contentType ?? null,
       attachmentSizeBytes: input.attachment?.sizeBytes ?? null
-    })
-    .returning();
+    });
+  const [notification] = options.deduplicate
+    ? await insert.onConflictDoNothing().returning()
+    : await insert.returning();
 
   if (notification) {
     const delivery = sendWebPushToUser(input.userId, {

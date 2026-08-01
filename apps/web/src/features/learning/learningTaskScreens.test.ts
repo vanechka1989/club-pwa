@@ -23,6 +23,14 @@ describe("learning task screens", () => {
     expect(source).toContain("void loadAdminLessonAssessment(lesson.id)");
   });
 
+  it("opens member tests and homework on a dedicated task page", () => {
+    expect(source).toContain("const assessmentPlayerMode = ref(false)");
+    expect(source).toContain("function openMemberAssessment()");
+    expect(source).toContain("<LessonAssessmentEntryCard");
+    expect(source).toContain("<LessonAssessmentTaskPage");
+    expect(source).not.toContain("<LessonAssessmentPlayer");
+  });
+
   it("renders module create and edit actions in the routed screen footer", () => {
     expect(source).toContain('class="module-editor-content"');
     expect(source).toContain('class="module-editor-footer"');

@@ -3,7 +3,9 @@ import { db } from "../db/client";
 import {
   contentCategories,
   contentItems,
+  homeworkSubmissions,
   learningEngagementSessions,
+  quizAttempts,
   userContentProgress,
   users
 } from "../db/schema";
@@ -76,7 +78,28 @@ async function loadSamples(from: Date, toExclusive: Date, contentItemId?: string
 }
 
 export async function getLearningEngagementDashboard(from: Date, toExclusive: Date) {
-  return summarizeLearningEngagement(await loadSamples(from, toExclusive));
+  const [samples, homework, quizzes] = await Promise.all([
+    loadSamples(from, toExclusive),
+    db.select({ status: homeworkSubmissions.status }).from(homeworkSubmissions).where(and(
+      gte(homeworkSubmissions.submittedAt, from),
+      lt(homeworkSubmissions.submittedAt, toExclusive)
+    )),
+    db.select({ status: quizAttempts.status }).from(quizAttempts).where(and(
+      gte(quizAttempts.submittedAt, from),
+      lt(quizAttempts.submittedAt, toExclusive)
+    ))
+  ]);
+  return {
+    ...summarizeLearningEngagement(samples),
+    assessments: {
+      homeworkSubmitted: homework.length,
+      homeworkAccepted: homework.filter((entry) => entry.status === "accepted").length,
+      homeworkPendingReview: homework.filter((entry) => entry.status === "pending_review").length,
+      homeworkNeedsRevision: homework.filter((entry) => entry.status === "needs_revision").length,
+      quizSubmitted: quizzes.filter((entry) => entry.status !== "in_progress").length,
+      quizPassed: quizzes.filter((entry) => entry.status === "passed").length
+    }
+  };
 }
 
 export async function getLearningEngagementUsers(contentItemId: string, from: Date, toExclusive: Date) {

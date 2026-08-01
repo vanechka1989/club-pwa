@@ -79,7 +79,8 @@ const clientDetail: AdminUserDetailResponse = {
   device: null,
   devices: [],
   referrals: { invitedBy: null, invited: [] },
-  learningEngagement: []
+  learningEngagement: [],
+  learningAssessments: []
 };
 
 const adminUser: ClubUser = {
@@ -129,6 +130,7 @@ function createProps(overrides: Record<string, unknown> = {}) {
     clientAccessBusy: false,
     canGrantClientAccess: true,
     canManageSelectedUser: true,
+    canManageClientLearning: true,
     canManageSelectedUserAccess: true,
     canViewLoginIps: false,
     saving: false,
@@ -238,6 +240,37 @@ describe("AdminClientsPanel", () => {
 
     expect(screen.getAllByText("Автосписание отменено", { exact: true })).toHaveLength(2);
     expect(screen.getAllByText("до 27.07", { exact: true }).length).toBeGreaterThan(0);
+  });
+
+  it("shows a specific homework result and emits its reset id", async () => {
+    const detail: AdminUserDetailResponse = {
+      ...clientDetail,
+      learningAssessments: [{
+        contentItemId: "lesson-1",
+        title: "Практика",
+        categoryTitle: "Модуль 1",
+        mode: "homework",
+        recordId: "submission-1",
+        status: "accepted",
+        version: 2,
+        attemptNumber: null,
+        earnedPoints: null,
+        maxPoints: null,
+        percent: null,
+        submittedAt: "2026-08-01T12:00:00.000Z",
+        reviewedAt: "2026-08-01T13:00:00.000Z",
+        reviewComment: "Отлично",
+        resetAt: null,
+        resetReason: null,
+        canReset: true
+      }]
+    };
+    const { emitted } = render(AdminClientsPanel, { props: createProps({ selectedUser: client, selectedUserDetail: detail }) });
+
+    expect(screen.getByText("ДЗ принято", { exact: true })).toBeTruthy();
+    expect(screen.getByText("Версия 2", { exact: true })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Сбросить прохождение ДЗ" }));
+    expect(emitted()["reset-homework"]).toEqual([["submission-1"]]);
   });
 
   it("emits client-card-close from a clientCardOnly card without owning router side effects", async () => {

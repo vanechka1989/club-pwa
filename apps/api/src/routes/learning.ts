@@ -480,6 +480,8 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         status: submission.status,
         submittedAt: submission.submittedAt?.toISOString() ?? null,
         reviewedAt: submission.reviewedAt?.toISOString() ?? null,
+        resetAt: submission.resetAt?.toISOString() ?? null,
+        resetReason: submission.resetReason,
         reviewComment: reviews.find((review) => review.homeworkSubmissionId === submission.id)?.comment ?? null
       }))
     });

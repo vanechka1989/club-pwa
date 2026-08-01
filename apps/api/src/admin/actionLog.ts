@@ -30,13 +30,16 @@ export async function recordAdminAction(
     targetTelegramId?: string | null;
     summary: string;
     metadata?: Record<string, unknown>;
+    deduplicate?: boolean;
+    actorUserId?: string;
+    actorTelegramId?: string;
   }
 ) {
   const [{ db }, { adminActionLogs }] = await Promise.all([import("../db/client"), import("../db/schema")]);
 
-  await db.insert(adminActionLogs).values({
-    actorUserId: c.get("userId"),
-    actorTelegramId: c.get("telegramUser").id,
+  const insert = db.insert(adminActionLogs).values({
+    actorUserId: input.actorUserId ?? c.get("userId"),
+    actorTelegramId: input.actorTelegramId ?? c.get("telegramUser").id,
     action: input.action,
     entityType: input.entityType,
     entityId: input.entityId ?? null,
@@ -45,4 +48,6 @@ export async function recordAdminAction(
     summary: input.summary,
     metadata: sanitizeAdminActionMetadata(input.metadata ?? {}) as Record<string, unknown>
   });
+  if (input.deduplicate) await insert.onConflictDoNothing();
+  else await insert;
 }

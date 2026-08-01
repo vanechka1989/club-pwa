@@ -463,6 +463,13 @@
       "when": 1785556800000,
       "tag": "0065_lesson_assessments",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1785592800000,
+      "tag": "0066_homework_submission_resets",
+      "breakpoints": true
     }
   ]
 }

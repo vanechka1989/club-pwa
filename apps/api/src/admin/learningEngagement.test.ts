@@ -26,4 +26,11 @@ describe("admin learning engagement", () => {
     expect(source).toContain('.get("/analytics/learning-engagement"');
     expect(source).toContain('.get("/analytics/learning-engagement/:itemId/users"');
   });
+
+  it("includes quiz and homework counters in the learning dashboard", () => {
+    const source = readFileSync(resolve(__dirname, "learningEngagement.ts"), "utf8");
+    expect(source).toContain("homeworkSubmitted: homework.length");
+    expect(source).toContain('homeworkPendingReview: homework.filter((entry) => entry.status === "pending_review").length');
+    expect(source).toContain('quizPassed: quizzes.filter((entry) => entry.status === "passed").length');
+  });
 });

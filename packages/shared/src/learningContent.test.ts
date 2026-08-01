@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningFavoriteMutationResponseSchema, learningHomeResponseSchema, learningProgressSummarySchema, lessonAssessmentConfigSchema, lessonAssessmentDraftSchema } from "./index";
+import { adminLearningAssessmentSchema, adminLearningResponseSchema, learningAssessmentAnalyticsSchema, learningCategorySchema, learningContentSchema, learningFavoriteMutationResponseSchema, learningHomeResponseSchema, learningProgressSummarySchema, lessonAssessmentConfigSchema, lessonAssessmentDraftSchema } from "./index";
 
 describe("learningContentSchema", () => {
   it("validates private quiz answers in an administrator draft", () => {
@@ -78,6 +78,37 @@ describe("learningContentSchema", () => {
     });
 
     expect(parsed.assessment).toBeNull();
+  });
+
+  it("validates concrete client assessment history and analytics counters", () => {
+    expect(adminLearningAssessmentSchema.parse({
+      contentItemId: "lesson-1",
+      title: "Практика",
+      categoryTitle: "Модуль 1",
+      mode: "homework",
+      recordId: "submission-1",
+      status: "accepted",
+      version: 2,
+      attemptNumber: null,
+      earnedPoints: null,
+      maxPoints: null,
+      percent: null,
+      submittedAt: "2026-08-01T12:00:00.000Z",
+      reviewedAt: "2026-08-01T13:00:00.000Z",
+      reviewComment: "Принято",
+      resetAt: null,
+      resetReason: null,
+      canReset: true
+    }).canReset).toBe(true);
+
+    expect(learningAssessmentAnalyticsSchema.parse({
+      homeworkSubmitted: 7,
+      homeworkAccepted: 4,
+      homeworkPendingReview: 2,
+      homeworkNeedsRevision: 1,
+      quizSubmitted: 9,
+      quizPassed: 6
+    }).quizPassed).toBe(6);
   });
 
   it("accepts all lesson cover modes while keeping old content compatible", () => {

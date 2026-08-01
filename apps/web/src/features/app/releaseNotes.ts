@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "A cleaner lesson editor",
+  title: "Assignments on a dedicated page",
   items: [
-    "Knowledge-check settings now sit directly below the cover controls, making them easier to find before lesson content.",
-    "The oversized native publication checkbox is replaced with a compact switch and a clear visibility status.",
-    "The mobile lesson card keeps consistent spacing and touch targets without inheriting oversized field styles."
+    "Tests and homework now open on a dedicated page from a clear action inside the lesson.",
+    "Submission results show points, percentages, attempts, thresholds, versions, timestamps, and reviewer feedback.",
+    "Client details and analytics include assessment outcomes, with an audited reset action for accepted homework."
   ]
 };
 

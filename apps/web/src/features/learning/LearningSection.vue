@@ -117,7 +117,8 @@ import LearningFavoriteButton from "./LearningFavoriteButton.vue";
 import { useLearningFavorites } from "./useLearningFavorites";
 import LearningLessonNotes from "./LearningLessonNotes.vue";
 import LessonAssessmentSettingsPage from "./LessonAssessmentSettingsPage.vue";
-import LessonAssessmentPlayer from "./LessonAssessmentPlayer.vue";
+import LessonAssessmentEntryCard from "./LessonAssessmentEntryCard.vue";
+import LessonAssessmentTaskPage from "./LessonAssessmentTaskPage.vue";
 import AdminAssessmentReviewQueue from "./AdminAssessmentReviewQueue.vue";
 
 const lessonImageViewerUrl = ref<string | null>(null);
@@ -263,6 +264,7 @@ const lessonAssessmentDraft = ref<LessonAssessmentDraft>({ mode: "none" });
 const savedLessonAssessmentDraft = ref<LessonAssessmentDraft>({ mode: "none" });
 const isLoadingLessonAssessment = ref(false);
 const assessmentSettingsMode = ref(false);
+const assessmentPlayerMode = ref(false);
 const assessmentSettingsError = ref("");
 const assessmentSettingsRetryable = ref(false);
 let assessmentLoadSequence = 0;
@@ -879,7 +881,8 @@ function openLessonModal(
   playbackStartSeconds = 0,
   materialId: string | null = null,
   editorMode = false,
-  assessmentMode = false
+  assessmentMode = false,
+  playerMode = false
 ) {
   clearLessonFilePreview();
   clearAllLessonMaterialPreviews();
@@ -917,9 +920,10 @@ function openLessonModal(
   savedLessonAssessmentDraft.value = cloneAssessmentDraft(lessonAssessmentDraft.value);
   lessonEditorMode.value = canManageModules.value && editorMode;
   assessmentSettingsMode.value = canManageModules.value && assessmentMode;
+  assessmentPlayerMode.value = !canManageModules.value && playerMode;
   assessmentSettingsError.value = "";
   assessmentSettingsRetryable.value = false;
-  if (!lessonEditorMode.value) {
+  if (!lessonEditorMode.value && !assessmentPlayerMode.value) {
     startLearningEngagement(lesson);
   }
   clearLessonError();
@@ -927,7 +931,9 @@ function openLessonModal(
   clearLessonViewerError();
   void loadLessonContentForMember(lesson);
   if (lessonEditorMode.value && lesson.isPersisted) void loadAdminLessonAssessment(lesson.id);
-  if (assessmentSettingsMode.value) {
+  if (assessmentPlayerMode.value) {
+    openLearningTask(`/learning/lessons/${lesson.id}/assessment`);
+  } else if (assessmentSettingsMode.value) {
     openLearningTask(`/learning/lessons/${lesson.id}/assessment`);
   } else if (lessonEditorMode.value) {
     openLearningTask(`/learning/lessons/${lesson.id}/edit`);
@@ -955,6 +961,16 @@ function openAssessmentSettings() {
   assessmentSettingsError.value = "";
   assessmentSettingsRetryable.value = false;
   openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/assessment`);
+}
+
+function openMemberAssessment() {
+  const lesson = selectedLessonItem.value;
+  if (!lesson?.isPersisted || !lesson.assessment || lesson.assessment.mode === "none") return;
+  stopLearningEngagement();
+  lessonEditorMode.value = false;
+  assessmentSettingsMode.value = false;
+  assessmentPlayerMode.value = true;
+  openLearningTask(`/learning/lessons/${lesson.id}/assessment`);
 }
 
 function closeAssessmentSettings() {
@@ -1001,6 +1017,7 @@ function showLessonViewer(lessonId = selectedLessonItem.value?.id ?? null) {
 
   lessonEditorMode.value = false;
   assessmentSettingsMode.value = false;
+  assessmentPlayerMode.value = false;
   if (selectedLessonItem.value) {
     startLearningEngagement(selectedLessonItem.value);
   }
@@ -1008,6 +1025,10 @@ function showLessonViewer(lessonId = selectedLessonItem.value?.id ?? null) {
 }
 
 function handleLessonBack() {
+  if (assessmentPlayerMode.value) {
+    showLessonViewer();
+    return;
+  }
   if (assessmentSettingsMode.value) {
     closeAssessmentSettings();
     return;
@@ -1063,6 +1084,7 @@ function openLessonCreateModal(module: ModuleCard) {
   savedLessonAssessmentDraft.value = { mode: "none" };
   lessonEditorMode.value = true;
   assessmentSettingsMode.value = false;
+  assessmentPlayerMode.value = false;
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -3018,7 +3040,7 @@ async function syncLearningTaskRoute() {
     return;
   }
 
-  const isLessonViewPath = /^\/learning\/lessons\/[^/]+$/.test(path);
+  const isLessonViewPath = /^\/learning\/lessons\/[^/]+(?:\/assessment)?$/.test(path);
   if (!canManageModules.value && !isLessonViewPath) {
     closeLearningTask();
     return;
@@ -3051,12 +3073,13 @@ async function syncLearningTaskRoute() {
     const module = moduleCards.value.find((item) => item.images.some((lesson) => lesson.id === lessonId));
     const lesson = module?.images.find((item) => item.id === lessonId);
     if (module && lesson && selectedLesson.value?.lessonId !== lesson.id) {
-      openLessonModal(module, lesson, 0, null, true, true);
+      openLessonModal(module, lesson, 0, null, canManageModules.value, canManageModules.value, !canManageModules.value);
     } else if (module && lesson) {
       stopLearningEngagement();
-      lessonEditorMode.value = true;
-      assessmentSettingsMode.value = true;
-      void loadAdminLessonAssessment(lesson.id);
+      lessonEditorMode.value = canManageModules.value;
+      assessmentSettingsMode.value = canManageModules.value;
+      assessmentPlayerMode.value = !canManageModules.value;
+      if (canManageModules.value) void loadAdminLessonAssessment(lesson.id);
     }
     return;
   }
@@ -3077,6 +3100,7 @@ async function syncLearningTaskRoute() {
       }
       lessonEditorMode.value = canManageModules.value && wantsEditor;
       assessmentSettingsMode.value = false;
+      assessmentPlayerMode.value = false;
       if (lessonEditorMode.value) void loadAdminLessonAssessment(lesson.id);
     }
     return;
@@ -3547,8 +3571,8 @@ watch(
       v-if="selectedLesson && selectedLessonModule"
       class="learning-task-screen"
       :class="{ 'learning-task-screen-view': !isLessonEditorMode }"
-      :title="assessmentSettingsMode ? 'Проверка знаний' : lessonModalTitle"
-      :subtitle="assessmentSettingsMode ? lessonModalTitle : lessonModalSubtitle"
+      :title="assessmentSettingsMode ? 'Проверка знаний' : assessmentPlayerMode ? (selectedLessonItem?.assessment?.mode === 'quiz' ? 'Тест' : 'Домашнее задание') : lessonModalTitle"
+      :subtitle="assessmentSettingsMode || assessmentPlayerMode ? lessonModalTitle : lessonModalSubtitle"
       portal
       @back="handleLessonBack"
     >
@@ -3574,6 +3598,13 @@ watch(
           @save="saveAssessmentSettings"
           @back="closeAssessmentSettings"
           @retry="loadAdminLessonAssessment(selectedLessonItem.id)"
+        />
+        <LessonAssessmentTaskPage
+          v-else-if="assessmentPlayerMode && selectedLessonItem?.assessment && selectedLessonItem.assessment.mode !== 'none'"
+          :key="`${selectedLessonItem.id}-${selectedLessonItem.assessment.mode}`"
+          :lesson-id="selectedLessonItem.id"
+          :assessment="selectedLessonItem.assessment"
+          @completed="handleAssessmentCompleted"
         />
         <section
           v-else
@@ -3779,12 +3810,12 @@ watch(
                   <p v-if="material.body">{{ material.body }}</p>
                 </div>
               </section>
-              <LessonAssessmentPlayer
+              <LessonAssessmentEntryCard
                 v-if="!canManageModules && selectedLessonItem.isPersisted && selectedLessonItem.assessment && selectedLessonItem.assessment.mode !== 'none'"
                 :key="`${selectedLessonItem.id}-${selectedLessonItem.assessment.mode}`"
                 :lesson-id="selectedLessonItem.id"
                 :assessment="selectedLessonItem.assessment"
-                @completed="handleAssessmentCompleted"
+                @open="openMemberAssessment"
               />
               <LearningLessonNotes
                 v-if="!canManageModules && selectedLessonItem.isPersisted"

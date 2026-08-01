@@ -1104,10 +1104,14 @@ export function resetQuizAttempts(id: string, reason: string | null = null) {
   return api<{ ok: true }>(`/admin/learning/assessments/quiz/${id}/reset-attempts`, { method: "POST", body: { reason } });
 }
 
+export function resetHomeworkSubmission(id: string, reason: string | null = null) {
+  return api<{ ok: true }>(`/admin/learning/assessments/homework/${id}/reset`, { method: "POST", body: { reason } });
+}
+
 export type LessonAssessmentStatus = {
   mode: "none" | "quiz" | "homework";
   attempts: Array<{ id: string; attemptNumber: number; status: string; earnedPoints: number | null; maxPoints: number | null; percent: number | null; submittedAt: string | null; reviewComment: string | null }>;
-  submissions: Array<{ id: string; version: number; status: string; submittedAt: string | null; reviewedAt: string | null; reviewComment: string | null }>;
+  submissions: Array<{ id: string; version: number; status: string; submittedAt: string | null; reviewedAt: string | null; resetAt: string | null; resetReason: string | null; reviewComment: string | null }>;
 };
 
 export type LessonQuizAttemptResponse = {

@@ -16,6 +16,7 @@ import {
 } from "./schema";
 
 const migration = readFileSync(new URL("../../drizzle/0065_lesson_assessments.sql", import.meta.url), "utf8");
+const resetMigration = readFileSync(new URL("../../drizzle/0066_homework_submission_resets.sql", import.meta.url), "utf8");
 
 describe("lesson assessment persistence", () => {
   it("exposes normalized configuration, attempts, homework and reviews", () => {
@@ -27,7 +28,9 @@ describe("lesson assessment persistence", () => {
     expect(Object.keys(getTableColumns(quizAttempts))).toEqual(expect.arrayContaining(["userId", "contentItemId", "revisionId", "attemptNumber", "status", "percent"]));
     expect(Object.keys(getTableColumns(quizAttemptQuestions))).toEqual(expect.arrayContaining(["attemptId", "questionKey", "optionsSnapshot", "correctOptionIds"]));
     expect(Object.keys(getTableColumns(quizAnswers))).toEqual(expect.arrayContaining(["attemptId", "questionSnapshotId", "selectedOptionIds", "reviewedPoints"]));
-    expect(Object.keys(getTableColumns(homeworkSubmissions))).toEqual(expect.arrayContaining(["userId", "contentItemId", "revisionId", "version", "status", "text"]));
+    expect(Object.keys(getTableColumns(homeworkSubmissions))).toEqual(expect.arrayContaining([
+      "userId", "contentItemId", "revisionId", "version", "status", "text", "resetAt", "resetByUserId", "resetReason"
+    ]));
     expect(Object.keys(getTableColumns(homeworkAttachments))).toEqual(expect.arrayContaining(["submissionId", "objectKey", "contentType", "sizeBytes", "confirmedAt"]));
     expect(Object.keys(getTableColumns(assessmentReviews))).toEqual(expect.arrayContaining(["quizAttemptId", "homeworkSubmissionId", "reviewedByUserId", "decision", "comment"]));
     expect(Object.keys(getTableColumns(quizAttemptResets))).toEqual(expect.arrayContaining(["userId", "contentItemId", "resetByUserId", "reason"]));
@@ -44,5 +47,14 @@ describe("lesson assessment persistence", () => {
 
   it("registers migration 0065", () => {
     expect(migrationJournal.entries.find((entry) => entry.tag === "0065_lesson_assessments")).toMatchObject({ idx: 65, version: "7" });
+  });
+
+  it("registers reset metadata without deleting homework history", () => {
+    expect(resetMigration).toContain('ADD COLUMN "reset_at" timestamp with time zone');
+    expect(resetMigration).toContain('ADD COLUMN "reset_by_user_id" uuid');
+    expect(resetMigration).toContain('ADD COLUMN "reset_reason" text');
+    expect(resetMigration).toContain('CREATE UNIQUE INDEX "app_notifications_assessment_reset_unique"');
+    expect(resetMigration).toContain('CREATE UNIQUE INDEX "admin_action_logs_homework_reset_unique"');
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0066_homework_submission_resets")).toMatchObject({ idx: 66, version: "7" });
   });
 });

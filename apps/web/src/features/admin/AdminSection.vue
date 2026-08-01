@@ -76,6 +76,7 @@ import {
   previewAdminMailing,
   retryFailedAdminMailing,
   revokeUserMute,
+  resetHomeworkSubmission,
   resumeAdminMailing,
   stopAdminMailing,
   testAdminMailing,
@@ -414,6 +415,7 @@ function selectAdminPanel(panel: AdminPanel) {
 const canUseStorage = computed(() => hasCurrentAdminPermission("storage"));
 const canViewLoginIps = computed(() => hasCurrentAdminPermission("login_ips"));
 const canGrantClientAccess = computed(() => hasCurrentAdminPermission("accesses"));
+const canManageClientLearning = computed(() => hasCurrentAdminPermission("materials"));
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
 const canManageSelectedUserAccess = computed(() => canGrantClientAccess.value && canManageSelectedUser.value);
 const clientAccessBusy = computed(() => Boolean(pendingClientAccessAction.value));
@@ -2275,6 +2277,29 @@ async function handleRevokeMute(id: string) {
   }
 }
 
+async function handleResetHomework(id: string) {
+  if (!selectedUser.value) return;
+  const confirmed = await appDialogs.confirm({
+    title: "Сбросить прохождение ДЗ?",
+    description: "Результат останется в истории, а клиент сможет отправить новую версию задания.",
+    confirmLabel: "Сбросить",
+    cancelLabel: "Отмена",
+    tone: "danger"
+  });
+  if (!confirmed) return;
+  saving.value = true;
+  try {
+    await resetHomeworkSubmission(id);
+    selectedUserDetail.value = await getAdminUserDetail(selectedUser.value.telegramId);
+    await loadAll();
+    setStatus("Прохождение домашнего задания сброшено.");
+  } catch {
+    setError("Не удалось сбросить прохождение домашнего задания.");
+  } finally {
+    saving.value = false;
+  }
+}
+
 
 
 
@@ -2897,6 +2922,7 @@ onUnmounted(() => {
       :client-access-busy="clientAccessBusy"
       :can-grant-client-access="canGrantClientAccess"
       :can-manage-selected-user="canManageSelectedUser"
+      :can-manage-client-learning="canManageClientLearning"
       :can-manage-selected-user-access="canManageSelectedUserAccess"
       :can-view-login-ips="canViewLoginIps"
       :saving="saving"
@@ -2932,6 +2958,7 @@ onUnmounted(() => {
       @update:client-message-files="clientMessageFiles = $event"
       @submit-message="submitClientMessage"
       @revoke-mute="handleRevokeMute"
+      @reset-homework="handleResetHomework"
       @copy-device-info="copyTextToClipboard"
     />
 

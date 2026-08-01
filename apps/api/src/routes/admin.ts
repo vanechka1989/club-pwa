@@ -1313,7 +1313,7 @@ function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect
 
 async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
-  const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory, learningEngagementRows] = await Promise.all([
+  const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory, learningEngagementRows, quizAssessmentRows, homeworkAssessmentRows] = await Promise.all([
     buildStatsUser(user, totalItems),
     db.query.subscriptions.findMany({
       where: eq(subscriptions.userId, user.id),
@@ -1361,7 +1361,46 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
       .innerJoin(contentCategories, eq(contentCategories.id, contentItems.categoryId))
       .where(eq(learningEngagementSessions.userId, user.id))
       .orderBy(desc(learningEngagementSessions.lastActivityAt))
-      .limit(500)
+      .limit(500),
+    db.select({
+      contentItemId: quizAttempts.contentItemId,
+      title: contentItems.title,
+      categoryTitle: contentCategories.title,
+      recordId: quizAttempts.id,
+      status: quizAttempts.status,
+      attemptNumber: quizAttempts.attemptNumber,
+      earnedPoints: quizAttempts.earnedPoints,
+      maxPoints: quizAttempts.maxPoints,
+      percent: quizAttempts.percent,
+      submittedAt: quizAttempts.submittedAt,
+      reviewedAt: quizAttempts.reviewedAt,
+      reviewComment: assessmentReviews.comment
+    }).from(quizAttempts)
+      .innerJoin(contentItems, eq(contentItems.id, quizAttempts.contentItemId))
+      .innerJoin(contentCategories, eq(contentCategories.id, contentItems.categoryId))
+      .leftJoin(assessmentReviews, eq(assessmentReviews.quizAttemptId, quizAttempts.id))
+      .where(eq(quizAttempts.userId, user.id))
+      .orderBy(desc(quizAttempts.createdAt))
+      .limit(100),
+    db.select({
+      contentItemId: homeworkSubmissions.contentItemId,
+      title: contentItems.title,
+      categoryTitle: contentCategories.title,
+      recordId: homeworkSubmissions.id,
+      status: homeworkSubmissions.status,
+      version: homeworkSubmissions.version,
+      submittedAt: homeworkSubmissions.submittedAt,
+      reviewedAt: homeworkSubmissions.reviewedAt,
+      reviewComment: assessmentReviews.comment,
+      resetAt: homeworkSubmissions.resetAt,
+      resetReason: homeworkSubmissions.resetReason
+    }).from(homeworkSubmissions)
+      .innerJoin(contentItems, eq(contentItems.id, homeworkSubmissions.contentItemId))
+      .innerJoin(contentCategories, eq(contentCategories.id, contentItems.categoryId))
+      .leftJoin(assessmentReviews, eq(assessmentReviews.homeworkSubmissionId, homeworkSubmissions.id))
+      .where(eq(homeworkSubmissions.userId, user.id))
+      .orderBy(desc(homeworkSubmissions.createdAt))
+      .limit(100)
   ]);
 
   const adminActorIds = Array.from(
@@ -1488,7 +1527,47 @@ async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUs
     device,
     devices,
     referrals: userReferrals,
-    learningEngagement: [...learningEngagementByItem.values()]
+    learningEngagement: [...learningEngagementByItem.values()],
+    learningAssessments: [
+      ...quizAssessmentRows.map((row) => ({
+        contentItemId: row.contentItemId,
+        title: row.title,
+        categoryTitle: row.categoryTitle,
+        mode: "quiz" as const,
+        recordId: row.recordId,
+        status: row.status,
+        version: null,
+        attemptNumber: row.attemptNumber,
+        earnedPoints: row.earnedPoints,
+        maxPoints: row.maxPoints,
+        percent: row.percent,
+        submittedAt: row.submittedAt?.toISOString() ?? null,
+        reviewedAt: row.reviewedAt?.toISOString() ?? null,
+        reviewComment: row.reviewComment,
+        resetAt: null,
+        resetReason: null,
+        canReset: row.status === "failed"
+      })),
+      ...homeworkAssessmentRows.map((row) => ({
+        contentItemId: row.contentItemId,
+        title: row.title,
+        categoryTitle: row.categoryTitle,
+        mode: "homework" as const,
+        recordId: row.recordId,
+        status: row.status,
+        version: row.version,
+        attemptNumber: null,
+        earnedPoints: null,
+        maxPoints: null,
+        percent: null,
+        submittedAt: row.submittedAt?.toISOString() ?? null,
+        reviewedAt: row.reviewedAt?.toISOString() ?? null,
+        reviewComment: row.reviewComment,
+        resetAt: row.resetAt?.toISOString() ?? null,
+        resetReason: row.resetReason,
+        canReset: row.status === "accepted"
+      }))
+    ].sort((left, right) => Date.parse(right.submittedAt ?? "") - Date.parse(left.submittedAt ?? ""))
   };
 }
 
@@ -2788,6 +2867,91 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       metadata: { contentItemId: submission.contentItemId, decision: parsed.data.decision }
     });
     return c.json({ ok: true, review });
+  })
+  .post("/learning/assessments/homework/:id/reset", async (c) => {
+    const parsed = quizAttemptResetPayloadSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Invalid reset payload", details: parsed.error.flatten() }, 400);
+    const submission = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.id, c.req.param("id")) });
+    if (!submission) return c.json({ error: "Homework submission not found" }, 404);
+    const [item, latestSubmission, targetRole, actorRole] = await Promise.all([
+      db.query.contentItems.findFirst({ where: eq(contentItems.id, submission.contentItemId) }),
+      db.query.homeworkSubmissions.findFirst({
+        where: and(eq(homeworkSubmissions.userId, submission.userId), eq(homeworkSubmissions.contentItemId, submission.contentItemId)),
+        orderBy: [desc(homeworkSubmissions.version)]
+      }),
+      db.query.users.findFirst({ where: eq(users.id, submission.userId) }).then((target) => target ? getUserRole(target.telegramId) : "member" as const),
+      getUserRole(c.get("telegramUser").id)
+    ]);
+    if (targetRole !== "member" && actorRole !== "owner") return c.json({ error: "Only the owner can reset an administrator's homework" }, 403);
+    const ensureResetEffects = async (reason: string | null, resetByUserId: string) => {
+      const resetActor = await db.query.users.findFirst({ where: eq(users.id, resetByUserId) });
+      const existingNotification = await db.query.appNotifications.findFirst({ where: and(
+        eq(appNotifications.userId, submission.userId),
+        eq(appNotifications.source, "lesson_assessment_reset"),
+        eq(appNotifications.sourceId, submission.id)
+      ) });
+      if (!existingNotification) {
+        await createAppNotification({
+          userId: submission.userId,
+          title: "Домашнее задание открыто повторно",
+          body: reason || "Администратор сбросил прохождение. Отправьте новую версию задания.",
+          source: "lesson_assessment_reset",
+          sourceId: submission.id,
+          pushUrl: `/learning/lessons/${submission.contentItemId}/assessment`
+        }, { deduplicate: true });
+      }
+      const existingAudit = await db.query.adminActionLogs.findFirst({ where: and(
+        eq(adminActionLogs.action, "learning.homework.reset"),
+        eq(adminActionLogs.entityId, submission.id)
+      ) });
+      if (!existingAudit) {
+        await recordAdminAction(c, {
+          action: "learning.homework.reset",
+          entityType: "homework_submission",
+          entityId: submission.id,
+          targetUserId: submission.userId,
+          summary: "Сбросил клиенту прохождение домашнего задания",
+          metadata: { contentItemId: submission.contentItemId, reason },
+          deduplicate: true,
+          actorUserId: resetByUserId,
+          actorTelegramId: resetActor?.telegramId ?? c.get("telegramUser").id
+        });
+      }
+    };
+    if (submission.status === "needs_revision" && submission.resetAt) {
+      await ensureResetEffects(submission.resetReason, submission.resetByUserId ?? c.get("userId"));
+      return c.json({ ok: true, reconciled: true });
+    }
+    if (!item || item.assessmentMode !== "homework") return c.json({ error: "Homework is no longer active for this lesson" }, 409);
+    if (latestSubmission?.id !== submission.id) return c.json({ error: "Only the latest homework submission can be reset" }, 409);
+    if (submission.status !== "accepted") return c.json({ error: "Only accepted homework can be reset" }, 409);
+    const now = new Date();
+    const resetSubmission = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(homeworkSubmissions).set({
+        status: "needs_revision",
+        acceptedAt: null,
+        resetAt: now,
+        resetByUserId: c.get("userId"),
+        resetReason: parsed.data.reason,
+        updatedAt: now
+      }).where(and(eq(homeworkSubmissions.id, submission.id), eq(homeworkSubmissions.status, "accepted"))).returning();
+      if (!updated) return null;
+      await tx.update(userContentProgress).set({ completedAt: null, updatedAt: now }).where(and(
+        eq(userContentProgress.userId, submission.userId),
+        eq(userContentProgress.contentItemId, submission.contentItemId)
+      ));
+      return updated;
+    });
+    if (!resetSubmission) {
+      const current = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.id, submission.id) });
+      if (current?.status === "needs_revision" && current.resetAt) {
+        await ensureResetEffects(current.resetReason, current.resetByUserId ?? c.get("userId"));
+        return c.json({ ok: true, reconciled: true });
+      }
+      return c.json({ error: "Homework was already reset" }, 409);
+    }
+    await ensureResetEffects(parsed.data.reason, c.get("userId"));
+    return c.json({ ok: true });
   })
   .get("/learning/assessments/quiz/:id", async (c) => {
     const attempt = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, c.req.param("id")) });

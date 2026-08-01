@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import type { LearningEngagementResponse, LearningEngagementUsersResponse } from "@club/shared";
-import { ArrowLeft, ChevronRight, Clock3, Eye, Users, Zap } from "lucide-vue-next";
+import { ArrowLeft, CheckCircle2, ChevronRight, ClipboardCheck, Clock3, Eye, FileCheck2, Users, Zap } from "lucide-vue-next";
 import { getAdminLearningEngagement, getAdminLearningEngagementUsers } from "@/api/client";
 
 const props = defineProps<{ from?: string; to?: string }>();
@@ -71,6 +71,17 @@ watch(() => [props.from, props.to], load);
         <article><Zap aria-hidden="true" /><span>Быстрые выходы</span><strong>{{ dashboard.summary.quickExitPercent }}%</strong></article>
       </div>
 
+      <section v-if="dashboard" class="admin-learning-assessment-summary" aria-label="Тесты и домашние задания">
+        <header><ClipboardCheck aria-hidden="true" /><div><strong>Тесты и домашние задания</strong><small>Результаты за выбранный период</small></div></header>
+        <div>
+          <article><FileCheck2 aria-hidden="true" /><span>ДЗ отправлено</span><strong>{{ dashboard.assessments.homeworkSubmitted }}</strong></article>
+          <article><CheckCircle2 aria-hidden="true" /><span>ДЗ принято</span><strong>{{ dashboard.assessments.homeworkAccepted }}</strong></article>
+          <article><Clock3 aria-hidden="true" /><span>Ждут проверки</span><strong>{{ dashboard.assessments.homeworkPendingReview }}</strong></article>
+          <article><ClipboardCheck aria-hidden="true" /><span>Тесты пройдены</span><strong>{{ dashboard.assessments.quizPassed }} / {{ dashboard.assessments.quizSubmitted }}</strong></article>
+        </div>
+        <p v-if="dashboard.assessments.homeworkNeedsRevision">На доработке: {{ dashboard.assessments.homeworkNeedsRevision }}</p>
+      </section>
+
       <p v-if="loading" class="admin-learning-state">Загружаем просмотры…</p>
       <div v-else-if="error" class="admin-learning-state admin-learning-state-error"><p>{{ error }}</p><button class="ui-button" type="button" @click="load">Повторить</button></div>
       <p v-else-if="dashboard && !dashboard.cards.length" class="admin-learning-state">Данные появятся после новых просмотров карточек.</p>
@@ -106,3 +117,6 @@ watch(() => [props.from, props.to], load);
 </template>
 
 <style src="./adminLearningEngagement.css"></style>
+<style scoped>
+.admin-learning-assessment-summary{display:grid;gap:12px;margin:14px 0;padding:15px;border:1px solid rgba(49,221,185,.22);border-radius:19px;background:rgba(7,62,51,.48)}.admin-learning-assessment-summary>header{display:flex;align-items:center;gap:10px}.admin-learning-assessment-summary>header>svg{width:23px;color:#32ddba}.admin-learning-assessment-summary>header>div{display:grid;gap:2px}.admin-learning-assessment-summary small{color:#9eb5af}.admin-learning-assessment-summary>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.admin-learning-assessment-summary article{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:7px;padding:10px;border-radius:13px;background:rgba(0,0,0,.13)}.admin-learning-assessment-summary article svg{width:18px;color:#37d9b7}.admin-learning-assessment-summary article span{color:#b8cbc6;font-size:.76rem}.admin-learning-assessment-summary article strong{font-size:1rem}.admin-learning-assessment-summary>p{margin:0;color:#f3c979;font-size:.8rem}
+</style>

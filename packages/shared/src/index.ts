@@ -1498,6 +1498,27 @@ export const adminUserDeviceSchema = z.object({
 });
 export type AdminUserDevice = z.infer<typeof adminUserDeviceSchema>;
 
+export const adminLearningAssessmentSchema = z.object({
+  contentItemId: z.string(),
+  title: z.string(),
+  categoryTitle: z.string(),
+  mode: z.enum(["quiz", "homework"]),
+  recordId: z.string(),
+  status: z.string(),
+  version: z.number().int().positive().nullable(),
+  attemptNumber: z.number().int().positive().nullable(),
+  earnedPoints: z.number().int().nonnegative().nullable(),
+  maxPoints: z.number().int().nonnegative().nullable(),
+  percent: z.number().min(0).max(100).nullable(),
+  submittedAt: z.string().datetime().nullable(),
+  reviewedAt: z.string().datetime().nullable(),
+  reviewComment: z.string().nullable(),
+  resetAt: z.string().datetime().nullable(),
+  resetReason: z.string().nullable(),
+  canReset: z.boolean()
+});
+export type AdminLearningAssessment = z.infer<typeof adminLearningAssessmentSchema>;
+
 export const adminUserDetailResponseSchema = z.object({
   user: adminStatsUserSchema,
   subscriptions: z.array(adminUserSubscriptionSchema),
@@ -1513,7 +1534,8 @@ export const adminUserDetailResponseSchema = z.object({
     totalActiveSeconds: z.number().int().nonnegative(),
     videoSeconds: z.number().int().nonnegative(),
     lastViewedAt: z.string().datetime()
-  })).default([])
+  })).default([]),
+  learningAssessments: z.array(adminLearningAssessmentSchema).default([])
 });
 export type AdminUserDetailResponse = z.infer<typeof adminUserDetailResponseSchema>;
 
@@ -1578,6 +1600,16 @@ export const learningEngagementCardSchema = z.object({
   lastViewedAt: z.string().datetime()
 });
 
+export const learningAssessmentAnalyticsSchema = z.object({
+  homeworkSubmitted: z.number().int().nonnegative(),
+  homeworkAccepted: z.number().int().nonnegative(),
+  homeworkPendingReview: z.number().int().nonnegative(),
+  homeworkNeedsRevision: z.number().int().nonnegative(),
+  quizSubmitted: z.number().int().nonnegative(),
+  quizPassed: z.number().int().nonnegative()
+});
+export type LearningAssessmentAnalytics = z.infer<typeof learningAssessmentAnalyticsSchema>;
+
 export const learningEngagementResponseSchema = z.object({
   summary: z.object({
     uniqueViewers: z.number().int().nonnegative(),
@@ -1585,7 +1617,15 @@ export const learningEngagementResponseSchema = z.object({
     medianActiveSeconds: z.number().int().nonnegative(),
     quickExitPercent: z.number().min(0).max(100)
   }),
-  cards: z.array(learningEngagementCardSchema)
+  cards: z.array(learningEngagementCardSchema),
+  assessments: learningAssessmentAnalyticsSchema.default({
+    homeworkSubmitted: 0,
+    homeworkAccepted: 0,
+    homeworkPendingReview: 0,
+    homeworkNeedsRevision: 0,
+    quizSubmitted: 0,
+    quizPassed: 0
+  })
 });
 export type LearningEngagementResponse = z.infer<typeof learningEngagementResponseSchema>;
 

@@ -150,6 +150,7 @@ export const adminActionLogs = pgTable(
   (table) => ({
     actorCreatedIdx: index("admin_action_logs_actor_created_idx").on(table.actorTelegramId, table.createdAt),
     actionCreatedIdx: index("admin_action_logs_action_created_idx").on(table.action, table.createdAt),
+    homeworkResetUniqueIdx: uniqueIndex("admin_action_logs_homework_reset_unique").on(table.action, table.entityType, table.entityId).where(sql`${table.action} = 'learning.homework.reset'`),
     entityIdx: index("admin_action_logs_entity_idx").on(table.entityType, table.entityId),
     targetCreatedIdx: index("admin_action_logs_target_created_idx").on(table.targetTelegramId, table.createdAt),
     createdIdx: index("admin_action_logs_created_idx").on(table.createdAt)
@@ -953,6 +954,9 @@ export const homeworkSubmissions = pgTable(
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    resetAt: timestamp("reset_at", { withTimezone: true }),
+    resetByUserId: uuid("reset_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    resetReason: text("reset_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
   },
@@ -1363,7 +1367,8 @@ export const appNotifications = pgTable(
   },
   (table) => ({
     userReadCreatedIdx: index("app_notifications_user_read_created_idx").on(table.userId, table.readAt, table.createdAt),
-    sourceIdx: index("app_notifications_source_idx").on(table.source, table.sourceId)
+    sourceIdx: index("app_notifications_source_idx").on(table.source, table.sourceId),
+    assessmentResetUniqueIdx: uniqueIndex("app_notifications_assessment_reset_unique").on(table.userId, table.source, table.sourceId).where(sql`${table.source} = 'lesson_assessment_reset'`)
   })
 );
 
