@@ -1110,7 +1110,28 @@ export function resetHomeworkSubmission(id: string, reason: string | null = null
 
 export type LessonAssessmentStatus = {
   mode: "none" | "quiz" | "homework";
-  attempts: Array<{ id: string; attemptNumber: number; status: string; earnedPoints: number | null; maxPoints: number | null; percent: number | null; submittedAt: string | null; reviewComment: string | null }>;
+  attempts: Array<{
+    id: string;
+    attemptNumber: number;
+    status: string;
+    earnedPoints: number | null;
+    maxPoints: number | null;
+    percent: number | null;
+    submittedAt: string | null;
+    reviewComment: string | null;
+    questions?: Array<{
+      id: string;
+      type: "single_choice" | "multiple_choice" | "free_text";
+      prompt: string;
+      points: number;
+      optionsSnapshot: Array<{ id: string; text: string }>;
+      selectedOptionIds: string[];
+      text: string | null;
+      correctOptionIds: string[];
+      earnedPoints: number | null;
+      isCorrect: boolean | null;
+    }>;
+  }>;
   submissions: Array<{ id: string; version: number; status: string; submittedAt: string | null; reviewedAt: string | null; resetAt: string | null; resetReason: string | null; reviewComment: string | null }>;
 };
 

@@ -144,9 +144,22 @@ describe("Learning section member content", () => {
     renderAsMember();
 
     expect(await screen.findByText("Ваш прогресс")).toBeTruthy();
-    expect(screen.getAllByText("1 из 1 уроков").length).toBeGreaterThan(0);
+    expect(screen.getByText("Обучение завершено")).toBeTruthy();
+    expect(screen.getAllByText("100%").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Пройдено 1 из 1 уроков")).toHaveLength(2);
     await fireEvent.click(screen.getByRole("button", { name: "Развернуть Клиентский модуль" }));
     expect(await screen.findByText("Пройден")).toBeTruthy();
+  });
+
+  it("opens discovery from the modules header instead of occupying the feed", async () => {
+    renderAsMember();
+
+    const trigger = await screen.findByRole("button", { name: "Открыть поиск и фильтры" });
+    expect(screen.queryByRole("searchbox", { name: "Найти модуль или урок" })).toBeNull();
+    await fireEvent.click(trigger);
+    expect(await screen.findByRole("searchbox", { name: "Найти модуль или урок" })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Закрыть поиск" }));
+    expect(screen.queryByRole("searchbox", { name: "Найти модуль или урок" })).toBeNull();
   });
 
   it("loads full lesson content when a member opens a lesson card", async () => {

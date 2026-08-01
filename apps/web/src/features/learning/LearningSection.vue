@@ -46,6 +46,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Search,
   Square,
   Trash2,
   Video,
@@ -222,6 +223,7 @@ const learningFavoriteSourceIds = computed(() => learningProgress.value?.favorit
 const learningFavorites = useLearningFavorites(learningFavoriteSourceIds);
 const learningSearchQuery = ref("");
 const learningFilter = ref<LearningDiscoveryFilter>("all");
+const learningDiscoveryOpen = ref(false);
 const session = useSessionStore();
 const appDialogs = useAppDialogsStore();
 const ui = useUiStore();
@@ -360,6 +362,10 @@ const overallProgressPercent = computed(() => {
   const total = learningProgress.value?.totalItems ?? 0;
   return total ? Math.round(((learningProgress.value?.completedItems ?? 0) / total) * 100) : 0;
 });
+const overallProgressStateLabel = computed(() => overallProgressPercent.value === 100
+  ? "Обучение завершено"
+  : overallProgressPercent.value > 0 ? "Продолжайте обучение" : "Начните с первого урока"
+);
 const selectedLessonNeighbors = computed(() => {
   const lessonId = selectedLesson.value?.lessonId;
   if (!lessonId) return null;
@@ -3154,9 +3160,10 @@ watch(
 
 <template>
   <section class="modules-section ui-page-section">
+    <div class="modules-header-shell">
     <UiPageHeader :title="t('modulesTitle')" :subtitle="t('modulesSubtitle')">
-      <template v-if="canManageModules" #actions>
-        <div class="modules-panel-actions" aria-label="Управление модулями">
+      <template v-if="canManageModules || (modulesLoadedFromApi && moduleCards.length)" #actions>
+        <div v-if="canManageModules" class="modules-panel-actions" aria-label="Управление модулями">
           <button
             class="icon-button ui-icon-button"
             :class="{ 'payment-edit-toggle-active': isEditingModules }"
@@ -3171,8 +3178,33 @@ watch(
             <Plus class="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
+        <button
+          v-else
+          class="icon-button ui-icon-button learning-discovery-trigger"
+          :class="{ 'is-open': learningDiscoveryOpen, 'has-active-filter': learningDiscoveryActive }"
+          type="button"
+          :aria-label="learningDiscoveryOpen ? 'Закрыть поиск и фильтры' : 'Открыть поиск и фильтры'"
+          :aria-expanded="learningDiscoveryOpen"
+          aria-controls="learning-discovery-panel"
+          @click="learningDiscoveryOpen = !learningDiscoveryOpen"
+        >
+          <Search class="h-5 w-5" aria-hidden="true" />
+        </button>
       </template>
     </UiPageHeader>
+
+    <LearningDiscoveryToolbar
+      v-if="!canManageModules && learningDiscoveryOpen"
+      id="learning-discovery-panel"
+      class="learning-discovery-popover"
+      :query="learningSearchQuery"
+      :filter="learningFilter"
+      @update:query="updateLearningSearch"
+      @update:filter="updateLearningFilter"
+      @reset="resetLearningDiscovery"
+      @close="learningDiscoveryOpen = false"
+    />
+    </div>
 
     <div class="modules-content">
     <p v-if="isLoadingModules" class="modules-edit-hint">{{ t("modulesLoading") }}</p>
@@ -3194,8 +3226,12 @@ watch(
       class="learning-overall-progress ui-card"
       aria-label="Общий прогресс обучения"
     >
-      <div><strong>Ваш прогресс</strong><span>{{ learningProgress.completedItems }} из {{ learningProgress.totalItems }} уроков</span></div>
-      <div class="learning-progress-track" role="progressbar" aria-label="Пройдено уроков" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="overallProgressPercent">
+      <div class="learning-overall-progress__head">
+        <div><strong>Ваш прогресс</strong><span>{{ overallProgressStateLabel }}</span></div>
+        <strong class="learning-progress-percent">{{ overallProgressPercent }}%</strong>
+      </div>
+      <div class="learning-progress-caption"><span>Пройдено {{ learningProgress.completedItems }} из {{ learningProgress.totalItems }} уроков</span><span>{{ overallProgressPercent }}%</span></div>
+      <div class="learning-progress-track" role="progressbar" aria-label="Пройдено уроков" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="overallProgressPercent" :aria-valuetext="`Пройдено ${learningProgress.completedItems} из ${learningProgress.totalItems} уроков`">
         <span :style="{ width: `${overallProgressPercent}%` }"></span>
       </div>
     </section>
@@ -3214,15 +3250,6 @@ watch(
         <span class="continue-lesson-action">{{ continueLessonProgressLabel }}</span>
       </span>
     </button>
-
-    <LearningDiscoveryToolbar
-      v-if="!canManageModules && modulesLoadedFromApi && moduleCards.length"
-      :query="learningSearchQuery"
-      :filter="learningFilter"
-      @update:query="updateLearningSearch"
-      @update:filter="updateLearningFilter"
-      @reset="resetLearningDiscovery"
-    />
 
     <section v-if="!canManageModules && learningDiscoveryActive && !visibleModuleCards.length" class="modules-state-card learning-discovery-empty ui-card">
       <strong>{{ learningFilter === "favorites" && !learningSearchQuery ? "В избранном пока ничего нет" : "Ничего не найдено" }}</strong>
@@ -3323,8 +3350,8 @@ watch(
           </div>
         </div>
         <div v-if="!canManageModules && module.images.length" class="module-learning-progress">
-          <span>{{ moduleProgress(module).completed }} из {{ moduleProgress(module).total }} уроков</span>
-          <div class="learning-progress-track" role="progressbar" :aria-label="`Прогресс модуля ${module.title}`" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="moduleProgress(module).percent">
+          <div class="learning-progress-caption"><span>Пройдено {{ moduleProgress(module).completed }} из {{ moduleProgress(module).total }} уроков</span><strong>{{ moduleProgress(module).percent }}%</strong></div>
+          <div class="learning-progress-track" role="progressbar" :aria-label="`Прогресс модуля ${module.title}`" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="moduleProgress(module).percent" :aria-valuetext="`Пройдено ${moduleProgress(module).completed} из ${moduleProgress(module).total} уроков`">
             <span :style="{ width: `${moduleProgress(module).percent}%` }"></span>
           </div>
         </div>

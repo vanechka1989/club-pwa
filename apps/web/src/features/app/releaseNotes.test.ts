@@ -13,11 +13,11 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes dedicated assessment results as version 5.91", () => {
-    expect(appVersion).toBe("5.91");
-    expect(releaseNotes[0]?.title).toBe("Задания на отдельной странице");
+  it("publishes clearer learning progress and quiz review as version 5.92", () => {
+    expect(appVersion).toBe("5.92");
+    expect(releaseNotes[0]?.title).toBe("Понятный прогресс и результаты теста");
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/результат/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/сброс/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/поиск/i);
 
     const lessonEditorRelease = releaseNotes.find((note) => note.version === "5.90");
     expect(lessonEditorRelease?.title).toBe("Удобная карточка урока");
@@ -261,7 +261,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Assignments on a dedicated page");
+    expect(englishNotes[0]?.title).toBe("Clear learning progress and quiz results");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

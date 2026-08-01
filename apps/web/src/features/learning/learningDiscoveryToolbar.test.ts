@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/vue";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import { afterEach, describe, expect, it } from "vitest";
 import LearningDiscoveryToolbar from "./LearningDiscoveryToolbar.vue";
 
@@ -21,5 +21,14 @@ describe("LearningDiscoveryToolbar", () => {
     expect(screen.getByRole("button", { name: "Пройдено" }).getAttribute("aria-pressed")).toBe("true");
     await fireEvent.click(screen.getByRole("button", { name: "Очистить поиск" }));
     expect(view.emitted().reset).toHaveLength(1);
+  });
+
+  it("focuses the compact search panel and lets the member close it", async () => {
+    const view = render(LearningDiscoveryToolbar, { props: { query: "", filter: "all" } });
+
+    const input = screen.getByRole("searchbox", { name: "Найти модуль или урок" });
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    await fireEvent.click(screen.getByRole("button", { name: "Закрыть поиск" }));
+    expect(view.emitted().close).toHaveLength(1);
   });
 });

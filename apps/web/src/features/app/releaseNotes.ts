@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Assignments on a dedicated page",
+  title: "Clear learning progress and quiz results",
   items: [
-    "Tests and homework now open on a dedicated page from a clear action inside the lesson.",
-    "Submission results show points, percentages, attempts, thresholds, versions, timestamps, and reviewer feedback.",
-    "Client details and analytics include assessment outcomes, with an audited reset action for accepted homework."
+    "Lesson search now opens from a compact action in the modules header while preserving all discovery filters.",
+    "Overall and module progress show percentages, completed lesson counts, and clear learning states.",
+    "Completed quizzes explain each answer, correct option, mistake, and awarded points without duplicating the passing threshold."
   ]
 };
 

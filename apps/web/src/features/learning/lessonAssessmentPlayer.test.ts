@@ -29,17 +29,30 @@ describe("LessonAssessmentPlayer", () => {
     expect((screen.getByLabelText("4") as HTMLInputElement).checked).toBe(true);
   });
 
-  it("shows a concrete quiz result instead of a single percent badge", async () => {
+  it("explains each submitted quiz answer without duplicating the passing condition", async () => {
     api.getLessonAssessmentStatus.mockResolvedValue({
       mode: "quiz",
-      attempts: [{ id: "attempt-1", attemptNumber: 2, status: "passed", earnedPoints: 4, maxPoints: 5, percent: 80, submittedAt: "2026-08-01T12:30:00.000Z", reviewComment: null }],
+      attempts: [{
+        id: "attempt-1", attemptNumber: 2, status: "failed", earnedPoints: 2, maxPoints: 4, percent: 50,
+        submittedAt: "2026-08-01T12:30:00.000Z", reviewComment: null,
+        questions: [
+          { id: "question-1", type: "single_choice", prompt: "Сколько будет 2 + 2?", points: 2, optionsSnapshot: [{ id: "three", text: "3" }, { id: "four", text: "4" }], selectedOptionIds: ["four"], correctOptionIds: ["four"], text: null, earnedPoints: 2, isCorrect: true },
+          { id: "question-2", type: "single_choice", prompt: "Столица Франции?", points: 2, optionsSnapshot: [{ id: "rome", text: "Рим" }, { id: "paris", text: "Париж" }], selectedOptionIds: ["rome"], correctOptionIds: ["paris"], text: null, earnedPoints: 0, isCorrect: false }
+        ]
+      }],
       submissions: []
     });
     render(LessonAssessmentPlayer, { props: { lessonId: "lesson-1", assessment: { mode: "quiz", title: "Итоговый тест", instructions: null, passingPercent: 70, maxAttempts: 3, questions: [] } } });
 
-    expect(await screen.findByText("4 из 5 баллов")).toBeTruthy();
+    expect(await screen.findByText("2 из 4 баллов")).toBeTruthy();
     expect(screen.getByText("Попытка 2 из 3")).toBeTruthy();
-    expect(screen.getByText("Проходной результат 70%")).toBeTruthy();
+    expect(screen.queryByText("Проходной результат 70%")).toBeNull();
+    expect(screen.getByLabelText("Ваш ответ: 4")).toBeTruthy();
+    expect(screen.getByLabelText("Правильный ответ: 4")).toBeTruthy();
+    expect(screen.getByLabelText("Ваш ответ: Рим")).toBeTruthy();
+    expect(screen.getByLabelText("Правильный ответ: Париж")).toBeTruthy();
+    expect(screen.getByText("Верно · 2 из 2 баллов")).toBeTruthy();
+    expect(screen.getByText("Ошибка · 0 из 2 баллов")).toBeTruthy();
   });
 
   it("shows homework version and review timeline", async () => {

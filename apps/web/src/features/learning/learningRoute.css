@@ -2032,25 +2032,45 @@ body.club-mobile-device .module-name-modal {
   justify-self: start;
 }
 
-.learning-overall-progress > div:first-child,
-.module-learning-progress > span {
+.learning-overall-progress__head,
+.learning-progress-caption {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.learning-overall-progress > div:first-child span,
-.module-learning-progress > span {
+.learning-overall-progress__head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.learning-overall-progress__head > div span,
+.learning-progress-caption {
   color: var(--text-muted);
   font-size: 0.82rem;
 }
 
+.learning-progress-percent {
+  color: var(--accent);
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  line-height: 1;
+}
+
+.learning-progress-caption strong,
+.learning-progress-caption > span:last-child {
+  color: var(--text);
+  font-size: .82rem;
+  font-weight: 850;
+}
+
 .learning-progress-track {
-  height: 7px;
+  height: 10px;
   overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 23%, var(--border));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-soft));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
 }
 
 .learning-progress-track > span {
@@ -2063,7 +2083,7 @@ body.club-mobile-device .module-name-modal {
 
 .module-learning-progress {
   display: grid;
-  gap: 7px;
+  gap: 9px;
   padding: 0 16px 14px;
 }
 
@@ -2155,6 +2175,12 @@ body.club-mobile-device .module-name-modal {
 
 .modules-section {
   gap: 12px;
+}
+
+.modules-header-shell {
+  position: relative;
+  z-index: 31;
+  min-width: 0;
 }
 
 .modules-section .admin-mockup-list {
@@ -2496,7 +2522,80 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 .learning-discovery-toolbar {
   display: grid;
   gap: 10px;
-  padding: 12px;
+  padding: 14px;
+}
+
+.learning-discovery-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(420px, 100%);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, .32);
+  animation: learning-discovery-enter 160ms ease-out;
+}
+
+@keyframes learning-discovery-enter {
+  from { opacity: 0; transform: translateY(-6px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.learning-discovery-trigger {
+  position: relative;
+}
+
+.learning-discovery-trigger.is-open {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--accent);
+}
+
+.learning-discovery-trigger.has-active-filter::after {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: #f6c453;
+  content: "";
+}
+
+.learning-discovery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.learning-discovery-head > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.learning-discovery-head span {
+  color: var(--text-muted);
+  font-size: .74rem;
+}
+
+.learning-discovery-head button {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+}
+
+.learning-discovery-head button svg {
+  width: 19px;
 }
 
 .learning-search-field {

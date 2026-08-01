@@ -19,6 +19,7 @@ import { scoreQuizAttempt } from "../learning/assessmentScoring";
 import { getQuizAttemptAllowance } from "../learning/assessmentAttemptPolicy";
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
 import { buildHomeworkObjectKey, classifyHomeworkContentType, ownsHomeworkObject } from "../learning/homeworkUpload";
+import { buildQuizAttemptReview } from "../learning/assessmentStatusResult";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -454,6 +455,16 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
           orderBy: [desc(homeworkSubmissions.version)]
         })
       : [];
+    const submittedAttemptIds = attempts.filter((attempt) => attempt.status !== "in_progress").map((attempt) => attempt.id);
+    const attemptQuestions = submittedAttemptIds.length
+      ? await db.query.quizAttemptQuestions.findMany({
+          where: inArray(quizAttemptQuestions.attemptId, submittedAttemptIds),
+          orderBy: [asc(quizAttemptQuestions.sortOrder)]
+        })
+      : [];
+    const attemptAnswers = submittedAttemptIds.length
+      ? await db.query.quizAnswers.findMany({ where: inArray(quizAnswers.attemptId, submittedAttemptIds) })
+      : [];
     const reviews = attempts.length || submissions.length
       ? await db.query.assessmentReviews.findMany({
           where: or(
@@ -472,7 +483,12 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         maxPoints: attempt.maxPoints,
         percent: attempt.percent,
         submittedAt: attempt.submittedAt?.toISOString() ?? null,
-        reviewComment: reviews.find((review) => review.quizAttemptId === attempt.id)?.comment ?? null
+        reviewComment: reviews.find((review) => review.quizAttemptId === attempt.id)?.comment ?? null,
+        questions: buildQuizAttemptReview(
+          attempt.status,
+          attemptQuestions.filter((question) => question.attemptId === attempt.id),
+          attemptAnswers.filter((answer) => answer.attemptId === attempt.id)
+        )
       })),
       submissions: submissions.map((submission) => ({
         id: submission.id,

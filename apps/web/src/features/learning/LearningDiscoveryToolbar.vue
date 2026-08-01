@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick, onMounted, ref } from "vue";
 import { Search, X } from "lucide-vue-next";
 import type { LearningDiscoveryFilter } from "./learningDiscovery";
 
@@ -7,7 +8,9 @@ const emit = defineEmits<{
   "update:query": [value: string];
   "update:filter": [value: LearningDiscoveryFilter];
   reset: [];
+  close: [];
 }>();
+const searchInput = ref<HTMLInputElement | null>(null);
 
 const filters: Array<{ value: LearningDiscoveryFilter; label: string }> = [
   { value: "all", label: "Все" },
@@ -15,13 +18,23 @@ const filters: Array<{ value: LearningDiscoveryFilter; label: string }> = [
   { value: "in_progress", label: "В процессе" },
   { value: "completed", label: "Пройдено" }
 ];
+
+onMounted(async () => {
+  await nextTick();
+  searchInput.value?.focus();
+});
 </script>
 
 <template>
-  <section class="learning-discovery-toolbar ui-card" aria-label="Поиск и фильтры уроков">
+  <section class="learning-discovery-toolbar ui-card" aria-label="Поиск и фильтры уроков" @keydown.esc="emit('close')">
+    <header class="learning-discovery-head">
+      <div><strong>Найти урок</strong><span>По названию, модулю или статусу</span></div>
+      <button type="button" aria-label="Закрыть поиск" @click="emit('close')"><X aria-hidden="true" /></button>
+    </header>
     <label class="learning-search-field">
       <Search aria-hidden="true" />
       <input
+        ref="searchInput"
         :value="query"
         type="search"
         aria-label="Найти модуль или урок"
