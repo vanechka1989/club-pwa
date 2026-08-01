@@ -2508,7 +2508,8 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 .lesson-card-favorite {
   position: absolute;
   z-index: 4;
-  top: 8px;
+  top: auto;
+  bottom: 8px;
   right: 8px;
   box-shadow: 0 5px 16px rgba(0, 0, 0, .18);
 }

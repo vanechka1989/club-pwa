@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "A clearer learning path",
+  title: "The right lessons, always close at hand",
   items: [
-    "Modules now show overall progress, per-module progress, and clear lesson statuses.",
-    "Learners can move to the previous or next lesson across module boundaries.",
-    "Empty and failed loads now show honest states with a retry action instead of demo cards."
+    "Search and filters make it easy to find lessons, favorites, in-progress items, and completed materials.",
+    "Favorite lessons stay attached to the member account and sync across devices.",
+    "Each lesson now includes personal notes with clear save and retry states."
   ]
 };
 

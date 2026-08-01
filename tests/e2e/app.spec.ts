@@ -1659,10 +1659,24 @@ test("shows a clear learning path with progress and lesson navigation", async ({
   await page.route("**/api/learning", (route) => route.fulfill(json({
     categories: [{ ...adminLearningCategory, id: "module-path", title: "Маршрут", itemsCount: 2 }],
     featured: lessons,
-    progress: { totalItems: 2, completedItems: 1, startedItemIds: ["lesson-path-1", "lesson-path-2"], completedItemIds: ["lesson-path-1"], lastOpenedItem: null, lastOpenedMaterialId: null, lastOpenedAt: null, lastOpenedPlaybackPositionSeconds: 0 }
+    progress: { totalItems: 2, completedItems: 1, startedItemIds: ["lesson-path-1", "lesson-path-2"], completedItemIds: ["lesson-path-1"], favoriteItemIds: [], lastOpenedItem: { ...lessons[0], body: "Содержимое: Первый урок" }, lastOpenedMaterialId: null, lastOpenedAt: now, lastOpenedPlaybackPositionSeconds: 0 }
   })));
-  await page.route("**/api/learning/items/*", async (route) => {
-    const id = new URL(route.request().url()).pathname.split("/").at(-1);
+  await page.route("**/api/learning/items/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/favorite")) {
+      await route.fulfill(json({ ok: true, favorite: route.request().method() === "PUT" }));
+      return;
+    }
+    if (path.endsWith("/comments")) {
+      if (route.request().method() === "POST") {
+        const body = route.request().postDataJSON() as { body: string };
+        await route.fulfill(json({ ok: true, comment: { id: "note-e2e", contentItemId: "lesson-path-1", body: body.body, status: "visible", author: ownAuthor, createdAt: now } }));
+      } else {
+        await route.fulfill(json({ comments: [], mutedUntil: null, mutedPermanently: false }));
+      }
+      return;
+    }
+    const id = path.split("/").at(-1);
     const item = lessons.find((lesson) => lesson.id === id) ?? lessons[0];
     await route.fulfill(json({ item: { ...item, body: `Содержимое: ${item.title}` }, completedAt: item.id === "lesson-path-1" ? now : null, lastOpenedMaterialId: null, playbackPositionSeconds: 0 }));
   });
@@ -1671,11 +1685,20 @@ test("shows a clear learning path with progress and lesson navigation", async ({
 
   await expect(page.getByText("Ваш прогресс")).toBeVisible();
   await expect(page.getByText("1 из 2 уроков").first()).toBeVisible();
-  await page.getByRole("button", { name: "Развернуть Маршрут" }).click();
-  await expect(page.getByText("Пройден")).toBeVisible();
-  await expect(page.getByText("В процессе")).toBeVisible();
+  await expect(page.locator(".continue-lesson-card")).toHaveCount(1);
+  await page.getByRole("searchbox", { name: "Найти модуль или урок" }).fill("Первый");
+  await expect(page.getByRole("button", { name: "Открыть урок Первый урок" })).toBeVisible();
+  await page.locator('[data-lesson-id="lesson-path-1"]').getByRole("button", { name: "Добавить в избранное" }).click();
+  await page.getByRole("button", { name: "Избранное", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Избранное", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Открыть урок Первый урок" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("learning-path-overview.png"), fullPage: false });
   await page.getByRole("button", { name: "Открыть урок Первый урок" }).click();
+  await page.getByRole("button", { name: "Открыть мои заметки" }).click();
+  await page.getByRole("textbox", { name: "Новая заметка" }).fill("Важная мысль");
+  await page.getByRole("button", { name: "Сохранить заметку" }).click();
+  await expect(page.getByText("Важная мысль")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("learning-notes.png"), fullPage: false });
   await page.getByRole("button", { name: "Следующий урок" }).click();
   await expect(page.getByRole("heading", { name: "Второй урок" })).toBeVisible();
   await expectNoHorizontalOverflow(page);

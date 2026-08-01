@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getLearningContent, getLearningHome, saveLearningPlayback } from "@/api/client";
+import { getLearningContent, getLearningHome, getLessonComments, saveLearningPlayback } from "@/api/client";
 import { useSessionStore } from "@/stores/session";
 import LearningSection from "./LearningSection.vue";
 
@@ -118,6 +118,7 @@ describe("Learning section member content", () => {
       ok: true,
       playbackPositionSeconds: 252
     });
+    vi.mocked(getLessonComments).mockResolvedValue({ comments: [], mutedUntil: null, mutedPermanently: false });
   });
 
   it("shows honest empty and retry states instead of demo lessons", async () => {
@@ -157,6 +158,13 @@ describe("Learning section member content", () => {
     await waitFor(() => expect(getLearningContent).toHaveBeenCalledWith("lesson-1"));
     expect(screen.getByText("Полный текст урока для клиента.")).toBeTruthy();
     expect(screen.queryByText("Содержимое урока пока не добавлено.")).toBeNull();
+  });
+
+  it("shows personal notes inside a persisted member lesson", async () => {
+    renderAsMember();
+    await fireEvent.click(await screen.findByRole("button", { name: "Развернуть Клиентский модуль" }));
+    await fireEvent.click(screen.getByRole("button", { name: /Урок с содержимым/ }));
+    expect(await screen.findByRole("button", { name: "Открыть мои заметки" })).toBeTruthy();
   });
 
   it("does not show an empty content message for media-only lessons", async () => {
