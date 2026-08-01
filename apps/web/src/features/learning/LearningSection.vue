@@ -16,6 +16,9 @@ import {
   type LearningProgressSummary,
   type LessonMaterial,
   type LessonCoverMode,
+  lessonAssessmentDraftSchema,
+  type LessonAssessmentConfig,
+  type LessonAssessmentDraft,
   type MediaSource
 } from "@club/shared";
 import {
@@ -55,6 +58,7 @@ import {
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
   getAdminLearning,
+  getAdminLessonAssessment,
   getAdminLearningMaterialOperation,
   getApiRequestHeaders,
   getLearningContent,
@@ -67,7 +71,8 @@ import {
   saveLearningPlayback,
   updateAdminLearningCategory,
   updateAdminLearningMaterial,
-  updateAdminLearningMaterialDirect
+  updateAdminLearningMaterialDirect,
+  updateAdminLessonAssessment
 } from "@/api/client";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
 import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
@@ -108,6 +113,9 @@ import { filterLearningModules, type LearningDiscoveryFilter } from "./learningD
 import LearningFavoriteButton from "./LearningFavoriteButton.vue";
 import { useLearningFavorites } from "./useLearningFavorites";
 import LearningLessonNotes from "./LearningLessonNotes.vue";
+import LessonAssessmentEditor from "./LessonAssessmentEditor.vue";
+import LessonAssessmentPlayer from "./LessonAssessmentPlayer.vue";
+import AdminAssessmentReviewQueue from "./AdminAssessmentReviewQueue.vue";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -155,6 +163,7 @@ type ModuleLesson = {
   isPersisted: boolean;
   isPublished?: boolean;
   archivedUntil: string | null;
+  assessment?: LessonAssessmentConfig | null;
 };
 
 type ModuleCard = {
@@ -247,6 +256,8 @@ const lessonCardLayout = ref<ContentCardLayout>("vertical");
 const lessonPublished = ref(false);
 const lessonContent = ref("");
 const lessonMaterialDrafts = ref<LessonMaterialDraft[]>([]);
+const lessonAssessmentDraft = ref<LessonAssessmentDraft>({ mode: "none" });
+const isLoadingLessonAssessment = ref(false);
 const lessonError = ref("");
 const isLoadingLessonContent = ref(false);
 const lessonViewerError = ref("");
@@ -794,6 +805,35 @@ function stopLearningEngagement() {
   if (tracker) void tracker.dispose();
 }
 
+async function loadAdminLessonAssessment(lessonId: string) {
+  if (!canManageModules.value || !modulesLoadedFromApi.value) return;
+  isLoadingLessonAssessment.value = true;
+  try {
+    const response = await getAdminLessonAssessment(lessonId);
+    if (selectedLesson.value?.lessonId === lessonId) {
+      lessonAssessmentDraft.value = JSON.parse(JSON.stringify(response.assessment)) as LessonAssessmentDraft;
+    }
+  } catch {
+    if (selectedLesson.value?.lessonId === lessonId) showLessonError("Не удалось загрузить настройки задания.");
+  } finally {
+    if (selectedLesson.value?.lessonId === lessonId) isLoadingLessonAssessment.value = false;
+  }
+}
+
+function normalizedAssessmentDraft(): LessonAssessmentDraft {
+  const draft = JSON.parse(JSON.stringify(lessonAssessmentDraft.value)) as LessonAssessmentDraft;
+  if (draft.mode === "homework" && draft.dueAt && !draft.dueAt.endsWith("Z")) {
+    draft.dueAt = new Date(draft.dueAt).toISOString();
+  }
+  return draft;
+}
+
+async function saveLessonAssessment(lessonId: string, draft = normalizedAssessmentDraft()) {
+  const parsed = lessonAssessmentDraftSchema.safeParse(draft);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Проверьте настройки задания");
+  await updateAdminLessonAssessment(lessonId, parsed.data);
+}
+
 function openLessonModal(
   module: ModuleCard,
   lesson: ModuleLesson,
@@ -833,6 +873,7 @@ function openLessonModal(
   lessonContent.value = lesson.content;
   lessonPublished.value = lesson.isPublished ?? true;
   lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
+  lessonAssessmentDraft.value = lesson.assessment?.mode ? JSON.parse(JSON.stringify(lesson.assessment)) as LessonAssessmentDraft : { mode: "none" };
   lessonEditorMode.value = canManageModules.value && editorMode;
   if (!lessonEditorMode.value) {
     startLearningEngagement(lesson);
@@ -842,6 +883,7 @@ function openLessonModal(
   clearLessonViewerError();
   void loadLessonContentForMember(lesson);
   if (lessonEditorMode.value) {
+    void loadAdminLessonAssessment(lesson.id);
     openLearningTask(`/learning/lessons/${lesson.id}/edit`);
   } else {
     openLearningTask(`/learning/lessons/${lesson.id}`);
@@ -855,6 +897,7 @@ function openLessonEditor() {
 
   stopLearningEngagement();
   lessonEditorMode.value = true;
+  void loadAdminLessonAssessment(selectedLessonItem.value.id);
   openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/edit`);
 }
 
@@ -919,6 +962,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonPublished.value = false;
   lessonContent.value = "";
   lessonMaterialDrafts.value = [];
+  lessonAssessmentDraft.value = { mode: "none" };
   lessonEditorMode.value = true;
   clearLessonError();
   isLoadingLessonContent.value = false;
@@ -950,6 +994,7 @@ function closeLessonModal() {
   lessonContent.value = "";
   lessonPublished.value = false;
   lessonMaterialDrafts.value = [];
+  lessonAssessmentDraft.value = { mode: "none" };
   lessonEditorMode.value = false;
   clearLessonError();
   isLoadingLessonContent.value = false;
@@ -1031,7 +1076,7 @@ function handleLessonViewerScroll(event: Event) {
 function maybeAutoCompleteLesson() {
   const lesson = selectedLessonItem.value;
   const snapshot = learningEngagementTracker?.currentSnapshot();
-  if (!lesson?.isPersisted || canManageModules.value || isLoadingLessonContent.value || lessonViewerError.value || !snapshot) return;
+  if (!lesson?.isPersisted || canManageModules.value || isLoadingLessonContent.value || lessonViewerError.value || !snapshot || (lesson.assessment?.mode && lesson.assessment.mode !== "none")) return;
 
   const primaryKey = getPrimaryCompletionMediaKey(lesson);
   const media = primaryKey && primaryCompletionMedia.value?.key === primaryKey
@@ -1060,6 +1105,20 @@ function maybeAutoCompleteLesson() {
     };
   }
   void queueLearningCompletion(lesson.id).catch(() => undefined);
+}
+
+function handleAssessmentCompleted() {
+  const lesson = selectedLessonItem.value;
+  if (!lesson || activeLessonCompleted.value) return;
+  activeLessonCompleted.value = true;
+  if (learningProgress.value) {
+    learningProgress.value = {
+      ...learningProgress.value,
+      completedItems: Math.min(learningProgress.value.totalItems, learningProgress.value.completedItems + 1),
+      startedItemIds: [...new Set([...(learningProgress.value.startedItemIds ?? []), lesson.id])],
+      completedItemIds: [...new Set([...(learningProgress.value.completedItemIds ?? []), lesson.id])]
+    };
+  }
 }
 
 function startLearningCompletionTimer() {
@@ -1542,7 +1601,8 @@ function materialToLesson(item: AdminLearningMaterial | LearningContent): Module
     cardLayout: item.cardLayout,
     isPersisted: true,
     isPublished,
-    archivedUntil
+    archivedUntil,
+    assessment: "assessment" in item ? item.assessment ?? { mode: "none" } : { mode: "none" }
   };
 }
 
@@ -2002,7 +2062,8 @@ async function startBackgroundLessonUpload() {
     removeThumbnail: shouldRemoveLessonThumbnail.value,
     mediaFile: lessonFile.value,
     thumbnailFile: lessonThumbnailFile.value,
-    materials: lessonMaterialDrafts.value.map((material) => ({ ...material }))
+    materials: lessonMaterialDrafts.value.map((material) => ({ ...material })),
+    assessment: normalizedAssessmentDraft()
   };
   const idempotencyKey = draft.lessonId ? null : crypto.randomUUID();
   const hasMedia = Boolean(draft.mediaFile);
@@ -2161,6 +2222,10 @@ async function startBackgroundLessonUpload() {
       }
     }
     throwIfUploadCancelled(abortController.signal);
+
+    currentStage = "Сохранение задания";
+    lessonUploads.update(draft.id, { detail: "Сохраняем проверку знаний" });
+    await saveLessonAssessment(response.material.id, draft.assessment);
 
     if (draft.lessonId) {
       replaceMaterialInModule(response.material);
@@ -2344,7 +2409,8 @@ function saveLessonLocally() {
     cardLayout: selectedModuleLessonLayout.value,
     isPersisted: false,
     isPublished: lessonPublished.value,
-    archivedUntil: null
+    archivedUntil: null,
+    assessment: lessonAssessmentDraft.value.mode === "none" ? { mode: "none" } : lessonAssessmentDraft.value as LessonAssessmentConfig
   };
 
   if (selectedLessonItem.value) {
@@ -2363,6 +2429,12 @@ async function saveLesson() {
 
   if (!trimmedLessonTitle.value) {
     showLessonError("Введите название урока.");
+    return;
+  }
+
+  const assessmentValidation = lessonAssessmentDraftSchema.safeParse(normalizedAssessmentDraft());
+  if (!assessmentValidation.success) {
+    showLessonError(assessmentValidation.error.issues[0]?.message ?? "Проверьте настройки задания.");
     return;
   }
 
@@ -2461,6 +2533,8 @@ async function saveLesson() {
         ? await updateAdminLearningMaterialDirect(selectedLessonItem.value.id, payload)
         : await createAdminLearningMaterialDirect(payload);
 
+      await saveLessonAssessment(response.material.id, assessmentValidation.data);
+
       if (selectedLessonItem.value?.isPersisted) {
         replaceMaterialInModule(response.material);
       } else {
@@ -2476,12 +2550,14 @@ async function saveLesson() {
 
     if (selectedLessonItem.value?.isPersisted) {
       const response = await updateAdminLearningMaterial(selectedLessonItem.value.id, buildLessonForm());
+      await saveLessonAssessment(response.material.id, assessmentValidation.data);
       replaceMaterialInModule(response.material);
       showLessonViewer(existingLessonId);
       return;
     }
 
     const response = await createAdminLearningMaterial(buildLessonForm());
+    await saveLessonAssessment(response.material.id, assessmentValidation.data);
     addMaterialToModule(response.material);
     closeLessonModal();
   } catch {
@@ -2975,6 +3051,8 @@ watch(
       <p>{{ canManageModules ? "Создайте первый модуль и добавьте в него уроки." : "Новые материалы появятся здесь после публикации." }}</p>
       <button v-if="canManageModules" class="primary-button ui-button" type="button" @click="openModuleModal">Создать модуль</button>
     </section>
+
+    <AdminAssessmentReviewQueue v-if="canManageModules && modulesLoadedFromApi" />
 
     <section
       v-if="!canManageModules && learningProgress && learningProgress.totalItems > 0"
@@ -3577,6 +3655,13 @@ watch(
                   <p v-if="material.body">{{ material.body }}</p>
                 </div>
               </section>
+              <LessonAssessmentPlayer
+                v-if="!canManageModules && selectedLessonItem.isPersisted && selectedLessonItem.assessment && selectedLessonItem.assessment.mode !== 'none'"
+                :key="`${selectedLessonItem.id}-${selectedLessonItem.assessment.mode}`"
+                :lesson-id="selectedLessonItem.id"
+                :assessment="selectedLessonItem.assessment"
+                @completed="handleAssessmentCompleted"
+              />
               <LearningLessonNotes
                 v-if="!canManageModules && selectedLessonItem.isPersisted"
                 :key="selectedLessonItem.id"
@@ -3723,6 +3808,9 @@ watch(
                 <input v-model="lessonPublished" type="checkbox" aria-label="Опубликовать урок" />
                 <span>Опубликовать урок</span>
               </label>
+
+              <div v-if="isLoadingLessonAssessment" class="assessment-loading">Загружаем настройки задания…</div>
+              <LessonAssessmentEditor v-else v-model="lessonAssessmentDraft" />
 
               <section class="lesson-extra-materials">
                 <header>

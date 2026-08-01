@@ -60,6 +60,7 @@ import type {
   LearningHomeResponse,
   LearningPlaybackMutationResponse,
   LearningProgressMutationResponse,
+  LessonAssessmentDraft,
   MessageReaction,
   PaymentsResponse,
   PaymentOrderLogsResponse,
@@ -1060,4 +1061,83 @@ export function deleteAdminLearningMaterial(id: string) {
   return api<AdminMutationResponse>(`/admin/learning/materials/${id}`, {
     method: "DELETE"
   });
+}
+
+export function getAdminLessonAssessment(id: string) {
+  return api<{ assessment: LessonAssessmentDraft }>(`/admin/learning/materials/${id}/assessment`);
+}
+
+export function updateAdminLessonAssessment(id: string, assessment: LessonAssessmentDraft) {
+  return api<{ ok: true; assessment: LessonAssessmentDraft }>(`/admin/learning/materials/${id}/assessment`, {
+    method: "PUT",
+    body: assessment
+  });
+}
+
+export type AssessmentReviewQueue = {
+  total: number;
+  homework: Array<{ id: string; user: { displayName: string; photoUrl: string | null } | null; lesson: { id: string; title: string } | null; version: number; text: string | null; submittedAt: string | null }>;
+  quizzes: Array<{ id: string; user: { displayName: string; photoUrl: string | null } | null; lesson: { id: string; title: string } | null; attemptNumber: number; submittedAt: string | null }>;
+};
+
+export function getAssessmentReviewQueue() {
+  return api<AssessmentReviewQueue>("/admin/learning/assessments/review-queue");
+}
+
+export function getHomeworkReview(id: string) {
+  return api<{ submission: { id: string; text: string | null; version: number }; attachments: Array<{ id: string; fileName: string; contentType: string; sizeBytes: number; url: string }> }>(`/admin/learning/assessments/homework/${id}`);
+}
+
+export function reviewHomework(id: string, payload: { decision: "accepted" | "needs_revision"; comment: string | null; idempotencyKey: string }) {
+  return api<{ ok: true }>(`/admin/learning/assessments/homework/${id}/review`, { method: "POST", body: payload });
+}
+
+export function getQuizReview(id: string) {
+  return api<{ attempt: { id: string }; questions: Array<{ id: string; type: string; prompt: string; points: number; optionsSnapshot: Array<{ id: string; text: string }>; answer: { text: string | null; selectedOptionIds: string[] } | null }> }>(`/admin/learning/assessments/quiz/${id}`);
+}
+
+export function reviewQuiz(id: string, payload: { questionPoints: Record<string, number>; comment: string | null; idempotencyKey: string }) {
+  return api<{ ok: true }>(`/admin/learning/assessments/quiz/${id}/review`, { method: "POST", body: payload });
+}
+
+export type LessonAssessmentStatus = {
+  mode: "none" | "quiz" | "homework";
+  attempts: Array<{ id: string; attemptNumber: number; status: string; earnedPoints: number | null; maxPoints: number | null; percent: number | null; submittedAt: string | null }>;
+  submissions: Array<{ id: string; version: number; status: string; submittedAt: string | null; reviewedAt: string | null }>;
+};
+
+export type LessonQuizAttemptResponse = {
+  attempt: {
+    id: string;
+    attemptNumber: number;
+    maxAttempts: number;
+    status: string;
+    questions: Array<{
+      id: string;
+      type: "single_choice" | "multiple_choice" | "free_text";
+      prompt: string;
+      points: number;
+      optionsSnapshot: Array<{ id: string; text: string }>;
+    }>;
+  };
+};
+
+export function getLessonAssessmentStatus(id: string) {
+  return api<LessonAssessmentStatus>(`/learning/items/${id}/assessment/status`);
+}
+
+export function startLessonQuiz(id: string) {
+  return api<LessonQuizAttemptResponse>(`/learning/items/${id}/quiz/start`, { method: "POST", body: {} });
+}
+
+export function submitLessonQuiz(id: string, attemptId: string, payload: { submissionKey: string; answers: Array<{ questionId: string; selectedOptionIds: string[]; text: string | null }> }) {
+  return api<{ ok: true; result: { status: string; earnedPoints: number; maxPoints: number; percent: number } }>(`/learning/items/${id}/quiz/${attemptId}/submit`, { method: "POST", body: payload });
+}
+
+export function createHomeworkUpload(id: string, payload: { fileName: string; contentType: string; sizeBytes: number }) {
+  return api<{ uploadUrl: string; objectKey: string; fileName: string; contentType: string; sizeBytes: number }>(`/learning/items/${id}/homework/uploads`, { method: "POST", body: payload });
+}
+
+export function submitLessonHomework(id: string, payload: { submissionKey: string; text: string | null; attachments: Array<{ objectKey: string; fileName: string; contentType: string; sizeBytes: number }> }) {
+  return api<{ ok: true; submission: { id: string; version: number; status: string } }>(`/learning/items/${id}/homework/submit`, { method: "POST", body: payload });
 }

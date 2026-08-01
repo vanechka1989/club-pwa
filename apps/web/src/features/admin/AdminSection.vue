@@ -31,6 +31,7 @@ import {
   CalendarClock,
   ChevronRight,
   CircleAlert,
+  ClipboardCheck,
   Cloud,
   CreditCard,
   Link2,
@@ -57,6 +58,7 @@ import {
   deleteAdminS3Object,
   getAdminActionLogs,
   getAdminLearning,
+  getAssessmentReviewQueue,
   getAdminMailings,
   getAdminMailingAnalytics,
   getAdminMailingAnalyticsRecipients,
@@ -300,6 +302,7 @@ const selectedMailingBodyHtml = computed(() => {
 const pendingOpenClientTelegramId = ref<string | null>(null);
 const learningCategories = ref<LearningCategory[]>([]);
 const learningMaterials = ref<AdminLearningMaterial[]>([]);
+const assessmentReviewCount = ref(0);
 const search = ref("");
 const subscriptionFilter = ref<"all" | "active" | "closed">("all");
 const tariffFilter = ref("all");
@@ -1362,6 +1365,10 @@ function openPaymentAttention() {
   });
 }
 
+function openAssessmentAttention() {
+  void router.push("/learning");
+}
+
 function openUserTariffDrilldown(tariff: { tariff: string; label: string }) {
   activeStatisticsDetail.value = null;
   selectedUserDrilldown.value = {
@@ -2064,7 +2071,8 @@ async function loadAll() {
       paymentsResponse,
       topicsResponse,
       mailingsResponse,
-      actionLogsResponse
+      actionLogsResponse,
+      assessmentQueueResponse
     ] = await Promise.all([
       shouldLoadAdmins ? getAdminUsers() : Promise.resolve(null),
       shouldLoadStats ? getAdminStats() : Promise.resolve(null),
@@ -2072,7 +2080,8 @@ async function loadAll() {
       shouldLoadPayments ? getAdminPaymentHistory() : Promise.resolve(null),
       shouldLoadCommunity ? getCommunityTopics() : Promise.resolve(null),
       shouldLoadMailings ? getAdminMailings() : Promise.resolve(null),
-      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null)
+      shouldLoadAdminActions ? getAdminActionLogs(adminActionActorFilter.value || undefined) : Promise.resolve(null),
+      shouldLoadLearning ? getAssessmentReviewQueue() : Promise.resolve(null)
     ]);
     if (adminsResponse) {
       ownerTelegramId.value = adminsResponse.ownerTelegramId;
@@ -2104,6 +2113,7 @@ async function loadAll() {
         materialCategoryId.value = learningResponse.categories[0].id;
       }
     }
+    assessmentReviewCount.value = assessmentQueueResponse?.total ?? 0;
     if (selectedUser.value && statsResponse) {
       const updated = statsResponse.users.find((user) => user.telegramId === selectedUser.value?.telegramId);
       if (updated) {
@@ -2771,7 +2781,7 @@ onUnmounted(() => {
       </div>
 
       <div
-        v-if="adminStatistics.clients.expiringSoon || adminStatistics.payments.problemOrders"
+        v-if="adminStatistics.clients.expiringSoon || adminStatistics.payments.problemOrders || assessmentReviewCount"
         class="admin-stat-attention"
         aria-label="Требуют внимания"
       >
@@ -2803,6 +2813,18 @@ onUnmounted(() => {
             <b>{{ adminStatistics.payments.problemOrders }}</b>
             <small>{{ russianCountLabel(adminStatistics.payments.problemOrders, "операция", "операции", "операций") }}</small>
           </span>
+          <ChevronRight class="admin-stat-attention-chevron" aria-hidden="true" />
+        </button>
+        <button
+          v-if="assessmentReviewCount"
+          class="admin-stat-attention-action ui-button"
+          type="button"
+          aria-label="Открыть работы на проверку"
+          @click="openAssessmentAttention"
+        >
+          <span class="admin-stat-attention-icon"><ClipboardCheck aria-hidden="true" /></span>
+          <span class="admin-stat-attention-copy"><strong>Работы на проверку</strong><small>тесты и домашние задания</small></span>
+          <span class="admin-stat-attention-value"><b>{{ assessmentReviewCount }}</b><small>{{ russianCountLabel(assessmentReviewCount, "работа", "работы", "работ") }}</small></span>
           <ChevronRight class="admin-stat-attention-chevron" aria-hidden="true" />
         </button>
       </div>
