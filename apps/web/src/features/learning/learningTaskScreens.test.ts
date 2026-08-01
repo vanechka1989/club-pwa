@@ -17,6 +17,12 @@ describe("learning task screens", () => {
     expect(source).not.toContain('class="admin-modal-backdrop lesson-preview-backdrop"');
   });
 
+  it("restores the separate assessment settings task from its direct route", () => {
+    expect(source).toContain('path.match(/^\\/learning\\/lessons\\/([^/]+)\\/assessment$/)');
+    expect(source).toContain("assessmentSettingsMode.value = true");
+    expect(source).toContain("void loadAdminLessonAssessment(lesson.id)");
+  });
+
   it("renders module create and edit actions in the routed screen footer", () => {
     expect(source).toContain('class="module-editor-content"');
     expect(source).toContain('class="module-editor-footer"');

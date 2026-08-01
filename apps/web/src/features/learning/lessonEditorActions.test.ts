@@ -6,6 +6,16 @@ const componentSource = readFileSync(resolve(__dirname, "LearningSection.vue"), 
 const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
 
 describe("lesson editor actions", () => {
+  it("moves assessment configuration to a dedicated lesson page", () => {
+    expect(componentSource).toContain('import LessonAssessmentSettingsPage from "./LessonAssessmentSettingsPage.vue"');
+    expect(componentSource).toContain('class="lesson-assessment-settings-link"');
+    expect(componentSource).toContain("Проверка знаний");
+    expect(componentSource).toContain("Сначала сохраните урок");
+    expect(componentSource).toContain("openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/assessment`)");
+    expect(componentSource).toContain("<LessonAssessmentSettingsPage");
+    expect(componentSource).not.toContain("<LessonAssessmentEditor");
+  });
+
   it("keeps save and delete actions inside the scrolling form without a duplicate close button", () => {
     expect(componentSource).toContain(
       'class="admin-form-actions lesson-preview-actions lesson-preview-actions-edit lesson-editor-inline-actions"'

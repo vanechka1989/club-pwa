@@ -36,7 +36,8 @@ export const taskRoutePaths = [
   "/learning/modules/:moduleId/edit",
   "/learning/lessons/new/:moduleId",
   "/learning/lessons/:lessonId",
-  "/learning/lessons/:lessonId/edit"
+  "/learning/lessons/:lessonId/edit",
+  "/learning/lessons/:lessonId/assessment"
 ] as const;
 
 function normalizePath(path: string) {

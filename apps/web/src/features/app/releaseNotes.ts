@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Quizzes and homework",
+  title: "Separate assessment settings",
   items: [
-    "Admins can add either a configurable quiz or reviewed homework to any lesson.",
-    "Automatic scoring handles choice questions while free-text answers and homework enter a review queue.",
-    "A lesson completes only after a passed quiz or accepted homework, with clear member notifications."
+    "Quiz and homework settings now open on a dedicated page instead of crowding the lesson form.",
+    "The lesson card keeps a compact status row with a clear link to assessment settings.",
+    "Assessment changes save independently, and errors no longer hide the editor or discard entered data."
   ]
 };
 

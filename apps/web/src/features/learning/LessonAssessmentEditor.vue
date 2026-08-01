@@ -6,12 +6,22 @@ import { ListChecks, ClipboardCheck, FileCheck2, Plus, Trash2 } from "lucide-vue
 const props = defineProps<{ modelValue: LessonAssessmentDraft }>();
 const emit = defineEmits<{ "update:modelValue": [value: LessonAssessmentDraft] }>();
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-const draft = ref<LessonAssessmentDraft>(clone(props.modelValue));
+
+function cloneForEditor(value: LessonAssessmentDraft): LessonAssessmentDraft {
+  const result = clone(value);
+  if (result.mode !== "homework" || !result.dueAt || !result.dueAt.endsWith("Z")) return result;
+  const date = new Date(result.dueAt);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  result.dueAt = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return result;
+}
+
+const draft = ref<LessonAssessmentDraft>(cloneForEditor(props.modelValue));
 let syncing = false;
 
 watch(() => props.modelValue, (value) => {
   syncing = true;
-  draft.value = clone(value);
+  draft.value = cloneForEditor(value);
   queueMicrotask(() => { syncing = false; });
 }, { deep: true });
 

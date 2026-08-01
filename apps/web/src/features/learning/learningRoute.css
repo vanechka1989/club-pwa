@@ -2571,3 +2571,38 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 .lesson-notes-list article { padding: 11px 12px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-soft); }
 .lesson-notes-list p { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .lesson-notes-list time { color: var(--muted); font-size: .68rem; }
+
+.lesson-assessment-settings-link {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--text);
+  text-align: left;
+}
+.lesson-assessment-settings-link__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  color: var(--accent);
+}
+.lesson-assessment-settings-link__icon svg { width: 21px; }
+.lesson-assessment-settings-link__copy { display: grid; gap: 4px; min-width: 0; }
+.lesson-assessment-settings-link__copy strong { font-size: .92rem; }
+.lesson-assessment-settings-link__copy small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.lesson-assessment-settings-link__action { display: flex; align-items: center; gap: 4px; color: var(--accent); font-size: .78rem; font-weight: 850; }
+.lesson-assessment-settings-link__action svg { width: 17px; }
+.lesson-assessment-settings-link:disabled { cursor: default; opacity: .7; }
+@media (max-width: 359px) {
+  .lesson-assessment-settings-link { grid-template-columns: 44px minmax(0, 1fr); }
+  .lesson-assessment-settings-link__action { display: none; }
+}

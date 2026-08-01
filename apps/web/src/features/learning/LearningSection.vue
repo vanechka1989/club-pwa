@@ -30,7 +30,9 @@ import {
   CheckCircle2,
   Circle,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
+  ClipboardCheck,
   ExternalLink,
   Eye,
   EyeOff,
@@ -113,7 +115,7 @@ import { filterLearningModules, type LearningDiscoveryFilter } from "./learningD
 import LearningFavoriteButton from "./LearningFavoriteButton.vue";
 import { useLearningFavorites } from "./useLearningFavorites";
 import LearningLessonNotes from "./LearningLessonNotes.vue";
-import LessonAssessmentEditor from "./LessonAssessmentEditor.vue";
+import LessonAssessmentSettingsPage from "./LessonAssessmentSettingsPage.vue";
 import LessonAssessmentPlayer from "./LessonAssessmentPlayer.vue";
 import AdminAssessmentReviewQueue from "./AdminAssessmentReviewQueue.vue";
 
@@ -258,6 +260,9 @@ const lessonContent = ref("");
 const lessonMaterialDrafts = ref<LessonMaterialDraft[]>([]);
 const lessonAssessmentDraft = ref<LessonAssessmentDraft>({ mode: "none" });
 const isLoadingLessonAssessment = ref(false);
+const assessmentSettingsMode = ref(false);
+const assessmentSettingsError = ref("");
+const assessmentSettingsRetryable = ref(false);
 const lessonError = ref("");
 const isLoadingLessonContent = ref(false);
 const lessonViewerError = ref("");
@@ -448,6 +453,11 @@ const lessonCoverModeOptions: Array<{ value: LessonCoverMode; label: string }> =
 ];
 const lessonModalTitle = computed(() => (selectedLessonItem.value ? selectedLessonItem.value.title : "Новый урок"));
 const lessonModalSubtitle = computed(() => selectedLessonModule.value?.title ?? "Модуль");
+const assessmentModeLabel = computed(() => lessonAssessmentDraft.value.mode === "quiz"
+  ? "Тест"
+  : lessonAssessmentDraft.value.mode === "homework"
+    ? "Домашнее задание"
+    : "Не добавлена");
 const trimmedLessonTitle = computed(() => lessonTitle.value.trim());
 const selectedModuleLessonLayout = computed(() => selectedLessonModule.value?.defaultCardLayout ?? "vertical");
 function getMediaInputSource(kind: ContentKind, mediaUrl: string | null, mediaSource: MediaSource | null | undefined): MediaInputSource {
@@ -808,13 +818,18 @@ function stopLearningEngagement() {
 async function loadAdminLessonAssessment(lessonId: string) {
   if (!canManageModules.value || !modulesLoadedFromApi.value) return;
   isLoadingLessonAssessment.value = true;
+  assessmentSettingsError.value = "";
+  assessmentSettingsRetryable.value = false;
   try {
     const response = await getAdminLessonAssessment(lessonId);
     if (selectedLesson.value?.lessonId === lessonId) {
       lessonAssessmentDraft.value = JSON.parse(JSON.stringify(response.assessment)) as LessonAssessmentDraft;
     }
   } catch {
-    if (selectedLesson.value?.lessonId === lessonId) showLessonError("Не удалось загрузить настройки задания.");
+    if (selectedLesson.value?.lessonId === lessonId) {
+      assessmentSettingsError.value = "Не удалось загрузить настройки проверки знаний.";
+      assessmentSettingsRetryable.value = true;
+    }
   } finally {
     if (selectedLesson.value?.lessonId === lessonId) isLoadingLessonAssessment.value = false;
   }
@@ -831,7 +846,7 @@ function normalizedAssessmentDraft(): LessonAssessmentDraft {
 async function saveLessonAssessment(lessonId: string, draft = normalizedAssessmentDraft()) {
   const parsed = lessonAssessmentDraftSchema.safeParse(draft);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Проверьте настройки задания");
-  await updateAdminLessonAssessment(lessonId, parsed.data);
+  return updateAdminLessonAssessment(lessonId, parsed.data);
 }
 
 function openLessonModal(
@@ -839,7 +854,8 @@ function openLessonModal(
   lesson: ModuleLesson,
   playbackStartSeconds = 0,
   materialId: string | null = null,
-  editorMode = false
+  editorMode = false,
+  assessmentMode = false
 ) {
   clearLessonFilePreview();
   clearAllLessonMaterialPreviews();
@@ -875,6 +891,9 @@ function openLessonModal(
   lessonMaterialDrafts.value = lesson.materials.map(createLessonMaterialDraft);
   lessonAssessmentDraft.value = lesson.assessment?.mode ? JSON.parse(JSON.stringify(lesson.assessment)) as LessonAssessmentDraft : { mode: "none" };
   lessonEditorMode.value = canManageModules.value && editorMode;
+  assessmentSettingsMode.value = canManageModules.value && assessmentMode;
+  assessmentSettingsError.value = "";
+  assessmentSettingsRetryable.value = false;
   if (!lessonEditorMode.value) {
     startLearningEngagement(lesson);
   }
@@ -882,8 +901,10 @@ function openLessonModal(
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
   void loadLessonContentForMember(lesson);
-  if (lessonEditorMode.value) {
+  if (assessmentSettingsMode.value) {
     void loadAdminLessonAssessment(lesson.id);
+    openLearningTask(`/learning/lessons/${lesson.id}/assessment`);
+  } else if (lessonEditorMode.value) {
     openLearningTask(`/learning/lessons/${lesson.id}/edit`);
   } else {
     openLearningTask(`/learning/lessons/${lesson.id}`);
@@ -897,8 +918,52 @@ function openLessonEditor() {
 
   stopLearningEngagement();
   lessonEditorMode.value = true;
-  void loadAdminLessonAssessment(selectedLessonItem.value.id);
+  assessmentSettingsMode.value = false;
   openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/edit`);
+}
+
+function openAssessmentSettings() {
+  if (!canManageModules.value || !selectedLessonItem.value?.isPersisted) return;
+  stopLearningEngagement();
+  lessonEditorMode.value = true;
+  assessmentSettingsMode.value = true;
+  assessmentSettingsError.value = "";
+  assessmentSettingsRetryable.value = false;
+  void loadAdminLessonAssessment(selectedLessonItem.value.id);
+  openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/assessment`);
+}
+
+function closeAssessmentSettings() {
+  if (!selectedLessonItem.value) return;
+  assessmentSettingsMode.value = false;
+  lessonEditorMode.value = true;
+  assessmentSettingsError.value = "";
+  assessmentSettingsRetryable.value = false;
+  openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/edit`);
+}
+
+async function saveAssessmentSettings() {
+  const lesson = selectedLessonItem.value;
+  if (!lesson?.isPersisted || isSaving.value) return;
+  const parsed = lessonAssessmentDraftSchema.safeParse(normalizedAssessmentDraft());
+  if (!parsed.success) {
+    assessmentSettingsError.value = parsed.error.issues[0]?.message ?? "Проверьте настройки задания.";
+    assessmentSettingsRetryable.value = false;
+    return;
+  }
+  isSaving.value = true;
+  assessmentSettingsError.value = "";
+  assessmentSettingsRetryable.value = false;
+  try {
+    await saveLessonAssessment(lesson.id, parsed.data);
+    lesson.assessment = JSON.parse(JSON.stringify(parsed.data)) as LessonAssessmentConfig;
+    notifications.showSuccess("Проверка знаний сохранена.");
+  } catch {
+    assessmentSettingsError.value = "Не удалось сохранить проверку знаний.";
+    assessmentSettingsRetryable.value = false;
+  } finally {
+    isSaving.value = false;
+  }
 }
 
 function showLessonViewer(lessonId = selectedLessonItem.value?.id ?? null) {
@@ -908,6 +973,7 @@ function showLessonViewer(lessonId = selectedLessonItem.value?.id ?? null) {
   }
 
   lessonEditorMode.value = false;
+  assessmentSettingsMode.value = false;
   if (selectedLessonItem.value) {
     startLearningEngagement(selectedLessonItem.value);
   }
@@ -915,6 +981,10 @@ function showLessonViewer(lessonId = selectedLessonItem.value?.id ?? null) {
 }
 
 function handleLessonBack() {
+  if (assessmentSettingsMode.value) {
+    closeAssessmentSettings();
+    return;
+  }
   if (isLessonEditorMode.value && selectedLessonItem.value) {
     showLessonViewer(selectedLessonItem.value.id);
     return;
@@ -964,6 +1034,7 @@ function openLessonCreateModal(module: ModuleCard) {
   lessonMaterialDrafts.value = [];
   lessonAssessmentDraft.value = { mode: "none" };
   lessonEditorMode.value = true;
+  assessmentSettingsMode.value = false;
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -996,6 +1067,8 @@ function closeLessonModal() {
   lessonMaterialDrafts.value = [];
   lessonAssessmentDraft.value = { mode: "none" };
   lessonEditorMode.value = false;
+  assessmentSettingsMode.value = false;
+  assessmentSettingsError.value = "";
   clearLessonError();
   isLoadingLessonContent.value = false;
   clearLessonViewerError();
@@ -2062,8 +2135,7 @@ async function startBackgroundLessonUpload() {
     removeThumbnail: shouldRemoveLessonThumbnail.value,
     mediaFile: lessonFile.value,
     thumbnailFile: lessonThumbnailFile.value,
-    materials: lessonMaterialDrafts.value.map((material) => ({ ...material })),
-    assessment: normalizedAssessmentDraft()
+    materials: lessonMaterialDrafts.value.map((material) => ({ ...material }))
   };
   const idempotencyKey = draft.lessonId ? null : crypto.randomUUID();
   const hasMedia = Boolean(draft.mediaFile);
@@ -2222,10 +2294,6 @@ async function startBackgroundLessonUpload() {
       }
     }
     throwIfUploadCancelled(abortController.signal);
-
-    currentStage = "Сохранение задания";
-    lessonUploads.update(draft.id, { detail: "Сохраняем проверку знаний" });
-    await saveLessonAssessment(response.material.id, draft.assessment);
 
     if (draft.lessonId) {
       replaceMaterialInModule(response.material);
@@ -2432,12 +2500,6 @@ async function saveLesson() {
     return;
   }
 
-  const assessmentValidation = lessonAssessmentDraftSchema.safeParse(normalizedAssessmentDraft());
-  if (!assessmentValidation.success) {
-    showLessonError(assessmentValidation.error.issues[0]?.message ?? "Проверьте настройки задания.");
-    return;
-  }
-
   const existingLessonId = selectedLessonItem.value?.id ?? null;
 
   const draftError = getMaterialDraftError({
@@ -2539,7 +2601,6 @@ async function saveLesson() {
         addMaterialToModule(response.material);
         if (selectedLessonItem.value) Object.assign(selectedLessonItem.value, materialToLesson(response.material));
       }
-      await saveLessonAssessment(response.material.id, assessmentValidation.data);
       if (existingLessonId) {
         showLessonViewer(existingLessonId);
       } else {
@@ -2552,7 +2613,6 @@ async function saveLesson() {
       const response = await updateAdminLearningMaterial(selectedLessonItem.value.id, buildLessonForm());
       replaceMaterialInModule(response.material);
       if (selectedLessonItem.value) Object.assign(selectedLessonItem.value, materialToLesson(response.material));
-      await saveLessonAssessment(response.material.id, assessmentValidation.data);
       showLessonViewer(existingLessonId);
       return;
     }
@@ -2560,7 +2620,6 @@ async function saveLesson() {
     const response = await createAdminLearningMaterial(buildLessonForm());
     addMaterialToModule(response.material);
     if (selectedLessonItem.value) Object.assign(selectedLessonItem.value, materialToLesson(response.material));
-    await saveLessonAssessment(response.material.id, assessmentValidation.data);
     closeLessonModal();
   } catch {
     showLessonError("Не удалось сохранить урок. Проверьте файл и настройки S3.");
@@ -2954,6 +3013,22 @@ async function syncLearningTaskRoute() {
     return;
   }
 
+  const assessmentMatch = path.match(/^\/learning\/lessons\/([^/]+)\/assessment$/);
+  if (assessmentMatch) {
+    const lessonId = decodeURIComponent(assessmentMatch[1]!);
+    const module = moduleCards.value.find((item) => item.images.some((lesson) => lesson.id === lessonId));
+    const lesson = module?.images.find((item) => item.id === lessonId);
+    if (module && lesson && selectedLesson.value?.lessonId !== lesson.id) {
+      openLessonModal(module, lesson, 0, null, true, true);
+    } else if (module && lesson) {
+      stopLearningEngagement();
+      lessonEditorMode.value = true;
+      assessmentSettingsMode.value = true;
+      void loadAdminLessonAssessment(lesson.id);
+    }
+    return;
+  }
+
   const lessonMatch = path.match(/^\/learning\/lessons\/([^/]+)(?:\/edit)?$/);
   if (lessonMatch) {
     const lessonId = decodeURIComponent(lessonMatch[1]!);
@@ -2969,6 +3044,7 @@ async function syncLearningTaskRoute() {
         startLearningEngagement(lesson);
       }
       lessonEditorMode.value = canManageModules.value && wantsEditor;
+      assessmentSettingsMode.value = false;
     }
     return;
   }
@@ -3438,12 +3514,12 @@ watch(
       v-if="selectedLesson && selectedLessonModule"
       class="learning-task-screen"
       :class="{ 'learning-task-screen-view': !isLessonEditorMode }"
-      :title="lessonModalTitle"
-      :subtitle="lessonModalSubtitle"
+      :title="assessmentSettingsMode ? 'Проверка знаний' : lessonModalTitle"
+      :subtitle="assessmentSettingsMode ? lessonModalTitle : lessonModalSubtitle"
       portal
       @back="handleLessonBack"
     >
-        <template v-if="canManageModules && selectedLessonItem && !isLessonEditorMode" #actions>
+        <template v-if="canManageModules && selectedLessonItem && !isLessonEditorMode && !assessmentSettingsMode" #actions>
           <button
             class="lesson-header-edit-button ui-button"
             type="button"
@@ -3454,7 +3530,20 @@ watch(
             <span>Редактировать</span>
           </button>
         </template>
+        <LessonAssessmentSettingsPage
+          v-if="assessmentSettingsMode && selectedLessonItem"
+          v-model="lessonAssessmentDraft"
+          :lesson-title="selectedLessonItem.title"
+          :loading="isLoadingLessonAssessment"
+          :saving="isSaving"
+          :error="assessmentSettingsError"
+          :retryable="assessmentSettingsRetryable"
+          @save="saveAssessmentSettings"
+          @back="closeAssessmentSettings"
+          @retry="loadAdminLessonAssessment(selectedLessonItem.id)"
+        />
         <section
+          v-else
           class="lesson-preview-modal ui-card"
           :class="isLessonEditorMode ? 'lesson-preview-modal-edit' : 'lesson-preview-modal-view'"
           role="dialog"
@@ -3811,8 +3900,19 @@ watch(
                 <span>Опубликовать урок</span>
               </label>
 
-              <div v-if="isLoadingLessonAssessment" class="assessment-loading">Загружаем настройки задания…</div>
-              <LessonAssessmentEditor v-else v-model="lessonAssessmentDraft" />
+              <button
+                class="lesson-assessment-settings-link"
+                type="button"
+                :disabled="!selectedLessonItem?.isPersisted"
+                @click="openAssessmentSettings"
+              >
+                <span class="lesson-assessment-settings-link__icon"><ClipboardCheck aria-hidden="true" /></span>
+                <span class="lesson-assessment-settings-link__copy">
+                  <strong>Проверка знаний</strong>
+                  <small>{{ selectedLessonItem?.isPersisted ? assessmentModeLabel : "Сначала сохраните урок" }}</small>
+                </span>
+                <span v-if="selectedLessonItem?.isPersisted" class="lesson-assessment-settings-link__action">Настроить <ChevronRight aria-hidden="true" /></span>
+              </button>
 
               <section class="lesson-extra-materials">
                 <header>

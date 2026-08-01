@@ -7,10 +7,16 @@ describe("task navigation", () => {
   it("maps top-level and nested paths to their app sections", () => {
     expect(sectionFromPath("/profile")).toBe("profile");
     expect(sectionFromPath("/learning/lessons/lesson-1/edit")).toBe("learning");
+    expect(sectionFromPath("/learning/lessons/lesson-1/assessment")).toBe("learning");
     expect(sectionFromPath("/support/tickets/ticket-1")).toBe("support");
     expect(sectionFromPath("/support/tickets/ticket-1/clients/customer-1")).toBe("support");
     expect(sectionFromPath("/admin/mailings/new")).toBe("admin");
     expect(sectionFromPath("/unknown")).toBe("profile");
+  });
+
+  it("registers lesson assessment settings as a dedicated task screen", () => {
+    expect(taskRoutePaths).toContain("/learning/lessons/:lessonId/assessment");
+    expect(isTaskPath("/learning/lessons/lesson-1/assessment")).toBe(true);
   });
 
   it("provides stable top-level section paths", () => {
