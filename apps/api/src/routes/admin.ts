@@ -9,6 +9,7 @@ import {
   acquisitionAttributionSchema,
   acquisitionLinkInputSchema,
   adminPermissionSchema,
+  lessonAssessmentDraftSchema,
   deviceDiagnosticsSchema,
   newAdminDefaultPermissions,
   type AdminActionActor,
@@ -28,6 +29,7 @@ import {
   type AdminStatsUser,
   type ContentKind,
   type MediaSource,
+  type LessonAssessmentDraft,
   type MembershipStatus
 } from "@club/shared";
 import { getAcquisitionDashboard, getAcquisitionDayDetail, getUserAcquisition, listAcquisitionLinks } from "../acquisition/acquisitionAnalytics";
@@ -46,6 +48,7 @@ import { verifyUploadedObjectMetadata } from "../learning/directUploadVerificati
 import { db } from "../db/client";
 import {
   acquisitionLinks,
+  assessmentReviews,
   adminActionLogs,
   adminMailings,
   adminUsers,
@@ -61,9 +64,17 @@ import {
   contentItems,
   idempotencyOperations,
   lessonMaterials,
+  lessonAssessmentOptions,
+  lessonAssessmentQuestions,
+  lessonAssessmentRevisions,
+  homeworkAttachments,
+  homeworkSubmissions,
   lessonComments,
   learningEngagementSessions,
   subscriptions,
+  quizAnswers,
+  quizAttemptQuestions,
+  quizAttempts,
   supportTicketAttachments,
   userRecurrentSubscriptions,
   userContentProgress,
@@ -105,6 +116,8 @@ import { isValidMultipartPartSize, maxMultipartPartSizeBytes } from "../storage/
 import { optimizeImageForUpload } from "../storage/imageOptimizer";
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { getInternalLessonMaterialTitle } from "../learning/lessonMaterials";
+import { buildStoredAssessment } from "../learning/assessmentConfig";
+import { scoreQuizAttempt } from "../learning/assessmentScoring";
 import {
   decideLearningSaveClaim,
   idempotencyOperationTtlMs,
@@ -246,6 +259,22 @@ const learningCategoryPayloadSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   defaultCardLayout: z.enum(["vertical", "horizontal"]).default("vertical"),
   isPublished: z.boolean().default(false)
+});
+
+const homeworkReviewPayloadSchema = z.object({
+  decision: z.enum(["accepted", "needs_revision"]),
+  comment: z.string().trim().max(4000).nullable().default(null),
+  idempotencyKey: z.string().uuid()
+}).superRefine((value, context) => {
+  if (value.decision === "needs_revision" && !value.comment) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["comment"], message: "Укажите, что необходимо исправить" });
+  }
+});
+
+const quizReviewPayloadSchema = z.object({
+  questionPoints: z.record(z.string().uuid(), z.number().int().nonnegative()),
+  comment: z.string().trim().max(4000).nullable().default(null),
+  idempotencyKey: z.string().uuid()
 });
 
 const s3StoragePayloadSchema = z.object({
@@ -1467,6 +1496,136 @@ async function findOrCreateUserByTelegramId(telegramId: string) {
   );
 }
 
+async function getPublishedAssessmentDraft(material: typeof contentItems.$inferSelect): Promise<LessonAssessmentDraft> {
+  if (!material.publishedAssessmentRevisionId || material.assessmentMode === "none") return { mode: "none" };
+
+  const revision = await db.query.lessonAssessmentRevisions.findFirst({
+    where: eq(lessonAssessmentRevisions.id, material.publishedAssessmentRevisionId)
+  });
+  if (!revision) return { mode: "none" };
+
+  if (revision.mode === "homework") {
+    return lessonAssessmentDraftSchema.parse({
+      mode: "homework",
+      title: revision.title,
+      instructions: revision.instructions ?? "",
+      dueAt: revision.dueAt?.toISOString() ?? null,
+      allowText: revision.allowText ?? false,
+      allowAttachments: revision.allowAttachments ?? false,
+      allowedFileKinds: revision.allowedFileKinds ?? [],
+      maxAttachments: revision.maxAttachments ?? 5
+    });
+  }
+
+  const questions = await db
+    .select()
+    .from(lessonAssessmentQuestions)
+    .where(eq(lessonAssessmentQuestions.revisionId, revision.id))
+    .orderBy(asc(lessonAssessmentQuestions.sortOrder));
+  const options = questions.length
+    ? await db
+        .select()
+        .from(lessonAssessmentOptions)
+        .where(inArray(lessonAssessmentOptions.questionId, questions.map((question) => question.id)))
+        .orderBy(asc(lessonAssessmentOptions.sortOrder))
+    : [];
+  const optionsByQuestion = new Map<string, typeof options>();
+  for (const option of options) {
+    const entries = optionsByQuestion.get(option.questionId) ?? [];
+    entries.push(option);
+    optionsByQuestion.set(option.questionId, entries);
+  }
+
+  return lessonAssessmentDraftSchema.parse({
+    mode: "quiz",
+    title: revision.title,
+    instructions: revision.instructions,
+    passingPercent: revision.passingPercent,
+    maxAttempts: revision.maxAttempts,
+    questions: questions.map((question) => {
+      const questionOptions = optionsByQuestion.get(question.id) ?? [];
+      return {
+        id: question.stableKey,
+        type: question.type,
+        prompt: question.prompt,
+        points: question.points,
+        options: questionOptions.map((option) => ({ id: option.stableKey, text: option.text })),
+        correctOptionIds: questionOptions.filter((option) => option.isCorrect).map((option) => option.stableKey)
+      };
+    })
+  });
+}
+
+async function publishAssessmentDraft(input: {
+  material: typeof contentItems.$inferSelect;
+  draft: LessonAssessmentDraft;
+  actorUserId: string;
+}) {
+  const now = new Date();
+  if (input.draft.mode === "none") {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(lessonAssessmentRevisions)
+        .set({ status: "superseded", updatedAt: now })
+        .where(and(eq(lessonAssessmentRevisions.contentItemId, input.material.id), eq(lessonAssessmentRevisions.status, "published")));
+      await tx
+        .update(contentItems)
+        .set({ assessmentMode: "none", publishedAssessmentRevisionId: null, updatedAt: now })
+        .where(eq(contentItems.id, input.material.id));
+    });
+    return null;
+  }
+
+  const stored = buildStoredAssessment(input.draft);
+  return db.transaction(async (tx) => {
+    const revisionNumbers = await tx
+      .select({ nextRevision: sql<number>`coalesce(max(${lessonAssessmentRevisions.revision}), 0) + 1` })
+      .from(lessonAssessmentRevisions)
+      .where(eq(lessonAssessmentRevisions.contentItemId, input.material.id));
+    const nextRevision = revisionNumbers[0]?.nextRevision ?? 1;
+    await tx
+      .update(lessonAssessmentRevisions)
+      .set({ status: "superseded", updatedAt: now })
+      .where(and(eq(lessonAssessmentRevisions.contentItemId, input.material.id), eq(lessonAssessmentRevisions.status, "published")));
+    const [revision] = await tx
+      .insert(lessonAssessmentRevisions)
+      .values({
+        contentItemId: input.material.id,
+        revision: Number(nextRevision ?? 1),
+        status: "published",
+        ...stored.revision,
+        createdByUserId: input.actorUserId,
+        publishedAt: now,
+        createdAt: now,
+        updatedAt: now
+      })
+      .returning();
+    if (!revision) throw new Error("Unable to create lesson assessment revision");
+
+    for (const question of stored.questions) {
+      const { options, ...questionValues } = question;
+      const [createdQuestion] = await tx
+        .insert(lessonAssessmentQuestions)
+        .values({ revisionId: revision.id, ...questionValues, createdAt: now })
+        .returning({ id: lessonAssessmentQuestions.id });
+      if (!createdQuestion) throw new Error("Unable to create lesson assessment question");
+      if (options.length) {
+        await tx.insert(lessonAssessmentOptions).values(options.map((option) => ({
+          questionId: createdQuestion.id,
+          ...option,
+          createdAt: now
+        })));
+      }
+    }
+
+    await tx
+      .update(contentItems)
+      .set({ assessmentMode: input.draft.mode, publishedAssessmentRevisionId: revision.id, updatedAt: now })
+      .where(eq(contentItems.id, input.material.id));
+    return revision;
+  });
+}
+
 export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .get("/database/backup-download/:token", async (c) => {
     const token = c.req.param("token");
@@ -2518,6 +2677,166 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       .slice(0, 50);
 
     return c.json({ items });
+  })
+  .get("/learning/assessments/review-queue", async (c) => {
+    const [homework, quizzes] = await Promise.all([
+      db.query.homeworkSubmissions.findMany({ where: eq(homeworkSubmissions.status, "pending_review"), orderBy: [asc(homeworkSubmissions.submittedAt)], limit: 200 }),
+      db.query.quizAttempts.findMany({ where: eq(quizAttempts.status, "pending_review"), orderBy: [asc(quizAttempts.submittedAt)], limit: 200 })
+    ]);
+    const userIds = [...new Set([...homework.map((entry) => entry.userId), ...quizzes.map((entry) => entry.userId)])];
+    const itemIds = [...new Set([...homework.map((entry) => entry.contentItemId), ...quizzes.map((entry) => entry.contentItemId)])];
+    const [queueUsers, items] = await Promise.all([
+      userIds.length ? db.query.users.findMany({ where: inArray(users.id, userIds) }) : [],
+      itemIds.length ? db.query.contentItems.findMany({ where: inArray(contentItems.id, itemIds) }) : []
+    ]);
+    const userById = new Map(queueUsers.map((user) => [user.id, user]));
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    return c.json({
+      total: homework.length + quizzes.length,
+      homework: homework.map((entry) => ({
+        id: entry.id,
+        user: userById.get(entry.userId) ? buildMessageAuthor(userById.get(entry.userId)!) : null,
+        lesson: itemById.get(entry.contentItemId) ? { id: entry.contentItemId, title: itemById.get(entry.contentItemId)!.title } : null,
+        version: entry.version,
+        text: entry.text,
+        submittedAt: entry.submittedAt?.toISOString() ?? null
+      })),
+      quizzes: quizzes.map((entry) => ({
+        id: entry.id,
+        user: userById.get(entry.userId) ? buildMessageAuthor(userById.get(entry.userId)!) : null,
+        lesson: itemById.get(entry.contentItemId) ? { id: entry.contentItemId, title: itemById.get(entry.contentItemId)!.title } : null,
+        attemptNumber: entry.attemptNumber,
+        submittedAt: entry.submittedAt?.toISOString() ?? null
+      }))
+    });
+  })
+  .get("/learning/assessments/homework/:id", async (c) => {
+    const submission = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.id, c.req.param("id")) });
+    if (!submission) return c.json({ error: "Homework submission not found" }, 404);
+    const attachments = await db.query.homeworkAttachments.findMany({ where: eq(homeworkAttachments.submissionId, submission.id) });
+    return c.json({ submission: { ...submission, submittedAt: submission.submittedAt?.toISOString() ?? null }, attachments: await Promise.all(attachments.map(async (attachment) => ({ ...attachment, url: await getObjectReadUrl(attachment.objectKey) }))) });
+  })
+  .post("/learning/assessments/homework/:id/review", async (c) => {
+    const parsed = homeworkReviewPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid homework review", details: parsed.error.flatten() }, 400);
+    const existingReview = await db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.idempotencyKey, parsed.data.idempotencyKey) });
+    if (existingReview) return c.json({ ok: true, review: existingReview });
+    const submission = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.id, c.req.param("id")) });
+    if (!submission) return c.json({ error: "Homework submission not found" }, 404);
+    if (submission.status !== "pending_review") return c.json({ error: "Homework is not pending review" }, 409);
+    const now = new Date();
+    const review = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(assessmentReviews).values({
+        homeworkSubmissionId: submission.id,
+        reviewedByUserId: c.get("userId"),
+        decision: parsed.data.decision,
+        comment: parsed.data.comment,
+        idempotencyKey: parsed.data.idempotencyKey,
+        createdAt: now
+      }).returning();
+      await tx.update(homeworkSubmissions).set({
+        status: parsed.data.decision,
+        reviewedAt: now,
+        acceptedAt: parsed.data.decision === "accepted" ? now : null,
+        updatedAt: now
+      }).where(and(eq(homeworkSubmissions.id, submission.id), eq(homeworkSubmissions.status, "pending_review")));
+      if (parsed.data.decision === "accepted") {
+        await tx.insert(userContentProgress).values({ userId: submission.userId, contentItemId: submission.contentItemId, lastOpenedAt: now, completedAt: now, updatedAt: now })
+          .onConflictDoUpdate({ target: [userContentProgress.userId, userContentProgress.contentItemId], set: { completedAt: now, updatedAt: now } });
+      }
+      return created;
+    });
+    await createAppNotification({
+      userId: submission.userId,
+      title: parsed.data.decision === "accepted" ? "Домашнее задание принято" : "Домашнее задание нужно доработать",
+      body: parsed.data.comment || (parsed.data.decision === "accepted" ? "Урок успешно завершён." : "Откройте урок и отправьте новую версию."),
+      source: "lesson_assessment",
+      sourceId: submission.contentItemId,
+      pushUrl: `/modules/lesson/${submission.contentItemId}`
+    });
+    return c.json({ ok: true, review });
+  })
+  .get("/learning/assessments/quiz/:id", async (c) => {
+    const attempt = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, c.req.param("id")) });
+    if (!attempt) return c.json({ error: "Quiz attempt not found" }, 404);
+    const [questions, answers] = await Promise.all([
+      db.query.quizAttemptQuestions.findMany({ where: eq(quizAttemptQuestions.attemptId, attempt.id), orderBy: [asc(quizAttemptQuestions.sortOrder)] }),
+      db.query.quizAnswers.findMany({ where: eq(quizAnswers.attemptId, attempt.id) })
+    ]);
+    return c.json({
+      attempt,
+      questions: questions.map(({ correctOptionIds: _correctOptionIds, ...question }) => ({
+        ...question,
+        answer: answers.find((answer) => answer.questionSnapshotId === question.id) ?? null
+      }))
+    });
+  })
+  .post("/learning/assessments/quiz/:id/review", async (c) => {
+    const parsed = quizReviewPayloadSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid quiz review", details: parsed.error.flatten() }, 400);
+    const existingReview = await db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.idempotencyKey, parsed.data.idempotencyKey) });
+    if (existingReview) return c.json({ ok: true, review: existingReview });
+    const attempt = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, c.req.param("id")) });
+    if (!attempt) return c.json({ error: "Quiz attempt not found" }, 404);
+    if (attempt.status !== "pending_review") return c.json({ error: "Quiz is not pending review" }, 409);
+    const [revision, questions, answers] = await Promise.all([
+      db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, attempt.revisionId) }),
+      db.query.quizAttemptQuestions.findMany({ where: eq(quizAttemptQuestions.attemptId, attempt.id) }),
+      db.query.quizAnswers.findMany({ where: eq(quizAnswers.attemptId, attempt.id) })
+    ]);
+    if (!revision?.passingPercent) return c.json({ error: "Quiz revision not found" }, 409);
+    const freeTextIds = new Set(questions.filter((question) => question.type === "free_text").map((question) => question.id));
+    if ([...freeTextIds].some((id) => parsed.data.questionPoints[id] === undefined) || Object.keys(parsed.data.questionPoints).some((id) => !freeTextIds.has(id))) {
+      return c.json({ error: "Points are required for every free-text answer" }, 400);
+    }
+    const score = scoreQuizAttempt({ passingPercent: revision.passingPercent, questions: questions.map((question) => ({ id: question.id, type: question.type as "single_choice" | "multiple_choice" | "free_text", points: question.points, correctOptionIds: question.correctOptionIds })) }, answers.map((answer) => ({ questionId: answer.questionSnapshotId, selectedOptionIds: answer.selectedOptionIds, text: answer.text })), parsed.data.questionPoints);
+    const now = new Date();
+    const review = await db.transaction(async (tx) => {
+      for (const [questionId, points] of Object.entries(parsed.data.questionPoints)) {
+        await tx.update(quizAnswers).set({ reviewedPoints: points, updatedAt: now }).where(and(eq(quizAnswers.attemptId, attempt.id), eq(quizAnswers.questionSnapshotId, questionId)));
+      }
+      const [created] = await tx.insert(assessmentReviews).values({
+        quizAttemptId: attempt.id,
+        reviewedByUserId: c.get("userId"),
+        decision: score.status,
+        comment: parsed.data.comment,
+        questionPoints: parsed.data.questionPoints,
+        idempotencyKey: parsed.data.idempotencyKey,
+        createdAt: now
+      }).returning();
+      await tx.update(quizAttempts).set({ status: score.status, earnedPoints: score.earnedPoints, maxPoints: score.maxPoints, percent: score.percent, reviewedAt: now, updatedAt: now })
+        .where(and(eq(quizAttempts.id, attempt.id), eq(quizAttempts.status, "pending_review")));
+      if (score.status === "passed") {
+        await tx.insert(userContentProgress).values({ userId: attempt.userId, contentItemId: attempt.contentItemId, lastOpenedAt: now, completedAt: now, updatedAt: now })
+          .onConflictDoUpdate({ target: [userContentProgress.userId, userContentProgress.contentItemId], set: { completedAt: now, updatedAt: now } });
+      }
+      return created;
+    });
+    await createAppNotification({ userId: attempt.userId, title: score.status === "passed" ? "Тест пройден" : "Тест проверен", body: parsed.data.comment || `Результат: ${score.percent}%`, source: "lesson_assessment", sourceId: attempt.contentItemId, pushUrl: `/modules/lesson/${attempt.contentItemId}` });
+    return c.json({ ok: true, review, result: score });
+  })
+  .get("/learning/materials/:id/assessment", async (c) => {
+    const material = await db.query.contentItems.findFirst({ where: eq(contentItems.id, c.req.param("id")) });
+    if (!material) return c.json({ error: "Material not found" }, 404);
+    return c.json({ assessment: await getPublishedAssessmentDraft(material) });
+  })
+  .put("/learning/materials/:id/assessment", async (c) => {
+    const material = await db.query.contentItems.findFirst({ where: eq(contentItems.id, c.req.param("id")) });
+    if (!material) return c.json({ error: "Material not found" }, 404);
+    const parsed = lessonAssessmentDraftSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid lesson assessment", details: parsed.error.flatten() }, 400);
+
+    await publishAssessmentDraft({ material, draft: parsed.data, actorUserId: c.get("userId") });
+    await recordAdminAction(c, {
+      action: "learning.assessment.published",
+      entityType: "learning_material",
+      entityId: material.id,
+      summary: parsed.data.mode === "none"
+        ? `Убрал задание из урока "${material.title}"`
+        : `Опубликовал ${parsed.data.mode === "quiz" ? "тест" : "домашнее задание"} в уроке "${material.title}"`,
+      metadata: { mode: parsed.data.mode }
+    });
+    return c.json({ ok: true, assessment: parsed.data });
   })
   .get("/learning", async (c) => {
     await purgeExpiredArchivedContent();

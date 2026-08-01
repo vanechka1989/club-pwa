@@ -1,7 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningFavoriteMutationResponseSchema, learningHomeResponseSchema, learningProgressSummarySchema, lessonAssessmentConfigSchema } from "./index";
+import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningFavoriteMutationResponseSchema, learningHomeResponseSchema, learningProgressSummarySchema, lessonAssessmentConfigSchema, lessonAssessmentDraftSchema } from "./index";
 
 describe("learningContentSchema", () => {
+  it("validates private quiz answers in an administrator draft", () => {
+    const draft = lessonAssessmentDraftSchema.parse({
+      mode: "quiz",
+      title: "Проверка",
+      instructions: null,
+      passingPercent: 70,
+      maxAttempts: 3,
+      questions: [{
+        id: "q1",
+        type: "single_choice",
+        prompt: "2 + 2?",
+        points: 1,
+        options: [{ id: "o1", text: "4" }, { id: "o2", text: "5" }],
+        correctOptionIds: ["o1"]
+      }]
+    });
+
+    expect(draft.mode).toBe("quiz");
+    if (draft.mode !== "quiz") throw new Error("Expected quiz draft");
+    expect(() => lessonAssessmentDraftSchema.parse({
+      ...draft,
+      questions: [{ ...draft.questions[0], correctOptionIds: ["missing"] }]
+    })).toThrow();
+  });
+
   it("accepts safe quiz, homework and empty assessment configurations", () => {
     const quiz = lessonAssessmentConfigSchema.parse({
       mode: "quiz",

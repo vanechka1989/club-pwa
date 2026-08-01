@@ -1,18 +1,23 @@
 import { and, asc, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { learningEngagementSnapshotSchema } from "@club/shared";
-import { contentCategories, contentItems, learningEngagementSessions, lessonComments, lessonMaterials, userContentProgress, userLearningFavorites } from "../db/schema";
+import { learningEngagementSnapshotSchema, lessonAssessmentDraftSchema, type LessonAssessmentConfig } from "@club/shared";
+import { contentCategories, contentItems, homeworkAttachments, homeworkSubmissions, learningEngagementSessions, lessonAssessmentOptions, lessonAssessmentQuestions, lessonAssessmentRevisions, lessonComments, lessonMaterials, quizAnswers, quizAttemptQuestions, quizAttempts, userContentProgress, userLearningFavorites } from "../db/schema";
 import { db } from "../db/client";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
-import { getObjectReadUrl } from "../storage/s3";
+import { createObjectUploadUrl, getObjectMetadata, getObjectReadUrl } from "../storage/s3";
 import { decodeModuleCategoryDefaultCardLayout, decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { mergeEngagementCounters } from "../learning/engagement";
 import { serializeLearningProgressRows } from "../learning/learningProgress";
+import { toPublicAssessment } from "../learning/assessmentConfig";
+import { scoreQuizAttempt } from "../learning/assessmentScoring";
+import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
+import { buildHomeworkObjectKey, classifyHomeworkContentType, ownsHomeworkObject } from "../learning/homeworkUpload";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -21,6 +26,32 @@ const commentPayloadSchema = z.object({
 const playbackPayloadSchema = z.object({
   positionSeconds: z.number().int().min(0).max(24 * 60 * 60),
   materialId: z.string().uuid().nullable().optional()
+});
+
+const quizSubmissionSchema = z.object({
+  submissionKey: z.string().min(8).max(128),
+  answers: z.array(z.object({
+    questionId: z.string().uuid(),
+    selectedOptionIds: z.array(z.string().min(1)).max(20).default([]),
+    text: z.string().trim().max(8000).nullable().default(null)
+  })).max(100)
+});
+
+const homeworkUploadIntentSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  contentType: z.string().trim().min(1).max(160),
+  sizeBytes: z.number().int().positive().max(100 * 1024 * 1024)
+});
+
+const homeworkSubmissionSchema = z.object({
+  submissionKey: z.string().min(8).max(128),
+  text: z.string().trim().max(20_000).nullable().default(null),
+  attachments: z.array(z.object({
+    objectKey: z.string().min(1).max(1000),
+    fileName: z.string().trim().min(1).max(255),
+    contentType: z.string().trim().min(1).max(160),
+    sizeBytes: z.number().int().positive().max(100 * 1024 * 1024)
+  })).max(10).default([])
 });
 
 function publishedContentWhere() {
@@ -51,6 +82,7 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
     }))
   );
 
+  const assessment = includeBody ? await getPublicAssessment(item) : undefined;
   return {
     id: item.id,
     categoryId: item.categoryId,
@@ -67,8 +99,52 @@ async function serializeContentItem(item: typeof contentItems.$inferSelect, incl
     mediaContentType: item.mediaContentType,
     mediaSizeBytes: item.mediaSizeBytes,
     materials: includeBody ? serializedMaterials : [],
-    publishedAt: item.publishedAt?.toISOString() ?? null
+    publishedAt: item.publishedAt?.toISOString() ?? null,
+    assessment
   };
+}
+
+async function getPublicAssessment(item: typeof contentItems.$inferSelect): Promise<LessonAssessmentConfig> {
+  if (!item.publishedAssessmentRevisionId || item.assessmentMode === "none") return { mode: "none" };
+  const revision = await db.query.lessonAssessmentRevisions.findFirst({
+    where: eq(lessonAssessmentRevisions.id, item.publishedAssessmentRevisionId)
+  });
+  if (!revision) return { mode: "none" };
+  if (revision.mode === "homework") {
+    return lessonAssessmentDraftSchema.parse({
+      mode: "homework",
+      title: revision.title,
+      instructions: revision.instructions ?? "",
+      dueAt: revision.dueAt?.toISOString() ?? null,
+      allowText: revision.allowText ?? false,
+      allowAttachments: revision.allowAttachments ?? false,
+      allowedFileKinds: revision.allowedFileKinds ?? [],
+      maxAttachments: revision.maxAttachments ?? 5
+    });
+  }
+  const questions = await db.select().from(lessonAssessmentQuestions)
+    .where(eq(lessonAssessmentQuestions.revisionId, revision.id)).orderBy(asc(lessonAssessmentQuestions.sortOrder));
+  const options = questions.length
+    ? await db.select().from(lessonAssessmentOptions)
+        .where(inArray(lessonAssessmentOptions.questionId, questions.map((question) => question.id)))
+        .orderBy(asc(lessonAssessmentOptions.sortOrder))
+    : [];
+  const privateDraft = lessonAssessmentDraftSchema.parse({
+    mode: "quiz",
+    title: revision.title,
+    instructions: revision.instructions,
+    passingPercent: revision.passingPercent,
+    maxAttempts: revision.maxAttempts,
+    questions: questions.map((question) => ({
+      id: question.stableKey,
+      type: question.type,
+      prompt: question.prompt,
+      points: question.points,
+      options: options.filter((option) => option.questionId === question.id).map((option) => ({ id: option.stableKey, text: option.text })),
+      correctOptionIds: options.filter((option) => option.questionId === question.id && option.isCorrect).map((option) => option.stableKey)
+    }))
+  });
+  return toPublicAssessment(privateDraft);
 }
 
 function serializeComment(
@@ -359,6 +435,263 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({ ok: true });
   })
+  .get("/items/:id/assessment/status", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const item = await db.query.contentItems.findFirst({ where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere()) });
+    if (!item) return c.json({ error: "Learning content not found" }, 404);
+    const attempts = item.assessmentMode === "quiz"
+      ? await db.query.quizAttempts.findMany({
+          where: and(eq(quizAttempts.userId, userId), eq(quizAttempts.contentItemId, item.id)),
+          orderBy: [desc(quizAttempts.attemptNumber)]
+        })
+      : [];
+    const submissions = item.assessmentMode === "homework"
+      ? await db.query.homeworkSubmissions.findMany({
+          where: and(eq(homeworkSubmissions.userId, userId), eq(homeworkSubmissions.contentItemId, item.id)),
+          orderBy: [desc(homeworkSubmissions.version)]
+        })
+      : [];
+    return c.json({
+      mode: item.assessmentMode,
+      attempts: attempts.map((attempt) => ({
+        id: attempt.id,
+        attemptNumber: attempt.attemptNumber,
+        status: attempt.status,
+        earnedPoints: attempt.earnedPoints,
+        maxPoints: attempt.maxPoints,
+        percent: attempt.percent,
+        submittedAt: attempt.submittedAt?.toISOString() ?? null
+      })),
+      submissions: submissions.map((submission) => ({
+        id: submission.id,
+        version: submission.version,
+        status: submission.status,
+        submittedAt: submission.submittedAt?.toISOString() ?? null,
+        reviewedAt: submission.reviewedAt?.toISOString() ?? null
+      }))
+    });
+  })
+  .post("/items/:id/homework/uploads", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const parsed = homeworkUploadIntentSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid homework file" }, 400);
+    const item = await db.query.contentItems.findFirst({ where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere()) });
+    if (!item || item.assessmentMode !== "homework" || !item.publishedAssessmentRevisionId) {
+      return c.json({ error: "Homework is not configured for this lesson" }, 409);
+    }
+    const revision = await db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, item.publishedAssessmentRevisionId) });
+    const kind = classifyHomeworkContentType(parsed.data.contentType);
+    if (!revision?.allowAttachments || !kind || !revision.allowedFileKinds?.includes(kind)) {
+      return c.json({ error: "This file type is not allowed for the homework" }, 400);
+    }
+    const token = randomUUID();
+    const objectKey = buildHomeworkObjectKey({ userId, token, fileName: parsed.data.fileName });
+    const upload = await createObjectUploadUrl({ key: objectKey, contentType: parsed.data.contentType });
+    return c.json({ ...upload, objectKey: upload.key, fileName: parsed.data.fileName, contentType: parsed.data.contentType, sizeBytes: parsed.data.sizeBytes });
+  })
+  .post("/items/:id/homework/submit", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const parsed = homeworkSubmissionSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid homework submission", details: parsed.error.flatten() }, 400);
+    const existingIdempotent = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.submissionKey, parsed.data.submissionKey) });
+    if (existingIdempotent) {
+      if (existingIdempotent.userId !== userId || existingIdempotent.contentItemId !== c.req.param("id")) return c.json({ error: "Submission key is already used" }, 409);
+      return c.json({ ok: true, submission: existingIdempotent });
+    }
+    const item = await db.query.contentItems.findFirst({ where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere()) });
+    if (!item || item.assessmentMode !== "homework" || !item.publishedAssessmentRevisionId) {
+      return c.json({ error: "Homework is not configured for this lesson" }, 409);
+    }
+    const revision = await db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, item.publishedAssessmentRevisionId) });
+    if (!revision) return c.json({ error: "Homework revision not found" }, 409);
+    if ((!revision.allowText && parsed.data.text) || (revision.allowText && !revision.allowAttachments && !parsed.data.text) ||
+        (!revision.allowAttachments && parsed.data.attachments.length) || parsed.data.attachments.length > (revision.maxAttachments ?? 0) ||
+        (!parsed.data.text && parsed.data.attachments.length === 0)) {
+      return c.json({ error: "Homework answer does not match lesson settings" }, 400);
+    }
+    const pending = await db.query.homeworkSubmissions.findFirst({
+      where: and(eq(homeworkSubmissions.userId, userId), eq(homeworkSubmissions.contentItemId, item.id), eq(homeworkSubmissions.status, "pending_review"))
+    });
+    if (pending) return c.json({ error: "Previous homework is still pending review" }, 409);
+
+    for (const attachment of parsed.data.attachments) {
+      const kind = classifyHomeworkContentType(attachment.contentType);
+      if (!ownsHomeworkObject(attachment.objectKey, userId) || !kind || !revision.allowedFileKinds?.includes(kind)) {
+        return c.json({ error: "Homework file does not belong to this user or has an unsupported type" }, 400);
+      }
+      const used = await db.query.homeworkAttachments.findFirst({ where: eq(homeworkAttachments.objectKey, attachment.objectKey) });
+      if (used) return c.json({ error: "Homework file is already used" }, 409);
+      const verification = await verifyUploadedObjectMetadata({
+        expected: attachment,
+        loadMetadata: (objectKey) => getObjectMetadata(objectKey)
+      });
+      if (!verification.ok) return c.json({ error: "Unable to verify homework file" }, 400);
+    }
+
+    const previous = await db.query.homeworkSubmissions.findFirst({
+      where: and(eq(homeworkSubmissions.userId, userId), eq(homeworkSubmissions.contentItemId, item.id)),
+      orderBy: [desc(homeworkSubmissions.version)]
+    });
+    const now = new Date();
+    const submission = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(homeworkSubmissions).values({
+        userId,
+        contentItemId: item.id,
+        revisionId: revision.id,
+        version: (previous?.version ?? 0) + 1,
+        status: "pending_review",
+        text: parsed.data.text,
+        submissionKey: parsed.data.submissionKey,
+        submittedAt: now,
+        createdAt: now,
+        updatedAt: now
+      }).returning();
+      if (!created) throw new Error("Unable to submit homework");
+      if (parsed.data.attachments.length) {
+        await tx.insert(homeworkAttachments).values(parsed.data.attachments.map((attachment) => ({
+          submissionId: created.id,
+          ...attachment,
+          confirmedAt: now,
+          createdAt: now
+        })));
+      }
+      return created;
+    });
+    return c.json({ ok: true, submission: { id: submission.id, version: submission.version, status: submission.status, submittedAt: submission.submittedAt?.toISOString() ?? null } });
+  })
+  .post("/items/:id/quiz/start", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const item = await db.query.contentItems.findFirst({
+      where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere())
+    });
+    if (!item) return c.json({ error: "Learning content not found" }, 404);
+    if (item.assessmentMode !== "quiz" || !item.publishedAssessmentRevisionId) {
+      return c.json({ error: "Quiz is not configured for this lesson" }, 409);
+    }
+    const revision = await db.query.lessonAssessmentRevisions.findFirst({
+      where: eq(lessonAssessmentRevisions.id, item.publishedAssessmentRevisionId)
+    });
+    if (!revision || !revision.maxAttempts) return c.json({ error: "Quiz revision not found" }, 409);
+
+    let attempt = await db.query.quizAttempts.findFirst({
+      where: and(eq(quizAttempts.userId, userId), eq(quizAttempts.contentItemId, item.id), eq(quizAttempts.status, "in_progress"))
+    });
+    if (!attempt) {
+      const previous = await db.query.quizAttempts.findFirst({
+        where: and(eq(quizAttempts.userId, userId), eq(quizAttempts.contentItemId, item.id)),
+        orderBy: [desc(quizAttempts.attemptNumber)]
+      });
+      const attemptNumber = (previous?.attemptNumber ?? 0) + 1;
+      if (attemptNumber > revision.maxAttempts) return c.json({ error: "Quiz attempt limit reached" }, 409);
+
+      attempt = await db.transaction(async (tx) => {
+        const [created] = await tx.insert(quizAttempts).values({
+          userId,
+          contentItemId: item.id,
+          revisionId: revision.id,
+          attemptNumber
+        }).returning();
+        if (!created) throw new Error("Unable to start quiz attempt");
+        const sourceQuestions = await tx.select().from(lessonAssessmentQuestions)
+          .where(eq(lessonAssessmentQuestions.revisionId, revision.id)).orderBy(asc(lessonAssessmentQuestions.sortOrder));
+        const sourceOptions = sourceQuestions.length
+          ? await tx.select().from(lessonAssessmentOptions)
+              .where(inArray(lessonAssessmentOptions.questionId, sourceQuestions.map((question) => question.id)))
+              .orderBy(asc(lessonAssessmentOptions.sortOrder))
+          : [];
+        if (sourceQuestions.length) {
+          await tx.insert(quizAttemptQuestions).values(sourceQuestions.map((question) => ({
+            attemptId: created.id,
+            sourceQuestionId: question.id,
+            questionKey: question.stableKey,
+            type: question.type,
+            prompt: question.prompt,
+            points: question.points,
+            optionsSnapshot: sourceOptions.filter((option) => option.questionId === question.id).map((option) => ({ id: option.stableKey, text: option.text })),
+            correctOptionIds: sourceOptions.filter((option) => option.questionId === question.id && option.isCorrect).map((option) => option.stableKey),
+            sortOrder: question.sortOrder
+          })));
+        }
+        return created;
+      });
+    }
+
+    const questions = await db.select().from(quizAttemptQuestions)
+      .where(eq(quizAttemptQuestions.attemptId, attempt.id)).orderBy(asc(quizAttemptQuestions.sortOrder));
+    return c.json({
+      attempt: {
+        id: attempt.id,
+        attemptNumber: attempt.attemptNumber,
+        maxAttempts: revision.maxAttempts,
+        status: attempt.status,
+        questions: questions.map(({ correctOptionIds: _correctOptionIds, sourceQuestionId: _sourceQuestionId, ...question }) => question)
+      }
+    });
+  })
+  .post("/items/:id/quiz/:attemptId/submit", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const parsed = quizSubmissionSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid quiz submission", details: parsed.error.flatten() }, 400);
+    const attempt = await db.query.quizAttempts.findFirst({
+      where: and(eq(quizAttempts.id, c.req.param("attemptId")), eq(quizAttempts.userId, userId), eq(quizAttempts.contentItemId, c.req.param("id")))
+    });
+    if (!attempt) return c.json({ error: "Quiz attempt not found" }, 404);
+    if (attempt.submissionKey === parsed.data.submissionKey && attempt.status !== "in_progress") {
+      return c.json({ ok: true, result: { status: attempt.status, earnedPoints: attempt.earnedPoints, maxPoints: attempt.maxPoints, percent: attempt.percent } });
+    }
+    if (attempt.status !== "in_progress") return c.json({ error: "Quiz attempt is already submitted" }, 409);
+
+    const revision = await db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, attempt.revisionId) });
+    if (!revision?.passingPercent) return c.json({ error: "Quiz revision not found" }, 409);
+    const questions = await db.select().from(quizAttemptQuestions)
+      .where(eq(quizAttemptQuestions.attemptId, attempt.id)).orderBy(asc(quizAttemptQuestions.sortOrder));
+    const questionsById = new Map(questions.map((question) => [question.id, question]));
+    if (new Set(parsed.data.answers.map((answer) => answer.questionId)).size !== parsed.data.answers.length ||
+        parsed.data.answers.some((answer) => !questionsById.has(answer.questionId))) {
+      return c.json({ error: "Quiz answer does not belong to this attempt" }, 400);
+    }
+    for (const answer of parsed.data.answers) {
+      const question = questionsById.get(answer.questionId)!;
+      const validOptionIds = new Set(question.optionsSnapshot.map((option) => option.id));
+      if (answer.selectedOptionIds.some((optionId) => !validOptionIds.has(optionId)) ||
+          (question.type === "single_choice" && answer.selectedOptionIds.length > 1) ||
+          (question.type === "free_text" && answer.selectedOptionIds.length > 0)) {
+        return c.json({ error: "Invalid quiz answer" }, 400);
+      }
+    }
+    const score = scoreQuizAttempt({
+      passingPercent: revision.passingPercent,
+      questions: questions.map((question) => ({ id: question.id, type: question.type as "single_choice" | "multiple_choice" | "free_text", points: question.points, correctOptionIds: question.correctOptionIds }))
+    }, parsed.data.answers);
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      if (parsed.data.answers.length) {
+        await tx.insert(quizAnswers).values(parsed.data.answers.map((answer) => ({
+          attemptId: attempt.id,
+          questionSnapshotId: answer.questionId,
+          selectedOptionIds: answer.selectedOptionIds,
+          text: answer.text,
+          savedAt: now,
+          createdAt: now,
+          updatedAt: now
+        })));
+      }
+      await tx.update(quizAttempts).set({
+        status: score.status,
+        earnedPoints: score.earnedPoints,
+        maxPoints: score.maxPoints,
+        percent: score.percent,
+        submissionKey: parsed.data.submissionKey,
+        submittedAt: now,
+        updatedAt: now
+      }).where(and(eq(quizAttempts.id, attempt.id), eq(quizAttempts.status, "in_progress")));
+      if (score.status === "passed") {
+        await tx.insert(userContentProgress).values({ userId, contentItemId: attempt.contentItemId, lastOpenedAt: now, completedAt: now, updatedAt: now })
+          .onConflictDoUpdate({ target: [userContentProgress.userId, userContentProgress.contentItemId], set: { completedAt: now, updatedAt: now } });
+      }
+    });
+    return c.json({ ok: true, result: score });
+  })
   .post("/items/:id/complete", requireActiveMember, async (c) => {
     const userId = c.get("userId");
     const item = await db.query.contentItems.findFirst({
@@ -367,6 +700,19 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
 
     if (!item) {
       return c.json({ error: "Learning content not found" }, 404);
+    }
+
+    if (item.assessmentMode === "quiz") {
+      const passed = await db.query.quizAttempts.findFirst({
+        where: and(eq(quizAttempts.userId, userId), eq(quizAttempts.contentItemId, item.id), eq(quizAttempts.status, "passed"))
+      });
+      if (!passed) return c.json({ error: "Complete the quiz before finishing the lesson" }, 409);
+    }
+    if (item.assessmentMode === "homework") {
+      const accepted = await db.query.homeworkSubmissions.findFirst({
+        where: and(eq(homeworkSubmissions.userId, userId), eq(homeworkSubmissions.contentItemId, item.id), eq(homeworkSubmissions.status, "accepted"))
+      });
+      if (!accepted) return c.json({ error: "Submit an accepted homework before finishing the lesson" }, 409);
     }
 
     const now = new Date();

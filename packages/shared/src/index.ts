@@ -398,6 +398,35 @@ export const quizQuestionSchema = z.discriminatedUnion("type", [
 ]);
 export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
 
+export const quizQuestionDraftSchema = z.discriminatedUnion("type", [
+  quizQuestionBaseSchema.extend({
+    type: z.literal("single_choice"),
+    options: z.array(quizOptionSchema).min(2).max(20),
+    correctOptionIds: z.array(z.string().min(1)).length(1)
+  }),
+  quizQuestionBaseSchema.extend({
+    type: z.literal("multiple_choice"),
+    options: z.array(quizOptionSchema).min(2).max(20),
+    correctOptionIds: z.array(z.string().min(1)).min(1)
+  }),
+  quizQuestionBaseSchema.extend({
+    type: z.literal("free_text"),
+    options: z.array(quizOptionSchema).max(0).default([]),
+    correctOptionIds: z.array(z.string()).max(0).default([])
+  })
+]).superRefine((question, context) => {
+  const optionIds = new Set(question.options.map((option) => option.id));
+  if (optionIds.size !== question.options.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["options"], message: "Идентификаторы вариантов не должны повторяться" });
+  }
+  for (const optionId of question.correctOptionIds) {
+    if (!optionIds.has(optionId)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["correctOptionIds"], message: "Правильный ответ отсутствует среди вариантов" });
+    }
+  }
+});
+export type QuizQuestionDraft = z.infer<typeof quizQuestionDraftSchema>;
+
 export const homeworkFileKindSchema = z.enum(["image", "document", "video"]);
 export type HomeworkFileKind = z.infer<typeof homeworkFileKindSchema>;
 
@@ -431,6 +460,43 @@ export const lessonAssessmentConfigSchema = z.union([
   }
 });
 export type LessonAssessmentConfig = z.infer<typeof lessonAssessmentConfigSchema>;
+
+export const lessonAssessmentDraftSchema = z.union([
+  z.object({ mode: z.literal("none") }),
+  z.object({
+    mode: z.literal("quiz"),
+    title: z.string().min(1).max(180),
+    instructions: z.string().max(4000).nullable(),
+    passingPercent: z.number().int().min(1).max(100),
+    maxAttempts: z.number().int().min(1).max(100),
+    questions: z.array(quizQuestionDraftSchema).min(1).max(100)
+  }),
+  z.object({
+    mode: z.literal("homework"),
+    title: z.string().min(1).max(180),
+    instructions: z.string().min(1).max(8000),
+    dueAt: z.string().datetime().nullable(),
+    allowText: z.boolean(),
+    allowAttachments: z.boolean(),
+    allowedFileKinds: z.array(homeworkFileKindSchema).max(3),
+    maxAttachments: z.number().int().min(1).max(10)
+  })
+]).superRefine((value, context) => {
+  if (value.mode === "quiz") {
+    const questionIds = new Set(value.questions.map((question) => question.id));
+    if (questionIds.size !== value.questions.length) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions"], message: "Идентификаторы вопросов не должны повторяться" });
+    }
+  }
+  if (value.mode !== "homework") return;
+  if (!value.allowText && !value.allowAttachments) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["allowText"], message: "Выберите текстовый ответ или вложения" });
+  }
+  if (value.allowAttachments && value.allowedFileKinds.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["allowedFileKinds"], message: "Выберите допустимые типы файлов" });
+  }
+});
+export type LessonAssessmentDraft = z.infer<typeof lessonAssessmentDraftSchema>;
 
 export const learningContentSchema = z.object({
   id: z.string(),
